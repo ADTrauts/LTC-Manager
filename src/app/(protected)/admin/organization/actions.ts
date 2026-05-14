@@ -1,0 +1,132 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import { requireAtLeastRole } from "@/lib/access";
+import { requireFacilitySession } from "@/lib/facility-context";
+import { removeFileIfExists, saveUnionHandbookPdf } from "@/lib/facility-uploads";
+import { prisma } from "@/lib/prisma";
+
+const updateFacilitySchema = z.object({
+  displayName: z.string().trim().min(2).max(200),
+  managementCompanyName: z.string().trim().max(200).optional(),
+  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+});
+
+export async function updateFacilitySettingsAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "GM");
+
+  const managementRaw = formData.get("managementCompanyName");
+  const brandColorRaw = formData.get("brandColor");
+  const parsed = updateFacilitySchema.parse({
+    displayName: formData.get("displayName"),
+    managementCompanyName:
+      typeof managementRaw === "string" && managementRaw.trim() !== ""
+        ? managementRaw
+        : undefined,
+    brandColor:
+      typeof brandColorRaw === "string" && brandColorRaw.trim() !== ""
+        ? brandColorRaw.trim()
+        : undefined,
+  });
+
+  await prisma.facility.update({
+    where: { id: session.facilityId },
+    data: {
+      displayName: parsed.displayName,
+      managementCompanyName: parsed.managementCompanyName ?? null,
+      brandColor: parsed.brandColor ?? null,
+    },
+  });
+
+  revalidatePath("/admin/organization");
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+}
+
+const MAX_HANDBOOK_BYTES = 12 * 1024 * 1024;
+
+function parseOptionalDateOnly(raw: string | undefined): Date | null {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) return null;
+  return new Date(`${raw.trim()}T12:00:00.000Z`);
+}
+
+export async function uploadUnionHandbookAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "GM");
+
+  const effectiveRaw = formData.get("effectiveDate");
+  const effectiveDate =
+    typeof effectiveRaw === "string" && effectiveRaw.trim() !== ""
+      ? parseOptionalDateOnly(effectiveRaw.trim())
+      : null;
+
+  const facility = await prisma.facility.findUnique({
+    where: { id: session.facilityId },
+    select: { unionHandbookPdfPath: true },
+  });
+
+  const file = formData.get("file");
+  if (!file || !(file instanceof File) || file.size === 0) {
+    if (facility?.unionHandbookPdfPath) {
+      await prisma.facility.update({
+        where: { id: session.facilityId },
+        data: { unionHandbookEffectiveDate: effectiveDate },
+      });
+      revalidatePath("/admin/organization");
+      revalidatePath("/admin");
+      return;
+    }
+    throw new Error("Choose a PDF file.");
+  }
+
+  if (file.size > MAX_HANDBOOK_BYTES) {
+    throw new Error("PDF must be 12 MB or smaller.");
+  }
+
+  const buf = Buffer.from(await file.arrayBuffer());
+
+  const { relativePath } = await saveUnionHandbookPdf(session.facilityId, buf, file.name);
+
+  await removeFileIfExists(facility?.unionHandbookPdfPath ?? null);
+
+  await prisma.facility.update({
+    where: { id: session.facilityId },
+    data: {
+      unionHandbookPdfPath: relativePath,
+      unionHandbookOriginalFilename: file.name,
+      unionHandbookUploadedAt: new Date(),
+      unionHandbookEffectiveDate: effectiveDate,
+    },
+  });
+
+  revalidatePath("/admin/organization");
+  revalidatePath("/admin");
+}
+
+export async function clearUnionHandbookAction() {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "GM");
+
+  const facility = await prisma.facility.findUnique({
+    where: { id: session.facilityId },
+    select: { unionHandbookPdfPath: true },
+  });
+
+  await removeFileIfExists(facility?.unionHandbookPdfPath ?? null);
+
+  await prisma.facility.update({
+    where: { id: session.facilityId },
+    data: {
+      unionHandbookPdfPath: null,
+      unionHandbookOriginalFilename: null,
+      unionHandbookUploadedAt: null,
+      unionHandbookEffectiveDate: null,
+    },
+  });
+
+  revalidatePath("/admin/organization");
+  revalidatePath("/admin");
+}

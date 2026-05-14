@@ -1,0 +1,755 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  /// Direct Postgres URL (not the pooler). Required for migrations when `DATABASE_URL` uses Supabase pooler / PgBouncer.
+  directUrl = env("DIRECT_URL")
+}
+
+enum RoleKey {
+  GM
+  MANAGER
+  SUPERVISOR
+  LEAD_TEAM_MEMBER
+  STAFF
+}
+
+model Role {
+  id          String        @id @default(cuid())
+  key         RoleKey       @unique
+  name        String
+  description String?
+  isActive    Boolean       @default(true)
+  users       User[]
+  templates   LogTemplate[]
+  routePermissions RoleRoutePermission[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model AppRoute {
+  id          String                @id @default(cuid())
+  key         String                @unique
+  pathPrefix  String                @unique
+  label       String
+  navVisible  Boolean               @default(true)
+  navOrder    Int                   @default(100)
+  isActive    Boolean               @default(true)
+  isCritical  Boolean               @default(false)
+  permissions RoleRoutePermission[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+}
+
+model RoleRoutePermission {
+  id         String   @id @default(cuid())
+  roleId     String
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  appRouteId String
+  appRoute   AppRoute @relation(fields: [appRouteId], references: [id], onDelete: Cascade)
+  allowed    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([roleId, appRouteId])
+  @@index([roleId])
+  @@index([appRouteId])
+}
+
+/// One deployment typically has one facility; all operational data is scoped here for future multi-site support.
+model Facility {
+  id                            String                      @id @default(cuid())
+  displayName                   String
+  managementCompanyName         String?
+  billingEmail                  String?
+  stripeCustomerId              String?
+  stripeDefaultPaymentMethodId  String?
+  onboardingCurrentStep         String?
+  onboardingStartedAt           DateTime?
+  onboardingCompletedAt         DateTime?
+  /// Optional org-selected accent color (hex) used for subtle UI delineation.
+  brandColor                    String?
+  /// Relative path under app `uploads/` (see `lib/facility-uploads.ts`).
+  unionHandbookPdfPath          String?
+  unionHandbookOriginalFilename String?
+  unionHandbookUploadedAt       DateTime?
+  unionHandbookEffectiveDate    DateTime?                   @db.Date
+  users                         User[]
+  units                         Unit[]
+  employees                     Employee[]
+  logTemplates                  LogTemplate[]
+  vendors                       Vendor[]
+  employeeHrAuditLogs           EmployeeHrAuditLog[]
+  employeeTerminationRecords    EmployeeTerminationRecord[]
+  menuSettings                  MenuSettings?
+  menuItems                     MenuItem[]
+  kioskUnitPinLoginEvents       KioskUnitPinLoginEvent[]
+  onboardingManagerInvites      OnboardingManagerInvite[]
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
+}
+
+model OnboardingManagerInvite {
+  id          String   @id @default(cuid())
+  facilityId  String
+  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  email       String
+  createdAt   DateTime @default(now())
+  acceptedAt  DateTime?
+
+  @@unique([facilityId, email])
+  @@index([facilityId, createdAt])
+}
+
+model MenuSettings {
+  id               String           @id @default(cuid())
+  facilityId       String           @unique
+  facility         Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  cycleLengthWeeks Int              @default(3)
+  weekStartsOn     MenuWeekStartDay @default(SUNDAY)
+  cycleAnchorDate  DateTime         @db.Date
+  periodConfigJson Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  facilityId   String
+  facility     Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  weekNumber   Int
+  dayIndex     Int
+  mealPeriodKey String
+  category     String
+  itemName     String
+  portionValue String?
+  portionUnit  String?
+  entryType    MenuItemEntryType @default(FIXED)
+  displayOrder Int      @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([facilityId, weekNumber, dayIndex, mealPeriodKey])
+  @@index([facilityId, weekNumber, dayIndex, mealPeriodKey, category])
+}
+
+model User {
+  id                        String                      @id @default(cuid())
+  email                     String                      @unique
+  displayName               String
+  passwordHash              String
+  /// All app users belong to one facility in this deployment; session JWT carries facilityId for query scope.
+  facilityId                String
+  facility                  Facility                    @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  roleId                    String
+  role                      Role                        @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  isActive                  Boolean                     @default(true)
+  lastLoginAt               DateTime?
+  submissions               LogSubmission[]
+  createdSchedules          ScheduleEntry[]             @relation("ScheduleCreatedBy")
+  changedOverrides          AssignmentOverride[]        @relation("OverrideChangedBy")
+  reportedRepairs           Repair[]                    @relation("RepairReportedBy")
+  repairUpdates             RepairUpdate[]
+  disciplinePointsCreated   DisciplinePointEntry[]      @relation("DisciplinePointCreatedBy")
+  employeeHrAuditLogs       EmployeeHrAuditLog[]
+  terminationRecordsCreated EmployeeTerminationRecord[] @relation("TerminationCreatedBy")
+  serveryMealReadyEvents    ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedBy")
+  serveryMealStartedEvents  ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedBy")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+
+  @@index([roleId])
+  @@index([isActive])
+  @@index([facilityId])
+}
+
+enum UnitType {
+  SERVERY
+  KITCHEN
+  RETAIL
+  OFFICE
+  STORAGE
+  OTHER
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+enum MenuWeekStartDay {
+  SUNDAY
+  MONDAY
+}
+
+enum MenuItemEntryType {
+  FIXED
+  CHOICE_PLACEHOLDER
+}
+
+enum LogRecurrence {
+  DAILY
+  PER_MEAL
+  WEEKLY
+  CUSTOM
+}
+
+enum LogFieldType {
+  YES_NO
+  NUMBER
+  TEMPERATURE
+  DROPDOWN
+  SHORT_TEXT
+  LONG_TEXT
+  PASS_FAIL
+}
+
+enum LogSubmissionStatus {
+  COMPLETED
+  FAILED
+  MISSED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  OFF
+  TERMINATED
+}
+
+/// Voluntary vs involuntary separation (recorded on separation log rows).
+enum SeparationKind {
+  RESIGNED
+  TERMINATED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  PER_DIEM
+}
+
+/// HR / union contract classification (not the same as app RoleKey).
+enum JobClassification {
+  COOK
+  FOOD_SERVICE_WORKER
+  DIET_CLERK
+  DIETITIAN
+  OTHER
+}
+
+/// Stations the employee is trained for (kitchen ops).
+enum WorkStation {
+  COOK
+  SERVER
+  DISHWASHER
+  RETAIL
+  DIET
+  OFFICE
+  PORTER
+  UTILITY
+}
+
+enum ChrcStatus {
+  NOT_STARTED
+  PENDING
+  CLEARED
+  NOT_APPLICABLE
+}
+
+enum DisciplinePointCategory {
+  ATTENDANCE
+  PERFORMANCE
+}
+
+enum ShiftType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  FULL_DAY
+}
+
+enum AssetStatus {
+  ACTIVE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+enum RepairPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RepairStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_PARTS
+  CLOSED
+}
+
+model Unit {
+  id                       String                    @id @default(cuid())
+  facilityId               String
+  facility                 Facility                  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name                     String
+  unitType                 UnitType
+  parentUnitId             String?
+  parentUnit               Unit?                     @relation("UnitHierarchy", fields: [parentUnitId], references: [id], onDelete: SetNull)
+  childUnits               Unit[]                    @relation("UnitHierarchy")
+  isActive                 Boolean                   @default(true)
+  displayOrder             Int                       @default(100)
+  description              String?
+  primaryForEmployees      Employee[]                @relation("EmployeePrimaryUnit")
+  employeeUnitAccess       EmployeeUnitAccess[]
+  mealTimes                UnitMealTime[]
+  logAssignments           LogAssignment[]
+  logSubmissions           LogSubmission[]
+  defaultAssignments       DefaultAssignment[]
+  scheduleEntries          ScheduleEntry[]
+  overrideOldUnit          AssignmentOverride[]      @relation("OverrideOldUnit")
+  overrideNewUnit          AssignmentOverride[]      @relation("OverrideNewUnit")
+  assets                   Asset[]
+  repairs                  Repair[]
+  serveryMealServiceEvents ServeryMealServiceEvent[]
+  kioskUnitPinLoginEvents  KioskUnitPinLoginEvent[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+
+  @@unique([facilityId, name])
+  @@index([parentUnitId])
+  @@index([isActive, displayOrder])
+  @@index([facilityId])
+}
+
+model ServeryMealServiceEvent {
+  id                   String    @id @default(cuid())
+  unitId               String
+  unit                 Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  serviceDate          DateTime  @db.Date
+  mealType             MealType
+  mealServiceReadyAt   DateTime?
+  mealServiceStartedAt DateTime?
+  readyRecordedById    String?
+  readyRecordedBy      User?     @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
+  startedRecordedById  String?
+  startedRecordedBy    User?     @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([unitId, serviceDate, mealType])
+  @@index([serviceDate])
+}
+
+model UnitMealTime {
+  id            String   @id @default(cuid())
+  unitId        String
+  unit          Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  mealType      MealType
+  scheduledTime String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([unitId, mealType])
+  @@index([unitId, isActive])
+}
+
+model Employee {
+  id                         String                      @id @default(cuid())
+  facilityId                 String
+  facility                   Facility                    @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  firstName                  String
+  lastName                   String
+  phone                      String?
+  email                      String?
+  /// HMAC digest for 6-digit PIN lookup; unique per facility when set (see `lib/pin.ts`).
+  pinDigest                  String?
+  /// Default unit focus for PIN sessions (must be allowed, or any unit when access list is empty).
+  primaryUnitId              String?
+  primaryUnit                Unit?                       @relation("EmployeePrimaryUnit", fields: [primaryUnitId], references: [id], onDelete: SetNull)
+  unitAccesses               EmployeeUnitAccess[]
+  roleType                   RoleKey
+  status                     EmployeeStatus              @default(ACTIVE)
+  employmentType             EmploymentType              @default(FULL_TIME)
+  defaultAssignments         DefaultAssignment[]
+  scheduleEntries            ScheduleEntry[]
+  assignmentOverrides        AssignmentOverride[]
+  logSubmissions             LogSubmission[]             @relation("SubmissionByEmployee")
+  /// HR (see memory-bank/employee-hr-source-of-truth.md)
+  unionMember                Boolean                     @default(false)
+  hireDate                   DateTime?                   @db.Date
+  birthMonth                 Int?
+  birthDay                   Int?
+  jobClassification          JobClassification?
+  chrcStatus                 ChrcStatus?
+  chrcClearedAt              DateTime?
+  chrcNotes                  String?
+  onLeave                    Boolean                     @default(false)
+  shirtSize                  String?
+  hrNotes                    String?
+  workStations               EmployeeWorkStation[]
+  disciplinePointEntries     DisciplinePointEntry[]
+  /// Last day / effective termination date when `status` is TERMINATED (HR).
+  terminationDate            DateTime?                   @db.Date
+  /// When the facility completed removing the person from the CHRC process (checklist).
+  chrcOffboardingCompletedAt DateTime?
+  chrcOffboardingNotes       String?
+  hrAuditLogs                EmployeeHrAuditLog[]
+  terminationRecords         EmployeeTerminationRecord[]
+  kioskUnitPinLoginEvents    KioskUnitPinLoginEvent[]
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+
+  @@unique([facilityId, pinDigest])
+  @@index([status, roleType])
+  @@index([facilityId])
+  @@index([primaryUnitId])
+  @@index([facilityId, unionMember])
+  @@index([birthMonth, birthDay])
+}
+
+model EmployeeWorkStation {
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  station    WorkStation
+  createdAt  DateTime    @default(now())
+
+  @@id([employeeId, station])
+  @@index([employeeId])
+}
+
+model DisciplinePointEntry {
+  id          String                  @id @default(cuid())
+  employeeId  String
+  employee    Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category    DisciplinePointCategory
+  points      Int
+  occurredAt  DateTime                @db.Date
+  note        String?
+  createdById String?
+  createdBy   User?                   @relation("DisciplinePointCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([employeeId, occurredAt])
+  @@index([employeeId, category])
+}
+
+/// Field-level HR change log (profile saves, PIN lifecycle). Values are string snapshots.
+model EmployeeHrAuditLog {
+  id         String   @id @default(cuid())
+  facilityId String
+  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fieldKey   String
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([facilityId, createdAt])
+  @@index([employeeId, createdAt])
+}
+
+/// Immutable snapshot when an employee transitions to TERMINATED (re-termination creates another row).
+model EmployeeTerminationRecord {
+  id                String         @id @default(cuid())
+  facilityId        String
+  facility          Facility       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  employeeId        String
+  employee          Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  terminatedAt      DateTime       @db.Date
+  /// Last day the person worked (may differ from separation / payroll end date).
+  lastShiftWorkedAt DateTime?      @db.Date
+  separationKind    SeparationKind @default(TERMINATED)
+  /// Whether leadership would rehire; null on legacy imports / profile-only terminations.
+  wouldRehire       Boolean?
+  snapshotJson      String         @db.Text
+  createdByUserId   String?
+  createdBy         User?          @relation("TerminationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime       @default(now())
+
+  @@index([facilityId, terminatedAt])
+  @@index([employeeId])
+}
+
+/// When empty for an employee, they may use any active unit at the facility (sidebar + active unit).
+/// When non-empty, PIN sessions are limited to these units.
+model EmployeeUnitAccess {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  unitId     String
+  unit       Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, unitId])
+  @@index([employeeId])
+  @@index([unitId])
+}
+
+/// PIN sign-in on a unit-locked tablet when the employee is not in `EmployeeUnitAccess` for that unit (or similar mismatch).
+model KioskUnitPinLoginEvent {
+  id                 String   @id @default(cuid())
+  facilityId         String
+  facility           Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  unitId             String
+  unit               Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  /// True when the employee has a non-empty unit access list that does not include `unitId`.
+  unassignedToUnit   Boolean
+  /// Optional client IP (from proxy headers) for support review.
+  clientIp           String?
+  createdAt          DateTime @default(now())
+
+  @@index([facilityId, createdAt])
+  @@index([employeeId, createdAt])
+  @@index([unitId, createdAt])
+}
+
+model DefaultAssignment {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  unitId     String
+  unit       Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  roleType   RoleKey
+  isActive   Boolean   @default(true)
+  activeFrom DateTime  @default(now())
+  activeTo   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([unitId, isActive])
+  @@index([employeeId, isActive])
+}
+
+model ScheduleEntry {
+  id           String               @id @default(cuid())
+  employeeId   String
+  employee     Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  date         DateTime
+  shift        ShiftType
+  roleType     RoleKey
+  unitId       String
+  unit         Unit                 @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  plannedStart String?
+  plannedEnd   String?
+  createdById  String?
+  createdBy    User?                @relation("ScheduleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  overrides    AssignmentOverride[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([date, unitId])
+  @@index([employeeId, date])
+}
+
+model AssignmentOverride {
+  id              String         @id @default(cuid())
+  scheduleEntryId String?
+  scheduleEntry   ScheduleEntry? @relation(fields: [scheduleEntryId], references: [id], onDelete: SetNull)
+  date            DateTime
+  mealType        MealType?
+  employeeId      String
+  employee        Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  oldUnitId       String?
+  oldUnit         Unit?          @relation("OverrideOldUnit", fields: [oldUnitId], references: [id], onDelete: SetNull)
+  newUnitId       String
+  newUnit         Unit           @relation("OverrideNewUnit", fields: [newUnitId], references: [id], onDelete: Restrict)
+  reason          String
+  changedById     String?
+  changedBy       User?          @relation("OverrideChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  changedAt       DateTime       @default(now())
+
+  @@index([date, newUnitId])
+  @@index([employeeId, date])
+}
+
+model Vendor {
+  id          String   @id @default(cuid())
+  facilityId  String
+  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name        String
+  phone       String?
+  email       String?
+  contactName String?
+  notes       String?
+  assets      Asset[]
+  repairs     Repair[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([facilityId, name])
+  @@index([facilityId])
+}
+
+model Asset {
+  id            String      @id @default(cuid())
+  assetCode     String      @unique
+  name          String
+  equipmentType String
+  unitId        String
+  unit          Unit        @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  model         String?
+  serialNumber  String?
+  vendorId      String?
+  vendor        Vendor?     @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  status        AssetStatus @default(ACTIVE)
+  notes         String?
+  repairs       Repair[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([unitId, status])
+  @@index([vendorId])
+}
+
+model Repair {
+  id           String         @id @default(cuid())
+  repairCode   String         @unique
+  assetId      String?
+  asset        Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  unitId       String
+  unit         Unit           @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  title        String
+  description  String
+  priority     RepairPriority @default(MEDIUM)
+  status       RepairStatus   @default(OPEN)
+  reportedById String?
+  reportedBy   User?          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
+  vendorId     String?
+  vendor       Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  updates      RepairUpdate[]
+  createdAt    DateTime       @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime       @updatedAt
+
+  @@index([unitId, status])
+  @@index([priority, status])
+}
+
+model RepairUpdate {
+  id                String        @id @default(cuid())
+  repairId          String
+  repair            Repair        @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  updateText        String
+  updatedById       String?
+  updatedBy         User?         @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  statusAfterUpdate RepairStatus?
+  updatedAt         DateTime      @default(now())
+
+  @@index([repairId, updatedAt])
+}
+
+model LogTemplate {
+  id              String             @id @default(cuid())
+  facilityId      String
+  facility        Facility           @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name            String
+  category        String
+  description     String?
+  instructions    String?
+  recurrence      LogRecurrence      @default(DAILY)
+  isActive        Boolean            @default(true)
+  createdByRoleId String?
+  createdByRole   Role?              @relation(fields: [createdByRoleId], references: [id], onDelete: SetNull)
+  fields          LogTemplateField[]
+  assignments     LogAssignment[]
+  submissions     LogSubmission[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([facilityId, name])
+  @@index([category, isActive])
+  @@index([facilityId])
+}
+
+model LogTemplateField {
+  id           String               @id @default(cuid())
+  templateId   String
+  template     LogTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label        String
+  fieldType    LogFieldType
+  isRequired   Boolean              @default(true)
+  fieldOrder   Int
+  unitLabel    String?
+  fieldOptions String[]             @default([])
+  values       LogSubmissionValue[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([templateId, fieldOrder])
+  @@index([templateId])
+}
+
+model LogAssignment {
+  id             String          @id @default(cuid())
+  unitId         String
+  unit           Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  templateId     String
+  template       LogTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  recurrence     LogRecurrence
+  mealType       MealType?
+  timesPerDay    Int             @default(1)
+  requiredRole   RoleKey?
+  isActive       Boolean         @default(true)
+  effectiveStart DateTime        @default(now())
+  effectiveEnd   DateTime?
+  submissions    LogSubmission[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([unitId, isActive])
+  @@index([templateId, isActive])
+}
+
+model LogSubmission {
+  id                    String               @id @default(cuid())
+  assignmentId          String
+  assignment            LogAssignment        @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  unitId                String
+  unit                  Unit                 @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  templateId            String
+  template              LogTemplate          @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  serviceDate           DateTime
+  mealType              MealType?
+  submittedById         String?
+  submittedBy           User?                @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedByEmployeeId String?
+  submittedByEmployee   Employee?            @relation("SubmissionByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
+  status                LogSubmissionStatus  @default(COMPLETED)
+  notes                 String?
+  correctiveAction      String?
+  values                LogSubmissionValue[]
+  submittedAt           DateTime             @default(now())
+
+  @@index([unitId, serviceDate])
+  @@index([templateId, serviceDate])
+  @@index([submittedById])
+  @@index([submittedByEmployeeId])
+}
+
+model LogSubmissionValue {
+  id            String           @id @default(cuid())
+  submissionId  String
+  submission    LogSubmission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  fieldId       String
+  field         LogTemplateField @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  valueText     String?
+  valueNumber   Float?
+  valueBoolean  Boolean?
+  valueDateTime DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([submissionId])
+  @@index([fieldId])
+}

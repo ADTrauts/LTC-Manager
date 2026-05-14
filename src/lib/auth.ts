@@ -1,0 +1,124 @@
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import { cookies } from "next/headers";
+
+import type { AppRole } from "@/lib/access";
+
+export const SESSION_COOKIE = "ltc_session";
+
+export type AuthKind = "user" | "employee";
+
+const SESSION_TTL_SECONDS = 60 * 60 * 12;
+
+export type AppJwtPayload = JWTPayload & {
+  uid: string;
+  authKind: AuthKind;
+  role: AppRole;
+  name: string;
+  email: string;
+  facilityId: string;
+  activeUnitId?: string | null;
+  /** Set when PIN login used a unit-locked tablet the employee is not assigned to (see `EmployeeUnitAccess`). */
+  kioskUnitAccessWarning?: boolean;
+};
+
+function getJwtSecret() {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("AUTH_SECRET is required");
+  }
+
+  return new TextEncoder().encode(secret);
+}
+
+export async function createSessionToken(payload: {
+  uid: string;
+  authKind?: AuthKind;
+  role: AppRole;
+  name: string;
+  email: string;
+  facilityId: string;
+  activeUnitId?: string | null;
+  kioskUnitAccessWarning?: boolean;
+}) {
+  const authKind = payload.authKind ?? "user";
+  const body: Record<string, unknown> = {
+    uid: payload.uid,
+    authKind,
+    role: payload.role,
+    name: payload.name,
+    email: payload.email,
+    facilityId: payload.facilityId,
+  };
+  if (payload.activeUnitId !== undefined && payload.activeUnitId !== null) {
+    body.activeUnitId = payload.activeUnitId;
+  }
+  if (payload.kioskUnitAccessWarning === true) {
+    body.kioskUnitAccessWarning = true;
+  }
+
+  return new SignJWT(body)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .sign(getJwtSecret());
+}
+
+export async function verifySessionToken(token: string): Promise<AppJwtPayload> {
+  const { payload } = await jwtVerify(token, getJwtSecret());
+  const p = payload as Record<string, unknown>;
+  const authKind = (p.authKind as AuthKind | undefined) ?? "user";
+  return {
+    ...payload,
+    uid: String(p.uid ?? ""),
+    authKind,
+    role: p.role as AppRole,
+    name: String(p.name ?? ""),
+    email: String(p.email ?? ""),
+    facilityId: String(p.facilityId ?? ""),
+    activeUnitId: (p.activeUnitId as string | undefined) ?? undefined,
+    kioskUnitAccessWarning: p.kioskUnitAccessWarning === true,
+  } as AppJwtPayload;
+}
+
+/**
+ * Use for Prisma fields that reference `User.id`. PIN sessions use `uid` = Employee id;
+ * only email/password sessions have `uid` = User id.
+ */
+export function sessionUserIdForFk(session: AppJwtPayload): string | null {
+  if (session.authKind !== "user" || !session.uid) {
+    return null;
+  }
+  return session.uid;
+}
+
+export async function getSession(): Promise<AppJwtPayload | null> {
+  const jar = await cookies();
+  const raw = jar.get(SESSION_COOKIE)?.value;
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const payload = await verifySessionToken(raw);
+    if (!payload.facilityId) {
+      return null;
+    }
+    return {
+      ...payload,
+      authKind: payload.authKind ?? "user",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function getCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: SESSION_TTL_SECONDS,
+  };
+}
