@@ -38,6 +38,7 @@ const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
   { role: "STAFF", path: "/logs" },
   { role: "STAFF", path: "/unit/abc" },
   { role: "STAFF", path: "/dashboard" },
+  { role: "STAFF", path: "/operations" },
 ];
 
 const WAVE1_RBAC_DENIALS: { role: AppRole; path: string }[] = [

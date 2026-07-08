@@ -15,6 +15,7 @@ type NavDeptRule = { pathPrefix: string } & (
  */
 export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/dashboard", visibility: "shared" },
+  { pathPrefix: "/operations", visibility: "shared" },
   { pathPrefix: "/units", visibility: "shared" },
   { pathPrefix: "/employees", visibility: "shared" },
   { pathPrefix: "/logs", visibility: "shared" },

@@ -10,6 +10,7 @@ import {
 
 test("resolveZoneForPathname maps routes to certified zones", () => {
   assert.equal(resolveZoneForPathname("/dashboard"), "OPERATIONS_CENTER");
+  assert.equal(resolveZoneForPathname("/operations"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathname("/unit/abc"), "LOCATIONS");
   assert.equal(resolveZoneForPathname("/staffing"), "TODAYS_WORK");
   assert.equal(resolveZoneForPathname("/reports"), "REVIEW");
@@ -24,6 +25,7 @@ test("resolveZoneForPathname uses longest-prefix matching", () => {
 
 test("resolveZoneForPathPrefix matches pathPrefix values from AppRoute", () => {
   assert.equal(resolveZoneForPathPrefix("/dashboard"), "OPERATIONS_CENTER");
+  assert.equal(resolveZoneForPathPrefix("/operations"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathPrefix("/units"), "ADMINISTRATION");
 });
 

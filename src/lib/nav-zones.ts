@@ -30,6 +30,7 @@ type NavZonePathRule = { pathPrefix: string; zone: NavZone };
 export const NAV_ZONE_PATH_RULES: NavZonePathRule[] = (
   [
     { pathPrefix: "/dashboard", zone: "OPERATIONS_CENTER" },
+    { pathPrefix: "/operations", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/evs", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/unit", zone: "LOCATIONS" },
     { pathPrefix: "/units", zone: "ADMINISTRATION" },
