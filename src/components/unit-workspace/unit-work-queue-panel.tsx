@@ -10,9 +10,6 @@ function queueItemClass(item: UnitWorkQueueItem, isPrimary: boolean) {
   if (isPrimary) {
     return "rounded-lg border-2 border-zinc-900 bg-zinc-50 p-4 shadow-sm";
   }
-  if (item.kind === "secondary") {
-    return "rounded-lg border border-dashed border-zinc-200 bg-zinc-50/80 p-3";
-  }
   return "rounded-lg border border-zinc-200 bg-white p-3";
 }
 
@@ -40,11 +37,12 @@ function QueueItemRow({ item, isPrimary }: { item: UnitWorkQueueItem; isPrimary:
 
 export function UnitWorkQueuePanel({ queue }: UnitWorkQueuePanelProps) {
   const operational = queue.items.filter((item) => item.priority < 600);
-  const secondary = queue.items.filter((item) => item.priority >= 600);
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Next work</p>
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" aria-labelledby="unit-next-work-heading">
+      <p id="unit-next-work-heading" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        Next work
+      </p>
       {queue.operationalCount === 0 ? (
         <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="font-medium text-emerald-900">All caught up for this meal period</p>
@@ -53,7 +51,7 @@ export function UnitWorkQueuePanel({ queue }: UnitWorkQueuePanelProps) {
           </p>
         </div>
       ) : (
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-4">
           {queue.primaryItem ? (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Do this next</p>
@@ -74,16 +72,6 @@ export function UnitWorkQueuePanel({ queue }: UnitWorkQueuePanelProps) {
           ) : null}
         </div>
       )}
-      {secondary.length > 0 ? (
-        <div className="mt-4 border-t border-zinc-100 pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">History &amp; reference</p>
-          <ul className="space-y-2">
-            {secondary.map((item) => (
-              <QueueItemRow key={item.id} item={item} isPrimary={false} />
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </section>
   );
 }
