@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { ServeryMealServiceControls } from "@/components/servery-meal-service-controls";
+import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
+import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
 import { getSession } from "@/lib/auth";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
@@ -66,6 +68,8 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     menuUnavailableReason,
     todaysMenu,
     now,
+    operationContext,
+    workQueue,
   } = view;
 
   return (
@@ -77,12 +81,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       ) : null}
       <header className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div className="min-w-0 space-y-3">
-          <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{unit.name}</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            {unit.unitType.toLowerCase()} dashboard with today&apos;s logs, meal schedule, and activity.
-          </p>
-          </div>
+          <UnitOperationContextHeader unitName={unit.name} context={operationContext} />
           <nav className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3" aria-label="Unit sections">
             <Link
               href={`/unit/${unit.id}?unitTab=overview`}
@@ -136,6 +135,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
 
       {activeUnitTab === "overview" ? (
         <>
+          <UnitWorkQueuePanel queue={workQueue} />
           {unit.unitType === "SERVERY" ? (
             <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
               <h2 className="text-lg font-semibold text-zinc-900">Today&apos;s menu</h2>

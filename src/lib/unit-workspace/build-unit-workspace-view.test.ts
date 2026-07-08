@@ -77,6 +77,8 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
   assert.equal(view.activeUnitTab, "overview");
   assert.equal(view.logTabs[0]?.key, "service-log");
   assert.equal(view.mealServiceEventByMeal.get(MealType.BREAKFAST)?.mealServiceReadyAt?.getTime(), new Date("2026-07-08T07:15:00").getTime());
+  assert.equal(view.operationContext.mealLabel, "Breakfast");
+  assert.ok(view.workQueue.operationalCount > 0);
 });
 
 test("buildUnitWorkspaceView resolves log tab and meal service flash message", () => {

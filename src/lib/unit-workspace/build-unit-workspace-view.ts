@@ -2,7 +2,9 @@ import { LogSubmissionStatus } from "@prisma/client";
 
 import { ensureMenuSettingsDefaults, menuForDate } from "@/lib/menu-cycle";
 
+import { buildUnitWorkQueue } from "./build-unit-work-queue";
 import { normalizeLogTab } from "./normalize-log-tab";
+import { resolveUnitOperationContext } from "./resolve-unit-operation-context";
 import type { UnitQueryResult } from "./load-unit-queries";
 import type {
   UnitWorkspaceSearchParams,
@@ -74,6 +76,24 @@ export function buildUnitWorkspaceView(input: {
     menuItems: menuData.menuItems,
   });
 
+  const operationContext = resolveUnitOperationContext({
+    unit,
+    mealServiceEventByMeal,
+    now,
+  });
+
+  const workQueue = buildUnitWorkQueue({
+    unit,
+    queries: {
+      assignments,
+      submissions,
+      openRepairs: queries.openRepairs,
+    },
+    mealServiceEventByMeal,
+    activeLogTab,
+    now,
+  });
+
   return {
     unit,
     queries,
@@ -96,5 +116,7 @@ export function buildUnitWorkspaceView(input: {
     menuUnavailableReason,
     todaysMenu,
     now,
+    operationContext,
+    workQueue,
   };
 }

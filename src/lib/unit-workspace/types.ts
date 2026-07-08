@@ -1,6 +1,8 @@
 import type { MealType, UnitType } from "@prisma/client";
 import type { ensureMenuSettingsDefaults, menuForDate } from "@/lib/menu-cycle";
+import type { OperationContext } from "@/lib/operations-center";
 
+import type { UnitWorkQueue } from "./build-unit-work-queue";
 import type { UnitQueryResult } from "./load-unit-queries";
 
 export type UnitWorkspaceUnit = {
@@ -53,4 +55,6 @@ export type UnitWorkspaceViewModel = {
   menuUnavailableReason: string | null;
   todaysMenu: ReturnType<typeof menuForDate>;
   now: Date;
+  operationContext: OperationContext;
+  workQueue: UnitWorkQueue;
 };
