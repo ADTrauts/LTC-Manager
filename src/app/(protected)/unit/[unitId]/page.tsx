@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { LogSubmissionStatus, MealType } from "@prisma/client";
 
-import { getSession } from "@/lib/auth";
-import { ensureMenuSettingsDefaults, menuForDate } from "@/lib/menu-cycle";
-import { loadFacilityMenuData } from "@/lib/menu-db";
-import { prisma } from "@/lib/prisma";
-import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
 import { ServeryMealServiceControls } from "@/components/servery-meal-service-controls";
+import { getSession } from "@/lib/auth";
+import { fmtMealLabel } from "@/lib/operations-center";
+import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
+import { loadUnitWorkspace } from "@/lib/unit-workspace";
 
 type UnitDashboardPageProps = {
   params: Promise<{ unitId: string }>;
@@ -20,197 +18,55 @@ function formatRecordedAt(value: Date | null) {
   return value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-function normalizeLogTab(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, "-");
-}
-
-function fmtMealLabel(meal: MealType) {
-  return meal.charAt(0) + meal.slice(1).toLowerCase();
-}
-
 export default async function UnitDashboardPage({ params, searchParams }: UnitDashboardPageProps) {
   noStore();
   const { unitId } = await params;
   const query = searchParams ? await searchParams : undefined;
-  const activeUnitTab = query?.unitTab === "logs" ? "logs" : "overview";
 
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
   }
-  const facilityId = session.facilityId;
 
-  const unit = await prisma.unit.findFirst({
-    where: { id: unitId, facilityId },
-    select: {
-      id: true,
-      name: true,
-      unitType: true,
-      isActive: true,
-      mealTimes: {
-        where: { isActive: true },
-        orderBy: { mealType: "asc" },
-        select: { mealType: true, scheduledTime: true },
-      },
-    },
+  const view = await loadUnitWorkspace(session.facilityId, unitId, {
+    unitTab: query?.unitTab,
+    logTab: query?.logTab,
+    mealServiceEvent: query?.mealServiceEvent,
   });
 
-  if (!unit || !unit.isActive) {
+  if (!view) {
     notFound();
   }
 
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  const [assignments, submissions, schedulesToday, overridesToday, openRepairs, mealServiceEventsToday, mealServiceHistory, logHistory, menuData] =
-    await Promise.all([
-      prisma.logAssignment.findMany({
-        where: {
-          unitId: unit.id,
-          isActive: true,
-        },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          recurrence: true,
-          mealType: true,
-          timesPerDay: true,
-          template: { select: { name: true, category: true } },
-        },
-      }),
-      prisma.logSubmission.findMany({
-        where: {
-          unitId: unit.id,
-          serviceDate: { gte: start, lt: end },
-        },
-        orderBy: { submittedAt: "desc" },
-        take: 15,
-        select: {
-          id: true,
-          status: true,
-          submittedAt: true,
-          template: { select: { name: true } },
-          submittedBy: { select: { displayName: true } },
-        },
-      }),
-      prisma.scheduleEntry.findMany({
-        where: { unitId: unit.id, date: { gte: start, lt: end } },
-        include: {
-          employee: { select: { firstName: true, lastName: true, roleType: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.assignmentOverride.findMany({
-        where: {
-          date: { gte: start, lt: end },
-          employee: { facilityId },
-          OR: [{ newUnitId: unit.id }, { oldUnitId: unit.id }],
-        },
-        include: {
-          employee: { select: { firstName: true, lastName: true } },
-        },
-        orderBy: { changedAt: "desc" },
-      }),
-      prisma.repair.findMany({
-        where: {
-          unitId: unit.id,
-          status: { not: "CLOSED" },
-        },
-        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-        select: {
-          id: true,
-          repairCode: true,
-          title: true,
-          priority: true,
-          status: true,
-        },
-      }),
-      unit.unitType === "SERVERY"
-        ? prisma.serveryMealServiceEvent.findMany({
-            where: { unitId: unit.id, serviceDate: { gte: start, lt: end } },
-            select: {
-              mealType: true,
-              mealServiceReadyAt: true,
-              mealServiceStartedAt: true,
-            },
-          })
-        : Promise.resolve([]),
-      unit.unitType === "SERVERY"
-        ? prisma.serveryMealServiceEvent.findMany({
-            where: {
-              unitId: unit.id,
-              OR: [{ mealServiceReadyAt: { not: null } }, { mealServiceStartedAt: { not: null } }],
-            },
-            take: 60,
-            orderBy: [{ serviceDate: "desc" }, { mealType: "asc" }, { updatedAt: "desc" }],
-            select: {
-              id: true,
-              serviceDate: true,
-              mealType: true,
-              mealServiceReadyAt: true,
-              mealServiceStartedAt: true,
-              readyRecordedBy: { select: { displayName: true } },
-              startedRecordedBy: { select: { displayName: true } },
-            },
-          })
-        : Promise.resolve([]),
-      prisma.logSubmission.findMany({
-        where: { unitId: unit.id },
-        orderBy: { submittedAt: "desc" },
-        take: 75,
-        select: {
-          id: true,
-          submittedAt: true,
-          status: true,
-          template: { select: { name: true, category: true } },
-          submittedBy: { select: { displayName: true } },
-        },
-      }),
-      loadFacilityMenuData(prisma, facilityId),
-    ]);
-
-  const menuSettings = ensureMenuSettingsDefaults(menuData.settingsRaw);
-  const menuItems = menuData.menuItems;
-  const menuUnavailableReason = menuData.unavailableReason;
-
-  const now = new Date();
-  const mealServiceEventByMeal = new Map(
-    mealServiceEventsToday.map((row) => [row.mealType, row]),
-  );
-
-  const expected = assignments.reduce((sum, assignment) => sum + assignment.timesPerDay, 0);
-  const completed = submissions.filter((item) => item.status === LogSubmissionStatus.COMPLETED).length;
-  const failed = submissions.filter((item) => item.status === LogSubmissionStatus.FAILED).length;
-  const missed = submissions.filter((item) => item.status === LogSubmissionStatus.MISSED).length;
-  const pending = Math.max(expected - submissions.length, 0);
-  const movedOut = overridesToday.filter((item) => item.oldUnitId === unit.id).length;
-  const movedIn = overridesToday.filter((item) => item.newUnitId === unit.id).length;
-  const effectiveCoverage = Math.max(schedulesToday.length - movedOut + movedIn, 0);
-  const mealServiceEventMessage =
-    query?.mealServiceEvent === "ready-recorded"
-      ? "Meal service ready time saved."
-      : query?.mealServiceEvent === "started-recorded"
-        ? "Meal service started time saved."
-        : null;
-  const logCategories = Array.from(new Set(assignments.map((assignment) => assignment.template.category))).sort((a, b) =>
-    a.localeCompare(b),
-  );
-  const baseLogTabs = logCategories.map((category) => ({ key: normalizeLogTab(category), label: category }));
-  const logTabs = unit.unitType === "SERVERY" ? [{ key: "service-log", label: "Service Log" }, ...baseLogTabs] : baseLogTabs;
-  const activeLogTab =
-    logTabs.find((tab) => tab.key === (query?.logTab ?? ""))?.key ?? (logTabs.length > 0 ? logTabs[0].key : null);
-  const selectedLogCategory = logTabs.find((tab) => tab.key === activeLogTab && tab.key !== "service-log")?.label ?? null;
-  const selectedLogHistory =
-    selectedLogCategory === null
-      ? []
-      : logHistory.filter((entry) => entry.template.category === selectedLogCategory);
-  const todaysMenu = menuForDate({
-    date: now,
-    settings: menuSettings,
-    periods: menuSettings.periods,
-    menuItems,
-  });
+  const {
+    unit,
+    queries: {
+      assignments,
+      submissions,
+      schedulesToday,
+      openRepairs,
+      mealServiceHistory,
+    },
+    activeUnitTab,
+    activeLogTab,
+    logTabs,
+    selectedLogCategory,
+    selectedLogHistory,
+    expected,
+    completed,
+    failed,
+    missed,
+    pending,
+    movedOut,
+    movedIn,
+    effectiveCoverage,
+    mealServiceEventMessage,
+    mealServiceEventByMeal,
+    menuSettings,
+    menuUnavailableReason,
+    todaysMenu,
+    now,
+  } = view;
 
   return (
     <section className="space-y-6">
