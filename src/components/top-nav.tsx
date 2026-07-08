@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useNavPathname } from "@/hooks/use-nav-pathname";
 import { groupNavItemsByZone, type NavRouteItem } from "@/lib/nav-zones";
+import { isActiveNavPath } from "@/lib/nav-utils";
 
 type TopNavProps = {
   items: NavRouteItem[];
@@ -13,22 +14,6 @@ function linkClass(isActive: boolean) {
   return isActive
     ? "app-accent-active rounded-md px-3 py-2 text-sm font-medium text-white"
     : "rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
-}
-
-function isActivePath(pathname: string | null, href: string) {
-  if (!pathname) return false;
-  if (href === "/employees") {
-    return (
-      pathname === "/employees" ||
-      pathname.startsWith("/employees/import") ||
-      pathname.startsWith("/employees/points-summary") ||
-      pathname.startsWith("/employees/separations") ||
-      pathname.startsWith("/employees/terminations") ||
-      pathname.startsWith("/employees/chrc-report") ||
-      pathname.startsWith("/employees/hr-audit")
-    );
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function TopNav({ items }: TopNavProps) {
@@ -60,7 +45,7 @@ export function TopNav({ items }: TopNavProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`shrink-0 ${linkClass(isActivePath(pathname, item.href))}`}
+              className={`shrink-0 ${linkClass(isActiveNavPath(pathname, item.href))}`}
             >
               {item.label}
             </Link>

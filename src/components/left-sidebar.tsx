@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { NAV_ZONE_LABELS } from "@/lib/nav-zones";
+import { isActiveNavPath } from "@/lib/nav-utils";
 import type { SidebarUnit } from "@/lib/units";
 
 type LeftSidebarProps = {
@@ -44,7 +45,7 @@ export function LeftSidebar({
             <div className="space-y-1">
               <Link
                 href="/dashboard"
-                className={sidebarLinkClass(pathname === "/dashboard")}
+                className={sidebarLinkClass(isActiveNavPath(pathname, "/dashboard"))}
               >
                 {operationsCenterLabel}
               </Link>
@@ -73,7 +74,7 @@ export function LeftSidebar({
                 <Link
                   key={unit.id}
                   href={href}
-                  className={sidebarLinkClass(pathname.startsWith(href))}
+                  className={sidebarLinkClass(isActiveNavPath(pathname, href))}
                 >
                   {unit.name}
                 </Link>

@@ -11,6 +11,23 @@ export type RoutePermissionRule = {
   allowedRoleKeys: Set<RoleKey>;
 };
 
+/** Seeded fallback min-role map — keep aligned with prisma/seed.mjs ROUTE_MIN_ROLE. */
+export const WAVE1_ROUTE_MIN_ROLES: Record<string, AppRole> = {
+  "/admin": "FACILITY_ADMINISTRATOR",
+  "/employees": "MANAGER",
+  "/reports": "MANAGER",
+  "/units": "SUPERVISOR",
+  "/staffing": "SUPERVISOR",
+  "/menus": "SUPERVISOR",
+  "/assets": "SUPERVISOR",
+  "/logs": "STAFF",
+  "/evs": "STAFF",
+  "/repairs": "STAFF",
+  "/unit": "STAFF",
+  "/dashboard": "STAFF",
+  "/today": "SUPERVISOR",
+};
+
 const CACHE_TTL_MS = 30_000;
 
 function toNavRouteItem(label: string, href: string): NavRouteItem {
@@ -25,20 +42,9 @@ let cache:
     }
   | null = null;
 
-const FALLBACK_RULES: { pathPrefix: string; minRole: AppRole }[] = [
-  { pathPrefix: "/admin", minRole: "FACILITY_ADMINISTRATOR" },
-  { pathPrefix: "/employees", minRole: "MANAGER" },
-  { pathPrefix: "/reports", minRole: "MANAGER" },
-  { pathPrefix: "/units", minRole: "SUPERVISOR" },
-  { pathPrefix: "/staffing", minRole: "SUPERVISOR" },
-  { pathPrefix: "/menus", minRole: "SUPERVISOR" },
-  { pathPrefix: "/assets", minRole: "SUPERVISOR" },
-  { pathPrefix: "/logs", minRole: "STAFF" },
-  { pathPrefix: "/evs", minRole: "STAFF" },
-  { pathPrefix: "/repairs", minRole: "STAFF" },
-  { pathPrefix: "/unit", minRole: "STAFF" },
-  { pathPrefix: "/dashboard", minRole: "STAFF" },
-];
+const FALLBACK_RULES: { pathPrefix: string; minRole: AppRole }[] = Object.entries(
+  WAVE1_ROUTE_MIN_ROLES,
+).map(([pathPrefix, minRole]) => ({ pathPrefix, minRole }));
 
 function includePath(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);

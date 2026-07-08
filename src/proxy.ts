@@ -7,7 +7,7 @@ import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { resolveActiveDepartmentForNav } from "@/lib/active-department-context";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { resolveDefaultHomePath, isTodaysWorkPathname } from "@/lib/nav-zones";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { canAccessRouteByRole } from "@/lib/route-permissions";
@@ -100,6 +100,9 @@ export async function proxy(request: NextRequest) {
       if (hasAtLeastRole(role, "FACILITY_ADMINISTRATOR")) {
         return NextResponse.redirect(new URL("/admin/organization", request.url));
       }
+      return defaultHomeRedirect(request, session, lockedUnitId);
+    }
+    if (isTodaysWorkPathname(pathname) && !hasAtLeastRole(role, "SUPERVISOR")) {
       return defaultHomeRedirect(request, session, lockedUnitId);
     }
     if (!(await canAccessRouteByRole(pathname, role))) {

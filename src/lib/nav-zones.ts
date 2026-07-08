@@ -71,6 +71,11 @@ export function resolveZoneForPathPrefix(pathPrefix: string): NavZone {
   return resolveZoneForPathname(pathPrefix);
 }
 
+export function isTodaysWorkPathname(pathname: string): boolean {
+  const normalized = normalizePathname(pathname);
+  return normalized === "/today" || normalized.startsWith("/today/");
+}
+
 export type NavRouteItem = {
   label: string;
   href: string;
@@ -121,7 +126,8 @@ export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
     if (unitId) {
       return `/unit/${unitId}`;
     }
-    return "/units";
+    // Floor roles cannot access /units (supervisor+); use an entitled module to avoid proxy loops.
+    return "/logs";
   }
 
   if (ctx.role === "SUPERVISOR") {

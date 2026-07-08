@@ -73,7 +73,7 @@ test("resolveDefaultHomePath sends floor staff to unit workspace or locations", 
   );
   assert.equal(
     resolveDefaultHomePath({ authKind: "employee", role: "STAFF" }),
-    "/units",
+    "/logs",
   );
 });
 
