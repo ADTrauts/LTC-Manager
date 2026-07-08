@@ -63,4 +63,6 @@ test("buildDashboardAggregates computes unit log and staffing totals", () => {
   assert.equal(data.unitsWithExceptions.length, 1);
   assert.equal(data.openRepairCount, 1);
   assert.equal(data.urgentRepairCount, 1);
+  assert.ok(data.operationContext.serviceLabel.length > 0);
+  assert.ok(data.sitePulse.headline.length > 0);
 });

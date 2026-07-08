@@ -2,7 +2,9 @@ import { LogSubmissionStatus, MealType, UnitType } from "@prisma/client";
 
 import { isServerySlotLiveForBoard, isWithinServeryLiveWindow } from "@/lib/servery-meal-service";
 
+import { computeSitePulse } from "./compute-site-pulse";
 import type { DashboardQueryResult } from "./load-dashboard-queries";
+import { resolveOperationContext } from "./resolve-operation-context";
 import type {
   OperationsCenterDashboardData,
   OperationsCenterMealBoard,
@@ -163,17 +165,33 @@ export function buildDashboardAggregates(
     return { meal, rows };
   });
 
-  return {
-    month,
-    managerCount,
-    birthdaysThisMonth,
-    unitCount: units.length,
-    mealBoards,
-    totals,
-    unitsWithExceptions,
-    unitsMissingStaffing,
-    unitCards,
-    openRepairCount: openRepairs.length,
-    urgentRepairCount,
-  };
+  return enrichOperationsCenterDashboard(
+    {
+      month,
+      managerCount,
+      birthdaysThisMonth,
+      unitCount: units.length,
+      mealBoards,
+      totals,
+      unitsWithExceptions,
+      unitsMissingStaffing,
+      unitCards,
+      openRepairCount: openRepairs.length,
+      urgentRepairCount,
+    },
+    now,
+  );
+}
+
+function enrichOperationsCenterDashboard(
+  data: Omit<OperationsCenterDashboardData, "operationContext" | "sitePulse">,
+  now: Date,
+): OperationsCenterDashboardData {
+  const operationContext = resolveOperationContext({
+    now,
+    unitCards: data.unitCards,
+    mealBoards: data.mealBoards,
+  });
+  const sitePulse = computeSitePulse(data.unitCards);
+  return { ...data, operationContext, sitePulse };
 }

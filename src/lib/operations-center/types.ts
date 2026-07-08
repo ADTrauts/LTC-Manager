@@ -50,6 +50,25 @@ export type OperationsCenterBirthdayEmployee = {
   birthDay: number | null;
 };
 
+export type OperationContext = {
+  mealType: MealType;
+  mealLabel: string;
+  serviceLabel: string;
+  phase: "Preparation" | "Execution";
+  scheduledTimeLabel: string | null;
+  minutesUntilService: number | null;
+};
+
+export type SitePulseSummary = {
+  headline: string;
+  tone: "healthy" | "at_risk" | "blocked" | "neutral";
+  ready: number;
+  inProgress: number;
+  blocked: number;
+  attentionCount: number;
+  locationSummary: string;
+};
+
 export type OperationsCenterDashboardData = {
   month: number;
   managerCount: number;
@@ -62,4 +81,6 @@ export type OperationsCenterDashboardData = {
   unitCards: OperationsCenterUnitCard[];
   openRepairCount: number;
   urgentRepairCount: number;
+  operationContext: OperationContext;
+  sitePulse: SitePulseSummary;
 };
