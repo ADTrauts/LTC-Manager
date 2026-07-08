@@ -106,16 +106,16 @@ async function loadPermissionConfig() {
     const fallbackRules = buildFallbackRules();
     const fallbackNavByRole = emptyNavByRole();
     const fallbackNavDefs = [
-      { label: "Dashboard", href: "/dashboard", minRole: "STAFF" as AppRole },
-      { label: "Units", href: "/units", minRole: "SUPERVISOR" as AppRole },
+      { label: "Operations Center", href: "/dashboard", minRole: "STAFF" as AppRole },
+      { label: "Locations", href: "/units", minRole: "SUPERVISOR" as AppRole },
       { label: "Employees", href: "/employees", minRole: "MANAGER" as AppRole },
       { label: "Logs", href: "/logs", minRole: "STAFF" as AppRole },
       { label: "Staffing", href: "/staffing", minRole: "SUPERVISOR" as AppRole },
       { label: "Menus", href: "/menus", minRole: "SUPERVISOR" as AppRole },
       { label: "Assets", href: "/assets", minRole: "SUPERVISOR" as AppRole },
       { label: "Repairs", href: "/repairs", minRole: "STAFF" as AppRole },
-      { label: "Reports", href: "/reports", minRole: "MANAGER" as AppRole },
-      { label: "Admin", href: "/admin", minRole: "FACILITY_ADMINISTRATOR" as AppRole },
+      { label: "Review", href: "/reports", minRole: "MANAGER" as AppRole },
+      { label: "Administration", href: "/admin", minRole: "FACILITY_ADMINISTRATOR" as AppRole },
     ];
     for (const role of APP_ROLES) {
       fallbackNavByRole[role] = fallbackNavDefs
