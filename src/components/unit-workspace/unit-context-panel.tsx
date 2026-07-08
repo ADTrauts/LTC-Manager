@@ -51,17 +51,17 @@ export function UnitContextPanel({
   }`;
 
   return (
-    <section className="space-y-4 border-t border-zinc-200 pt-6">
+    <section className="space-y-3 border-t border-zinc-200 pt-5" data-testid="unit-context-panel">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">About this location</p>
         <p className="mt-1 text-sm text-zinc-600">
-          Context for this unit — use when something looks off, not as the primary sweep.
+          Secondary context — expand only when something looks off.
         </p>
       </div>
 
       <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white open:shadow-sm">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:content-none [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center justify-between gap-3">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center px-4 py-3 text-sm font-semibold text-zinc-900 touch-manipulation marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="flex w-full items-center justify-between gap-3">
             <span>Log summary · schedule · coverage</span>
             <span className="text-xs font-medium text-zinc-500 group-open:hidden">Show</span>
             <span className="hidden text-xs font-medium text-zinc-500 group-open:inline">Hide</span>
@@ -139,8 +139,8 @@ export function UnitContextPanel({
 
       {unit.unitType === "SERVERY" ? (
         <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white open:shadow-sm">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center justify-between gap-3">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center px-4 py-3 text-sm font-semibold text-zinc-900 touch-manipulation marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="flex w-full items-center justify-between gap-3">
               <span>Today&apos;s menu</span>
               <span className="text-xs font-medium text-zinc-500 group-open:hidden">Show</span>
               <span className="hidden text-xs font-medium text-zinc-500 group-open:inline">Hide</span>
@@ -181,8 +181,8 @@ export function UnitContextPanel({
       ) : null}
 
       <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white open:shadow-sm">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:content-none [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center justify-between gap-3">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center px-4 py-3 text-sm font-semibold text-zinc-900 touch-manipulation marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="flex w-full items-center justify-between gap-3">
             <span>Staffing today</span>
             <span className="text-xs font-medium text-zinc-500 group-open:hidden">Show</span>
             <span className="hidden text-xs font-medium text-zinc-500 group-open:inline">Hide</span>
@@ -207,8 +207,8 @@ export function UnitContextPanel({
       </details>
 
       <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white open:shadow-sm">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:content-none [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center justify-between gap-3">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center px-4 py-3 text-sm font-semibold text-zinc-900 touch-manipulation marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="flex w-full items-center justify-between gap-3">
             <span>Open repairs</span>
             <span className="text-xs font-medium text-zinc-500 group-open:hidden">
               {openRepairs.length > 0 ? `${openRepairs.length}` : "Show"}
@@ -239,8 +239,8 @@ export function UnitContextPanel({
       </details>
 
       <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white open:shadow-sm">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:content-none [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center justify-between gap-3">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center px-4 py-3 text-sm font-semibold text-zinc-900 touch-manipulation marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="flex w-full items-center justify-between gap-3">
             <span>Due logs / quick entry</span>
             <span className="text-xs font-medium text-zinc-500 group-open:hidden">Show</span>
             <span className="hidden text-xs font-medium text-zinc-500 group-open:inline">Hide</span>
@@ -250,9 +250,9 @@ export function UnitContextPanel({
           {assignments.map((assignment) => (
             <div
               key={assignment.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 bg-white p-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white p-3"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-zinc-900">{assignment.template.name}</p>
                 <p className="text-xs text-zinc-600">
                   {assignment.recurrence}
@@ -261,7 +261,7 @@ export function UnitContextPanel({
               </div>
               <Link
                 href={`/logs?tab=submit&assignmentId=${assignment.id}`}
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-100"
+                className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
               >
                 Submit now
               </Link>
@@ -274,8 +274,8 @@ export function UnitContextPanel({
       </details>
 
       <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white open:shadow-sm">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900 marker:content-none [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center justify-between gap-3">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center px-4 py-3 text-sm font-semibold text-zinc-900 touch-manipulation marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="flex w-full items-center justify-between gap-3">
             <span>Recent activity &amp; history</span>
             <span className="text-xs font-medium text-zinc-500 group-open:hidden">Show</span>
             <span className="hidden text-xs font-medium text-zinc-500 group-open:inline">Hide</span>

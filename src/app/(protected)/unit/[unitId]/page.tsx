@@ -77,16 +77,16 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
 
   return (
-    <section className="space-y-6">
+    <section className="mx-auto max-w-5xl space-y-5 sm:space-y-6" data-testid="unit-workspace">
       {mealServiceEventMessage ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
           {mealServiceEventMessage}
         </div>
       ) : null}
 
       {/* Layer 1 — Orientation */}
-      <header className="space-y-4 border-b border-zinc-200 pb-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <header className="space-y-3 border-b border-zinc-200 pb-4 sm:space-y-4 sm:pb-5">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] md:items-start md:gap-4">
           <UnitOperationContextHeader
             unitName={unit.name}
             unitTypeLabel={unitTypeLabel}
@@ -117,13 +117,13 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             />
           ) : null}
         </div>
-        <nav className="flex flex-wrap gap-2" aria-label="Unit sections">
+        <nav className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" aria-label="Unit sections">
           <Link
             href={`/unit/${unit.id}?unitTab=overview`}
-            className={`rounded-md px-3 py-2 text-sm font-medium ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-md px-3 py-2 text-sm font-semibold touch-manipulation ${
               activeUnitTab === "overview"
                 ? "bg-zinc-900 text-white shadow-sm"
-                : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
+                : "border-2 border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
             }`}
             aria-current={activeUnitTab === "overview" ? "page" : undefined}
           >
@@ -131,10 +131,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           </Link>
           <Link
             href={`/unit/${unit.id}?unitTab=logs${activeLogTab ? `&logTab=${encodeURIComponent(activeLogTab)}` : ""}`}
-            className={`rounded-md px-3 py-2 text-sm font-medium ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-md px-3 py-2 text-sm font-semibold touch-manipulation ${
               activeUnitTab === "logs"
                 ? "bg-zinc-900 text-white shadow-sm"
-                : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
+                : "border-2 border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
             }`}
             aria-current={activeUnitTab === "logs" ? "page" : undefined}
           >
@@ -144,7 +144,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       </header>
 
       {activeUnitTab === "overview" ? (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-7">
           {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
 
@@ -178,10 +178,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
               <Link
                 key={tab.key}
                 href={`/unit/${unit.id}?unitTab=logs&logTab=${encodeURIComponent(tab.key)}`}
-                className={`rounded-md px-3 py-2 text-sm font-medium ${
+                className={`inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-semibold touch-manipulation ${
                   activeLogTab === tab.key
                     ? "bg-zinc-900 text-white shadow-sm"
-                    : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
+                    : "border-2 border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
                 }`}
                 aria-current={activeLogTab === tab.key ? "page" : undefined}
               >

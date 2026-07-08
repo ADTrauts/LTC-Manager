@@ -13,10 +13,10 @@ export function UnitOperationContextHeader({
   context,
 }: UnitOperationContextHeaderProps) {
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-2.5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Orientation</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">{unitName}</h1>
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">{unitName}</h1>
         <p className="mt-1 text-sm text-zinc-600">
           {unitTypeLabel} · {context.serviceLabel} · {context.phase}
         </p>
