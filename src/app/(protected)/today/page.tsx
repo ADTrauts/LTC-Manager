@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
+import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { loadWalkList } from "@/lib/todays-work";
@@ -36,20 +37,7 @@ export default async function TodaysWorkHubPage() {
         <OperationContextBanner context={operationContext} />
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-red-700">Blocked</p>
-          <p className="mt-2 text-3xl font-semibold text-red-900">{summary.blocked}</p>
-        </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">In progress</p>
-          <p className="mt-2 text-3xl font-semibold text-amber-950">{summary.inProgress}</p>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Ready</p>
-          <p className="mt-2 text-3xl font-semibold text-emerald-950">{summary.ready}</p>
-        </div>
-      </section>
+      <WalkListSummaryCards summary={summary} />
 
       {lookFirst && lookFirst.status !== "ready" ? (
         <section className="rounded-xl border-2 border-zinc-900 bg-zinc-50 p-4 shadow-sm">
@@ -83,13 +71,11 @@ export default async function TodaysWorkHubPage() {
       <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
 
       <section className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Coming next</p>
-        <ul className="mt-2 space-y-1 text-sm text-zinc-600">
-          <li>Walk list page (`/today/walk`) — full ordered route</li>
-          <li>Coverage (`/today/coverage`) — staffing gaps + call-downs</li>
-          <li>Handoffs (`/today/handoffs`) — failed logs + open repairs rollup</li>
-        </ul>
-        <div className="mt-3 flex flex-wrap gap-3 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Related</p>
+        <div className="mt-2 flex flex-wrap gap-3 text-sm">
+          <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+            Full walk list
+          </Link>
           <Link href="/dashboard" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Operations Center
           </Link>
