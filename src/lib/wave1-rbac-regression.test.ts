@@ -118,9 +118,9 @@ test("Wave 1 RBAC matrix — floor default home avoids /units redirect loop", ()
   );
 });
 
-test("Wave 1 RBAC matrix — manager and supervisor homes stay on Operations Center", () => {
+test("Wave 1 RBAC matrix — manager stays on Operations Center; supervisor homes on Today's Work", () => {
   assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/dashboard");
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
 });
 
 test("Wave 1 RBAC matrix — /today subpaths inherit supervisor+ gate", () => {

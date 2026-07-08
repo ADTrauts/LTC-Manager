@@ -132,7 +132,7 @@ export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
   }
 
   if (ctx.role === "SUPERVISOR") {
-    return "/dashboard";
+    return "/today";
   }
 
   if (hasAtLeastRole(ctx.role, "MANAGER")) {

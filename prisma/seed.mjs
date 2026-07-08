@@ -36,7 +36,7 @@ const ROUTE_DEFINITIONS = [
   { key: "unit", pathPrefix: "/unit", label: "Unit Workspace", navVisible: false, navOrder: 200, isCritical: false },
   { key: "dashboard", pathPrefix: "/dashboard", label: "Operations Center", navVisible: true, navOrder: 10, isCritical: true },
   { key: "operations", pathPrefix: "/operations", label: "Operations Center", navVisible: false, navOrder: 11, isCritical: false },
-  { key: "today", pathPrefix: "/today", label: "Today's Work", navVisible: false, navOrder: 15, isCritical: false },
+  { key: "today", pathPrefix: "/today", label: "Today's Work", navVisible: true, navOrder: 15, isCritical: false },
 ];
 
 const ROUTE_MIN_ROLE = {

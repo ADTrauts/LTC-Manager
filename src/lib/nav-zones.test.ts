@@ -79,9 +79,9 @@ test("resolveDefaultHomePath sends floor staff to unit workspace or locations", 
   );
 });
 
-test("resolveDefaultHomePath sends supervisors to Operations Center until Today's Work ships", () => {
+test("resolveDefaultHomePath sends supervisors to Today's Work hub", () => {
   assert.equal(
     resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }),
-    "/dashboard",
+    "/today",
   );
 });
