@@ -9,6 +9,7 @@ import {
   getDeviceCookieOptions,
 } from "@/lib/device-cookie";
 import { getEmployeeAllowedUnitIdSet, resolveInitialActiveUnitIdForPinLogin } from "@/lib/employee-units";
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { checkPinRateLimit, registerPinFailure, registerPinSuccess } from "@/lib/pin-rate-limit";
 import { isValidPinFormat, pinDigestForFacility } from "@/lib/pin";
 import { prisma } from "@/lib/prisma";
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
       email: true,
       roleType: true,
       primaryUnitId: true,
+      primaryDepartmentId: true,
     },
   });
 
@@ -145,9 +147,15 @@ export async function POST(request: Request) {
     facilityId: employee.facilityId,
     activeUnitId,
     kioskUnitAccessWarning,
+    primaryDepartmentId: employee.primaryDepartmentId,
   });
 
-  const redirectTo = deviceUnitId ? `/unit/${deviceUnitId}` : "/dashboard";
+  const redirectTo = resolveDefaultHomePath({
+    authKind: "employee",
+    role: employee.roleType,
+    activeUnitId,
+    lockedUnitId: deviceUnitId,
+  });
 
   const response = NextResponse.json({ ok: true, redirectTo });
   response.cookies.set(SESSION_COOKIE, token, getCookieOptions());

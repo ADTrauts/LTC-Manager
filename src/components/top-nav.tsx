@@ -3,9 +3,10 @@
 import Link from "next/link";
 
 import { useNavPathname } from "@/hooks/use-nav-pathname";
+import { groupNavItemsByZone, type NavRouteItem } from "@/lib/nav-zones";
 
 type TopNavProps = {
-  items: { label: string; href: string }[];
+  items: NavRouteItem[];
 };
 
 function linkClass(isActive: boolean) {
@@ -32,20 +33,39 @@ function isActivePath(pathname: string | null, href: string) {
 
 export function TopNav({ items }: TopNavProps) {
   const pathname = useNavPathname();
+  const groups = groupNavItemsByZone(items);
 
   return (
     <nav
-      className="flex w-max min-w-0 flex-nowrap items-center gap-2"
+      className="flex w-max min-w-0 flex-nowrap items-center gap-3"
       aria-label="Top navigation"
     >
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={`shrink-0 ${linkClass(isActivePath(pathname, item.href))}`}
+      {groups.map((group, groupIndex) => (
+        <div
+          key={group.zone}
+          className="flex shrink-0 items-center gap-2"
+          role="group"
+          aria-label={group.label}
         >
-          {item.label}
-        </Link>
+          {groupIndex > 0 ? (
+            <span
+              className="mx-0.5 hidden h-4 w-px shrink-0 bg-zinc-200 sm:block"
+              aria-hidden="true"
+            />
+          ) : null}
+          <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 lg:inline">
+            {group.label}
+          </span>
+          {group.items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`shrink-0 ${linkClass(isActivePath(pathname, item.href))}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
       ))}
     </nav>
   );

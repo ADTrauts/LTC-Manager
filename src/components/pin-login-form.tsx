@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
+
 type PinLoginFormProps = {
   facilityName: string;
   /** When the device is unit-locked (kiosk), shown under the facility name. */
@@ -45,7 +47,10 @@ export function PinLoginForm({ facilityName, lockedUnitName, onUseEmail }: PinLo
       setLoading(false);
       return;
     }
-    const path = typeof data.redirectTo === "string" && data.redirectTo.startsWith("/") ? data.redirectTo : "/dashboard";
+    const path =
+      typeof data.redirectTo === "string" && data.redirectTo.startsWith("/")
+        ? data.redirectTo
+        : resolveDefaultHomePath({ authKind: "employee", role: "STAFF" });
     router.push(path);
     router.refresh();
   }

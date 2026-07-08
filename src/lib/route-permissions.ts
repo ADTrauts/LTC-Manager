@@ -1,19 +1,21 @@
 import type { RoleKey } from "@prisma/client";
 
+import { APP_ROLES, type AppRole, ROLE_PRIORITY } from "@/lib/access";
+import { type NavRouteItem, resolveZoneForPathPrefix } from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
-import type { AppRole } from "@/lib/access";
+
+export type { NavRouteItem };
 
 export type RoutePermissionRule = {
   pathPrefix: string;
   allowedRoleKeys: Set<RoleKey>;
 };
 
-export type NavRouteItem = {
-  label: string;
-  href: string;
-};
-
 const CACHE_TTL_MS = 30_000;
+
+function toNavRouteItem(label: string, href: string): NavRouteItem {
+  return { label, href, zone: resolveZoneForPathPrefix(href) };
+}
 
 let cache:
   | {
@@ -24,7 +26,7 @@ let cache:
   | null = null;
 
 const FALLBACK_RULES: { pathPrefix: string; minRole: AppRole }[] = [
-  { pathPrefix: "/admin", minRole: "GM" },
+  { pathPrefix: "/admin", minRole: "FACILITY_ADMINISTRATOR" },
   { pathPrefix: "/employees", minRole: "MANAGER" },
   { pathPrefix: "/reports", minRole: "MANAGER" },
   { pathPrefix: "/units", minRole: "SUPERVISOR" },
@@ -32,20 +34,11 @@ const FALLBACK_RULES: { pathPrefix: string; minRole: AppRole }[] = [
   { pathPrefix: "/menus", minRole: "SUPERVISOR" },
   { pathPrefix: "/assets", minRole: "SUPERVISOR" },
   { pathPrefix: "/logs", minRole: "STAFF" },
+  { pathPrefix: "/evs", minRole: "STAFF" },
   { pathPrefix: "/repairs", minRole: "STAFF" },
   { pathPrefix: "/unit", minRole: "STAFF" },
   { pathPrefix: "/dashboard", minRole: "STAFF" },
 ];
-
-const ROLE_PRIORITY: Record<AppRole, number> = {
-  GM: 5,
-  MANAGER: 4,
-  SUPERVISOR: 3,
-  LEAD_TEAM_MEMBER: 2,
-  STAFF: 1,
-};
-
-const ALL_APP_ROLES: AppRole[] = ["GM", "MANAGER", "SUPERVISOR", "LEAD_TEAM_MEMBER", "STAFF"];
 
 function includePath(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -58,7 +51,7 @@ export function resolveRouteAccess(
 ): boolean {
   for (const rule of rules) {
     if (includePath(pathname, rule.pathPrefix)) {
-      return rule.allowedRoleKeys.has(role);
+      return rule.allowedRoleKeys.has(role as RoleKey);
     }
   }
   if (pathname === "/") {
@@ -70,10 +63,20 @@ export function resolveRouteAccess(
 function buildFallbackRules(): RoutePermissionRule[] {
   return FALLBACK_RULES.map((rule) => {
     const allowedRoleKeys = new Set<RoleKey>(
-      ALL_APP_ROLES.filter((role) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[rule.minRole]),
+      APP_ROLES.filter((r) => ROLE_PRIORITY[r] >= ROLE_PRIORITY[rule.minRole]) as RoleKey[],
     );
     return { pathPrefix: rule.pathPrefix, allowedRoleKeys };
   }).sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
+}
+
+function emptyNavByRole(): Record<AppRole, NavRouteItem[]> {
+  return APP_ROLES.reduce(
+    (acc, r) => {
+      acc[r] = [];
+      return acc;
+    },
+    {} as Record<AppRole, NavRouteItem[]>,
+  );
 }
 
 async function loadPermissionConfig() {
@@ -101,13 +104,7 @@ async function loadPermissionConfig() {
 
   if (rows.length === 0) {
     const fallbackRules = buildFallbackRules();
-    const fallbackNavByRole: Record<AppRole, NavRouteItem[]> = {
-      GM: [],
-      MANAGER: [],
-      SUPERVISOR: [],
-      LEAD_TEAM_MEMBER: [],
-      STAFF: [],
-    };
+    const fallbackNavByRole = emptyNavByRole();
     const fallbackNavDefs = [
       { label: "Dashboard", href: "/dashboard", minRole: "STAFF" as AppRole },
       { label: "Units", href: "/units", minRole: "SUPERVISOR" as AppRole },
@@ -118,12 +115,12 @@ async function loadPermissionConfig() {
       { label: "Assets", href: "/assets", minRole: "SUPERVISOR" as AppRole },
       { label: "Repairs", href: "/repairs", minRole: "STAFF" as AppRole },
       { label: "Reports", href: "/reports", minRole: "MANAGER" as AppRole },
-      { label: "Admin", href: "/admin", minRole: "GM" as AppRole },
+      { label: "Admin", href: "/admin", minRole: "FACILITY_ADMINISTRATOR" as AppRole },
     ];
-    for (const role of ALL_APP_ROLES) {
-      fallbackNavByRole[role] = fallbackNavDefs.filter(
-        (item) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[item.minRole],
-      );
+    for (const role of APP_ROLES) {
+      fallbackNavByRole[role] = fallbackNavDefs
+        .filter((item) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[item.minRole])
+        .map((item) => toNavRouteItem(item.label, item.href));
     }
     cache = {
       rules: fallbackRules,
@@ -159,22 +156,16 @@ async function loadPermissionConfig() {
     }))
     .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
 
-  const navItemsByRole: Record<AppRole, NavRouteItem[]> = {
-    GM: [],
-    MANAGER: [],
-    SUPERVISOR: [],
-    LEAD_TEAM_MEMBER: [],
-    STAFF: [],
-  };
+  const navItemsByRole = emptyNavByRole();
 
   const navRouteDefs = [...routeMap.values()]
     .filter((item) => item.navVisible)
     .sort((a, b) => a.navOrder - b.navOrder || a.pathPrefix.localeCompare(b.pathPrefix));
 
-  for (const role of ALL_APP_ROLES) {
+  for (const role of APP_ROLES) {
     navItemsByRole[role] = navRouteDefs
-      .filter((item) => item.allowedRoleKeys.has(role))
-      .map((item) => ({ label: item.label, href: item.pathPrefix }));
+      .filter((item) => item.allowedRoleKeys.has(role as RoleKey))
+      .map((item) => toNavRouteItem(item.label, item.pathPrefix));
   }
 
   cache = {
