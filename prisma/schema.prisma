@@ -88,6 +88,8 @@ model Facility {
   menuItems                     MenuItem[]
   kioskUnitPinLoginEvents       KioskUnitPinLoginEvent[]
   onboardingManagerInvites      OnboardingManagerInvite[]
+  operationDefinitions          OperationDefinition[]
+  operationInstances            OperationInstance[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
 }
@@ -102,6 +104,67 @@ model OnboardingManagerInvite {
 
   @@unique([facilityId, email])
   @@index([facilityId, createdAt])
+}
+
+/// Recurring operation template scoped to a facility department (e.g. dietary breakfast service).
+model OperationDefinition {
+  id                  String              @id @default(cuid())
+  facilityId          String
+  facility            Facility            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  /// Department scope (`Department.id` when the departments model is present).
+  departmentId        String
+  /// Stable slug unique per department (e.g. `breakfast`, `evs-day-round-1`).
+  key                 String
+  /// Display label (e.g. "Breakfast").
+  label               String
+  /// Dietary meal period when applicable; null for non-meal operations (EVS rounds, plant PM).
+  mealType            MealType?
+  /// Optional named shift template id (`WorkShift.id` when shift model is present).
+  workShiftId         String?
+  /// Local start time hint (`HH:mm`) for sync/scheduling; not authoritative until wired.
+  scheduledStartLocal String?
+  scheduledEndLocal   String?
+  sortOrder           Int                 @default(100)
+  isActive            Boolean             @default(true)
+  instances           OperationInstance[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([facilityId, departmentId, key])
+  @@index([facilityId])
+  @@index([departmentId])
+  @@index([workShiftId])
+}
+
+/// A single dated occurrence of an operation (e.g. "Breakfast 2026-07-08").
+model OperationInstance {
+  id                  String                  @id @default(cuid())
+  facilityId          String
+  facility            Facility                @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  definitionId        String
+  definition          OperationDefinition     @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  /// Service date for this occurrence (facility-local calendar day).
+  serviceDate         DateTime                @db.Date
+  /// Denormalized for query filters without joining the definition.
+  mealType            MealType?
+  /// Snapshot label copied from definition at instance creation.
+  label               String
+  status              OperationInstanceStatus @default(SCHEDULED)
+  workShiftId         String?
+  scheduledStartLocal String?
+  scheduledEndLocal   String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  @@unique([definitionId, serviceDate])
+  @@index([facilityId, serviceDate])
+  @@index([departmentId, serviceDate])
+  @@index([facilityId, departmentId, serviceDate])
+  @@index([status])
+  @@index([workShiftId])
 }
 
 model MenuSettings {
@@ -179,6 +242,15 @@ enum MealType {
   BREAKFAST
   LUNCH
   DINNER
+}
+
+/// Lifecycle state for a date-bound operation occurrence (Wave 5 Operations Engine).
+enum OperationInstanceStatus {
+  SCHEDULED
+  PREPARATION
+  EXECUTION
+  COMPLETED
+  CANCELLED
 }
 
 enum MenuWeekStartDay {
