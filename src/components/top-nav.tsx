@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useNavPathname } from "@/hooks/use-nav-pathname";
+import { navIconClassName, resolveNavIcon } from "@/lib/design-system";
 import { groupNavItemsByZone, shouldShowZoneHeading, type NavRouteItem } from "@/lib/nav-zones";
 import { isActiveNavPath } from "@/lib/nav-utils";
 
@@ -12,8 +13,8 @@ type TopNavProps = {
 
 function linkClass(isActive: boolean) {
   return isActive
-    ? "shrink-0 border-b-2 border-zinc-900 px-3 pb-2 pt-2 text-sm font-semibold text-zinc-900"
-    : "shrink-0 rounded-sm px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900";
+    ? "inline-flex shrink-0 items-center gap-1.5 border-b-2 border-zinc-900 px-3 pb-2 pt-2 text-sm font-semibold text-zinc-900"
+    : "inline-flex shrink-0 items-center gap-1.5 rounded-sm px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900";
 }
 
 export function TopNav({ items }: TopNavProps) {
@@ -46,15 +47,17 @@ export function TopNav({ items }: TopNavProps) {
                 {group.label}
               </span>
             ) : null}
-            {group.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={linkClass(isActiveNavPath(pathname, item.href))}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {group.items.map((item) => {
+              const isActive = isActiveNavPath(pathname, item.href);
+              const Icon = resolveNavIcon(item.href);
+
+              return (
+                <Link key={item.href} href={item.href} className={linkClass(isActive)}>
+                  {Icon ? <Icon className={navIconClassName(isActive)} aria-hidden /> : null}
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
         );
       })}

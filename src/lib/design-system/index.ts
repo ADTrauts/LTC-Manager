@@ -1,8 +1,13 @@
 export {
   AppIcons,
   NAV_PATH_ICON_KEYS,
+  locationIconClassName,
+  navIconClassName,
+  resolveLocationIcon,
+  resolveNavIcon,
   resolveNavIconKey,
   type AppIconKey,
+  type LocationIconInput,
 } from "./icons";
 
 export {

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 export type SidebarUnit = {
   id: string;
   name: string;
+  unitType: string | null;
 };
 
 export async function getActiveSidebarUnits(facilityId: string): Promise<SidebarUnit[]> {
@@ -16,7 +17,7 @@ export async function getActiveSidebarUnits(facilityId: string): Promise<Sidebar
     return await prisma.unit.findMany({
       where: { isActive: true, facilityId },
       orderBy: { displayOrder: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, unitType: true },
     });
   } catch {
     return [];

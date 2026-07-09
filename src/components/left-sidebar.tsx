@@ -4,6 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ReadinessChip } from "@/components/readiness-chip";
+import {
+  AppIcons,
+  locationIconClassName,
+  navIconClassName,
+  resolveLocationIcon,
+} from "@/lib/design-system";
 import { NAV_ZONE_LABELS } from "@/lib/nav-zones";
 import { isActiveNavPath } from "@/lib/nav-utils";
 import type { ReadinessState } from "@/lib/readiness";
@@ -19,11 +25,11 @@ type LeftSidebarProps = {
 
 function sidebarLinkClass(isActive: boolean, disabled = false) {
   if (disabled) {
-    return "flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-zinc-400";
+    return "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-400";
   }
   return isActive
-    ? "app-accent-active flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-white"
-    : "flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
+    ? "app-accent-active flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-white"
+    : "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
 }
 
 export function LeftSidebar({
@@ -34,6 +40,8 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const pathname = usePathname();
   const operationsCenterLabel = NAV_ZONE_LABELS.OPERATIONS_CENTER;
+  const OperationsIcon = AppIcons.operationsCenter;
+  const dashboardActive = isActiveNavPath(pathname, "/dashboard");
 
   return (
     <aside
@@ -47,11 +55,9 @@ export function LeftSidebar({
               {operationsCenterLabel}
             </h2>
             <div className="space-y-0.5">
-              <Link
-                href="/dashboard"
-                className={sidebarLinkClass(isActiveNavPath(pathname, "/dashboard"))}
-              >
-                {operationsCenterLabel}
+              <Link href="/dashboard" className={sidebarLinkClass(dashboardActive)}>
+                <OperationsIcon className={navIconClassName(dashboardActive)} aria-hidden />
+                <span className="truncate">{operationsCenterLabel}</span>
               </Link>
             </div>
           </section>
@@ -65,12 +71,24 @@ export function LeftSidebar({
             {units.map((unit) => {
               const href = `/unit/${unit.id}`;
               const isDisabled = Boolean(lockedUnitId && unit.id !== lockedUnitId);
-              const readiness = readinessByUnitId[unit.id];
+              const isActive = isActiveNavPath(pathname, href);
+              const LocationIcon = resolveLocationIcon(unit);
               const label = (
-                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                  <span className="truncate">{unit.name}</span>
-                  {readiness ? <ReadinessChip state={readiness.state} className="shrink-0" /> : null}
-                </span>
+                <>
+                  <LocationIcon
+                    className={locationIconClassName(isActive, isDisabled)}
+                    aria-hidden
+                  />
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="truncate">{unit.name}</span>
+                    {readinessByUnitId[unit.id] ? (
+                      <ReadinessChip
+                        state={readinessByUnitId[unit.id]!.state}
+                        className="shrink-0"
+                      />
+                    ) : null}
+                  </span>
+                </>
               );
               return isDisabled ? (
                 <span
@@ -82,11 +100,7 @@ export function LeftSidebar({
                   {label}
                 </span>
               ) : (
-                <Link
-                  key={unit.id}
-                  href={href}
-                  className={sidebarLinkClass(isActiveNavPath(pathname, href))}
-                >
+                <Link key={unit.id} href={href} className={sidebarLinkClass(isActive)}>
                   {label}
                 </Link>
               );

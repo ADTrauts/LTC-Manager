@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { AppIcons } from "@/lib/design-system";
+
 type Dept = { id: string; name: string };
 
 type Props = {
@@ -20,6 +22,7 @@ export function DepartmentScopeSwitcher({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const ModeIcon = AppIcons.operationalMode;
 
   const selectValue =
     selectedDepartmentId === null && isFacilityAdministrator ? "" : selectedDepartmentId ?? "";
@@ -52,25 +55,33 @@ export function DepartmentScopeSwitcher({
       >
         Operational mode
       </label>
-      <select
-        id="operational-mode"
-        className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-60"
-        disabled={pending}
-        value={selectValue}
-        onChange={(e) => void commit(e.target.value)}
-        aria-describedby="operational-mode-hint"
-      >
-        {isFacilityAdministrator ? (
-          <option value="">All modes</option>
-        ) : (
-          <option value="">My department mode</option>
-        )}
-        {departments.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-          </option>
-        ))}
-      </select>
+      <div className="flex min-h-10 items-stretch overflow-hidden rounded-md border border-zinc-300 bg-white shadow-sm focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-200">
+        <span
+          className="flex shrink-0 items-center border-r border-zinc-200 bg-zinc-50 px-2.5 text-zinc-500"
+          aria-hidden
+        >
+          <ModeIcon className="h-4 w-4" />
+        </span>
+        <select
+          id="operational-mode"
+          className="min-h-10 w-full min-w-0 border-0 bg-transparent px-2.5 py-2 text-sm text-zinc-800 focus:outline-none disabled:opacity-60"
+          disabled={pending}
+          value={selectValue}
+          onChange={(e) => void commit(e.target.value)}
+          aria-describedby="operational-mode-hint"
+        >
+          {isFacilityAdministrator ? (
+            <option value="">All modes</option>
+          ) : (
+            <option value="">My department mode</option>
+          )}
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <p id="operational-mode-hint" className="text-[11px] leading-snug text-zinc-500">
         Narrows navigation to the selected operational mode.
       </p>
