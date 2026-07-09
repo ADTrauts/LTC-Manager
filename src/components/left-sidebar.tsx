@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ReadinessChip } from "@/components/readiness-chip";
 import { NAV_ZONE_LABELS } from "@/lib/nav-zones";
 import { isActiveNavPath } from "@/lib/nav-utils";
+import type { ReadinessState } from "@/lib/readiness";
 import type { SidebarUnit } from "@/lib/units";
 
 type LeftSidebarProps = {
@@ -12,6 +14,7 @@ type LeftSidebarProps = {
   lockedUnitId?: string;
   /** Supervisor+ user sessions see the Operations Center entry; floor PIN sessions do not. */
   showOperationsCenterLink?: boolean;
+  readinessByUnitId?: Record<string, { state: ReadinessState }>;
 };
 
 function sidebarLinkClass(isActive: boolean, disabled = false) {
@@ -27,6 +30,7 @@ export function LeftSidebar({
   units,
   lockedUnitId,
   showOperationsCenterLink = true,
+  readinessByUnitId = {},
 }: LeftSidebarProps) {
   const pathname = usePathname();
   const operationsCenterLabel = NAV_ZONE_LABELS.OPERATIONS_CENTER;
@@ -61,6 +65,13 @@ export function LeftSidebar({
             {units.map((unit) => {
               const href = `/unit/${unit.id}`;
               const isDisabled = Boolean(lockedUnitId && unit.id !== lockedUnitId);
+              const readiness = readinessByUnitId[unit.id];
+              const label = (
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <span className="truncate">{unit.name}</span>
+                  {readiness ? <ReadinessChip state={readiness.state} className="shrink-0" /> : null}
+                </span>
+              );
               return isDisabled ? (
                 <span
                   key={unit.id}
@@ -68,7 +79,7 @@ export function LeftSidebar({
                   className={sidebarLinkClass(false, true)}
                   title="This tablet is locked to another unit"
                 >
-                  {unit.name}
+                  {label}
                 </span>
               ) : (
                 <Link
@@ -76,7 +87,7 @@ export function LeftSidebar({
                   href={href}
                   className={sidebarLinkClass(isActiveNavPath(pathname, href))}
                 >
-                  {unit.name}
+                  {label}
                 </Link>
               );
             })}

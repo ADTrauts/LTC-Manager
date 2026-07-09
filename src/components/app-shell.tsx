@@ -17,6 +17,8 @@ import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
 import { getNavItemsForRole } from "@/lib/route-permissions";
+import { loadUnitReadinessBatch } from "@/lib/readiness";
+import type { ReadinessState } from "@/lib/readiness";
 import { getSidebarUnitsForSession } from "@/lib/units";
 
 type AppShellProps = {
@@ -29,9 +31,10 @@ export async function AppShell({ children }: AppShellProps) {
     redirect("/login");
   }
 
-  const [units, facility] = await Promise.all([
+  const [units, facility, readiness] = await Promise.all([
     getSidebarUnitsForSession(session),
     getFacilityForSession(),
+    loadUnitReadinessBatch(session.facilityId),
   ]);
   const cookieStore = await cookies();
   const deviceUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value;
@@ -75,6 +78,10 @@ export async function AppShell({ children }: AppShellProps) {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
     activeOperationalDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
+
+  const readinessByUnitId = Object.fromEntries(
+    [...readiness.byUnitId.entries()].map(([unitId, item]) => [unitId, { state: item.state as ReadinessState }]),
+  );
 
   return (
     <div
@@ -128,6 +135,7 @@ export async function AppShell({ children }: AppShellProps) {
           units={units}
           lockedUnitId={lockedUnitId}
           showOperationsCenterLink={showOperationsCenterLink}
+          readinessByUnitId={readinessByUnitId}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:overflow-hidden">
           <ShellZoneIndicator />
