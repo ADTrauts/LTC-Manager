@@ -137,6 +137,29 @@ export function resolveLocationIcon(unit: LocationIconInput): LucideIcon {
   }
 }
 
+/** AppIconKey variant of resolveLocationIcon for PageHeader and shell chrome. */
+export function resolveLocationIconKey(unit: LocationIconInput): AppIconKey {
+  const name = (unit.name ?? "").toLowerCase();
+  if (name.includes("laundry")) {
+    return "locationLaundry";
+  }
+
+  switch (unit.unitType) {
+    case "KITCHEN":
+      return "locationKitchen";
+    case "SERVERY":
+      return "locationServery";
+    case "RETAIL":
+      return "locationRetail";
+    case "OFFICE":
+      return "locationOffice";
+    case "STORAGE":
+      return "locationStorage";
+    default:
+      return "locationDefault";
+  }
+}
+
 /** Shared nav icon sizing — 16px default, muted unless active. */
 export function navIconClassName(isActive: boolean): string {
   return isActive

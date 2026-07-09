@@ -4,6 +4,7 @@ export {
   locationIconClassName,
   navIconClassName,
   resolveLocationIcon,
+  resolveLocationIconKey,
   resolveNavIcon,
   resolveNavIconKey,
   type AppIconKey,

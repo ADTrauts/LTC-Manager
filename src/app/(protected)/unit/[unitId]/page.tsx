@@ -90,6 +90,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] md:items-start md:gap-4">
           <UnitOperationContextHeader
             unitName={unit.name}
+            unitType={unit.unitType}
             unitTypeLabel={unitTypeLabel}
             context={operationContext}
             readiness={readiness}

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   AppIcons,
   resolveLocationIcon,
+  resolveLocationIconKey,
   resolveNavIcon,
   resolveNavIconKey,
 } from "@/lib/design-system/icons";
@@ -56,4 +57,11 @@ test("resolveLocationIcon maps unit types and laundry name hint", () => {
     resolveLocationIcon({ unitType: "OTHER", name: "Misc" }),
     AppIcons.locationDefault,
   );
+});
+
+test("resolveLocationIconKey mirrors resolveLocationIcon keys", () => {
+  assert.equal(resolveLocationIconKey({ unitType: "KITCHEN", name: "Main Kitchen" }), "locationKitchen");
+  assert.equal(resolveLocationIconKey({ unitType: "SERVERY", name: "4A Servery" }), "locationServery");
+  assert.equal(resolveLocationIconKey({ unitType: "OTHER", name: "Central Laundry" }), "locationLaundry");
+  assert.equal(resolveLocationIconKey({ unitType: "OTHER", name: "Misc" }), "locationDefault");
 });

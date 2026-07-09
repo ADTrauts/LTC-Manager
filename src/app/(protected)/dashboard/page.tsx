@@ -7,6 +7,7 @@ import { OperationContextBanner } from "@/components/operations-center/operation
 import { OperationsCenterCards } from "@/components/operations-center/operations-center-cards";
 import { SecondaryTeamLinks } from "@/components/operations-center/secondary-team-links";
 import { SitePulseSummaryCard } from "@/components/operations-center/site-pulse-summary";
+import { PageHeader } from "@/components/design-system/page-header";
 import { getSession } from "@/lib/auth";
 import { loadOperationsCenterDashboard } from "@/lib/operations-center";
 
@@ -70,10 +71,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </>
       ) : (
         <>
-          <header className="border-b border-zinc-200 pb-4">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Operations Center</h1>
-            <p className="mt-1 text-sm text-zinc-600">Exception-first view for today&apos;s meal service.</p>
-          </header>
+          <PageHeader
+            icon="operationsCenter"
+            title="Operations Center"
+            subtitle="Exception-first view for today's meal service."
+            compact
+          />
           <div className="space-y-6">
             <OperationContextBanner context={data.operationContext} />
             <SitePulseSummaryCard pulse={data.sitePulse} />

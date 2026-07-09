@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
+import { PageHeader } from "@/components/design-system/page-header";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
 import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
@@ -29,17 +30,13 @@ export default async function TodaysWorkHubPage() {
 
   return (
     <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
-      <header className="space-y-3 border-b border-zinc-200 pb-5">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Today&apos;s Work</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">Supervisor hub</h1>
-          <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-            Start with the highest-risk locations for the current meal period, then review handoffs before the next
-            operation.
-          </p>
-        </div>
-        <OperationContextBanner context={operationContext} />
-      </header>
+      <PageHeader
+        icon="todaysWork"
+        eyebrow="Today's Work"
+        title="Supervisor hub"
+        subtitle="Start with the highest-risk locations for the current meal period, then review handoffs before the next operation."
+        below={<OperationContextBanner context={operationContext} />}
+      />
 
       <WalkListSummaryCards summary={summary} />
 
