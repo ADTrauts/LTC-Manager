@@ -45,16 +45,16 @@ export function DepartmentScopeSwitcher({
   }
 
   return (
-    <div className="flex min-w-0 max-w-[14rem] flex-col gap-1">
+    <div className="flex min-w-[12rem] max-w-[18rem] flex-1 flex-col gap-1.5 sm:min-w-[14rem]">
       <label
-        className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500"
+        className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500"
         htmlFor="operational-mode"
       >
         Operational mode
       </label>
       <select
         id="operational-mode"
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-800"
+        className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-200 disabled:opacity-60"
         disabled={pending}
         value={selectValue}
         onChange={(e) => void commit(e.target.value)}
@@ -71,7 +71,7 @@ export function DepartmentScopeSwitcher({
           </option>
         ))}
       </select>
-      <p id="operational-mode-hint" className="text-[10px] leading-snug text-zinc-500">
+      <p id="operational-mode-hint" className="text-[11px] leading-snug text-zinc-500">
         Narrows navigation to the selected operational mode.
       </p>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}

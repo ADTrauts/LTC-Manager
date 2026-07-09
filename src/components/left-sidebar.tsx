@@ -19,11 +19,11 @@ type LeftSidebarProps = {
 
 function sidebarLinkClass(isActive: boolean, disabled = false) {
   if (disabled) {
-    return "block cursor-not-allowed rounded-md px-3 py-2 text-sm text-zinc-400";
+    return "flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-zinc-400";
   }
   return isActive
-    ? "app-accent-active block rounded-md px-3 py-2 text-sm font-medium text-white"
-    : "block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
+    ? "app-accent-active flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-white"
+    : "flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
 }
 
 export function LeftSidebar({
@@ -37,16 +37,16 @@ export function LeftSidebar({
 
   return (
     <aside
-      className="app-accent-divider w-full shrink-0 border-r bg-white lg:min-h-0 lg:w-72 lg:overflow-y-auto"
+      className="w-full shrink-0 border-r border-zinc-200 bg-white lg:min-h-0 lg:w-72 lg:overflow-y-auto"
       aria-label="Locations rail"
     >
-      <div className="flex flex-col gap-5 p-4">
+      <div className="flex flex-col gap-6 p-4 lg:px-4 lg:py-5">
         {showOperationsCenterLink ? (
           <section aria-label={operationsCenterLabel}>
-            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
               {operationsCenterLabel}
             </h2>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Link
                 href="/dashboard"
                 className={sidebarLinkClass(isActiveNavPath(pathname, "/dashboard"))}
@@ -58,10 +58,10 @@ export function LeftSidebar({
         ) : null}
 
         <section aria-label="Service points">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
             {NAV_ZONE_LABELS.LOCATIONS}
           </h2>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {units.map((unit) => {
               const href = `/unit/${unit.id}`;
               const isDisabled = Boolean(lockedUnitId && unit.id !== lockedUnitId);

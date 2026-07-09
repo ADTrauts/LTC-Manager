@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { LeftSidebar } from "@/components/left-sidebar";
+import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
 import { SignOutControls } from "@/components/sign-out-controls";
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
@@ -92,39 +93,33 @@ export async function AppShell({ children }: AppShellProps) {
         } as CSSProperties
       }
     >
-      <header className="app-accent-divider shrink-0 border-b bg-white" role="banner">
-        <div className="mx-auto grid w-full max-w-[1440px] grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-3 px-4 py-3 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] lg:items-center lg:gap-4 lg:px-6">
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
-            <div className="min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                LTC Manager
-              </span>
-              <p className="truncate text-sm font-medium text-zinc-800">
-                {facility?.displayName ?? "Facility"}
-              </p>
-              <p className="truncate text-xs text-zinc-500">{sessionLabel}</p>
-            </div>
-            {scopeDepartments.length > 0 ? (
-              <DepartmentScopeSwitcher
-                departments={scopeDepartments}
-                selectedDepartmentId={
-                  deptNav.showAllDepartmentNav && isFacilityAdministratorRole(session.role)
-                    ? null
-                    : deptNav.activeDepartmentId
-                }
-                isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
+      <header className="shrink-0 border-b border-zinc-200 bg-white" role="banner">
+        <div className="mx-auto w-full max-w-[1440px]">
+          <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 lg:px-6 lg:py-3.5">
+            <div className="flex min-w-0 flex-1 flex-wrap items-start gap-4 sm:gap-6 lg:gap-10">
+              <ShellBrandBlock
+                facilityName={facility?.displayName ?? "Facility"}
+                sessionLabel={sessionLabel}
               />
-            ) : null}
+              {scopeDepartments.length > 0 ? (
+                <DepartmentScopeSwitcher
+                  departments={scopeDepartments}
+                  selectedDepartmentId={
+                    deptNav.showAllDepartmentNav && isFacilityAdministratorRole(session.role)
+                      ? null
+                      : deptNav.activeDepartmentId
+                  }
+                  isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
+                />
+              ) : null}
+            </div>
+            <div className="shrink-0 self-start lg:self-center">
+              <SignOutControls showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
+            </div>
           </div>
-          <div className="col-start-2 row-start-1 justify-self-end self-start lg:col-start-3 lg:self-center">
-            <SignOutControls showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
-          </div>
-          <nav
-            className="col-span-2 min-w-0 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] lg:col-span-1 lg:col-start-2 lg:row-start-1 [&::-webkit-scrollbar]:h-1.5"
-            aria-label="Application zones"
-          >
+          <div className="border-t border-zinc-100 px-4 py-1 lg:px-6 lg:py-1.5">
             <TopNav items={navItems} />
-          </nav>
+          </div>
         </div>
       </header>
 
@@ -142,7 +137,7 @@ export async function AppShell({ children }: AppShellProps) {
           <main className="min-h-0 flex-1 p-4 lg:overflow-y-auto lg:p-6">{children}</main>
         </div>
       </div>
-      <footer className="app-accent-divider shrink-0 border-t bg-white px-4 py-2 text-xs text-zinc-500 lg:px-6">
+      <footer className="shrink-0 border-t border-zinc-200 bg-white px-4 py-2.5 text-xs text-zinc-500 lg:px-6">
         {facility?.managementCompanyName
           ? `Operated by ${facility.managementCompanyName}.`
           : "Nutrition operations workspace."}

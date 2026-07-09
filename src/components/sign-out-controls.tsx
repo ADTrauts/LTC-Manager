@@ -12,7 +12,7 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
         {showChangePassword ? (
           <Link
             href="/account"
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
           >
             Change password
           </Link>
@@ -20,7 +20,7 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
         <form action="/api/auth/logout" method="post">
           <button
             type="submit"
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
           >
             Sign out
           </button>
@@ -34,23 +34,23 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
       {showChangePassword ? (
         <Link
           href="/account"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-100"
+          className="min-h-10 rounded-md border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
         >
           Change password
         </Link>
       ) : null}
-      <div className="flex items-stretch rounded-md border border-zinc-300 bg-white shadow-sm">
+      <div className="flex min-h-10 items-stretch rounded-md border border-zinc-300 bg-white shadow-sm">
       <form action="/api/auth/logout" method="post" className="flex min-w-0">
         <button
           type="submit"
-          className="rounded-l-md border-r border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+          className="min-h-10 rounded-l-md border-r border-zinc-200 px-3.5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
         >
           Sign out
         </button>
       </form>
       <details className="group relative flex">
         <summary
-          className="flex cursor-pointer list-none items-center justify-center rounded-r-md px-2 text-zinc-600 hover:bg-zinc-100 [&::-webkit-details-marker]:hidden"
+          className="flex min-h-10 cursor-pointer list-none items-center justify-center rounded-r-md px-2.5 text-zinc-600 hover:bg-zinc-50 [&::-webkit-details-marker]:hidden"
           aria-label="Additional sign-out options"
         >
           <svg
