@@ -35,8 +35,10 @@ const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
   { role: "SUPERVISOR", path: "/staffing" },
   { role: "SUPERVISOR", path: "/today" },
   { role: "SUPERVISOR", path: "/today/walk" },
+  { role: "SUPERVISOR", path: "/today/coverage" },
   { role: "MANAGER", path: "/today" },
   { role: "MANAGER", path: "/today/walk" },
+  { role: "MANAGER", path: "/today/coverage" },
   { role: "STAFF", path: "/logs" },
   { role: "STAFF", path: "/unit/abc" },
   { role: "STAFF", path: "/dashboard" },
@@ -96,6 +98,7 @@ test("Wave 1 RBAC matrix — every seeded route min role matches expectations", 
 test("Wave 1 RBAC matrix — /today paths are detected for proxy gating", () => {
   assert.equal(isTodaysWorkPathname("/today"), true);
   assert.equal(isTodaysWorkPathname("/today/walk"), true);
+  assert.equal(isTodaysWorkPathname("/today/coverage"), true);
   assert.equal(isTodaysWorkPathname("/dashboard"), false);
 });
 
@@ -103,6 +106,7 @@ test("Wave 1 RBAC matrix — /today is shared across operational modes", () => {
   for (const key of ["DIETARY", "EVS", "PLANT", null] as const) {
     assert.equal(pathnameAllowedForDepartmentKey("/today", key), true);
     assert.equal(pathnameAllowedForDepartmentKey("/today/walk", key), true);
+    assert.equal(pathnameAllowedForDepartmentKey("/today/coverage", key), true);
   }
 });
 

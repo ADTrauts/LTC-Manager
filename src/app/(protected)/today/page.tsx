@@ -30,8 +30,8 @@ export default async function TodaysWorkHubPage() {
           <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Today&apos;s Work</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">Supervisor hub</h1>
           <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-            Start with the highest-risk locations for the current meal period. Coverage, handoffs, and call-downs
-            arrive in later Wave 4 milestones.
+            Start with the highest-risk locations for the current meal period. Handoffs and call-downs arrive in later
+            Wave 4 milestones.
           </p>
         </div>
         <OperationContextBanner context={operationContext} />
@@ -75,6 +75,9 @@ export default async function TodaysWorkHubPage() {
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
           <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Full walk list
+          </Link>
+          <Link href="/today/coverage" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+            Coverage
           </Link>
           <Link href="/dashboard" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Operations Center

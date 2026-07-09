@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { cookies } from "next/headers";
 import { ShiftType, UnitType } from "@prisma/client";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,9 @@ import { createScheduleEntryAction, deleteScheduleEntryAction } from "@/app/(pro
 import { StaffingAutoAssignForm } from "@/components/staffing-auto-assign-form";
 import { StaffingDateAutoAdvance } from "@/components/staffing-date-auto-advance";
 import { getSession } from "@/lib/auth";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
+import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 import { isEmployeeEligibleForUnit } from "@/lib/scheduling-eligibility";
 
@@ -56,14 +60,22 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
   }
   const facilityId = session.facilityId;
 
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  const isFa = isFacilityAdministratorRole(session.role);
+  const deptScope =
+    !isFa && deptNav.activeDepartmentId
+      ? employeeBelongsToDepartmentWhere(deptNav.activeDepartmentId)
+      : undefined;
+
   const query = searchParams ? await searchParams : undefined;
   const selectedDate = parseIsoDateOrToday(query?.date);
   const selectedDateEnd = new Date(selectedDate);
   selectedDateEnd.setDate(selectedDateEnd.getDate() + 1);
 
-  const [employees, units, schedules, overrides] = await Promise.all([
+  const [employeesRaw, units, schedulesRaw, overridesRaw] = await Promise.all([
     prisma.employee.findMany({
-      where: { status: "ACTIVE", facilityId },
+      where: { status: "ACTIVE", facilityId, ...(deptScope ? { AND: [deptScope] } : {}) },
       orderBy: [{ roleType: "asc" }, { lastName: "asc" }],
       select: {
         id: true,
@@ -97,6 +109,11 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
       },
     }),
   ]);
+
+  const employeeIds = new Set(employeesRaw.map((e) => e.id));
+  const employees = employeesRaw;
+  const schedules = schedulesRaw.filter((s) => employeeIds.has(s.employeeId));
+  const overrides = overridesRaw.filter((o) => employeeIds.has(o.employeeId));
 
   const selectedDateIso = toIsoDate(selectedDate);
   const prevDate = new Date(selectedDate);
@@ -164,7 +181,7 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
               const unitSchedules = schedules.filter((entry) => entry.unitId === unit.id);
               const scheduleForShift = (shift: ShiftType) => unitSchedules.find((entry) => entry.shift === shift);
               return (
-                <div key={unit.id} className="rounded-lg border border-zinc-200 p-3">
+                <div key={unit.id} id={`staffing-unit-${unit.id}`} className="rounded-lg border border-zinc-200 p-3">
                   <p className="text-sm font-semibold text-zinc-900">{unit.name}</p>
                   <div className="mt-2 grid gap-2 md:grid-cols-3">
                     {[
@@ -219,7 +236,7 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
               const eligible = eligibleEmployeesByUnit.get(unit.id) ?? [];
               const unitSchedules = schedules.filter((entry) => entry.unitId === unit.id);
               return (
-                <div key={unit.id} className="rounded-lg border border-zinc-200 p-3">
+                <div key={unit.id} id={`staffing-unit-${unit.id}`} className="rounded-lg border border-zinc-200 p-3">
                   <p className="text-sm font-semibold text-zinc-900">{unit.name}</p>
                   <StaffingAutoAssignForm
                     action={createScheduleEntryAction}
@@ -259,7 +276,7 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
               const eligible = eligibleEmployeesByUnit.get(unit.id) ?? [];
               const unitSchedules = schedules.filter((entry) => entry.unitId === unit.id);
               return (
-                <div key={unit.id} className="rounded-lg border border-zinc-200 p-3">
+                <div key={unit.id} id={`staffing-unit-${unit.id}`} className="rounded-lg border border-zinc-200 p-3">
                   <p className="text-sm font-semibold text-zinc-900">{unit.name}</p>
                   <StaffingAutoAssignForm
                     action={createScheduleEntryAction}
