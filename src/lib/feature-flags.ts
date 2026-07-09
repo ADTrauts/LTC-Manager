@@ -12,6 +12,11 @@ function parseEnvFlag(value: string | undefined, defaultValue: boolean): boolean
   return defaultValue;
 }
 
+/** Defaults to disabled — Wave 5 schema ships behind flag until sync/backfill verified. */
+export function isOperationEngineEnabled(): boolean {
+  return parseEnvFlag(process.env.OPERATION_ENGINE_ENABLED, false);
+}
+
 /** Defaults to enabled — Wave 4 ships with Today's Work on. Set `TODAYS_WORK_ENABLED=false` to roll back routes. */
 export function isTodaysWorkEnabled(): boolean {
   return parseEnvFlag(process.env.TODAYS_WORK_ENABLED, true);

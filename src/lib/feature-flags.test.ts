@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { isOperationEngineEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
 function withEnv(name: string, value: string | undefined, fn: () => void) {
@@ -26,6 +26,20 @@ test("isTodaysWorkEnabled defaults to true when unset", () => {
   withEnv("TODAYS_WORK_ENABLED", undefined, () => {
     assert.equal(isTodaysWorkEnabled(), true);
   });
+});
+
+test("isOperationEngineEnabled defaults to false when unset", () => {
+  withEnv("OPERATION_ENGINE_ENABLED", undefined, () => {
+    assert.equal(isOperationEngineEnabled(), false);
+  });
+});
+
+test("isOperationEngineEnabled parses falsey env values", () => {
+  for (const value of ["false", "0", "off", "no"]) {
+    withEnv("OPERATION_ENGINE_ENABLED", value, () => {
+      assert.equal(isOperationEngineEnabled(), false, value);
+    });
+  }
 });
 
 test("isTodaysWorkEnabled parses falsey env values", () => {
