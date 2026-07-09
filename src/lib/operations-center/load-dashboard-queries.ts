@@ -61,11 +61,11 @@ export async function loadDashboardQueries(facilityId: string, window: TodayWind
     }),
     prisma.scheduleEntry.findMany({
       where: { date: { gte: window.start, lt: window.end }, unit: { facilityId } },
-      select: { unitId: true },
+      select: { unitId: true, shift: true },
     }),
     prisma.assignmentOverride.findMany({
       where: { date: { gte: window.start, lt: window.end }, employee: { facilityId } },
-      select: { oldUnitId: true, newUnitId: true },
+      select: { oldUnitId: true, newUnitId: true, mealType: true },
     }),
     prisma.repair.findMany({
       where: { status: { not: "CLOSED" }, unit: { facilityId } },

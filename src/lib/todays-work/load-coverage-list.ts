@@ -4,6 +4,9 @@ import {
   loadDashboardQueries,
   type OperationContext,
 } from "@/lib/operations-center";
+import { applyOperationScopedFacilityQueries } from "@/lib/operations/apply-operation-scoped-facility-queries";
+import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
+import { resolveStaffingMealScope, scopeStaffingQueries } from "@/lib/operations/scope-staffing-queries";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -49,24 +52,41 @@ export async function loadCoverageList(facilityId: string): Promise<CoverageData
     }),
   ]);
 
-  const dashboard = buildDashboardAggregates({ ...queries, now });
+  const preliminary = buildDashboardAggregates({ ...queries, now });
+  const activeOperation = await resolveOperationsCenterActiveOperation(prisma, {
+    facilityId,
+    now,
+    unitCards: preliminary.unitCards,
+    mealBoards: preliminary.mealBoards,
+  });
+  const scopedQueries = applyOperationScopedFacilityQueries(queries, activeOperation);
+  const dashboard = buildDashboardAggregates({ ...scopedQueries, now });
+  const mealScope = resolveStaffingMealScope(activeOperation);
+  const scheduleRows = schedules.map((entry) => ({
+    employeeId: entry.employeeId,
+    unitId: entry.unitId,
+    shift: entry.shift,
+    employeeFirstName: entry.employee.firstName,
+    employeeLastName: entry.employee.lastName,
+  }));
+  const scopedStaffing = scopeStaffingQueries({
+    schedules: scheduleRows,
+    overrides,
+    activeOperation,
+  });
+
   const items = buildCoverageItems({
     unitCards: dashboard.unitCards,
-    schedules: schedules.map((entry) => ({
-      employeeId: entry.employeeId,
-      unitId: entry.unitId,
-      shift: entry.shift,
-      employeeFirstName: entry.employee.firstName,
-      employeeLastName: entry.employee.lastName,
-    })),
-    overrides,
+    schedules: scopedStaffing.schedules,
+    overrides: scopedStaffing.overrides,
     dateIso,
+    mealScope,
   });
 
   return {
     items,
     summary: summarizeCoverage(items),
-    operationContext: dashboard.operationContext,
+    operationContext: activeOperation.operationContext,
     priorityGap: items.find((item) => item.level !== "covered") ?? null,
     dateIso,
   };

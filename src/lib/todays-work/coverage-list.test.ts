@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ShiftType, UnitType } from "@prisma/client";
+import { MealType, ShiftType, UnitType } from "@prisma/client";
 
 import type { OperationsCenterUnitCard } from "@/lib/operations-center";
 import {
@@ -197,4 +197,29 @@ test("summarizeCoverage counts coverage buckets", () => {
 
 test("buildStaffingHref includes date and unit anchor", () => {
   assert.equal(buildStaffingHref("2026-07-08", "unit-123"), "/staffing?date=2026-07-08#staffing-unit-unit-123");
+});
+
+test("buildCoverageItems evaluates only scoped servery meal when mealScope is set", () => {
+  const items = buildCoverageItems({
+    unitCards: [
+      card({ id: "servery", name: "4A Servery", unitType: UnitType.SERVERY, staffingCount: 1 }),
+    ],
+    schedules: [
+      {
+        employeeId: "e1",
+        unitId: "servery",
+        shift: ShiftType.LUNCH,
+        employeeFirstName: "Alex",
+        employeeLastName: "Lee",
+      },
+    ],
+    overrides: [],
+    dateIso: "2026-07-08",
+    mealScope: MealType.LUNCH,
+  });
+
+  const servery = items[0];
+  assert.equal(servery?.level, "covered");
+  assert.equal(servery?.expectedSlots, 1);
+  assert.deepEqual(servery?.missingShifts, []);
 });

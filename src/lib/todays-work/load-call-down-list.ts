@@ -3,6 +3,9 @@ import {
   getTodayWindow,
   loadDashboardQueries,
 } from "@/lib/operations-center";
+import { applyOperationScopedFacilityQueries } from "@/lib/operations/apply-operation-scoped-facility-queries";
+import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
+import { scopeStaffingQueries } from "@/lib/operations/scope-staffing-queries";
 import { prisma } from "@/lib/prisma";
 
 import { buildCoverageItems } from "./coverage-list";
@@ -55,22 +58,36 @@ export async function loadCallDownList(facilityId: string): Promise<CallDownData
     }),
   ]);
 
-  const dashboard = buildDashboardAggregates({ ...queries, now });
-  const coverageItems = buildCoverageItems({
-    unitCards: dashboard.unitCards,
-    schedules: schedules.map((entry) => ({
-      employeeId: entry.employeeId,
-      unitId: entry.unitId,
-      shift: entry.shift,
-      employeeFirstName: entry.employee.firstName,
-      employeeLastName: entry.employee.lastName,
-    })),
+  const preliminary = buildDashboardAggregates({ ...queries, now });
+  const activeOperation = await resolveOperationsCenterActiveOperation(prisma, {
+    facilityId,
+    now,
+    unitCards: preliminary.unitCards,
+    mealBoards: preliminary.mealBoards,
+  });
+  const scopedQueries = applyOperationScopedFacilityQueries(queries, activeOperation);
+  const dashboard = buildDashboardAggregates({ ...scopedQueries, now });
+  const scheduleRows = schedules.map((entry) => ({
+    employeeId: entry.employeeId,
+    unitId: entry.unitId,
+    shift: entry.shift,
+    employeeFirstName: entry.employee.firstName,
+    employeeLastName: entry.employee.lastName,
+  }));
+  const scopedStaffing = scopeStaffingQueries({
+    schedules: scheduleRows,
     overrides: overrides.map((entry) => ({
       employeeId: entry.employeeId,
       oldUnitId: entry.oldUnitId,
       newUnitId: entry.newUnitId,
       mealType: entry.mealType,
     })),
+    activeOperation,
+  });
+  const coverageItems = buildCoverageItems({
+    unitCards: dashboard.unitCards,
+    schedules: scopedStaffing.schedules,
+    overrides: scopedStaffing.overrides,
     dateIso,
   });
   const coverageByUnitId = new Map(coverageItems.map((item) => [item.unitId, item.level]));

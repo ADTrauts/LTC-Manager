@@ -1,6 +1,7 @@
 import { getTodayWindow } from "@/lib/operations-center";
 import { resolveUnitWorkspaceActiveOperation } from "@/lib/operations/resolve-unit-workspace-active-operation";
 import { scopeLogDueQueries } from "@/lib/operations/scope-log-due-queries";
+import { scopeStaffingQueries } from "@/lib/operations/scope-staffing-queries";
 import { prisma } from "@/lib/prisma";
 
 import { buildUnitWorkspaceView } from "./build-unit-workspace-view";
@@ -40,10 +41,17 @@ export async function loadUnitWorkspace(
     submissions: queries.submissions,
     activeOperation,
   });
+  const scopedStaffing = scopeStaffingQueries({
+    schedules: queries.schedulesToday,
+    overrides: queries.overridesToday,
+    activeOperation,
+  });
   const scopedQueries = {
     ...queries,
     assignments: scopedLogs.assignments,
     submissions: scopedLogs.submissions,
+    schedulesToday: scopedStaffing.schedules,
+    overridesToday: scopedStaffing.overrides,
   };
 
   const view = buildUnitWorkspaceView({ unit, queries: scopedQueries, search, now });

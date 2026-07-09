@@ -45,3 +45,14 @@ export {
   type LogDueAssignmentRow,
   type LogDueSubmissionRow,
 } from "./scope-log-due-queries";
+export { applyOperationScopedFacilityQueries } from "./apply-operation-scoped-facility-queries";
+export {
+  isStaffingOverrideInScope,
+  isStaffingScheduleInScope,
+  mealScopeToShiftType,
+  resolveStaffingMealScope,
+  resolveStaffingShiftScope,
+  scopeStaffingQueries,
+  type StaffingOverrideRow,
+  type StaffingScheduleRow,
+} from "./scope-staffing-queries";

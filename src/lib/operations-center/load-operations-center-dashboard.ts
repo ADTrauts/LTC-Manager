@@ -1,6 +1,6 @@
 import { loadCallDownList } from "@/lib/todays-work/load-call-down-list";
+import { applyOperationScopedFacilityQueries } from "@/lib/operations/apply-operation-scoped-facility-queries";
 import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
-import { scopeLogDueQueries } from "@/lib/operations/scope-log-due-queries";
 import { buildSitePulseFromReadinessSummary, computeReadinessBatch } from "@/lib/readiness";
 import { prisma } from "@/lib/prisma";
 import { getTodayWindow } from "./get-today-window";
@@ -25,16 +25,7 @@ export async function loadOperationsCenterDashboard(
     }),
   ]);
 
-  const scopedLogs = scopeLogDueQueries({
-    assignments: queries.assignments,
-    submissions: queries.submissionsToday,
-    activeOperation,
-  });
-  const scopedQueries = {
-    ...queries,
-    assignments: scopedLogs.assignments,
-    submissionsToday: scopedLogs.submissions,
-  };
+  const scopedQueries = applyOperationScopedFacilityQueries(queries, activeOperation);
 
   const dashboard = buildDashboardAggregates({ ...scopedQueries, now });
   const readiness = computeReadinessBatch({ ...scopedQueries, now });

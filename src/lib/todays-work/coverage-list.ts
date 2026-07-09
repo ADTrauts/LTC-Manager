@@ -133,13 +133,14 @@ function resolveMissingServeryShifts(assignments: CoverageAssignment[]): ShiftTy
 export function resolveCoverageLevel(
   unit: OperationsCenterUnitCard,
   assignments: CoverageAssignment[],
+  missingShifts?: ShiftType[],
 ): CoverageLevel {
   if (unit.staffingCount === 0) {
     return "none";
   }
   if (unit.unitType === UnitType.SERVERY) {
-    const missingShifts = resolveMissingServeryShifts(assignments);
-    if (missingShifts.length > 0) {
+    const unresolvedShifts = missingShifts ?? resolveMissingServeryShifts(assignments);
+    if (unresolvedShifts.length > 0) {
       return "thin";
     }
   }
@@ -173,16 +174,21 @@ export function buildCoverageItems(args: {
   schedules: CoverageScheduleEntry[];
   overrides: CoverageOverrideEntry[];
   dateIso: string;
+  mealScope?: MealType;
 }): CoverageItem[] {
+  const expectedShifts =
+    args.mealScope === undefined ? SERVERY_SHIFTS : [args.mealScope as ShiftType];
   const assignmentsByUnit = buildEffectiveAssignmentsByUnit(args.schedules, args.overrides);
 
   return args.unitCards
     .map((unit) => {
       const assignments = assignmentsByUnit.get(unit.id) ?? [];
       const missingShifts =
-        unit.unitType === UnitType.SERVERY ? resolveMissingServeryShifts(assignments) : [];
+        unit.unitType === UnitType.SERVERY
+          ? expectedShifts.filter((shift) => !assignments.some((item) => item.shift === shift))
+          : [];
       const overrideCount = countOverridesForUnit(unit.id, args.overrides);
-      const level = resolveCoverageLevel(unit, assignments);
+      const level = resolveCoverageLevel(unit, assignments, missingShifts);
 
       return {
         unitId: unit.id,
@@ -190,7 +196,7 @@ export function buildCoverageItems(args: {
         unitType: unit.unitType,
         level,
         staffingCount: unit.staffingCount,
-        expectedSlots: unit.unitType === UnitType.SERVERY ? SERVERY_SHIFTS.length : null,
+        expectedSlots: unit.unitType === UnitType.SERVERY ? expectedShifts.length : null,
         missingShifts,
         assignments,
         overrideCount,
