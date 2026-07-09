@@ -4,10 +4,11 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { CoverageSummaryCards } from "@/components/todays-work/coverage-list-summary";
+import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
 import { TodaysWorkCoverageList } from "@/components/todays-work/todays-work-coverage-list";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import { loadCoverageList } from "@/lib/todays-work";
+import { loadCallDownList, loadCoverageList } from "@/lib/todays-work";
 
 export default async function TodaysWorkCoveragePage() {
   noStore();
@@ -20,7 +21,10 @@ export default async function TodaysWorkCoveragePage() {
     redirect("/dashboard");
   }
 
-  const coverage = await loadCoverageList(session.facilityId);
+  const [coverage, callDowns] = await Promise.all([
+    loadCoverageList(session.facilityId),
+    loadCallDownList(session.facilityId),
+  ]);
   const { summary, operationContext, items, priorityGap, dateIso } = coverage;
 
   return (
@@ -58,6 +62,8 @@ export default async function TodaysWorkCoveragePage() {
           Open staffing
         </Link>
       </section>
+
+      <TodaysWorkCallDownList items={callDowns.items} compact />
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
         <TodaysWorkCoverageList items={items} priorityGap={priorityGap} />

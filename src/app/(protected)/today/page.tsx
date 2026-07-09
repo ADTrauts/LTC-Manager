@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
+import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
 import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import { loadWalkList } from "@/lib/todays-work";
+import { loadCallDownList, loadWalkList } from "@/lib/todays-work";
 
 export default async function TodaysWorkHubPage() {
   noStore();
@@ -20,7 +21,10 @@ export default async function TodaysWorkHubPage() {
     redirect("/dashboard");
   }
 
-  const walkList = await loadWalkList(session.facilityId);
+  const [walkList, callDowns] = await Promise.all([
+    loadWalkList(session.facilityId),
+    loadCallDownList(session.facilityId),
+  ]);
   const { summary, operationContext, items, lookFirst } = walkList;
 
   return (
@@ -30,8 +34,8 @@ export default async function TodaysWorkHubPage() {
           <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Today&apos;s Work</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">Supervisor hub</h1>
           <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-            Start with the highest-risk locations for the current meal period. Handoffs and call-downs arrive in later
-            Wave 4 milestones.
+            Start with the highest-risk locations for the current meal period. Handoffs arrive in a later Wave 4
+            milestone.
           </p>
         </div>
         <OperationContextBanner context={operationContext} />
@@ -69,6 +73,8 @@ export default async function TodaysWorkHubPage() {
       )}
 
       <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
+
+      <TodaysWorkCallDownList items={callDowns.items} />
 
       <section className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Related</p>

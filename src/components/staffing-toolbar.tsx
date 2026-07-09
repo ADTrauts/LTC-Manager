@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { createOverrideAction, createScheduleEntryAction } from "@/app/(protected)/staffing/actions";
 import { Drawer } from "@/components/drawer";
+import { CALL_DOWN_REASON_TEMPLATES } from "@/lib/todays-work/call-down";
 
 type EmployeeOption = { id: string; firstName: string; lastName: string; roleType: RoleKey };
 type UnitOption = { id: string; name: string };
@@ -24,6 +25,7 @@ type StaffingToolbarProps = {
 export function StaffingToolbar({ employees, units, schedules, todayIso }: StaffingToolbarProps) {
   const [shiftOpen, setShiftOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  const [reasonTemplate, setReasonTemplate] = useState("");
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -39,7 +41,7 @@ export function StaffingToolbar({ employees, units, schedules, todayIso }: Staff
         onClick={() => setOverrideOpen(true)}
         className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
       >
-        Add override
+        Log call-down / override
       </button>
 
       <Drawer open={shiftOpen} onClose={() => setShiftOpen(false)} title="Add shift">
@@ -97,11 +99,19 @@ export function StaffingToolbar({ employees, units, schedules, todayIso }: Staff
         </form>
       </Drawer>
 
-      <Drawer open={overrideOpen} onClose={() => setOverrideOpen(false)} title="Add override">
+      <Drawer
+        open={overrideOpen}
+        onClose={() => {
+          setOverrideOpen(false);
+          setReasonTemplate("");
+        }}
+        title="Log call-down / override"
+      >
         <form
           action={async (formData) => {
             await createOverrideAction(formData);
             setOverrideOpen(false);
+            setReasonTemplate("");
           }}
           className="grid gap-3 md:grid-cols-2"
         >
@@ -152,15 +162,31 @@ export function StaffingToolbar({ employees, units, schedules, todayIso }: Staff
               </option>
             ))}
           </select>
+          <select
+            name="reasonTemplate"
+            value={reasonTemplate}
+            onChange={(event) => setReasonTemplate(event.target.value)}
+            className="md:col-span-2 rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          >
+            <option value="">Free-text reason</option>
+            {CALL_DOWN_REASON_TEMPLATES.map((template) => (
+              <option key={template.key} value={template.key}>
+                {template.label}
+              </option>
+            ))}
+          </select>
           <input
-            name="reason"
-            required
-            placeholder="Reason for override"
+            name="reasonDetails"
+            placeholder={reasonTemplate ? "Optional details" : "Reason (required for free-text)"}
+            required={!reasonTemplate}
             className="md:col-span-2 rounded-md border border-zinc-300 px-3 py-2 text-sm"
           />
+          <p className="md:col-span-2 text-xs text-zinc-500">
+            Use a call-down template for coverage risks, or leave the template blank and enter a free-text reason.
+          </p>
           <div className="md:col-span-2">
             <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
-              Add override
+              Save override
             </button>
           </div>
         </form>

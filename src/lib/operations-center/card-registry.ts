@@ -6,6 +6,7 @@ export const OPERATIONS_CENTER_CARD_IDS = [
   "unit-exceptions",
   "open-repairs",
   "staffing-gaps",
+  "call-downs",
   "compliance-summary",
   "meal-boards",
   "unit-log-board",

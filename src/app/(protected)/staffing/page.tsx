@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 import { createScheduleEntryAction, deleteScheduleEntryAction } from "@/app/(protected)/staffing/actions";
 import { StaffingAutoAssignForm } from "@/components/staffing-auto-assign-form";
 import { StaffingDateAutoAdvance } from "@/components/staffing-date-auto-advance";
+import { StaffingToolbar } from "@/components/staffing-toolbar";
 import { getSession } from "@/lib/auth";
+import { parseCallDownReason } from "@/lib/todays-work/call-down";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -169,6 +171,12 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
             </Link>
           </div>
         </div>
+        <StaffingToolbar
+          employees={employees}
+          units={units}
+          schedules={schedules}
+          todayIso={selectedDateIso}
+        />
       </header>
 
       <section className="space-y-4">
@@ -335,7 +343,9 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
         <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-semibold text-zinc-900">Overrides</h2>
           <div className="mt-3 space-y-2 text-sm">
-            {overrides.map((override) => (
+            {overrides.map((override) => {
+              const parsedReason = parseCallDownReason(override.reason);
+              return (
               <div key={override.id} className="rounded border border-zinc-200 p-2">
                 <p className="font-medium text-zinc-900">
                   {override.employee.firstName} {override.employee.lastName}
@@ -344,9 +354,9 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
                   {override.oldUnit?.name ?? "Unassigned"} → {override.newUnit.name}
                   {override.mealType ? ` · ${override.mealType}` : ""}
                 </p>
-                <p className="text-xs text-zinc-500">{override.reason}</p>
+                <p className="text-xs text-zinc-500">{parsedReason.displayReason}</p>
               </div>
-            ))}
+            )})}
             {overrides.length === 0 ? (
               <p className="text-sm text-zinc-500">No overrides logged for this date.</p>
             ) : null}

@@ -98,6 +98,49 @@ function StaffingGapsCard({ data }: { data: OperationsCenterDashboardData }) {
   );
 }
 
+function CallDownsCard({ data }: { data: OperationsCenterDashboardData }) {
+  const callDowns = data.callDowns ?? {
+    items: [],
+    summary: { total: 0, open: 0, covered: 0 },
+    dateIso: "",
+  };
+  const openItems = callDowns.items.filter((item) => item.status === "open");
+
+  return (
+    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="operations-center-call-downs">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900">Call-downs</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            {openItems.length} open · {callDowns.summary.total} logged today
+          </p>
+        </div>
+        <Link href="/today" className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100">
+          Today&apos;s Work
+        </Link>
+      </div>
+      <ul className="mt-3 space-y-2 text-sm text-zinc-700">
+        {openItems.slice(0, 5).map((item) => (
+          <li key={item.id} className="rounded border border-zinc-200 p-2">
+            <p className="font-medium text-zinc-900">{item.employeeName}</p>
+            <p className="text-xs text-zinc-600">{item.reason}</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {item.oldUnitName ?? item.newUnitName}
+              {item.oldUnitName && item.oldUnitName !== item.newUnitName ? ` → ${item.newUnitName}` : ""}
+            </p>
+            <Link href={item.staffingHref} className="mt-2 inline-block text-xs font-medium text-zinc-900 underline hover:text-zinc-700">
+              Fix staffing
+            </Link>
+          </li>
+        ))}
+        {openItems.length === 0 ? (
+          <li className="text-zinc-500">No open call-downs right now.</li>
+        ) : null}
+      </ul>
+    </article>
+  );
+}
+
 function ComplianceSummaryCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
@@ -220,6 +263,8 @@ function renderCard(id: OperationsCenterCardId, data: OperationsCenterDashboardD
       return <OpenRepairsCard key={id} data={data} />;
     case "staffing-gaps":
       return <StaffingGapsCard key={id} data={data} />;
+    case "call-downs":
+      return <CallDownsCard key={id} data={data} />;
     case "compliance-summary":
       return <ComplianceSummaryCard key={id} data={data} />;
     case "meal-boards":
@@ -233,9 +278,9 @@ function renderCard(id: OperationsCenterCardId, data: OperationsCenterDashboardD
 
 export function OperationsCenterCards({ data }: OperationsCenterCardsProps) {
   const order = getOperationsCenterCardOrder();
-  const primaryCards = order.slice(0, 3);
-  const secondaryRow = order.slice(3, 5);
-  const tertiaryCard = order[5];
+  const primaryCards = order.slice(0, 4);
+  const secondaryRow = order.slice(4, 6);
+  const tertiaryCard = order[6];
 
   return (
     <div className="space-y-6">

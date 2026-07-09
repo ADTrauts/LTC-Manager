@@ -1,5 +1,7 @@
 import type { MealType, UnitType } from "@prisma/client";
 
+import type { CallDownItem, CallDownSummary } from "@/lib/todays-work/call-down";
+
 export type OperationsCenterUnitMealTime = {
   mealType: MealType;
   scheduledTime: string;
@@ -69,6 +71,12 @@ export type SitePulseSummary = {
   locationSummary: string;
 };
 
+export type OperationsCenterCallDownData = {
+  items: CallDownItem[];
+  summary: CallDownSummary;
+  dateIso: string;
+};
+
 export type OperationsCenterDashboardData = {
   month: number;
   managerCount: number;
@@ -83,4 +91,5 @@ export type OperationsCenterDashboardData = {
   urgentRepairCount: number;
   operationContext: OperationContext;
   sitePulse: SitePulseSummary;
+  callDowns?: OperationsCenterCallDownData;
 };

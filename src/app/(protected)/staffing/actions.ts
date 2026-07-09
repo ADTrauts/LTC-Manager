@@ -8,8 +8,10 @@ import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
 import { isEmployeeEligibleForUnit } from "@/lib/scheduling-eligibility";
+import { resolveOverrideReasonFromForm } from "@/lib/todays-work/call-down";
 
 const roleKeyValues = [
+  RoleKey.FACILITY_ADMINISTRATOR,
   RoleKey.GM,
   RoleKey.MANAGER,
   RoleKey.SUPERVISOR,
@@ -36,7 +38,9 @@ const createOverrideSchema = z.object({
   newUnitId: z.string().cuid(),
   date: z.string().min(8),
   mealType: z.enum(mealValues).optional(),
-  reason: z.string().trim().min(3).max(300),
+  reasonTemplate: z.string().optional(),
+  reasonDetails: z.string().trim().max(300).optional(),
+  reason: z.string().trim().max(300).optional(),
 });
 
 function toOptional(value: FormDataEntryValue | null) {
@@ -77,6 +81,8 @@ function parseDate(raw: string) {
 function revalidateStaffingViews() {
   revalidatePath("/staffing");
   revalidatePath("/dashboard");
+  revalidatePath("/today");
+  revalidatePath("/today/coverage");
   revalidatePath("/unit/[unitId]", "page");
 }
 
@@ -188,8 +194,12 @@ export async function createOverrideAction(formData: FormData) {
     newUnitId: formData.get("newUnitId"),
     date: formData.get("date"),
     mealType: toOptional(formData.get("mealType")),
-    reason: formData.get("reason"),
+    reasonTemplate: toOptional(formData.get("reasonTemplate")),
+    reasonDetails: toOptional(formData.get("reasonDetails")),
+    reason: toOptional(formData.get("reason")),
   });
+
+  const reason = resolveOverrideReasonFromForm(parsed);
 
   const employee = await prisma.employee.findFirst({
     where: { id: parsed.employeeId, facilityId: session.facilityId },
@@ -232,7 +242,7 @@ export async function createOverrideAction(formData: FormData) {
       newUnitId: parsed.newUnitId,
       date: parseDate(parsed.date),
       mealType: parsed.mealType,
-      reason: parsed.reason,
+      reason,
       changedById: session.authKind === "user" ? session.uid : undefined,
     },
   });

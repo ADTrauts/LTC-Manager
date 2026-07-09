@@ -11,6 +11,8 @@ test("operations center card registry orders exceptions before secondary content
   const order = getOperationsCenterCardOrder();
   assert.ok(order.indexOf("unit-exceptions") < order.indexOf("meal-boards"));
   assert.ok(order.indexOf("open-repairs") < order.indexOf("compliance-summary"));
+  assert.ok(order.indexOf("staffing-gaps") < order.indexOf("call-downs"));
+  assert.ok(order.indexOf("call-downs") < order.indexOf("compliance-summary"));
   assert.ok(order.indexOf("staffing-gaps") < order.indexOf("unit-log-board"));
 });
 
