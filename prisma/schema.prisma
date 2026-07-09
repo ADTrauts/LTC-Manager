@@ -156,6 +156,7 @@ model OperationInstance {
   scheduledEndLocal   String?
   startedAt           DateTime?
   completedAt         DateTime?
+  serveryMealServiceEvents ServeryMealServiceEvent[]
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -399,22 +400,26 @@ model Unit {
 }
 
 model ServeryMealServiceEvent {
-  id                   String    @id @default(cuid())
+  id                   String             @id @default(cuid())
   unitId               String
-  unit                 Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  serviceDate          DateTime  @db.Date
+  unit                 Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  serviceDate          DateTime           @db.Date
   mealType             MealType
   mealServiceReadyAt   DateTime?
   mealServiceStartedAt DateTime?
   readyRecordedById    String?
-  readyRecordedBy      User?     @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
+  readyRecordedBy      User?              @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
   startedRecordedById  String?
-  startedRecordedBy    User?     @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  startedRecordedBy    User?              @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
+  /// Optional link to the dated operation occurrence when the operations engine is enabled.
+  operationInstanceId  String?
+  operationInstance    OperationInstance? @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@unique([unitId, serviceDate, mealType])
   @@index([serviceDate])
+  @@index([operationInstanceId])
 }
 
 model UnitMealTime {

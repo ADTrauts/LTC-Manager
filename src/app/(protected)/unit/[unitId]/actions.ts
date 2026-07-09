@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
 import { sessionUserIdForFk } from "@/lib/auth";
+import { resolveServeryEventOperationInstanceId } from "@/lib/operations/resolve-servery-event-operation-instance";
 import { prisma } from "@/lib/prisma";
 
 const recordServeryServiceTimeSchema = z.object({
@@ -44,6 +45,11 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
   const serviceDate = startOfToday();
   const now = new Date();
   const userId = sessionUserIdForFk(session);
+  const operationInstanceId = await resolveServeryEventOperationInstanceId({
+    facilityId: session.facilityId,
+    serviceDate,
+    mealType: parsed.mealType,
+  });
 
   await prisma.serveryMealServiceEvent.upsert({
     where: {
@@ -61,11 +67,20 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
       mealServiceStartedAt: parsed.eventType === "STARTED" ? now : null,
       readyRecordedById: parsed.eventType === "READY" ? userId : null,
       startedRecordedById: parsed.eventType === "STARTED" ? userId : null,
+      operationInstanceId,
     },
     update:
       parsed.eventType === "READY"
-        ? { mealServiceReadyAt: now, readyRecordedById: userId }
-        : { mealServiceStartedAt: now, startedRecordedById: userId },
+        ? {
+            mealServiceReadyAt: now,
+            readyRecordedById: userId,
+            ...(operationInstanceId ? { operationInstanceId } : {}),
+          }
+        : {
+            mealServiceStartedAt: now,
+            startedRecordedById: userId,
+            ...(operationInstanceId ? { operationInstanceId } : {}),
+          },
   });
 
   revalidatePath("/unit/[unitId]", "page");

@@ -38,6 +38,11 @@ export {
   resolveOperationsCenterDepartmentId,
 } from "./resolve-operations-center-active-operation";
 export {
+  resolveServeryEventOperationInstanceId,
+  type ResolveServeryEventOperationInstanceDeps,
+  type ResolveServeryEventOperationInstanceInput,
+} from "./resolve-servery-event-operation-instance";
+export {
   isLogAssignmentInDueScope,
   isLogSubmissionInDueScope,
   resolveLogDueMealScope,
