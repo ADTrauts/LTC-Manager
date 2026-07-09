@@ -20,6 +20,20 @@ export const NAV_ZONE_LABELS: Record<NavZone, string> = {
   ADMINISTRATION: "Administration",
 };
 
+/** Canonical visible labels for primary top-nav routes (pathPrefix → zone-facing label). */
+export const PRIMARY_NAV_LABELS: Record<string, string> = {
+  "/dashboard": NAV_ZONE_LABELS.OPERATIONS_CENTER,
+  "/today": NAV_ZONE_LABELS.TODAYS_WORK,
+  "/staffing": NAV_ZONE_LABELS.TODAYS_WORK,
+  "/reports": NAV_ZONE_LABELS.REVIEW,
+  "/units": NAV_ZONE_LABELS.LOCATIONS,
+  "/admin": NAV_ZONE_LABELS.ADMINISTRATION,
+};
+
+export function normalizePrimaryNavLabel(pathPrefix: string, label: string): string {
+  return PRIMARY_NAV_LABELS[pathPrefix] ?? label;
+}
+
 export const NAV_ZONE_ORDER: NavZone[] = [...NAV_ZONES];
 
 type NavZonePathRule = { pathPrefix: string; zone: NavZone };
@@ -101,8 +115,21 @@ export function groupNavItemsByZone(items: NavRouteItem[]): NavZoneGroup[] {
   return NAV_ZONE_ORDER.filter((zone) => byZone.has(zone)).map((zone) => ({
     zone,
     label: NAV_ZONE_LABELS[zone],
-    items: (byZone.get(zone) ?? []).map(({ label, href }) => ({ label, href })),
+    items: (byZone.get(zone) ?? []).map(({ label, href }) => ({
+      label: normalizePrimaryNavLabel(href, label),
+      href,
+    })),
   }));
+}
+
+/** Hide redundant zone micro-label when a zone has a single link matching the zone name. */
+export function shouldShowZoneHeading(group: NavZoneGroup): boolean {
+  if (group.items.length !== 1) {
+    return true;
+  }
+  const itemLabel = group.items[0]?.label.trim().toLowerCase() ?? "";
+  const zoneLabel = group.label.trim().toLowerCase();
+  return itemLabel !== zoneLabel;
 }
 
 export type DefaultHomeContext = {

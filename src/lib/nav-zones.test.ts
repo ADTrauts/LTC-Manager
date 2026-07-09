@@ -3,9 +3,11 @@ import test from "node:test";
 
 import {
   groupNavItemsByZone,
+  normalizePrimaryNavLabel,
   resolveDefaultHomePath,
   resolveZoneForPathname,
   resolveZoneForPathPrefix,
+  shouldShowZoneHeading,
 } from "@/lib/nav-zones";
 
 test("resolveZoneForPathname maps routes to certified zones", () => {
@@ -33,7 +35,7 @@ test("groupNavItemsByZone preserves nav order within zones and zone order global
   const groups = groupNavItemsByZone([
     { label: "Reports", href: "/reports", zone: "REVIEW" },
     { label: "Dashboard", href: "/dashboard", zone: "OPERATIONS_CENTER" },
-    { label: "Staffing", href: "/staffing", zone: "TODAYS_WORK" },
+    { label: "Today's Work", href: "/today", zone: "TODAYS_WORK" },
     { label: "Logs", href: "/logs", zone: "ADMINISTRATION" },
   ]);
 
@@ -42,6 +44,29 @@ test("groupNavItemsByZone preserves nav order within zones and zone order global
     ["OPERATIONS_CENTER", "TODAYS_WORK", "REVIEW", "ADMINISTRATION"],
   );
   assert.equal(groups[0]?.items[0]?.href, "/dashboard");
+  assert.equal(groups[0]?.items[0]?.label, "Operations Center");
+});
+
+test("normalizePrimaryNavLabel maps legacy module labels to zone names", () => {
+  assert.equal(normalizePrimaryNavLabel("/dashboard", "Dashboard"), "Operations Center");
+  assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Today's Work");
+  assert.equal(normalizePrimaryNavLabel("/reports", "Reports"), "Review");
+  assert.equal(normalizePrimaryNavLabel("/units", "Units"), "Locations");
+  assert.equal(normalizePrimaryNavLabel("/admin", "Admin"), "Administration");
+  assert.equal(normalizePrimaryNavLabel("/employees", "Employees"), "Employees");
+});
+
+test("shouldShowZoneHeading hides redundant zone label for single matching link", () => {
+  const solo = groupNavItemsByZone([
+    { label: "Dashboard", href: "/dashboard", zone: "OPERATIONS_CENTER" },
+  ])[0]!;
+  assert.equal(shouldShowZoneHeading(solo), false);
+
+  const multi = groupNavItemsByZone([
+    { label: "Employees", href: "/employees", zone: "ADMINISTRATION" },
+    { label: "Admin", href: "/admin", zone: "ADMINISTRATION" },
+  ])[0]!;
+  assert.equal(shouldShowZoneHeading(multi), true);
 });
 
 test("resolveDefaultHomePath sends managers to Operations Center", () => {

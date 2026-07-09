@@ -27,7 +27,7 @@ const ROUTE_DEFINITIONS = [
   { key: "employees", pathPrefix: "/employees", label: "Employees", navVisible: true, navOrder: 30, isCritical: false },
   { key: "reports", pathPrefix: "/reports", label: "Review", navVisible: true, navOrder: 90, isCritical: false },
   { key: "units", pathPrefix: "/units", label: "Locations", navVisible: true, navOrder: 20, isCritical: false },
-  { key: "staffing", pathPrefix: "/staffing", label: "Staffing", navVisible: true, navOrder: 50, isCritical: false },
+  { key: "staffing", pathPrefix: "/staffing", label: "Today's Work", navVisible: false, navOrder: 50, isCritical: false },
   { key: "menus", pathPrefix: "/menus", label: "Menus", navVisible: true, navOrder: 60, isCritical: false },
   { key: "assets", pathPrefix: "/assets", label: "Assets", navVisible: true, navOrder: 70, isCritical: false },
   { key: "logs", pathPrefix: "/logs", label: "Logs", navVisible: true, navOrder: 40, isCritical: false },

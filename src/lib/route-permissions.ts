@@ -2,7 +2,12 @@ import type { RoleKey } from "@prisma/client";
 
 import { APP_ROLES, type AppRole, ROLE_PRIORITY } from "@/lib/access";
 import { isTodaysWorkEnabled } from "@/lib/feature-flags";
-import { type NavRouteItem, isTodaysWorkPathname, resolveZoneForPathPrefix } from "@/lib/nav-zones";
+import {
+  type NavRouteItem,
+  isTodaysWorkPathname,
+  normalizePrimaryNavLabel,
+  resolveZoneForPathPrefix,
+} from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
 
 export type { NavRouteItem };
@@ -33,7 +38,11 @@ export const WAVE1_ROUTE_MIN_ROLES: Record<string, AppRole> = {
 const CACHE_TTL_MS = 30_000;
 
 function toNavRouteItem(label: string, href: string): NavRouteItem {
-  return { label, href, zone: resolveZoneForPathPrefix(href) };
+  return {
+    label: normalizePrimaryNavLabel(href, label),
+    href,
+    zone: resolveZoneForPathPrefix(href),
+  };
 }
 
 let cache:
@@ -115,10 +124,10 @@ async function loadPermissionConfig() {
     const fallbackNavByRole = emptyNavByRole();
     const fallbackNavDefs = [
       { label: "Operations Center", href: "/dashboard", minRole: "STAFF" as AppRole },
+      { label: "Today's Work", href: "/today", minRole: "SUPERVISOR" as AppRole },
       { label: "Locations", href: "/units", minRole: "SUPERVISOR" as AppRole },
       { label: "Employees", href: "/employees", minRole: "MANAGER" as AppRole },
       { label: "Logs", href: "/logs", minRole: "STAFF" as AppRole },
-      { label: "Staffing", href: "/staffing", minRole: "SUPERVISOR" as AppRole },
       { label: "Menus", href: "/menus", minRole: "SUPERVISOR" as AppRole },
       { label: "Assets", href: "/assets", minRole: "SUPERVISOR" as AppRole },
       { label: "Repairs", href: "/repairs", minRole: "STAFF" as AppRole },
