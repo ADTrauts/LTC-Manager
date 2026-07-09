@@ -3,6 +3,11 @@ import Link from "next/link";
 import { AppCard } from "@/components/design-system/AppCard";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { MetricCard } from "@/components/design-system/MetricCard";
+import {
+  OperationalListRow,
+  operationalRowActionPrimaryClass,
+  operationalRowActionSecondaryClass,
+} from "@/components/design-system/OperationalListRow";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import type { CallDownItem, CallDownSummary } from "@/lib/todays-work";
@@ -33,42 +38,29 @@ function CallDownListRow({ item, emphasized = false }: CallDownListRowProps) {
       : item.oldUnitName ?? item.newUnitName;
 
   return (
-    <li>
-      <div
-        className={`flex flex-wrap items-start gap-3 ${
-          emphasized ? "rounded-xl border-2 border-zinc-900 bg-zinc-50 p-4 shadow-sm" : "py-3"
-        }`}
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={`font-semibold text-zinc-900 ${emphasized ? "text-lg" : ""}`}>{item.employeeName}</p>
-            {item.templateLabel ? (
-              <StatusBadge variant="neutral">{item.templateLabel}</StatusBadge>
-            ) : null}
-          </div>
-          <p className="mt-0.5 text-sm text-zinc-600">{item.reason}</p>
-          <p className="mt-1 text-xs text-zinc-500">
-            {movement}
-            {item.mealType ? ` · ${item.mealType}` : ""}
-          </p>
-        </div>
-        <StatusBadge variant={item.status === "open" ? "blocked" : "ready"}>{item.statusLabel}</StatusBadge>
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
-          <Link
-            href={item.staffingHref}
-            className="inline-flex min-h-10 items-center rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-          >
+    <OperationalListRow
+      emphasized={emphasized}
+      title={item.employeeName}
+      meta={item.templateLabel ? <StatusBadge variant="neutral">{item.templateLabel}</StatusBadge> : undefined}
+      description={item.reason}
+      details={
+        <p className="mt-1 text-xs text-zinc-500">
+          {movement}
+          {item.mealType ? ` · ${item.mealType}` : ""}
+        </p>
+      }
+      status={<StatusBadge variant={item.status === "open" ? "blocked" : "ready"}>{item.statusLabel}</StatusBadge>}
+      actions={
+        <>
+          <Link href={item.staffingHref} className={operationalRowActionPrimaryClass}>
             Fix staffing
           </Link>
-          <Link
-            href={item.coverageHref}
-            className="inline-flex min-h-10 items-center rounded-md border-2 border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-          >
+          <Link href={item.coverageHref} className={operationalRowActionSecondaryClass}>
             Coverage view
           </Link>
-        </div>
-      </div>
-    </li>
+        </>
+      }
+    />
   );
 }
 

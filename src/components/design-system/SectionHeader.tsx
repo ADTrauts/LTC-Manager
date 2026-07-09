@@ -8,6 +8,8 @@ export type SectionHeaderProps = {
   className?: string;
   /** Muted eyebrow for de-emphasized section labels (e.g. healthy lists). */
   muted?: boolean;
+  /** Larger title for operation context and pulse surfaces. */
+  prominent?: boolean;
 };
 
 export function SectionHeader({
@@ -17,6 +19,7 @@ export function SectionHeader({
   actions,
   className = "",
   muted = false,
+  prominent = false,
 }: SectionHeaderProps) {
   const eyebrowClass = muted
     ? "text-xs font-semibold uppercase tracking-wider text-zinc-400"
@@ -27,7 +30,13 @@ export function SectionHeader({
       <div className="min-w-0">
         {eyebrow ? <p className={eyebrowClass}>{eyebrow}</p> : null}
         {title ? (
-          <h2 className={`text-lg font-semibold text-zinc-900 ${eyebrow ? "mt-1" : ""}`}>{title}</h2>
+          <h2
+            className={`font-semibold text-zinc-900 ${prominent ? "text-xl tracking-tight" : "text-lg"} ${
+              eyebrow ? "mt-1" : ""
+            }`}
+          >
+            {title}
+          </h2>
         ) : null}
         {description ? <p className="mt-1 text-sm text-zinc-600">{description}</p> : null}
       </div>

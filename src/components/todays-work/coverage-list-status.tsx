@@ -1,3 +1,5 @@
+import { StatusBadge } from "@/components/design-system/StatusBadge";
+import type { StatusBadgeVariant } from "@/lib/design-system/status-styles";
 import type { CoverageLevel } from "@/lib/todays-work";
 
 export function coverageLevelLabel(level: CoverageLevel): string {
@@ -5,6 +7,12 @@ export function coverageLevelLabel(level: CoverageLevel): string {
   if (level === "thin") return "Thin";
   return "Covered";
 }
+
+const COVERAGE_LEVEL_VARIANT: Record<CoverageLevel, StatusBadgeVariant> = {
+  none: "blocked",
+  thin: "warning",
+  covered: "ready",
+};
 
 export function coverageLevelClass(level: CoverageLevel): string {
   if (level === "none") return "border-red-200 bg-red-50 text-red-800";
@@ -18,8 +26,8 @@ type CoverageLevelBadgeProps = {
 
 export function CoverageLevelBadge({ level }: CoverageLevelBadgeProps) {
   return (
-    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${coverageLevelClass(level)}`}>
+    <StatusBadge variant={COVERAGE_LEVEL_VARIANT[level]} className="px-2.5 py-1">
       {coverageLevelLabel(level)}
-    </span>
+    </StatusBadge>
   );
 }
