@@ -1,6 +1,7 @@
 import type { MealType, UnitType } from "@prisma/client";
 import type { ensureMenuSettingsDefaults, menuForDate } from "@/lib/menu-cycle";
 import type { OperationContext } from "@/lib/operations-center";
+import type { UnitReadiness } from "@/lib/readiness/types";
 
 import type { UnitWorkQueue } from "./build-unit-work-queue";
 import type { UnitQueryResult } from "./load-unit-queries";
@@ -57,4 +58,5 @@ export type UnitWorkspaceViewModel = {
   now: Date;
   operationContext: OperationContext;
   workQueue: UnitWorkQueue;
+  readiness: UnitReadiness;
 };

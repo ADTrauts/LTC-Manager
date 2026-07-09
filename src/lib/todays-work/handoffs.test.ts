@@ -4,11 +4,12 @@ import test from "node:test";
 import { MealType, UnitType } from "@prisma/client";
 
 import type { OperationsCenterMealBoard } from "@/lib/operations-center";
+import { computeUnitReadiness } from "@/lib/readiness";
 import { buildHandoffData, buildHandoffSections, summarizeHandoffs } from "@/lib/todays-work/handoffs";
 import { buildWalkListItems } from "@/lib/todays-work/walk-list";
 
 function walkItems() {
-  return buildWalkListItems([
+  const cards = [
     {
       id: "blocked",
       name: "West Servery",
@@ -37,7 +38,31 @@ function walkItems() {
       staffingCount: 1,
       openRepairCount: 0,
     },
-  ]);
+  ];
+
+  const readinessByUnitId = new Map(
+    cards.map((unit) => {
+      const readiness = computeUnitReadiness({
+        unitId: unit.id,
+        unitName: unit.name,
+        unitType: unit.unitType,
+        failed: unit.failed,
+        missed: unit.missed,
+        pending: unit.pending,
+        expected: unit.expected,
+        completed: unit.completed,
+        staffingCount: unit.staffingCount,
+        openRepairCount: unit.openRepairCount,
+        urgentRepairCount: 0,
+        highRepairCount: 0,
+        serveryMealNotLive: false,
+        operationPhase: "Preparation",
+      });
+      return [unit.id, readiness] as const;
+    }),
+  );
+
+  return buildWalkListItems(cards, readinessByUnitId);
 }
 
 test("buildHandoffSections groups failed logs and open call-downs into immediate follow-up", () => {

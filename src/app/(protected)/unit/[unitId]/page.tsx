@@ -71,6 +71,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     now,
     operationContext,
     workQueue,
+    readiness,
   } = view;
 
   const unitTypeLabel =
@@ -91,6 +92,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             unitName={unit.name}
             unitTypeLabel={unitTypeLabel}
             context={operationContext}
+            readiness={readiness}
           />
           {unit.unitType === "SERVERY" ? (
             <ServeryMealServiceControls

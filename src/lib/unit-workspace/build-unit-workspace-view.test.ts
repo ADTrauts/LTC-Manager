@@ -71,6 +71,7 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
   assert.equal(view.completed, 1);
   assert.equal(view.failed, 1);
   assert.equal(view.pending, 0);
+  assert.equal(view.readiness.state, "blocked");
   assert.equal(view.movedOut, 1);
   assert.equal(view.movedIn, 1);
   assert.equal(view.effectiveCoverage, 1);
@@ -96,7 +97,7 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
         },
       ],
       submissions: [],
-      schedulesToday: [],
+      schedulesToday: [{ id: "sch-1" } as never],
       overridesToday: [],
       openRepairs: [],
       mealServiceEventsToday: [],
@@ -123,4 +124,6 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
   assert.equal(view.selectedLogCategory, "Food Safety");
   assert.equal(view.selectedLogHistory.length, 1);
   assert.equal(view.mealServiceEventMessage, "Meal service ready time saved.");
+  assert.equal(view.readiness.state, "in_progress");
+  assert.match(view.readiness.reason, /still due|behind/i);
 });

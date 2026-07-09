@@ -3,7 +3,9 @@ import test from "node:test";
 
 import { UnitType } from "@prisma/client";
 
+import { computeUnitReadiness } from "@/lib/readiness";
 import type { OperationsCenterUnitCard } from "@/lib/operations-center";
+import type { UnitReadiness } from "@/lib/readiness/types";
 import { buildWalkListItems, resolveWalkListReason, summarizeWalkList } from "@/lib/todays-work/walk-list";
 
 function card(partial: Partial<OperationsCenterUnitCard> & Pick<OperationsCenterUnitCard, "id" | "name">): OperationsCenterUnitCard {
@@ -22,12 +24,40 @@ function card(partial: Partial<OperationsCenterUnitCard> & Pick<OperationsCenter
   };
 }
 
+function readinessMapFromCards(
+  cards: OperationsCenterUnitCard[],
+  operationPhase: "Preparation" | "Execution" = "Preparation",
+): Map<string, UnitReadiness> {
+  return new Map(
+    cards.map((unit) => {
+      const readiness = computeUnitReadiness({
+        unitId: unit.id,
+        unitName: unit.name,
+        unitType: unit.unitType,
+        failed: unit.failed,
+        missed: unit.missed,
+        pending: unit.pending,
+        expected: unit.expected,
+        completed: unit.completed,
+        staffingCount: unit.staffingCount,
+        openRepairCount: unit.openRepairCount,
+        urgentRepairCount: 0,
+        highRepairCount: 0,
+        serveryMealNotLive: false,
+        operationPhase,
+      });
+      return [unit.id, readiness] as const;
+    }),
+  );
+}
+
 test("buildWalkListItems orders blocked before in-progress before ready", () => {
-  const items = buildWalkListItems([
+  const cards = [
     card({ id: "ready", name: "Zebra Ready", expected: 1, completed: 1 }),
     card({ id: "blocked", name: "Alpha Blocked", failed: 2, expected: 2, completed: 0 }),
     card({ id: "progress", name: "Beta Progress", pending: 1, expected: 2, completed: 1 }),
-  ]);
+  ];
+  const items = buildWalkListItems(cards, readinessMapFromCards(cards));
 
   assert.deepEqual(
     items.map((item) => item.unitId),
@@ -39,10 +69,11 @@ test("buildWalkListItems orders blocked before in-progress before ready", () => 
 });
 
 test("buildWalkListItems ranks higher attention first within the same status", () => {
-  const items = buildWalkListItems([
+  const cards = [
     card({ id: "mild", name: "Mild", failed: 1, expected: 2 }),
     card({ id: "severe", name: "Severe", failed: 3, missed: 1, expected: 4 }),
-  ]);
+  ];
+  const items = buildWalkListItems(cards, readinessMapFromCards(cards));
 
   assert.equal(items[0]?.unitId, "severe");
   assert.equal(items[1]?.unitId, "mild");
@@ -61,13 +92,12 @@ test("resolveWalkListReason prefers failed logs then staffing then repairs", () 
 });
 
 test("summarizeWalkList counts buckets", () => {
-  const summary = summarizeWalkList(
-    buildWalkListItems([
-      card({ id: "1", name: "One", failed: 1 }),
-      card({ id: "2", name: "Two", pending: 1, expected: 1 }),
-      card({ id: "3", name: "Three", expected: 1, completed: 1 }),
-    ]),
-  );
+  const cards = [
+    card({ id: "1", name: "One", failed: 1 }),
+    card({ id: "2", name: "Two", pending: 1, expected: 1 }),
+    card({ id: "3", name: "Three", expected: 1, completed: 1 }),
+  ];
+  const summary = summarizeWalkList(buildWalkListItems(cards, readinessMapFromCards(cards)));
   assert.equal(summary.total, 3);
   assert.equal(summary.blocked, 1);
   assert.equal(summary.inProgress, 1);

@@ -84,5 +84,6 @@ export function computeReadinessBatch(input: DashboardQueryResult & { now: Date 
     byUnitId: new Map(items.map((item) => [item.unitId, item])),
     summary: summarizeReadiness(items),
     operationContext: dashboard.operationContext,
+    unitCards: dashboard.unitCards,
   };
 }

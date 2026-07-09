@@ -3,6 +3,7 @@ import { LogSubmissionStatus } from "@prisma/client";
 import { ensureMenuSettingsDefaults, menuForDate } from "@/lib/menu-cycle";
 
 import { buildUnitWorkQueue } from "./build-unit-work-queue";
+import { computeUnitWorkspaceReadiness } from "./compute-unit-workspace-readiness";
 import { normalizeLogTab } from "./normalize-log-tab";
 import { resolveUnitOperationContext } from "./resolve-unit-operation-context";
 import type { UnitQueryResult } from "./load-unit-queries";
@@ -94,6 +95,20 @@ export function buildUnitWorkspaceView(input: {
     now,
   });
 
+  const readiness = computeUnitWorkspaceReadiness({
+    unit,
+    queries,
+    mealServiceEventByMeal,
+    operationContext,
+    failed,
+    missed,
+    pending,
+    expected,
+    completed,
+    effectiveCoverage,
+    now,
+  });
+
   return {
     unit,
     queries,
@@ -118,5 +133,6 @@ export function buildUnitWorkspaceView(input: {
     now,
     operationContext,
     workQueue,
+    readiness,
   };
 }

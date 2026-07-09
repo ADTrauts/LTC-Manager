@@ -1,6 +1,6 @@
 import type { UnitType } from "@prisma/client";
 
-import type { OperationContext } from "@/lib/operations-center";
+import type { OperationContext, OperationsCenterUnitCard } from "@/lib/operations-center";
 
 export type ReadinessState = "ready" | "in_progress" | "blocked";
 
@@ -53,4 +53,5 @@ export type ReadinessBatchResult = {
   byUnitId: Map<string, UnitReadiness>;
   summary: ReadinessSummary;
   operationContext: OperationContext;
+  unitCards: OperationsCenterUnitCard[];
 };

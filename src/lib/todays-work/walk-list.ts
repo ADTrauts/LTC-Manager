@@ -1,11 +1,10 @@
 import type { UnitType } from "@prisma/client";
 
 import {
-  classifyUnitPulseStatus,
   type LocationPulseBucket,
-  type OperationContext,
   type OperationsCenterUnitCard,
 } from "@/lib/operations-center";
+import type { UnitReadiness } from "@/lib/readiness/types";
 
 export type WalkListStatus = LocationPulseBucket;
 
@@ -83,16 +82,22 @@ function attentionScore(unit: OperationsCenterUnitCard): number {
   );
 }
 
-export function buildWalkListItems(unitCards: OperationsCenterUnitCard[]): WalkListItem[] {
+export function buildWalkListItems(
+  unitCards: OperationsCenterUnitCard[],
+  readinessByUnitId: Map<string, UnitReadiness>,
+): WalkListItem[] {
   return unitCards
     .map((unit) => {
-      const status = classifyUnitPulseStatus(unit);
+      const readiness = readinessByUnitId.get(unit.id);
+      const status: WalkListStatus = readiness?.state ?? "ready";
+      const reason =
+        status === "ready" ? "No immediate exceptions" : (readiness?.reason ?? "Needs a closer look");
       return {
         unitId: unit.id,
         unitName: unit.name,
         unitType: unit.unitType,
         status,
-        reason: resolveWalkListReason(unit, status),
+        reason,
         href: `/unit/${unit.id}`,
         failed: unit.failed,
         missed: unit.missed,

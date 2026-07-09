@@ -1,5 +1,5 @@
+import { computeReadinessBatch } from "@/lib/readiness";
 import {
-  buildDashboardAggregates,
   getTodayWindow,
   loadDashboardQueries,
   type OperationContext,
@@ -17,13 +17,13 @@ export async function loadWalkList(facilityId: string): Promise<WalkListData> {
   const window = getTodayWindow();
   const now = new Date();
   const queries = await loadDashboardQueries(facilityId, window);
-  const dashboard = buildDashboardAggregates({ ...queries, now });
-  const items = buildWalkListItems(dashboard.unitCards);
+  const batch = computeReadinessBatch({ ...queries, now });
+  const items = buildWalkListItems(batch.unitCards, batch.byUnitId);
 
   return {
     items,
     summary: summarizeWalkList(items),
-    operationContext: dashboard.operationContext,
+    operationContext: batch.operationContext,
     lookFirst: items.find((item) => item.status !== "ready") ?? items[0] ?? null,
   };
 }
