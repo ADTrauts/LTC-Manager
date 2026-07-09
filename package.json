@@ -15,7 +15,8 @@
     "db:seed": "prisma db seed",
     "db:backfill-log-presets": "node scripts/backfill-log-template-presets.mjs",
     "db:backfill-gm-roster": "node scripts/backfill-gm-employees-from-users.mjs",
-    "db:provision": "node scripts/provision-facility.mjs"
+    "db:provision": "node scripts/provision-facility.mjs",
+    "db:sync-operation-instances": "npx tsx scripts/sync-operation-instances.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

@@ -20,3 +20,15 @@ export {
 export { pickActiveOperationInstance } from "./pick-active-operation-instance";
 export { resolveHeuristicActiveOperation } from "./resolve-heuristic-active-operation";
 export { resolveActiveOperation, type ResolveActiveOperationDeps } from "./resolve-active-operation";
+export {
+  buildOperationInstanceCreatePlans,
+  hasOperationInstanceForDefinition,
+  isSameServiceDate,
+  summarizeSyncOperationInstances,
+  syncOperationInstances,
+  syncOperationInstancesForFacility,
+  type ExistingOperationInstanceKey,
+  type OperationDefinitionForSync,
+  type OperationInstanceCreatePlan,
+  type SyncOperationInstancesResult,
+} from "./sync-operation-instances";
