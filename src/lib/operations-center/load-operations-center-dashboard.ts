@@ -1,5 +1,7 @@
 import { loadCallDownList } from "@/lib/todays-work/load-call-down-list";
+import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
 import { buildSitePulseFromReadinessSummary, computeReadinessBatch } from "@/lib/readiness";
+import { prisma } from "@/lib/prisma";
 import { getTodayWindow } from "./get-today-window";
 import { buildDashboardAggregates } from "./build-dashboard-aggregates";
 import { loadDashboardQueries } from "./load-dashboard-queries";
@@ -12,13 +14,20 @@ export async function loadOperationsCenterDashboard(
   const now = new Date();
   const queries = await loadDashboardQueries(facilityId, window);
   const readiness = computeReadinessBatch({ ...queries, now });
-  const [dashboard, callDowns] = await Promise.all([
-    Promise.resolve(buildDashboardAggregates({ ...queries, now })),
+  const dashboard = buildDashboardAggregates({ ...queries, now });
+  const [callDowns, activeOperation] = await Promise.all([
     loadCallDownList(facilityId),
+    resolveOperationsCenterActiveOperation(prisma, {
+      facilityId,
+      now,
+      unitCards: dashboard.unitCards,
+      mealBoards: dashboard.mealBoards,
+    }),
   ]);
 
   return {
     ...dashboard,
+    operationContext: activeOperation.operationContext,
     sitePulse: buildSitePulseFromReadinessSummary(readiness.summary),
     callDowns,
   };

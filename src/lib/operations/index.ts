@@ -32,3 +32,8 @@ export {
   type OperationInstanceCreatePlan,
   type SyncOperationInstancesResult,
 } from "./sync-operation-instances";
+export {
+  legacyOperationsCenterDepartmentId,
+  resolveOperationsCenterActiveOperation,
+  resolveOperationsCenterDepartmentId,
+} from "./resolve-operations-center-active-operation";
