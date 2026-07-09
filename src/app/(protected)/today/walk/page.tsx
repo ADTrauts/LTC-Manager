@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
+import { AppCard } from "@/components/design-system/AppCard";
 import { PageHeader } from "@/components/design-system/page-header";
 import { TodaysWorkWalkList } from "@/components/todays-work/todays-work-walk-list";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
@@ -44,9 +45,9 @@ export default async function TodaysWorkWalkPage() {
 
       <WalkListSummaryCards summary={summary} />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+      <AppCard as="section">
         <TodaysWorkWalkList items={items} lookFirst={lookFirst} />
-      </section>
+      </AppCard>
     </section>
   );
 }

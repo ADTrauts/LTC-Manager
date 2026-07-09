@@ -1,7 +1,10 @@
 import Link from "next/link";
 
+import { AppCard } from "@/components/design-system/AppCard";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { MetricCard } from "@/components/design-system/MetricCard";
+import { SectionHeader } from "@/components/design-system/SectionHeader";
+import { StatusBadge } from "@/components/design-system/StatusBadge";
 import type { HandoffItem, HandoffSection, HandoffSummary } from "@/lib/todays-work";
 
 type HandoffSummaryCardsProps = {
@@ -26,9 +29,7 @@ function HandoffListRow({ item }: { item: HandoffItem }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-zinc-900">{item.title}</p>
-            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
-              {item.categoryLabel}
-            </span>
+            <StatusBadge variant="neutral">{item.categoryLabel}</StatusBadge>
           </div>
           <p className="mt-0.5 text-sm text-zinc-600">{item.detail}</p>
         </div>
@@ -74,15 +75,14 @@ export function TodaysWorkHandoffList({ sections, isClear }: TodaysWorkHandoffLi
   return (
     <div className="space-y-6" data-testid="todays-work-handoff-list">
       {sections.map((section) => (
-        <section key={section.key} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{section.title}</p>
-          <p className="mt-1 text-sm text-zinc-600">{section.description}</p>
+        <AppCard as="section" key={section.key}>
+          <SectionHeader eyebrow={section.title} description={section.description} />
           <ul className="mt-4 divide-y divide-zinc-100">
             {section.items.map((item) => (
               <HandoffListRow key={item.id} item={item} />
             ))}
           </ul>
-        </section>
+        </AppCard>
       ))}
     </div>
   );

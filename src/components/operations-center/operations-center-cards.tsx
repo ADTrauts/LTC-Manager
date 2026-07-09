@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { UnitType } from "@prisma/client";
 
+import { AppCard } from "@/components/design-system/AppCard";
+import { MetricCard } from "@/components/design-system/MetricCard";
 import { fmtMealLabel } from "@/lib/operations-center/fmt-meal-label";
 import { getOperationsCenterCardOrder, type OperationsCenterCardId } from "@/lib/operations-center/card-registry";
 import type { OperationsCenterDashboardData } from "@/lib/operations-center/types";
@@ -9,12 +11,15 @@ type OperationsCenterCardsProps = {
   data: OperationsCenterDashboardData;
 };
 
+const linkActionClass = "rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100";
+
 function UnitExceptionsCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-900">Unit Exceptions</h2>
-      <p className="mt-1 text-xs text-zinc-500">Failed, missed, or pending logs and operational issues by location.</p>
-      <div className="mt-3 space-y-2">
+    <AppCard
+      title="Unit Exceptions"
+      subtitle="Failed, missed, or pending logs and operational issues by location."
+    >
+      <div className="space-y-2">
         {data.unitsWithExceptions.map((unit) => (
           <div key={unit.id} className="flex items-center justify-between rounded border border-zinc-200 p-2">
             <div>
@@ -24,10 +29,7 @@ function UnitExceptionsCard({ data }: { data: OperationsCenterDashboardData }) {
                 {unit.staffingCount} · Repairs {unit.openRepairCount}
               </p>
             </div>
-            <Link
-              href={`/unit/${unit.id}`}
-              className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
-            >
+            <Link href={`/unit/${unit.id}`} className={linkActionClass}>
               Open unit
             </Link>
           </div>
@@ -36,53 +38,46 @@ function UnitExceptionsCard({ data }: { data: OperationsCenterDashboardData }) {
           <p className="text-sm text-zinc-500">No log exceptions right now.</p>
         ) : null}
       </div>
-    </article>
+    </AppCard>
   );
 }
 
 function OpenRepairsCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Open Repairs</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            {data.openRepairCount} open · {data.urgentRepairCount} urgent
-          </p>
-        </div>
-        <Link href="/repairs" className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100">
+    <AppCard
+      title="Open Repairs"
+      subtitle={`${data.openRepairCount} open · ${data.urgentRepairCount} urgent`}
+      actions={
+        <Link href="/repairs" className={linkActionClass}>
           View repairs
         </Link>
-      </div>
+      }
+    >
       {data.urgentRepairCount > 0 ? (
-        <p className="mt-3 text-sm font-medium text-red-700">
+        <p className="text-sm font-medium text-red-700">
           Urgent equipment issues need supervisor follow-up before service.
         </p>
       ) : data.openRepairCount > 0 ? (
-        <p className="mt-3 text-sm text-zinc-600">Review open work orders and assign recovery owners.</p>
+        <p className="text-sm text-zinc-600">Review open work orders and assign recovery owners.</p>
       ) : (
-        <p className="mt-3 text-sm text-zinc-500">No open repairs.</p>
+        <p className="text-sm text-zinc-500">No open repairs.</p>
       )}
-    </article>
+    </AppCard>
   );
 }
 
 function StaffingGapsCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Staffing Gaps</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            {data.unitsMissingStaffing.length} location{data.unitsMissingStaffing.length === 1 ? "" : "s"} missing
-            coverage today
-          </p>
-        </div>
-        <Link href="/staffing" className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100">
+    <AppCard
+      title="Staffing Gaps"
+      subtitle={`${data.unitsMissingStaffing.length} location${data.unitsMissingStaffing.length === 1 ? "" : "s"} missing coverage today`}
+      actions={
+        <Link href="/staffing" className={linkActionClass}>
           Open staffing
         </Link>
-      </div>
-      <ul className="mt-3 space-y-1 text-sm text-zinc-700">
+      }
+    >
+      <ul className="space-y-1 text-sm text-zinc-700">
         {data.unitsMissingStaffing.map((unit) => (
           <li key={unit.id}>
             <Link href={`/staffing?unitId=${unit.id}`} className="text-zinc-900 underline hover:text-zinc-700">
@@ -94,7 +89,7 @@ function StaffingGapsCard({ data }: { data: OperationsCenterDashboardData }) {
           <li className="text-zinc-500">All staffed locations have coverage scheduled.</li>
         ) : null}
       </ul>
-    </article>
+    </AppCard>
   );
 }
 
@@ -107,19 +102,17 @@ function CallDownsCard({ data }: { data: OperationsCenterDashboardData }) {
   const openItems = callDowns.items.filter((item) => item.status === "open");
 
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="operations-center-call-downs">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Call-downs</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            {openItems.length} open · {callDowns.summary.total} logged today
-          </p>
-        </div>
-        <Link href="/today" className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100">
+    <AppCard
+      title="Call-downs"
+      subtitle={`${openItems.length} open · ${callDowns.summary.total} logged today`}
+      actions={
+        <Link href="/today" className={linkActionClass}>
           Today&apos;s Work
         </Link>
-      </div>
-      <ul className="mt-3 space-y-2 text-sm text-zinc-700">
+      }
+      data-testid="operations-center-call-downs"
+    >
+      <ul className="space-y-2 text-sm text-zinc-700">
         {openItems.slice(0, 5).map((item) => (
           <li key={item.id} className="rounded border border-zinc-200 p-2">
             <p className="font-medium text-zinc-900">{item.employeeName}</p>
@@ -128,66 +121,48 @@ function CallDownsCard({ data }: { data: OperationsCenterDashboardData }) {
               {item.oldUnitName ?? item.newUnitName}
               {item.oldUnitName && item.oldUnitName !== item.newUnitName ? ` → ${item.newUnitName}` : ""}
             </p>
-            <Link href={item.staffingHref} className="mt-2 inline-block text-xs font-medium text-zinc-900 underline hover:text-zinc-700">
+            <Link
+              href={item.staffingHref}
+              className="mt-2 inline-block text-xs font-medium text-zinc-900 underline hover:text-zinc-700"
+            >
               Fix staffing
             </Link>
           </li>
         ))}
-        {openItems.length === 0 ? (
-          <li className="text-zinc-500">No open call-downs right now.</li>
-        ) : null}
+        {openItems.length === 0 ? <li className="text-zinc-500">No open call-downs right now.</li> : null}
       </ul>
-    </article>
+    </AppCard>
   );
 }
 
 function ComplianceSummaryCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Expected Logs</p>
-        <p className="mt-2 text-2xl font-semibold text-zinc-900">{data.totals.expected}</p>
-      </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Completed</p>
-        <p className="mt-2 text-2xl font-semibold text-green-700">{data.totals.completed}</p>
-      </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Pending</p>
-        <p className="mt-2 text-2xl font-semibold text-yellow-700">{data.totals.pending}</p>
-      </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Failed</p>
-        <p className="mt-2 text-2xl font-semibold text-red-700">{data.totals.failed}</p>
-      </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Missed</p>
-        <p className="mt-2 text-2xl font-semibold text-red-700">{data.totals.missed}</p>
-      </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Units Missing Staffing</p>
-        <p className="mt-2 text-2xl font-semibold text-red-700">{data.unitsMissingStaffing.length}</p>
-      </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Open Repairs</p>
-        <p className="mt-2 text-2xl font-semibold text-red-700">
-          {data.openRepairCount}
-          <span className="ml-1 text-sm font-medium text-zinc-500">({data.urgentRepairCount} urgent)</span>
-        </p>
-      </div>
+      <MetricCard label="Expected Logs" value={data.totals.expected} tone="default" />
+      <MetricCard label="Completed" value={data.totals.completed} tone="ready" icon="success" />
+      <MetricCard label="Pending" value={data.totals.pending} tone="in_progress" icon="inProgress" />
+      <MetricCard label="Failed" value={data.totals.failed} tone="blocked" icon="blocked" />
+      <MetricCard label="Missed" value={data.totals.missed} tone="blocked" />
+      <MetricCard label="Units Missing Staffing" value={data.unitsMissingStaffing.length} tone="blocked" />
+      <MetricCard
+        label="Open Repairs"
+        value={data.openRepairCount}
+        hint={`${data.urgentRepairCount} urgent`}
+        tone="blocked"
+        icon="repairs"
+      />
     </section>
   );
 }
 
 function MealBoardsCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-900">Meal Boards</h2>
-      <p className="mt-1 max-w-3xl text-xs text-zinc-500">
-        Serveries list only while a ready or started tap for that meal is within the last hour; status shows Ready
-        and/or Started. Other units show log status (Logged or Not logged).
-      </p>
-      <div className="mt-3 grid gap-4 lg:grid-cols-3">
+    <AppCard
+      as="section"
+      title="Meal Boards"
+      subtitle="Serveries list only while a ready or started tap for that meal is within the last hour; status shows Ready and/or Started. Other units show log status (Logged or Not logged)."
+    >
+      <div className="grid gap-4 lg:grid-cols-3">
         {data.mealBoards.map((board) => (
           <article key={board.meal} className="rounded-lg border border-zinc-200 p-3">
             <h3 className="text-sm font-semibold text-zinc-900">{fmtMealLabel(board.meal)}</h3>
@@ -217,15 +192,14 @@ function MealBoardsCard({ data }: { data: OperationsCenterDashboardData }) {
           </article>
         ))}
       </div>
-    </section>
+    </AppCard>
   );
 }
 
 function UnitLogBoardCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-900">Unit Log Board</h2>
-      <div className="mt-3 overflow-x-auto">
+    <AppCard title="Unit Log Board">
+      <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-zinc-500">
@@ -251,7 +225,7 @@ function UnitLogBoardCard({ data }: { data: OperationsCenterDashboardData }) {
           </tbody>
         </table>
       </div>
-    </article>
+    </AppCard>
   );
 }
 

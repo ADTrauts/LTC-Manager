@@ -8,6 +8,7 @@ export type AppCardProps = {
   className?: string;
   children?: ReactNode;
   as?: "article" | "section" | "div";
+  "aria-labelledby"?: string;
   "data-testid"?: string;
 };
 
@@ -29,6 +30,7 @@ export function AppCard({
   className = "",
   children,
   as: Root = "article",
+  "aria-labelledby": ariaLabelledBy,
   "data-testid": dataTestId,
 }: AppCardProps) {
   const hasHeader = Boolean(title || subtitle || actions);
@@ -36,6 +38,7 @@ export function AppCard({
   return (
     <Root
       className={`rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 ${className}`.trim()}
+      aria-labelledby={ariaLabelledBy}
       data-testid={dataTestId}
     >
       {hasHeader ? (

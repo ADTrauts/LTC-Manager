@@ -1,3 +1,6 @@
+import { AppCard } from "@/components/design-system/AppCard";
+import { EmptyState } from "@/components/design-system/EmptyState";
+import { SectionHeader } from "@/components/design-system/SectionHeader";
 import type { CoverageItem } from "@/lib/todays-work";
 
 import { CoverageListRow } from "./coverage-list-row";
@@ -23,48 +26,56 @@ export function TodaysWorkCoverageList({ items, priorityGap }: TodaysWorkCoverag
     <div className="space-y-6" data-testid="todays-work-coverage-list">
       {primaryGap ? (
         <section>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Resolve first</p>
+          <SectionHeader eyebrow="Resolve first" className="mb-3" />
           <ul>
             <CoverageListRow item={primaryGap} emphasized />
           </ul>
         </section>
       ) : (
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="font-semibold text-emerald-900">All locations have coverage scheduled</p>
-          <p className="mt-1 text-sm text-emerald-800">Use the covered list below for routine verification.</p>
-        </section>
+        <EmptyState
+          icon="ready"
+          title="All locations have coverage scheduled"
+          description="Use the covered list below for routine verification."
+          tone="success"
+        />
       )}
 
       {remainingGaps.length > 0 ? (
         <section>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Other gaps</p>
-          <ul className="divide-y divide-zinc-100 rounded-xl border border-red-200 bg-white px-4">
-            {remainingGaps.map((item) => (
-              <CoverageListRow key={item.unitId} item={item} />
-            ))}
-          </ul>
+          <SectionHeader eyebrow="Other gaps" className="mb-3" />
+          <AppCard as="div" className="border-red-200 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+            <ul className="divide-y divide-zinc-100">
+              {remainingGaps.map((item) => (
+                <CoverageListRow key={item.unitId} item={item} />
+              ))}
+            </ul>
+          </AppCard>
         </section>
       ) : null}
 
       {remainingThin.length > 0 ? (
         <section>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Thin coverage</p>
-          <ul className="divide-y divide-zinc-100 rounded-xl border border-amber-200 bg-white px-4">
-            {remainingThin.map((item) => (
-              <CoverageListRow key={item.unitId} item={item} />
-            ))}
-          </ul>
+          <SectionHeader eyebrow="Thin coverage" className="mb-3" />
+          <AppCard as="div" className="border-amber-200 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+            <ul className="divide-y divide-zinc-100">
+              {remainingThin.map((item) => (
+                <CoverageListRow key={item.unitId} item={item} />
+              ))}
+            </ul>
+          </AppCard>
         </section>
       ) : null}
 
       {coveredItems.length > 0 ? (
         <section>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Covered locations</p>
-          <ul className="divide-y divide-zinc-100 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-4">
-            {coveredItems.map((item) => (
-              <CoverageListRow key={item.unitId} item={item} />
-            ))}
-          </ul>
+          <SectionHeader eyebrow="Covered locations" muted className="mb-3" />
+          <AppCard as="div" className="border-dashed bg-zinc-50/80 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+            <ul className="divide-y divide-zinc-100">
+              {coveredItems.map((item) => (
+                <CoverageListRow key={item.unitId} item={item} />
+              ))}
+            </ul>
+          </AppCard>
         </section>
       ) : null}
     </div>

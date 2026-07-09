@@ -1,6 +1,10 @@
 import Link from "next/link";
 
+import { AppCard } from "@/components/design-system/AppCard";
+import { EmptyState } from "@/components/design-system/EmptyState";
 import { MetricCard } from "@/components/design-system/MetricCard";
+import { SectionHeader } from "@/components/design-system/SectionHeader";
+import { StatusBadge } from "@/components/design-system/StatusBadge";
 import type { CallDownItem, CallDownSummary } from "@/lib/todays-work";
 
 type CallDownSummaryCardsProps = {
@@ -39,9 +43,7 @@ function CallDownListRow({ item, emphasized = false }: CallDownListRowProps) {
           <div className="flex flex-wrap items-center gap-2">
             <p className={`font-semibold text-zinc-900 ${emphasized ? "text-lg" : ""}`}>{item.employeeName}</p>
             {item.templateLabel ? (
-              <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700">
-                {item.templateLabel}
-              </span>
+              <StatusBadge variant="neutral">{item.templateLabel}</StatusBadge>
             ) : null}
           </div>
           <p className="mt-0.5 text-sm text-zinc-600">{item.reason}</p>
@@ -50,15 +52,7 @@ function CallDownListRow({ item, emphasized = false }: CallDownListRowProps) {
             {item.mealType ? ` · ${item.mealType}` : ""}
           </p>
         </div>
-        <span
-          className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
-            item.status === "open"
-              ? "border-red-200 bg-red-50 text-red-800"
-              : "border-emerald-200 bg-emerald-50 text-emerald-900"
-          }`}
-        >
-          {item.statusLabel}
-        </span>
+        <StatusBadge variant={item.status === "open" ? "blocked" : "ready"}>{item.statusLabel}</StatusBadge>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <Link
             href={item.staffingHref}
@@ -91,49 +85,48 @@ export function TodaysWorkCallDownList({ items, compact = false }: TodaysWorkCal
 
   if (items.length === 0) {
     return (
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="todays-work-call-down-list">
-        <p className="text-sm font-semibold text-zinc-900">Open call-downs</p>
-        <p className="mt-2 text-sm text-zinc-500">No call-down overrides logged for today.</p>
-      </section>
+      <AppCard as="section" title="Open call-downs" data-testid="todays-work-call-down-list">
+        <p className="text-sm text-zinc-500">No call-down overrides logged for today.</p>
+      </AppCard>
     );
   }
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="todays-work-call-down-list">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Call-downs</p>
-          <h2 className="mt-1 text-lg font-semibold text-zinc-900">Open coverage risks</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Overrides logged with call-down reasons stay visible until the affected location is covered.
-          </p>
-        </div>
-        {!compact ? (
-          <Link
-            href="/staffing"
-            className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-          >
-            Log call-down
-          </Link>
-        ) : null}
-      </div>
+    <AppCard as="section" data-testid="todays-work-call-down-list">
+      <SectionHeader
+        eyebrow="Call-downs"
+        title="Open coverage risks"
+        description="Overrides logged with call-down reasons stay visible until the affected location is covered."
+        actions={
+          !compact ? (
+            <Link
+              href="/staffing"
+              className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+            >
+              Log call-down
+            </Link>
+          ) : undefined
+        }
+      />
 
       {primaryOpen ? (
         <div className="mt-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Resolve first</p>
+          <SectionHeader eyebrow="Resolve first" className="mb-3" />
           <ul>
             <CallDownListRow item={primaryOpen} emphasized />
           </ul>
         </div>
       ) : (
-        <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          All logged call-downs are covered for today.
-        </p>
+        <EmptyState
+          className="mt-4"
+          title="All logged call-downs are covered for today."
+          tone="success"
+        />
       )}
 
       {remainingOpen.length > 0 ? (
         <div className="mt-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Other open call-downs</p>
+          <SectionHeader eyebrow="Other open call-downs" className="mb-3" />
           <ul className="divide-y divide-zinc-100">
             {remainingOpen.map((item) => (
               <CallDownListRow key={item.id} item={item} />
@@ -144,14 +137,16 @@ export function TodaysWorkCallDownList({ items, compact = false }: TodaysWorkCal
 
       {!compact && coveredItems.length > 0 ? (
         <div className="mt-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Covered today</p>
-          <ul className="divide-y divide-zinc-100 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-4">
-            {(compact ? coveredItems.slice(0, 3) : coveredItems).map((item) => (
-              <CallDownListRow key={item.id} item={item} />
-            ))}
-          </ul>
+          <SectionHeader eyebrow="Covered today" muted className="mb-3" />
+          <AppCard as="div" className="border-dashed bg-zinc-50/80 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+            <ul className="divide-y divide-zinc-100">
+              {(compact ? coveredItems.slice(0, 3) : coveredItems).map((item) => (
+                <CallDownListRow key={item.id} item={item} />
+              ))}
+            </ul>
+          </AppCard>
         </div>
       ) : null}
-    </section>
+    </AppCard>
   );
 }

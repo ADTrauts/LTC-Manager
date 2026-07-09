@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
+import { ActionCard } from "@/components/design-system/ActionCard";
+import { AppCard } from "@/components/design-system/AppCard";
+import { EmptyState } from "@/components/design-system/EmptyState";
 import { PageHeader } from "@/components/design-system/page-header";
+import { SectionHeader } from "@/components/design-system/SectionHeader";
+import { resolveLocationIconKey } from "@/lib/design-system";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
 import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
@@ -41,40 +46,46 @@ export default async function TodaysWorkHubPage() {
       <WalkListSummaryCards summary={summary} />
 
       {lookFirst && lookFirst.status !== "ready" ? (
-        <section className="rounded-xl border-2 border-zinc-900 bg-zinc-50 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Look here first</p>
-          <h2 className="mt-1 text-xl font-semibold text-zinc-900">{lookFirst.unitName}</h2>
-          <p className="mt-1 text-sm text-zinc-700">{lookFirst.reason}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href={lookFirst.href}
-              className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-            >
-              Open unit workspace
-            </Link>
-            <Link
-              href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
-              className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-            >
-              Check staffing
-            </Link>
-          </div>
+        <section>
+          <SectionHeader eyebrow="Look here first" className="mb-2" />
+          <ActionCard
+          emphasized
+          icon={resolveLocationIconKey({ unitType: lookFirst.unitType, name: lookFirst.unitName })}
+          title={lookFirst.unitName}
+          description={lookFirst.reason}
+          cta={
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={lookFirst.href}
+                className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
+              >
+                Open unit workspace
+              </Link>
+              <Link
+                href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
+                className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+              >
+                Check staffing
+              </Link>
+            </div>
+          }
+          />
         </section>
       ) : (
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="font-semibold text-emerald-900">No blocked locations right now</p>
-          <p className="mt-1 text-sm text-emerald-800">
-            Walk preview still lists active locations if you want a routine pass.
-          </p>
-        </section>
+        <EmptyState
+          icon="ready"
+          title="No blocked locations right now"
+          description="Walk preview still lists active locations if you want a routine pass."
+          tone="success"
+        />
       )}
 
       <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
 
       <TodaysWorkCallDownList items={callDowns.items} />
 
-      <section className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Related</p>
+      <AppCard as="section" className="border-dashed bg-zinc-50/80">
+        <SectionHeader eyebrow="Related" muted />
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
           <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Full walk list
@@ -92,7 +103,7 @@ export default async function TodaysWorkHubPage() {
             Staffing
           </Link>
         </div>
-      </section>
+      </AppCard>
     </section>
   );
 }
