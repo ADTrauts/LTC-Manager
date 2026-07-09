@@ -1,5 +1,8 @@
-import { AppCard } from "@/components/design-system/AppCard";
 import { EmptyState } from "@/components/design-system/EmptyState";
+import {
+  operationalListShellClass,
+  operationalListShellMutedClass,
+} from "@/components/design-system/OperationalListRow";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import type { WalkListItem } from "@/lib/todays-work";
 
@@ -26,7 +29,7 @@ export function TodaysWorkWalkList({
   }
 
   return (
-    <div className="space-y-6" data-testid="todays-work-walk-list">
+    <div className="space-y-5 sm:space-y-6" data-testid="todays-work-walk-list">
       {primaryItem ? (
         <section>
           <SectionHeader eyebrow="Look here first" className="mb-3" />
@@ -40,26 +43,27 @@ export function TodaysWorkWalkList({
           title="All locations look ready"
           description="Use the healthy list below for routine verification."
           tone="success"
+          inset
         />
       )}
 
       {remainingAttention.length > 0 ? (
         <section>
           <SectionHeader eyebrow="Remaining route" className="mb-3" />
-          <AppCard as="div" className="px-4 py-0 shadow-none sm:px-4 sm:py-0">
+          <div className={operationalListShellClass}>
             <ul className="divide-y divide-zinc-100">
               {remainingAttention.map((item, index) => (
                 <WalkListRow key={item.unitId} item={item} rank={index + 2} />
               ))}
             </ul>
-          </AppCard>
+          </div>
         </section>
       ) : null}
 
       {showHealthySection && healthyItems.length > 0 ? (
         <section>
           <SectionHeader eyebrow="Healthy locations" muted className="mb-3" />
-          <AppCard as="div" className="border-dashed bg-zinc-50/80 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+          <div className={operationalListShellMutedClass}>
             <ul className="divide-y divide-zinc-100">
               {healthyItems.map((item, index) => (
                 <WalkListRow
@@ -69,7 +73,7 @@ export function TodaysWorkWalkList({
                 />
               ))}
             </ul>
-          </AppCard>
+          </div>
         </section>
       ) : null}
     </div>

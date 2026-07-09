@@ -35,7 +35,7 @@ export function UnitOperationContextHeader({
           {readiness.state !== "ready" ? (
             <p className="text-sm text-zinc-500">{readiness.reason}</p>
           ) : null}
-          <OperationContextBanner context={context} />
+          <OperationContextBanner context={context} embedded />
         </>
       }
     />

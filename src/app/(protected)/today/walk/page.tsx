@@ -40,7 +40,7 @@ export default async function TodaysWorkWalkPage() {
             Back to hub
           </Link>
         }
-        below={<OperationContextBanner context={operationContext} />}
+        below={<OperationContextBanner context={operationContext} embedded />}
       />
 
       <WalkListSummaryCards summary={summary} />

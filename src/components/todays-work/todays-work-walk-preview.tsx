@@ -31,9 +31,9 @@ export function TodaysWorkWalkPreview({ items, lookFirst }: TodaysWorkWalkPrevie
       />
 
       {preview.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-500">No active locations configured.</p>
+        <p className="mt-4 border-t border-zinc-100 pt-4 text-sm text-zinc-500">No active locations configured.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-zinc-100">
+        <ul className="mt-4 divide-y divide-zinc-100 border-t border-zinc-100 pt-4">
           {preview.map((item, index) => (
             <WalkListRow key={item.unitId} item={item} rank={index + 1} />
           ))}

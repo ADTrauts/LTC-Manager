@@ -44,7 +44,7 @@ export default async function TodaysWorkCoveragePage() {
             Back to hub
           </Link>
         }
-        below={<OperationContextBanner context={operationContext} />}
+        below={<OperationContextBanner context={operationContext} embedded />}
       />
 
       <CoverageSummaryCards summary={summary} />

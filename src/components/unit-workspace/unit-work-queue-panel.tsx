@@ -77,6 +77,7 @@ export function UnitWorkQueuePanel({ queue }: UnitWorkQueuePanelProps) {
           title="All caught up for this meal period"
           description="No failed logs, pending submissions, servery milestones, or open repairs need attention right now."
           tone="success"
+          inset
         />
       ) : (
         <div className="mt-3 space-y-4">

@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             compact
           />
           <div className="space-y-6">
-            <OperationContextBanner context={data.operationContext} />
+            <OperationContextBanner context={data.operationContext} embedded />
             <SitePulseSummaryCard pulse={data.sitePulse} />
             <OperationsCenterCards data={data} />
             <SecondaryTeamLinks birthdayCount={data.birthdaysThisMonth.length} />

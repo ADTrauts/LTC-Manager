@@ -9,6 +9,8 @@ export type EmptyStateProps = {
   description?: string;
   action?: ReactNode;
   tone?: StatusTone;
+  /** Softer surface when nested inside another card or panel. */
+  inset?: boolean;
   className?: string;
   "data-testid"?: string;
 };
@@ -19,17 +21,18 @@ export function EmptyState({
   description,
   action,
   tone = "neutral",
+  inset = false,
   className = "",
   "data-testid": dataTestId,
 }: EmptyStateProps) {
   const Icon = icon ? AppIcons[icon] : null;
   const isTinted = tone === "ready" || tone === "success" || tone === "blocked" || tone === "warning" || tone === "in_progress";
+  const surfaceClass = inset
+    ? `rounded-lg border p-4 shadow-none ${statusSurfaceClass(tone)}`
+    : `rounded-xl border p-5 ${statusSurfaceClass(tone)}`;
 
   return (
-    <div
-      className={`rounded-xl border p-5 ${statusSurfaceClass(tone)} ${className}`.trim()}
-      data-testid={dataTestId}
-    >
+    <div className={`${surfaceClass} ${className}`.trim()} data-testid={dataTestId}>
       <div className="flex items-start gap-3">
         {Icon ? (
           <span

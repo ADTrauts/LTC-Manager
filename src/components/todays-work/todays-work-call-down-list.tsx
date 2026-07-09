@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/design-system/EmptyState";
 import { MetricCard } from "@/components/design-system/MetricCard";
 import {
   OperationalListRow,
+  operationalListShellMutedClass,
   operationalRowActionPrimaryClass,
   operationalRowActionSecondaryClass,
 } from "@/components/design-system/OperationalListRow";
@@ -99,46 +100,45 @@ export function TodaysWorkCallDownList({ items, compact = false }: TodaysWorkCal
             </Link>
           ) : undefined
         }
+        className="border-b border-zinc-100 pb-4"
       />
 
-      {primaryOpen ? (
-        <div className="mt-4">
-          <SectionHeader eyebrow="Resolve first" className="mb-3" />
-          <ul>
-            <CallDownListRow item={primaryOpen} emphasized />
-          </ul>
-        </div>
-      ) : (
-        <EmptyState
-          className="mt-4"
-          title="All logged call-downs are covered for today."
-          tone="success"
-        />
-      )}
+      <div className="space-y-4 pt-4">
+        {primaryOpen ? (
+          <div>
+            <SectionHeader eyebrow="Resolve first" className="mb-3" />
+            <ul>
+              <CallDownListRow item={primaryOpen} emphasized />
+            </ul>
+          </div>
+        ) : (
+          <EmptyState inset title="All logged call-downs are covered for today." tone="success" />
+        )}
 
-      {remainingOpen.length > 0 ? (
-        <div className="mt-4">
-          <SectionHeader eyebrow="Other open call-downs" className="mb-3" />
-          <ul className="divide-y divide-zinc-100">
-            {remainingOpen.map((item) => (
-              <CallDownListRow key={item.id} item={item} />
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {!compact && coveredItems.length > 0 ? (
-        <div className="mt-4">
-          <SectionHeader eyebrow="Covered today" muted className="mb-3" />
-          <AppCard as="div" className="border-dashed bg-zinc-50/80 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+        {remainingOpen.length > 0 ? (
+          <div>
+            <SectionHeader eyebrow="Other open call-downs" className="mb-3" />
             <ul className="divide-y divide-zinc-100">
-              {(compact ? coveredItems.slice(0, 3) : coveredItems).map((item) => (
+              {remainingOpen.map((item) => (
                 <CallDownListRow key={item.id} item={item} />
               ))}
             </ul>
-          </AppCard>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+
+        {!compact && coveredItems.length > 0 ? (
+          <div>
+            <SectionHeader eyebrow="Covered today" muted className="mb-3" />
+            <div className={operationalListShellMutedClass}>
+              <ul className="divide-y divide-zinc-100">
+                {(compact ? coveredItems.slice(0, 3) : coveredItems).map((item) => (
+                  <CallDownListRow key={item.id} item={item} />
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </AppCard>
   );
 }

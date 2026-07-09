@@ -37,7 +37,7 @@ export function MetricCard({
         {Icon ? <Icon className={`h-4 w-4 shrink-0 ${statusLabelClass(tone)}`} aria-hidden /> : null}
       </div>
       <div className="mt-2 flex flex-wrap items-end gap-2">
-        <p className={`text-3xl font-semibold ${statusValueClass(tone)}`}>{value}</p>
+        <p className={`text-2xl font-semibold sm:text-3xl ${statusValueClass(tone)}`}>{value}</p>
         {trend ? <div className="pb-0.5 text-sm text-zinc-600">{trend}</div> : null}
       </div>
       {hint ? <p className={`mt-1 text-xs ${statusHintClass(tone)}`}>{hint}</p> : null}

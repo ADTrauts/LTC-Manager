@@ -40,7 +40,7 @@ export default async function TodaysWorkHubPage() {
         eyebrow="Today's Work"
         title="Supervisor hub"
         subtitle="Start with the highest-risk locations for the current meal period, then review handoffs before the next operation."
-        below={<OperationContextBanner context={operationContext} />}
+        below={<OperationContextBanner context={operationContext} embedded />}
       />
 
       <WalkListSummaryCards summary={summary} />
@@ -77,6 +77,7 @@ export default async function TodaysWorkHubPage() {
           title="No blocked locations right now"
           description="Walk preview still lists active locations if you want a routine pass."
           tone="success"
+          inset
         />
       )}
 
@@ -84,9 +85,9 @@ export default async function TodaysWorkHubPage() {
 
       <TodaysWorkCallDownList items={callDowns.items} />
 
-      <AppCard as="section" className="border-dashed bg-zinc-50/80">
-        <SectionHeader eyebrow="Related" muted />
-        <div className="mt-2 flex flex-wrap gap-3 text-sm">
+      <AppCard as="section" className="border-dashed bg-zinc-50/80 shadow-none">
+        <SectionHeader eyebrow="Related" muted className="mb-2" />
+        <div className="flex flex-wrap gap-3 text-sm">
           <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Full walk list
           </Link>

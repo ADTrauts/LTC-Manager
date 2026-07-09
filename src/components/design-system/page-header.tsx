@@ -73,7 +73,7 @@ export function PageHeader({
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {below ? <div className="space-y-2.5">{below}</div> : null}
+      {below ? <div className="space-y-3 pt-1">{below}</div> : null}
     </Root>
   );
 }

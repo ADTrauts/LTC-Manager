@@ -38,7 +38,9 @@ export function ActionCard({
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+          <h3 className={`font-semibold text-zinc-900 ${emphasized ? "text-lg sm:text-xl" : "text-base"}`}>
+            {title}
+          </h3>
           <p className="mt-1 text-sm text-zinc-600">{description}</p>
           <div className="mt-4">{cta}</div>
         </div>

@@ -1,5 +1,8 @@
-import { AppCard } from "@/components/design-system/AppCard";
 import { EmptyState } from "@/components/design-system/EmptyState";
+import {
+  operationalListShellClass,
+  operationalListShellMutedClass,
+} from "@/components/design-system/OperationalListRow";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import type { CoverageItem } from "@/lib/todays-work";
 
@@ -23,7 +26,7 @@ export function TodaysWorkCoverageList({ items, priorityGap }: TodaysWorkCoverag
   }
 
   return (
-    <div className="space-y-6" data-testid="todays-work-coverage-list">
+    <div className="space-y-5 sm:space-y-6" data-testid="todays-work-coverage-list">
       {primaryGap ? (
         <section>
           <SectionHeader eyebrow="Resolve first" className="mb-3" />
@@ -37,45 +40,46 @@ export function TodaysWorkCoverageList({ items, priorityGap }: TodaysWorkCoverag
           title="All locations have coverage scheduled"
           description="Use the covered list below for routine verification."
           tone="success"
+          inset
         />
       )}
 
       {remainingGaps.length > 0 ? (
         <section>
           <SectionHeader eyebrow="Other gaps" className="mb-3" />
-          <AppCard as="div" className="border-red-200 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+          <div className={`${operationalListShellClass} border-red-200`}>
             <ul className="divide-y divide-zinc-100">
               {remainingGaps.map((item) => (
                 <CoverageListRow key={item.unitId} item={item} />
               ))}
             </ul>
-          </AppCard>
+          </div>
         </section>
       ) : null}
 
       {remainingThin.length > 0 ? (
         <section>
           <SectionHeader eyebrow="Thin coverage" className="mb-3" />
-          <AppCard as="div" className="border-amber-200 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+          <div className={`${operationalListShellClass} border-amber-200`}>
             <ul className="divide-y divide-zinc-100">
               {remainingThin.map((item) => (
                 <CoverageListRow key={item.unitId} item={item} />
               ))}
             </ul>
-          </AppCard>
+          </div>
         </section>
       ) : null}
 
       {coveredItems.length > 0 ? (
         <section>
           <SectionHeader eyebrow="Covered locations" muted className="mb-3" />
-          <AppCard as="div" className="border-dashed bg-zinc-50/80 px-4 py-0 shadow-none sm:px-4 sm:py-0">
+          <div className={operationalListShellMutedClass}>
             <ul className="divide-y divide-zinc-100">
               {coveredItems.map((item) => (
                 <CoverageListRow key={item.unitId} item={item} />
               ))}
             </ul>
-          </AppCard>
+          </div>
         </section>
       ) : null}
     </div>

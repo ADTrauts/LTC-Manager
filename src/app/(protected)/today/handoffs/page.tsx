@@ -38,7 +38,7 @@ export default async function TodaysWorkHandoffsPage() {
             Back to hub
           </Link>
         }
-        below={<OperationContextBanner context={operationContext} />}
+        below={<OperationContextBanner context={operationContext} embedded />}
       />
 
       {!isClear ? <HandoffSummaryCards summary={summary} /> : null}
