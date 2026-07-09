@@ -28,6 +28,7 @@ export async function resolveActiveOperation(
       departmentId: input.departmentId,
       now,
       heuristicHints: input.heuristicHints,
+      unitHeuristicHints: input.unitHeuristicHints,
     });
 
   const engineEnabled = (deps.isEngineEnabled ?? isOperationEngineEnabled)();

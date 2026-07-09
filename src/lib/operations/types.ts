@@ -37,11 +37,20 @@ export type ResolveActiveOperationHeuristicHints = {
   mealBoards: import("@/lib/operations-center").OperationsCenterMealBoard[];
 };
 
+export type ResolveActiveOperationUnitHeuristicHints = {
+  unit: import("@/lib/unit-workspace/types").UnitWorkspaceUnit;
+  mealServiceEventByMeal: Map<
+    MealType,
+    import("@/lib/unit-workspace/types").UnitWorkspaceMealServiceEventToday
+  >;
+};
+
 export type ResolveActiveOperationInput = {
   facilityId: string;
   departmentId: string;
   now?: Date;
   heuristicHints?: ResolveActiveOperationHeuristicHints;
+  unitHeuristicHints?: ResolveActiveOperationUnitHeuristicHints;
 };
 
 export type ResolvedActiveOperation = {
