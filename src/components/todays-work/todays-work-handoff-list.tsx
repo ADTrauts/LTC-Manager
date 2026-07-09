@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { EmptyState } from "@/components/design-system/EmptyState";
+import { MetricCard } from "@/components/design-system/MetricCard";
 import type { HandoffItem, HandoffSection, HandoffSummary } from "@/lib/todays-work";
 
 type HandoffSummaryCardsProps = {
@@ -9,22 +11,10 @@ type HandoffSummaryCardsProps = {
 export function HandoffSummaryCards({ summary }: HandoffSummaryCardsProps) {
   return (
     <section className="grid gap-3 sm:grid-cols-4" data-testid="handoff-summary">
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-red-700">Critical</p>
-        <p className="mt-2 text-3xl font-semibold text-red-900">{summary.critical}</p>
-      </div>
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">High</p>
-        <p className="mt-2 text-3xl font-semibold text-amber-950">{summary.high}</p>
-      </div>
-      <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-600">Normal</p>
-        <p className="mt-2 text-3xl font-semibold text-zinc-900">{summary.normal}</p>
-      </div>
-      <div className="rounded-xl border border-zinc-200 bg-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Total</p>
-        <p className="mt-2 text-3xl font-semibold text-zinc-900">{summary.total}</p>
-      </div>
+      <MetricCard label="Critical" value={summary.critical} tone="blocked" />
+      <MetricCard label="High" value={summary.high} tone="warning" />
+      <MetricCard label="Normal" value={summary.normal} tone="neutral" />
+      <MetricCard label="Total" value={summary.total} tone="default" />
     </section>
   );
 }
@@ -71,16 +61,13 @@ type TodaysWorkHandoffListProps = {
 export function TodaysWorkHandoffList({ sections, isClear }: TodaysWorkHandoffListProps) {
   if (isClear) {
     return (
-      <section
-        className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
+      <EmptyState
+        icon="success"
+        title="Nothing pending between teams right now"
+        description="Failed checks, open repairs, call-downs, and coverage gaps will appear here when they need follow-up before the next operation."
+        tone="success"
         data-testid="todays-work-handoff-list"
-      >
-        <p className="font-semibold text-emerald-900">Nothing pending between teams right now</p>
-        <p className="mt-2 text-sm text-emerald-800">
-          Failed checks, open repairs, call-downs, and coverage gaps will appear here when they need follow-up before
-          the next operation.
-        </p>
-      </section>
+      />
     );
   }
 

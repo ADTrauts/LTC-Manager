@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MetricCard } from "@/components/design-system/MetricCard";
 import type { CallDownItem, CallDownSummary } from "@/lib/todays-work";
 
 type CallDownSummaryCardsProps = {
@@ -9,21 +10,9 @@ type CallDownSummaryCardsProps = {
 export function CallDownSummaryCards({ summary }: CallDownSummaryCardsProps) {
   return (
     <section className="grid gap-3 sm:grid-cols-3" data-testid="call-down-summary">
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-red-700">Open</p>
-        <p className="mt-2 text-3xl font-semibold text-red-900">{summary.open}</p>
-        <p className="mt-1 text-xs text-red-800">Needs coverage follow-up</p>
-      </div>
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Covered</p>
-        <p className="mt-2 text-3xl font-semibold text-emerald-950">{summary.covered}</p>
-        <p className="mt-1 text-xs text-emerald-900">Gap resolved today</p>
-      </div>
-      <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-600">Logged today</p>
-        <p className="mt-2 text-3xl font-semibold text-zinc-900">{summary.total}</p>
-        <p className="mt-1 text-xs text-zinc-600">Call-down overrides</p>
-      </div>
+      <MetricCard label="Open" value={summary.open} hint="Needs coverage follow-up" tone="blocked" />
+      <MetricCard label="Covered" value={summary.covered} hint="Gap resolved today" tone="ready" />
+      <MetricCard label="Logged today" value={summary.total} hint="Call-down overrides" tone="neutral" />
     </section>
   );
 }
