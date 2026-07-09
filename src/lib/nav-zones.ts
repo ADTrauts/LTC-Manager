@@ -1,5 +1,6 @@
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import type { AuthKind } from "@/lib/auth";
+import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 
 export const NAV_ZONES = [
   "OPERATIONS_CENTER",
@@ -132,7 +133,7 @@ export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
   }
 
   if (ctx.role === "SUPERVISOR") {
-    return "/today";
+    return isTodaysWorkEnabled() ? "/today" : "/dashboard";
   }
 
   if (hasAtLeastRole(ctx.role, "MANAGER")) {

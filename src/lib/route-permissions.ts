@@ -1,7 +1,8 @@
 import type { RoleKey } from "@prisma/client";
 
 import { APP_ROLES, type AppRole, ROLE_PRIORITY } from "@/lib/access";
-import { type NavRouteItem, resolveZoneForPathPrefix } from "@/lib/nav-zones";
+import { isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { type NavRouteItem, isTodaysWorkPathname, resolveZoneForPathPrefix } from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
 
 export type { NavRouteItem };
@@ -184,13 +185,23 @@ async function loadPermissionConfig() {
 }
 
 export async function canAccessRouteByRole(pathname: string, role: AppRole): Promise<boolean> {
+  if (!isTodaysWorkEnabled() && isTodaysWorkPathname(pathname)) {
+    return false;
+  }
   const config = await loadPermissionConfig();
   return resolveRouteAccess(pathname, role, config.rules);
 }
 
+function filterNavItemsForFeatureFlags(items: NavRouteItem[]): NavRouteItem[] {
+  if (isTodaysWorkEnabled()) {
+    return items;
+  }
+  return items.filter((item) => !isTodaysWorkPathname(item.href));
+}
+
 export async function getNavItemsForRole(role: AppRole): Promise<NavRouteItem[]> {
   const config = await loadPermissionConfig();
-  return config.navItemsByRole[role] ?? [];
+  return filterNavItemsForFeatureFlags(config.navItemsByRole[role] ?? []);
 }
 
 export function clearRoutePermissionCache() {

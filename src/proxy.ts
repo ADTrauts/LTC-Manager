@@ -6,6 +6,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { resolveActiveDepartmentForNav } from "@/lib/active-department-context";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { resolveDefaultHomePath, isTodaysWorkPathname } from "@/lib/nav-zones";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
@@ -102,8 +103,13 @@ export async function proxy(request: NextRequest) {
       }
       return defaultHomeRedirect(request, session, lockedUnitId);
     }
-    if (isTodaysWorkPathname(pathname) && !hasAtLeastRole(role, "SUPERVISOR")) {
-      return defaultHomeRedirect(request, session, lockedUnitId);
+    if (isTodaysWorkPathname(pathname)) {
+      if (!isTodaysWorkEnabled()) {
+        return defaultHomeRedirect(request, session, lockedUnitId);
+      }
+      if (!hasAtLeastRole(role, "SUPERVISOR")) {
+        return defaultHomeRedirect(request, session, lockedUnitId);
+      }
     }
     if (!(await canAccessRouteByRole(pathname, role))) {
       return defaultHomeRedirect(request, session, lockedUnitId);
