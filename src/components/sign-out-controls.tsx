@@ -1,9 +1,22 @@
 import Link from "next/link";
 
+import { AppIcons } from "@/lib/design-system";
+
 type SignOutControlsProps = {
   showUnbind: boolean;
   showChangePassword?: boolean;
 };
+
+function SignOutButton({ className }: { className: string }) {
+  const SignOutIcon = AppIcons.signOut;
+
+  return (
+    <button type="submit" className={className}>
+      <SignOutIcon className="mr-1.5 inline h-4 w-4 shrink-0 opacity-70" aria-hidden />
+      Sign out
+    </button>
+  );
+}
 
 export function SignOutControls({ showUnbind, showChangePassword = false }: SignOutControlsProps) {
   if (!showUnbind) {
@@ -18,12 +31,7 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
           </Link>
         ) : null}
         <form action="/api/auth/logout" method="post">
-          <button
-            type="submit"
-            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
-          >
-            Sign out
-          </button>
+          <SignOutButton className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50" />
         </form>
       </div>
     );
@@ -41,12 +49,7 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
       ) : null}
       <div className="flex min-h-10 items-stretch rounded-md border border-zinc-300 bg-white shadow-sm">
       <form action="/api/auth/logout" method="post" className="flex min-w-0">
-        <button
-          type="submit"
-          className="min-h-10 rounded-l-md border-r border-zinc-200 px-3.5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-        >
-          Sign out
-        </button>
+        <SignOutButton className="inline-flex min-h-10 items-center rounded-l-md border-r border-zinc-200 px-3.5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" />
       </form>
       <details className="group relative flex">
         <summary

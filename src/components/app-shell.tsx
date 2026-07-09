@@ -21,6 +21,7 @@ import { getNavItemsForRole } from "@/lib/route-permissions";
 import { loadUnitReadinessBatch } from "@/lib/readiness";
 import type { ReadinessState } from "@/lib/readiness";
 import { getSidebarUnitsForSession } from "@/lib/units";
+import { shellClasses } from "@/lib/design-system";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -94,7 +95,7 @@ export async function AppShell({ children }: AppShellProps) {
       }
     >
       <header className="shrink-0 border-b border-zinc-200 bg-white" role="banner">
-        <div className="mx-auto w-full max-w-[1440px]">
+        <div className={`mx-auto w-full ${shellClasses.maxWidth}`}>
           <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 lg:px-6 lg:py-3.5">
             <div className="flex min-w-0 flex-1 flex-wrap items-start gap-4 sm:gap-6 lg:gap-10">
               <ShellBrandBlock
@@ -125,7 +126,7 @@ export async function AppShell({ children }: AppShellProps) {
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 
-      <div className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div className={`mx-auto flex min-h-0 w-full ${shellClasses.maxWidth} flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden`}>
         <LeftSidebar
           units={units}
           lockedUnitId={lockedUnitId}
