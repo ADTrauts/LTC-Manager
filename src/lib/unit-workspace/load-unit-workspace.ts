@@ -1,5 +1,6 @@
 import { getTodayWindow } from "@/lib/operations-center";
 import { resolveUnitWorkspaceActiveOperation } from "@/lib/operations/resolve-unit-workspace-active-operation";
+import { scopeLogDueQueries } from "@/lib/operations/scope-log-due-queries";
 import { prisma } from "@/lib/prisma";
 
 import { buildUnitWorkspaceView } from "./build-unit-workspace-view";
@@ -25,13 +26,27 @@ export async function loadUnitWorkspace(
     window,
   });
 
-  const view = buildUnitWorkspaceView({ unit, queries, search });
+  const now = new Date();
+  const preliminaryView = buildUnitWorkspaceView({ unit, queries, search, now });
   const activeOperation = await resolveUnitWorkspaceActiveOperation(prisma, {
     facilityId,
-    unit: view.unit,
-    mealServiceEventByMeal: view.mealServiceEventByMeal,
-    now: view.now,
+    unit: preliminaryView.unit,
+    mealServiceEventByMeal: preliminaryView.mealServiceEventByMeal,
+    now: preliminaryView.now,
   });
+
+  const scopedLogs = scopeLogDueQueries({
+    assignments: queries.assignments,
+    submissions: queries.submissions,
+    activeOperation,
+  });
+  const scopedQueries = {
+    ...queries,
+    assignments: scopedLogs.assignments,
+    submissions: scopedLogs.submissions,
+  };
+
+  const view = buildUnitWorkspaceView({ unit, queries: scopedQueries, search, now });
 
   return {
     ...view,

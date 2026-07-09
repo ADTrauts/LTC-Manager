@@ -37,3 +37,11 @@ export {
   resolveOperationsCenterActiveOperation,
   resolveOperationsCenterDepartmentId,
 } from "./resolve-operations-center-active-operation";
+export {
+  isLogAssignmentInDueScope,
+  isLogSubmissionInDueScope,
+  resolveLogDueMealScope,
+  scopeLogDueQueries,
+  type LogDueAssignmentRow,
+  type LogDueSubmissionRow,
+} from "./scope-log-due-queries";
