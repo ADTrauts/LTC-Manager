@@ -36,9 +36,11 @@ const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
   { role: "SUPERVISOR", path: "/today" },
   { role: "SUPERVISOR", path: "/today/walk" },
   { role: "SUPERVISOR", path: "/today/coverage" },
+  { role: "SUPERVISOR", path: "/today/handoffs" },
   { role: "MANAGER", path: "/today" },
   { role: "MANAGER", path: "/today/walk" },
   { role: "MANAGER", path: "/today/coverage" },
+  { role: "MANAGER", path: "/today/handoffs" },
   { role: "STAFF", path: "/logs" },
   { role: "STAFF", path: "/unit/abc" },
   { role: "STAFF", path: "/dashboard" },
@@ -54,6 +56,7 @@ const WAVE1_RBAC_DENIALS: { role: AppRole; path: string }[] = [
   { role: "STAFF", path: "/today" },
   { role: "STAFF", path: "/today/walk" },
   { role: "STAFF", path: "/today/coverage" },
+  { role: "STAFF", path: "/today/handoffs" },
   { role: "LEAD_TEAM_MEMBER", path: "/today" },
   { role: "SUPERVISOR", path: "/admin" },
   { role: "MANAGER", path: "/admin" },
@@ -99,6 +102,7 @@ test("Wave 1 RBAC matrix — /today paths are detected for proxy gating", () => 
   assert.equal(isTodaysWorkPathname("/today"), true);
   assert.equal(isTodaysWorkPathname("/today/walk"), true);
   assert.equal(isTodaysWorkPathname("/today/coverage"), true);
+  assert.equal(isTodaysWorkPathname("/today/handoffs"), true);
   assert.equal(isTodaysWorkPathname("/dashboard"), false);
 });
 
@@ -107,6 +111,7 @@ test("Wave 1 RBAC matrix — /today is shared across operational modes", () => {
     assert.equal(pathnameAllowedForDepartmentKey("/today", key), true);
     assert.equal(pathnameAllowedForDepartmentKey("/today/walk", key), true);
     assert.equal(pathnameAllowedForDepartmentKey("/today/coverage", key), true);
+    assert.equal(pathnameAllowedForDepartmentKey("/today/handoffs", key), true);
   }
 });
 

@@ -1,6 +1,7 @@
 export { loadWalkList } from "./load-walk-list";
 export { loadCoverageList } from "./load-coverage-list";
 export { loadCallDownList } from "./load-call-down-list";
+export { loadHandoffs } from "./load-handoffs";
 export {
   buildWalkListItems,
   resolveWalkListReason,
@@ -40,3 +41,15 @@ export {
   type CallDownTemplateKey,
   type ParsedCallDownReason,
 } from "./call-down";
+export {
+  buildHandoffData,
+  buildHandoffSections,
+  summarizeHandoffs,
+  type HandoffCategory,
+  type HandoffData,
+  type HandoffItem,
+  type HandoffPriority,
+  type HandoffRepairRecord,
+  type HandoffSection,
+  type HandoffSummary,
+} from "./handoffs";
