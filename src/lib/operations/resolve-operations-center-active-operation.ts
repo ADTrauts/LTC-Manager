@@ -2,7 +2,9 @@ import type { PrismaClient } from "@prisma/client";
 
 import type { OperationsCenterMealBoard, OperationsCenterUnitCard } from "@/lib/operations-center";
 
+import { hasOperationEnginePrisma } from "./operation-prisma";
 import { resolveActiveOperation, type ResolveActiveOperationDeps } from "./resolve-active-operation";
+import { resolveHeuristicActiveOperation } from "./resolve-heuristic-active-operation";
 import type { ResolvedActiveOperation } from "./types";
 
 /** Stable scope key used before OperationDefinition rows exist for a facility. */
@@ -33,6 +35,18 @@ export async function resolveOperationsCenterActiveOperation(
   },
   deps: ResolveActiveOperationDeps = {},
 ): Promise<ResolvedActiveOperation> {
+  if (!hasOperationEnginePrisma(prisma)) {
+    return resolveHeuristicActiveOperation({
+      facilityId: input.facilityId,
+      departmentId: legacyOperationsCenterDepartmentId(input.facilityId),
+      now: input.now,
+      heuristicHints: {
+        unitCards: input.unitCards,
+        mealBoards: input.mealBoards,
+      },
+    });
+  }
+
   const departmentId = await resolveOperationsCenterDepartmentId(prisma, input.facilityId);
 
   return resolveActiveOperation(

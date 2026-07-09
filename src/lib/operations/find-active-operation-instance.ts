@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getDefaultMealTypeForTimeOfDay } from "@/lib/servery-meal-service";
 
+import { hasOperationEnginePrisma } from "./operation-prisma";
 import { pickActiveOperationInstance } from "./pick-active-operation-instance";
 import { ACTIVE_OPERATION_INSTANCE_STATUSES, type ActiveOperationInstanceRow } from "./types";
 
@@ -10,6 +11,10 @@ export async function findActiveOperationInstance(input: {
   serviceDate: Date;
   now?: Date;
 }): Promise<ActiveOperationInstanceRow | null> {
+  if (!hasOperationEnginePrisma(prisma)) {
+    return null;
+  }
+
   const now = input.now ?? new Date();
   const instances = await prisma.operationInstance.findMany({
     where: {

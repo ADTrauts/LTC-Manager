@@ -56,13 +56,25 @@ test("resolveOperationsCenterActiveOperation uses heuristic context when engine 
   assert.equal(resolved.operationContext.phase, "Preparation");
 });
 
+function operationPrismaStub(overrides: {
+  departmentId?: string | null;
+} = {}) {
+  return {
+    operationDefinition: {
+      findFirst: async () =>
+        overrides.departmentId === null
+          ? null
+          : { departmentId: overrides.departmentId ?? "dept-dietary" },
+    },
+    operationInstance: {
+      findMany: async () => [],
+    },
+  } as never;
+}
+
 test("resolveOperationsCenterActiveOperation uses OperationInstance when engine flag is on", async () => {
   const resolved = await resolveOperationsCenterActiveOperation(
-    {
-      operationDefinition: {
-        findFirst: async () => ({ departmentId: "dept-dietary" }),
-      },
-    } as never,
+    operationPrismaStub(),
     {
       facilityId: "facility-1",
       now: new Date("2026-07-08T12:00:00"),
@@ -93,11 +105,7 @@ test("resolveOperationsCenterActiveOperation uses OperationInstance when engine 
 
 test("resolveOperationsCenterActiveOperation falls back to heuristics when no instance exists", async () => {
   const resolved = await resolveOperationsCenterActiveOperation(
-    {
-      operationDefinition: {
-        findFirst: async () => ({ departmentId: "dept-dietary" }),
-      },
-    } as never,
+    operationPrismaStub(),
     {
       facilityId: "facility-1",
       now: new Date("2026-07-08T12:00:00"),
@@ -112,4 +120,24 @@ test("resolveOperationsCenterActiveOperation falls back to heuristics when no in
   assert.equal(resolved.source, "heuristic");
   assert.equal(resolved.operationInstanceId, null);
   assert.equal(resolved.operationContext.mealType, MealType.LUNCH);
+});
+
+test("resolveOperationsCenterActiveOperation falls back when operation prisma delegates are missing", async () => {
+  const resolved = await resolveOperationsCenterActiveOperation(
+    {} as never,
+    {
+      facilityId: "facility-1",
+      now: new Date("2026-07-08T12:00:00"),
+      ...heuristicHints,
+    },
+    {
+      isEngineEnabled: () => true,
+      findInstance: async () => {
+        throw new Error("should not query instances when prisma delegates are missing");
+      },
+    },
+  );
+
+  assert.equal(resolved.source, "heuristic");
+  assert.equal(resolved.departmentId, legacyOperationsCenterDepartmentId("facility-1"));
 });
