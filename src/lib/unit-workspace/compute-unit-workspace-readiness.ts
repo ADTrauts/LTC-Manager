@@ -3,6 +3,8 @@ import { UnitType } from "@prisma/client";
 
 import type { OperationContext } from "@/lib/operations-center";
 import { computeUnitReadiness } from "@/lib/readiness";
+import { computeMealScopedLogCounts } from "@/lib/readiness/meal-scoped-log-counts";
+import { mealLabelForType, resolveUnitProfileKey } from "@/lib/readiness/profiles";
 import type { UnitReadiness } from "@/lib/readiness/types";
 import { isWithinServeryLiveWindow } from "@/lib/servery-meal-service";
 
@@ -15,7 +17,7 @@ function resolveServeryMealNotLive(input: {
   mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
   now: Date;
 }): boolean {
-  if (input.unit.unitType !== UnitType.SERVERY || input.operationContext.phase !== "Execution") {
+  if (input.unit.unitType !== UnitType.SERVERY) {
     return false;
   }
 
@@ -36,34 +38,80 @@ function resolveServeryMealNotLive(input: {
 
 export function computeUnitWorkspaceReadiness(input: {
   unit: UnitWorkspaceUnit;
-  queries: Pick<UnitQueryResult, "openRepairs">;
+  queries: Pick<UnitQueryResult, "openRepairs" | "assignments" | "submissions" | "schedulesToday">;
   mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
   operationContext: OperationContext;
-  failed: number;
-  missed: number;
-  pending: number;
-  expected: number;
-  completed: number;
+  failed?: number;
+  missed?: number;
+  pending?: number;
+  expected?: number;
+  completed?: number;
   effectiveCoverage: number;
   now: Date;
+  activeDepartmentKey?: "DIETARY" | "EVS" | "PLANT" | null;
 }): UnitReadiness {
-  const urgentRepairCount = input.queries.openRepairs.filter((repair) => repair.priority === "URGENT").length;
-  const highRepairCount = input.queries.openRepairs.filter((repair) => repair.priority === "HIGH").length;
-
-  return computeUnitReadiness({
+  const logCounts = computeMealScopedLogCounts({
+    assignments: input.queries.assignments,
+    submissions: input.queries.submissions,
     unitId: input.unit.id,
-    unitName: input.unit.name,
-    unitType: input.unit.unitType,
-    failed: input.failed,
-    missed: input.missed,
-    pending: input.pending,
-    expected: input.expected,
-    completed: input.completed,
-    staffingCount: input.effectiveCoverage,
-    openRepairCount: input.queries.openRepairs.length,
-    urgentRepairCount,
-    highRepairCount,
-    serveryMealNotLive: resolveServeryMealNotLive(input),
-    operationPhase: input.operationContext.phase,
+    mealType: input.operationContext.mealType,
   });
+
+  const openRepairs = input.queries.openRepairs;
+  const urgentRepairs = openRepairs.filter((repair) => repair.priority === "URGENT");
+  const highRepairs = openRepairs.filter((repair) => repair.priority === "HIGH");
+  const significant = openRepairs.filter(
+    (repair) => repair.priority === "URGENT" || repair.priority === "HIGH",
+  );
+  const normal = openRepairs.filter(
+    (repair) => repair.priority === "MEDIUM" || repair.priority === "LOW",
+  );
+
+  const profileKey = resolveUnitProfileKey({
+    activeDepartmentKey: input.activeDepartmentKey,
+    unitDepartmentKeys: [],
+    unitType: input.unit.unitType,
+  });
+
+  return computeUnitReadiness(
+    {
+      unitId: input.unit.id,
+      unitName: input.unit.name,
+      unitType: input.unit.unitType,
+      failed: logCounts.failed,
+      missed: logCounts.missed,
+      pending: logCounts.pending,
+      expected: logCounts.expected,
+      completed: logCounts.completed,
+      staffingCount: input.effectiveCoverage,
+      openRepairCount: openRepairs.length,
+      urgentRepairCount: urgentRepairs.length,
+      highRepairCount: highRepairs.length,
+      serveryMealNotLive: resolveServeryMealNotLive(input),
+      operationPhase: input.operationContext.phase,
+      profileKey,
+      mealLabel: mealLabelForType(input.operationContext.mealType),
+      primaryUrgentRepairTitle: urgentRepairs[0]?.title ?? null,
+      primaryHighRepairTitle: highRepairs[0]?.title ?? null,
+      assignedSignificantRepairCount: significant.filter(
+        (repair) => repair.assignedEmployeeId || repair.status === "IN_PROGRESS",
+      ).length,
+      unassignedUrgentOrHighCount: significant.filter((repair) => !repair.assignedEmployeeId).length,
+      overdueCriticalRepairCount: significant.filter(
+        (repair) => repair.dueAt && repair.dueAt.getTime() <= input.now.getTime(),
+      ).length,
+      normalPriorityOpenRepairCount: normal.length,
+      assignedNormalRepairCount: normal.filter(
+        (repair) => repair.assignedEmployeeId || repair.status === "IN_PROGRESS",
+      ).length,
+      preventiveMaintenanceInProgressCount: openRepairs.filter(
+        (repair) => repair.workOrderKind === "PREVENTIVE" && repair.status === "IN_PROGRESS",
+      ).length,
+      requiresEvsCoverage: profileKey === "EVS" && input.queries.schedulesToday.length > 0,
+    },
+    {
+      now: input.now,
+      minutesUntilService: input.operationContext.minutesUntilService,
+    },
+  );
 }

@@ -69,7 +69,17 @@ export async function loadDashboardQueries(facilityId: string, window: TodayWind
     }),
     prisma.repair.findMany({
       where: { status: { not: "CLOSED" }, unit: { facilityId } },
-      select: { id: true, unitId: true, priority: true },
+      select: {
+        id: true,
+        unitId: true,
+        title: true,
+        priority: true,
+        status: true,
+        workOrderKind: true,
+        assignedEmployeeId: true,
+        dueAt: true,
+        responsibleDepartment: { select: { key: true } },
+      },
     }),
     prisma.employee.findMany({
       where: {

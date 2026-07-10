@@ -2,6 +2,11 @@ import { UnitType } from "@prisma/client";
 
 import type { ReadinessReasonCode, UnitReadinessSignals } from "./types";
 
+/**
+ * Compatibility helpers for legacy callers/tests.
+ * New evaluation paths should use department readiness profiles.
+ */
+
 export type BlockedRuleEvaluation = {
   blocked: boolean;
   reasonCodes: ReadinessReasonCode[];
@@ -66,40 +71,50 @@ export function resolveReadinessReason(
   reasonCodes: ReadinessReasonCode[],
 ): string {
   const primary = reasonCodes[0];
+  const mealLabel = signals.mealLabel || "service";
 
   if (state === "blocked") {
     if (primary === "failed_logs") {
-      return `${signals.failed} failed log${signals.failed === 1 ? "" : "s"} today`;
+      return signals.failed === 1
+        ? `${mealLabel} critical check failed`
+        : `${signals.failed} ${mealLabel.toLowerCase()} critical checks failed`;
     }
     if (primary === "missed_logs") {
-      return `${signals.missed} missed log${signals.missed === 1 ? "" : "s"} today`;
+      return signals.missed === 1
+        ? `${mealLabel} critical check is overdue`
+        : `${signals.missed} ${mealLabel.toLowerCase()} critical checks are overdue`;
     }
     if (primary === "urgent_repair") {
-      return `${signals.urgentRepairCount} urgent repair${signals.urgentRepairCount === 1 ? "" : "s"} open`;
+      return signals.primaryUrgentRepairTitle
+        ? `${signals.primaryUrgentRepairTitle} needs attention`
+        : "Urgent equipment issue needs attention";
     }
     if (primary === "high_repair") {
-      return `${signals.highRepairCount} high-priority repair${signals.highRepairCount === 1 ? "" : "s"} open`;
+      return signals.primaryHighRepairTitle
+        ? `${signals.primaryHighRepairTitle} needs attention`
+        : "High-priority equipment issue needs attention";
     }
     if (primary === "no_staffing") {
       if (signals.unitType === UnitType.SERVERY) {
-        return "Servery has no staff coverage";
+        return `No server assigned for ${mealLabel.toLowerCase()}`;
       }
-      return "Kitchen has no staff scheduled";
+      return `No kitchen staff assigned for ${mealLabel.toLowerCase()}`;
     }
   }
 
   if (primary === "pending_logs") {
-    return `${signals.pending} log${signals.pending === 1 ? "" : "s"} still due`;
+    return signals.pending === 1
+      ? `${mealLabel} check is due now`
+      : `${signals.pending} ${mealLabel.toLowerCase()} checks are due now`;
   }
   if (primary === "open_repair") {
-    const count = signals.openRepairCount - signals.urgentRepairCount - signals.highRepairCount;
-    return `${count} open repair${count === 1 ? "" : "s"}`;
+    return "Noncritical equipment work remains";
   }
   if (primary === "servery_not_live") {
-    return "Meal service not marked live";
+    return `${mealLabel} setup is in progress`;
   }
   if (primary === "logs_behind") {
-    return "Log completion behind expected";
+    return `${mealLabel} checks still in progress`;
   }
 
   return "Needs a closer look";

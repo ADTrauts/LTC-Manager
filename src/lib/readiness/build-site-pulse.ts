@@ -10,10 +10,10 @@ export function buildSitePulseFromReadinessSummary(summary: ReadinessSummary): S
   let tone: SitePulseSummary["tone"];
 
   if (blocked > 0) {
-    headline = `Blocked — ${blocked} location${blocked === 1 ? "" : "s"} need immediate attention`;
+    headline = `Needs Attention — ${blocked} location${blocked === 1 ? "" : "s"} need immediate attention`;
     tone = "blocked";
   } else if (inProgress > 0) {
-    headline = `At risk — ${inProgress} location${inProgress === 1 ? "" : "s"} need attention`;
+    headline = `At risk — ${inProgress} location${inProgress === 1 ? "" : "s"} in progress`;
     tone = "at_risk";
   } else if (total === 0) {
     headline = "No active locations configured";
@@ -30,6 +30,6 @@ export function buildSitePulseFromReadinessSummary(summary: ReadinessSummary): S
     inProgress,
     blocked,
     attentionCount,
-    locationSummary: `${ready} ready · ${inProgress} in progress · ${blocked} blocked`,
+    locationSummary: `${ready} ready · ${inProgress} in progress · ${blocked} need attention`,
   };
 }

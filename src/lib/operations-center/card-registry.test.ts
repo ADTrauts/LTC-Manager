@@ -51,7 +51,7 @@ test("computeSitePulse prioritizes blocked locations in headline", () => {
   assert.equal(classifyUnitPulseStatus(units[1]!), "blocked");
   const pulse = computeSitePulse(units);
   assert.equal(pulse.tone, "blocked");
-  assert.match(pulse.headline, /Blocked/);
+  assert.match(pulse.headline, /Needs Attention/);
   assert.equal(pulse.blocked, 1);
   assert.equal(pulse.ready, 1);
 });

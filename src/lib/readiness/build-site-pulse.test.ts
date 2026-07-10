@@ -12,8 +12,8 @@ test("buildSitePulseFromReadinessSummary prioritizes blocked locations", () => {
   });
 
   assert.equal(pulse.tone, "blocked");
-  assert.match(pulse.headline, /Blocked/);
-  assert.equal(pulse.locationSummary, "1 ready · 1 in progress · 1 blocked");
+  assert.match(pulse.headline, /Needs Attention/);
+  assert.equal(pulse.locationSummary, "1 ready · 1 in progress · 1 need attention");
 });
 
 test("buildSitePulseFromReadinessSummary handles empty facilities calmly", () => {

@@ -33,12 +33,15 @@ export async function AppShell({ children }: AppShellProps) {
     redirect("/login");
   }
 
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const [units, facility, readiness] = await Promise.all([
     getSidebarUnitsForSession(session),
     getFacilityForSession(),
-    loadUnitReadinessBatch(session.facilityId),
+    loadUnitReadinessBatch(session.facilityId, {
+      activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+    }),
   ]);
-  const cookieStore = await cookies();
   const deviceUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value;
   const lockedUnitId =
     session.authKind === "employee" &&
@@ -66,7 +69,6 @@ export async function AppShell({ children }: AppShellProps) {
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   const showOperationsCenterLink =
     authKind === "user" && hasAtLeastRole(session.role, "SUPERVISOR");
-  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const [rawNavItems, scopeDepartments] = await Promise.all([
     getNavItemsForRole(session.role),
     prisma.department.findMany({

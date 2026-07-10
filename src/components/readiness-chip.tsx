@@ -14,8 +14,8 @@ const READINESS_VARIANT: Record<ReadinessState, StatusBadgeVariant> = {
 };
 
 export function readinessStateLabel(state: ReadinessState): string {
-  if (state === "blocked") return "Blocked";
-  if (state === "in_progress") return "In progress";
+  if (state === "blocked") return "Needs Attention";
+  if (state === "in_progress") return "In Progress";
   return "Ready";
 }
 

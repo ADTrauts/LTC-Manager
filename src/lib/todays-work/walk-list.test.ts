@@ -26,26 +26,29 @@ function card(partial: Partial<OperationsCenterUnitCard> & Pick<OperationsCenter
 
 function readinessMapFromCards(
   cards: OperationsCenterUnitCard[],
-  operationPhase: "Preparation" | "Execution" = "Preparation",
+  operationPhase: "Preparation" | "Execution" = "Execution",
 ): Map<string, UnitReadiness> {
   return new Map(
     cards.map((unit) => {
-      const readiness = computeUnitReadiness({
-        unitId: unit.id,
-        unitName: unit.name,
-        unitType: unit.unitType,
-        failed: unit.failed,
-        missed: unit.missed,
-        pending: unit.pending,
-        expected: unit.expected,
-        completed: unit.completed,
-        staffingCount: unit.staffingCount,
-        openRepairCount: unit.openRepairCount,
-        urgentRepairCount: 0,
-        highRepairCount: 0,
-        serveryMealNotLive: false,
-        operationPhase,
-      });
+      const readiness = computeUnitReadiness(
+        {
+          unitId: unit.id,
+          unitName: unit.name,
+          unitType: unit.unitType,
+          failed: unit.failed,
+          missed: unit.missed,
+          pending: unit.pending,
+          expected: unit.expected,
+          completed: unit.completed,
+          staffingCount: unit.staffingCount,
+          openRepairCount: unit.openRepairCount,
+          urgentRepairCount: 0,
+          highRepairCount: 0,
+          serveryMealNotLive: false,
+          operationPhase,
+        },
+        { minutesUntilService: -15, now: new Date("2026-07-08T08:00:00") },
+      );
       return [unit.id, readiness] as const;
     }),
   );

@@ -74,7 +74,7 @@ export default async function TodaysWorkHubPage() {
       ) : (
         <EmptyState
           icon="ready"
-          title="No blocked locations right now"
+          title="No locations need attention right now"
           description="Walk preview still lists active locations if you want a routine pass."
           tone="success"
           inset

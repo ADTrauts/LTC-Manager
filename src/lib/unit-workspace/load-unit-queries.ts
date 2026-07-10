@@ -51,6 +51,8 @@ export async function loadUnitQueries(params: {
         id: true,
         status: true,
         submittedAt: true,
+        assignmentId: true,
+        mealType: true,
         template: { select: { name: true } },
         submittedBy: { select: { displayName: true } },
       },
@@ -85,6 +87,9 @@ export async function loadUnitQueries(params: {
         title: true,
         priority: true,
         status: true,
+        workOrderKind: true,
+        assignedEmployeeId: true,
+        dueAt: true,
       },
     }),
     unitType === "SERVERY"

@@ -1,6 +1,9 @@
 import type { UnitType } from "@prisma/client";
 
 import type { OperationContext, OperationsCenterUnitCard } from "@/lib/operations-center";
+import type { OperationalTimeContext } from "@/lib/operational-time";
+
+import type { ReadinessProfileKey } from "./profiles/types";
 
 export type ReadinessState = "ready" | "in_progress" | "blocked";
 
@@ -19,6 +22,7 @@ export type UnitReadinessSignals = {
   unitId: string;
   unitName: string;
   unitType: UnitType;
+  /** Log counts must already be scoped to the active meal/operation. */
   failed: number;
   missed: number;
   pending: number;
@@ -30,6 +34,26 @@ export type UnitReadinessSignals = {
   highRepairCount: number;
   serveryMealNotLive: boolean;
   operationPhase: OperationContext["phase"];
+  /** Department profile used for evaluation. */
+  profileKey: ReadinessProfileKey;
+  mealLabel: string;
+  /** Best-effort repair titles for operator-friendly reasons. */
+  primaryUrgentRepairTitle: string | null;
+  primaryHighRepairTitle: string | null;
+  /** Significant repairs (HIGH/URGENT) with an assignee or IN_PROGRESS status. */
+  assignedSignificantRepairCount: number;
+  /** HIGH/URGENT with no assignee. */
+  unassignedUrgentOrHighCount: number;
+  /** HIGH/URGENT with dueAt in the past. */
+  overdueCriticalRepairCount: number;
+  /** MEDIUM/LOW open repairs. */
+  normalPriorityOpenRepairCount: number;
+  /** MEDIUM/LOW open repairs that are assigned or IN_PROGRESS. */
+  assignedNormalRepairCount: number;
+  /** PREVENTIVE work orders currently IN_PROGRESS. */
+  preventiveMaintenanceInProgressCount: number;
+  /** EVS areas that expect scheduled coverage (has schedule rows or coverage flag). */
+  requiresEvsCoverage: boolean;
 };
 
 export type UnitReadiness = {
@@ -39,6 +63,8 @@ export type UnitReadiness = {
   state: ReadinessState;
   reason: string;
   reasonCodes: ReadinessReasonCode[];
+  profileKey: ReadinessProfileKey;
+  evaluatedAt: Date;
 };
 
 export type ReadinessSummary = {
@@ -54,4 +80,5 @@ export type ReadinessBatchResult = {
   summary: ReadinessSummary;
   operationContext: OperationContext;
   unitCards: OperationsCenterUnitCard[];
+  operationalTime: OperationalTimeContext;
 };

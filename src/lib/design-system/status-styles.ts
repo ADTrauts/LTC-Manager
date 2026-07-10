@@ -74,8 +74,8 @@ const TITLE_CLASSES: Record<StatusTone, string> = {
 
 const BADGE_LABELS: Record<StatusBadgeVariant, string> = {
   ready: "Ready",
-  in_progress: "In progress",
-  blocked: "Blocked",
+  in_progress: "In Progress",
+  blocked: "Needs Attention",
   warning: "Warning",
   success: "Success",
   neutral: "Neutral",

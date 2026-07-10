@@ -25,6 +25,17 @@ function signals(partial: Partial<UnitReadinessSignals> & Pick<UnitReadinessSign
     highRepairCount: 0,
     serveryMealNotLive: false,
     operationPhase: "Preparation",
+    profileKey: "DIETARY",
+    mealLabel: "Breakfast",
+    primaryUrgentRepairTitle: null,
+    primaryHighRepairTitle: null,
+    assignedSignificantRepairCount: 0,
+    unassignedUrgentOrHighCount: 0,
+    overdueCriticalRepairCount: 0,
+    normalPriorityOpenRepairCount: 0,
+    assignedNormalRepairCount: 0,
+    preventiveMaintenanceInProgressCount: 0,
+    requiresEvsCoverage: false,
     ...partial,
   };
 }
@@ -136,12 +147,12 @@ test("resolveReadinessReason returns human-readable blocked and in-progress mess
   const blockedSignals = signals({ unitId: "u1", unitName: "A", failed: 2 });
   assert.match(
     resolveReadinessReason(blockedSignals, "blocked", ["failed_logs"]),
-    /2 failed logs/i,
+    /critical checks failed/i,
   );
 
   const progressSignals = signals({ unitId: "u1", unitName: "A", pending: 1 });
   assert.match(
     resolveReadinessReason(progressSignals, "in_progress", ["pending_logs"]),
-    /still due/i,
+    /due now/i,
   );
 });

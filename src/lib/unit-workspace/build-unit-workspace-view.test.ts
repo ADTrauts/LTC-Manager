@@ -17,7 +17,7 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
   const view = buildUnitWorkspaceView({
     unit,
     search: {},
-    now: new Date("2026-07-08T12:00:00"),
+    now: new Date("2026-07-08T08:00:00"),
     queries: {
       assignments: [
         {
@@ -31,15 +31,19 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
       submissions: [
         {
           id: "s1",
+          assignmentId: "a1",
           status: LogSubmissionStatus.COMPLETED,
           submittedAt: new Date("2026-07-08T08:00:00"),
+          mealType: MealType.BREAKFAST,
           template: { name: "Temp check" },
           submittedBy: { displayName: "Alex" },
         },
         {
           id: "s2",
+          assignmentId: "a1",
           status: LogSubmissionStatus.FAILED,
           submittedAt: new Date("2026-07-08T09:00:00"),
+          mealType: MealType.BREAKFAST,
           template: { name: "Temp check" },
           submittedBy: { displayName: "Alex" },
         },
@@ -86,12 +90,13 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
   const view = buildUnitWorkspaceView({
     unit,
     search: { unitTab: "logs", logTab: "food-safety", mealServiceEvent: "ready-recorded" },
+    now: new Date("2026-07-08T08:00:00"),
     queries: {
       assignments: [
         {
           id: "a1",
           recurrence: "DAILY",
-          mealType: null,
+          mealType: MealType.BREAKFAST,
           timesPerDay: 1,
           template: { name: "Sanitizer", category: "Food Safety" },
         },
@@ -125,5 +130,5 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
   assert.equal(view.selectedLogHistory.length, 1);
   assert.equal(view.mealServiceEventMessage, "Meal service ready time saved.");
   assert.equal(view.readiness.state, "in_progress");
-  assert.match(view.readiness.reason, /still due|behind/i);
+  assert.match(view.readiness.reason, /in progress|due now|setup/i);
 });

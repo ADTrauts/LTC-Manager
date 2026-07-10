@@ -109,5 +109,5 @@ test("computeReadinessBatch exposes O(1) lookup map for sidebar consumers", () =
   });
 
   assert.equal(batch.byUnitId.get("kitchen")?.state, "blocked");
-  assert.match(batch.byUnitId.get("kitchen")?.reason ?? "", /no staff/i);
+  assert.match(batch.byUnitId.get("kitchen")?.reason ?? "", /staff assigned/i);
 });

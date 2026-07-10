@@ -1,42 +1,88 @@
-import {
-  evaluateBlockedRules,
-  evaluateInProgressRules,
-  resolveReadinessReason,
-} from "./blocked-rules";
+import { buildOperationalTimeContext } from "@/lib/operational-time";
+
+import { resolveReadinessProfile } from "./profiles";
 import type { ReadinessSummary, UnitReadiness, UnitReadinessSignals } from "./types";
 
-export function computeUnitReadiness(signals: UnitReadinessSignals): UnitReadiness {
-  const blocked = evaluateBlockedRules(signals);
-  if (blocked.blocked) {
-    return {
-      unitId: signals.unitId,
-      unitName: signals.unitName,
-      unitType: signals.unitType,
-      state: "blocked",
-      reason: resolveReadinessReason(signals, "blocked", blocked.reasonCodes),
-      reasonCodes: blocked.reasonCodes,
-    };
-  }
+export type UnitReadinessSignalInput = Omit<
+  UnitReadinessSignals,
+  | "profileKey"
+  | "mealLabel"
+  | "primaryUrgentRepairTitle"
+  | "primaryHighRepairTitle"
+  | "assignedSignificantRepairCount"
+  | "unassignedUrgentOrHighCount"
+  | "overdueCriticalRepairCount"
+  | "normalPriorityOpenRepairCount"
+  | "assignedNormalRepairCount"
+  | "preventiveMaintenanceInProgressCount"
+  | "requiresEvsCoverage"
+> &
+  Partial<
+    Pick<
+      UnitReadinessSignals,
+      | "profileKey"
+      | "mealLabel"
+      | "primaryUrgentRepairTitle"
+      | "primaryHighRepairTitle"
+      | "assignedSignificantRepairCount"
+      | "unassignedUrgentOrHighCount"
+      | "overdueCriticalRepairCount"
+      | "normalPriorityOpenRepairCount"
+      | "assignedNormalRepairCount"
+      | "preventiveMaintenanceInProgressCount"
+      | "requiresEvsCoverage"
+    >
+  >;
 
-  const inProgressCodes = evaluateInProgressRules(signals);
-  if (inProgressCodes.length > 0) {
-    return {
-      unitId: signals.unitId,
-      unitName: signals.unitName,
-      unitType: signals.unitType,
-      state: "in_progress",
-      reason: resolveReadinessReason(signals, "in_progress", inProgressCodes),
-      reasonCodes: inProgressCodes,
-    };
-  }
+function normalizeSignals(partial: UnitReadinessSignalInput): UnitReadinessSignals {
+  return {
+    profileKey: "DIETARY",
+    mealLabel: "service",
+    primaryUrgentRepairTitle: null,
+    primaryHighRepairTitle: null,
+    assignedSignificantRepairCount: 0,
+    unassignedUrgentOrHighCount: 0,
+    overdueCriticalRepairCount: 0,
+    normalPriorityOpenRepairCount: 0,
+    assignedNormalRepairCount: 0,
+    preventiveMaintenanceInProgressCount: 0,
+    requiresEvsCoverage: false,
+    ...partial,
+  };
+}
+
+export function computeUnitReadiness(
+  rawSignals: UnitReadinessSignalInput,
+  options?: {
+    now?: Date;
+    facilityTimezone?: string | null;
+    minutesUntilService?: number | null;
+    scheduledStartLocal?: string | null;
+  },
+): UnitReadiness {
+  const signals = normalizeSignals(rawSignals);
+  const operationalTime = buildOperationalTimeContext({
+    now: options?.now,
+    facilityTimezone: options?.facilityTimezone,
+    mealType: null,
+    mealLabel: signals.mealLabel,
+    operationPhase: signals.operationPhase,
+    scheduledStartLocal: options?.scheduledStartLocal,
+    minutesUntilService: options?.minutesUntilService,
+  });
+
+  const profile = resolveReadinessProfile(signals.profileKey);
+  const result = profile.evaluate({ signals, operationalTime });
 
   return {
     unitId: signals.unitId,
     unitName: signals.unitName,
     unitType: signals.unitType,
-    state: "ready",
-    reason: "Ready for service",
-    reasonCodes: [],
+    state: result.state,
+    reason: result.primaryReason,
+    reasonCodes: result.contributingSignals.map((item) => item.code),
+    profileKey: result.profileKey,
+    evaluatedAt: result.evaluatedAt,
   };
 }
 

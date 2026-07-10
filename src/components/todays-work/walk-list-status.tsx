@@ -3,8 +3,8 @@ import type { StatusBadgeVariant } from "@/lib/design-system/status-styles";
 import type { WalkListStatus } from "@/lib/todays-work";
 
 export function walkListStatusLabel(status: WalkListStatus): string {
-  if (status === "blocked") return "Blocked";
-  if (status === "in_progress") return "In progress";
+  if (status === "blocked") return "Needs Attention";
+  if (status === "in_progress") return "In Progress";
   return "Ready";
 }
 
