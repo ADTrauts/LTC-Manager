@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { FACILITY_TIMEZONE_OPTIONS } from "@/lib/operational-time/facility-timezone-options";
+
 import { updateFacilitySettingsAction } from "./actions";
 
 type Facility = {
@@ -10,6 +12,7 @@ type Facility = {
   displayName: string;
   managementCompanyName: string | null;
   brandColor: string | null;
+  timezone: string;
 };
 
 export function FacilitySettingsForm({ facility }: { facility: Facility }) {
@@ -29,6 +32,13 @@ export function FacilitySettingsForm({ facility }: { facility: Facility }) {
       setPending(false);
     }
   }
+
+  const timezoneOptions = FACILITY_TIMEZONE_OPTIONS.some((option) => option.value === facility.timezone)
+    ? FACILITY_TIMEZONE_OPTIONS
+    : [
+        { value: facility.timezone, label: `${facility.timezone} (current)` },
+        ...FACILITY_TIMEZONE_OPTIONS,
+      ];
 
   return (
     <form
@@ -61,6 +71,26 @@ export function FacilitySettingsForm({ facility }: { facility: Facility }) {
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-900 focus:ring-2"
         />
         <p className="text-xs text-zinc-500">Optional. Shown in the footer when set.</p>
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="timezone" className="block text-sm font-medium text-zinc-700">
+          Facility timezone
+        </label>
+        <select
+          id="timezone"
+          name="timezone"
+          defaultValue={facility.timezone}
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-900 focus:ring-2"
+        >
+          {timezoneOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-zinc-500">
+          Used for meal dayparts, service dates, and readiness due windows. Stored as an IANA timezone.
+        </p>
       </div>
       <div className="space-y-2">
         <label htmlFor="brandColor" className="block text-sm font-medium text-zinc-700">

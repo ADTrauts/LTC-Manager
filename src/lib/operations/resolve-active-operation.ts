@@ -1,5 +1,5 @@
 import { isOperationEngineEnabled } from "@/lib/feature-flags";
-import { getTodayWindow } from "@/lib/operations-center/get-today-window";
+import { getFacilityServiceDate, resolveFacilityTimezone } from "@/lib/operational-time";
 
 import { findActiveOperationInstance } from "./find-active-operation-instance";
 import { mapOperationInstanceToActiveOperation } from "./map-operation-instance";
@@ -13,6 +13,7 @@ export type ResolveActiveOperationDeps = {
     departmentId: string;
     serviceDate: Date;
     now: Date;
+    facilityTimezone?: string | null;
   }) => Promise<ActiveOperationInstanceRow | null>;
 };
 
@@ -21,12 +22,14 @@ export async function resolveActiveOperation(
   deps: ResolveActiveOperationDeps = {},
 ): Promise<ResolvedActiveOperation> {
   const now = input.now ?? new Date();
-  const serviceDate = getTodayWindow(now).start;
+  const facilityTimezone = resolveFacilityTimezone(input.facilityTimezone);
+  const serviceDate = getFacilityServiceDate(facilityTimezone, now);
   const heuristicFallback = () =>
     resolveHeuristicActiveOperation({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       now,
+      facilityTimezone,
       heuristicHints: input.heuristicHints,
       unitHeuristicHints: input.unitHeuristicHints,
     });
@@ -42,11 +45,12 @@ export async function resolveActiveOperation(
     departmentId: input.departmentId,
     serviceDate,
     now,
+    facilityTimezone,
   });
 
   if (!instance) {
     return heuristicFallback();
   }
 
-  return mapOperationInstanceToActiveOperation(instance, now);
+  return mapOperationInstanceToActiveOperation(instance, now, facilityTimezone);
 }

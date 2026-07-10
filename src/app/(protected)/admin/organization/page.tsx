@@ -27,6 +27,7 @@ export default async function AdminOrganizationPage() {
         displayName: true,
         managementCompanyName: true,
         brandColor: true,
+        timezone: true,
         unionHandbookPdfPath: true,
         unionHandbookOriginalFilename: true,
         unionHandbookUploadedAt: true,
@@ -56,11 +57,19 @@ export default async function AdminOrganizationPage() {
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Organization</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Facility name and management company appear in the app header and footer. Only General Managers can edit
-          these settings.
+          Facility name, timezone, and management company appear across operational surfaces. Only General Managers
+          can edit these settings.
         </p>
       </div>
-      <FacilitySettingsForm facility={facility} />
+      <FacilitySettingsForm
+        facility={{
+          id: facility.id,
+          displayName: facility.displayName,
+          managementCompanyName: facility.managementCompanyName,
+          brandColor: facility.brandColor,
+          timezone: facility.timezone ?? "America/New_York",
+        }}
+      />
       <UnionHandbookSettings
         hasPdf={Boolean(facility.unionHandbookPdfPath)}
         originalFilename={facility.unionHandbookOriginalFilename}

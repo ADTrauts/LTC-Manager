@@ -6,7 +6,7 @@ import {
 } from "@/lib/operations-center";
 import { applyOperationScopedFacilityQueries } from "@/lib/operations/apply-operation-scoped-facility-queries";
 import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
-import { getFacilityLocalTodayWindow } from "@/lib/operational-time";
+import { getFacilityLocalTodayWindow, loadFacilityTimezone } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -19,20 +19,23 @@ import {
 
 export async function loadWalkList(facilityId: string): Promise<WalkListData> {
   const now = new Date();
-  const window = getFacilityLocalTodayWindow(null, now);
+  const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
+  const window = getFacilityLocalTodayWindow(facilityTimezone, now);
   const queries = await loadDashboardQueries(facilityId, window);
-  const preliminary = buildDashboardAggregates({ ...queries, now });
+  const preliminary = buildDashboardAggregates({ ...queries, now, facilityTimezone });
   const activeOperation = await resolveOperationsCenterActiveOperation(prisma, {
     facilityId,
     now,
     unitCards: preliminary.unitCards,
     mealBoards: preliminary.mealBoards,
+    facilityTimezone,
   });
   const scopedQueries = applyOperationScopedFacilityQueries(queries, activeOperation);
   const batch = computeReadinessBatch({
     ...scopedQueries,
     now,
     activeDepartmentKey: "DIETARY",
+    facilityTimezone,
     operationContextOverride: activeOperation.operationContext,
   });
   const items = buildWalkListItems(batch.unitCards, batch.byUnitId);

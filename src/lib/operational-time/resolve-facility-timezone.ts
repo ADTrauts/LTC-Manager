@@ -1,11 +1,19 @@
 /**
  * Facility timezone resolver.
  *
- * No Facility.timezone column exists yet — do not add a migration in this milestone.
- * Default existing facilities to America/New_York. When a stored timezone is available
- * later, pass it through `resolveFacilityTimezone(stored)` to replace the fallback.
+ * Prefers the stored Facility.timezone IANA value when present and valid.
+ * Falls back to America/New_York for missing or invalid data.
  */
 export const DEFAULT_FACILITY_TIMEZONE = "America/New_York";
+
+export function isValidIanaTimezone(value: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function resolveFacilityTimezone(storedTimezone?: string | null): string {
   const trimmed = storedTimezone?.trim();
@@ -13,11 +21,9 @@ export function resolveFacilityTimezone(storedTimezone?: string | null): string 
     return DEFAULT_FACILITY_TIMEZONE;
   }
 
-  try {
-    // Validate IANA zone; invalid values fall back to the documented default.
-    Intl.DateTimeFormat(undefined, { timeZone: trimmed });
-    return trimmed;
-  } catch {
+  if (!isValidIanaTimezone(trimmed)) {
     return DEFAULT_FACILITY_TIMEZONE;
   }
+
+  return trimmed;
 }

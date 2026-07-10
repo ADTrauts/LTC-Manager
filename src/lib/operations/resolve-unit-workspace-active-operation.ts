@@ -21,6 +21,7 @@ export async function resolveUnitWorkspaceActiveOperation(
     unit: UnitWorkspaceUnit;
     mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
     now: Date;
+    facilityTimezone?: string | null;
   },
   deps: ResolveActiveOperationDeps = {},
 ): Promise<ResolvedActiveOperation> {
@@ -34,6 +35,7 @@ export async function resolveUnitWorkspaceActiveOperation(
       facilityId: input.facilityId,
       departmentId: legacyOperationsCenterDepartmentId(input.facilityId),
       now: input.now,
+      facilityTimezone: input.facilityTimezone,
       unitHeuristicHints,
     });
   }
@@ -45,6 +47,7 @@ export async function resolveUnitWorkspaceActiveOperation(
       facilityId: input.facilityId,
       departmentId,
       now: input.now,
+      facilityTimezone: input.facilityTimezone,
       unitHeuristicHints,
     },
     deps,

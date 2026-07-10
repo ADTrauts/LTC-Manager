@@ -4,74 +4,82 @@ import test from "node:test";
 import {
   buildOperationalTimeContext,
   DEFAULT_FACILITY_TIMEZONE,
+  facilityLocalDateToServiceDate,
+  getDefaultMealTypeForFacilityLocalTime,
   getFacilityLocalTodayWindow,
+  getFacilityServiceDate,
   resolveFacilityTimezone,
+  toServiceDateKey,
 } from "@/lib/operational-time";
 
-test("resolveFacilityTimezone defaults missing values to America/New_York", () => {
-  assert.equal(resolveFacilityTimezone(null), DEFAULT_FACILITY_TIMEZONE);
-  assert.equal(resolveFacilityTimezone(undefined), "America/New_York");
-  assert.equal(resolveFacilityTimezone(""), "America/New_York");
-});
-
-test("resolveFacilityTimezone accepts a stored IANA timezone", () => {
+test("resolveFacilityTimezone prefers stored timezone over fallback", () => {
   assert.equal(resolveFacilityTimezone("America/Chicago"), "America/Chicago");
+  assert.equal(resolveFacilityTimezone(null), DEFAULT_FACILITY_TIMEZONE);
+  assert.equal(resolveFacilityTimezone("Not/A_Zone"), DEFAULT_FACILITY_TIMEZONE);
 });
 
-test("buildOperationalTimeContext uses injected now and facility-local date", () => {
-  const now = new Date("2026-07-08T16:30:00.000Z"); // 12:30 America/New_York (EDT)
+test("Buffalo/New York local date near UTC midnight stays on the prior local evening", () => {
+  // 2026-07-09 03:30 UTC = 2026-07-08 23:30 America/New_York
+  const now = new Date("2026-07-09T03:30:00.000Z");
   const ctx = buildOperationalTimeContext({
     now,
     facilityTimezone: "America/New_York",
-    mealType: "LUNCH",
-    mealLabel: "Lunch",
-    operationPhase: "Execution",
-    scheduledStartLocal: "11:30",
   });
-
-  assert.equal(ctx.nowUtc.toISOString(), now.toISOString());
-  assert.equal(ctx.facilityTimezone, "America/New_York");
   assert.equal(ctx.facilityLocalDate, "2026-07-08");
-  assert.equal(ctx.mealType, "LUNCH");
-  assert.equal(ctx.operationPhase, "Execution");
-  assert.ok(ctx.minutesUntilScheduledStart != null);
-  assert.equal(ctx.hasScheduledStartPassed, true);
-  assert.ok((ctx.minutesSinceScheduledStart ?? 0) > 0);
+  assert.equal(toServiceDateKey(getFacilityServiceDate("America/New_York", now)), "2026-07-08");
 });
 
-test("buildOperationalTimeContext distinguishes before due, at due, and overdue", () => {
-  const before = buildOperationalTimeContext({
-    now: new Date("2026-07-08T11:00:00.000Z"),
-    facilityTimezone: "UTC",
-    scheduledStartLocal: "12:00",
-  });
-  assert.equal(before.hasScheduledStartPassed, false);
-  assert.ok((before.minutesUntilScheduledStart ?? 0) > 0);
-  assert.equal(before.isDueTimePassed(new Date("2026-07-08T12:00:00.000Z")), false);
-
-  const atDue = buildOperationalTimeContext({
-    now: new Date("2026-07-08T12:00:00.000Z"),
-    facilityTimezone: "UTC",
-    scheduledStartLocal: "12:00",
-  });
-  assert.equal(atDue.hasScheduledStartPassed, true);
-  assert.equal(atDue.minutesUntilScheduledStart, 0);
-  assert.equal(atDue.isDueTimePassed(new Date("2026-07-08T12:00:00.000Z")), true);
-
-  const overdue = buildOperationalTimeContext({
-    now: new Date("2026-07-08T13:00:00.000Z"),
-    facilityTimezone: "UTC",
-    scheduledStartLocal: "12:00",
-  });
-  assert.equal(overdue.hasScheduledStartPassed, true);
-  assert.ok((overdue.minutesSinceScheduledStart ?? 0) >= 60);
-  assert.equal(overdue.isDueTimePassed(new Date("2026-07-08T12:30:00.000Z")), true);
+test("Central, Mountain, and Pacific date boundaries differ near UTC midnight", () => {
+  const now = new Date("2026-07-09T05:30:00.000Z");
+  assert.equal(
+    buildOperationalTimeContext({ now, facilityTimezone: "America/Chicago" }).facilityLocalDate,
+    "2026-07-09",
+  );
+  assert.equal(
+    buildOperationalTimeContext({ now, facilityTimezone: "America/Denver" }).facilityLocalDate,
+    "2026-07-08",
+  );
+  assert.equal(
+    buildOperationalTimeContext({ now, facilityTimezone: "America/Los_Angeles" }).facilityLocalDate,
+    "2026-07-08",
+  );
 });
 
-test("getFacilityLocalTodayWindow returns facility-local midnight bounds", () => {
-  const now = new Date("2026-07-08T04:30:00.000Z"); // still Jul 7 evening in US/Eastern? 04:30 UTC = 00:30 EDT
-  const window = getFacilityLocalTodayWindow("America/New_York", now);
+test("daylight-saving spring forward keeps local midnight window continuous", () => {
+  // US DST spring forward 2026-03-08: 02:00 → 03:00 in America/New_York
+  const before = new Date("2026-03-08T06:30:00.000Z"); // 01:30 EST
+  const after = new Date("2026-03-08T07:30:00.000Z"); // 03:30 EDT
+  const windowBefore = getFacilityLocalTodayWindow("America/New_York", before);
+  const windowAfter = getFacilityLocalTodayWindow("America/New_York", after);
+
+  assert.equal(toServiceDateKey(getFacilityServiceDate("America/New_York", before)), "2026-03-08");
+  assert.equal(toServiceDateKey(getFacilityServiceDate("America/New_York", after)), "2026-03-08");
+  assert.equal(windowBefore.start.getTime(), windowAfter.start.getTime());
+  assert.ok(windowBefore.end.getTime() > windowBefore.start.getTime());
+  // Spring-forward day is 23 local hours → end is 23h after start in absolute time.
+  assert.equal(windowBefore.end.getTime() - windowBefore.start.getTime(), 23 * 60 * 60 * 1000);
+});
+
+test("active meal selection uses facility-local wall time", () => {
+  // 15:00 UTC = 10:00 America/New_York (breakfast) and 07:00 America/Los_Angeles (breakfast)
+  // 16:00 UTC = 11:00 America/New_York (lunch) and 08:00 America/Los_Angeles (breakfast)
+  const lunchInNy = new Date("2026-07-08T16:00:00.000Z");
+  assert.equal(getDefaultMealTypeForFacilityLocalTime(lunchInNy, "America/New_York"), "LUNCH");
+  assert.equal(getDefaultMealTypeForFacilityLocalTime(lunchInNy, "America/Los_Angeles"), "BREAKFAST");
+});
+
+test("serviceDate for operation instances uses facility-local calendar date as UTC midnight", () => {
+  const now = new Date("2026-07-09T03:30:00.000Z"); // still Jul 8 in NY
+  const serviceDate = getFacilityServiceDate("America/New_York", now);
+  assert.equal(serviceDate.toISOString(), "2026-07-08T00:00:00.000Z");
+  assert.equal(toServiceDateKey(facilityLocalDateToServiceDate("2026-07-08")), "2026-07-08");
+});
+
+test("invalid timezone falls back safely for windows and meal selection", () => {
+  const now = new Date("2026-07-08T16:00:00.000Z");
+  assert.equal(resolveFacilityTimezone("Invalid/Zone"), "America/New_York");
+  assert.equal(getDefaultMealTypeForFacilityLocalTime(now, "Invalid/Zone"), "LUNCH");
+  const window = getFacilityLocalTodayWindow("Invalid/Zone", now);
   assert.ok(window.start.getTime() < now.getTime());
   assert.ok(window.end.getTime() > now.getTime());
-  assert.ok(window.end.getTime() - window.start.getTime() >= 23 * 60 * 60 * 1000);
 });

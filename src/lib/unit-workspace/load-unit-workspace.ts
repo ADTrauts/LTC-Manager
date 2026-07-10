@@ -1,7 +1,7 @@
-import { getTodayWindow } from "@/lib/operations-center";
 import { resolveUnitWorkspaceActiveOperation } from "@/lib/operations/resolve-unit-workspace-active-operation";
 import { scopeLogDueQueries } from "@/lib/operations/scope-log-due-queries";
 import { scopeStaffingQueries } from "@/lib/operations/scope-staffing-queries";
+import { getFacilityLocalTodayWindow, loadFacilityTimezone } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 import { buildUnitWorkspaceView } from "./build-unit-workspace-view";
@@ -19,7 +19,9 @@ export async function loadUnitWorkspace(
     return null;
   }
 
-  const window = getTodayWindow();
+  const now = new Date();
+  const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
+  const window = getFacilityLocalTodayWindow(facilityTimezone, now);
   const queries = await loadUnitQueries({
     unitId: unit.id,
     facilityId,
@@ -27,13 +29,19 @@ export async function loadUnitWorkspace(
     window,
   });
 
-  const now = new Date();
-  const preliminaryView = buildUnitWorkspaceView({ unit, queries, search, now });
+  const preliminaryView = buildUnitWorkspaceView({
+    unit,
+    queries,
+    search,
+    now,
+    facilityTimezone,
+  });
   const activeOperation = await resolveUnitWorkspaceActiveOperation(prisma, {
     facilityId,
     unit: preliminaryView.unit,
     mealServiceEventByMeal: preliminaryView.mealServiceEventByMeal,
     now: preliminaryView.now,
+    facilityTimezone,
   });
 
   const scopedLogs = scopeLogDueQueries({
@@ -54,7 +62,13 @@ export async function loadUnitWorkspace(
     overridesToday: scopedStaffing.overrides,
   };
 
-  const view = buildUnitWorkspaceView({ unit, queries: scopedQueries, search, now });
+  const view = buildUnitWorkspaceView({
+    unit,
+    queries: scopedQueries,
+    search,
+    now,
+    facilityTimezone,
+  });
 
   return {
     ...view,

@@ -1,6 +1,7 @@
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
-import { getFacilityLocalTodayWindow } from "@/lib/operational-time";
+import { getFacilityLocalTodayWindow, loadFacilityTimezone } from "@/lib/operational-time";
 import { loadDashboardQueries } from "@/lib/operations-center/load-dashboard-queries";
+import { prisma } from "@/lib/prisma";
 
 import { computeReadinessBatch } from "./compute-readiness-batch";
 import type { ReadinessBatchResult } from "./types";
@@ -14,12 +15,14 @@ export async function loadUnitReadinessBatch(
   },
 ): Promise<ReadinessBatchResult> {
   const now = options?.now ?? new Date();
-  const window = getFacilityLocalTodayWindow(options?.facilityTimezone, now);
+  const facilityTimezone =
+    options?.facilityTimezone ?? (await loadFacilityTimezone(prisma, facilityId));
+  const window = getFacilityLocalTodayWindow(facilityTimezone, now);
   const queries = await loadDashboardQueries(facilityId, window);
   return computeReadinessBatch({
     ...queries,
     now,
     activeDepartmentKey: options?.activeDepartmentKey,
-    facilityTimezone: options?.facilityTimezone,
+    facilityTimezone,
   });
 }

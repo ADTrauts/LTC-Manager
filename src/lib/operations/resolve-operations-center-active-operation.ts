@@ -32,6 +32,7 @@ export async function resolveOperationsCenterActiveOperation(
     now: Date;
     unitCards: OperationsCenterUnitCard[];
     mealBoards: OperationsCenterMealBoard[];
+    facilityTimezone?: string | null;
   },
   deps: ResolveActiveOperationDeps = {},
 ): Promise<ResolvedActiveOperation> {
@@ -40,6 +41,7 @@ export async function resolveOperationsCenterActiveOperation(
       facilityId: input.facilityId,
       departmentId: legacyOperationsCenterDepartmentId(input.facilityId),
       now: input.now,
+      facilityTimezone: input.facilityTimezone,
       heuristicHints: {
         unitCards: input.unitCards,
         mealBoards: input.mealBoards,
@@ -54,6 +56,7 @@ export async function resolveOperationsCenterActiveOperation(
       facilityId: input.facilityId,
       departmentId,
       now: input.now,
+      facilityTimezone: input.facilityTimezone,
       heuristicHints: {
         unitCards: input.unitCards,
         mealBoards: input.mealBoards,

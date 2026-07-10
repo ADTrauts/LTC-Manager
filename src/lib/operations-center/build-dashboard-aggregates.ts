@@ -13,6 +13,7 @@ import type {
 
 type BuildDashboardAggregatesInput = DashboardQueryResult & {
   now: Date;
+  facilityTimezone?: string | null;
 };
 
 export function buildDashboardAggregates(
@@ -180,17 +181,20 @@ export function buildDashboardAggregates(
       urgentRepairCount,
     },
     now,
+    input.facilityTimezone,
   );
 }
 
 function enrichOperationsCenterDashboard(
   data: Omit<OperationsCenterDashboardData, "operationContext" | "sitePulse">,
   now: Date,
+  facilityTimezone?: string | null,
 ): OperationsCenterDashboardData {
   const operationContext = resolveOperationContext({
     now,
     unitCards: data.unitCards,
     mealBoards: data.mealBoards,
+    facilityTimezone,
   });
   const sitePulse = computeSitePulse(data.unitCards);
   return { ...data, operationContext, sitePulse };

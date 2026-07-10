@@ -18,9 +18,11 @@ export function buildUnitWorkspaceView(input: {
   queries: UnitQueryResult;
   search: UnitWorkspaceSearchParams;
   now?: Date;
+  facilityTimezone?: string | null;
 }): UnitWorkspaceViewModel {
   const { unit, queries, search } = input;
   const now = input.now ?? new Date();
+  const facilityTimezone = input.facilityTimezone;
   const {
     assignments,
     submissions,
@@ -81,6 +83,7 @@ export function buildUnitWorkspaceView(input: {
     unit,
     mealServiceEventByMeal,
     now,
+    facilityTimezone,
   });
 
   const workQueue = buildUnitWorkQueue({

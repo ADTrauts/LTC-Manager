@@ -6,20 +6,28 @@ import { z } from "zod";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { removeFileIfExists, saveUnionHandbookPdf } from "@/lib/facility-uploads";
+import { isValidIanaTimezone, resolveFacilityTimezone } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 const updateFacilitySchema = z.object({
   displayName: z.string().trim().min(2).max(200),
   managementCompanyName: z.string().trim().max(200).optional(),
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  timezone: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .refine((value) => isValidIanaTimezone(value), { message: "Invalid IANA timezone" }),
 });
 
 export async function updateFacilitySettingsAction(formData: FormData) {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const managementRaw = formData.get("managementCompanyName");
   const brandColorRaw = formData.get("brandColor");
+  const timezoneRaw = formData.get("timezone");
   const parsed = updateFacilitySchema.parse({
     displayName: formData.get("displayName"),
     managementCompanyName:
@@ -30,6 +38,10 @@ export async function updateFacilitySettingsAction(formData: FormData) {
       typeof brandColorRaw === "string" && brandColorRaw.trim() !== ""
         ? brandColorRaw.trim()
         : undefined,
+    timezone:
+      typeof timezoneRaw === "string" && timezoneRaw.trim() !== ""
+        ? timezoneRaw.trim()
+        : resolveFacilityTimezone(null),
   });
 
   await prisma.facility.update({
@@ -38,6 +50,7 @@ export async function updateFacilitySettingsAction(formData: FormData) {
       displayName: parsed.displayName,
       managementCompanyName: parsed.managementCompanyName ?? null,
       brandColor: parsed.brandColor ?? null,
+      timezone: resolveFacilityTimezone(parsed.timezone),
     },
   });
 
@@ -55,7 +68,7 @@ function parseOptionalDateOnly(raw: string | undefined): Date | null {
 
 export async function uploadUnionHandbookAction(formData: FormData) {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const effectiveRaw = formData.get("effectiveDate");
   const effectiveDate =
@@ -108,7 +121,7 @@ export async function uploadUnionHandbookAction(formData: FormData) {
 
 export async function clearUnionHandbookAction() {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const facility = await prisma.facility.findUnique({
     where: { id: session.facilityId },

@@ -49,6 +49,7 @@ export type ResolveActiveOperationInput = {
   facilityId: string;
   departmentId: string;
   now?: Date;
+  facilityTimezone?: string | null;
   heuristicHints?: ResolveActiveOperationHeuristicHints;
   unitHeuristicHints?: ResolveActiveOperationUnitHeuristicHints;
 };

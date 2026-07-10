@@ -10,6 +10,7 @@ datasource db {
 }
 
 enum RoleKey {
+  FACILITY_ADMINISTRATOR
   GM
   MANAGER
   SUPERVISOR
@@ -72,6 +73,8 @@ model Facility {
   onboardingCompletedAt         DateTime?
   /// Optional org-selected accent color (hex) used for subtle UI delineation.
   brandColor                    String?
+  /// IANA timezone for facility-local operational time (meals, service dates, due windows).
+  timezone                      String                      @default("America/New_York")
   /// Relative path under app `uploads/` (see `lib/facility-uploads.ts`).
   unionHandbookPdfPath          String?
   unionHandbookOriginalFilename String?
@@ -90,8 +93,77 @@ model Facility {
   onboardingManagerInvites      OnboardingManagerInvite[]
   operationDefinitions          OperationDefinition[]
   operationInstances            OperationInstance[]
+  departments                   Department[]
+  jobTitles                     JobTitle[]
+  workShifts                    WorkShift[]
+  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
+  roomAreaStatuses              RoomAreaStatus[]
+  attachments                   Attachment[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
+}
+
+/// Facility operational department (Dietary, EVS, Plant, etc.).
+model Department {
+  id                String    @id @default(cuid())
+  facilityId        String
+  facility          Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  key               String
+  name              String
+  sortOrder         Int       @default(100)
+  isActive          Boolean   @default(true)
+  /// When false, department is hidden from employee HR UI tabs (Admin → Departments).
+  showInEmployeeApp Boolean   @default(true)
+  headEmployeeId    String?
+  headEmployee      Employee? @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  usersAsPrimary    User[]    @relation("UserPrimaryDepartment")
+  employeesAsPrimary Employee[] @relation("EmployeePrimaryDepartment")
+  employeeDepartments EmployeeDepartment[]
+  unitResponsibilities UnitDepartmentResponsibility[]
+  assets            Asset[]
+  logTemplates      LogTemplate[]
+  workShifts        WorkShift[]
+  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
+  repairsRequesting Repair[]  @relation("RepairRequestingDepartment")
+  repairsResponsible Repair[] @relation("RepairResponsibleDepartment")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([facilityId, key])
+  @@index([facilityId])
+  @@index([facilityId, showInEmployeeApp])
+  @@index([headEmployeeId])
+}
+
+/// Facility-scoped job title catalog for HR / employee directory.
+model JobTitle {
+  id         String     @id @default(cuid())
+  facilityId String
+  facility   Facility   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  name       String
+  sortOrder  Int        @default(100)
+  isActive   Boolean    @default(true)
+  employees  Employee[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([facilityId, name])
+  @@index([facilityId])
+}
+
+/// Many-to-many: employee membership in operational departments (with role in that dept).
+model EmployeeDepartment {
+  id           String     @id @default(cuid())
+  employeeId   String
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  roleType     RoleKey    @default(STAFF)
+  createdAt    DateTime   @default(now())
+
+  @@unique([employeeId, departmentId])
+  @@index([employeeId])
+  @@index([departmentId])
 }
 
 model OnboardingManagerInvite {
@@ -212,6 +284,9 @@ model User {
   role                      Role                        @relation(fields: [roleId], references: [id], onDelete: Restrict)
   isActive                  Boolean                     @default(true)
   lastLoginAt               DateTime?
+  /// Optional primary operational department for session/nav scoping.
+  primaryDepartmentId       String?
+  primaryDepartment         Department?                 @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
   submissions               LogSubmission[]
   createdSchedules          ScheduleEntry[]             @relation("ScheduleCreatedBy")
   changedOverrides          AssignmentOverride[]        @relation("OverrideChangedBy")
@@ -222,12 +297,14 @@ model User {
   terminationRecordsCreated EmployeeTerminationRecord[] @relation("TerminationCreatedBy")
   serveryMealReadyEvents    ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedBy")
   serveryMealStartedEvents  ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedBy")
+  attachmentsCreated        Attachment[]                @relation("AttachmentCreatedByUser")
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime                    @updatedAt
 
   @@index([roleId])
   @@index([isActive])
   @@index([facilityId])
+  @@index([primaryDepartmentId])
 }
 
 enum UnitType {
@@ -237,6 +314,17 @@ enum UnitType {
   OFFICE
   STORAGE
   OTHER
+  RESIDENT_AREA
+  COMMON_AREA
+  MECHANICAL
+  RESTROOM_CLUSTER
+  EVS_ZONE
+  GROUND
+}
+
+enum UnitDepartmentKind {
+  PRIMARY
+  BACKUP
 }
 
 enum MealType {
@@ -365,6 +453,39 @@ enum RepairStatus {
   CLOSED
 }
 
+enum WorkOrderKind {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum RepairTrade {
+  EQUIPMENT
+  PLUMBING
+  ELECTRICAL
+  GENERAL
+}
+
+enum PreventiveMaintenanceCadence {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum RoomAreaOperationalStatus {
+  CLEAN
+  DIRTY
+  OCCUPIED
+  DISCHARGE
+  ISOLATION
+  TERMINAL_CLEAN_PENDING
+}
+
+enum AttachmentParentKind {
+  LOG_SUBMISSION
+  REPAIR
+}
+
 model Unit {
   id                       String                    @id @default(cuid())
   facilityId               String
@@ -380,6 +501,7 @@ model Unit {
   primaryForEmployees      Employee[]                @relation("EmployeePrimaryUnit")
   employeeUnitAccess       EmployeeUnitAccess[]
   mealTimes                UnitMealTime[]
+  departmentResponsibilities UnitDepartmentResponsibility[]
   logAssignments           LogAssignment[]
   logSubmissions           LogSubmission[]
   defaultAssignments       DefaultAssignment[]
@@ -388,6 +510,7 @@ model Unit {
   overrideNewUnit          AssignmentOverride[]      @relation("OverrideNewUnit")
   assets                   Asset[]
   repairs                  Repair[]
+  roomAreaStatuses         RoomAreaStatus[]
   serveryMealServiceEvents ServeryMealServiceEvent[]
   kioskUnitPinLoginEvents  KioskUnitPinLoginEvent[]
   createdAt                DateTime                  @default(now())
@@ -397,6 +520,25 @@ model Unit {
   @@index([parentUnitId])
   @@index([isActive, displayOrder])
   @@index([facilityId])
+}
+
+/// Which department(s) are responsible for a unit (primary/backup).
+model UnitDepartmentResponsibility {
+  id                 String             @id @default(cuid())
+  unitId             String
+  unit               Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  departmentId       String
+  department         Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  kind               UnitDepartmentKind @default(PRIMARY)
+  riskLevel          String?
+  cleaningFrequency  String?
+  inspectionFrequency String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([unitId, departmentId])
+  @@index([unitId])
+  @@index([departmentId])
 }
 
 model ServeryMealServiceEvent {
@@ -449,6 +591,13 @@ model Employee {
   /// Default unit focus for PIN sessions (must be allowed, or any unit when access list is empty).
   primaryUnitId              String?
   primaryUnit                Unit?                       @relation("EmployeePrimaryUnit", fields: [primaryUnitId], references: [id], onDelete: SetNull)
+  /// Optional primary operational department for PIN session / HR scoping.
+  primaryDepartmentId        String?
+  primaryDepartment          Department?                 @relation("EmployeePrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
+  jobTitleId                 String?
+  jobTitle                   JobTitle?                   @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
+  headedDepartments          Department[]                @relation("DepartmentHead")
+  employeeDepartments        EmployeeDepartment[]
   unitAccesses               EmployeeUnitAccess[]
   roleType                   RoleKey
   status                     EmployeeStatus              @default(ACTIVE)
@@ -479,6 +628,9 @@ model Employee {
   hrAuditLogs                EmployeeHrAuditLog[]
   terminationRecords         EmployeeTerminationRecord[]
   kioskUnitPinLoginEvents    KioskUnitPinLoginEvent[]
+  assignedRepairs            Repair[]                    @relation("RepairAssignedEmployee")
+  roomAreaStatusUpdates      RoomAreaStatus[]
+  attachmentsCreated         Attachment[]                @relation("AttachmentCreatedByEmployee")
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
 
@@ -486,6 +638,8 @@ model Employee {
   @@index([status, roleType])
   @@index([facilityId])
   @@index([primaryUnitId])
+  @@index([primaryDepartmentId])
+  @@index([jobTitleId])
   @@index([facilityId, unionMember])
   @@index([birthMonth, birthDay])
 }
@@ -618,6 +772,8 @@ model ScheduleEntry {
   roleType     RoleKey
   unitId       String
   unit         Unit                 @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  workShiftId  String?
+  workShift    WorkShift?           @relation(fields: [workShiftId], references: [id], onDelete: SetNull)
   plannedStart String?
   plannedEnd   String?
   createdById  String?
@@ -628,6 +784,7 @@ model ScheduleEntry {
 
   @@index([date, unitId])
   @@index([employeeId, date])
+  @@index([workShiftId])
 }
 
 model AssignmentOverride {
@@ -676,6 +833,8 @@ model Asset {
   equipmentType String
   unitId        String
   unit          Unit        @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   model         String?
   serialNumber  String?
   vendorId      String?
@@ -683,35 +842,56 @@ model Asset {
   status        AssetStatus @default(ACTIVE)
   notes         String?
   repairs       Repair[]
+  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   @@index([unitId, status])
   @@index([vendorId])
+  @@index([departmentId])
 }
 
 model Repair {
-  id           String         @id @default(cuid())
-  repairCode   String         @unique
-  assetId      String?
-  asset        Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  unitId       String
-  unit         Unit           @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  title        String
-  description  String
-  priority     RepairPriority @default(MEDIUM)
-  status       RepairStatus   @default(OPEN)
-  reportedById String?
-  reportedBy   User?          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
-  vendorId     String?
-  vendor       Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  updates      RepairUpdate[]
-  createdAt    DateTime       @default(now())
-  completedAt  DateTime?
-  updatedAt    DateTime       @updatedAt
+  id                      String         @id @default(cuid())
+  repairCode              String         @unique
+  assetId                 String?
+  asset                   Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  unitId                  String
+  unit                    Unit           @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  title                   String
+  description             String
+  priority                RepairPriority @default(MEDIUM)
+  status                  RepairStatus   @default(OPEN)
+  workOrderKind           WorkOrderKind  @default(CORRECTIVE)
+  repairTrade             RepairTrade    @default(GENERAL)
+  requestingDepartmentId  String?
+  requestingDepartment    Department?    @relation("RepairRequestingDepartment", fields: [requestingDepartmentId], references: [id], onDelete: SetNull)
+  responsibleDepartmentId String?
+  responsibleDepartment   Department?    @relation("RepairResponsibleDepartment", fields: [responsibleDepartmentId], references: [id], onDelete: SetNull)
+  assignedEmployeeId      String?
+  assignedEmployee        Employee?      @relation("RepairAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  preventiveScheduleId    String?
+  preventiveSchedule      PreventiveMaintenanceSchedule? @relation(fields: [preventiveScheduleId], references: [id], onDelete: SetNull)
+  dueAt                   DateTime?
+  estimatedLaborMinutes   Int?
+  partsNote               String?
+  reportedById            String?
+  reportedBy              User?          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
+  vendorId                String?
+  vendor                  Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  updates                 RepairUpdate[]
+  attachments             Attachment[]
+  createdAt               DateTime       @default(now())
+  completedAt             DateTime?
+  updatedAt               DateTime       @updatedAt
 
   @@index([unitId, status])
   @@index([priority, status])
+  @@index([requestingDepartmentId])
+  @@index([responsibleDepartmentId])
+  @@index([assignedEmployeeId])
+  @@index([preventiveScheduleId])
+  @@index([dueAt])
 }
 
 model RepairUpdate {
@@ -737,6 +917,8 @@ model LogTemplate {
   instructions    String?
   recurrence      LogRecurrence      @default(DAILY)
   isActive        Boolean            @default(true)
+  departmentId    String?
+  department      Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdByRoleId String?
   createdByRole   Role?              @relation(fields: [createdByRoleId], references: [id], onDelete: SetNull)
   fields          LogTemplateField[]
@@ -748,6 +930,7 @@ model LogTemplate {
   @@unique([facilityId, name])
   @@index([category, isActive])
   @@index([facilityId])
+  @@index([departmentId])
 }
 
 model LogTemplateField {
@@ -807,6 +990,7 @@ model LogSubmission {
   notes                 String?
   correctiveAction      String?
   values                LogSubmissionValue[]
+  attachments           Attachment[]
   submittedAt           DateTime             @default(now())
 
   @@index([unitId, serviceDate])
@@ -829,4 +1013,91 @@ model LogSubmissionValue {
 
   @@index([submissionId])
   @@index([fieldId])
+}
+
+model WorkShift {
+  id           String          @id @default(cuid())
+  facilityId   String
+  facility     Facility        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  name         String
+  startLocal   String
+  endLocal     String
+  sortOrder    Int             @default(100)
+  isActive     Boolean         @default(true)
+  scheduleEntries ScheduleEntry[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([facilityId])
+  @@index([departmentId])
+}
+
+model PreventiveMaintenanceSchedule {
+  id            String                        @id @default(cuid())
+  facilityId    String
+  facility      Facility                      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  assetId       String
+  asset         Asset                         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  departmentId  String?
+  department    Department?                   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  name          String
+  cadence       PreventiveMaintenanceCadence
+  intervalCount Int                           @default(1)
+  nextDueAt     DateTime
+  isActive      Boolean                       @default(true)
+  repairs       Repair[]
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
+
+  @@index([facilityId])
+  @@index([assetId])
+  @@index([departmentId])
+  @@index([nextDueAt])
+}
+
+model RoomAreaStatus {
+  id                  String                    @id @default(cuid())
+  facilityId          String
+  facility            Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  unitId              String
+  unit                Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  statusDate          DateTime                  @db.Date
+  status              RoomAreaOperationalStatus
+  notes               String?
+  updatedByEmployeeId String?
+  updatedByEmployee   Employee?                 @relation(fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@unique([unitId, statusDate])
+  @@index([facilityId])
+  @@index([unitId, statusDate])
+  @@index([updatedByEmployeeId])
+}
+
+model Attachment {
+  id                   String               @id @default(cuid())
+  facilityId           String
+  facility             Facility             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  parentKind           AttachmentParentKind
+  logSubmissionId      String?
+  logSubmission        LogSubmission?       @relation(fields: [logSubmissionId], references: [id], onDelete: Cascade)
+  repairId             String?
+  repair               Repair?              @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  fileRelativePath     String
+  originalFilename     String
+  mimeType             String
+  createdByUserId      String?
+  createdByUser        User?                @relation("AttachmentCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByEmployeeId  String?
+  createdByEmployee    Employee?            @relation("AttachmentCreatedByEmployee", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt            DateTime             @default(now())
+
+  @@index([facilityId])
+  @@index([logSubmissionId])
+  @@index([repairId])
+  @@index([createdByUserId])
+  @@index([createdByEmployeeId])
 }

@@ -22,6 +22,7 @@ export async function getFacilityForSession() {
       displayName: true,
       managementCompanyName: true,
       brandColor: true,
+      timezone: true,
       unionHandbookPdfPath: true,
       unionHandbookOriginalFilename: true,
       unionHandbookUploadedAt: true,

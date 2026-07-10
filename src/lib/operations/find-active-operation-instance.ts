@@ -1,3 +1,4 @@
+import { resolveFacilityTimezone } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 import { getDefaultMealTypeForTimeOfDay } from "@/lib/servery-meal-service";
 
@@ -10,12 +11,14 @@ export async function findActiveOperationInstance(input: {
   departmentId: string;
   serviceDate: Date;
   now?: Date;
+  facilityTimezone?: string | null;
 }): Promise<ActiveOperationInstanceRow | null> {
   if (!hasOperationEnginePrisma(prisma)) {
     return null;
   }
 
   const now = input.now ?? new Date();
+  const facilityTimezone = resolveFacilityTimezone(input.facilityTimezone);
   const instances = await prisma.operationInstance.findMany({
     where: {
       facilityId: input.facilityId,
@@ -37,5 +40,8 @@ export async function findActiveOperationInstance(input: {
     },
   });
 
-  return pickActiveOperationInstance(instances, getDefaultMealTypeForTimeOfDay(now));
+  return pickActiveOperationInstance(
+    instances,
+    getDefaultMealTypeForTimeOfDay(now, facilityTimezone),
+  );
 }

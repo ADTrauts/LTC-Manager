@@ -19,6 +19,7 @@ import { resolve } from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 
+import { facilityLocalDateToServiceDate, loadFacilityTimezone } from "../src/lib/operational-time";
 import { syncOperationInstances } from "../src/lib/operations/sync-operation-instances";
 
 function loadEnvFile() {
@@ -72,12 +73,7 @@ function parseArgs(argv: string[]) {
 
   let serviceDate: Date | undefined;
   if (date) {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-    if (!match) {
-      throw new Error(`Invalid --date value "${date}". Expected YYYY-MM-DD.`);
-    }
-    serviceDate = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-    serviceDate.setHours(0, 0, 0, 0);
+    serviceDate = facilityLocalDateToServiceDate(date);
   }
 
   return { facilityId, serviceDate };
@@ -89,7 +85,24 @@ const prisma = new PrismaClient();
 
 async function main() {
   const { facilityId, serviceDate } = parseArgs(process.argv.slice(2));
-  const results = await syncOperationInstances(prisma, { facilityId, serviceDate });
+
+  if (facilityId) {
+    const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
+    const results = await syncOperationInstances(prisma, {
+      facilityId,
+      serviceDate,
+      facilityTimezone,
+    });
+    for (const result of results) {
+      const day = result.serviceDate.toISOString().slice(0, 10);
+      console.log(
+        `facility=${result.facilityId} timezone=${facilityTimezone} date=${day} definitions=${result.definitionsConsidered} created=${result.created} skipped=${result.skippedExisting}`,
+      );
+    }
+    return;
+  }
+
+  const results = await syncOperationInstances(prisma, { serviceDate });
 
   if (results.length === 0) {
     console.log("No facilities found.");

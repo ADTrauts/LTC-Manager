@@ -1,6 +1,10 @@
 import type { MealType, PrismaClient } from "@prisma/client";
 
-import { getTodayWindow } from "@/lib/operations-center/get-today-window";
+import {
+  getFacilityServiceDate,
+  loadFacilityTimezone,
+  toServiceDateKey,
+} from "@/lib/operational-time";
 
 export type OperationDefinitionForSync = {
   id: string;
@@ -40,11 +44,7 @@ export type SyncOperationInstancesResult = {
 };
 
 export function isSameServiceDate(left: Date, right: Date): boolean {
-  return (
-    left.getFullYear() === right.getFullYear() &&
-    left.getMonth() === right.getMonth() &&
-    left.getDate() === right.getDate()
-  );
+  return toServiceDateKey(left) === toServiceDateKey(right);
 }
 
 export function hasOperationInstanceForDefinition(
@@ -116,10 +116,13 @@ export async function syncOperationInstancesForFacility(
     facilityId: string;
     serviceDate?: Date;
     now?: Date;
+    facilityTimezone?: string | null;
   },
 ): Promise<SyncOperationInstancesResult> {
   const now = input.now ?? new Date();
-  const serviceDate = input.serviceDate ?? getTodayWindow(now).start;
+  const facilityTimezone =
+    input.facilityTimezone ?? (await loadFacilityTimezone(prisma, input.facilityId));
+  const serviceDate = input.serviceDate ?? getFacilityServiceDate(facilityTimezone, now);
 
   const definitions = await prisma.operationDefinition.findMany({
     where: { facilityId: input.facilityId },
@@ -181,14 +184,22 @@ export async function syncOperationInstances(
     facilityId?: string;
     serviceDate?: Date;
     now?: Date;
+    facilityTimezone?: string | null;
   } = {},
 ): Promise<SyncOperationInstancesResult[]> {
   if (input.facilityId) {
-    return [await syncOperationInstancesForFacility(prisma, input as { facilityId: string; serviceDate?: Date; now?: Date })];
+    return [
+      await syncOperationInstancesForFacility(prisma, {
+        facilityId: input.facilityId,
+        serviceDate: input.serviceDate,
+        now: input.now,
+        facilityTimezone: input.facilityTimezone,
+      }),
+    ];
   }
 
   const facilities = await prisma.facility.findMany({
-    select: { id: true },
+    select: { id: true, timezone: true },
     orderBy: { displayName: "asc" },
   });
 
@@ -199,6 +210,7 @@ export async function syncOperationInstances(
         facilityId: facility.id,
         serviceDate: input.serviceDate,
         now: input.now,
+        facilityTimezone: input.facilityTimezone ?? facility.timezone,
       }),
     );
   }

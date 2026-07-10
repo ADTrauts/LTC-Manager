@@ -1,9 +1,9 @@
 import {
   buildDashboardAggregates,
-  getTodayWindow,
   loadDashboardQueries,
   type OperationContext,
 } from "@/lib/operations-center";
+import { getFacilityLocalTodayWindow, loadFacilityTimezone } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 import { buildHandoffData, type HandoffData, type HandoffSection, type HandoffSummary } from "./handoffs";
@@ -12,8 +12,9 @@ import { loadCoverageList } from "./load-coverage-list";
 import { loadWalkList } from "./load-walk-list";
 
 export async function loadHandoffs(facilityId: string): Promise<HandoffData> {
-  const window = getTodayWindow();
   const now = new Date();
+  const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
+  const window = getFacilityLocalTodayWindow(facilityTimezone, now);
 
   const [walkList, coverage, callDowns, queries, repairs] = await Promise.all([
     loadWalkList(facilityId),
@@ -33,7 +34,7 @@ export async function loadHandoffs(facilityId: string): Promise<HandoffData> {
     }),
   ]);
 
-  const dashboard = buildDashboardAggregates({ ...queries, now });
+  const dashboard = buildDashboardAggregates({ ...queries, now, facilityTimezone });
 
   return buildHandoffData({
     walkListItems: walkList.items,
