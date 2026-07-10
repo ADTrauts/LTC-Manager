@@ -21,6 +21,7 @@ export {
   shellClasses,
   spacing,
   touchTarget,
+  zIndex,
   type DesignTokens,
 } from "./design-tokens";
 

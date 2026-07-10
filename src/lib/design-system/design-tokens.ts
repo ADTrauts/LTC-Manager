@@ -60,6 +60,14 @@ export const card = {
   paddingLgPx: 24,
 } as const;
 
+/** Stacking for shell overlays (dropdowns, portals). */
+export const zIndex = {
+  /** Fade edges inside the nav scroller. */
+  navFade: 10,
+  /** Portaled Administration menu and similar header overlays. */
+  dropdown: 60,
+} as const;
+
 /** Tailwind-friendly class fragments derived from tokens (optional consumers). */
 export const shellClasses = {
   maxWidth: "max-w-[1440px]",
@@ -75,6 +83,7 @@ export const designTokens = {
   touchTarget,
   badge,
   card,
+  zIndex,
   shellClasses,
 } as const;
 

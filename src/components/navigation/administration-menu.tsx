@@ -2,19 +2,29 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { useNavPathname } from "@/hooks/use-nav-pathname";
 import {
   buildAdministrationMenuSections,
   isAdministrationMenuActive,
 } from "@/lib/administration-nav";
-import { AppIcons, navIconClassName, resolveNavIcon, shadows } from "@/lib/design-system";
+import {
+  ADMINISTRATION_MENU_GAP_PX,
+  ADMINISTRATION_MENU_MIN_WIDTH_PX,
+  computeFixedMenuPosition,
+  type FixedMenuPosition,
+} from "@/lib/administration-menu-position";
+import { AppIcons, navIconClassName, resolveNavIcon, shadows, zIndex } from "@/lib/design-system";
 import { isActiveNavPath } from "@/lib/nav-utils";
 import type { NavRouteItem } from "@/lib/nav-zones";
 
@@ -28,9 +38,10 @@ export function AdministrationMenu({ items, triggerClassName }: AdministrationMe
   const pathname = useNavPathname();
   const sections = buildAdministrationMenuSections(items);
   const menuId = useId();
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<FixedMenuPosition | null>(null);
 
   const flatItems = sections.flatMap((section) => section.items);
   const menuActive = isAdministrationMenuActive(pathname, items);
@@ -43,15 +54,42 @@ export function AdministrationMenu({ items, triggerClassName }: AdministrationMe
     }
   }
 
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger || typeof window === "undefined") return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const panelRect = panelRef.current?.getBoundingClientRect();
+    setPosition(
+      computeFixedMenuPosition({
+        triggerRect,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        menuSize: panelRect
+          ? { width: panelRect.width, height: panelRect.height }
+          : { width: ADMINISTRATION_MENU_MIN_WIDTH_PX, height: 280 },
+        gapPx: ADMINISTRATION_MENU_GAP_PX,
+        minWidthPx: ADMINISTRATION_MENU_MIN_WIDTH_PX,
+      }),
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    // Second pass after paint so measured panel height can refine placement.
+    const frame = requestAnimationFrame(() => updatePosition());
+    return () => cancelAnimationFrame(frame);
+  }, [open, updatePosition, sections.length]);
+
   useEffect(() => {
     if (!open) return;
 
     function onPointerDown(event: MouseEvent | PointerEvent) {
-      const root = rootRef.current;
-      if (!root || !(event.target instanceof Node)) return;
-      if (!root.contains(event.target)) {
-        setOpen(false);
-      }
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
 
     function onKeyDown(event: KeyboardEvent) {
@@ -62,24 +100,33 @@ export function AdministrationMenu({ items, triggerClassName }: AdministrationMe
       }
     }
 
+    function onReposition() {
+      updatePosition();
+    }
+
+    const scroller = triggerRef.current?.closest(".shell-nav-scroller");
+    scroller?.addEventListener("scroll", onReposition, { passive: true });
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+
     return () => {
+      scroller?.removeEventListener("scroll", onReposition);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, updatePosition]);
 
   if (sections.length === 0) {
     return null;
   }
 
   function focusItemAt(index: number) {
-    const root = rootRef.current;
-    if (!root) return;
-    const nodes = root.querySelectorAll<HTMLElement>("[data-admin-menuitem='true']");
-    const target = nodes[index];
-    target?.focus();
+    const nodes = panelRef.current?.querySelectorAll<HTMLElement>("[data-admin-menuitem='true']");
+    nodes?.[index]?.focus();
   }
 
   function onTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -96,7 +143,7 @@ export function AdministrationMenu({ items, triggerClassName }: AdministrationMe
 
   function onMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     const nodes = Array.from(
-      rootRef.current?.querySelectorAll<HTMLElement>("[data-admin-menuitem='true']") ?? [],
+      panelRef.current?.querySelectorAll<HTMLElement>("[data-admin-menuitem='true']") ?? [],
     );
     if (nodes.length === 0) return;
     const currentIndex = nodes.findIndex((node) => node === document.activeElement);
@@ -123,8 +170,78 @@ export function AdministrationMenu({ items, triggerClassName }: AdministrationMe
   const AdminIcon = AppIcons.administration;
   const Chevron = AppIcons.chevronDown;
 
+  const panelStyle: CSSProperties | undefined = position
+    ? {
+        position: "fixed",
+        top: position.top,
+        left: position.left,
+        minWidth: position.minWidth,
+        zIndex: zIndex.dropdown,
+        boxShadow: shadows.md,
+      }
+    : {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        minWidth: ADMINISTRATION_MENU_MIN_WIDTH_PX,
+        zIndex: zIndex.dropdown,
+        boxShadow: shadows.md,
+        visibility: "hidden",
+      };
+
+  const menuPanel =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={panelRef}
+            id={menuId}
+            role="menu"
+            aria-label="Administration"
+            className="overflow-hidden rounded-md border border-zinc-200 bg-white py-1"
+            style={panelStyle}
+            onKeyDown={onMenuKeyDown}
+          >
+            {sections.map((section, sectionIndex) => (
+              <div key={section.id} role="group" aria-label={section.label}>
+                {sectionIndex > 0 ? <div className="my-1 border-t border-zinc-100" aria-hidden /> : null}
+                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+                  {section.label}
+                </p>
+                <ul className="list-none p-0">
+                  {section.items.map((item) => {
+                    const isActive = isActiveNavPath(pathname, item.href);
+                    const Icon = resolveNavIcon(item.href);
+                    return (
+                      <li key={item.href} role="none">
+                        <Link
+                          role="menuitem"
+                          href={item.href}
+                          data-admin-menuitem="true"
+                          data-nav-active={isActive ? "true" : undefined}
+                          aria-current={isActive ? "page" : undefined}
+                          className={
+                            isActive
+                              ? "flex min-h-11 items-center gap-2 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 outline-none focus-visible:bg-zinc-100"
+                              : "flex min-h-11 items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50"
+                          }
+                          onClick={() => setOpen(false)}
+                        >
+                          {Icon ? <Icon className={navIconClassName(isActive)} aria-hidden /> : null}
+                          <span>{item.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
         ref={triggerRef}
         type="button"
@@ -143,52 +260,7 @@ export function AdministrationMenu({ items, triggerClassName }: AdministrationMe
           aria-hidden
         />
       </button>
-
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          aria-label="Administration"
-          className="absolute left-0 top-full z-50 mt-1 min-w-[16.5rem] overflow-hidden rounded-md border border-zinc-200 bg-white py-1"
-          style={{ boxShadow: shadows.md }}
-          onKeyDown={onMenuKeyDown}
-        >
-          {sections.map((section, sectionIndex) => (
-            <div key={section.id} role="group" aria-label={section.label}>
-              {sectionIndex > 0 ? <div className="my-1 border-t border-zinc-100" aria-hidden /> : null}
-              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                {section.label}
-              </p>
-              <ul className="list-none p-0">
-                {section.items.map((item) => {
-                  const isActive = isActiveNavPath(pathname, item.href);
-                  const Icon = resolveNavIcon(item.href);
-                  return (
-                    <li key={item.href} role="none">
-                      <Link
-                        role="menuitem"
-                        href={item.href}
-                        data-admin-menuitem="true"
-                        data-nav-active={isActive ? "true" : undefined}
-                        aria-current={isActive ? "page" : undefined}
-                        className={
-                          isActive
-                            ? "flex min-h-11 items-center gap-2 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 outline-none focus-visible:bg-zinc-100"
-                            : "flex min-h-11 items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50"
-                        }
-                        onClick={() => setOpen(false)}
-                      >
-                        {Icon ? <Icon className={navIconClassName(isActive)} aria-hidden /> : null}
-                        <span>{item.label}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {menuPanel}
     </div>
   );
 }
