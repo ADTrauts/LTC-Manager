@@ -95,31 +95,27 @@ export async function AppShell({ children }: AppShellProps) {
       }
     >
       <header className="shrink-0 border-b border-zinc-200 bg-white" role="banner">
-        <div className={`mx-auto w-full ${shellClasses.maxWidth}`}>
-          <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 lg:px-6 lg:py-3.5">
-            <div className="flex min-w-0 flex-1 flex-wrap items-start gap-4 sm:gap-6 lg:gap-10">
-              <ShellBrandBlock
-                facilityName={facility?.displayName ?? "Facility"}
-                sessionLabel={sessionLabel}
-              />
-              {scopeDepartments.length > 0 ? (
-                <DepartmentScopeSwitcher
-                  departments={scopeDepartments}
-                  selectedDepartmentId={
-                    deptNav.showAllDepartmentNav && isFacilityAdministratorRole(session.role)
-                      ? null
-                      : deptNav.activeDepartmentId
-                  }
-                  isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
-                />
-              ) : null}
-            </div>
-            <div className="shrink-0 self-start lg:self-center">
-              <SignOutControls showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
-            </div>
-          </div>
-          <div className="border-t border-zinc-100 px-4 py-1 lg:px-6 lg:py-1.5">
-            <TopNav items={navItems} />
+        <div
+          className={`mx-auto flex w-full ${shellClasses.maxWidth} flex-nowrap items-center gap-2.5 px-3 py-2 sm:gap-3 sm:px-4 lg:gap-4 lg:px-6`}
+        >
+          <ShellBrandBlock
+            facilityName={facility?.displayName ?? "Facility"}
+            sessionLabel={sessionLabel}
+          />
+          {scopeDepartments.length > 0 ? (
+            <DepartmentScopeSwitcher
+              departments={scopeDepartments}
+              selectedDepartmentId={
+                deptNav.showAllDepartmentNav && isFacilityAdministratorRole(session.role)
+                  ? null
+                  : deptNav.activeDepartmentId
+              }
+              isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
+            />
+          ) : null}
+          <TopNav items={navItems} />
+          <div className="shrink-0">
+            <SignOutControls showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
           </div>
         </div>
       </header>

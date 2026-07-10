@@ -108,6 +108,16 @@ select option {
   font-weight: 600;
 }
 
+/** Compact header nav: hide native scrollbar while keeping scroll/keyboard access. */
+.shell-nav-scroller {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.shell-nav-scroller::-webkit-scrollbar {
+  display: none;
+}
+
 .status-pill-complete {
   background: rgb(220 252 231);
   color: rgb(21 128 61);

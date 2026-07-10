@@ -14,6 +14,8 @@ type Props = {
   isFacilityAdministrator: boolean;
 };
 
+const MODE_HINT = "Narrows navigation to the selected operational mode.";
+
 export function DepartmentScopeSwitcher({
   departments,
   selectedDepartmentId,
@@ -48,27 +50,31 @@ export function DepartmentScopeSwitcher({
   }
 
   return (
-    <div className="flex min-w-[12rem] max-w-[18rem] flex-1 flex-col gap-1.5 sm:min-w-[14rem]">
+    <div className="flex w-[10.5rem] shrink-0 flex-col gap-0.5 sm:w-[12rem]">
       <label
         className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500"
         htmlFor="operational-mode"
       >
         Operational mode
       </label>
-      <div className="flex min-h-10 items-stretch overflow-hidden rounded-md border border-zinc-300 bg-white shadow-sm focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-200">
+      <div
+        className="flex min-h-10 items-stretch overflow-hidden rounded-md border border-zinc-300 bg-white shadow-sm focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-200"
+        title={MODE_HINT}
+      >
         <span
-          className="flex shrink-0 items-center border-r border-zinc-200 bg-zinc-50 px-2.5 text-zinc-500"
+          className="flex shrink-0 items-center border-r border-zinc-200 bg-zinc-50 px-2 text-zinc-500"
           aria-hidden
         >
           <ModeIcon className="h-4 w-4" />
         </span>
         <select
           id="operational-mode"
-          className="min-h-10 w-full min-w-0 border-0 bg-transparent px-2.5 py-2 text-sm text-zinc-800 focus:outline-none disabled:opacity-60"
+          className="min-h-10 w-full min-w-0 border-0 bg-transparent px-2 py-1.5 text-sm text-zinc-800 focus:outline-none disabled:opacity-60"
           disabled={pending}
           value={selectValue}
           onChange={(e) => void commit(e.target.value)}
           aria-describedby="operational-mode-hint"
+          title={MODE_HINT}
         >
           {isFacilityAdministrator ? (
             <option value="">All modes</option>
@@ -82,8 +88,8 @@ export function DepartmentScopeSwitcher({
           ))}
         </select>
       </div>
-      <p id="operational-mode-hint" className="text-[11px] leading-snug text-zinc-500">
-        Narrows navigation to the selected operational mode.
+      <p id="operational-mode-hint" className="sr-only">
+        {MODE_HINT}
       </p>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
