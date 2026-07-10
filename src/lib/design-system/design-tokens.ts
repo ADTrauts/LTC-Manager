@@ -37,7 +37,7 @@ export const layout = {
   /** Main shell content column (matches `max-w-[1440px]`). */
   shellMaxWidthPx: 1440,
   /** Approximate compact single-row header height for layout math. */
-  headerHeightPx: 56,
+  headerHeightPx: 52,
   /** Left locations rail (`lg:w-72`). */
   sidebarWidthPx: 288,
 } as const;

@@ -50,9 +50,9 @@ export function DepartmentScopeSwitcher({
   }
 
   return (
-    <div className="flex w-[10.5rem] shrink-0 flex-col gap-0.5 sm:w-[12rem]">
+    <div className="flex w-[8.75rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[10rem] lg:w-[11.5rem]">
       <label
-        className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500"
+        className="sr-only lg:not-sr-only lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.12em] lg:text-zinc-500"
         htmlFor="operational-mode"
       >
         Operational mode
@@ -62,14 +62,14 @@ export function DepartmentScopeSwitcher({
         title={MODE_HINT}
       >
         <span
-          className="flex shrink-0 items-center border-r border-zinc-200 bg-zinc-50 px-2 text-zinc-500"
+          className="flex shrink-0 items-center border-r border-zinc-200 bg-zinc-50 px-1.5 text-zinc-500 sm:px-2"
           aria-hidden
         >
           <ModeIcon className="h-4 w-4" />
         </span>
         <select
           id="operational-mode"
-          className="min-h-10 w-full min-w-0 border-0 bg-transparent px-2 py-1.5 text-sm text-zinc-800 focus:outline-none disabled:opacity-60"
+          className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1.5 py-1.5 text-sm text-zinc-800 focus:outline-none disabled:opacity-60 sm:px-2"
           disabled={pending}
           value={selectValue}
           onChange={(e) => void commit(e.target.value)}

@@ -14,8 +14,8 @@ type TopNavProps = {
 
 function linkClass(isActive: boolean) {
   return isActive
-    ? "inline-flex min-h-10 shrink-0 items-center gap-1.5 border-b-2 border-zinc-900 px-2.5 text-sm font-semibold text-zinc-900"
-    : "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900";
+    ? "inline-flex min-h-10 shrink-0 items-center gap-1.5 border-b-2 border-zinc-900 px-2 pb-px text-sm font-semibold text-zinc-900 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400 sm:px-2.5"
+    : "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-sm px-2 text-sm font-medium text-zinc-600 outline-offset-2 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400 sm:px-2.5";
 }
 
 export function TopNav({ items }: TopNavProps) {
@@ -66,7 +66,7 @@ export function TopNav({ items }: TopNavProps) {
       active.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
-        inline: "nearest",
+        inline: "center",
       });
       updateOverflow();
     });
@@ -78,20 +78,22 @@ export function TopNav({ items }: TopNavProps) {
     <div className="relative min-w-0 flex-1">
       {canScrollLeft ? (
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-white from-40% to-transparent"
           aria-hidden
         />
       ) : null}
       {canScrollRight ? (
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-white from-40% to-transparent"
           aria-hidden
         />
       ) : null}
       <nav
         ref={scrollerRef}
-        className="shell-nav-scroller flex w-full min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth sm:gap-1.5"
+        className="shell-nav-scroller flex w-full min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain scroll-smooth pb-0.5 sm:gap-1"
+        style={{ scrollPaddingInline: "1rem" }}
         aria-label="Top navigation"
+        tabIndex={0}
       >
         {groups.map((group, groupIndex) => {
           const showZoneHeading = shouldShowZoneHeading(group);
@@ -105,12 +107,12 @@ export function TopNav({ items }: TopNavProps) {
             >
               {groupIndex > 0 ? (
                 <span
-                  className="mx-1.5 hidden h-5 w-px shrink-0 bg-zinc-200 sm:mx-2 md:block"
+                  className="mx-1 hidden h-5 w-px shrink-0 bg-zinc-200 sm:mx-1.5 xl:block"
                   aria-hidden="true"
                 />
               ) : null}
               {showZoneHeading ? (
-                <span className="hidden shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400 md:inline">
+                <span className="hidden shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400 xl:inline">
                   {group.label}
                 </span>
               ) : null}

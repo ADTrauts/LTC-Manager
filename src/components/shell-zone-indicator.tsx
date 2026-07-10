@@ -8,10 +8,10 @@ export function ShellZoneIndicator() {
   if (!pathname) {
     return (
       <div
-        className="shrink-0 border-b border-zinc-200 bg-white px-3 py-1.5 sm:px-4 lg:px-6"
+        className="shrink-0 border-b border-zinc-200 bg-white px-3 py-1 sm:px-4 lg:px-6"
         aria-hidden="true"
       >
-        <div className="h-3.5 w-36 rounded bg-zinc-100" />
+        <div className="h-3 w-36 rounded bg-zinc-100" />
       </div>
     );
   }
@@ -19,7 +19,7 @@ export function ShellZoneIndicator() {
   const zoneLabel = NAV_ZONE_LABELS[resolveZoneForPathname(pathname)];
 
   return (
-    <div className="shrink-0 border-b border-zinc-200 bg-white px-3 py-1.5 sm:px-4 lg:px-6">
+    <div className="shrink-0 border-b border-zinc-200 bg-white px-3 py-1 sm:px-4 lg:px-6">
       <p className="text-xs leading-none text-zinc-600">
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Zone</span>
         <span className="mx-1.5 text-zinc-300" aria-hidden="true">

@@ -96,7 +96,7 @@ export async function AppShell({ children }: AppShellProps) {
     >
       <header className="shrink-0 border-b border-zinc-200 bg-white" role="banner">
         <div
-          className={`mx-auto flex w-full ${shellClasses.maxWidth} flex-nowrap items-center gap-2.5 px-3 py-2 sm:gap-3 sm:px-4 lg:gap-4 lg:px-6`}
+          className={`mx-auto flex w-full ${shellClasses.maxWidth} flex-nowrap items-center gap-2 px-3 py-1.5 sm:gap-2.5 sm:px-4 sm:py-2 lg:gap-3 lg:px-6`}
         >
           <ShellBrandBlock
             facilityName={facility?.displayName ?? "Facility"}
