@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AdministrationMenu } from "@/components/navigation/administration-menu";
 import { useNavPathname } from "@/hooks/use-nav-pathname";
+import { partitionTopNavItems } from "@/lib/administration-nav";
 import { navIconClassName, resolveNavIcon } from "@/lib/design-system";
 import { groupNavItemsByZone, shouldShowZoneHeading, type NavRouteItem } from "@/lib/nav-zones";
 import { isActiveNavPath } from "@/lib/nav-utils";
@@ -20,7 +22,8 @@ function linkClass(isActive: boolean) {
 
 export function TopNav({ items }: TopNavProps) {
   const pathname = useNavPathname();
-  const groups = groupNavItemsByZone(items);
+  const { primaryItems, administrationItems } = partitionTopNavItems(items);
+  const groups = groupNavItemsByZone(primaryItems);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -136,6 +139,17 @@ export function TopNav({ items }: TopNavProps) {
             </div>
           );
         })}
+        {administrationItems.length > 0 ? (
+          <>
+            {groups.length > 0 ? (
+              <span
+                className="mx-1 hidden h-5 w-px shrink-0 bg-zinc-200 sm:mx-1.5 xl:block"
+                aria-hidden="true"
+              />
+            ) : null}
+            <AdministrationMenu items={administrationItems} triggerClassName={linkClass} />
+          </>
+        ) : null}
       </nav>
     </div>
   );

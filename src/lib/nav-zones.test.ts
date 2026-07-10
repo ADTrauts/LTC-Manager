@@ -14,6 +14,7 @@ test("resolveZoneForPathname maps routes to certified zones", () => {
   assert.equal(resolveZoneForPathname("/dashboard"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathname("/operations"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathname("/unit/abc"), "LOCATIONS");
+  assert.equal(resolveZoneForPathname("/units"), "LOCATIONS");
   assert.equal(resolveZoneForPathname("/staffing"), "TODAYS_WORK");
   assert.equal(resolveZoneForPathname("/reports"), "REVIEW");
   assert.equal(resolveZoneForPathname("/employees/import"), "ADMINISTRATION");
@@ -28,7 +29,7 @@ test("resolveZoneForPathname uses longest-prefix matching", () => {
 test("resolveZoneForPathPrefix matches pathPrefix values from AppRoute", () => {
   assert.equal(resolveZoneForPathPrefix("/dashboard"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathPrefix("/operations"), "OPERATIONS_CENTER");
-  assert.equal(resolveZoneForPathPrefix("/units"), "ADMINISTRATION");
+  assert.equal(resolveZoneForPathPrefix("/units"), "LOCATIONS");
 });
 
 test("groupNavItemsByZone preserves nav order within zones and zone order globally", () => {
