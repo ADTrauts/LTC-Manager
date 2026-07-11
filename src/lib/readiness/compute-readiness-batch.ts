@@ -8,6 +8,7 @@ import { buildOperationalTimeContext } from "@/lib/operational-time";
 import { isWithinServeryLiveWindow } from "@/lib/servery-meal-service";
 
 import { computeUnitReadiness, summarizeReadiness } from "./compute-unit-readiness";
+import { emptyEvsRoomAreaSignals, groupEvsRoomAreaSignalsByUnit } from "./evs-room-signals";
 import { computeMealScopedLogCounts } from "./meal-scoped-log-counts";
 import { mealLabelForType, resolveUnitProfileKey } from "./profiles";
 import type { ReadinessBatchResult, UnitReadinessSignals } from "./types";
@@ -151,6 +152,7 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
   });
 
   const repairCountsByUnit = groupRepairSignals(input.openRepairs, input.now);
+  const evsRoomSignalsByUnit = groupEvsRoomAreaSignalsByUnit(input.roomAreaStatusesToday ?? []);
   const serveryNotLiveUnitIds = buildServeryNotLiveUnitIds({
     units: input.units,
     events: input.serveryMealServiceEventsToday,
@@ -198,6 +200,8 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
       preventiveMaintenanceInProgressCount: 0,
     };
 
+    const evsRoom = evsRoomSignalsByUnit.get(unit.id) ?? emptyEvsRoomAreaSignals();
+
     const signals: UnitReadinessSignals = {
       unitId: unit.id,
       unitName: unit.name,
@@ -224,6 +228,7 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
       assignedNormalRepairCount: repairs.assignedNormalRepairCount,
       preventiveMaintenanceInProgressCount: repairs.preventiveMaintenanceInProgressCount,
       requiresEvsCoverage: profileKey === "EVS" && staffingUnitIds.has(unit.id),
+      ...evsRoom,
     };
 
     return computeUnitReadiness(signals, {

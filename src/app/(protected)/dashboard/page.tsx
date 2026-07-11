@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,7 @@ import { OperationsCenterCards } from "@/components/operations-center/operations
 import { SecondaryTeamLinks } from "@/components/operations-center/secondary-team-links";
 import { SitePulseSummaryCard } from "@/components/operations-center/site-pulse-summary";
 import { PageHeader } from "@/components/design-system/page-header";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { loadOperationsCenterDashboard } from "@/lib/operations-center";
 
@@ -32,7 +34,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     redirect("/login");
   }
 
-  const data = await loadOperationsCenterDashboard(session.facilityId);
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const data = await loadOperationsCenterDashboard(session.facilityId, {
+    activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+  });
 
   return (
     <section className="space-y-6">

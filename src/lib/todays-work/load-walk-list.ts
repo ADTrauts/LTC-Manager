@@ -1,3 +1,4 @@
+import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { computeReadinessBatch } from "@/lib/readiness";
 import {
   buildDashboardAggregates,
@@ -17,11 +18,19 @@ import {
   type WalkListSummary,
 } from "./walk-list";
 
-export async function loadWalkList(facilityId: string): Promise<WalkListData> {
+export async function loadWalkList(
+  facilityId: string,
+  options?: {
+    activeDepartmentKey?: OperationalDepartmentKey | null;
+  },
+): Promise<WalkListData> {
   const now = new Date();
   const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
-  const queries = await loadDashboardQueries(facilityId, window);
+  const queries = await loadDashboardQueries(facilityId, window, {
+    facilityTimezone,
+    now,
+  });
   const preliminary = buildDashboardAggregates({ ...queries, now, facilityTimezone });
   const activeOperation = await resolveOperationsCenterActiveOperation(prisma, {
     facilityId,
@@ -34,7 +43,7 @@ export async function loadWalkList(facilityId: string): Promise<WalkListData> {
   const batch = computeReadinessBatch({
     ...scopedQueries,
     now,
-    activeDepartmentKey: "DIETARY",
+    activeDepartmentKey: options?.activeDepartmentKey ?? "DIETARY",
     facilityTimezone,
     operationContextOverride: activeOperation.operationContext,
   });

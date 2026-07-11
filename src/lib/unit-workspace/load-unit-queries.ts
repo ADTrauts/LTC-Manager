@@ -1,6 +1,7 @@
 import type { UnitType } from "@prisma/client";
 
 import { loadFacilityMenuData } from "@/lib/menu-db";
+import { getFacilityServiceDate } from "@/lib/operational-time";
 import type { TodayWindow } from "@/lib/operations-center";
 import { prisma } from "@/lib/prisma";
 
@@ -11,9 +12,13 @@ export async function loadUnitQueries(params: {
   facilityId: string;
   unitType: UnitType;
   window: TodayWindow;
+  facilityTimezone?: string | null;
+  now?: Date;
 }) {
   const { unitId, facilityId, unitType, window } = params;
   const { start, end } = window;
+  const now = params.now ?? new Date();
+  const roomAreaServiceDate = getFacilityServiceDate(params.facilityTimezone, now);
 
   const [
     assignments,
@@ -24,6 +29,7 @@ export async function loadUnitQueries(params: {
     mealServiceEventsToday,
     mealServiceHistory,
     logHistory,
+    roomAreaStatusToday,
     menuData,
   ] = await Promise.all([
     prisma.logAssignment.findMany({
@@ -133,6 +139,16 @@ export async function loadUnitQueries(params: {
         submittedBy: { select: { displayName: true } },
       },
     }),
+    prisma.roomAreaStatus.findFirst({
+      where: { unitId, facilityId, statusDate: roomAreaServiceDate },
+      select: {
+        unitId: true,
+        status: true,
+        notes: true,
+        updatedAt: true,
+        statusDate: true,
+      },
+    }),
     loadFacilityMenuData(prisma, facilityId),
   ]);
 
@@ -145,6 +161,7 @@ export async function loadUnitQueries(params: {
     mealServiceEventsToday,
     mealServiceHistory,
     logHistory,
+    roomAreaStatusToday,
     menuData,
   };
 }

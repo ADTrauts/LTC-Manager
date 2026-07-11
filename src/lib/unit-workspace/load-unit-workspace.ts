@@ -1,3 +1,4 @@
+import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { resolveUnitWorkspaceActiveOperation } from "@/lib/operations/resolve-unit-workspace-active-operation";
 import { scopeLogDueQueries } from "@/lib/operations/scope-log-due-queries";
 import { scopeStaffingQueries } from "@/lib/operations/scope-staffing-queries";
@@ -13,6 +14,9 @@ export async function loadUnitWorkspace(
   facilityId: string,
   unitId: string,
   search: UnitWorkspaceSearchParams = {},
+  options?: {
+    activeDepartmentKey?: OperationalDepartmentKey | null;
+  },
 ): Promise<UnitWorkspaceViewModel | null> {
   const unit = await loadUnitRecord(facilityId, unitId);
   if (!unit) {
@@ -27,6 +31,8 @@ export async function loadUnitWorkspace(
     facilityId,
     unitType: unit.unitType,
     window,
+    facilityTimezone,
+    now,
   });
 
   const preliminaryView = buildUnitWorkspaceView({
@@ -35,6 +41,7 @@ export async function loadUnitWorkspace(
     search,
     now,
     facilityTimezone,
+    activeDepartmentKey: options?.activeDepartmentKey,
   });
   const activeOperation = await resolveUnitWorkspaceActiveOperation(prisma, {
     facilityId,
@@ -68,6 +75,7 @@ export async function loadUnitWorkspace(
     search,
     now,
     facilityTimezone,
+    activeDepartmentKey: options?.activeDepartmentKey,
   });
 
   return {

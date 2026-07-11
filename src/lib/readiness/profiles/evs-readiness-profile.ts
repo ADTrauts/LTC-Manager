@@ -1,13 +1,41 @@
+import {
+  evsActiveRoomReason,
+  evsCriticalRoomReason,
+} from "@/lib/readiness/evs-room-signals";
+
 import type { ReadinessProfile, ReadinessProfileInput, ReadinessProfileResult } from "./types";
 
 /**
- * EVS readiness v0 — uses signals already available in the readiness batch
- * (staffing + open repairs). RoomAreaStatus / cleaning-round data is not loaded
- * in the batch today; absent signals stay neutral (do not invent Needs Attention).
+ * EVS readiness — room/area status for the facility-local service date plus
+ * staffing and repair signals already available in the readiness batch.
+ * Missing room status stays neutral (does not invent Needs Attention).
  */
 export function evaluateEvsReadiness(input: ReadinessProfileInput): ReadinessProfileResult {
   const { signals, operationalTime } = input;
   const contributing: ReadinessProfileResult["contributingSignals"] = [];
+
+  if (signals.evsCriticalRoomCondition) {
+    const code =
+      signals.evsRoomStatus === "TERMINAL_CLEAN_PENDING" ? "evs_terminal_clean" : "evs_isolation";
+    contributing.push({
+      code,
+      detail: evsCriticalRoomReason(signals.evsRoomStatus),
+    });
+  }
+
+  // Discharge without assigned/active work is treated as needing attention for the current day.
+  if (signals.evsDischargePending) {
+    const dischargeInProgress =
+      signals.assignedSignificantRepairCount > 0 ||
+      signals.assignedNormalRepairCount > 0 ||
+      signals.staffingCount > 0;
+    if (!dischargeInProgress) {
+      contributing.push({
+        code: "evs_discharge",
+        detail: "Discharge cleaning needs attention",
+      });
+    }
+  }
 
   if (signals.urgentRepairCount > 0) {
     const title = signals.primaryUrgentRepairTitle;
@@ -25,7 +53,7 @@ export function evaluateEvsReadiness(input: ReadinessProfileInput): ReadinessPro
   } else if (signals.unassignedUrgentOrHighCount > 0 && signals.highRepairCount > 0) {
     contributing.push({
       code: "high_repair",
-      detail: "High-priority EVS request is unassigned",
+      detail: "Priority EVS request is unassigned",
     });
   }
 
@@ -47,6 +75,18 @@ export function evaluateEvsReadiness(input: ReadinessProfileInput): ReadinessPro
   }
 
   const inProgress: ReadinessProfileResult["contributingSignals"] = [];
+
+  if (signals.evsDischargePending) {
+    inProgress.push({
+      code: "evs_discharge",
+      detail: evsActiveRoomReason("DISCHARGE"),
+    });
+  } else if (signals.evsActiveCleaning) {
+    inProgress.push({
+      code: "evs_dirty",
+      detail: evsActiveRoomReason("DIRTY"),
+    });
+  }
 
   if (signals.assignedSignificantRepairCount > 0) {
     inProgress.push({
@@ -72,10 +112,16 @@ export function evaluateEvsReadiness(input: ReadinessProfileInput): ReadinessPro
     };
   }
 
+  const readyReason = signals.evsRoomServiceComplete
+    ? "Current cleaning round is complete"
+    : "Ready for current EVS coverage";
+
   return {
     state: "ready",
-    primaryReason: "Ready for current EVS coverage",
-    contributingSignals: [],
+    primaryReason: readyReason,
+    contributingSignals: signals.evsRoomServiceComplete
+      ? [{ code: "evs_room_complete", detail: readyReason }]
+      : [],
     evaluatedAt: operationalTime.nowUtc,
     profileKey: "EVS",
   };

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -6,6 +7,7 @@ import { OperationContextBanner } from "@/components/operations-center/operation
 import { PageHeader } from "@/components/design-system/page-header";
 import { HandoffSummaryCards, TodaysWorkHandoffList } from "@/components/todays-work/todays-work-handoff-list";
 import { hasAtLeastRole } from "@/lib/access";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { loadHandoffs } from "@/lib/todays-work";
 
@@ -20,7 +22,10 @@ export default async function TodaysWorkHandoffsPage() {
     redirect("/dashboard");
   }
 
-  const handoffs = await loadHandoffs(session.facilityId);
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const handoffs = await loadHandoffs(session.facilityId, {
+    activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+  });
   const { sections, summary, operationContext, isClear } = handoffs;
 
   return (

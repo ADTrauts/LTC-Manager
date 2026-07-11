@@ -28,7 +28,7 @@ export async function loadCoverageList(facilityId: string): Promise<CoverageData
   const dateIso = buildOperationalTimeContext({ now, facilityTimezone }).facilityLocalDate;
 
   const [queries, schedules, overrides] = await Promise.all([
-    loadDashboardQueries(facilityId, window),
+    loadDashboardQueries(facilityId, window, { facilityTimezone, now }),
     prisma.scheduleEntry.findMany({
       where: { date: { gte: window.start, lt: window.end }, unit: { facilityId } },
       orderBy: [{ unitId: "asc" }, { shift: "asc" }],

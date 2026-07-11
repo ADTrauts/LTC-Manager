@@ -19,6 +19,7 @@ export function buildUnitWorkspaceView(input: {
   search: UnitWorkspaceSearchParams;
   now?: Date;
   facilityTimezone?: string | null;
+  activeDepartmentKey?: "DIETARY" | "EVS" | "PLANT" | null;
 }): UnitWorkspaceViewModel {
   const { unit, queries, search } = input;
   const now = input.now ?? new Date();
@@ -110,6 +111,8 @@ export function buildUnitWorkspaceView(input: {
     completed,
     effectiveCoverage,
     now,
+    facilityTimezone,
+    activeDepartmentKey: input.activeDepartmentKey,
   });
 
   return {

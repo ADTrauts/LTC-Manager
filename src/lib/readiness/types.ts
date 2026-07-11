@@ -1,4 +1,4 @@
-import type { UnitType } from "@prisma/client";
+import type { RoomAreaOperationalStatus, UnitType } from "@prisma/client";
 
 import type { OperationContext, OperationsCenterUnitCard } from "@/lib/operations-center";
 import type { OperationalTimeContext } from "@/lib/operational-time";
@@ -16,7 +16,12 @@ export type ReadinessReasonCode =
   | "open_repair"
   | "no_staffing"
   | "servery_not_live"
-  | "logs_behind";
+  | "logs_behind"
+  | "evs_isolation"
+  | "evs_terminal_clean"
+  | "evs_discharge"
+  | "evs_dirty"
+  | "evs_room_complete";
 
 export type UnitReadinessSignals = {
   unitId: string;
@@ -54,6 +59,14 @@ export type UnitReadinessSignals = {
   preventiveMaintenanceInProgressCount: number;
   /** EVS areas that expect scheduled coverage (has schedule rows or coverage flag). */
   requiresEvsCoverage: boolean;
+  /** Facility-local service-date RoomAreaStatus (null when unset). */
+  evsRoomStatus: RoomAreaOperationalStatus | null;
+  evsRoomStatusUpdatedAt: Date | null;
+  evsCriticalRoomCondition: boolean;
+  evsDischargePending: boolean;
+  evsActiveCleaning: boolean;
+  evsRoomServiceComplete: boolean;
+  evsRoomStatusPresent: boolean;
 };
 
 export type UnitReadiness = {

@@ -36,6 +36,13 @@ function signals(partial: Partial<UnitReadinessSignals> & Pick<UnitReadinessSign
     assignedNormalRepairCount: 0,
     preventiveMaintenanceInProgressCount: 0,
     requiresEvsCoverage: false,
+    evsRoomStatus: null,
+    evsRoomStatusUpdatedAt: null,
+    evsCriticalRoomCondition: false,
+    evsDischargePending: false,
+    evsActiveCleaning: false,
+    evsRoomServiceComplete: false,
+    evsRoomStatusPresent: false,
     ...partial,
   };
 }

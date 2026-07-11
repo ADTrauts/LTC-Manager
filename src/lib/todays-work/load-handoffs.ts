@@ -1,3 +1,4 @@
+import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import {
   buildDashboardAggregates,
   loadDashboardQueries,
@@ -11,16 +12,23 @@ import { loadCallDownList } from "./load-call-down-list";
 import { loadCoverageList } from "./load-coverage-list";
 import { loadWalkList } from "./load-walk-list";
 
-export async function loadHandoffs(facilityId: string): Promise<HandoffData> {
+export async function loadHandoffs(
+  facilityId: string,
+  options?: {
+    activeDepartmentKey?: OperationalDepartmentKey | null;
+  },
+): Promise<HandoffData> {
   const now = new Date();
   const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
 
   const [walkList, coverage, callDowns, queries, repairs] = await Promise.all([
-    loadWalkList(facilityId),
+    loadWalkList(facilityId, {
+      activeDepartmentKey: options?.activeDepartmentKey,
+    }),
     loadCoverageList(facilityId),
     loadCallDownList(facilityId),
-    loadDashboardQueries(facilityId, window),
+    loadDashboardQueries(facilityId, window, { facilityTimezone, now }),
     prisma.repair.findMany({
       where: { status: { not: "CLOSED" }, unit: { facilityId } },
       orderBy: [{ priority: "asc" }, { createdAt: "desc" }],

@@ -3,6 +3,7 @@ import { UnitType } from "@prisma/client";
 
 import type { OperationContext } from "@/lib/operations-center";
 import { computeUnitReadiness } from "@/lib/readiness";
+import { deriveEvsRoomAreaSignals } from "@/lib/readiness/evs-room-signals";
 import { computeMealScopedLogCounts } from "@/lib/readiness/meal-scoped-log-counts";
 import { mealLabelForType, resolveUnitProfileKey } from "@/lib/readiness/profiles";
 import type { UnitReadiness } from "@/lib/readiness/types";
@@ -38,7 +39,10 @@ function resolveServeryMealNotLive(input: {
 
 export function computeUnitWorkspaceReadiness(input: {
   unit: UnitWorkspaceUnit;
-  queries: Pick<UnitQueryResult, "openRepairs" | "assignments" | "submissions" | "schedulesToday">;
+  queries: Pick<
+    UnitQueryResult,
+    "openRepairs" | "assignments" | "submissions" | "schedulesToday" | "roomAreaStatusToday"
+  >;
   mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
   operationContext: OperationContext;
   failed?: number;
@@ -48,6 +52,7 @@ export function computeUnitWorkspaceReadiness(input: {
   completed?: number;
   effectiveCoverage: number;
   now: Date;
+  facilityTimezone?: string | null;
   activeDepartmentKey?: "DIETARY" | "EVS" | "PLANT" | null;
 }): UnitReadiness {
   const logCounts = computeMealScopedLogCounts({
@@ -72,6 +77,8 @@ export function computeUnitWorkspaceReadiness(input: {
     unitDepartmentKeys: [],
     unitType: input.unit.unitType,
   });
+
+  const evsRoom = deriveEvsRoomAreaSignals(input.queries.roomAreaStatusToday);
 
   return computeUnitReadiness(
     {
@@ -108,9 +115,11 @@ export function computeUnitWorkspaceReadiness(input: {
         (repair) => repair.workOrderKind === "PREVENTIVE" && repair.status === "IN_PROGRESS",
       ).length,
       requiresEvsCoverage: profileKey === "EVS" && input.queries.schedulesToday.length > 0,
+      ...evsRoom,
     },
     {
       now: input.now,
+      facilityTimezone: input.facilityTimezone,
       minutesUntilService: input.operationContext.minutesUntilService,
     },
   );

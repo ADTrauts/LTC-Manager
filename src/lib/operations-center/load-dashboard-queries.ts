@@ -1,13 +1,26 @@
 import { EmployeeStatus } from "@prisma/client";
 
+import { getFacilityServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 import type { TodayWindow } from "./get-today-window";
 
 export type DashboardQueryResult = Awaited<ReturnType<typeof loadDashboardQueries>>;
 
-export async function loadDashboardQueries(facilityId: string, window: TodayWindow) {
+export type LoadDashboardQueriesOptions = {
+  /** IANA timezone used to resolve the facility-local RoomAreaStatus service date. */
+  facilityTimezone?: string | null;
+  now?: Date;
+};
+
+export async function loadDashboardQueries(
+  facilityId: string,
+  window: TodayWindow,
+  options?: LoadDashboardQueriesOptions,
+) {
   const month = new Date().getMonth() + 1;
+  const now = options?.now ?? new Date();
+  const roomAreaServiceDate = getFacilityServiceDate(options?.facilityTimezone, now);
 
   const [
     units,
@@ -18,6 +31,7 @@ export async function loadDashboardQueries(facilityId: string, window: TodayWind
     openRepairs,
     birthdaysThisMonth,
     serveryMealServiceEventsToday,
+    roomAreaStatusesToday,
     managerCount,
   ] = await Promise.all([
     prisma.unit.findMany({
@@ -103,6 +117,16 @@ export async function loadDashboardQueries(facilityId: string, window: TodayWind
         mealServiceStartedAt: true,
       },
     }),
+    prisma.roomAreaStatus.findMany({
+      where: { facilityId, statusDate: roomAreaServiceDate },
+      select: {
+        unitId: true,
+        status: true,
+        notes: true,
+        updatedAt: true,
+        statusDate: true,
+      },
+    }),
     prisma.user.count({
       where: { facilityId, role: { key: "MANAGER" }, isActive: true },
     }),
@@ -117,6 +141,7 @@ export async function loadDashboardQueries(facilityId: string, window: TodayWind
     openRepairs,
     birthdaysThisMonth,
     serveryMealServiceEventsToday,
+    roomAreaStatusesToday,
     managerCount,
     month,
   };

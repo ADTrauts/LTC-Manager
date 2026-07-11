@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -8,6 +9,7 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { TodaysWorkWalkList } from "@/components/todays-work/todays-work-walk-list";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { loadWalkList } from "@/lib/todays-work";
 
@@ -22,7 +24,10 @@ export default async function TodaysWorkWalkPage() {
     redirect("/dashboard");
   }
 
-  const walkList = await loadWalkList(session.facilityId);
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const walkList = await loadWalkList(session.facilityId, {
+    activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+  });
   const { summary, operationContext, items, lookFirst } = walkList;
 
   return (

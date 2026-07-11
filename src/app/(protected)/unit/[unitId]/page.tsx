@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -6,6 +7,7 @@ import { ServeryMealServiceControls } from "@/components/servery-meal-service-co
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
@@ -31,10 +33,13 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     redirect("/login");
   }
 
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const view = await loadUnitWorkspace(session.facilityId, unitId, {
     unitTab: query?.unitTab,
     logTab: query?.logTab,
     mealServiceEvent: query?.mealServiceEvent,
+  }, {
+    activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
 
   if (!view) {

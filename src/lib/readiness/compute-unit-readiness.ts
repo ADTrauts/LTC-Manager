@@ -1,5 +1,6 @@
 import { buildOperationalTimeContext } from "@/lib/operational-time";
 
+import { emptyEvsRoomAreaSignals } from "./evs-room-signals";
 import { resolveReadinessProfile } from "./profiles";
 import type { ReadinessSummary, UnitReadiness, UnitReadinessSignals } from "./types";
 
@@ -16,6 +17,13 @@ export type UnitReadinessSignalInput = Omit<
   | "assignedNormalRepairCount"
   | "preventiveMaintenanceInProgressCount"
   | "requiresEvsCoverage"
+  | "evsRoomStatus"
+  | "evsRoomStatusUpdatedAt"
+  | "evsCriticalRoomCondition"
+  | "evsDischargePending"
+  | "evsActiveCleaning"
+  | "evsRoomServiceComplete"
+  | "evsRoomStatusPresent"
 > &
   Partial<
     Pick<
@@ -31,6 +39,13 @@ export type UnitReadinessSignalInput = Omit<
       | "assignedNormalRepairCount"
       | "preventiveMaintenanceInProgressCount"
       | "requiresEvsCoverage"
+      | "evsRoomStatus"
+      | "evsRoomStatusUpdatedAt"
+      | "evsCriticalRoomCondition"
+      | "evsDischargePending"
+      | "evsActiveCleaning"
+      | "evsRoomServiceComplete"
+      | "evsRoomStatusPresent"
     >
   >;
 
@@ -47,6 +62,7 @@ function normalizeSignals(partial: UnitReadinessSignalInput): UnitReadinessSigna
     assignedNormalRepairCount: 0,
     preventiveMaintenanceInProgressCount: 0,
     requiresEvsCoverage: false,
+    ...emptyEvsRoomAreaSignals(),
     ...partial,
   };
 }

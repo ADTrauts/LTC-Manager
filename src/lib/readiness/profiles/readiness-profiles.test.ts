@@ -40,6 +40,13 @@ function baseSignals(
     assignedNormalRepairCount: 0,
     preventiveMaintenanceInProgressCount: 0,
     requiresEvsCoverage: false,
+    evsRoomStatus: null,
+    evsRoomStatusUpdatedAt: null,
+    evsCriticalRoomCondition: false,
+    evsDischargePending: false,
+    evsActiveCleaning: false,
+    evsRoomServiceComplete: false,
+    evsRoomStatusPresent: false,
     ...partial,
   };
 }
@@ -113,6 +120,7 @@ test("dietary: future lunch log does not affect breakfast readiness", () => {
         mealServiceStartedAt: new Date("2026-07-08T07:50:00"),
       },
     ],
+    roomAreaStatusesToday: [],
     now,
     activeDepartmentKey: "DIETARY",
     facilityTimezone: "America/New_York",
@@ -236,6 +244,54 @@ test("evs: ordinary open request does not automatically create Needs Attention",
   assert.equal(result.state, "ready");
 });
 
+test("evs: completed current room service = Ready", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "CLEAN",
+      evsRoomStatusPresent: true,
+      evsRoomServiceComplete: true,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "ready");
+  assert.match(result.primaryReason, /cleaning round is complete/i);
+});
+
+test("evs: missing room signals fall back conservatively to Ready", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "ready");
+  assert.match(result.primaryReason, /Ready for current EVS coverage/i);
+});
+
+test("evs: active dirty cleaning = In Progress", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "DIRTY",
+      evsRoomStatusPresent: true,
+      evsActiveCleaning: true,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "in_progress");
+  assert.match(result.primaryReason, /cleaning is in progress/i);
+});
+
 test("evs: active assigned cleaning work = In Progress", () => {
   const result = evaluateEvsReadiness({
     signals: baseSignals({
@@ -251,6 +307,76 @@ test("evs: active assigned cleaning work = In Progress", () => {
   });
   assert.equal(result.state, "in_progress");
   assert.match(result.primaryReason, /in progress/i);
+});
+
+test("evs: staffed discharge cleaning = In Progress", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "DISCHARGE",
+      evsRoomStatusPresent: true,
+      evsDischargePending: true,
+      staffingCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "in_progress");
+  assert.match(result.primaryReason, /Discharge cleaning is in progress/i);
+});
+
+test("evs: uncovered discharge cleaning = Needs Attention", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "DISCHARGE",
+      evsRoomStatusPresent: true,
+      evsDischargePending: true,
+      staffingCount: 0,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Discharge cleaning needs attention/i);
+});
+
+test("evs: isolation cleaning needs attention", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "ISOLATION",
+      evsRoomStatusPresent: true,
+      evsCriticalRoomCondition: true,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Isolation cleaning needs attention/i);
+});
+
+test("evs: unassigned high-priority request = Needs Attention", () => {
+  const result = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      highRepairCount: 1,
+      unassignedUrgentOrHighCount: 1,
+      openRepairCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Priority EVS request is unassigned/i);
 });
 
 test("evs: overdue critical request or absent required coverage = Needs Attention", () => {
@@ -280,6 +406,132 @@ test("evs: overdue critical request or absent required coverage = Needs Attentio
   });
   assert.equal(coverage.state, "blocked");
   assert.match(coverage.primaryReason, /coverage is absent/i);
+});
+
+test("evs: resolved critical room work returns to Ready", () => {
+  const blocked = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "ISOLATION",
+      evsRoomStatusPresent: true,
+      evsCriticalRoomCondition: true,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(blocked.state, "blocked");
+
+  const ready = evaluateEvsReadiness({
+    signals: baseSignals({
+      unitId: "e1",
+      unitName: "Wing A",
+      unitType: UnitType.RESIDENT_AREA,
+      profileKey: "EVS",
+      evsRoomStatus: "CLEAN",
+      evsRoomStatusPresent: true,
+      evsRoomServiceComplete: true,
+      evsCriticalRoomCondition: false,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(ready.state, "ready");
+});
+
+test("evs: facility-local service date drives room status in batch (future dates excluded)", () => {
+  const now = new Date("2026-07-08T08:00:00");
+  const batch = computeReadinessBatch({
+    month: 7,
+    managerCount: 0,
+    birthdaysThisMonth: [],
+    units: [
+      {
+        id: "wing-a",
+        name: "Wing A",
+        unitType: UnitType.RESIDENT_AREA,
+        mealTimes: [],
+        departmentResponsibilities: [{ department: { key: "EVS" } }],
+      },
+    ],
+    assignments: [],
+    submissionsToday: [],
+    scheduleEntriesToday: [],
+    overridesToday: [],
+    openRepairs: [],
+    serveryMealServiceEventsToday: [],
+    // Only today's CLEAN row is provided — a future dirty status would not be loaded by the batch query.
+    roomAreaStatusesToday: [
+      {
+        unitId: "wing-a",
+        status: "CLEAN",
+        notes: null,
+        updatedAt: now,
+        statusDate: new Date(Date.UTC(2026, 6, 8)),
+      },
+    ],
+    now,
+    activeDepartmentKey: "EVS",
+    facilityTimezone: "America/New_York",
+  });
+
+  assert.equal(batch.byUnitId.get("wing-a")?.state, "ready");
+  assert.match(batch.byUnitId.get("wing-a")?.reason ?? "", /cleaning round is complete/i);
+});
+
+test("evs: dietary log failures do not affect EVS mode readiness", () => {
+  const now = new Date("2026-07-08T08:00:00");
+  const batch = computeReadinessBatch({
+    month: 7,
+    managerCount: 0,
+    birthdaysThisMonth: [],
+    units: [
+      {
+        id: "wing-a",
+        name: "Wing A",
+        unitType: UnitType.RESIDENT_AREA,
+        mealTimes: [{ mealType: MealType.BREAKFAST, scheduledTime: "07:30" }],
+        departmentResponsibilities: [{ department: { key: "EVS" } }],
+      },
+    ],
+    assignments: [
+      {
+        id: "a1",
+        unitId: "wing-a",
+        templateId: "t1",
+        mealType: MealType.BREAKFAST,
+        timesPerDay: 1,
+        template: { name: "Temp" },
+      },
+    ],
+    submissionsToday: [
+      {
+        id: "s1",
+        assignmentId: "a1",
+        unitId: "wing-a",
+        status: LogSubmissionStatus.FAILED,
+        mealType: MealType.BREAKFAST,
+      },
+    ],
+    scheduleEntriesToday: [],
+    overridesToday: [],
+    openRepairs: [],
+    serveryMealServiceEventsToday: [],
+    roomAreaStatusesToday: [
+      {
+        unitId: "wing-a",
+        status: "CLEAN",
+        notes: null,
+        updatedAt: now,
+        statusDate: new Date(Date.UTC(2026, 6, 8)),
+      },
+    ],
+    now,
+    activeDepartmentKey: "EVS",
+    facilityTimezone: "America/New_York",
+  });
+
+  assert.equal(batch.byUnitId.get("wing-a")?.state, "ready");
 });
 
 test("plant: routine open repair can remain Ready", () => {
@@ -368,6 +620,7 @@ test("fallback: operation engine off continues using heuristic operation context
     overridesToday: [],
     openRepairs: [],
     serveryMealServiceEventsToday: [],
+    roomAreaStatusesToday: [],
     now,
     facilityTimezone: "America/New_York",
   });

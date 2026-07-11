@@ -18,7 +18,10 @@ export async function loadUnitReadinessBatch(
   const facilityTimezone =
     options?.facilityTimezone ?? (await loadFacilityTimezone(prisma, facilityId));
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
-  const queries = await loadDashboardQueries(facilityId, window);
+  const queries = await loadDashboardQueries(facilityId, window, {
+    facilityTimezone,
+    now,
+  });
   return computeReadinessBatch({
     ...queries,
     now,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -13,6 +14,7 @@ import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-cal
 import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { loadCallDownList, loadWalkList } from "@/lib/todays-work";
 
@@ -27,8 +29,11 @@ export default async function TodaysWorkHubPage() {
     redirect("/dashboard");
   }
 
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const [walkList, callDowns] = await Promise.all([
-    loadWalkList(session.facilityId),
+    loadWalkList(session.facilityId, {
+      activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+    }),
     loadCallDownList(session.facilityId),
   ]);
   const { summary, operationContext, items, lookFirst } = walkList;
