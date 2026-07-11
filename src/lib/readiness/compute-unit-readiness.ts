@@ -1,11 +1,11 @@
 import { buildOperationalTimeContext } from "@/lib/operational-time";
 
 import { emptyEvsRoomAreaSignals } from "./evs-room-signals";
+import { emptyPlantUnitSignals } from "./plant-asset-signals";
 import { resolveReadinessProfile } from "./profiles";
 import type { ReadinessSummary, UnitReadiness, UnitReadinessSignals } from "./types";
 
-export type UnitReadinessSignalInput = Omit<
-  UnitReadinessSignals,
+type OptionalSignalKey =
   | "profileKey"
   | "mealLabel"
   | "primaryUrgentRepairTitle"
@@ -24,30 +24,18 @@ export type UnitReadinessSignalInput = Omit<
   | "evsActiveCleaning"
   | "evsRoomServiceComplete"
   | "evsRoomStatusPresent"
-> &
-  Partial<
-    Pick<
-      UnitReadinessSignals,
-      | "profileKey"
-      | "mealLabel"
-      | "primaryUrgentRepairTitle"
-      | "primaryHighRepairTitle"
-      | "assignedSignificantRepairCount"
-      | "unassignedUrgentOrHighCount"
-      | "overdueCriticalRepairCount"
-      | "normalPriorityOpenRepairCount"
-      | "assignedNormalRepairCount"
-      | "preventiveMaintenanceInProgressCount"
-      | "requiresEvsCoverage"
-      | "evsRoomStatus"
-      | "evsRoomStatusUpdatedAt"
-      | "evsCriticalRoomCondition"
-      | "evsDischargePending"
-      | "evsActiveCleaning"
-      | "evsRoomServiceComplete"
-      | "evsRoomStatusPresent"
-    >
-  >;
+  | "outOfServiceAssetCount"
+  | "primaryOutOfServiceAssetName"
+  | "overduePmScheduleCount"
+  | "primaryOverduePmName"
+  | "dueTodayPmScheduleCount"
+  | "pmDueTodayUnderwayCount"
+  | "significantActivelyWorkedCount"
+  | "urgentNotActivelyWorkedCount"
+  | "primarySignificantInProgressTitle";
+
+export type UnitReadinessSignalInput = Omit<UnitReadinessSignals, OptionalSignalKey> &
+  Partial<Pick<UnitReadinessSignals, OptionalSignalKey>>;
 
 function normalizeSignals(partial: UnitReadinessSignalInput): UnitReadinessSignals {
   return {
@@ -63,6 +51,10 @@ function normalizeSignals(partial: UnitReadinessSignalInput): UnitReadinessSigna
     preventiveMaintenanceInProgressCount: 0,
     requiresEvsCoverage: false,
     ...emptyEvsRoomAreaSignals(),
+    ...emptyPlantUnitSignals(),
+    significantActivelyWorkedCount: 0,
+    urgentNotActivelyWorkedCount: 0,
+    primarySignificantInProgressTitle: null,
     ...partial,
   };
 }

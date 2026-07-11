@@ -10,6 +10,11 @@ import { isWithinServeryLiveWindow } from "@/lib/servery-meal-service";
 import { computeUnitReadiness, summarizeReadiness } from "./compute-unit-readiness";
 import { emptyEvsRoomAreaSignals, groupEvsRoomAreaSignalsByUnit } from "./evs-room-signals";
 import { computeMealScopedLogCounts } from "./meal-scoped-log-counts";
+import {
+  applyPmScheduleSignals,
+  emptyPlantUnitSignals,
+  groupOutOfServiceAssetsByUnit,
+} from "./plant-asset-signals";
 import { mealLabelForType, resolveUnitProfileKey } from "./profiles";
 import type { ReadinessBatchResult, UnitReadinessSignals } from "./types";
 
@@ -22,6 +27,7 @@ type RepairPriorityRow = {
   workOrderKind?: string | null;
   assignedEmployeeId?: string | null;
   dueAt?: Date | null;
+  preventiveScheduleId?: string | null;
 };
 
 type RepairSignalCounts = {
@@ -36,43 +42,60 @@ type RepairSignalCounts = {
   normalPriorityOpenRepairCount: number;
   assignedNormalRepairCount: number;
   preventiveMaintenanceInProgressCount: number;
+  significantActivelyWorkedCount: number;
+  urgentNotActivelyWorkedCount: number;
+  primarySignificantInProgressTitle: string | null;
 };
 
 function isAssigned(repair: RepairPriorityRow): boolean {
   return Boolean(repair.assignedEmployeeId) || repair.status === "IN_PROGRESS";
 }
 
+function isActivelyWorked(repair: RepairPriorityRow): boolean {
+  return repair.status === "IN_PROGRESS";
+}
+
+function emptyRepairCounts(): RepairSignalCounts {
+  return {
+    urgent: 0,
+    high: 0,
+    total: 0,
+    primaryUrgentRepairTitle: null,
+    primaryHighRepairTitle: null,
+    assignedSignificantRepairCount: 0,
+    unassignedUrgentOrHighCount: 0,
+    overdueCriticalRepairCount: 0,
+    normalPriorityOpenRepairCount: 0,
+    assignedNormalRepairCount: 0,
+    preventiveMaintenanceInProgressCount: 0,
+    significantActivelyWorkedCount: 0,
+    urgentNotActivelyWorkedCount: 0,
+    primarySignificantInProgressTitle: null,
+  };
+}
+
 function groupRepairSignals(
   repairs: RepairPriorityRow[],
   now: Date,
-): Map<string, RepairSignalCounts> {
+): { byUnit: Map<string, RepairSignalCounts>; underwayPmScheduleIds: Set<string> } {
   const byUnit = new Map<string, RepairSignalCounts>();
+  const underwayPmScheduleIds = new Set<string>();
 
   for (const repair of repairs) {
-    const current = byUnit.get(repair.unitId) ?? {
-      urgent: 0,
-      high: 0,
-      total: 0,
-      primaryUrgentRepairTitle: null,
-      primaryHighRepairTitle: null,
-      assignedSignificantRepairCount: 0,
-      unassignedUrgentOrHighCount: 0,
-      overdueCriticalRepairCount: 0,
-      normalPriorityOpenRepairCount: 0,
-      assignedNormalRepairCount: 0,
-      preventiveMaintenanceInProgressCount: 0,
-    };
+    const current = byUnit.get(repair.unitId) ?? emptyRepairCounts();
 
     current.total += 1;
     const significant = repair.priority === "URGENT" || repair.priority === "HIGH";
     const assigned = isAssigned(repair);
+    const activelyWorked = isActivelyWorked(repair);
     const dueAt = repair.dueAt ?? null;
     const overdue = Boolean(dueAt && dueAt.getTime() <= now.getTime());
-    const title = "title" in repair ? (repair.title ?? null) : null;
+    const title = repair.title ?? null;
 
     if (repair.priority === "URGENT") {
       current.urgent += 1;
       if (!current.primaryUrgentRepairTitle) current.primaryUrgentRepairTitle = title;
+      if (!activelyWorked) current.urgentNotActivelyWorkedCount += 1;
     }
     if (repair.priority === "HIGH") {
       current.high += 1;
@@ -82,6 +105,12 @@ function groupRepairSignals(
     if (significant && assigned) current.assignedSignificantRepairCount += 1;
     if (significant && !repair.assignedEmployeeId) current.unassignedUrgentOrHighCount += 1;
     if (significant && overdue) current.overdueCriticalRepairCount += 1;
+    if (significant && activelyWorked) {
+      current.significantActivelyWorkedCount += 1;
+      if (!current.primarySignificantInProgressTitle) {
+        current.primarySignificantInProgressTitle = title;
+      }
+    }
 
     if (repair.priority === "MEDIUM" || repair.priority === "LOW") {
       current.normalPriorityOpenRepairCount += 1;
@@ -92,10 +121,18 @@ function groupRepairSignals(
       current.preventiveMaintenanceInProgressCount += 1;
     }
 
+    if (
+      repair.workOrderKind === "PREVENTIVE" &&
+      repair.preventiveScheduleId &&
+      (activelyWorked || Boolean(repair.assignedEmployeeId))
+    ) {
+      underwayPmScheduleIds.add(repair.preventiveScheduleId);
+    }
+
     byUnit.set(repair.unitId, current);
   }
 
-  return byUnit;
+  return { byUnit, underwayPmScheduleIds };
 }
 
 function buildServeryNotLiveUnitIds(input: {
@@ -151,8 +188,19 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
     minutesUntilService: operationContext.minutesUntilService,
   });
 
-  const repairCountsByUnit = groupRepairSignals(input.openRepairs, input.now);
+  const { byUnit: repairCountsByUnit, underwayPmScheduleIds } = groupRepairSignals(
+    input.openRepairs,
+    input.now,
+  );
   const evsRoomSignalsByUnit = groupEvsRoomAreaSignalsByUnit(input.roomAreaStatusesToday ?? []);
+  const plantByUnit = groupOutOfServiceAssetsByUnit(input.outOfServiceAssets ?? []);
+  applyPmScheduleSignals({
+    byUnit: plantByUnit,
+    schedules: input.pmSchedulesDueThroughToday ?? [],
+    now: input.now,
+    underwayScheduleIds: underwayPmScheduleIds,
+  });
+
   const serveryNotLiveUnitIds = buildServeryNotLiveUnitIds({
     units: input.units,
     events: input.serveryMealServiceEventsToday,
@@ -186,21 +234,9 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
       mealType: operationContext.mealType,
     });
 
-    const repairs = repairCountsByUnit.get(unit.id) ?? {
-      urgent: 0,
-      high: 0,
-      total: 0,
-      primaryUrgentRepairTitle: null,
-      primaryHighRepairTitle: null,
-      assignedSignificantRepairCount: 0,
-      unassignedUrgentOrHighCount: 0,
-      overdueCriticalRepairCount: 0,
-      normalPriorityOpenRepairCount: 0,
-      assignedNormalRepairCount: 0,
-      preventiveMaintenanceInProgressCount: 0,
-    };
-
+    const repairs = repairCountsByUnit.get(unit.id) ?? emptyRepairCounts();
     const evsRoom = evsRoomSignalsByUnit.get(unit.id) ?? emptyEvsRoomAreaSignals();
+    const plant = plantByUnit.get(unit.id) ?? emptyPlantUnitSignals();
 
     const signals: UnitReadinessSignals = {
       unitId: unit.id,
@@ -229,6 +265,10 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
       preventiveMaintenanceInProgressCount: repairs.preventiveMaintenanceInProgressCount,
       requiresEvsCoverage: profileKey === "EVS" && staffingUnitIds.has(unit.id),
       ...evsRoom,
+      ...plant,
+      significantActivelyWorkedCount: repairs.significantActivelyWorkedCount,
+      urgentNotActivelyWorkedCount: repairs.urgentNotActivelyWorkedCount,
+      primarySignificantInProgressTitle: repairs.primarySignificantInProgressTitle,
     };
 
     return computeUnitReadiness(signals, {

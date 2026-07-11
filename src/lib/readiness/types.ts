@@ -21,7 +21,10 @@ export type ReadinessReasonCode =
   | "evs_terminal_clean"
   | "evs_discharge"
   | "evs_dirty"
-  | "evs_room_complete";
+  | "evs_room_complete"
+  | "plant_out_of_service"
+  | "plant_pm_overdue"
+  | "plant_pm_due";
 
 export type UnitReadinessSignals = {
   unitId: string;
@@ -67,6 +70,22 @@ export type UnitReadinessSignals = {
   evsActiveCleaning: boolean;
   evsRoomServiceComplete: boolean;
   evsRoomStatusPresent: boolean;
+  /** Assets marked OUT_OF_SERVICE on this unit. */
+  outOfServiceAssetCount: number;
+  primaryOutOfServiceAssetName: string | null;
+  /** Active PM schedules with nextDueAt <= operational now (future schedules excluded from batch). */
+  overduePmScheduleCount: number;
+  primaryOverduePmName: string | null;
+  /** PM due later on the facility-local service day (not yet overdue). */
+  dueTodayPmScheduleCount: number;
+  /** Due-today PM with assigned/IN_PROGRESS PREVENTIVE work. */
+  pmDueTodayUnderwayCount: number;
+  /** HIGH/URGENT repairs with status IN_PROGRESS (strongest active-work signal). */
+  significantActivelyWorkedCount: number;
+  /** URGENT repairs that are not yet IN_PROGRESS. */
+  urgentNotActivelyWorkedCount: number;
+  /** Best title among HIGH/URGENT IN_PROGRESS repairs. */
+  primarySignificantInProgressTitle: string | null;
 };
 
 export type UnitReadiness = {

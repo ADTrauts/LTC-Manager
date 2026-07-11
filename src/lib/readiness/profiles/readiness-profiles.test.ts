@@ -47,6 +47,15 @@ function baseSignals(
     evsActiveCleaning: false,
     evsRoomServiceComplete: false,
     evsRoomStatusPresent: false,
+    outOfServiceAssetCount: 0,
+    primaryOutOfServiceAssetName: null,
+    overduePmScheduleCount: 0,
+    primaryOverduePmName: null,
+    dueTodayPmScheduleCount: 0,
+    pmDueTodayUnderwayCount: 0,
+    significantActivelyWorkedCount: 0,
+    urgentNotActivelyWorkedCount: 0,
+    primarySignificantInProgressTitle: null,
     ...partial,
   };
 }
@@ -121,6 +130,8 @@ test("dietary: future lunch log does not affect breakfast readiness", () => {
       },
     ],
     roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
     activeDepartmentKey: "DIETARY",
     facilityTimezone: "America/New_York",
@@ -470,6 +481,8 @@ test("evs: facility-local service date drives room status in batch (future dates
         statusDate: new Date(Date.UTC(2026, 6, 8)),
       },
     ],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
     activeDepartmentKey: "EVS",
     facilityTimezone: "America/New_York",
@@ -526,6 +539,8 @@ test("evs: dietary log failures do not affect EVS mode readiness", () => {
         statusDate: new Date(Date.UTC(2026, 6, 8)),
       },
     ],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
     activeDepartmentKey: "EVS",
     facilityTimezone: "America/New_York",
@@ -547,6 +562,35 @@ test("plant: routine open repair can remain Ready", () => {
     operationalTime: breakfastTime(),
   });
   assert.equal(result.state, "ready");
+  assert.match(result.primaryReason, /No critical equipment issues/i);
+});
+
+test("plant: no critical asset issues = Ready", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Mechanical",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "ready");
+});
+
+test("plant: missing Plant data remains conservative Ready", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Mechanical",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      outOfServiceAssetCount: 0,
+      overduePmScheduleCount: 0,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "ready");
 });
 
 test("plant: assigned significant repair = In Progress", () => {
@@ -559,11 +603,224 @@ test("plant: assigned significant repair = In Progress", () => {
       highRepairCount: 1,
       openRepairCount: 1,
       assignedSignificantRepairCount: 1,
+      primaryHighRepairTitle: "Dishwasher repair",
     }),
     operationalTime: breakfastTime(),
   });
   assert.equal(result.state, "in_progress");
-  assert.match(result.primaryReason, /being worked/i);
+  assert.match(result.primaryReason, /Dishwasher repair is in progress|being worked/i);
+});
+
+test("plant: actively worked significant repair prefers IN_PROGRESS title", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Boiler",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      highRepairCount: 1,
+      openRepairCount: 1,
+      assignedSignificantRepairCount: 1,
+      significantActivelyWorkedCount: 1,
+      primarySignificantInProgressTitle: "Dishwasher repair",
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "in_progress");
+  assert.match(result.primaryReason, /Dishwasher repair is in progress/i);
+});
+
+test("plant: unassigned URGENT repair = Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Boiler",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      urgentRepairCount: 1,
+      primaryUrgentRepairTitle: "Walk-in cooler",
+      unassignedUrgentOrHighCount: 1,
+      urgentNotActivelyWorkedCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Walk-in cooler needs attention/i);
+});
+
+test("plant: overdue HIGH repair = Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Boiler",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      highRepairCount: 1,
+      overdueCriticalRepairCount: 1,
+      assignedSignificantRepairCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Priority repair is overdue/i);
+});
+
+test("plant: out-of-service asset = Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Kitchen",
+      unitType: UnitType.KITCHEN,
+      profileKey: "PLANT",
+      outOfServiceAssetCount: 1,
+      primaryOutOfServiceAssetName: "Walk-in cooler",
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Walk-in cooler needs attention/i);
+});
+
+test("plant: overdue PM = Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Mechanical",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      overduePmScheduleCount: 1,
+      primaryOverduePmName: "Boiler inspection",
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /preventive maintenance is overdue/i);
+});
+
+test("plant: due PM underway = In Progress", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Mechanical",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      dueTodayPmScheduleCount: 1,
+      pmDueTodayUnderwayCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "in_progress");
+  assert.match(result.primaryReason, /Preventive maintenance is underway/i);
+});
+
+test("plant: future PM excluded from batch does not affect readiness", () => {
+  const now = new Date("2026-07-08T12:00:00");
+  const batch = computeReadinessBatch({
+    month: 7,
+    managerCount: 0,
+    birthdaysThisMonth: [],
+    units: [
+      {
+        id: "mech",
+        name: "Mechanical",
+        unitType: UnitType.MECHANICAL,
+        mealTimes: [],
+        departmentResponsibilities: [{ department: { key: "PLANT" } }],
+      },
+    ],
+    assignments: [],
+    submissionsToday: [],
+    scheduleEntriesToday: [],
+    overridesToday: [],
+    openRepairs: [],
+    serveryMealServiceEventsToday: [],
+    roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    // Future PM would not be loaded (nextDueAt >= window.end); empty list simulates exclusion.
+    pmSchedulesDueThroughToday: [],
+    now,
+    activeDepartmentKey: "PLANT",
+    facilityTimezone: "America/New_York",
+  });
+  assert.equal(batch.byUnitId.get("mech")?.state, "ready");
+});
+
+test("plant: closed repairs are excluded from openRepairs batch input", () => {
+  const now = new Date("2026-07-08T12:00:00");
+  const batch = computeReadinessBatch({
+    month: 7,
+    managerCount: 0,
+    birthdaysThisMonth: [],
+    units: [
+      {
+        id: "mech",
+        name: "Mechanical",
+        unitType: UnitType.MECHANICAL,
+        mealTimes: [],
+        departmentResponsibilities: [{ department: { key: "PLANT" } }],
+      },
+    ],
+    assignments: [],
+    submissionsToday: [],
+    scheduleEntriesToday: [],
+    overridesToday: [],
+    // CLOSED repairs are filtered at query time; batch only receives open work.
+    openRepairs: [],
+    serveryMealServiceEventsToday: [],
+    roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
+    now,
+    activeDepartmentKey: "PLANT",
+    facilityTimezone: "America/New_York",
+  });
+  assert.equal(batch.byUnitId.get("mech")?.state, "ready");
+});
+
+test("plant: facility-local overdue dueAt comparison", () => {
+  const now = new Date("2026-07-08T16:00:00Z");
+  const batch = computeReadinessBatch({
+    month: 7,
+    managerCount: 0,
+    birthdaysThisMonth: [],
+    units: [
+      {
+        id: "mech",
+        name: "Mechanical",
+        unitType: UnitType.MECHANICAL,
+        mealTimes: [],
+        departmentResponsibilities: [{ department: { key: "PLANT" } }],
+      },
+    ],
+    assignments: [],
+    submissionsToday: [],
+    scheduleEntriesToday: [],
+    overridesToday: [],
+    openRepairs: [
+      {
+        id: "r1",
+        unitId: "mech",
+        title: "Generator check",
+        priority: "HIGH",
+        status: "OPEN",
+        workOrderKind: "CORRECTIVE",
+        assignedEmployeeId: "e1",
+        dueAt: new Date("2026-07-08T12:00:00Z"),
+        preventiveScheduleId: null,
+        responsibleDepartment: { key: "PLANT" },
+        asset: null,
+      },
+    ],
+    serveryMealServiceEventsToday: [],
+    roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
+    now,
+    activeDepartmentKey: "PLANT",
+    facilityTimezone: "America/New_York",
+  });
+  assert.equal(batch.byUnitId.get("mech")?.state, "blocked");
+  assert.match(batch.byUnitId.get("mech")?.reason ?? "", /overdue/i);
 });
 
 test("plant: uncontained urgent equipment failure = Needs Attention", () => {
@@ -576,6 +833,7 @@ test("plant: uncontained urgent equipment failure = Needs Attention", () => {
       urgentRepairCount: 1,
       primaryUrgentRepairTitle: "Dishwasher repair",
       unassignedUrgentOrHighCount: 1,
+      urgentNotActivelyWorkedCount: 1,
     }),
     operationalTime: breakfastTime(),
   });
@@ -621,6 +879,8 @@ test("fallback: operation engine off continues using heuristic operation context
     openRepairs: [],
     serveryMealServiceEventsToday: [],
     roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
     facilityTimezone: "America/New_York",
   });

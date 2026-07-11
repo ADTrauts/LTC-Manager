@@ -74,6 +74,8 @@ test("computeReadinessBatch computes all active units in one pass", () => {
     openRepairs: [{ id: "r1", unitId: "blocked", priority: "URGENT" }],
     serveryMealServiceEventsToday: [],
     roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
   });
 
@@ -107,6 +109,8 @@ test("computeReadinessBatch exposes O(1) lookup map for sidebar consumers", () =
     openRepairs: [],
     serveryMealServiceEventsToday: [],
     roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
   });
 

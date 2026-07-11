@@ -64,6 +64,8 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
       mealServiceHistory: [],
       logHistory: [],
       roomAreaStatusToday: null,
+      outOfServiceAssets: [],
+      pmSchedulesDueThroughToday: [],
       menuData: {
         settingsRaw: null,
         menuItems: [],
@@ -118,6 +120,8 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
         },
       ],
       roomAreaStatusToday: null,
+      outOfServiceAssets: [],
+      pmSchedulesDueThroughToday: [],
       menuData: {
         settingsRaw: null,
         menuItems: [],

@@ -51,6 +51,8 @@ test("buildDashboardAggregates computes unit log and staffing totals", () => {
     openRepairs: [{ id: "r1", unitId: "unit-1", priority: "URGENT" }],
     serveryMealServiceEventsToday: [],
     roomAreaStatusesToday: [],
+    outOfServiceAssets: [],
+    pmSchedulesDueThroughToday: [],
     now,
   });
 

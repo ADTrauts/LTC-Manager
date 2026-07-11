@@ -5,6 +5,11 @@ import type { OperationContext } from "@/lib/operations-center";
 import { computeUnitReadiness } from "@/lib/readiness";
 import { deriveEvsRoomAreaSignals } from "@/lib/readiness/evs-room-signals";
 import { computeMealScopedLogCounts } from "@/lib/readiness/meal-scoped-log-counts";
+import {
+  applyPmScheduleSignals,
+  emptyPlantUnitSignals,
+  groupOutOfServiceAssetsByUnit,
+} from "@/lib/readiness/plant-asset-signals";
 import { mealLabelForType, resolveUnitProfileKey } from "@/lib/readiness/profiles";
 import type { UnitReadiness } from "@/lib/readiness/types";
 import { isWithinServeryLiveWindow } from "@/lib/servery-meal-service";
@@ -41,7 +46,13 @@ export function computeUnitWorkspaceReadiness(input: {
   unit: UnitWorkspaceUnit;
   queries: Pick<
     UnitQueryResult,
-    "openRepairs" | "assignments" | "submissions" | "schedulesToday" | "roomAreaStatusToday"
+    | "openRepairs"
+    | "assignments"
+    | "submissions"
+    | "schedulesToday"
+    | "roomAreaStatusToday"
+    | "outOfServiceAssets"
+    | "pmSchedulesDueThroughToday"
   >;
   mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
   operationContext: OperationContext;
@@ -71,6 +82,7 @@ export function computeUnitWorkspaceReadiness(input: {
   const normal = openRepairs.filter(
     (repair) => repair.priority === "MEDIUM" || repair.priority === "LOW",
   );
+  const activelyWorked = significant.filter((repair) => repair.status === "IN_PROGRESS");
 
   const profileKey = resolveUnitProfileKey({
     activeDepartmentKey: input.activeDepartmentKey,
@@ -79,6 +91,26 @@ export function computeUnitWorkspaceReadiness(input: {
   });
 
   const evsRoom = deriveEvsRoomAreaSignals(input.queries.roomAreaStatusToday);
+
+  const underwayPmScheduleIds = new Set<string>();
+  for (const repair of openRepairs) {
+    if (
+      repair.workOrderKind === "PREVENTIVE" &&
+      repair.preventiveScheduleId &&
+      (repair.status === "IN_PROGRESS" || repair.assignedEmployeeId)
+    ) {
+      underwayPmScheduleIds.add(repair.preventiveScheduleId);
+    }
+  }
+
+  const plantByUnit = groupOutOfServiceAssetsByUnit(input.queries.outOfServiceAssets ?? []);
+  applyPmScheduleSignals({
+    byUnit: plantByUnit,
+    schedules: input.queries.pmSchedulesDueThroughToday ?? [],
+    now: input.now,
+    underwayScheduleIds: underwayPmScheduleIds,
+  });
+  const plant = plantByUnit.get(input.unit.id) ?? emptyPlantUnitSignals();
 
   return computeUnitReadiness(
     {
@@ -116,6 +148,12 @@ export function computeUnitWorkspaceReadiness(input: {
       ).length,
       requiresEvsCoverage: profileKey === "EVS" && input.queries.schedulesToday.length > 0,
       ...evsRoom,
+      ...plant,
+      significantActivelyWorkedCount: activelyWorked.length,
+      urgentNotActivelyWorkedCount: urgentRepairs.filter(
+        (repair) => repair.status !== "IN_PROGRESS",
+      ).length,
+      primarySignificantInProgressTitle: activelyWorked[0]?.title ?? null,
     },
     {
       now: input.now,

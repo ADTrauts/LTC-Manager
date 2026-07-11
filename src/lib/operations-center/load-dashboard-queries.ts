@@ -32,6 +32,8 @@ export async function loadDashboardQueries(
     birthdaysThisMonth,
     serveryMealServiceEventsToday,
     roomAreaStatusesToday,
+    outOfServiceAssets,
+    pmSchedulesDueThroughToday,
     managerCount,
   ] = await Promise.all([
     prisma.unit.findMany({
@@ -92,7 +94,9 @@ export async function loadDashboardQueries(
         workOrderKind: true,
         assignedEmployeeId: true,
         dueAt: true,
+        preventiveScheduleId: true,
         responsibleDepartment: { select: { key: true } },
+        asset: { select: { name: true, status: true } },
       },
     }),
     prisma.employee.findMany({
@@ -127,6 +131,33 @@ export async function loadDashboardQueries(
         statusDate: true,
       },
     }),
+    prisma.asset.findMany({
+      where: {
+        unit: { facilityId },
+        status: "OUT_OF_SERVICE",
+      },
+      select: {
+        id: true,
+        unitId: true,
+        name: true,
+        status: true,
+        equipmentType: true,
+      },
+    }),
+    prisma.preventiveMaintenanceSchedule.findMany({
+      where: {
+        facilityId,
+        isActive: true,
+        // Exclude future PM beyond the facility-local today window.
+        nextDueAt: { lt: window.end },
+      },
+      select: {
+        id: true,
+        name: true,
+        nextDueAt: true,
+        asset: { select: { unitId: true, name: true, status: true } },
+      },
+    }),
     prisma.user.count({
       where: { facilityId, role: { key: "MANAGER" }, isActive: true },
     }),
@@ -142,6 +173,8 @@ export async function loadDashboardQueries(
     birthdaysThisMonth,
     serveryMealServiceEventsToday,
     roomAreaStatusesToday,
+    outOfServiceAssets,
+    pmSchedulesDueThroughToday,
     managerCount,
     month,
   };

@@ -43,6 +43,15 @@ function signals(partial: Partial<UnitReadinessSignals> & Pick<UnitReadinessSign
     evsActiveCleaning: false,
     evsRoomServiceComplete: false,
     evsRoomStatusPresent: false,
+    outOfServiceAssetCount: 0,
+    primaryOutOfServiceAssetName: null,
+    overduePmScheduleCount: 0,
+    primaryOverduePmName: null,
+    dueTodayPmScheduleCount: 0,
+    pmDueTodayUnderwayCount: 0,
+    significantActivelyWorkedCount: 0,
+    urgentNotActivelyWorkedCount: 0,
+    primarySignificantInProgressTitle: null,
     ...partial,
   };
 }

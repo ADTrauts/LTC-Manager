@@ -1,42 +1,79 @@
+import {
+  plantActiveRepairReason,
+  plantOutOfServiceReason,
+  plantOverduePmReason,
+} from "@/lib/readiness/plant-asset-signals";
+
 import type { ReadinessProfile, ReadinessProfileInput, ReadinessProfileResult } from "./types";
 
 /**
- * Plant readiness v0 — repairs/work-order signals from the existing batch.
- * Ordinary open repairs do not automatically create Needs Attention or In Progress.
- * Asset OUT_OF_SERVICE is not in the readiness batch yet (deferred).
+ * Plant readiness — asset availability, PM due/overdue for the facility-local
+ * service window, and repair lifecycle signals from the readiness batch.
+ *
+ * No asset criticality field exists; OUT_OF_SERVICE plus repair priority are
+ * used conservatively. Future PM (beyond today) is excluded from batch loading.
  */
 export function evaluatePlantReadiness(input: ReadinessProfileInput): ReadinessProfileResult {
   const { signals, operationalTime } = input;
   const contributing: ReadinessProfileResult["contributingSignals"] = [];
 
-  if (signals.urgentRepairCount > 0) {
+  if (signals.outOfServiceAssetCount > 0) {
+    contributing.push({
+      code: "plant_out_of_service",
+      detail: plantOutOfServiceReason(signals.primaryOutOfServiceAssetName),
+    });
+  }
+
+  if (signals.overduePmScheduleCount > 0) {
+    contributing.push({
+      code: "plant_pm_overdue",
+      detail: plantOverduePmReason(signals.primaryOverduePmName),
+    });
+  }
+
+  const urgentNeedsAttention =
+    signals.urgentNotActivelyWorkedCount > 0 ||
+    (signals.urgentRepairCount > 0 && signals.significantActivelyWorkedCount === 0);
+
+  if (urgentNeedsAttention) {
     const title = signals.primaryUrgentRepairTitle;
+    const unassignedUrgent =
+      signals.unassignedUrgentOrHighCount > 0 && signals.urgentRepairCount > 0;
     contributing.push({
       code: "urgent_repair",
       detail: title
         ? `${title} needs attention`
-        : "Uncontained urgent equipment failure needs attention",
+        : unassignedUrgent
+          ? "Urgent repair is unassigned"
+          : "Uncontained urgent equipment failure needs attention",
     });
   }
 
-  if (
+  if (signals.overdueCriticalRepairCount > 0 && signals.highRepairCount > 0) {
+    contributing.push({
+      code: "high_repair",
+      detail: "Priority repair is overdue",
+    });
+  } else if (
+    signals.unassignedUrgentOrHighCount > 0 &&
     signals.highRepairCount > 0 &&
-    (signals.unassignedUrgentOrHighCount > 0 || signals.overdueCriticalRepairCount > 0)
+    signals.urgentRepairCount === 0
   ) {
     contributing.push({
       code: "high_repair",
-      detail: "Urgent work is unassigned or overdue",
+      detail: "Urgent repair is unassigned",
     });
-  } else if (signals.highRepairCount > 0 && signals.unassignedUrgentOrHighCount === 0) {
-    // High priority that is assigned may still need attention if not actively worked —
-    // treat uncontained high (not IN_PROGRESS) as Needs Attention.
-    if (signals.assignedSignificantRepairCount === 0) {
-      const title = signals.primaryHighRepairTitle;
-      contributing.push({
-        code: "high_repair",
-        detail: title ? `${title} needs attention` : "High-priority equipment issue needs attention",
-      });
-    }
+  } else if (
+    signals.highRepairCount > 0 &&
+    signals.assignedSignificantRepairCount === 0 &&
+    signals.significantActivelyWorkedCount === 0 &&
+    signals.urgentRepairCount === 0
+  ) {
+    const title = signals.primaryHighRepairTitle;
+    contributing.push({
+      code: "high_repair",
+      detail: title ? `${title} needs attention` : "High-priority equipment issue needs attention",
+    });
   }
 
   if (contributing.length > 0) {
@@ -51,16 +88,23 @@ export function evaluatePlantReadiness(input: ReadinessProfileInput): ReadinessP
 
   const inProgress: ReadinessProfileResult["contributingSignals"] = [];
 
-  if (signals.assignedSignificantRepairCount > 0) {
+  if (signals.significantActivelyWorkedCount > 0) {
     inProgress.push({
       code: "open_repair",
-      detail: "Priority repair is being worked",
+      detail: plantActiveRepairReason(signals.primarySignificantInProgressTitle),
+    });
+  } else if (signals.assignedSignificantRepairCount > 0) {
+    inProgress.push({
+      code: "open_repair",
+      detail: plantActiveRepairReason(
+        signals.primaryHighRepairTitle ?? signals.primaryUrgentRepairTitle,
+      ),
     });
   }
 
-  if (signals.preventiveMaintenanceInProgressCount > 0) {
+  if (signals.pmDueTodayUnderwayCount > 0 || signals.preventiveMaintenanceInProgressCount > 0) {
     inProgress.push({
-      code: "open_repair",
+      code: "plant_pm_due",
       detail: "Preventive maintenance is underway",
     });
   }
@@ -75,10 +119,9 @@ export function evaluatePlantReadiness(input: ReadinessProfileInput): ReadinessP
     };
   }
 
-  // Routine open repairs remain Ready.
   return {
     state: "ready",
-    primaryReason: "No critical plant issues for current operations",
+    primaryReason: "No critical equipment issues",
     contributingSignals: [],
     evaluatedAt: operationalTime.nowUtc,
     profileKey: "PLANT",

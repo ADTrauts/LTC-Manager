@@ -30,6 +30,8 @@ export async function loadUnitQueries(params: {
     mealServiceHistory,
     logHistory,
     roomAreaStatusToday,
+    outOfServiceAssets,
+    pmSchedulesDueThroughToday,
     menuData,
   ] = await Promise.all([
     prisma.logAssignment.findMany({
@@ -96,6 +98,7 @@ export async function loadUnitQueries(params: {
         workOrderKind: true,
         assignedEmployeeId: true,
         dueAt: true,
+        preventiveScheduleId: true,
       },
     }),
     unitType === "SERVERY"
@@ -149,6 +152,30 @@ export async function loadUnitQueries(params: {
         statusDate: true,
       },
     }),
+    prisma.asset.findMany({
+      where: { unitId, status: "OUT_OF_SERVICE" },
+      select: {
+        id: true,
+        unitId: true,
+        name: true,
+        status: true,
+        equipmentType: true,
+      },
+    }),
+    prisma.preventiveMaintenanceSchedule.findMany({
+      where: {
+        facilityId,
+        isActive: true,
+        nextDueAt: { lt: end },
+        asset: { unitId },
+      },
+      select: {
+        id: true,
+        name: true,
+        nextDueAt: true,
+        asset: { select: { unitId: true, name: true, status: true } },
+      },
+    }),
     loadFacilityMenuData(prisma, facilityId),
   ]);
 
@@ -162,6 +189,8 @@ export async function loadUnitQueries(params: {
     mealServiceHistory,
     logHistory,
     roomAreaStatusToday,
+    outOfServiceAssets,
+    pmSchedulesDueThroughToday,
     menuData,
   };
 }
