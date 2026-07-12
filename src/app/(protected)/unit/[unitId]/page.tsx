@@ -9,6 +9,7 @@ import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-
 import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
 import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
+import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
@@ -135,6 +136,13 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       })
     : null;
 
+  const unitAssets = await prisma.asset.findMany({
+    where: { unitId: unit.id, status: "ACTIVE" },
+    orderBy: { name: "asc" },
+    take: 40,
+    select: { id: true, name: true },
+  });
+
   const unitTypeLabel =
     unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
 
@@ -221,6 +229,8 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         <div className="space-y-6 sm:space-y-7">
           {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
+
+          <UnitQuickIssuePanel unitId={unit.id} unitName={unit.name} assets={unitAssets} />
 
           {activeFollowUp ? (
             <UnitInspectionFollowUpActions unitId={unit.id} task={activeFollowUp} />

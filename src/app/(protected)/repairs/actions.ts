@@ -1,12 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { RepairPriority, RepairStatus } from "@prisma/client";
+import { IssueType, RepairPriority, RepairStatus, RepairTrade, WorkOrderKind } from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import {
+  defaultRepairTradeForIssueType,
+  suggestRepairDepartmentIds,
+} from "@/lib/repair-routing";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 
 const priorityValues = [
@@ -30,6 +34,8 @@ const createRepairSchema = z.object({
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().min(5).max(1000),
   priority: z.enum(priorityValues),
+  issueType: z.nativeEnum(IssueType).default(IssueType.EQUIPMENT),
+  repairTrade: z.nativeEnum(RepairTrade).optional(),
 });
 
 const addUpdateSchema = z.object({
@@ -54,6 +60,12 @@ export async function createRepairAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "STAFF");
 
+  const issueTypeRaw = toOptional(formData.get("issueType"));
+  const issueType = issueTypeRaw
+    ? z.nativeEnum(IssueType).parse(issueTypeRaw)
+    : IssueType.EQUIPMENT;
+  const repairTradeRaw = toOptional(formData.get("repairTrade"));
+
   const parsed = createRepairSchema.parse({
     unitId: formData.get("unitId"),
     assetId: toOptional(formData.get("assetId")),
@@ -61,6 +73,38 @@ export async function createRepairAction(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     priority: formData.get("priority"),
+    issueType,
+    repairTrade: repairTradeRaw
+      ? z.nativeEnum(RepairTrade).parse(repairTradeRaw)
+      : defaultRepairTradeForIssueType(issueType),
+  });
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: parsed.unitId, facilityId: session.facilityId },
+    select: { id: true },
+  });
+  if (!unit) {
+    throw new Error("Unit not found.");
+  }
+
+  if (parsed.assetId) {
+    const asset = await prisma.asset.findFirst({
+      where: { id: parsed.assetId, unit: { facilityId: session.facilityId } },
+      select: { id: true },
+    });
+    if (!asset) {
+      throw new Error("Asset not found.");
+    }
+  }
+
+  const repairTrade = parsed.repairTrade ?? defaultRepairTradeForIssueType(parsed.issueType);
+  const suggested = await suggestRepairDepartmentIds(prisma, {
+    facilityId: session.facilityId,
+    unitId: parsed.unitId,
+    assetId: parsed.assetId,
+    repairTrade,
+    issueType: parsed.issueType,
+    sessionPrimaryDepartmentId: session.primaryDepartmentId,
   });
 
   const existingCount = await prisma.repair.count();
@@ -75,6 +119,11 @@ export async function createRepairAction(formData: FormData) {
       title: parsed.title,
       description: parsed.description,
       priority: parsed.priority,
+      workOrderKind: WorkOrderKind.CORRECTIVE,
+      repairTrade,
+      issueType: parsed.issueType,
+      requestingDepartmentId: suggested.requestingDepartmentId,
+      responsibleDepartmentId: suggested.responsibleDepartmentId,
       reportedById: session.authKind === "user" ? session.uid : undefined,
       status: RepairStatus.OPEN,
     },

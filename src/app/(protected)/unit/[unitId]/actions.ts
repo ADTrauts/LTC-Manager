@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { MealType, UnitType } from "@prisma/client";
+import { MealType, IssueType, RepairPriority, RepairStatus, UnitType, WorkOrderKind } from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
@@ -10,6 +10,11 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { resolveServeryEventOperationInstanceId } from "@/lib/operations/resolve-servery-event-operation-instance";
 import { prisma } from "@/lib/prisma";
+import {
+  defaultRepairTradeForIssueType,
+  suggestRepairDepartmentIds,
+} from "@/lib/repair-routing";
+import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 import { submitInspection } from "@/lib/work/inspections";
 import type { InspectionItemAnswerInput } from "@/lib/work/inspections/types";
 
@@ -226,5 +231,159 @@ export async function updateInspectionFollowUpTaskAction(
   revalidatePath(`/unit/${parsed.unitId}`);
   revalidatePath("/today/handoffs");
   return { ok: true };
+}
+
+const createUnitIssueSchema = z.object({
+  unitId: z.string().cuid(),
+  issueType: z.nativeEnum(IssueType),
+  title: z.string().trim().min(3).max(120),
+  description: z.string().trim().min(5).max(1000),
+  priority: z.nativeEnum(RepairPriority).default(RepairPriority.MEDIUM),
+  assetId: z.string().cuid().optional(),
+  quantityNote: z.string().trim().max(80).optional(),
+});
+
+export type CreateUnitIssueResult =
+  | { ok: true; repairCode: string; issueType: IssueType; title: string }
+  | { ok: false; message: string };
+
+/**
+ * Quick operational issue report from Unit Workspace (Wave 8a).
+ * Persists as Repair with issueType; Repair remains source of truth (ADL-008).
+ */
+export async function createUnitIssueAction(
+  formData: FormData,
+): Promise<CreateUnitIssueResult> {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "STAFF");
+
+  let parsed: z.infer<typeof createUnitIssueSchema>;
+  try {
+    parsed = createUnitIssueSchema.parse({
+      unitId: formData.get("unitId"),
+      issueType: formData.get("issueType"),
+      title: formData.get("title"),
+      description: formData.get("description"),
+      priority: formData.get("priority") || RepairPriority.MEDIUM,
+      assetId: (() => {
+        const raw = formData.get("assetId");
+        return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+      })(),
+      quantityNote: (() => {
+        const raw = formData.get("quantityNote");
+        return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+      })(),
+    });
+  } catch {
+    return { ok: false, message: "Check the issue details and try again." };
+  }
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: parsed.unitId, facilityId: session.facilityId, isActive: true },
+    select: { id: true },
+  });
+  if (!unit) {
+    return { ok: false, message: "This location was not found." };
+  }
+
+  if (parsed.assetId) {
+    const asset = await prisma.asset.findFirst({
+      where: {
+        id: parsed.assetId,
+        unitId: unit.id,
+        unit: { facilityId: session.facilityId },
+      },
+      select: { id: true },
+    });
+    if (!asset) {
+      return { ok: false, message: "That equipment is not on this unit." };
+    }
+  }
+
+  const repairTrade = defaultRepairTradeForIssueType(parsed.issueType);
+  const suggested = await suggestRepairDepartmentIds(prisma, {
+    facilityId: session.facilityId,
+    unitId: unit.id,
+    assetId: parsed.assetId,
+    repairTrade,
+    issueType: parsed.issueType,
+    sessionPrimaryDepartmentId: session.primaryDepartmentId,
+  });
+
+  const requestingDepartmentId = suggested.requestingDepartmentId;
+  const responsibleDepartmentId = suggested.responsibleDepartmentId;
+  if (!requestingDepartmentId || !responsibleDepartmentId) {
+    return {
+      ok: false,
+      message: "Could not route this issue. Ask a supervisor to check department setup.",
+    };
+  }
+
+  let description = parsed.description;
+  if (parsed.issueType === IssueType.SUPPLY_SHORT && parsed.quantityNote) {
+    description = `${description}\nQuantity / urgency: ${parsed.quantityNote}`;
+  }
+
+  const existingCount = await prisma.repair.count();
+  const repairCode = `R-${String(existingCount + 1).padStart(5, "0")}`;
+
+  const repair = await prisma.repair.create({
+    data: {
+      repairCode,
+      unitId: unit.id,
+      assetId: parsed.assetId,
+      title: parsed.title,
+      description,
+      priority: parsed.priority,
+      workOrderKind: WorkOrderKind.CORRECTIVE,
+      repairTrade,
+      issueType: parsed.issueType,
+      requestingDepartmentId,
+      responsibleDepartmentId,
+      reportedById: session.authKind === "user" ? session.uid : undefined,
+      status: RepairStatus.OPEN,
+    },
+    select: {
+      id: true,
+      repairCode: true,
+      title: true,
+      description: true,
+      priority: true,
+      status: true,
+      unitId: true,
+      responsibleDepartmentId: true,
+      assignedEmployeeId: true,
+      dueAt: true,
+      completedAt: true,
+      unit: { select: { facilityId: true } },
+    },
+  });
+
+  await syncRepairRecordToTask({
+    id: repair.id,
+    title: repair.title,
+    description: repair.description,
+    priority: repair.priority,
+    status: repair.status,
+    unitId: repair.unitId,
+    responsibleDepartmentId: repair.responsibleDepartmentId,
+    assignedEmployeeId: repair.assignedEmployeeId,
+    dueAt: repair.dueAt,
+    completedAt: repair.completedAt,
+    facilityId: repair.unit.facilityId,
+  });
+
+  revalidatePath("/unit/[unitId]", "page");
+  revalidatePath(`/unit/${unit.id}`);
+  revalidatePath("/repairs");
+  revalidatePath("/dashboard");
+  revalidatePath("/today/handoffs");
+
+  return {
+    ok: true,
+    repairCode: repair.repairCode,
+    issueType: parsed.issueType,
+    title: repair.title,
+  };
 }
 

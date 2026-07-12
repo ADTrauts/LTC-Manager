@@ -481,6 +481,16 @@ enum RepairTrade {
   GENERAL
 }
 
+/// Broader operational issue classification on Repair (ADL-008). Default EQUIPMENT preserves legacy rows.
+enum IssueType {
+  EQUIPMENT
+  SUPPLY_SHORT
+  ENVIRONMENT
+  SAFETY
+  SERVICE_DISRUPTION
+  OTHER
+}
+
 enum PreventiveMaintenanceCadence {
   WEEKLY
   MONTHLY
@@ -947,6 +957,8 @@ model Repair {
   status                  RepairStatus   @default(OPEN)
   workOrderKind           WorkOrderKind  @default(CORRECTIVE)
   repairTrade             RepairTrade    @default(GENERAL)
+  /// Product “Issue” classification; Repair remains the persistence model (ADL-008).
+  issueType               IssueType      @default(EQUIPMENT)
   requestingDepartmentId  String?
   requestingDepartment    Department?    @relation("RepairRequestingDepartment", fields: [requestingDepartmentId], references: [id], onDelete: SetNull)
   responsibleDepartmentId String?
@@ -970,6 +982,7 @@ model Repair {
 
   @@index([unitId, status])
   @@index([priority, status])
+  @@index([issueType, status])
   @@index([requestingDepartmentId])
   @@index([responsibleDepartmentId])
   @@index([assignedEmployeeId])

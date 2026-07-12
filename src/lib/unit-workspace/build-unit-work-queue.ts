@@ -1,6 +1,7 @@
 import { LogSubmissionStatus, type MealType, type RepairPriority } from "@prisma/client";
 
 import { fmtMealLabel } from "@/lib/operations-center";
+import { issueTypeLabel } from "@/lib/repair-routing";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
 import { formatDueTimeLabel } from "@/lib/work/inspections/inspection-cadence";
 
@@ -156,12 +157,16 @@ function repairKind(priority: RepairPriority): UnitWorkQueueKind {
 
 function pushRepairWorkItems(items: UnitWorkQueueItem[], repairs: RepairRow[]) {
   for (const repair of repairs) {
+    const typeLabel =
+      "issueType" in repair && repair.issueType
+        ? issueTypeLabel(repair.issueType as never)
+        : null;
     items.push({
       id: `repair:${repair.id}`,
       kind: repairKind(repair.priority),
       priority: repairPriority(repair.priority),
       title: `${repair.repairCode} · ${repair.title}`,
-      detail: `${repair.priority} · ${repair.status}`,
+      detail: [typeLabel, repair.priority, repair.status].filter(Boolean).join(" · "),
       href: "/repairs",
     });
   }

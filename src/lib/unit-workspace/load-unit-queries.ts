@@ -99,6 +99,7 @@ export async function loadUnitQueries(params: {
         title: true,
         priority: true,
         status: true,
+        issueType: true,
         workOrderKind: true,
         assignedEmployeeId: true,
         dueAt: true,
