@@ -5,6 +5,10 @@ import type { UnitReadiness } from "@/lib/readiness/types";
 
 import type { UnitWorkQueue } from "./build-unit-work-queue";
 import type { UnitQueryResult } from "./load-unit-queries";
+import type {
+  UnitInspectionDefinitionRow,
+  UnitInspectionHistoryRow,
+} from "@/lib/work/inspections/list-unit-inspections";
 
 export type UnitWorkspaceUnit = {
   id: string;
@@ -21,6 +25,9 @@ export type UnitWorkspaceSearchParams = {
   unitTab?: string;
   logTab?: string;
   mealServiceEvent?: string;
+  inspect?: string;
+  inspectionResult?: string;
+  inspectionName?: string;
 };
 
 export type UnitWorkspaceLogTab = {
@@ -59,4 +66,9 @@ export type UnitWorkspaceViewModel = {
   operationContext: OperationContext;
   workQueue: UnitWorkQueue;
   readiness: UnitReadiness;
+  availableInspections: UnitInspectionDefinitionRow[];
+  inspectionHistory: UnitInspectionHistoryRow[];
+  activeInspectId: string | null;
+  inspectionResultMessage: { title: string; body: string } | null;
+  facilityTimezone: string | null;
 };

@@ -33,6 +33,8 @@ export async function loadUnitQueries(params: {
     outOfServiceAssets,
     pmSchedulesDueThroughToday,
     menuData,
+    inspectionDefinitions,
+    inspectionHistory,
   ] = await Promise.all([
     prisma.logAssignment.findMany({
       where: {
@@ -179,6 +181,37 @@ export async function loadUnitQueries(params: {
       },
     }),
     loadFacilityMenuData(prisma, facilityId),
+    prisma.inspectionDefinition.findMany({
+      where: {
+        facilityId,
+        isActive: true,
+        OR: [{ unitId: null }, { unitId }],
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        frequency: true,
+        facilityId: true,
+        departmentId: true,
+        unitId: true,
+        isActive: true,
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.inspectionSubmission.findMany({
+      where: { facilityId, unitId },
+      orderBy: { submittedAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        result: true,
+        submittedAt: true,
+        definition: { select: { name: true } },
+        submittedByEmployee: { select: { firstName: true, lastName: true } },
+      },
+    }),
   ]);
 
   return {
@@ -194,5 +227,7 @@ export async function loadUnitQueries(params: {
     outOfServiceAssets,
     pmSchedulesDueThroughToday,
     menuData,
+    inspectionDefinitions,
+    inspectionHistory,
   };
 }

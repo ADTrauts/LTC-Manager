@@ -5,17 +5,27 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { ServeryMealServiceControls } from "@/components/servery-meal-service-controls";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
+import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
+import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { fmtMealLabel } from "@/lib/operations-center";
+import { prisma } from "@/lib/prisma";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
 import { loadUnitWorkspace } from "@/lib/unit-workspace";
 
 type UnitDashboardPageProps = {
   params: Promise<{ unitId: string }>;
-  searchParams?: Promise<{ mealServiceEvent?: string; unitTab?: string; logTab?: string }>;
+  searchParams?: Promise<{
+    mealServiceEvent?: string;
+    unitTab?: string;
+    logTab?: string;
+    inspect?: string;
+    inspectionResult?: string;
+    inspectionName?: string;
+  }>;
 };
 
 function formatRecordedAt(value: Date | null) {
@@ -38,6 +48,9 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     unitTab: query?.unitTab,
     logTab: query?.logTab,
     mealServiceEvent: query?.mealServiceEvent,
+    inspect: query?.inspect,
+    inspectionResult: query?.inspectionResult,
+    inspectionName: query?.inspectionName,
   }, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
@@ -77,7 +90,38 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     operationContext,
     workQueue,
     readiness,
+    availableInspections,
+    inspectionHistory,
+    activeInspectId,
+    inspectionResultMessage,
+    facilityTimezone,
   } = view;
+
+  const activeInspectionDefinition = activeInspectId
+    ? await prisma.inspectionDefinition.findFirst({
+        where: {
+          id: activeInspectId,
+          facilityId: session.facilityId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          items: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              label: true,
+              description: true,
+              sortOrder: true,
+              isRequired: true,
+              responseType: true,
+            },
+          },
+        },
+      })
+    : null;
 
   const unitTypeLabel =
     unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
@@ -87,6 +131,16 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       {mealServiceEventMessage ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
           {mealServiceEventMessage}
+        </div>
+      ) : null}
+
+      {inspectionResultMessage ? (
+        <div
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900"
+          data-testid="inspection-result-banner"
+        >
+          <p className="font-semibold">{inspectionResultMessage.title}</p>
+          <p className="mt-0.5">{inspectionResultMessage.body}</p>
         </div>
       ) : null}
 
@@ -155,6 +209,24 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         <div className="space-y-6 sm:space-y-7">
           {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
+
+          {activeInspectionDefinition ? (
+            <UnitInspectionSubmitForm
+              unitId={unit.id}
+              definitionId={activeInspectionDefinition.id}
+              definitionName={activeInspectionDefinition.name}
+              description={activeInspectionDefinition.description}
+              items={activeInspectionDefinition.items}
+            />
+          ) : null}
+
+          <UnitInspectionsPanel
+            unitId={unit.id}
+            available={availableInspections}
+            history={inspectionHistory}
+            facilityTimezone={facilityTimezone}
+            activeInspectId={activeInspectId}
+          />
 
           {/* Layer 3 — Context (secondary, not dominant) */}
           <UnitContextPanel

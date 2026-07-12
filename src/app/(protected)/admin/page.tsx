@@ -23,6 +23,17 @@ export default function AdminPage() {
         </li>
         <li>
           <Link
+            href="/admin/inspections"
+            className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
+          >
+            <span className="text-sm font-medium text-zinc-900">Inspections</span>
+            <span className="text-sm text-zinc-600">
+              Build inspection checklists for units and departments (separate from compliance logs).
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
             href="/admin/organization"
             className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
           >

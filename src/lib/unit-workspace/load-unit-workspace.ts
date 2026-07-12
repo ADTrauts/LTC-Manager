@@ -41,6 +41,7 @@ export async function loadUnitWorkspace(
     search,
     now,
     facilityTimezone,
+    facilityId,
     activeDepartmentKey: options?.activeDepartmentKey,
   });
   const activeOperation = await resolveUnitWorkspaceActiveOperation(prisma, {
@@ -75,6 +76,7 @@ export async function loadUnitWorkspace(
     search,
     now,
     facilityTimezone,
+    facilityId,
     activeDepartmentKey: options?.activeDepartmentKey,
   });
 

@@ -16,6 +16,7 @@ export type UnitWorkQueueKind =
   | "urgent-repair"
   | "high-repair"
   | "repair"
+  | "available-inspection"
   | "secondary";
 
 export type UnitWorkQueueItem = {
@@ -183,11 +184,31 @@ function pushSecondaryWorkItems(
   }
 }
 
+function pushInspectionWorkItems(
+  items: UnitWorkQueueItem[],
+  unitId: string,
+  inspections: Array<{ id: string; name: string; itemCount: number; frequency: string | null }>,
+) {
+  for (const inspection of inspections) {
+    items.push({
+      id: `available-inspection:${inspection.id}`,
+      kind: "available-inspection",
+      priority: UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION,
+      title: `Complete ${inspection.name}`,
+      detail: inspection.frequency
+        ? `${inspection.itemCount} checks · ${inspection.frequency} (available — not auto-due)`
+        : `${inspection.itemCount} checks available (not auto-due)`,
+      href: `/unit/${unitId}?unitTab=overview&inspect=${inspection.id}`,
+    });
+  }
+}
+
 export function buildUnitWorkQueue(input: {
   unit: UnitWorkspaceUnit;
   queries: Pick<UnitQueryResult, "assignments" | "submissions" | "openRepairs">;
   mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
   activeLogTab: string | null;
+  availableInspections?: Array<{ id: string; name: string; itemCount: number; frequency: string | null }>;
   now?: Date;
 }): UnitWorkQueue {
   const now = input.now ?? new Date();
@@ -196,6 +217,7 @@ export function buildUnitWorkQueue(input: {
   pushLogWorkItems(items, input.queries.assignments, input.queries.submissions);
   pushServeryWorkItems(items, input.unit, input.mealServiceEventByMeal, now);
   pushRepairWorkItems(items, input.queries.openRepairs);
+  pushInspectionWorkItems(items, input.unit.id, input.availableInspections ?? []);
   pushSecondaryWorkItems(items, input.unit, input.activeLogTab);
 
   const sorted = items.sort((a, b) => {

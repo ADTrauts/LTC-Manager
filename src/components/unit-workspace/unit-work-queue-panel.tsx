@@ -26,6 +26,8 @@ function queueItemIcon(kind: UnitWorkQueueKind): AppIconKey {
       return "success";
     case "repair":
       return "repairs";
+    case "available-inspection":
+      return "logs";
     default:
       return "operationalMode";
   }

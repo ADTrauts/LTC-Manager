@@ -16,6 +16,7 @@ const unit = {
 test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
   const view = buildUnitWorkspaceView({
     unit,
+    facilityId: "fac-1",
     search: {},
     now: new Date("2026-07-08T08:00:00"),
     queries: {
@@ -71,6 +72,8 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
         menuItems: [],
         unavailableReason: null,
       },
+      inspectionDefinitions: [],
+      inspectionHistory: [],
     },
   });
 
@@ -92,6 +95,7 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
 test("buildUnitWorkspaceView resolves log tab and meal service flash message", () => {
   const view = buildUnitWorkspaceView({
     unit,
+    facilityId: "fac-1",
     search: { unitTab: "logs", logTab: "food-safety", mealServiceEvent: "ready-recorded" },
     now: new Date("2026-07-08T08:00:00"),
     queries: {
@@ -127,6 +131,50 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
         menuItems: [],
         unavailableReason: null,
       },
+      inspectionDefinitions: [
+        {
+          id: "insp-1",
+          name: "Room walk",
+          description: null,
+          frequency: "Daily",
+          facilityId: "fac-1",
+          departmentId: null,
+          unitId: "unit-1",
+          isActive: true,
+          _count: { items: 3 },
+        },
+        {
+          id: "insp-other",
+          name: "Other unit only",
+          description: null,
+          frequency: null,
+          facilityId: "fac-1",
+          departmentId: null,
+          unitId: "unit-9",
+          isActive: true,
+          _count: { items: 1 },
+        },
+        {
+          id: "insp-inactive",
+          name: "Inactive",
+          description: null,
+          frequency: null,
+          facilityId: "fac-1",
+          departmentId: null,
+          unitId: null,
+          isActive: false,
+          _count: { items: 1 },
+        },
+      ],
+      inspectionHistory: [
+        {
+          id: "sub-1",
+          result: "PASSED",
+          submittedAt: new Date("2026-07-08T07:00:00"),
+          definition: { name: "Room walk" },
+          submittedByEmployee: { firstName: "Pat", lastName: "Lee" },
+        },
+      ],
     },
   });
 
@@ -137,4 +185,8 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
   assert.equal(view.mealServiceEventMessage, "Meal service ready time saved.");
   assert.equal(view.readiness.state, "in_progress");
   assert.match(view.readiness.reason, /in progress|due now|setup/i);
+  assert.equal(view.availableInspections.length, 1);
+  assert.equal(view.availableInspections[0]?.id, "insp-1");
+  assert.equal(view.inspectionHistory.length, 1);
+  assert.ok(view.workQueue.items.some((item) => item.kind === "available-inspection"));
 });

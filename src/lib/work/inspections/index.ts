@@ -16,3 +16,9 @@ export {
   buildInspectionTaskUpsertInput,
   mapInspectionResultToTaskStatus,
 } from "@/lib/work/inspections/inspection-task";
+export { inspectionResultOperatorCopy } from "@/lib/work/inspections/result-copy";
+export { filterInspectionsForUnit } from "@/lib/work/inspections/list-unit-inspections";
+export {
+  upsertInspectionDefinitionSchema,
+  parseInspectionItemsJson,
+} from "@/lib/work/inspections/definition-schema";

@@ -5,10 +5,13 @@ import { redirect } from "next/navigation";
 import { MealType, UnitType } from "@prisma/client";
 import { z } from "zod";
 
+import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { resolveServeryEventOperationInstanceId } from "@/lib/operations/resolve-servery-event-operation-instance";
 import { prisma } from "@/lib/prisma";
+import { submitInspection } from "@/lib/work/inspections";
+import type { InspectionItemAnswerInput } from "@/lib/work/inspections/types";
 
 const recordServeryServiceTimeSchema = z.object({
   unitId: z.string().cuid(),
@@ -96,3 +99,79 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
   }
   redirect(`/unit/${unit.id}?${redirectParams.toString()}`);
 }
+
+const submitUnitInspectionSchema = z.object({
+  unitId: z.string().cuid(),
+  definitionId: z.string().cuid(),
+  idempotencyKey: z.string().trim().min(8).max(120),
+  answersJson: z.string().min(2),
+});
+
+export type SubmitUnitInspectionActionResult =
+  | { ok: true; result: "PASSED" | "PASSED_WITH_FINDINGS" | "FAILED"; deduplicated: boolean }
+  | { ok: false; message: string };
+
+export async function submitUnitInspectionAction(
+  formData: FormData,
+): Promise<SubmitUnitInspectionActionResult> {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "STAFF");
+
+  const parsed = submitUnitInspectionSchema.parse({
+    unitId: formData.get("unitId"),
+    definitionId: formData.get("definitionId"),
+    idempotencyKey: formData.get("idempotencyKey"),
+    answersJson: formData.get("answersJson"),
+  });
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: parsed.unitId, facilityId: session.facilityId, isActive: true },
+    select: { id: true },
+  });
+  if (!unit) {
+    return { ok: false, message: "Unit not found." };
+  }
+
+  let answers: InspectionItemAnswerInput[];
+  try {
+    answers = z
+      .array(
+        z.object({
+          definitionItemId: z.string().cuid(),
+          passed: z.boolean().nullable().optional(),
+          valueText: z.string().nullable().optional(),
+          valueNumber: z.number().nullable().optional(),
+          notes: z.string().nullable().optional(),
+        }),
+      )
+      .parse(JSON.parse(parsed.answersJson));
+  } catch {
+    return { ok: false, message: "Inspection answers are invalid." };
+  }
+
+  const submittedByEmployeeId = session.authKind === "employee" ? session.uid : null;
+
+  const outcome = await submitInspection({
+    facilityId: session.facilityId,
+    definitionId: parsed.definitionId,
+    unitId: unit.id,
+    submittedByEmployeeId,
+    idempotencyKey: parsed.idempotencyKey,
+    answers,
+  });
+
+  if (!outcome.ok) {
+    return { ok: false, message: outcome.validation.message };
+  }
+
+  revalidatePath("/unit/[unitId]", "page");
+  revalidatePath(`/unit/${unit.id}`);
+  revalidatePath("/admin/inspections");
+
+  return {
+    ok: true,
+    result: outcome.submission.result,
+    deduplicated: outcome.deduplicated,
+  };
+}
+

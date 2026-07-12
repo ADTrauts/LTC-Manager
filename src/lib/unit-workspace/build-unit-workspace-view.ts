@@ -1,6 +1,9 @@
 import { LogSubmissionStatus } from "@prisma/client";
 
 import { ensureMenuSettingsDefaults, menuForDate } from "@/lib/menu-cycle";
+import { filterInspectionsForUnit } from "@/lib/work/inspections/list-unit-inspections";
+import { inspectionResultOperatorCopy } from "@/lib/work/inspections/result-copy";
+import type { InspectionResult } from "@prisma/client";
 
 import { buildUnitWorkQueue } from "./build-unit-work-queue";
 import { computeUnitWorkspaceReadiness } from "./compute-unit-workspace-readiness";
@@ -19,9 +22,10 @@ export function buildUnitWorkspaceView(input: {
   search: UnitWorkspaceSearchParams;
   now?: Date;
   facilityTimezone?: string | null;
+  facilityId: string;
   activeDepartmentKey?: "DIETARY" | "EVS" | "PLANT" | null;
 }): UnitWorkspaceViewModel {
-  const { unit, queries, search } = input;
+  const { unit, queries, search, facilityId } = input;
   const now = input.now ?? new Date();
   const facilityTimezone = input.facilityTimezone;
   const {
@@ -55,6 +59,35 @@ export function buildUnitWorkspaceView(input: {
       : search.mealServiceEvent === "started-recorded"
         ? "Meal service started time saved."
         : null;
+
+  const availableInspections = filterInspectionsForUnit({
+    definitions: queries.inspectionDefinitions,
+    facilityId,
+    unitId: unit.id,
+  });
+
+  const inspectionHistory = queries.inspectionHistory.map((row) => ({
+    id: row.id,
+    definitionName: row.definition.name,
+    submittedAt: row.submittedAt,
+    result: row.result,
+    submittedByName: row.submittedByEmployee
+      ? `${row.submittedByEmployee.firstName} ${row.submittedByEmployee.lastName}`
+      : null,
+  }));
+
+  const activeInspectId =
+    typeof search.inspect === "string" &&
+    availableInspections.some((definition) => definition.id === search.inspect)
+      ? search.inspect
+      : null;
+
+  const inspectionResultMessage =
+    search.inspectionResult === "PASSED" ||
+    search.inspectionResult === "PASSED_WITH_FINDINGS" ||
+    search.inspectionResult === "FAILED"
+      ? inspectionResultOperatorCopy(search.inspectionResult as InspectionResult)
+      : null;
 
   const logCategories = Array.from(new Set(assignments.map((assignment) => assignment.template.category))).sort(
     (a, b) => a.localeCompare(b),
@@ -96,6 +129,7 @@ export function buildUnitWorkspaceView(input: {
     },
     mealServiceEventByMeal,
     activeLogTab,
+    availableInspections,
     now,
   });
 
@@ -140,5 +174,10 @@ export function buildUnitWorkspaceView(input: {
     operationContext,
     workQueue,
     readiness,
+    availableInspections,
+    inspectionHistory,
+    activeInspectId,
+    inspectionResultMessage,
+    facilityTimezone: facilityTimezone ?? null,
   };
 }
