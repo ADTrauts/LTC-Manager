@@ -12,6 +12,17 @@ export default function AdminPage() {
       <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
         <li>
           <Link
+            href="/admin/departments"
+            className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
+          >
+            <span className="text-sm font-medium text-zinc-900">Departments</span>
+            <span className="text-sm text-zinc-600">
+              Turn departments on or off for employee HR, and assign department heads.
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
             href="/admin/permissions"
             className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
           >
@@ -29,6 +40,17 @@ export default function AdminPage() {
             <span className="text-sm font-medium text-zinc-900">Inspections</span>
             <span className="text-sm text-zinc-600">
               Build inspection checklists for units and departments (separate from compliance logs).
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/admin/knowledge"
+            className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
+          >
+            <span className="text-sm font-medium text-zinc-900">Operational knowledge</span>
+            <span className="text-sm text-zinc-600">
+              SOPs and reference articles linked to locations, assets, logs, and inspections.
             </span>
           </Link>
         </li>

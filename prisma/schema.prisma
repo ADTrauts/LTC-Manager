@@ -103,6 +103,7 @@ model Facility {
   inspectionDefinitions         InspectionDefinition[]
   inspectionSubmissions         InspectionSubmission[]
   inspectionOccurrences         InspectionOccurrence[]
+  knowledgeArticles             KnowledgeArticle[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
 }
@@ -133,6 +134,7 @@ model Department {
   tasks             Task[]
   inspectionDefinitions InspectionDefinition[]
   inspectionOccurrences InspectionOccurrence[]
+  knowledgeArticles   KnowledgeArticle[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -307,6 +309,8 @@ model User {
   serveryMealReadyEvents    ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedBy")
   serveryMealStartedEvents  ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedBy")
   attachmentsCreated        Attachment[]                @relation("AttachmentCreatedByUser")
+  knowledgeArticlesCreated  KnowledgeArticle[]          @relation("KnowledgeArticleCreatedBy")
+  knowledgeArticlesUpdated  KnowledgeArticle[]          @relation("KnowledgeArticleUpdatedBy")
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime                    @updatedAt
 
@@ -602,6 +606,7 @@ model Unit {
   inspectionDefinitions    InspectionDefinition[]
   inspectionSubmissions    InspectionSubmission[]
   inspectionOccurrences    InspectionOccurrence[]
+  knowledgeArticleUnits    KnowledgeArticleUnit[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -935,6 +940,7 @@ model Asset {
   notes         String?
   repairs       Repair[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
+  knowledgeArticleAssets    KnowledgeArticleAsset[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -1020,6 +1026,7 @@ model LogTemplate {
   fields          LogTemplateField[]
   assignments     LogAssignment[]
   submissions     LogSubmission[]
+  knowledgeArticleLinks KnowledgeArticleLogTemplate[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -1263,6 +1270,7 @@ model InspectionDefinition {
   items       InspectionDefinitionItem[]
   submissions InspectionSubmission[]
   occurrences InspectionOccurrence[]
+  knowledgeArticleLinks KnowledgeArticleInspectionDefinition[]
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
 
@@ -1375,4 +1383,111 @@ model InspectionSubmissionItem {
   @@unique([submissionId, definitionItemId])
   @@index([submissionId])
   @@index([definitionItemId])
+}
+
+enum KnowledgeArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum KnowledgeArticleCategory {
+  SOP
+  EQUIPMENT
+  LOCATION
+  SAFETY
+  COMPLIANCE
+  TROUBLESHOOTING
+  TRAINING
+  REFERENCE
+  OTHER
+}
+
+enum KnowledgeSourceType {
+  MANUAL
+  HANDBOOK
+  VENDOR
+  POLICY
+  INCIDENT_LESSON
+  OTHER
+}
+
+/// Operational knowledge article — facility source of truth for SOPs and reference content.
+model KnowledgeArticle {
+  id              String                   @id @default(cuid())
+  facilityId      String
+  facility        Facility                 @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId    String?
+  department      Department?              @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  title           String
+  summary         String?
+  body            String
+  status          KnowledgeArticleStatus   @default(DRAFT)
+  category        KnowledgeArticleCategory
+  sourceType      KnowledgeSourceType      @default(MANUAL)
+  createdByUserId String?
+  createdBy       User?                    @relation("KnowledgeArticleCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUserId String?
+  updatedBy       User?                    @relation("KnowledgeArticleUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+  unitLinks       KnowledgeArticleUnit[]
+  assetLinks      KnowledgeArticleAsset[]
+  logTemplateLinks KnowledgeArticleLogTemplate[]
+  inspectionDefinitionLinks KnowledgeArticleInspectionDefinition[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([facilityId, status])
+  @@index([facilityId, category])
+  @@index([facilityId, departmentId])
+  @@index([facilityId, status, category])
+}
+
+model KnowledgeArticleUnit {
+  id        String           @id @default(cuid())
+  articleId String
+  article   KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  unitId    String
+  unit      Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+
+  @@unique([articleId, unitId])
+  @@index([unitId])
+}
+
+model KnowledgeArticleAsset {
+  id        String           @id @default(cuid())
+  articleId String
+  article   KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+
+  @@unique([articleId, assetId])
+  @@index([assetId])
+}
+
+model KnowledgeArticleLogTemplate {
+  id            String           @id @default(cuid())
+  articleId     String
+  article       KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  logTemplateId String
+  logTemplate   LogTemplate      @relation(fields: [logTemplateId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+
+  @@unique([articleId, logTemplateId])
+  @@index([logTemplateId])
+}
+
+model KnowledgeArticleInspectionDefinition {
+  id                     String               @id @default(cuid())
+  articleId              String
+  article                KnowledgeArticle     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  inspectionDefinitionId String
+  inspectionDefinition   InspectionDefinition @relation(fields: [inspectionDefinitionId], references: [id], onDelete: Cascade)
+  createdAt              DateTime             @default(now())
+
+  @@unique([articleId, inspectionDefinitionId])
+  @@index([inspectionDefinitionId])
 }
