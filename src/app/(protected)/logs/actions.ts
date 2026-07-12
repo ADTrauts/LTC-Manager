@@ -13,6 +13,7 @@ import { z } from "zod";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import { syncLogSubmissionRecordToTask } from "@/lib/work/adapters/log-task";
 
 const LOG_FIELD_TYPES = [
   LogFieldType.YES_NO,
@@ -322,7 +323,7 @@ export async function submitLogAction(formData: FormData) {
   const submittedById = session.authKind === "user" ? session.uid : undefined;
   const submittedByEmployeeId = session.authKind === "employee" ? session.uid : undefined;
 
-  await prisma.logSubmission.create({
+  const submission = await prisma.logSubmission.create({
     data: {
       assignmentId: assignment.id,
       unitId: assignment.unitId,
@@ -340,6 +341,31 @@ export async function submitLogAction(formData: FormData) {
         },
       },
     },
+    select: {
+      id: true,
+      status: true,
+      notes: true,
+      submittedAt: true,
+      unitId: true,
+      mealType: true,
+      submittedByEmployeeId: true,
+      unit: { select: { facilityId: true } },
+      template: { select: { name: true, departmentId: true } },
+    },
+  });
+
+  // Additive Work Engine projection — guarded; never fails the log submit.
+  await syncLogSubmissionRecordToTask({
+    id: submission.id,
+    status: submission.status,
+    notes: submission.notes,
+    submittedAt: submission.submittedAt,
+    unitId: submission.unitId,
+    mealType: submission.mealType,
+    submittedByEmployeeId: submission.submittedByEmployeeId,
+    facilityId: submission.unit.facilityId,
+    departmentId: submission.template.departmentId,
+    templateName: submission.template.name,
   });
 
   revalidateLogPaths();

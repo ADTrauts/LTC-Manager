@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isOperationEngineEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { isOperationEngineEnabled, isTaskSyncEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
 function withEnv(name: string, value: string | undefined, fn: () => void) {
@@ -38,6 +38,25 @@ test("isOperationEngineEnabled parses falsey env values", () => {
   for (const value of ["false", "0", "off", "no"]) {
     withEnv("OPERATION_ENGINE_ENABLED", value, () => {
       assert.equal(isOperationEngineEnabled(), false, value);
+    });
+  }
+});
+
+test("isTaskSyncEnabled defaults to false when unset", () => {
+  withEnv("TASK_SYNC_ENABLED", undefined, () => {
+    assert.equal(isTaskSyncEnabled(), false);
+  });
+});
+
+test("isTaskSyncEnabled parses truthy and falsey env values", () => {
+  for (const value of ["true", "1", "on", "yes"]) {
+    withEnv("TASK_SYNC_ENABLED", value, () => {
+      assert.equal(isTaskSyncEnabled(), true, value);
+    });
+  }
+  for (const value of ["false", "0", "off", "no"]) {
+    withEnv("TASK_SYNC_ENABLED", value, () => {
+      assert.equal(isTaskSyncEnabled(), false, value);
     });
   }
 });

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 
 const priorityValues = [
   RepairPriority.LOW,
@@ -65,7 +66,7 @@ export async function createRepairAction(formData: FormData) {
   const existingCount = await prisma.repair.count();
   const repairCode = `R-${String(existingCount + 1).padStart(5, "0")}`;
 
-  await prisma.repair.create({
+  const repair = await prisma.repair.create({
     data: {
       repairCode,
       unitId: parsed.unitId,
@@ -77,6 +78,34 @@ export async function createRepairAction(formData: FormData) {
       reportedById: session.authKind === "user" ? session.uid : undefined,
       status: RepairStatus.OPEN,
     },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      priority: true,
+      status: true,
+      unitId: true,
+      responsibleDepartmentId: true,
+      assignedEmployeeId: true,
+      dueAt: true,
+      completedAt: true,
+      unit: { select: { facilityId: true } },
+    },
+  });
+
+  // Additive Work Engine projection — guarded; never fails repair create.
+  await syncRepairRecordToTask({
+    id: repair.id,
+    title: repair.title,
+    description: repair.description,
+    priority: repair.priority,
+    status: repair.status,
+    unitId: repair.unitId,
+    responsibleDepartmentId: repair.responsibleDepartmentId,
+    assignedEmployeeId: repair.assignedEmployeeId,
+    dueAt: repair.dueAt,
+    completedAt: repair.completedAt,
+    facilityId: repair.unit.facilityId,
   });
 
   revalidateRepairViews();
@@ -100,7 +129,7 @@ export async function addRepairUpdateAction(formData: FormData) {
     throw new Error("Repair not found.");
   }
 
-  await prisma.$transaction([
+  const [, updated] = await prisma.$transaction([
     prisma.repairUpdate.create({
       data: {
         repairId: parsed.repairId,
@@ -116,8 +145,36 @@ export async function addRepairUpdateAction(formData: FormData) {
         completedAt:
           parsed.statusAfterUpdate === RepairStatus.CLOSED ? new Date() : null,
       },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        priority: true,
+        status: true,
+        unitId: true,
+        responsibleDepartmentId: true,
+        assignedEmployeeId: true,
+        dueAt: true,
+        completedAt: true,
+        unit: { select: { facilityId: true } },
+      },
     }),
   ]);
+
+  // Additive Work Engine projection — guarded; never fails repair status update.
+  await syncRepairRecordToTask({
+    id: updated.id,
+    title: updated.title,
+    description: updated.description,
+    priority: updated.priority,
+    status: updated.status,
+    unitId: updated.unitId,
+    responsibleDepartmentId: updated.responsibleDepartmentId,
+    assignedEmployeeId: updated.assignedEmployeeId,
+    dueAt: updated.dueAt,
+    completedAt: updated.completedAt,
+    facilityId: updated.unit.facilityId,
+  });
 
   revalidateRepairViews();
 }

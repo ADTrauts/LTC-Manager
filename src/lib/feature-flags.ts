@@ -21,3 +21,8 @@ export function isOperationEngineEnabled(): boolean {
 export function isTodaysWorkEnabled(): boolean {
   return parseEnvFlag(process.env.TODAYS_WORK_ENABLED, true);
 }
+
+/** Defaults to disabled — Wave 7a Task dual-write stays off until sync is verified. */
+export function isTaskSyncEnabled(): boolean {
+  return parseEnvFlag(process.env.TASK_SYNC_ENABLED, false);
+}
