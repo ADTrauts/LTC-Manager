@@ -244,7 +244,7 @@ const createUnitIssueSchema = z.object({
 });
 
 export type CreateUnitIssueResult =
-  | { ok: true; repairCode: string; issueType: IssueType; title: string }
+  | { ok: true; issueId: string; repairCode: string; issueType: IssueType; title: string }
   | { ok: false; message: string };
 
 /**
@@ -376,11 +376,13 @@ export async function createUnitIssueAction(
   revalidatePath("/unit/[unitId]", "page");
   revalidatePath(`/unit/${unit.id}`);
   revalidatePath("/repairs");
+  revalidatePath(`/issues/${repair.id}`);
   revalidatePath("/dashboard");
   revalidatePath("/today/handoffs");
 
   return {
     ok: true,
+    issueId: repair.id,
     repairCode: repair.repairCode,
     issueType: parsed.issueType,
     title: repair.title,

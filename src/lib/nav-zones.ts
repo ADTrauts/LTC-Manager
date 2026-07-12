@@ -58,6 +58,7 @@ export const NAV_ZONE_PATH_RULES: NavZonePathRule[] = (
     { pathPrefix: "/menus", zone: "ADMINISTRATION" },
     { pathPrefix: "/assets", zone: "ADMINISTRATION" },
     { pathPrefix: "/repairs", zone: "ADMINISTRATION" },
+    { pathPrefix: "/issues", zone: "ADMINISTRATION" },
     { pathPrefix: "/department", zone: "ADMINISTRATION" },
   ] satisfies NavZonePathRule[]
 ).sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);

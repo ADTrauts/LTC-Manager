@@ -4,6 +4,7 @@ import { fmtMealLabel } from "@/lib/operations-center";
 import { issueTypeLabel } from "@/lib/repair-routing";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
 import { formatDueTimeLabel } from "@/lib/work/inspections/inspection-cadence";
+import { issueDetailPath } from "@/lib/work/issues/issue-copy";
 
 import type { UnitQueryResult } from "./load-unit-queries";
 import type { UnitWorkspaceMealServiceEventToday, UnitWorkspaceUnit } from "./types";
@@ -167,7 +168,7 @@ function pushRepairWorkItems(items: UnitWorkQueueItem[], repairs: RepairRow[]) {
       priority: repairPriority(repair.priority),
       title: `${repair.repairCode} · ${repair.title}`,
       detail: [typeLabel, repair.priority, repair.status].filter(Boolean).join(" · "),
-      href: "/repairs",
+      href: issueDetailPath(repair.id),
     });
   }
 }

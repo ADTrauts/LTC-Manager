@@ -62,7 +62,12 @@ test("urgent issues sort above routine open issues in the unit queue", () => {
   });
 
   assert.equal(queue.primaryItem?.id, "repair:r-urgent");
+  assert.equal(queue.primaryItem?.href, "/issues/r-urgent");
   assert.ok(queue.items.some((item) => item.id === "repair:r-routine"));
+  assert.equal(
+    queue.items.find((item) => item.id === "repair:r-routine")?.href,
+    "/issues/r-routine",
+  );
   assert.ok(UNIT_WORK_QUEUE_PRIORITY.URGENT_REPAIR < UNIT_WORK_QUEUE_PRIORITY.OTHER_REPAIR);
   assert.match(queue.items.find((item) => item.id === "repair:r-routine")?.detail ?? "", /Supply short/);
 });

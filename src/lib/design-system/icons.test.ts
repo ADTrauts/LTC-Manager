@@ -20,6 +20,8 @@ test("resolveNavIconKey maps primary shell routes", () => {
   assert.equal(resolveNavIconKey("/menus"), "menus");
   assert.equal(resolveNavIconKey("/assets"), "assets");
   assert.equal(resolveNavIconKey("/repairs"), "repairs");
+  assert.equal(resolveNavIconKey("/issues"), "repairs");
+  assert.equal(resolveNavIconKey("/issues/abc"), "repairs");
 });
 
 test("resolveNavIcon returns AppIcons component for known routes", () => {

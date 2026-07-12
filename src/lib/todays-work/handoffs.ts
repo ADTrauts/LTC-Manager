@@ -82,7 +82,7 @@ export type HandoffScheduledInspectionRecord = {
 
 const CATEGORY_LABEL: Record<HandoffCategory, string> = {
   log_exception: "Log exception",
-  open_repair: "Open repair",
+  open_repair: "Open issue",
   call_down: "Call-down",
   coverage_gap: "Coverage gap",
   meal_service: "Meal service",
@@ -211,11 +211,11 @@ function handoffItemsFromRepairs(repairs: HandoffRepairRecord[]): HandoffItem[] 
     categoryLabel: CATEGORY_LABEL.open_repair,
     priority: repair.priority === "URGENT" ? "critical" : repair.priority === "HIGH" ? "high" : "normal",
     title: repair.title,
-    detail: `${repair.unitName} · ${repair.priority.toLowerCase()} priority repair open`,
+    detail: `${repair.unitName} · ${repair.priority.toLowerCase()} priority issue open`,
     unitId: repair.unitId,
     unitName: repair.unitName,
-    primaryHref: "/repairs",
-    primaryLabel: "Repairs",
+    primaryHref: `/issues/${repair.id}`,
+    primaryLabel: "View issue",
     secondaryHref: `/unit/${repair.unitId}`,
     secondaryLabel: "Unit workspace",
   }));

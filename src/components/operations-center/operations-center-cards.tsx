@@ -45,22 +45,22 @@ function UnitExceptionsCard({ data }: { data: OperationsCenterDashboardData }) {
 function OpenRepairsCard({ data }: { data: OperationsCenterDashboardData }) {
   return (
     <AppCard
-      title="Open Repairs"
+      title="Open issues"
       subtitle={`${data.openRepairCount} open · ${data.urgentRepairCount} urgent`}
       actions={
         <Link href="/repairs" className={linkActionClass}>
-          View repairs
+          View issues
         </Link>
       }
     >
       {data.urgentRepairCount > 0 ? (
         <p className="text-sm font-medium text-red-700">
-          Urgent equipment issues need supervisor follow-up before service.
+          Urgent issues need supervisor follow-up before service.
         </p>
       ) : data.openRepairCount > 0 ? (
-        <p className="text-sm text-zinc-600">Review open work orders and assign recovery owners.</p>
+        <p className="text-sm text-zinc-600">Review open issues and assign recovery owners.</p>
       ) : (
-        <p className="text-sm text-zinc-500">No open repairs.</p>
+        <p className="text-sm text-zinc-500">No open issues.</p>
       )}
     </AppCard>
   );

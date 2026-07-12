@@ -84,6 +84,7 @@ export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
   "/menus": "menus",
   "/assets": "assets",
   "/repairs": "repairs",
+  "/issues": "repairs",
   "/reports": "review",
   "/admin": "administration",
   "/evs": "logs",

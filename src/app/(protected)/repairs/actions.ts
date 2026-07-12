@@ -50,10 +50,22 @@ function toOptional(value: FormDataEntryValue | null) {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-function revalidateRepairViews() {
+function revalidateRepairViews(opts?: { issueId?: string; unitId?: string | null }) {
   revalidatePath("/repairs");
+  revalidatePath("/issues");
   revalidatePath("/dashboard");
+  revalidatePath("/operations");
+  revalidatePath("/today");
+  revalidatePath("/today/handoffs");
+  revalidatePath("/units");
   revalidatePath("/unit/[unitId]", "page");
+  if (opts?.issueId) {
+    revalidatePath(`/issues/${opts.issueId}`);
+    revalidatePath(`/repairs/${opts.issueId}`);
+  }
+  if (opts?.unitId) {
+    revalidatePath(`/unit/${opts.unitId}`);
+  }
 }
 
 export async function createRepairAction(formData: FormData) {
@@ -157,7 +169,7 @@ export async function createRepairAction(formData: FormData) {
     facilityId: repair.unit.facilityId,
   });
 
-  revalidateRepairViews();
+  revalidateRepairViews({ issueId: repair.id, unitId: repair.unitId });
 }
 
 export async function addRepairUpdateAction(formData: FormData) {
@@ -225,5 +237,5 @@ export async function addRepairUpdateAction(formData: FormData) {
     facilityId: updated.unit.facilityId,
   });
 
-  revalidateRepairViews();
+  revalidateRepairViews({ issueId: updated.id, unitId: updated.unitId });
 }

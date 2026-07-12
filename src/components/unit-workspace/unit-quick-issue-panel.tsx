@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { IssueType, RepairPriority } from "@prisma/client";
 
 import { createUnitIssueAction } from "@/app/(protected)/unit/[unitId]/actions";
 import { Drawer } from "@/components/drawer";
 import { ISSUE_TYPE_OPTIONS } from "@/lib/repair-routing";
+import { issueDetailPath } from "@/lib/work/issues/issue-copy";
 
 type UnitAssetOption = {
   id: string;
@@ -36,7 +38,7 @@ export function UnitQuickIssuePanel({ unitId, unitName, assets }: UnitQuickIssue
   const [assetId, setAssetId] = useState("");
   const [quantityNote, setQuantityNote] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ text: string; issueId: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selectedHint = useMemo(
@@ -73,7 +75,15 @@ export function UnitQuickIssuePanel({ unitId, unitName, assets }: UnitQuickIssue
           className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900"
           data-testid="unit-issue-success"
         >
-          {success}
+          <p>{success.text}</p>
+          <p className="mt-1">
+            <Link
+              href={issueDetailPath(success.issueId)}
+              className="font-semibold underline hover:text-emerald-700"
+            >
+              View issue
+            </Link>
+          </p>
         </div>
       ) : null}
 
@@ -110,9 +120,10 @@ export function UnitQuickIssuePanel({ unitId, unitName, assets }: UnitQuickIssue
                 setError(result.message);
                 return;
               }
-              setSuccess(
-                `Issue reported (${result.repairCode}): ${result.title}. It is now in the work queue.`,
-              );
+              setSuccess({
+                text: `Issue reported (${result.repairCode}): ${result.title}. It is now in the work queue.`,
+                issueId: result.issueId,
+              });
               resetForm();
               setOpen(false);
               router.refresh();

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { RepairPriority, RepairStatus } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
@@ -8,6 +9,12 @@ import {
 } from "@/app/(protected)/repairs/actions";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  issueDetailPath,
+  issueTypeShortLabel,
+  mapRepairStatusToRecoveryStage,
+  recoveryStageLabel,
+} from "@/lib/work/issues/issue-copy";
 
 export default async function RepairsPage() {
   noStore();
@@ -48,9 +55,10 @@ export default async function RepairsPage() {
   return (
     <section className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Repairs</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Issues & repairs</h1>
         <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          Track repair tickets from intake to closure with status updates.
+          Track operational issues from report to recovery. Open an issue for assignment, updates, and
+          history.
         </p>
       </header>
 
@@ -105,52 +113,66 @@ export default async function RepairsPage() {
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900">Repair Board</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">Issue board</h2>
         <div className="mt-3 space-y-3">
-          {repairs.map((repair) => (
-            <article key={repair.id} className="rounded-lg border border-zinc-200 p-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-zinc-900">
-                    {repair.repairCode} · {repair.title}
-                  </p>
-                  <p className="text-xs text-zinc-600">
-                    {repair.unit.name}
-                    {repair.asset ? ` · ${repair.asset.assetCode}` : ""}
-                    {repair.vendor ? ` · ${repair.vendor.name}` : ""}
-                    {repair.reportedBy ? ` · by ${repair.reportedBy.displayName}` : ""}
-                  </p>
+          {repairs.map((repair) => {
+            const stage = mapRepairStatusToRecoveryStage({
+              status: repair.status,
+              assignedEmployeeId: repair.assignedEmployeeId,
+            });
+            return (
+              <article key={repair.id} className="rounded-lg border border-zinc-200 p-3">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-900">
+                      {repair.repairCode} · {repair.title}
+                    </p>
+                    <p className="text-xs text-zinc-600">
+                      {issueTypeShortLabel(repair.issueType)} · {repair.unit.name}
+                      {repair.asset ? ` · ${repair.asset.assetCode}` : ""}
+                      {repair.vendor ? ` · ${repair.vendor.name}` : ""}
+                      {repair.reportedBy ? ` · by ${repair.reportedBy.displayName}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
+                      {repair.priority} · {recoveryStageLabel(stage)}
+                    </span>
+                    <Link
+                      href={issueDetailPath(repair.id)}
+                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
+                    >
+                      View issue
+                    </Link>
+                  </div>
                 </div>
-                <span className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
-                  {repair.priority} · {repair.status}
-                </span>
-              </div>
-              <p className="mb-3 text-sm text-zinc-700">{repair.description}</p>
-              <form action={addRepairUpdateAction} className="grid gap-2 md:grid-cols-4">
-                <input type="hidden" name="repairId" value={repair.id} />
-                <input
-                  name="updateText"
-                  required
-                  placeholder="Add update note"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-xs md:col-span-3"
-                />
-                <select name="statusAfterUpdate" defaultValue={repair.status} className="rounded-md border border-zinc-300 px-3 py-2 text-xs">
-                  {Object.values(RepairStatus).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-                <div className="md:col-span-4">
-                  <button type="submit" className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100">
-                    Add update
-                  </button>
-                </div>
-              </form>
-            </article>
-          ))}
+                <p className="mb-3 text-sm text-zinc-700">{repair.description}</p>
+                <form action={addRepairUpdateAction} className="grid gap-2 md:grid-cols-4">
+                  <input type="hidden" name="repairId" value={repair.id} />
+                  <input
+                    name="updateText"
+                    required
+                    placeholder="Add update note"
+                    className="rounded-md border border-zinc-300 px-3 py-2 text-xs md:col-span-3"
+                  />
+                  <select name="statusAfterUpdate" defaultValue={repair.status} className="rounded-md border border-zinc-300 px-3 py-2 text-xs">
+                    {Object.values(RepairStatus).map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="md:col-span-4">
+                    <button type="submit" className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100">
+                      Add update
+                    </button>
+                  </div>
+                </form>
+              </article>
+            );
+          })}
           {repairs.length === 0 ? (
-            <p className="text-sm text-zinc-500">No repairs yet.</p>
+            <p className="text-sm text-zinc-500">No issues yet.</p>
           ) : null}
         </div>
       </section>

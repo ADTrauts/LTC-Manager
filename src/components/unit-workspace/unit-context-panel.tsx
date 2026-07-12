@@ -220,7 +220,12 @@ export function UnitContextPanel({
           {openRepairs.map((repair) => (
             <div key={repair.id} className="rounded border border-zinc-200 bg-white p-2">
               <p className="font-medium text-zinc-900">
-                {repair.repairCode} · {repair.title}
+                <Link
+                  href={`/issues/${repair.id}`}
+                  className="underline hover:text-zinc-600"
+                >
+                  {repair.repairCode} · {repair.title}
+                </Link>
               </p>
               <p className="text-zinc-600">
                 {repair.priority} · {repair.status}
@@ -228,11 +233,11 @@ export function UnitContextPanel({
             </div>
           ))}
           {openRepairs.length === 0 ? (
-            <p className="text-sm text-zinc-500">No open repairs for this unit.</p>
+            <p className="text-sm text-zinc-500">No open issues for this unit.</p>
           ) : null}
           <p className="pt-1">
             <Link href="/repairs" className="text-sm font-medium text-zinc-800 underline hover:text-zinc-600">
-              View all repairs
+              View all issues
             </Link>
           </p>
         </div>
