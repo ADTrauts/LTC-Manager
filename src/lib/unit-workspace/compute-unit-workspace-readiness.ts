@@ -103,7 +103,11 @@ export function computeUnitWorkspaceReadiness(input: {
     }
   }
 
-  const plantByUnit = groupOutOfServiceAssetsByUnit(input.queries.outOfServiceAssets ?? []);
+  const plantByUnit = groupOutOfServiceAssetsByUnit(
+    input.queries.outOfServiceAssets ?? [],
+    input.queries.openRepairs,
+    input.now,
+  );
   applyPmScheduleSignals({
     byUnit: plantByUnit,
     schedules: input.queries.pmSchedulesDueThroughToday ?? [],

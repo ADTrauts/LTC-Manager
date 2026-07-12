@@ -96,7 +96,8 @@ export async function loadDashboardQueries(
         dueAt: true,
         preventiveScheduleId: true,
         responsibleDepartment: { select: { key: true } },
-        asset: { select: { name: true, status: true } },
+        assetId: true,
+        asset: { select: { name: true, status: true, criticality: true } },
       },
     }),
     prisma.employee.findMany({
@@ -141,6 +142,7 @@ export async function loadDashboardQueries(
         unitId: true,
         name: true,
         status: true,
+        criticality: true,
         equipmentType: true,
       },
     }),
@@ -155,7 +157,7 @@ export async function loadDashboardQueries(
         id: true,
         name: true,
         nextDueAt: true,
-        asset: { select: { unitId: true, name: true, status: true } },
+        asset: { select: { unitId: true, name: true, status: true, criticality: true } },
       },
     }),
     prisma.user.count({

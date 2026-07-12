@@ -1,5 +1,6 @@
 import {
   plantActiveRepairReason,
+  plantOutOfServiceAddressedReason,
   plantOutOfServiceReason,
   plantOverduePmReason,
 } from "@/lib/readiness/plant-asset-signals";
@@ -7,27 +8,35 @@ import {
 import type { ReadinessProfile, ReadinessProfileInput, ReadinessProfileResult } from "./types";
 
 /**
- * Plant readiness — asset availability, PM due/overdue for the facility-local
- * service window, and repair lifecycle signals from the readiness batch.
+ * Plant readiness — asset criticality + availability, PM due/overdue for the
+ * facility-local service window, and repair lifecycle signals.
  *
- * No asset criticality field exists; OUT_OF_SERVICE plus repair priority are
- * used conservatively. Future PM (beyond today) is excluded from batch loading.
+ * ROUTINE OUT_OF_SERVICE alone does not raise Needs Attention. Existing assets
+ * default to ROUTINE until operators classify essential equipment.
+ * Future PM (beyond today) is excluded from batch loading.
  */
 export function evaluatePlantReadiness(input: ReadinessProfileInput): ReadinessProfileResult {
   const { signals, operationalTime } = input;
   const contributing: ReadinessProfileResult["contributingSignals"] = [];
 
-  if (signals.outOfServiceAssetCount > 0) {
+  if (signals.criticalOutOfServiceCount > 0) {
     contributing.push({
       code: "plant_out_of_service",
-      detail: plantOutOfServiceReason(signals.primaryOutOfServiceAssetName),
+      detail: plantOutOfServiceReason(signals.primaryCriticalOutOfServiceName),
     });
   }
 
-  if (signals.overduePmScheduleCount > 0) {
+  if (signals.importantOutOfServiceUnaddressedCount > 0) {
+    contributing.push({
+      code: "plant_out_of_service",
+      detail: plantOutOfServiceReason(signals.primaryImportantOutOfServiceName),
+    });
+  }
+
+  if (signals.overdueCriticalPmCount > 0) {
     contributing.push({
       code: "plant_pm_overdue",
-      detail: plantOverduePmReason(signals.primaryOverduePmName),
+      detail: plantOverduePmReason(signals.primaryOverdueCriticalPmName),
     });
   }
 
@@ -88,6 +97,13 @@ export function evaluatePlantReadiness(input: ReadinessProfileInput): ReadinessP
 
   const inProgress: ReadinessProfileResult["contributingSignals"] = [];
 
+  if (signals.importantOutOfServiceAddressedCount > 0) {
+    inProgress.push({
+      code: "plant_out_of_service",
+      detail: plantOutOfServiceAddressedReason(signals.primaryImportantOutOfServiceName),
+    });
+  }
+
   if (signals.significantActivelyWorkedCount > 0) {
     inProgress.push({
       code: "open_repair",
@@ -102,7 +118,10 @@ export function evaluatePlantReadiness(input: ReadinessProfileInput): ReadinessP
     });
   }
 
-  if (signals.pmDueTodayUnderwayCount > 0 || signals.preventiveMaintenanceInProgressCount > 0) {
+  if (
+    signals.pmDueTodayUnderwayElevatedCount > 0 ||
+    signals.preventiveMaintenanceInProgressCount > 0
+  ) {
     inProgress.push({
       code: "plant_pm_due",
       detail: "Preventive maintenance is underway",

@@ -1,4 +1,4 @@
-import { AssetStatus } from "@prisma/client";
+import { AssetCriticality, AssetStatus } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -6,8 +6,11 @@ import Link from "next/link";
 import {
   createAssetAction,
   createVendorAction,
+  updateAssetCriticalityAction,
+  updateAssetDepartmentAction,
   updateAssetStatusAction,
 } from "@/app/(protected)/assets/actions";
+import { ASSET_CRITICALITY_OPTIONS, assetCriticalityLabel } from "@/lib/asset-criticality";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -36,7 +39,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   }
   const facilityId = session.facilityId;
 
-  const [units, vendors, assets] = await Promise.all([
+  const [units, vendors, departments, assets] = await Promise.all([
     prisma.unit.findMany({
       where: { isActive: true, facilityId },
       orderBy: { displayOrder: "asc" },
@@ -46,15 +49,23 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.department.findMany({
+      where: { facilityId, isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
     prisma.asset.findMany({
       where: { unit: { facilityId } },
       orderBy: { createdAt: "desc" },
       include: {
         unit: { select: { name: true } },
         vendor: { select: { name: true } },
+        department: { select: { name: true } },
       },
     }),
   ]);
+
+  const routineDefaultCount = assets.filter((asset) => asset.criticality === AssetCriticality.ROUTINE).length;
 
   return (
     <section className="space-y-6">
@@ -144,6 +155,14 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   </option>
                 ))}
               </select>
+              <select name="departmentId" defaultValue="" className="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-4">
+                <option value="">Responsible dept (defaults from unit if possible)</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
               <select name="status" defaultValue={AssetStatus.ACTIVE} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
                 {Object.values(AssetStatus).map((value) => (
                   <option key={value} value={value}>
@@ -151,6 +170,23 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   </option>
                 ))}
               </select>
+              <label className="flex flex-col gap-1 text-sm text-zinc-700 md:col-span-2 xl:col-span-4">
+                <span className="font-medium text-zinc-900">Operational criticality</span>
+                <select
+                  name="criticality"
+                  defaultValue={AssetCriticality.ROUTINE}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                >
+                  {ASSET_CRITICALITY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} — {option.description}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-zinc-500">
+                  Defaults to Routine. Classify essential equipment so Plant readiness can prioritize real operational risk.
+                </span>
+              </label>
               <input name="notes" placeholder="Notes" className="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-4" />
               <div className="md:col-span-2 xl:col-span-4">
                 <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
@@ -162,6 +198,12 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
 
           <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-zinc-900">Asset Registry</h2>
+            {routineDefaultCount > 0 ? (
+              <p className="mt-2 text-xs text-zinc-500">
+                {routineDefaultCount} asset{routineDefaultCount === 1 ? "" : "s"} currently classified as Routine
+                (the default). Review Critical and Important equipment so Plant readiness stays accurate.
+              </p>
+            ) : null}
             <div className="mt-3 space-y-2">
               {assets.map((asset) => (
                 <div key={asset.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 p-2">
@@ -171,8 +213,49 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                     </p>
                     <p className="text-xs">
                       {asset.equipmentType} · {asset.unit.name} · {asset.vendor?.name ?? "No vendor"}
+                      {" · "}
+                      {assetCriticalityLabel(asset.criticality)}
+                      {" · "}
+                      {asset.department?.name ? (
+                        <>Dept: {asset.department.name}</>
+                      ) : (
+                        <span className="text-amber-700">No responsible dept</span>
+                      )}
                     </p>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <form action={updateAssetDepartmentAction} className="flex items-center gap-1">
+                      <input type="hidden" name="assetId" value={asset.id} />
+                      <select name="departmentId" defaultValue={asset.departmentId ?? ""} className="rounded-md border border-zinc-300 px-2 py-1 text-xs">
+                        <option value="">Unset</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100">
+                        Dept
+                      </button>
+                    </form>
+                    <form action={updateAssetCriticalityAction} className="flex items-center gap-1">
+                      <input type="hidden" name="assetId" value={asset.id} />
+                      <select
+                        name="criticality"
+                        defaultValue={asset.criticality}
+                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                        title={ASSET_CRITICALITY_OPTIONS.find((o) => o.value === asset.criticality)?.description}
+                      >
+                        {ASSET_CRITICALITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100">
+                        Criticality
+                      </button>
+                    </form>
                   <form action={updateAssetStatusAction} className="flex items-center gap-2">
                     <input type="hidden" name="assetId" value={asset.id} />
                     <select name="status" defaultValue={asset.status} className="rounded-md border border-zinc-300 px-2 py-1 text-xs">
@@ -186,6 +269,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                       Update
                     </button>
                   </form>
+                  </div>
                 </div>
               ))}
               {assets.length === 0 ? <p className="text-sm text-zinc-500">No assets yet.</p> : null}

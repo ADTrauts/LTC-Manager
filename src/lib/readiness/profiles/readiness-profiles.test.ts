@@ -48,11 +48,19 @@ function baseSignals(
     evsRoomServiceComplete: false,
     evsRoomStatusPresent: false,
     outOfServiceAssetCount: 0,
-    primaryOutOfServiceAssetName: null,
-    overduePmScheduleCount: 0,
-    primaryOverduePmName: null,
+    criticalOutOfServiceCount: 0,
+    primaryCriticalOutOfServiceName: null,
+    importantOutOfServiceCount: 0,
+    primaryImportantOutOfServiceName: null,
+    importantOutOfServiceAddressedCount: 0,
+    importantOutOfServiceUnaddressedCount: 0,
+    routineOutOfServiceCount: 0,
+    overdueCriticalPmCount: 0,
+    primaryOverdueCriticalPmName: null,
+    overdueImportantPmCount: 0,
+    overdueRoutinePmCount: 0,
     dueTodayPmScheduleCount: 0,
-    pmDueTodayUnderwayCount: 0,
+    pmDueTodayUnderwayElevatedCount: 0,
     significantActivelyWorkedCount: 0,
     urgentNotActivelyWorkedCount: 0,
     primarySignificantInProgressTitle: null,
@@ -586,7 +594,7 @@ test("plant: missing Plant data remains conservative Ready", () => {
       unitType: UnitType.MECHANICAL,
       profileKey: "PLANT",
       outOfServiceAssetCount: 0,
-      overduePmScheduleCount: 0,
+      overdueCriticalPmCount: 0,
     }),
     operationalTime: breakfastTime(),
   });
@@ -665,7 +673,7 @@ test("plant: overdue HIGH repair = Needs Attention", () => {
   assert.match(result.primaryReason, /Priority repair is overdue/i);
 });
 
-test("plant: out-of-service asset = Needs Attention", () => {
+test("plant: CRITICAL out-of-service asset = Needs Attention", () => {
   const result = evaluatePlantReadiness({
     signals: baseSignals({
       unitId: "p1",
@@ -673,7 +681,8 @@ test("plant: out-of-service asset = Needs Attention", () => {
       unitType: UnitType.KITCHEN,
       profileKey: "PLANT",
       outOfServiceAssetCount: 1,
-      primaryOutOfServiceAssetName: "Walk-in cooler",
+      criticalOutOfServiceCount: 1,
+      primaryCriticalOutOfServiceName: "Walk-in cooler",
     }),
     operationalTime: breakfastTime(),
   });
@@ -681,15 +690,86 @@ test("plant: out-of-service asset = Needs Attention", () => {
   assert.match(result.primaryReason, /Walk-in cooler needs attention/i);
 });
 
-test("plant: overdue PM = Needs Attention", () => {
+test("plant: IMPORTANT out-of-service + assigned repair = In Progress", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Kitchen",
+      unitType: UnitType.KITCHEN,
+      profileKey: "PLANT",
+      outOfServiceAssetCount: 1,
+      importantOutOfServiceCount: 1,
+      primaryImportantOutOfServiceName: "Hot well",
+      importantOutOfServiceAddressedCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "in_progress");
+  assert.match(result.primaryReason, /Hot well is being addressed/i);
+});
+
+test("plant: IMPORTANT out-of-service + unassigned overdue repair = Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Kitchen",
+      unitType: UnitType.KITCHEN,
+      profileKey: "PLANT",
+      outOfServiceAssetCount: 1,
+      importantOutOfServiceCount: 1,
+      primaryImportantOutOfServiceName: "Hot well",
+      importantOutOfServiceUnaddressedCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Hot well needs attention/i);
+});
+
+test("plant: ROUTINE out-of-service asset alone remains Ready", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Office",
+      unitType: UnitType.OTHER,
+      profileKey: "PLANT",
+      outOfServiceAssetCount: 1,
+      routineOutOfServiceCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "ready");
+});
+
+test("plant: ROUTINE asset with URGENT repair can still become Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Office",
+      unitType: UnitType.OTHER,
+      profileKey: "PLANT",
+      outOfServiceAssetCount: 1,
+      routineOutOfServiceCount: 1,
+      urgentRepairCount: 1,
+      urgentNotActivelyWorkedCount: 1,
+      primaryUrgentRepairTitle: "Printer short",
+      unassignedUrgentOrHighCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "blocked");
+  assert.match(result.primaryReason, /Printer short needs attention/i);
+});
+
+test("plant: overdue PM on CRITICAL asset = Needs Attention", () => {
   const result = evaluatePlantReadiness({
     signals: baseSignals({
       unitId: "p1",
       unitName: "Mechanical",
       unitType: UnitType.MECHANICAL,
       profileKey: "PLANT",
-      overduePmScheduleCount: 1,
-      primaryOverduePmName: "Boiler inspection",
+      overdueCriticalPmCount: 1,
+      primaryOverdueCriticalPmName: "Boiler inspection",
     }),
     operationalTime: breakfastTime(),
   });
@@ -697,7 +777,7 @@ test("plant: overdue PM = Needs Attention", () => {
   assert.match(result.primaryReason, /preventive maintenance is overdue/i);
 });
 
-test("plant: due PM underway = In Progress", () => {
+test("plant: due PM underway on IMPORTANT asset = In Progress", () => {
   const result = evaluatePlantReadiness({
     signals: baseSignals({
       unitId: "p1",
@@ -705,12 +785,26 @@ test("plant: due PM underway = In Progress", () => {
       unitType: UnitType.MECHANICAL,
       profileKey: "PLANT",
       dueTodayPmScheduleCount: 1,
-      pmDueTodayUnderwayCount: 1,
+      pmDueTodayUnderwayElevatedCount: 1,
     }),
     operationalTime: breakfastTime(),
   });
   assert.equal(result.state, "in_progress");
   assert.match(result.primaryReason, /Preventive maintenance is underway/i);
+});
+
+test("plant: routine overdue PM alone does not force Needs Attention", () => {
+  const result = evaluatePlantReadiness({
+    signals: baseSignals({
+      unitId: "p1",
+      unitName: "Mechanical",
+      unitType: UnitType.MECHANICAL,
+      profileKey: "PLANT",
+      overdueRoutinePmCount: 1,
+    }),
+    operationalTime: breakfastTime(),
+  });
+  assert.equal(result.state, "ready");
 });
 
 test("plant: future PM excluded from batch does not affect readiness", () => {
@@ -800,6 +894,7 @@ test("plant: facility-local overdue dueAt comparison", () => {
       {
         id: "r1",
         unitId: "mech",
+        assetId: null,
         title: "Generator check",
         priority: "HIGH",
         status: "OPEN",

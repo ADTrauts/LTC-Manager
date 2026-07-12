@@ -1,12 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AssetStatus } from "@prisma/client";
+import { AssetCriticality, AssetStatus } from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
+import {
+  ASSET_CRITICALITY_VALUES,
+  isAssetCriticality,
+  type AssetCriticalityValue,
+} from "@/lib/asset-criticality";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+
+async function resolveDefaultResponsibleDepartmentForUnit(unitId: string, facilityId: string) {
+  const rows = await prisma.unitDepartmentResponsibility.findMany({
+    where: { unitId, unit: { facilityId } },
+    orderBy: { createdAt: "asc" },
+    select: { kind: true, departmentId: true, department: { select: { key: true } } },
+  });
+  const plantPrimary = rows.find((r) => r.kind === "PRIMARY" && r.department.key === "PLANT");
+  if (plantPrimary) return plantPrimary.departmentId;
+  const anyPrimary = rows.find((r) => r.kind === "PRIMARY");
+  return anyPrimary?.departmentId ?? null;
+}
 
 const assetStatusValues = [
   AssetStatus.ACTIVE,
@@ -30,7 +47,9 @@ const createAssetSchema = z.object({
   model: z.string().trim().max(120).optional(),
   serialNumber: z.string().trim().max(120).optional(),
   vendorId: z.string().cuid().optional(),
+  departmentId: z.string().cuid().optional(),
   status: z.enum(assetStatusValues),
+  criticality: z.enum(ASSET_CRITICALITY_VALUES).default("ROUTINE"),
   notes: z.string().trim().max(500).optional(),
 });
 
@@ -73,6 +92,7 @@ export async function createAssetAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
 
+  const criticalityRaw = String(formData.get("criticality") ?? "ROUTINE");
   const parsed = createAssetSchema.parse({
     assetCode: formData.get("assetCode"),
     name: formData.get("name"),
@@ -81,7 +101,9 @@ export async function createAssetAction(formData: FormData) {
     model: toOptional(formData.get("model")),
     serialNumber: toOptional(formData.get("serialNumber")),
     vendorId: toOptional(formData.get("vendorId")),
+    departmentId: toOptional(formData.get("departmentId")),
     status: formData.get("status"),
+    criticality: isAssetCriticality(criticalityRaw) ? criticalityRaw : "ROUTINE",
     notes: toOptional(formData.get("notes")),
   });
 
@@ -102,8 +124,34 @@ export async function createAssetAction(formData: FormData) {
     }
   }
 
+  const departmentId =
+    parsed.departmentId ?? (await resolveDefaultResponsibleDepartmentForUnit(parsed.unitId, session.facilityId));
+  if (!departmentId) {
+    throw new Error("Select a responsible department for this asset.");
+  }
+
+  const dept = await prisma.department.findFirst({
+    where: { id: departmentId, facilityId: session.facilityId },
+    select: { id: true },
+  });
+  if (!dept) {
+    throw new Error("Department not found.");
+  }
+
   await prisma.asset.create({
-    data: parsed,
+    data: {
+      assetCode: parsed.assetCode,
+      name: parsed.name,
+      equipmentType: parsed.equipmentType,
+      unitId: parsed.unitId,
+      model: parsed.model,
+      serialNumber: parsed.serialNumber,
+      vendorId: parsed.vendorId,
+      departmentId,
+      status: parsed.status,
+      criticality: parsed.criticality as AssetCriticality,
+      notes: parsed.notes,
+    },
   });
 
   revalidateAssetViews();
@@ -130,6 +178,75 @@ export async function updateAssetStatusAction(formData: FormData) {
   await prisma.asset.update({
     where: { id: assetId },
     data: { status },
+  });
+
+  revalidateAssetViews();
+}
+
+export async function updateAssetCriticalityAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+
+  const assetId = String(formData.get("assetId") ?? "");
+  const criticalityRaw = String(formData.get("criticality") ?? "") as AssetCriticalityValue;
+  if (!assetId || !isAssetCriticality(criticalityRaw)) {
+    throw new Error("Invalid asset criticality update.");
+  }
+
+  const asset = await prisma.asset.findFirst({
+    where: { id: assetId, unit: { facilityId: session.facilityId } },
+    select: { id: true },
+  });
+  if (!asset) {
+    throw new Error("Asset not found.");
+  }
+
+  await prisma.asset.update({
+    where: { id: assetId },
+    data: { criticality: criticalityRaw },
+  });
+
+  revalidateAssetViews();
+}
+
+export async function updateAssetDepartmentAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+
+  const assetId = String(formData.get("assetId") ?? "");
+  const deptRaw = toOptional(formData.get("departmentId"));
+  if (!assetId) {
+    throw new Error("Invalid asset.");
+  }
+
+  const asset = await prisma.asset.findFirst({
+    where: { id: assetId, unit: { facilityId: session.facilityId } },
+    select: { id: true },
+  });
+  if (!asset) {
+    throw new Error("Asset not found.");
+  }
+
+  if (!deptRaw) {
+    await prisma.asset.update({
+      where: { id: assetId },
+      data: { departmentId: null },
+    });
+    revalidateAssetViews();
+    return;
+  }
+
+  const dept = await prisma.department.findFirst({
+    where: { id: deptRaw, facilityId: session.facilityId },
+    select: { id: true },
+  });
+  if (!dept) {
+    throw new Error("Department not found.");
+  }
+
+  await prisma.asset.update({
+    where: { id: assetId },
+    data: { departmentId: deptRaw },
   });
 
   revalidateAssetViews();

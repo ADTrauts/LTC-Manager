@@ -439,6 +439,13 @@ enum AssetStatus {
   RETIRED
 }
 
+/// Operational criticality for Plant readiness. Defaults to ROUTINE for backward compatibility.
+enum AssetCriticality {
+  CRITICAL
+  IMPORTANT
+  ROUTINE
+}
+
 enum RepairPriority {
   LOW
   MEDIUM
@@ -827,26 +834,28 @@ model Vendor {
 }
 
 model Asset {
-  id            String      @id @default(cuid())
-  assetCode     String      @unique
+  id            String           @id @default(cuid())
+  assetCode     String           @unique
   name          String
   equipmentType String
   unitId        String
-  unit          Unit        @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  unit          Unit             @relation(fields: [unitId], references: [id], onDelete: Restrict)
   departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  department    Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   model         String?
   serialNumber  String?
   vendorId      String?
-  vendor        Vendor?     @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  status        AssetStatus @default(ACTIVE)
+  vendor        Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  status        AssetStatus      @default(ACTIVE)
+  criticality   AssetCriticality @default(ROUTINE)
   notes         String?
   repairs       Repair[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@index([unitId, status])
+  @@index([unitId, criticality])
   @@index([vendorId])
   @@index([departmentId])
 }

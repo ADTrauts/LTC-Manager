@@ -70,16 +70,24 @@ export type UnitReadinessSignals = {
   evsActiveCleaning: boolean;
   evsRoomServiceComplete: boolean;
   evsRoomStatusPresent: boolean;
-  /** Assets marked OUT_OF_SERVICE on this unit. */
+  /** Assets marked OUT_OF_SERVICE on this unit (any criticality). */
   outOfServiceAssetCount: number;
-  primaryOutOfServiceAssetName: string | null;
-  /** Active PM schedules with nextDueAt <= operational now (future schedules excluded from batch). */
-  overduePmScheduleCount: number;
-  primaryOverduePmName: string | null;
+  criticalOutOfServiceCount: number;
+  primaryCriticalOutOfServiceName: string | null;
+  importantOutOfServiceCount: number;
+  primaryImportantOutOfServiceName: string | null;
+  importantOutOfServiceAddressedCount: number;
+  importantOutOfServiceUnaddressedCount: number;
+  routineOutOfServiceCount: number;
+  /** Overdue PM on CRITICAL assets. */
+  overdueCriticalPmCount: number;
+  primaryOverdueCriticalPmName: string | null;
+  overdueImportantPmCount: number;
+  overdueRoutinePmCount: number;
   /** PM due later on the facility-local service day (not yet overdue). */
   dueTodayPmScheduleCount: number;
-  /** Due-today PM with assigned/IN_PROGRESS PREVENTIVE work. */
-  pmDueTodayUnderwayCount: number;
+  /** Due-today (or overdue IMPORTANT) PM underway on CRITICAL/IMPORTANT assets. */
+  pmDueTodayUnderwayElevatedCount: number;
   /** HIGH/URGENT repairs with status IN_PROGRESS (strongest active-work signal). */
   significantActivelyWorkedCount: number;
   /** URGENT repairs that are not yet IN_PROGRESS. */

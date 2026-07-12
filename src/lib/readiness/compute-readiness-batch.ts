@@ -28,6 +28,7 @@ type RepairPriorityRow = {
   assignedEmployeeId?: string | null;
   dueAt?: Date | null;
   preventiveScheduleId?: string | null;
+  assetId?: string | null;
 };
 
 type RepairSignalCounts = {
@@ -193,7 +194,11 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
     input.now,
   );
   const evsRoomSignalsByUnit = groupEvsRoomAreaSignalsByUnit(input.roomAreaStatusesToday ?? []);
-  const plantByUnit = groupOutOfServiceAssetsByUnit(input.outOfServiceAssets ?? []);
+  const plantByUnit = groupOutOfServiceAssetsByUnit(
+    input.outOfServiceAssets ?? [],
+    input.openRepairs,
+    input.now,
+  );
   applyPmScheduleSignals({
     byUnit: plantByUnit,
     schedules: input.pmSchedulesDueThroughToday ?? [],
