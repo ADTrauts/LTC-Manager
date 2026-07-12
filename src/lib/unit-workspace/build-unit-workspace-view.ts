@@ -105,8 +105,15 @@ export function buildUnitWorkspaceView(input: {
 
   const activeInspectId =
     typeof search.inspect === "string" &&
-    availableInspections.some((definition) => definition.id === search.inspect)
+    (availableInspections.some((definition) => definition.id === search.inspect) ||
+      queries.scheduledInspections.some((row) => row.definitionId === search.inspect))
       ? search.inspect
+      : null;
+
+  const activeOccurrenceId =
+    typeof search.occurrence === "string" &&
+    queries.scheduledInspections.some((row) => row.id === search.occurrence)
+      ? search.occurrence
       : null;
 
   const activeFollowUpTaskId =
@@ -164,6 +171,7 @@ export function buildUnitWorkspaceView(input: {
     activeLogTab,
     availableInspections,
     openInspectionFollowUps,
+    scheduledInspections: queries.scheduledInspections,
     now,
   });
 
@@ -212,6 +220,7 @@ export function buildUnitWorkspaceView(input: {
     inspectionHistory,
     openInspectionFollowUps,
     activeInspectId,
+    activeOccurrenceId,
     activeFollowUpTaskId,
     inspectionResultMessage,
     facilityTimezone: facilityTimezone ?? null,

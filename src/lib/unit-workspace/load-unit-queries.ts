@@ -36,6 +36,7 @@ export async function loadUnitQueries(params: {
     inspectionDefinitions,
     inspectionHistory,
     inspectionFindingTasks,
+    openInspectionOccurrences,
   ] = await Promise.all([
     prisma.logAssignment.findMany({
       where: {
@@ -194,6 +195,7 @@ export async function loadUnitQueries(params: {
         name: true,
         description: true,
         frequency: true,
+        cadenceType: true,
         facilityId: true,
         departmentId: true,
         unitId: true,
@@ -238,11 +240,53 @@ export async function loadUnitQueries(params: {
         sourceId: true,
       },
     }),
+    prisma.inspectionOccurrence.findMany({
+      where: {
+        facilityId,
+        status: "OPEN",
+        OR: [{ unitId }, { unitId: null }],
+        definition: {
+          isActive: true,
+          OR: [{ unitId: null }, { unitId }],
+        },
+      },
+      orderBy: [{ dueAt: "asc" }],
+      take: 40,
+      select: {
+        id: true,
+        definitionId: true,
+        dueAt: true,
+        unitId: true,
+        definition: {
+          select: {
+            name: true,
+            dueTimeLocal: true,
+            unitId: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const openInspectionFollowUps = inspectionFindingTasks.filter(
     (task) => task.status === "OPEN" || task.status === "IN_PROGRESS",
   );
+
+  const scheduledInspections = openInspectionOccurrences
+    .filter((row) => {
+      if (row.unitId === unitId) return true;
+      if (row.unitId == null && (row.definition.unitId == null || row.definition.unitId === unitId)) {
+        return true;
+      }
+      return false;
+    })
+    .map((row) => ({
+      id: row.id,
+      definitionId: row.definitionId,
+      definitionName: row.definition.name,
+      dueAt: row.dueAt,
+      dueTimeLocal: row.definition.dueTimeLocal,
+    }));
 
   return {
     assignments,
@@ -261,5 +305,6 @@ export async function loadUnitQueries(params: {
     inspectionHistory,
     openInspectionFollowUps,
     inspectionFindingTasks,
+    scheduledInspections,
   };
 }

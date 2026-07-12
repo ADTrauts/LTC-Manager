@@ -8,6 +8,7 @@ import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
 import {
+  parseDaysOfWeekJson,
   parseInspectionItemsJson,
   upsertInspectionDefinitionSchema,
 } from "@/lib/work/inspections/definition-schema";
@@ -62,6 +63,12 @@ export async function upsertInspectionDefinitionAction(formData: FormData) {
     name: formData.get("name"),
     description: toOptional(formData.get("description")) ?? null,
     frequency: toOptional(formData.get("frequency")) ?? null,
+    cadenceType: toOptional(formData.get("cadenceType")) ?? "ON_DEMAND",
+    dueTimeLocal: toOptional(formData.get("dueTimeLocal")) ?? null,
+    daysOfWeek: parseDaysOfWeekJson(formData.get("daysOfWeekJson")),
+    dayOfMonth: toOptional(formData.get("dayOfMonth"))
+      ? Number(formData.get("dayOfMonth"))
+      : null,
     departmentId: toOptional(formData.get("departmentId")) ?? null,
     unitId: toOptional(formData.get("unitId")) ?? null,
     isActive: toBool(formData.get("isActive"), true),
@@ -92,6 +99,10 @@ export async function upsertInspectionDefinitionAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           frequency: parsed.frequency,
+          cadenceType: parsed.cadenceType,
+          dueTimeLocal: parsed.cadenceType === "ON_DEMAND" ? null : parsed.dueTimeLocal,
+          daysOfWeek: parsed.cadenceType === "WEEKLY" ? parsed.daysOfWeek : [],
+          dayOfMonth: parsed.cadenceType === "MONTHLY" ? parsed.dayOfMonth : null,
           departmentId,
           unitId,
           isActive: parsed.isActive,
@@ -159,6 +170,10 @@ export async function upsertInspectionDefinitionAction(formData: FormData) {
       name: parsed.name,
       description: parsed.description,
       frequency: parsed.frequency,
+      cadenceType: parsed.cadenceType,
+      dueTimeLocal: parsed.cadenceType === "ON_DEMAND" ? null : parsed.dueTimeLocal,
+      daysOfWeek: parsed.cadenceType === "WEEKLY" ? parsed.daysOfWeek : [],
+      dayOfMonth: parsed.cadenceType === "MONTHLY" ? parsed.dayOfMonth : null,
       departmentId,
       unitId,
       isActive: parsed.isActive,

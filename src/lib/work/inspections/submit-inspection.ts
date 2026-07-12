@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { completeScheduledInspectionOccurrence } from "@/lib/work/inspections/complete-scheduled-occurrence";
 import { determineInspectionResult } from "@/lib/work/inspections/determine-inspection-result";
 import { syncInspectionRecordToTask } from "@/lib/work/inspections/inspection-task";
 import {
@@ -19,7 +20,7 @@ import type { TaskSyncDeps } from "@/lib/work/run-guarded-task-sync";
 
 export type InspectionSubmitDb = Pick<
   PrismaClient,
-  "inspectionDefinition" | "inspectionSubmission" | "$transaction"
+  "inspectionDefinition" | "inspectionSubmission" | "inspectionOccurrence" | "$transaction"
 > & {
   task?: PrismaClient["task"];
 };
@@ -88,18 +89,21 @@ async function repairFollowUpTasks(
  * Submit an inspection:
  * 1. Validate definition + answers
  * 2. Persist submission + items atomically
- * 3. Guarded execution Task projection (TASK_SYNC_ENABLED)
+ * 3. If occurrenceId: complete scheduled Task (no duplicate execution Task)
+ *    Else: guarded INSPECTION_SUBMISSION Task projection
  * 4. Guarded follow-up Task sync for qualifying failed items
  *
  * Submission remains authoritative: Task sync failures never roll back the write.
- * Idempotent retries re-run follow-up sync to repair missing projections without
- * duplicating Tasks (unique on facilityId + INSPECTION_FINDING + submissionItemId).
  */
 export async function submitInspection(
   input: SubmitInspectionInput,
   deps: TaskSyncDeps & { db?: InspectionSubmitDb } = {},
 ): Promise<SubmitInspectionResult> {
   const db = deps.db ?? defaultPrisma;
+  const occurrenceId =
+    typeof input.occurrenceId === "string" && input.occurrenceId.trim().length > 0
+      ? input.occurrenceId.trim()
+      : null;
 
   const idempotencyKey =
     typeof input.idempotencyKey === "string" && input.idempotencyKey.trim().length > 0
@@ -132,9 +136,7 @@ export async function submitInspection(
     });
 
     if (existing) {
-      // Repair missing follow-up projections on retry; never recreate the submission.
       const followUpSync = await repairFollowUpTasks(existing.id, deps);
-
       return {
         ok: true,
         deduplicated: true,
@@ -159,6 +161,28 @@ export async function submitInspection(
           taskId: existing.taskId,
         },
         followUpSync,
+      };
+    }
+  }
+
+  if (occurrenceId) {
+    const occurrence = await db.inspectionOccurrence.findFirst({
+      where: {
+        id: occurrenceId,
+        facilityId: input.facilityId,
+        definitionId: input.definitionId,
+        status: "OPEN",
+      },
+      select: { id: true },
+    });
+    if (!occurrence) {
+      return {
+        ok: false,
+        validation: {
+          ok: false,
+          code: "DEFINITION_NOT_FOUND",
+          message: "Scheduled inspection was not found or is already completed.",
+        },
       };
     }
   }
@@ -200,13 +224,14 @@ export async function submitInspection(
   const determined = determineInspectionResult(validation.answers);
 
   const created = await db.$transaction(async (tx) => {
-    const submission = await tx.inspectionSubmission.create({
+    return tx.inspectionSubmission.create({
       data: {
         facilityId: input.facilityId,
         definitionId: validation.definition.id,
         unitId: validation.resolvedUnitId,
         operationInstanceId: input.operationInstanceId ?? null,
         submittedByEmployeeId: input.submittedByEmployeeId ?? null,
+        occurrenceId,
         result: determined.result,
         notes: input.notes?.trim() || null,
         idempotencyKey,
@@ -231,6 +256,7 @@ export async function submitInspection(
         result: true,
         notes: true,
         taskId: true,
+        occurrenceId: true,
         items: {
           select: {
             id: true,
@@ -250,57 +276,87 @@ export async function submitInspection(
         },
       },
     });
-
-    return submission;
-  });
-
-  const taskSource = {
-    id: created.id,
-    facilityId: created.facilityId,
-    departmentId: validation.definition.departmentId,
-    unitId: created.unitId,
-    operationInstanceId: created.operationInstanceId,
-    submittedByEmployeeId: created.submittedByEmployeeId,
-    submittedAt: created.submittedAt,
-    result: created.result,
-    notes: created.notes,
-    definitionName: validation.definition.name,
-  };
-
-  const syncOutcome = await syncInspectionRecordToTask(taskSource, {
-    isEnabled: deps.isEnabled,
-    db: deps.db?.task ? { task: deps.db.task } : undefined,
   });
 
   let taskId: string | null = null;
   let synced = false;
   let skipped = false;
 
-  if (syncOutcome.ok && syncOutcome.skipped) {
-    skipped = true;
-  } else if (syncOutcome.ok && !syncOutcome.skipped) {
-    synced = true;
-    taskId = syncOutcome.task.id;
-    try {
-      await db.inspectionSubmission.update({
-        where: { id: created.id },
-        data: { taskId },
-      });
-    } catch (error) {
-      // Submission remains authoritative; linking taskId is best-effort.
-      console.error("[work/inspections] failed to link taskId on submission", {
+  if (created.occurrenceId) {
+    const scheduled = await completeScheduledInspectionOccurrence(
+      {
+        occurrenceId: created.occurrenceId,
+        facilityId: created.facilityId,
+        definitionId: created.definitionId,
         submissionId: created.id,
-        taskId,
-        error,
-      });
+        submittedAt: created.submittedAt,
+        submittedByEmployeeId: created.submittedByEmployeeId,
+      },
+      {
+        isEnabled: deps.isEnabled,
+        db:
+          deps.db?.task && deps.db.inspectionOccurrence
+            ? { task: deps.db.task, inspectionOccurrence: deps.db.inspectionOccurrence }
+            : undefined,
+      },
+    );
+    taskId = scheduled.taskId;
+    synced = scheduled.synced;
+    skipped = scheduled.skipped;
+    if (taskId) {
+      try {
+        await db.inspectionSubmission.update({
+          where: { id: created.id },
+          data: { taskId },
+        });
+      } catch (error) {
+        console.error("[work/inspections] failed to link scheduled taskId on submission", {
+          submissionId: created.id,
+          taskId,
+          error,
+        });
+      }
     }
   } else {
-    skipped = false;
-    synced = false;
+    const syncOutcome = await syncInspectionRecordToTask(
+      {
+        id: created.id,
+        facilityId: created.facilityId,
+        departmentId: validation.definition.departmentId,
+        unitId: created.unitId,
+        operationInstanceId: created.operationInstanceId,
+        submittedByEmployeeId: created.submittedByEmployeeId,
+        submittedAt: created.submittedAt,
+        result: created.result,
+        notes: created.notes,
+        definitionName: validation.definition.name,
+      },
+      {
+        isEnabled: deps.isEnabled,
+        db: deps.db?.task ? { task: deps.db.task } : undefined,
+      },
+    );
+
+    if (syncOutcome.ok && syncOutcome.skipped) {
+      skipped = true;
+    } else if (syncOutcome.ok && !syncOutcome.skipped) {
+      synced = true;
+      taskId = syncOutcome.task.id;
+      try {
+        await db.inspectionSubmission.update({
+          where: { id: created.id },
+          data: { taskId },
+        });
+      } catch (error) {
+        console.error("[work/inspections] failed to link taskId on submission", {
+          submissionId: created.id,
+          taskId,
+          error,
+        });
+      }
+    }
   }
 
-  // Follow-up sync is guarded and post-commit so a projection failure cannot
-  // erase the authoritative InspectionSubmission.
   const followUpOutcome = await syncInspectionFollowUpTasksFromContext(
     {
       submissionId: created.id,

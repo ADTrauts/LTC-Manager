@@ -103,6 +103,7 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
 const submitUnitInspectionSchema = z.object({
   unitId: z.string().cuid(),
   definitionId: z.string().cuid(),
+  occurrenceId: z.string().cuid().optional(),
   idempotencyKey: z.string().trim().min(8).max(120),
   answersJson: z.string().min(2),
 });
@@ -120,6 +121,7 @@ export async function submitUnitInspectionAction(
   const parsed = submitUnitInspectionSchema.parse({
     unitId: formData.get("unitId"),
     definitionId: formData.get("definitionId"),
+    occurrenceId: formData.get("occurrenceId") || undefined,
     idempotencyKey: formData.get("idempotencyKey"),
     answersJson: formData.get("answersJson"),
   });
@@ -156,6 +158,7 @@ export async function submitUnitInspectionAction(
     definitionId: parsed.definitionId,
     unitId: unit.id,
     submittedByEmployeeId,
+    occurrenceId: parsed.occurrenceId ?? null,
     idempotencyKey: parsed.idempotencyKey,
     answers,
   });

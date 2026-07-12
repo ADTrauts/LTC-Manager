@@ -2,10 +2,15 @@ import { LogSubmissionStatus, type MealType, type RepairPriority } from "@prisma
 
 import { fmtMealLabel } from "@/lib/operations-center";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
+import { formatDueTimeLabel } from "@/lib/work/inspections/inspection-cadence";
 
 import type { UnitQueryResult } from "./load-unit-queries";
 import type { UnitWorkspaceMealServiceEventToday, UnitWorkspaceUnit } from "./types";
-import { UNIT_WORK_QUEUE_PRIORITY } from "./work-queue-priority";
+import {
+  INSPECTION_DUE_NOW_LEAD_MS,
+  INSPECTION_UPCOMING_WINDOW_MS,
+  UNIT_WORK_QUEUE_PRIORITY,
+} from "./work-queue-priority";
 
 export type UnitWorkQueueKind =
   | "failed-log"
@@ -17,6 +22,9 @@ export type UnitWorkQueueKind =
   | "high-repair"
   | "repair"
   | "inspection-follow-up"
+  | "inspection-overdue"
+  | "inspection-due"
+  | "inspection-upcoming"
   | "available-inspection"
   | "secondary";
 
@@ -185,6 +193,51 @@ function pushSecondaryWorkItems(
   }
 }
 
+function pushScheduledInspectionWorkItems(
+  items: UnitWorkQueueItem[],
+  unitId: string,
+  scheduled: Array<{
+    id: string;
+    definitionId: string;
+    definitionName: string;
+    dueAt: Date;
+    dueTimeLocal: string | null;
+  }>,
+  now: Date,
+) {
+  for (const row of scheduled) {
+    const msUntilDue = row.dueAt.getTime() - now.getTime();
+    let kind: UnitWorkQueueKind;
+    let priority: number;
+    let detail: string;
+
+    if (msUntilDue < 0) {
+      kind = "inspection-overdue";
+      priority = UNIT_WORK_QUEUE_PRIORITY.INSPECTION_OVERDUE;
+      detail = "Inspection overdue";
+    } else if (msUntilDue <= INSPECTION_DUE_NOW_LEAD_MS) {
+      kind = "inspection-due";
+      priority = UNIT_WORK_QUEUE_PRIORITY.INSPECTION_DUE_NOW;
+      detail = `Due by ${formatDueTimeLabel(row.dueTimeLocal)}`;
+    } else if (msUntilDue <= INSPECTION_UPCOMING_WINDOW_MS) {
+      kind = "inspection-upcoming";
+      priority = UNIT_WORK_QUEUE_PRIORITY.INSPECTION_UPCOMING;
+      detail = `Upcoming at ${formatDueTimeLabel(row.dueTimeLocal)}`;
+    } else {
+      continue;
+    }
+
+    items.push({
+      id: `scheduled-inspection:${row.id}`,
+      kind,
+      priority,
+      title: `Complete ${row.definitionName}`,
+      detail,
+      href: `/unit/${unitId}?unitTab=overview&inspect=${row.definitionId}&occurrence=${row.id}`,
+    });
+  }
+}
+
 function pushInspectionFollowUpWorkItems(
   items: UnitWorkQueueItem[],
   unitId: string,
@@ -232,6 +285,13 @@ export function buildUnitWorkQueue(input: {
   activeLogTab: string | null;
   availableInspections?: Array<{ id: string; name: string; itemCount: number; frequency: string | null }>;
   openInspectionFollowUps?: Array<{ id: string; title: string; status: string }>;
+  scheduledInspections?: Array<{
+    id: string;
+    definitionId: string;
+    definitionName: string;
+    dueAt: Date;
+    dueTimeLocal: string | null;
+  }>;
   now?: Date;
 }): UnitWorkQueue {
   const now = input.now ?? new Date();
@@ -240,8 +300,16 @@ export function buildUnitWorkQueue(input: {
   pushLogWorkItems(items, input.queries.assignments, input.queries.submissions);
   pushServeryWorkItems(items, input.unit, input.mealServiceEventByMeal, now);
   pushRepairWorkItems(items, input.queries.openRepairs);
+  pushScheduledInspectionWorkItems(items, input.unit.id, input.scheduledInspections ?? [], now);
   pushInspectionFollowUpWorkItems(items, input.unit.id, input.openInspectionFollowUps ?? []);
-  pushInspectionWorkItems(items, input.unit.id, input.availableInspections ?? []);
+
+  const scheduledDefinitionIds = new Set(
+    (input.scheduledInspections ?? []).map((row) => row.definitionId),
+  );
+  const availableWithoutOpenSchedule = (input.availableInspections ?? []).filter(
+    (inspection) => !scheduledDefinitionIds.has(inspection.id),
+  );
+  pushInspectionWorkItems(items, input.unit.id, availableWithoutOpenSchedule);
   pushSecondaryWorkItems(items, input.unit, input.activeLogTab);
 
   const sorted = items.sort((a, b) => {

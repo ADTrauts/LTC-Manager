@@ -26,6 +26,7 @@ export type UnitWorkspaceSearchParams = {
   logTab?: string;
   mealServiceEvent?: string;
   inspect?: string;
+  occurrence?: string;
   inspectionResult?: string;
   inspectionName?: string;
   followUpTask?: string;
@@ -76,6 +77,7 @@ export type UnitWorkspaceViewModel = {
     description: string | null;
   }>;
   activeInspectId: string | null;
+  activeOccurrenceId: string | null;
   activeFollowUpTaskId: string | null;
   inspectionResultMessage: { title: string; body: string } | null;
   facilityTimezone: string | null;

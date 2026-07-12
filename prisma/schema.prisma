@@ -102,6 +102,7 @@ model Facility {
   tasks                         Task[]
   inspectionDefinitions         InspectionDefinition[]
   inspectionSubmissions         InspectionSubmission[]
+  inspectionOccurrences         InspectionOccurrence[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
 }
@@ -131,6 +132,7 @@ model Department {
   repairsResponsible Repair[] @relation("RepairResponsibleDepartment")
   tasks             Task[]
   inspectionDefinitions InspectionDefinition[]
+  inspectionOccurrences InspectionOccurrence[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -522,6 +524,7 @@ enum TaskSourceType {
   REPAIR
   INSPECTION_SUBMISSION
   INSPECTION_FINDING
+  INSPECTION_OCCURRENCE
 }
 
 enum InspectionResponseType {
@@ -536,6 +539,21 @@ enum InspectionResult {
   PASSED
   PASSED_WITH_FINDINGS
   FAILED
+}
+
+/// Structured recurrence for InspectionDefinition (Wave 7c). ON_DEMAND is never auto-generated.
+enum InspectionCadenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ON_DEMAND
+}
+
+enum InspectionOccurrenceStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+  SKIPPED
 }
 
 enum AttachmentParentKind {
@@ -573,6 +591,7 @@ model Unit {
   tasks                    Task[]
   inspectionDefinitions    InspectionDefinition[]
   inspectionSubmissions    InspectionSubmission[]
+  inspectionOccurrences    InspectionOccurrence[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -1191,6 +1210,7 @@ model Task {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   inspectionSubmissions InspectionSubmission[]
+  inspectionOccurrences InspectionOccurrence[]
 
   @@unique([facilityId, sourceType, sourceId])
   @@index([facilityId, status])
@@ -1213,18 +1233,60 @@ model InspectionDefinition {
   unit        Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
   name        String
   description String?
-  /// Free-text cadence hint; align with UnitDepartmentResponsibility.inspectionFrequency when practical.
+  /// Optional free-text notes; structured scheduling uses cadenceType / dueTimeLocal / daysOfWeek / dayOfMonth.
   frequency   String?
+  cadenceType InspectionCadenceType      @default(ON_DEMAND)
+  /// Facility-local due wall time "HH:MM". Null defaults to 09:00 for generated occurrences.
+  dueTimeLocal String?
+  /// Weekday numbers for WEEKLY cadence: 0=Sunday … 6=Saturday (facility-local).
+  daysOfWeek  Int[]                      @default([])
+  /// 1–31 for MONTHLY cadence (facility-local). Clamped to last day of short months.
+  dayOfMonth  Int?
+  activeFrom  DateTime?                  @db.Date
+  activeUntil DateTime?                  @db.Date
+  /// Last facility-local service date the generator has materialized through.
+  lastGeneratedThrough DateTime?         @db.Date
   isActive    Boolean                    @default(true)
   items       InspectionDefinitionItem[]
   submissions InspectionSubmission[]
+  occurrences InspectionOccurrence[]
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
 
   @@unique([facilityId, name])
   @@index([facilityId, isActive])
+  @@index([facilityId, cadenceType, isActive])
   @@index([departmentId])
   @@index([unitId])
+}
+
+/// One scheduled inspection occurrence per definition + facility-local service date.
+model InspectionOccurrence {
+  id           String                      @id @default(cuid())
+  definitionId String
+  definition   InspectionDefinition        @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  facilityId   String
+  facility     Facility                    @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department?                 @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  unitId       String?
+  unit         Unit?                       @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  /// Facility-local calendar day as UTC-midnight @db.Date.
+  serviceDate  DateTime                    @db.Date
+  dueAt        DateTime
+  status       InspectionOccurrenceStatus  @default(OPEN)
+  taskId       String?
+  task         Task?                       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  submission   InspectionSubmission?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+
+  @@unique([definitionId, serviceDate])
+  @@index([facilityId, status, dueAt])
+  @@index([facilityId, serviceDate])
+  @@index([unitId, status])
+  @@index([departmentId])
+  @@index([taskId])
 }
 
 model InspectionDefinitionItem {
@@ -1255,6 +1317,9 @@ model InspectionSubmission {
   unit                   Unit?                     @relation(fields: [unitId], references: [id], onDelete: SetNull)
   operationInstanceId    String?
   operationInstance      OperationInstance?        @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  /// When set, this submission completes the linked scheduled occurrence (no duplicate execution Task).
+  occurrenceId           String?                   @unique
+  occurrence             InspectionOccurrence?     @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
   submittedByEmployeeId  String?
   submittedByEmployee    Employee?                 @relation("InspectionSubmittedByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
   submittedAt            DateTime                  @default(now())
@@ -1277,6 +1342,7 @@ model InspectionSubmission {
   @@index([submittedByEmployeeId])
   @@index([taskId])
   @@index([result])
+  @@index([occurrenceId])
 }
 
 model InspectionSubmissionItem {

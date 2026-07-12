@@ -29,7 +29,11 @@ function queueItemIcon(kind: UnitWorkQueueKind): AppIconKey {
     case "available-inspection":
       return "logs";
     case "inspection-follow-up":
+    case "inspection-overdue":
+    case "inspection-due":
       return "warning";
+    case "inspection-upcoming":
+      return "logs";
     default:
       return "operationalMode";
   }

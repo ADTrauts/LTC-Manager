@@ -30,3 +30,15 @@ export {
   buildInspectionFollowUpTitle,
   followUpStatusLabel,
 } from "@/lib/work/inspections/sync-inspection-follow-up-tasks";
+export {
+  generateDueInspectionWork,
+  generateDueInspectionWorkForFacilities,
+  buildScheduledInspectionTaskInput,
+} from "@/lib/work/inspections/generate-due-inspection-work";
+export {
+  doesCadenceMatchServiceDate,
+  buildInspectionScheduleSummary,
+  iterateServiceDatesInclusive,
+} from "@/lib/work/inspections/inspection-cadence";
+export { facilityLocalDateTimeToUtc } from "@/lib/work/inspections/facility-local-due-at";
+export { completeScheduledInspectionOccurrence } from "@/lib/work/inspections/complete-scheduled-occurrence";

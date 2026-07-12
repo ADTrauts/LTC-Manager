@@ -76,6 +76,7 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
       inspectionHistory: [],
       openInspectionFollowUps: [],
       inspectionFindingTasks: [],
+      scheduledInspections: [],
     },
   });
 
@@ -180,6 +181,7 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
       ],
       openInspectionFollowUps: [],
       inspectionFindingTasks: [],
+      scheduledInspections: [],
     },
   });
 
@@ -261,6 +263,7 @@ test("open inspection follow-ups appear in work queue and history status", () =>
           sourceId: "item-sub-1",
         },
       ],
+      scheduledInspections: [],
     },
   });
 

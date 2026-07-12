@@ -29,6 +29,7 @@ type UnitInspectionSubmitFormProps = {
   definitionName: string;
   description: string | null;
   items: UnitInspectionFormItem[];
+  occurrenceId?: string | null;
 };
 
 function emptyAnswers(items: UnitInspectionFormItem[]): Record<string, AnswerState> {
@@ -46,14 +47,18 @@ export function UnitInspectionSubmitForm({
   definitionName,
   description,
   items,
+  occurrenceId = null,
 }: UnitInspectionSubmitFormProps) {
   const router = useRouter();
   const [answers, setAnswers] = useState(() => emptyAnswers(items));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const idempotencyKey = useMemo(
-    () => `unit-insp-${definitionId}-${unitId}-${crypto.randomUUID()}`,
-    [definitionId, unitId],
+    () =>
+      occurrenceId
+        ? `unit-insp-occ-${occurrenceId}`
+        : `unit-insp-${definitionId}-${unitId}-${crypto.randomUUID()}`,
+    [definitionId, unitId, occurrenceId],
   );
 
   const answeredRequired = items.filter((item) => {
@@ -86,6 +91,7 @@ export function UnitInspectionSubmitForm({
         formData.set("unitId", unitId);
         formData.set("definitionId", definitionId);
         formData.set("idempotencyKey", idempotencyKey);
+        if (occurrenceId) formData.set("occurrenceId", occurrenceId);
         formData.set(
           "answersJson",
           JSON.stringify(

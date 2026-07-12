@@ -22,7 +22,8 @@ export async function loadHandoffs(
   const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
 
-  const [walkList, coverage, callDowns, queries, repairs, inspectionFindings] = await Promise.all([
+  const [walkList, coverage, callDowns, queries, repairs, inspectionFindings, scheduledOccurrences] =
+    await Promise.all([
     loadWalkList(facilityId, {
       activeDepartmentKey: options?.activeDepartmentKey,
     }),
@@ -57,6 +58,24 @@ export async function loadHandoffs(
         unit: { select: { name: true } },
       },
     }),
+    prisma.inspectionOccurrence.findMany({
+      where: {
+        facilityId,
+        status: "OPEN",
+        dueAt: { lte: new Date(now.getTime() + 30 * 60 * 1000) },
+        unitId: { not: null },
+      },
+      orderBy: [{ dueAt: "asc" }],
+      take: 40,
+      select: {
+        id: true,
+        definitionId: true,
+        dueAt: true,
+        unitId: true,
+        definition: { select: { name: true } },
+        unit: { select: { name: true } },
+      },
+    }),
   ]);
 
   const dashboard = buildDashboardAggregates({ ...queries, now, facilityTimezone });
@@ -80,6 +99,17 @@ export async function loadHandoffs(
         status: task.status as "OPEN" | "IN_PROGRESS",
         unitId: task.unitId!,
         unitName: task.unit!.name,
+      })),
+    scheduledInspections: scheduledOccurrences
+      .filter((row) => row.unitId && row.unit)
+      .map((row) => ({
+        id: row.id,
+        definitionId: row.definitionId,
+        definitionName: row.definition.name,
+        dueAt: row.dueAt,
+        overdue: row.dueAt.getTime() < now.getTime(),
+        unitId: row.unitId!,
+        unitName: row.unit!.name,
       })),
     mealBoards: dashboard.mealBoards,
     operationContext: walkList.operationContext,

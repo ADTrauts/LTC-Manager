@@ -38,6 +38,8 @@ export type SubmitInspectionInput = {
   operationInstanceId?: string | null;
   submittedByEmployeeId?: string | null;
   notes?: string | null;
+  /** When set, completes this scheduled occurrence instead of creating an INSPECTION_SUBMISSION Task. */
+  occurrenceId?: string | null;
   /** When set, retries with the same key return the existing submission. */
   idempotencyKey?: string | null;
   answers: InspectionItemAnswerInput[];

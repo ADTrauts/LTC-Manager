@@ -27,6 +27,7 @@ type UnitDashboardPageProps = {
     inspectionResult?: string;
     inspectionName?: string;
     followUpTask?: string;
+    occurrence?: string;
   }>;
 };
 
@@ -54,6 +55,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     inspectionResult: query?.inspectionResult,
     inspectionName: query?.inspectionName,
     followUpTask: query?.followUpTask,
+    occurrence: query?.occurrence,
   }, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
@@ -97,6 +99,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     inspectionHistory,
     openInspectionFollowUps,
     activeInspectId,
+    activeOccurrenceId,
     activeFollowUpTaskId,
     inspectionResultMessage,
     facilityTimezone,
@@ -230,6 +233,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
               definitionName={activeInspectionDefinition.name}
               description={activeInspectionDefinition.description}
               items={activeInspectionDefinition.items}
+              occurrenceId={activeOccurrenceId}
             />
           ) : null}
 

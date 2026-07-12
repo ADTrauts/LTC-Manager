@@ -6,6 +6,7 @@ import {
 import { InspectionDefinitionEditor } from "@/components/inspections/inspection-definition-editor";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import { prisma } from "@/lib/prisma";
+import { buildInspectionScheduleSummary } from "@/lib/work/inspections/inspection-cadence";
 
 type AdminInspectionsPageProps = {
   searchParams?: Promise<{ saved?: string; edit?: string }>;
@@ -97,6 +98,10 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
           initialName={editing?.name}
           initialDescription={editing?.description ?? ""}
           initialFrequency={editing?.frequency ?? ""}
+          initialCadenceType={editing?.cadenceType}
+          initialDueTimeLocal={editing?.dueTimeLocal}
+          initialDaysOfWeek={editing?.daysOfWeek ?? []}
+          initialDayOfMonth={editing?.dayOfMonth}
           initialDepartmentId={editing?.departmentId ?? ""}
           initialUnitId={editing?.unitId ?? ""}
           initialIsActive={editing?.isActive ?? true}
@@ -134,13 +139,20 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
                         <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-600">Inactive</span>
                       )}
                       <span className="ml-2">
+                        {buildInspectionScheduleSummary({
+                          cadenceType: definition.cadenceType,
+                          dueTimeLocal: definition.dueTimeLocal,
+                          daysOfWeek: definition.daysOfWeek,
+                          dayOfMonth: definition.dayOfMonth,
+                        })}
+                        {" · "}
                         {definition._count.items} items · {definition._count.submissions} submissions
                       </span>
                     </p>
                     <p className="mt-1 text-sm text-zinc-600">
                       {[definition.department?.name, definition.unit?.name, definition.frequency]
                         .filter(Boolean)
-                        .join(" · ") || "Facility-wide · no frequency set"}
+                        .join(" · ") || "Facility-wide"}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

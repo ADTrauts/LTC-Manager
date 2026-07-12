@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 
 import { INSPECTION_RESPONSE_TYPE_OPTIONS } from "@/lib/work/inspections/list-unit-inspections";
-import type { InspectionResponseType } from "@prisma/client";
+import { buildInspectionScheduleSummary } from "@/lib/work/inspections/inspection-cadence";
+import type { InspectionCadenceType, InspectionResponseType } from "@prisma/client";
 
 import { upsertInspectionDefinitionAction } from "@/app/(protected)/admin/inspections/actions";
 
@@ -23,6 +24,10 @@ export type InspectionDefinitionEditorProps = {
   initialName?: string;
   initialDescription?: string;
   initialFrequency?: string;
+  initialCadenceType?: InspectionCadenceType;
+  initialDueTimeLocal?: string | null;
+  initialDaysOfWeek?: number[];
+  initialDayOfMonth?: number | null;
   initialDepartmentId?: string;
   initialUnitId?: string;
   initialIsActive?: boolean;
@@ -30,6 +35,16 @@ export type InspectionDefinitionEditorProps = {
   departments: Array<{ id: string; name: string }>;
   units: Array<{ id: string; name: string }>;
 };
+
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: "Sun" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+];
 
 function newItem(partial?: Partial<EditorItem>): EditorItem {
   return {
@@ -47,6 +62,12 @@ export function InspectionDefinitionEditor(props: InspectionDefinitionEditorProp
   const [name, setName] = useState(props.initialName ?? "");
   const [description, setDescription] = useState(props.initialDescription ?? "");
   const [frequency, setFrequency] = useState(props.initialFrequency ?? "");
+  const [cadenceType, setCadenceType] = useState<InspectionCadenceType>(
+    props.initialCadenceType ?? "ON_DEMAND",
+  );
+  const [dueTimeLocal, setDueTimeLocal] = useState(props.initialDueTimeLocal ?? "09:00");
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(props.initialDaysOfWeek ?? []);
+  const [dayOfMonth, setDayOfMonth] = useState(String(props.initialDayOfMonth ?? 1));
   const [departmentId, setDepartmentId] = useState(props.initialDepartmentId ?? "");
   const [unitId, setUnitId] = useState(props.initialUnitId ?? "");
   const [isActive, setIsActive] = useState(props.initialIsActive ?? true);
@@ -70,6 +91,19 @@ export function InspectionDefinitionEditor(props: InspectionDefinitionEditorProp
       ),
     [items],
   );
+
+  const scheduleSummary = buildInspectionScheduleSummary({
+    cadenceType,
+    dueTimeLocal: cadenceType === "ON_DEMAND" ? null : dueTimeLocal,
+    daysOfWeek,
+    dayOfMonth: Number(dayOfMonth) || 1,
+  });
+
+  function toggleWeekday(day: number) {
+    setDaysOfWeek((current) =>
+      current.includes(day) ? current.filter((value) => value !== day) : [...current, day].sort(),
+    );
+  }
 
   function moveItem(index: number, direction: -1 | 1) {
     const next = index + direction;
@@ -125,12 +159,85 @@ export function InspectionDefinitionEditor(props: InspectionDefinitionEditorProp
           />
         </label>
         <label className="block text-sm font-medium text-zinc-800">
-          Frequency (text)
+          Schedule
+          <select
+            name="cadenceType"
+            value={cadenceType}
+            onChange={(e) => setCadenceType(e.target.value as InspectionCadenceType)}
+            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="ON_DEMAND">On demand</option>
+            <option value="DAILY">Daily</option>
+            <option value="WEEKLY">Weekly</option>
+            <option value="MONTHLY">Monthly</option>
+          </select>
+          <span className="mt-1 block text-xs font-normal text-zinc-500">{scheduleSummary}</span>
+        </label>
+        {cadenceType !== "ON_DEMAND" ? (
+          <label className="block text-sm font-medium text-zinc-800">
+            Due time (facility local)
+            <input
+              name="dueTimeLocal"
+              type="time"
+              value={dueTimeLocal}
+              onChange={(e) => setDueTimeLocal(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </label>
+        ) : (
+          <input type="hidden" name="dueTimeLocal" value="" />
+        )}
+        {cadenceType === "WEEKLY" ? (
+          <div className="sm:col-span-2">
+            <p className="text-sm font-medium text-zinc-800">Weekdays</p>
+            <input type="hidden" name="daysOfWeekJson" value={JSON.stringify(daysOfWeek)} />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {WEEKDAY_OPTIONS.map((day) => (
+                <label
+                  key={day.value}
+                  className={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-3 text-sm ${
+                    daysOfWeek.includes(day.value)
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-zinc-300 bg-white text-zinc-800"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={daysOfWeek.includes(day.value)}
+                    onChange={() => toggleWeekday(day.value)}
+                  />
+                  {day.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <input type="hidden" name="daysOfWeekJson" value="[]" />
+        )}
+        {cadenceType === "MONTHLY" ? (
+          <label className="block text-sm font-medium text-zinc-800">
+            Day of month
+            <input
+              name="dayOfMonth"
+              type="number"
+              min={1}
+              max={31}
+              value={dayOfMonth}
+              onChange={(e) => setDayOfMonth(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </label>
+        ) : (
+          <input type="hidden" name="dayOfMonth" value="" />
+        )}
+        <label className="block text-sm font-medium text-zinc-800">
+          Frequency notes (optional)
           <input
             name="frequency"
             value={frequency}
             onChange={(e) => setFrequency(e.target.value)}
-            placeholder="e.g. Daily, Weekly — matches unit responsibility cadence"
+            placeholder="Optional note — structured schedule above is authoritative"
             maxLength={120}
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
           />
