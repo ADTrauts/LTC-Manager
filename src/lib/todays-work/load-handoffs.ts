@@ -22,7 +22,7 @@ export async function loadHandoffs(
   const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
 
-  const [walkList, coverage, callDowns, queries, repairs] = await Promise.all([
+  const [walkList, coverage, callDowns, queries, repairs, inspectionFindings] = await Promise.all([
     loadWalkList(facilityId, {
       activeDepartmentKey: options?.activeDepartmentKey,
     }),
@@ -36,6 +36,23 @@ export async function loadHandoffs(
         id: true,
         title: true,
         priority: true,
+        unitId: true,
+        unit: { select: { name: true } },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        facilityId,
+        sourceType: "INSPECTION_FINDING",
+        status: { in: ["OPEN", "IN_PROGRESS"] },
+        unitId: { not: null },
+      },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+      take: 40,
+      select: {
+        id: true,
+        title: true,
+        status: true,
         unitId: true,
         unit: { select: { name: true } },
       },
@@ -55,6 +72,15 @@ export async function loadHandoffs(
       unitId: repair.unitId,
       unitName: repair.unit.name,
     })),
+    inspectionFindings: inspectionFindings
+      .filter((task) => task.unitId && task.unit)
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status as "OPEN" | "IN_PROGRESS",
+        unitId: task.unitId!,
+        unitName: task.unit!.name,
+      })),
     mealBoards: dashboard.mealBoards,
     operationContext: walkList.operationContext,
   });

@@ -10,12 +10,27 @@ export type UnitInspectionDefinitionRow = {
   itemCount: number;
 };
 
+export type UnitInspectionHistoryFinding = {
+  submissionItemId: string;
+  itemLabel: string;
+  followUpStatus: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | null;
+  followUpTaskId: string | null;
+};
+
 export type UnitInspectionHistoryRow = {
   id: string;
   definitionName: string;
   submittedAt: Date;
   result: "PASSED" | "PASSED_WITH_FINDINGS" | "FAILED";
   submittedByName: string | null;
+  findings: UnitInspectionHistoryFinding[];
+};
+
+export type UnitOpenInspectionFollowUp = {
+  id: string;
+  title: string;
+  status: "OPEN" | "IN_PROGRESS";
+  description: string | null;
 };
 
 /**

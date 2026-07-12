@@ -3,10 +3,16 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { determineInspectionResult } from "@/lib/work/inspections/determine-inspection-result";
 import { syncInspectionRecordToTask } from "@/lib/work/inspections/inspection-task";
+import {
+  syncInspectionFollowUpTasks,
+  syncInspectionFollowUpTasksFromContext,
+  type FollowUpSyncResult,
+} from "@/lib/work/inspections/sync-inspection-follow-up-tasks";
 import type {
   InspectionDefinitionSnapshot,
   SubmitInspectionInput,
   SubmitInspectionResult,
+  SubmitInspectionSuccess,
 } from "@/lib/work/inspections/types";
 import { validateInspectionSubmission } from "@/lib/work/inspections/validate-inspection-submission";
 import type { TaskSyncDeps } from "@/lib/work/run-guarded-task-sync";
@@ -52,14 +58,42 @@ function toDefinitionSnapshot(row: {
   };
 }
 
+function toFollowUpSyncResult(outcome: FollowUpSyncResult): SubmitInspectionSuccess["followUpSync"] {
+  return {
+    attempted: outcome.attempted,
+    skipped: outcome.skipped,
+    qualifyingCount: outcome.qualifyingCount,
+    taskIds: outcome.createdOrUpdatedIds,
+  };
+}
+
+async function repairFollowUpTasks(
+  submissionId: string,
+  deps: TaskSyncDeps & { db?: InspectionSubmitDb },
+): Promise<SubmitInspectionSuccess["followUpSync"]> {
+  const outcome = await syncInspectionFollowUpTasks(submissionId, {
+    isEnabled: deps.isEnabled,
+    db:
+      deps.db?.task && deps.db.inspectionSubmission
+        ? {
+            task: deps.db.task,
+            inspectionSubmission: deps.db.inspectionSubmission,
+          }
+        : undefined,
+  });
+  return toFollowUpSyncResult(outcome);
+}
+
 /**
  * Submit an inspection:
  * 1. Validate definition + answers
  * 2. Persist submission + items atomically
- * 3. Guarded Task projection (TASK_SYNC_ENABLED); never rolls back the submission
+ * 3. Guarded execution Task projection (TASK_SYNC_ENABLED)
+ * 4. Guarded follow-up Task sync for qualifying failed items
  *
- * Idempotency: when `idempotencyKey` is provided and already exists for the facility,
- * returns the existing submission without creating duplicates.
+ * Submission remains authoritative: Task sync failures never roll back the write.
+ * Idempotent retries re-run follow-up sync to repair missing projections without
+ * duplicating Tasks (unique on facilityId + INSPECTION_FINDING + submissionItemId).
  */
 export async function submitInspection(
   input: SubmitInspectionInput,
@@ -98,6 +132,9 @@ export async function submitInspection(
     });
 
     if (existing) {
+      // Repair missing follow-up projections on retry; never recreate the submission.
+      const followUpSync = await repairFollowUpTasks(existing.id, deps);
+
       return {
         ok: true,
         deduplicated: true,
@@ -121,6 +158,7 @@ export async function submitInspection(
           skipped: true,
           taskId: existing.taskId,
         },
+        followUpSync,
       };
     }
   }
@@ -193,6 +231,23 @@ export async function submitInspection(
         result: true,
         notes: true,
         taskId: true,
+        items: {
+          select: {
+            id: true,
+            passed: true,
+            valueText: true,
+            valueNumber: true,
+            notes: true,
+            definitionItem: {
+              select: {
+                id: true,
+                label: true,
+                failureCreatesFollowUp: true,
+                responseType: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -244,6 +299,38 @@ export async function submitInspection(
     synced = false;
   }
 
+  // Follow-up sync is guarded and post-commit so a projection failure cannot
+  // erase the authoritative InspectionSubmission.
+  const followUpOutcome = await syncInspectionFollowUpTasksFromContext(
+    {
+      submissionId: created.id,
+      facilityId: created.facilityId,
+      departmentId: validation.definition.departmentId,
+      unitId: created.unitId,
+      unitName: null,
+      operationInstanceId: created.operationInstanceId,
+      definitionName: validation.definition.name,
+      submittedAt: created.submittedAt,
+      submittedByName: null,
+      executionTaskId: taskId,
+      findings: created.items.map((item) => ({
+        submissionItemId: item.id,
+        definitionItemId: item.definitionItem.id,
+        itemLabel: item.definitionItem.label,
+        passed: item.passed,
+        valueText: item.valueText,
+        valueNumber: item.valueNumber,
+        notes: item.notes,
+        failureCreatesFollowUp: item.definitionItem.failureCreatesFollowUp,
+        responseType: item.definitionItem.responseType,
+      })),
+    },
+    {
+      isEnabled: deps.isEnabled,
+      db: deps.db?.task ? { task: deps.db.task } : undefined,
+    },
+  );
+
   return {
     ok: true,
     deduplicated: false,
@@ -267,5 +354,6 @@ export async function submitInspection(
       skipped,
       taskId,
     },
+    followUpSync: toFollowUpSyncResult(followUpOutcome),
   };
 }

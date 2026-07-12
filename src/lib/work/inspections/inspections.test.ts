@@ -324,8 +324,26 @@ test("submitInspection writes atomically and respects idempotency + flag", async
       findUnique: async ({
         where,
       }: {
-        where: { facilityId_idempotencyKey: { facilityId: string; idempotencyKey: string } };
+        where:
+          | { facilityId_idempotencyKey: { facilityId: string; idempotencyKey: string } }
+          | { id: string };
       }) => {
+        if ("id" in where) {
+          for (const row of store.values()) {
+            if (row.id !== where.id) continue;
+            return {
+              ...row,
+              unit: { name: "4A" },
+              definition: {
+                name: definition.name,
+                departmentId: definition.departmentId,
+              },
+              submittedByEmployee: null,
+              items: (row as { items?: unknown[] }).items ?? [],
+            };
+          }
+          return null;
+        }
         const key = `${where.facilityId_idempotencyKey.facilityId}:${where.facilityId_idempotencyKey.idempotencyKey}`;
         const row = store.get(key);
         if (!row) return null;
@@ -349,7 +367,15 @@ test("submitInspection writes atomically and respects idempotency + flag", async
           result: "PASSED" | "PASSED_WITH_FINDINGS" | "FAILED";
           notes: string | null;
           idempotencyKey: string | null;
-          items: { create: unknown[] };
+          items: {
+            create: Array<{
+              definitionItemId: string;
+              passed: boolean | null;
+              valueText: string | null;
+              valueNumber: number | null;
+              notes: string | null;
+            }>;
+          };
         };
       }) => {
         const id = `sub_${createdIds.length + 1}`;
@@ -368,6 +394,22 @@ test("submitInspection writes atomically and respects idempotency + flag", async
           notes: data.notes,
           taskId: null,
           idempotencyKey: data.idempotencyKey,
+          items: data.items.create.map((item, index) => {
+            const defItem = definition.items.find((candidate) => candidate.id === item.definitionItemId)!;
+            return {
+              id: `${id}_item_${index + 1}`,
+              passed: item.passed,
+              valueText: item.valueText,
+              valueNumber: item.valueNumber,
+              notes: item.notes,
+              definitionItem: {
+                id: defItem.id,
+                label: defItem.label,
+                failureCreatesFollowUp: defItem.failureCreatesFollowUp,
+                responseType: defItem.responseType,
+              },
+            };
+          }),
         };
         if (data.idempotencyKey) {
           store.set(`${data.facilityId}:${data.idempotencyKey}`, row);
@@ -393,6 +435,9 @@ test("submitInspection writes atomically and respects idempotency + flag", async
         upsertCalls += 1;
         return { id: "task_from_insp" } as Task;
       },
+      findUnique: async () => null,
+      create: async () => ({ id: "task_follow_up" } as Task),
+      update: async () => ({ id: "task_follow_up" } as Task),
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
       transactionCalls += 1;
@@ -417,6 +462,8 @@ test("submitInspection writes atomically and respects idempotency + flag", async
     assert.equal(first.submission.result, "PASSED");
     assert.equal(first.taskSync.synced, false);
     assert.equal(first.taskSync.skipped, true);
+    assert.equal(first.followUpSync.skipped, true);
+    assert.equal(first.followUpSync.qualifyingCount, 0);
     assert.equal(transactionCalls, 1);
     assert.equal(upsertCalls, 0);
     assert.equal(createdIds.length, 1);
@@ -455,6 +502,9 @@ test("submitInspection writes atomically and respects idempotency + flag", async
     assert.equal(synced.submission.result, "FAILED");
     assert.equal(synced.taskSync.synced, true);
     assert.equal(synced.submission.taskId, "task_from_insp");
+    assert.equal(synced.followUpSync.attempted, true);
+    assert.equal(synced.followUpSync.qualifyingCount, 1);
+    assert.equal(synced.followUpSync.taskIds.length, 1);
     assert.equal(upsertCalls, 1);
     assert.equal(updateCalls, 1);
   });
@@ -486,6 +536,21 @@ test("Task sync failure does not invalidate inspection submission", async () => 
         result: "PASSED" as const,
         notes: null,
         taskId: null,
+        items: [
+          {
+            id: "sub_fail_sync_item_1",
+            passed: true,
+            valueText: null,
+            valueNumber: null,
+            notes: null,
+            definitionItem: {
+              id: "item_req",
+              label: "Floors clear",
+              failureCreatesFollowUp: true,
+              responseType: "PASS_FAIL",
+            },
+          },
+        ],
       }),
       update: async () => {
         throw new Error("should not update taskId when sync fails");
@@ -494,6 +559,10 @@ test("Task sync failure does not invalidate inspection submission", async () => 
     task: {
       upsert: async () => {
         throw new Error("db down");
+      },
+      findUnique: async () => null,
+      create: async () => {
+        throw new Error("follow-up db down");
       },
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
@@ -518,8 +587,141 @@ test("Task sync failure does not invalidate inspection submission", async () => 
       assert.equal(result.submission.taskId, null);
       assert.equal(result.taskSync.synced, false);
       assert.equal(result.taskSync.attempted, true);
+      assert.equal(result.followUpSync.qualifyingCount, 0);
     });
   } finally {
     console.error = previousError;
   }
+});
+
+test("submitInspection creates follow-up Tasks only for qualifying failed items", async () => {
+  const findingTasks = new Map<string, { id: string; status: string }>();
+  let followUpCreates = 0;
+
+  const multiDefinition = {
+    ...definition,
+    items: [
+      {
+        id: "item_follow",
+        label: "Dishwasher rinse",
+        isRequired: true,
+        responseType: "PASS_FAIL" as const,
+        failureCreatesFollowUp: true,
+        sortOrder: 1,
+      },
+      {
+        id: "item_no_follow",
+        label: "Baseboards",
+        isRequired: true,
+        responseType: "PASS_FAIL" as const,
+        failureCreatesFollowUp: false,
+        sortOrder: 2,
+      },
+    ],
+  };
+
+  const db = {
+    inspectionDefinition: {
+      findUnique: async () => ({
+        ...multiDefinition,
+        items: multiDefinition.items,
+      }),
+    },
+    inspectionSubmission: {
+      findUnique: async () => null,
+      create: async ({
+        data,
+      }: {
+        data: {
+          facilityId: string;
+          definitionId: string;
+          unitId: string | null;
+          operationInstanceId: string | null;
+          submittedByEmployeeId: string | null;
+          result: "FAILED";
+          notes: string | null;
+          idempotencyKey: string | null;
+          items: {
+            create: Array<{
+              definitionItemId: string;
+              passed: boolean | null;
+              valueText: string | null;
+              valueNumber: number | null;
+              notes: string | null;
+            }>;
+          };
+        };
+      }) => ({
+        id: "sub_multi",
+        facilityId: data.facilityId,
+        definitionId: data.definitionId,
+        unitId: data.unitId,
+        operationInstanceId: data.operationInstanceId,
+        submittedByEmployeeId: data.submittedByEmployeeId,
+        submittedAt: new Date("2026-07-12T18:00:00Z"),
+        result: data.result,
+        notes: data.notes,
+        taskId: null,
+        items: data.items.create.map((item, index) => {
+          const defItem = multiDefinition.items.find((candidate) => candidate.id === item.definitionItemId)!;
+          return {
+            id: `sub_multi_item_${index + 1}`,
+            passed: item.passed,
+            valueText: item.valueText,
+            valueNumber: item.valueNumber,
+            notes: item.notes,
+            definitionItem: {
+              id: defItem.id,
+              label: defItem.label,
+              failureCreatesFollowUp: defItem.failureCreatesFollowUp,
+              responseType: defItem.responseType,
+            },
+          };
+        }),
+      }),
+      update: async () => ({ id: "sub_multi", taskId: "task_exec" }),
+    },
+    task: {
+      upsert: async () => ({ id: "task_exec" } as Task),
+      findUnique: async ({
+        where,
+      }: {
+        where: { facilityId_sourceType_sourceId: { sourceId: string } };
+      }) => {
+        const row = findingTasks.get(where.facilityId_sourceType_sourceId.sourceId);
+        return row ? { id: row.id, status: row.status } : null;
+      },
+      create: async ({ data }: { data: { sourceId: string; status: string } }) => {
+        followUpCreates += 1;
+        const row = { id: `finding_${followUpCreates}`, status: data.status };
+        findingTasks.set(data.sourceId, row);
+        return row as Task;
+      },
+      update: async () => ({ id: "finding_1" } as Task),
+    },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
+  };
+
+  await withEnv("TASK_SYNC_ENABLED", "true", async () => {
+    const result = await submitInspection(
+      {
+        facilityId: "fac_1",
+        definitionId: "def_1",
+        unitId: "unit_1",
+        answers: [
+          { definitionItemId: "item_follow", passed: false },
+          { definitionItemId: "item_no_follow", passed: false },
+        ],
+      },
+      { db: db as never },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.submission.result, "FAILED");
+    assert.equal(result.taskSync.synced, true);
+    assert.equal(result.followUpSync.qualifyingCount, 1);
+    assert.equal(result.followUpSync.taskIds.length, 1);
+    assert.equal(followUpCreates, 1);
+    assert.equal(findingTasks.get("sub_multi_item_1")?.status, "OPEN");
+  });
 });

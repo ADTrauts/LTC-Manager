@@ -119,6 +119,7 @@ test("inspection result copy is calm and does not imply save failure", () => {
 
 test("available inspections sit behind genuine operational work in the queue", () => {
   assert.ok(UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION > UNIT_WORK_QUEUE_PRIORITY.OTHER_REPAIR);
+  assert.ok(UNIT_WORK_QUEUE_PRIORITY.INSPECTION_FOLLOW_UP < UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION);
   assert.ok(UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION < UNIT_WORK_QUEUE_PRIORITY.SECONDARY);
 
   const queue = buildUnitWorkQueue({
@@ -132,6 +133,9 @@ test("available inspections sit behind genuine operational work in the queue", (
     activeLogTab: null,
     mealServiceEventByMeal: new Map(),
     availableInspections: [{ id: "d1", name: "Walk", itemCount: 2, frequency: "Daily" }],
+    openInspectionFollowUps: [
+      { id: "t1", title: "Correct failed dishwasher rinse", status: "OPEN" },
+    ],
     queries: {
       assignments: [],
       submissions: [],
@@ -139,8 +143,9 @@ test("available inspections sit behind genuine operational work in the queue", (
     },
   });
 
-  assert.equal(queue.primaryItem?.kind, "available-inspection");
-  assert.equal(queue.operationalCount, 1);
+  assert.equal(queue.primaryItem?.kind, "inspection-follow-up");
+  assert.ok(queue.items.some((item) => item.kind === "available-inspection"));
+  assert.equal(queue.operationalCount, 2);
 });
 
 test("inspection builder remains behind Administration (/admin) FA gate", () => {

@@ -28,6 +28,7 @@ export type UnitWorkspaceSearchParams = {
   inspect?: string;
   inspectionResult?: string;
   inspectionName?: string;
+  followUpTask?: string;
 };
 
 export type UnitWorkspaceLogTab = {
@@ -68,7 +69,14 @@ export type UnitWorkspaceViewModel = {
   readiness: UnitReadiness;
   availableInspections: UnitInspectionDefinitionRow[];
   inspectionHistory: UnitInspectionHistoryRow[];
+  openInspectionFollowUps: Array<{
+    id: string;
+    title: string;
+    status: "OPEN" | "IN_PROGRESS";
+    description: string | null;
+  }>;
   activeInspectId: string | null;
+  activeFollowUpTaskId: string | null;
   inspectionResultMessage: { title: string; body: string } | null;
   facilityTimezone: string | null;
 };

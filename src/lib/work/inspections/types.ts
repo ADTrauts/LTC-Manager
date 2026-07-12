@@ -110,6 +110,12 @@ export type SubmitInspectionSuccess = {
     skipped: boolean;
     taskId: string | null;
   };
+  followUpSync: {
+    attempted: boolean;
+    skipped: boolean;
+    qualifyingCount: number;
+    taskIds: string[];
+  };
 };
 
 export type SubmitInspectionFailure = {

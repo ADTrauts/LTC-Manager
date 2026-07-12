@@ -521,6 +521,7 @@ enum TaskSourceType {
   LOG_SUBMISSION
   REPAIR
   INSPECTION_SUBMISSION
+  INSPECTION_FINDING
 }
 
 enum InspectionResponseType {

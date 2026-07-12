@@ -16,6 +16,7 @@ export type UnitWorkQueueKind =
   | "urgent-repair"
   | "high-repair"
   | "repair"
+  | "inspection-follow-up"
   | "available-inspection"
   | "secondary";
 
@@ -184,6 +185,27 @@ function pushSecondaryWorkItems(
   }
 }
 
+function pushInspectionFollowUpWorkItems(
+  items: UnitWorkQueueItem[],
+  unitId: string,
+  followUps: Array<{ id: string; title: string; status: string }>,
+) {
+  for (const followUp of followUps) {
+    if (followUp.status !== "OPEN" && followUp.status !== "IN_PROGRESS") continue;
+    items.push({
+      id: `inspection-follow-up:${followUp.id}`,
+      kind: "inspection-follow-up",
+      priority: UNIT_WORK_QUEUE_PRIORITY.INSPECTION_FOLLOW_UP,
+      title: followUp.title,
+      detail:
+        followUp.status === "IN_PROGRESS"
+          ? "Corrective work is in progress"
+          : "Follow-up needed from inspection",
+      href: `/unit/${unitId}?unitTab=overview&followUpTask=${followUp.id}`,
+    });
+  }
+}
+
 function pushInspectionWorkItems(
   items: UnitWorkQueueItem[],
   unitId: string,
@@ -209,6 +231,7 @@ export function buildUnitWorkQueue(input: {
   mealServiceEventByMeal: Map<MealType, UnitWorkspaceMealServiceEventToday>;
   activeLogTab: string | null;
   availableInspections?: Array<{ id: string; name: string; itemCount: number; frequency: string | null }>;
+  openInspectionFollowUps?: Array<{ id: string; title: string; status: string }>;
   now?: Date;
 }): UnitWorkQueue {
   const now = input.now ?? new Date();
@@ -217,6 +240,7 @@ export function buildUnitWorkQueue(input: {
   pushLogWorkItems(items, input.queries.assignments, input.queries.submissions);
   pushServeryWorkItems(items, input.unit, input.mealServiceEventByMeal, now);
   pushRepairWorkItems(items, input.queries.openRepairs);
+  pushInspectionFollowUpWorkItems(items, input.unit.id, input.openInspectionFollowUps ?? []);
   pushInspectionWorkItems(items, input.unit.id, input.availableInspections ?? []);
   pushSecondaryWorkItems(items, input.unit, input.activeLogTab);
 

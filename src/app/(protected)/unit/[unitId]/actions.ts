@@ -167,11 +167,61 @@ export async function submitUnitInspectionAction(
   revalidatePath("/unit/[unitId]", "page");
   revalidatePath(`/unit/${unit.id}`);
   revalidatePath("/admin/inspections");
+  revalidatePath("/today/handoffs");
 
   return {
     ok: true,
     result: outcome.submission.result,
     deduplicated: outcome.deduplicated,
   };
+}
+
+const updateFollowUpSchema = z.object({
+  unitId: z.string().cuid(),
+  taskId: z.string().cuid(),
+  status: z.enum(["IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+});
+
+export type UpdateInspectionFollowUpTaskResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+export async function updateInspectionFollowUpTaskAction(
+  formData: FormData,
+): Promise<UpdateInspectionFollowUpTaskResult> {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "STAFF");
+
+  const parsed = updateFollowUpSchema.parse({
+    unitId: formData.get("unitId"),
+    taskId: formData.get("taskId"),
+    status: formData.get("status"),
+  });
+
+  const task = await prisma.task.findFirst({
+    where: {
+      id: parsed.taskId,
+      facilityId: session.facilityId,
+      unitId: parsed.unitId,
+      sourceType: "INSPECTION_FINDING",
+    },
+    select: { id: true, status: true },
+  });
+  if (!task) {
+    return { ok: false, message: "Follow-up work was not found for this unit." };
+  }
+
+  await prisma.task.update({
+    where: { id: task.id },
+    data: {
+      status: parsed.status,
+      completedAt: parsed.status === "COMPLETED" ? new Date() : null,
+    },
+  });
+
+  revalidatePath("/unit/[unitId]", "page");
+  revalidatePath(`/unit/${parsed.unitId}`);
+  revalidatePath("/today/handoffs");
+  return { ok: true };
 }
 

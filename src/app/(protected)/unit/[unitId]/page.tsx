@@ -5,6 +5,7 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { ServeryMealServiceControls } from "@/components/servery-meal-service-controls";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
+import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
 import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
 import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
@@ -25,6 +26,7 @@ type UnitDashboardPageProps = {
     inspect?: string;
     inspectionResult?: string;
     inspectionName?: string;
+    followUpTask?: string;
   }>;
 };
 
@@ -51,6 +53,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     inspect: query?.inspect,
     inspectionResult: query?.inspectionResult,
     inspectionName: query?.inspectionName,
+    followUpTask: query?.followUpTask,
   }, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
@@ -92,10 +95,16 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     readiness,
     availableInspections,
     inspectionHistory,
+    openInspectionFollowUps,
     activeInspectId,
+    activeFollowUpTaskId,
     inspectionResultMessage,
     facilityTimezone,
   } = view;
+
+  const activeFollowUp = activeFollowUpTaskId
+    ? openInspectionFollowUps.find((task) => task.id === activeFollowUpTaskId) ?? null
+    : null;
 
   const activeInspectionDefinition = activeInspectId
     ? await prisma.inspectionDefinition.findFirst({
@@ -209,6 +218,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         <div className="space-y-6 sm:space-y-7">
           {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
+
+          {activeFollowUp ? (
+            <UnitInspectionFollowUpActions unitId={unit.id} task={activeFollowUp} />
+          ) : null}
 
           {activeInspectionDefinition ? (
             <UnitInspectionSubmitForm

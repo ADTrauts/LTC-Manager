@@ -22,3 +22,11 @@ export {
   upsertInspectionDefinitionSchema,
   parseInspectionItemsJson,
 } from "@/lib/work/inspections/definition-schema";
+export {
+  syncInspectionFollowUpTasks,
+  syncInspectionFollowUpTasksFromContext,
+  isQualifyingInspectionFollowUp,
+  buildInspectionFollowUpUpsertInput,
+  buildInspectionFollowUpTitle,
+  followUpStatusLabel,
+} from "@/lib/work/inspections/sync-inspection-follow-up-tasks";

@@ -35,6 +35,7 @@ export async function loadUnitQueries(params: {
     menuData,
     inspectionDefinitions,
     inspectionHistory,
+    inspectionFindingTasks,
   ] = await Promise.all([
     prisma.logAssignment.findMany({
       where: {
@@ -210,9 +211,38 @@ export async function loadUnitQueries(params: {
         submittedAt: true,
         definition: { select: { name: true } },
         submittedByEmployee: { select: { firstName: true, lastName: true } },
+        items: {
+          select: {
+            id: true,
+            passed: true,
+            definitionItem: {
+              select: { label: true, failureCreatesFollowUp: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        facilityId,
+        unitId,
+        sourceType: "INSPECTION_FINDING",
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 50,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        description: true,
+        sourceId: true,
       },
     }),
   ]);
+
+  const openInspectionFollowUps = inspectionFindingTasks.filter(
+    (task) => task.status === "OPEN" || task.status === "IN_PROGRESS",
+  );
 
   return {
     assignments,
@@ -229,5 +259,7 @@ export async function loadUnitQueries(params: {
     menuData,
     inspectionDefinitions,
     inspectionHistory,
+    openInspectionFollowUps,
+    inspectionFindingTasks,
   };
 }

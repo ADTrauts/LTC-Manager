@@ -66,6 +66,17 @@ export function buildUnitWorkspaceView(input: {
     unitId: unit.id,
   });
 
+  const openInspectionFollowUps = queries.openInspectionFollowUps.map((task) => ({
+    id: task.id,
+    title: task.title,
+    status: task.status as "OPEN" | "IN_PROGRESS",
+    description: task.description,
+  }));
+
+  const followUpBySourceItemId = new Map(
+    queries.inspectionFindingTasks.map((task) => [task.sourceId, task] as const),
+  );
+
   const inspectionHistory = queries.inspectionHistory.map((row) => ({
     id: row.id,
     definitionName: row.definition.name,
@@ -74,12 +85,34 @@ export function buildUnitWorkspaceView(input: {
     submittedByName: row.submittedByEmployee
       ? `${row.submittedByEmployee.firstName} ${row.submittedByEmployee.lastName}`
       : null,
+    findings: row.items
+      .filter((item) => item.passed === false && item.definitionItem.failureCreatesFollowUp)
+      .map((item) => {
+        const task = followUpBySourceItemId.get(item.id);
+        return {
+          submissionItemId: item.id,
+          itemLabel: item.definitionItem.label,
+          followUpStatus: (task?.status as
+            | "OPEN"
+            | "IN_PROGRESS"
+            | "COMPLETED"
+            | "CANCELLED"
+            | null) ?? null,
+          followUpTaskId: task?.id ?? null,
+        };
+      }),
   }));
 
   const activeInspectId =
     typeof search.inspect === "string" &&
     availableInspections.some((definition) => definition.id === search.inspect)
       ? search.inspect
+      : null;
+
+  const activeFollowUpTaskId =
+    typeof search.followUpTask === "string" &&
+    openInspectionFollowUps.some((task) => task.id === search.followUpTask)
+      ? search.followUpTask
       : null;
 
   const inspectionResultMessage =
@@ -130,6 +163,7 @@ export function buildUnitWorkspaceView(input: {
     mealServiceEventByMeal,
     activeLogTab,
     availableInspections,
+    openInspectionFollowUps,
     now,
   });
 
@@ -176,7 +210,9 @@ export function buildUnitWorkspaceView(input: {
     readiness,
     availableInspections,
     inspectionHistory,
+    openInspectionFollowUps,
     activeInspectId,
+    activeFollowUpTaskId,
     inspectionResultMessage,
     facilityTimezone: facilityTimezone ?? null,
   };

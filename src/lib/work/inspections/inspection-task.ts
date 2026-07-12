@@ -51,7 +51,7 @@ export function buildInspectionTaskUpsertInput(
       ? null
       : submission.result === "PASSED_WITH_FINDINGS"
         ? "Completed with findings"
-        : "Completed with failures (follow-up deferred)";
+        : "Completed with failures";
 
   const description = [findingHint, submission.notes].filter(Boolean).join(" — ") || null;
 

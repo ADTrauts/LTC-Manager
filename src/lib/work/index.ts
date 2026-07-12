@@ -23,4 +23,10 @@ export {
   syncInspectionRecordToTask,
   buildInspectionTaskUpsertInput,
   mapInspectionResultToTaskStatus,
+  syncInspectionFollowUpTasks,
+  syncInspectionFollowUpTasksFromContext,
+  isQualifyingInspectionFollowUp,
+  buildInspectionFollowUpUpsertInput,
+  buildInspectionFollowUpTitle,
+  followUpStatusLabel,
 } from "@/lib/work/inspections";

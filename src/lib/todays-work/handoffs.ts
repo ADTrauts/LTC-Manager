@@ -12,7 +12,8 @@ export type HandoffCategory =
   | "open_repair"
   | "call_down"
   | "coverage_gap"
-  | "meal_service";
+  | "meal_service"
+  | "inspection_finding";
 
 export type HandoffPriority = "critical" | "high" | "normal";
 
@@ -60,12 +61,21 @@ export type HandoffRepairRecord = {
   unitName: string;
 };
 
+export type HandoffInspectionFindingRecord = {
+  id: string;
+  title: string;
+  status: "OPEN" | "IN_PROGRESS";
+  unitId: string;
+  unitName: string;
+};
+
 const CATEGORY_LABEL: Record<HandoffCategory, string> = {
   log_exception: "Log exception",
   open_repair: "Open repair",
   call_down: "Call-down",
   coverage_gap: "Coverage gap",
   meal_service: "Meal service",
+  inspection_finding: "Inspection finding",
 };
 
 const PRIORITY_RANK: Record<HandoffPriority, number> = {
@@ -139,6 +149,26 @@ function handoffItemsFromWalkList(items: WalkListItem[]): HandoffItem[] {
   }
 
   return handoffs;
+}
+
+function handoffItemsFromInspectionFindings(
+  findings: HandoffInspectionFindingRecord[],
+): HandoffItem[] {
+  return findings.map((finding) => ({
+    id: `inspection-finding:${finding.id}`,
+    category: "inspection_finding",
+    categoryLabel: CATEGORY_LABEL.inspection_finding,
+    priority: "normal",
+    title: finding.title,
+    detail:
+      finding.status === "IN_PROGRESS"
+        ? `${finding.unitName} · corrective work is in progress`
+        : `${finding.unitName} · follow-up needed from inspection`,
+    unitId: finding.unitId,
+    unitName: finding.unitName,
+    primaryHref: `/unit/${finding.unitId}?unitTab=overview&followUpTask=${finding.id}`,
+    primaryLabel: "Unit workspace",
+  }));
 }
 
 function handoffItemsFromRepairs(repairs: HandoffRepairRecord[]): HandoffItem[] {
@@ -232,9 +262,11 @@ export function buildHandoffSections(input: {
   coverageItems: CoverageItem[];
   callDownItems: CallDownItem[];
   repairs: HandoffRepairRecord[];
+  inspectionFindings?: HandoffInspectionFindingRecord[];
   mealBoards: OperationsCenterMealBoard[];
   operationContext: OperationContext;
 }): HandoffSection[] {
+  const inspectionFindings = input.inspectionFindings ?? [];
   const immediate = sortHandoffItems([
     ...handoffItemsFromWalkList(input.walkListItems).filter((item) => item.priority === "critical"),
     ...handoffItemsFromCallDowns(input.callDownItems),
@@ -251,9 +283,10 @@ export function buildHandoffSections(input: {
     handoffItemsFromCoverage(input.coverageItems).filter((item) => item.priority !== "critical"),
   );
 
-  const equipment = sortHandoffItems(
-    handoffItemsFromRepairs(input.repairs).filter((item) => item.priority !== "critical"),
-  );
+  const equipment = sortHandoffItems([
+    ...handoffItemsFromRepairs(input.repairs).filter((item) => item.priority !== "critical"),
+    ...handoffItemsFromInspectionFindings(inspectionFindings),
+  ]);
 
   const sections: HandoffSection[] = [
     {
@@ -276,8 +309,8 @@ export function buildHandoffSections(input: {
     },
     {
       key: "equipment",
-      title: "Repairs and equipment",
-      description: "Open work orders that may affect the next service period.",
+      title: "Repairs and inspection findings",
+      description: "Open work orders and unresolved inspection follow-ups for the next service period.",
       items: dedupeHandoffItems(equipment),
     },
   ];
@@ -319,6 +352,7 @@ export function buildHandoffData(input: {
   coverageItems: CoverageItem[];
   callDownItems: CallDownItem[];
   repairs: HandoffRepairRecord[];
+  inspectionFindings?: HandoffInspectionFindingRecord[];
   mealBoards: OperationsCenterMealBoard[];
   operationContext: OperationContext;
 }): HandoffData {

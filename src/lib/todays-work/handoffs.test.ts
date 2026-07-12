@@ -176,6 +176,7 @@ test("buildHandoffData reports a clear state when no handoff items exist", () =>
     coverageItems: [],
     callDownItems: [],
     repairs: [],
+    inspectionFindings: [],
     mealBoards: [],
     operationContext: {
       mealType: MealType.LUNCH,
@@ -189,6 +190,44 @@ test("buildHandoffData reports a clear state when no handoff items exist", () =>
 
   assert.equal(data.isClear, true);
   assert.deepEqual(data.summary, { total: 0, critical: 0, high: 0, normal: 0 });
+});
+
+test("unresolved inspection findings appear in repairs and inspection findings section", () => {
+  const sections = buildHandoffSections({
+    walkListItems: walkItems().filter((item) => item.unitId === "ready"),
+    coverageItems: [],
+    callDownItems: [],
+    repairs: [],
+    inspectionFindings: [
+      {
+        id: "task_finding_1",
+        title: "Correct failed dishwasher rinse",
+        status: "OPEN",
+        unitId: "ready",
+        unitName: "Gift Shop",
+      },
+    ],
+    mealBoards: [],
+    operationContext: {
+      mealType: MealType.LUNCH,
+      mealLabel: "Lunch",
+      serviceLabel: "Lunch service",
+      phase: "Preparation",
+      scheduledTimeLabel: "11:30 AM",
+      minutesUntilService: 20,
+    },
+  });
+
+  const equipment = sections.find((section) => section.key === "equipment");
+  assert.equal(equipment?.title, "Repairs and inspection findings");
+  const finding = equipment?.items.find((item) => item.id === "inspection-finding:task_finding_1");
+  assert.ok(finding);
+  assert.equal(finding?.category, "inspection_finding");
+  assert.match(finding?.detail ?? "", /follow-up needed from inspection/i);
+  assert.equal(
+    finding?.primaryHref,
+    "/unit/ready?unitTab=overview&followUpTask=task_finding_1",
+  );
 });
 
 test("summarizeHandoffs counts priorities across sections", () => {

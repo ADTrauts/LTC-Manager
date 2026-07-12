@@ -74,6 +74,8 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
       },
       inspectionDefinitions: [],
       inspectionHistory: [],
+      openInspectionFollowUps: [],
+      inspectionFindingTasks: [],
     },
   });
 
@@ -173,8 +175,11 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
           submittedAt: new Date("2026-07-08T07:00:00"),
           definition: { name: "Room walk" },
           submittedByEmployee: { firstName: "Pat", lastName: "Lee" },
+          items: [],
         },
       ],
+      openInspectionFollowUps: [],
+      inspectionFindingTasks: [],
     },
   });
 
@@ -188,5 +193,81 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
   assert.equal(view.availableInspections.length, 1);
   assert.equal(view.availableInspections[0]?.id, "insp-1");
   assert.equal(view.inspectionHistory.length, 1);
+  assert.deepEqual(view.inspectionHistory[0]?.findings, []);
+  assert.equal(view.openInspectionFollowUps.length, 0);
   assert.ok(view.workQueue.items.some((item) => item.kind === "available-inspection"));
+});
+
+test("open inspection follow-ups appear in work queue and history status", () => {
+  const view = buildUnitWorkspaceView({
+    unit,
+    facilityId: "fac-1",
+    search: { followUpTask: "task-fu-1" },
+    now: new Date("2026-07-08T08:00:00"),
+    queries: {
+      assignments: [],
+      submissions: [],
+      schedulesToday: [],
+      overridesToday: [],
+      openRepairs: [],
+      mealServiceEventsToday: [],
+      mealServiceHistory: [],
+      logHistory: [],
+      roomAreaStatusToday: null,
+      outOfServiceAssets: [],
+      pmSchedulesDueThroughToday: [],
+      menuData: {
+        settingsRaw: null,
+        menuItems: [],
+        unavailableReason: null,
+      },
+      inspectionDefinitions: [],
+      inspectionHistory: [
+        {
+          id: "sub-failed",
+          result: "FAILED",
+          submittedAt: new Date("2026-07-08T07:00:00"),
+          definition: { name: "EVS Walk" },
+          submittedByEmployee: { firstName: "Pat", lastName: "Lee" },
+          items: [
+            {
+              id: "item-sub-1",
+              passed: false,
+              definitionItem: { label: "Dishwasher rinse", failureCreatesFollowUp: true },
+            },
+            {
+              id: "item-sub-2",
+              passed: false,
+              definitionItem: { label: "Baseboards", failureCreatesFollowUp: false },
+            },
+          ],
+        },
+      ],
+      openInspectionFollowUps: [
+        {
+          id: "task-fu-1",
+          title: "Correct failed Dishwasher rinse",
+          status: "OPEN",
+          description: "Inspection: EVS Walk",
+          sourceId: "item-sub-1",
+        },
+      ],
+      inspectionFindingTasks: [
+        {
+          id: "task-fu-1",
+          title: "Correct failed Dishwasher rinse",
+          status: "OPEN",
+          description: "Inspection: EVS Walk",
+          sourceId: "item-sub-1",
+        },
+      ],
+    },
+  });
+
+  assert.equal(view.activeFollowUpTaskId, "task-fu-1");
+  assert.equal(view.openInspectionFollowUps.length, 1);
+  assert.ok(view.workQueue.items.some((item) => item.kind === "inspection-follow-up"));
+  assert.equal(view.inspectionHistory[0]?.findings.length, 1);
+  assert.equal(view.inspectionHistory[0]?.findings[0]?.followUpStatus, "OPEN");
+  assert.equal(view.inspectionHistory[0]?.findings[0]?.followUpTaskId, "task-fu-1");
 });

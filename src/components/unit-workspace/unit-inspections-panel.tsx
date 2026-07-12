@@ -9,6 +9,7 @@ import type {
   UnitInspectionDefinitionRow,
   UnitInspectionHistoryRow,
 } from "@/lib/work/inspections/list-unit-inspections";
+import { followUpStatusLabel } from "@/lib/work/inspections/sync-inspection-follow-up-tasks";
 import { inspectionResultOperatorCopy } from "@/lib/work/inspections/result-copy";
 
 type UnitInspectionsPanelProps = {
@@ -102,16 +103,35 @@ export function UnitInspectionsPanel({
               return (
                 <li
                   key={row.id}
-                  className="flex flex-col gap-1 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900">{row.definitionName}</p>
-                    <p className="text-xs text-zinc-500">
-                      {formatSubmittedAt(row.submittedAt, facilityTimezone)}
-                      {row.submittedByName ? ` · ${row.submittedByName}` : ""}
-                    </p>
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900">{row.definitionName}</p>
+                      <p className="text-xs text-zinc-500">
+                        {formatSubmittedAt(row.submittedAt, facilityTimezone)}
+                        {row.submittedByName ? ` · ${row.submittedByName}` : ""}
+                      </p>
+                    </div>
+                    <StatusBadge variant={resultVariant(row.result)}>{copy.title}</StatusBadge>
                   </div>
-                  <StatusBadge variant={resultVariant(row.result)}>{copy.title}</StatusBadge>
+                  {row.findings.length > 0 ? (
+                    <ul className="space-y-1 border-t border-zinc-200 pt-2">
+                      {row.findings.map((finding) => (
+                        <li
+                          key={finding.submissionItemId}
+                          className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-700"
+                        >
+                          <span>{finding.itemLabel}</span>
+                          <span className="font-medium text-zinc-800">
+                            {finding.followUpStatus
+                              ? followUpStatusLabel(finding.followUpStatus)
+                              : "No follow-up Task"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
               );
             })}
