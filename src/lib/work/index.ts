@@ -16,3 +16,11 @@ export {
   buildLogTaskTitle,
 } from "@/lib/work/task-mappings";
 export { isTaskSyncEnabled } from "@/lib/feature-flags";
+export {
+  validateInspectionSubmission,
+  determineInspectionResult,
+  submitInspection,
+  syncInspectionRecordToTask,
+  buildInspectionTaskUpsertInput,
+  mapInspectionResultToTaskStatus,
+} from "@/lib/work/inspections";

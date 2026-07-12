@@ -100,6 +100,8 @@ model Facility {
   roomAreaStatuses              RoomAreaStatus[]
   attachments                   Attachment[]
   tasks                         Task[]
+  inspectionDefinitions         InspectionDefinition[]
+  inspectionSubmissions         InspectionSubmission[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
 }
@@ -128,6 +130,7 @@ model Department {
   repairsRequesting Repair[]  @relation("RepairRequestingDepartment")
   repairsResponsible Repair[] @relation("RepairResponsibleDepartment")
   tasks             Task[]
+  inspectionDefinitions InspectionDefinition[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -232,6 +235,7 @@ model OperationInstance {
   completedAt         DateTime?
   serveryMealServiceEvents ServeryMealServiceEvent[]
   tasks               Task[]
+  inspectionSubmissions InspectionSubmission[]
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -516,6 +520,21 @@ enum TaskPriority {
 enum TaskSourceType {
   LOG_SUBMISSION
   REPAIR
+  INSPECTION_SUBMISSION
+}
+
+enum InspectionResponseType {
+  PASS_FAIL
+  YES_NO
+  TEXT
+  NUMBER
+  TEMPERATURE
+}
+
+enum InspectionResult {
+  PASSED
+  PASSED_WITH_FINDINGS
+  FAILED
 }
 
 enum AttachmentParentKind {
@@ -551,6 +570,8 @@ model Unit {
   serveryMealServiceEvents ServeryMealServiceEvent[]
   kioskUnitPinLoginEvents  KioskUnitPinLoginEvent[]
   tasks                    Task[]
+  inspectionDefinitions    InspectionDefinition[]
+  inspectionSubmissions    InspectionSubmission[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -670,6 +691,7 @@ model Employee {
   roomAreaStatusUpdates      RoomAreaStatus[]
   assignedTasks              Task[]                      @relation("TaskAssignedEmployee")
   attachmentsCreated         Attachment[]                @relation("AttachmentCreatedByEmployee")
+  inspectionSubmissions      InspectionSubmission[]      @relation("InspectionSubmittedByEmployee")
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
 
@@ -1167,6 +1189,7 @@ model Task {
   sourceId            String
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
+  inspectionSubmissions InspectionSubmission[]
 
   @@unique([facilityId, sourceType, sourceId])
   @@index([facilityId, status])
@@ -1176,4 +1199,100 @@ model Task {
   @@index([assignedEmployeeId])
   @@index([operationInstanceId])
   @@index([dueAt])
+}
+
+/// Native Work Engine inspection checklist definition (distinct from LogTemplate).
+model InspectionDefinition {
+  id          String                     @id @default(cuid())
+  facilityId  String
+  facility    Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department  Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  unitId      String?
+  unit        Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  name        String
+  description String?
+  /// Free-text cadence hint; align with UnitDepartmentResponsibility.inspectionFrequency when practical.
+  frequency   String?
+  isActive    Boolean                    @default(true)
+  items       InspectionDefinitionItem[]
+  submissions InspectionSubmission[]
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  @@unique([facilityId, name])
+  @@index([facilityId, isActive])
+  @@index([departmentId])
+  @@index([unitId])
+}
+
+model InspectionDefinitionItem {
+  id                    String                  @id @default(cuid())
+  definitionId          String
+  definition            InspectionDefinition    @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  label                 String
+  description           String?
+  sortOrder             Int
+  isRequired            Boolean                 @default(true)
+  responseType          InspectionResponseType
+  failureCreatesFollowUp Boolean                @default(false)
+  submissionItems       InspectionSubmissionItem[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@unique([definitionId, sortOrder])
+  @@index([definitionId])
+}
+
+model InspectionSubmission {
+  id                     String                    @id @default(cuid())
+  facilityId             String
+  facility               Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  definitionId           String
+  definition             InspectionDefinition      @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  unitId                 String?
+  unit                   Unit?                     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  operationInstanceId    String?
+  operationInstance      OperationInstance?        @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  submittedByEmployeeId  String?
+  submittedByEmployee    Employee?                 @relation("InspectionSubmittedByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
+  submittedAt            DateTime                  @default(now())
+  result                 InspectionResult
+  notes                  String?
+  /// Optional link to projected Task after sync (Task remains keyed by sourceType/sourceId).
+  taskId                 String?
+  task                   Task?                     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  /// Caller-supplied key to make retries idempotent within a facility.
+  idempotencyKey         String?
+  items                  InspectionSubmissionItem[]
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  @@unique([facilityId, idempotencyKey])
+  @@index([facilityId, submittedAt])
+  @@index([definitionId, submittedAt])
+  @@index([unitId])
+  @@index([operationInstanceId])
+  @@index([submittedByEmployeeId])
+  @@index([taskId])
+  @@index([result])
+}
+
+model InspectionSubmissionItem {
+  id               String                   @id @default(cuid())
+  submissionId     String
+  submission       InspectionSubmission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  definitionItemId String
+  definitionItem   InspectionDefinitionItem @relation(fields: [definitionItemId], references: [id], onDelete: Restrict)
+  /// For PASS_FAIL / YES_NO: true = pass/yes, false = fail/no.
+  passed           Boolean?
+  valueText        String?
+  valueNumber      Float?
+  notes            String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@unique([submissionId, definitionItemId])
+  @@index([submissionId])
+  @@index([definitionItemId])
 }
