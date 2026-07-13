@@ -3,9 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { IssueDetailActions } from "@/components/issues/issue-detail-actions";
+import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
 import { AppCard, PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 import { formatIssueTimestamp } from "@/lib/work/issues/format-issue-time";
 import {
@@ -65,7 +68,7 @@ export default async function IssueDetailPage({ params }: IssueDetailPageProps) 
     notFound();
   }
 
-  const [employees, departments, projectedTask] = await Promise.all([
+  const [employees, departments, projectedTask, viewerDepartmentIds] = await Promise.all([
     prisma.employee.findMany({
       where: { facilityId: session.facilityId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -85,7 +88,17 @@ export default async function IssueDetailPage({ params }: IssueDetailPageProps) 
       },
       select: { id: true, status: true, title: true },
     }),
+    departmentFilterIdsForSession(session),
   ]);
+
+  const issueKnowledge = await loadContextualKnowledge({
+    facilityId: session.facilityId,
+    viewerDepartmentIds,
+    unitId: issue.unitId,
+    assetId: issue.assetId,
+    includeFacilityWideReference: true,
+    limit: 8,
+  });
 
   const copy = getIssueCopy(issue.issueType);
   const stage = mapRepairStatusToRecoveryStage({
@@ -265,6 +278,15 @@ export default async function IssueDetailPage({ params }: IssueDetailPageProps) 
           canMutate={canMutate}
         />
       </AppCard>
+
+      {issueKnowledge.count > 0 ? (
+        <AppCard title="Guidance" subtitle="Published help linked to this location or equipment">
+          <ContextualKnowledgePanel
+            articles={issueKnowledge.articles}
+            title="Help & instructions"
+          />
+        </AppCard>
+      ) : null}
 
       <AppCard title="Related context">
         <ul className="space-y-2 text-sm">

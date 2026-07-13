@@ -11,8 +11,11 @@ import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspectio
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
+import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { prisma } from "@/lib/prisma";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
@@ -143,6 +146,32 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     select: { id: true, name: true },
   });
 
+  const viewerDepartmentIds = deptNav.showAllDepartmentNav
+    ? null
+    : deptNav.activeDepartmentId
+      ? [deptNav.activeDepartmentId]
+      : await departmentFilterIdsForSession(session);
+
+  const [unitKnowledge, inspectionKnowledge] = await Promise.all([
+    loadContextualKnowledge({
+      facilityId: session.facilityId,
+      viewerDepartmentIds,
+      unitId: unit.id,
+      includeFacilityWideReference: true,
+      limit: 8,
+    }),
+    activeInspectionDefinition
+      ? loadContextualKnowledge({
+          facilityId: session.facilityId,
+          viewerDepartmentIds,
+          unitId: unit.id,
+          inspectionDefinitionId: activeInspectionDefinition.id,
+          includeFacilityWideReference: false,
+          limit: 6,
+        })
+      : Promise.resolve({ articles: [], count: 0 }),
+  ]);
+
   const unitTypeLabel =
     unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
 
@@ -230,6 +259,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
 
+          <div className="flex flex-wrap gap-2">
+            <ContextualKnowledgePanel articles={unitKnowledge.articles} />
+          </div>
+
           <UnitQuickIssuePanel unitId={unit.id} unitName={unit.name} assets={unitAssets} />
 
           {activeFollowUp ? (
@@ -237,14 +270,21 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           ) : null}
 
           {activeInspectionDefinition ? (
-            <UnitInspectionSubmitForm
-              unitId={unit.id}
-              definitionId={activeInspectionDefinition.id}
-              definitionName={activeInspectionDefinition.name}
-              description={activeInspectionDefinition.description}
-              items={activeInspectionDefinition.items}
-              occurrenceId={activeOccurrenceId}
-            />
+            <div className="space-y-3">
+              <ContextualKnowledgePanel
+                articles={inspectionKnowledge.articles}
+                variant="compact"
+                title="Inspection guidance"
+              />
+              <UnitInspectionSubmitForm
+                unitId={unit.id}
+                definitionId={activeInspectionDefinition.id}
+                definitionName={activeInspectionDefinition.name}
+                description={activeInspectionDefinition.description}
+                items={activeInspectionDefinition.items}
+                occurrenceId={activeOccurrenceId}
+              />
+            </div>
           ) : null}
 
           <UnitInspectionsPanel

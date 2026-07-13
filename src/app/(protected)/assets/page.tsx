@@ -10,8 +10,14 @@ import {
   updateAssetDepartmentAction,
   updateAssetStatusAction,
 } from "@/app/(protected)/assets/actions";
+import { AssetKnowledgeTrigger } from "@/components/knowledge/asset-knowledge-trigger";
 import { ASSET_CRITICALITY_OPTIONS, assetCriticalityLabel } from "@/lib/asset-criticality";
 import { getSession } from "@/lib/auth";
+import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import {
+  loadContextualKnowledgeByAssetIds,
+  toContextualKnowledgeClientArticles,
+} from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 
 type AssetsPageProps = {
@@ -64,6 +70,14 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       },
     }),
   ]);
+
+  const viewerDepartmentIds = await departmentFilterIdsForSession(session);
+  const knowledgeByAsset = await loadContextualKnowledgeByAssetIds({
+    facilityId,
+    viewerDepartmentIds,
+    assetIds: assets.map((asset) => asset.id),
+    limitPerAsset: 5,
+  });
 
   const routineDefaultCount = assets.filter((asset) => asset.criticality === AssetCriticality.ROUTINE).length;
 
@@ -224,6 +238,12 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <AssetKnowledgeTrigger
+                      articles={toContextualKnowledgeClientArticles(
+                        knowledgeByAsset.get(asset.id) ?? [],
+                      )}
+                      assetLabel={`${asset.assetCode} · ${asset.name}`}
+                    />
                     <form action={updateAssetDepartmentAction} className="flex items-center gap-1">
                       <input type="hidden" name="assetId" value={asset.id} />
                       <select name="departmentId" defaultValue={asset.departmentId ?? ""} className="rounded-md border border-zinc-300 px-2 py-1 text-xs">

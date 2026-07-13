@@ -18,6 +18,8 @@ import {
   toggleLogAssignmentAction,
 } from "@/app/(protected)/logs/actions";
 import { Drawer } from "@/components/drawer";
+import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
+import type { ContextualKnowledgeArticleClient } from "@/lib/knowledge/contextual";
 
 export type LogsTabId = "templates" | "assignments" | "submit" | "logs";
 
@@ -79,7 +81,7 @@ type MealServiceRow = {
 type SelectedAssignment = {
   id: string;
   mealType: MealType | null;
-  unit: { name: string };
+  unit: { id: string; name: string };
   template: {
     id: string;
     name: string;
@@ -99,6 +101,7 @@ type LogsTabsClientProps = {
   selectedAssignment: SelectedAssignment;
   tempChecklistByMeal: Record<MealType, string[]>;
   menuUnavailableReason: string | null;
+  submitKnowledgeArticles?: ContextualKnowledgeArticleClient[];
 };
 
 function tabHref(tab: LogsTabId, assignmentId?: string, logTab?: string) {
@@ -190,6 +193,7 @@ export function LogsTabsClient({
   selectedAssignment,
   tempChecklistByMeal,
   menuUnavailableReason,
+  submitKnowledgeArticles = [],
 }: LogsTabsClientProps) {
   const [templateDrawerOpen, setTemplateDrawerOpen] = useState(false);
   const [assignmentDrawerOpen, setAssignmentDrawerOpen] = useState(false);
@@ -458,6 +462,11 @@ export function LogsTabsClient({
               <p className="text-sm text-zinc-600">
                 {selectedAssignment.unit.name} · {selectedAssignment.template.name}
               </p>
+              <ContextualKnowledgePanel
+                articles={submitKnowledgeArticles}
+                variant="compact"
+                title="Log instructions"
+              />
               <div className="grid gap-3 md:grid-cols-3">
                 <input type="date" name="serviceDate" required className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
                 <select name="mealType" defaultValue={selectedAssignment.mealType ?? ""} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">

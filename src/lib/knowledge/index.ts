@@ -21,3 +21,13 @@ export {
 } from "./object-links";
 export { buildKnowledgeAdminListWhere } from "./search";
 export { articleVisibleToViewer, buildPublishedKnowledgeWhere } from "./visibility";
+export {
+  loadContextualKnowledge,
+  loadContextualKnowledgeByAssetIds,
+  buildContextualKnowledgeWhere,
+  toContextualKnowledgeClientArticles,
+  type ContextualKnowledgeArticle,
+  type ContextualKnowledgeArticleClient,
+  type ContextualKnowledgeContext,
+  type ContextualKnowledgeResult,
+} from "./contextual";

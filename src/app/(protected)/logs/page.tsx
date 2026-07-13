@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 import { LogsTabsClient, type LogsTabId } from "@/components/logs/logs-tabs-client";
 import { MealType } from "@prisma/client";
 import { getSession } from "@/lib/auth";
+import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import {
+  loadContextualKnowledge,
+  toContextualKnowledgeClientArticles,
+} from "@/lib/knowledge/contextual";
 import { ensureMenuSettingsDefaults, menuForDate, menuPeriodKeyForMealType } from "@/lib/menu-cycle";
 import { loadFacilityMenuData } from "@/lib/menu-db";
 import { prisma } from "@/lib/prisma";
@@ -37,10 +42,15 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
     redirect("/login");
   }
   const facilityId = session.facilityId;
+  const deptFilter = await departmentFilterIdsForSession(session);
+  const templateDeptFilter =
+    deptFilter === null
+      ? {}
+      : { OR: [{ departmentId: null }, { departmentId: { in: deptFilter } }] };
 
   const [templates, units, assignments, submissionsRaw, mealServiceRaw, menuData] = await Promise.all([
     prisma.logTemplate.findMany({
-      where: { facilityId },
+      where: { facilityId, ...templateDeptFilter },
       orderBy: { createdAt: "desc" },
       include: {
         fields: { orderBy: { fieldOrder: "asc" } },
@@ -52,7 +62,12 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
       select: { id: true, name: true },
     }),
     prisma.logAssignment.findMany({
-      where: { unit: { facilityId } },
+      where: {
+        unit: { facilityId },
+        ...(deptFilter === null
+          ? {}
+          : { template: { OR: [{ departmentId: null }, { departmentId: { in: deptFilter } }] } }),
+      },
       orderBy: { createdAt: "desc" },
       include: {
         unit: { select: { id: true, name: true } },
@@ -60,7 +75,12 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
       },
     }),
     prisma.logSubmission.findMany({
-      where: { unit: { facilityId } },
+      where: {
+        unit: { facilityId },
+        ...(deptFilter === null
+          ? {}
+          : { template: { OR: [{ departmentId: null }, { departmentId: { in: deptFilter } }] } }),
+      },
       take: 100,
       orderBy: { submittedAt: "desc" },
       include: {
@@ -127,7 +147,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
       ? await prisma.logAssignment.findFirst({
           where: { id: assignmentId, unit: { facilityId } },
           include: {
-            unit: { select: { name: true } },
+            unit: { select: { id: true, name: true } },
             template: {
               include: {
                 fields: { orderBy: { fieldOrder: "asc" } },
@@ -159,6 +179,17 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
       }
     : null;
 
+  const logKnowledge = selectedAssignment
+    ? await loadContextualKnowledge({
+        facilityId,
+        viewerDepartmentIds: deptFilter,
+        unitId: selectedAssignment.unit.id,
+        logTemplateId: selectedAssignment.template.id,
+        includeFacilityWideReference: false,
+        limit: 6,
+      })
+    : { articles: [], count: 0 };
+
   return (
     <section className="space-y-6">
       <header>
@@ -179,6 +210,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
         selectedAssignment={selectedForClient}
         tempChecklistByMeal={tempChecklistByMeal}
         menuUnavailableReason={menuData.unavailableReason}
+        submitKnowledgeArticles={toContextualKnowledgeClientArticles(logKnowledge.articles)}
       />
     </section>
   );
