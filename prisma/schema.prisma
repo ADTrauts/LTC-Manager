@@ -60,10 +60,41 @@ model RoleRoutePermission {
   @@index([appRouteId])
 }
 
+/// Parent business entity for one or more Facilities. Facility remains the tenancy/ops root.
+enum OrganizationType {
+  HEALTHCARE_SYSTEM
+  MANAGEMENT_COMPANY
+  LONG_TERM_CARE
+  HOSPITAL
+  K12_DISTRICT
+  UNIVERSITY
+  CORPORATE
+  HOSPITALITY
+  OTHER
+}
+
+model Organization {
+  id               String            @id @default(cuid())
+  name             String
+  legalName        String?
+  displayName      String?
+  organizationType OrganizationType?
+  isActive         Boolean           @default(true)
+  facilities       Facility[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
 /// One deployment typically has one facility; all operational data is scoped here for future multi-site support.
 model Facility {
   id                            String                      @id @default(cuid())
+  organizationId                String
+  organization                  Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   displayName                   String
+  /// Legacy operator label. Organization is the canonical parent; kept for compatibility (do not dual-write).
   managementCompanyName         String?
   billingEmail                  String?
   stripeCustomerId              String?
@@ -107,6 +138,8 @@ model Facility {
   aiOperationalBriefs           AiOperationalBrief[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
+
+  @@index([organizationId])
 }
 
 /// Facility operational department (Dietary, EVS, Plant, etc.).
@@ -1534,8 +1567,8 @@ model AiOperationalBrief {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
-  @@unique([facilityId, departmentKey, serviceDate, briefType, snapshotHash])
-  @@index([facilityId, departmentKey, serviceDate, briefType])
-  @@index([facilityId, briefType, generatedAt])
+  @@unique([facilityId, departmentKey, serviceDate, briefType, snapshotHash], map: "AiBrief_fac_dept_svc_type_hash_key")
+  @@index([facilityId, departmentKey, serviceDate, briefType], map: "AiBrief_fac_dept_svc_type_idx")
+  @@index([facilityId, briefType, generatedAt], map: "AiBrief_fac_type_generated_idx")
   @@index([expiresAt])
 }

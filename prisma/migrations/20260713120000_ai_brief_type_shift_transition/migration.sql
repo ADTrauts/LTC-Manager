@@ -13,7 +13,7 @@ DROP INDEX IF EXISTS "AiOperationalBrief_facilityId_departmentKey_serviceDate_sn
 DROP INDEX IF EXISTS "AiOperationalBrief_facilityId_departmentKey_serviceDate_idx";
 DROP INDEX IF EXISTS "AiOperationalBrief_facilityId_generatedAt_idx";
 
--- CreateIndex
-CREATE UNIQUE INDEX "AiOperationalBrief_facilityId_departmentKey_serviceDate_briefType_snapshotHash_key" ON "AiOperationalBrief"("facilityId", "departmentKey", "serviceDate", "briefType", "snapshotHash");
-CREATE INDEX "AiOperationalBrief_facilityId_departmentKey_serviceDate_briefType_idx" ON "AiOperationalBrief"("facilityId", "departmentKey", "serviceDate", "briefType");
-CREATE INDEX "AiOperationalBrief_facilityId_briefType_generatedAt_idx" ON "AiOperationalBrief"("facilityId", "briefType", "generatedAt");
+-- CreateIndex (explicit short names — PG truncates identifiers to 63 chars)
+CREATE UNIQUE INDEX "AiBrief_fac_dept_svc_type_hash_key" ON "AiOperationalBrief"("facilityId", "departmentKey", "serviceDate", "briefType", "snapshotHash");
+CREATE INDEX "AiBrief_fac_dept_svc_type_idx" ON "AiOperationalBrief"("facilityId", "departmentKey", "serviceDate", "briefType");
+CREATE INDEX "AiBrief_fac_type_generated_idx" ON "AiOperationalBrief"("facilityId", "briefType", "generatedAt");

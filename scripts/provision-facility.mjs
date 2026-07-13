@@ -102,10 +102,24 @@ async function main() {
     process.exit(1);
   }
 
+  const organization = await prisma.organization.create({
+    data: {
+      name: managementCompany?.trim()
+        ? managementCompany.trim()
+        : `${displayName} Organization`,
+      displayName: managementCompany?.trim()
+        ? managementCompany.trim()
+        : `${displayName} Organization`,
+      organizationType: managementCompany?.trim() ? "MANAGEMENT_COMPANY" : "OTHER",
+      isActive: true,
+    },
+  });
+
   const facility = await prisma.facility.create({
     data: {
       displayName,
       managementCompanyName: managementCompany,
+      organizationId: organization.id,
     },
   });
 

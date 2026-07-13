@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
+import { createOrganizationForNewFacility } from "@/lib/organization";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { rosterNameFromSignupDisplayName } from "@/lib/roster-name";
@@ -45,10 +46,16 @@ export async function POST(request: Request) {
   const { firstName, lastName } = rosterNameFromSignupDisplayName(data.adminName);
 
   const created = await prisma.$transaction(async (tx) => {
+    const organization = await createOrganizationForNewFacility(tx, {
+      facilityName: data.facilityName,
+      managementCompanyName,
+    });
+
     const facility = await tx.facility.create({
       data: {
         displayName: data.facilityName,
         managementCompanyName,
+        organizationId: organization.id,
         billingEmail: email,
         onboardingStartedAt: new Date(),
         onboardingCurrentStep: "facility",

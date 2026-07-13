@@ -21,6 +21,8 @@ const prisma = new PrismaClient();
 
 /** Keep in sync with migration `20260329120000_phase_a_facility` default facility id. */
 const SEED_FACILITY_ID = "cmfacseed0000000000000001";
+/** Wave 11 seed Organization for Terrace View. */
+const SEED_ORGANIZATION_ID = "cmorgseed0000000000000001";
 
 const ROUTE_DEFINITIONS = [
   { key: "admin", pathPrefix: "/admin", label: "Administration", navVisible: true, navOrder: 100, isCritical: true },
@@ -68,15 +70,33 @@ const ROLE_PRIORITY = {
 };
 
 async function main() {
+  const organization = await prisma.organization.upsert({
+    where: { id: SEED_ORGANIZATION_ID },
+    update: {
+      name: "Terrace View Organization",
+      displayName: "Terrace View Organization",
+      isActive: true,
+    },
+    create: {
+      id: SEED_ORGANIZATION_ID,
+      name: "Terrace View Organization",
+      displayName: "Terrace View Organization",
+      organizationType: "LONG_TERM_CARE",
+      isActive: true,
+    },
+  });
+
   const facility = await prisma.facility.upsert({
     where: { id: SEED_FACILITY_ID },
     update: {
       displayName: "Terrace View Long Term Care",
+      organizationId: organization.id,
     },
     create: {
       id: SEED_FACILITY_ID,
       displayName: "Terrace View Long Term Care",
       managementCompanyName: null,
+      organizationId: organization.id,
     },
   });
 
