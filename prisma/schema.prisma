@@ -104,6 +104,7 @@ model Facility {
   inspectionSubmissions         InspectionSubmission[]
   inspectionOccurrences         InspectionOccurrence[]
   knowledgeArticles             KnowledgeArticle[]
+  aiOperationalBriefs           AiOperationalBrief[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
 }
@@ -1490,4 +1491,39 @@ model KnowledgeArticleInspectionDefinition {
 
   @@unique([articleId, inspectionDefinitionId])
   @@index([inspectionDefinitionId])
+}
+
+enum AiBriefStatus {
+  READY
+  FALLBACK
+  FAILED
+}
+
+/// Cached Operations Center Morning Brief (Wave 10). Stores sanitized result only — not raw prompts.
+model AiOperationalBrief {
+  id                  String        @id @default(cuid())
+  facilityId          String
+  facility            Facility      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  /// Operational department key or "ALL" for facility-wide leadership view.
+  departmentKey       String
+  /// Facility-local service date as UTC-midnight @db.Date.
+  serviceDate         DateTime      @db.Date
+  operationInstanceId String?
+  snapshotHash        String
+  resultJson          Json
+  provider            String
+  model               String
+  status              AiBriefStatus @default(READY)
+  promptVersion       String
+  latencyMs           Int?
+  errorCode           String?
+  generatedAt         DateTime      @default(now())
+  expiresAt           DateTime
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([facilityId, departmentKey, serviceDate, snapshotHash])
+  @@index([facilityId, departmentKey, serviceDate])
+  @@index([facilityId, generatedAt])
+  @@index([expiresAt])
 }

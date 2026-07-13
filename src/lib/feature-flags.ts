@@ -26,3 +26,8 @@ export function isTodaysWorkEnabled(): boolean {
 export function isTaskSyncEnabled(): boolean {
   return parseEnvFlag(process.env.TASK_SYNC_ENABLED, false);
 }
+
+/** Defaults to disabled — Wave 10 Morning Brief stays off until provider is configured. */
+export function isAiBriefEnabled(): boolean {
+  return parseEnvFlag(process.env.AI_BRIEF_ENABLED, false);
+}

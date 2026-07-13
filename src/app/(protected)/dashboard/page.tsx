@@ -4,13 +4,17 @@ import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { BirthdaysCard } from "@/components/operations-center/birthdays-card";
+import { MorningBriefCard } from "@/components/operations-center/morning-brief-card";
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { OperationsCenterCards } from "@/components/operations-center/operations-center-cards";
 import { SecondaryTeamLinks } from "@/components/operations-center/secondary-team-links";
 import { SitePulseSummaryCard } from "@/components/operations-center/site-pulse-summary";
 import { PageHeader } from "@/components/design-system/page-header";
+import { hasAtLeastRole } from "@/lib/access";
+import { getOrGenerateMorningBrief } from "@/lib/ai";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { isAiBriefEnabled } from "@/lib/feature-flags";
 import { loadOperationsCenterDashboard } from "@/lib/operations-center";
 
 type DashboardPageProps = {
@@ -38,6 +42,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const data = await loadOperationsCenterDashboard(session.facilityId, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
+
+  const aiEnabled = isAiBriefEnabled();
+  const morningBrief =
+    aiEnabled && !showSecondaryEmployees
+      ? await getOrGenerateMorningBrief({
+          facilityId: session.facilityId,
+          departmentKey: deptNav.activeOperationalDepartmentKey,
+          allowProvider: false,
+        })
+      : null;
+  const canRefreshBrief = hasAtLeastRole(session.role, "MANAGER");
 
   return (
     <section className="space-y-6">
@@ -85,6 +100,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div className="space-y-6">
             <OperationContextBanner context={data.operationContext} embedded />
             <SitePulseSummaryCard pulse={data.sitePulse} />
+            {morningBrief ? (
+              <MorningBriefCard
+                initialBrief={morningBrief}
+                departmentKey={deptNav.activeOperationalDepartmentKey ?? "DIETARY"}
+                aiEnabled={aiEnabled}
+                canRefresh={canRefreshBrief}
+              />
+            ) : null}
             <OperationsCenterCards data={data} />
             <SecondaryTeamLinks birthdayCount={data.birthdaysThisMonth.length} />
           </div>

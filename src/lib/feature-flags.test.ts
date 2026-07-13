@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isOperationEngineEnabled, isTaskSyncEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
+import {
+  isAiBriefEnabled,
+  isOperationEngineEnabled,
+  isTaskSyncEnabled,
+  isTodaysWorkEnabled,
+} from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
 function withEnv(name: string, value: string | undefined, fn: () => void) {
@@ -57,6 +62,20 @@ test("isTaskSyncEnabled parses truthy and falsey env values", () => {
   for (const value of ["false", "0", "off", "no"]) {
     withEnv("TASK_SYNC_ENABLED", value, () => {
       assert.equal(isTaskSyncEnabled(), false, value);
+    });
+  }
+});
+
+test("isAiBriefEnabled defaults to false when unset", () => {
+  withEnv("AI_BRIEF_ENABLED", undefined, () => {
+    assert.equal(isAiBriefEnabled(), false);
+  });
+});
+
+test("isAiBriefEnabled parses truthy env values", () => {
+  for (const value of ["true", "1", "on", "yes"]) {
+    withEnv("AI_BRIEF_ENABLED", value, () => {
+      assert.equal(isAiBriefEnabled(), true, value);
     });
   }
 });
