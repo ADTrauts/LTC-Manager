@@ -1,17 +1,23 @@
 import Link from "next/link";
 
 import {
+  WorkspaceCollapsibleSection,
+  WorkspaceCustomizePanel,
+} from "@/components/business-workspace/workspace-customize";
+import {
   ActionCard,
   AppCard,
   EmptyState,
   MetricCard,
   OperationalListRow,
   PageHeader,
-  SectionHeader,
   StatusBadge,
   operationalListShellClass,
 } from "@/components/design-system";
-import type { BusinessWorkspaceView as WorkspaceViewModel, WorkspaceSectionId } from "@/lib/business-workspace";
+import type {
+  BusinessWorkspaceView as WorkspaceViewModel,
+  WorkspaceSectionId,
+} from "@/lib/business-workspace";
 import { orderedWorkspaceSections } from "@/lib/business-workspace";
 import type { StatusTone } from "@/lib/design-system/status-styles";
 
@@ -23,6 +29,102 @@ function priorityStatusLabel(tone: StatusTone): string {
   return "Info";
 }
 
+function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
+  const cards = view.data.managerFocus;
+  if (cards.length === 0) {
+    return (
+      <EmptyState
+        title="Nothing needs your personal focus right now."
+        description="Current operations are on track. Use the agenda or quick actions when you are ready."
+        action={
+          <div className="flex flex-wrap gap-3">
+            <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
+              Operations Center
+            </Link>
+            <Link href="/today" className="text-sm font-medium text-zinc-800 underline">
+              Today&apos;s Work
+            </Link>
+          </div>
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {cards.map((card) => (
+        <AppCard
+          key={card.id}
+          title={card.title}
+          subtitle={card.locationLabel}
+          data-testid={`workspace-focus-${card.id}`}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-700">{card.explanation}</p>
+            <p className="text-sm text-zinc-500">{card.whyItMatters}</p>
+            <StatusBadge variant={card.tone === "default" ? "neutral" : card.tone}>
+              {priorityStatusLabel(card.tone)}
+            </StatusBadge>
+            <Link
+              href={card.href}
+              className="inline-flex rounded-lg border border-zinc-900 bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+            >
+              {card.actionLabel}
+            </Link>
+          </div>
+        </AppCard>
+      ))}
+    </div>
+  );
+}
+
+function ManagementAgendaSection({ view }: { view: WorkspaceViewModel }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2" data-testid="workspace-agenda">
+      {view.data.managementAgenda.map((bucket) => (
+        <AppCard
+          key={bucket.id}
+          title={bucket.label}
+          subtitle={bucket.isCurrent ? "Current window" : undefined}
+          data-testid={`workspace-agenda-${bucket.id}`}
+        >
+          <ul className="space-y-3">
+            {bucket.items.map((item) => (
+              <li key={item.id}>
+                <Link href={item.href} className="block rounded-lg border border-zinc-100 p-3 hover:bg-zinc-50">
+                  <p className="font-medium text-zinc-900">{item.title}</p>
+                  <p className="mt-1 text-sm text-zinc-600">{item.detail}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </AppCard>
+      ))}
+    </div>
+  );
+}
+
+function QuickActionsSection({ view }: { view: WorkspaceViewModel }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {view.data.quickActions.map((action) => (
+        <ActionCard
+          key={action.id}
+          title={action.title}
+          description={action.description}
+          icon={action.icon}
+          data-testid={`workspace-quick-${action.id}`}
+          cta={
+            <Link href={action.href} className="text-sm font-medium text-zinc-900 underline">
+              Open
+            </Link>
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 function PrioritiesSection({ view }: { view: WorkspaceViewModel }) {
   const { priorities, header } = view.data;
 
@@ -30,7 +132,7 @@ function PrioritiesSection({ view }: { view: WorkspaceViewModel }) {
     return (
       <EmptyState
         title="Current operations are on track."
-        description="Open Operations Center or Today's Work when you need the detailed walk."
+        description="Open Operations Center or Today&apos;s Work when you need the detailed walk."
         action={
           <div className="flex flex-wrap gap-3">
             <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
@@ -137,16 +239,17 @@ function PerformanceSection({ view }: { view: WorkspaceViewModel }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {view.data.performance.map((metric) => {
-        const card = (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            hint={metric.hint}
-            tone={metric.tone}
-          />
-        );
-        if (!metric.href) return card;
+        if (!metric.href) {
+          return (
+            <MetricCard
+              key={metric.id}
+              label={metric.label}
+              value={metric.value}
+              hint={metric.hint}
+              tone={metric.tone}
+            />
+          );
+        }
         return (
           <Link
             key={metric.id}
@@ -191,6 +294,12 @@ function RecentActivitySection({ view }: { view: WorkspaceViewModel }) {
 
 function renderSection(id: WorkspaceSectionId, view: WorkspaceViewModel) {
   switch (id) {
+    case "manager_focus":
+      return <ManagerFocusSection view={view} />;
+    case "management_agenda":
+      return <ManagementAgendaSection view={view} />;
+    case "quick_actions":
+      return <QuickActionsSection view={view} />;
     case "priorities":
       return <PrioritiesSection view={view} />;
     case "department_health":
@@ -210,7 +319,11 @@ function renderSection(id: WorkspaceSectionId, view: WorkspaceViewModel) {
 
 export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) {
   const { header } = view.data;
-  const sections = orderedWorkspaceSections(view.visibleSections);
+  const sections = orderedWorkspaceSections(view.visibleSections, view.sectionOrder);
+  const collapsed = new Set(view.collapsedSections);
+  const hiddenOptional = view.customizableSections.filter(
+    (id) => !view.visibleSections.includes(id),
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-1 py-2 sm:px-2" data-testid="business-workspace">
@@ -231,11 +344,26 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
         }
       />
 
+      {view.canCustomize ? (
+        <WorkspaceCustomizePanel
+          customizableSections={view.customizableSections}
+          hiddenSectionIds={hiddenOptional}
+          preferredLandingSectionId={view.preferredLandingSectionId}
+          visibleSectionIds={view.visibleSections}
+          sectionOrder={view.sectionOrder}
+        />
+      ) : null}
+
       {sections.map((section) => (
-        <section key={section.id} className="space-y-4" data-testid={`workspace-section-${section.id}`}>
-          <SectionHeader title={section.title} description={section.description} prominent />
+        <WorkspaceCollapsibleSection
+          key={section.id}
+          sectionId={section.id}
+          title={section.title}
+          description={section.description}
+          collapsed={collapsed.has(section.id)}
+        >
           {renderSection(section.id, view)}
-        </section>
+        </WorkspaceCollapsibleSection>
       ))}
     </div>
   );

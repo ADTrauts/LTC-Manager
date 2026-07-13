@@ -137,6 +137,7 @@ model Facility {
   inspectionOccurrences         InspectionOccurrence[]
   knowledgeArticles             KnowledgeArticle[]
   aiOperationalBriefs           AiOperationalBrief[]
+  workspacePreferences          WorkspacePreference[]
   createdAt                     DateTime                    @default(now())
   updatedAt                     DateTime                    @updatedAt
 
@@ -348,6 +349,7 @@ model User {
   knowledgeArticlesUpdated  KnowledgeArticle[]          @relation("KnowledgeArticleUpdatedBy")
   facilityAccesses          UserFacilityAccess[]        @relation("UserFacilityAccessUser")
   facilityAccessesGranted   UserFacilityAccess[]        @relation("UserFacilityAccessGrantedBy")
+  workspacePreferences      WorkspacePreference[]
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime                    @updatedAt
 
@@ -355,6 +357,30 @@ model User {
   @@index([isActive])
   @@index([facilityId])
   @@index([primaryDepartmentId])
+}
+
+/// Per-user, per-facility Business Workspace layout preferences (Wave 12 M3).
+/// Not device cookies — facility switch must load the destination facility prefs only.
+model WorkspacePreference {
+  id                         String   @id @default(cuid())
+  userId                     String
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facilityId                 String
+  facility                   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  /// Optional sections the user has hidden (role-required sections cannot be hidden).
+  hiddenSectionIds           String[] @default([])
+  /// Sections currently collapsed in the Workspace UI.
+  collapsedSectionIds        String[] @default([])
+  /// Preferred visible-section order for customizable sections (core sections stay fixed first).
+  sectionOrder               String[] @default([])
+  /// Preferred landing / first focus section when opening Workspace.
+  preferredLandingSectionId  String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@unique([userId, facilityId])
+  @@index([userId])
+  @@index([facilityId])
 }
 
 /// Explicit multi-facility access grant. Shared Organization alone never authorizes a facility.

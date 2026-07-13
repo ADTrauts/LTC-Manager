@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { BusinessWorkspaceScreen } from "@/components/business-workspace/business-workspace-view";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
-import { getSession } from "@/lib/auth";
+import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import {
   canAccessBusinessWorkspace,
   loadBusinessWorkspace,
@@ -51,6 +51,7 @@ export default async function WorkspacePage() {
     facilityName: facility?.displayName ?? "Facility",
     userDisplayName: session.name,
     role: session.role,
+    userId: sessionUserIdForFk(session),
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
     activeDepartmentName: departmentName,
   });

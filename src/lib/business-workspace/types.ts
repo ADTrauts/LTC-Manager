@@ -4,6 +4,9 @@ import type { StatusBadgeVariant, StatusTone } from "@/lib/design-system/status-
 import type { OperationContext } from "@/lib/operations-center/types";
 
 export type WorkspaceSectionId =
+  | "manager_focus"
+  | "management_agenda"
+  | "quick_actions"
   | "priorities"
   | "department_health"
   | "todays_work"
@@ -26,6 +29,43 @@ export type WorkspacePriorityCard = {
   isWatch?: boolean;
   departmentLabel?: string;
   locationLabel?: string;
+};
+
+export type ManagerFocusCard = {
+  id: string;
+  title: string;
+  explanation: string;
+  whyItMatters: string;
+  actionLabel: string;
+  href: string;
+  tone: StatusTone;
+  locationLabel?: string;
+  rank: number;
+};
+
+export type ManagementAgendaBucketId = "morning" | "midday" | "afternoon" | "evening";
+
+export type ManagementAgendaItem = {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+  tone?: StatusTone;
+};
+
+export type ManagementAgendaBucket = {
+  id: ManagementAgendaBucketId;
+  label: string;
+  isCurrent: boolean;
+  items: ManagementAgendaItem[];
+};
+
+export type WorkspaceQuickAction = {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  icon: AppIconKey;
 };
 
 export type WorkspaceDepartmentHealth = {
@@ -73,8 +113,18 @@ export type BusinessWorkspaceHeader = {
   healthy: boolean;
 };
 
+export type WorkspacePreferenceState = {
+  hiddenSectionIds: WorkspaceSectionId[];
+  collapsedSectionIds: WorkspaceSectionId[];
+  sectionOrder: WorkspaceSectionId[];
+  preferredLandingSectionId: WorkspaceSectionId | null;
+};
+
 export type BusinessWorkspaceData = {
   header: BusinessWorkspaceHeader;
+  managerFocus: ManagerFocusCard[];
+  managementAgenda: ManagementAgendaBucket[];
+  quickActions: WorkspaceQuickAction[];
   priorities: WorkspacePriorityCard[];
   departmentHealth: WorkspaceDepartmentHealth[];
   todaysWorkLinks: WorkspaceLinkCard[];
@@ -86,5 +136,11 @@ export type BusinessWorkspaceData = {
 export type BusinessWorkspaceView = {
   role: AppRole;
   visibleSections: WorkspaceSectionId[];
+  /** Sections the role may customize (show/hide). */
+  customizableSections: WorkspaceSectionId[];
+  collapsedSections: WorkspaceSectionId[];
+  preferredLandingSectionId: WorkspaceSectionId | null;
+  sectionOrder: WorkspaceSectionId[];
+  canCustomize: boolean;
   data: BusinessWorkspaceData;
 };

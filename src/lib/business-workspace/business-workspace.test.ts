@@ -2,14 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyWorkspacePreferences,
   buildDepartmentHealth,
+  buildManagementAgenda,
+  buildManagerFocus,
   buildPerformanceSnapshot,
+  buildQuickActions,
   buildRecentActivity,
   buildWorkspacePriorities,
   canAccessBusinessWorkspace,
+  canCustomizeWorkspace,
+  currentAgendaBucketId,
+  emptyWorkspacePreferenceState,
   greetingForLocalHour,
   healthToneFromReadiness,
   orderedWorkspaceSections,
+  parseWorkspacePreferenceRow,
   resolveWorkspaceSections,
   workspaceIsHealthy,
   workspaceSectionVisible,
@@ -171,18 +179,27 @@ test("canAccessBusinessWorkspace excludes staff and lead", () => {
 
 test("supervisor sees limited workspace sections", () => {
   const sections = resolveWorkspaceSections("SUPERVISOR");
-  assert.deepEqual(sections, ["priorities", "todays_work", "operations"]);
+  assert.deepEqual(sections, [
+    "manager_focus",
+    "management_agenda",
+    "quick_actions",
+    "todays_work",
+  ]);
   assert.equal(workspaceSectionVisible("SUPERVISOR", "department_health"), false);
   assert.equal(workspaceSectionVisible("SUPERVISOR", "performance"), false);
+  assert.equal(canCustomizeWorkspace("SUPERVISOR"), false);
 });
 
 test("manager and FA see full workspace sections", () => {
   for (const role of ["MANAGER", "GM", "FACILITY_ADMINISTRATOR"] as const) {
     const sections = resolveWorkspaceSections(role);
-    assert.ok(sections.includes("priorities"));
+    assert.ok(sections.includes("manager_focus"));
+    assert.ok(sections.includes("management_agenda"));
+    assert.ok(sections.includes("quick_actions"));
     assert.ok(sections.includes("department_health"));
     assert.ok(sections.includes("performance"));
     assert.ok(sections.includes("recent_activity"));
+    assert.equal(canCustomizeWorkspace(role), true);
   }
 });
 
@@ -687,4 +704,191 @@ test("workspace route is SUPERVISOR+ in WAVE1 fallback", () => {
 test("workspace maps to Workspace nav zone and label", () => {
   assert.equal(resolveZoneForPathPrefix("/workspace"), "WORKSPACE");
   assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Workspace");
+});
+
+test("manager focus: ranking prefers overdue inspection then staffing then disruption", () => {
+  const now = new Date("2026-07-13T16:00:00.000Z");
+  const focus = buildManagerFocus(
+    baseInputs({
+      now,
+      inspectionsDue: [
+        {
+          id: "i1",
+          definitionName: "Trayline audit",
+          unitName: "Main Kitchen",
+          dueAt: new Date(now.getTime() - 60_000),
+          overdue: true,
+        },
+      ],
+      dashboard: {
+        ...baseInputs().dashboard,
+        unitsMissingStaffing: [
+          {
+            id: "u2",
+            name: "2 East",
+            unitType: "RESIDENT_AREA",
+            hasDietary: true,
+            expected: 0,
+            completed: 0,
+            pending: 0,
+            failed: 0,
+            missed: 0,
+            mealTimes: [],
+            staffingCount: 0,
+            openRepairCount: 0,
+          },
+        ],
+      },
+      readiness: readinessBatch(
+        [
+          readinessItem({
+            unitId: "u1",
+            unitName: "Main Kitchen",
+            state: "blocked",
+            reason: "Failed temperature log",
+            profileKey: "DIETARY",
+          }),
+        ],
+        { total: 1, ready: 0, inProgress: 0, blocked: 1 },
+      ),
+      openRepairs: [
+        {
+          id: "r1",
+          unitId: "u1",
+          title: "Freezer alarm",
+          priority: "URGENT",
+          status: "OPEN",
+          workOrderKind: "CORRECTIVE",
+          dueAt: null,
+          unitName: "Main Kitchen",
+          departmentKey: "DIETARY",
+        },
+      ],
+    }),
+  );
+
+  assert.equal(focus.length, 3);
+  assert.equal(focus[0]?.id, "focus-inspection-overdue");
+  assert.equal(focus[1]?.id, "focus-staffing");
+  assert.equal(focus[2]?.id, "focus-service");
+  assert.equal(focus[2]?.actionLabel, "Open Unit");
+  assert.equal(focus[2]?.href, "/unit/u1");
+});
+
+test("manager focus: never duplicates the same destination", () => {
+  const focus = buildManagerFocus(
+    baseInputs({
+      openRepairs: [
+        {
+          id: "r1",
+          unitId: "u1",
+          title: "Urgent A",
+          priority: "URGENT",
+          status: "OPEN",
+          workOrderKind: "CORRECTIVE",
+          dueAt: null,
+          unitName: "Main Kitchen",
+          departmentKey: "DIETARY",
+        },
+        {
+          id: "r2",
+          unitId: "u1",
+          title: "Urgent B",
+          priority: "URGENT",
+          status: "OPEN",
+          workOrderKind: "CORRECTIVE",
+          dueAt: null,
+          unitName: "Main Kitchen",
+          departmentKey: "DIETARY",
+        },
+      ],
+    }),
+  );
+  const hrefs = focus.map((card) => card.href);
+  assert.equal(new Set(hrefs).size, hrefs.length);
+  assert.ok(focus.length <= 3);
+});
+
+test("management agenda: current bucket follows facility-local hour", () => {
+  assert.equal(currentAgendaBucketId(8), "morning");
+  assert.equal(currentAgendaBucketId(12), "midday");
+  assert.equal(currentAgendaBucketId(16), "afternoon");
+  assert.equal(currentAgendaBucketId(20), "evening");
+
+  const agenda = buildManagementAgenda(
+    baseInputs({
+      operationalTime: {
+        ...baseInputs().operationalTime,
+        facilityLocal: {
+          ...baseInputs().operationalTime.facilityLocal,
+          hour: 8,
+        },
+      },
+    }),
+  );
+  assert.deepEqual(
+    agenda.map((b) => b.id),
+    ["morning", "midday", "afternoon", "evening"],
+  );
+  assert.equal(agenda.find((b) => b.id === "morning")?.isCurrent, true);
+  assert.ok((agenda.find((b) => b.id === "morning")?.items.length ?? 0) >= 1);
+  assert.ok((agenda.find((b) => b.id === "evening")?.items.length ?? 0) >= 1);
+});
+
+test("quick actions keep existing routes and limit supervisor list", () => {
+  const managerActions = buildQuickActions();
+  assert.ok(managerActions.some((a) => a.href === "/issues"));
+  assert.ok(managerActions.some((a) => a.href === "/dashboard"));
+  assert.ok(managerActions.some((a) => a.href === "/employees"));
+  const supervisorActions = buildQuickActions({ supervisor: true });
+  assert.ok(supervisorActions.every((a) =>
+    ["/issues", "/dashboard", "/today", "/logs"].includes(a.href),
+  ));
+  assert.ok(supervisorActions.length < managerActions.length);
+});
+
+test("preferences: hidden optional sections apply; required sections stay", () => {
+  const applied = applyWorkspacePreferences({
+    role: "MANAGER",
+    preferences: {
+      ...emptyWorkspacePreferenceState(),
+      hiddenSectionIds: ["performance", "recent_activity", "manager_focus"],
+      collapsedSectionIds: ["department_health", "performance"],
+      preferredLandingSectionId: "quick_actions",
+    },
+  });
+  assert.ok(applied.visibleSections.includes("manager_focus"));
+  assert.ok(!applied.visibleSections.includes("performance"));
+  assert.ok(!applied.visibleSections.includes("recent_activity"));
+  assert.deepEqual(applied.collapsedSections, ["department_health"]);
+  assert.equal(applied.preferredLandingSectionId, "quick_actions");
+});
+
+test("preferences: facility isolation via parse — independent rows", () => {
+  const facA = parseWorkspacePreferenceRow({
+    hiddenSectionIds: ["performance"],
+    collapsedSectionIds: ["operations"],
+    sectionOrder: [],
+    preferredLandingSectionId: "management_agenda",
+  });
+  const facB = parseWorkspacePreferenceRow({
+    hiddenSectionIds: [],
+    collapsedSectionIds: [],
+    sectionOrder: [],
+    preferredLandingSectionId: null,
+  });
+  assert.deepEqual(facA.hiddenSectionIds, ["performance"]);
+  assert.deepEqual(facB.hiddenSectionIds, []);
+  assert.notEqual(facA.preferredLandingSectionId, facB.preferredLandingSectionId);
+});
+
+test("orderedWorkspaceSections keeps core sections first with preference order", () => {
+  const ordered = orderedWorkspaceSections(
+    ["performance", "manager_focus", "quick_actions", "management_agenda", "department_health"],
+    ["performance", "department_health"],
+  );
+  assert.deepEqual(
+    ordered.map((s) => s.id),
+    ["manager_focus", "management_agenda", "quick_actions", "performance", "department_health"],
+  );
 });

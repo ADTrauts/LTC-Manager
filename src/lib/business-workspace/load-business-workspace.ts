@@ -2,7 +2,10 @@ import type { AppRole } from "@/lib/access";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
 import { buildDepartmentHealth } from "./build-department-health";
+import { buildManagementAgenda } from "./build-management-agenda";
+import { buildManagerFocus } from "./build-manager-focus";
 import { buildPerformanceSnapshot } from "./build-performance-snapshot";
+import { buildQuickActions } from "./build-quick-actions";
 import { buildRecentActivity } from "./build-recent-activity";
 import {
   buildWorkspacePriorities,
@@ -11,7 +14,13 @@ import {
 import { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
 import type { BusinessWorkspaceData, BusinessWorkspaceView } from "./types";
 import { greetingForLocalHour } from "./workspace-layout";
-import { canAccessBusinessWorkspace, resolveWorkspaceSections } from "./workspace-permissions";
+import { canAccessBusinessWorkspace } from "./workspace-permissions";
+import {
+  applyWorkspacePreferences,
+  emptyWorkspacePreferenceState,
+  loadWorkspacePreferenceState,
+} from "./workspace-preferences";
+import type { WorkspacePreferenceState } from "./types";
 
 function firstName(displayName: string): string {
   return displayName.trim().split(/\s+/)[0] || displayName;
@@ -22,13 +31,17 @@ export type LoadBusinessWorkspaceInput = {
   facilityName: string;
   userDisplayName: string;
   role: AppRole;
+  /** User.id when authKind=user; required for preference persistence. */
+  userId?: string | null;
   activeDepartmentKey?: OperationalDepartmentKey | null;
   activeDepartmentName?: string | null;
+  /** Optional injected preferences (tests). */
+  preferences?: WorkspacePreferenceState;
 };
 
 /**
  * Compose Business Workspace from one coordinated facility input pipeline,
- * then pure section builders. Does not invoke OC + readiness loaders separately.
+ * then pure section builders. Preferences are facility-scoped per user.
  */
 export async function loadBusinessWorkspace(
   input: LoadBusinessWorkspaceInput,
@@ -37,18 +50,33 @@ export async function loadBusinessWorkspace(
     return null;
   }
 
-  const inputs = await loadBusinessWorkspaceInputs({
-    facilityId: input.facilityId,
-    facilityName: input.facilityName,
-    activeDepartmentKey: input.activeDepartmentKey,
-    activeDepartmentName: input.activeDepartmentName,
-  });
+  const [inputs, preferences] = await Promise.all([
+    loadBusinessWorkspaceInputs({
+      facilityId: input.facilityId,
+      facilityName: input.facilityName,
+      activeDepartmentKey: input.activeDepartmentKey,
+      activeDepartmentName: input.activeDepartmentName,
+    }),
+    input.preferences
+      ? Promise.resolve(input.preferences)
+      : input.userId
+        ? loadWorkspacePreferenceState({
+            userId: input.userId,
+            facilityId: input.facilityId,
+          })
+        : Promise.resolve(emptyWorkspacePreferenceState()),
+  ]);
 
   const priorities = buildWorkspacePriorities(inputs);
-  const healthy = workspaceIsHealthy(priorities);
+  const managerFocus = buildManagerFocus(inputs);
+  const healthy = workspaceIsHealthy(priorities) && managerFocus.length === 0;
   const oc = inputs.dashboard;
   const staffingGaps = oc.unitsMissingStaffing.length;
   const callDownOpen = inputs.callDownSummary.open;
+  const composed = applyWorkspacePreferences({
+    role: input.role,
+    preferences,
+  });
 
   const data: BusinessWorkspaceData = {
     header: {
@@ -61,6 +89,9 @@ export async function loadBusinessWorkspace(
       operation: oc.operationContext,
       healthy,
     },
+    managerFocus,
+    managementAgenda: buildManagementAgenda(inputs),
+    quickActions: buildQuickActions({ supervisor: input.role === "SUPERVISOR" }),
     priorities,
     departmentHealth: buildDepartmentHealth(inputs),
     todaysWorkLinks: [
@@ -143,7 +174,12 @@ export async function loadBusinessWorkspace(
 
   return {
     role: input.role,
-    visibleSections: resolveWorkspaceSections(input.role),
+    visibleSections: composed.visibleSections,
+    customizableSections: composed.customizableSections,
+    collapsedSections: composed.collapsedSections,
+    preferredLandingSectionId: composed.preferredLandingSectionId,
+    sectionOrder: composed.sectionOrder,
+    canCustomize: composed.canCustomize,
     data,
   };
 }
