@@ -13,12 +13,19 @@ export type WorkspaceSectionId =
 
 export type WorkspaceHealthTone = "green" | "yellow" | "red" | "neutral";
 
+export type WorkspacePriorityRank = 1 | 2 | 3 | 4 | 5 | 6;
+
 export type WorkspacePriorityCard = {
   id: string;
   title: string;
   detail: string;
   href: string;
   tone: StatusTone;
+  rank: WorkspacePriorityRank;
+  /** Watch / healthy-state items — shown after primaries, never as urgent. */
+  isWatch?: boolean;
+  departmentLabel?: string;
+  locationLabel?: string;
 };
 
 export type WorkspaceDepartmentHealth = {
@@ -27,6 +34,10 @@ export type WorkspaceDepartmentHealth = {
   tone: WorkspaceHealthTone;
   badge: StatusBadgeVariant;
   summary: string;
+  reason: string;
+  locationCounts: { ready: number; inProgress: number; blocked: number; total: number };
+  openPriorityWorkCount: number;
+  href: string;
 };
 
 export type WorkspaceLinkCard = {
@@ -43,6 +54,7 @@ export type WorkspaceMetric = {
   value: string | number;
   hint?: string;
   tone?: StatusTone;
+  href?: string;
 };
 
 export type WorkspaceActivityItem = {
@@ -50,7 +62,7 @@ export type WorkspaceActivityItem = {
   title: string;
   meta: string;
   href: string;
-  kind: "inspection" | "issue" | "knowledge" | "repair";
+  kind: "inspection" | "issue" | "knowledge" | "repair" | "asset";
 };
 
 export type BusinessWorkspaceHeader = {
@@ -58,6 +70,7 @@ export type BusinessWorkspaceHeader = {
   facilityName: string;
   departmentLabel: string;
   operation: OperationContext;
+  healthy: boolean;
 };
 
 export type BusinessWorkspaceData = {

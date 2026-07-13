@@ -13,32 +13,67 @@ import {
 } from "@/components/design-system";
 import type { BusinessWorkspaceView as WorkspaceViewModel, WorkspaceSectionId } from "@/lib/business-workspace";
 import { orderedWorkspaceSections } from "@/lib/business-workspace";
+import type { StatusTone } from "@/lib/design-system/status-styles";
+
+function priorityStatusLabel(tone: StatusTone): string {
+  if (tone === "blocked") return "Needs attention";
+  if (tone === "warning") return "Watch";
+  if (tone === "in_progress") return "In progress";
+  if (tone === "ready") return "On track";
+  return "Info";
+}
 
 function PrioritiesSection({ view }: { view: WorkspaceViewModel }) {
-  const { priorities } = view.data;
+  const { priorities, header } = view.data;
+
   if (priorities.length === 0) {
     return (
       <EmptyState
-        title="No urgent priorities"
-        description="Service looks calm. Use Operations Center for the live exception sweep."
+        title="Current operations are on track."
+        description="Open Operations Center or Today's Work when you need the detailed walk."
         action={
-          <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
-            Open Operations Center
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
+              Operations Center
+            </Link>
+            <Link href="/today" className="text-sm font-medium text-zinc-800 underline">
+              Today&apos;s Work
+            </Link>
+          </div>
         }
       />
     );
   }
 
+  const primary = priorities.filter((card) => !card.isWatch);
+  const watch = priorities.filter((card) => card.isWatch);
+  const showCalm = header.healthy || primary.length === 0;
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {priorities.map((card) => (
-        <Link key={card.id} href={card.href} className="block transition hover:opacity-95">
-          <AppCard title={card.title} subtitle={card.detail} data-testid={`workspace-priority-${card.id}`}>
-            <StatusBadge variant={card.tone === "default" ? "neutral" : card.tone}>{card.detail}</StatusBadge>
-          </AppCard>
-        </Link>
-      ))}
+    <div className="space-y-4">
+      {showCalm ? (
+        <p className="text-sm text-zinc-600" data-testid="workspace-priorities-healthy">
+          Current operations are on track.
+        </p>
+      ) : null}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {(showCalm ? watch : primary).map((card) => (
+          <Link key={card.id} href={card.href} className="block transition hover:opacity-95">
+            <AppCard
+              title={card.title}
+              subtitle={[card.locationLabel, card.departmentLabel].filter(Boolean).join(" · ") || card.detail}
+              data-testid={`workspace-priority-${card.id}`}
+            >
+              <div className="space-y-2">
+                <p className="text-sm text-zinc-600">{card.detail}</p>
+                <StatusBadge variant={card.tone === "default" ? "neutral" : card.tone}>
+                  {priorityStatusLabel(card.tone)}
+                </StatusBadge>
+              </div>
+            </AppCard>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -47,17 +82,28 @@ function DepartmentHealthSection({ view }: { view: WorkspaceViewModel }) {
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       {view.data.departmentHealth.map((dept) => (
-        <AppCard key={dept.key} title={dept.label} subtitle={dept.summary}>
-          <StatusBadge variant={dept.badge}>
-            {dept.tone === "green"
-              ? "Ready"
-              : dept.tone === "yellow"
-                ? "In progress"
-                : dept.tone === "red"
-                  ? "Needs attention"
-                  : "Unset"}
-          </StatusBadge>
-        </AppCard>
+        <Link key={dept.key} href={dept.href} className="block transition hover:opacity-95">
+          <AppCard title={dept.label} subtitle={dept.summary} data-testid={`workspace-dept-${dept.key}`}>
+            <div className="space-y-2">
+              <StatusBadge variant={dept.badge}>
+                {dept.tone === "green"
+                  ? "Ready"
+                  : dept.tone === "yellow"
+                    ? "In Progress"
+                    : dept.tone === "red"
+                      ? "Needs Attention"
+                      : "Unset"}
+              </StatusBadge>
+              <p className="text-sm text-zinc-600">{dept.reason}</p>
+              {dept.openPriorityWorkCount > 0 ? (
+                <p className="text-xs text-zinc-500">
+                  {dept.openPriorityWorkCount} open priority work item
+                  {dept.openPriorityWorkCount === 1 ? "" : "s"}
+                </p>
+              ) : null}
+            </div>
+          </AppCard>
+        </Link>
       ))}
     </div>
   );
@@ -89,16 +135,34 @@ function LinkCardsSection({
 
 function PerformanceSection({ view }: { view: WorkspaceViewModel }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {view.data.performance.map((metric) => (
-        <MetricCard
-          key={metric.id}
-          label={metric.label}
-          value={metric.value}
-          hint={metric.hint}
-          tone={metric.tone}
-        />
-      ))}
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {view.data.performance.map((metric) => {
+        const card = (
+          <MetricCard
+            key={metric.id}
+            label={metric.label}
+            value={metric.value}
+            hint={metric.hint}
+            tone={metric.tone}
+          />
+        );
+        if (!metric.href) return card;
+        return (
+          <Link
+            key={metric.id}
+            href={metric.href}
+            className="block transition hover:opacity-95"
+            data-testid={`workspace-metric-${metric.id}`}
+          >
+            <MetricCard
+              label={metric.label}
+              value={metric.value}
+              hint={metric.hint}
+              tone={metric.tone}
+            />
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -108,7 +172,7 @@ function RecentActivitySection({ view }: { view: WorkspaceViewModel }) {
     return (
       <EmptyState
         title="No recent activity"
-        description="Inspections, issues, and knowledge updates will appear here."
+        description="Meaningful inspections, issues, and knowledge updates will appear here."
         inset
       />
     );
