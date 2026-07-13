@@ -65,6 +65,17 @@ export default function AdminPage() {
             </span>
           </Link>
         </li>
+        <li>
+          <Link
+            href="/admin/organization/facilities"
+            className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
+          >
+            <span className="text-sm font-medium text-zinc-900">Organization facilities</span>
+            <span className="text-sm text-zinc-600">
+              Multi-site facility summary and explicit user access grants within this organization.
+            </span>
+          </Link>
+        </li>
         <li className="px-4 py-4 text-sm text-zinc-500 sm:px-6">
           Additional admin tools (categories, lookups) will appear here in later phases.
         </li>

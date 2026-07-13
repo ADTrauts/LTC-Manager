@@ -20,6 +20,7 @@ export type RoutePermissionRule = {
 /** Seeded fallback min-role map — keep aligned with prisma/seed.mjs ROUTE_MIN_ROLE. */
 export const WAVE1_ROUTE_MIN_ROLES: Record<string, AppRole> = {
   "/admin": "FACILITY_ADMINISTRATOR",
+  "/admin/organization/facilities": "FACILITY_ADMINISTRATOR",
   "/employees": "MANAGER",
   "/reports": "MANAGER",
   "/units": "SUPERVISOR",

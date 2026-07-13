@@ -34,6 +34,7 @@ import { requireAtLeastRole } from "@/lib/access";
 import { accessMethodValues, requiresEmailPasswordAccount } from "@/lib/credential-policy";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
+import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import {
   buildTerminationSnapshotJson,
@@ -393,7 +394,7 @@ export async function createEmployeeAction(formData: FormData) {
           throw new Error("Unable to create email/password sign-in for this employee.");
         }
         const passwordHash = await bcrypt.hash(parsed.initialPassword, 12);
-        await tx.user.create({
+        const createdUser = await tx.user.create({
           data: {
             email: normalizedEmail,
             displayName: `${parsed.firstName} ${parsed.lastName}`,
@@ -402,6 +403,10 @@ export async function createEmployeeAction(formData: FormData) {
             roleId: role.id,
             isActive: true,
           },
+        });
+        await ensureUserFacilityAccessGrant(tx, {
+          userId: createdUser.id,
+          facilityId: session.facilityId,
         });
       }
     });

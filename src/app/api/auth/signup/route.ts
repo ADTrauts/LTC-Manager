@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
+import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
 import { createOrganizationForNewFacility } from "@/lib/organization";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
@@ -72,6 +73,11 @@ export async function POST(request: Request) {
         isActive: true,
       },
       include: { role: true },
+    });
+
+    await ensureUserFacilityAccessGrant(tx, {
+      userId: user.id,
+      facilityId: facility.id,
     });
 
     await tx.employee.create({

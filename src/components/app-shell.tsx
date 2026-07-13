@@ -4,16 +4,18 @@ import type { CSSProperties } from "react";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { LeftSidebar } from "@/components/left-sidebar";
+import { FacilitySwitcher } from "@/components/facility-switcher";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
 import { SignOutControls } from "@/components/sign-out-controls";
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
 import { TopNav } from "@/components/top-nav";
 import { hasAtLeastRole } from "@/lib/access";
-import { getSession } from "@/lib/auth";
+import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import { loadFacilityAccessContext } from "@/lib/facility-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
@@ -35,12 +37,20 @@ export async function AppShell({ children }: AppShellProps) {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const [units, facility, readiness] = await Promise.all([
+  const emailUserId = sessionUserIdForFk(session);
+  const [units, facility, readiness, facilityAccess] = await Promise.all([
     getSidebarUnitsForSession(session),
     getFacilityForSession(),
     loadUnitReadinessBatch(session.facilityId, {
       activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
     }),
+    emailUserId && session.authKind === "user"
+      ? loadFacilityAccessContext({
+          userId: emailUserId,
+          activeFacilityId: session.facilityId,
+          role: session.role,
+        })
+      : Promise.resolve(null),
   ]);
   const deviceUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value;
   const lockedUnitId =
@@ -104,6 +114,17 @@ export async function AppShell({ children }: AppShellProps) {
             facilityName={facility?.displayName ?? "Facility"}
             sessionLabel={sessionLabel}
           />
+          {authKind === "user" &&
+          facilityAccess &&
+          facilityAccess.accessibleFacilities.length > 1 ? (
+            <FacilitySwitcher
+              facilities={facilityAccess.accessibleFacilities.map((f) => ({
+                facilityId: f.facilityId,
+                facilityName: f.facilityName,
+              }))}
+              activeFacilityId={facilityAccess.activeFacilityId}
+            />
+          ) : null}
           {scopeDepartments.length > 0 ? (
             <DepartmentScopeSwitcher
               departments={scopeDepartments}

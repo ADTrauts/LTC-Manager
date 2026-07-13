@@ -74,7 +74,13 @@ export default async function AdminOrganizationPage() {
         <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Organization</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Organization is the parent business entity; Facility remains the login and operational scope.
-          Only Facility Administrators can edit these settings.
+          Only Facility Administrators can edit these settings.{" "}
+          <Link
+            href="/admin/organization/facilities"
+            className="font-medium text-zinc-800 underline hover:text-zinc-950"
+          >
+            Manage facilities &amp; access
+          </Link>
         </p>
       </div>
 

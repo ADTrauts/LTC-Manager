@@ -112,6 +112,7 @@ model Facility {
   unionHandbookUploadedAt       DateTime?
   unionHandbookEffectiveDate    DateTime?                   @db.Date
   users                         User[]
+  userFacilityAccesses          UserFacilityAccess[]
   units                         Unit[]
   employees                     Employee[]
   logTemplates                  LogTemplate[]
@@ -345,6 +346,8 @@ model User {
   attachmentsCreated        Attachment[]                @relation("AttachmentCreatedByUser")
   knowledgeArticlesCreated  KnowledgeArticle[]          @relation("KnowledgeArticleCreatedBy")
   knowledgeArticlesUpdated  KnowledgeArticle[]          @relation("KnowledgeArticleUpdatedBy")
+  facilityAccesses          UserFacilityAccess[]        @relation("UserFacilityAccessUser")
+  facilityAccessesGranted   UserFacilityAccess[]        @relation("UserFacilityAccessGrantedBy")
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime                    @updatedAt
 
@@ -352,6 +355,28 @@ model User {
   @@index([isActive])
   @@index([facilityId])
   @@index([primaryDepartmentId])
+}
+
+/// Explicit multi-facility access grant. Shared Organization alone never authorizes a facility.
+/// Role remains on User for Wave 11 M2 (per-facility role deferred).
+model UserFacilityAccess {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation("UserFacilityAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  facilityId      String
+  facility        Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  isActive        Boolean   @default(true)
+  grantedByUserId String?
+  grantedByUser   User?     @relation("UserFacilityAccessGrantedBy", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  grantedAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, facilityId])
+  @@index([userId, isActive])
+  @@index([facilityId, isActive])
+  @@index([grantedByUserId])
 }
 
 enum UnitType {
