@@ -73,6 +73,7 @@ export type AppIconKey = keyof typeof AppIcons;
 
 /** Default nav path → icon key (for shell and future module chrome). */
 export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
+  "/workspace": "operationsCenter",
   "/dashboard": "operationsCenter",
   "/operations": "operationsCenter",
   "/today": "todaysWork",

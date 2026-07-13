@@ -14,6 +14,7 @@ type NavDeptRule = { pathPrefix: string } & (
  * Longest match wins. `/admin/organization` is treated like `/admin` unless listed separately.
  */
 export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
+  { pathPrefix: "/workspace", visibility: "shared" },
   { pathPrefix: "/dashboard", visibility: "shared" },
   { pathPrefix: "/operations", visibility: "shared" },
   { pathPrefix: "/units", visibility: "shared" },

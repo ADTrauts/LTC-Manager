@@ -118,8 +118,8 @@ test("isTodaysWorkEnabled parses falsey env values", () => {
   }
 });
 
-test("resolveDefaultHomePath falls back to Operations Center when Today's Work is disabled", () => {
+test("resolveDefaultHomePath falls back to Business Workspace when Today's Work is disabled", () => {
   withEnv("TODAYS_WORK_ENABLED", "false", () => {
-    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/dashboard");
+    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/workspace");
   });
 });

@@ -32,6 +32,7 @@ export const WAVE1_ROUTE_MIN_ROLES: Record<string, AppRole> = {
   "/repairs": "STAFF",
   "/issues": "STAFF",
   "/unit": "STAFF",
+  "/workspace": "SUPERVISOR",
   "/dashboard": "STAFF",
   "/operations": "STAFF",
   "/today": "SUPERVISOR",
@@ -125,7 +126,7 @@ async function loadPermissionConfig() {
     const fallbackRules = buildFallbackRules();
     const fallbackNavByRole = emptyNavByRole();
     const fallbackNavDefs = [
-      { label: "Operations Center", href: "/dashboard", minRole: "STAFF" as AppRole },
+      { label: "Workspace", href: "/workspace", minRole: "SUPERVISOR" as AppRole },
       { label: "Today's Work", href: "/today", minRole: "SUPERVISOR" as AppRole },
       { label: "Locations", href: "/units", minRole: "SUPERVISOR" as AppRole },
       { label: "Employees", href: "/employees", minRole: "MANAGER" as AppRole },

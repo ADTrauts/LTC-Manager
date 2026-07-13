@@ -35,17 +35,17 @@ test("resolveZoneForPathPrefix matches pathPrefix values from AppRoute", () => {
 test("groupNavItemsByZone preserves nav order within zones and zone order globally", () => {
   const groups = groupNavItemsByZone([
     { label: "Reports", href: "/reports", zone: "REVIEW" },
-    { label: "Dashboard", href: "/dashboard", zone: "OPERATIONS_CENTER" },
+    { label: "Workspace", href: "/workspace", zone: "WORKSPACE" },
     { label: "Today's Work", href: "/today", zone: "TODAYS_WORK" },
     { label: "Logs", href: "/logs", zone: "ADMINISTRATION" },
   ]);
 
   assert.deepEqual(
     groups.map((g) => g.zone),
-    ["OPERATIONS_CENTER", "TODAYS_WORK", "REVIEW", "ADMINISTRATION"],
+    ["WORKSPACE", "TODAYS_WORK", "REVIEW", "ADMINISTRATION"],
   );
-  assert.equal(groups[0]?.items[0]?.href, "/dashboard");
-  assert.equal(groups[0]?.items[0]?.label, "Operations Center");
+  assert.equal(groups[0]?.items[0]?.href, "/workspace");
+  assert.equal(groups[0]?.items[0]?.label, "Workspace");
 });
 
 test("normalizePrimaryNavLabel maps legacy module labels to zone names", () => {
@@ -70,14 +70,14 @@ test("shouldShowZoneHeading hides redundant zone label for single matching link"
   assert.equal(shouldShowZoneHeading(multi), true);
 });
 
-test("resolveDefaultHomePath sends managers to Operations Center", () => {
+test("resolveDefaultHomePath sends managers to Business Workspace", () => {
   assert.equal(
     resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }),
-    "/dashboard",
+    "/workspace",
   );
   assert.equal(
     resolveDefaultHomePath({ authKind: "user", role: "FACILITY_ADMINISTRATOR" }),
-    "/dashboard",
+    "/workspace",
   );
 });
 

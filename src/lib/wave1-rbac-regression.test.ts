@@ -41,6 +41,8 @@ const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
   { role: "MANAGER", path: "/today/walk" },
   { role: "MANAGER", path: "/today/coverage" },
   { role: "MANAGER", path: "/today/handoffs" },
+  { role: "MANAGER", path: "/workspace" },
+  { role: "SUPERVISOR", path: "/workspace" },
   { role: "STAFF", path: "/logs" },
   { role: "STAFF", path: "/unit/abc" },
   { role: "STAFF", path: "/dashboard" },
@@ -48,6 +50,7 @@ const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
 ];
 
 const WAVE1_RBAC_DENIALS: { role: AppRole; path: string }[] = [
+  { role: "STAFF", path: "/workspace" },
   { role: "STAFF", path: "/admin" },
   { role: "STAFF", path: "/employees" },
   { role: "STAFF", path: "/reports" },
@@ -130,8 +133,8 @@ test("Wave 1 RBAC matrix — floor default home avoids /units redirect loop", ()
   );
 });
 
-test("Wave 1 RBAC matrix — manager stays on Operations Center; supervisor homes on Today's Work", () => {
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
+test("Wave 1 RBAC matrix — manager homes on Workspace; supervisor homes on Today's Work", () => {
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/workspace");
   assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
 });
 

@@ -37,7 +37,8 @@ const ROUTE_DEFINITIONS = [
   { key: "repairs", pathPrefix: "/repairs", label: "Repairs", navVisible: true, navOrder: 80, isCritical: false },
   { key: "issues", pathPrefix: "/issues", label: "Issues", navVisible: false, navOrder: 81, isCritical: false },
   { key: "unit", pathPrefix: "/unit", label: "Unit Workspace", navVisible: false, navOrder: 200, isCritical: false },
-  { key: "dashboard", pathPrefix: "/dashboard", label: "Operations Center", navVisible: true, navOrder: 10, isCritical: true },
+  { key: "workspace", pathPrefix: "/workspace", label: "Workspace", navVisible: true, navOrder: 5, isCritical: true },
+  { key: "dashboard", pathPrefix: "/dashboard", label: "Operations Center", navVisible: false, navOrder: 10, isCritical: true },
   { key: "operations", pathPrefix: "/operations", label: "Operations Center", navVisible: false, navOrder: 11, isCritical: false },
   { key: "today", pathPrefix: "/today", label: "Today's Work", navVisible: true, navOrder: 15, isCritical: false },
 ];
@@ -55,6 +56,7 @@ const ROUTE_MIN_ROLE = {
   "/repairs": RoleKey.STAFF,
   "/issues": RoleKey.STAFF,
   "/unit": RoleKey.STAFF,
+  "/workspace": RoleKey.SUPERVISOR,
   "/dashboard": RoleKey.STAFF,
   "/operations": RoleKey.STAFF,
   "/today": RoleKey.SUPERVISOR,

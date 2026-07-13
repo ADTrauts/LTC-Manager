@@ -94,7 +94,7 @@ test("Today's Work RBAC — shared across operational department modes", () => {
 });
 
 test("Today's Work RBAC — floor and manager homes stay off /today", () => {
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/workspace");
   assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
   assert.equal(resolveDefaultHomePath({ authKind: "employee", role: "STAFF" }), "/logs");
   assert.equal(
@@ -110,9 +110,9 @@ test("Today's Work RBAC — staff retain Operations Center and unit workspace ac
   assert.equal(resolveRouteAccess("/unit/abc", "STAFF", rules), true);
 });
 
-test("Today's Work RBAC — feature flag off keeps supervisor on Operations Center", () => {
+test("Today's Work RBAC — feature flag off keeps supervisor on Business Workspace", () => {
   withTodaysWorkFlag("false", () => {
     assert.equal(isTodaysWorkEnabled(), false);
-    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/dashboard");
+    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/workspace");
   });
 });

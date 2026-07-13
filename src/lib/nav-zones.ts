@@ -3,6 +3,7 @@ import type { AuthKind } from "@/lib/auth";
 import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 
 export const NAV_ZONES = [
+  "WORKSPACE",
   "OPERATIONS_CENTER",
   "LOCATIONS",
   "TODAYS_WORK",
@@ -13,6 +14,7 @@ export const NAV_ZONES = [
 export type NavZone = (typeof NAV_ZONES)[number];
 
 export const NAV_ZONE_LABELS: Record<NavZone, string> = {
+  WORKSPACE: "Workspace",
   OPERATIONS_CENTER: "Operations Center",
   LOCATIONS: "Locations",
   TODAYS_WORK: "Today's Work",
@@ -22,6 +24,7 @@ export const NAV_ZONE_LABELS: Record<NavZone, string> = {
 
 /** Canonical visible labels for primary top-nav routes (pathPrefix → zone-facing label). */
 export const PRIMARY_NAV_LABELS: Record<string, string> = {
+  "/workspace": NAV_ZONE_LABELS.WORKSPACE,
   "/dashboard": NAV_ZONE_LABELS.OPERATIONS_CENTER,
   "/today": NAV_ZONE_LABELS.TODAYS_WORK,
   "/staffing": NAV_ZONE_LABELS.TODAYS_WORK,
@@ -44,6 +47,7 @@ type NavZonePathRule = { pathPrefix: string; zone: NavZone };
  */
 export const NAV_ZONE_PATH_RULES: NavZonePathRule[] = (
   [
+    { pathPrefix: "/workspace", zone: "WORKSPACE" },
     { pathPrefix: "/dashboard", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/operations", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/evs", zone: "OPERATIONS_CENTER" },
@@ -147,7 +151,8 @@ function isFloorOperationalContext(ctx: DefaultHomeContext): boolean {
 }
 
 /**
- * Role-aware post-auth landing path. Preserves existing URL paths (/dashboard stays).
+ * Role-aware post-auth landing path.
+ * Manager+ → Business Workspace; Supervisor → Today's Work; floor → unit/logs.
  */
 export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
   const unitId = ctx.lockedUnitId ?? ctx.activeUnitId ?? undefined;
@@ -161,12 +166,12 @@ export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
   }
 
   if (ctx.role === "SUPERVISOR") {
-    return isTodaysWorkEnabled() ? "/today" : "/dashboard";
+    return isTodaysWorkEnabled() ? "/today" : "/workspace";
   }
 
   if (hasAtLeastRole(ctx.role, "MANAGER")) {
-    return "/dashboard";
+    return "/workspace";
   }
 
-  return "/dashboard";
+  return "/workspace";
 }
