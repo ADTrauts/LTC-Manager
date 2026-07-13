@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   isAiBriefEnabled,
+  isAiShiftSummaryEnabled,
   isOperationEngineEnabled,
   isTaskSyncEnabled,
   isTodaysWorkEnabled,
@@ -76,6 +77,20 @@ test("isAiBriefEnabled parses truthy env values", () => {
   for (const value of ["true", "1", "on", "yes"]) {
     withEnv("AI_BRIEF_ENABLED", value, () => {
       assert.equal(isAiBriefEnabled(), true, value);
+    });
+  }
+});
+
+test("isAiShiftSummaryEnabled defaults to false when unset", () => {
+  withEnv("AI_SHIFT_SUMMARY_ENABLED", undefined, () => {
+    assert.equal(isAiShiftSummaryEnabled(), false);
+  });
+});
+
+test("isAiShiftSummaryEnabled parses truthy env values", () => {
+  for (const value of ["true", "1", "on", "yes"]) {
+    withEnv("AI_SHIFT_SUMMARY_ENABLED", value, () => {
+      assert.equal(isAiShiftSummaryEnabled(), true, value);
     });
   }
 });

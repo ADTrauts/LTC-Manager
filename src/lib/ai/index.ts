@@ -32,11 +32,13 @@ export { generateStructuredResponse, parseJsonObject } from "./generate-structur
 
 export {
   buildOperationalSnapshot,
+  diffOperationalSnapshots,
   enforceSnapshotSize,
   hashOperationalSnapshot,
   sanitizeOperationalSnapshot,
   type BuildOperationalSnapshotInput,
   type OperationalSnapshot,
+  type OperationalSnapshotDiff,
 } from "./operational-snapshot";
 
 export {
@@ -50,3 +52,16 @@ export {
   evaluateMorningBriefRateLimits,
   type GenerateMorningBriefInput,
 } from "./morning-brief";
+
+export {
+  getOrGenerateShiftTransition,
+  buildFallbackShiftTransition,
+  validateShiftTransitionResponse,
+  buildShiftTransitionSystemPrompt,
+  buildShiftTransitionUserPrompt,
+  SHIFT_TRANSITION_PROMPT_VERSION,
+  evaluateShiftTransitionRateLimits,
+  type GenerateShiftTransitionInput,
+  type ShiftTransitionView,
+  type ShiftTransitionResult,
+} from "./shift-transition";

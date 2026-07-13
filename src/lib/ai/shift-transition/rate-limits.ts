@@ -1,13 +1,13 @@
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 
 import type { AiConfiguration } from "@/lib/ai/configuration";
-import type { MorningBriefCacheStore } from "./cache-store";
+import type { MorningBriefCacheStore } from "@/lib/ai/morning-brief/cache-store";
 
 export type RateLimitDecision =
   | { ok: true }
   | { ok: false; reason: "min_interval" | "daily_limit"; message: string };
 
-export async function evaluateMorningBriefRateLimits(input: {
+export async function evaluateShiftTransitionRateLimits(input: {
   cache: MorningBriefCacheStore;
   config: AiConfiguration;
   facilityId: string;
@@ -21,13 +21,13 @@ export async function evaluateMorningBriefRateLimits(input: {
   const dailyCount = await input.cache.countGeneratedToday(
     input.facilityId,
     serviceDate,
-    "MORNING_BRIEF",
+    "SHIFT_TRANSITION",
   );
   if (dailyCount >= input.config.dailyRequestLimit) {
     return {
       ok: false,
       reason: "daily_limit",
-      message: `Daily AI brief limit of ${input.config.dailyRequestLimit} reached.`,
+      message: `Daily shift summary limit of ${input.config.dailyRequestLimit} reached.`,
     };
   }
 
@@ -35,7 +35,7 @@ export async function evaluateMorningBriefRateLimits(input: {
     input.facilityId,
     input.departmentKey,
     serviceDate,
-    "MORNING_BRIEF",
+    "SHIFT_TRANSITION",
   );
   if (latest && latest.status === "READY") {
     const elapsed = now.getTime() - latest.generatedAt.getTime();

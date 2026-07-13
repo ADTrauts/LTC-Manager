@@ -1499,31 +1499,42 @@ enum AiBriefStatus {
   FAILED
 }
 
-/// Cached Operations Center Morning Brief (Wave 10). Stores sanitized result only — not raw prompts.
-model AiOperationalBrief {
-  id                  String        @id @default(cuid())
-  facilityId          String
-  facility            Facility      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  /// Operational department key or "ALL" for facility-wide leadership view.
-  departmentKey       String
-  /// Facility-local service date as UTC-midnight @db.Date.
-  serviceDate         DateTime      @db.Date
-  operationInstanceId String?
-  snapshotHash        String
-  resultJson          Json
-  provider            String
-  model               String
-  status              AiBriefStatus @default(READY)
-  promptVersion       String
-  latencyMs           Int?
-  errorCode           String?
-  generatedAt         DateTime      @default(now())
-  expiresAt           DateTime
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+enum AiBriefType {
+  MORNING_BRIEF
+  SHIFT_TRANSITION
+}
 
-  @@unique([facilityId, departmentKey, serviceDate, snapshotHash])
-  @@index([facilityId, departmentKey, serviceDate])
-  @@index([facilityId, generatedAt])
+/// Cached Operational AI brief (Wave 10). Stores sanitized result (+ optional snapshot) — not raw prompts.
+model AiOperationalBrief {
+  id                   String        @id @default(cuid())
+  facilityId           String
+  facility             Facility      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  /// Operational department key or "ALL" for facility-wide leadership view.
+  departmentKey        String
+  /// Facility-local service date as UTC-midnight @db.Date.
+  serviceDate          DateTime      @db.Date
+  briefType            AiBriefType   @default(MORNING_BRIEF)
+  operationInstanceId  String?
+  snapshotHash         String
+  /// Sanitized operational snapshot used for baseline diffs (privacy-minimized).
+  snapshotJson         Json?
+  baselineSnapshotHash String?
+  windowStart          DateTime?
+  windowEnd            DateTime?
+  resultJson           Json
+  provider             String
+  model                String
+  status               AiBriefStatus @default(READY)
+  promptVersion        String
+  latencyMs            Int?
+  errorCode            String?
+  generatedAt          DateTime      @default(now())
+  expiresAt            DateTime
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([facilityId, departmentKey, serviceDate, briefType, snapshotHash])
+  @@index([facilityId, departmentKey, serviceDate, briefType])
+  @@index([facilityId, briefType, generatedAt])
   @@index([expiresAt])
 }

@@ -269,8 +269,13 @@ test("daily limit and min interval are enforced", async () => {
     facilityId: "fac-3",
     departmentKey: "DIETARY",
     serviceDate: new Date("2026-07-12T00:00:00.000Z"),
+    briefType: "MORNING_BRIEF",
     operationInstanceId: null,
     snapshotHash: "abc",
+    snapshotJson: null,
+    baselineSnapshotHash: null,
+    windowStart: null,
+    windowEnd: null,
     resultJson: {
       headline: "Cached",
       summary: "Cached summary.",

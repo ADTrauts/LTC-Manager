@@ -5,6 +5,13 @@ export {
   sanitizeOperationalSnapshot,
   snapshotContainsPiiMarkers,
 } from "./sanitize-snapshot";
+export { diffOperationalSnapshots } from "./diff-operational-snapshots";
+export type {
+  DiffOperationalSnapshotsInput,
+  OperationalSnapshotDiff,
+  SnapshotDiffDirection,
+  SnapshotDiffItem,
+} from "./snapshot-diff-types";
 export {
   inspectionsAdminPath,
   isAllowedAppSourcePath,

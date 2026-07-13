@@ -31,3 +31,8 @@ export function isTaskSyncEnabled(): boolean {
 export function isAiBriefEnabled(): boolean {
   return parseEnvFlag(process.env.AI_BRIEF_ENABLED, false);
 }
+
+/** Defaults to disabled — Wave 10 Shift Transition Summary stays off until enabled. */
+export function isAiShiftSummaryEnabled(): boolean {
+  return parseEnvFlag(process.env.AI_SHIFT_SUMMARY_ENABLED, false);
+}

@@ -6,9 +6,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { PageHeader } from "@/components/design-system/page-header";
 import { HandoffSummaryCards, TodaysWorkHandoffList } from "@/components/todays-work/todays-work-handoff-list";
+import { ShiftTransitionSummaryCard } from "@/components/todays-work/shift-transition-summary-card";
 import { hasAtLeastRole } from "@/lib/access";
+import { getOrGenerateShiftTransition } from "@/lib/ai/shift-transition";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { isAiShiftSummaryEnabled } from "@/lib/feature-flags";
 import { loadHandoffs } from "@/lib/todays-work";
 
 export default async function TodaysWorkHandoffsPage() {
@@ -28,6 +31,16 @@ export default async function TodaysWorkHandoffsPage() {
   });
   const { sections, summary, operationContext, isClear } = handoffs;
 
+  const aiEnabled = isAiShiftSummaryEnabled();
+  const shiftSummary = aiEnabled
+    ? await getOrGenerateShiftTransition({
+        facilityId: session.facilityId,
+        departmentKey: deptNav.activeOperationalDepartmentKey,
+        allowProvider: false,
+      })
+    : null;
+  const canRefreshSummary = hasAtLeastRole(session.role, "MANAGER");
+
   return (
     <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-handoffs-page">
       <PageHeader
@@ -45,6 +58,15 @@ export default async function TodaysWorkHandoffsPage() {
         }
         below={<OperationContextBanner context={operationContext} embedded />}
       />
+
+      {shiftSummary ? (
+        <ShiftTransitionSummaryCard
+          initialSummary={shiftSummary}
+          departmentKey={deptNav.activeOperationalDepartmentKey ?? "DIETARY"}
+          aiEnabled={aiEnabled}
+          canRefresh={canRefreshSummary}
+        />
+      ) : null}
 
       {!isClear ? <HandoffSummaryCards summary={summary} /> : null}
 

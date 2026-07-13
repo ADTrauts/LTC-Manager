@@ -94,6 +94,7 @@ async function persistBrief(input: {
   departmentKey: string;
   serviceDateKey: string;
   snapshotHash: string;
+  snapshot: OperationalSnapshot;
   result: MorningBriefResult;
   provider: string;
   model: string;
@@ -107,8 +108,13 @@ async function persistBrief(input: {
     facilityId: input.facilityId,
     departmentKey: input.departmentKey,
     serviceDate,
+    briefType: "MORNING_BRIEF",
     operationInstanceId: null,
     snapshotHash: input.snapshotHash,
+    snapshotJson: input.snapshot,
+    baselineSnapshotHash: null,
+    windowStart: null,
+    windowEnd: null,
     resultJson: input.result,
     provider: input.provider,
     model: input.model,
@@ -164,12 +170,13 @@ export async function getOrGenerateMorningBrief(
     facilityId: input.facilityId,
     departmentKey,
     serviceDate,
+    briefType: "MORNING_BRIEF",
     snapshotHash,
   });
 
   if (cachedExact && cachedExact.status === "READY" && !input.forceRefresh) {
     return toView({
-      result: cachedExact.resultJson,
+      result: cachedExact.resultJson as MorningBriefResult,
       origin: "cached",
       title: "Morning Brief",
       snapshotHash,
@@ -185,7 +192,7 @@ export async function getOrGenerateMorningBrief(
     if (cachedExact) {
       const isAi = cachedExact.status === "READY";
       return toView({
-        result: cachedExact.resultJson,
+        result: cachedExact.resultJson as MorningBriefResult,
         origin: isAi ? "cached" : "fallback",
         title: isAi ? "Morning Brief" : "Operational Summary",
         snapshotHash,
@@ -214,7 +221,7 @@ export async function getOrGenerateMorningBrief(
   if (!rate.ok) {
     if (cachedExact) {
       return toView({
-        result: cachedExact.resultJson,
+        result: cachedExact.resultJson as MorningBriefResult,
         origin: cachedExact.status === "READY" ? "cached" : "fallback",
         title: cachedExact.status === "READY" ? "Morning Brief" : "Operational Summary",
         snapshotHash,
@@ -232,6 +239,7 @@ export async function getOrGenerateMorningBrief(
       departmentKey,
       serviceDateKey: snapshot.serviceDate,
       snapshotHash,
+      snapshot,
       result: fallback,
       provider: "none",
       model: "fallback",
@@ -299,6 +307,7 @@ export async function getOrGenerateMorningBrief(
       departmentKey,
       serviceDateKey: snapshot.serviceDate,
       snapshotHash,
+      snapshot,
       result,
       provider: generation.provider,
       model: generation.model,
@@ -328,6 +337,7 @@ export async function getOrGenerateMorningBrief(
       departmentKey,
       serviceDateKey: snapshot.serviceDate,
       snapshotHash,
+      snapshot,
       result: fallback,
       provider: "none",
       model: "fallback",
