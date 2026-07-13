@@ -1,13 +1,18 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { IssueDetailActions } from "@/components/issues/issue-detail-actions";
+import { RecoveryAssistantCard } from "@/components/issues/recovery-assistant-card";
 import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
 import { AppCard, PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
+import { getOrGenerateRecoveryAssistant } from "@/lib/ai/recovery-assistant";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import { isAiRecoveryAssistantEnabled } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 import { formatIssueTimestamp } from "@/lib/work/issues/format-issue-time";
@@ -49,7 +54,7 @@ export default async function IssueDetailPage({ params }: IssueDetailPageProps) 
     where: { id: issueId, unit: { facilityId: session.facilityId } },
     include: {
       unit: { select: { id: true, name: true, facilityId: true } },
-      asset: { select: { id: true, assetCode: true, name: true } },
+      asset: { select: { id: true, assetCode: true, name: true, status: true, criticality: true } },
       vendor: { select: { id: true, name: true } },
       reportedBy: { select: { id: true, displayName: true } },
       assignedEmployee: { select: { id: true, firstName: true, lastName: true } },
@@ -110,6 +115,20 @@ export default async function IssueDetailPage({ params }: IssueDetailPageProps) 
     : null;
   const canMutate = hasAtLeastRole(session.role, "STAFF");
   const tz = facility.timezone;
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const aiEnabled = isAiRecoveryAssistantEnabled();
+  const canViewRecoveryAssistant = hasAtLeastRole(session.role, "SUPERVISOR");
+  const canRefreshRecovery = hasAtLeastRole(session.role, "MANAGER");
+  const recoveryGuidance =
+    aiEnabled && canViewRecoveryAssistant
+      ? await getOrGenerateRecoveryAssistant({
+          facilityId: session.facilityId,
+          issueId: issue.id,
+          viewerDepartmentIds,
+          departmentKey: deptNav.activeOperationalDepartmentKey,
+          allowProvider: false,
+        })
+      : null;
 
   return (
     <section className="mx-auto max-w-4xl space-y-6" data-testid="issue-detail">
@@ -238,6 +257,16 @@ export default async function IssueDetailPage({ params }: IssueDetailPageProps) 
           </div>
         </dl>
       </AppCard>
+
+      {recoveryGuidance ? (
+        <RecoveryAssistantCard
+          initialGuidance={recoveryGuidance}
+          issueId={issue.id}
+          departmentKey={deptNav.activeOperationalDepartmentKey ?? "DIETARY"}
+          aiEnabled={aiEnabled}
+          canRefresh={canRefreshRecovery}
+        />
+      ) : null}
 
       <AppCard title="Progress history" subtitle="Append-only recovery timeline">
         <ol className="space-y-3" data-testid="issue-history">

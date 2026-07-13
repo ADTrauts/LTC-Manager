@@ -65,3 +65,15 @@ export {
   type ShiftTransitionView,
   type ShiftTransitionResult,
 } from "./shift-transition";
+
+export {
+  getOrGenerateRecoveryAssistant,
+  buildFallbackRecoveryGuidance,
+  validateRecoveryAssistantResponse,
+  buildRecoveryAssistantSystemPrompt,
+  RECOVERY_ASSISTANT_PROMPT_VERSION,
+  type GenerateRecoveryAssistantInput,
+  type RecoveryAssistantView,
+  type RecoveryAssistantResult,
+  type RecoverySnapshot,
+} from "./recovery-assistant";

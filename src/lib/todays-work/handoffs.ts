@@ -215,7 +215,7 @@ function handoffItemsFromRepairs(repairs: HandoffRepairRecord[]): HandoffItem[] 
     unitId: repair.unitId,
     unitName: repair.unitName,
     primaryHref: `/issues/${repair.id}`,
-    primaryLabel: "View issue",
+    primaryLabel: "View recovery guidance",
     secondaryHref: `/unit/${repair.unitId}`,
     secondaryLabel: "Unit workspace",
   }));

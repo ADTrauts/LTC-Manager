@@ -1502,6 +1502,7 @@ enum AiBriefStatus {
 enum AiBriefType {
   MORNING_BRIEF
   SHIFT_TRANSITION
+  RECOVERY_ASSISTANT
 }
 
 /// Cached Operational AI brief (Wave 10). Stores sanitized result (+ optional snapshot) — not raw prompts.

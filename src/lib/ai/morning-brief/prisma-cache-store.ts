@@ -97,13 +97,14 @@ export function createPrismaBriefCacheStore(db: PrismaClient): MorningBriefCache
         },
       });
     },
-    async findMostRecentAny(facilityId, departmentKey, serviceDate, briefType) {
+    async findMostRecentAny(facilityId, departmentKey, serviceDate, briefType, operationInstanceId) {
       const row = await db.aiOperationalBrief.findFirst({
         where: {
           facilityId,
           departmentKey,
           serviceDate,
           ...(briefType ? { briefType } : {}),
+          ...(operationInstanceId ? { operationInstanceId } : {}),
         },
         orderBy: { generatedAt: "desc" },
       });

@@ -132,7 +132,7 @@ test("buildHandoffSections groups failed logs and open call-downs into immediate
   assert.ok(immediate.items.some((item) => item.id === "repair:r1"));
   const repairItem = immediate.items.find((item) => item.id === "repair:r1");
   assert.equal(repairItem?.primaryHref, "/issues/r1");
-  assert.equal(repairItem?.primaryLabel, "View issue");
+  assert.equal(repairItem?.primaryLabel, "View recovery guidance");
 });
 
 test("buildHandoffSections includes meal service handoffs during execution", () => {

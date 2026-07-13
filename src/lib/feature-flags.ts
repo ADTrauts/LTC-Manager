@@ -36,3 +36,8 @@ export function isAiBriefEnabled(): boolean {
 export function isAiShiftSummaryEnabled(): boolean {
   return parseEnvFlag(process.env.AI_SHIFT_SUMMARY_ENABLED, false);
 }
+
+/** Defaults to disabled — Wave 10 Recovery Assistant stays off until enabled. */
+export function isAiRecoveryAssistantEnabled(): boolean {
+  return parseEnvFlag(process.env.AI_RECOVERY_ASSISTANT_ENABLED, false);
+}

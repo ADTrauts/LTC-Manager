@@ -51,6 +51,7 @@ export type MorningBriefCacheStore = {
     departmentKey: string,
     serviceDate: Date,
     briefType?: AiBriefType,
+    operationInstanceId?: string | null,
   ): Promise<BriefCacheRecord | null>;
   /** Prior snapshot with snapshotJson for baseline diffs (lookback window). */
   findBaselineSnapshot(input: {
@@ -112,14 +113,17 @@ export function createMemoryBriefCacheStore(): MorningBriefCacheStore {
           matchesType(r, briefType),
       ).length;
     },
-    async findMostRecentAny(facilityId, departmentKey, serviceDate, briefType) {
+    async findMostRecentAny(facilityId, departmentKey, serviceDate, briefType, operationInstanceId) {
       const matches = rows
         .filter(
           (r) =>
             r.facilityId === facilityId &&
             r.departmentKey === departmentKey &&
             serviceDateKey(r.serviceDate) === serviceDateKey(serviceDate) &&
-            matchesType(r, briefType),
+            matchesType(r, briefType) &&
+            (operationInstanceId === undefined ||
+              operationInstanceId === null ||
+              r.operationInstanceId === operationInstanceId),
         )
         .sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
       return matches[0] ?? null;
