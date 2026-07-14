@@ -3,7 +3,10 @@ import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
 import { buildDepartmentHealth } from "./build-department-health";
 import { buildManagementAgenda } from "./build-management-agenda";
-import { buildManagerFocus } from "./build-manager-focus";
+import {
+  buildManagerFocus,
+  buildManagerFocusHealthyGuidance,
+} from "./build-manager-focus";
 import { buildPerformanceSnapshot } from "./build-performance-snapshot";
 import { buildQuickActions } from "./build-quick-actions";
 import { buildRecentActivity } from "./build-recent-activity";
@@ -11,8 +14,14 @@ import {
   buildWorkspacePriorities,
   workspaceIsHealthy,
 } from "./build-workspace-priorities";
+import { loadCachedMorningBriefPreview } from "./load-cached-morning-brief";
 import { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
-import type { BusinessWorkspaceData, BusinessWorkspaceView } from "./types";
+import type {
+  BusinessWorkspaceData,
+  BusinessWorkspaceView,
+  WorkspaceCachedMorningBrief,
+  WorkspacePreferenceState,
+} from "./types";
 import { greetingForLocalHour } from "./workspace-layout";
 import { canAccessBusinessWorkspace } from "./workspace-permissions";
 import {
@@ -20,7 +29,6 @@ import {
   emptyWorkspacePreferenceState,
   loadWorkspacePreferenceState,
 } from "./workspace-preferences";
-import type { WorkspacePreferenceState } from "./types";
 
 function firstName(displayName: string): string {
   return displayName.trim().split(/\s+/)[0] || displayName;
@@ -37,6 +45,8 @@ export type LoadBusinessWorkspaceInput = {
   activeDepartmentName?: string | null;
   /** Optional injected preferences (tests). */
   preferences?: WorkspacePreferenceState;
+  /** Optional injected brief preview (tests). */
+  cachedMorningBrief?: WorkspaceCachedMorningBrief | null;
 };
 
 /**
@@ -70,6 +80,8 @@ export async function loadBusinessWorkspace(
   const priorities = buildWorkspacePriorities(inputs);
   const managerFocus = buildManagerFocus(inputs);
   const healthy = workspaceIsHealthy(priorities) && managerFocus.length === 0;
+  const managerFocusHealthy =
+    managerFocus.length === 0 ? buildManagerFocusHealthyGuidance(inputs) : null;
   const oc = inputs.dashboard;
   const staffingGaps = oc.unitsMissingStaffing.length;
   const callDownOpen = inputs.callDownSummary.open;
@@ -77,6 +89,15 @@ export async function loadBusinessWorkspace(
     role: input.role,
     preferences,
   });
+
+  const cachedMorningBrief =
+    input.cachedMorningBrief !== undefined
+      ? input.cachedMorningBrief
+      : await loadCachedMorningBriefPreview({
+          facilityId: input.facilityId,
+          facilityLocalDate: inputs.operationalTime.facilityLocalDate,
+          activeDepartmentKey: input.activeDepartmentKey,
+        });
 
   const data: BusinessWorkspaceData = {
     header: {
@@ -90,8 +111,13 @@ export async function loadBusinessWorkspace(
       healthy,
     },
     managerFocus,
+    managerFocusHealthy,
     managementAgenda: buildManagementAgenda(inputs),
-    quickActions: buildQuickActions({ supervisor: input.role === "SUPERVISOR" }),
+    quickActions: buildQuickActions({
+      supervisor: input.role === "SUPERVISOR",
+      promotedHrefs: managerFocus.map((card) => card.href),
+    }),
+    cachedMorningBrief,
     priorities,
     departmentHealth: buildDepartmentHealth(inputs),
     todaysWorkLinks: [
@@ -159,6 +185,13 @@ export async function loadBusinessWorkspace(
         description: "Equipment and plant assets",
         href: "/assets",
         icon: "assets",
+      },
+      {
+        id: "employees",
+        title: "Employees",
+        description: "Roster and HR surfaces",
+        href: "/employees",
+        icon: "employees",
       },
       {
         id: "logs",

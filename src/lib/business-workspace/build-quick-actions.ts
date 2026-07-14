@@ -1,23 +1,32 @@
 import type { WorkspaceQuickAction } from "./types";
 
+function normalizeHref(href: string): string {
+  return href.replace(/\/$/, "") || "/";
+}
+
 /**
- * Quick Actions — stable launch strip into existing routes.
+ * Quick Actions — compact launch strip into existing routes.
+ * Employees/Logs live under Operations launch (optional section), not the home strip.
  */
 export function buildQuickActions(options?: {
   supervisor?: boolean;
+  /** Hrefs already promoted in Manager Focus — skip duplicate module launches. */
+  promotedHrefs?: readonly string[];
 }): WorkspaceQuickAction[] {
+  const promoted = new Set((options?.promotedHrefs ?? []).map(normalizeHref));
+
   const all: WorkspaceQuickAction[] = [
     {
       id: "report-issue",
       title: "Report Issue",
-      description: "Open the issues module to create or triage work",
+      description: "Create or triage operational work",
       href: "/issues",
       icon: "repairs",
     },
     {
       id: "new-inspection",
       title: "New Inspection",
-      description: "Open inspections definitions and submissions",
+      description: "Open inspection definitions and submissions",
       href: "/admin/inspections",
       icon: "logs",
     },
@@ -49,27 +58,17 @@ export function buildQuickActions(options?: {
       href: "/admin/knowledge",
       icon: "administration",
     },
-    {
-      id: "employees",
-      title: "Employees",
-      description: "Roster and HR surfaces",
-      href: "/employees",
-      icon: "employees",
-    },
-    {
-      id: "logs",
-      title: "Logs",
-      description: "Compliance and temperature logs",
-      href: "/logs",
-      icon: "logs",
-    },
   ];
 
-  if (options?.supervisor) {
-    return all.filter((action) =>
-      ["report-issue", "operations-center", "todays-work", "logs"].includes(action.id),
-    );
+  const supervisorIds = new Set(["report-issue", "operations-center", "todays-work"]);
+  let actions = options?.supervisor
+    ? all.filter((action) => supervisorIds.has(action.id))
+    : all;
+
+  // Skip OC quick action when Focus already sends the user to Operations Center.
+  if (promoted.has("/dashboard")) {
+    actions = actions.filter((action) => action.id !== "operations-center");
   }
 
-  return all;
+  return actions;
 }

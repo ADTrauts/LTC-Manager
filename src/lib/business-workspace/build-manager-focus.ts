@@ -1,10 +1,21 @@
-import type { BusinessWorkspaceInputs } from "./load-workspace-inputs";
-import type { ManagerFocusCard } from "./types";
+import type { BusinessWorkspaceInputs, WorkspaceInspectionDue } from "./load-workspace-inputs";
+import type { ManagerFocusCard, ManagerFocusHealthyGuidance } from "./types";
 
 type FocusCandidate = ManagerFocusCard & { dedupeHref: string };
 
 function normalizeHref(href: string): string {
-  return href.split("?")[0]!.replace(/\/$/, "") || "/";
+  return href.replace(/\/$/, "") || "/";
+}
+
+/** Deep-link to unit inspection when unit + definition are known; otherwise handoffs. */
+export function inspectionFocusHref(row: WorkspaceInspectionDue): string {
+  if (row.unitId && row.definitionId) {
+    return `/unit/${row.unitId}?unitTab=overview&inspect=${row.definitionId}&occurrence=${row.id}`;
+  }
+  if (row.unitId) {
+    return `/unit/${row.unitId}`;
+  }
+  return "/today/handoffs";
 }
 
 /**
@@ -38,6 +49,7 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
 
   if (overdueInspections.length > 0) {
     const first = overdueInspections[0]!;
+    const href = inspectionFocusHref(first);
     candidates.push({
       id: "focus-inspection-overdue",
       title: "Highest priority inspection",
@@ -46,15 +58,16 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
           ? `${first.definitionName} is overdue`
           : `${overdueInspections.length} inspections are overdue`,
       whyItMatters: "Compliance work past due needs a manager decision today.",
-      actionLabel: "Go to Inspection",
-      href: "/today/handoffs",
+      actionLabel: first.unitId ? "Open Inspection" : "Go to Inspection",
+      href,
       tone: "blocked",
       locationLabel: first.unitName ?? undefined,
       rank: 1,
-      dedupeHref: normalizeHref("/today/handoffs"),
+      dedupeHref: normalizeHref(href),
     });
   } else if (dueInspections.length > 0) {
     const first = dueInspections[0]!;
+    const href = inspectionFocusHref(first);
     candidates.push({
       id: "focus-inspection-due",
       title: "Highest priority inspection",
@@ -63,12 +76,12 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
           ? `${first.definitionName} is due soon`
           : `${dueInspections.length} inspections are due within 24 hours`,
       whyItMatters: "Schedule inspection time before it becomes overdue.",
-      actionLabel: "Go to Inspection",
-      href: "/today/handoffs",
+      actionLabel: first.unitId ? "Open Inspection" : "Go to Inspection",
+      href,
       tone: "warning",
       locationLabel: first.unitName ?? undefined,
       rank: 1,
-      dedupeHref: normalizeHref("/today/handoffs"),
+      dedupeHref: normalizeHref(href),
     });
   }
 
@@ -189,4 +202,54 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
   }
 
   return selected;
+}
+
+/**
+ * Calm healthy-state guidance when Manager Focus has no urgent cards.
+ * One primary + up to two secondary — no manufactured urgency.
+ */
+export function buildManagerFocusHealthyGuidance(
+  inputs: BusinessWorkspaceInputs,
+): ManagerFocusHealthyGuidance {
+  const op = inputs.dashboard.operationContext;
+  const upcomingInspection = inputs.inspectionsDue.find((row) => !row.overdue);
+  const routineInProgress = inputs.openRepairs.find(
+    (row) =>
+      row.status === "IN_PROGRESS" &&
+      row.priority !== "URGENT" &&
+      row.priority !== "HIGH",
+  );
+
+  const secondary: ManagerFocusHealthyGuidance["secondary"] = [
+    { label: "Review Today's Work", href: "/today" },
+  ];
+
+  if (upcomingInspection) {
+    secondary.push({
+      label: upcomingInspection.unitName
+        ? `Upcoming: ${upcomingInspection.definitionName}`
+        : "Review upcoming inspections",
+      href: inspectionFocusHref(upcomingInspection),
+    });
+  } else if (routineInProgress) {
+    secondary.push({
+      label: `Routine work: ${routineInProgress.title}`,
+      href: `/issues/${routineInProgress.id}`,
+    });
+  } else if (op.scheduledTimeLabel) {
+    secondary.push({
+      label: `Next: ${op.serviceLabel} · ${op.scheduledTimeLabel}`,
+      href: "/dashboard",
+    });
+  }
+
+  return {
+    title: "Current operations are on track.",
+    detail:
+      op.scheduledTimeLabel != null
+        ? `${op.serviceLabel} — ${op.phase} · ${op.scheduledTimeLabel}`
+        : `${op.serviceLabel} — ${op.phase}`,
+    primary: { label: "Open Operations Center", href: "/dashboard" },
+    secondary: secondary.slice(0, 2),
+  };
 }

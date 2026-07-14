@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CachedMorningBriefPreview } from "@/components/business-workspace/cached-morning-brief-preview";
 import {
   WorkspaceCollapsibleSection,
   WorkspaceCustomizePanel,
@@ -16,6 +17,7 @@ import {
 } from "@/components/design-system";
 import type {
   BusinessWorkspaceView as WorkspaceViewModel,
+  ManagementAgendaBucket,
   WorkspaceSectionId,
 } from "@/lib/business-workspace";
 import { orderedWorkspaceSections } from "@/lib/business-workspace";
@@ -31,11 +33,42 @@ function priorityStatusLabel(tone: StatusTone): string {
 
 function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
   const cards = view.data.managerFocus;
+  const healthy = view.data.managerFocusHealthy;
+
+  if (cards.length === 0 && healthy) {
+    return (
+      <div
+        className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5"
+        data-testid="workspace-focus-healthy"
+      >
+        <p className="text-lg font-semibold text-zinc-900">{healthy.title}</p>
+        <p className="mt-1 text-sm text-zinc-600">{healthy.detail}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Link
+            href={healthy.primary.href}
+            className="inline-flex rounded-lg border border-zinc-900 bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+          >
+            {healthy.primary.label}
+          </Link>
+          {healthy.secondary.map((action) => (
+            <Link
+              key={action.href + action.label}
+              href={action.href}
+              className="text-sm font-medium text-zinc-800 underline"
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (cards.length === 0) {
     return (
       <EmptyState
-        title="Nothing needs your personal focus right now."
-        description="Current operations are on track. Use the agenda or quick actions when you are ready."
+        title="Current operations are on track."
+        description="Open Operations Center or Today&apos;s Work when you are ready."
         action={
           <div className="flex flex-wrap gap-3">
             <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
@@ -52,11 +85,12 @@ function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {cards.map((card) => (
+      {cards.map((card, index) => (
         <AppCard
           key={card.id}
           title={card.title}
           subtitle={card.locationLabel}
+          className={index === 0 ? "border-zinc-900 sm:col-span-2 xl:col-span-1" : undefined}
           data-testid={`workspace-focus-${card.id}`}
         >
           <div className="space-y-3">
@@ -67,7 +101,7 @@ function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
             </StatusBadge>
             <Link
               href={card.href}
-              className="inline-flex rounded-lg border border-zinc-900 bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+              className="inline-flex min-h-11 items-center rounded-lg border border-zinc-900 bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
             >
               {card.actionLabel}
             </Link>
@@ -78,20 +112,33 @@ function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
   );
 }
 
+function agendaBucketClass(bucket: ManagementAgendaBucket): string {
+  if (bucket.temporal === "current") return "border-zinc-900 bg-zinc-50";
+  if (bucket.temporal === "past") return "border-zinc-200 bg-zinc-50/50 opacity-80";
+  return "border-zinc-200 bg-white";
+}
+
 function ManagementAgendaSection({ view }: { view: WorkspaceViewModel }) {
+  const buckets = view.data.managementAgenda;
+  const current = buckets.find((bucket) => bucket.isCurrent);
+  const others = buckets.filter((bucket) => !bucket.isCurrent);
+
   return (
-    <div className="grid gap-4 lg:grid-cols-2" data-testid="workspace-agenda">
-      {view.data.managementAgenda.map((bucket) => (
+    <div className="space-y-4" data-testid="workspace-agenda">
+      {current ? (
         <AppCard
-          key={bucket.id}
-          title={bucket.label}
-          subtitle={bucket.isCurrent ? "Current window" : undefined}
-          data-testid={`workspace-agenda-${bucket.id}`}
+          title={current.label}
+          subtitle="Now · current period"
+          className={agendaBucketClass(current)}
+          data-testid={`workspace-agenda-${current.id}`}
         >
-          <ul className="space-y-3">
-            {bucket.items.map((item) => (
+          <ul className="space-y-2">
+            {current.items.map((item) => (
               <li key={item.id}>
-                <Link href={item.href} className="block rounded-lg border border-zinc-100 p-3 hover:bg-zinc-50">
+                <Link
+                  href={item.href}
+                  className="block rounded-lg border border-zinc-200 bg-white p-3 hover:bg-zinc-50"
+                >
                   <p className="font-medium text-zinc-900">{item.title}</p>
                   <p className="mt-1 text-sm text-zinc-600">{item.detail}</p>
                 </Link>
@@ -99,14 +146,37 @@ function ManagementAgendaSection({ view }: { view: WorkspaceViewModel }) {
             ))}
           </ul>
         </AppCard>
-      ))}
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {others.map((bucket) => (
+          <AppCard
+            key={bucket.id}
+            title={bucket.label}
+            subtitle={bucket.temporal === "past" ? "Earlier" : "Upcoming"}
+            className={agendaBucketClass(bucket)}
+            data-testid={`workspace-agenda-${bucket.id}`}
+          >
+            <ul className="space-y-2">
+              {bucket.items.slice(0, 3).map((item) => (
+                <li key={item.id}>
+                  <Link href={item.href} className="block rounded-md p-2 hover:bg-white/80">
+                    <p className="text-sm font-medium text-zinc-800">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-zinc-500">{item.detail}</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </AppCard>
+        ))}
+      </div>
     </div>
   );
 }
 
 function QuickActionsSection({ view }: { view: WorkspaceViewModel }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {view.data.quickActions.map((action) => (
         <ActionCard
           key={action.id}
@@ -115,7 +185,10 @@ function QuickActionsSection({ view }: { view: WorkspaceViewModel }) {
           icon={action.icon}
           data-testid={`workspace-quick-${action.id}`}
           cta={
-            <Link href={action.href} className="text-sm font-medium text-zinc-900 underline">
+            <Link
+              href={action.href}
+              className="inline-flex min-h-11 items-center text-sm font-medium text-zinc-900 underline"
+            >
               Open
             </Link>
           }
@@ -326,7 +399,7 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10 px-1 py-2 sm:px-2" data-testid="business-workspace">
+    <div className="mx-auto max-w-6xl space-y-8 px-1 py-2 sm:px-2" data-testid="business-workspace">
       <PageHeader
         icon="operationsCenter"
         title="Business Workspace"
@@ -343,6 +416,10 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
           </div>
         }
       />
+
+      {view.data.cachedMorningBrief ? (
+        <CachedMorningBriefPreview brief={view.data.cachedMorningBrief} />
+      ) : null}
 
       {view.canCustomize ? (
         <WorkspaceCustomizePanel

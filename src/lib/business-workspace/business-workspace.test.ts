@@ -6,22 +6,29 @@ import {
   buildDepartmentHealth,
   buildManagementAgenda,
   buildManagerFocus,
+  buildManagerFocusHealthyGuidance,
   buildPerformanceSnapshot,
   buildQuickActions,
   buildRecentActivity,
   buildWorkspacePriorities,
   canAccessBusinessWorkspace,
   canCustomizeWorkspace,
+  classifyAgendaTemporal,
   currentAgendaBucketId,
   emptyWorkspacePreferenceState,
   greetingForLocalHour,
   healthToneFromReadiness,
+  inspectionFocusHref,
+  loadCachedMorningBriefPreview,
   orderedWorkspaceSections,
   parseWorkspacePreferenceRow,
+  resolveAgendaBucketId,
   resolveWorkspaceSections,
   workspaceIsHealthy,
   workspaceSectionVisible,
 } from "@/lib/business-workspace";
+import { createMemoryBriefCacheStore } from "@/lib/ai/morning-brief/cache-store";
+import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import type { BusinessWorkspaceInputs } from "@/lib/business-workspace/load-workspace-inputs";
 import type { UnitReadiness } from "@/lib/readiness";
 import { resolveDefaultHomePath, resolveZoneForPathPrefix, normalizePrimaryNavLabel } from "@/lib/nav-zones";
@@ -323,7 +330,9 @@ test("priority: overdue inspection ranks ahead of routine recovery", () => {
       inspectionsDue: [
         {
           id: "i1",
+          definitionId: "def-1",
           definitionName: "Trayline audit",
+          unitId: "u1",
           unitName: "Main Kitchen",
           dueAt: new Date(now.getTime() - 60_000),
           overdue: true,
@@ -528,7 +537,9 @@ test("performance snapshot: existing counts and links; routine repair excluded",
       inspectionsDue: [
         {
           id: "i1",
+          definitionId: "def-1",
           definitionName: "Audit",
+          unitId: null,
           unitName: null,
           dueAt: new Date("2026-07-13T10:00:00.000Z"),
           overdue: true,
@@ -714,7 +725,9 @@ test("manager focus: ranking prefers overdue inspection then staffing then disru
       inspectionsDue: [
         {
           id: "i1",
+          definitionId: "def-1",
           definitionName: "Trayline audit",
+          unitId: "u1",
           unitName: "Main Kitchen",
           dueAt: new Date(now.getTime() - 60_000),
           overdue: true,
@@ -769,6 +782,7 @@ test("manager focus: ranking prefers overdue inspection then staffing then disru
 
   assert.equal(focus.length, 3);
   assert.equal(focus[0]?.id, "focus-inspection-overdue");
+  assert.match(focus[0]!.href, /\/unit\/u1\?.*inspect=def-1/);
   assert.equal(focus[1]?.id, "focus-staffing");
   assert.equal(focus[2]?.id, "focus-service");
   assert.equal(focus[2]?.actionLabel, "Open Unit");
@@ -839,12 +853,19 @@ test("quick actions keep existing routes and limit supervisor list", () => {
   const managerActions = buildQuickActions();
   assert.ok(managerActions.some((a) => a.href === "/issues"));
   assert.ok(managerActions.some((a) => a.href === "/dashboard"));
-  assert.ok(managerActions.some((a) => a.href === "/employees"));
+  assert.ok(!managerActions.some((a) => a.href === "/employees"));
+  assert.ok(!managerActions.some((a) => a.href === "/logs"));
   const supervisorActions = buildQuickActions({ supervisor: true });
   assert.ok(supervisorActions.every((a) =>
-    ["/issues", "/dashboard", "/today", "/logs"].includes(a.href),
+    ["/issues", "/dashboard", "/today"].includes(a.href),
   ));
   assert.ok(supervisorActions.length < managerActions.length);
+});
+
+test("quick actions demote Operations Center when Focus already promotes it", () => {
+  const actions = buildQuickActions({ promotedHrefs: ["/dashboard"] });
+  assert.ok(!actions.some((a) => a.id === "operations-center"));
+  assert.ok(actions.some((a) => a.id === "todays-work"));
 });
 
 test("preferences: hidden optional sections apply; required sections stay", () => {
@@ -891,4 +912,229 @@ test("orderedWorkspaceSections keeps core sections first with preference order",
     ordered.map((s) => s.id),
     ["manager_focus", "management_agenda", "quick_actions", "performance", "department_health"],
   );
+});
+
+test("manager focus healthy guidance is calm with useful routing", () => {
+  const guidance = buildManagerFocusHealthyGuidance(baseInputs());
+  assert.equal(guidance.title, "Current operations are on track.");
+  assert.equal(guidance.primary.href, "/dashboard");
+  assert.ok(guidance.secondary.length <= 2);
+  assert.ok(guidance.secondary.some((item) => item.href === "/today"));
+  assert.equal(buildManagerFocus(baseInputs()).length, 0);
+});
+
+test("inspectionFocusHref prefers unit deep link when ids exist", () => {
+  assert.match(
+    inspectionFocusHref({
+      id: "occ-1",
+      definitionId: "def-9",
+      definitionName: "Audit",
+      unitId: "unit-9",
+      unitName: "Kitchen",
+      dueAt: new Date(),
+      overdue: true,
+    }),
+    /\/unit\/unit-9\?unitTab=overview&inspect=def-9&occurrence=occ-1/,
+  );
+  assert.equal(
+    inspectionFocusHref({
+      id: "occ-2",
+      definitionId: "def-9",
+      definitionName: "Audit",
+      unitId: null,
+      unitName: null,
+      dueAt: new Date(),
+      overdue: false,
+    }),
+    "/today/handoffs",
+  );
+});
+
+test("agenda temporal classification and boundary hours", () => {
+  assert.equal(classifyAgendaTemporal("morning", "midday", 12), "past");
+  assert.equal(classifyAgendaTemporal("afternoon", "midday", 12), "future");
+  assert.equal(classifyAgendaTemporal("midday", "midday", 12), "current");
+  assert.equal(classifyAgendaTemporal("morning", "evening", 20), "past");
+  assert.equal(classifyAgendaTemporal("morning", "evening", 2), "future");
+
+  assert.equal(currentAgendaBucketId(3), "evening");
+  assert.equal(currentAgendaBucketId(4), "morning");
+  assert.equal(currentAgendaBucketId(10), "morning");
+  assert.equal(currentAgendaBucketId(11), "midday");
+  assert.equal(currentAgendaBucketId(14), "midday");
+  assert.equal(currentAgendaBucketId(15), "afternoon");
+  assert.equal(currentAgendaBucketId(17), "afternoon");
+  assert.equal(currentAgendaBucketId(18), "evening");
+});
+
+test("agenda bucket uses facility timezone including DST spring-forward day", () => {
+  // 2026-03-08 America/New_York spring forward; 15:30 UTC = 11:30 EDT.
+  const midday = new Date("2026-03-08T15:30:00.000Z");
+  assert.equal(resolveAgendaBucketId(midday, "America/New_York"), "midday");
+  // 04:30 UTC = 23:30 previous evening EST on 2026-03-07 (before spring forward day local evening).
+  const evening = new Date("2026-03-08T04:30:00.000Z");
+  assert.equal(resolveAgendaBucketId(evening, "America/New_York"), "evening");
+});
+
+test("agenda orders due/overdue work before routine items", () => {
+  const agenda = buildManagementAgenda(
+    baseInputs({
+      inspectionsDue: [
+        {
+          id: "i1",
+          definitionId: "def-1",
+          definitionName: "Trayline",
+          unitId: "u1",
+          unitName: "Main Kitchen",
+          dueAt: new Date("2026-07-13T10:00:00.000Z"),
+          overdue: true,
+        },
+      ],
+      activity: {
+        ...baseInputs().activity,
+        knowledgePublished: [
+          {
+            id: "k1",
+            title: "SOP",
+            category: "SOP",
+            at: new Date("2026-07-13T11:00:00.000Z"),
+          },
+        ],
+      },
+    }),
+  );
+  const afternoon = agenda.find((b) => b.id === "afternoon")!;
+  assert.equal(afternoon.items[0]?.id, "afternoon-inspection");
+  assert.equal(afternoon.temporal, "future");
+  const midday = agenda.find((b) => b.id === "midday")!;
+  assert.equal(midday.isCurrent, true);
+  assert.equal(midday.temporal, "current");
+});
+
+test("preferences ignore stale section ids and keep facility rows isolated", () => {
+  const parsed = parseWorkspacePreferenceRow({
+    hiddenSectionIds: ["performance", "not-a-section", "manager_focus"],
+    collapsedSectionIds: ["bogus", "quick_actions"],
+    sectionOrder: ["recent_activity", "nope"],
+    preferredLandingSectionId: "not-real",
+  });
+  assert.deepEqual(parsed.hiddenSectionIds, ["performance", "manager_focus"]);
+  assert.deepEqual(parsed.collapsedSectionIds, ["quick_actions"]);
+  assert.deepEqual(parsed.sectionOrder, ["recent_activity"]);
+  assert.equal(parsed.preferredLandingSectionId, null);
+
+  const applied = applyWorkspacePreferences({
+    role: "MANAGER",
+    preferences: {
+      ...parsed,
+      preferredLandingSectionId: "performance",
+      hiddenSectionIds: ["performance"],
+    },
+  });
+  assert.equal(applied.preferredLandingSectionId, null);
+});
+
+test("cached morning brief preview: ready same-facility shown; mismatches hidden; provider never used", async () => {
+  const cache = createMemoryBriefCacheStore();
+  const serviceDate = facilityLocalDateToServiceDate("2026-07-13");
+
+  await cache.upsert({
+    facilityId: "fac-a",
+    departmentKey: "DIETARY",
+    serviceDate,
+    briefType: "MORNING_BRIEF",
+    operationInstanceId: null,
+    snapshotHash: "hash-1",
+    snapshotJson: null,
+    baselineSnapshotHash: null,
+    windowStart: null,
+    windowEnd: null,
+    resultJson: {
+      headline: "Kitchen needs attention before lunch.",
+      summary: "summary",
+      priorities: [],
+      watchItems: [],
+      generatedAt: new Date().toISOString(),
+    },
+    provider: "test",
+    model: "test",
+    status: "READY",
+    promptVersion: "v1",
+    latencyMs: 1,
+    errorCode: null,
+    generatedAt: new Date(),
+    expiresAt: new Date(Date.now() + 60_000),
+  });
+
+  const shown = await loadCachedMorningBriefPreview({
+    facilityId: "fac-a",
+    facilityLocalDate: "2026-07-13",
+    activeDepartmentKey: "DIETARY",
+    cache,
+    aiEnabled: true,
+  });
+  assert.equal(shown?.headline, "Kitchen needs attention before lunch.");
+  assert.equal(shown?.origin, "cached");
+
+  const disabled = await loadCachedMorningBriefPreview({
+    facilityId: "fac-a",
+    facilityLocalDate: "2026-07-13",
+    cache,
+    aiEnabled: false,
+  });
+  assert.equal(disabled, null);
+
+  const wrongFacility = await loadCachedMorningBriefPreview({
+    facilityId: "fac-b",
+    facilityLocalDate: "2026-07-13",
+    cache,
+    aiEnabled: true,
+  });
+  assert.equal(wrongFacility, null);
+
+  const wrongDept = await loadCachedMorningBriefPreview({
+    facilityId: "fac-a",
+    facilityLocalDate: "2026-07-13",
+    activeDepartmentKey: "EVS",
+    cache,
+    aiEnabled: true,
+  });
+  assert.equal(wrongDept, null);
+
+  await cache.upsert({
+    facilityId: "fac-a",
+    departmentKey: "DIETARY",
+    serviceDate,
+    briefType: "MORNING_BRIEF",
+    operationInstanceId: null,
+    snapshotHash: "hash-expired",
+    snapshotJson: null,
+    baselineSnapshotHash: null,
+    windowStart: null,
+    windowEnd: null,
+    resultJson: {
+      headline: "Expired",
+      summary: "summary",
+      priorities: [],
+      watchItems: [],
+      generatedAt: new Date().toISOString(),
+    },
+    provider: "test",
+    model: "test",
+    status: "READY",
+    promptVersion: "v1",
+    latencyMs: 1,
+    errorCode: null,
+    generatedAt: new Date(Date.now() - 100_000),
+    expiresAt: new Date(Date.now() - 10_000),
+  });
+  // Latest non-expired still wins if still present — upsert replaced by expired row with different hash.
+  // findLatest orders by generatedAt; expired filtered by expiresAt gt now → miss.
+  const afterExpiredOnly = await loadCachedMorningBriefPreview({
+    facilityId: "fac-expired",
+    facilityLocalDate: "2026-07-13",
+    cache,
+    aiEnabled: true,
+  });
+  assert.equal(afterExpiredOnly, null);
 });

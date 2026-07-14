@@ -89,9 +89,13 @@ export function WorkspaceCustomizePanel({
   });
 
   useEffect(() => {
-    if (!preferredLandingSectionId) return;
+    if (!preferredLandingSectionId || preferredLandingSectionId === "manager_focus") return;
     const el = document.getElementById(`workspace-section-${preferredLandingSectionId}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // Skip if already near the top of the viewport to avoid disorienting jumps.
+    if (rect.top >= 0 && rect.top < window.innerHeight * 0.35) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [preferredLandingSectionId]);
 
   if (customizableSections.length === 0) return null;

@@ -43,7 +43,16 @@ export type ManagerFocusCard = {
   rank: number;
 };
 
+export type ManagerFocusHealthyGuidance = {
+  title: string;
+  detail: string;
+  primary: { label: string; href: string };
+  secondary: Array<{ label: string; href: string }>;
+};
+
 export type ManagementAgendaBucketId = "morning" | "midday" | "afternoon" | "evening";
+
+export type ManagementAgendaTemporal = "past" | "current" | "future";
 
 export type ManagementAgendaItem = {
   id: string;
@@ -57,6 +66,7 @@ export type ManagementAgendaBucket = {
   id: ManagementAgendaBucketId;
   label: string;
   isCurrent: boolean;
+  temporal: ManagementAgendaTemporal;
   items: ManagementAgendaItem[];
 };
 
@@ -66,6 +76,12 @@ export type WorkspaceQuickAction = {
   description: string;
   href: string;
   icon: AppIconKey;
+};
+
+export type WorkspaceCachedMorningBrief = {
+  headline: string;
+  origin: "cached";
+  href: string;
 };
 
 export type WorkspaceDepartmentHealth = {
@@ -123,8 +139,10 @@ export type WorkspacePreferenceState = {
 export type BusinessWorkspaceData = {
   header: BusinessWorkspaceHeader;
   managerFocus: ManagerFocusCard[];
+  managerFocusHealthy: ManagerFocusHealthyGuidance | null;
   managementAgenda: ManagementAgendaBucket[];
   quickActions: WorkspaceQuickAction[];
+  cachedMorningBrief: WorkspaceCachedMorningBrief | null;
   priorities: WorkspacePriorityCard[];
   departmentHealth: WorkspaceDepartmentHealth[];
   todaysWorkLinks: WorkspaceLinkCard[];

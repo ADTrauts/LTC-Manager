@@ -5,8 +5,11 @@ export type {
   ManagementAgendaBucket,
   ManagementAgendaBucketId,
   ManagementAgendaItem,
+  ManagementAgendaTemporal,
   ManagerFocusCard,
+  ManagerFocusHealthyGuidance,
   WorkspaceActivityItem,
+  WorkspaceCachedMorningBrief,
   WorkspaceDepartmentHealth,
   WorkspaceHealthTone,
   WorkspaceLinkCard,
@@ -46,9 +49,20 @@ export {
 
 export { loadBusinessWorkspace, type LoadBusinessWorkspaceInput } from "./load-business-workspace";
 export { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
+export { loadCachedMorningBriefPreview } from "./load-cached-morning-brief";
 export { buildWorkspacePriorities, workspaceIsHealthy } from "./build-workspace-priorities";
-export { buildManagerFocus } from "./build-manager-focus";
-export { buildManagementAgenda, currentAgendaBucketId } from "./build-management-agenda";
+export {
+  buildManagerFocus,
+  buildManagerFocusHealthyGuidance,
+  inspectionFocusHref,
+} from "./build-manager-focus";
+export {
+  AGENDA_BUCKET_ORDER,
+  buildManagementAgenda,
+  classifyAgendaTemporal,
+  currentAgendaBucketId,
+  resolveAgendaBucketId,
+} from "./build-management-agenda";
 export { buildQuickActions } from "./build-quick-actions";
 export { buildDepartmentHealth } from "./build-department-health";
 export { buildPerformanceSnapshot } from "./build-performance-snapshot";

@@ -36,7 +36,9 @@ export type WorkspaceOpenRepair = {
 
 export type WorkspaceInspectionDue = {
   id: string;
+  definitionId: string;
   definitionName: string;
+  unitId: string | null;
   unitName: string | null;
   dueAt: Date;
   overdue: boolean;
@@ -158,8 +160,10 @@ export async function loadBusinessWorkspaceInputs(input: {
         select: {
           id: true,
           dueAt: true,
+          definitionId: true,
           definition: { select: { name: true } },
-          unit: { select: { name: true } },
+          unitId: true,
+          unit: { select: { id: true, name: true } },
         },
       }),
       Promise.all([
@@ -340,7 +344,9 @@ export async function loadBusinessWorkspaceInputs(input: {
     openRepairs,
     inspectionsDue: inspectionsDueRows.map((row) => ({
       id: row.id,
+      definitionId: row.definitionId,
       definitionName: row.definition.name,
+      unitId: row.unitId ?? row.unit?.id ?? null,
       unitName: row.unit?.name ?? null,
       dueAt: row.dueAt,
       overdue: row.dueAt.getTime() < now.getTime(),
