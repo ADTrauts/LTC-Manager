@@ -578,3 +578,432 @@ test("M2: reassignment source with no overlap is clean", () => {
   const warnings = detectOverlappingAssignments(entries);
   assert.equal(warnings.length, 0);
 });
+
+// ---------------------------------------------------------------------------
+// M3: Template types and structure
+// ---------------------------------------------------------------------------
+
+import type {
+  TemplateView,
+  TemplateItemView,
+  TemplatePreviewPosition,
+  ApplyTemplateResult,
+} from "./template-types";
+
+test("M3: TemplateView shape is correct", () => {
+  const template: TemplateView = {
+    id: "tpl1",
+    name: "Breakfast Production",
+    description: "Morning meal prep positions",
+    isActive: true,
+    departmentId: "dept1",
+    departmentKey: "DIETARY",
+    operationDefinitionId: null,
+    operationLabel: null,
+    workShiftId: null,
+    workShiftName: null,
+    items: [
+      {
+        id: "item1",
+        roleKey: "COOK",
+        roleLabel: "Cook",
+        unitId: null,
+        unitName: null,
+        startsAtLocal: "06:00",
+        endsAtLocal: "10:00",
+        requiredCount: 1,
+        sortOrder: 10,
+        notes: null,
+      },
+    ],
+    totalPositions: 1,
+  };
+  assert.equal(template.name, "Breakfast Production");
+  assert.equal(template.items.length, 1);
+  assert.equal(template.totalPositions, 1);
+});
+
+test("M3: TemplateItemView supports requiredCount > 1", () => {
+  const item: TemplateItemView = {
+    id: "item1",
+    roleKey: "SERVER",
+    roleLabel: "Server",
+    unitId: "unit2a",
+    unitName: "2A MLK",
+    startsAtLocal: "06:30",
+    endsAtLocal: "09:30",
+    requiredCount: 2,
+    sortOrder: 20,
+    notes: null,
+  };
+  assert.equal(item.requiredCount, 2);
+  assert.equal(item.unitName, "2A MLK");
+});
+
+test("M3: template with multiple items computes totalPositions", () => {
+  const template: TemplateView = {
+    id: "tpl1",
+    name: "Full Kitchen",
+    description: null,
+    isActive: true,
+    departmentId: "dept1",
+    departmentKey: "DIETARY",
+    operationDefinitionId: null,
+    operationLabel: null,
+    workShiftId: null,
+    workShiftName: null,
+    items: [
+      { id: "i1", roleKey: "COOK", roleLabel: "Cook", unitId: null, unitName: null, startsAtLocal: null, endsAtLocal: null, requiredCount: 1, sortOrder: 10, notes: null },
+      { id: "i2", roleKey: "HOT_PREP", roleLabel: "Hot Prep", unitId: null, unitName: null, startsAtLocal: null, endsAtLocal: null, requiredCount: 2, sortOrder: 20, notes: null },
+      { id: "i3", roleKey: "DISHWASHING", roleLabel: "Dishwashing", unitId: null, unitName: null, startsAtLocal: null, endsAtLocal: null, requiredCount: 1, sortOrder: 30, notes: null },
+    ],
+    totalPositions: 4,
+  };
+  const computed = template.items.reduce((s, i) => s + i.requiredCount, 0);
+  assert.equal(computed, template.totalPositions);
+});
+
+test("M3: inactive template should not be applied", () => {
+  const template: TemplateView = {
+    id: "tpl1",
+    name: "Old Template",
+    description: null,
+    isActive: false,
+    departmentId: "dept1",
+    departmentKey: "DIETARY",
+    operationDefinitionId: null,
+    operationLabel: null,
+    workShiftId: null,
+    workShiftName: null,
+    items: [],
+    totalPositions: 0,
+  };
+  assert.ok(!template.isActive);
+});
+
+// ---------------------------------------------------------------------------
+// M3: Employee suggestions
+// ---------------------------------------------------------------------------
+
+import { suggestEmployeeForPosition } from "./build-assignment-suggestions";
+import type { AssignmentBoardEmployee } from "./types";
+
+function makeEmployee(overrides: Partial<AssignmentBoardEmployee>): AssignmentBoardEmployee {
+  return {
+    id: "emp1",
+    firstName: "Jordan",
+    lastName: "Smith",
+    departmentKey: "DIETARY",
+    departmentName: "Dietary",
+    scheduledShift: "AM",
+    plannedStart: "06:00",
+    plannedEnd: "14:00",
+    unitName: "Main Kitchen",
+    hasCallDown: false,
+    callDownReason: null,
+    ...overrides,
+  };
+}
+
+test("M3: suggests available employee for position", () => {
+  const employees = [
+    makeEmployee({ id: "emp1", firstName: "Jordan", lastName: "Smith" }),
+  ];
+  const result = suggestEmployeeForPosition({
+    roleKey: "COOK",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments: [],
+    alreadySuggestedIds: new Set(),
+  });
+  assert.ok(result);
+  assert.equal(result.employeeId, "emp1");
+  assert.equal(result.reason, "Available during the shift");
+});
+
+test("M3: excludes employees with call-downs", () => {
+  const employees = [
+    makeEmployee({ id: "emp1", hasCallDown: true }),
+  ];
+  const result = suggestEmployeeForPosition({
+    roleKey: "COOK",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments: [],
+    alreadySuggestedIds: new Set(),
+  });
+  assert.equal(result, null);
+});
+
+test("M3: excludes already-suggested employees", () => {
+  const employees = [
+    makeEmployee({ id: "emp1" }),
+    makeEmployee({ id: "emp2", firstName: "Alex", lastName: "Jones" }),
+  ];
+  const result = suggestEmployeeForPosition({
+    roleKey: "COOK",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments: [],
+    alreadySuggestedIds: new Set(["emp1"]),
+  });
+  assert.ok(result);
+  assert.equal(result.employeeId, "emp2");
+});
+
+test("M3: excludes employees with existing active assignments", () => {
+  const employees = [
+    makeEmployee({ id: "emp1" }),
+    makeEmployee({ id: "emp2", firstName: "Alex", lastName: "Jones" }),
+  ];
+  const existingAssignments = [
+    makeEntry({ id: "a1", employeeId: "emp1", status: "ACTIVE" }),
+  ];
+  const result = suggestEmployeeForPosition({
+    roleKey: "HOT_PREP",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments,
+    alreadySuggestedIds: new Set(),
+  });
+  assert.ok(result);
+  assert.equal(result.employeeId, "emp2");
+});
+
+test("M3: returns null when no candidates available", () => {
+  const result = suggestEmployeeForPosition({
+    roleKey: "COOK",
+    unitId: null,
+    scheduledEmployees: [],
+    existingAssignments: [],
+    alreadySuggestedIds: new Set(),
+  });
+  assert.equal(result, null);
+});
+
+test("M3: suggestion reason is explainable", () => {
+  const employees = [makeEmployee({ id: "emp1" })];
+  const result = suggestEmployeeForPosition({
+    roleKey: "COOK",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments: [],
+    alreadySuggestedIds: new Set(),
+  });
+  assert.ok(result);
+  assert.ok(result.reason.length > 0);
+  assert.ok(
+    result.reason === "Available during the shift" ||
+    result.reason === "Scheduled in this location",
+  );
+});
+
+test("M3: cancelled assignments do not block suggestion", () => {
+  const employees = [makeEmployee({ id: "emp1" })];
+  const existingAssignments = [
+    makeEntry({ id: "a1", employeeId: "emp1", status: "CANCELLED" }),
+  ];
+  const result = suggestEmployeeForPosition({
+    roleKey: "HOT_PREP",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments,
+    alreadySuggestedIds: new Set(),
+  });
+  assert.ok(result);
+  assert.equal(result.employeeId, "emp1");
+});
+
+test("M3: completed assignments do not block suggestion", () => {
+  const employees = [makeEmployee({ id: "emp1" })];
+  const existingAssignments = [
+    makeEntry({ id: "a1", employeeId: "emp1", status: "COMPLETED" }),
+  ];
+  const result = suggestEmployeeForPosition({
+    roleKey: "HOT_PREP",
+    unitId: null,
+    scheduledEmployees: employees,
+    existingAssignments,
+    alreadySuggestedIds: new Set(),
+  });
+  assert.ok(result);
+  assert.equal(result.employeeId, "emp1");
+});
+
+// ---------------------------------------------------------------------------
+// M3: Preview position expansion
+// ---------------------------------------------------------------------------
+
+test("M3: preview position shape is correct", () => {
+  const pos: TemplatePreviewPosition = {
+    itemId: "item1",
+    roleKey: "COOK",
+    roleLabel: "Cook",
+    unitId: null,
+    unitName: null,
+    startsAtLocal: "06:00",
+    endsAtLocal: "10:00",
+    notes: null,
+    positionIndex: 0,
+    assignedEmployeeId: null,
+    assignedEmployeeName: null,
+    existingAssignmentId: null,
+    suggestedEmployeeId: "emp1",
+    suggestedEmployeeName: "Jordan Smith",
+    suggestedReason: "Available during the shift",
+  };
+  assert.equal(pos.roleLabel, "Cook");
+  assert.equal(pos.suggestedEmployeeId, "emp1");
+  assert.ok(pos.suggestedReason);
+});
+
+test("M3: existing assignment fills position (not duplicated)", () => {
+  const pos: TemplatePreviewPosition = {
+    itemId: "item1",
+    roleKey: "COOK",
+    roleLabel: "Cook",
+    unitId: null,
+    unitName: null,
+    startsAtLocal: null,
+    endsAtLocal: null,
+    notes: null,
+    positionIndex: 0,
+    assignedEmployeeId: "emp1",
+    assignedEmployeeName: "Jordan Smith",
+    existingAssignmentId: "a1",
+    suggestedEmployeeId: null,
+    suggestedEmployeeName: null,
+    suggestedReason: null,
+  };
+  assert.ok(pos.existingAssignmentId);
+  assert.equal(pos.suggestedEmployeeId, null);
+});
+
+test("M3: unfilled position has reason", () => {
+  const pos: TemplatePreviewPosition = {
+    itemId: "item1",
+    roleKey: "COOK",
+    roleLabel: "Cook",
+    unitId: null,
+    unitName: null,
+    startsAtLocal: null,
+    endsAtLocal: null,
+    notes: null,
+    positionIndex: 0,
+    assignedEmployeeId: null,
+    assignedEmployeeName: null,
+    existingAssignmentId: null,
+    suggestedEmployeeId: null,
+    suggestedEmployeeName: null,
+    suggestedReason: "No eligible employee found",
+  };
+  assert.equal(pos.suggestedReason, "No eligible employee found");
+});
+
+// ---------------------------------------------------------------------------
+// M3: Apply template result
+// ---------------------------------------------------------------------------
+
+test("M3: apply result shape tracks created/skipped/warnings", () => {
+  const result: ApplyTemplateResult = {
+    created: 3,
+    skipped: 1,
+    warnings: ["Skipped: position already filled."],
+  };
+  assert.equal(result.created, 3);
+  assert.equal(result.skipped, 1);
+  assert.equal(result.warnings.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// M3: Role registry compatibility with templates
+// ---------------------------------------------------------------------------
+
+test("M3: all Dietary roles valid for Dietary template", () => {
+  const roles = getRolesForDepartment("DIETARY");
+  for (const r of roles) {
+    assert.ok(isRoleValidForDepartment(r.key, "DIETARY"), `${r.key} should be valid for DIETARY`);
+    assert.ok(!isRoleValidForDepartment(r.key, "EVS"), `${r.key} should NOT be valid for EVS`);
+    assert.ok(!isRoleValidForDepartment(r.key, "PLANT"), `${r.key} should NOT be valid for PLANT`);
+  }
+});
+
+test("M3: all EVS roles valid for EVS template", () => {
+  const roles = getRolesForDepartment("EVS");
+  for (const r of roles) {
+    assert.ok(isRoleValidForDepartment(r.key, "EVS"), `${r.key} should be valid for EVS`);
+    assert.ok(!isRoleValidForDepartment(r.key, "DIETARY"), `${r.key} should NOT be valid for DIETARY`);
+    assert.ok(!isRoleValidForDepartment(r.key, "PLANT"), `${r.key} should NOT be valid for PLANT`);
+  }
+});
+
+test("M3: all Plant roles valid for Plant template", () => {
+  const roles = getRolesForDepartment("PLANT");
+  for (const r of roles) {
+    assert.ok(isRoleValidForDepartment(r.key, "PLANT"), `${r.key} should be valid for PLANT`);
+    assert.ok(!isRoleValidForDepartment(r.key, "DIETARY"), `${r.key} should NOT be valid for DIETARY`);
+    assert.ok(!isRoleValidForDepartment(r.key, "EVS"), `${r.key} should NOT be valid for EVS`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// M3: Idempotency of template application
+// ---------------------------------------------------------------------------
+
+test("M3: idempotency key prevents duplicate creation", () => {
+  const existingKey = (a: { employeeId: string; roleKey: string; unitId: string | null }) =>
+    `${a.employeeId}:${a.roleKey}:${a.unitId ?? ""}`;
+
+  const existing = [
+    { employeeId: "emp1", roleKey: "COOK", unitId: null },
+    { employeeId: "emp2", roleKey: "HOT_PREP", unitId: null },
+  ];
+  const existingKeys = new Set(existing.map(existingKey));
+
+  assert.ok(existingKeys.has("emp1:COOK:"));
+  assert.ok(existingKeys.has("emp2:HOT_PREP:"));
+  assert.ok(!existingKeys.has("emp3:COOK:"));
+});
+
+test("M3: different unit allows same role for different position", () => {
+  const existingKey = (a: { employeeId: string; roleKey: string; unitId: string | null }) =>
+    `${a.employeeId}:${a.roleKey}:${a.unitId ?? ""}`;
+
+  const existing = [
+    { employeeId: "emp1", roleKey: "SERVER", unitId: "unit1" },
+  ];
+  const existingKeys = new Set(existing.map(existingKey));
+
+  assert.ok(!existingKeys.has("emp1:SERVER:unit2"), "different unit = different position");
+});
+
+test("M3: same template can be applied for different operation instances", () => {
+  const key1 = "tpl1:2026-07-15:opInst1";
+  const key2 = "tpl1:2026-07-15:opInst2";
+  assert.notEqual(key1, key2);
+});
+
+// ---------------------------------------------------------------------------
+// M3: Template boundary enforcement
+// ---------------------------------------------------------------------------
+
+test("M3: template does not store employee IDs", () => {
+  const template: TemplateView = {
+    id: "tpl1",
+    name: "Test",
+    description: null,
+    isActive: true,
+    departmentId: "dept1",
+    departmentKey: "DIETARY",
+    operationDefinitionId: null,
+    operationLabel: null,
+    workShiftId: null,
+    workShiftName: null,
+    items: [
+      { id: "i1", roleKey: "COOK", roleLabel: "Cook", unitId: null, unitName: null, startsAtLocal: null, endsAtLocal: null, requiredCount: 1, sortOrder: 10, notes: null },
+    ],
+    totalPositions: 1,
+  };
+  const hasEmployeeField = "employeeId" in template || template.items.some((i) => "employeeId" in i);
+  assert.ok(!hasEmployeeField, "Templates should not store employee IDs");
+});

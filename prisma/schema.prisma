@@ -131,6 +131,7 @@ model Facility {
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   roomAreaStatuses              RoomAreaStatus[]
   operationalAssignments        OperationalAssignment[]
+  assignmentTemplates           OperationalAssignmentTemplate[]
   attachments                   Attachment[]
   tasks                         Task[]
   inspectionDefinitions         InspectionDefinition[]
@@ -173,6 +174,7 @@ model Department {
   inspectionOccurrences InspectionOccurrence[]
   knowledgeArticles   KnowledgeArticle[]
   operationalAssignments OperationalAssignment[]
+  assignmentTemplates OperationalAssignmentTemplate[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -246,6 +248,7 @@ model OperationDefinition {
   sortOrder           Int                 @default(100)
   isActive            Boolean             @default(true)
   instances           OperationInstance[]
+  assignmentTemplates OperationalAssignmentTemplate[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -341,6 +344,7 @@ model User {
   createdSchedules          ScheduleEntry[]             @relation("ScheduleCreatedBy")
   changedOverrides          AssignmentOverride[]        @relation("OverrideChangedBy")
   createdAssignments        OperationalAssignment[]     @relation("AssignmentCreatedBy")
+  createdTemplates          OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
   reportedRepairs           Repair[]                    @relation("RepairReportedBy")
   repairUpdates             RepairUpdate[]
   disciplinePointsCreated   DisciplinePointEntry[]      @relation("DisciplinePointCreatedBy")
@@ -697,6 +701,7 @@ model Unit {
   inspectionOccurrences    InspectionOccurrence[]
   knowledgeArticleUnits    KnowledgeArticleUnit[]
   operationalAssignments   OperationalAssignment[]
+  assignmentTemplateItems  OperationalAssignmentTemplateItem[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -1221,6 +1226,7 @@ model WorkShift {
   sortOrder    Int             @default(100)
   isActive     Boolean         @default(true)
   scheduleEntries ScheduleEntry[]
+  assignmentTemplates OperationalAssignmentTemplate[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -1680,4 +1686,47 @@ model OperationalAssignment {
   @@index([employeeId, serviceDate])
   @@index([unitId, serviceDate])
   @@index([operationInstanceId])
+}
+
+/// Reusable operating pattern describing required operational positions.
+model OperationalAssignmentTemplate {
+  id                    String                              @id @default(cuid())
+  facilityId            String
+  facility              Facility                            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId          String
+  department            Department                          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String?
+  isActive              Boolean                             @default(true)
+  operationDefinitionId String?
+  operationDefinition   OperationDefinition?                @relation(fields: [operationDefinitionId], references: [id], onDelete: SetNull)
+  workShiftId           String?
+  workShift             WorkShift?                          @relation(fields: [workShiftId], references: [id], onDelete: SetNull)
+  items                 OperationalAssignmentTemplateItem[]
+  createdByUserId       String?
+  createdByUser         User?                               @relation("TemplateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt             DateTime                            @default(now())
+  updatedAt             DateTime                            @updatedAt
+
+  @@index([facilityId, departmentId])
+  @@index([facilityId, isActive])
+}
+
+model OperationalAssignmentTemplateItem {
+  id            String                          @id @default(cuid())
+  templateId    String
+  template      OperationalAssignmentTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  roleKey       String
+  roleLabel     String
+  unitId        String?
+  unit          Unit?                           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  startsAtLocal String?
+  endsAtLocal   String?
+  requiredCount Int                             @default(1)
+  sortOrder     Int                             @default(100)
+  notes         String?
+  createdAt     DateTime                        @default(now())
+  updatedAt     DateTime                        @updatedAt
+
+  @@index([templateId, sortOrder])
 }
