@@ -19,16 +19,16 @@ enum RoleKey {
 }
 
 model Role {
-  id          String        @id @default(cuid())
-  key         RoleKey       @unique
-  name        String
-  description String?
-  isActive    Boolean       @default(true)
-  users       User[]
-  templates   LogTemplate[]
+  id               String                @id @default(cuid())
+  key              RoleKey               @unique
+  name             String
+  description      String?
+  isActive         Boolean               @default(true)
+  users            User[]
+  templates        LogTemplate[]
   routePermissions RoleRoutePermission[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 }
 
 model AppRoute {
@@ -90,93 +90,95 @@ model Organization {
 
 /// One deployment typically has one facility; all operational data is scoped here for future multi-site support.
 model Facility {
-  id                            String                      @id @default(cuid())
-  organizationId                String
-  organization                  Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  displayName                   String
+  id                             String                          @id @default(cuid())
+  organizationId                 String
+  organization                   Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  displayName                    String
   /// Legacy operator label. Organization is the canonical parent; kept for compatibility (do not dual-write).
-  managementCompanyName         String?
-  billingEmail                  String?
-  stripeCustomerId              String?
-  stripeDefaultPaymentMethodId  String?
-  onboardingCurrentStep         String?
-  onboardingStartedAt           DateTime?
-  onboardingCompletedAt         DateTime?
+  managementCompanyName          String?
+  billingEmail                   String?
+  stripeCustomerId               String?
+  stripeDefaultPaymentMethodId   String?
+  onboardingCurrentStep          String?
+  onboardingStartedAt            DateTime?
+  onboardingCompletedAt          DateTime?
   /// Optional org-selected accent color (hex) used for subtle UI delineation.
-  brandColor                    String?
+  brandColor                     String?
   /// IANA timezone for facility-local operational time (meals, service dates, due windows).
-  timezone                      String                      @default("America/New_York")
+  timezone                       String                          @default("America/New_York")
   /// Relative path under app `uploads/` (see `lib/facility-uploads.ts`).
-  unionHandbookPdfPath          String?
-  unionHandbookOriginalFilename String?
-  unionHandbookUploadedAt       DateTime?
-  unionHandbookEffectiveDate    DateTime?                   @db.Date
-  users                         User[]
-  userFacilityAccesses          UserFacilityAccess[]
-  units                         Unit[]
-  employees                     Employee[]
-  logTemplates                  LogTemplate[]
-  vendors                       Vendor[]
-  employeeHrAuditLogs           EmployeeHrAuditLog[]
-  employeeTerminationRecords    EmployeeTerminationRecord[]
-  menuSettings                  MenuSettings?
-  menuItems                     MenuItem[]
-  kioskUnitPinLoginEvents       KioskUnitPinLoginEvent[]
-  onboardingManagerInvites      OnboardingManagerInvite[]
-  operationDefinitions          OperationDefinition[]
-  operationInstances            OperationInstance[]
-  departments                   Department[]
-  jobTitles                     JobTitle[]
-  workShifts                    WorkShift[]
+  unionHandbookPdfPath           String?
+  unionHandbookOriginalFilename  String?
+  unionHandbookUploadedAt        DateTime?
+  unionHandbookEffectiveDate     DateTime?                       @db.Date
+  users                          User[]
+  userFacilityAccesses           UserFacilityAccess[]
+  units                          Unit[]
+  unitSpaces                     UnitSpace[]
+  employees                      Employee[]
+  logTemplates                   LogTemplate[]
+  vendors                        Vendor[]
+  employeeHrAuditLogs            EmployeeHrAuditLog[]
+  employeeTerminationRecords     EmployeeTerminationRecord[]
+  menuSettings                   MenuSettings?
+  menuItems                      MenuItem[]
+  kioskUnitPinLoginEvents        KioskUnitPinLoginEvent[]
+  onboardingManagerInvites       OnboardingManagerInvite[]
+  operationDefinitions           OperationDefinition[]
+  operationInstances             OperationInstance[]
+  departments                    Department[]
+  jobTitles                      JobTitle[]
+  workShifts                     WorkShift[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
-  roomAreaStatuses              RoomAreaStatus[]
-  operationalAssignments        OperationalAssignment[]
-  assignmentTemplates           OperationalAssignmentTemplate[]
-  attachments                   Attachment[]
-  tasks                         Task[]
-  inspectionDefinitions         InspectionDefinition[]
-  inspectionSubmissions         InspectionSubmission[]
-  inspectionOccurrences         InspectionOccurrence[]
-  knowledgeArticles             KnowledgeArticle[]
-  aiOperationalBriefs           AiOperationalBrief[]
-  workspacePreferences          WorkspacePreference[]
-  createdAt                     DateTime                    @default(now())
-  updatedAt                     DateTime                    @updatedAt
+  roomAreaStatuses               RoomAreaStatus[]
+  operationalAssignments         OperationalAssignment[]
+  assignmentTemplates            OperationalAssignmentTemplate[]
+  attachments                    Attachment[]
+  tasks                          Task[]
+  inspectionDefinitions          InspectionDefinition[]
+  inspectionSubmissions          InspectionSubmission[]
+  inspectionOccurrences          InspectionOccurrence[]
+  knowledgeArticles              KnowledgeArticle[]
+  aiOperationalBriefs            AiOperationalBrief[]
+  workspacePreferences           WorkspacePreference[]
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
 
   @@index([organizationId])
 }
 
 /// Facility operational department (Dietary, EVS, Plant, etc.).
 model Department {
-  id                String    @id @default(cuid())
-  facilityId        String
-  facility          Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  key               String
-  name              String
-  sortOrder         Int       @default(100)
-  isActive          Boolean   @default(true)
+  id                             String                          @id @default(cuid())
+  facilityId                     String
+  facility                       Facility                        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  key                            String
+  name                           String
+  sortOrder                      Int                             @default(100)
+  isActive                       Boolean                         @default(true)
   /// When false, department is hidden from employee HR UI tabs (Admin → Departments).
-  showInEmployeeApp Boolean   @default(true)
-  headEmployeeId    String?
-  headEmployee      Employee? @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
-  usersAsPrimary    User[]    @relation("UserPrimaryDepartment")
-  employeesAsPrimary Employee[] @relation("EmployeePrimaryDepartment")
-  employeeDepartments EmployeeDepartment[]
-  unitResponsibilities UnitDepartmentResponsibility[]
-  assets            Asset[]
-  logTemplates      LogTemplate[]
-  workShifts        WorkShift[]
+  showInEmployeeApp              Boolean                         @default(true)
+  headEmployeeId                 String?
+  headEmployee                   Employee?                       @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  usersAsPrimary                 User[]                          @relation("UserPrimaryDepartment")
+  employeesAsPrimary             Employee[]                      @relation("EmployeePrimaryDepartment")
+  employeeDepartments            EmployeeDepartment[]
+  unitResponsibilities           UnitDepartmentResponsibility[]
+  spaceResponsibilities          UnitSpaceResponsibility[]
+  assets                         Asset[]
+  logTemplates                   LogTemplate[]
+  workShifts                     WorkShift[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
-  repairsRequesting Repair[]  @relation("RepairRequestingDepartment")
-  repairsResponsible Repair[] @relation("RepairResponsibleDepartment")
-  tasks             Task[]
-  inspectionDefinitions InspectionDefinition[]
-  inspectionOccurrences InspectionOccurrence[]
-  knowledgeArticles   KnowledgeArticle[]
-  operationalAssignments OperationalAssignment[]
-  assignmentTemplates OperationalAssignmentTemplate[]
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  repairsRequesting              Repair[]                        @relation("RepairRequestingDepartment")
+  repairsResponsible             Repair[]                        @relation("RepairResponsibleDepartment")
+  tasks                          Task[]
+  inspectionDefinitions          InspectionDefinition[]
+  inspectionOccurrences          InspectionOccurrence[]
+  knowledgeArticles              KnowledgeArticle[]
+  operationalAssignments         OperationalAssignment[]
+  assignmentTemplates            OperationalAssignmentTemplate[]
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
 
   @@unique([facilityId, key])
   @@index([facilityId])
@@ -216,12 +218,12 @@ model EmployeeDepartment {
 }
 
 model OnboardingManagerInvite {
-  id          String   @id @default(cuid())
-  facilityId  String
-  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  email       String
-  createdAt   DateTime @default(now())
-  acceptedAt  DateTime?
+  id         String    @id @default(cuid())
+  facilityId String
+  facility   Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  email      String
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
 
   @@unique([facilityId, email])
   @@index([facilityId, createdAt])
@@ -229,9 +231,9 @@ model OnboardingManagerInvite {
 
 /// Recurring operation template scoped to a facility department (e.g. dietary breakfast service).
 model OperationDefinition {
-  id                  String              @id @default(cuid())
+  id                  String                          @id @default(cuid())
   facilityId          String
-  facility            Facility            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility            Facility                        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   /// Department scope (`Department.id` when the departments model is present).
   departmentId        String
   /// Stable slug unique per department (e.g. `breakfast`, `evs-day-round-1`).
@@ -245,12 +247,12 @@ model OperationDefinition {
   /// Local start time hint (`HH:mm`) for sync/scheduling; not authoritative until wired.
   scheduledStartLocal String?
   scheduledEndLocal   String?
-  sortOrder           Int                 @default(100)
-  isActive            Boolean             @default(true)
+  sortOrder           Int                             @default(100)
+  isActive            Boolean                         @default(true)
   instances           OperationInstance[]
   assignmentTemplates OperationalAssignmentTemplate[]
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
 
   @@unique([facilityId, departmentId, key])
   @@index([facilityId])
@@ -260,30 +262,30 @@ model OperationDefinition {
 
 /// A single dated occurrence of an operation (e.g. "Breakfast 2026-07-08").
 model OperationInstance {
-  id                  String                  @id @default(cuid())
-  facilityId          String
-  facility            Facility                @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId        String
-  definitionId        String
-  definition          OperationDefinition     @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  id                       String                    @id @default(cuid())
+  facilityId               String
+  facility                 Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId             String
+  definitionId             String
+  definition               OperationDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
   /// Service date for this occurrence (facility-local calendar day).
-  serviceDate         DateTime                @db.Date
+  serviceDate              DateTime                  @db.Date
   /// Denormalized for query filters without joining the definition.
-  mealType            MealType?
+  mealType                 MealType?
   /// Snapshot label copied from definition at instance creation.
-  label               String
-  status              OperationInstanceStatus @default(SCHEDULED)
-  workShiftId         String?
-  scheduledStartLocal String?
-  scheduledEndLocal   String?
-  startedAt           DateTime?
-  completedAt         DateTime?
+  label                    String
+  status                   OperationInstanceStatus   @default(SCHEDULED)
+  workShiftId              String?
+  scheduledStartLocal      String?
+  scheduledEndLocal        String?
+  startedAt                DateTime?
+  completedAt              DateTime?
   serveryMealServiceEvents ServeryMealServiceEvent[]
-  tasks               Task[]
-  inspectionSubmissions InspectionSubmission[]
-  operationalAssignments OperationalAssignment[]
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  tasks                    Task[]
+  inspectionSubmissions    InspectionSubmission[]
+  operationalAssignments   OperationalAssignment[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
 
   @@unique([definitionId, serviceDate])
   @@index([facilityId, serviceDate])
@@ -306,61 +308,61 @@ model MenuSettings {
 }
 
 model MenuItem {
-  id           String   @id @default(cuid())
-  facilityId   String
-  facility     Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  weekNumber   Int
-  dayIndex     Int
+  id            String            @id @default(cuid())
+  facilityId    String
+  facility      Facility          @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  weekNumber    Int
+  dayIndex      Int
   mealPeriodKey String
-  category     String
-  itemName     String
-  portionValue String?
-  portionUnit  String?
-  entryType    MenuItemEntryType @default(FIXED)
-  displayOrder Int      @default(100)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  category      String
+  itemName      String
+  portionValue  String?
+  portionUnit   String?
+  entryType     MenuItemEntryType @default(FIXED)
+  displayOrder  Int               @default(100)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([facilityId, weekNumber, dayIndex, mealPeriodKey])
   @@index([facilityId, weekNumber, dayIndex, mealPeriodKey, category])
 }
 
 model User {
-  id                        String                      @id @default(cuid())
-  email                     String                      @unique
+  id                        String                          @id @default(cuid())
+  email                     String                          @unique
   displayName               String
   passwordHash              String
   /// All app users belong to one facility in this deployment; session JWT carries facilityId for query scope.
   facilityId                String
-  facility                  Facility                    @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  facility                  Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   roleId                    String
-  role                      Role                        @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  isActive                  Boolean                     @default(true)
+  role                      Role                            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  isActive                  Boolean                         @default(true)
   lastLoginAt               DateTime?
   /// Optional primary operational department for session/nav scoping.
   primaryDepartmentId       String?
-  primaryDepartment         Department?                 @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
+  primaryDepartment         Department?                     @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
   submissions               LogSubmission[]
-  createdSchedules          ScheduleEntry[]             @relation("ScheduleCreatedBy")
-  changedOverrides          AssignmentOverride[]        @relation("OverrideChangedBy")
-  createdAssignments        OperationalAssignment[]     @relation("AssignmentCreatedBy")
+  createdSchedules          ScheduleEntry[]                 @relation("ScheduleCreatedBy")
+  changedOverrides          AssignmentOverride[]            @relation("OverrideChangedBy")
+  createdAssignments        OperationalAssignment[]         @relation("AssignmentCreatedBy")
   createdTemplates          OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
-  assignmentEvents          OperationalAssignmentEvent[] @relation("AssignmentEventActor")
-  reportedRepairs           Repair[]                    @relation("RepairReportedBy")
+  assignmentEvents          OperationalAssignmentEvent[]    @relation("AssignmentEventActor")
+  reportedRepairs           Repair[]                        @relation("RepairReportedBy")
   repairUpdates             RepairUpdate[]
-  disciplinePointsCreated   DisciplinePointEntry[]      @relation("DisciplinePointCreatedBy")
+  disciplinePointsCreated   DisciplinePointEntry[]          @relation("DisciplinePointCreatedBy")
   employeeHrAuditLogs       EmployeeHrAuditLog[]
-  terminationRecordsCreated EmployeeTerminationRecord[] @relation("TerminationCreatedBy")
-  serveryMealReadyEvents    ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedBy")
-  serveryMealStartedEvents  ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedBy")
-  attachmentsCreated        Attachment[]                @relation("AttachmentCreatedByUser")
-  knowledgeArticlesCreated  KnowledgeArticle[]          @relation("KnowledgeArticleCreatedBy")
-  knowledgeArticlesUpdated  KnowledgeArticle[]          @relation("KnowledgeArticleUpdatedBy")
-  facilityAccesses          UserFacilityAccess[]        @relation("UserFacilityAccessUser")
-  facilityAccessesGranted   UserFacilityAccess[]        @relation("UserFacilityAccessGrantedBy")
+  terminationRecordsCreated EmployeeTerminationRecord[]     @relation("TerminationCreatedBy")
+  serveryMealReadyEvents    ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedBy")
+  serveryMealStartedEvents  ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedBy")
+  attachmentsCreated        Attachment[]                    @relation("AttachmentCreatedByUser")
+  knowledgeArticlesCreated  KnowledgeArticle[]              @relation("KnowledgeArticleCreatedBy")
+  knowledgeArticlesUpdated  KnowledgeArticle[]              @relation("KnowledgeArticleUpdatedBy")
+  facilityAccesses          UserFacilityAccess[]            @relation("UserFacilityAccessUser")
+  facilityAccessesGranted   UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
   workspacePreferences      WorkspacePreference[]
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
+  createdAt                 DateTime                        @default(now())
+  updatedAt                 DateTime                        @updatedAt
 
   @@index([roleId])
   @@index([isActive])
@@ -371,21 +373,21 @@ model User {
 /// Per-user, per-facility Business Workspace layout preferences (Wave 12 M3).
 /// Not device cookies — facility switch must load the destination facility prefs only.
 model WorkspacePreference {
-  id                         String   @id @default(cuid())
-  userId                     String
-  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  facilityId                 String
-  facility                   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  id                        String   @id @default(cuid())
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facilityId                String
+  facility                  Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   /// Optional sections the user has hidden (role-required sections cannot be hidden).
-  hiddenSectionIds           String[] @default([])
+  hiddenSectionIds          String[] @default([])
   /// Sections currently collapsed in the Workspace UI.
-  collapsedSectionIds        String[] @default([])
+  collapsedSectionIds       String[] @default([])
   /// Preferred visible-section order for customizable sections (core sections stay fixed first).
-  sectionOrder               String[] @default([])
+  sectionOrder              String[] @default([])
   /// Preferred landing / first focus section when opening Workspace.
-  preferredLandingSectionId  String?
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  preferredLandingSectionId String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   @@unique([userId, facilityId])
   @@index([userId])
@@ -432,6 +434,20 @@ enum UnitType {
 enum UnitDepartmentKind {
   PRIMARY
   BACKUP
+  SUPPORT
+}
+
+enum SpaceType {
+  SERVICE_AREA
+  PATIENT_ROOM
+  PRODUCTION_AREA
+  STORAGE
+  UTILITY
+  OFFICE
+  RESTROOM
+  MECHANICAL
+  PUBLIC_AREA
+  OTHER
 }
 
 enum MealType {
@@ -670,41 +686,42 @@ enum AttachmentParentKind {
 }
 
 model Unit {
-  id                       String                    @id @default(cuid())
-  facilityId               String
-  facility                 Facility                  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  name                     String
-  unitType                 UnitType
-  parentUnitId             String?
-  parentUnit               Unit?                     @relation("UnitHierarchy", fields: [parentUnitId], references: [id], onDelete: SetNull)
-  childUnits               Unit[]                    @relation("UnitHierarchy")
-  isActive                 Boolean                   @default(true)
-  displayOrder             Int                       @default(100)
-  description              String?
-  primaryForEmployees      Employee[]                @relation("EmployeePrimaryUnit")
-  employeeUnitAccess       EmployeeUnitAccess[]
-  mealTimes                UnitMealTime[]
+  id                         String                              @id @default(cuid())
+  facilityId                 String
+  facility                   Facility                            @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name                       String
+  unitType                   UnitType
+  parentUnitId               String?
+  parentUnit                 Unit?                               @relation("UnitHierarchy", fields: [parentUnitId], references: [id], onDelete: SetNull)
+  childUnits                 Unit[]                              @relation("UnitHierarchy")
+  isActive                   Boolean                             @default(true)
+  displayOrder               Int                                 @default(100)
+  description                String?
+  primaryForEmployees        Employee[]                          @relation("EmployeePrimaryUnit")
+  employeeUnitAccess         EmployeeUnitAccess[]
+  mealTimes                  UnitMealTime[]
+  childSpaces                UnitSpace[]
   departmentResponsibilities UnitDepartmentResponsibility[]
-  logAssignments           LogAssignment[]
-  logSubmissions           LogSubmission[]
-  defaultAssignments       DefaultAssignment[]
-  scheduleEntries          ScheduleEntry[]
-  overrideOldUnit          AssignmentOverride[]      @relation("OverrideOldUnit")
-  overrideNewUnit          AssignmentOverride[]      @relation("OverrideNewUnit")
-  assets                   Asset[]
-  repairs                  Repair[]
-  roomAreaStatuses         RoomAreaStatus[]
-  serveryMealServiceEvents ServeryMealServiceEvent[]
-  kioskUnitPinLoginEvents  KioskUnitPinLoginEvent[]
-  tasks                    Task[]
-  inspectionDefinitions    InspectionDefinition[]
-  inspectionSubmissions    InspectionSubmission[]
-  inspectionOccurrences    InspectionOccurrence[]
-  knowledgeArticleUnits    KnowledgeArticleUnit[]
-  operationalAssignments   OperationalAssignment[]
-  assignmentTemplateItems  OperationalAssignmentTemplateItem[]
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
+  logAssignments             LogAssignment[]
+  logSubmissions             LogSubmission[]
+  defaultAssignments         DefaultAssignment[]
+  scheduleEntries            ScheduleEntry[]
+  overrideOldUnit            AssignmentOverride[]                @relation("OverrideOldUnit")
+  overrideNewUnit            AssignmentOverride[]                @relation("OverrideNewUnit")
+  assets                     Asset[]
+  repairs                    Repair[]
+  roomAreaStatuses           RoomAreaStatus[]
+  serveryMealServiceEvents   ServeryMealServiceEvent[]
+  kioskUnitPinLoginEvents    KioskUnitPinLoginEvent[]
+  tasks                      Task[]
+  inspectionDefinitions      InspectionDefinition[]
+  inspectionSubmissions      InspectionSubmission[]
+  inspectionOccurrences      InspectionOccurrence[]
+  knowledgeArticleUnits      KnowledgeArticleUnit[]
+  operationalAssignments     OperationalAssignment[]
+  assignmentTemplateItems    OperationalAssignmentTemplateItem[]
+  createdAt                  DateTime                            @default(now())
+  updatedAt                  DateTime                            @updatedAt
 
   @@unique([facilityId, name])
   @@index([parentUnitId])
@@ -712,22 +729,63 @@ model Unit {
   @@index([facilityId])
 }
 
-/// Which department(s) are responsible for a unit (primary/backup).
+/// Which department(s) are responsible for a unit (primary/backup/support).
+/// `capabilities` describes what the department does here (empty = legacy full access).
 model UnitDepartmentResponsibility {
-  id                 String             @id @default(cuid())
-  unitId             String
-  unit               Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  departmentId       String
-  department         Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  kind               UnitDepartmentKind @default(PRIMARY)
-  riskLevel          String?
-  cleaningFrequency  String?
+  id                  String             @id @default(cuid())
+  unitId              String
+  unit                Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  kind                UnitDepartmentKind @default(PRIMARY)
+  capabilities        String[]           @default([])
+  riskLevel           String?
+  cleaningFrequency   String?
   inspectionFrequency String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@unique([unitId, departmentId])
   @@index([unitId])
+  @@index([departmentId])
+}
+
+/// Physical sub-location within a Unit (room, service area, storage, etc.).
+model UnitSpace {
+  id               String                    @id @default(cuid())
+  unitId           String
+  unit             Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  facilityId       String
+  facility         Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  name             String
+  spaceType        SpaceType
+  code             String?
+  isActive         Boolean                   @default(true)
+  sortOrder        Int                       @default(100)
+  description      String?
+  responsibilities UnitSpaceResponsibility[]
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@unique([unitId, name])
+  @@index([facilityId])
+  @@index([unitId, isActive, sortOrder])
+}
+
+/// Department responsibility override at the room/space level.
+/// When present, replaces (does not merge with) inherited unit-level capabilities.
+model UnitSpaceResponsibility {
+  id           String     @id @default(cuid())
+  spaceId      String
+  space        UnitSpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  capabilities String[]   @default([])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([spaceId, departmentId])
+  @@index([spaceId])
   @@index([departmentId])
 }
 
@@ -921,18 +979,18 @@ model EmployeeUnitAccess {
 
 /// PIN sign-in on a unit-locked tablet when the employee is not in `EmployeeUnitAccess` for that unit (or similar mismatch).
 model KioskUnitPinLoginEvent {
-  id                 String   @id @default(cuid())
-  facilityId         String
-  facility           Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  employeeId         String
-  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  unitId             String
-  unit               Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  facilityId       String
+  facility         Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  employeeId       String
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  unitId           String
+  unit             Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
   /// True when the employee has a non-empty unit access list that does not include `unitId`.
-  unassignedToUnit   Boolean
+  unassignedToUnit Boolean
   /// Optional client IP (from proxy headers) for support review.
-  clientIp           String?
-  createdAt          DateTime @default(now())
+  clientIp         String?
+  createdAt        DateTime @default(now())
 
   @@index([facilityId, createdAt])
   @@index([employeeId, createdAt])
@@ -1020,26 +1078,26 @@ model Vendor {
 }
 
 model Asset {
-  id            String           @id @default(cuid())
-  assetCode     String           @unique
-  name          String
-  equipmentType String
-  unitId        String
-  unit          Unit             @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  departmentId  String?
-  department    Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  model         String?
-  serialNumber  String?
-  vendorId      String?
-  vendor        Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  status        AssetStatus      @default(ACTIVE)
-  criticality   AssetCriticality @default(ROUTINE)
-  notes         String?
-  repairs       Repair[]
+  id                             String                          @id @default(cuid())
+  assetCode                      String                          @unique
+  name                           String
+  equipmentType                  String
+  unitId                         String
+  unit                           Unit                            @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  departmentId                   String?
+  department                     Department?                     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  model                          String?
+  serialNumber                   String?
+  vendorId                       String?
+  vendor                         Vendor?                         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  status                         AssetStatus                     @default(ACTIVE)
+  criticality                    AssetCriticality                @default(ROUTINE)
+  notes                          String?
+  repairs                        Repair[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
-  knowledgeArticleAssets    KnowledgeArticleAsset[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  knowledgeArticleAssets         KnowledgeArticleAsset[]
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
 
   @@index([unitId, status])
   @@index([unitId, criticality])
@@ -1048,40 +1106,40 @@ model Asset {
 }
 
 model Repair {
-  id                      String         @id @default(cuid())
-  repairCode              String         @unique
+  id                      String                         @id @default(cuid())
+  repairCode              String                         @unique
   assetId                 String?
-  asset                   Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  asset                   Asset?                         @relation(fields: [assetId], references: [id], onDelete: SetNull)
   unitId                  String
-  unit                    Unit           @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  unit                    Unit                           @relation(fields: [unitId], references: [id], onDelete: Restrict)
   title                   String
   description             String
-  priority                RepairPriority @default(MEDIUM)
-  status                  RepairStatus   @default(OPEN)
-  workOrderKind           WorkOrderKind  @default(CORRECTIVE)
-  repairTrade             RepairTrade    @default(GENERAL)
+  priority                RepairPriority                 @default(MEDIUM)
+  status                  RepairStatus                   @default(OPEN)
+  workOrderKind           WorkOrderKind                  @default(CORRECTIVE)
+  repairTrade             RepairTrade                    @default(GENERAL)
   /// Product “Issue” classification; Repair remains the persistence model (ADL-008).
-  issueType               IssueType      @default(EQUIPMENT)
+  issueType               IssueType                      @default(EQUIPMENT)
   requestingDepartmentId  String?
-  requestingDepartment    Department?    @relation("RepairRequestingDepartment", fields: [requestingDepartmentId], references: [id], onDelete: SetNull)
+  requestingDepartment    Department?                    @relation("RepairRequestingDepartment", fields: [requestingDepartmentId], references: [id], onDelete: SetNull)
   responsibleDepartmentId String?
-  responsibleDepartment   Department?    @relation("RepairResponsibleDepartment", fields: [responsibleDepartmentId], references: [id], onDelete: SetNull)
+  responsibleDepartment   Department?                    @relation("RepairResponsibleDepartment", fields: [responsibleDepartmentId], references: [id], onDelete: SetNull)
   assignedEmployeeId      String?
-  assignedEmployee        Employee?      @relation("RepairAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  assignedEmployee        Employee?                      @relation("RepairAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
   preventiveScheduleId    String?
   preventiveSchedule      PreventiveMaintenanceSchedule? @relation(fields: [preventiveScheduleId], references: [id], onDelete: SetNull)
   dueAt                   DateTime?
   estimatedLaborMinutes   Int?
   partsNote               String?
   reportedById            String?
-  reportedBy              User?          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
+  reportedBy              User?                          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
   vendorId                String?
-  vendor                  Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendor                  Vendor?                        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   updates                 RepairUpdate[]
   attachments             Attachment[]
-  createdAt               DateTime       @default(now())
+  createdAt               DateTime                       @default(now())
   completedAt             DateTime?
-  updatedAt               DateTime       @updatedAt
+  updatedAt               DateTime                       @updatedAt
 
   @@index([unitId, status])
   @@index([priority, status])
@@ -1107,25 +1165,25 @@ model RepairUpdate {
 }
 
 model LogTemplate {
-  id              String             @id @default(cuid())
-  facilityId      String
-  facility        Facility           @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  name            String
-  category        String
-  description     String?
-  instructions    String?
-  recurrence      LogRecurrence      @default(DAILY)
-  isActive        Boolean            @default(true)
-  departmentId    String?
-  department      Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdByRoleId String?
-  createdByRole   Role?              @relation(fields: [createdByRoleId], references: [id], onDelete: SetNull)
-  fields          LogTemplateField[]
-  assignments     LogAssignment[]
-  submissions     LogSubmission[]
+  id                    String                        @id @default(cuid())
+  facilityId            String
+  facility              Facility                      @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name                  String
+  category              String
+  description           String?
+  instructions          String?
+  recurrence            LogRecurrence                 @default(DAILY)
+  isActive              Boolean                       @default(true)
+  departmentId          String?
+  department            Department?                   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdByRoleId       String?
+  createdByRole         Role?                         @relation(fields: [createdByRoleId], references: [id], onDelete: SetNull)
+  fields                LogTemplateField[]
+  assignments           LogAssignment[]
+  submissions           LogSubmission[]
   knowledgeArticleLinks KnowledgeArticleLogTemplate[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
 
   @@unique([facilityId, name])
   @@index([category, isActive])
@@ -1216,41 +1274,41 @@ model LogSubmissionValue {
 }
 
 model WorkShift {
-  id           String          @id @default(cuid())
-  facilityId   String
-  facility     Facility        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId String?
-  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  name         String
-  startLocal   String
-  endLocal     String
-  sortOrder    Int             @default(100)
-  isActive     Boolean         @default(true)
-  scheduleEntries ScheduleEntry[]
+  id                  String                          @id @default(cuid())
+  facilityId          String
+  facility            Facility                        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String?
+  department          Department?                     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  name                String
+  startLocal          String
+  endLocal            String
+  sortOrder           Int                             @default(100)
+  isActive            Boolean                         @default(true)
+  scheduleEntries     ScheduleEntry[]
   assignmentTemplates OperationalAssignmentTemplate[]
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
 
   @@index([facilityId])
   @@index([departmentId])
 }
 
 model PreventiveMaintenanceSchedule {
-  id            String                        @id @default(cuid())
+  id            String                       @id @default(cuid())
   facilityId    String
-  facility      Facility                      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility      Facility                     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   assetId       String
-  asset         Asset                         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset         Asset                        @relation(fields: [assetId], references: [id], onDelete: Cascade)
   departmentId  String?
-  department    Department?                   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  department    Department?                  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   name          String
   cadence       PreventiveMaintenanceCadence
-  intervalCount Int                           @default(1)
+  intervalCount Int                          @default(1)
   nextDueAt     DateTime
-  isActive      Boolean                       @default(true)
+  isActive      Boolean                      @default(true)
   repairs       Repair[]
-  createdAt     DateTime                      @default(now())
-  updatedAt     DateTime                      @updatedAt
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
 
   @@index([facilityId])
   @@index([assetId])
@@ -1279,22 +1337,22 @@ model RoomAreaStatus {
 }
 
 model Attachment {
-  id                   String               @id @default(cuid())
-  facilityId           String
-  facility             Facility             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  parentKind           AttachmentParentKind
-  logSubmissionId      String?
-  logSubmission        LogSubmission?       @relation(fields: [logSubmissionId], references: [id], onDelete: Cascade)
-  repairId             String?
-  repair               Repair?              @relation(fields: [repairId], references: [id], onDelete: Cascade)
-  fileRelativePath     String
-  originalFilename     String
-  mimeType             String
-  createdByUserId      String?
-  createdByUser        User?                @relation("AttachmentCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdByEmployeeId  String?
-  createdByEmployee    Employee?            @relation("AttachmentCreatedByEmployee", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
-  createdAt            DateTime             @default(now())
+  id                  String               @id @default(cuid())
+  facilityId          String
+  facility            Facility             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  parentKind          AttachmentParentKind
+  logSubmissionId     String?
+  logSubmission       LogSubmission?       @relation(fields: [logSubmissionId], references: [id], onDelete: Cascade)
+  repairId            String?
+  repair              Repair?              @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  fileRelativePath    String
+  originalFilename    String
+  mimeType            String
+  createdByUserId     String?
+  createdByUser       User?                @relation("AttachmentCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByEmployeeId String?
+  createdByEmployee   Employee?            @relation("AttachmentCreatedByEmployee", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt           DateTime             @default(now())
 
   @@index([facilityId])
   @@index([logSubmissionId])
@@ -1305,28 +1363,28 @@ model Attachment {
 
 /// Additive Work Engine projection. LogSubmission / Repair remain source of truth.
 model Task {
-  id                  String          @id @default(cuid())
-  facilityId          String
-  facility            Facility        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId        String?
-  department          Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  unitId              String?
-  unit                Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  operationInstanceId String?
-  operationInstance   OperationInstance? @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  type                TaskType
-  title               String
-  description         String?
-  status              TaskStatus      @default(OPEN)
-  priority            TaskPriority    @default(MEDIUM)
-  dueAt               DateTime?
-  completedAt         DateTime?
-  assignedEmployeeId  String?
-  assignedEmployee    Employee?       @relation("TaskAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  sourceType          TaskSourceType
-  sourceId            String
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  id                    String                 @id @default(cuid())
+  facilityId            String
+  facility              Facility               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId          String?
+  department            Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  unitId                String?
+  unit                  Unit?                  @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  operationInstanceId   String?
+  operationInstance     OperationInstance?     @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  type                  TaskType
+  title                 String
+  description           String?
+  status                TaskStatus             @default(OPEN)
+  priority              TaskPriority           @default(MEDIUM)
+  dueAt                 DateTime?
+  completedAt           DateTime?
+  assignedEmployeeId    String?
+  assignedEmployee      Employee?              @relation("TaskAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  sourceType            TaskSourceType
+  sourceId              String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
   inspectionSubmissions InspectionSubmission[]
   inspectionOccurrences InspectionOccurrence[]
 
@@ -1342,35 +1400,35 @@ model Task {
 
 /// Native Work Engine inspection checklist definition (distinct from LogTemplate).
 model InspectionDefinition {
-  id          String                     @id @default(cuid())
-  facilityId  String
-  facility    Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId String?
-  department  Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  unitId      String?
-  unit        Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  name        String
-  description String?
+  id                    String                                 @id @default(cuid())
+  facilityId            String
+  facility              Facility                               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId          String?
+  department            Department?                            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  unitId                String?
+  unit                  Unit?                                  @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  name                  String
+  description           String?
   /// Optional free-text notes; structured scheduling uses cadenceType / dueTimeLocal / daysOfWeek / dayOfMonth.
-  frequency   String?
-  cadenceType InspectionCadenceType      @default(ON_DEMAND)
+  frequency             String?
+  cadenceType           InspectionCadenceType                  @default(ON_DEMAND)
   /// Facility-local due wall time "HH:MM". Null defaults to 09:00 for generated occurrences.
-  dueTimeLocal String?
+  dueTimeLocal          String?
   /// Weekday numbers for WEEKLY cadence: 0=Sunday … 6=Saturday (facility-local).
-  daysOfWeek  Int[]                      @default([])
+  daysOfWeek            Int[]                                  @default([])
   /// 1–31 for MONTHLY cadence (facility-local). Clamped to last day of short months.
-  dayOfMonth  Int?
-  activeFrom  DateTime?                  @db.Date
-  activeUntil DateTime?                  @db.Date
+  dayOfMonth            Int?
+  activeFrom            DateTime?                              @db.Date
+  activeUntil           DateTime?                              @db.Date
   /// Last facility-local service date the generator has materialized through.
-  lastGeneratedThrough DateTime?         @db.Date
-  isActive    Boolean                    @default(true)
-  items       InspectionDefinitionItem[]
-  submissions InspectionSubmission[]
-  occurrences InspectionOccurrence[]
+  lastGeneratedThrough  DateTime?                              @db.Date
+  isActive              Boolean                                @default(true)
+  items                 InspectionDefinitionItem[]
+  submissions           InspectionSubmission[]
+  occurrences           InspectionOccurrence[]
   knowledgeArticleLinks KnowledgeArticleInspectionDefinition[]
-  createdAt   DateTime                   @default(now())
-  updatedAt   DateTime                   @updatedAt
+  createdAt             DateTime                               @default(now())
+  updatedAt             DateTime                               @updatedAt
 
   @@unique([facilityId, name])
   @@index([facilityId, isActive])
@@ -1381,24 +1439,24 @@ model InspectionDefinition {
 
 /// One scheduled inspection occurrence per definition + facility-local service date.
 model InspectionOccurrence {
-  id           String                      @id @default(cuid())
+  id           String                     @id @default(cuid())
   definitionId String
-  definition   InspectionDefinition        @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  definition   InspectionDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
   facilityId   String
-  facility     Facility                    @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility     Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId String?
-  department   Department?                 @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  department   Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   unitId       String?
-  unit         Unit?                       @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit         Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
   /// Facility-local calendar day as UTC-midnight @db.Date.
-  serviceDate  DateTime                    @db.Date
+  serviceDate  DateTime                   @db.Date
   dueAt        DateTime
-  status       InspectionOccurrenceStatus  @default(OPEN)
+  status       InspectionOccurrenceStatus @default(OPEN)
   taskId       String?
-  task         Task?                       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  task         Task?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
   submission   InspectionSubmission?
-  createdAt    DateTime                    @default(now())
-  updatedAt    DateTime                    @updatedAt
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
 
   @@unique([definitionId, serviceDate])
   @@index([facilityId, status, dueAt])
@@ -1409,49 +1467,49 @@ model InspectionOccurrence {
 }
 
 model InspectionDefinitionItem {
-  id                    String                  @id @default(cuid())
-  definitionId          String
-  definition            InspectionDefinition    @relation(fields: [definitionId], references: [id], onDelete: Cascade)
-  label                 String
-  description           String?
-  sortOrder             Int
-  isRequired            Boolean                 @default(true)
-  responseType          InspectionResponseType
-  failureCreatesFollowUp Boolean                @default(false)
-  submissionItems       InspectionSubmissionItem[]
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  id                     String                     @id @default(cuid())
+  definitionId           String
+  definition             InspectionDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  label                  String
+  description            String?
+  sortOrder              Int
+  isRequired             Boolean                    @default(true)
+  responseType           InspectionResponseType
+  failureCreatesFollowUp Boolean                    @default(false)
+  submissionItems        InspectionSubmissionItem[]
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
 
   @@unique([definitionId, sortOrder])
   @@index([definitionId])
 }
 
 model InspectionSubmission {
-  id                     String                    @id @default(cuid())
-  facilityId             String
-  facility               Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  definitionId           String
-  definition             InspectionDefinition      @relation(fields: [definitionId], references: [id], onDelete: Restrict)
-  unitId                 String?
-  unit                   Unit?                     @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  operationInstanceId    String?
-  operationInstance      OperationInstance?        @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  id                    String                     @id @default(cuid())
+  facilityId            String
+  facility              Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  definitionId          String
+  definition            InspectionDefinition       @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  unitId                String?
+  unit                  Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  operationInstanceId   String?
+  operationInstance     OperationInstance?         @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
   /// When set, this submission completes the linked scheduled occurrence (no duplicate execution Task).
-  occurrenceId           String?                   @unique
-  occurrence             InspectionOccurrence?     @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
-  submittedByEmployeeId  String?
-  submittedByEmployee    Employee?                 @relation("InspectionSubmittedByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
-  submittedAt            DateTime                  @default(now())
-  result                 InspectionResult
-  notes                  String?
+  occurrenceId          String?                    @unique
+  occurrence            InspectionOccurrence?      @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
+  submittedByEmployeeId String?
+  submittedByEmployee   Employee?                  @relation("InspectionSubmittedByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
+  submittedAt           DateTime                   @default(now())
+  result                InspectionResult
+  notes                 String?
   /// Optional link to projected Task after sync (Task remains keyed by sourceType/sourceId).
-  taskId                 String?
-  task                   Task?                     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId                String?
+  task                  Task?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
   /// Caller-supplied key to make retries idempotent within a facility.
-  idempotencyKey         String?
-  items                  InspectionSubmissionItem[]
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime                  @updatedAt
+  idempotencyKey        String?
+  items                 InspectionSubmissionItem[]
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
 
   @@unique([facilityId, idempotencyKey])
   @@index([facilityId, submittedAt])
@@ -1512,29 +1570,29 @@ enum KnowledgeSourceType {
 
 /// Operational knowledge article — facility source of truth for SOPs and reference content.
 model KnowledgeArticle {
-  id              String                   @id @default(cuid())
-  facilityId      String
-  facility        Facility                 @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId    String?
-  department      Department?              @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  title           String
-  summary         String?
-  body            String
-  status          KnowledgeArticleStatus   @default(DRAFT)
-  category        KnowledgeArticleCategory
-  sourceType      KnowledgeSourceType      @default(MANUAL)
-  createdByUserId String?
-  createdBy       User?                    @relation("KnowledgeArticleCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedByUserId String?
-  updatedBy       User?                    @relation("KnowledgeArticleUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  publishedAt     DateTime?
-  archivedAt      DateTime?
-  unitLinks       KnowledgeArticleUnit[]
-  assetLinks      KnowledgeArticleAsset[]
-  logTemplateLinks KnowledgeArticleLogTemplate[]
+  id                        String                                 @id @default(cuid())
+  facilityId                String
+  facility                  Facility                               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId              String?
+  department                Department?                            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  title                     String
+  summary                   String?
+  body                      String
+  status                    KnowledgeArticleStatus                 @default(DRAFT)
+  category                  KnowledgeArticleCategory
+  sourceType                KnowledgeSourceType                    @default(MANUAL)
+  createdByUserId           String?
+  createdBy                 User?                                  @relation("KnowledgeArticleCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUserId           String?
+  updatedBy                 User?                                  @relation("KnowledgeArticleUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  publishedAt               DateTime?
+  archivedAt                DateTime?
+  unitLinks                 KnowledgeArticleUnit[]
+  assetLinks                KnowledgeArticleAsset[]
+  logTemplateLinks          KnowledgeArticleLogTemplate[]
   inspectionDefinitionLinks KnowledgeArticleInspectionDefinition[]
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  createdAt                 DateTime                               @default(now())
+  updatedAt                 DateTime                               @updatedAt
 
   @@index([facilityId, status])
   @@index([facilityId, category])
@@ -1658,32 +1716,32 @@ enum OperationalAssignmentSource {
 /// Operational responsibility during a defined time or operation.
 /// Separated from ScheduleEntry (attendance/hours) and AssignmentOverride (call-offs/moves).
 model OperationalAssignment {
-  id                  String                            @id @default(cuid())
+  id                  String                             @id @default(cuid())
   facilityId          String
-  facility            Facility                          @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility            Facility                           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId        String
-  department          Department                        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department          Department                         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   employeeId          String
-  employee            Employee                          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee            Employee                           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   unitId              String?
-  unit                Unit?                             @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit                Unit?                              @relation(fields: [unitId], references: [id], onDelete: SetNull)
   operationInstanceId String?
   operationInstance   OperationInstance?                 @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
   templateItemId      String?
   templateItem        OperationalAssignmentTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: SetNull)
-  serviceDate         DateTime                          @db.Date
+  serviceDate         DateTime                           @db.Date
   roleKey             String
   roleLabel           String
   startsAt            DateTime?
   endsAt              DateTime?
-  status              OperationalAssignmentStatus       @default(PLANNED)
-  source              OperationalAssignmentSource       @default(MANUAL)
+  status              OperationalAssignmentStatus        @default(PLANNED)
+  source              OperationalAssignmentSource        @default(MANUAL)
   notes               String?
   createdByUserId     String?
-  createdByUser       User?                             @relation("AssignmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByUser       User?                              @relation("AssignmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   events              OperationalAssignmentEvent[]
-  createdAt           DateTime                          @default(now())
-  updatedAt           DateTime                          @updatedAt
+  createdAt           DateTime                           @default(now())
+  updatedAt           DateTime                           @updatedAt
 
   @@index([facilityId, serviceDate])
   @@index([departmentId, serviceDate])
@@ -1736,21 +1794,21 @@ model OperationalAssignmentTemplate {
 }
 
 model OperationalAssignmentTemplateItem {
-  id            String                          @id @default(cuid())
+  id            String                        @id @default(cuid())
   templateId    String
-  template      OperationalAssignmentTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  template      OperationalAssignmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   roleKey       String
   roleLabel     String
   unitId        String?
-  unit          Unit?                           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit          Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
   startsAtLocal String?
   endsAtLocal   String?
-  requiredCount Int                             @default(1)
-  sortOrder     Int                             @default(100)
+  requiredCount Int                           @default(1)
+  sortOrder     Int                           @default(100)
   notes         String?
   assignments   OperationalAssignment[]
-  createdAt     DateTime                        @default(now())
-  updatedAt     DateTime                        @updatedAt
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
 
   @@index([templateId, sortOrder])
 }
