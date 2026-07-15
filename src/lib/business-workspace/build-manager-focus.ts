@@ -169,6 +169,21 @@ export function buildManagerFocus(
     });
   }
 
+  if (inputs.assignmentSummary?.available && inputs.assignmentSummary.unfilledPositions > 0) {
+    const unfilled = inputs.assignmentSummary.unfilledPositions;
+    candidates.push({
+      id: "focus-assignment-gaps",
+      title: `${copy.deptPrefix ? `${copy.deptPrefix} ` : ""}positions need assignment`,
+      explanation: `${unfilled} required operational position${unfilled !== 1 ? "s remain" : " remains"} unfilled`,
+      whyItMatters: "Unfilled positions affect operational readiness for the current period.",
+      actionLabel: "Assignment Board",
+      href: "/staffing/assignments",
+      tone: "warning",
+      rank: 2,
+      dedupeHref: normalizeHref("/staffing/assignments"),
+    });
+  }
+
   if (staffingGaps > 0 || callDownSummary.open > 0) {
     const first = dashboard.unitsMissingStaffing[0];
     candidates.push({

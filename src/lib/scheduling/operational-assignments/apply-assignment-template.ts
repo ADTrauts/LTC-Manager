@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
 
+import { recordAssignmentEvent } from "./assignment-events";
 import type { ApplyTemplateResult, TemplatePreviewPosition } from "./template-types";
 
 export type ApplyTemplateInput = {
@@ -17,6 +18,7 @@ export type ApplyTemplateInput = {
  * Batch-create OperationalAssignment rows from confirmed template positions.
  * Skips positions that are already filled or have no employee assigned.
  * Idempotent: existing assignments matching role+unit+employee are not duplicated.
+ * Sets templateItemId for traceability back to the originating template position.
  */
 export async function applyAssignmentTemplate(
   input: ApplyTemplateInput,
@@ -65,7 +67,7 @@ export async function applyAssignmentTemplate(
       continue;
     }
 
-    await prisma.operationalAssignment.create({
+    const assignment = await prisma.operationalAssignment.create({
       data: {
         facilityId: input.facilityId,
         departmentId: input.departmentId,
@@ -75,12 +77,22 @@ export async function applyAssignmentTemplate(
         roleLabel: roleDef.label,
         unitId: pos.unitId ?? null,
         operationInstanceId: input.operationInstanceId,
+        templateItemId: pos.itemId ?? null,
         startsAt: pos.startsAtLocal ? parseLocalTime(input.serviceDate, pos.startsAtLocal) : null,
         endsAt: pos.endsAtLocal ? parseLocalTime(input.serviceDate, pos.endsAtLocal) : null,
         source: "TEMPLATE",
         notes: pos.notes ?? null,
         createdByUserId: input.createdByUserId,
       },
+    });
+
+    await recordAssignmentEvent({
+      assignmentId: assignment.id,
+      facilityId: input.facilityId,
+      eventType: "CREATED",
+      actorUserId: input.createdByUserId,
+      toStatus: "PLANNED",
+      summary: `Template assignment created: ${roleDef.label}`,
     });
 
     existingKeys.add(key);

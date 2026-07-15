@@ -10,6 +10,17 @@ export type {
 
 export { assignmentStatusLabel, isAssignmentActive } from "./assignment-status";
 export { applyAssignmentTemplate, type ApplyTemplateInput } from "./apply-assignment-template";
+export {
+  recordAssignmentEvent,
+  loadAssignmentEvents,
+  type AssignmentEventType,
+  type AssignmentEventView,
+} from "./assignment-events";
+export {
+  buildAssignmentFulfillmentSummary,
+  type AssignmentFulfillmentSummary,
+  type FulfillmentPosition,
+} from "./build-assignment-fulfillment";
 export { suggestEmployeeForPosition } from "./build-assignment-suggestions";
 export { detectOverlappingAssignments } from "./detect-assignment-conflicts";
 export {

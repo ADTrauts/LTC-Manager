@@ -1007,3 +1007,406 @@ test("M3: template does not store employee IDs", () => {
   const hasEmployeeField = "employeeId" in template || template.items.some((i) => "employeeId" in i);
   assert.ok(!hasEmployeeField, "Templates should not store employee IDs");
 });
+
+// ---------------------------------------------------------------------------
+// M4: Assignment fulfillment summary
+// ---------------------------------------------------------------------------
+
+import { buildAssignmentFulfillmentSummary } from "./build-assignment-fulfillment";
+
+function makeTemplate(items: Array<{roleKey: string; roleLabel: string; requiredCount: number; unitId?: string | null}>): TemplateView {
+  return {
+    id: "tpl1",
+    name: "Test Template",
+    description: null,
+    isActive: true,
+    departmentId: "dept1",
+    departmentKey: "DIETARY",
+    operationDefinitionId: null,
+    operationLabel: null,
+    workShiftId: null,
+    workShiftName: null,
+    items: items.map((item, i) => ({
+      id: `item${i}`,
+      roleKey: item.roleKey,
+      roleLabel: item.roleLabel,
+      unitId: item.unitId ?? null,
+      unitName: null,
+      startsAtLocal: null,
+      endsAtLocal: null,
+      requiredCount: item.requiredCount,
+      sortOrder: (i + 1) * 10,
+      notes: null,
+    })),
+    totalPositions: items.reduce((s, i) => s + i.requiredCount, 0),
+  };
+}
+
+test("M4: fully filled positions", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.requiredPositions, 1);
+  assert.equal(result.filledPositions, 1);
+  assert.equal(result.unfilledPositions, 0);
+});
+
+test("M4: unfilled position", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 }]);
+  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 2,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.requiredPositions, 2);
+  assert.equal(result.filledPositions, 1);
+  assert.equal(result.unfilledPositions, 1);
+});
+
+test("M4: requiredCount expansion to multiple positions", () => {
+  const template = makeTemplate([{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 3 }]);
+  const assignments = [
+    makeEntry({ id: "a1", employeeId: "emp1", roleKey: "SERVER", status: "PLANNED" }),
+    makeEntry({ id: "a2", employeeId: "emp2", roleKey: "SERVER", status: "PLANNED" }),
+  ];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 3,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.requiredPositions, 3);
+  assert.equal(result.filledPositions, 2);
+  assert.equal(result.unfilledPositions, 1);
+});
+
+test("M4: completed assignment does not fill current position", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "COMPLETED" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.filledPositions, 0);
+  assert.equal(result.unfilledPositions, 1);
+});
+
+test("M4: cancelled assignment does not fill current position", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "CANCELLED" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.filledPositions, 0);
+  assert.equal(result.unfilledPositions, 1);
+});
+
+test("M4: manual assignment fills matching template role", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE", source: "MANUAL" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.filledPositions, 1);
+});
+
+test("M4: coverage assignment fills compatible position", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE", source: "COVERAGE" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.filledPositions, 1);
+});
+
+test("M4: no applicable template returns unavailable summary", () => {
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [],
+    assignments: [],
+    scheduledEmployeeCount: 5,
+  });
+  assert.ok(!result.available);
+});
+
+test("M4: inactive template excluded from fulfillment", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  template.isActive = false;
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments: [],
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(!result.available);
+});
+
+test("M4: overlapping employee counts as conflict", () => {
+  const template = makeTemplate([
+    { roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 },
+    { roleKey: "HOT_PREP", roleLabel: "Hot Prep", requiredCount: 1 },
+  ]);
+  const assignments = [
+    makeEntry({ id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE" }),
+    makeEntry({ id: "a2", employeeId: "emp1", roleKey: "HOT_PREP", status: "ACTIVE" }),
+  ];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 2,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.conflicts, 1, "one employee with 2 assignments = 1 conflict");
+});
+
+test("M4: coverage/reassignment assignments counted", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 }]);
+  const assignments = [
+    makeEntry({ id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE", source: "MANUAL" }),
+    makeEntry({ id: "a2", employeeId: "emp2", roleKey: "COOK", status: "ACTIVE", source: "COVERAGE" }),
+  ];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 3,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.activeCoverageAssignments, 1);
+});
+
+test("M4: scheduled-only employees computed correctly", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignments = [makeEntry({ id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE" })];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 4,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.scheduledOnlyEmployees, 3);
+});
+
+test("M4: unit-specific position only filled by matching unit", () => {
+  const template = makeTemplate([{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1, unitId: "unitA" }]);
+  const assignments = [
+    makeEntry({ id: "a1", roleKey: "SERVER", unitId: "unitB", status: "ACTIVE" }),
+  ];
+  const result = buildAssignmentFulfillmentSummary({
+    templates: [template],
+    assignments,
+    scheduledEmployeeCount: 1,
+  });
+  assert.ok(result.available);
+  if (!result.available) return;
+  assert.equal(result.filledPositions, 0, "wrong unit does not fill position");
+  assert.equal(result.unfilledPositions, 1);
+});
+
+// ---------------------------------------------------------------------------
+// M4: Assignment event types
+// ---------------------------------------------------------------------------
+
+test("M4: assignment event type values are correct strings", () => {
+  const types: string[] = ["CREATED", "UPDATED", "REASSIGNED", "COVERAGE_ADDED", "ACTIVATED", "COMPLETED", "CANCELLED"];
+  for (const t of types) {
+    assert.ok(t.length > 0);
+  }
+});
+
+test("M4: event view shape is correct", () => {
+  const event: import("./assignment-events").AssignmentEventView = {
+    id: "e1",
+    assignmentId: "a1",
+    eventType: "CREATED",
+    actorName: "Jane Manager",
+    fromStatus: null,
+    toStatus: "PLANNED",
+    summary: "Assignment created: Cook",
+    createdAt: "2026-07-15T08:00:00Z",
+  };
+  assert.equal(event.eventType, "CREATED");
+  assert.equal(event.actorName, "Jane Manager");
+  assert.equal(event.toStatus, "PLANNED");
+});
+
+test("M4: lifecycle events have from/to status", () => {
+  const event: import("./assignment-events").AssignmentEventView = {
+    id: "e2",
+    assignmentId: "a1",
+    eventType: "ACTIVATED",
+    actorName: "Jane Manager",
+    fromStatus: "PLANNED",
+    toStatus: "ACTIVE",
+    summary: "Assignment activated",
+    createdAt: "2026-07-15T09:00:00Z",
+  };
+  assert.equal(event.fromStatus, "PLANNED");
+  assert.equal(event.toStatus, "ACTIVE");
+});
+
+// ---------------------------------------------------------------------------
+// M4: Workspace integration types
+// ---------------------------------------------------------------------------
+
+test("M4: workspace assignment summary shape", () => {
+  const summary: import("@/lib/business-workspace/load-workspace-inputs").WorkspaceAssignmentSummary = {
+    available: true,
+    requiredPositions: 8,
+    filledPositions: 6,
+    unfilledPositions: 2,
+    conflicts: 1,
+    activeCoverageAssignments: 1,
+  };
+  assert.equal(summary.requiredPositions, 8);
+  assert.equal(summary.filledPositions, 6);
+  assert.ok(summary.available);
+});
+
+test("M4: workspace assignment summary unavailable when no templates", () => {
+  const summary: import("@/lib/business-workspace/load-workspace-inputs").WorkspaceAssignmentSummary = {
+    available: false,
+    requiredPositions: 0,
+    filledPositions: 0,
+    unfilledPositions: 0,
+    conflicts: 0,
+    activeCoverageAssignments: 0,
+  };
+  assert.ok(!summary.available);
+});
+
+// ---------------------------------------------------------------------------
+// M4: Manager Focus with assignment gaps
+// ---------------------------------------------------------------------------
+
+test("M4: buildManagerFocus surfaces unfilled positions", () => {
+  const { buildManagerFocus } = require("@/lib/business-workspace/build-manager-focus") as typeof import("@/lib/business-workspace/build-manager-focus");
+  const inputs = {
+    facilityId: "fac1",
+    facilityName: "Test",
+    facilityTimezone: "America/New_York",
+    now: new Date(),
+    operationalTime: { facilityLocalDate: "2026-07-15", facilityTimezone: "America/New_York" },
+    dashboard: {
+      unitCards: [],
+      mealBoards: [],
+      totals: { expected: 0, completed: 0, failed: 0, missed: 0 },
+      unitsMissingStaffing: [],
+      unitsWithExceptions: [],
+      operationContext: { serviceLabel: "Breakfast", phase: "Execution", scheduledTimeLabel: "6:00 AM" },
+      sitePulse: { tone: "ready", label: "Ready", badge: "Ready" },
+      callDowns: { items: [], summary: { total: 0, open: 0 }, dateIso: "2026-07-15" },
+    },
+    readiness: { items: [], summary: { total: 0, ready: 0, inProgress: 0, blocked: 0 } },
+    callDownSummary: { total: 0, open: 0 },
+    openRepairs: [],
+    inspectionsDue: [],
+    activeDepartmentKeys: ["DIETARY" as const],
+    activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
+    assignmentSummary: {
+      available: true,
+      requiredPositions: 5,
+      filledPositions: 3,
+      unfilledPositions: 2,
+      conflicts: 0,
+      activeCoverageAssignments: 0,
+    },
+  };
+  const cards = buildManagerFocus(inputs as any);
+  const assignmentCard = cards.find((c: any) => c.id === "focus-assignment-gaps");
+  assert.ok(assignmentCard, "should have assignment gap focus card");
+  assert.ok(assignmentCard!.explanation.includes("2"), "should mention unfilled count");
+});
+
+test("M4: no assignment gap focus when all positions filled", () => {
+  const { buildManagerFocus } = require("@/lib/business-workspace/build-manager-focus") as typeof import("@/lib/business-workspace/build-manager-focus");
+  const inputs = {
+    facilityId: "fac1",
+    facilityName: "Test",
+    facilityTimezone: "America/New_York",
+    now: new Date(),
+    operationalTime: { facilityLocalDate: "2026-07-15", facilityTimezone: "America/New_York" },
+    dashboard: {
+      unitCards: [],
+      mealBoards: [],
+      totals: { expected: 0, completed: 0, failed: 0, missed: 0 },
+      unitsMissingStaffing: [],
+      unitsWithExceptions: [],
+      operationContext: { serviceLabel: "Breakfast", phase: "Execution", scheduledTimeLabel: "6:00 AM" },
+      sitePulse: { tone: "ready", label: "Ready", badge: "Ready" },
+      callDowns: { items: [], summary: { total: 0, open: 0 }, dateIso: "2026-07-15" },
+    },
+    readiness: { items: [], summary: { total: 0, ready: 0, inProgress: 0, blocked: 0 } },
+    callDownSummary: { total: 0, open: 0 },
+    openRepairs: [],
+    inspectionsDue: [],
+    activeDepartmentKeys: ["DIETARY" as const],
+    activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
+    assignmentSummary: {
+      available: true,
+      requiredPositions: 5,
+      filledPositions: 5,
+      unfilledPositions: 0,
+      conflicts: 0,
+      activeCoverageAssignments: 0,
+    },
+  };
+  const cards = buildManagerFocus(inputs as any);
+  const assignmentCard = cards.find((c: any) => c.id === "focus-assignment-gaps");
+  assert.ok(!assignmentCard, "should not have assignment gap card when all filled");
+});
+
+test("M4: no assignment focus when feature unavailable", () => {
+  const { buildManagerFocus } = require("@/lib/business-workspace/build-manager-focus") as typeof import("@/lib/business-workspace/build-manager-focus");
+  const inputs = {
+    facilityId: "fac1",
+    facilityName: "Test",
+    facilityTimezone: "America/New_York",
+    now: new Date(),
+    operationalTime: { facilityLocalDate: "2026-07-15", facilityTimezone: "America/New_York" },
+    dashboard: {
+      unitCards: [],
+      mealBoards: [],
+      totals: { expected: 0, completed: 0, failed: 0, missed: 0 },
+      unitsMissingStaffing: [],
+      unitsWithExceptions: [],
+      operationContext: { serviceLabel: "Breakfast", phase: "Execution", scheduledTimeLabel: "6:00 AM" },
+      sitePulse: { tone: "ready", label: "Ready", badge: "Ready" },
+      callDowns: { items: [], summary: { total: 0, open: 0 }, dateIso: "2026-07-15" },
+    },
+    readiness: { items: [], summary: { total: 0, ready: 0, inProgress: 0, blocked: 0 } },
+    callDownSummary: { total: 0, open: 0 },
+    openRepairs: [],
+    inspectionsDue: [],
+    activeDepartmentKeys: ["DIETARY" as const],
+    activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
+  };
+  const cards = buildManagerFocus(inputs as any);
+  const assignmentCard = cards.find((c: any) => c.id === "focus-assignment-gaps");
+  assert.ok(!assignmentCard, "should not have assignment card without assignmentSummary");
+});

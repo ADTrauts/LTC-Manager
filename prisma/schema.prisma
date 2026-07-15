@@ -345,6 +345,7 @@ model User {
   changedOverrides          AssignmentOverride[]        @relation("OverrideChangedBy")
   createdAssignments        OperationalAssignment[]     @relation("AssignmentCreatedBy")
   createdTemplates          OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
+  assignmentEvents          OperationalAssignmentEvent[] @relation("AssignmentEventActor")
   reportedRepairs           Repair[]                    @relation("RepairReportedBy")
   repairUpdates             RepairUpdate[]
   disciplinePointsCreated   DisciplinePointEntry[]      @relation("DisciplinePointCreatedBy")
@@ -1657,35 +1658,57 @@ enum OperationalAssignmentSource {
 /// Operational responsibility during a defined time or operation.
 /// Separated from ScheduleEntry (attendance/hours) and AssignmentOverride (call-offs/moves).
 model OperationalAssignment {
-  id                  String                        @id @default(cuid())
+  id                  String                            @id @default(cuid())
   facilityId          String
-  facility            Facility                      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility            Facility                          @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId        String
-  department          Department                    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department          Department                        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   employeeId          String
-  employee            Employee                      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee            Employee                          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   unitId              String?
-  unit                Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit                Unit?                             @relation(fields: [unitId], references: [id], onDelete: SetNull)
   operationInstanceId String?
-  operationInstance   OperationInstance?             @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  serviceDate         DateTime                      @db.Date
+  operationInstance   OperationInstance?                 @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  templateItemId      String?
+  templateItem        OperationalAssignmentTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: SetNull)
+  serviceDate         DateTime                          @db.Date
   roleKey             String
   roleLabel           String
   startsAt            DateTime?
   endsAt              DateTime?
-  status              OperationalAssignmentStatus   @default(PLANNED)
-  source              OperationalAssignmentSource   @default(MANUAL)
+  status              OperationalAssignmentStatus       @default(PLANNED)
+  source              OperationalAssignmentSource       @default(MANUAL)
   notes               String?
   createdByUserId     String?
-  createdByUser       User?                         @relation("AssignmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdAt           DateTime                      @default(now())
-  updatedAt           DateTime                      @updatedAt
+  createdByUser       User?                             @relation("AssignmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  events              OperationalAssignmentEvent[]
+  createdAt           DateTime                          @default(now())
+  updatedAt           DateTime                          @updatedAt
 
   @@index([facilityId, serviceDate])
   @@index([departmentId, serviceDate])
   @@index([employeeId, serviceDate])
   @@index([unitId, serviceDate])
   @@index([operationInstanceId])
+  @@index([templateItemId])
+}
+
+/// Append-only audit log for assignment lifecycle changes.
+model OperationalAssignmentEvent {
+  id           String                @id @default(cuid())
+  assignmentId String
+  assignment   OperationalAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  facilityId   String
+  eventType    String
+  actorUserId  String?
+  actorUser    User?                 @relation("AssignmentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  fromStatus   String?
+  toStatus     String?
+  summary      String
+  createdAt    DateTime              @default(now())
+
+  @@index([assignmentId, createdAt])
+  @@index([facilityId, createdAt])
 }
 
 /// Reusable operating pattern describing required operational positions.
@@ -1725,6 +1748,7 @@ model OperationalAssignmentTemplateItem {
   requiredCount Int                             @default(1)
   sortOrder     Int                             @default(100)
   notes         String?
+  assignments   OperationalAssignment[]
   createdAt     DateTime                        @default(now())
   updatedAt     DateTime                        @updatedAt
 

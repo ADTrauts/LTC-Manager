@@ -90,5 +90,19 @@ export function buildPerformanceSnapshot(
     });
   }
 
+  if (inputs.assignmentSummary?.available) {
+    const as = inputs.assignmentSummary;
+    metrics.push({
+      id: "positions-filled",
+      label: "Positions filled",
+      value: `${as.filledPositions}/${as.requiredPositions}`,
+      hint: as.unfilledPositions > 0
+        ? `${as.unfilledPositions} unfilled`
+        : "All positions filled",
+      tone: as.unfilledPositions > 0 ? "warning" : "ready",
+      href: "/staffing/assignments",
+    });
+  }
+
   return metrics;
 }

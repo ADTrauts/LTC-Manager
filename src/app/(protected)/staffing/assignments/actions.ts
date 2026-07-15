@@ -13,6 +13,7 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
+import { recordAssignmentEvent } from "@/lib/scheduling/operational-assignments/assignment-events";
 
 const statusValues = [
   OperationalAssignmentStatus.PLANNED,
@@ -130,8 +131,9 @@ export async function createAssignmentAction(formData: FormData) {
   }
 
   const serviceDate = new Date(`${parsed.serviceDate}T00:00:00`);
+  const actorUserId = sessionUserIdForFk(session);
 
-  await prisma.operationalAssignment.create({
+  const created = await prisma.operationalAssignment.create({
     data: {
       facilityId: session.facilityId,
       departmentId: parsed.departmentId,
@@ -145,8 +147,17 @@ export async function createAssignmentAction(formData: FormData) {
       endsAt: parsed.endsAt ? new Date(parsed.endsAt) : null,
       source: parsed.source ?? "MANUAL",
       notes: parsed.notes ?? null,
-      createdByUserId: sessionUserIdForFk(session),
+      createdByUserId: actorUserId,
     },
+  });
+
+  await recordAssignmentEvent({
+    assignmentId: created.id,
+    facilityId: session.facilityId,
+    eventType: "CREATED",
+    actorUserId,
+    toStatus: "PLANNED",
+    summary: `Assignment created: ${roleDef.label}`,
   });
 
   revalidateAssignmentViews();
@@ -213,6 +224,15 @@ export async function editAssignmentAction(formData: FormData) {
     data,
   });
 
+  const changes = Object.keys(data).filter((k) => k !== "roleLabel").join(", ");
+  await recordAssignmentEvent({
+    assignmentId: assignment.id,
+    facilityId: session.facilityId,
+    eventType: "UPDATED",
+    actorUserId: sessionUserIdForFk(session),
+    summary: `Assignment updated: ${changes}`,
+  });
+
   revalidateAssignmentViews();
 }
 
@@ -247,6 +267,22 @@ export async function assignmentLifecycleAction(formData: FormData) {
   await prisma.operationalAssignment.update({
     where: { id: assignment.id },
     data: { status: rule.to },
+  });
+
+  const eventTypeMap: Record<string, "ACTIVATED" | "COMPLETED" | "CANCELLED"> = {
+    activate: "ACTIVATED",
+    complete: "COMPLETED",
+    cancel: "CANCELLED",
+  };
+
+  await recordAssignmentEvent({
+    assignmentId: assignment.id,
+    facilityId: session.facilityId,
+    eventType: eventTypeMap[parsed.action] ?? "UPDATED",
+    actorUserId: sessionUserIdForFk(session),
+    fromStatus: assignment.status,
+    toStatus: rule.to,
+    summary: `Assignment ${parsed.action}d`,
   });
 
   revalidateAssignmentViews();
@@ -291,6 +327,8 @@ export async function reassignAction(formData: FormData) {
     throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
   }
 
+  const actorUserId = sessionUserIdForFk(session);
+
   if (existingId && mode === "replace") {
     const existing = await prisma.operationalAssignment.findFirst({
       where: { id: existingId, facilityId: session.facilityId },
@@ -301,15 +339,25 @@ export async function reassignAction(formData: FormData) {
         where: { id: existing.id },
         data: { status: "CANCELLED" },
       });
+      await recordAssignmentEvent({
+        assignmentId: existing.id,
+        facilityId: session.facilityId,
+        eventType: "CANCELLED",
+        actorUserId,
+        fromStatus: existing.status,
+        toStatus: "CANCELLED",
+        summary: "Replaced by reassignment",
+      });
     }
   }
 
   const source: OperationalAssignmentSource =
     mode === "reassignment" ? "REASSIGNMENT" : "COVERAGE";
+  const eventType = mode === "reassignment" ? "REASSIGNED" : "COVERAGE_ADDED";
 
   const serviceDate = new Date(`${parsed.serviceDate}T00:00:00`);
 
-  await prisma.operationalAssignment.create({
+  const created = await prisma.operationalAssignment.create({
     data: {
       facilityId: session.facilityId,
       departmentId: parsed.departmentId,
@@ -323,8 +371,17 @@ export async function reassignAction(formData: FormData) {
       endsAt: parsed.endsAt ? new Date(parsed.endsAt) : null,
       source,
       notes: parsed.notes ?? null,
-      createdByUserId: sessionUserIdForFk(session),
+      createdByUserId: actorUserId,
     },
+  });
+
+  await recordAssignmentEvent({
+    assignmentId: created.id,
+    facilityId: session.facilityId,
+    eventType,
+    actorUserId,
+    toStatus: "PLANNED",
+    summary: `${mode === "reassignment" ? "Reassignment" : "Coverage"} created: ${roleDef.label}`,
   });
 
   revalidateAssignmentViews();

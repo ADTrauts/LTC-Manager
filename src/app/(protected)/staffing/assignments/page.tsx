@@ -7,7 +7,14 @@ import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
-import { loadDailyAssignmentBoard, loadAssignmentFormOptions } from "@/lib/scheduling/operational-assignments";
+import {
+  loadDailyAssignmentBoard,
+  loadAssignmentFormOptions,
+  loadAssignmentEvents,
+  buildAssignmentFulfillmentSummary,
+  type AssignmentFulfillmentSummary,
+  type AssignmentEventView,
+} from "@/lib/scheduling/operational-assignments";
 import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
 import { assignmentStatusLabel } from "@/lib/scheduling/operational-assignments/assignment-status";
 import type { TemplateView } from "@/lib/scheduling/operational-assignments/template-types";
@@ -106,6 +113,19 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
         })
       : [],
   ]);
+
+  const fulfillment = templates.length > 0
+    ? buildAssignmentFulfillmentSummary({
+        templates,
+        assignments: board.assignments,
+        scheduledEmployeeCount: board.employees.filter((e) => !e.hasCallDown).length,
+      })
+    : { available: false as const };
+
+  const allAssignmentIds = board.assignments.map((a) => a.id);
+  const events = allAssignmentIds.length > 0
+    ? await loadAssignmentEvents(allAssignmentIds, session.facilityId)
+    : [];
 
   const prevDate = new Date(selectedDate);
   prevDate.setDate(prevDate.getDate() - 1);
@@ -266,6 +286,41 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
         </div>
       )}
 
+      {/* Fulfillment Summary */}
+      {fulfillment.available && (
+        <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-zinc-900">Required Position Fulfillment</h2>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm">
+            <span className="text-zinc-700">
+              <strong>{fulfillment.requiredPositions}</strong> required
+            </span>
+            <span className="text-green-700">
+              <strong>{fulfillment.filledPositions}</strong> filled
+            </span>
+            {fulfillment.unfilledPositions > 0 && (
+              <span className="text-amber-700">
+                <strong>{fulfillment.unfilledPositions}</strong> unfilled
+              </span>
+            )}
+            {fulfillment.conflicts > 0 && (
+              <span className="text-red-700">
+                <strong>{fulfillment.conflicts}</strong> conflict{fulfillment.conflicts !== 1 ? "s" : ""}
+              </span>
+            )}
+            {fulfillment.activeCoverageAssignments > 0 && (
+              <span className="text-blue-700">
+                <strong>{fulfillment.activeCoverageAssignments}</strong> coverage
+              </span>
+            )}
+            {fulfillment.scheduledOnlyEmployees > 0 && (
+              <span className="text-zinc-500">
+                <strong>{fulfillment.scheduledOnlyEmployees}</strong> scheduled only
+              </span>
+            )}
+          </div>
+        </article>
+      )}
+
       {/* Template Management for Manager+ */}
       {canEdit && formOptions && deptNav.activeDepartmentId && (
         <TemplateManagementSection
@@ -391,7 +446,42 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           </div>
         </details>
       )}
+      {/* Assignment History */}
+      {events.length > 0 && (
+        <AssignmentHistory events={events} />
+      )}
     </section>
+  );
+}
+
+function AssignmentHistory({ events }: { events: AssignmentEventView[] }) {
+  return (
+    <details className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-zinc-700">
+        Assignment History ({events.length})
+      </summary>
+      <div className="max-h-64 divide-y divide-zinc-100 overflow-y-auto border-t border-zinc-100">
+        {events.map((e) => (
+          <div key={e.id} className="px-4 py-2 text-sm">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-medium text-zinc-800">{e.summary}</span>
+              <span className="whitespace-nowrap text-xs text-zinc-400">
+                {new Date(e.createdAt).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500">
+              {e.actorName ?? "System"}
+              {e.fromStatus && e.toStatus ? ` · ${e.fromStatus} → ${e.toStatus}` : ""}
+            </p>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

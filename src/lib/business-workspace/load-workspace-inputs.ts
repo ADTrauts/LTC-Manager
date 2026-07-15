@@ -19,6 +19,12 @@ import {
   computeReadinessBatch,
   type ReadinessBatchResult,
 } from "@/lib/readiness";
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import {
+  loadDailyAssignmentBoard,
+  buildAssignmentFulfillmentSummary,
+} from "@/lib/scheduling/operational-assignments";
+import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
 import { buildCallDownItems, summarizeCallDowns, type CallDownSummary } from "@/lib/todays-work/call-down";
 import { buildCoverageItems } from "@/lib/todays-work/coverage-list";
 
@@ -80,6 +86,15 @@ export type WorkspaceActivityRaw = {
   }>;
 };
 
+export type WorkspaceAssignmentSummary = {
+  available: boolean;
+  requiredPositions: number;
+  filledPositions: number;
+  unfilledPositions: number;
+  conflicts: number;
+  activeCoverageAssignments: number;
+};
+
 export type BusinessWorkspaceInputs = {
   facilityId: string;
   facilityName: string;
@@ -95,6 +110,7 @@ export type BusinessWorkspaceInputs = {
   inspectionsDue: WorkspaceInspectionDue[];
   activeDepartmentKeys: OperationalDepartmentKey[];
   activity: WorkspaceActivityRaw;
+  assignmentSummary?: WorkspaceAssignmentSummary;
 };
 
 function isOperationalDepartmentKey(value: string): value is OperationalDepartmentKey {
@@ -337,6 +353,47 @@ export async function loadBusinessWorkspaceInputs(input: {
     .map((d) => d.key)
     .filter(isOperationalDepartmentKey);
 
+  let assignmentSummary: WorkspaceAssignmentSummary | undefined;
+  if (isOperationalAssignmentsEnabled() && input.activeDepartmentKey) {
+    const deptRow = departments.find((d) => d.key === input.activeDepartmentKey);
+    if (deptRow) {
+      const deptId = await prisma.department.findFirst({
+        where: { facilityId: input.facilityId, key: input.activeDepartmentKey },
+        select: { id: true },
+      });
+      if (deptId) {
+        const [board, tpls] = await Promise.all([
+          loadDailyAssignmentBoard({
+            facilityId: input.facilityId,
+            serviceDate: dateIso,
+            departmentId: deptId.id,
+            departmentKey: input.activeDepartmentKey,
+          }),
+          loadTemplatesForDepartment({
+            facilityId: input.facilityId,
+            departmentId: deptId.id,
+            departmentKey: input.activeDepartmentKey,
+          }),
+        ]);
+        const ful = buildAssignmentFulfillmentSummary({
+          templates: tpls,
+          assignments: board.assignments,
+          scheduledEmployeeCount: board.employees.filter((e) => !e.hasCallDown).length,
+        });
+        assignmentSummary = ful.available
+          ? {
+              available: true,
+              requiredPositions: ful.requiredPositions,
+              filledPositions: ful.filledPositions,
+              unfilledPositions: ful.unfilledPositions,
+              conflicts: ful.conflicts,
+              activeCoverageAssignments: ful.activeCoverageAssignments,
+            }
+          : { available: false, requiredPositions: 0, filledPositions: 0, unfilledPositions: 0, conflicts: 0, activeCoverageAssignments: 0 };
+      }
+    }
+  }
+
   return {
     facilityId: input.facilityId,
     facilityName: input.facilityName,
@@ -359,6 +416,7 @@ export async function loadBusinessWorkspaceInputs(input: {
       overdue: row.dueAt.getTime() < now.getTime(),
       departmentKey: row.definition.department?.key ?? null,
     })),
+    assignmentSummary,
     activeDepartmentKeys:
       activeDepartmentKeys.length > 0 ? activeDepartmentKeys : (["DIETARY", "EVS", "PLANT"] as OperationalDepartmentKey[]),
     activity: {
