@@ -6,6 +6,7 @@ import {
   isAiRecoveryAssistantEnabled,
   isAiShiftSummaryEnabled,
   isOperationEngineEnabled,
+  isOperationalAssignmentsEnabled,
   isTaskSyncEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
@@ -122,4 +123,26 @@ test("resolveDefaultHomePath falls back to Business Workspace when Today's Work 
   withEnv("TODAYS_WORK_ENABLED", "false", () => {
     assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/workspace");
   });
+});
+
+test("isOperationalAssignmentsEnabled defaults to false when unset", () => {
+  withEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", undefined, () => {
+    assert.equal(isOperationalAssignmentsEnabled(), false);
+  });
+});
+
+test("isOperationalAssignmentsEnabled parses truthy env values", () => {
+  for (const value of ["true", "1", "on", "yes"]) {
+    withEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", value, () => {
+      assert.equal(isOperationalAssignmentsEnabled(), true, value);
+    });
+  }
+});
+
+test("isOperationalAssignmentsEnabled parses falsey env values", () => {
+  for (const value of ["false", "0", "off", "no"]) {
+    withEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", value, () => {
+      assert.equal(isOperationalAssignmentsEnabled(), false, value);
+    });
+  }
 });

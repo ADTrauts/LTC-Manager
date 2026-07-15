@@ -1,3 +1,5 @@
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+
 import type { WorkspaceContext, WorkspaceQuickAction } from "./types";
 import { isLinkAllowedForContext, type WorkspaceCompositionConfig } from "./workspace-composition";
 
@@ -79,6 +81,16 @@ export function buildQuickActions(options?: {
       icon: "administration",
     },
   ];
+
+  if (isOperationalAssignmentsEnabled()) {
+    all.push({
+      id: "assignment-board",
+      title: "Assignment Board",
+      description: "Daily operational assignments and coverage",
+      href: "/staffing/assignments",
+      icon: "todaysWork",
+    });
+  }
 
   const supervisorIds = new Set(["report-issue", "operations-center", "todays-work"]);
   let actions = options?.supervisor

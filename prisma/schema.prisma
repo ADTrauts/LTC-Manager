@@ -130,6 +130,7 @@ model Facility {
   workShifts                    WorkShift[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   roomAreaStatuses              RoomAreaStatus[]
+  operationalAssignments        OperationalAssignment[]
   attachments                   Attachment[]
   tasks                         Task[]
   inspectionDefinitions         InspectionDefinition[]
@@ -171,6 +172,7 @@ model Department {
   inspectionDefinitions InspectionDefinition[]
   inspectionOccurrences InspectionOccurrence[]
   knowledgeArticles   KnowledgeArticle[]
+  operationalAssignments OperationalAssignment[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -276,6 +278,7 @@ model OperationInstance {
   serveryMealServiceEvents ServeryMealServiceEvent[]
   tasks               Task[]
   inspectionSubmissions InspectionSubmission[]
+  operationalAssignments OperationalAssignment[]
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -337,6 +340,7 @@ model User {
   submissions               LogSubmission[]
   createdSchedules          ScheduleEntry[]             @relation("ScheduleCreatedBy")
   changedOverrides          AssignmentOverride[]        @relation("OverrideChangedBy")
+  createdAssignments        OperationalAssignment[]     @relation("AssignmentCreatedBy")
   reportedRepairs           Repair[]                    @relation("RepairReportedBy")
   repairUpdates             RepairUpdate[]
   disciplinePointsCreated   DisciplinePointEntry[]      @relation("DisciplinePointCreatedBy")
@@ -692,6 +696,7 @@ model Unit {
   inspectionSubmissions    InspectionSubmission[]
   inspectionOccurrences    InspectionOccurrence[]
   knowledgeArticleUnits    KnowledgeArticleUnit[]
+  operationalAssignments   OperationalAssignment[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -784,6 +789,7 @@ model Employee {
   defaultAssignments         DefaultAssignment[]
   scheduleEntries            ScheduleEntry[]
   assignmentOverrides        AssignmentOverride[]
+  operationalAssignments     OperationalAssignment[]
   logSubmissions             LogSubmission[]             @relation("SubmissionByEmployee")
   /// HR (see memory-bank/employee-hr-source-of-truth.md)
   unionMember                Boolean                     @default(false)
@@ -1622,4 +1628,56 @@ model AiOperationalBrief {
   @@index([facilityId, departmentKey, serviceDate, briefType], map: "AiBrief_fac_dept_svc_type_idx")
   @@index([facilityId, briefType, generatedAt], map: "AiBrief_fac_type_generated_idx")
   @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Wave 14 — Scheduling & Assignment Engine
+// ---------------------------------------------------------------------------
+
+enum OperationalAssignmentStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum OperationalAssignmentSource {
+  MANUAL
+  TEMPLATE
+  COVERAGE
+  REASSIGNMENT
+}
+
+/// Operational responsibility during a defined time or operation.
+/// Separated from ScheduleEntry (attendance/hours) and AssignmentOverride (call-offs/moves).
+model OperationalAssignment {
+  id                  String                        @id @default(cuid())
+  facilityId          String
+  facility            Facility                      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department                    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee                      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  unitId              String?
+  unit                Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  operationInstanceId String?
+  operationInstance   OperationInstance?             @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  serviceDate         DateTime                      @db.Date
+  roleKey             String
+  roleLabel           String
+  startsAt            DateTime?
+  endsAt              DateTime?
+  status              OperationalAssignmentStatus   @default(PLANNED)
+  source              OperationalAssignmentSource   @default(MANUAL)
+  notes               String?
+  createdByUserId     String?
+  createdByUser       User?                         @relation("AssignmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  @@index([facilityId, serviceDate])
+  @@index([departmentId, serviceDate])
+  @@index([employeeId, serviceDate])
+  @@index([unitId, serviceDate])
+  @@index([operationInstanceId])
 }
