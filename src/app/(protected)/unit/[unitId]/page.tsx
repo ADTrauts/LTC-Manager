@@ -8,6 +8,7 @@ import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel
 import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
 import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
 import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
+import { UnitMyAssignmentPanel } from "@/components/unit-workspace/unit-my-assignment-panel";
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
@@ -15,9 +16,12 @@ import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-know
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { prisma } from "@/lib/prisma";
+import { loadEmployeeAssignmentsToday } from "@/lib/scheduling/operational-assignments";
+import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
 import { loadUnitWorkspace } from "@/lib/unit-workspace";
 
@@ -172,6 +176,14 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       : Promise.resolve({ articles: [], count: 0 }),
   ]);
 
+  const myAssignment = isOperationalAssignmentsEnabled()
+    ? await (async () => {
+        const empId = await getOperationalEmployeeIdForSession(session);
+        if (!empId) return null;
+        return loadEmployeeAssignmentsToday(empId, session.facilityId, now);
+      })()
+    : null;
+
   const unitTypeLabel =
     unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
 
@@ -256,6 +268,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
 
       {activeUnitTab === "overview" ? (
         <div className="space-y-6 sm:space-y-7">
+          {myAssignment && (myAssignment.current || myAssignment.upcoming) && (
+            <UnitMyAssignmentPanel assignment={myAssignment} />
+          )}
+
           {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
 

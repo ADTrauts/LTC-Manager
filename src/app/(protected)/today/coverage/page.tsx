@@ -10,6 +10,7 @@ import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-cal
 import { TodaysWorkCoverageList } from "@/components/todays-work/todays-work-coverage-list";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { loadCallDownList, loadCoverageList } from "@/lib/todays-work";
 
 export default async function TodaysWorkCoveragePage() {
@@ -54,12 +55,22 @@ export default async function TodaysWorkCoveragePage() {
         title="Staffing grid"
         subtitle={`Assign employees by location for ${dateIso}.`}
         actions={
-          <Link
-            href={`/staffing?date=${dateIso}`}
-            className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-          >
-            Open staffing
-          </Link>
+          <div className="flex gap-2">
+            {isOperationalAssignmentsEnabled() && hasAtLeastRole(session.role, "MANAGER") && (
+              <Link
+                href={`/staffing/assignments?date=${dateIso}`}
+                className="inline-flex min-h-11 items-center rounded-md border-2 border-indigo-300 bg-indigo-50 px-4 text-sm font-semibold text-indigo-900 touch-manipulation hover:bg-indigo-100"
+              >
+                Assignment Board
+              </Link>
+            )}
+            <Link
+              href={`/staffing?date=${dateIso}`}
+              className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
+            >
+              Open staffing
+            </Link>
+          </div>
         }
       />
 

@@ -349,3 +349,232 @@ test("COVERAGE source assignment validates normally", () => {
   });
   assert.ok(result.valid);
 });
+
+// ---------------------------------------------------------------------------
+// M2: Current assignment resolver
+// ---------------------------------------------------------------------------
+
+import type { EmployeeAssignmentRow } from "./resolve-current-assignment";
+import { resolveCurrentEmployeeAssignment } from "./resolve-current-assignment";
+
+function makeAssignmentRow(overrides: Partial<EmployeeAssignmentRow>): EmployeeAssignmentRow {
+  return {
+    id: "a1",
+    roleKey: "COOK",
+    roleLabel: "Cook",
+    unitName: null,
+    operationLabel: null,
+    startsAt: null,
+    endsAt: null,
+    status: "PLANNED",
+    source: "MANUAL",
+    notes: null,
+    ...overrides,
+  };
+}
+
+test("M2: ACTIVE assignment containing now is current", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "a1",
+      status: "ACTIVE",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+  ], now);
+  assert.ok(result.current);
+  assert.equal(result.current.id, "a1");
+});
+
+test("M2: PLANNED assignment containing now is current when no ACTIVE", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "a1",
+      status: "PLANNED",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+  ], now);
+  assert.ok(result.current);
+  assert.equal(result.current.id, "a1");
+});
+
+test("M2: ACTIVE preferred over PLANNED when both contain now", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "planned",
+      status: "PLANNED",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+    makeAssignmentRow({
+      id: "active",
+      status: "ACTIVE",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+  ], now);
+  assert.ok(result.current);
+  assert.equal(result.current.id, "active");
+});
+
+test("M2: nearest upcoming PLANNED assignment is upcoming", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "far",
+      status: "PLANNED",
+      startsAt: new Date("2026-07-15T14:00:00"),
+      endsAt: new Date("2026-07-15T18:00:00"),
+    }),
+    makeAssignmentRow({
+      id: "near",
+      status: "PLANNED",
+      startsAt: new Date("2026-07-15T10:00:00"),
+      endsAt: new Date("2026-07-15T12:00:00"),
+    }),
+  ], now);
+  assert.ok(result.upcoming);
+  assert.equal(result.upcoming.id, "near");
+});
+
+test("M2: CANCELLED excluded from resolution", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "cancelled",
+      status: "CANCELLED",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+  ], now);
+  assert.equal(result.current, null);
+  assert.equal(result.upcoming, null);
+});
+
+test("M2: COMPLETED excluded from resolution", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "completed",
+      status: "COMPLETED",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+  ], now);
+  assert.equal(result.current, null);
+  assert.equal(result.upcoming, null);
+});
+
+test("M2: unbounded assignment is always current", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({ id: "full-day", status: "ACTIVE" }),
+  ], now);
+  assert.ok(result.current);
+  assert.equal(result.current.id, "full-day");
+});
+
+test("M2: no assignments yields null current and upcoming", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([], now);
+  assert.equal(result.current, null);
+  assert.equal(result.upcoming, null);
+});
+
+test("M2: assignment before now is not current or upcoming", () => {
+  const now = new Date("2026-07-15T14:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "past",
+      status: "PLANNED",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+  ], now);
+  assert.equal(result.current, null);
+  assert.equal(result.upcoming, null);
+});
+
+test("M2: current and upcoming both populated", () => {
+  const now = new Date("2026-07-15T08:00:00");
+  const result = resolveCurrentEmployeeAssignment([
+    makeAssignmentRow({
+      id: "now",
+      status: "ACTIVE",
+      startsAt: new Date("2026-07-15T06:00:00"),
+      endsAt: new Date("2026-07-15T10:00:00"),
+    }),
+    makeAssignmentRow({
+      id: "later",
+      status: "PLANNED",
+      startsAt: new Date("2026-07-15T10:00:00"),
+      endsAt: new Date("2026-07-15T14:00:00"),
+    }),
+  ], now);
+  assert.ok(result.current);
+  assert.equal(result.current.id, "now");
+  assert.ok(result.upcoming);
+  assert.equal(result.upcoming.id, "later");
+});
+
+// ---------------------------------------------------------------------------
+// M2: Lifecycle validation
+// ---------------------------------------------------------------------------
+
+test("M2: PLANNED → ACTIVE is valid transition", () => {
+  assert.ok(isAssignmentActive("PLANNED"));
+  assert.ok(isAssignmentActive("ACTIVE"));
+});
+
+test("M2: completed/cancelled records retained as historical", () => {
+  assert.ok(!isAssignmentActive("COMPLETED"));
+  assert.ok(!isAssignmentActive("CANCELLED"));
+  assert.equal(assignmentStatusLabel("COMPLETED").tone, "completed");
+  assert.equal(assignmentStatusLabel("CANCELLED").tone, "cancelled");
+});
+
+// ---------------------------------------------------------------------------
+// M2: Coverage overlap handling
+// ---------------------------------------------------------------------------
+
+test("M2: intentional coverage overlap detected but not hard error", () => {
+  const entries: AssignmentBoardEntry[] = [
+    makeEntry({
+      id: "primary",
+      employeeId: "emp1",
+      startsAt: "2026-07-15T06:00:00Z",
+      endsAt: "2026-07-15T10:00:00Z",
+      source: "MANUAL",
+      roleLabel: "Cook",
+    }),
+    makeEntry({
+      id: "coverage",
+      employeeId: "emp1",
+      startsAt: "2026-07-15T08:00:00Z",
+      endsAt: "2026-07-15T12:00:00Z",
+      source: "COVERAGE",
+      roleLabel: "Server",
+    }),
+  ];
+  const warnings = detectOverlappingAssignments(entries);
+  assert.ok(warnings.length > 0, "overlap detected");
+  assert.ok(warnings.every((w) => w.kind === "overlapping_primary"), "reported as overlap warning");
+});
+
+test("M2: reassignment source with no overlap is clean", () => {
+  const entries: AssignmentBoardEntry[] = [
+    makeEntry({
+      id: "reassigned",
+      employeeId: "emp1",
+      startsAt: "2026-07-15T10:00:00Z",
+      endsAt: "2026-07-15T14:00:00Z",
+      source: "REASSIGNMENT",
+    }),
+  ];
+  const warnings = detectOverlappingAssignments(entries);
+  assert.equal(warnings.length, 0);
+});

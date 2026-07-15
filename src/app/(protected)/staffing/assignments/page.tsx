@@ -3,11 +3,19 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
-import { loadDailyAssignmentBoard } from "@/lib/scheduling/operational-assignments";
+import { loadDailyAssignmentBoard, loadAssignmentFormOptions } from "@/lib/scheduling/operational-assignments";
 import { assignmentStatusLabel } from "@/lib/scheduling/operational-assignments/assignment-status";
+
+import {
+  createAssignmentAction,
+  editAssignmentAction,
+  assignmentLifecycleAction,
+  reassignAction,
+} from "./actions";
 
 function getToday() {
   const date = new Date();
@@ -61,12 +69,24 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
   const selectedDate = parseIsoDateOrToday(query?.date);
   const selectedDateIso = toIsoDate(selectedDate);
 
+  const canEdit = hasAtLeastRole(session.role, "MANAGER");
+  const deptKey = deptNav.activeOperationalDepartmentKey;
+
   const board = await loadDailyAssignmentBoard({
     facilityId: session.facilityId,
     serviceDate: selectedDateIso,
     departmentId: deptNav.activeDepartmentId,
-    departmentKey: deptNav.activeOperationalDepartmentKey,
+    departmentKey: deptKey,
   });
+
+  const formOptions = canEdit && deptNav.activeDepartmentId && deptKey
+    ? await loadAssignmentFormOptions({
+        facilityId: session.facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        departmentKey: deptKey,
+        serviceDate: selectedDateIso,
+      })
+    : null;
 
   const prevDate = new Date(selectedDate);
   prevDate.setDate(prevDate.getDate() - 1);
@@ -85,6 +105,9 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
     list.push(a);
     assignmentsByEmployee.set(a.employeeId, list);
   }
+
+  const activeAssignments = board.assignments.filter((a) => a.status === "PLANNED" || a.status === "ACTIVE");
+  const historyAssignments = board.assignments.filter((a) => a.status === "COMPLETED" || a.status === "CANCELLED");
 
   return (
     <section className="space-y-6">
@@ -132,12 +155,105 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
         </article>
       )}
 
+      {/* Create / Reassign forms for Manager+ */}
+      {canEdit && formOptions && deptNav.activeDepartmentId && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-zinc-900">Create Assignment</h2>
+            <form action={createAssignmentAction} className="mt-3 space-y-2">
+              <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
+              <input type="hidden" name="serviceDate" value={selectedDateIso} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Employee…</option>
+                  {formOptions.employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
+                  ))}
+                </select>
+                <select name="roleKey" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Role…</option>
+                  {formOptions.roles.map((r) => (
+                    <option key={r.key} value={r.key}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Unit (optional)…</option>
+                  {formOptions.units.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+                <select name="operationInstanceId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Operation (optional)…</option>
+                  {formOptions.operations.map((o) => (
+                    <option key={o.id} value={o.id}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input type="time" name="startsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="Start" />
+                <input type="time" name="endsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="End" />
+              </div>
+              <input type="text" name="notes" placeholder="Notes (optional)" maxLength={500} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
+              <button type="submit" className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800">
+                Create Assignment
+              </button>
+            </form>
+          </article>
+
+          <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-zinc-900">Add Coverage / Reassign</h2>
+            <form action={reassignAction} className="mt-3 space-y-2">
+              <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
+              <input type="hidden" name="serviceDate" value={selectedDateIso} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Covering employee…</option>
+                  {formOptions.employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
+                  ))}
+                </select>
+                <select name="roleKey" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Role…</option>
+                  {formOptions.roles.map((r) => (
+                    <option key={r.key} value={r.key}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Unit (optional)…</option>
+                  {formOptions.units.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+                <select name="mode" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="coverage">Add coverage</option>
+                  <option value="reassignment">Temporary reassignment</option>
+                  <option value="replace">Replace existing</option>
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input type="time" name="startsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="Start" />
+                <input type="time" name="endsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="End" />
+              </div>
+              <input type="text" name="notes" placeholder="Notes (optional)" maxLength={500} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
+              <button type="submit" className="rounded-md bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-600">
+                Add Coverage
+              </button>
+            </form>
+          </article>
+        </div>
+      )}
+
+      {/* Active assignments by employee */}
       <article className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-200 px-4 py-3">
           <h2 className="text-lg font-semibold text-zinc-900">By Employee</h2>
           <p className="text-sm text-zinc-600">
             {board.employees.length} scheduled employee{board.employees.length !== 1 ? "s" : ""} ·{" "}
-            {board.assignments.length} assignment{board.assignments.length !== 1 ? "s" : ""}
+            {activeAssignments.length} active assignment{activeAssignments.length !== 1 ? "s" : ""}
           </p>
         </div>
         <div className="divide-y divide-zinc-100">
@@ -147,7 +263,8 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             </p>
           )}
           {board.employees.map((emp) => {
-            const empAssignments = assignmentsByEmployee.get(emp.id) ?? [];
+            const empAssignments = (assignmentsByEmployee.get(emp.id) ?? [])
+              .filter((a) => a.status === "PLANNED" || a.status === "ACTIVE");
             return (
               <div key={emp.id} className="px-4 py-3">
                 <div className="flex items-baseline justify-between gap-2">
@@ -184,11 +301,20 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium text-zinc-900">
                               {a.roleLabel}
+                              {a.source !== "MANUAL" && (
+                                <span className="ml-1.5 text-xs font-normal text-zinc-500">
+                                  ({a.source.toLowerCase()})
+                                </span>
+                              )}
                             </span>
-                            <span className="rounded-full bg-white px-2 py-0.5 text-xs text-zinc-600 shadow-sm">
-                              {statusInfo.label}
-                              {a.source !== "MANUAL" ? ` · ${a.source.toLowerCase()}` : ""}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="rounded-full bg-white px-2 py-0.5 text-xs text-zinc-600 shadow-sm">
+                                {statusInfo.label}
+                              </span>
+                              {canEdit && (
+                                <LifecycleButtons assignmentId={a.id} status={a.status} />
+                              )}
+                            </div>
                           </div>
                           <p className="mt-0.5 text-xs text-zinc-600">
                             {a.unitName ?? "No unit"}
@@ -214,6 +340,62 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           })}
         </div>
       </article>
+
+      {/* History */}
+      {historyAssignments.length > 0 && (
+        <details className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-zinc-700">
+            Completed / Cancelled ({historyAssignments.length})
+          </summary>
+          <div className="divide-y divide-zinc-100 border-t border-zinc-100">
+            {historyAssignments.map((a) => {
+              const statusInfo = assignmentStatusLabel(a.status);
+              return (
+                <div key={a.id} className="px-4 py-2 opacity-60">
+                  <p className="text-sm text-zinc-700">
+                    {a.roleLabel} — {a.unitName ?? "No unit"}
+                    <span className="ml-2 text-xs text-zinc-500">{statusInfo.label}</span>
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
     </section>
+  );
+}
+
+function LifecycleButtons({ assignmentId, status }: { assignmentId: string; status: string }) {
+  return (
+    <span className="flex gap-0.5">
+      {status === "PLANNED" && (
+        <form action={assignmentLifecycleAction} className="inline">
+          <input type="hidden" name="assignmentId" value={assignmentId} />
+          <input type="hidden" name="action" value="activate" />
+          <button type="submit" className="rounded border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-800 hover:bg-blue-100" title="Mark Active">
+            Activate
+          </button>
+        </form>
+      )}
+      {status === "ACTIVE" && (
+        <form action={assignmentLifecycleAction} className="inline">
+          <input type="hidden" name="assignmentId" value={assignmentId} />
+          <input type="hidden" name="action" value="complete" />
+          <button type="submit" className="rounded border border-green-300 bg-green-50 px-1.5 py-0.5 text-xs text-green-800 hover:bg-green-100" title="Mark Complete">
+            Complete
+          </button>
+        </form>
+      )}
+      {(status === "PLANNED" || status === "ACTIVE") && (
+        <form action={assignmentLifecycleAction} className="inline">
+          <input type="hidden" name="assignmentId" value={assignmentId} />
+          <input type="hidden" name="action" value="cancel" />
+          <button type="submit" className="rounded border border-zinc-300 bg-zinc-50 px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100" title="Cancel">
+            Cancel
+          </button>
+        </form>
+      )}
+    </span>
   );
 }
