@@ -868,7 +868,8 @@ test("quick actions keep existing routes and limit supervisor list", () => {
   assert.ok(managerActions.some((a) => a.href === "/issues"));
   assert.ok(managerActions.some((a) => a.href === "/dashboard"));
   assert.ok(!managerActions.some((a) => a.href === "/employees"));
-  assert.ok(!managerActions.some((a) => a.href === "/logs"));
+  assert.ok(managerActions.some((a) => a.href === "/logs"), "Logs now in base action set");
+  assert.ok(managerActions.some((a) => a.href === "/evs"), "EVS Board now in base action set");
   const supervisorActions = buildQuickActions({ supervisor: true });
   assert.ok(supervisorActions.every((a) =>
     ["/issues", "/dashboard", "/today"].includes(a.href),
@@ -1190,6 +1191,7 @@ const facilityCtx: WorkspaceContext = {
 };
 
 function mixedDeptInputs(): BusinessWorkspaceInputs {
+  const base = baseInputs();
   return baseInputs({
     readiness: readinessBatch(
       [
@@ -1211,13 +1213,44 @@ function mixedDeptInputs(): BusinessWorkspaceInputs {
       { id: "i3", definitionId: "def-3", definitionName: "Boiler inspection", unitId: "u3", unitName: "Boiler Room", dueAt: new Date("2026-07-13T15:00:00.000Z"), overdue: false, departmentKey: "PLANT" },
       { id: "i4", definitionId: "def-4", definitionName: "Facility fire drill", unitId: null, unitName: null, dueAt: new Date("2026-07-13T16:00:00.000Z"), overdue: false, departmentKey: null },
     ],
+    callDownSummary: { total: 3, open: 2, covered: 1 },
     dashboard: {
-      ...baseInputs().dashboard,
+      ...base.dashboard,
       unitsMissingStaffing: [
         { id: "u1", name: "Main Kitchen" },
         { id: "u2", name: "2 East" },
       ] as BusinessWorkspaceInputs["dashboard"]["unitsMissingStaffing"],
       unitsWithExceptions: [{ id: "u1", name: "Main Kitchen" }] as BusinessWorkspaceInputs["dashboard"]["unitsWithExceptions"],
+      callDowns: {
+        items: [
+          {
+            id: "cd1", employeeName: "Jane D", templateKey: null, templateLabel: null,
+            reason: "call-down:sick", reasonDetails: null,
+            oldUnitId: "u1", oldUnitName: "Main Kitchen", newUnitId: "u1", newUnitName: "Main Kitchen",
+            mealType: "LUNCH" as const, status: "open" as const, statusLabel: "Open",
+            changedAt: new Date("2026-07-13T06:00:00.000Z"),
+            staffingHref: "/today/coverage", coverageHref: "/today/coverage",
+          },
+          {
+            id: "cd2", employeeName: "Sam E", templateKey: null, templateLabel: null,
+            reason: "call-down:personal", reasonDetails: null,
+            oldUnitId: "u2", oldUnitName: "2 East", newUnitId: "u2", newUnitName: "2 East",
+            mealType: null, status: "open" as const, statusLabel: "Open",
+            changedAt: new Date("2026-07-13T06:30:00.000Z"),
+            staffingHref: "/today/coverage", coverageHref: "/today/coverage",
+          },
+          {
+            id: "cd3", employeeName: "Pat P", templateKey: null, templateLabel: null,
+            reason: "call-down:late", reasonDetails: null,
+            oldUnitId: "u3", oldUnitName: "Boiler Room", newUnitId: "u3", newUnitName: "Boiler Room",
+            mealType: null, status: "covered" as const, statusLabel: "Covered",
+            changedAt: new Date("2026-07-13T07:00:00.000Z"),
+            staffingHref: "/today/coverage", coverageHref: "/today/coverage",
+          },
+        ] as BusinessWorkspaceInputs["dashboard"]["callDowns"] extends undefined ? never : NonNullable<BusinessWorkspaceInputs["dashboard"]["callDowns"]>["items"],
+        summary: { total: 3, open: 2, covered: 1 },
+        dateIso: "2026-07-13",
+      },
     },
     activity: {
       repairsOpened: [
@@ -1234,6 +1267,7 @@ function mixedDeptInputs(): BusinessWorkspaceInputs {
       knowledgePublished: [
         { id: "kp1", title: "Menu SOP", category: "SOP", departmentKey: "DIETARY", at: new Date("2026-07-13T09:00:00.000Z") },
         { id: "kp2", title: "Cleaning guide", category: "SOP", departmentKey: "EVS", at: new Date("2026-07-13T08:00:00.000Z") },
+        { id: "kp3", title: "Facility handbook", category: "General", departmentKey: null, at: new Date("2026-07-13T07:00:00.000Z") },
       ],
     },
   });
@@ -1306,7 +1340,7 @@ test("scopeInputsForContext filters activity by department", () => {
   assert.equal(scoped.activity.repairsOpened.length, 1);
   assert.equal(scoped.activity.repairsResolved.length, 0);
   assert.equal(scoped.activity.inspectionsCompleted.length, 1);
-  assert.equal(scoped.activity.knowledgePublished.length, 1);
+  assert.equal(scoped.activity.knowledgePublished.length, 2, "Dietary + facility-wide knowledge");
 });
 
 test("scopeInputsForContext filters dashboard unit lists by department units", () => {
@@ -1343,19 +1377,24 @@ test("resolveCompositionConfig returns Plant config for PLANT context", () => {
 test("resolveCompositionConfig returns Facility config for facility context", () => {
   const config = resolveCompositionConfig(facilityCtx);
   assert.equal(config.contextLabel, "Facility Overview");
-  assert.equal(config.showLogCompletion, true);
+  assert.equal(config.showLogCompletion, false);
+  assert.equal(config.showMealContext, false);
   assert.ok(config.operationsLinkIds.includes("assets"));
   assert.ok(config.operationsLinkIds.includes("logs"));
 });
 
 // -- Dietary composition --
 
-test("Dietary Manager Focus includes only dietary signals", () => {
+test("Dietary Manager Focus includes only dietary signals with dietary copy", () => {
   const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
-  const focus = buildManagerFocus(scoped);
+  const focus = buildManagerFocus(scoped, dietaryCtx);
   for (const card of focus) {
     assert.ok(!card.title.includes("Boiler"), "Plant signal leaked into Dietary focus");
     assert.ok(!card.title.includes("Floor buffer"), "EVS signal leaked into Dietary focus");
+  }
+  const inspCard = focus.find((c) => c.id.startsWith("focus-inspection"));
+  if (inspCard) {
+    assert.match(inspCard.title, /Dietary/i, "Dietary inspection card should use Dietary language");
   }
 });
 
@@ -1390,12 +1429,16 @@ test("Dietary recent activity excludes EVS and Plant activity", () => {
 
 // -- EVS composition --
 
-test("EVS Manager Focus includes only EVS signals", () => {
+test("EVS Manager Focus includes only EVS signals with EVS copy", () => {
   const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
-  const focus = buildManagerFocus(scoped);
+  const focus = buildManagerFocus(scoped, evsCtx);
   for (const card of focus) {
     assert.ok(!card.title.includes("Oven"), "Dietary signal leaked into EVS focus");
     assert.ok(!card.title.includes("Boiler"), "Plant signal leaked into EVS focus");
+  }
+  const inspCard = focus.find((c) => c.id.startsWith("focus-inspection"));
+  if (inspCard) {
+    assert.match(inspCard.title, /EVS/i, "EVS inspection card should use EVS language");
   }
 });
 
@@ -1416,12 +1459,16 @@ test("EVS agenda uses cleaning language, not meal language", () => {
 
 // -- Plant composition --
 
-test("Plant Manager Focus includes only Plant signals", () => {
+test("Plant Manager Focus includes only Plant signals with Plant copy", () => {
   const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
-  const focus = buildManagerFocus(scoped);
+  const focus = buildManagerFocus(scoped, plantCtx);
   for (const card of focus) {
     assert.ok(!card.title.includes("Oven"), "Dietary signal leaked into Plant focus");
     assert.ok(!card.title.includes("Floor buffer"), "EVS signal leaked into Plant focus");
+  }
+  const inspCard = focus.find((c) => c.id.startsWith("focus-inspection"));
+  if (inspCard) {
+    assert.match(inspCard.title, /Plant/i, "Plant inspection card should use Plant language");
   }
 });
 
@@ -1468,35 +1515,58 @@ test("Facility Overview uses unscoped inputs (all signals)", () => {
 
 // -- Quick actions --
 
-test("Dietary quick actions exclude /assets", () => {
-  const actions = buildQuickActions({ context: dietaryCtx });
+test("Dietary quick actions exclude /assets, include /logs", () => {
+  const config = resolveCompositionConfig(dietaryCtx);
+  const actions = buildQuickActions({ context: dietaryCtx, config });
   assert.ok(!actions.find((a) => a.href === "/assets"), "Dietary should not show Assets quick action");
   assert.ok(actions.find((a) => a.href === "/issues"), "Dietary should show Issues quick action");
+  assert.ok(actions.find((a) => a.href === "/logs"), "Dietary should show Logs quick action");
+  assert.ok(!actions.find((a) => a.href === "/evs"), "Dietary should not show EVS Board");
 });
 
-test("EVS quick actions exclude /assets and /issues", () => {
-  const actions = buildQuickActions({ context: evsCtx });
+test("EVS quick actions exclude /assets and /issues, include /evs", () => {
+  const config = resolveCompositionConfig(evsCtx);
+  const actions = buildQuickActions({ context: evsCtx, config });
   assert.ok(!actions.find((a) => a.href === "/assets"), "EVS should not show Assets");
   assert.ok(!actions.find((a) => a.href === "/issues"), "EVS should not show Issues");
+  assert.ok(actions.find((a) => a.href === "/evs"), "EVS should show EVS Board");
+  assert.ok(!actions.find((a) => a.href === "/logs"), "EVS should not show Logs");
 });
 
-test("Plant quick actions include /assets but exclude /menus", () => {
-  const actions = buildQuickActions({ context: plantCtx });
+test("Plant quick actions include /assets, exclude /evs and /logs", () => {
+  const config = resolveCompositionConfig(plantCtx);
+  const actions = buildQuickActions({ context: plantCtx, config });
   assert.ok(actions.find((a) => a.href === "/assets"), "Plant should show Assets");
+  assert.ok(!actions.find((a) => a.href === "/evs"), "Plant should not show EVS Board");
+  assert.ok(!actions.find((a) => a.href === "/logs"), "Plant should not show Logs");
 });
 
 test("Facility quick actions include all shared routes", () => {
-  const actions = buildQuickActions({ context: facilityCtx });
+  const config = resolveCompositionConfig(facilityCtx);
+  const actions = buildQuickActions({ context: facilityCtx, config });
   assert.ok(actions.find((a) => a.href === "/assets"), "Facility should show Assets");
   assert.ok(actions.find((a) => a.href === "/issues"), "Facility should show Issues");
+  assert.ok(actions.find((a) => a.href === "/logs"), "Facility should show Logs");
 });
 
 // -- Manager Focus healthy guidance --
 
-test("healthy guidance uses department name when context is department", () => {
+test("healthy guidance uses department-specific copy for Dietary", () => {
   const inputs = baseInputs();
   const guidance = buildManagerFocusHealthyGuidance(inputs, dietaryCtx);
-  assert.match(guidance.title, /Dietary/);
+  assert.match(guidance.title, /dietary operations are on track/i);
+});
+
+test("healthy guidance uses department-specific copy for EVS", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs, evsCtx);
+  assert.match(guidance.title, /EVS operations are on track/i);
+});
+
+test("healthy guidance uses department-specific copy for Plant", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs, plantCtx);
+  assert.match(guidance.title, /Plant Operations are on track/i);
 });
 
 test("healthy guidance uses generic copy when context is facility", () => {
@@ -1563,7 +1633,8 @@ test("performance metrics scoped to department show correct counts", () => {
 // -- RBAC --
 
 test("SUPERVISOR sees limited quick actions regardless of context", () => {
-  const actions = buildQuickActions({ supervisor: true, context: dietaryCtx });
+  const config = resolveCompositionConfig(dietaryCtx);
+  const actions = buildQuickActions({ supervisor: true, context: dietaryCtx, config });
   assert.ok(actions.length <= 3);
   assert.ok(actions.every((a) => ["report-issue", "operations-center", "todays-work"].includes(a.id)));
 });
@@ -1574,13 +1645,17 @@ test("STAFF denied from Business Workspace (unchanged)", () => {
 
 // -- Regression: existing builders work without context --
 
-test("buildManagementAgenda works without context (backward compat)", () => {
+test("buildManagementAgenda works without context (backward compat, facility agenda)", () => {
   const agenda = buildManagementAgenda(baseInputs());
   assert.equal(agenda.length, 4);
   const morning = agenda.find((b) => b.id === "morning")!;
   const evening = agenda.find((b) => b.id === "evening")!;
-  assert.ok(morning.items.length > 0, "morning always has meal review");
+  assert.ok(morning.items.length > 0, "morning always has facility review");
   assert.ok(evening.items.length > 0, "evening always has handoff");
+  assert.ok(
+    morning.items.some((i) => /facility|department/i.test(i.title)),
+    "Without context, agenda uses facility language",
+  );
 });
 
 test("buildQuickActions works without context (backward compat)", () => {
@@ -1604,7 +1679,7 @@ test("buildPerformanceSnapshot works without config (backward compat)", () => {
 test("Dietary workspace does not show EVS room state or Plant PM", () => {
   const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
   const priorities = buildWorkspacePriorities(scoped);
-  const focus = buildManagerFocus(scoped);
+  const focus = buildManagerFocus(scoped, dietaryCtx);
   const all = [...priorities, ...focus.map((f) => ({ ...f, locationLabel: f.locationLabel }))];
   for (const card of all) {
     if ("locationLabel" in card && card.locationLabel) {
@@ -1625,4 +1700,392 @@ test("Plant workspace does not show dietary logs or EVS cleaning", () => {
   assert.equal(scoped.openRepairs.length, 1);
   assert.equal(scoped.openRepairs[0]?.departmentKey, "PLANT");
   assert.ok(scoped.readiness.items.every((item) => item.profileKey === "PLANT"));
+});
+
+// ---------------------------------------------------------------------------
+// Wave 13A M2 — Department-Specific Manager Context
+// ---------------------------------------------------------------------------
+
+// -- WSC-006: Manager Focus copy --
+
+test("M2: Dietary Focus uses Dietary inspection title", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const focus = buildManagerFocus(scoped, dietaryCtx);
+  const insp = focus.find((c) => c.id.startsWith("focus-inspection"));
+  assert.ok(insp, "Dietary should have an inspection focus card");
+  assert.match(insp!.title, /Dietary/i);
+});
+
+test("M2: EVS Focus uses EVS inspection title", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  const focus = buildManagerFocus(scoped, evsCtx);
+  const insp = focus.find((c) => c.id.startsWith("focus-inspection"));
+  if (insp) {
+    assert.match(insp.title, /EVS/i);
+  }
+});
+
+test("M2: Plant Focus uses Plant issue title for urgent work", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  const focus = buildManagerFocus(scoped, plantCtx);
+  const issue = focus.find((c) => c.id === "focus-urgent-issue");
+  assert.ok(issue, "Plant should have an urgent issue card");
+  assert.match(issue!.title, /work order|Plant/i);
+});
+
+test("M2: Dietary Focus staffing copy references meals", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const focus = buildManagerFocus(scoped, dietaryCtx);
+  const staffing = focus.find((c) => c.id === "focus-staffing");
+  if (staffing) {
+    assert.match(staffing.title, /Dietary/i);
+    assert.match(staffing.whyItMatters, /meal/i);
+  }
+});
+
+test("M2: EVS Focus staffing copy references cleaning", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  const focus = buildManagerFocus(scoped, evsCtx);
+  const staffing = focus.find((c) => c.id === "focus-staffing");
+  if (staffing) {
+    assert.match(staffing.title, /EVS/i);
+    assert.match(staffing.whyItMatters, /cleaning/i);
+  }
+});
+
+test("M2: Plant Focus staffing copy references work-order", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  const focus = buildManagerFocus(scoped, plantCtx);
+  const staffing = focus.find((c) => c.id === "focus-staffing");
+  if (staffing) {
+    assert.match(staffing.title, /Plant/i);
+    assert.match(staffing.whyItMatters, /work-order|maintenance/i);
+  }
+});
+
+test("M2: Facility Overview Focus cards use generic titles", () => {
+  const inputs = mixedDeptInputs();
+  const focus = buildManagerFocus(inputs, facilityCtx);
+  for (const card of focus) {
+    assert.ok(
+      !card.title.startsWith("Dietary ") && !card.title.startsWith("EVS ") && !card.title.startsWith("Plant "),
+      `Facility card title should not start with department name: ${card.title}`,
+    );
+  }
+});
+
+test("M2: Facility Overview Focus explanation includes department when known", () => {
+  const inputs = mixedDeptInputs();
+  const focus = buildManagerFocus(inputs, facilityCtx);
+  const issue = focus.find((c) => c.id === "focus-urgent-issue");
+  if (issue) {
+    assert.ok(
+      issue.explanation.includes("Dietary") || issue.explanation.includes("Oven"),
+      "Facility urgent issue should identify source",
+    );
+  }
+});
+
+test("M2: no generic wording when specific data exists", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const focus = buildManagerFocus(scoped, dietaryCtx);
+  for (const card of focus) {
+    assert.ok(!/^Operational item$/i.test(card.title), `Should not use generic title: ${card.title}`);
+    assert.ok(!/^Work needs review$/i.test(card.explanation), `Should not use generic explanation: ${card.explanation}`);
+    assert.ok(!/^Active disruption threatens operational continuity\.$/i.test(card.whyItMatters), `Should not use facility-generic wording in Dietary: ${card.whyItMatters}`);
+  }
+});
+
+// -- WSC-007: Call-down scoping --
+
+test("M2: Dietary call-down scoping includes only dietary units", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  assert.ok(scoped.dashboard.callDowns, "Should have scoped call-downs");
+  assert.equal(scoped.dashboard.callDowns!.items.length, 1);
+  assert.equal(scoped.dashboard.callDowns!.items[0]!.id, "cd1");
+  assert.equal(scoped.callDownSummary.total, 1);
+  assert.equal(scoped.callDownSummary.open, 1);
+});
+
+test("M2: EVS call-down scoping includes only EVS units", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.ok(scoped.dashboard.callDowns);
+  assert.equal(scoped.dashboard.callDowns!.items.length, 1);
+  assert.equal(scoped.dashboard.callDowns!.items[0]!.id, "cd2");
+  assert.equal(scoped.callDownSummary.total, 1);
+  assert.equal(scoped.callDownSummary.open, 1);
+});
+
+test("M2: Plant call-down scoping includes only Plant units", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  assert.ok(scoped.dashboard.callDowns);
+  assert.equal(scoped.dashboard.callDowns!.items.length, 1);
+  assert.equal(scoped.dashboard.callDowns!.items[0]!.id, "cd3");
+  assert.equal(scoped.callDownSummary.total, 1);
+  assert.equal(scoped.callDownSummary.open, 0);
+  assert.equal(scoped.callDownSummary.covered, 1);
+});
+
+test("M2: Dietary call-down excluded from EVS and Plant", () => {
+  const evsScoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.ok(!evsScoped.dashboard.callDowns!.items.some((i) => i.id === "cd1"));
+  const plantScoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  assert.ok(!plantScoped.dashboard.callDowns!.items.some((i) => i.id === "cd1"));
+});
+
+test("M2: Facility Overview retains all call-downs", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), facilityCtx);
+  assert.equal(scoped.callDownSummary.total, 3);
+  assert.equal(scoped.callDownSummary.open, 2);
+  assert.equal(scoped.dashboard.callDowns!.items.length, 3);
+});
+
+// -- WSC-007: Staffing scoping --
+
+test("M2: Dietary staffing gaps exclude EVS units", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  assert.equal(scoped.dashboard.unitsMissingStaffing.length, 1);
+  assert.equal(scoped.dashboard.unitsMissingStaffing[0]!.id, "u1");
+});
+
+test("M2: EVS staffing gaps exclude Dietary units", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.equal(scoped.dashboard.unitsMissingStaffing.length, 1);
+  assert.equal(scoped.dashboard.unitsMissingStaffing[0]!.id, "u2");
+});
+
+test("M2: Plant has no staffing gaps (no Plant units in missing list)", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  assert.equal(scoped.dashboard.unitsMissingStaffing.length, 0);
+});
+
+test("M2: no servery staffing in Plant", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  for (const u of scoped.dashboard.unitsMissingStaffing) {
+    assert.ok(!/servery|kitchen/i.test(u.name), "Plant should not show servery staffing");
+  }
+});
+
+test("M2: no Dietary staffing in EVS", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  for (const u of scoped.dashboard.unitsMissingStaffing) {
+    assert.ok(u.id !== "u1" && u.id !== "u4", "EVS should not show Dietary unit staffing");
+  }
+});
+
+// -- WSC-008: Quick Actions --
+
+test("M2: Dietary quick action set", () => {
+  const config = resolveCompositionConfig(dietaryCtx);
+  const actions = buildQuickActions({ context: dietaryCtx, config });
+  const ids = actions.map((a) => a.id);
+  assert.ok(ids.includes("report-issue"));
+  assert.ok(ids.includes("new-inspection"));
+  assert.ok(ids.includes("operations-center"));
+  assert.ok(ids.includes("todays-work"));
+  assert.ok(ids.includes("knowledge"));
+  assert.ok(ids.includes("logs"));
+  assert.ok(!ids.includes("evs-board"));
+  assert.ok(!ids.includes("assets"));
+});
+
+test("M2: EVS quick action includes EVS Board only if route exists", () => {
+  const config = resolveCompositionConfig(evsCtx);
+  const actions = buildQuickActions({ context: evsCtx, config });
+  const evsAction = actions.find((a) => a.id === "evs-board");
+  assert.ok(evsAction, "EVS should have EVS Board action");
+  assert.equal(evsAction!.href, "/evs");
+});
+
+test("M2: Plant quick action includes assets and issues", () => {
+  const config = resolveCompositionConfig(plantCtx);
+  const actions = buildQuickActions({ context: plantCtx, config });
+  const ids = actions.map((a) => a.id);
+  assert.ok(ids.includes("report-issue"));
+  assert.ok(ids.includes("assets"));
+  assert.ok(ids.includes("new-inspection"));
+  assert.ok(ids.includes("todays-work"));
+  assert.ok(ids.includes("knowledge"));
+  assert.ok(!ids.includes("evs-board"));
+  assert.ok(!ids.includes("logs"));
+});
+
+test("M2: duplicate hrefs removed when promoted in Focus", () => {
+  const config = resolveCompositionConfig(dietaryCtx);
+  const actions = buildQuickActions({
+    context: dietaryCtx,
+    config,
+    promotedHrefs: ["/dashboard"],
+  });
+  assert.ok(!actions.find((a) => a.id === "operations-center"), "OC promoted in Focus should not appear in quick actions");
+});
+
+test("M2: quick actions without config still work (backward compat)", () => {
+  const actions = buildQuickActions();
+  assert.ok(actions.length > 0);
+  assert.ok(actions.find((a) => a.id === "report-issue"));
+});
+
+// -- WSC-009: Recent Activity --
+
+test("M2: Dietary activity excludes EVS and Plant, includes facility-wide knowledge", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const activity = buildRecentActivity(scoped, dietaryCtx);
+  for (const item of activity) {
+    assert.ok(!item.title.includes("EVS issue"), "EVS activity leaked into Dietary");
+    assert.ok(!item.title.includes("Plant fix"), "Plant activity leaked into Dietary");
+  }
+  const knowledgeItems = activity.filter((i) => i.kind === "knowledge");
+  const titles = knowledgeItems.map((i) => i.title);
+  assert.ok(titles.includes("Menu SOP") || knowledgeItems.length === 0, "Dietary knowledge should be present");
+});
+
+test("M2: Dietary activity includes facility-wide knowledge articles", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  assert.ok(
+    scoped.activity.knowledgePublished.some((k) => k.id === "kp1"),
+    "Dietary knowledge should be included",
+  );
+  assert.ok(
+    scoped.activity.knowledgePublished.some((k) => k.id === "kp3"),
+    "Facility-wide knowledge (null dept) should be included in Dietary",
+  );
+  assert.ok(
+    !scoped.activity.knowledgePublished.some((k) => k.id === "kp2"),
+    "EVS knowledge should be excluded from Dietary",
+  );
+});
+
+test("M2: Facility Overview activity shows department labels", () => {
+  const inputs = mixedDeptInputs();
+  const activity = buildRecentActivity(inputs, facilityCtx);
+  const dietaryItem = activity.find((i) => i.title === "Dietary issue");
+  if (dietaryItem) {
+    assert.match(dietaryItem.meta, /Dietary/, "Facility activity should label department");
+  }
+  const plantItem = activity.find((i) => i.title === "Plant fix");
+  if (plantItem) {
+    assert.match(plantItem.meta, /Plant/, "Facility activity should label Plant");
+  }
+});
+
+test("M2: Department activity items do not show department labels", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const activity = buildRecentActivity(scoped, dietaryCtx);
+  for (const item of activity) {
+    assert.ok(
+      !item.meta.startsWith("Dietary · "),
+      "Department mode should not prefix department label",
+    );
+  }
+});
+
+test("M2: unrelated knowledge excluded from department activity", () => {
+  const evsScoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.ok(
+    !evsScoped.activity.knowledgePublished.some((k) => k.id === "kp1"),
+    "Dietary knowledge should not appear in EVS",
+  );
+  assert.ok(
+    evsScoped.activity.knowledgePublished.some((k) => k.id === "kp2"),
+    "EVS knowledge should appear in EVS",
+  );
+  assert.ok(
+    evsScoped.activity.knowledgePublished.some((k) => k.id === "kp3"),
+    "Facility-wide knowledge should appear in EVS",
+  );
+});
+
+test("M2: Facility Overview includes all department knowledge", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), facilityCtx);
+  assert.equal(scoped.activity.knowledgePublished.length, 3);
+});
+
+// -- WSC-010: Facility Overview fixes --
+
+test("M2: Facility Overview hides Dietary-only log compliance metric", () => {
+  const config = resolveCompositionConfig(facilityCtx);
+  assert.equal(config.showLogCompletion, false, "Facility should not show Dietary-only log metric");
+  const perf = buildPerformanceSnapshot(mixedDeptInputs(), config);
+  assert.ok(!perf.find((m) => m.id === "due-compliance"), "No log compliance metric in Facility Overview");
+});
+
+test("M2: Facility Overview showMealContext is false", () => {
+  const config = resolveCompositionConfig(facilityCtx);
+  assert.equal(config.showMealContext, false, "Facility should not assume meal context");
+});
+
+test("M2: Facility Overview agenda uses cross-department language", () => {
+  const inputs = mixedDeptInputs();
+  const agenda = buildManagementAgenda(inputs, facilityCtx);
+  const morning = agenda.find((b) => b.id === "morning")!;
+  assert.ok(
+    morning.items.some((i) => /facility|department/i.test(i.title)),
+    "Facility agenda morning should use facility-wide language",
+  );
+  assert.ok(
+    !morning.items.some((i) => /Breakfast|Lunch review/i.test(i.title)),
+    "Facility agenda should not reference meal-specific language",
+  );
+});
+
+test("M2: Facility agenda midday uses department-agnostic language", () => {
+  const inputs = mixedDeptInputs();
+  const agenda = buildManagementAgenda(inputs, facilityCtx);
+  const midday = agenda.find((b) => b.id === "midday")!;
+  assert.ok(
+    !midday.items.some((i) => /Lunch service/i.test(i.title)),
+    "Facility midday should not reference Lunch service",
+  );
+  assert.ok(
+    midday.items.some((i) => /department|issue/i.test(i.title.toLowerCase())),
+    "Facility midday should reference departments or issues",
+  );
+});
+
+test("M2: Dietary agenda still uses meal language when context is Dietary", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const agenda = buildManagementAgenda(scoped, dietaryCtx);
+  const morning = agenda.find((b) => b.id === "morning")!;
+  assert.ok(
+    morning.items.some((i) => /Breakfast|Lunch|review/i.test(i.title)),
+    "Dietary agenda should use meal language",
+  );
+});
+
+// -- Healthy guidance department-specific --
+
+test("M2: EVS healthy detail references EVS cleaning", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs, evsCtx);
+  assert.match(guidance.detail, /EVS/i);
+});
+
+test("M2: Plant healthy detail references Plant Operations", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs, plantCtx);
+  assert.match(guidance.detail, /Plant/i);
+});
+
+// -- Regression: M1 context isolation --
+
+test("M2 regression: EVS workspace excludes Dietary repairs", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.equal(scoped.openRepairs.length, 1);
+  assert.equal(scoped.openRepairs[0]?.departmentKey, "EVS");
+});
+
+test("M2 regression: Plant workspace excludes EVS inspections", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  assert.ok(!scoped.inspectionsDue.some((i) => i.departmentKey === "EVS"));
+});
+
+test("M2 regression: buildManagerFocus works without context (backward compat)", () => {
+  const focus = buildManagerFocus(baseInputs());
+  assert.ok(Array.isArray(focus));
+});
+
+test("M2 regression: buildRecentActivity works without context (backward compat)", () => {
+  const activity = buildRecentActivity(baseInputs());
+  assert.ok(Array.isArray(activity));
 });

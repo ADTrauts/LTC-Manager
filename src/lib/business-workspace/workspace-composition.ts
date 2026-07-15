@@ -1,5 +1,6 @@
 import { summarizeReadiness } from "@/lib/readiness";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
+import { summarizeCallDowns } from "@/lib/todays-work/call-down";
 
 import type { BusinessWorkspaceInputs, WorkspaceActivityRaw } from "./load-workspace-inputs";
 import type { WorkspaceContext, WorkspaceSectionId } from "./types";
@@ -10,6 +11,7 @@ export type WorkspaceCompositionConfig = {
   visibleSectionIds: WorkspaceSectionId[];
   operationsLinkIds: string[];
   todaysWorkLinkIds: string[];
+  quickActionIds: string[];
   showLogCompletion: boolean;
   showMealContext: boolean;
 };
@@ -29,6 +31,8 @@ const ALL_SECTIONS: WorkspaceSectionId[] = [
 const SHARED_OPS_LINKS = ["oc", "issues", "inspections", "knowledge", "employees"];
 const SHARED_TODAYS_WORK = ["walk", "coverage", "calldowns", "handoffs"];
 
+const SHARED_QUICK_ACTIONS = ["report-issue", "new-inspection", "operations-center", "todays-work", "knowledge"];
+
 const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
   DIETARY: {
     contextLabel: "Dietary",
@@ -36,6 +40,7 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     visibleSectionIds: ALL_SECTIONS,
     operationsLinkIds: [...SHARED_OPS_LINKS, "logs"],
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
+    quickActionIds: [...SHARED_QUICK_ACTIONS, "logs"],
     showLogCompletion: true,
     showMealContext: true,
   },
@@ -45,6 +50,7 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     visibleSectionIds: ALL_SECTIONS,
     operationsLinkIds: SHARED_OPS_LINKS.filter((id) => id !== "issues"),
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
+    quickActionIds: [...SHARED_QUICK_ACTIONS.filter((id) => id !== "report-issue"), "evs-board"],
     showLogCompletion: false,
     showMealContext: false,
   },
@@ -54,6 +60,7 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     visibleSectionIds: ALL_SECTIONS,
     operationsLinkIds: [...SHARED_OPS_LINKS, "assets"],
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
+    quickActionIds: [...SHARED_QUICK_ACTIONS, "assets"],
     showLogCompletion: false,
     showMealContext: false,
   },
@@ -63,8 +70,9 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     visibleSectionIds: ALL_SECTIONS,
     operationsLinkIds: [...SHARED_OPS_LINKS, "assets", "logs"],
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
-    showLogCompletion: true,
-    showMealContext: true,
+    quickActionIds: [...SHARED_QUICK_ACTIONS, "assets", "logs"],
+    showLogCompletion: false,
+    showMealContext: false,
   },
 };
 
@@ -129,6 +137,15 @@ export function scopeInputsForContext(
     (u) => deptUnitIds.has(u.id),
   );
 
+  const scopedCallDownItems = inputs.dashboard.callDowns
+    ? inputs.dashboard.callDowns.items.filter(
+        (item) =>
+          (item.oldUnitId != null && deptUnitIds.has(item.oldUnitId)) ||
+          deptUnitIds.has(item.newUnitId),
+      )
+    : [];
+  const scopedCallDownSummary = summarizeCallDowns(scopedCallDownItems);
+
   return {
     ...inputs,
     readiness: {
@@ -138,10 +155,18 @@ export function scopeInputsForContext(
     },
     openRepairs: scopedRepairs,
     inspectionsDue: scopedInspections,
+    callDownSummary: scopedCallDownSummary,
     dashboard: {
       ...inputs.dashboard,
       unitsMissingStaffing: scopedUnitsMissing,
       unitsWithExceptions: scopedExceptions,
+      callDowns: inputs.dashboard.callDowns
+        ? {
+            ...inputs.dashboard.callDowns,
+            items: scopedCallDownItems,
+            summary: scopedCallDownSummary,
+          }
+        : undefined,
     },
     activity: filterActivityByDepartment(inputs.activity, deptKey),
   };

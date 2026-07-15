@@ -107,7 +107,7 @@ export async function loadBusinessWorkspace(
   const inputs = scopeInputsForContext(facilityInputs, context);
 
   const priorities = buildWorkspacePriorities(inputs);
-  const managerFocus = buildManagerFocus(inputs);
+  const managerFocus = buildManagerFocus(inputs, context);
   const healthy = workspaceIsHealthy(priorities) && managerFocus.length === 0;
   const managerFocusHealthy =
     managerFocus.length === 0 ? buildManagerFocusHealthyGuidance(inputs, context) : null;
@@ -122,11 +122,13 @@ export async function loadBusinessWorkspace(
   const cachedMorningBrief =
     input.cachedMorningBrief !== undefined
       ? input.cachedMorningBrief
-      : await loadCachedMorningBriefPreview({
-          facilityId: input.facilityId,
-          facilityLocalDate: facilityInputs.operationalTime.facilityLocalDate,
-          activeDepartmentKey: input.activeDepartmentKey,
-        });
+      : context.mode === "facility"
+        ? null
+        : await loadCachedMorningBriefPreview({
+            facilityId: input.facilityId,
+            facilityLocalDate: facilityInputs.operationalTime.facilityLocalDate,
+            activeDepartmentKey: input.activeDepartmentKey,
+          });
 
   const allTodaysWorkLinks: WorkspaceLinkCard[] = [
     {
@@ -235,6 +237,7 @@ export async function loadBusinessWorkspace(
       supervisor: input.role === "SUPERVISOR",
       promotedHrefs: managerFocus.map((card) => card.href),
       context,
+      config,
     }),
     cachedMorningBrief,
     priorities,
@@ -246,7 +249,7 @@ export async function loadBusinessWorkspace(
       .filter((link) => opsLinkIds.has(link.id))
       .filter((link) => isLinkAllowedForContext(link.href, context)),
     performance: buildPerformanceSnapshot(inputs, config),
-    recentActivity: buildRecentActivity(inputs),
+    recentActivity: buildRecentActivity(inputs, context),
   };
 
   return {

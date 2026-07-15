@@ -1,3 +1,5 @@
+import type { OperationalDepartmentKey } from "@/lib/department-nav";
+
 import type { BusinessWorkspaceInputs, WorkspaceInspectionDue } from "./load-workspace-inputs";
 import type { ManagerFocusCard, ManagerFocusHealthyGuidance, WorkspaceContext } from "./types";
 
@@ -18,13 +20,92 @@ export function inspectionFocusHref(row: WorkspaceInspectionDue): string {
   return "/today/handoffs";
 }
 
+type FocusCopy = {
+  inspectionTitle: string;
+  staffingTitle: string;
+  staffingWhyItMatters: string;
+  serviceRiskTitle: string;
+  serviceRiskWhyItMatters: string;
+  issueTitle: string;
+  correctiveTitle: string;
+  recoveryTitle: string;
+  deptPrefix: string;
+};
+
+const DEPT_FOCUS_COPY: Record<OperationalDepartmentKey, FocusCopy> = {
+  DIETARY: {
+    inspectionTitle: "Dietary inspection needs attention",
+    staffingTitle: "Dietary staffing needs attention",
+    staffingWhyItMatters: "Coverage gaps become service failures if left into the meal.",
+    serviceRiskTitle: "Dietary service risk",
+    serviceRiskWhyItMatters: "Active service disruption threatens current meal supportability.",
+    issueTitle: "Dietary issue needs attention",
+    correctiveTitle: "Dietary corrective action",
+    recoveryTitle: "Dietary recovery in progress",
+    deptPrefix: "Dietary",
+  },
+  EVS: {
+    inspectionTitle: "EVS inspection needs attention",
+    staffingTitle: "EVS coverage needs attention",
+    staffingWhyItMatters: "Coverage gaps delay cleaning rounds and room turnovers.",
+    serviceRiskTitle: "EVS area needs attention",
+    serviceRiskWhyItMatters: "Blocked areas affect room readiness and cleaning schedules.",
+    issueTitle: "EVS issue needs attention",
+    correctiveTitle: "EVS corrective action",
+    recoveryTitle: "EVS work in progress",
+    deptPrefix: "EVS",
+  },
+  PLANT: {
+    inspectionTitle: "Plant inspection needs attention",
+    staffingTitle: "Plant staffing needs attention",
+    staffingWhyItMatters: "Coverage gaps delay work-order response and preventive maintenance.",
+    serviceRiskTitle: "Plant operations risk",
+    serviceRiskWhyItMatters: "Critical asset issues threaten operational continuity.",
+    issueTitle: "Urgent work order needs attention",
+    correctiveTitle: "Plant corrective action",
+    recoveryTitle: "Plant repair in progress",
+    deptPrefix: "Plant",
+  },
+};
+
+const GENERIC_FOCUS_COPY: FocusCopy = {
+  inspectionTitle: "Highest priority inspection",
+  staffingTitle: "Biggest staffing concern",
+  staffingWhyItMatters: "Coverage gaps become service failures if unresolved.",
+  serviceRiskTitle: "Today's biggest operational risk",
+  serviceRiskWhyItMatters: "Active disruption threatens operational continuity.",
+  issueTitle: "Largest unresolved issue",
+  correctiveTitle: "Most important corrective action",
+  recoveryTitle: "Recovery work in progress",
+  deptPrefix: "",
+};
+
+function resolveFocusCopy(context?: WorkspaceContext): FocusCopy {
+  if (context?.mode === "department") {
+    return DEPT_FOCUS_COPY[context.departmentKey] ?? GENERIC_FOCUS_COPY;
+  }
+  return GENERIC_FOCUS_COPY;
+}
+
+function facilityDeptLabel(departmentKey: string | null | undefined): string {
+  if (departmentKey === "DIETARY") return "Dietary";
+  if (departmentKey === "EVS") return "EVS";
+  if (departmentKey === "PLANT") return "Plant";
+  return "";
+}
+
 /**
  * Manager Focus — max 3 personal next actions.
  * Ranking: urgent inspection → critical staffing → service disruption →
  * urgent repair → corrective/high issue → routine recovery.
  * Never repeats the same destination.
+ * When a department context is active, copy is department-specific.
+ * Facility Overview cards identify the department when known.
  */
-export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocusCard[] {
+export function buildManagerFocus(
+  inputs: BusinessWorkspaceInputs,
+  context?: WorkspaceContext,
+): ManagerFocusCard[] {
   const { dashboard, readiness, callDownSummary, openRepairs, inspectionsDue } = inputs;
   const blockedUnits = readiness.items.filter((item) => item.state === "blocked");
   const staffingGaps = dashboard.unitsMissingStaffing.length;
@@ -45,18 +126,21 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
       row.status === "IN_PROGRESS",
   );
 
+  const copy = resolveFocusCopy(context);
+  const isFacility = !context || context.mode === "facility";
   const candidates: FocusCandidate[] = [];
 
   if (overdueInspections.length > 0) {
     const first = overdueInspections[0]!;
     const href = inspectionFocusHref(first);
+    const deptTag = isFacility ? facilityDeptLabel(first.departmentKey) : "";
     candidates.push({
       id: "focus-inspection-overdue",
-      title: "Highest priority inspection",
+      title: copy.inspectionTitle,
       explanation:
         overdueInspections.length === 1
           ? `${first.definitionName} is overdue`
-          : `${overdueInspections.length} inspections are overdue`,
+          : `${overdueInspections.length}${deptTag ? ` ${deptTag}` : ""} inspections are overdue`,
       whyItMatters: "Compliance work past due needs a manager decision today.",
       actionLabel: first.unitId ? "Open Inspection" : "Go to Inspection",
       href,
@@ -70,7 +154,7 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
     const href = inspectionFocusHref(first);
     candidates.push({
       id: "focus-inspection-due",
-      title: "Highest priority inspection",
+      title: copy.inspectionTitle,
       explanation:
         dueInspections.length === 1
           ? `${first.definitionName} is due soon`
@@ -89,14 +173,14 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
     const first = dashboard.unitsMissingStaffing[0];
     candidates.push({
       id: "focus-staffing",
-      title: "Biggest staffing concern",
+      title: copy.staffingTitle,
       explanation:
         staffingGaps > 0
           ? staffingGaps === 1 && first
             ? `${first.name} coverage needs attention`
             : `${staffingGaps} locations are missing expected coverage`
           : `${callDownSummary.open} open call-down${callDownSummary.open === 1 ? "" : "s"}`,
-      whyItMatters: "Coverage gaps become service failures if left into the meal.",
+      whyItMatters: copy.staffingWhyItMatters,
       actionLabel: "Review Coverage",
       href: "/today/coverage",
       tone: "warning",
@@ -110,12 +194,12 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
     const first = blockedUnits[0]!;
     candidates.push({
       id: "focus-service",
-      title: "Today's biggest operational risk",
+      title: copy.serviceRiskTitle,
       explanation:
         blockedUnits.length === 1
           ? `${first.unitName}: ${first.reason}`
           : `${blockedUnits.length} locations need attention — ${first.unitName} first`,
-      whyItMatters: "Active service disruption threatens current meal supportability.",
+      whyItMatters: copy.serviceRiskWhyItMatters,
       actionLabel: "Open Unit",
       href: `/unit/${first.unitId}`,
       tone: "blocked",
@@ -129,7 +213,7 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
   ) {
     candidates.push({
       id: "focus-exceptions",
-      title: "Today's biggest operational risk",
+      title: copy.serviceRiskTitle,
       explanation: `${dashboard.operationContext.serviceLabel} has live exceptions`,
       whyItMatters: "Execution-phase exceptions need manager oversight now.",
       actionLabel: "Operations Center",
@@ -142,10 +226,11 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
 
   if (urgentOpen.length > 0) {
     const first = urgentOpen[0]!;
+    const deptTag = isFacility ? facilityDeptLabel(first.departmentKey) : "";
     candidates.push({
       id: "focus-urgent-issue",
-      title: "Largest unresolved issue",
-      explanation: first.title,
+      title: copy.issueTitle,
+      explanation: deptTag ? `${deptTag}: ${first.title}` : first.title,
       whyItMatters: "Urgent issues escalate quickly if the next action is unclear.",
       actionLabel: "Open Issue",
       href: `/issues/${first.id}`,
@@ -160,7 +245,7 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
     const first = highOpen[0]!;
     candidates.push({
       id: "focus-corrective",
-      title: "Most important corrective action",
+      title: copy.correctiveTitle,
       explanation: first.title,
       whyItMatters: "High-priority corrective work still needs a manager follow-through.",
       actionLabel: "Open Issue",
@@ -176,7 +261,7 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
     const first = routineRecovery[0]!;
     candidates.push({
       id: "focus-routine",
-      title: "Recovery work in progress",
+      title: copy.recoveryTitle,
       explanation: `${first.title} is underway`,
       whyItMatters: "Confirm progress so recovery does not stall unattended.",
       actionLabel: "Open Issue",
@@ -203,6 +288,21 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
 
   return selected;
 }
+
+const HEALTHY_STATE_COPY: Record<OperationalDepartmentKey, { title: string; detail: (serviceLabel: string, phase: string) => string }> = {
+  DIETARY: {
+    title: "Current dietary operations are on track.",
+    detail: (serviceLabel, phase) => `${serviceLabel} — ${phase}`,
+  },
+  EVS: {
+    title: "Current EVS operations are on track.",
+    detail: (_serviceLabel, phase) => `EVS cleaning operations — ${phase}`,
+  },
+  PLANT: {
+    title: "Current Plant Operations are on track.",
+    detail: (_serviceLabel, phase) => `Plant Operations — ${phase}`,
+  },
+};
 
 /**
  * Calm healthy-state guidance when Manager Focus has no urgent cards.
@@ -245,17 +345,23 @@ export function buildManagerFocusHealthyGuidance(
     });
   }
 
-  const deptLabel = context?.mode === "department" ? context.departmentName : null;
-  const healthyTitle = deptLabel
-    ? `${deptLabel} operations are on track.`
-    : "Current operations are on track.";
+  let healthyTitle: string;
+  let detailText: string;
+  if (context?.mode === "department") {
+    const deptCopy = HEALTHY_STATE_COPY[context.departmentKey];
+    healthyTitle = deptCopy?.title ?? `${context.departmentName} operations are on track.`;
+    const baseParts = op.scheduledTimeLabel ? `${op.phase} · ${op.scheduledTimeLabel}` : op.phase;
+    detailText = deptCopy?.detail(op.serviceLabel, baseParts) ?? `${op.serviceLabel} — ${baseParts}`;
+  } else {
+    healthyTitle = "Current operations are on track.";
+    detailText = op.scheduledTimeLabel != null
+      ? `${op.serviceLabel} — ${op.phase} · ${op.scheduledTimeLabel}`
+      : `${op.serviceLabel} — ${op.phase}`;
+  }
 
   return {
     title: healthyTitle,
-    detail:
-      op.scheduledTimeLabel != null
-        ? `${op.serviceLabel} — ${op.phase} · ${op.scheduledTimeLabel}`
-        : `${op.serviceLabel} — ${op.phase}`,
+    detail: detailText,
     primary: { label: "Open Operations Center", href: "/dashboard" },
     secondary: secondary.slice(0, 2),
   };

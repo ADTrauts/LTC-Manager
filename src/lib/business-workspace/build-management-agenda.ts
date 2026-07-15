@@ -127,8 +127,10 @@ export function buildManagementAgenda(
     buildEvsAgenda(byBucket, { hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
   } else if (deptKey === "PLANT") {
     buildPlantAgenda(byBucket, { hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
-  } else {
+  } else if (deptKey === "DIETARY") {
     buildDietaryAgenda(byBucket, { op, hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
+  } else {
+    buildFacilityAgenda(byBucket, { op, hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
   }
 
   return AGENDA_BUCKET_ORDER.map((id) => ({
@@ -375,6 +377,48 @@ function buildPlantAgenda(
       tone: s.priorityOpen[0]!.priority === "URGENT" ? "blocked" : "warning",
     });
   }
+
+  addSharedAfternoonEvening(byBucket, s);
+}
+
+function buildFacilityAgenda(
+  byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]>,
+  s: DietarySignals,
+): void {
+  byBucket.morning.push({
+    id: "morning-facility-review",
+    title: "Facility operations review",
+    detail: "Review department readiness across all areas",
+    href: "/dashboard",
+    tone: "neutral",
+  });
+  if (s.blocked.length > 0) {
+    byBucket.morning.push({
+      id: "morning-walk",
+      title: "Walk locations needing attention",
+      detail: `${s.blocked[0]!.unitName}: ${s.blocked[0]!.reason}`,
+      href: `/unit/${s.blocked[0]!.unitId}`,
+      tone: "warning",
+    });
+  }
+  addSharedStaffing(byBucket, "morning", s, "Confirm coverage across departments");
+
+  if (s.priorityOpen.length > 0) {
+    byBucket.midday.push({
+      id: "midday-issues",
+      title: "Priority issue follow-up",
+      detail: `${s.priorityOpen[0]!.title}`,
+      href: `/issues/${s.priorityOpen[0]!.id}`,
+      tone: s.priorityOpen[0]!.priority === "URGENT" ? "blocked" : "warning",
+    });
+  }
+  byBucket.midday.push({
+    id: "midday-departments",
+    title: "Department status check",
+    detail: "Review Dietary, EVS, and Plant progress",
+    href: "/today/walk",
+    tone: "neutral",
+  });
 
   addSharedAfternoonEvening(byBucket, s);
 }

@@ -1,5 +1,5 @@
 import type { WorkspaceContext, WorkspaceQuickAction } from "./types";
-import { isLinkAllowedForContext } from "./workspace-composition";
+import { isLinkAllowedForContext, type WorkspaceCompositionConfig } from "./workspace-composition";
 
 function normalizeHref(href: string): string {
   return href.replace(/\/$/, "") || "/";
@@ -8,16 +8,18 @@ function normalizeHref(href: string): string {
 /**
  * Quick Actions — compact launch strip into existing routes.
  * Employees/Logs live under Operations launch (optional section), not the home strip.
- * When a department context is active, actions whose hrefs are restricted
- * to other departments are excluded via nav rules.
+ * When a department context is active, actions are filtered by the composition
+ * config's `quickActionIds` and department nav rules.
  */
 export function buildQuickActions(options?: {
   supervisor?: boolean;
   promotedHrefs?: readonly string[];
   context?: WorkspaceContext;
+  config?: WorkspaceCompositionConfig;
 }): WorkspaceQuickAction[] {
   const promoted = new Set((options?.promotedHrefs ?? []).map(normalizeHref));
   const ctx = options?.context;
+  const allowedIds = options?.config ? new Set(options.config.quickActionIds) : null;
 
   const all: WorkspaceQuickAction[] = [
     {
@@ -56,6 +58,20 @@ export function buildQuickActions(options?: {
       icon: "assets",
     },
     {
+      id: "evs-board",
+      title: "EVS Board",
+      description: "Cleaning assignments and room status",
+      href: "/evs",
+      icon: "logs",
+    },
+    {
+      id: "logs",
+      title: "Logs",
+      description: "Compliance and temperature logs",
+      href: "/logs",
+      icon: "logs",
+    },
+    {
       id: "knowledge",
       title: "Knowledge",
       description: "SOPs and published reference",
@@ -68,6 +84,10 @@ export function buildQuickActions(options?: {
   let actions = options?.supervisor
     ? all.filter((action) => supervisorIds.has(action.id))
     : all;
+
+  if (allowedIds) {
+    actions = actions.filter((action) => allowedIds.has(action.id));
+  }
 
   if (ctx) {
     actions = actions.filter((action) => isLinkAllowedForContext(action.href, ctx));
