@@ -73,7 +73,7 @@ Unit Workspace              Floor: “What do I do here, now?”
 
 | Zone | Job |
 |------|-----|
-| **Locations** | Enter Unit Workspaces; readiness chips on rail |
+| **Locations** | Enter Unit Workspaces; readiness chips on rail. Units are sections/wings; UnitSpaces are rooms/areas within. See `docs/location-architecture/`. |
 | **Review** | Historical / secondary review (reports) — not daily home |
 | **Administration** | Setup; never default home |
 

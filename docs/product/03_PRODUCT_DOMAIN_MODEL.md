@@ -13,7 +13,8 @@
 | **Facility** | Operational site with timezone, users, units, departments. Primary tenancy boundary for day-to-day data. |
 | **UserFacilityAccess** | Explicit grant for a user to enter a facility. |
 | **Department** | Operational mode / responsibility (e.g. Dietary, EVS, Plant). Lens + ownership — not a second app. |
-| **Unit (Location)** | Physical/service node where work is executed (kitchen, servery, EVS zone, plant area…). |
+| **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
+| **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). |
 | **Role** | Capability ladder: Staff → Lead → Supervisor → Manager → GM → Facility Administrator. |
 | **Operation** | Time-bound commitment (e.g. Lunch service) via definition + instance when Operations Engine is on. |
@@ -104,4 +105,5 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 1. **Site vs Facility** — vision docs say Site; shipped model is Facility. Prefer Facility until a deliberate rename.  
 2. **Issue vs Repair** — dual language remains; destination URLs still mixed.  
 3. **Operation engine flag-off** — domain concept exists; some surfaces still use meal-heuristic context.  
-4. **Task optional** — Work capability exists without Task rows when sync is disabled.
+4. **Task optional** — Work capability exists without Task rows when sync is disabled.  
+5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace will add room-level granularity. See `docs/location-architecture/`.

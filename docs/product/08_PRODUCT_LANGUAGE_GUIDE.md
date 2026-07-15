@@ -25,6 +25,7 @@
 | **Facility** | Operational site | Site *(vision alias — migrate language to Facility)* |
 | **Organization** | Parent of facilities | Company, Tenant *(unless billing copy)* |
 | **Department** | Operational mode / ownership | Line of business |
+| **Room / Space** | Area within a unit; model is `UnitSpace` | Location *(reserve for section level; see `docs/location-architecture/`)* |
 | **Location / Unit** | Place of work — UI “Location”, model often `Unit` | Room *(unless truly a resident room entity)* |
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
 | **Task** | Work Engine projection | Ticket *(unless issue context)* |
