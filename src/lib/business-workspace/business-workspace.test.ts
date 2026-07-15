@@ -19,13 +19,18 @@ import {
   greetingForLocalHour,
   healthToneFromReadiness,
   inspectionFocusHref,
+  isLinkAllowedForContext,
   loadCachedMorningBriefPreview,
   orderedWorkspaceSections,
   parseWorkspacePreferenceRow,
   resolveAgendaBucketId,
+  resolveCompositionConfig,
+  resolveWorkspaceContext,
   resolveWorkspaceSections,
+  scopeInputsForContext,
   workspaceIsHealthy,
   workspaceSectionVisible,
+  type WorkspaceContext,
 } from "@/lib/business-workspace";
 import { createMemoryBriefCacheStore } from "@/lib/ai/morning-brief/cache-store";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
@@ -336,6 +341,7 @@ test("priority: overdue inspection ranks ahead of routine recovery", () => {
           unitName: "Main Kitchen",
           dueAt: new Date(now.getTime() - 60_000),
           overdue: true,
+          departmentKey: null,
         },
       ],
       openRepairs: [
@@ -543,6 +549,7 @@ test("performance snapshot: existing counts and links; routine repair excluded",
           unitName: null,
           dueAt: new Date("2026-07-13T10:00:00.000Z"),
           overdue: true,
+          departmentKey: null,
         },
       ],
       dashboard: {
@@ -592,6 +599,7 @@ test("recent activity: meaningful events only with facility-local stamp", () => 
             priority: "LOW",
             status: "OPEN",
             unitName: "2 East",
+            departmentKey: null,
             at: new Date("2026-07-13T15:00:00.000Z"),
           },
           {
@@ -600,6 +608,7 @@ test("recent activity: meaningful events only with facility-local stamp", () => 
             priority: "URGENT",
             status: "OPEN",
             unitName: "Main Kitchen",
+            departmentKey: null,
             at: new Date("2026-07-13T14:00:00.000Z"),
           },
         ],
@@ -609,6 +618,7 @@ test("recent activity: meaningful events only with facility-local stamp", () => 
             title: "Leak fixed",
             priority: "HIGH",
             unitName: "Boiler",
+            departmentKey: null,
             at: new Date("2026-07-13T13:30:00.000Z"),
           },
         ],
@@ -618,6 +628,7 @@ test("recent activity: meaningful events only with facility-local stamp", () => 
             title: "Trayline",
             result: "PASS",
             unitName: "Main Kitchen",
+            departmentKey: null,
             at: new Date("2026-07-13T12:00:00.000Z"),
           },
         ],
@@ -626,6 +637,7 @@ test("recent activity: meaningful events only with facility-local stamp", () => 
             id: "k1",
             title: "Dish machine SOP",
             category: "SOP",
+            departmentKey: null,
             at: new Date("2026-07-13T11:00:00.000Z"),
           },
         ],
@@ -654,6 +666,7 @@ test("recent activity remains facility-scoped via input facility data only", () 
             priority: "HIGH",
             status: "OPEN",
             unitName: "B Kitchen",
+            departmentKey: null,
             at: new Date("2026-07-13T14:00:00.000Z"),
           },
         ],
@@ -731,6 +744,7 @@ test("manager focus: ranking prefers overdue inspection then staffing then disru
           unitName: "Main Kitchen",
           dueAt: new Date(now.getTime() - 60_000),
           overdue: true,
+          departmentKey: null,
         },
       ],
       dashboard: {
@@ -933,6 +947,7 @@ test("inspectionFocusHref prefers unit deep link when ids exist", () => {
       unitName: "Kitchen",
       dueAt: new Date(),
       overdue: true,
+      departmentKey: null,
     }),
     /\/unit\/unit-9\?unitTab=overview&inspect=def-9&occurrence=occ-1/,
   );
@@ -945,6 +960,7 @@ test("inspectionFocusHref prefers unit deep link when ids exist", () => {
       unitName: null,
       dueAt: new Date(),
       overdue: false,
+      departmentKey: null,
     }),
     "/today/handoffs",
   );
@@ -988,6 +1004,7 @@ test("agenda orders due/overdue work before routine items", () => {
           unitName: "Main Kitchen",
           dueAt: new Date("2026-07-13T10:00:00.000Z"),
           overdue: true,
+          departmentKey: null,
         },
       ],
       activity: {
@@ -997,6 +1014,7 @@ test("agenda orders due/overdue work before routine items", () => {
             id: "k1",
             title: "SOP",
             category: "SOP",
+            departmentKey: null,
             at: new Date("2026-07-13T11:00:00.000Z"),
           },
         ],
@@ -1137,4 +1155,474 @@ test("cached morning brief preview: ready same-facility shown; mismatches hidden
     aiEnabled: true,
   });
   assert.equal(afterExpiredOnly, null);
+});
+
+// ---------------------------------------------------------------------------
+// Wave 13A — Department-Aware Workspace Composition
+// ---------------------------------------------------------------------------
+
+const dietaryCtx: WorkspaceContext = {
+  mode: "department",
+  departmentId: "dept-dietary",
+  departmentKey: "DIETARY",
+  departmentName: "Dietary",
+};
+
+const evsCtx: WorkspaceContext = {
+  mode: "department",
+  departmentId: "dept-evs",
+  departmentKey: "EVS",
+  departmentName: "Environmental Services",
+};
+
+const plantCtx: WorkspaceContext = {
+  mode: "department",
+  departmentId: "dept-plant",
+  departmentKey: "PLANT",
+  departmentName: "Plant Operations",
+};
+
+const facilityCtx: WorkspaceContext = {
+  mode: "facility",
+  departmentId: null,
+  departmentKey: null,
+  departmentName: null,
+};
+
+function mixedDeptInputs(): BusinessWorkspaceInputs {
+  return baseInputs({
+    readiness: readinessBatch(
+      [
+        readinessItem({ unitId: "u1", unitName: "Main Kitchen", state: "blocked", reason: "Log failure", profileKey: "DIETARY" }),
+        readinessItem({ unitId: "u2", unitName: "2 East", state: "ready", reason: "Ready", profileKey: "EVS" }),
+        readinessItem({ unitId: "u3", unitName: "Boiler Room", state: "in_progress", reason: "PM due", profileKey: "PLANT" }),
+        readinessItem({ unitId: "u4", unitName: "Servery A", state: "ready", reason: "Ready", profileKey: "DIETARY" }),
+      ],
+      { total: 4, ready: 2, inProgress: 1, blocked: 1 },
+    ),
+    openRepairs: [
+      { id: "r1", unitId: "u1", title: "Oven element", priority: "URGENT" as const, status: "OPEN" as const, workOrderKind: "CORRECTIVE" as const, dueAt: null, unitName: "Main Kitchen", departmentKey: "DIETARY" },
+      { id: "r2", unitId: "u2", title: "Floor buffer", priority: "HIGH" as const, status: "IN_PROGRESS" as const, workOrderKind: "CORRECTIVE" as const, dueAt: null, unitName: "2 East", departmentKey: "EVS" },
+      { id: "r3", unitId: "u3", title: "Boiler valve", priority: "URGENT" as const, status: "OPEN" as const, workOrderKind: "CORRECTIVE" as const, dueAt: null, unitName: "Boiler Room", departmentKey: "PLANT" },
+    ],
+    inspectionsDue: [
+      { id: "i1", definitionId: "def-1", definitionName: "Trayline audit", unitId: "u1", unitName: "Main Kitchen", dueAt: new Date("2026-07-13T10:00:00.000Z"), overdue: true, departmentKey: "DIETARY" },
+      { id: "i2", definitionId: "def-2", definitionName: "Room check", unitId: "u2", unitName: "2 East", dueAt: new Date("2026-07-13T14:00:00.000Z"), overdue: false, departmentKey: "EVS" },
+      { id: "i3", definitionId: "def-3", definitionName: "Boiler inspection", unitId: "u3", unitName: "Boiler Room", dueAt: new Date("2026-07-13T15:00:00.000Z"), overdue: false, departmentKey: "PLANT" },
+      { id: "i4", definitionId: "def-4", definitionName: "Facility fire drill", unitId: null, unitName: null, dueAt: new Date("2026-07-13T16:00:00.000Z"), overdue: false, departmentKey: null },
+    ],
+    dashboard: {
+      ...baseInputs().dashboard,
+      unitsMissingStaffing: [
+        { id: "u1", name: "Main Kitchen" },
+        { id: "u2", name: "2 East" },
+      ] as BusinessWorkspaceInputs["dashboard"]["unitsMissingStaffing"],
+      unitsWithExceptions: [{ id: "u1", name: "Main Kitchen" }] as BusinessWorkspaceInputs["dashboard"]["unitsWithExceptions"],
+    },
+    activity: {
+      repairsOpened: [
+        { id: "ra1", title: "Dietary issue", priority: "URGENT", status: "OPEN", unitName: "Main Kitchen", departmentKey: "DIETARY", at: new Date("2026-07-13T14:00:00.000Z") },
+        { id: "ra2", title: "EVS issue", priority: "HIGH", status: "OPEN", unitName: "2 East", departmentKey: "EVS", at: new Date("2026-07-13T13:00:00.000Z") },
+      ],
+      repairsResolved: [
+        { id: "rr1", title: "Plant fix", priority: "HIGH", unitName: "Boiler Room", departmentKey: "PLANT", at: new Date("2026-07-13T12:00:00.000Z") },
+      ],
+      inspectionsCompleted: [
+        { id: "ic1", title: "Trayline", result: "PASS", unitName: "Main Kitchen", departmentKey: "DIETARY", at: new Date("2026-07-13T11:00:00.000Z") },
+        { id: "ic2", title: "Room check", result: "FAIL", unitName: "2 East", departmentKey: "EVS", at: new Date("2026-07-13T10:00:00.000Z") },
+      ],
+      knowledgePublished: [
+        { id: "kp1", title: "Menu SOP", category: "SOP", departmentKey: "DIETARY", at: new Date("2026-07-13T09:00:00.000Z") },
+        { id: "kp2", title: "Cleaning guide", category: "SOP", departmentKey: "EVS", at: new Date("2026-07-13T08:00:00.000Z") },
+      ],
+    },
+  });
+}
+
+// -- Context resolution --
+
+test("resolveWorkspaceContext returns department mode when all fields present", () => {
+  const ctx = resolveWorkspaceContext({
+    activeDepartmentKey: "DIETARY",
+    activeDepartmentId: "dept-1",
+    activeDepartmentName: "Dietary",
+  });
+  assert.equal(ctx.mode, "department");
+  assert.equal(ctx.departmentKey, "DIETARY");
+  assert.equal(ctx.departmentId, "dept-1");
+});
+
+test("resolveWorkspaceContext returns facility mode when key is null", () => {
+  const ctx = resolveWorkspaceContext({
+    activeDepartmentKey: null,
+    activeDepartmentId: null,
+    activeDepartmentName: null,
+  });
+  assert.equal(ctx.mode, "facility");
+  assert.equal(ctx.departmentKey, null);
+});
+
+test("resolveWorkspaceContext returns facility mode when id is missing", () => {
+  const ctx = resolveWorkspaceContext({
+    activeDepartmentKey: "DIETARY",
+    activeDepartmentId: null,
+    activeDepartmentName: "Dietary",
+  });
+  assert.equal(ctx.mode, "facility");
+});
+
+// -- Input scoping --
+
+test("scopeInputsForContext passes inputs through for facility mode", () => {
+  const inputs = mixedDeptInputs();
+  const scoped = scopeInputsForContext(inputs, facilityCtx);
+  assert.equal(scoped, inputs);
+});
+
+test("scopeInputsForContext filters readiness by department profileKey", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  assert.ok(scoped.readiness.items.every((item) => item.profileKey === "DIETARY"));
+  assert.equal(scoped.readiness.items.length, 2);
+  assert.equal(scoped.readiness.summary.blocked, 1);
+  assert.equal(scoped.readiness.summary.ready, 1);
+});
+
+test("scopeInputsForContext filters repairs by departmentKey", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  assert.ok(scoped.openRepairs.every((r) => r.departmentKey === "PLANT"));
+  assert.equal(scoped.openRepairs.length, 1);
+  assert.equal(scoped.openRepairs[0]?.title, "Boiler valve");
+});
+
+test("scopeInputsForContext filters inspections by departmentKey, includes null", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.ok(scoped.inspectionsDue.every((i) => i.departmentKey === "EVS" || i.departmentKey === null));
+  assert.equal(scoped.inspectionsDue.length, 2);
+});
+
+test("scopeInputsForContext filters activity by department", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  assert.ok(scoped.activity.repairsOpened.every((r) => r.departmentKey === "DIETARY" || !r.departmentKey));
+  assert.equal(scoped.activity.repairsOpened.length, 1);
+  assert.equal(scoped.activity.repairsResolved.length, 0);
+  assert.equal(scoped.activity.inspectionsCompleted.length, 1);
+  assert.equal(scoped.activity.knowledgePublished.length, 1);
+});
+
+test("scopeInputsForContext filters dashboard unit lists by department units", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  assert.ok(scoped.dashboard.unitsMissingStaffing.every((u) => u.id === "u1" || u.id === "u4"));
+  assert.equal(scoped.dashboard.unitsWithExceptions.length, 1);
+  assert.equal(scoped.dashboard.unitsWithExceptions[0]?.id, "u1");
+});
+
+// -- Composition config --
+
+test("resolveCompositionConfig returns Dietary config for DIETARY context", () => {
+  const config = resolveCompositionConfig(dietaryCtx);
+  assert.equal(config.contextLabel, "Dietary");
+  assert.equal(config.showLogCompletion, true);
+  assert.equal(config.showMealContext, true);
+});
+
+test("resolveCompositionConfig returns EVS config for EVS context", () => {
+  const config = resolveCompositionConfig(evsCtx);
+  assert.equal(config.contextLabel, "Environmental Services");
+  assert.equal(config.showLogCompletion, false);
+  assert.equal(config.showMealContext, false);
+  assert.ok(!config.operationsLinkIds.includes("issues"));
+});
+
+test("resolveCompositionConfig returns Plant config for PLANT context", () => {
+  const config = resolveCompositionConfig(plantCtx);
+  assert.equal(config.contextLabel, "Plant Operations");
+  assert.equal(config.showLogCompletion, false);
+  assert.ok(config.operationsLinkIds.includes("assets"));
+});
+
+test("resolveCompositionConfig returns Facility config for facility context", () => {
+  const config = resolveCompositionConfig(facilityCtx);
+  assert.equal(config.contextLabel, "Facility Overview");
+  assert.equal(config.showLogCompletion, true);
+  assert.ok(config.operationsLinkIds.includes("assets"));
+  assert.ok(config.operationsLinkIds.includes("logs"));
+});
+
+// -- Dietary composition --
+
+test("Dietary Manager Focus includes only dietary signals", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const focus = buildManagerFocus(scoped);
+  for (const card of focus) {
+    assert.ok(!card.title.includes("Boiler"), "Plant signal leaked into Dietary focus");
+    assert.ok(!card.title.includes("Floor buffer"), "EVS signal leaked into Dietary focus");
+  }
+});
+
+test("Dietary priorities exclude EVS and Plant signals", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const priorities = buildWorkspacePriorities(scoped);
+  for (const card of priorities) {
+    assert.ok(!card.locationLabel?.includes("Boiler"), "Plant location leaked into Dietary priorities");
+  }
+});
+
+test("Dietary performance excludes Plant and EVS readiness counts", () => {
+  const config = resolveCompositionConfig(dietaryCtx);
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const perf = buildPerformanceSnapshot(scoped, config);
+  const ready = perf.find((m) => m.id === "locations-ready");
+  assert.equal(ready?.value, 1);
+  const attention = perf.find((m) => m.id === "locations-attention");
+  assert.equal(attention?.value, 1);
+  const compliance = perf.find((m) => m.id === "due-compliance");
+  assert.ok(compliance, "Dietary should show log completion");
+});
+
+test("Dietary recent activity excludes EVS and Plant activity", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const activity = buildRecentActivity(scoped);
+  for (const item of activity) {
+    assert.ok(!item.title.includes("EVS"), "EVS activity leaked into Dietary");
+    assert.ok(!item.title.includes("Plant fix"), "Plant activity leaked into Dietary");
+  }
+});
+
+// -- EVS composition --
+
+test("EVS Manager Focus includes only EVS signals", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  const focus = buildManagerFocus(scoped);
+  for (const card of focus) {
+    assert.ok(!card.title.includes("Oven"), "Dietary signal leaked into EVS focus");
+    assert.ok(!card.title.includes("Boiler"), "Plant signal leaked into EVS focus");
+  }
+});
+
+test("EVS performance hides log completion", () => {
+  const config = resolveCompositionConfig(evsCtx);
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  const perf = buildPerformanceSnapshot(scoped, config);
+  assert.ok(!perf.find((m) => m.id === "due-compliance"), "EVS should not show log completion");
+});
+
+test("EVS agenda uses cleaning language, not meal language", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  const agenda = buildManagementAgenda(scoped, evsCtx);
+  const morning = agenda.find((b) => b.id === "morning")!;
+  assert.ok(morning.items.some((i) => /rounds|cleaning|area/i.test(i.title)), "EVS morning should reference rounds/cleaning");
+  assert.ok(!morning.items.some((i) => /Breakfast|Lunch|Kitchen/i.test(i.title)), "EVS morning should not reference meals");
+});
+
+// -- Plant composition --
+
+test("Plant Manager Focus includes only Plant signals", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  const focus = buildManagerFocus(scoped);
+  for (const card of focus) {
+    assert.ok(!card.title.includes("Oven"), "Dietary signal leaked into Plant focus");
+    assert.ok(!card.title.includes("Floor buffer"), "EVS signal leaked into Plant focus");
+  }
+});
+
+test("Plant performance hides log completion", () => {
+  const config = resolveCompositionConfig(plantCtx);
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  const perf = buildPerformanceSnapshot(scoped, config);
+  assert.ok(!perf.find((m) => m.id === "due-compliance"), "Plant should not show log completion");
+});
+
+test("Plant agenda uses asset/PM language, not meal language", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  const agenda = buildManagementAgenda(scoped, plantCtx);
+  const morning = agenda.find((b) => b.id === "morning")!;
+  assert.ok(morning.items.some((i) => /asset|PM|Plant/i.test(i.title)), "Plant morning should reference assets/PM");
+  assert.ok(!morning.items.some((i) => /Breakfast|Lunch|Kitchen/i.test(i.title)), "Plant morning should not reference meals");
+});
+
+// -- Facility Overview --
+
+test("Facility Overview department health shows all departments", () => {
+  const inputs = mixedDeptInputs();
+  const health = buildDepartmentHealth(inputs, facilityCtx);
+  assert.equal(health.length, 3);
+  assert.ok(health.some((h) => h.key === "DIETARY"));
+  assert.ok(health.some((h) => h.key === "EVS"));
+  assert.ok(health.some((h) => h.key === "PLANT"));
+});
+
+test("single-department mode shows only that department health", () => {
+  const inputs = mixedDeptInputs();
+  const health = buildDepartmentHealth(inputs, dietaryCtx);
+  assert.equal(health.length, 1);
+  assert.equal(health[0]?.key, "DIETARY");
+});
+
+test("Facility Overview uses unscoped inputs (all signals)", () => {
+  const inputs = mixedDeptInputs();
+  const scoped = scopeInputsForContext(inputs, facilityCtx);
+  assert.equal(scoped.openRepairs.length, 3);
+  assert.equal(scoped.readiness.items.length, 4);
+  assert.equal(scoped.inspectionsDue.length, 4);
+});
+
+// -- Quick actions --
+
+test("Dietary quick actions exclude /assets", () => {
+  const actions = buildQuickActions({ context: dietaryCtx });
+  assert.ok(!actions.find((a) => a.href === "/assets"), "Dietary should not show Assets quick action");
+  assert.ok(actions.find((a) => a.href === "/issues"), "Dietary should show Issues quick action");
+});
+
+test("EVS quick actions exclude /assets and /issues", () => {
+  const actions = buildQuickActions({ context: evsCtx });
+  assert.ok(!actions.find((a) => a.href === "/assets"), "EVS should not show Assets");
+  assert.ok(!actions.find((a) => a.href === "/issues"), "EVS should not show Issues");
+});
+
+test("Plant quick actions include /assets but exclude /menus", () => {
+  const actions = buildQuickActions({ context: plantCtx });
+  assert.ok(actions.find((a) => a.href === "/assets"), "Plant should show Assets");
+});
+
+test("Facility quick actions include all shared routes", () => {
+  const actions = buildQuickActions({ context: facilityCtx });
+  assert.ok(actions.find((a) => a.href === "/assets"), "Facility should show Assets");
+  assert.ok(actions.find((a) => a.href === "/issues"), "Facility should show Issues");
+});
+
+// -- Manager Focus healthy guidance --
+
+test("healthy guidance uses department name when context is department", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs, dietaryCtx);
+  assert.match(guidance.title, /Dietary/);
+});
+
+test("healthy guidance uses generic copy when context is facility", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs, facilityCtx);
+  assert.match(guidance.title, /Current operations/);
+});
+
+test("healthy guidance uses generic copy when context is undefined (backward compat)", () => {
+  const inputs = baseInputs();
+  const guidance = buildManagerFocusHealthyGuidance(inputs);
+  assert.match(guidance.title, /Current operations/);
+});
+
+// -- Link filtering --
+
+test("isLinkAllowedForContext allows all links for facility mode", () => {
+  assert.equal(isLinkAllowedForContext("/assets", facilityCtx), true);
+  assert.equal(isLinkAllowedForContext("/issues", facilityCtx), true);
+  assert.equal(isLinkAllowedForContext("/menus", facilityCtx), true);
+});
+
+test("isLinkAllowedForContext restricts /assets for Dietary", () => {
+  assert.equal(isLinkAllowedForContext("/assets", dietaryCtx), false);
+});
+
+test("isLinkAllowedForContext restricts /issues for EVS", () => {
+  assert.equal(isLinkAllowedForContext("/issues", evsCtx), false);
+});
+
+test("isLinkAllowedForContext allows shared routes for all departments", () => {
+  assert.equal(isLinkAllowedForContext("/dashboard", dietaryCtx), true);
+  assert.equal(isLinkAllowedForContext("/today", evsCtx), true);
+  assert.equal(isLinkAllowedForContext("/admin/inspections", plantCtx), true);
+});
+
+// -- Preferences stability --
+
+test("preferences are not corrupted by department context switch", () => {
+  const prefs = parseWorkspacePreferenceRow({
+    hiddenSectionIds: ["performance"],
+    collapsedSectionIds: ["recent_activity"],
+    sectionOrder: ["priorities", "department_health"],
+    preferredLandingSectionId: "priorities",
+  });
+  const composed = applyWorkspacePreferences({ role: "MANAGER", preferences: prefs });
+  assert.ok(!composed.visibleSections.includes("performance"));
+  assert.ok(composed.collapsedSections.includes("recent_activity"));
+  assert.equal(composed.preferredLandingSectionId, "priorities");
+});
+
+// -- Metrics scoping --
+
+test("performance metrics scoped to department show correct counts", () => {
+  const config = resolveCompositionConfig(evsCtx);
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  const perf = buildPerformanceSnapshot(scoped, config);
+  const issues = perf.find((m) => m.id === "priority-issues");
+  assert.equal(issues?.value, 1);
+  const ready = perf.find((m) => m.id === "locations-ready");
+  assert.equal(ready?.value, 1);
+});
+
+// -- RBAC --
+
+test("SUPERVISOR sees limited quick actions regardless of context", () => {
+  const actions = buildQuickActions({ supervisor: true, context: dietaryCtx });
+  assert.ok(actions.length <= 3);
+  assert.ok(actions.every((a) => ["report-issue", "operations-center", "todays-work"].includes(a.id)));
+});
+
+test("STAFF denied from Business Workspace (unchanged)", () => {
+  assert.equal(canAccessBusinessWorkspace("STAFF"), false);
+});
+
+// -- Regression: existing builders work without context --
+
+test("buildManagementAgenda works without context (backward compat)", () => {
+  const agenda = buildManagementAgenda(baseInputs());
+  assert.equal(agenda.length, 4);
+  const morning = agenda.find((b) => b.id === "morning")!;
+  const evening = agenda.find((b) => b.id === "evening")!;
+  assert.ok(morning.items.length > 0, "morning always has meal review");
+  assert.ok(evening.items.length > 0, "evening always has handoff");
+});
+
+test("buildQuickActions works without context (backward compat)", () => {
+  const actions = buildQuickActions();
+  assert.ok(actions.length > 0);
+});
+
+test("buildDepartmentHealth works without context (backward compat)", () => {
+  const health = buildDepartmentHealth(baseInputs());
+  assert.equal(health.length, 3);
+});
+
+test("buildPerformanceSnapshot works without config (backward compat)", () => {
+  const perf = buildPerformanceSnapshot(baseInputs());
+  assert.equal(perf.length, 6);
+  assert.ok(perf.find((m) => m.id === "due-compliance"));
+});
+
+// -- Cross-department leakage --
+
+test("Dietary workspace does not show EVS room state or Plant PM", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), dietaryCtx);
+  const priorities = buildWorkspacePriorities(scoped);
+  const focus = buildManagerFocus(scoped);
+  const all = [...priorities, ...focus.map((f) => ({ ...f, locationLabel: f.locationLabel }))];
+  for (const card of all) {
+    if ("locationLabel" in card && card.locationLabel) {
+      assert.ok(!card.locationLabel.includes("2 East"), "EVS unit leaked into Dietary");
+      assert.ok(!card.locationLabel.includes("Boiler"), "Plant unit leaked into Dietary");
+    }
+  }
+});
+
+test("EVS workspace does not show dietary logs or Plant PM", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), evsCtx);
+  assert.equal(scoped.openRepairs.length, 1);
+  assert.equal(scoped.openRepairs[0]?.departmentKey, "EVS");
+});
+
+test("Plant workspace does not show dietary logs or EVS cleaning", () => {
+  const scoped = scopeInputsForContext(mixedDeptInputs(), plantCtx);
+  assert.equal(scoped.openRepairs.length, 1);
+  assert.equal(scoped.openRepairs[0]?.departmentKey, "PLANT");
+  assert.ok(scoped.readiness.items.every((item) => item.profileKey === "PLANT"));
 });

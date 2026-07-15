@@ -10,6 +10,7 @@ export type {
   ManagerFocusHealthyGuidance,
   WorkspaceActivityItem,
   WorkspaceCachedMorningBrief,
+  WorkspaceContext,
   WorkspaceDepartmentHealth,
   WorkspaceHealthTone,
   WorkspaceLinkCard,
@@ -47,7 +48,7 @@ export {
   upsertWorkspacePreferenceState,
 } from "./workspace-preferences";
 
-export { loadBusinessWorkspace, type LoadBusinessWorkspaceInput } from "./load-business-workspace";
+export { loadBusinessWorkspace, resolveWorkspaceContext, type LoadBusinessWorkspaceInput } from "./load-business-workspace";
 export { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
 export { loadCachedMorningBriefPreview } from "./load-cached-morning-brief";
 export { buildWorkspacePriorities, workspaceIsHealthy } from "./build-workspace-priorities";
@@ -67,3 +68,9 @@ export { buildQuickActions } from "./build-quick-actions";
 export { buildDepartmentHealth } from "./build-department-health";
 export { buildPerformanceSnapshot } from "./build-performance-snapshot";
 export { buildRecentActivity } from "./build-recent-activity";
+export {
+  resolveCompositionConfig,
+  scopeInputsForContext,
+  isLinkAllowedForContext,
+  type WorkspaceCompositionConfig,
+} from "./workspace-composition";

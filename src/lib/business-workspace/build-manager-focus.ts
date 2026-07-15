@@ -1,5 +1,5 @@
 import type { BusinessWorkspaceInputs, WorkspaceInspectionDue } from "./load-workspace-inputs";
-import type { ManagerFocusCard, ManagerFocusHealthyGuidance } from "./types";
+import type { ManagerFocusCard, ManagerFocusHealthyGuidance, WorkspaceContext } from "./types";
 
 type FocusCandidate = ManagerFocusCard & { dedupeHref: string };
 
@@ -207,9 +207,11 @@ export function buildManagerFocus(inputs: BusinessWorkspaceInputs): ManagerFocus
 /**
  * Calm healthy-state guidance when Manager Focus has no urgent cards.
  * One primary + up to two secondary — no manufactured urgency.
+ * When a department context is active, copy reflects that department.
  */
 export function buildManagerFocusHealthyGuidance(
   inputs: BusinessWorkspaceInputs,
+  context?: WorkspaceContext,
 ): ManagerFocusHealthyGuidance {
   const op = inputs.dashboard.operationContext;
   const upcomingInspection = inputs.inspectionsDue.find((row) => !row.overdue);
@@ -243,8 +245,13 @@ export function buildManagerFocusHealthyGuidance(
     });
   }
 
+  const deptLabel = context?.mode === "department" ? context.departmentName : null;
+  const healthyTitle = deptLabel
+    ? `${deptLabel} operations are on track.`
+    : "Current operations are on track.";
+
   return {
-    title: "Current operations are on track.",
+    title: healthyTitle,
     detail:
       op.scheduledTimeLabel != null
         ? `${op.serviceLabel} — ${op.phase} · ${op.scheduledTimeLabel}`

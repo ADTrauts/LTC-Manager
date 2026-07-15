@@ -42,6 +42,7 @@ export type WorkspaceInspectionDue = {
   unitName: string | null;
   dueAt: Date;
   overdue: boolean;
+  departmentKey: string | null;
 };
 
 export type WorkspaceActivityRaw = {
@@ -51,6 +52,7 @@ export type WorkspaceActivityRaw = {
     priority: string;
     status: string;
     unitName: string;
+    departmentKey: string | null;
     at: Date;
   }>;
   repairsResolved: Array<{
@@ -58,6 +60,7 @@ export type WorkspaceActivityRaw = {
     title: string;
     priority: string;
     unitName: string;
+    departmentKey: string | null;
     at: Date;
   }>;
   inspectionsCompleted: Array<{
@@ -65,12 +68,14 @@ export type WorkspaceActivityRaw = {
     title: string;
     result: string;
     unitName: string | null;
+    departmentKey: string | null;
     at: Date;
   }>;
   knowledgePublished: Array<{
     id: string;
     title: string;
     category: string;
+    departmentKey: string | null;
     at: Date;
   }>;
 };
@@ -161,7 +166,7 @@ export async function loadBusinessWorkspaceInputs(input: {
           id: true,
           dueAt: true,
           definitionId: true,
-          definition: { select: { name: true } },
+          definition: { select: { name: true, department: { select: { key: true } } } },
           unitId: true,
           unit: { select: { id: true, name: true } },
         },
@@ -182,6 +187,7 @@ export async function loadBusinessWorkspaceInputs(input: {
             status: true,
             createdAt: true,
             unit: { select: { name: true } },
+            responsibleDepartment: { select: { key: true } },
           },
         }),
         prisma.repair.findMany({
@@ -199,6 +205,7 @@ export async function loadBusinessWorkspaceInputs(input: {
             priority: true,
             updatedAt: true,
             unit: { select: { name: true } },
+            responsibleDepartment: { select: { key: true } },
           },
         }),
         prisma.inspectionSubmission.findMany({
@@ -209,7 +216,7 @@ export async function loadBusinessWorkspaceInputs(input: {
             id: true,
             result: true,
             submittedAt: true,
-            definition: { select: { name: true } },
+            definition: { select: { name: true, department: { select: { key: true } } } },
             unit: { select: { name: true } },
           },
         }),
@@ -221,7 +228,7 @@ export async function loadBusinessWorkspaceInputs(input: {
           },
           orderBy: { updatedAt: "desc" },
           take: 4,
-          select: { id: true, title: true, category: true, updatedAt: true },
+          select: { id: true, title: true, category: true, updatedAt: true, department: { select: { key: true } } },
         }),
       ]),
     ]);
@@ -350,6 +357,7 @@ export async function loadBusinessWorkspaceInputs(input: {
       unitName: row.unit?.name ?? null,
       dueAt: row.dueAt,
       overdue: row.dueAt.getTime() < now.getTime(),
+      departmentKey: row.definition.department?.key ?? null,
     })),
     activeDepartmentKeys:
       activeDepartmentKeys.length > 0 ? activeDepartmentKeys : (["DIETARY", "EVS", "PLANT"] as OperationalDepartmentKey[]),
@@ -360,6 +368,7 @@ export async function loadBusinessWorkspaceInputs(input: {
         priority: row.priority,
         status: row.status,
         unitName: row.unit.name,
+        departmentKey: row.responsibleDepartment?.key ?? null,
         at: row.createdAt,
       })),
       repairsResolved: repairsResolved.map((row) => ({
@@ -367,6 +376,7 @@ export async function loadBusinessWorkspaceInputs(input: {
         title: row.title,
         priority: row.priority,
         unitName: row.unit.name,
+        departmentKey: row.responsibleDepartment?.key ?? null,
         at: row.updatedAt,
       })),
       inspectionsCompleted: inspectionsCompleted.map((row) => ({
@@ -374,12 +384,14 @@ export async function loadBusinessWorkspaceInputs(input: {
         title: row.definition.name,
         result: String(row.result),
         unitName: row.unit?.name ?? null,
+        departmentKey: row.definition.department?.key ?? null,
         at: row.submittedAt,
       })),
       knowledgePublished: knowledgePublished.map((row) => ({
         id: row.id,
         title: row.title,
         category: String(row.category),
+        departmentKey: row.department?.key ?? null,
         at: row.updatedAt,
       })),
     },

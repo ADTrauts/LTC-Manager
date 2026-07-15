@@ -53,6 +53,7 @@ export default async function WorkspacePage() {
     role: session.role,
     userId: sessionUserIdForFk(session),
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+    activeDepartmentId: deptNav.activeDepartmentId,
     activeDepartmentName: departmentName,
   });
 

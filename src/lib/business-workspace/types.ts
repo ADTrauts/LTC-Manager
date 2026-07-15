@@ -1,7 +1,22 @@
 import type { AppRole } from "@/lib/access";
+import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import type { AppIconKey } from "@/lib/design-system";
 import type { StatusBadgeVariant, StatusTone } from "@/lib/design-system/status-styles";
 import type { OperationContext } from "@/lib/operations-center/types";
+
+export type WorkspaceContext =
+  | {
+      mode: "department";
+      departmentId: string;
+      departmentKey: OperationalDepartmentKey;
+      departmentName: string;
+    }
+  | {
+      mode: "facility";
+      departmentId: null;
+      departmentKey: null;
+      departmentName: null;
+    };
 
 export type WorkspaceSectionId =
   | "manager_focus"

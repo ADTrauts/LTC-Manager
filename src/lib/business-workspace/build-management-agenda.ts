@@ -6,6 +6,7 @@ import type {
   ManagementAgendaBucketId,
   ManagementAgendaItem,
   ManagementAgendaTemporal,
+  WorkspaceContext,
 } from "./types";
 import { inspectionFocusHref } from "./build-manager-focus";
 
@@ -85,10 +86,17 @@ function sortAgendaItems(items: ManagementAgendaItem[]): ManagementAgendaItem[] 
 /**
  * Management Agenda — operational day ordered by facility-local time buckets.
  * Generated entirely from existing signals (no calendar / RRULE).
+ * When a department context is set, generates department-appropriate items:
+ * - Dietary: meal service, kitchen walk, dietary staffing
+ * - EVS: rounds/cleaning, discharge priorities, EVS staffing
+ * - Plant: asset checks, PM work, work-order follow-up
+ * - Facility/null: facility-wide meal-focused items (existing behavior)
  */
-export function buildManagementAgenda(inputs: BusinessWorkspaceInputs): ManagementAgendaBucket[] {
+export function buildManagementAgenda(
+  inputs: BusinessWorkspaceInputs,
+  context?: WorkspaceContext,
+): ManagementAgendaBucket[] {
   const hour = inputs.operationalTime.facilityLocal.hour;
-  // Prefer injected operational-time hour (tests + shared clock) — already timezone-resolved.
   const current = agendaBucketForLocalHour(hour);
   const op = inputs.dashboard.operationContext;
   const staffingGaps = inputs.dashboard.unitsMissingStaffing.length;
@@ -106,6 +114,7 @@ export function buildManagementAgenda(inputs: BusinessWorkspaceInputs): Manageme
   );
   const blocked = inputs.readiness.items.filter((item) => item.state === "blocked");
   const knowledgeRecent = inputs.activity.knowledgePublished[0];
+  const deptKey = context?.mode === "department" ? context.departmentKey : null;
 
   const byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]> = {
     morning: [],
@@ -114,105 +123,70 @@ export function buildManagementAgenda(inputs: BusinessWorkspaceInputs): Manageme
     evening: [],
   };
 
-  byBucket.morning.push({
-    id: "morning-meal-review",
-    title: `${op.mealLabel || "Breakfast"} review`,
-    detail: `${op.serviceLabel} — ${op.phase}`,
-    href: "/dashboard",
-    tone: op.phase === "Execution" && op.mealType === "BREAKFAST" ? "in_progress" : "neutral",
-  });
-  if (blocked.length > 0) {
-    byBucket.morning.push({
-      id: "morning-walk",
-      title: "Walk locations needing attention",
-      detail: `${blocked[0]!.unitName}: ${blocked[0]!.reason}`,
-      href: `/unit/${blocked[0]!.unitId}`,
-      tone: "warning",
-    });
-  } else if (op.mealType === "BREAKFAST" || hour < 11) {
-    byBucket.morning.push({
-      id: "morning-walk",
-      title: "Walk Kitchen",
-      detail: "Confirm morning locations are supportable",
-      href: "/today/walk",
-      tone: "neutral",
-    });
-  }
-  if (staffingGaps > 0 || callDownOpen > 0) {
-    byBucket.morning.push({
-      id: "morning-staffing",
-      title: "Verify staffing",
-      detail:
-        staffingGaps > 0
-          ? `${staffingGaps} coverage gap${staffingGaps === 1 ? "" : "s"}`
-          : `${callDownOpen} open call-down${callDownOpen === 1 ? "" : "s"}`,
-      href: "/today/coverage",
-      tone: "warning",
-    });
-  } else if (hour < 11) {
-    byBucket.morning.push({
-      id: "morning-staffing",
-      title: "Verify staffing",
-      detail: "Confirm AM coverage before service",
-      href: "/today/coverage",
-      tone: "neutral",
-    });
+  if (deptKey === "EVS") {
+    buildEvsAgenda(byBucket, { hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
+  } else if (deptKey === "PLANT") {
+    buildPlantAgenda(byBucket, { hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
+  } else {
+    buildDietaryAgenda(byBucket, { op, hour, staffingGaps, callDownOpen, blocked, overdueInspections, dueInspections, priorityOpen, recovery, knowledgeRecent });
   }
 
-  byBucket.midday.push({
-    id: "midday-meal",
-    title: "Lunch service check",
-    detail: op.mealType === "LUNCH" ? `${op.phase} · current focus` : "Midday service posture",
-    href: "/dashboard",
-    tone: op.mealType === "LUNCH" ? "in_progress" : "neutral",
-  });
-  if (priorityOpen.length > 0) {
-    byBucket.midday.push({
-      id: "midday-issues",
-      title: "Priority issue follow-up",
-      detail: `${priorityOpen[0]!.title}`,
-      href: `/issues/${priorityOpen[0]!.id}`,
-      tone: priorityOpen[0]!.priority === "URGENT" ? "blocked" : "warning",
-    });
-  }
+  return AGENDA_BUCKET_ORDER.map((id) => ({
+    id,
+    label: BUCKET_LABELS[id],
+    isCurrent: id === current,
+    temporal: classifyAgendaTemporal(id, current, hour),
+    items: sortAgendaItems(byBucket[id]),
+  }));
+}
 
-  if (overdueInspections.length > 0 || dueInspections.length > 0) {
-    const first = overdueInspections[0] ?? dueInspections[0]!;
+type AgendaSignals = {
+  hour: number;
+  staffingGaps: number;
+  callDownOpen: number;
+  blocked: BusinessWorkspaceInputs["readiness"]["items"];
+  overdueInspections: BusinessWorkspaceInputs["inspectionsDue"];
+  dueInspections: BusinessWorkspaceInputs["inspectionsDue"];
+  priorityOpen: BusinessWorkspaceInputs["openRepairs"];
+  recovery: BusinessWorkspaceInputs["openRepairs"];
+  knowledgeRecent: BusinessWorkspaceInputs["activity"]["knowledgePublished"][number] | undefined;
+};
+
+type DietarySignals = AgendaSignals & {
+  op: BusinessWorkspaceInputs["dashboard"]["operationContext"];
+};
+
+function addSharedAfternoonEvening(
+  byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]>,
+  s: AgendaSignals,
+): void {
+  if (s.overdueInspections.length > 0 || s.dueInspections.length > 0) {
+    const first = s.overdueInspections[0] ?? s.dueInspections[0]!;
     byBucket.afternoon.push({
       id: "afternoon-inspection",
-      title: overdueInspections.length > 0 ? "Overdue inspection" : "Inspection due",
+      title: s.overdueInspections.length > 0 ? "Overdue inspection" : "Inspection due",
       detail: first.definitionName,
       href: inspectionFocusHref(first),
-      tone: overdueInspections.length > 0 ? "blocked" : "warning",
+      tone: s.overdueInspections.length > 0 ? "blocked" : "warning",
     });
   }
-  if (recovery.length > 0 || priorityOpen.length > 0) {
-    const row = recovery[0] ?? priorityOpen[0]!;
+  if (s.recovery.length > 0 || s.priorityOpen.length > 0) {
+    const row = s.recovery[0] ?? s.priorityOpen[0]!;
     byBucket.afternoon.push({
       id: "afternoon-repair",
       title: "Repair follow-up",
       detail: row.title,
       href: `/issues/${row.id}`,
-      tone: recovery.length > 0 ? "in_progress" : "warning",
+      tone: s.recovery.length > 0 ? "in_progress" : "warning",
     });
   }
-  if (knowledgeRecent) {
+  if (s.knowledgeRecent) {
     byBucket.afternoon.push({
       id: "afternoon-knowledge",
       title: "Knowledge review",
-      detail: knowledgeRecent.title,
+      detail: s.knowledgeRecent.title,
       href: "/admin/knowledge",
       tone: "neutral",
-    });
-  }
-
-  if (op.mealType === "DINNER") {
-    byBucket.evening.push({
-      id: "evening-dinner",
-      title: "Dinner close review",
-      detail: `${op.serviceLabel} — ${op.phase}`,
-      href: "/dashboard",
-      tone: "in_progress",
     });
   }
   byBucket.evening.push({
@@ -226,18 +200,181 @@ export function buildManagementAgenda(inputs: BusinessWorkspaceInputs): Manageme
     id: "evening-calldowns",
     title: "Review call-offs",
     detail:
-      callDownOpen > 0
-        ? `${callDownOpen} still open`
+      s.callDownOpen > 0
+        ? `${s.callDownOpen} still open`
         : "Confirm coverage notes before close",
     href: "/today/coverage",
-    tone: callDownOpen > 0 ? "warning" : "neutral",
+    tone: s.callDownOpen > 0 ? "warning" : "neutral",
   });
+}
 
-  return AGENDA_BUCKET_ORDER.map((id) => ({
-    id,
-    label: BUCKET_LABELS[id],
-    isCurrent: id === current,
-    temporal: classifyAgendaTemporal(id, current, hour),
-    items: sortAgendaItems(byBucket[id]),
-  }));
+function addSharedStaffing(
+  byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]>,
+  bucket: ManagementAgendaBucketId,
+  s: AgendaSignals,
+  routineLabel: string,
+): void {
+  if (s.staffingGaps > 0 || s.callDownOpen > 0) {
+    byBucket[bucket].push({
+      id: `${bucket}-staffing`,
+      title: "Verify staffing",
+      detail:
+        s.staffingGaps > 0
+          ? `${s.staffingGaps} coverage gap${s.staffingGaps === 1 ? "" : "s"}`
+          : `${s.callDownOpen} open call-down${s.callDownOpen === 1 ? "" : "s"}`,
+      href: "/today/coverage",
+      tone: "warning",
+    });
+  } else if (s.hour < 11) {
+    byBucket[bucket].push({
+      id: `${bucket}-staffing`,
+      title: "Verify staffing",
+      detail: routineLabel,
+      href: "/today/coverage",
+      tone: "neutral",
+    });
+  }
+}
+
+function buildDietaryAgenda(
+  byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]>,
+  s: DietarySignals,
+): void {
+  byBucket.morning.push({
+    id: "morning-meal-review",
+    title: `${s.op.mealLabel || "Breakfast"} review`,
+    detail: `${s.op.serviceLabel} — ${s.op.phase}`,
+    href: "/dashboard",
+    tone: s.op.phase === "Execution" && s.op.mealType === "BREAKFAST" ? "in_progress" : "neutral",
+  });
+  if (s.blocked.length > 0) {
+    byBucket.morning.push({
+      id: "morning-walk",
+      title: "Walk locations needing attention",
+      detail: `${s.blocked[0]!.unitName}: ${s.blocked[0]!.reason}`,
+      href: `/unit/${s.blocked[0]!.unitId}`,
+      tone: "warning",
+    });
+  } else if (s.op.mealType === "BREAKFAST" || s.hour < 11) {
+    byBucket.morning.push({
+      id: "morning-walk",
+      title: "Walk Kitchen",
+      detail: "Confirm morning locations are supportable",
+      href: "/today/walk",
+      tone: "neutral",
+    });
+  }
+  addSharedStaffing(byBucket, "morning", s, "Confirm AM coverage before service");
+
+  byBucket.midday.push({
+    id: "midday-meal",
+    title: "Lunch service check",
+    detail: s.op.mealType === "LUNCH" ? `${s.op.phase} · current focus` : "Midday service posture",
+    href: "/dashboard",
+    tone: s.op.mealType === "LUNCH" ? "in_progress" : "neutral",
+  });
+  if (s.priorityOpen.length > 0) {
+    byBucket.midday.push({
+      id: "midday-issues",
+      title: "Priority issue follow-up",
+      detail: `${s.priorityOpen[0]!.title}`,
+      href: `/issues/${s.priorityOpen[0]!.id}`,
+      tone: s.priorityOpen[0]!.priority === "URGENT" ? "blocked" : "warning",
+    });
+  }
+
+  addSharedAfternoonEvening(byBucket, s);
+  if (s.op.mealType === "DINNER") {
+    byBucket.evening.unshift({
+      id: "evening-dinner",
+      title: "Dinner close review",
+      detail: `${s.op.serviceLabel} — ${s.op.phase}`,
+      href: "/dashboard",
+      tone: "in_progress",
+    });
+  }
+}
+
+function buildEvsAgenda(
+  byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]>,
+  s: AgendaSignals,
+): void {
+  byBucket.morning.push({
+    id: "morning-rounds",
+    title: "Morning rounds check",
+    detail: "Confirm cleaning assignments and area readiness",
+    href: "/today/walk",
+    tone: "neutral",
+  });
+  if (s.blocked.length > 0) {
+    byBucket.morning.push({
+      id: "morning-walk",
+      title: "Walk areas needing attention",
+      detail: `${s.blocked[0]!.unitName}: ${s.blocked[0]!.reason}`,
+      href: `/unit/${s.blocked[0]!.unitId}`,
+      tone: "warning",
+    });
+  }
+  addSharedStaffing(byBucket, "morning", s, "Confirm EVS coverage before rounds");
+
+  byBucket.midday.push({
+    id: "midday-cleaning",
+    title: "Midday cleaning review",
+    detail: "Review discharge and terminal cleaning priorities",
+    href: "/today/walk",
+    tone: "neutral",
+  });
+  if (s.priorityOpen.length > 0) {
+    byBucket.midday.push({
+      id: "midday-issues",
+      title: "Priority issue follow-up",
+      detail: `${s.priorityOpen[0]!.title}`,
+      href: `/issues/${s.priorityOpen[0]!.id}`,
+      tone: s.priorityOpen[0]!.priority === "URGENT" ? "blocked" : "warning",
+    });
+  }
+
+  addSharedAfternoonEvening(byBucket, s);
+}
+
+function buildPlantAgenda(
+  byBucket: Record<ManagementAgendaBucketId, ManagementAgendaItem[]>,
+  s: AgendaSignals,
+): void {
+  byBucket.morning.push({
+    id: "morning-asset-check",
+    title: "Asset availability review",
+    detail: "Confirm critical assets are operational",
+    href: "/assets",
+    tone: "neutral",
+  });
+  if (s.blocked.length > 0) {
+    byBucket.morning.push({
+      id: "morning-walk",
+      title: "Walk areas needing attention",
+      detail: `${s.blocked[0]!.unitName}: ${s.blocked[0]!.reason}`,
+      href: `/unit/${s.blocked[0]!.unitId}`,
+      tone: "warning",
+    });
+  }
+  addSharedStaffing(byBucket, "morning", s, "Confirm Plant coverage before shifts");
+
+  byBucket.midday.push({
+    id: "midday-pm",
+    title: "PM work review",
+    detail: "Check preventive maintenance due today",
+    href: "/issues",
+    tone: "neutral",
+  });
+  if (s.priorityOpen.length > 0) {
+    byBucket.midday.push({
+      id: "midday-issues",
+      title: "Work-order follow-up",
+      detail: `${s.priorityOpen[0]!.title}`,
+      href: `/issues/${s.priorityOpen[0]!.id}`,
+      tone: s.priorityOpen[0]!.priority === "URGENT" ? "blocked" : "warning",
+    });
+  }
+
+  addSharedAfternoonEvening(byBucket, s);
 }

@@ -3,7 +3,7 @@ import type { ReadinessProfileKey } from "@/lib/readiness/profiles";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
 import type { BusinessWorkspaceInputs } from "./load-workspace-inputs";
-import type { WorkspaceDepartmentHealth } from "./types";
+import type { WorkspaceContext, WorkspaceDepartmentHealth } from "./types";
 import { healthBadgeForTone, healthToneFromReadiness } from "./workspace-layout";
 
 const DEPT_META: Record<
@@ -22,14 +22,22 @@ function isPriorityIssue(priority: string): boolean {
 /**
  * Department health from department-aware readiness profiles + priority open work.
  * Does not invent scores — Ready / In Progress / Needs Attention only.
+ * In single-department mode, shows only that department.
+ * In facility mode, shows all active departments.
  */
 export function buildDepartmentHealth(
   inputs: BusinessWorkspaceInputs,
+  context?: WorkspaceContext,
 ): WorkspaceDepartmentHealth[] {
-  const keys =
-    inputs.activeDepartmentKeys.length > 0
-      ? inputs.activeDepartmentKeys
-      : (["DIETARY", "EVS", "PLANT"] as OperationalDepartmentKey[]);
+  let keys: OperationalDepartmentKey[];
+  if (context?.mode === "department") {
+    keys = [context.departmentKey];
+  } else {
+    keys =
+      inputs.activeDepartmentKeys.length > 0
+        ? inputs.activeDepartmentKeys
+        : (["DIETARY", "EVS", "PLANT"] as OperationalDepartmentKey[]);
+  }
 
   return keys.map((key) => {
     const meta = DEPT_META[key] ?? {
