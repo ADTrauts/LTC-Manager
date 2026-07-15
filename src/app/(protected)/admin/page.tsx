@@ -12,6 +12,18 @@ export default function AdminPage() {
       <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
         <li>
           <Link
+            href="/admin/facility/builder"
+            className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
+          >
+            <span className="text-sm font-medium text-zinc-900">Facility Builder</span>
+            <span className="text-sm text-zinc-600">
+              Define the physical structure — floors, sections, units, and rooms — and assign
+              department responsibilities and capabilities.
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
             href="/admin/departments"
             className="flex flex-col gap-0.5 px-4 py-4 transition hover:bg-zinc-50 sm:px-6"
           >
