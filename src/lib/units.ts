@@ -2,6 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { getEmployeeAllowedUnitIdSet } from "@/lib/employee-units";
+import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { prisma } from "@/lib/prisma";
 
 export type SidebarUnit = {
@@ -15,7 +16,7 @@ export async function getActiveSidebarUnits(facilityId: string): Promise<Sidebar
 
   try {
     return await prisma.unit.findMany({
-      where: { isActive: true, facilityId },
+      where: operationalUnitWhere(facilityId, { isActive: true }),
       orderBy: { displayOrder: "asc" },
       select: { id: true, name: true, unitType: true },
     });

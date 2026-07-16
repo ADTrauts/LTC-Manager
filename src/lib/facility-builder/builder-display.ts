@@ -9,9 +9,15 @@
 export type BuilderNodeDisplayKind =
   | "floor"
   | "neighborhood"
-  | "legacy_location";
+  | "legacy_location"
+  | "staged";
 
-export type HierarchyRoleValue = "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | null;
+export type HierarchyRoleValue =
+  | "FLOOR"
+  | "NEIGHBORHOOD"
+  | "LEGACY_LOCATION"
+  | "STAGED"
+  | null;
 
 export type ClassifiableUnit = {
   parentUnitId: string | null;
@@ -26,6 +32,7 @@ export type ClassifiableUnit = {
  * - FLOOR → floor
  * - NEIGHBORHOOD → neighborhood
  * - LEGACY_LOCATION → legacy_location
+ * - STAGED → staged (builder-only Undesignated)
  * - null + has parent → neighborhood
  * - null + no parent → legacy_location
  */
@@ -39,6 +46,8 @@ export function resolveBuilderNodeDisplayKind(
       return "neighborhood";
     case "LEGACY_LOCATION":
       return "legacy_location";
+    case "STAGED":
+      return "staged";
     default:
       break;
   }
@@ -60,6 +69,8 @@ export function displayKindLabel(kind: BuilderNodeDisplayKind): string {
       return "Neighborhood / Unit";
     case "legacy_location":
       return "Location";
+    case "staged":
+      return "Undesignated";
   }
 }
 
@@ -67,15 +78,22 @@ export function canAddNeighborhood(kind: BuilderNodeDisplayKind): boolean {
   return kind === "floor";
 }
 
-/** Rooms attach to neighborhoods; legacy locations may already host rooms. */
+/**
+ * Rooms may attach to Floors, Neighborhoods, legacy locations, or staged neighborhoods.
+ * Undesignated rooms themselves use unitId = null (toolbar create).
+ */
 export function canAddRoom(kind: BuilderNodeDisplayKind): boolean {
-  return kind === "neighborhood" || kind === "legacy_location";
+  return (
+    kind === "floor" ||
+    kind === "neighborhood" ||
+    kind === "legacy_location" ||
+    kind === "staged"
+  );
 }
 
 /**
- * Unit DnD: only into Floors.
- * Floors stay top-level (cannot nest under Neighborhood/Floor via DnD).
- * Legacy locations and neighborhoods can move under a Floor.
+ * Unit DnD: Floors stay top-level.
+ * Staged / legacy / neighborhood may move onto a Floor.
  */
 export function canMoveUnitOnto(
   dragKind: BuilderNodeDisplayKind,
@@ -85,10 +103,18 @@ export function canMoveUnitOnto(
   return dropKind === "floor";
 }
 
-/** Rooms cannot land directly on Floors. */
+/** Rooms may land on Floor, Neighborhood, legacy, or staged. */
 export function canMoveRoomOnto(dropKind: BuilderNodeDisplayKind): boolean {
-  return dropKind === "neighborhood" || dropKind === "legacy_location";
+  return (
+    dropKind === "floor" ||
+    dropKind === "neighborhood" ||
+    dropKind === "legacy_location" ||
+    dropKind === "staged"
+  );
 }
+
+/** Drop target id for the Undesignated staging zone (client DnD only). */
+export const UNDESIGNATED_DROP_ID = "__undesignated__";
 
 /** Next displayOrder for a new top-level Floor after existing roots. */
 export function nextTopLevelDisplayOrder(
@@ -111,12 +137,19 @@ export const FLOOR_INTERNAL_UNIT_TYPE = "OTHER" as const;
 export const NEIGHBORHOOD_INTERNAL_UNIT_TYPE = "OTHER" as const;
 
 export function hierarchyRoleForCreateIntent(
-  intent: "floor" | "neighborhood",
-): "FLOOR" | "NEIGHBORHOOD" {
-  return intent === "floor" ? "FLOOR" : "NEIGHBORHOOD";
+  intent: "floor" | "neighborhood" | "staged",
+): "FLOOR" | "NEIGHBORHOOD" | "STAGED" {
+  if (intent === "floor") return "FLOOR";
+  if (intent === "staged") return "STAGED";
+  return "NEIGHBORHOOD";
 }
 
 /** After moving under a Floor, role becomes NEIGHBORHOOD. */
 export function hierarchyRoleAfterMoveOntoFloor(): "NEIGHBORHOOD" {
   return "NEIGHBORHOOD";
+}
+
+/** After moving into Undesignated staging. */
+export function hierarchyRoleAfterMoveToUndesignated(): "STAGED" {
+  return "STAGED";
 }

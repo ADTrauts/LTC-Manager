@@ -437,6 +437,8 @@ enum UnitHierarchyRole {
   FLOOR
   NEIGHBORHOOD
   LEGACY_LOCATION
+  /// Builder-only staging — never shown on operational surfaces.
+  STAGED
 }
 
 enum UnitDepartmentKind {
@@ -762,10 +764,11 @@ model UnitDepartmentResponsibility {
 }
 
 /// Physical sub-location within a Unit (room, service area, storage, etc.).
+/// unitId null = Facility Builder undesignated staging (not operational).
 model UnitSpace {
   id               String                    @id @default(cuid())
-  unitId           String
-  unit             Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unitId           String?
+  unit             Unit?                     @relation(fields: [unitId], references: [id], onDelete: Cascade)
   facilityId       String
   facility         Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   name             String
@@ -780,7 +783,6 @@ model UnitSpace {
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
-  @@unique([unitId, name])
   @@index([facilityId])
   @@index([unitId, isActive, sortOrder])
 }

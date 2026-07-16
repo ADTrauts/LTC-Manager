@@ -20,8 +20,15 @@ import {
   NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
   hierarchyRoleForCreateIntent,
   hierarchyRoleAfterMoveOntoFloor,
+  hierarchyRoleAfterMoveToUndesignated,
+  UNDESIGNATED_DROP_ID,
   classifyBuilderUnit,
 } from "./builder-display";
+import {
+  operationalUnitWhere,
+  isStagedUnit,
+  isUndesignatedSpace,
+} from "./operational-visibility";
 import {
   BULK_ROOM_MAX,
   expandRoomNameRange,
@@ -37,6 +44,7 @@ import {
   mergeOrderedSubsetIntoSiblings,
   nextAppendDisplayOrder,
   nextAppendSortOrder,
+  listRoomMoveDestinations,
 } from "./builder-setup";
 import {
   SPACE_TYPE_PRESETS,
@@ -317,9 +325,9 @@ describe("resolveBuilderNodeDisplayKind — null compatibility fallback", () => 
 });
 
 describe("contextual add actions", () => {
-  it("Floor shows Add Neighborhood / Unit only", () => {
+  it("Floor shows Add Neighborhood / Unit and may also Add Room", () => {
     assert.ok(canAddNeighborhood("floor"));
-    assert.ok(!canAddRoom("floor"));
+    assert.ok(canAddRoom("floor"));
   });
 
   it("Neighborhood shows Add Room only", () => {
@@ -332,8 +340,9 @@ describe("contextual add actions", () => {
     assert.ok(!canAddNeighborhood("legacy_location"));
   });
 
-  it("Room has no unit-level child-add action", () => {
-    assert.ok(!canAddNeighborhood("neighborhood") || canAddRoom("neighborhood"));
+  it("staged location may Add Room but not Add Neighborhood", () => {
+    assert.ok(canAddRoom("staged"));
+    assert.ok(!canAddNeighborhood("staged"));
   });
 });
 
@@ -346,6 +355,10 @@ describe("DnD move rules", () => {
     assert.ok(canMoveUnitOnto("neighborhood", "floor"));
   });
 
+  it("staged can move onto Floor", () => {
+    assert.ok(canMoveUnitOnto("staged", "floor"));
+  });
+
   it("Floor cannot move beneath Neighborhood", () => {
     assert.ok(!canMoveUnitOnto("floor", "neighborhood"));
   });
@@ -354,12 +367,16 @@ describe("DnD move rules", () => {
     assert.ok(!canMoveUnitOnto("floor", "floor"));
   });
 
-  it("Room cannot move directly beneath Floor", () => {
-    assert.ok(!canMoveRoomOnto("floor"));
+  it("Room can move directly beneath Floor", () => {
+    assert.ok(canMoveRoomOnto("floor"));
   });
 
   it("Room can move onto Neighborhood", () => {
     assert.ok(canMoveRoomOnto("neighborhood"));
+  });
+
+  it("Room can move onto staged", () => {
+    assert.ok(canMoveRoomOnto("staged"));
   });
 });
 
@@ -617,14 +634,14 @@ describe("hierarchy search — Terrace View fixture", () => {
 
 describe("Stage 2C regression markers", () => {
   it("Add Floor / Neighborhood / Room helpers remain role-gated", () => {
-    assert.ok(canAddNeighborhood("floor") && !canAddRoom("floor"));
+    assert.ok(canAddNeighborhood("floor") && canAddRoom("floor"));
     assert.ok(canAddRoom("neighborhood") && !canAddNeighborhood("neighborhood"));
   });
 
-  it("DnD move rules unchanged for floors and rooms", () => {
+  it("DnD move rules allow rooms onto floors", () => {
     assert.ok(!canMoveUnitOnto("floor", "floor"));
     assert.ok(canMoveUnitOnto("legacy_location", "floor"));
-    assert.ok(!canMoveRoomOnto("floor"));
+    assert.ok(canMoveRoomOnto("floor"));
     assert.ok(canMoveRoomOnto("neighborhood"));
   });
 
@@ -785,5 +802,87 @@ describe("Create intent defaults and append order", () => {
 
   it("findSpaceTypePreset returns undefined for enum constants", () => {
     assert.equal(findSpaceTypePreset("RESTROOM"), undefined);
+  });
+});
+
+describe("Stage 2D — undesignated staging", () => {
+  it("STAGED resolves as staged display kind", () => {
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: "STAGED",
+      }),
+      "staged",
+    );
+    assert.equal(displayKindLabel("staged"), "Undesignated");
+  });
+
+  it("staged create intent sets hierarchyRole STAGED", () => {
+    assert.equal(hierarchyRoleForCreateIntent("staged"), "STAGED");
+  });
+
+  it("moving onto Floor promotes to NEIGHBORHOOD", () => {
+    assert.equal(hierarchyRoleAfterMoveOntoFloor(), "NEIGHBORHOOD");
+  });
+
+  it("moving to Undesignated sets STAGED", () => {
+    assert.equal(hierarchyRoleAfterMoveToUndesignated(), "STAGED");
+  });
+
+  it("operational unit where excludes STAGED", () => {
+    const where = operationalUnitWhere("fac-1");
+    assert.equal(where.facilityId, "fac-1");
+    assert.deepEqual(where.NOT, { hierarchyRole: { in: ["STAGED"] } });
+    assert.ok(isStagedUnit({ hierarchyRole: "STAGED" }));
+    assert.ok(!isStagedUnit({ hierarchyRole: "FLOOR" }));
+    assert.ok(isUndesignatedSpace({ unitId: null }));
+    assert.ok(!isUndesignatedSpace({ unitId: "u1" }));
+  });
+
+  it("UNDESIGNATED_DROP_ID is stable", () => {
+    assert.equal(UNDESIGNATED_DROP_ID, "__undesignated__");
+  });
+
+  it("warning card visibility is based on undesignated counts", () => {
+    const undesignatedCount = (staged: number, spaces: number) => staged + spaces;
+    assert.equal(undesignatedCount(0, 0), 0);
+    assert.ok(undesignatedCount(2, 3) > 0);
+  });
+
+  it("search includes staged neighborhoods", () => {
+    const staged = [
+      {
+        id: "staged-kensington",
+        name: "Kensington",
+        code: "KEN",
+        parentUnitId: null as string | null,
+        unitType: "OTHER",
+        hierarchyRole: "STAGED" as const,
+        displayOrder: 100,
+        childUnits: [] as never[],
+        childSpaces: [] as never[],
+      },
+    ];
+    const result = filterHierarchyForSearch(staged as never, "kens");
+    assert.equal(result.matchCount, 1);
+    assert.equal(result.units[0]!.name, "Kensington");
+  });
+
+  it("neighborhood may move onto floor; room may move onto floor or neighborhood", () => {
+    assert.ok(canMoveUnitOnto("staged", "floor"));
+    assert.ok(canMoveUnitOnto("neighborhood", "floor"));
+    assert.ok(canMoveRoomOnto("floor"));
+    assert.ok(canMoveRoomOnto("neighborhood"));
+    assert.ok(canMoveRoomOnto("staged"));
+  });
+
+  it("listRoomMoveDestinations includes floors, neighborhoods, and Undesignated", () => {
+    const tree = terraceViewFixture();
+    const dests = listRoomMoveDestinations(tree as never, [], {
+      includeUndesignated: true,
+    });
+    assert.ok(dests.some((d) => d.id === UNDESIGNATED_DROP_ID));
+    assert.ok(dests.some((d) => d.kind === "floor"));
+    assert.ok(dests.some((d) => d.kind === "neighborhood" || d.kind === "legacy_location"));
   });
 });

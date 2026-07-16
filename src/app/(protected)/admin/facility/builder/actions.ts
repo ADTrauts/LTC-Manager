@@ -12,6 +12,7 @@ import {
   FLOOR_INTERNAL_UNIT_TYPE,
   NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
   resolveBuilderNodeDisplayKind,
+  canAddRoom,
   canMoveUnitOnto,
   canMoveRoomOnto,
 } from "@/lib/facility-builder/builder-display";
@@ -75,7 +76,8 @@ const createFloorSchema = z.object({
 
 const createNeighborhoodSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  parentUnitId: z.string().cuid(),
+  /** Omit / empty = create in Undesignated (STAGED). */
+  parentUnitId: z.string().cuid().optional().nullable(),
   description: z.string().trim().max(500).optional(),
   isActive: z.coerce.boolean().default(true),
 });
@@ -145,16 +147,46 @@ export async function createBuilderNeighborhoodAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
+  const rawParent = toOptional(formData.get("parentUnitId"));
   const parsed = createNeighborhoodSchema.parse({
     name: formData.get("name"),
-    parentUnitId: formData.get("parentUnitId"),
+    parentUnitId: rawParent ?? null,
     description: toOptional(formData.get("description")),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
 
-  // Ignore client-supplied operational type / displayOrder on create.
   void formData.get("displayOrder");
   void formData.get("unitType");
+
+  await assertUniqueUnitName(session.facilityId, parsed.name);
+
+  // Toolbar create → Undesignated (STAGED)
+  if (!parsed.parentUnitId) {
+    const stagedSiblings = await prisma.unit.findMany({
+      where: {
+        facilityId: session.facilityId,
+        hierarchyRole: UnitHierarchyRole.STAGED,
+      },
+      select: { displayOrder: true },
+    });
+    const displayOrder = nextAppendDisplayOrder(stagedSiblings);
+
+    await prisma.unit.create({
+      data: {
+        facilityId: session.facilityId,
+        name: parsed.name,
+        unitType: NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
+        hierarchyRole: UnitHierarchyRole.STAGED,
+        parentUnitId: null,
+        description: parsed.description || null,
+        displayOrder,
+        isActive: parsed.isActive,
+      },
+    });
+
+    revalidateBuilderViews();
+    return;
+  }
 
   const parent = await prisma.unit.findFirst({
     where: { id: parsed.parentUnitId, facilityId: session.facilityId },
@@ -166,8 +198,6 @@ export async function createBuilderNeighborhoodAction(formData: FormData) {
   if (parentKind !== "floor") {
     throw new Error("Neighborhoods must be created under a Floor.");
   }
-
-  await assertUniqueUnitName(session.facilityId, parsed.name);
 
   const siblings = await prisma.unit.findMany({
     where: { facilityId: session.facilityId, parentUnitId: parsed.parentUnitId },
@@ -242,6 +272,10 @@ export async function updateBuilderUnitAction(formData: FormData) {
       throw new Error("Neighborhoods must sit under a Floor.");
     }
     nextRole = UnitHierarchyRole.NEIGHBORHOOD;
+  } else {
+    // Cleared parent → Undesignated staging (builder-only).
+    nextParentId = null;
+    nextRole = UnitHierarchyRole.STAGED;
   }
 
   await assertUniqueUnitName(session.facilityId, parsed.name, parsed.unitId);
@@ -318,7 +352,8 @@ export async function deleteBuilderUnitAction(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 const createSpaceSchema = z.object({
-  unitId: z.string().cuid(),
+  /** Omit / empty = create in Undesignated. */
+  unitId: z.string().cuid().optional().nullable(),
   name: z.string().trim().min(1).max(120),
   spaceTypePreset: z.string().trim().min(1),
   customTypeLabel: z.string().trim().max(80).optional(),
@@ -329,7 +364,8 @@ const createSpaceSchema = z.object({
 
 const updateSpaceSchema = z.object({
   spaceId: z.string().cuid(),
-  unitId: z.string().cuid(),
+  /** Current or next parent; null keeps / sets undesignated. */
+  unitId: z.string().cuid().optional().nullable(),
   name: z.string().trim().min(1).max(120),
   spaceTypePreset: z.string().trim().min(1),
   customTypeLabel: z.string().trim().max(80).optional(),
@@ -346,8 +382,9 @@ export async function createBuilderSpaceAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
+  const rawUnitId = toOptional(formData.get("unitId"));
   const parsed = createSpaceSchema.parse({
-    unitId: formData.get("unitId"),
+    unitId: rawUnitId ?? null,
     name: formData.get("name"),
     spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
     customTypeLabel: toOptional(formData.get("customTypeLabel")),
@@ -363,6 +400,40 @@ export async function createBuilderSpaceAction(formData: FormData) {
     customTypeLabel: parsed.customTypeLabel,
   });
 
+  // Toolbar create → Undesignated (unitId null)
+  if (!parsed.unitId) {
+    const existing = await prisma.unitSpace.findFirst({
+      where: { facilityId: session.facilityId, unitId: null, name: parsed.name },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new Error(`A space named "${parsed.name}" already exists in Undesignated.`);
+    }
+
+    const siblings = await prisma.unitSpace.findMany({
+      where: { facilityId: session.facilityId, unitId: null },
+      select: { sortOrder: true },
+    });
+    const sortOrder = nextAppendSortOrder(siblings);
+
+    await prisma.unitSpace.create({
+      data: {
+        unitId: null,
+        facilityId: session.facilityId,
+        name: parsed.name,
+        spaceType: resolved.spaceType,
+        customTypeLabel: resolved.customTypeLabel,
+        code: parsed.code || null,
+        description: parsed.description || null,
+        sortOrder,
+        isActive: parsed.isActive,
+      },
+    });
+
+    revalidateBuilderViews();
+    return;
+  }
+
   const unit = await prisma.unit.findFirst({
     where: { id: parsed.unitId, facilityId: session.facilityId },
     select: { id: true, facilityId: true, parentUnitId: true, hierarchyRole: true },
@@ -370,8 +441,8 @@ export async function createBuilderSpaceAction(formData: FormData) {
   if (!unit) throw new Error("Parent unit not found in this facility.");
 
   const parentKind = resolveBuilderNodeDisplayKind(unit);
-  if (parentKind === "floor") {
-    throw new Error("Rooms must be added under a Neighborhood / Unit, not directly under a Floor.");
+  if (!canAddRoom(parentKind)) {
+    throw new Error("Rooms cannot be added under this location type.");
   }
 
   const existing = await prisma.unitSpace.findFirst({
@@ -448,8 +519,8 @@ export async function createBuilderSpacesBulkAction(
   if (!unit) throw new Error("Parent unit not found in this facility.");
 
   const parentKind = resolveBuilderNodeDisplayKind(unit);
-  if (parentKind === "floor") {
-    throw new Error("Rooms must be added under a Neighborhood / Unit, not directly under a Floor.");
+  if (!canAddRoom(parentKind)) {
+    throw new Error("Rooms cannot be bulk-created under this location type.");
   }
 
   const parsedLines = parseBulkRoomLines(parsed.namesText);
@@ -548,13 +619,18 @@ export async function updateBuilderSpaceAction(formData: FormData) {
   });
 
   const space = await prisma.unitSpace.findFirst({
-    where: { id: parsed.spaceId, unit: { facilityId: session.facilityId } },
-    select: { id: true },
+    where: { id: parsed.spaceId, facilityId: session.facilityId },
+    select: { id: true, unitId: true },
   });
   if (!space) throw new Error("Space not found.");
 
   const duplicate = await prisma.unitSpace.findFirst({
-    where: { unitId: parsed.unitId, name: parsed.name, id: { not: parsed.spaceId } },
+    where: {
+      facilityId: session.facilityId,
+      unitId: space.unitId,
+      name: parsed.name,
+      id: { not: parsed.spaceId },
+    },
     select: { id: true },
   });
   if (duplicate) throw new Error(`A space named "${parsed.name}" already exists in this unit.`);
@@ -581,7 +657,7 @@ export async function deleteBuilderSpaceAction(formData: FormData) {
   const spaceId = z.string().cuid().parse(formData.get("spaceId"));
 
   const space = await prisma.unitSpace.findFirst({
-    where: { id: spaceId, unit: { facilityId: session.facilityId } },
+    where: { id: spaceId, facilityId: session.facilityId },
     select: { id: true },
   });
   if (!space) throw new Error("Space not found.");
@@ -692,7 +768,7 @@ export async function upsertBuilderSpaceResponsibilityAction(formData: FormData)
   });
 
   const space = await prisma.unitSpace.findFirst({
-    where: { id: parsed.spaceId, unit: { facilityId: session.facilityId } },
+    where: { id: parsed.spaceId, facilityId: session.facilityId },
     select: { id: true },
   });
   if (!space) throw new Error("Space not found in this facility.");
@@ -725,7 +801,7 @@ export async function deleteBuilderSpaceResponsibilityAction(formData: FormData)
   const responsibilityId = z.string().cuid().parse(formData.get("responsibilityId"));
 
   const row = await prisma.unitSpaceResponsibility.findFirst({
-    where: { id: responsibilityId, space: { unit: { facilityId: session.facilityId } } },
+    where: { id: responsibilityId, space: { facilityId: session.facilityId } },
     select: { id: true },
   });
   if (!row) throw new Error("Space responsibility not found.");
@@ -774,9 +850,22 @@ async function normalizeUnitSiblingOrders(
   );
 }
 
-async function normalizeSpaceSiblingOrders(unitId: string, orderedIds?: string[]) {
+/** Normalize sortOrder for rooms under a unit, or undesignated (unitId null) within a facility. */
+async function normalizeSpaceSiblingOrders(args: {
+  unitId: string | null;
+  facilityId?: string;
+  orderedIds?: string[];
+}) {
+  const { unitId, orderedIds } = args;
+  if (unitId == null && !args.facilityId) {
+    throw new Error("facilityId is required when normalizing undesignated rooms.");
+  }
+
   const siblings = await prisma.unitSpace.findMany({
-    where: { unitId },
+    where:
+      unitId == null
+        ? { facilityId: args.facilityId!, unitId: null }
+        : { unitId },
     select: { id: true, sortOrder: true },
     orderBy: { sortOrder: "asc" },
   });
@@ -813,9 +902,39 @@ export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>
   if (!unit) throw new Error("Unit not found.");
 
   const dragKind = resolveBuilderNodeDisplayKind(unit);
+  if (dragKind === "floor") {
+    throw new Error("Floors cannot be moved under another location.");
+  }
 
+  const previousParentId = unit.parentUnitId;
+  void parsed.newDisplayOrder;
+
+  // Move into Undesignated staging
   if (!parsed.newParentUnitId) {
-    throw new Error("Moving to top-level requires Convert to Floor.");
+    const stagedSiblings = await prisma.unit.findMany({
+      where: {
+        facilityId: session.facilityId,
+        hierarchyRole: UnitHierarchyRole.STAGED,
+        id: { not: parsed.unitId },
+      },
+      select: { displayOrder: true },
+    });
+    const nextOrder = nextAppendDisplayOrder(stagedSiblings);
+
+    await prisma.unit.update({
+      where: { id: parsed.unitId },
+      data: {
+        parentUnitId: null,
+        displayOrder: nextOrder,
+        hierarchyRole: UnitHierarchyRole.STAGED,
+      },
+    });
+
+    if (previousParentId != null) {
+      await normalizeUnitSiblingOrders(session.facilityId, previousParentId);
+    }
+    revalidateBuilderViews();
+    return;
   }
 
   if (parsed.newParentUnitId === parsed.unitId) {
@@ -835,25 +954,15 @@ export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>
 
   const dropKind = resolveBuilderNodeDisplayKind(parent);
   if (!canMoveUnitOnto(dragKind, dropKind)) {
-    throw new Error(
-      dragKind === "floor"
-        ? "Floors cannot be moved under another location."
-        : "Locations can only be moved onto a Floor.",
-    );
+    throw new Error("Locations can only be moved onto a Floor.");
   }
-
-  const previousParentId = unit.parentUnitId;
 
   const siblings = await prisma.unit.findMany({
     where: { facilityId: session.facilityId, parentUnitId: parsed.newParentUnitId },
     select: { displayOrder: true },
   });
-  const maxOrder =
-    siblings.length > 0 ? Math.max(...siblings.map((s) => s.displayOrder)) : 0;
-  const nextOrder = Math.min(9999, maxOrder + 10);
+  const nextOrder = nextAppendDisplayOrder(siblings);
 
-  // Append then normalize — do not trust client displayOrder for placement.
-  void parsed.newDisplayOrder;
   await prisma.unit.update({
     where: { id: parsed.unitId },
     data: {
@@ -873,7 +982,8 @@ export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>
 
 const moveSpaceSchema = z.object({
   spaceId: z.string().cuid(),
-  newUnitId: z.string().cuid(),
+  /** null = move into Undesignated. */
+  newUnitId: z.string().cuid().nullable(),
   newSortOrder: z.number().int().min(1).max(9999),
 });
 
@@ -884,34 +994,76 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
   const parsed = moveSpaceSchema.parse(data);
 
   const space = await prisma.unitSpace.findFirst({
-    where: { id: parsed.spaceId, unit: { facilityId: session.facilityId } },
-    select: { id: true, unitId: true },
+    where: { id: parsed.spaceId, facilityId: session.facilityId },
+    select: { id: true, unitId: true, name: true },
   });
   if (!space) throw new Error("Space not found.");
+
+  const previousUnitId = space.unitId;
+  void parsed.newSortOrder;
+
+  if (!parsed.newUnitId) {
+    const dup = await prisma.unitSpace.findFirst({
+      where: {
+        facilityId: session.facilityId,
+        unitId: null,
+        name: space.name,
+        id: { not: space.id },
+      },
+      select: { id: true },
+    });
+    if (dup) {
+      throw new Error(`A space named "${space.name}" already exists in Undesignated.`);
+    }
+
+    const siblings = await prisma.unitSpace.findMany({
+      where: { facilityId: session.facilityId, unitId: null },
+      select: { sortOrder: true },
+    });
+    const nextSort = nextAppendSortOrder(siblings);
+
+    await prisma.unitSpace.update({
+      where: { id: parsed.spaceId },
+      data: { unitId: null, sortOrder: nextSort },
+    });
+
+    await normalizeSpaceSiblingOrders({ unitId: null, facilityId: session.facilityId });
+    if (previousUnitId != null) {
+      await normalizeSpaceSiblingOrders({ unitId: previousUnitId });
+    }
+    revalidateBuilderViews();
+    return;
+  }
 
   const targetUnit = await prisma.unit.findFirst({
     where: { id: parsed.newUnitId, facilityId: session.facilityId },
     select: { id: true, parentUnitId: true, hierarchyRole: true },
   });
-  if (!targetUnit) throw new Error("Target neighborhood not found.");
+  if (!targetUnit) throw new Error("Target location not found.");
 
   const dropKind = resolveBuilderNodeDisplayKind(targetUnit);
   if (!canMoveRoomOnto(dropKind)) {
-    throw new Error("Rooms can only be moved into a Neighborhood / Unit.");
+    throw new Error("Rooms can only be moved into a Floor, Neighborhood / Unit, or Undesignated.");
   }
 
-  const previousUnitId = space.unitId;
+  const dup = await prisma.unitSpace.findFirst({
+    where: {
+      unitId: parsed.newUnitId,
+      name: space.name,
+      id: { not: space.id },
+    },
+    select: { id: true },
+  });
+  if (dup) {
+    throw new Error(`A space named "${space.name}" already exists in that location.`);
+  }
 
   const siblings = await prisma.unitSpace.findMany({
     where: { unitId: parsed.newUnitId },
     select: { sortOrder: true },
   });
-  const maxSort =
-    siblings.length > 0 ? Math.max(...siblings.map((s) => s.sortOrder)) : 0;
-  const nextSort = Math.min(9999, maxSort + 10);
+  const nextSort = nextAppendSortOrder(siblings);
 
-  // Append then normalize — do not trust client sortOrder for placement.
-  void parsed.newSortOrder;
   await prisma.unitSpace.update({
     where: { id: parsed.spaceId },
     data: {
@@ -920,9 +1072,13 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
     },
   });
 
-  await normalizeSpaceSiblingOrders(parsed.newUnitId);
+  await normalizeSpaceSiblingOrders({ unitId: parsed.newUnitId });
   if (previousUnitId !== parsed.newUnitId) {
-    await normalizeSpaceSiblingOrders(previousUnitId);
+    if (previousUnitId == null) {
+      await normalizeSpaceSiblingOrders({ unitId: null, facilityId: session.facilityId });
+    } else {
+      await normalizeSpaceSiblingOrders({ unitId: previousUnitId });
+    }
   }
 
   revalidateBuilderViews();
@@ -956,7 +1112,7 @@ export async function reorderBuilderUnitsAction(data: z.infer<typeof reorderUnit
     }
   }
 
-  // Floors cannot be mixed into a neighborhood parent list via reorder.
+  // Floors / legacy / staged may reorder at top level; placed neighborhoods may not.
   if (parsed.parentUnitId === null) {
     for (const id of parsed.orderedIds) {
       const row = siblings.find((s) => s.id === id)!;
@@ -964,6 +1120,30 @@ export async function reorderBuilderUnitsAction(data: z.infer<typeof reorderUnit
       if (kind === "neighborhood") {
         throw new Error("Neighborhoods cannot be reordered at the top level.");
       }
+    }
+
+    // Undesignated (STAGED) reorders must not rewrite Floor/legacy displayOrder.
+    const orderedAreAllStaged = parsed.orderedIds.every((id) => {
+      const row = siblings.find((s) => s.id === id)!;
+      return resolveBuilderNodeDisplayKind(row) === "staged";
+    });
+    if (orderedAreAllStaged) {
+      const stagedIds = siblings
+        .filter((s) => resolveBuilderNodeDisplayKind(s) === "staged")
+        .map((s) => s.id);
+      const normalized = normalizeSiblingOrders(
+        mergeOrderedSubsetIntoSiblings(stagedIds, parsed.orderedIds),
+      );
+      await prisma.$transaction(
+        normalized.map(({ id, order }) =>
+          prisma.unit.update({
+            where: { id },
+            data: { displayOrder: order },
+          }),
+        ),
+      );
+      revalidateBuilderViews();
+      return;
     }
   } else {
     const parent = await prisma.unit.findFirst({
@@ -989,12 +1169,13 @@ export async function reorderBuilderUnitsAction(data: z.infer<typeof reorderUnit
 }
 
 const reorderSpacesSchema = z.object({
-  unitId: z.string().cuid(),
+  /** null = reorder Undesignated rooms. */
+  unitId: z.string().cuid().nullable(),
   orderedIds: z.array(z.string().cuid()).min(1).max(500),
 });
 
 /**
- * Persist sibling sortOrder for rooms under one neighborhood / legacy location.
+ * Persist sibling sortOrder for rooms under a Floor / Neighborhood / Undesignated.
  */
 export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpacesSchema>) {
   const session = await requireFacilitySession();
@@ -1002,15 +1183,35 @@ export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpa
 
   const parsed = reorderSpacesSchema.parse(data);
 
+  if (parsed.unitId == null) {
+    const spaces = await prisma.unitSpace.findMany({
+      where: { facilityId: session.facilityId, unitId: null },
+      select: { id: true },
+    });
+    const spaceIds = new Set(spaces.map((s) => s.id));
+    for (const id of parsed.orderedIds) {
+      if (!spaceIds.has(id)) {
+        throw new Error("Reorder list includes a room that is not in Undesignated.");
+      }
+    }
+    await normalizeSpaceSiblingOrders({
+      unitId: null,
+      facilityId: session.facilityId,
+      orderedIds: parsed.orderedIds,
+    });
+    revalidateBuilderViews();
+    return;
+  }
+
   const unit = await prisma.unit.findFirst({
     where: { id: parsed.unitId, facilityId: session.facilityId },
     select: { id: true, parentUnitId: true, hierarchyRole: true },
   });
-  if (!unit) throw new Error("Neighborhood not found in this facility.");
+  if (!unit) throw new Error("Location not found in this facility.");
 
   const kind = resolveBuilderNodeDisplayKind(unit);
-  if (kind === "floor") {
-    throw new Error("Rooms cannot be ordered under a Floor.");
+  if (!canAddRoom(kind)) {
+    throw new Error("Rooms cannot be ordered under this location type.");
   }
 
   const spaces = await prisma.unitSpace.findMany({
@@ -1020,11 +1221,14 @@ export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpa
   const spaceIds = new Set(spaces.map((s) => s.id));
   for (const id of parsed.orderedIds) {
     if (!spaceIds.has(id)) {
-      throw new Error("Reorder list includes a room that is not in this neighborhood.");
+      throw new Error("Reorder list includes a room that is not in this location.");
     }
   }
 
-  await normalizeSpaceSiblingOrders(parsed.unitId, parsed.orderedIds);
+  await normalizeSpaceSiblingOrders({
+    unitId: parsed.unitId,
+    orderedIds: parsed.orderedIds,
+  });
   revalidateBuilderViews();
 }
 
@@ -1095,13 +1299,18 @@ export async function renameBuilderSpaceAction(data: z.infer<typeof renameSpaceS
   const parsed = renameSpaceSchema.parse(data);
 
   const space = await prisma.unitSpace.findFirst({
-    where: { id: parsed.spaceId, unit: { facilityId: session.facilityId } },
+    where: { id: parsed.spaceId, facilityId: session.facilityId },
     select: { id: true, unitId: true },
   });
   if (!space) throw new Error("Room not found.");
 
   const duplicate = await prisma.unitSpace.findFirst({
-    where: { unitId: space.unitId, name: parsed.name, id: { not: parsed.spaceId } },
+    where: {
+      facilityId: session.facilityId,
+      unitId: space.unitId,
+      name: parsed.name,
+      id: { not: parsed.spaceId },
+    },
     select: { id: true },
   });
   if (duplicate) throw new Error(`"${parsed.name}" already exists in this neighborhood.`);

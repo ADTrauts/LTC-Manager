@@ -333,6 +333,41 @@ export function listNeighborhoodMoveDestinations(
     });
 }
 
+/**
+ * Room move targets: Floors, Neighborhoods, legacy, staged, and Undesignated.
+ * Undesignated uses sentinel id matching UNDESIGNATED_DROP_ID.
+ */
+export function listRoomMoveDestinations(
+  placedUnits: DestUnit[],
+  stagedUnits: DestUnit[] = [],
+  options?: { excludeUnitId?: string | null; includeUndesignated?: boolean },
+): MoveDestination[] {
+  const exclude = options?.excludeUnitId ?? undefined;
+  const floors = listFloorMoveDestinations(placedUnits, { excludeUnitId: exclude });
+  const neighborhoods = listNeighborhoodMoveDestinations(placedUnits, {
+    excludeUnitId: exclude,
+  });
+  const staged = stagedUnits
+    .filter((u) => u.id !== exclude)
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      kind: "staged" as const,
+      groupLabel: "Undesignated",
+    }));
+
+  const out: MoveDestination[] = [...floors, ...neighborhoods, ...staged];
+  if (options?.includeUndesignated !== false) {
+    out.unshift({
+      id: "__undesignated__",
+      name: "Undesignated",
+      kind: "staged",
+      groupLabel: undefined,
+    });
+  }
+  return out.filter((d) => d.id !== exclude);
+}
+
 /** True when two units share the same parent (including both top-level). */
 export function areUnitSiblings(
   a: { id: string; parentUnitId: string | null },

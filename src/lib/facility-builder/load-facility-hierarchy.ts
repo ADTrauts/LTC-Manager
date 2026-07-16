@@ -24,6 +24,8 @@ export type SpaceView = {
   isActive: boolean;
   sortOrder: number;
   description: string | null;
+  /** null = Undesignated staging (builder-only). */
+  unitId: string | null;
   responsibilities: SpaceResponsibilityView[];
 };
 
@@ -50,7 +52,12 @@ export type UnitHierarchyNode = {
 export type FacilityHierarchy = {
   facilityId: string;
   facilityName: string;
+  /** Placed Floors / nested neighborhoods / legacy (excludes STAGED). */
   units: UnitHierarchyNode[];
+  /** Builder-only staged neighborhoods (Undesignated). */
+  stagedUnits: UnitHierarchyNode[];
+  /** Builder-only rooms with unitId = null (Undesignated). */
+  undesignatedSpaces: SpaceView[];
   departments: { id: string; key: string; name: string }[];
 };
 
@@ -61,7 +68,27 @@ export type FacilityHierarchy = {
 export async function loadFacilityHierarchy(
   facilityId: string,
 ): Promise<FacilityHierarchy> {
-  const [facility, flatUnits, departments] = await Promise.all([
+  const spaceSelect = {
+    id: true,
+    name: true,
+    spaceType: true,
+    customTypeLabel: true,
+    code: true,
+    isActive: true,
+    sortOrder: true,
+    description: true,
+    unitId: true,
+    responsibilities: {
+      orderBy: { department: { sortOrder: "asc" as const } },
+      select: {
+        id: true,
+        capabilities: true,
+        department: { select: { id: true, key: true, name: true } },
+      },
+    },
+  };
+
+  const [facility, flatUnits, undesignatedSpaces, departments] = await Promise.all([
     prisma.facility.findUniqueOrThrow({
       where: { id: facilityId },
       select: { id: true, displayName: true },
@@ -91,27 +118,16 @@ export async function loadFacilityHierarchy(
           },
         },
         childSpaces: {
+          where: { unitId: { not: null } },
           orderBy: { sortOrder: "asc" },
-          select: {
-            id: true,
-            name: true,
-            spaceType: true,
-            customTypeLabel: true,
-            code: true,
-            isActive: true,
-            sortOrder: true,
-            description: true,
-            responsibilities: {
-              orderBy: { department: { sortOrder: "asc" } },
-              select: {
-                id: true,
-                capabilities: true,
-                department: { select: { id: true, key: true, name: true } },
-              },
-            },
-          },
+          select: spaceSelect,
         },
       },
+    }),
+    prisma.unitSpace.findMany({
+      where: { facilityId, unitId: null },
+      orderBy: { sortOrder: "asc" },
+      select: spaceSelect,
     }),
     prisma.department.findMany({
       where: { facilityId, isActive: true },
@@ -120,12 +136,17 @@ export async function loadFacilityHierarchy(
     }),
   ]);
 
-  const units = buildHierarchy(flatUnits);
+  const stagedFlat = flatUnits.filter((u) => u.hierarchyRole === "STAGED");
+  const placedFlat = flatUnits.filter((u) => u.hierarchyRole !== "STAGED");
+  const units = buildHierarchy(placedFlat);
+  const stagedUnits = buildHierarchy(stagedFlat);
 
   return {
     facilityId: facility.id,
     facilityName: facility.displayName,
     units,
+    stagedUnits,
+    undesignatedSpaces,
     departments,
   };
 }

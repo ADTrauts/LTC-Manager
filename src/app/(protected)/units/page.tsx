@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UnitsManager } from "@/components/units-manager";
 import { getSession } from "@/lib/auth";
 import { hasAtLeastRole } from "@/lib/access";
+import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { prisma } from "@/lib/prisma";
 
 export default async function UnitsPage() {
@@ -18,7 +19,7 @@ export default async function UnitsPage() {
 
   const [units, templates, logAssignments] = await Promise.all([
     prisma.unit.findMany({
-      where: { facilityId },
+      where: operationalUnitWhere(facilityId),
       orderBy: { displayOrder: "asc" },
       select: {
         id: true,

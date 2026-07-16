@@ -15,6 +15,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
   DragOverlay,
@@ -64,13 +65,14 @@ import {
   canAddRoom,
   canMoveUnitOnto,
   canMoveRoomOnto,
+  UNDESIGNATED_DROP_ID,
   type BuilderNodeDisplayKind,
 } from "@/lib/facility-builder/builder-display";
 import {
   BULK_ROOM_MAX,
   filterHierarchyForSearch,
   listFloorMoveDestinations,
-  listNeighborhoodMoveDestinations,
+  listRoomMoveDestinations,
   reorderSiblingIds,
   shouldReorderUnitsAsSiblings,
   splitHighlightParts,
@@ -123,8 +125,14 @@ const KIND_LABELS: Record<UnitDepartmentKind, string> = {
 
 type Selection =
   | { type: "unit"; unitId: string }
-  | { type: "space"; spaceId: string; unitId: string }
+  | { type: "space"; spaceId: string; unitId: string | null }
   | null;
+
+type CreateUnitDrawerState = {
+  parentId: string | null;
+  depth: number;
+  intent?: "floor" | "neighborhood";
+};
 
 // ---------------------------------------------------------------------------
 // Root
@@ -138,18 +146,18 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     return set;
   });
   const [searchQuery, setSearchQuery] = useState("");
-  const [createUnitDrawer, setCreateUnitDrawer] = useState<{ parentId: string | null; depth: number } | null>(null);
-  const [createSpaceDrawer, setCreateSpaceDrawer] = useState<{ unitId: string } | null>(null);
+  const [createUnitDrawer, setCreateUnitDrawer] = useState<CreateUnitDrawerState | null>(null);
+  const [createSpaceDrawer, setCreateSpaceDrawer] = useState<{ unitId?: string | null } | null>(null);
   const [bulkSpaceDrawer, setBulkSpaceDrawer] = useState<{ unitId: string } | null>(null);
   const [moveDrawer, setMoveDrawer] = useState<
     | { type: "unit-to-floor"; unitId: string; unitName: string; currentParentId: string | null }
-    | { type: "space-to-neighborhood"; spaceId: string; spaceName: string; currentUnitId: string }
+    | { type: "space-to-neighborhood"; spaceId: string; spaceName: string; currentUnitId: string | null }
     | null
   >(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    target: { type: "unit"; unit: UnitHierarchyNode; depth: number } | { type: "space"; space: SpaceView; unitId: string };
+    target: { type: "unit"; unit: UnitHierarchyNode; depth: number } | { type: "space"; space: SpaceView; unitId: string | null };
   } | null>(null);
   const [renaming, setRenaming] = useState<{ type: "unit"; id: string } | { type: "space"; id: string } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -164,8 +172,25 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     () => filterHierarchyForSearch(hierarchy.units, searchQuery),
     [hierarchy.units, searchQuery],
   );
+  const stagedSearchResult = useMemo(
+    () => filterHierarchyForSearch(hierarchy.stagedUnits, searchQuery),
+    [hierarchy.stagedUnits, searchQuery],
+  );
+  const filteredUndesignatedSpaces = useMemo(
+    () => filterUndesignatedSpaces(hierarchy.undesignatedSpaces, searchQuery),
+    [hierarchy.undesignatedSpaces, searchQuery],
+  );
   const displayUnits = isSearching ? searchResult.units : hierarchy.units;
-  const effectiveExpanded = isSearching ? searchResult.expandedIds : expanded;
+  const displayStagedUnits = isSearching ? stagedSearchResult.units : hierarchy.stagedUnits;
+  const displayUndesignatedSpaces = filteredUndesignatedSpaces;
+  const effectiveExpanded = isSearching
+    ? new Set([...searchResult.expandedIds, ...stagedSearchResult.expandedIds])
+    : expanded;
+  const showUndesignatedSection =
+    !isSearching ||
+    displayStagedUnits.length > 0 ||
+    displayUndesignatedSpaces.length > 0;
+  const undesignatedCount = hierarchy.stagedUnits.length + hierarchy.undesignatedSpaces.length;
 
   function toggleExpand(id: string) {
     if (isSearching) return;
@@ -186,16 +211,16 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   }
 
   const selectedUnit = selection?.type === "unit"
-    ? findUnit(hierarchy.units, selection.unitId)
+    ? findUnitInHierarchy(hierarchy, selection.unitId)
     : null;
   const selectedSpace = selection?.type === "space"
-    ? findSpace(hierarchy.units, selection.spaceId)
+    ? findSpaceInHierarchy(hierarchy, selection.spaceId)
     : null;
-  const parentUnitOfSpace = selection?.type === "space"
-    ? findUnit(hierarchy.units, selection.unitId)
+  const parentUnitOfSpace = selection?.type === "space" && selection.unitId
+    ? findUnitInHierarchy(hierarchy, selection.unitId)
     : null;
 
-  const allFlatUnits = flattenUnits(hierarchy.units);
+  const allFlatUnits = flattenUnits(hierarchy.units, hierarchy.stagedUnits);
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDragId(event.active.id as string);
@@ -210,13 +235,59 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    const activeUnit = findUnit(hierarchy.units, activeId);
-    const activeSpaceInfo = findSpaceWithParent(hierarchy.units, activeId);
-    const overUnit = findUnit(hierarchy.units, overId);
-    const overSpaceInfo = findSpaceWithParent(hierarchy.units, overId);
+    const activeUnit = findUnitInHierarchy(hierarchy, activeId);
+    const activeSpaceInfo = findSpaceWithParentInHierarchy(hierarchy, activeId);
+    const overUnit = findUnitInHierarchy(hierarchy, overId);
+    const overSpaceInfo = findSpaceWithParentInHierarchy(hierarchy, overId);
+
+    // Drop onto Undesignated staging zone
+    if (overId === UNDESIGNATED_DROP_ID) {
+      if (activeUnit && resolveBuilderNodeDisplayKind(activeUnit) !== "floor") {
+        startTransition(() => {
+          moveBuilderUnitAction({
+            unitId: activeUnit.id,
+            newParentUnitId: null,
+            newDisplayOrder: 100,
+          });
+        });
+      } else if (activeSpaceInfo) {
+        startTransition(() => {
+          moveBuilderSpaceAction({
+            spaceId: activeSpaceInfo.space.id,
+            newUnitId: null,
+            newSortOrder: 100,
+          });
+        });
+      }
+      return;
+    }
 
     // --- Unit drag ---
     if (activeUnit) {
+      // Sibling reorder among staged units (Undesignated)
+      if (
+        overUnit &&
+        resolveBuilderNodeDisplayKind(activeUnit) === "staged" &&
+        resolveBuilderNodeDisplayKind(overUnit) === "staged" &&
+        activeUnit.parentUnitId === null &&
+        overUnit.parentUnitId === null
+      ) {
+        const siblings = hierarchy.stagedUnits;
+        const ordered = reorderSiblingIds(
+          siblings.map((s) => s.id),
+          activeUnit.id,
+          overUnit.id,
+        );
+        if (!ordered) return;
+        startTransition(() => {
+          reorderBuilderUnitsAction({
+            parentUnitId: null,
+            orderedIds: ordered,
+          });
+        });
+        return;
+      }
+
       // Sibling reorder (Floor↔Floor, Neighborhood↔Neighborhood, Legacy↔Legacy)
       if (overUnit && shouldReorderUnitsAsSiblings(activeUnit, overUnit)) {
         const activeKind = resolveBuilderNodeDisplayKind(activeUnit);
@@ -258,12 +329,34 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
     // --- Space (room) drag ---
     if (activeSpaceInfo) {
-      // Reorder among rooms in the same neighborhood
+      // Reorder among undesignated rooms
       if (
         overSpaceInfo &&
-        overSpaceInfo.parentUnitId === activeSpaceInfo.parentUnitId
+        activeSpaceInfo.parentUnitId === null &&
+        overSpaceInfo.parentUnitId === null
       ) {
-        const parent = findUnit(hierarchy.units, activeSpaceInfo.parentUnitId);
+        const ordered = reorderSiblingIds(
+          hierarchy.undesignatedSpaces.map((s) => s.id),
+          activeSpaceInfo.space.id,
+          overSpaceInfo.space.id,
+        );
+        if (!ordered) return;
+        startTransition(() => {
+          reorderBuilderSpacesAction({
+            unitId: null,
+            orderedIds: ordered,
+          });
+        });
+        return;
+      }
+
+      // Reorder among rooms in the same neighborhood / unit
+      if (
+        overSpaceInfo &&
+        overSpaceInfo.parentUnitId === activeSpaceInfo.parentUnitId &&
+        activeSpaceInfo.parentUnitId !== null
+      ) {
+        const parent = findUnitInHierarchy(hierarchy, activeSpaceInfo.parentUnitId);
         if (!parent) return;
         const ordered = reorderSiblingIds(
           parent.childSpaces.map((s) => s.id),
@@ -280,9 +373,11 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
         return;
       }
 
-      // Move onto a different neighborhood (drop on unit or on a room in that unit)
+      // Move onto a different neighborhood / floor (drop on unit or on a room in that unit)
       const targetUnit = overUnit
-        ?? (overSpaceInfo ? findUnit(hierarchy.units, overSpaceInfo.parentUnitId) : null);
+        ?? (overSpaceInfo?.parentUnitId
+          ? findUnitInHierarchy(hierarchy, overSpaceInfo.parentUnitId)
+          : null);
       if (!targetUnit) return;
       const dropKind = resolveBuilderNodeDisplayKind(targetUnit);
       if (!canMoveRoomOnto(dropKind)) return;
@@ -302,7 +397,15 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   const hasFloors = hierarchy.units.some((u) => resolveBuilderNodeDisplayKind(u) === "floor");
 
   function openAddFloor() {
-    setCreateUnitDrawer({ parentId: null, depth: 0 });
+    setCreateUnitDrawer({ parentId: null, depth: 0, intent: "floor" });
+  }
+
+  function openAddNeighborhood() {
+    setCreateUnitDrawer({ parentId: null, depth: 0, intent: "neighborhood" });
+  }
+
+  function openAddRoom() {
+    setCreateSpaceDrawer({ unitId: null });
   }
 
   useEffect(() => {
@@ -336,7 +439,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             </div>
           </div>
 
-          {/* Calm toolbar: Search + Add Floor */}
+          {/* Toolbar: Search + Add Floor / Neighborhood / Room */}
           <div className="space-y-2 border-b border-zinc-100 px-2 py-2">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
@@ -349,18 +452,65 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none"
               />
             </label>
-            <button
-              type="button"
-              data-testid="add-floor-root"
-              onClick={openAddFloor}
-              className="flex w-full items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Add Floor
-            </button>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                data-testid="add-floor-root"
+                onClick={openAddFloor}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-2 py-2 text-xs font-medium text-white hover:bg-zinc-700 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Floor
+              </button>
+              <button
+                type="button"
+                data-testid="add-neighborhood-root"
+                onClick={openAddNeighborhood}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Neighborhood / Unit
+              </button>
+              <button
+                type="button"
+                data-testid="add-room-root"
+                onClick={openAddRoom}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Room
+              </button>
+            </div>
           </div>
 
           <div className="max-h-[calc(70vh-4rem)] overflow-y-auto px-1 py-1.5">
+            {showUndesignatedSection && (
+              <UndesignatedSection
+                stagedUnits={displayStagedUnits}
+                undesignatedSpaces={displayUndesignatedSpaces}
+                undesignatedCount={undesignatedCount}
+                expanded={effectiveExpanded}
+                selection={selection}
+                renaming={renaming}
+                searchQuery={searchQuery}
+                dndEnabled={!isSearching}
+                onToggle={toggleExpand}
+                onSelect={setSelection}
+                onContextMenu={(e, target) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setContextMenu({ x: e.clientX, y: e.clientY, target });
+                }}
+                onCreateUnit={(parentId, depth) =>
+                  setCreateUnitDrawer({ parentId, depth, intent: "neighborhood" })
+                }
+                onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+                onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
+                onRename={setRenaming}
+                onRenameComplete={() => setRenaming(null)}
+              />
+            )}
+
             {!hasAnyUnits ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm font-medium text-zinc-700">No floors have been added yet.</p>
@@ -377,7 +527,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                   Add Floor
                 </button>
               </div>
-            ) : isSearching && displayUnits.length === 0 ? (
+            ) : isSearching && displayUnits.length === 0 && !showUndesignatedSection ? (
               <div className="px-4 py-8 text-center">
                 <p className="text-sm font-medium text-zinc-700">No locations found</p>
                 <p className="mt-1 text-xs text-zinc-500">
@@ -413,7 +563,9 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                           e.stopPropagation();
                           setContextMenu({ x: e.clientX, y: e.clientY, target });
                         }}
-                        onCreateUnit={(parentId, depth) => setCreateUnitDrawer({ parentId, depth })}
+                        onCreateUnit={(parentId, depth) =>
+                          setCreateUnitDrawer({ parentId, depth, intent: "neighborhood" })
+                        }
                         onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
                         onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
                         onRename={setRenaming}
@@ -455,15 +607,18 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
               departments={hierarchy.departments}
               onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
               onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
-              onCreateNeighborhood={(unitId) => setCreateUnitDrawer({ parentId: unitId, depth: 1 })}
+              onCreateNeighborhood={(unitId) =>
+                setCreateUnitDrawer({ parentId: unitId, depth: 1, intent: "neighborhood" })
+              }
             />
           )}
 
-          {selectedSpace && parentUnitOfSpace && (
+          {selectedSpace && (
             <SpaceEditor
               space={selectedSpace}
               parentUnit={parentUnitOfSpace}
               departments={hierarchy.departments}
+              isUndesignated={selection?.type === "space" && !selection.unitId}
             />
           )}
         </div>
@@ -482,7 +637,11 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             }}
             onAddChild={(target) => {
               if (target.type === "unit") {
-                setCreateUnitDrawer({ parentId: target.unit.id, depth: target.depth + 1 });
+                setCreateUnitDrawer({
+                  parentId: target.unit.id,
+                  depth: target.depth + 1,
+                  intent: "neighborhood",
+                });
               }
               setContextMenu(null);
             }}
@@ -501,7 +660,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             onMove={(target) => {
               if (target.type === "unit") {
                 const kind = resolveBuilderNodeDisplayKind(target.unit);
-                if (kind === "legacy_location" || kind === "neighborhood") {
+                if (kind === "legacy_location" || kind === "neighborhood" || kind === "staged") {
                   setMoveDrawer({
                     type: "unit-to-floor",
                     unitId: target.unit.id,
@@ -579,9 +738,13 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           <Drawer
             open
             onClose={() => setCreateUnitDrawer(null)}
-            title={createUnitDrawer.parentId === null ? "Add Floor" : "Add Neighborhood / Unit"}
+            title={
+              createUnitDrawer.intent === "floor"
+                ? "Add Floor"
+                : "Add Neighborhood / Unit"
+            }
           >
-            {createUnitDrawer.parentId === null ? (
+            {createUnitDrawer.intent === "floor" ? (
               <CreateFloorForm
                 onDone={() => setCreateUnitDrawer(null)}
               />
@@ -602,7 +765,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             title="Add Room"
           >
             <CreateSpaceForm
-              unitId={createSpaceDrawer.unitId}
+              unitId={createSpaceDrawer.unitId ?? null}
               onDone={() => setCreateSpaceDrawer(null)}
             />
           </Drawer>
@@ -642,6 +805,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                   excludeUnitId: moveDrawer.unitId,
                   excludeParentId: moveDrawer.currentParentId,
                 })}
+                allowUndesignated={moveDrawer.currentParentId != null}
                 onDone={() => setMoveDrawer(null)}
               />
             ) : (
@@ -649,9 +813,14 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 spaceId={moveDrawer.spaceId}
                 spaceName={moveDrawer.spaceName}
                 currentUnitId={moveDrawer.currentUnitId}
-                destinations={listNeighborhoodMoveDestinations(hierarchy.units, {
-                  excludeUnitId: moveDrawer.currentUnitId,
-                })}
+                destinations={listRoomMoveDestinations(
+                  hierarchy.units,
+                  hierarchy.stagedUnits,
+                  {
+                    excludeUnitId: moveDrawer.currentUnitId,
+                    includeUndesignated: moveDrawer.currentUnitId != null,
+                  },
+                )}
                 onDone={() => setMoveDrawer(null)}
               />
             )}
@@ -662,8 +831,8 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
       <DragOverlay>
         {activeDragId && (
           <div className="rounded-md bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-lg border border-zinc-200">
-            {findUnit(hierarchy.units, activeDragId)?.name ??
-              findSpace(hierarchy.units, activeDragId)?.name ??
+            {findUnitInHierarchy(hierarchy, activeDragId)?.name ??
+              findSpaceInHierarchy(hierarchy, activeDragId)?.name ??
               "Moving..."}
           </div>
         )}
@@ -673,12 +842,154 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 }
 
 // ---------------------------------------------------------------------------
+// Undesignated staging section
+// ---------------------------------------------------------------------------
+
+function UndesignatedSection({
+  stagedUnits,
+  undesignatedSpaces,
+  undesignatedCount,
+  expanded,
+  selection,
+  renaming,
+  searchQuery,
+  dndEnabled,
+  onToggle,
+  onSelect,
+  onContextMenu,
+  onCreateUnit,
+  onCreateSpace,
+  onBulkCreateSpace,
+  onRename,
+  onRenameComplete,
+}: {
+  stagedUnits: UnitHierarchyNode[];
+  undesignatedSpaces: SpaceView[];
+  undesignatedCount: number;
+  expanded: Set<string>;
+  selection: Selection;
+  renaming: { type: "unit" | "space"; id: string } | null;
+  searchQuery: string;
+  dndEnabled: boolean;
+  onToggle: (id: string) => void;
+  onSelect: (s: Selection) => void;
+  onContextMenu: (e: React.MouseEvent, target: ContextTarget) => void;
+  onCreateUnit: (parentId: string, depth: number) => void;
+  onCreateSpace: (unitId: string) => void;
+  onBulkCreateSpace: (unitId: string) => void;
+  onRename: (r: { type: "unit" | "space"; id: string }) => void;
+  onRenameComplete: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: UNDESIGNATED_DROP_ID,
+    disabled: !dndEnabled,
+  });
+
+  const hasItems = stagedUnits.length > 0 || undesignatedSpaces.length > 0;
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid="undesignated-section"
+      className={`mb-2 rounded-lg border px-1 py-1.5 transition-colors ${
+        isOver
+          ? "border-amber-300 bg-amber-50/60"
+          : "border-zinc-200 bg-zinc-50/50"
+      }`}
+    >
+      {undesignatedCount > 0 && (
+        <div className="mx-1 mb-2 rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-medium text-amber-900">
+            Locations still need placement
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800/90">
+            These locations will not appear anywhere in the application until they are assigned to a Floor or Neighborhood.
+          </p>
+        </div>
+      )}
+
+      {!hasItems && (
+        <p className="px-2 py-1.5 text-[11px] text-zinc-400">
+          Drag locations here to stage them before placement.
+        </p>
+      )}
+
+      {stagedUnits.length > 0 && (
+        <SortableContext
+          items={stagedUnits.map((u) => u.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-0.5">
+            {stagedUnits.map((unit) => (
+              <TreeUnitNode
+                key={unit.id}
+                unit={unit}
+                depth={0}
+                expanded={expanded}
+                selection={selection}
+                renaming={renaming}
+                searchQuery={searchQuery}
+                dndEnabled={dndEnabled}
+                onToggle={onToggle}
+                onSelect={onSelect}
+                onContextMenu={onContextMenu}
+                onCreateUnit={onCreateUnit}
+                onCreateSpace={onCreateSpace}
+                onBulkCreateSpace={onBulkCreateSpace}
+                onRename={onRename}
+                onRenameComplete={onRenameComplete}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      )}
+
+      {undesignatedSpaces.length > 0 && (
+        <SortableContext
+          items={undesignatedSpaces.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-0.5">
+            {undesignatedSpaces.map((space) => (
+              <TreeSpaceNode
+                key={space.id}
+                space={space}
+                unitId={null}
+                depth={0}
+                selection={selection}
+                renaming={renaming}
+                searchQuery={searchQuery}
+                dndEnabled={dndEnabled}
+                onSelect={onSelect}
+                onContextMenu={onContextMenu}
+                onRenameComplete={onRenameComplete}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      )}
+    </div>
+  );
+}
+
+function NotYetPlacedBanner() {
+  return (
+    <div className="rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3">
+      <p className="text-sm font-medium text-amber-900">Not yet placed</p>
+      <p className="mt-0.5 text-xs text-amber-800/90">
+        This location is waiting to be assigned before it becomes operational.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Context menu overlay
 // ---------------------------------------------------------------------------
 
 type ContextTarget =
   | { type: "unit"; unit: UnitHierarchyNode; depth: number }
-  | { type: "space"; space: SpaceView; unitId: string };
+  | { type: "space"; space: SpaceView; unitId: string | null };
 
 function ContextMenuOverlay({
   x,
@@ -774,6 +1085,18 @@ function ContextMenuOverlay({
                 onClick={() => onMove(target)}
               >
                 Move to another Floor…
+              </ContextMenuItem>
+            </>
+          )}
+
+          {displayKind === "staged" && (
+            <>
+              <div className="my-1 border-t border-zinc-100" />
+              <ContextMenuItem
+                icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
+                onClick={() => onMove(target)}
+              >
+                Move to Floor…
               </ContextMenuItem>
             </>
           )}
@@ -933,7 +1256,9 @@ function TreeUnitNode({
       ? Building2
       : displayKind === "neighborhood"
         ? LayoutGrid
-        : MapPin;
+        : displayKind === "staged"
+          ? MapPin
+          : MapPin;
 
   void isPending;
 
@@ -1004,6 +1329,17 @@ function TreeUnitNode({
             title="Unassigned to a floor"
           >
             Unassigned
+          </span>
+        )}
+
+        {!isRenaming && displayKind === "staged" && (
+          <span
+            className={`shrink-0 mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              isSelected ? "bg-zinc-700 text-zinc-300" : "bg-amber-50 text-amber-700"
+            }`}
+            title="Not yet placed"
+          >
+            Staged
           </span>
         )}
 
@@ -1150,7 +1486,7 @@ function TreeSpaceNode({
   onRenameComplete,
 }: {
   space: SpaceView;
-  unitId: string;
+  unitId: string | null;
   depth: number;
   selection: Selection;
   renaming: { type: "unit" | "space"; id: string } | null;
@@ -1322,10 +1658,14 @@ function UnitEditor({
       ? Building2
       : displayKind === "neighborhood"
         ? LayoutGrid
-        : MapPin;
+        : displayKind === "staged"
+          ? MapPin
+          : MapPin;
 
   return (
     <div className="space-y-4">
+      {displayKind === "staged" && <NotYetPlacedBanner />}
+
       {/* Header card */}
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="px-5 py-4">
@@ -1340,6 +1680,11 @@ function UnitEditor({
                 {displayKind === "legacy_location" && (
                   <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
                     Unassigned to a floor
+                  </span>
+                )}
+                {displayKind === "staged" && (
+                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                    Undesignated
                   </span>
                 )}
                 {totalRooms > 0 && (
@@ -1571,16 +1916,22 @@ function SpaceEditor({
   space,
   parentUnit,
   departments,
+  isUndesignated = false,
 }: {
   space: SpaceView;
-  parentUnit: UnitHierarchyNode;
+  parentUnit: UnitHierarchyNode | null;
   departments: { id: string; key: string; name: string }[];
+  isUndesignated?: boolean;
 }) {
   const [showResps, setShowResps] = useState(false);
-  const totalResps = space.responsibilities.length + parentUnit.departmentResponsibilities.length;
+  const totalResps =
+    space.responsibilities.length +
+    (parentUnit?.departmentResponsibilities.length ?? 0);
 
   return (
     <div className="space-y-4">
+      {isUndesignated && <NotYetPlacedBanner />}
+
       {/* Header card */}
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="px-5 py-4">
@@ -1590,7 +1941,9 @@ function SpaceEditor({
               <DoorOpen className="h-3.5 w-3.5" />
               Room
             </span>
-            <span>in {parentUnit.name}</span>
+            <span>
+              {parentUnit ? `in ${parentUnit.name}` : "Undesignated"}
+            </span>
             <span>
               {resolveSpaceTypeDisplayLabel({
                 spaceType: space.spaceType,
@@ -1608,7 +1961,9 @@ function SpaceEditor({
         <div className="border-t border-zinc-100 px-5 py-4">
           <form action={updateBuilderSpaceAction} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="spaceId" value={space.id} />
-            <input type="hidden" name="unitId" value={parentUnit.id} />
+            {parentUnit && (
+              <input type="hidden" name="unitId" value={parentUnit.id} />
+            )}
             <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Name
               <input
@@ -1862,11 +2217,11 @@ function SpaceResponsibilityEditor({
   departments,
 }: {
   space: SpaceView;
-  parentUnit: UnitHierarchyNode;
+  parentUnit: UnitHierarchyNode | null;
   departments: { id: string; key: string; name: string }[];
 }) {
   const allDeptIds = new Set<string>();
-  for (const r of parentUnit.departmentResponsibilities) allDeptIds.add(r.department.id);
+  for (const r of parentUnit?.departmentResponsibilities ?? []) allDeptIds.add(r.department.id);
   for (const r of space.responsibilities) allDeptIds.add(r.department.id);
 
   const deptMap = new Map(departments.map((d) => [d.id, d]));
@@ -1886,7 +2241,7 @@ function SpaceResponsibilityEditor({
     if (!dept) continue;
 
     const spaceResp = spaceRespByDept.get(deptId);
-    const unitResp = parentUnit.departmentResponsibilities.find(
+    const unitResp = parentUnit?.departmentResponsibilities.find(
       (r) => r.department.id === deptId,
     );
 
@@ -1915,7 +2270,9 @@ function SpaceResponsibilityEditor({
   return (
     <div>
       <p className="text-xs text-zinc-500">
-        Rooms inherit responsibilities from their neighborhood. Add an override to change capabilities at this room.
+        {parentUnit
+          ? "Rooms inherit responsibilities from their neighborhood. Add an override to change capabilities at this room."
+          : "Assign departments directly to this room, or move it to a neighborhood to inherit responsibilities."}
       </p>
 
       <ul className="mt-3 space-y-2">
@@ -1976,12 +2333,14 @@ function SpaceResponsibilityEditor({
         ))}
         {effectiveRows.length === 0 && (
           <li className="text-xs text-zinc-500">
-            No department responsibilities. Assign departments to the parent neighborhood first.
+            {parentUnit
+              ? "No department responsibilities. Assign departments to the parent neighborhood first."
+              : "No department responsibilities assigned yet."}
           </li>
         )}
       </ul>
 
-      {overridableDepts.length > 0 && parentUnit.departmentResponsibilities.length > 0 && (
+      {overridableDepts.length > 0 && (parentUnit?.departmentResponsibilities.length ?? 0) > 0 && (
         <AddSpaceResponsibilityForm spaceId={space.id} available={overridableDepts} />
       )}
     </div>
@@ -2089,7 +2448,7 @@ function CreateNeighborhoodForm({
   parentId,
   onDone,
 }: {
-  parentId: string;
+  parentId: string | null;
   onDone: () => void;
 }) {
   return (
@@ -2102,7 +2461,9 @@ function CreateNeighborhoodForm({
       data-testid="create-neighborhood-form"
     >
       <input type="hidden" name="hierarchyIntent" value="neighborhood" />
-      <input type="hidden" name="parentUnitId" value={parentId} />
+      {parentId && (
+        <input type="hidden" name="parentUnitId" value={parentId} />
+      )}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Neighborhood / Unit name
         <input
@@ -2185,7 +2546,7 @@ function CreateSpaceForm({
   unitId,
   onDone,
 }: {
-  unitId: string;
+  unitId: string | null;
   onDone: () => void;
 }) {
   return (
@@ -2197,7 +2558,9 @@ function CreateSpaceForm({
       className="grid gap-3"
       data-testid="create-space-form"
     >
-      <input type="hidden" name="unitId" value={unitId} />
+      {unitId && (
+        <input type="hidden" name="unitId" value={unitId} />
+      )}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Room name
         <input
@@ -2339,19 +2702,21 @@ function MoveUnitToFloorForm({
   unitName,
   currentParentId,
   floors,
+  allowUndesignated = false,
   onDone,
 }: {
   unitId: string;
   unitName: string;
   currentParentId: string | null;
   floors: { id: string; name: string }[];
+  allowUndesignated?: boolean;
   onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   void currentParentId;
 
-  if (floors.length === 0) {
+  if (floors.length === 0 && !allowUndesignated) {
     return (
       <p className="text-sm text-zinc-600">
         No other Floors available. Create a Floor first, then move &quot;{unitName}&quot; into it.
@@ -2364,8 +2729,9 @@ function MoveUnitToFloorForm({
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
-        const newParentUnitId = String(fd.get("newParentUnitId") || "");
-        if (!newParentUnitId) return;
+        const raw = String(fd.get("newParentUnitId") || "");
+        if (!raw) return;
+        const newParentUnitId = raw === UNDESIGNATED_DROP_ID ? null : raw;
         setError(null);
         startTransition(async () => {
           try {
@@ -2383,11 +2749,12 @@ function MoveUnitToFloorForm({
       className="grid gap-3"
     >
       <p className="text-sm text-zinc-600">
-        Move <span className="font-medium text-zinc-900">{unitName}</span> onto a Floor.
-        It will become a Neighborhood / Unit.
+        Move <span className="font-medium text-zinc-900">{unitName}</span> onto a Floor
+        {allowUndesignated ? " or Undesignated" : ""}.
+        It will become a Neighborhood / Unit when placed on a Floor.
       </p>
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Destination Floor
+        Destination
         <select
           name="newParentUnitId"
           required
@@ -2396,8 +2763,11 @@ function MoveUnitToFloorForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         >
           <option value="" disabled>
-            Select a floor…
+            Select a destination…
           </option>
+          {allowUndesignated && (
+            <option value={UNDESIGNATED_DROP_ID}>Undesignated</option>
+          )}
           {floors.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name}
@@ -2428,8 +2798,8 @@ function MoveSpaceToNeighborhoodForm({
 }: {
   spaceId: string;
   spaceName: string;
-  currentUnitId: string;
-  destinations: { id: string; name: string; groupLabel?: string }[];
+  currentUnitId: string | null;
+  destinations: { id: string; name: string; groupLabel?: string; kind?: string }[];
   onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -2439,7 +2809,7 @@ function MoveSpaceToNeighborhoodForm({
   if (destinations.length === 0) {
     return (
       <p className="text-sm text-zinc-600">
-        No other neighborhoods available for &quot;{spaceName}&quot;.
+        No destinations available for &quot;{spaceName}&quot;.
       </p>
     );
   }
@@ -2449,8 +2819,9 @@ function MoveSpaceToNeighborhoodForm({
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
-        const newUnitId = String(fd.get("newUnitId") || "");
-        if (!newUnitId) return;
+        const raw = String(fd.get("newUnitId") || "");
+        if (!raw) return;
+        const newUnitId = raw === UNDESIGNATED_DROP_ID ? null : raw;
         setError(null);
         startTransition(async () => {
           try {
@@ -2468,7 +2839,8 @@ function MoveSpaceToNeighborhoodForm({
       className="grid gap-3"
     >
       <p className="text-sm text-zinc-600">
-        Move <span className="font-medium text-zinc-900">{spaceName}</span> to another Neighborhood / Unit.
+        Move <span className="font-medium text-zinc-900">{spaceName}</span> to a Floor,
+        Neighborhood / Unit, or Undesignated.
       </p>
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Destination
@@ -2480,7 +2852,7 @@ function MoveSpaceToNeighborhoodForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         >
           <option value="" disabled>
-            Select a neighborhood…
+            Select a destination…
           </option>
           {destinations.map((d) => (
             <option key={d.id} value={d.id}>
@@ -2542,6 +2914,46 @@ function HighlightedText({
 // Helpers
 // ---------------------------------------------------------------------------
 
+function filterUndesignatedSpaces(spaces: SpaceView[], query: string): SpaceView[] {
+  const trimmed = query.trim();
+  if (!trimmed) return spaces;
+  const q = trimmed.toLowerCase();
+  return spaces.filter(
+    (s) =>
+      s.name.toLowerCase().includes(q) ||
+      (s.code?.toLowerCase().includes(q) ?? false),
+  );
+}
+
+function findUnitInHierarchy(
+  hierarchy: FacilityHierarchy,
+  id: string,
+): UnitHierarchyNode | null {
+  return findUnit(hierarchy.units, id) ?? findUnit(hierarchy.stagedUnits, id);
+}
+
+function findSpaceInHierarchy(
+  hierarchy: FacilityHierarchy,
+  spaceId: string,
+): SpaceView | null {
+  const undesignated = hierarchy.undesignatedSpaces.find((s) => s.id === spaceId);
+  if (undesignated) return undesignated;
+  return findSpace(hierarchy.units, spaceId) ?? findSpace(hierarchy.stagedUnits, spaceId);
+}
+
+function findSpaceWithParentInHierarchy(
+  hierarchy: FacilityHierarchy,
+  spaceId: string,
+): { space: SpaceView; parentUnitId: string | null } | null {
+  const undesignated = hierarchy.undesignatedSpaces.find((s) => s.id === spaceId);
+  if (undesignated) return { space: undesignated, parentUnitId: null };
+
+  const inUnits = findSpaceWithParent(hierarchy.units, spaceId);
+  if (inUnits) return inUnits;
+
+  return findSpaceWithParent(hierarchy.stagedUnits, spaceId);
+}
+
 function getSiblingUnits(
   units: UnitHierarchyNode[],
   parentUnitId: string | null,
@@ -2579,7 +2991,7 @@ function findSpace(
 function findSpaceWithParent(
   units: UnitHierarchyNode[],
   spaceId: string,
-): { space: SpaceView; parentUnitId: string } | null {
+): { space: SpaceView; parentUnitId: string | null } | null {
   for (const u of units) {
     const s = u.childSpaces.find((s) => s.id === spaceId);
     if (s) return { space: s, parentUnitId: u.id };
@@ -2590,7 +3002,7 @@ function findSpaceWithParent(
 }
 
 function flattenUnits(
-  units: UnitHierarchyNode[],
+  ...unitTrees: UnitHierarchyNode[][]
 ): { id: string; name: string; parentUnitId: string | null }[] {
   const result: { id: string; name: string; parentUnitId: string | null }[] = [];
   function walk(nodes: UnitHierarchyNode[]) {
@@ -2599,7 +3011,9 @@ function flattenUnits(
       walk(u.childUnits);
     }
   }
-  walk(units);
+  for (const tree of unitTrees) {
+    walk(tree);
+  }
   return result;
 }
 
