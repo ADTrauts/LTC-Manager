@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { UnitDepartmentKind, SpaceType } from "@prisma/client";
+import type { UnitDepartmentKind, SpaceType, UnitSpace } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Schema-level assertions — verifying the new types exist and are shaped
@@ -31,22 +31,28 @@ describe("Location Architecture Stage 1 — Schema types", () => {
     const kinds: UnitDepartmentKind[] = ["PRIMARY", "BACKUP", "SUPPORT"];
     assert.ok(kinds.includes("SUPPORT"), "SUPPORT must be a valid kind");
   });
+
+  it("UnitSpace supports nullable roomNumber", () => {
+    const room = { roomNumber: "32A" } satisfies Pick<UnitSpace, "roomNumber">;
+    const legacy = { roomNumber: null } satisfies Pick<UnitSpace, "roomNumber">;
+    assert.equal(room.roomNumber, "32A");
+    assert.equal(legacy.roomNumber, null);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// Responsibility inheritance — pure functions
+// Explicit room responsibilities — pure functions
 // ---------------------------------------------------------------------------
 
 type DeptCapabilities = { departmentId: string; capabilities: string[] };
 
 /**
- * Resolve effective capabilities for a department at a UnitSpace.
+ * Resolve explicit capabilities for a department at a UnitSpace.
  *
- * Rules (from 05_RESPONSIBILITY_INHERITANCE_RULES.md):
- *  1. If an explicit UnitSpaceResponsibility exists → use its capabilities (override).
- *  2. Otherwise inherit from the parent Unit's UnitDepartmentResponsibility.
- *  3. Empty capabilities on a unit responsibility = legacy full access.
- *  4. No responsibility at any level = no access.
+ * Rules:
+ *  1. If an explicit UnitSpaceResponsibility exists → use its capabilities.
+ *  2. Floors / neighborhoods do not grant room capabilities.
+ *  3. No room responsibility = no room access.
  */
 function resolveSpaceCapabilities(
   departmentId: string,
@@ -54,19 +60,12 @@ function resolveSpaceCapabilities(
   unitResponsibilities: DeptCapabilities[],
   allCapabilities: string[],
 ): string[] | null {
+  void unitResponsibilities;
+  void allCapabilities;
   const explicit = spaceResponsibilities.find(
     (r) => r.departmentId === departmentId,
   );
   if (explicit) return explicit.capabilities;
-
-  const inherited = unitResponsibilities.find(
-    (r) => r.departmentId === departmentId,
-  );
-  if (inherited) {
-    return inherited.capabilities.length > 0
-      ? inherited.capabilities
-      : allCapabilities;
-  }
 
   return null;
 }
@@ -83,7 +82,7 @@ const ALL_CAPS = [
 ];
 
 describe("resolveSpaceCapabilities", () => {
-  it("returns explicit space-level capabilities when override exists", () => {
+  it("returns explicit room-level capabilities when responsibility exists", () => {
     const result = resolveSpaceCapabilities(
       "evs",
       [{ departmentId: "evs", capabilities: ["CLEANING"] }],
@@ -98,7 +97,7 @@ describe("resolveSpaceCapabilities", () => {
     assert.deepStrictEqual(result, ["CLEANING"]);
   });
 
-  it("inherits unit-level capabilities when no space override exists", () => {
+  it("does not inherit unit-level capabilities when no room responsibility exists", () => {
     const result = resolveSpaceCapabilities(
       "plant",
       [],
@@ -110,20 +109,17 @@ describe("resolveSpaceCapabilities", () => {
       ],
       ALL_CAPS,
     );
-    assert.deepStrictEqual(result, [
-      "BUILDING_MAINTENANCE",
-      "EQUIPMENT_MAINTENANCE",
-    ]);
+    assert.equal(result, null);
   });
 
-  it("legacy empty capabilities = full access", () => {
+  it("unit-level empty capabilities do not create room access", () => {
     const result = resolveSpaceCapabilities(
       "dietary",
       [],
       [{ departmentId: "dietary", capabilities: [] }],
       ALL_CAPS,
     );
-    assert.deepStrictEqual(result, ALL_CAPS);
+    assert.equal(result, null);
   });
 
   it("returns null when department has no responsibility at any level", () => {
@@ -131,7 +127,7 @@ describe("resolveSpaceCapabilities", () => {
     assert.strictEqual(result, null);
   });
 
-  it("explicit empty override removes all capabilities", () => {
+  it("explicit empty room responsibility has no selected capabilities", () => {
     const result = resolveSpaceCapabilities(
       "plant",
       [{ departmentId: "plant", capabilities: [] }],
@@ -146,7 +142,7 @@ describe("resolveSpaceCapabilities", () => {
     assert.deepStrictEqual(result, []);
   });
 
-  it("override replaces rather than merges inherited capabilities", () => {
+  it("explicit room responsibility does not merge with unit capabilities", () => {
     const result = resolveSpaceCapabilities(
       "plant",
       [

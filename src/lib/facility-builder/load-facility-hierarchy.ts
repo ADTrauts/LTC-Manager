@@ -20,6 +20,7 @@ export type SpaceView = {
   name: string;
   spaceType: SpaceType;
   customTypeLabel: string | null;
+  roomNumber: string | null;
   code: string | null;
   isActive: boolean;
   sortOrder: number;
@@ -73,6 +74,7 @@ export async function loadFacilityHierarchy(
     name: true,
     spaceType: true,
     customTypeLabel: true,
+    roomNumber: true,
     code: true,
     isActive: true,
     sortOrder: true,
@@ -202,30 +204,59 @@ export function wouldCreateCycle(
   return false;
 }
 
+export const ROOM_RESPONSIBILITY_HELP_TEXT =
+  "Assign the departments responsible for operational work performed in this room.";
+
+export const ROOM_RESPONSIBILITY_EMPTY_MESSAGE =
+  "No operational responsibilities have been assigned.";
+
+export const PLANT_FACILITY_WIDE_ACCESS_NOTE =
+  "Plant Operations has facility-wide maintenance access.";
+
 /**
- * Resolve effective capabilities for a department at a UnitSpace.
- * Per 05_RESPONSIBILITY_INHERITANCE_RULES.md:
- * - Explicit UnitSpaceResponsibility → use its capabilities
- * - Otherwise inherit from parent Unit
- * - Empty capabilities = legacy full access
+ * Placeholder for Stage 3: facility-wide operational access policies.
+ * Plant maintenance access should be represented by policy, not by copying
+ * Plant responsibility rows to every room.
+ */
+export type FacilityOperationalAccessPolicy = {
+  departmentKey: string;
+  scope: "FACILITY_WIDE_PLACED_LOCATIONS";
+  domains: readonly string[];
+};
+
+export const PLANT_MAINTENANCE_ACCESS_POLICY: FacilityOperationalAccessPolicy = {
+  departmentKey: "PLANT",
+  scope: "FACILITY_WIDE_PLACED_LOCATIONS",
+  domains: ["BUILDING_MAINTENANCE", "ASSET_MANAGEMENT", "INSPECTIONS", "REPAIRS"],
+};
+
+export function formatRoomDisplayName(room: {
+  name: string;
+  roomNumber?: string | null;
+}): string {
+  const name = room.name.trim();
+  const roomNumber = room.roomNumber?.trim();
+  if (!roomNumber) return name;
+  if (!name) return roomNumber;
+  return `${roomNumber} • ${name}`;
+}
+
+/**
+ * Resolve explicit room capabilities for a department at a UnitSpace.
+ * Floors and neighborhoods are physical structure only; rooms do not inherit
+ * department responsibilities from parent Units.
  */
 export function resolveEffectiveCapabilities(
   departmentId: string,
   spaceResponsibilities: { departmentId: string; capabilities: string[] }[],
-  unitResponsibilities: { department: { id: string }; capabilities: string[] }[],
-): { capabilities: string[]; source: "direct" | "inherited" } | null {
+  unitResponsibilities: { department: { id: string }; capabilities: string[] }[] = [],
+): { capabilities: string[]; source: "direct" } | null {
+  void unitResponsibilities;
   const explicit = spaceResponsibilities.find(
     (r) => r.departmentId === departmentId,
   );
   if (explicit) {
     return { capabilities: explicit.capabilities, source: "direct" };
-  }
-
-  const inherited = unitResponsibilities.find(
-    (r) => r.department.id === departmentId,
-  );
-  if (inherited) {
-    return { capabilities: inherited.capabilities, source: "inherited" };
   }
 
   return null;

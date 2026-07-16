@@ -775,6 +775,7 @@ model UnitSpace {
   spaceType        SpaceType
   /// User-facing type label when it differs from the canonical SpaceType label (presets / Custom).
   customTypeLabel  String?
+  roomNumber       String?
   code             String?
   isActive         Boolean                   @default(true)
   sortOrder        Int                       @default(100)
@@ -787,8 +788,8 @@ model UnitSpace {
   @@index([unitId, isActive, sortOrder])
 }
 
-/// Department responsibility override at the room/space level.
-/// When present, replaces (does not merge with) inherited unit-level capabilities.
+/// Department responsibility assigned directly at the room/space level.
+/// Rooms do not inherit department responsibility from floors or neighborhoods.
 model UnitSpaceResponsibility {
   id           String     @id @default(cuid())
   spaceId      String

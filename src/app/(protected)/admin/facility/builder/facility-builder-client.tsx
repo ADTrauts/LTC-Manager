@@ -57,6 +57,10 @@ import type {
 import {
   CAPABILITY_KEYS,
   CAPABILITY_LABELS,
+  PLANT_FACILITY_WIDE_ACCESS_NOTE,
+  ROOM_RESPONSIBILITY_EMPTY_MESSAGE,
+  ROOM_RESPONSIBILITY_HELP_TEXT,
+  formatRoomDisplayName,
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   resolveBuilderNodeDisplayKind,
@@ -1557,7 +1561,11 @@ function TreeSpaceNode({
             />
           ) : (
             <span className={`text-sm ${!space.isActive ? "opacity-40 line-through" : ""}`}>
-              <HighlightedText text={space.name} query={searchQuery} selected={isSelected} />
+              <HighlightedText
+                text={formatRoomDisplayName(space)}
+                query={searchQuery}
+                selected={isSelected}
+              />
             </span>
           )}
         </button>
@@ -1854,7 +1862,7 @@ function UnitEditor({
                 <span className="flex items-center gap-2">
                   <DoorOpen className="h-3.5 w-3.5 text-zinc-400" />
                   <span className={`text-zinc-800 ${!s.isActive ? "opacity-50" : ""}`}>
-                    {s.name}
+                    {formatRoomDisplayName(s)}
                   </span>
                   <span className="text-xs text-zinc-400">
                     {resolveSpaceTypeDisplayLabel({
@@ -1865,8 +1873,8 @@ function UnitEditor({
                 </span>
                 <span className="text-xs text-zinc-400">
                   {s.responsibilities.length > 0
-                    ? `${s.responsibilities.length} override${s.responsibilities.length !== 1 ? "s" : ""}`
-                    : "Inherits"}
+                    ? `${s.responsibilities.length} responsibilit${s.responsibilities.length !== 1 ? "ies" : "y"}`
+                    : "No responsibilities"}
                 </span>
               </li>
             ))}
@@ -1924,9 +1932,7 @@ function SpaceEditor({
   isUndesignated?: boolean;
 }) {
   const [showResps, setShowResps] = useState(false);
-  const totalResps =
-    space.responsibilities.length +
-    (parentUnit?.departmentResponsibilities.length ?? 0);
+  const totalResps = space.responsibilities.length;
 
   return (
     <div className="space-y-4">
@@ -1935,7 +1941,9 @@ function SpaceEditor({
       {/* Header card */}
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="px-5 py-4">
-          <h2 className="text-xl font-semibold text-zinc-900">{space.name}</h2>
+          <h2 className="text-xl font-semibold text-zinc-900">
+            {formatRoomDisplayName(space)}
+          </h2>
           <div className="mt-1.5 flex items-center gap-3 text-sm text-zinc-500">
             <span className="inline-flex items-center gap-1">
               <DoorOpen className="h-3.5 w-3.5" />
@@ -1965,11 +1973,12 @@ function SpaceEditor({
               <input type="hidden" name="unitId" value={parentUnit.id} />
             )}
             <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Name
+              Room name
               <input
                 name="name"
                 defaultValue={space.name}
                 required
+                placeholder="e.g. Resident Room, Servery, Mechanical Room"
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
               />
             </label>
@@ -1982,6 +1991,16 @@ function SpaceEditor({
                 defaultCustomLabel={space.customTypeLabel ?? ""}
               />
             </div>
+            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+              Room number
+              <input
+                name="roomNumber"
+                defaultValue={space.roomNumber ?? ""}
+                placeholder="e.g. 101, 32A, B-12"
+                maxLength={32}
+                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+              />
+            </label>
             <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Code
               <input
@@ -2040,7 +2059,7 @@ function SpaceEditor({
         </div>
       </div>
 
-      {/* Responsibility inheritance section */}
+      {/* Room responsibility section */}
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <button
           type="button"
@@ -2208,108 +2227,40 @@ function AddUnitResponsibilityForm({
 }
 
 // ---------------------------------------------------------------------------
-// Space responsibility editor with inheritance
+// Space responsibility editor (explicit room responsibilities)
 // ---------------------------------------------------------------------------
 
 function SpaceResponsibilityEditor({
   space,
-  parentUnit,
   departments,
 }: {
   space: SpaceView;
   parentUnit: UnitHierarchyNode | null;
   departments: { id: string; key: string; name: string }[];
 }) {
-  const allDeptIds = new Set<string>();
-  for (const r of parentUnit?.departmentResponsibilities ?? []) allDeptIds.add(r.department.id);
-  for (const r of space.responsibilities) allDeptIds.add(r.department.id);
-
-  const deptMap = new Map(departments.map((d) => [d.id, d]));
-  const spaceRespByDept = new Map(space.responsibilities.map((r) => [r.department.id, r]));
-
-  const effectiveRows: {
-    departmentId: string;
-    departmentName: string;
-    source: "direct" | "inherited" | "override";
-    capabilities: string[];
-    responsibilityId?: string;
-    unitKind?: UnitDepartmentKind;
-  }[] = [];
-
-  for (const deptId of allDeptIds) {
-    const dept = deptMap.get(deptId);
-    if (!dept) continue;
-
-    const spaceResp = spaceRespByDept.get(deptId);
-    const unitResp = parentUnit?.departmentResponsibilities.find(
-      (r) => r.department.id === deptId,
-    );
-
-    if (spaceResp) {
-      effectiveRows.push({
-        departmentId: deptId,
-        departmentName: dept.name,
-        source: unitResp ? "override" : "direct",
-        capabilities: spaceResp.capabilities,
-        responsibilityId: spaceResp.id,
-        unitKind: unitResp?.kind,
-      });
-    } else if (unitResp) {
-      effectiveRows.push({
-        departmentId: deptId,
-        departmentName: dept.name,
-        source: "inherited",
-        capabilities: unitResp.capabilities,
-        unitKind: unitResp.kind,
-      });
-    }
-  }
-
-  const overridableDepts = departments.filter((d) => !spaceRespByDept.has(d.id));
+  const assignedDeptIds = new Set(space.responsibilities.map((r) => r.department.id));
+  const available = departments.filter((d) => !assignedDeptIds.has(d.id));
 
   return (
     <div>
-      <p className="text-xs text-zinc-500">
-        {parentUnit
-          ? "Rooms inherit responsibilities from their neighborhood. Add an override to change capabilities at this room."
-          : "Assign departments directly to this room, or move it to a neighborhood to inherit responsibilities."}
-      </p>
+      <p className="text-xs text-zinc-500">{ROOM_RESPONSIBILITY_HELP_TEXT}</p>
 
       <ul className="mt-3 space-y-2">
-        {effectiveRows.map((row) => (
-          <li key={row.departmentId} className="rounded-lg border border-zinc-200 bg-zinc-50/60 px-3 py-2.5">
+        {space.responsibilities.map((row) => (
+          <li key={row.department.id} className="rounded-lg border border-zinc-200 bg-zinc-50/60 px-3 py-2.5">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <span className="text-sm font-medium text-zinc-800">{row.departmentName}</span>
-                {row.unitKind && (
-                  <span className="ml-1.5 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
-                    {KIND_LABELS[row.unitKind]}
-                  </span>
-                )}
-                <span
-                  className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                    row.source === "inherited"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : row.source === "override"
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-blue-50 text-blue-700"
-                  }`}
-                >
-                  {row.source === "inherited"
-                    ? "Inherited"
-                    : row.source === "override"
-                      ? "Override"
-                      : "Direct"}
+                <span className="text-sm font-medium text-zinc-800">{row.department.name}</span>
+                <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                  Direct
                 </span>
               </div>
-              {row.responsibilityId && (
-                <form action={deleteBuilderSpaceResponsibilityAction}>
-                  <input type="hidden" name="responsibilityId" value={row.responsibilityId} />
-                  <button type="submit" className="text-xs text-red-600 hover:underline">
-                    Remove override
-                  </button>
-                </form>
-              )}
+              <form action={deleteBuilderSpaceResponsibilityAction}>
+                <input type="hidden" name="responsibilityId" value={row.id} />
+                <button type="submit" className="text-xs text-red-600 hover:underline">
+                  Remove
+                </button>
+              </form>
             </div>
             {row.capabilities.length > 0 ? (
               <div className="mt-1.5 flex flex-wrap gap-1">
@@ -2324,24 +2275,22 @@ function SpaceResponsibilityEditor({
               </div>
             ) : (
               <p className="mt-1 text-[10px] text-zinc-400">
-                {row.source === "inherited"
-                  ? "No capabilities on parent — legacy full access"
-                  : "Empty override — no operational access at this room"}
+                No capabilities selected for this department yet.
               </p>
             )}
           </li>
         ))}
-        {effectiveRows.length === 0 && (
-          <li className="text-xs text-zinc-500">
-            {parentUnit
-              ? "No department responsibilities. Assign departments to the parent neighborhood first."
-              : "No department responsibilities assigned yet."}
-          </li>
+        {space.responsibilities.length === 0 && (
+          <li className="text-xs text-zinc-500">{ROOM_RESPONSIBILITY_EMPTY_MESSAGE}</li>
         )}
       </ul>
 
-      {overridableDepts.length > 0 && (parentUnit?.departmentResponsibilities.length ?? 0) > 0 && (
-        <AddSpaceResponsibilityForm spaceId={space.id} available={overridableDepts} />
+      <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
+        {PLANT_FACILITY_WIDE_ACCESS_NOTE}
+      </p>
+
+      {available.length > 0 && (
+        <AddSpaceResponsibilityForm spaceId={space.id} available={available} />
       )}
     </div>
   );
@@ -2360,7 +2309,7 @@ function AddSpaceResponsibilityForm({
       className="mt-4 space-y-3 rounded-lg border border-dashed border-zinc-300 p-3"
     >
       <input type="hidden" name="spaceId" value={spaceId} />
-      <p className="text-xs font-medium text-zinc-600">Add capability override</p>
+      <p className="text-xs font-medium text-zinc-600">Add room responsibility</p>
       <select name="departmentId" required className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs">
         {available.map((d) => (
           <option key={d.id} value={d.id}>{d.name}</option>
@@ -2375,13 +2324,13 @@ function AddSpaceResponsibilityForm({
         ))}
       </div>
       <p className="text-[10px] text-zinc-400">
-        Leave all unchecked to explicitly remove access at this room.
+        Leave all unchecked if this department is responsible but no specific capabilities are selected yet.
       </p>
       <button
         type="submit"
         className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
       >
-        Add override
+        Add department
       </button>
     </form>
   );
@@ -2566,11 +2515,20 @@ function CreateSpaceForm({
         <input
           name="name"
           required
-          placeholder="e.g. Room 32A, Servery, Soil Hold"
+          placeholder="e.g. Resident Room, Servery, Soil Hold"
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
       <SpaceTypePresetFields />
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Room number
+        <input
+          name="roomNumber"
+          placeholder="Optional, e.g. 101, 32A, B-12"
+          maxLength={32}
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Code
         <input
@@ -2921,6 +2879,7 @@ function filterUndesignatedSpaces(spaces: SpaceView[], query: string): SpaceView
   return spaces.filter(
     (s) =>
       s.name.toLowerCase().includes(q) ||
+      (s.roomNumber?.toLowerCase().includes(q) ?? false) ||
       (s.code?.toLowerCase().includes(q) ?? false),
   );
 }

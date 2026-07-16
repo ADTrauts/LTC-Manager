@@ -6,6 +6,11 @@ import {
   resolveEffectiveCapabilities,
   CAPABILITY_KEYS,
   CAPABILITY_LABELS,
+  PLANT_FACILITY_WIDE_ACCESS_NOTE,
+  PLANT_MAINTENANCE_ACCESS_POLICY,
+  ROOM_RESPONSIBILITY_EMPTY_MESSAGE,
+  ROOM_RESPONSIBILITY_HELP_TEXT,
+  formatRoomDisplayName,
 } from "./load-facility-hierarchy";
 import {
   resolveBuilderNodeDisplayKind,
@@ -123,16 +128,13 @@ describe("resolveEffectiveCapabilities", () => {
     });
   });
 
-  it("returns inherited capabilities when no space override exists", () => {
+  it("does not inherit capabilities when no room responsibility exists", () => {
     const result = resolveEffectiveCapabilities(
       "plant",
       [],
       [{ department: { id: "plant" }, capabilities: ["BUILDING_MAINTENANCE"] }],
     );
-    assert.deepStrictEqual(result, {
-      capabilities: ["BUILDING_MAINTENANCE"],
-      source: "inherited",
-    });
+    assert.equal(result, null);
   });
 
   it("returns null when department has no responsibility at any level", () => {
@@ -164,6 +166,58 @@ describe("resolveEffectiveCapabilities", () => {
     assert.deepStrictEqual(result, {
       capabilities: ["CLEANING"],
       source: "direct",
+    });
+  });
+
+  it("supports one explicit room department", () => {
+    const result = resolveEffectiveCapabilities(
+      "evs",
+      [{ departmentId: "evs", capabilities: ["CLEANING"] }],
+      [],
+    );
+    assert.deepStrictEqual(result, {
+      capabilities: ["CLEANING"],
+      source: "direct",
+    });
+  });
+
+  it("supports multiple explicit room departments independently", () => {
+    const responsibilities = [
+      { departmentId: "dietary", capabilities: ["MEAL_SERVICE", "FOOD_SAFETY"] },
+      { departmentId: "plant", capabilities: ["BUILDING_MAINTENANCE"] },
+    ];
+    assert.deepStrictEqual(
+      resolveEffectiveCapabilities("dietary", responsibilities, []),
+      { capabilities: ["MEAL_SERVICE", "FOOD_SAFETY"], source: "direct" },
+    );
+    assert.deepStrictEqual(
+      resolveEffectiveCapabilities("plant", responsibilities, []),
+      { capabilities: ["BUILDING_MAINTENANCE"], source: "direct" },
+    );
+  });
+
+  it("room responsibility copy contains no inherited messaging", () => {
+    assert.equal(
+      ROOM_RESPONSIBILITY_HELP_TEXT,
+      "Assign the departments responsible for operational work performed in this room.",
+    );
+    assert.equal(
+      ROOM_RESPONSIBILITY_EMPTY_MESSAGE,
+      "No operational responsibilities have been assigned.",
+    );
+    assert.ok(!ROOM_RESPONSIBILITY_HELP_TEXT.toLowerCase().includes("inherit"));
+    assert.ok(!ROOM_RESPONSIBILITY_EMPTY_MESSAGE.toLowerCase().includes("inherit"));
+  });
+
+  it("documents Plant maintenance access as policy, not room rows", () => {
+    assert.equal(
+      PLANT_FACILITY_WIDE_ACCESS_NOTE,
+      "Plant Operations has facility-wide maintenance access.",
+    );
+    assert.deepStrictEqual(PLANT_MAINTENANCE_ACCESS_POLICY, {
+      departmentKey: "PLANT",
+      scope: "FACILITY_WIDE_PLACED_LOCATIONS",
+      domains: ["BUILDING_MAINTENANCE", "ASSET_MANAGEMENT", "INSPECTIONS", "REPAIRS"],
     });
   });
 });
@@ -202,6 +256,29 @@ describe("CAPABILITY_KEYS", () => {
         );
       }
     }
+  });
+});
+
+describe("room number display", () => {
+  it("formats room number before room name", () => {
+    assert.equal(
+      formatRoomDisplayName({ name: "Resident Room", roomNumber: "32A" }),
+      "32A • Resident Room",
+    );
+  });
+
+  it("keeps legacy room names valid when room number is absent", () => {
+    assert.equal(
+      formatRoomDisplayName({ name: "Resident Room 32A", roomNumber: null }),
+      "Resident Room 32A",
+    );
+  });
+
+  it("trims room number and name", () => {
+    assert.equal(
+      formatRoomDisplayName({ name: "  Servery  ", roomNumber: "  B-12 " }),
+      "B-12 • Servery",
+    );
   });
 });
 
@@ -599,6 +676,14 @@ describe("hierarchy search — Terrace View fixture", () => {
     assert.ok(result.matchCount >= 1);
     assert.ok(
       result.units[0]!.childUnits[0]!.childSpaces.some((s) => s.code === "SRV"),
+    );
+  });
+
+  it("matches room numbers case-insensitively", () => {
+    const result = filterHierarchyForSearch(tree, "32a");
+    assert.ok(result.matchCount >= 1);
+    assert.ok(
+      result.units[0]!.childUnits[0]!.childSpaces.some((s) => s.roomNumber === "32A"),
     );
   });
 

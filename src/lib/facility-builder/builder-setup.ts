@@ -164,7 +164,7 @@ export type SearchableUnit = {
   parentUnitId: string | null;
   hierarchyRole?: HierarchyRoleValue;
   childUnits: SearchableUnit[];
-  childSpaces: { id: string; name: string; code: string | null }[];
+  childSpaces: { id: string; name: string; roomNumber?: string | null; code: string | null }[];
 };
 
 export type HierarchySearchResult<T extends SearchableUnit> = {
@@ -206,7 +206,10 @@ export function filterHierarchyForSearch<T extends SearchableUnit>(
   function visit(unit: T): T | null {
     const nameMatch = matchesQuery(unit.name, q);
     const spaces = unit.childSpaces.filter(
-      (s) => matchesQuery(s.name, q) || matchesQuery(s.code, q),
+      (s) =>
+        matchesQuery(s.name, q) ||
+        matchesQuery(s.roomNumber, q) ||
+        matchesQuery(s.code, q),
     );
     const children: T[] = [];
     for (const child of unit.childUnits) {
@@ -436,9 +439,9 @@ export function terraceViewFixture(): SearchableUnit[] {
           hierarchyRole: "NEIGHBORHOOD",
           childUnits: [],
           childSpaces: [
-            { id: "sp-servery", name: "Servery", code: "SRV" },
-            { id: "sp-32a", name: "Patient Room 32A", code: "32A" },
-            { id: "sp-33a", name: "Patient Room 33A", code: "33A" },
+            { id: "sp-servery", name: "Servery", roomNumber: null, code: "SRV" },
+            { id: "sp-32a", name: "Patient Room 32A", roomNumber: "32A", code: "32A" },
+            { id: "sp-33a", name: "Patient Room 33A", roomNumber: "33A", code: "33A" },
             { id: "sp-soil", name: "Soil Hold", code: null },
             { id: "sp-clean", name: "Clean Hold", code: null },
           ],
