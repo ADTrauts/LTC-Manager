@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { UnitType, SpaceType, UnitDepartmentKind } from "@prisma/client";
+import type { UnitType, SpaceType, UnitDepartmentKind, UnitHierarchyRole } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,6 +36,7 @@ export type UnitHierarchyNode = {
   id: string;
   name: string;
   unitType: UnitType;
+  hierarchyRole: UnitHierarchyRole | null;
   parentUnitId: string | null;
   isActive: boolean;
   displayOrder: number;
@@ -71,6 +72,7 @@ export async function loadFacilityHierarchy(
         id: true,
         name: true,
         unitType: true,
+        hierarchyRole: true,
         parentUnitId: true,
         isActive: true,
         displayOrder: true,

@@ -431,6 +431,14 @@ enum UnitType {
   GROUND
 }
 
+/// Facility Builder hierarchy placement. Independent of operational UnitType.
+/// Null = pre-existing record; Builder resolves via parentUnitId compatibility fallback.
+enum UnitHierarchyRole {
+  FLOOR
+  NEIGHBORHOOD
+  LEGACY_LOCATION
+}
+
 enum UnitDepartmentKind {
   PRIMARY
   BACKUP
@@ -691,6 +699,8 @@ model Unit {
   facility                   Facility                            @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   name                       String
   unitType                   UnitType
+  /// Explicit Facility Builder role. Null for legacy records (compatibility fallback applies).
+  hierarchyRole              UnitHierarchyRole?
   parentUnitId               String?
   parentUnit                 Unit?                               @relation("UnitHierarchy", fields: [parentUnitId], references: [id], onDelete: SetNull)
   childUnits                 Unit[]                              @relation("UnitHierarchy")
@@ -727,6 +737,7 @@ model Unit {
   @@index([parentUnitId])
   @@index([isActive, displayOrder])
   @@index([facilityId])
+  @@index([hierarchyRole])
 }
 
 /// Which department(s) are responsible for a unit (primary/backup/support).

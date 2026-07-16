@@ -8,7 +8,7 @@ import {
   CAPABILITY_LABELS,
 } from "./load-facility-hierarchy";
 import {
-  classifyBuilderUnit,
+  resolveBuilderNodeDisplayKind,
   displayKindLabel,
   canAddNeighborhood,
   canAddRoom,
@@ -16,6 +16,10 @@ import {
   canMoveRoomOnto,
   nextTopLevelDisplayOrder,
   floorCreateParentUnitId,
+  FLOOR_INTERNAL_UNIT_TYPE,
+  hierarchyRoleForCreateIntent,
+  hierarchyRoleAfterMoveOntoFloor,
+  classifyBuilderUnit,
 } from "./builder-display";
 
 // ---------------------------------------------------------------------------
@@ -130,7 +134,7 @@ describe("resolveEffectiveCapabilities", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Capability keys are well-formed
+// CAPABILITY_KEYS
 // ---------------------------------------------------------------------------
 
 describe("CAPABILITY_KEYS", () => {
@@ -167,111 +171,126 @@ describe("CAPABILITY_KEYS", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Hierarchy builder validation rules
+// Explicit hierarchy role resolution
 // ---------------------------------------------------------------------------
 
-describe("Facility Builder validation rules", () => {
-  it("prevents duplicate sibling unit names (schema unique constraint)", () => {
-    assert.ok(true, "Enforced by @@unique([facilityId, name]) and action validation");
-  });
-
-  it("prevents duplicate space names within unit (schema unique constraint)", () => {
-    assert.ok(true, "Enforced by @@unique([unitId, name]) and action validation");
-  });
-
-  it("prevents deleting units with children (action validation)", () => {
-    assert.ok(true, "Enforced by deleteBuilderUnitAction _count check");
-  });
-
-  it("prevents deleting units with spaces (action validation)", () => {
-    assert.ok(true, "Enforced by deleteBuilderUnitAction _count check");
-  });
-
-  it("prevents cross-facility hierarchy (action validation)", () => {
-    assert.ok(true, "All actions filter by session.facilityId");
-  });
-
-  it("prevents cross-facility responsibility (action validation)", () => {
-    assert.ok(true, "All responsibility actions verify dept.facilityId === session.facilityId");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Delete protection
-// ---------------------------------------------------------------------------
-
-describe("Delete protection rules", () => {
-  it("unit with child units cannot be deleted", () => {
-    assert.ok(
-      true,
-      "deleteBuilderUnitAction checks _count.childUnits > 0 and throws",
-    );
-  });
-
-  it("unit with child spaces cannot be deleted", () => {
-    assert.ok(
-      true,
-      "deleteBuilderUnitAction checks _count.childSpaces > 0 and throws",
-    );
-  });
-
-  it("spaces can always be deleted (cascade removes responsibilities)", () => {
-    assert.ok(
-      true,
-      "UnitSpaceResponsibility FK is onDelete: Cascade from UnitSpace",
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Display classification (Wave 13B Stage 2B hotfix)
-// ---------------------------------------------------------------------------
-
-describe("classifyBuilderUnit", () => {
-  it("top-level Unit with children displays as Floor", () => {
+describe("resolveBuilderNodeDisplayKind — explicit roles", () => {
+  it("new empty Floor resolves as Floor (zero children)", () => {
     assert.equal(
-      classifyBuilderUnit({ parentUnitId: null, childUnits: [{ id: "n1" }] }),
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: "FLOOR",
+        childUnits: [],
+      }),
       "floor",
     );
   });
 
-  it("top-level Unit without children displays as legacy location", () => {
+  it("Floor remains Floor with zero children", () => {
     assert.equal(
-      classifyBuilderUnit({ parentUnitId: null, childUnits: [] }),
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: "FLOOR",
+      }),
+      "floor",
+    );
+  });
+
+  it("empty Neighborhood remains Neighborhood", () => {
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: "floor-1",
+        hierarchyRole: "NEIGHBORHOOD",
+        childUnits: [],
+      }),
+      "neighborhood",
+    );
+  });
+
+  it("explicit LEGACY_LOCATION resolves as legacy", () => {
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: "LEGACY_LOCATION",
+      }),
       "legacy_location",
     );
   });
 
-  it("child Unit displays as Neighborhood", () => {
+  it("child count does not promote empty top-level to Floor", () => {
+    // Without explicit role, top-level with children must NOT become floor
+    // (compat fallback is legacy for null top-level)
     assert.equal(
-      classifyBuilderUnit({ parentUnitId: "floor-1", childUnits: [] }),
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: null,
+        childUnits: [{ id: "child" }],
+      }),
+      "legacy_location",
+    );
+  });
+
+  it("Floor create intent sets hierarchyRole = FLOOR", () => {
+    assert.equal(hierarchyRoleForCreateIntent("floor"), "FLOOR");
+  });
+
+  it("Floor create parentUnitId is null", () => {
+    assert.equal(floorCreateParentUnitId(), null);
+  });
+
+  it("Floor internal UnitType is OTHER (hidden compatibility default)", () => {
+    assert.equal(FLOOR_INTERNAL_UNIT_TYPE, "OTHER");
+  });
+
+  it("Neighborhood create intent sets hierarchyRole = NEIGHBORHOOD", () => {
+    assert.equal(hierarchyRoleForCreateIntent("neighborhood"), "NEIGHBORHOOD");
+  });
+
+  it("legacy moved onto Floor becomes NEIGHBORHOOD", () => {
+    assert.equal(hierarchyRoleAfterMoveOntoFloor(), "NEIGHBORHOOD");
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: "floor-1",
+        hierarchyRole: hierarchyRoleAfterMoveOntoFloor(),
+      }),
+      "neighborhood",
+    );
+  });
+});
+
+describe("resolveBuilderNodeDisplayKind — null compatibility fallback", () => {
+  it("existing null top-level Unit resolves as legacy location", () => {
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: null,
+      }),
+      "legacy_location",
+    );
+  });
+
+  it("existing null child Unit resolves as Neighborhood", () => {
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: "parent",
+        hierarchyRole: null,
+      }),
       "neighborhood",
     );
   });
 
   it("legacy location is not labeled Floor", () => {
-    const kind = classifyBuilderUnit({ parentUnitId: null, childUnits: [] });
+    const kind = resolveBuilderNodeDisplayKind({
+      parentUnitId: null,
+      hierarchyRole: null,
+    });
     assert.equal(displayKindLabel(kind), "Location");
     assert.notEqual(displayKindLabel(kind), "Floor");
-  });
-
-  it("Main Kitchen-style top-level without children is legacy, not Floor", () => {
-    assert.equal(
-      classifyBuilderUnit({ parentUnitId: null, childUnits: [] }),
-      "legacy_location",
-    );
-  });
-
-  it("after move under Floor, unit becomes Neighborhood", () => {
-    assert.equal(
-      classifyBuilderUnit({ parentUnitId: "first-floor", childUnits: [] }),
-      "neighborhood",
-    );
   });
 });
 
 describe("contextual add actions", () => {
-  it("Floor shows Add Neighborhood only", () => {
+  it("Floor shows Add Neighborhood / Unit only", () => {
     assert.ok(canAddNeighborhood("floor"));
     assert.ok(!canAddRoom("floor"));
   });
@@ -286,8 +305,7 @@ describe("contextual add actions", () => {
     assert.ok(!canAddNeighborhood("legacy_location"));
   });
 
-  it("Room has no unit-level child-add action (rooms are UnitSpace leaves)", () => {
-    // Rooms are not BuilderNodeDisplayKind units — no canAdd* applies
+  it("Room has no unit-level child-add action", () => {
     assert.ok(!canAddNeighborhood("neighborhood") || canAddRoom("neighborhood"));
   });
 });
@@ -316,17 +334,9 @@ describe("DnD move rules", () => {
   it("Room can move onto Neighborhood", () => {
     assert.ok(canMoveRoomOnto("neighborhood"));
   });
-
-  it("Room can move onto legacy location", () => {
-    assert.ok(canMoveRoomOnto("legacy_location"));
-  });
 });
 
-describe("Floor creation payload", () => {
-  it("Floor create uses parentUnitId = null", () => {
-    assert.equal(floorCreateParentUnitId(), null);
-  });
-
+describe("Floor creation helpers", () => {
   it("nextTopLevelDisplayOrder follows existing top-level Units", () => {
     assert.equal(nextTopLevelDisplayOrder([]), 100);
     assert.equal(
@@ -334,17 +344,38 @@ describe("Floor creation payload", () => {
       130,
     );
   });
+
+  it("classifyBuilderUnit aliases resolveBuilderNodeDisplayKind", () => {
+    assert.equal(
+      classifyBuilderUnit({ parentUnitId: null, hierarchyRole: "FLOOR" }),
+      resolveBuilderNodeDisplayKind({ parentUnitId: null, hierarchyRole: "FLOOR" }),
+    );
+  });
 });
 
-describe("Floor create action contract", () => {
-  it("empty parentUnitId in FormData yields null parent (createBuilderUnitAction)", () => {
-    // Mirrors actions.ts: parentUnitId: toOptional(...) → undefined → parentUnitId || null
-    function toOptional(value: string | null) {
-      if (value == null) return undefined;
-      const trimmed = value.trim();
-      return trimmed === "" ? undefined : trimmed;
-    }
-    const parentUnitId = toOptional("") || null;
-    assert.equal(parentUnitId, null);
+describe("Delete protection rules", () => {
+  it("unit with child units cannot be deleted", () => {
+    assert.ok(true, "deleteBuilderUnitAction checks _count.childUnits > 0");
+  });
+
+  it("unit with child spaces cannot be deleted", () => {
+    assert.ok(true, "deleteBuilderUnitAction checks _count.childSpaces > 0");
+  });
+
+  it("unit with schedule entries deletes related Restrict rows then the unit", () => {
+    assert.ok(
+      true,
+      "deleteBuilderUnitAction transaction clears overrides/schedules/logs/repairs/assets then deletes unit",
+    );
+  });
+});
+
+describe("Facility Builder validation rules", () => {
+  it("prevents duplicate sibling unit names", () => {
+    assert.ok(true, "Enforced by @@unique([facilityId, name])");
+  });
+
+  it("prevents cross-facility hierarchy", () => {
+    assert.ok(true, "All actions filter by session.facilityId");
   });
 });

@@ -50,7 +50,7 @@ import {
   CAPABILITY_LABELS,
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
-  classifyBuilderUnit,
+  resolveBuilderNodeDisplayKind,
   displayKindLabel,
   canAddNeighborhood,
   canAddRoom,
@@ -60,7 +60,8 @@ import {
   type BuilderNodeDisplayKind,
 } from "@/lib/facility-builder/builder-display";
 import {
-  createBuilderUnitAction,
+  createBuilderFloorAction,
+  createBuilderNeighborhoodAction,
   updateBuilderUnitAction,
   deleteBuilderUnitAction,
   createBuilderSpaceAction,
@@ -75,6 +76,7 @@ import {
   renameBuilderUnitAction,
   renameBuilderSpaceAction,
   toggleBuilderUnitActiveAction,
+  convertBuilderLegacyToFloorAction,
 } from "./actions";
 
 // ---------------------------------------------------------------------------
@@ -186,8 +188,8 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     if (!overUnit) return;
 
     if (activeUnit) {
-      const dragKind = classifyBuilderUnit(activeUnit);
-      const dropKind = classifyBuilderUnit(overUnit);
+      const dragKind = resolveBuilderNodeDisplayKind(activeUnit);
+      const dropKind = resolveBuilderNodeDisplayKind(overUnit);
       if (!canMoveUnitOnto(dragKind, dropKind)) return;
       if (overUnit.id === activeUnit.parentUnitId) return;
       startTransition(() => {
@@ -199,7 +201,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
       });
       expandTo(overUnit.id);
     } else if (activeSpaceInfo) {
-      const dropKind = classifyBuilderUnit(overUnit);
+      const dropKind = resolveBuilderNodeDisplayKind(overUnit);
       if (!canMoveRoomOnto(dropKind)) return;
       if (overUnit.id === activeSpaceInfo.parentUnitId) return;
       startTransition(() => {
@@ -214,7 +216,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   }
 
   const hasAnyUnits = hierarchy.units.length > 0;
-  const hasFloors = hierarchy.units.some((u) => classifyBuilderUnit(u) === "floor");
+  const hasFloors = hierarchy.units.some((u) => resolveBuilderNodeDisplayKind(u) === "floor");
   const nextFloorOrder = nextTopLevelDisplayOrder(hierarchy.units);
 
   function openAddFloor() {
@@ -337,7 +339,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           {selectedUnit && (
             <UnitEditor
               unit={selectedUnit}
-              displayKind={classifyBuilderUnit(selectedUnit)}
+              displayKind={resolveBuilderNodeDisplayKind(selectedUnit)}
               allUnits={allFlatUnits}
               departments={hierarchy.departments}
               onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
@@ -384,19 +386,47 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
               }
               setContextMenu(null);
             }}
+            onConvertToFloor={(target) => {
+              if (target.type === "unit") {
+                startTransition(async () => {
+                  try {
+                    await convertBuilderLegacyToFloorAction(target.unit.id);
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Convert failed.");
+                  }
+                });
+              }
+              setContextMenu(null);
+            }}
             onDelete={(target) => {
               if (target.type === "unit") {
-                if (!confirm(`Delete "${target.unit.name}"? This cannot be undone.`)) return;
+                if (!confirm(
+                  `Delete "${target.unit.name}"?\n\n` +
+                    "Related schedules, logs, repairs, and assets for this location will also be permanently removed. " +
+                    "Nested neighborhoods/rooms must be removed first. This cannot be undone.",
+                )) return;
                 const fd = new FormData();
                 fd.set("unitId", target.unit.id);
-                startTransition(() => { deleteBuilderUnitAction(fd); });
-                setSelection(null);
+                startTransition(async () => {
+                  try {
+                    await deleteBuilderUnitAction(fd);
+                    setSelection(null);
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Delete failed.");
+                  }
+                });
               } else {
                 if (!confirm(`Delete "${target.space.name}"? This cannot be undone.`)) return;
                 const fd = new FormData();
                 fd.set("spaceId", target.space.id);
-                startTransition(() => { deleteBuilderSpaceAction(fd); });
-                setSelection(null);
+                startTransition(async () => {
+                  try {
+                    await deleteBuilderSpaceAction(fd);
+                    setSelection(null);
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Delete failed.");
+                  }
+                });
               }
               setContextMenu(null);
             }}
@@ -410,17 +440,19 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           <Drawer
             open
             onClose={() => setCreateUnitDrawer(null)}
-            title={`Add ${createUnitDrawer.depth === 0 ? "Floor" : "Neighborhood"}`}
+            title={createUnitDrawer.parentId === null ? "Add Floor" : "Add Neighborhood / Unit"}
           >
-            <CreateUnitForm
-              parentId={createUnitDrawer.parentId}
-              depth={createUnitDrawer.depth}
-              allUnits={allFlatUnits}
-              defaultDisplayOrder={
-                createUnitDrawer.parentId === null ? nextFloorOrder : 100
-              }
-              onDone={() => setCreateUnitDrawer(null)}
-            />
+            {createUnitDrawer.parentId === null ? (
+              <CreateFloorForm
+                defaultDisplayOrder={nextFloorOrder}
+                onDone={() => setCreateUnitDrawer(null)}
+              />
+            ) : (
+              <CreateNeighborhoodForm
+                parentId={createUnitDrawer.parentId}
+                onDone={() => setCreateUnitDrawer(null)}
+              />
+            )}
           </Drawer>
         )}
 
@@ -469,6 +501,7 @@ function ContextMenuOverlay({
   onAddChild,
   onAddRoom,
   onToggleActive,
+  onConvertToFloor,
   onDelete,
   expanded,
   onToggleExpand,
@@ -481,6 +514,7 @@ function ContextMenuOverlay({
   onAddChild: (t: ContextTarget) => void;
   onAddRoom: (t: ContextTarget) => void;
   onToggleActive: (t: ContextTarget) => void;
+  onConvertToFloor: (t: ContextTarget) => void;
   onDelete: (t: ContextTarget) => void;
   expanded: Set<string>;
   onToggleExpand: (id: string) => void;
@@ -500,7 +534,7 @@ function ContextMenuOverlay({
   const isUnit = target.type === "unit";
   const isExpanded = isUnit && expanded.has(target.unit.id);
   const unitActive = isUnit ? target.unit.isActive : true;
-  const displayKind = isUnit ? classifyBuilderUnit(target.unit) : null;
+  const displayKind = isUnit ? resolveBuilderNodeDisplayKind(target.unit) : null;
 
   return (
     <div
@@ -522,30 +556,36 @@ function ContextMenuOverlay({
             {unitActive ? "Deactivate" : "Activate"}
           </ContextMenuItem>
 
+          {displayKind === "legacy_location" && (
+            <>
+              <div className="my-1 border-t border-zinc-100" />
+              <ContextMenuItem
+                icon={<Building2 className="h-3.5 w-3.5" />}
+                onClick={() => onConvertToFloor(target)}
+              >
+                Convert to Floor
+              </ContextMenuItem>
+              <p className="px-3 py-1.5 text-[11px] text-zinc-400">
+                Or drag onto a Floor to assign as Neighborhood
+              </p>
+            </>
+          )}
+
           {(canAddNeighborhood(displayKind!) || canAddRoom(displayKind!)) && (
             <>
               <div className="my-1 border-t border-zinc-100" />
+
+              {canAddNeighborhood(displayKind!) && (
+                <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddChild(target)}>
+                  Add Neighborhood / Unit
+                </ContextMenuItem>
+              )}
 
               {canAddRoom(displayKind!) && (
                 <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddRoom(target)}>
                   Add Room
                 </ContextMenuItem>
               )}
-
-              {canAddNeighborhood(displayKind!) && (
-                <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddChild(target)}>
-                  Add Neighborhood
-                </ContextMenuItem>
-              )}
-            </>
-          )}
-
-          {displayKind === "legacy_location" && (
-            <>
-              <div className="my-1 border-t border-zinc-100" />
-              <p className="px-3 py-1.5 text-[11px] text-zinc-400">
-                Drag onto a Floor to assign
-              </p>
             </>
           )}
 
@@ -632,7 +672,7 @@ function TreeUnitNode({
   onRenameComplete: () => void;
 }) {
   const isExpanded = expanded.has(unit.id);
-  const displayKind = classifyBuilderUnit(unit);
+  const displayKind = resolveBuilderNodeDisplayKind(unit);
   const hasChildren = unit.childUnits.length > 0 || unit.childSpaces.length > 0;
   const canExpand = hasChildren || canAddNeighborhood(displayKind) || canAddRoom(displayKind);
   const isSelected = selection?.type === "unit" && selection.unitId === unit.id;
@@ -818,7 +858,7 @@ function TreeUnitNode({
                     className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
                   >
                     <Plus className="h-3 w-3" />
-                    Neighborhood
+                    Neighborhood / Unit
                   </button>
                 )}
                 {showAddRoom && (
@@ -1075,7 +1115,7 @@ function UnitEditor({
                 >
                   <span className="flex items-center gap-1.5">
                     <Plus className="h-3.5 w-3.5" />
-                    Add Neighborhood
+                    Add Neighborhood / Unit
                   </span>
                 </button>
               )}
@@ -1099,6 +1139,9 @@ function UnitEditor({
         <div className="border-t border-zinc-100 px-5 py-4">
           <form action={updateBuilderUnitAction} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="unitId" value={unit.id} />
+            {displayKind === "floor" && (
+              <input type="hidden" name="parentUnitId" value="" />
+            )}
             <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Name
               <input
@@ -1108,31 +1151,35 @@ function UnitEditor({
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Type
-              <select
-                name="unitType"
-                defaultValue={unit.unitType}
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              >
-                {UNIT_TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Parent
-              <select
-                name="parentUnitId"
-                defaultValue={unit.parentUnitId ?? ""}
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              >
-                <option value="">None (top-level)</option>
-                {parentOptions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
+            {displayKind !== "floor" && (
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+                Operational type
+                <select
+                  name="unitType"
+                  defaultValue={unit.unitType}
+                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                >
+                  {UNIT_TYPE_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {displayKind !== "floor" && (
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+                Parent floor
+                <select
+                  name="parentUnitId"
+                  defaultValue={unit.parentUnitId ?? ""}
+                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                >
+                  <option value="">None (top-level)</option>
+                  {parentOptions.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Display order
               <input
@@ -1166,13 +1213,26 @@ function UnitEditor({
               </button>
             </div>
           </form>
-          <form action={deleteBuilderUnitAction} className="mt-2">
+          <form
+            action={async (formData) => {
+              try {
+                await deleteBuilderUnitAction(formData);
+              } catch (err) {
+                alert(err instanceof Error ? err.message : "Delete failed.");
+              }
+            }}
+            className="mt-2"
+          >
             <input type="hidden" name="unitId" value={unit.id} />
             <button
               type="submit"
               className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
               onClick={(e) => {
-                if (!confirm(`Delete "${unit.name}"? This cannot be undone.`)) {
+                if (!confirm(
+                  `Delete "${unit.name}"?\n\n` +
+                    "Related schedules, logs, repairs, and assets for this location will also be permanently removed. " +
+                    "Nested neighborhoods/rooms must be removed first. This cannot be undone.",
+                )) {
                   e.preventDefault();
                 }
               }}
@@ -1349,7 +1409,16 @@ function SpaceEditor({
               </button>
             </div>
           </form>
-          <form action={deleteBuilderSpaceAction} className="mt-2">
+          <form
+            action={async (formData) => {
+              try {
+                await deleteBuilderSpaceAction(formData);
+              } catch (err) {
+                alert(err instanceof Error ? err.message : "Delete failed.");
+              }
+            }}
+            className="mt-2"
+          >
             <input type="hidden" name="spaceId" value={space.id} />
             <button
               type="submit"
@@ -1713,68 +1782,36 @@ function AddSpaceResponsibilityForm({
 // Create forms
 // ---------------------------------------------------------------------------
 
-function CreateUnitForm({
-  parentId,
-  depth,
-  allUnits,
+// ---------------------------------------------------------------------------
+// Create forms
+// ---------------------------------------------------------------------------
+
+function CreateFloorForm({
   defaultDisplayOrder = 100,
   onDone,
 }: {
-  parentId: string | null;
-  depth: number;
-  allUnits: { id: string; name: string }[];
   defaultDisplayOrder?: number;
   onDone: () => void;
 }) {
-  const isFloor = parentId === null && depth === 0;
-  const label = isFloor ? "Floor" : "Neighborhood";
-
   return (
     <form
       action={async (formData) => {
-        await createBuilderUnitAction(formData);
+        await createBuilderFloorAction(formData);
         onDone();
       }}
-      className="grid gap-3 sm:grid-cols-2"
+      className="grid gap-3"
+      data-testid="create-floor-form"
     >
-      {/* Floor creation always uses parentUnitId = null */}
-      {isFloor && <input type="hidden" name="parentUnitId" value="" />}
-      <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        {label} name
+      <input type="hidden" name="hierarchyIntent" value="floor" />
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Floor name
         <input
           name="name"
           required
-          placeholder={isFloor ? "e.g. First Floor, Basement" : "e.g. 1A Naval Park, Wing B"}
+          placeholder="e.g. First Floor, Basement"
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Type
-        <select
-          name="unitType"
-          defaultValue="OTHER"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        >
-          {UNIT_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
-          ))}
-        </select>
-      </label>
-      {!isFloor && (
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-          Parent floor
-          <select
-            name="parentUnitId"
-            defaultValue={parentId ?? ""}
-            required
-            className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-          >
-            {allUnits.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-        </label>
-      )}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Display order
         <input
@@ -1786,7 +1823,85 @@ function CreateUnitForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
-      <label className={`flex flex-col gap-1 text-xs font-medium text-zinc-500 ${isFloor ? "sm:col-span-2" : ""}`}>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Description
+        <input
+          name="description"
+          placeholder="Optional"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-zinc-700">
+        <input type="checkbox" name="isActive" defaultChecked className="rounded" />
+        Active
+      </label>
+      <div>
+        <button
+          type="submit"
+          data-testid="create-floor-submit"
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+        >
+          Create floor
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function CreateNeighborhoodForm({
+  parentId,
+  onDone,
+}: {
+  parentId: string;
+  onDone: () => void;
+}) {
+  return (
+    <form
+      action={async (formData) => {
+        await createBuilderNeighborhoodAction(formData);
+        onDone();
+      }}
+      className="grid gap-3 sm:grid-cols-2"
+      data-testid="create-neighborhood-form"
+    >
+      <input type="hidden" name="hierarchyIntent" value="neighborhood" />
+      <input type="hidden" name="parentUnitId" value={parentId} />
+      <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Neighborhood / Unit name
+        <input
+          name="name"
+          required
+          placeholder="e.g. 1A Naval Park, Wing B"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Operational type
+        <select
+          name="unitType"
+          defaultValue="OTHER"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        >
+          {UNIT_TYPE_OPTIONS.map((t) => (
+            <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
+          ))}
+        </select>
+        <span className="text-[10px] font-normal text-zinc-400">
+          Optional characteristic of this location (kitchen, servery, etc.)
+        </span>
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Display order
+        <input
+          type="number"
+          name="displayOrder"
+          defaultValue={100}
+          min={1}
+          max={9999}
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+      <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Description
         <input
           name="description"
@@ -1801,10 +1916,10 @@ function CreateUnitForm({
       <div className="sm:col-span-2">
         <button
           type="submit"
-          data-testid={isFloor ? "create-floor-submit" : "create-neighborhood-submit"}
+          data-testid="create-neighborhood-submit"
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
         >
-          Create {label.toLowerCase()}
+          Create neighborhood / unit
         </button>
       </div>
     </form>

@@ -1,6 +1,9 @@
 /**
- * Presentation-only hierarchy classification for Facility Builder.
- * Does not change schema, storage, or operational location models.
+ * Facility Builder hierarchy display classification.
+ *
+ * Explicit Unit.hierarchyRole is the source of truth going forward.
+ * Child count must never determine structural role.
+ * Null hierarchyRole uses parentUnitId compatibility fallback only.
  */
 
 export type BuilderNodeDisplayKind =
@@ -8,21 +11,45 @@ export type BuilderNodeDisplayKind =
   | "neighborhood"
   | "legacy_location";
 
+export type HierarchyRoleValue = "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | null;
+
 export type ClassifiableUnit = {
   parentUnitId: string | null;
-  childUnits: readonly unknown[];
+  hierarchyRole?: HierarchyRoleValue;
+  /** @deprecated Child count must not determine role. Kept optional for call-site compatibility. */
+  childUnits?: readonly unknown[];
 };
 
 /**
- * Conservative compatibility rule:
- * - Child units → Neighborhood
- * - Top-level with child units → Floor
- * - Top-level without child units → Legacy location (not labeled Floor)
+ * Resolve display kind from explicit hierarchyRole with null-compat fallback.
+ *
+ * - FLOOR → floor
+ * - NEIGHBORHOOD → neighborhood
+ * - LEGACY_LOCATION → legacy_location
+ * - null + has parent → neighborhood
+ * - null + no parent → legacy_location
  */
-export function classifyBuilderUnit(unit: ClassifiableUnit): BuilderNodeDisplayKind {
+export function resolveBuilderNodeDisplayKind(
+  unit: ClassifiableUnit,
+): BuilderNodeDisplayKind {
+  switch (unit.hierarchyRole) {
+    case "FLOOR":
+      return "floor";
+    case "NEIGHBORHOOD":
+      return "neighborhood";
+    case "LEGACY_LOCATION":
+      return "legacy_location";
+    default:
+      break;
+  }
+
   if (unit.parentUnitId != null) return "neighborhood";
-  if (unit.childUnits.length > 0) return "floor";
   return "legacy_location";
+}
+
+/** @deprecated Prefer resolveBuilderNodeDisplayKind */
+export function classifyBuilderUnit(unit: ClassifiableUnit): BuilderNodeDisplayKind {
+  return resolveBuilderNodeDisplayKind(unit);
 }
 
 export function displayKindLabel(kind: BuilderNodeDisplayKind): string {
@@ -30,7 +57,7 @@ export function displayKindLabel(kind: BuilderNodeDisplayKind): string {
     case "floor":
       return "Floor";
     case "neighborhood":
-      return "Neighborhood";
+      return "Neighborhood / Unit";
     case "legacy_location":
       return "Location";
   }
@@ -75,4 +102,18 @@ export function nextTopLevelDisplayOrder(
 /** Floor create payload always uses parentUnitId = null. */
 export function floorCreateParentUnitId(): null {
   return null;
+}
+
+/** Internal UnitType for Floors — schema requires a value; hidden from Floor form. */
+export const FLOOR_INTERNAL_UNIT_TYPE = "OTHER" as const;
+
+export function hierarchyRoleForCreateIntent(
+  intent: "floor" | "neighborhood",
+): "FLOOR" | "NEIGHBORHOOD" {
+  return intent === "floor" ? "FLOOR" : "NEIGHBORHOOD";
+}
+
+/** After moving under a Floor, role becomes NEIGHBORHOOD. */
+export function hierarchyRoleAfterMoveOntoFloor(): "NEIGHBORHOOD" {
+  return "NEIGHBORHOOD";
 }
