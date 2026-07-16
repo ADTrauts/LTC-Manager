@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { requireAtLeastRole } from "@/lib/access";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
+import { buildBuilderCopy } from "@/lib/facility-builder/facility-vocabulary";
 import { FacilityBuilderClient } from "./facility-builder-client";
 
 export default async function FacilityBuilderPage() {
@@ -15,6 +16,7 @@ export default async function FacilityBuilderPage() {
   requireAtLeastRole(session.role, "MANAGER");
 
   const hierarchy = await loadFacilityHierarchy(session.facilityId);
+  const copy = buildBuilderCopy(hierarchy.vocabulary);
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
@@ -28,8 +30,7 @@ export default async function FacilityBuilderPage() {
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Facility Builder</h1>
         <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          Define your facility&apos;s physical structure — floors, neighborhoods, and rooms.
-          Assign department responsibilities that control operational access at each location.
+          {copy.page.subtitle}
         </p>
       </header>
       <FacilityBuilderClient hierarchy={hierarchy} />

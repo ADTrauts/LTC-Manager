@@ -6,6 +6,8 @@ import {
   useEffect,
   useTransition,
   useMemo,
+  useContext,
+  createContext,
   type ReactNode,
 } from "react";
 import { UnitDepartmentKind, type UnitType } from "@prisma/client";
@@ -59,7 +61,6 @@ import {
   CAPABILITY_LABELS,
   PLANT_FACILITY_WIDE_ACCESS_NOTE,
   ROOM_RESPONSIBILITY_EMPTY_MESSAGE,
-  ROOM_RESPONSIBILITY_HELP_TEXT,
   formatRoomDisplayName,
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
@@ -88,6 +89,11 @@ import {
   resolveSpaceTypeDisplayLabel,
 } from "@/lib/facility-builder/space-type-presets";
 import { unitTypeLabel } from "@/lib/unit-type-config";
+import {
+  buildBuilderCopy,
+  DEFAULT_BUILDER_COPY,
+  type BuilderCopy,
+} from "@/lib/facility-builder/facility-vocabulary";
 import {
   createBuilderFloorAction,
   createBuilderNeighborhoodAction,
@@ -127,6 +133,13 @@ const KIND_LABELS: Record<UnitDepartmentKind, string> = {
   SUPPORT: "Support",
 };
 
+/** Facility vocabulary copy — provided once at the builder root; consumed everywhere. */
+const BuilderCopyContext = createContext<BuilderCopy>(DEFAULT_BUILDER_COPY);
+
+function useBuilderCopy(): BuilderCopy {
+  return useContext(BuilderCopyContext);
+}
+
 type Selection =
   | { type: "unit"; unitId: string }
   | { type: "space"; spaceId: string; unitId: string | null }
@@ -143,6 +156,10 @@ type CreateUnitDrawerState = {
 // ---------------------------------------------------------------------------
 
 export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierarchy }) {
+  const copy = useMemo(
+    () => buildBuilderCopy(hierarchy.vocabulary),
+    [hierarchy.vocabulary],
+  );
   const [selection, setSelection] = useState<Selection>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const set = new Set<string>();
@@ -426,6 +443,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   void isPending;
 
   return (
+    <BuilderCopyContext.Provider value={copy}>
     <DndContext
       id="facility-builder"
       sensors={sensors}
@@ -451,7 +469,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search floors, rooms…"
+                placeholder={copy.toolbar.searchPlaceholder}
                 data-testid="hierarchy-search"
                 className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none"
               />
@@ -464,7 +482,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-2 py-2 text-xs font-medium text-white hover:bg-zinc-700 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Floor
+                {copy.toolbar.addLevel1}
               </button>
               <button
                 type="button"
@@ -473,7 +491,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Neighborhood / Unit
+                {copy.toolbar.addLevel2}
               </button>
               <button
                 type="button"
@@ -482,7 +500,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Room
+                {copy.toolbar.addLevel3}
               </button>
             </div>
           </div>
@@ -517,9 +535,9 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
             {!hasAnyUnits ? (
               <div className="px-4 py-6 text-center">
-                <p className="text-sm font-medium text-zinc-700">No floors have been added yet.</p>
+                <p className="text-sm font-medium text-zinc-700">{copy.tree.emptyTitle}</p>
                 <p className="mt-2 text-xs text-zinc-500">
-                  Floors organize neighborhoods and rooms. Existing top-level locations can be moved into a floor later.
+                  {copy.tree.emptyBody}
                 </p>
                 <button
                   type="button"
@@ -528,21 +546,21 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                   className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   <Plus className="h-4 w-4" />
-                  Add Floor
+                  {copy.tree.emptyAction}
                 </button>
               </div>
             ) : isSearching && displayUnits.length === 0 && !showUndesignatedSection ? (
               <div className="px-4 py-8 text-center">
-                <p className="text-sm font-medium text-zinc-700">No locations found</p>
+                <p className="text-sm font-medium text-zinc-700">{copy.tree.noSearchResults}</p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Try a different floor, neighborhood, room, or code.
+                  {copy.tree.noSearchResultsHint}
                 </p>
               </div>
             ) : (
               <>
                 {!hasFloors && !isSearching && (
                   <p className="mx-2 mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    Top-level locations below are not assigned to a floor. Add a Floor, then drag them into it.
+                    {copy.tree.legacyTopLevelHint}
                   </p>
                 )}
                 <SortableContext
@@ -589,7 +607,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-16 text-center">
               <Building2 className="mx-auto h-8 w-8 text-zinc-300" />
               <p className="mt-3 text-sm text-zinc-500">
-                Select a floor, neighborhood, or room from the tree to view and edit its details.
+                {copy.tree.selectPrompt}
               </p>
               <button
                 type="button"
@@ -598,7 +616,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
               >
                 <Plus className="h-4 w-4" />
-                Add Floor
+                {copy.tree.emptyAction}
               </button>
             </div>
           )}
@@ -702,11 +720,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             }}
             onDelete={(target) => {
               if (target.type === "unit") {
-                if (!confirm(
-                  `Delete "${target.unit.name}"?\n\n` +
-                    "Related schedules, logs, repairs, and assets for this location will also be permanently removed. " +
-                    "Nested neighborhoods/rooms must be removed first. This cannot be undone.",
-                )) return;
+                if (!confirm(copy.editor.deleteConfirm(target.unit.name))) return;
                 const fd = new FormData();
                 fd.set("unitId", target.unit.id);
                 startTransition(async () => {
@@ -744,8 +758,8 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             onClose={() => setCreateUnitDrawer(null)}
             title={
               createUnitDrawer.intent === "floor"
-                ? "Add Floor"
-                : "Add Neighborhood / Unit"
+                ? copy.drawers.addLevel1
+                : copy.drawers.addLevel2
             }
           >
             {createUnitDrawer.intent === "floor" ? (
@@ -766,7 +780,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           <Drawer
             open
             onClose={() => setCreateSpaceDrawer(null)}
-            title="Add Room"
+            title={copy.drawers.addLevel3}
           >
             <CreateSpaceForm
               unitId={createSpaceDrawer.unitId ?? null}
@@ -780,7 +794,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           <Drawer
             open
             onClose={() => setBulkSpaceDrawer(null)}
-            title="Add Multiple Rooms"
+            title={copy.drawers.addLevel3Bulk}
           >
             <BulkCreateSpacesForm
               unitId={bulkSpaceDrawer.unitId}
@@ -796,8 +810,8 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             onClose={() => setMoveDrawer(null)}
             title={
               moveDrawer.type === "unit-to-floor"
-                ? "Move to Floor"
-                : "Move to Neighborhood"
+                ? copy.drawers.moveToLevel1
+                : copy.drawers.moveToLevel2
             }
           >
             {moveDrawer.type === "unit-to-floor" ? (
@@ -842,6 +856,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
         )}
       </DragOverlay>
     </DndContext>
+    </BuilderCopyContext.Provider>
   );
 }
 
@@ -884,6 +899,7 @@ function UndesignatedSection({
   onRename: (r: { type: "unit" | "space"; id: string }) => void;
   onRenameComplete: () => void;
 }) {
+  const copy = useBuilderCopy();
   const { setNodeRef, isOver } = useDroppable({
     id: UNDESIGNATED_DROP_ID,
     disabled: !dndEnabled,
@@ -904,17 +920,17 @@ function UndesignatedSection({
       {undesignatedCount > 0 && (
         <div className="mx-1 mb-2 rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2">
           <p className="text-xs font-medium text-amber-900">
-            Locations still need placement
+            {copy.undesignatedSection.warningTitle}
           </p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800/90">
-            These locations will not appear anywhere in the application until they are assigned to a Floor or Neighborhood.
+            {copy.undesignatedSection.warningBody}
           </p>
         </div>
       )}
 
       {!hasItems && (
         <p className="px-2 py-1.5 text-[11px] text-zinc-400">
-          Drag locations here to stage them before placement.
+          {copy.undesignatedSection.dropHint}
         </p>
       )}
 
@@ -977,11 +993,12 @@ function UndesignatedSection({
 }
 
 function NotYetPlacedBanner() {
+  const copy = useBuilderCopy();
   return (
     <div className="rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3">
-      <p className="text-sm font-medium text-amber-900">Not yet placed</p>
+      <p className="text-sm font-medium text-amber-900">{copy.undesignatedSection.bannerTitle}</p>
       <p className="mt-0.5 text-xs text-amber-800/90">
-        This location is waiting to be assigned before it becomes operational.
+        {copy.undesignatedSection.bannerBody}
       </p>
     </div>
   );
@@ -1026,6 +1043,7 @@ function ContextMenuOverlay({
   expanded: Set<string>;
   onToggleExpand: (id: string) => void;
 }) {
+  const copy = useBuilderCopy();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1070,13 +1088,13 @@ function ContextMenuOverlay({
                 icon={<Building2 className="h-3.5 w-3.5" />}
                 onClick={() => onConvertToFloor(target)}
               >
-                Convert to Floor
+                {copy.contextMenu.convertToLevel1}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
                 onClick={() => onMove(target)}
               >
-                Move to Floor…
+                {copy.contextMenu.moveToLevel1}
               </ContextMenuItem>
             </>
           )}
@@ -1088,7 +1106,7 @@ function ContextMenuOverlay({
                 icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
                 onClick={() => onMove(target)}
               >
-                Move to another Floor…
+                {copy.contextMenu.moveToAnotherLevel1}
               </ContextMenuItem>
             </>
           )}
@@ -1100,7 +1118,7 @@ function ContextMenuOverlay({
                 icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
                 onClick={() => onMove(target)}
               >
-                Move to Floor…
+                {copy.contextMenu.moveToLevel1}
               </ContextMenuItem>
             </>
           )}
@@ -1111,17 +1129,17 @@ function ContextMenuOverlay({
 
               {canAddNeighborhood(displayKind!) && (
                 <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddChild(target)}>
-                  Add Neighborhood / Unit
+                  {copy.contextMenu.addLevel2}
                 </ContextMenuItem>
               )}
 
               {canAddRoom(displayKind!) && (
                 <>
                   <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddRoom(target)}>
-                    Add Room
+                    {copy.contextMenu.addLevel3}
                   </ContextMenuItem>
                   <ContextMenuItem icon={<ListPlus className="h-3.5 w-3.5" />} onClick={() => onBulkAddRooms(target)}>
-                    Add Multiple Rooms
+                    {copy.contextMenu.addLevel3Bulk}
                   </ContextMenuItem>
                 </>
               )}
@@ -1146,7 +1164,7 @@ function ContextMenuOverlay({
             icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
             onClick={() => onMove(target)}
           >
-            Move to another Neighborhood…
+            {copy.contextMenu.moveToAnotherLevel2}
           </ContextMenuItem>
         </>
       )}
@@ -1228,6 +1246,7 @@ function TreeUnitNode({
   onRename: (r: { type: "unit" | "space"; id: string }) => void;
   onRenameComplete: () => void;
 }) {
+  const copy = useBuilderCopy();
   const isExpanded = expanded.has(unit.id);
   const displayKind = resolveBuilderNodeDisplayKind(unit);
   const hasChildren = unit.childUnits.length > 0 || unit.childSpaces.length > 0;
@@ -1330,9 +1349,9 @@ function TreeUnitNode({
             className={`shrink-0 mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
               isSelected ? "bg-zinc-700 text-zinc-300" : "bg-amber-50 text-amber-700"
             }`}
-            title="Unassigned to a floor"
+            title={copy.tree.unassignedTitle}
           >
-            Unassigned
+            {copy.tree.unassignedBadge}
           </span>
         )}
 
@@ -1341,9 +1360,9 @@ function TreeUnitNode({
             className={`shrink-0 mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
               isSelected ? "bg-zinc-700 text-zinc-300" : "bg-amber-50 text-amber-700"
             }`}
-            title="Not yet placed"
+            title={copy.tree.stagedTitle}
           >
-            Staged
+            {copy.tree.stagedBadge}
           </span>
         )}
 
@@ -1439,7 +1458,7 @@ function TreeUnitNode({
                     className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
                   >
                     <Plus className="h-3 w-3" />
-                    Neighborhood / Unit
+                    {copy.labels.level2}
                   </button>
                 )}
                 {showAddRoom && (
@@ -1451,7 +1470,7 @@ function TreeUnitNode({
                       className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
                     >
                       <Plus className="h-3 w-3" />
-                      Room
+                      {copy.labels.level3}
                     </button>
                     <button
                       type="button"
@@ -1656,7 +1675,8 @@ function UnitEditor({
   onBulkCreateSpace: (unitId: string) => void;
   onCreateNeighborhood: (unitId: string) => void;
 }) {
-  const label = displayKindLabel(displayKind);
+  const copy = useBuilderCopy();
+  const label = displayKindLabel(displayKind, copy);
   const totalRooms = countSpaces(unit);
   const totalResps = unit.departmentResponsibilities.length;
   const [showResps, setShowResps] = useState(false);
@@ -1687,19 +1707,19 @@ function UnitEditor({
                 </span>
                 {displayKind === "legacy_location" && (
                   <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                    Unassigned to a floor
+                    {copy.editor.unassignedToLevel1}
                   </span>
                 )}
                 {displayKind === "staged" && (
                   <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                    Undesignated
+                    {copy.labels.undesignated}
                   </span>
                 )}
                 {totalRooms > 0 && (
-                  <span>{totalRooms} room{totalRooms !== 1 ? "s" : ""}</span>
+                  <span>{copy.editor.level3Count(totalRooms)}</span>
                 )}
                 {unit.childUnits.length > 0 && (
-                  <span>{unit.childUnits.length} neighborhood{unit.childUnits.length !== 1 ? "s" : ""}</span>
+                  <span>{copy.editor.level2Count(unit.childUnits.length)}</span>
                 )}
                 {totalResps > 0 && (
                   <span>{totalResps} responsibilit{totalResps !== 1 ? "ies" : "y"}</span>
@@ -1720,7 +1740,7 @@ function UnitEditor({
                 >
                   <span className="flex items-center gap-1.5">
                     <Plus className="h-3.5 w-3.5" />
-                    Add Neighborhood / Unit
+                    {copy.editor.addLevel2}
                   </span>
                 </button>
               )}
@@ -1733,7 +1753,7 @@ function UnitEditor({
                   >
                     <span className="flex items-center gap-1.5">
                       <Plus className="h-3.5 w-3.5" />
-                      Add Room
+                      {copy.editor.addLevel3}
                     </span>
                   </button>
                   <button
@@ -1744,7 +1764,7 @@ function UnitEditor({
                   >
                     <span className="flex items-center gap-1.5">
                       <ListPlus className="h-3.5 w-3.5" />
-                      Add Multiple Rooms
+                      {copy.editor.addLevel3Bulk}
                     </span>
                   </button>
                 </>
@@ -1835,11 +1855,7 @@ function UnitEditor({
               type="submit"
               className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
               onClick={(e) => {
-                if (!confirm(
-                  `Delete "${unit.name}"?\n\n` +
-                    "Related schedules, logs, repairs, and assets for this location will also be permanently removed. " +
-                    "Nested neighborhoods/rooms must be removed first. This cannot be undone.",
-                )) {
+                if (!confirm(copy.editor.deleteConfirm(unit.name))) {
                   e.preventDefault();
                 }
               }}
@@ -1854,7 +1870,7 @@ function UnitEditor({
       {unit.childSpaces.length > 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-zinc-900">
-            Rooms ({unit.childSpaces.length})
+            {copy.editor.level3ListTitle(unit.childSpaces.length)}
           </h3>
           <ul className="mt-2 divide-y divide-zinc-100">
             {unit.childSpaces.map((s) => (
@@ -1931,6 +1947,7 @@ function SpaceEditor({
   departments: { id: string; key: string; name: string }[];
   isUndesignated?: boolean;
 }) {
+  const copy = useBuilderCopy();
   const [showResps, setShowResps] = useState(false);
   const totalResps = space.responsibilities.length;
 
@@ -1947,10 +1964,10 @@ function SpaceEditor({
           <div className="mt-1.5 flex items-center gap-3 text-sm text-zinc-500">
             <span className="inline-flex items-center gap-1">
               <DoorOpen className="h-3.5 w-3.5" />
-              Room
+              {copy.editor.level3Badge}
             </span>
             <span>
-              {parentUnit ? `in ${parentUnit.name}` : "Undesignated"}
+              {parentUnit ? `in ${parentUnit.name}` : copy.labels.undesignated}
             </span>
             <span>
               {resolveSpaceTypeDisplayLabel({
@@ -1973,7 +1990,7 @@ function SpaceEditor({
               <input type="hidden" name="unitId" value={parentUnit.id} />
             )}
             <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Room name
+              {copy.editor.level3NameLabel}
               <input
                 name="name"
                 defaultValue={space.name}
@@ -1992,7 +2009,7 @@ function SpaceEditor({
               />
             </div>
             <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Room number
+              {copy.editor.level3NumberLabel}
               <input
                 name="roomNumber"
                 defaultValue={space.roomNumber ?? ""}
@@ -2238,12 +2255,13 @@ function SpaceResponsibilityEditor({
   parentUnit: UnitHierarchyNode | null;
   departments: { id: string; key: string; name: string }[];
 }) {
+  const copy = useBuilderCopy();
   const assignedDeptIds = new Set(space.responsibilities.map((r) => r.department.id));
   const available = departments.filter((d) => !assignedDeptIds.has(d.id));
 
   return (
     <div>
-      <p className="text-xs text-zinc-500">{ROOM_RESPONSIBILITY_HELP_TEXT}</p>
+      <p className="text-xs text-zinc-500">{copy.editor.level3ResponsibilityHelp}</p>
 
       <ul className="mt-3 space-y-2">
         {space.responsibilities.map((row) => (
@@ -2303,13 +2321,14 @@ function AddSpaceResponsibilityForm({
   spaceId: string;
   available: { id: string; key: string; name: string }[];
 }) {
+  const copy = useBuilderCopy();
   return (
     <form
       action={upsertBuilderSpaceResponsibilityAction}
       className="mt-4 space-y-3 rounded-lg border border-dashed border-zinc-300 p-3"
     >
       <input type="hidden" name="spaceId" value={spaceId} />
-      <p className="text-xs font-medium text-zinc-600">Add room responsibility</p>
+      <p className="text-xs font-medium text-zinc-600">{copy.editor.addLevel3Responsibility}</p>
       <select name="departmentId" required className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs">
         {available.map((d) => (
           <option key={d.id} value={d.id}>{d.name}</option>
@@ -2349,6 +2368,7 @@ function CreateFloorForm({
 }: {
   onDone: () => void;
 }) {
+  const copy = useBuilderCopy();
   return (
     <form
       action={async (formData) => {
@@ -2360,11 +2380,11 @@ function CreateFloorForm({
     >
       <input type="hidden" name="hierarchyIntent" value="floor" />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Floor name
+        {copy.forms.level1NameLabel}
         <input
           name="name"
           required
-          placeholder="e.g. First Floor, Basement"
+          placeholder={copy.forms.level1NamePlaceholder}
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
@@ -2386,7 +2406,7 @@ function CreateFloorForm({
           data-testid="create-floor-submit"
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
         >
-          Create floor
+          {copy.forms.createLevel1}
         </button>
       </div>
     </form>
@@ -2400,6 +2420,7 @@ function CreateNeighborhoodForm({
   parentId: string | null;
   onDone: () => void;
 }) {
+  const copy = useBuilderCopy();
   return (
     <form
       action={async (formData) => {
@@ -2414,11 +2435,11 @@ function CreateNeighborhoodForm({
         <input type="hidden" name="parentUnitId" value={parentId} />
       )}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Neighborhood / Unit name
+        {copy.forms.level2NameLabel}
         <input
           name="name"
           required
-          placeholder="e.g. 1A Naval Park, Wing B"
+          placeholder={copy.forms.level2NamePlaceholder}
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
@@ -2440,7 +2461,7 @@ function CreateNeighborhoodForm({
           data-testid="create-neighborhood-submit"
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
         >
-          Create neighborhood / unit
+          {copy.forms.createLevel2}
         </button>
       </div>
     </form>
@@ -2498,6 +2519,7 @@ function CreateSpaceForm({
   unitId: string | null;
   onDone: () => void;
 }) {
+  const copy = useBuilderCopy();
   return (
     <form
       action={async (formData) => {
@@ -2511,17 +2533,17 @@ function CreateSpaceForm({
         <input type="hidden" name="unitId" value={unitId} />
       )}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Room name
+        {copy.forms.level3NameLabel}
         <input
           name="name"
           required
-          placeholder="e.g. Resident Room, Servery, Soil Hold"
+          placeholder={copy.forms.level3NamePlaceholder}
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
       <SpaceTypePresetFields />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Room number
+        {copy.forms.level3NumberLabel}
         <input
           name="roomNumber"
           placeholder="Optional, e.g. 101, 32A, B-12"
@@ -2555,7 +2577,7 @@ function CreateSpaceForm({
           type="submit"
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
         >
-          Create room
+          {copy.forms.createLevel3}
         </button>
       </div>
     </form>
@@ -2569,6 +2591,7 @@ function BulkCreateSpacesForm({
   unitId: string;
   onDone: () => void;
 }) {
+  const copy = useBuilderCopy();
   const [result, setResult] = useState<{
     created: number;
     skippedExisting: string[];
@@ -2600,7 +2623,7 @@ function BulkCreateSpacesForm({
     >
       <input type="hidden" name="unitId" value={unitId} />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Room names (one per line)
+        {copy.forms.bulkNamesLabel}
         <textarea
           name="namesText"
           required
@@ -2610,7 +2633,7 @@ function BulkCreateSpacesForm({
         />
       </label>
       <p className="text-xs text-zinc-500">
-        Blank lines are ignored. Max {BULK_ROOM_MAX} rooms per batch. Optional ranges use the same letter suffix (e.g. 32A–40A).
+        {copy.forms.bulkMaxHint(BULK_ROOM_MAX)}
       </p>
       <SpaceTypePresetFields defaultPresetKey="patient_room" />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
@@ -2627,7 +2650,7 @@ function BulkCreateSpacesForm({
       )}
       {result && (
         <div className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-700 space-y-1">
-          <p>Created {result.created} room{result.created === 1 ? "" : "s"}.</p>
+          <p>{copy.forms.bulkCreated(result.created)}</p>
           {result.skippedExisting.length > 0 && (
             <p className="text-amber-700">
               Skipped existing: {result.skippedExisting.join(", ")}
@@ -2649,7 +2672,7 @@ function BulkCreateSpacesForm({
         data-testid="bulk-create-rooms-submit"
         className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
       >
-        Create rooms
+        {copy.forms.bulkSubmit}
       </button>
     </form>
   );
@@ -2670,6 +2693,7 @@ function MoveUnitToFloorForm({
   allowUndesignated?: boolean;
   onDone: () => void;
 }) {
+  const copy = useBuilderCopy();
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   void currentParentId;
@@ -2677,7 +2701,7 @@ function MoveUnitToFloorForm({
   if (floors.length === 0 && !allowUndesignated) {
     return (
       <p className="text-sm text-zinc-600">
-        No other Floors available. Create a Floor first, then move &quot;{unitName}&quot; into it.
+        {copy.forms.noOtherLevel1(unitName)}
       </p>
     );
   }
@@ -2707,9 +2731,8 @@ function MoveUnitToFloorForm({
       className="grid gap-3"
     >
       <p className="text-sm text-zinc-600">
-        Move <span className="font-medium text-zinc-900">{unitName}</span> onto a Floor
-        {allowUndesignated ? " or Undesignated" : ""}.
-        It will become a Neighborhood / Unit when placed on a Floor.
+        Move <span className="font-medium text-zinc-900">{unitName}</span>{" "}
+        {copy.forms.moveUnitIntro(allowUndesignated)}
       </p>
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Destination
@@ -2724,7 +2747,7 @@ function MoveUnitToFloorForm({
             Select a destination…
           </option>
           {allowUndesignated && (
-            <option value={UNDESIGNATED_DROP_ID}>Undesignated</option>
+            <option value={UNDESIGNATED_DROP_ID}>{copy.labels.undesignated}</option>
           )}
           {floors.map((f) => (
             <option key={f.id} value={f.id}>
@@ -2760,6 +2783,7 @@ function MoveSpaceToNeighborhoodForm({
   destinations: { id: string; name: string; groupLabel?: string; kind?: string }[];
   onDone: () => void;
 }) {
+  const copy = useBuilderCopy();
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   void currentUnitId;
@@ -2797,8 +2821,8 @@ function MoveSpaceToNeighborhoodForm({
       className="grid gap-3"
     >
       <p className="text-sm text-zinc-600">
-        Move <span className="font-medium text-zinc-900">{spaceName}</span> to a Floor,
-        Neighborhood / Unit, or Undesignated.
+        Move <span className="font-medium text-zinc-900">{spaceName}</span>{" "}
+        {copy.forms.moveSpaceIntro}
       </p>
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Destination

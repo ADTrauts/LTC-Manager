@@ -6,6 +6,11 @@
  * Null hierarchyRole uses parentUnitId compatibility fallback only.
  */
 
+import {
+  DEFAULT_BUILDER_COPY,
+  type BuilderCopy,
+} from "@/lib/facility-builder/facility-vocabulary";
+
 export type BuilderNodeDisplayKind =
   | "floor"
   | "neighborhood"
@@ -61,16 +66,19 @@ export function classifyBuilderUnit(unit: ClassifiableUnit): BuilderNodeDisplayK
   return resolveBuilderNodeDisplayKind(unit);
 }
 
-export function displayKindLabel(kind: BuilderNodeDisplayKind): string {
+export function displayKindLabel(
+  kind: BuilderNodeDisplayKind,
+  copy: BuilderCopy = DEFAULT_BUILDER_COPY,
+): string {
   switch (kind) {
     case "floor":
-      return "Floor";
+      return copy.labels.level1;
     case "neighborhood":
-      return "Neighborhood / Unit";
+      return copy.labels.level2;
     case "legacy_location":
-      return "Location";
+      return copy.labels.legacyLocation;
     case "staged":
-      return "Undesignated";
+      return copy.labels.undesignated;
   }
 }
 

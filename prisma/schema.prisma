@@ -106,6 +106,12 @@ model Facility {
   brandColor                     String?
   /// IANA timezone for facility-local operational time (meals, service dates, due windows).
   timezone                       String                          @default("America/New_York")
+  /// Hierarchy vocabulary profile key: ltc (default when null) | hospital | hotel | campus | corporate | custom.
+  vocabularyProfile              String?
+  /// Custom hierarchy level labels; only used when vocabularyProfile = "custom".
+  vocabularyLevel1Label          String?
+  vocabularyLevel2Label          String?
+  vocabularyLevel3Label          String?
   /// Relative path under app `uploads/` (see `lib/facility-uploads.ts`).
   unionHandbookPdfPath           String?
   unionHandbookOriginalFilename  String?

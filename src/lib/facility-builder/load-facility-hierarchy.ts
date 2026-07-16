@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import type { UnitType, SpaceType, UnitDepartmentKind, UnitHierarchyRole } from "@prisma/client";
+import {
+  resolveFacilityVocabulary,
+  type FacilityVocabulary,
+} from "@/lib/facility-builder/facility-vocabulary";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,6 +57,8 @@ export type UnitHierarchyNode = {
 export type FacilityHierarchy = {
   facilityId: string;
   facilityName: string;
+  /** Resolved hierarchy terminology (presentation only; LTC default). */
+  vocabulary: FacilityVocabulary;
   /** Placed Floors / nested neighborhoods / legacy (excludes STAGED). */
   units: UnitHierarchyNode[];
   /** Builder-only staged neighborhoods (Undesignated). */
@@ -93,7 +99,14 @@ export async function loadFacilityHierarchy(
   const [facility, flatUnits, undesignatedSpaces, departments] = await Promise.all([
     prisma.facility.findUniqueOrThrow({
       where: { id: facilityId },
-      select: { id: true, displayName: true },
+      select: {
+        id: true,
+        displayName: true,
+        vocabularyProfile: true,
+        vocabularyLevel1Label: true,
+        vocabularyLevel2Label: true,
+        vocabularyLevel3Label: true,
+      },
     }),
     prisma.unit.findMany({
       where: { facilityId },
@@ -146,6 +159,7 @@ export async function loadFacilityHierarchy(
   return {
     facilityId: facility.id,
     facilityName: facility.displayName,
+    vocabulary: resolveFacilityVocabulary(facility),
     units,
     stagedUnits,
     undesignatedSpaces,
