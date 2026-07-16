@@ -29,7 +29,8 @@ export default function AdminPage() {
           >
             <span className="text-sm font-medium text-zinc-900">Departments</span>
             <span className="text-sm text-zinc-600">
-              Turn departments on or off for employee HR, and assign department heads.
+              Turn departments on or off for employee HR, assign department heads, and
+              open Department Administration to configure how each department operates.
             </span>
           </Link>
         </li>

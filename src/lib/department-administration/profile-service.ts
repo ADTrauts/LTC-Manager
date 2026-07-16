@@ -624,3 +624,344 @@ export async function addRoomExperienceException(
 
   return { exceptionId: exception.id };
 }
+
+export async function clearRoomArchetypeBinding(
+  actor: ProfileActor,
+  input: { profileId: string; unitSpaceId: string },
+): Promise<void> {
+  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
+    where: { id: input.profileId },
+    select: { id: true, facilityId: true, status: true },
+  });
+  assertWrite(actor, profile.facilityId);
+  assertProfileEditable(profile.status);
+
+  await prisma.departmentRoomArchetypeBinding.deleteMany({
+    where: { profileId: profile.id, unitSpaceId: input.unitSpaceId },
+  });
+}
+
+export async function removeRoomExperienceException(
+  actor: ProfileActor,
+  input: { profileId: string; exceptionId: string },
+): Promise<void> {
+  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
+    where: { id: input.profileId },
+    select: { id: true, facilityId: true, status: true },
+  });
+  assertWrite(actor, profile.facilityId);
+  assertProfileEditable(profile.status);
+
+  const exception = await prisma.departmentRoomExperienceException.findUniqueOrThrow({
+    where: { id: input.exceptionId },
+    select: { profileId: true },
+  });
+  if (exception.profileId !== profile.id) {
+    throw new Error("Exception does not belong to the profile.");
+  }
+
+  await prisma.departmentRoomExperienceException.delete({
+    where: { id: input.exceptionId },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Draft Area / Experience editing
+// ---------------------------------------------------------------------------
+
+async function loadEditableProfile(
+  actor: ProfileActor,
+  profileId: string,
+): Promise<{ id: string; facilityId: string; departmentId: string; status: "DRAFT" }> {
+  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
+    where: { id: profileId },
+    select: { id: true, facilityId: true, departmentId: true, status: true },
+  });
+  assertWrite(actor, profile.facilityId);
+  assertProfileEditable(profile.status);
+  return profile as { id: string; facilityId: string; departmentId: string; status: "DRAFT" };
+}
+
+export async function setAreaExperienceActive(
+  actor: ProfileActor,
+  input: { profileId: string; areaExperienceId: string; isActive: boolean },
+): Promise<void> {
+  const profile = await loadEditableProfile(actor, input.profileId);
+  const areaExperience = await prisma.departmentAreaExperience.findUniqueOrThrow({
+    where: { id: input.areaExperienceId },
+    select: { area: { select: { profileId: true } } },
+  });
+  if (areaExperience.area.profileId !== profile.id) {
+    throw new Error("Experience does not belong to the profile.");
+  }
+  await prisma.departmentAreaExperience.update({
+    where: { id: input.areaExperienceId },
+    data: { isActive: input.isActive },
+  });
+}
+
+export async function reorderAreaExperiences(
+  actor: ProfileActor,
+  input: { profileId: string; areaId: string; orderedAreaExperienceIds: readonly string[] },
+): Promise<void> {
+  const profile = await loadEditableProfile(actor, input.profileId);
+  const area = await prisma.departmentOperationalArea.findUniqueOrThrow({
+    where: { id: input.areaId },
+    select: {
+      profileId: true,
+      experiences: { select: { id: true } },
+    },
+  });
+  if (area.profileId !== profile.id) {
+    throw new Error("Area does not belong to the profile.");
+  }
+  const existing = new Set(area.experiences.map((e) => e.id));
+  if (input.orderedAreaExperienceIds.length !== existing.size) {
+    throw new Error("Reorder must include every Experience in the Area.");
+  }
+  for (const id of input.orderedAreaExperienceIds) {
+    if (!existing.has(id)) {
+      throw new Error("Reorder includes an Experience outside the Area.");
+    }
+  }
+
+  await prisma.$transaction(
+    input.orderedAreaExperienceIds.map((id, index) =>
+      prisma.departmentAreaExperience.update({
+        where: { id },
+        data: { sortOrder: (index + 1) * 10 },
+      }),
+    ),
+  );
+}
+
+export async function moveAreaExperience(
+  actor: ProfileActor,
+  input: {
+    profileId: string;
+    areaExperienceId: string;
+    targetAreaId: string;
+  },
+): Promise<void> {
+  const profile = await loadEditableProfile(actor, input.profileId);
+
+  const [areaExperience, targetArea] = await Promise.all([
+    prisma.departmentAreaExperience.findUniqueOrThrow({
+      where: { id: input.areaExperienceId },
+      select: {
+        id: true,
+        experienceKey: true,
+        isActive: true,
+        configurationJson: true,
+        areaId: true,
+        area: { select: { profileId: true } },
+      },
+    }),
+    prisma.departmentOperationalArea.findUniqueOrThrow({
+      where: { id: input.targetAreaId },
+      select: {
+        id: true,
+        profileId: true,
+        experiences: { select: { experienceKey: true, sortOrder: true } },
+      },
+    }),
+  ]);
+
+  if (areaExperience.area.profileId !== profile.id) {
+    throw new Error("Experience does not belong to the profile.");
+  }
+  if (targetArea.profileId !== profile.id) {
+    throw new Error("Target Area does not belong to the profile.");
+  }
+  if (areaExperience.areaId === targetArea.id) {
+    return;
+  }
+  if (targetArea.experiences.some((e) => e.experienceKey === areaExperience.experienceKey)) {
+    throw new Error("Target Area already contains this Experience.");
+  }
+
+  // An Experience may only live in one Area — move is delete+create under target,
+  // remapping archetype selections and room exceptions that reference the old id.
+  const maxSort =
+    targetArea.experiences.reduce((max, e) => Math.max(max, e.sortOrder), 0) + 10;
+
+  await prisma.$transaction(async (tx) => {
+    const created = await tx.departmentAreaExperience.create({
+      data: {
+        areaId: targetArea.id,
+        experienceKey: areaExperience.experienceKey,
+        sortOrder: maxSort,
+        isActive: areaExperience.isActive,
+        configurationJson: areaExperience.configurationJson ?? undefined,
+      },
+    });
+
+    await tx.departmentArchetypeExperience.updateMany({
+      where: { areaExperienceId: areaExperience.id },
+      data: { areaExperienceId: created.id },
+    });
+    await tx.departmentRoomExperienceException.updateMany({
+      where: { areaExperienceId: areaExperience.id },
+      data: { areaExperienceId: created.id },
+    });
+    await tx.departmentAreaExperience.delete({ where: { id: areaExperience.id } });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Draft Archetype editing
+// ---------------------------------------------------------------------------
+
+export async function createRoomArchetype(
+  actor: ProfileActor,
+  input: {
+    profileId: string;
+    key: string;
+    name: string;
+    description?: string | null;
+  },
+): Promise<{ archetypeId: string }> {
+  const profile = await loadEditableProfile(actor, input.profileId);
+  const key = input.key.trim().toLowerCase().replace(/\s+/g, "_");
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
+    throw new Error("Archetype key must be lowercase snake_case.");
+  }
+  const name = input.name.trim();
+  if (!name) throw new Error("Archetype name is required.");
+
+  const maxSort = await prisma.departmentRoomArchetype.aggregate({
+    where: { profileId: profile.id },
+    _max: { sortOrder: true },
+  });
+
+  const archetype = await prisma.departmentRoomArchetype.create({
+    data: {
+      profileId: profile.id,
+      key,
+      name,
+      description: input.description?.trim() || null,
+      sortOrder: (maxSort._max.sortOrder ?? 0) + 10,
+    },
+  });
+  return { archetypeId: archetype.id };
+}
+
+export async function updateRoomArchetype(
+  actor: ProfileActor,
+  input: {
+    profileId: string;
+    archetypeId: string;
+    name?: string;
+    description?: string | null;
+    isActive?: boolean;
+  },
+): Promise<void> {
+  const profile = await loadEditableProfile(actor, input.profileId);
+  const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
+    where: { id: input.archetypeId },
+    select: { profileId: true },
+  });
+  if (archetype.profileId !== profile.id) {
+    throw new Error("Archetype does not belong to the profile.");
+  }
+
+  const data: {
+    name?: string;
+    description?: string | null;
+    isActive?: boolean;
+  } = {};
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (!name) throw new Error("Archetype name is required.");
+    data.name = name;
+  }
+  if (input.description !== undefined) {
+    data.description = input.description?.trim() || null;
+  }
+  if (input.isActive !== undefined) {
+    data.isActive = input.isActive;
+  }
+
+  await prisma.departmentRoomArchetype.update({
+    where: { id: input.archetypeId },
+    data,
+  });
+}
+
+/**
+ * Replace the archetype's Experience selections. All areaExperienceIds must
+ * belong to the same profile. Empty array clears selections.
+ */
+export async function setArchetypeExperiences(
+  actor: ProfileActor,
+  input: {
+    profileId: string;
+    archetypeId: string;
+    selections: readonly {
+      areaExperienceId: string;
+      isActive?: boolean;
+      sortOrder?: number;
+    }[];
+  },
+): Promise<void> {
+  const profile = await loadEditableProfile(actor, input.profileId);
+  const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
+    where: { id: input.archetypeId },
+    select: { profileId: true },
+  });
+  if (archetype.profileId !== profile.id) {
+    throw new Error("Archetype does not belong to the profile.");
+  }
+
+  const profileAreaExperiences = await prisma.departmentAreaExperience.findMany({
+    where: { area: { profileId: profile.id } },
+    select: { id: true },
+  });
+  const allowed = new Set(profileAreaExperiences.map((e) => e.id));
+  const seen = new Set<string>();
+  for (const selection of input.selections) {
+    if (!allowed.has(selection.areaExperienceId)) {
+      throw new Error("Archetype selection references an Experience outside the profile.");
+    }
+    if (seen.has(selection.areaExperienceId)) {
+      throw new Error("Duplicate Experience in archetype selection.");
+    }
+    seen.add(selection.areaExperienceId);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.departmentArchetypeExperience.deleteMany({
+      where: { archetypeId: input.archetypeId },
+    });
+    let index = 0;
+    for (const selection of input.selections) {
+      index += 1;
+      await tx.departmentArchetypeExperience.create({
+        data: {
+          archetypeId: input.archetypeId,
+          areaExperienceId: selection.areaExperienceId,
+          isActive: selection.isActive ?? true,
+          sortOrder: selection.sortOrder ?? index * 10,
+        },
+      });
+    }
+  });
+}
+
+/** Retire an ACTIVE profile without activating a replacement. */
+export async function retireActiveProfile(
+  actor: ProfileActor,
+  profileId: string,
+): Promise<void> {
+  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
+    where: { id: profileId },
+    select: { id: true, facilityId: true, status: true },
+  });
+  assertWrite(actor, profile.facilityId);
+  assertProfileTransition(profile.status, "RETIRED");
+
+  await prisma.departmentOperationalProfile.update({
+    where: { id: profileId, status: "ACTIVE" },
+    data: { status: "RETIRED", retiredAt: new Date() },
+  });
+}

@@ -91,6 +91,7 @@ Governance                  catalog + vocabulary + baselines     (never facility
 
 - **Wave 14A (complete):** Experience Registry, tools, Operational Area registry, compatibility helpers — `src/lib/experiences/`.
 - **Wave 14B (complete):** Operational Profiles, Room Archetypes, room bindings, sparse exceptions, lifecycle, certification validation, room-profile resolution, Plant policy boundary — `src/lib/department-administration/` + `20260716160000_department_operational_profiles` migration. Behind `DEPARTMENT_OPERATIONAL_PROFILES_ENABLED` (default off); no runtime consumers. See `11_WAVE_14B_IMPLEMENTATION.md`.
+- **Wave 14C (complete):** Department Administration UI at `/admin/departments/[departmentId]` — local Overview / Areas / Archetypes / Rooms / Diagnostics / Versions / Settings. Draft editing APIs extended. Flag still default off; no Projection. See `12_WAVE_14C_IMPLEMENTATION.md`.
 - **Projection:** still paused, per `08`.
 
 ## Certification statement

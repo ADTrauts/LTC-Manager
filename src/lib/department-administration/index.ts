@@ -87,10 +87,37 @@ export {
   addRoomExperienceException,
   bindRoomToArchetype,
   certifyProfile,
+  clearRoomArchetypeBinding,
   createBaselineDraft,
   createNextDraftVersion,
+  createRoomArchetype,
   listProfilesForFacility,
   loadProfile,
+  moveAreaExperience,
+  removeRoomExperienceException,
+  reorderAreaExperiences,
+  retireActiveProfile,
+  setAreaExperienceActive,
+  setArchetypeExperiences,
   toProfileSnapshot,
+  updateRoomArchetype,
   type ProfileActor,
 } from "./profile-service";
+
+export {
+  DEPARTMENT_ADMIN_TABS,
+  departmentAdminHref,
+  isDepartmentAdminTabId,
+  profileStatusBadgeVariant,
+  resolveDepartmentAdminTab,
+  type DepartmentAdminTabId,
+} from "./admin-nav";
+
+export {
+  experienceDisplayName,
+  loadDepartmentAdminView,
+  selectWorkingProfileId,
+  type DepartmentAdminView,
+  type DepartmentRoomRow,
+  type ProfileListItem,
+} from "./load-department-admin";
