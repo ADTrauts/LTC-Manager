@@ -88,6 +88,11 @@ import {
   findPresetForStoredSpace,
   resolveSpaceTypeDisplayLabel,
 } from "@/lib/facility-builder/space-type-presets";
+import {
+  listPresetsForDepartment,
+  recommendResponsibilityPresetKey,
+  capabilitiesForPreset,
+} from "@/lib/facility-builder/department-responsibility-presets";
 import { unitTypeLabel } from "@/lib/unit-type-config";
 import {
   buildBuilderCopy,
@@ -2308,7 +2313,12 @@ function SpaceResponsibilityEditor({
       </p>
 
       {available.length > 0 && (
-        <AddSpaceResponsibilityForm spaceId={space.id} available={available} />
+        <AddSpaceResponsibilityForm
+          spaceId={space.id}
+          spaceType={space.spaceType}
+          customTypeLabel={space.customTypeLabel}
+          available={available}
+        />
       )}
     </div>
   );
@@ -2316,34 +2326,148 @@ function SpaceResponsibilityEditor({
 
 function AddSpaceResponsibilityForm({
   spaceId,
+  spaceType,
+  customTypeLabel,
   available,
 }: {
   spaceId: string;
+  spaceType: SpaceView["spaceType"];
+  customTypeLabel: string | null;
   available: { id: string; key: string; name: string }[];
 }) {
   const copy = useBuilderCopy();
+  const spacePresetKey = findPresetForStoredSpace({
+    spaceType,
+    customTypeLabel,
+  }).key;
+
+  const [departmentId, setDepartmentId] = useState(available[0]?.id ?? "");
+  const selectedDept = available.find((d) => d.id === departmentId) ?? available[0];
+  const presets = listPresetsForDepartment(selectedDept?.key ?? "");
+
+  const recommendedKey = recommendResponsibilityPresetKey(
+    selectedDept?.key ?? "",
+    spacePresetKey,
+  );
+
+  const [presetKey, setPresetKey] = useState<string>(recommendedKey ?? "");
+  const [selectedCaps, setSelectedCaps] = useState<Set<string>>(() =>
+    new Set(recommendedKey ? capabilitiesForPreset(recommendedKey) : []),
+  );
+
+  // When available departments change (e.g. after add), keep a valid selection.
+  useEffect(() => {
+    if (available.length === 0) return;
+    if (available.some((d) => d.id === departmentId)) return;
+    const next = available[0]!;
+    setDepartmentId(next.id);
+    const nextRecommended = recommendResponsibilityPresetKey(
+      next.key,
+      spacePresetKey,
+    );
+    setPresetKey(nextRecommended ?? "");
+    setSelectedCaps(
+      new Set(nextRecommended ? capabilitiesForPreset(nextRecommended) : []),
+    );
+  }, [available, departmentId, spacePresetKey]);
+
+  // Department change → re-recommend preset + apply its capabilities.
+  function handleDepartmentChange(nextId: string) {
+    setDepartmentId(nextId);
+    const dept = available.find((d) => d.id === nextId);
+    const nextRecommended = recommendResponsibilityPresetKey(
+      dept?.key ?? "",
+      spacePresetKey,
+    );
+    setPresetKey(nextRecommended ?? "");
+    setSelectedCaps(
+      new Set(nextRecommended ? capabilitiesForPreset(nextRecommended) : []),
+    );
+  }
+
+  // Preset change → replace checkbox selection (admin can still edit after).
+  function handlePresetChange(nextKey: string) {
+    setPresetKey(nextKey);
+    setSelectedCaps(new Set(capabilitiesForPreset(nextKey)));
+  }
+
+  function toggleCapability(key: string) {
+    setSelectedCaps((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const hasPresets = presets.length > 0;
+
   return (
     <form
       action={upsertBuilderSpaceResponsibilityAction}
       className="mt-4 space-y-3 rounded-lg border border-dashed border-zinc-300 p-3"
+      data-testid="add-space-responsibility-form"
     >
       <input type="hidden" name="spaceId" value={spaceId} />
       <p className="text-xs font-medium text-zinc-600">{copy.editor.addLevel3Responsibility}</p>
-      <select name="departmentId" required className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs">
-        {available.map((d) => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
+
+      <label className="flex flex-col gap-1 text-[11px] font-medium text-zinc-500">
+        Department
+        <select
+          name="departmentId"
+          required
+          value={departmentId}
+          onChange={(e) => handleDepartmentChange(e.target.value)}
+          className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-900"
+          data-testid="responsibility-department"
+        >
+          {available.map((d) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+      </label>
+
+      {hasPresets && (
+        <label className="flex flex-col gap-1 text-[11px] font-medium text-zinc-500">
+          Responsibility template
+          <select
+            value={presetKey}
+            onChange={(e) => handlePresetChange(e.target.value)}
+            className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-900"
+            data-testid="responsibility-preset"
+          >
+            {presets.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
+                {p.key === recommendedKey ? " (suggested)" : ""}
+              </option>
+            ))}
+          </select>
+          {presets.find((p) => p.key === presetKey)?.description ? (
+            <span className="font-normal text-zinc-400">
+              {presets.find((p) => p.key === presetKey)!.description}
+            </span>
+          ) : null}
+        </label>
+      )}
+
       <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
         {CAPABILITY_KEYS.map((key) => (
           <label key={key} className="flex items-center gap-1.5 text-xs text-zinc-700">
-            <input type="checkbox" name="capabilities" value={key} />
+            <input
+              type="checkbox"
+              name="capabilities"
+              value={key}
+              checked={selectedCaps.has(key)}
+              onChange={() => toggleCapability(key)}
+            />
             {CAPABILITY_LABELS[key]}
           </label>
         ))}
       </div>
       <p className="text-[10px] text-zinc-400">
-        Leave all unchecked if this department is responsible but no specific capabilities are selected yet.
+        Templates only preselect capabilities — edit checkboxes freely before saving.
+        Nothing about the template is stored.
       </p>
       <button
         type="submit"
