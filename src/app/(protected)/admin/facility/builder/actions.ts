@@ -439,3 +439,164 @@ export async function deleteBuilderSpaceResponsibilityAction(formData: FormData)
   await prisma.unitSpaceResponsibility.delete({ where: { id: row.id } });
   revalidateBuilderViews();
 }
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop move / reorder actions
+// ---------------------------------------------------------------------------
+
+const moveUnitSchema = z.object({
+  unitId: z.string().cuid(),
+  newParentUnitId: z.string().cuid().nullable(),
+  newDisplayOrder: z.number().int().min(1).max(9999),
+});
+
+export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = moveUnitSchema.parse(data);
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: parsed.unitId, facilityId: session.facilityId },
+    select: { id: true },
+  });
+  if (!unit) throw new Error("Unit not found.");
+
+  if (parsed.newParentUnitId) {
+    if (parsed.newParentUnitId === parsed.unitId) {
+      throw new Error("A unit cannot be its own parent.");
+    }
+    const allUnits = await prisma.unit.findMany({
+      where: { facilityId: session.facilityId },
+      select: { id: true, parentUnitId: true },
+    });
+    if (wouldCreateCycle(parsed.unitId, parsed.newParentUnitId, allUnits)) {
+      throw new Error("This move would create a circular hierarchy.");
+    }
+    const parent = await prisma.unit.findFirst({
+      where: { id: parsed.newParentUnitId, facilityId: session.facilityId },
+      select: { id: true },
+    });
+    if (!parent) throw new Error("Target parent not found.");
+  }
+
+  await prisma.unit.update({
+    where: { id: parsed.unitId },
+    data: {
+      parentUnitId: parsed.newParentUnitId,
+      displayOrder: parsed.newDisplayOrder,
+    },
+  });
+
+  revalidateBuilderViews();
+}
+
+const moveSpaceSchema = z.object({
+  spaceId: z.string().cuid(),
+  newUnitId: z.string().cuid(),
+  newSortOrder: z.number().int().min(1).max(9999),
+});
+
+export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchema>) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = moveSpaceSchema.parse(data);
+
+  const space = await prisma.unitSpace.findFirst({
+    where: { id: parsed.spaceId, unit: { facilityId: session.facilityId } },
+    select: { id: true },
+  });
+  if (!space) throw new Error("Space not found.");
+
+  const targetUnit = await prisma.unit.findFirst({
+    where: { id: parsed.newUnitId, facilityId: session.facilityId },
+    select: { id: true },
+  });
+  if (!targetUnit) throw new Error("Target neighborhood not found.");
+
+  await prisma.unitSpace.update({
+    where: { id: parsed.spaceId },
+    data: {
+      unitId: parsed.newUnitId,
+      sortOrder: parsed.newSortOrder,
+    },
+  });
+
+  revalidateBuilderViews();
+}
+
+const renameUnitSchema = z.object({
+  unitId: z.string().cuid(),
+  name: z.string().trim().min(1).max(120),
+});
+
+export async function renameBuilderUnitAction(data: z.infer<typeof renameUnitSchema>) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = renameUnitSchema.parse(data);
+
+  const duplicate = await prisma.unit.findFirst({
+    where: { facilityId: session.facilityId, name: parsed.name, id: { not: parsed.unitId } },
+    select: { id: true },
+  });
+  if (duplicate) throw new Error(`"${parsed.name}" already exists.`);
+
+  await prisma.unit.update({
+    where: { id: parsed.unitId, facilityId: session.facilityId },
+    data: { name: parsed.name },
+  });
+
+  revalidateBuilderViews();
+}
+
+const renameSpaceSchema = z.object({
+  spaceId: z.string().cuid(),
+  name: z.string().trim().min(1).max(120),
+});
+
+export async function renameBuilderSpaceAction(data: z.infer<typeof renameSpaceSchema>) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = renameSpaceSchema.parse(data);
+
+  const space = await prisma.unitSpace.findFirst({
+    where: { id: parsed.spaceId, unit: { facilityId: session.facilityId } },
+    select: { id: true, unitId: true },
+  });
+  if (!space) throw new Error("Room not found.");
+
+  const duplicate = await prisma.unitSpace.findFirst({
+    where: { unitId: space.unitId, name: parsed.name, id: { not: parsed.spaceId } },
+    select: { id: true },
+  });
+  if (duplicate) throw new Error(`"${parsed.name}" already exists in this neighborhood.`);
+
+  await prisma.unitSpace.update({
+    where: { id: parsed.spaceId },
+    data: { name: parsed.name },
+  });
+
+  revalidateBuilderViews();
+}
+
+export async function toggleBuilderUnitActiveAction(unitId: string) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const id = z.string().cuid().parse(unitId);
+  const unit = await prisma.unit.findFirst({
+    where: { id, facilityId: session.facilityId },
+    select: { id: true, isActive: true },
+  });
+  if (!unit) throw new Error("Unit not found.");
+
+  await prisma.unit.update({
+    where: { id },
+    data: { isActive: !unit.isActive },
+  });
+
+  revalidateBuilderViews();
+}

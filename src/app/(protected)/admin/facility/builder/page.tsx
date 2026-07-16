@@ -21,16 +21,15 @@ export default async function FacilityBuilderPage() {
       <header>
         <p className="text-sm text-zinc-500">
           <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Admin
+            Administration
           </Link>
           <span className="mx-1.5 text-zinc-400">/</span>
           <span className="text-zinc-600">Facility Builder</span>
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Facility Builder</h1>
         <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          Define the physical structure of your facility — floors, sections, units, and
-          rooms. Assign department responsibilities and capabilities that control which
-          operational data each department sees at each location.
+          Define your facility&apos;s physical structure — floors, neighborhoods, and rooms.
+          Assign department responsibilities that control operational access at each location.
         </p>
       </header>
       <FacilityBuilderClient hierarchy={hierarchy} />
