@@ -147,6 +147,7 @@ model Facility {
   knowledgeArticles              KnowledgeArticle[]
   aiOperationalBriefs            AiOperationalBrief[]
   workspacePreferences           WorkspacePreference[]
+  departmentOperationalProfiles  DepartmentOperationalProfile[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -183,6 +184,7 @@ model Department {
   knowledgeArticles              KnowledgeArticle[]
   operationalAssignments         OperationalAssignment[]
   assignmentTemplates            OperationalAssignmentTemplate[]
+  operationalProfiles            DepartmentOperationalProfile[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -787,6 +789,8 @@ model UnitSpace {
   sortOrder        Int                       @default(100)
   description      String?
   responsibilities UnitSpaceResponsibility[]
+  archetypeBindings    DepartmentRoomArchetypeBinding[]
+  experienceExceptions DepartmentRoomExperienceException[]
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
@@ -809,6 +813,174 @@ model UnitSpaceResponsibility {
   @@unique([spaceId, departmentId])
   @@index([spaceId])
   @@index([departmentId])
+}
+
+// ---------------------------------------------------------------------------
+// Department Operational Profiles (Wave 14B)
+// Department Administration owns the operational model. The database stores a
+// facility's selected/versioned profile — never the platform Experience catalog
+// (that lives in src/lib/experiences). Projection consumes ACTIVE profiles later.
+// ---------------------------------------------------------------------------
+
+/// Lifecycle for a Department Operational Profile version.
+/// DRAFT → CERTIFIED → ACTIVE → RETIRED. ACTIVE/CERTIFIED are immutable.
+enum OperationalProfileStatus {
+  DRAFT
+  CERTIFIED
+  ACTIVE
+  RETIRED
+}
+
+/// Sparse per-room Experience override mode.
+enum RoomExperienceExceptionMode {
+  ENABLE
+  DISABLE
+  OVERRIDE
+}
+
+/// One authored/versioned operational profile for one facility department.
+/// At most one ACTIVE per (facilityId, departmentId) — enforced by a partial
+/// unique index in the migration SQL.
+model DepartmentOperationalProfile {
+  id                String                              @id @default(cuid())
+  facilityId        String
+  facility          Facility                            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId      String
+  department        Department                          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name              String
+  version           Int
+  status            OperationalProfileStatus            @default(DRAFT)
+  /// Baseline the draft was materialized from (e.g. DIETARY); null for from-scratch drafts.
+  baselineKey       String?
+  /// Actor IDs recorded as scalars (audit only; no FK so User remains untouched).
+  createdByUserId   String?
+  certifiedByUserId String?
+  certifiedAt       DateTime?
+  activatedAt       DateTime?
+  retiredAt         DateTime?
+  areas             DepartmentOperationalArea[]
+  archetypes        DepartmentRoomArchetype[]
+  roomBindings      DepartmentRoomArchetypeBinding[]
+  roomExceptions    DepartmentRoomExperienceException[]
+  createdAt         DateTime                            @default(now())
+  updatedAt         DateTime                            @updatedAt
+
+  @@unique([departmentId, version])
+  @@index([facilityId, departmentId, status])
+  @@index([departmentId, status])
+}
+
+/// Profile-specific ordered grouping of Experiences (the manager's mental model).
+model DepartmentOperationalArea {
+  id          String                       @id @default(cuid())
+  profileId   String
+  profile     DepartmentOperationalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  key         String
+  name        String
+  description String?
+  sortOrder   Int                          @default(100)
+  isActive    Boolean                      @default(true)
+  experiences DepartmentAreaExperience[]
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+
+  @@unique([profileId, key])
+  @@index([profileId, sortOrder])
+}
+
+/// Places one catalog Experience (by registry key) into one Operational Area.
+/// experienceKey must exist in the Wave 14A Experience Registry.
+model DepartmentAreaExperience {
+  id                    String                              @id @default(cuid())
+  areaId                String
+  area                  DepartmentOperationalArea           @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  experienceKey         String
+  sortOrder             Int                                 @default(100)
+  isActive              Boolean                             @default(true)
+  /// Bounded Experience tuning only — never live operational data.
+  configurationJson     Json?
+  archetypeExperiences  DepartmentArchetypeExperience[]
+  roomExceptions        DepartmentRoomExperienceException[]
+  createdAt             DateTime                            @default(now())
+  updatedAt             DateTime                            @updatedAt
+
+  @@unique([areaId, experienceKey])
+  @@index([areaId, sortOrder])
+}
+
+/// How the department operates in a category of room (operational template).
+model DepartmentRoomArchetype {
+  id          String                           @id @default(cuid())
+  profileId   String
+  profile     DepartmentOperationalProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  key         String
+  name        String
+  description String?
+  isActive    Boolean                          @default(true)
+  sortOrder   Int                              @default(100)
+  experiences DepartmentArchetypeExperience[]
+  bindings    DepartmentRoomArchetypeBinding[]
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
+
+  @@unique([profileId, key])
+  @@index([profileId, sortOrder])
+}
+
+/// Declares which profile Experiences are active for an archetype.
+model DepartmentArchetypeExperience {
+  id                String                   @id @default(cuid())
+  archetypeId       String
+  archetype         DepartmentRoomArchetype  @relation(fields: [archetypeId], references: [id], onDelete: Cascade)
+  areaExperienceId  String
+  areaExperience    DepartmentAreaExperience @relation(fields: [areaExperienceId], references: [id], onDelete: Cascade)
+  isActive          Boolean                  @default(true)
+  configurationJson Json?
+  sortOrder         Int                      @default(100)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([archetypeId, areaExperienceId])
+  @@index([archetypeId, sortOrder])
+}
+
+/// Maps one physical room to one archetype for this profile.
+/// The room must be facility-scoped and department-assigned in Facility Builder.
+model DepartmentRoomArchetypeBinding {
+  id          String                       @id @default(cuid())
+  profileId   String
+  profile     DepartmentOperationalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  archetypeId String
+  archetype   DepartmentRoomArchetype      @relation(fields: [archetypeId], references: [id], onDelete: Cascade)
+  unitSpaceId String
+  unitSpace   UnitSpace                    @relation(fields: [unitSpaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+
+  @@unique([profileId, unitSpaceId])
+  @@index([archetypeId])
+  @@index([unitSpaceId])
+}
+
+/// Sparse room-level Experience override. Use sparingly — repeated exceptions
+/// signal a missing archetype.
+model DepartmentRoomExperienceException {
+  id                String                       @id @default(cuid())
+  profileId         String
+  profile           DepartmentOperationalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  unitSpaceId       String
+  unitSpace         UnitSpace                    @relation(fields: [unitSpaceId], references: [id], onDelete: Cascade)
+  areaExperienceId  String
+  areaExperience    DepartmentAreaExperience     @relation(fields: [areaExperienceId], references: [id], onDelete: Cascade)
+  mode              RoomExperienceExceptionMode
+  configurationJson Json?
+  reason            String?
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+
+  @@unique([profileId, unitSpaceId, areaExperienceId], map: "DepartmentRoomExperienceException_profile_room_experience_key")
+  @@index([profileId, unitSpaceId])
+  @@index([areaExperienceId])
 }
 
 model ServeryMealServiceEvent {

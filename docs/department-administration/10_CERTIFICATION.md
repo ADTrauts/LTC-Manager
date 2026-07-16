@@ -87,6 +87,12 @@ Governance                  catalog + vocabulary + baselines     (never facility
 - Implementation: **paused** per this package's constraints.
 - First wave when unpaused: **Experience Registry + Operational Areas** (`09`).
 
+## Implementation status
+
+- **Wave 14A (complete):** Experience Registry, tools, Operational Area registry, compatibility helpers — `src/lib/experiences/`.
+- **Wave 14B (complete):** Operational Profiles, Room Archetypes, room bindings, sparse exceptions, lifecycle, certification validation, room-profile resolution, Plant policy boundary — `src/lib/department-administration/` + `20260716160000_department_operational_profiles` migration. Behind `DEPARTMENT_OPERATIONAL_PROFILES_ENABLED` (default off); no runtime consumers. See `11_WAVE_14B_IMPLEMENTATION.md`.
+- **Projection:** still paused, per `08`.
+
 ## Certification statement
 
 The Department Administration architecture is certified. Operational Areas are established as the manager's mental model and the organizing layer between Departments and Experiences. Modules are retired in favor of Areas, Experiences, and in-context tools. Ownership is separated across five constitutional layers. Expansion is additive. Projection is recertified to resolve through Operational Areas. This is the final operational architecture; the next step is implementation, beginning with the Experience Registry.

@@ -46,3 +46,8 @@ export function isAiRecoveryAssistantEnabled(): boolean {
 export function isOperationalAssignmentsEnabled(): boolean {
   return parseEnvFlag(process.env.OPERATIONAL_ASSIGNMENTS_ENABLED, false);
 }
+
+/** Defaults to disabled — Wave 14B Department Operational Profiles foundation; no runtime consumers while off. */
+export function isDepartmentOperationalProfilesEnabled(): boolean {
+  return parseEnvFlag(process.env.DEPARTMENT_OPERATIONAL_PROFILES_ENABLED, false);
+}
