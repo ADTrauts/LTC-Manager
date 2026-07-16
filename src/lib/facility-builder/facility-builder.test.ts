@@ -21,6 +21,20 @@ import {
   hierarchyRoleAfterMoveOntoFloor,
   classifyBuilderUnit,
 } from "./builder-display";
+import {
+  BULK_ROOM_MAX,
+  expandRoomNameRange,
+  parseBulkRoomLines,
+  normalizeSiblingOrders,
+  reorderSiblingIds,
+  filterHierarchyForSearch,
+  listFloorMoveDestinations,
+  listNeighborhoodMoveDestinations,
+  shouldReorderUnitsAsSiblings,
+  terraceViewFixture,
+  splitHighlightParts,
+  mergeOrderedSubsetIntoSiblings,
+} from "./builder-setup";
 
 // ---------------------------------------------------------------------------
 // wouldCreateCycle
@@ -377,5 +391,236 @@ describe("Facility Builder validation rules", () => {
 
   it("prevents cross-facility hierarchy", () => {
     assert.ok(true, "All actions filter by session.facilityId");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 2C — setup efficiency helpers
+// ---------------------------------------------------------------------------
+
+describe("parseBulkRoomLines", () => {
+  it("parses multiline names in order and ignores blanks", () => {
+    const result = parseBulkRoomLines(
+      "Patient Room 32A\n\nPatient Room 33A\n  Soil Hold  \n\nClean Hold\n",
+    );
+    assert.deepEqual(result.names, [
+      "Patient Room 32A",
+      "Patient Room 33A",
+      "Soil Hold",
+      "Clean Hold",
+    ]);
+    assert.equal(result.blankLinesIgnored, 3);
+  });
+
+  it("handles duplicate input names (first wins)", () => {
+    const result = parseBulkRoomLines("Room A\nRoom B\nRoom A\nRoom B");
+    assert.deepEqual(result.names, ["Room A", "Room B"]);
+    assert.deepEqual(result.duplicateInBatch, ["Room A", "Room B"]);
+  });
+
+  it("expands deterministic ranges with matching letter suffix", () => {
+    const expanded = expandRoomNameRange("Patient Room 32A–40A");
+    assert.ok(expanded);
+    assert.equal(expanded!.length, 9);
+    assert.equal(expanded![0], "Patient Room 32A");
+    assert.equal(expanded![8], "Patient Room 40A");
+  });
+
+  it("rejects ranges with mismatched letter suffixes", () => {
+    assert.equal(expandRoomNameRange("Room 32A-40B"), null);
+  });
+
+  it("enforces batch size constant", () => {
+    assert.equal(BULK_ROOM_MAX, 100);
+    const lines = Array.from({ length: 101 }, (_, i) => `Room ${i + 1}`).join("\n");
+    const result = parseBulkRoomLines(lines);
+    assert.equal(result.names.length, 101);
+    // Action rejects > BULK_ROOM_MAX after parse
+    assert.ok(result.names.length > BULK_ROOM_MAX);
+  });
+});
+
+describe("sibling ordering helpers", () => {
+  it("reorders floors among siblings", () => {
+    const next = reorderSiblingIds(["floor-a", "floor-b", "floor-c"], "floor-c", "floor-a");
+    assert.deepEqual(next, ["floor-c", "floor-a", "floor-b"]);
+  });
+
+  it("normalizes displayOrder / sortOrder to stable increments", () => {
+    assert.deepEqual(normalizeSiblingOrders(["a", "b", "c"]), [
+      { id: "a", order: 10 },
+      { id: "b", order: 20 },
+      { id: "c", order: 30 },
+    ]);
+  });
+
+  it("detects floor sibling reorder vs reparent", () => {
+    assert.ok(
+      shouldReorderUnitsAsSiblings(
+        { id: "f1", parentUnitId: null, hierarchyRole: "FLOOR" },
+        { id: "f2", parentUnitId: null, hierarchyRole: "FLOOR" },
+      ),
+    );
+    assert.ok(
+      !shouldReorderUnitsAsSiblings(
+        { id: "n1", parentUnitId: "f1", hierarchyRole: "NEIGHBORHOOD" },
+        { id: "f2", parentUnitId: null, hierarchyRole: "FLOOR" },
+      ),
+    );
+  });
+
+  it("reorders neighborhoods within the same floor", () => {
+    assert.ok(
+      shouldReorderUnitsAsSiblings(
+        { id: "n1", parentUnitId: "floor-1", hierarchyRole: "NEIGHBORHOOD" },
+        { id: "n2", parentUnitId: "floor-1", hierarchyRole: "NEIGHBORHOOD" },
+      ),
+    );
+  });
+
+  it("does not treat different parents as reorder siblings", () => {
+    assert.ok(
+      !shouldReorderUnitsAsSiblings(
+        { id: "n1", parentUnitId: "floor-1", hierarchyRole: "NEIGHBORHOOD" },
+        { id: "n2", parentUnitId: "floor-2", hierarchyRole: "NEIGHBORHOOD" },
+      ),
+    );
+  });
+
+  it("merges floor reorder without moving unrelated legacy siblings", () => {
+    const merged = mergeOrderedSubsetIntoSiblings(
+      ["floor-a", "legacy", "floor-b"],
+      ["floor-b", "floor-a"],
+    );
+    assert.deepEqual(merged, ["floor-b", "legacy", "floor-a"]);
+  });
+});
+
+describe("move destination pickers", () => {
+  const tree = terraceViewFixture();
+
+  it("lists only Floors as unit move destinations", () => {
+    const floors = listFloorMoveDestinations(tree);
+    assert.deepEqual(
+      floors.map((f) => f.name).sort(),
+      ["First Floor", "Ground Floor", "Second Floor"],
+    );
+    assert.ok(floors.every((f) => f.kind === "floor"));
+  });
+
+  it("excludes current parent floor from destinations", () => {
+    const floors = listFloorMoveDestinations(tree, {
+      excludeParentId: "floor-first",
+    });
+    assert.ok(!floors.some((f) => f.id === "floor-first"));
+    assert.ok(floors.some((f) => f.id === "floor-second"));
+  });
+
+  it("lists neighborhoods for room moves and excludes floors", () => {
+    const dest = listNeighborhoodMoveDestinations(tree);
+    assert.ok(dest.every((d) => d.kind === "neighborhood"));
+    assert.ok(dest.some((d) => d.name === "1A – Naval Park"));
+    assert.ok(!dest.some((d) => d.name === "First Floor"));
+  });
+
+  it("excludes current neighborhood from room destinations", () => {
+    const dest = listNeighborhoodMoveDestinations(tree, {
+      excludeUnitId: "nbh-naval",
+    });
+    assert.ok(!dest.some((d) => d.id === "nbh-naval"));
+  });
+
+  it("legacy becomes NEIGHBORHOOD after move onto Floor", () => {
+    assert.equal(hierarchyRoleAfterMoveOntoFloor(), "NEIGHBORHOOD");
+  });
+});
+
+describe("hierarchy search — Terrace View fixture", () => {
+  const tree = terraceViewFixture();
+
+  it("matches a Floor by name", () => {
+    const result = filterHierarchyForSearch(tree, "First Floor");
+    assert.equal(result.matchCount, 1);
+    assert.equal(result.units.length, 1);
+    assert.equal(result.units[0]!.name, "First Floor");
+  });
+
+  it("Neighborhood match includes Floor ancestor", () => {
+    const result = filterHierarchyForSearch(tree, "Naval Park");
+    assert.equal(result.units.length, 1);
+    assert.equal(result.units[0]!.name, "First Floor");
+    assert.equal(result.units[0]!.childUnits[0]!.name, "1A – Naval Park");
+    assert.ok(result.expandedIds.has("floor-first"));
+    assert.ok(result.expandedIds.has("nbh-naval"));
+  });
+
+  it("Room match includes Floor and Neighborhood ancestors", () => {
+    const result = filterHierarchyForSearch(tree, "Patient Room 32A");
+    assert.equal(result.units.length, 1);
+    assert.equal(result.units[0]!.name, "First Floor");
+    assert.equal(result.units[0]!.childUnits[0]!.name, "1A – Naval Park");
+    assert.equal(result.units[0]!.childUnits[0]!.childSpaces[0]!.name, "Patient Room 32A");
+    assert.ok(result.expandedIds.has("floor-first"));
+    assert.ok(result.expandedIds.has("nbh-naval"));
+  });
+
+  it("matches room codes case-insensitively", () => {
+    const result = filterHierarchyForSearch(tree, "srv");
+    assert.ok(result.matchCount >= 1);
+    assert.ok(
+      result.units[0]!.childUnits[0]!.childSpaces.some((s) => s.code === "SRV"),
+    );
+  });
+
+  it("is case-insensitive for names", () => {
+    const result = filterHierarchyForSearch(tree, "soil hold");
+    assert.ok(result.matchCount >= 1);
+  });
+
+  it("returns empty for no results", () => {
+    const result = filterHierarchyForSearch(tree, "zzz-not-found");
+    assert.equal(result.units.length, 0);
+    assert.equal(result.matchCount, 0);
+  });
+
+  it("clearing search (empty query) returns full tree", () => {
+    const result = filterHierarchyForSearch(tree, "   ");
+    assert.equal(result.units.length, tree.length);
+    assert.equal(result.matchCount, 0);
+  });
+
+  it("hides unrelated branches while searching", () => {
+    const result = filterHierarchyForSearch(tree, "MLK");
+    assert.equal(result.units.length, 1);
+    assert.equal(result.units[0]!.name, "Second Floor");
+    assert.ok(!result.units.some((u) => u.name === "Ground Floor"));
+  });
+
+  it("highlights matched text parts", () => {
+    const parts = splitHighlightParts("Patient Room 32A", "room");
+    assert.ok(parts.some((p) => p.match && p.text.toLowerCase() === "room"));
+  });
+});
+
+describe("Stage 2C regression markers", () => {
+  it("Add Floor / Neighborhood / Room helpers remain role-gated", () => {
+    assert.ok(canAddNeighborhood("floor") && !canAddRoom("floor"));
+    assert.ok(canAddRoom("neighborhood") && !canAddNeighborhood("neighborhood"));
+  });
+
+  it("DnD move rules unchanged for floors and rooms", () => {
+    assert.ok(!canMoveUnitOnto("floor", "floor"));
+    assert.ok(canMoveUnitOnto("legacy_location", "floor"));
+    assert.ok(!canMoveRoomOnto("floor"));
+    assert.ok(canMoveRoomOnto("neighborhood"));
+  });
+
+  it("Terrace View fixture has expected structure", () => {
+    const tree = terraceViewFixture();
+    assert.equal(tree.length, 3);
+    const first = tree.find((u) => u.id === "floor-first")!;
+    assert.equal(first.childUnits.length, 2);
+    const naval = first.childUnits.find((u) => u.id === "nbh-naval")!;
+    assert.equal(naval.childSpaces.length, 5);
   });
 });

@@ -5,6 +5,7 @@ import {
   useRef,
   useEffect,
   useTransition,
+  useMemo,
   type ReactNode,
 } from "react";
 import { SpaceType, UnitDepartmentKind, type UnitType } from "@prisma/client";
@@ -18,7 +19,11 @@ import {
   type DragStartEvent,
   DragOverlay,
 } from "@dnd-kit/core";
-import { useSortable } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronRight,
@@ -36,6 +41,9 @@ import {
   ToggleRight,
   FolderOpen,
   Folder,
+  Search,
+  ArrowRightLeft,
+  ListPlus,
 } from "lucide-react";
 
 import { Drawer } from "@/components/drawer";
@@ -60,11 +68,21 @@ import {
   type BuilderNodeDisplayKind,
 } from "@/lib/facility-builder/builder-display";
 import {
+  BULK_ROOM_MAX,
+  filterHierarchyForSearch,
+  listFloorMoveDestinations,
+  listNeighborhoodMoveDestinations,
+  reorderSiblingIds,
+  shouldReorderUnitsAsSiblings,
+  splitHighlightParts,
+} from "@/lib/facility-builder/builder-setup";
+import {
   createBuilderFloorAction,
   createBuilderNeighborhoodAction,
   updateBuilderUnitAction,
   deleteBuilderUnitAction,
   createBuilderSpaceAction,
+  createBuilderSpacesBulkAction,
   updateBuilderSpaceAction,
   deleteBuilderSpaceAction,
   upsertBuilderUnitResponsibilityAction,
@@ -73,6 +91,8 @@ import {
   deleteBuilderSpaceResponsibilityAction,
   moveBuilderUnitAction,
   moveBuilderSpaceAction,
+  reorderBuilderUnitsAction,
+  reorderBuilderSpacesAction,
   renameBuilderUnitAction,
   renameBuilderSpaceAction,
   toggleBuilderUnitActiveAction,
@@ -126,8 +146,15 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     for (const u of hierarchy.units) set.add(u.id);
     return set;
   });
+  const [searchQuery, setSearchQuery] = useState("");
   const [createUnitDrawer, setCreateUnitDrawer] = useState<{ parentId: string | null; depth: number } | null>(null);
   const [createSpaceDrawer, setCreateSpaceDrawer] = useState<{ unitId: string } | null>(null);
+  const [bulkSpaceDrawer, setBulkSpaceDrawer] = useState<{ unitId: string } | null>(null);
+  const [moveDrawer, setMoveDrawer] = useState<
+    | { type: "unit-to-floor"; unitId: string; unitName: string; currentParentId: string | null }
+    | { type: "space-to-neighborhood"; spaceId: string; spaceName: string; currentUnitId: string }
+    | null
+  >(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -141,7 +168,16 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
+  const isSearching = searchQuery.trim().length > 0;
+  const searchResult = useMemo(
+    () => filterHierarchyForSearch(hierarchy.units, searchQuery),
+    [hierarchy.units, searchQuery],
+  );
+  const displayUnits = isSearching ? searchResult.units : hierarchy.units;
+  const effectiveExpanded = isSearching ? searchResult.expandedIds : expanded;
+
   function toggleExpand(id: string) {
+    if (isSearching) return;
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -176,6 +212,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDragId(null);
+    if (isSearching) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -185,33 +222,88 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     const activeUnit = findUnit(hierarchy.units, activeId);
     const activeSpaceInfo = findSpaceWithParent(hierarchy.units, activeId);
     const overUnit = findUnit(hierarchy.units, overId);
-    if (!overUnit) return;
+    const overSpaceInfo = findSpaceWithParent(hierarchy.units, overId);
 
+    // --- Unit drag ---
     if (activeUnit) {
-      const dragKind = resolveBuilderNodeDisplayKind(activeUnit);
-      const dropKind = resolveBuilderNodeDisplayKind(overUnit);
-      if (!canMoveUnitOnto(dragKind, dropKind)) return;
-      if (overUnit.id === activeUnit.parentUnitId) return;
-      startTransition(() => {
-        moveBuilderUnitAction({
-          unitId: activeUnit.id,
-          newParentUnitId: overUnit.id,
-          newDisplayOrder: activeUnit.displayOrder,
+      // Sibling reorder (Floor↔Floor, Neighborhood↔Neighborhood, Legacy↔Legacy)
+      if (overUnit && shouldReorderUnitsAsSiblings(activeUnit, overUnit)) {
+        const activeKind = resolveBuilderNodeDisplayKind(activeUnit);
+        const siblings = getSiblingUnits(hierarchy.units, activeUnit.parentUnitId).filter(
+          (s) => resolveBuilderNodeDisplayKind(s) === activeKind,
+        );
+        const ordered = reorderSiblingIds(
+          siblings.map((s) => s.id),
+          activeUnit.id,
+          overUnit.id,
+        );
+        if (!ordered) return;
+        startTransition(() => {
+          reorderBuilderUnitsAction({
+            parentUnitId: activeUnit.parentUnitId,
+            orderedIds: ordered,
+          });
         });
-      });
-      expandTo(overUnit.id);
-    } else if (activeSpaceInfo) {
-      const dropKind = resolveBuilderNodeDisplayKind(overUnit);
+        return;
+      }
+
+      // Reparent onto a Floor
+      if (overUnit) {
+        const dragKind = resolveBuilderNodeDisplayKind(activeUnit);
+        const dropKind = resolveBuilderNodeDisplayKind(overUnit);
+        if (!canMoveUnitOnto(dragKind, dropKind)) return;
+        if (overUnit.id === activeUnit.parentUnitId) return;
+        startTransition(() => {
+          moveBuilderUnitAction({
+            unitId: activeUnit.id,
+            newParentUnitId: overUnit.id,
+            newDisplayOrder: 100,
+          });
+        });
+        expandTo(overUnit.id);
+      }
+      return;
+    }
+
+    // --- Space (room) drag ---
+    if (activeSpaceInfo) {
+      // Reorder among rooms in the same neighborhood
+      if (
+        overSpaceInfo &&
+        overSpaceInfo.parentUnitId === activeSpaceInfo.parentUnitId
+      ) {
+        const parent = findUnit(hierarchy.units, activeSpaceInfo.parentUnitId);
+        if (!parent) return;
+        const ordered = reorderSiblingIds(
+          parent.childSpaces.map((s) => s.id),
+          activeSpaceInfo.space.id,
+          overSpaceInfo.space.id,
+        );
+        if (!ordered) return;
+        startTransition(() => {
+          reorderBuilderSpacesAction({
+            unitId: activeSpaceInfo.parentUnitId,
+            orderedIds: ordered,
+          });
+        });
+        return;
+      }
+
+      // Move onto a different neighborhood (drop on unit or on a room in that unit)
+      const targetUnit = overUnit
+        ?? (overSpaceInfo ? findUnit(hierarchy.units, overSpaceInfo.parentUnitId) : null);
+      if (!targetUnit) return;
+      const dropKind = resolveBuilderNodeDisplayKind(targetUnit);
       if (!canMoveRoomOnto(dropKind)) return;
-      if (overUnit.id === activeSpaceInfo.parentUnitId) return;
+      if (targetUnit.id === activeSpaceInfo.parentUnitId) return;
       startTransition(() => {
         moveBuilderSpaceAction({
           spaceId: activeSpaceInfo.space.id,
-          newUnitId: overUnit.id,
-          newSortOrder: activeSpaceInfo.space.sortOrder,
+          newUnitId: targetUnit.id,
+          newSortOrder: 100,
         });
       });
-      expandTo(overUnit.id);
+      expandTo(targetUnit.id);
     }
   }
 
@@ -234,8 +326,11 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     };
   }, [contextMenu]);
 
+  void isPending;
+
   return (
     <DndContext
+      id="facility-builder"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
@@ -251,8 +346,19 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             </div>
           </div>
 
-          {/* Persistent facility-level Add Floor — outside scroll region */}
-          <div className="border-b border-zinc-100 px-2 py-2">
+          {/* Calm toolbar: Search + Add Floor */}
+          <div className="space-y-2 border-b border-zinc-100 px-2 py-2">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search floors, rooms…"
+                data-testid="hierarchy-search"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none"
+              />
+            </label>
             <button
               type="button"
               data-testid="add-floor-root"
@@ -281,36 +387,51 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                   Add Floor
                 </button>
               </div>
+            ) : isSearching && displayUnits.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm font-medium text-zinc-700">No locations found</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Try a different floor, neighborhood, room, or code.
+                </p>
+              </div>
             ) : (
               <>
-                {!hasFloors && (
+                {!hasFloors && !isSearching && (
                   <p className="mx-2 mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Top-level locations below are not assigned to a floor. Add a Floor, then drag them into it.
                   </p>
                 )}
-                <ul className="space-y-0.5">
-                  {hierarchy.units.map((unit) => (
-                    <TreeUnitNode
-                      key={unit.id}
-                      unit={unit}
-                      depth={0}
-                      expanded={expanded}
-                      selection={selection}
-                      renaming={renaming}
-                      onToggle={toggleExpand}
-                      onSelect={setSelection}
-                      onContextMenu={(e, target) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setContextMenu({ x: e.clientX, y: e.clientY, target });
-                      }}
-                      onCreateUnit={(parentId, depth) => setCreateUnitDrawer({ parentId, depth })}
-                      onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
-                      onRename={setRenaming}
-                      onRenameComplete={() => setRenaming(null)}
-                    />
-                  ))}
-                </ul>
+                <SortableContext
+                  items={displayUnits.map((u) => u.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ul className="space-y-0.5">
+                    {displayUnits.map((unit) => (
+                      <TreeUnitNode
+                        key={unit.id}
+                        unit={unit}
+                        depth={0}
+                        expanded={effectiveExpanded}
+                        selection={selection}
+                        renaming={renaming}
+                        searchQuery={searchQuery}
+                        dndEnabled={!isSearching}
+                        onToggle={toggleExpand}
+                        onSelect={setSelection}
+                        onContextMenu={(e, target) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setContextMenu({ x: e.clientX, y: e.clientY, target });
+                        }}
+                        onCreateUnit={(parentId, depth) => setCreateUnitDrawer({ parentId, depth })}
+                        onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+                        onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
+                        onRename={setRenaming}
+                        onRenameComplete={() => setRenaming(null)}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
               </>
             )}
           </div>
@@ -343,6 +464,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
               allUnits={allFlatUnits}
               departments={hierarchy.departments}
               onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+              onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
               onCreateNeighborhood={(unitId) => setCreateUnitDrawer({ parentId: unitId, depth: 1 })}
             />
           )}
@@ -377,6 +499,33 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             onAddRoom={(target) => {
               if (target.type === "unit") {
                 setCreateSpaceDrawer({ unitId: target.unit.id });
+              }
+              setContextMenu(null);
+            }}
+            onBulkAddRooms={(target) => {
+              if (target.type === "unit") {
+                setBulkSpaceDrawer({ unitId: target.unit.id });
+              }
+              setContextMenu(null);
+            }}
+            onMove={(target) => {
+              if (target.type === "unit") {
+                const kind = resolveBuilderNodeDisplayKind(target.unit);
+                if (kind === "legacy_location" || kind === "neighborhood") {
+                  setMoveDrawer({
+                    type: "unit-to-floor",
+                    unitId: target.unit.id,
+                    unitName: target.unit.name,
+                    currentParentId: target.unit.parentUnitId,
+                  });
+                }
+              } else {
+                setMoveDrawer({
+                  type: "space-to-neighborhood",
+                  spaceId: target.space.id,
+                  spaceName: target.space.name,
+                  currentUnitId: target.unitId,
+                });
               }
               setContextMenu(null);
             }}
@@ -430,7 +579,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
               }
               setContextMenu(null);
             }}
-            expanded={expanded}
+            expanded={effectiveExpanded}
             onToggleExpand={toggleExpand}
           />
         )}
@@ -469,6 +618,56 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             />
           </Drawer>
         )}
+
+        {/* Bulk rooms drawer */}
+        {bulkSpaceDrawer && (
+          <Drawer
+            open
+            onClose={() => setBulkSpaceDrawer(null)}
+            title="Add Multiple Rooms"
+          >
+            <BulkCreateSpacesForm
+              unitId={bulkSpaceDrawer.unitId}
+              onDone={() => setBulkSpaceDrawer(null)}
+            />
+          </Drawer>
+        )}
+
+        {/* Move picker drawer */}
+        {moveDrawer && (
+          <Drawer
+            open
+            onClose={() => setMoveDrawer(null)}
+            title={
+              moveDrawer.type === "unit-to-floor"
+                ? "Move to Floor"
+                : "Move to Neighborhood"
+            }
+          >
+            {moveDrawer.type === "unit-to-floor" ? (
+              <MoveUnitToFloorForm
+                unitId={moveDrawer.unitId}
+                unitName={moveDrawer.unitName}
+                currentParentId={moveDrawer.currentParentId}
+                floors={listFloorMoveDestinations(hierarchy.units, {
+                  excludeUnitId: moveDrawer.unitId,
+                  excludeParentId: moveDrawer.currentParentId,
+                })}
+                onDone={() => setMoveDrawer(null)}
+              />
+            ) : (
+              <MoveSpaceToNeighborhoodForm
+                spaceId={moveDrawer.spaceId}
+                spaceName={moveDrawer.spaceName}
+                currentUnitId={moveDrawer.currentUnitId}
+                destinations={listNeighborhoodMoveDestinations(hierarchy.units, {
+                  excludeUnitId: moveDrawer.currentUnitId,
+                })}
+                onDone={() => setMoveDrawer(null)}
+              />
+            )}
+          </Drawer>
+        )}
       </div>
 
       <DragOverlay>
@@ -500,6 +699,8 @@ function ContextMenuOverlay({
   onRename,
   onAddChild,
   onAddRoom,
+  onBulkAddRooms,
+  onMove,
   onToggleActive,
   onConvertToFloor,
   onDelete,
@@ -513,6 +714,8 @@ function ContextMenuOverlay({
   onRename: (t: ContextTarget) => void;
   onAddChild: (t: ContextTarget) => void;
   onAddRoom: (t: ContextTarget) => void;
+  onBulkAddRooms: (t: ContextTarget) => void;
+  onMove: (t: ContextTarget) => void;
   onToggleActive: (t: ContextTarget) => void;
   onConvertToFloor: (t: ContextTarget) => void;
   onDelete: (t: ContextTarget) => void;
@@ -539,7 +742,7 @@ function ContextMenuOverlay({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[180px] rounded-lg border border-zinc-200 bg-white py-1 shadow-xl"
+      className="fixed z-50 min-w-[200px] rounded-lg border border-zinc-200 bg-white py-1 shadow-xl"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -565,9 +768,24 @@ function ContextMenuOverlay({
               >
                 Convert to Floor
               </ContextMenuItem>
-              <p className="px-3 py-1.5 text-[11px] text-zinc-400">
-                Or drag onto a Floor to assign as Neighborhood
-              </p>
+              <ContextMenuItem
+                icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
+                onClick={() => onMove(target)}
+              >
+                Move to Floor…
+              </ContextMenuItem>
+            </>
+          )}
+
+          {displayKind === "neighborhood" && (
+            <>
+              <div className="my-1 border-t border-zinc-100" />
+              <ContextMenuItem
+                icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
+                onClick={() => onMove(target)}
+              >
+                Move to another Floor…
+              </ContextMenuItem>
             </>
           )}
 
@@ -582,9 +800,14 @@ function ContextMenuOverlay({
               )}
 
               {canAddRoom(displayKind!) && (
-                <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddRoom(target)}>
-                  Add Room
-                </ContextMenuItem>
+                <>
+                  <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddRoom(target)}>
+                    Add Room
+                  </ContextMenuItem>
+                  <ContextMenuItem icon={<ListPlus className="h-3.5 w-3.5" />} onClick={() => onBulkAddRooms(target)}>
+                    Add Multiple Rooms
+                  </ContextMenuItem>
+                </>
               )}
             </>
           )}
@@ -596,6 +819,18 @@ function ContextMenuOverlay({
             onClick={() => { onToggleExpand(target.unit.id); onClose(); }}
           >
             {isExpanded ? "Collapse" : "Expand"}
+          </ContextMenuItem>
+        </>
+      )}
+
+      {!isUnit && (
+        <>
+          <div className="my-1 border-t border-zinc-100" />
+          <ContextMenuItem
+            icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
+            onClick={() => onMove(target)}
+          >
+            Move to another Neighborhood…
           </ContextMenuItem>
         </>
       )}
@@ -650,11 +885,14 @@ function TreeUnitNode({
   expanded,
   selection,
   renaming,
+  searchQuery,
+  dndEnabled,
   onToggle,
   onSelect,
   onContextMenu,
   onCreateUnit,
   onCreateSpace,
+  onBulkCreateSpace,
   onRename,
   onRenameComplete,
 }: {
@@ -663,11 +901,14 @@ function TreeUnitNode({
   expanded: Set<string>;
   selection: Selection;
   renaming: { type: "unit" | "space"; id: string } | null;
+  searchQuery: string;
+  dndEnabled: boolean;
   onToggle: (id: string) => void;
   onSelect: (s: Selection) => void;
   onContextMenu: (e: React.MouseEvent, target: ContextTarget) => void;
   onCreateUnit: (parentId: string, depth: number) => void;
   onCreateSpace: (unitId: string) => void;
+  onBulkCreateSpace: (unitId: string) => void;
   onRename: (r: { type: "unit" | "space"; id: string }) => void;
   onRenameComplete: () => void;
 }) {
@@ -686,7 +927,7 @@ function TreeUnitNode({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: unit.id });
+  } = useSortable({ id: unit.id, disabled: !dndEnabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -705,6 +946,8 @@ function TreeUnitNode({
         ? LayoutGrid
         : MapPin;
 
+  void isPending;
+
   return (
     <li ref={setNodeRef} style={style} data-display-kind={displayKind}>
       <div
@@ -717,19 +960,16 @@ function TreeUnitNode({
         }`}
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
       >
-        {/* Drag handle */}
         <button
           type="button"
           className={`shrink-0 p-1 cursor-grab opacity-0 group-hover:opacity-60 transition-opacity ${
             isSelected ? "text-zinc-400" : "text-zinc-300"
-          }`}
-          {...attributes}
-          {...listeners}
+          } ${!dndEnabled ? "invisible" : ""}`}
+          {...(dndEnabled ? { ...attributes, ...listeners } : {})}
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
 
-        {/* Expand/collapse chevron */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggle(unit.id); }}
@@ -742,12 +982,10 @@ function TreeUnitNode({
             : <ChevronRight className="h-4 w-4" />}
         </button>
 
-        {/* Icon */}
         <span className={`shrink-0 mr-2 ${isSelected ? "text-zinc-400" : "text-zinc-400"}`}>
           <KindIcon className="h-4 w-4" />
         </span>
 
-        {/* Name */}
         <button
           type="button"
           onClick={() => onSelect({ type: "unit", unitId: unit.id })}
@@ -764,12 +1002,11 @@ function TreeUnitNode({
             />
           ) : (
             <span className={`text-sm ${displayKind === "floor" ? "font-semibold" : "font-medium"} ${!unit.isActive ? "opacity-40 line-through" : ""}`}>
-              {unit.name}
+              <HighlightedText text={unit.name} query={searchQuery} selected={isSelected} />
             </span>
           )}
         </button>
 
-        {/* Legacy badge */}
         {!isRenaming && displayKind === "legacy_location" && (
           <span
             className={`shrink-0 mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
@@ -781,7 +1018,6 @@ function TreeUnitNode({
           </span>
         )}
 
-        {/* Stats badge */}
         {!isRenaming && totalRooms > 0 && (
           <span className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
             isSelected ? "bg-zinc-700 text-zinc-300" : "bg-zinc-100 text-zinc-500"
@@ -790,7 +1026,6 @@ function TreeUnitNode({
           </span>
         )}
 
-        {/* Context menu button */}
         {!isRenaming && (
           <button
             type="button"
@@ -809,45 +1044,62 @@ function TreeUnitNode({
         )}
       </div>
 
-      {/* Children */}
       {isExpanded && (
         <ul className="space-y-0.5">
-          {unit.childUnits.map((child) => (
-            <TreeUnitNode
-              key={child.id}
-              unit={child}
-              depth={depth + 1}
-              expanded={expanded}
-              selection={selection}
-              renaming={renaming}
-              onToggle={onToggle}
-              onSelect={onSelect}
-              onContextMenu={onContextMenu}
-              onCreateUnit={onCreateUnit}
-              onCreateSpace={onCreateSpace}
-              onRename={onRename}
-              onRenameComplete={onRenameComplete}
-            />
-          ))}
-          {unit.childSpaces.map((space) => (
-            <TreeSpaceNode
-              key={space.id}
-              space={space}
-              unitId={unit.id}
-              depth={depth + 1}
-              selection={selection}
-              renaming={renaming}
-              onSelect={onSelect}
-              onContextMenu={onContextMenu}
-              onRenameComplete={onRenameComplete}
-            />
-          ))}
+          {unit.childUnits.length > 0 && (
+            <SortableContext
+              items={unit.childUnits.map((c) => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {unit.childUnits.map((child) => (
+                <TreeUnitNode
+                  key={child.id}
+                  unit={child}
+                  depth={depth + 1}
+                  expanded={expanded}
+                  selection={selection}
+                  renaming={renaming}
+                  searchQuery={searchQuery}
+                  dndEnabled={dndEnabled}
+                  onToggle={onToggle}
+                  onSelect={onSelect}
+                  onContextMenu={onContextMenu}
+                  onCreateUnit={onCreateUnit}
+                  onCreateSpace={onCreateSpace}
+                  onBulkCreateSpace={onBulkCreateSpace}
+                  onRename={onRename}
+                  onRenameComplete={onRenameComplete}
+                />
+              ))}
+            </SortableContext>
+          )}
+          {unit.childSpaces.length > 0 && (
+            <SortableContext
+              items={unit.childSpaces.map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {unit.childSpaces.map((space) => (
+                <TreeSpaceNode
+                  key={space.id}
+                  space={space}
+                  unitId={unit.id}
+                  depth={depth + 1}
+                  selection={selection}
+                  renaming={renaming}
+                  searchQuery={searchQuery}
+                  dndEnabled={dndEnabled}
+                  onSelect={onSelect}
+                  onContextMenu={onContextMenu}
+                  onRenameComplete={onRenameComplete}
+                />
+              ))}
+            </SortableContext>
+          )}
 
-          {/* Contextual add actions — role-based, never both Room+Neighborhood on every node */}
           {(showAddNeighborhood || showAddRoom) && (
             <li>
               <div
-                className="flex items-center gap-1 py-0.5"
+                className="flex flex-wrap items-center gap-1 py-0.5"
                 style={{ paddingLeft: `${(depth + 1) * 20 + 28}px` }}
               >
                 {showAddNeighborhood && (
@@ -862,15 +1114,26 @@ function TreeUnitNode({
                   </button>
                 )}
                 {showAddRoom && (
-                  <button
-                    type="button"
-                    data-testid={`add-room-${unit.id}`}
-                    onClick={() => onCreateSpace(unit.id)}
-                    className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Room
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      data-testid={`add-room-${unit.id}`}
+                      onClick={() => onCreateSpace(unit.id)}
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Room
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`add-rooms-bulk-${unit.id}`}
+                      onClick={() => onBulkCreateSpace(unit.id)}
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                    >
+                      <ListPlus className="h-3 w-3" />
+                      Multiple
+                    </button>
+                  </>
                 )}
               </div>
             </li>
@@ -891,6 +1154,8 @@ function TreeSpaceNode({
   depth,
   selection,
   renaming,
+  searchQuery,
+  dndEnabled,
   onSelect,
   onContextMenu,
   onRenameComplete,
@@ -900,13 +1165,15 @@ function TreeSpaceNode({
   depth: number;
   selection: Selection;
   renaming: { type: "unit" | "space"; id: string } | null;
+  searchQuery: string;
+  dndEnabled: boolean;
   onSelect: (s: Selection) => void;
   onContextMenu: (e: React.MouseEvent, target: ContextTarget) => void;
   onRenameComplete: () => void;
 }) {
   const isSelected = selection?.type === "space" && selection.spaceId === space.id;
   const isRenaming = renaming?.type === "space" && renaming.id === space.id;
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const {
     attributes,
@@ -915,7 +1182,7 @@ function TreeSpaceNode({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: space.id });
+  } = useSortable({ id: space.id, disabled: !dndEnabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -933,27 +1200,22 @@ function TreeSpaceNode({
         }`}
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
       >
-        {/* Drag handle */}
         <button
           type="button"
           className={`shrink-0 p-1 cursor-grab opacity-0 group-hover:opacity-60 transition-opacity ${
             isSelected ? "text-zinc-400" : "text-zinc-300"
-          }`}
-          {...attributes}
-          {...listeners}
+          } ${!dndEnabled ? "invisible" : ""}`}
+          {...(dndEnabled ? { ...attributes, ...listeners } : {})}
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
 
-        {/* Spacer matching chevron width */}
         <span className="shrink-0 w-5" />
 
-        {/* Icon */}
         <span className={`shrink-0 mr-2 ${isSelected ? "text-zinc-400" : "text-zinc-400"}`}>
           <DoorOpen className="h-4 w-4" />
         </span>
 
-        {/* Name */}
         <button
           type="button"
           onClick={() => onSelect({ type: "space", spaceId: space.id, unitId })}
@@ -970,12 +1232,11 @@ function TreeSpaceNode({
             />
           ) : (
             <span className={`text-sm ${!space.isActive ? "opacity-40 line-through" : ""}`}>
-              {space.name}
+              <HighlightedText text={space.name} query={searchQuery} selected={isSelected} />
             </span>
           )}
         </button>
 
-        {/* Context menu button */}
         {!isRenaming && (
           <button
             type="button"
@@ -1051,6 +1312,7 @@ function UnitEditor({
   allUnits,
   departments,
   onCreateSpace,
+  onBulkCreateSpace,
   onCreateNeighborhood,
 }: {
   unit: UnitHierarchyNode;
@@ -1058,6 +1320,7 @@ function UnitEditor({
   allUnits: { id: string; name: string; parentUnitId: string | null }[];
   departments: { id: string; key: string; name: string }[];
   onCreateSpace: (unitId: string) => void;
+  onBulkCreateSpace: (unitId: string) => void;
   onCreateNeighborhood: (unitId: string) => void;
 }) {
   const parentOptions = allUnits.filter((u) => u.id !== unit.id);
@@ -1120,16 +1383,29 @@ function UnitEditor({
                 </button>
               )}
               {canAddRoom(displayKind) && (
-                <button
-                  type="button"
-                  onClick={() => onCreateSpace(unit.id)}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Room
-                  </span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onCreateSpace(unit.id)}
+                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Room
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="add-multiple-rooms-editor"
+                    onClick={() => onBulkCreateSpace(unit.id)}
+                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <ListPlus className="h-3.5 w-3.5" />
+                      Add Multiple Rooms
+                    </span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -2007,9 +2283,326 @@ function CreateSpaceForm({
   );
 }
 
+function BulkCreateSpacesForm({
+  unitId,
+  onDone,
+}: {
+  unitId: string;
+  onDone: () => void;
+}) {
+  const [result, setResult] = useState<{
+    created: number;
+    skippedExisting: string[];
+    skippedDuplicateInBatch: string[];
+    errors: string[];
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <form
+      action={async (formData) => {
+        setError(null);
+        setResult(null);
+        try {
+          const outcome = await createBuilderSpacesBulkAction(formData);
+          setResult(outcome);
+          if (
+            outcome.created > 0 &&
+            outcome.skippedExisting.length === 0 &&
+            outcome.errors.length === 0
+          ) {
+            onDone();
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Bulk create failed.");
+        }
+      }}
+      className="grid gap-3"
+    >
+      <input type="hidden" name="unitId" value={unitId} />
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Room names (one per line)
+        <textarea
+          name="namesText"
+          required
+          rows={12}
+          placeholder={"Patient Room 32A\nPatient Room 33A\nSoil Hold\nClean Hold\n\nOr a range:\nPatient Room 32A–40A"}
+          className="rounded-lg border border-zinc-200 px-3 py-2 font-mono text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+      <p className="text-xs text-zinc-500">
+        Blank lines are ignored. Max {BULK_ROOM_MAX} rooms per batch. Optional ranges use the same letter suffix (e.g. 32A–40A).
+      </p>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Type for all rooms
+        <select
+          name="spaceType"
+          defaultValue="PATIENT_ROOM"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        >
+          {SPACE_TYPE_OPTIONS.map((t) => (
+            <option key={t} value={t}>{SPACE_TYPE_LABELS[t]}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Description (optional, applied to all)
+        <input
+          name="descriptionPrefix"
+          placeholder="Optional shared description"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      {result && (
+        <div className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-700 space-y-1">
+          <p>Created {result.created} room{result.created === 1 ? "" : "s"}.</p>
+          {result.skippedExisting.length > 0 && (
+            <p className="text-amber-700">
+              Skipped existing: {result.skippedExisting.join(", ")}
+            </p>
+          )}
+          {result.skippedDuplicateInBatch.length > 0 && (
+            <p className="text-amber-700">
+              Duplicate lines skipped: {result.skippedDuplicateInBatch.join(", ")}
+            </p>
+          )}
+          {result.errors.map((e) => (
+            <p key={e} className="text-red-700">{e}</p>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        data-testid="bulk-create-rooms-submit"
+        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      >
+        Create rooms
+      </button>
+    </form>
+  );
+}
+
+function MoveUnitToFloorForm({
+  unitId,
+  unitName,
+  currentParentId,
+  floors,
+  onDone,
+}: {
+  unitId: string;
+  unitName: string;
+  currentParentId: string | null;
+  floors: { id: string; name: string }[];
+  onDone: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  void currentParentId;
+
+  if (floors.length === 0) {
+    return (
+      <p className="text-sm text-zinc-600">
+        No other Floors available. Create a Floor first, then move &quot;{unitName}&quot; into it.
+      </p>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        const newParentUnitId = String(fd.get("newParentUnitId") || "");
+        if (!newParentUnitId) return;
+        setError(null);
+        startTransition(async () => {
+          try {
+            await moveBuilderUnitAction({
+              unitId,
+              newParentUnitId,
+              newDisplayOrder: 100,
+            });
+            onDone();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Move failed.");
+          }
+        });
+      }}
+      className="grid gap-3"
+    >
+      <p className="text-sm text-zinc-600">
+        Move <span className="font-medium text-zinc-900">{unitName}</span> onto a Floor.
+        It will become a Neighborhood / Unit.
+      </p>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Destination Floor
+        <select
+          name="newParentUnitId"
+          required
+          defaultValue=""
+          data-testid="move-to-floor-select"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        >
+          <option value="" disabled>
+            Select a floor…
+          </option>
+          {floors.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      <button
+        type="submit"
+        data-testid="move-to-floor-submit"
+        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      >
+        Move
+      </button>
+    </form>
+  );
+}
+
+function MoveSpaceToNeighborhoodForm({
+  spaceId,
+  spaceName,
+  currentUnitId,
+  destinations,
+  onDone,
+}: {
+  spaceId: string;
+  spaceName: string;
+  currentUnitId: string;
+  destinations: { id: string; name: string; groupLabel?: string }[];
+  onDone: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  void currentUnitId;
+
+  if (destinations.length === 0) {
+    return (
+      <p className="text-sm text-zinc-600">
+        No other neighborhoods available for &quot;{spaceName}&quot;.
+      </p>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        const newUnitId = String(fd.get("newUnitId") || "");
+        if (!newUnitId) return;
+        setError(null);
+        startTransition(async () => {
+          try {
+            await moveBuilderSpaceAction({
+              spaceId,
+              newUnitId,
+              newSortOrder: 100,
+            });
+            onDone();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Move failed.");
+          }
+        });
+      }}
+      className="grid gap-3"
+    >
+      <p className="text-sm text-zinc-600">
+        Move <span className="font-medium text-zinc-900">{spaceName}</span> to another Neighborhood / Unit.
+      </p>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Destination
+        <select
+          name="newUnitId"
+          required
+          defaultValue=""
+          data-testid="move-to-neighborhood-select"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        >
+          <option value="" disabled>
+            Select a neighborhood…
+          </option>
+          {destinations.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.groupLabel ? `${d.groupLabel} / ${d.name}` : d.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      <button
+        type="submit"
+        data-testid="move-to-neighborhood-submit"
+        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      >
+        Move
+      </button>
+    </form>
+  );
+}
+
+function HighlightedText({
+  text,
+  query,
+  selected,
+}: {
+  text: string;
+  query: string;
+  selected?: boolean;
+}) {
+  const parts = splitHighlightParts(text, query);
+  if (!query.trim() || parts.every((p) => !p.match)) {
+    return <>{text}</>;
+  }
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.match ? (
+          <mark
+            key={`${i}-${part.text}`}
+            className={
+              selected
+                ? "rounded-sm bg-amber-300/40 text-inherit"
+                : "rounded-sm bg-amber-100 text-inherit"
+            }
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${i}-${part.text}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function getSiblingUnits(
+  units: UnitHierarchyNode[],
+  parentUnitId: string | null,
+): UnitHierarchyNode[] {
+  if (parentUnitId == null) return units;
+  const parent = findUnit(units, parentUnitId);
+  return parent?.childUnits ?? [];
+}
 
 function findUnit(
   units: UnitHierarchyNode[],
