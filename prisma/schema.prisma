@@ -770,6 +770,8 @@ model UnitSpace {
   facility         Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   name             String
   spaceType        SpaceType
+  /// User-facing type label when it differs from the canonical SpaceType label (presets / Custom).
+  customTypeLabel  String?
   code             String?
   isActive         Boolean                   @default(true)
   sortOrder        Int                       @default(100)

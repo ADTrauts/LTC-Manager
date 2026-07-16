@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SpaceType, UnitDepartmentKind, UnitHierarchyRole, UnitType } from "@prisma/client";
+import { UnitDepartmentKind, UnitHierarchyRole, UnitType } from "@prisma/client";
 import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { wouldCreateCycle } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   FLOOR_INTERNAL_UNIT_TYPE,
+  NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
   resolveBuilderNodeDisplayKind,
   canMoveUnitOnto,
   canMoveRoomOnto,
@@ -17,9 +18,14 @@ import {
 import {
   BULK_ROOM_MAX,
   mergeOrderedSubsetIntoSiblings,
+  nextAppendDisplayOrder,
+  nextAppendSortOrder,
   normalizeSiblingOrders,
   parseBulkRoomLines,
 } from "@/lib/facility-builder/builder-setup";
+import {
+  resolveSpaceTypeFromPreset,
+} from "@/lib/facility-builder/space-type-presets";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -59,32 +65,28 @@ async function assertUniqueUnitName(
 // ---------------------------------------------------------------------------
 
 const UNIT_TYPES = Object.values(UnitType) as [UnitType, ...UnitType[]];
-const SPACE_TYPES = Object.values(SpaceType) as [SpaceType, ...SpaceType[]];
 const DEPT_KINDS = Object.values(UnitDepartmentKind) as [UnitDepartmentKind, ...UnitDepartmentKind[]];
 
 const createFloorSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).optional(),
-  displayOrder: z.coerce.number().int().min(1).max(9999).default(100),
   isActive: z.coerce.boolean().default(true),
 });
 
 const createNeighborhoodSchema = z.object({
   name: z.string().trim().min(1).max(120),
   parentUnitId: z.string().cuid(),
-  unitType: z.enum(UNIT_TYPES).default(UnitType.OTHER),
   description: z.string().trim().max(500).optional(),
-  displayOrder: z.coerce.number().int().min(1).max(9999).default(100),
   isActive: z.coerce.boolean().default(true),
 });
 
 const updateUnitSchema = z.object({
   unitId: z.string().cuid(),
   name: z.string().trim().min(1).max(120),
+  /** Advanced-only; floors ignore this. */
   unitType: z.enum(UNIT_TYPES).optional(),
   parentUnitId: z.string().trim().optional(),
   description: z.string().trim().max(500).optional(),
-  displayOrder: z.coerce.number().int().min(1).max(9999).default(100),
   isActive: z.coerce.boolean().default(true),
 });
 
@@ -108,22 +110,30 @@ export async function createBuilderFloorAction(formData: FormData) {
   const parsed = createFloorSchema.parse({
     name: formData.get("name"),
     description: toOptional(formData.get("description")),
-    displayOrder: formData.get("displayOrder"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
 
+  // Ignore any client-supplied type / displayOrder.
+  void formData.get("displayOrder");
+  void formData.get("unitType");
+
   await assertUniqueUnitName(session.facilityId, parsed.name);
+
+  const topLevel = await prisma.unit.findMany({
+    where: { facilityId: session.facilityId, parentUnitId: null },
+    select: { displayOrder: true },
+  });
+  const displayOrder = nextAppendDisplayOrder(topLevel);
 
   await prisma.unit.create({
     data: {
       facilityId: session.facilityId,
       name: parsed.name,
-      // Schema requires UnitType; OTHER is a hidden compatibility default for Floors.
       unitType: FLOOR_INTERNAL_UNIT_TYPE,
       hierarchyRole: UnitHierarchyRole.FLOOR,
       parentUnitId: null,
       description: parsed.description || null,
-      displayOrder: parsed.displayOrder,
+      displayOrder,
       isActive: parsed.isActive,
     },
   });
@@ -138,11 +148,13 @@ export async function createBuilderNeighborhoodAction(formData: FormData) {
   const parsed = createNeighborhoodSchema.parse({
     name: formData.get("name"),
     parentUnitId: formData.get("parentUnitId"),
-    unitType: formData.get("unitType") || UnitType.OTHER,
     description: toOptional(formData.get("description")),
-    displayOrder: formData.get("displayOrder"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
+
+  // Ignore client-supplied operational type / displayOrder on create.
+  void formData.get("displayOrder");
+  void formData.get("unitType");
 
   const parent = await prisma.unit.findFirst({
     where: { id: parsed.parentUnitId, facilityId: session.facilityId },
@@ -157,15 +169,21 @@ export async function createBuilderNeighborhoodAction(formData: FormData) {
 
   await assertUniqueUnitName(session.facilityId, parsed.name);
 
+  const siblings = await prisma.unit.findMany({
+    where: { facilityId: session.facilityId, parentUnitId: parsed.parentUnitId },
+    select: { displayOrder: true },
+  });
+  const displayOrder = nextAppendDisplayOrder(siblings);
+
   await prisma.unit.create({
     data: {
       facilityId: session.facilityId,
       name: parsed.name,
-      unitType: parsed.unitType,
+      unitType: NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
       hierarchyRole: UnitHierarchyRole.NEIGHBORHOOD,
       parentUnitId: parsed.parentUnitId,
       description: parsed.description || null,
-      displayOrder: parsed.displayOrder,
+      displayOrder,
       isActive: parsed.isActive,
     },
   });
@@ -183,9 +201,11 @@ export async function updateBuilderUnitAction(formData: FormData) {
     unitType: toOptional(formData.get("unitType")),
     parentUnitId: toOptional(formData.get("parentUnitId")),
     description: toOptional(formData.get("description")),
-    displayOrder: formData.get("displayOrder"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
+
+  // Ordering is DnD-only — ignore client displayOrder.
+  void formData.get("displayOrder");
 
   const existingUnit = await prisma.unit.findFirst({
     where: { id: parsed.unitId, facilityId: session.facilityId },
@@ -203,7 +223,6 @@ export async function updateBuilderUnitAction(formData: FormData) {
   let nextRole = existingUnit.hierarchyRole;
 
   if (kind === "floor") {
-    // Floors remain top-level; parent selector is not used for floors.
     nextParentId = null;
     nextRole = UnitHierarchyRole.FLOOR;
   } else if (nextParentId) {
@@ -231,11 +250,11 @@ export async function updateBuilderUnitAction(formData: FormData) {
     where: { id: parsed.unitId, facilityId: session.facilityId },
     data: {
       name: parsed.name,
+      // Floors never change unitType; neighborhoods may update via Advanced settings only.
       unitType: kind === "floor" ? existingUnit.unitType : (parsed.unitType ?? existingUnit.unitType),
       hierarchyRole: nextRole,
       parentUnitId: nextParentId,
       description: parsed.description || null,
-      displayOrder: parsed.displayOrder,
       isActive: parsed.isActive,
     },
   });
@@ -301,15 +320,22 @@ export async function deleteBuilderUnitAction(formData: FormData) {
 const createSpaceSchema = z.object({
   unitId: z.string().cuid(),
   name: z.string().trim().min(1).max(120),
-  spaceType: z.enum(SPACE_TYPES),
+  spaceTypePreset: z.string().trim().min(1),
+  customTypeLabel: z.string().trim().max(80).optional(),
   code: z.string().trim().max(20).optional(),
   description: z.string().trim().max(500).optional(),
-  sortOrder: z.coerce.number().int().min(1).max(9999).default(100),
   isActive: z.coerce.boolean().default(true),
 });
 
-const updateSpaceSchema = createSpaceSchema.extend({
+const updateSpaceSchema = z.object({
   spaceId: z.string().cuid(),
+  unitId: z.string().cuid(),
+  name: z.string().trim().min(1).max(120),
+  spaceTypePreset: z.string().trim().min(1),
+  customTypeLabel: z.string().trim().max(80).optional(),
+  code: z.string().trim().max(20).optional(),
+  description: z.string().trim().max(500).optional(),
+  isActive: z.coerce.boolean().default(true),
 });
 
 // ---------------------------------------------------------------------------
@@ -323,11 +349,18 @@ export async function createBuilderSpaceAction(formData: FormData) {
   const parsed = createSpaceSchema.parse({
     unitId: formData.get("unitId"),
     name: formData.get("name"),
-    spaceType: formData.get("spaceType"),
+    spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
+    customTypeLabel: toOptional(formData.get("customTypeLabel")),
     code: toOptional(formData.get("code")),
     description: toOptional(formData.get("description")),
-    sortOrder: formData.get("sortOrder"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
+  });
+
+  void formData.get("sortOrder");
+
+  const resolved = resolveSpaceTypeFromPreset({
+    presetKey: parsed.spaceTypePreset,
+    customTypeLabel: parsed.customTypeLabel,
   });
 
   const unit = await prisma.unit.findFirst({
@@ -347,15 +380,22 @@ export async function createBuilderSpaceAction(formData: FormData) {
   });
   if (existing) throw new Error(`A space named "${parsed.name}" already exists in this unit.`);
 
+  const siblings = await prisma.unitSpace.findMany({
+    where: { unitId: parsed.unitId },
+    select: { sortOrder: true },
+  });
+  const sortOrder = nextAppendSortOrder(siblings);
+
   await prisma.unitSpace.create({
     data: {
       unitId: parsed.unitId,
       facilityId: unit.facilityId,
       name: parsed.name,
-      spaceType: parsed.spaceType,
+      spaceType: resolved.spaceType,
+      customTypeLabel: resolved.customTypeLabel,
       code: parsed.code || null,
       description: parsed.description || null,
-      sortOrder: parsed.sortOrder,
+      sortOrder,
       isActive: parsed.isActive,
     },
   });
@@ -366,7 +406,8 @@ export async function createBuilderSpaceAction(formData: FormData) {
 const bulkCreateSpacesSchema = z.object({
   unitId: z.string().cuid(),
   namesText: z.string().min(1),
-  spaceType: z.enum(SPACE_TYPES),
+  spaceTypePreset: z.string().trim().min(1),
+  customTypeLabel: z.string().trim().max(80).optional(),
   descriptionPrefix: z.string().trim().max(200).optional(),
 });
 
@@ -390,8 +431,14 @@ export async function createBuilderSpacesBulkAction(
   const parsed = bulkCreateSpacesSchema.parse({
     unitId: formData.get("unitId"),
     namesText: formData.get("namesText"),
-    spaceType: formData.get("spaceType"),
+    spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
+    customTypeLabel: toOptional(formData.get("customTypeLabel")),
     descriptionPrefix: toOptional(formData.get("descriptionPrefix")),
+  });
+
+  const resolved = resolveSpaceTypeFromPreset({
+    presetKey: parsed.spaceTypePreset,
+    customTypeLabel: parsed.customTypeLabel,
   });
 
   const unit = await prisma.unit.findFirst({
@@ -457,7 +504,8 @@ export async function createBuilderSpacesBulkAction(
           unitId: parsed.unitId,
           facilityId: unit.facilityId,
           name,
-          spaceType: parsed.spaceType,
+          spaceType: resolved.spaceType,
+          customTypeLabel: resolved.customTypeLabel,
           code: null,
           description,
           sortOrder: Math.min(9999, maxSort + (index + 1) * 10),
@@ -485,11 +533,18 @@ export async function updateBuilderSpaceAction(formData: FormData) {
     spaceId: formData.get("spaceId"),
     unitId: formData.get("unitId"),
     name: formData.get("name"),
-    spaceType: formData.get("spaceType"),
+    spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
+    customTypeLabel: toOptional(formData.get("customTypeLabel")),
     code: toOptional(formData.get("code")),
     description: toOptional(formData.get("description")),
-    sortOrder: formData.get("sortOrder"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
+  });
+
+  void formData.get("sortOrder");
+
+  const resolved = resolveSpaceTypeFromPreset({
+    presetKey: parsed.spaceTypePreset,
+    customTypeLabel: parsed.customTypeLabel,
   });
 
   const space = await prisma.unitSpace.findFirst({
@@ -508,10 +563,10 @@ export async function updateBuilderSpaceAction(formData: FormData) {
     where: { id: parsed.spaceId },
     data: {
       name: parsed.name,
-      spaceType: parsed.spaceType,
+      spaceType: resolved.spaceType,
+      customTypeLabel: resolved.customTypeLabel,
       code: parsed.code || null,
       description: parsed.description || null,
-      sortOrder: parsed.sortOrder,
       isActive: parsed.isActive,
     },
   });

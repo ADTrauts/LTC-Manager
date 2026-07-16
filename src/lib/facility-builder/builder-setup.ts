@@ -100,6 +100,28 @@ export function normalizeSiblingOrders(
   }));
 }
 
+/** Next append order after existing siblings (stable +10 increments). */
+export function nextAppendOrder(
+  siblings: readonly { order: number }[],
+  step = 10,
+): number {
+  if (siblings.length === 0) return step === 10 ? 100 : step;
+  const max = Math.max(...siblings.map((s) => s.order));
+  return Math.min(9999, max + step);
+}
+
+export function nextAppendDisplayOrder(
+  siblings: readonly { displayOrder: number }[],
+): number {
+  return nextAppendOrder(siblings.map((s) => ({ order: s.displayOrder })));
+}
+
+export function nextAppendSortOrder(
+  siblings: readonly { sortOrder: number }[],
+): number {
+  return nextAppendOrder(siblings.map((s) => ({ order: s.sortOrder })));
+}
+
 /**
  * Reorder sibling id list: move `activeId` to the position of `overId`.
  * Returns null if either id is missing.

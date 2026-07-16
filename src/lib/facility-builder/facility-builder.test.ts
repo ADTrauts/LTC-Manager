@@ -17,6 +17,7 @@ import {
   nextTopLevelDisplayOrder,
   floorCreateParentUnitId,
   FLOOR_INTERNAL_UNIT_TYPE,
+  NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
   hierarchyRoleForCreateIntent,
   hierarchyRoleAfterMoveOntoFloor,
   classifyBuilderUnit,
@@ -34,7 +35,19 @@ import {
   terraceViewFixture,
   splitHighlightParts,
   mergeOrderedSubsetIntoSiblings,
+  nextAppendDisplayOrder,
+  nextAppendSortOrder,
 } from "./builder-setup";
+import {
+  SPACE_TYPE_PRESETS,
+  SPACE_TYPE_LABELS,
+  resolveSpaceTypeFromPreset,
+  resolveSpaceTypeDisplayLabel,
+  looksLikeTechnicalEnumName,
+  findSpaceTypePreset,
+} from "./space-type-presets";
+import { unitTypeLabel, UNIT_TYPE_LABELS } from "../unit-type-config";
+import { SpaceType } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // wouldCreateCycle
@@ -622,5 +635,155 @@ describe("Stage 2C regression markers", () => {
     assert.equal(first.childUnits.length, 2);
     const naval = first.childUnits.find((u) => u.id === "nbh-naval")!;
     assert.equal(naval.childSpaces.length, 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UX correction — types, restroom labels, append order
+// ---------------------------------------------------------------------------
+
+describe("Restroom terminology", () => {
+  it("RESTROOM_CLUSTER internal value displays as Restroom", () => {
+    assert.equal(unitTypeLabel("RESTROOM_CLUSTER"), "Restroom");
+    assert.equal(UNIT_TYPE_LABELS.RESTROOM_CLUSTER, "Restroom");
+    assert.notEqual(unitTypeLabel("RESTROOM_CLUSTER"), "Restroom Cluster");
+    assert.notEqual(unitTypeLabel("RESTROOM_CLUSTER"), "Restroom cluster");
+  });
+
+  it("Space RESTROOM displays as Restroom", () => {
+    assert.equal(SPACE_TYPE_LABELS.RESTROOM, "Restroom");
+    assert.equal(
+      resolveSpaceTypeDisplayLabel({ spaceType: SpaceType.RESTROOM }),
+      "Restroom",
+    );
+  });
+});
+
+describe("Space type presets", () => {
+  it("Resident Room preset resolves to PATIENT_ROOM with display label", () => {
+    const r = resolveSpaceTypeFromPreset({ presetKey: "resident_room" });
+    assert.equal(r.spaceType, SpaceType.PATIENT_ROOM);
+    assert.equal(r.customTypeLabel, "Resident Room");
+  });
+
+  it("Patient Room preset resolves correctly", () => {
+    const r = resolveSpaceTypeFromPreset({ presetKey: "patient_room" });
+    assert.equal(r.spaceType, SpaceType.PATIENT_ROOM);
+    assert.equal(r.customTypeLabel, "Patient Room");
+  });
+
+  it("Hallway preset resolves to PUBLIC_AREA", () => {
+    const r = resolveSpaceTypeFromPreset({ presetKey: "hallway" });
+    assert.equal(r.spaceType, SpaceType.PUBLIC_AREA);
+    assert.equal(r.customTypeLabel, "Hallway");
+  });
+
+  it("Dining Room preset resolves to SERVICE_AREA", () => {
+    const r = resolveSpaceTypeFromPreset({ presetKey: "dining_room" });
+    assert.equal(r.spaceType, SpaceType.SERVICE_AREA);
+    assert.equal(r.customTypeLabel, "Dining Room");
+  });
+
+  it("Servery preset resolves to SERVICE_AREA", () => {
+    const r = resolveSpaceTypeFromPreset({ presetKey: "servery" });
+    assert.equal(r.spaceType, SpaceType.SERVICE_AREA);
+    assert.equal(r.customTypeLabel, "Servery");
+  });
+
+  it("Custom requires label", () => {
+    assert.throws(
+      () => resolveSpaceTypeFromPreset({ presetKey: "custom", customTypeLabel: "  " }),
+      /Custom type label is required/,
+    );
+  });
+
+  it("Custom label is preserved", () => {
+    const r = resolveSpaceTypeFromPreset({
+      presetKey: "custom",
+      customTypeLabel: "  Soil Hold  ",
+    });
+    assert.equal(r.spaceType, SpaceType.OTHER);
+    assert.equal(r.customTypeLabel, "Soil Hold");
+    assert.equal(
+      resolveSpaceTypeDisplayLabel({
+        spaceType: r.spaceType,
+        customTypeLabel: r.customTypeLabel,
+      }),
+      "Soil Hold",
+    );
+  });
+
+  it("technical enum names are never used as visible labels", () => {
+    for (const preset of SPACE_TYPE_PRESETS) {
+      assert.ok(!looksLikeTechnicalEnumName(preset.label), preset.label);
+    }
+    for (const label of Object.values(SPACE_TYPE_LABELS)) {
+      assert.ok(!looksLikeTechnicalEnumName(label), label);
+    }
+    for (const label of Object.values(UNIT_TYPE_LABELS)) {
+      assert.ok(!looksLikeTechnicalEnumName(label), label);
+    }
+  });
+
+  it("required presets are present", () => {
+    const keys = SPACE_TYPE_PRESETS.map((p) => p.key);
+    for (const key of [
+      "resident_room",
+      "patient_room",
+      "hallway",
+      "dining_room",
+      "servery",
+      "restroom",
+      "custom",
+    ]) {
+      assert.ok(keys.includes(key), key);
+    }
+  });
+});
+
+describe("Create intent defaults and append order", () => {
+  it("Floor create uses OTHER internal UnitType and null parent", () => {
+    assert.equal(FLOOR_INTERNAL_UNIT_TYPE, "OTHER");
+    assert.equal(floorCreateParentUnitId(), null);
+    assert.equal(hierarchyRoleForCreateIntent("floor"), "FLOOR");
+  });
+
+  it("Neighborhood create uses safe internal UnitType OTHER", () => {
+    assert.equal(NEIGHBORHOOD_INTERNAL_UNIT_TYPE, "OTHER");
+    assert.equal(hierarchyRoleForCreateIntent("neighborhood"), "NEIGHBORHOOD");
+  });
+
+  it("new Floor appends after top-level siblings", () => {
+    assert.equal(nextAppendDisplayOrder([]), 100);
+    assert.equal(
+      nextAppendDisplayOrder([{ displayOrder: 100 }, { displayOrder: 120 }]),
+      130,
+    );
+  });
+
+  it("new Neighborhood appends within Floor", () => {
+    assert.equal(
+      nextAppendDisplayOrder([{ displayOrder: 10 }, { displayOrder: 20 }]),
+      30,
+    );
+  });
+
+  it("new Room appends within Neighborhood", () => {
+    assert.equal(nextAppendSortOrder([]), 100);
+    assert.equal(
+      nextAppendSortOrder([{ sortOrder: 100 }, { sortOrder: 110 }]),
+      120,
+    );
+  });
+
+  it("invalid preset key is rejected", () => {
+    assert.throws(
+      () => resolveSpaceTypeFromPreset({ presetKey: "PATIENT_ROOM" }),
+      /Invalid space type/,
+    );
+  });
+
+  it("findSpaceTypePreset returns undefined for enum constants", () => {
+    assert.equal(findSpaceTypePreset("RESTROOM"), undefined);
   });
 });

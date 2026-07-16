@@ -8,7 +8,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { SpaceType, UnitDepartmentKind, type UnitType } from "@prisma/client";
+import { UnitDepartmentKind, type UnitType } from "@prisma/client";
 import {
   DndContext,
   closestCenter,
@@ -64,7 +64,6 @@ import {
   canAddRoom,
   canMoveUnitOnto,
   canMoveRoomOnto,
-  nextTopLevelDisplayOrder,
   type BuilderNodeDisplayKind,
 } from "@/lib/facility-builder/builder-display";
 import {
@@ -76,6 +75,13 @@ import {
   shouldReorderUnitsAsSiblings,
   splitHighlightParts,
 } from "@/lib/facility-builder/builder-setup";
+import {
+  SPACE_TYPE_PRESETS,
+  CUSTOM_SPACE_PRESET_KEY,
+  findPresetForStoredSpace,
+  resolveSpaceTypeDisplayLabel,
+} from "@/lib/facility-builder/space-type-presets";
+import { unitTypeLabel } from "@/lib/unit-type-config";
 import {
   createBuilderFloorAction,
   createBuilderNeighborhoodAction,
@@ -104,25 +110,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const UNIT_TYPE_OPTIONS: UnitType[] = [
-  "SERVERY", "KITCHEN", "RETAIL", "OFFICE", "STORAGE",
+  "OTHER", "SERVERY", "KITCHEN", "RETAIL", "OFFICE", "STORAGE",
   "RESIDENT_AREA", "COMMON_AREA", "MECHANICAL", "RESTROOM_CLUSTER",
-  "EVS_ZONE", "GROUND", "OTHER",
+  "EVS_ZONE", "GROUND",
 ];
-
-const SPACE_TYPE_OPTIONS = Object.values(SpaceType);
-
-const SPACE_TYPE_LABELS: Record<SpaceType, string> = {
-  SERVICE_AREA: "Service area",
-  PATIENT_ROOM: "Patient room",
-  PRODUCTION_AREA: "Production area",
-  STORAGE: "Storage",
-  UTILITY: "Utility",
-  OFFICE: "Office",
-  RESTROOM: "Restroom",
-  MECHANICAL: "Mechanical",
-  PUBLIC_AREA: "Public area",
-  OTHER: "Other",
-};
 
 const KIND_LABELS: Record<UnitDepartmentKind, string> = {
   PRIMARY: "Primary",
@@ -309,7 +300,6 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
   const hasAnyUnits = hierarchy.units.length > 0;
   const hasFloors = hierarchy.units.some((u) => resolveBuilderNodeDisplayKind(u) === "floor");
-  const nextFloorOrder = nextTopLevelDisplayOrder(hierarchy.units);
 
   function openAddFloor() {
     setCreateUnitDrawer({ parentId: null, depth: 0 });
@@ -593,7 +583,6 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           >
             {createUnitDrawer.parentId === null ? (
               <CreateFloorForm
-                defaultDisplayOrder={nextFloorOrder}
                 onDone={() => setCreateUnitDrawer(null)}
               />
             ) : (
@@ -1323,11 +1312,11 @@ function UnitEditor({
   onBulkCreateSpace: (unitId: string) => void;
   onCreateNeighborhood: (unitId: string) => void;
 }) {
-  const parentOptions = allUnits.filter((u) => u.id !== unit.id);
   const label = displayKindLabel(displayKind);
   const totalRooms = countSpaces(unit);
   const totalResps = unit.departmentResponsibilities.length;
   const [showResps, setShowResps] = useState(false);
+  void allUnits;
   const KindIcon =
     displayKind === "floor"
       ? Building2
@@ -1418,52 +1407,15 @@ function UnitEditor({
             {displayKind === "floor" && (
               <input type="hidden" name="parentUnitId" value="" />
             )}
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+            {displayKind !== "floor" && unit.parentUnitId && (
+              <input type="hidden" name="parentUnitId" value={unit.parentUnitId} />
+            )}
+            <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Name
               <input
                 name="name"
                 defaultValue={unit.name}
                 required
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            {displayKind !== "floor" && (
-              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-                Operational type
-                <select
-                  name="unitType"
-                  defaultValue={unit.unitType}
-                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-                >
-                  {UNIT_TYPE_OPTIONS.map((t) => (
-                    <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {displayKind !== "floor" && (
-              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-                Parent floor
-                <select
-                  name="parentUnitId"
-                  defaultValue={unit.parentUnitId ?? ""}
-                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-                >
-                  <option value="">None (top-level)</option>
-                  {parentOptions.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Display order
-              <input
-                type="number"
-                name="displayOrder"
-                defaultValue={unit.displayOrder}
-                min={1}
-                max={9999}
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
               />
             </label>
@@ -1480,6 +1432,32 @@ function UnitEditor({
               <input type="checkbox" name="isActive" defaultChecked={unit.isActive} className="rounded" />
               Active
             </label>
+
+            {displayKind !== "floor" && (
+              <details className="sm:col-span-2 rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+                  Advanced operational settings
+                </summary>
+                <div className="mt-3 space-y-2">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+                    Legacy operational type
+                    <select
+                      name="unitType"
+                      defaultValue={unit.unitType}
+                      className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                    >
+                      {UNIT_TYPE_OPTIONS.map((t) => (
+                        <option key={t} value={t}>{unitTypeLabel(t)}</option>
+                      ))}
+                    </select>
+                    <span className="text-[10px] font-normal text-zinc-400">
+                      Used by older operational workflows. Most locations can remain General.
+                    </span>
+                  </label>
+                </div>
+              </details>
+            )}
+
             <div className="sm:col-span-2">
               <button
                 type="submit"
@@ -1533,7 +1511,12 @@ function UnitEditor({
                   <span className={`text-zinc-800 ${!s.isActive ? "opacity-50" : ""}`}>
                     {s.name}
                   </span>
-                  <span className="text-xs text-zinc-400">{SPACE_TYPE_LABELS[s.spaceType]}</span>
+                  <span className="text-xs text-zinc-400">
+                    {resolveSpaceTypeDisplayLabel({
+                      spaceType: s.spaceType,
+                      customTypeLabel: s.customTypeLabel,
+                    })}
+                  </span>
                 </span>
                 <span className="text-xs text-zinc-400">
                   {s.responsibilities.length > 0
@@ -1608,7 +1591,12 @@ function SpaceEditor({
               Room
             </span>
             <span>in {parentUnit.name}</span>
-            <span>{SPACE_TYPE_LABELS[space.spaceType]}</span>
+            <span>
+              {resolveSpaceTypeDisplayLabel({
+                spaceType: space.spaceType,
+                customTypeLabel: space.customTypeLabel,
+              })}
+            </span>
             {!space.isActive && (
               <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-500">
                 Inactive
@@ -1621,7 +1609,7 @@ function SpaceEditor({
           <form action={updateBuilderSpaceAction} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="spaceId" value={space.id} />
             <input type="hidden" name="unitId" value={parentUnit.id} />
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+            <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Name
               <input
                 name="name"
@@ -1630,18 +1618,15 @@ function SpaceEditor({
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Type
-              <select
-                name="spaceType"
-                defaultValue={space.spaceType}
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              >
-                {SPACE_TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t}>{SPACE_TYPE_LABELS[t]}</option>
-                ))}
-              </select>
-            </label>
+            <div className="sm:col-span-2">
+              <SpaceTypePresetFields
+                defaultPresetKey={findPresetForStoredSpace({
+                  spaceType: space.spaceType,
+                  customTypeLabel: space.customTypeLabel,
+                }).key}
+                defaultCustomLabel={space.customTypeLabel ?? ""}
+              />
+            </div>
             <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
               Code
               <input
@@ -1649,17 +1634,6 @@ function SpaceEditor({
                 defaultValue={space.code ?? ""}
                 placeholder="Optional short code"
                 maxLength={20}
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Sort order
-              <input
-                type="number"
-                name="sortOrder"
-                defaultValue={space.sortOrder}
-                min={1}
-                max={9999}
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
               />
             </label>
@@ -2063,10 +2037,8 @@ function AddSpaceResponsibilityForm({
 // ---------------------------------------------------------------------------
 
 function CreateFloorForm({
-  defaultDisplayOrder = 100,
   onDone,
 }: {
-  defaultDisplayOrder?: number;
   onDone: () => void;
 }) {
   return (
@@ -2085,17 +2057,6 @@ function CreateFloorForm({
           name="name"
           required
           placeholder="e.g. First Floor, Basement"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Display order
-        <input
-          type="number"
-          name="displayOrder"
-          defaultValue={defaultDisplayOrder}
-          min={1}
-          max={9999}
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
@@ -2137,12 +2098,12 @@ function CreateNeighborhoodForm({
         await createBuilderNeighborhoodAction(formData);
         onDone();
       }}
-      className="grid gap-3 sm:grid-cols-2"
+      className="grid gap-3"
       data-testid="create-neighborhood-form"
     >
       <input type="hidden" name="hierarchyIntent" value="neighborhood" />
       <input type="hidden" name="parentUnitId" value={parentId} />
-      <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Neighborhood / Unit name
         <input
           name="name"
@@ -2152,32 +2113,6 @@ function CreateNeighborhoodForm({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Operational type
-        <select
-          name="unitType"
-          defaultValue="OTHER"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        >
-          {UNIT_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
-          ))}
-        </select>
-        <span className="text-[10px] font-normal text-zinc-400">
-          Optional characteristic of this location (kitchen, servery, etc.)
-        </span>
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Display order
-        <input
-          type="number"
-          name="displayOrder"
-          defaultValue={100}
-          min={1}
-          max={9999}
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        />
-      </label>
-      <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Description
         <input
           name="description"
@@ -2185,11 +2120,11 @@ function CreateNeighborhoodForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
-      <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
+      <label className="flex items-center gap-2 text-sm text-zinc-700">
         <input type="checkbox" name="isActive" defaultChecked className="rounded" />
         Active
       </label>
-      <div className="sm:col-span-2">
+      <div>
         <button
           type="submit"
           data-testid="create-neighborhood-submit"
@@ -2199,6 +2134,50 @@ function CreateNeighborhoodForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function SpaceTypePresetFields({
+  defaultPresetKey = "patient_room",
+  defaultCustomLabel = "",
+}: {
+  defaultPresetKey?: string;
+  defaultCustomLabel?: string;
+}) {
+  const [presetKey, setPresetKey] = useState(defaultPresetKey);
+  const isCustom = presetKey === CUSTOM_SPACE_PRESET_KEY;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 sm:col-span-2">
+        Space type
+        <select
+          name="spaceTypePreset"
+          value={presetKey}
+          onChange={(e) => setPresetKey(e.target.value)}
+          data-testid="space-type-preset"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        >
+          {SPACE_TYPE_PRESETS.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+      </label>
+      {isCustom && (
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 sm:col-span-2">
+          Custom type label
+          <input
+            name="customTypeLabel"
+            required
+            defaultValue={defaultCustomLabel}
+            placeholder="e.g. Soil Hold, Family Lounge, Loading Dock"
+            maxLength={80}
+            data-testid="custom-type-label"
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          />
+        </label>
+      )}
+    </div>
   );
 }
 
@@ -2215,10 +2194,11 @@ function CreateSpaceForm({
         await createBuilderSpaceAction(formData);
         onDone();
       }}
-      className="grid gap-3 sm:grid-cols-2"
+      className="grid gap-3"
+      data-testid="create-space-form"
     >
       <input type="hidden" name="unitId" value={unitId} />
-      <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Room name
         <input
           name="name"
@@ -2227,35 +2207,13 @@ function CreateSpaceForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Type
-        <select
-          name="spaceType"
-          defaultValue="OTHER"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        >
-          {SPACE_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{SPACE_TYPE_LABELS[t]}</option>
-          ))}
-        </select>
-      </label>
+      <SpaceTypePresetFields />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Code
         <input
           name="code"
           placeholder="Optional short code"
           maxLength={20}
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Sort order
-        <input
-          type="number"
-          name="sortOrder"
-          defaultValue={100}
-          min={1}
-          max={9999}
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
@@ -2267,11 +2225,11 @@ function CreateSpaceForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
-      <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
+      <label className="flex items-center gap-2 text-sm text-zinc-700">
         <input type="checkbox" name="isActive" defaultChecked className="rounded" />
         Active
       </label>
-      <div className="sm:col-span-2">
+      <div>
         <button
           type="submit"
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
@@ -2333,18 +2291,7 @@ function BulkCreateSpacesForm({
       <p className="text-xs text-zinc-500">
         Blank lines are ignored. Max {BULK_ROOM_MAX} rooms per batch. Optional ranges use the same letter suffix (e.g. 32A–40A).
       </p>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-        Type for all rooms
-        <select
-          name="spaceType"
-          defaultValue="PATIENT_ROOM"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        >
-          {SPACE_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{SPACE_TYPE_LABELS[t]}</option>
-          ))}
-        </select>
-      </label>
+      <SpaceTypePresetFields defaultPresetKey="patient_room" />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Description (optional, applied to all)
         <input

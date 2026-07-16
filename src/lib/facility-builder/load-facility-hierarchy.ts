@@ -19,6 +19,7 @@ export type SpaceView = {
   id: string;
   name: string;
   spaceType: SpaceType;
+  customTypeLabel: string | null;
   code: string | null;
   isActive: boolean;
   sortOrder: number;
@@ -95,6 +96,7 @@ export async function loadFacilityHierarchy(
             id: true,
             name: true,
             spaceType: true,
+            customTypeLabel: true,
             code: true,
             isActive: true,
             sortOrder: true,

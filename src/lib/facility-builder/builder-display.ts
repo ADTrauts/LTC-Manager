@@ -107,6 +107,9 @@ export function floorCreateParentUnitId(): null {
 /** Internal UnitType for Floors — schema requires a value; hidden from Floor form. */
 export const FLOOR_INTERNAL_UNIT_TYPE = "OTHER" as const;
 
+/** Neutral UnitType for Neighborhood create — operational type is advanced-only. */
+export const NEIGHBORHOOD_INTERNAL_UNIT_TYPE = "OTHER" as const;
+
 export function hierarchyRoleForCreateIntent(
   intent: "floor" | "neighborhood",
 ): "FLOOR" | "NEIGHBORHOOD" {
