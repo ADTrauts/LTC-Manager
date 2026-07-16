@@ -7,6 +7,7 @@ import { requireAtLeastRole } from "@/lib/access";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
 import { buildBuilderCopy } from "@/lib/facility-builder/facility-vocabulary";
 import { FacilityBuilderClient } from "./facility-builder-client";
+import { FacilityTerminologySettings } from "./facility-terminology-settings";
 
 export default async function FacilityBuilderPage() {
   noStore();
@@ -33,6 +34,7 @@ export default async function FacilityBuilderPage() {
           {copy.page.subtitle}
         </p>
       </header>
+      <FacilityTerminologySettings vocabulary={hierarchy.vocabulary} />
       <FacilityBuilderClient hierarchy={hierarchy} />
     </div>
   );

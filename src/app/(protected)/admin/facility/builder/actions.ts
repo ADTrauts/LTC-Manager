@@ -30,7 +30,11 @@ import {
 import {
   buildBuilderCopy,
   resolveFacilityVocabulary,
+  draftFacilityVocabulary,
+  validateCustomVocabularyLabels,
+  encodeCustomVocabularyTerm,
   type BuilderCopy,
+  type FacilityVocabularyProfileKey,
 } from "@/lib/facility-builder/facility-vocabulary";
 
 // ---------------------------------------------------------------------------
@@ -1380,4 +1384,81 @@ export async function toggleBuilderUnitActiveAction(unitId: string) {
   });
 
   revalidateBuilderViews();
+}
+
+// ---------------------------------------------------------------------------
+// Facility vocabulary (terminology) settings
+// ---------------------------------------------------------------------------
+
+const vocabularyProfileSchema = z.enum([
+  "ltc",
+  "hospital",
+  "hotel",
+  "campus",
+  "corporate",
+  "custom",
+]);
+
+export async function updateFacilityVocabularyAction(input: {
+  profileKey: FacilityVocabularyProfileKey;
+  level1Singular?: string;
+  level1Plural?: string;
+  level2Singular?: string;
+  level2Plural?: string;
+  level3Singular?: string;
+  level3Plural?: string;
+}) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const profileKey = vocabularyProfileSchema.parse(input.profileKey);
+
+  if (profileKey === "custom") {
+    const errors = validateCustomVocabularyLabels({
+      level1Singular: input.level1Singular ?? "",
+      level1Plural: input.level1Plural ?? "",
+      level2Singular: input.level2Singular ?? "",
+      level2Plural: input.level2Plural ?? "",
+      level3Singular: input.level3Singular ?? "",
+      level3Plural: input.level3Plural ?? "",
+    });
+    if (errors.length > 0) {
+      throw new Error(errors[0]!.message);
+    }
+  }
+
+  const draft = draftFacilityVocabulary({
+    profileKey,
+    level1Singular: input.level1Singular,
+    level1Plural: input.level1Plural,
+    level2Singular: input.level2Singular,
+    level2Plural: input.level2Plural,
+    level3Singular: input.level3Singular,
+    level3Plural: input.level3Plural,
+  });
+
+  if (profileKey === "custom") {
+    await prisma.facility.update({
+      where: { id: session.facilityId },
+      data: {
+        vocabularyProfile: "custom",
+        vocabularyLevel1Label: encodeCustomVocabularyTerm(draft.level1),
+        vocabularyLevel2Label: encodeCustomVocabularyTerm(draft.level2),
+        vocabularyLevel3Label: encodeCustomVocabularyTerm(draft.level3),
+      },
+    });
+  } else {
+    await prisma.facility.update({
+      where: { id: session.facilityId },
+      data: {
+        vocabularyProfile: profileKey === "ltc" ? null : profileKey,
+        vocabularyLevel1Label: null,
+        vocabularyLevel2Label: null,
+        vocabularyLevel3Label: null,
+      },
+    });
+  }
+
+  revalidateBuilderViews();
+  return { vocabulary: draft };
 }

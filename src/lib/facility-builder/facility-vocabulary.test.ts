@@ -5,9 +5,17 @@ import {
   FACILITY_VOCABULARY_PROFILES,
   DEFAULT_FACILITY_VOCABULARY,
   DEFAULT_BUILDER_COPY,
+  VOCABULARY_PROFILE_OPTIONS,
+  VOCABULARY_LABEL_MAX_LENGTH,
   buildBuilderCopy,
+  buildVocabularyHierarchyPreview,
+  draftFacilityVocabulary,
+  encodeCustomVocabularyTerm,
+  formatVocabularySummary,
+  parseCustomVocabularyTerm,
   pluralizeLabel,
   resolveFacilityVocabulary,
+  validateCustomVocabularyLabels,
 } from "./facility-vocabulary";
 import { displayKindLabel } from "./builder-display";
 
@@ -32,33 +40,33 @@ describe("facility vocabulary — profile resolution", () => {
     );
   });
 
-  it("resolves the Hospital profile (Floor / Unit / Room)", () => {
+  it("resolves the Hospital profile (Floor / Unit / Patient Room)", () => {
     const v = resolveFacilityVocabulary({ vocabularyProfile: "hospital" });
     assert.equal(v.profileKey, "hospital");
     assert.equal(v.level1.singular, "Floor");
     assert.equal(v.level2.singular, "Unit");
-    assert.equal(v.level3.singular, "Room");
+    assert.equal(v.level3.singular, "Patient Room");
   });
 
-  it("resolves the Hotel profile (Floor / Wing / Room)", () => {
+  it("resolves the Hotel profile (Floor / Wing / Guest Room)", () => {
     const v = resolveFacilityVocabulary({ vocabularyProfile: "hotel" });
     assert.equal(v.level1.singular, "Floor");
     assert.equal(v.level2.singular, "Wing");
-    assert.equal(v.level3.singular, "Room");
+    assert.equal(v.level3.singular, "Guest Room");
   });
 
-  it("resolves the Campus profile (Building / Department / Room)", () => {
+  it("resolves the Campus profile (Building / Area / Space)", () => {
     const v = resolveFacilityVocabulary({ vocabularyProfile: "campus" });
-    assert.equal(v.level1.singular, "Building");
-    assert.equal(v.level2.singular, "Department");
-    assert.equal(v.level3.singular, "Room");
-  });
-
-  it("resolves the Corporate profile (Building / Area / Space)", () => {
-    const v = resolveFacilityVocabulary({ vocabularyProfile: "corporate" });
     assert.equal(v.level1.singular, "Building");
     assert.equal(v.level2.singular, "Area");
     assert.equal(v.level3.singular, "Space");
+  });
+
+  it("resolves the Corporate profile (Building / Department / Workspace)", () => {
+    const v = resolveFacilityVocabulary({ vocabularyProfile: "corporate" });
+    assert.equal(v.level1.singular, "Building");
+    assert.equal(v.level2.singular, "Department");
+    assert.equal(v.level3.singular, "Workspace");
   });
 
   it("resolves a Custom profile from facility settings labels", () => {
@@ -73,6 +81,20 @@ describe("facility vocabulary — profile resolution", () => {
     assert.equal(v.level2.singular, "Zone");
     assert.equal(v.level3.singular, "Cabin");
     assert.equal(v.level3.plural, "Cabins");
+  });
+
+  it("resolves custom plurals encoded as Singular::Plural", () => {
+    const v = resolveFacilityVocabulary({
+      vocabularyProfile: "custom",
+      vocabularyLevel1Label: "Person::People",
+      vocabularyLevel2Label: "Pod",
+      vocabularyLevel3Label: "Bay::Bays",
+    });
+    assert.equal(v.level1.singular, "Person");
+    assert.equal(v.level1.plural, "People");
+    assert.equal(v.level2.singular, "Pod");
+    assert.equal(v.level2.plural, "Pods");
+    assert.equal(v.level3.plural, "Bays");
   });
 
   it("custom profile falls back to LTC labels for missing / blank custom labels", () => {
@@ -202,7 +224,7 @@ describe("builder copy — Hospital vocabulary", () => {
   it("tree and validation copy use Unit", () => {
     assert.equal(
       copy.tree.selectPrompt,
-      "Select a floor, unit, or room from the tree to view and edit its details.",
+      "Select a floor, unit, or patient room from the tree to view and edit its details.",
     );
     assert.equal(copy.validation.level2RequiresLevel1, "Units must be created under a Floor.");
     assert.ok(copy.undesignatedSection.warningBody.includes("Floor or Unit"));
@@ -224,9 +246,9 @@ describe("builder copy — Hotel vocabulary", () => {
     assert.equal(copy.validation.level2MustSitUnderLevel1, "Wings must sit under a Floor.");
   });
 
-  it("rooms remain rooms", () => {
-    assert.equal(copy.drawers.addLevel3, "Add Room");
-    assert.equal(copy.forms.createLevel3, "Create room");
+  it("level 3 becomes Guest Room", () => {
+    assert.equal(copy.drawers.addLevel3, "Add Guest Room");
+    assert.equal(copy.forms.createLevel3, "Create guest room");
   });
 });
 
@@ -278,7 +300,7 @@ describe("displayKindLabel with vocabulary", () => {
     assert.equal(displayKindLabel("neighborhood", hospital), "Unit");
     const corporate = buildBuilderCopy(FACILITY_VOCABULARY_PROFILES.corporate);
     assert.equal(displayKindLabel("floor", corporate), "Building");
-    assert.equal(displayKindLabel("neighborhood", corporate), "Area");
+    assert.equal(displayKindLabel("neighborhood", corporate), "Department");
     // Internal builder-only concepts stay stable across vocabularies.
     assert.equal(displayKindLabel("staged", corporate), "Undesignated");
     assert.equal(displayKindLabel("legacy_location", hospital), "Location");
@@ -295,5 +317,142 @@ describe("displayKindLabel with vocabulary", () => {
       "profileKey",
       "profileLabel",
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 2F — configuration helpers (preview, validation, encode, options)
+// ---------------------------------------------------------------------------
+
+describe("facility vocabulary — configuration helpers", () => {
+  it("VOCABULARY_PROFILE_OPTIONS lists every registry profile plus Custom", () => {
+    const keys = VOCABULARY_PROFILE_OPTIONS.map((o) => o.key);
+    assert.deepEqual(keys, ["ltc", "hospital", "hotel", "campus", "corporate", "custom"]);
+    assert.equal(
+      VOCABULARY_PROFILE_OPTIONS.find((o) => o.key === "ltc")?.label,
+      "Long-Term Care",
+    );
+  });
+
+  it("encode/parse custom terms round-trip with explicit plurals", () => {
+    const encoded = encodeCustomVocabularyTerm({ singular: "Person", plural: "People" });
+    assert.equal(encoded, "Person::People");
+    const parsed = parseCustomVocabularyTerm(encoded, DEFAULT_FACILITY_VOCABULARY.level1);
+    assert.deepEqual(parsed, { singular: "Person", plural: "People" });
+  });
+
+  it("encode omits :: when plural matches pluralizeLabel", () => {
+    assert.equal(
+      encodeCustomVocabularyTerm({ singular: "Wing", plural: "Wings" }),
+      "Wing",
+    );
+  });
+
+  it("draftFacilityVocabulary returns preset profiles unchanged", () => {
+    const hospital = draftFacilityVocabulary({ profileKey: "hospital" });
+    assert.equal(hospital.level3.singular, "Patient Room");
+    assert.equal(hospital.profileKey, "hospital");
+  });
+
+  it("draftFacilityVocabulary builds custom drafts for live preview", () => {
+    const draft = draftFacilityVocabulary({
+      profileKey: "custom",
+      level1Singular: "Deck",
+      level1Plural: "Decks",
+      level2Singular: "Zone",
+      level2Plural: "Zones",
+      level3Singular: "Cabin",
+      level3Plural: "Cabins",
+    });
+    assert.equal(draft.profileKey, "custom");
+    assert.equal(draft.level2.singular, "Zone");
+    const copy = buildBuilderCopy(draft);
+    assert.equal(copy.toolbar.addLevel2, "Zone");
+  });
+
+  it("validateCustomVocabularyLabels rejects empty and overlong labels", () => {
+    const empty = validateCustomVocabularyLabels({
+      level1Singular: "  ",
+      level1Plural: "Floors",
+      level2Singular: "Unit",
+      level2Plural: "Units",
+      level3Singular: "Room",
+      level3Plural: "Rooms",
+    });
+    assert.ok(empty.some((e) => e.field === "level1Singular"));
+
+    const tooLong = "X".repeat(VOCABULARY_LABEL_MAX_LENGTH + 1);
+    const over = validateCustomVocabularyLabels({
+      level1Singular: "Floor",
+      level1Plural: "Floors",
+      level2Singular: tooLong,
+      level2Plural: "Units",
+      level3Singular: "Room",
+      level3Plural: "Rooms",
+    });
+    assert.ok(over.some((e) => e.field === "level2Singular"));
+  });
+
+  it("validateCustomVocabularyLabels accepts valid custom labels", () => {
+    assert.deepEqual(
+      validateCustomVocabularyLabels({
+        level1Singular: "Floor",
+        level1Plural: "Floors",
+        level2Singular: "Wing",
+        level2Plural: "Wings",
+        level3Singular: "Room",
+        level3Plural: "Rooms",
+      }),
+      [],
+    );
+  });
+
+  it("live preview lines use vocabulary labels (LTC / Hospital / Hotel)", () => {
+    const ltc = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.ltc);
+    assert.equal(ltc.lines[0], "First Floor");
+    assert.equal(ltc.lines[1], "1A Naval Park");
+    assert.equal(ltc.lines[2], "Room 32A");
+    assert.equal(ltc.toolbar.addLevel2, "Neighborhood");
+
+    const hospital = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.hospital);
+    assert.equal(hospital.lines[0], "First Floor");
+    assert.equal(hospital.lines[1], "ICU Unit");
+    assert.equal(hospital.lines[2], "Patient Room 32A");
+    assert.equal(hospital.toolbar.addLevel2, "Unit");
+
+    const hotel = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.hotel);
+    assert.equal(hotel.lines[0], "Third Floor");
+    assert.equal(hotel.lines[1], "West Wing");
+    assert.equal(hotel.lines[2], "Guest Room 214");
+  });
+
+  it("live preview for Campus and Corporate matches Stage 2F examples", () => {
+    const campus = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.campus);
+    assert.equal(campus.lines[0], "Science Building");
+    assert.equal(campus.lines[1], "Chemistry Area");
+    assert.equal(campus.lines[2], "Lab Space A");
+
+    const corporate = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.corporate);
+    assert.equal(corporate.lines[0], "Building A");
+    assert.equal(corporate.lines[1], "Accounting Department");
+    assert.equal(corporate.lines[2], "Workspace 14");
+  });
+
+  it("formatVocabularySummary joins the three singular labels", () => {
+    assert.equal(
+      formatVocabularySummary(FACILITY_VOCABULARY_PROFILES.ltc),
+      "Floor · Neighborhood · Room",
+    );
+  });
+
+  it("architecture: one registry, one copy builder, profiles drive options", () => {
+    // Options are derived from FACILITY_VOCABULARY_PROFILES — not a parallel list of labels.
+    for (const opt of VOCABULARY_PROFILE_OPTIONS) {
+      if (opt.key === "custom") continue;
+      assert.equal(
+        opt.label,
+        FACILITY_VOCABULARY_PROFILES[opt.key].profileLabel,
+      );
+    }
   });
 });

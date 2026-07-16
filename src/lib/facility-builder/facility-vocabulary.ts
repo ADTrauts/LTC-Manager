@@ -54,7 +54,7 @@ export const FACILITY_VOCABULARY_PROFILES: Record<
 > = {
   ltc: {
     profileKey: "ltc",
-    profileLabel: "Long Term Care",
+    profileLabel: "Long-Term Care",
     level1: term("Floor"),
     level2: term("Neighborhood"),
     level3: term("Room"),
@@ -64,30 +64,75 @@ export const FACILITY_VOCABULARY_PROFILES: Record<
     profileLabel: "Hospital",
     level1: term("Floor"),
     level2: term("Unit"),
-    level3: term("Room"),
+    level3: term("Patient Room"),
   },
   hotel: {
     profileKey: "hotel",
     profileLabel: "Hotel",
     level1: term("Floor"),
     level2: term("Wing"),
-    level3: term("Room"),
+    level3: term("Guest Room"),
   },
   campus: {
     profileKey: "campus",
-    profileLabel: "Campus / School",
+    profileLabel: "Campus",
     level1: term("Building"),
-    level2: term("Department"),
-    level3: term("Room"),
+    level2: term("Area"),
+    level3: term("Space"),
   },
   corporate: {
     profileKey: "corporate",
     profileLabel: "Corporate",
     level1: term("Building"),
-    level2: term("Area"),
-    level3: term("Space"),
+    level2: term("Department"),
+    level3: term("Workspace"),
   },
 };
+
+/** Ordered profile options for the terminology settings UI — derived from the registry. */
+export const VOCABULARY_PROFILE_OPTIONS: ReadonlyArray<{
+  key: FacilityVocabularyProfileKey;
+  label: string;
+}> = [
+  ...Object.values(FACILITY_VOCABULARY_PROFILES).map((p) => ({
+    key: p.profileKey as Exclude<FacilityVocabularyProfileKey, "custom">,
+    label: p.profileLabel,
+  })),
+  { key: "custom" as const, label: "Custom" },
+];
+
+/** Max length for custom singular / plural labels. */
+export const VOCABULARY_LABEL_MAX_LENGTH = 40;
+
+/**
+ * Encode a custom term for storage in existing Facility label columns
+ * (no plural columns / no migration). Format: "Singular::Plural".
+ */
+export function encodeCustomVocabularyTerm(termValue: VocabularyTerm): string {
+  const singular = termValue.singular.trim();
+  const plural = termValue.plural.trim();
+  if (!singular) return "";
+  if (!plural || plural === pluralizeLabel(singular)) return singular;
+  return `${singular}::${plural}`;
+}
+
+/** Parse a stored custom label column back into singular + plural. */
+export function parseCustomVocabularyTerm(
+  raw: string | null | undefined,
+  fallback: VocabularyTerm,
+): VocabularyTerm {
+  const trimmed = raw?.trim();
+  if (!trimmed) return { ...fallback };
+  const sep = trimmed.indexOf("::");
+  if (sep >= 0) {
+    const singular = trimmed.slice(0, sep).trim();
+    const plural = trimmed.slice(sep + 2).trim();
+    if (singular && plural) return { singular, plural };
+    if (singular) return term(singular);
+    return { ...fallback };
+  }
+  return term(trimmed);
+}
 
 /** LTC is the product default — existing facilities keep Floor / Neighborhood / Room. */
 export const DEFAULT_FACILITY_VOCABULARY: FacilityVocabulary =
@@ -103,6 +148,7 @@ export type FacilityVocabularySettings = {
 /**
  * Resolve a facility's vocabulary from stored settings.
  * Unknown / missing profile → LTC default. Custom fills gaps from LTC.
+ * Custom labels may encode plurals as "Singular::Plural" in existing columns.
  */
 export function resolveFacilityVocabulary(
   settings?: FacilityVocabularySettings | null,
@@ -111,15 +157,21 @@ export function resolveFacilityVocabulary(
   if (!key || key === "ltc") return DEFAULT_FACILITY_VOCABULARY;
 
   if (key === "custom") {
-    const l1 = settings?.vocabularyLevel1Label?.trim();
-    const l2 = settings?.vocabularyLevel2Label?.trim();
-    const l3 = settings?.vocabularyLevel3Label?.trim();
     return {
       profileKey: "custom",
       profileLabel: "Custom",
-      level1: term(l1 || DEFAULT_FACILITY_VOCABULARY.level1.singular),
-      level2: term(l2 || DEFAULT_FACILITY_VOCABULARY.level2.singular),
-      level3: term(l3 || DEFAULT_FACILITY_VOCABULARY.level3.singular),
+      level1: parseCustomVocabularyTerm(
+        settings?.vocabularyLevel1Label,
+        DEFAULT_FACILITY_VOCABULARY.level1,
+      ),
+      level2: parseCustomVocabularyTerm(
+        settings?.vocabularyLevel2Label,
+        DEFAULT_FACILITY_VOCABULARY.level2,
+      ),
+      level3: parseCustomVocabularyTerm(
+        settings?.vocabularyLevel3Label,
+        DEFAULT_FACILITY_VOCABULARY.level3,
+      ),
     };
   }
 
@@ -128,6 +180,97 @@ export function resolveFacilityVocabulary(
       key as Exclude<FacilityVocabularyProfileKey, "custom">
     ];
   return profile ?? DEFAULT_FACILITY_VOCABULARY;
+}
+
+/**
+ * Build a draft vocabulary from the terminology settings form
+ * (live preview + save validation). Reuses the same resolve path for presets.
+ */
+export function draftFacilityVocabulary(input: {
+  profileKey: FacilityVocabularyProfileKey;
+  level1Singular?: string;
+  level1Plural?: string;
+  level2Singular?: string;
+  level2Plural?: string;
+  level3Singular?: string;
+  level3Plural?: string;
+}): FacilityVocabulary {
+  if (input.profileKey !== "custom") {
+    return (
+      FACILITY_VOCABULARY_PROFILES[input.profileKey] ?? DEFAULT_FACILITY_VOCABULARY
+    );
+  }
+
+  const l1s = input.level1Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level1.singular;
+  const l2s = input.level2Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level2.singular;
+  const l3s = input.level3Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level3.singular;
+  return {
+    profileKey: "custom",
+    profileLabel: "Custom",
+    level1: {
+      singular: l1s,
+      plural: input.level1Plural?.trim() || pluralizeLabel(l1s),
+    },
+    level2: {
+      singular: l2s,
+      plural: input.level2Plural?.trim() || pluralizeLabel(l2s),
+    },
+    level3: {
+      singular: l3s,
+      plural: input.level3Plural?.trim() || pluralizeLabel(l3s),
+    },
+  };
+}
+
+export type VocabularyLabelValidationError = {
+  field:
+    | "level1Singular"
+    | "level1Plural"
+    | "level2Singular"
+    | "level2Plural"
+    | "level3Singular"
+    | "level3Plural";
+  message: string;
+};
+
+/** Validate custom labels before save. Preset profiles skip custom fields. */
+export function validateCustomVocabularyLabels(input: {
+  level1Singular: string;
+  level1Plural: string;
+  level2Singular: string;
+  level2Plural: string;
+  level3Singular: string;
+  level3Plural: string;
+}): VocabularyLabelValidationError[] {
+  const errors: VocabularyLabelValidationError[] = [];
+  const fields: Array<{
+    field: VocabularyLabelValidationError["field"];
+    value: string;
+    label: string;
+  }> = [
+    { field: "level1Singular", value: input.level1Singular, label: "Level 1 singular" },
+    { field: "level1Plural", value: input.level1Plural, label: "Level 1 plural" },
+    { field: "level2Singular", value: input.level2Singular, label: "Level 2 singular" },
+    { field: "level2Plural", value: input.level2Plural, label: "Level 2 plural" },
+    { field: "level3Singular", value: input.level3Singular, label: "Level 3 singular" },
+    { field: "level3Plural", value: input.level3Plural, label: "Level 3 plural" },
+  ];
+
+  for (const { field, value, label } of fields) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      errors.push({ field, message: `${label} is required.` });
+      continue;
+    }
+    if (trimmed.length > VOCABULARY_LABEL_MAX_LENGTH) {
+      errors.push({
+        field,
+        message: `${label} must be ${VOCABULARY_LABEL_MAX_LENGTH} characters or fewer.`,
+      });
+    }
+  }
+
+  return errors;
 }
 
 const lower = (s: string) => s.toLowerCase();
@@ -289,3 +432,72 @@ export type BuilderCopy = ReturnType<typeof buildBuilderCopy>;
 export const DEFAULT_BUILDER_COPY: BuilderCopy = buildBuilderCopy(
   DEFAULT_FACILITY_VOCABULARY,
 );
+
+/**
+ * Live hierarchy preview lines — sample names composed from vocabulary labels.
+ * Toolbar labels come from buildBuilderCopy(); proper-noun samples are
+ * illustrative and profile-keyed (not a second terminology registry).
+ */
+export function buildVocabularyHierarchyPreview(
+  v: FacilityVocabulary,
+): {
+  profileLabel: string;
+  lines: [string, string, string];
+  toolbar: BuilderCopy["toolbar"];
+} {
+  const copy = buildBuilderCopy(v);
+  const samples = PREVIEW_NAME_SAMPLES[v.profileKey] ?? PREVIEW_NAME_SAMPLES.ltc;
+  return {
+    profileLabel: v.profileLabel,
+    lines: [
+      samples.level1(v),
+      samples.level2(v),
+      samples.level3(v),
+    ],
+    toolbar: copy.toolbar,
+  };
+}
+
+type PreviewNameFns = {
+  level1: (v: FacilityVocabulary) => string;
+  level2: (v: FacilityVocabulary) => string;
+  level3: (v: FacilityVocabulary) => string;
+};
+
+const PREVIEW_NAME_SAMPLES: Record<FacilityVocabularyProfileKey, PreviewNameFns> = {
+  ltc: {
+    level1: (v) => `First ${v.level1.singular}`,
+    level2: () => "1A Naval Park",
+    level3: (v) => `${v.level3.singular} 32A`,
+  },
+  hospital: {
+    level1: (v) => `First ${v.level1.singular}`,
+    level2: (v) => `ICU ${v.level2.singular}`,
+    level3: (v) => `${v.level3.singular} 32A`,
+  },
+  hotel: {
+    level1: (v) => `Third ${v.level1.singular}`,
+    level2: (v) => `West ${v.level2.singular}`,
+    level3: (v) => `${v.level3.singular} 214`,
+  },
+  campus: {
+    level1: () => "Science Building",
+    level2: (v) => `Chemistry ${v.level2.singular}`,
+    level3: (v) => `Lab ${v.level3.singular} A`,
+  },
+  corporate: {
+    level1: (v) => `${v.level1.singular} A`,
+    level2: (v) => `Accounting ${v.level2.singular}`,
+    level3: (v) => `${v.level3.singular} 14`,
+  },
+  custom: {
+    level1: (v) => `First ${v.level1.singular}`,
+    level2: (v) => `Example ${v.level2.singular}`,
+    level3: (v) => `${v.level3.singular} 101`,
+  },
+};
+
+/** Human-readable summary of current vocabulary for the settings bar. */
+export function formatVocabularySummary(v: FacilityVocabulary): string {
+  return `${v.level1.singular} · ${v.level2.singular} · ${v.level3.singular}`;
+}
