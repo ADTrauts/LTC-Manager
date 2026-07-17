@@ -18,7 +18,10 @@ import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { loadFacilityAccessContext } from "@/lib/facility-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
+import { isProjectionSidebarEnabled } from "@/lib/feature-flags";
+import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
+import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { getNavItemsForRole } from "@/lib/route-permissions";
 import { loadUnitReadinessBatch } from "@/lib/readiness";
 import type { ReadinessState } from "@/lib/readiness";
@@ -29,6 +32,19 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
+function readinessMapForProjectedUnits(
+  byUnitId: Map<string, { state: ReadinessState }>,
+  projectedUnitIds: readonly string[],
+): Record<string, { state: ReadinessState }> {
+  const allowed = new Set(projectedUnitIds);
+  const out: Record<string, { state: ReadinessState }> = {};
+  for (const unitId of allowed) {
+    const item = byUnitId.get(unitId);
+    if (item) out[unitId] = { state: item.state };
+  }
+  return out;
+}
+
 export async function AppShell({ children }: AppShellProps) {
   const session = await getSession();
   if (!session) {
@@ -38,20 +54,37 @@ export async function AppShell({ children }: AppShellProps) {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const emailUserId = sessionUserIdForFk(session);
-  const [units, facility, readiness, facilityAccess] = await Promise.all([
-    getSidebarUnitsForSession(session),
-    getFacilityForSession(),
-    loadUnitReadinessBatch(session.facilityId, {
-      activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
-    }),
-    emailUserId && session.authKind === "user"
-      ? loadFacilityAccessContext({
-          userId: emailUserId,
-          activeFacilityId: session.facilityId,
-          role: session.role,
-        })
-      : Promise.resolve(null),
-  ]);
+  const projectionSidebar = isProjectionSidebarEnabled();
+  const memo = projectionSidebar ? createProjectionRuntimeRequestScope() : undefined;
+
+  const [legacyUnits, sidebarProjection, facility, readinessResult, facilityAccess] =
+    await Promise.all([
+      projectionSidebar
+        ? Promise.resolve([])
+        : getSidebarUnitsForSession(session),
+      projectionSidebar
+        ? loadSidebarProjection(session, { memo })
+        : Promise.resolve({
+            enabled: false as const,
+            view: null,
+            projectedUnitIds: [] as const,
+            error: null,
+            usedLegacyEligibility: true,
+            metrics: null,
+          }),
+      getFacilityForSession(),
+      loadUnitReadinessBatch(session.facilityId, {
+        activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+      }).catch(() => null),
+      emailUserId && session.authKind === "user"
+        ? loadFacilityAccessContext({
+            userId: emailUserId,
+            activeFacilityId: session.facilityId,
+            role: session.role,
+          })
+        : Promise.resolve(null),
+    ]);
+
   const deviceUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value;
   const lockedUnitId =
     session.authKind === "employee" &&
@@ -93,9 +126,20 @@ export async function AppShell({ children }: AppShellProps) {
     activeOperationalDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
 
-  const readinessByUnitId = Object.fromEntries(
-    [...readiness.byUnitId.entries()].map(([unitId, item]) => [unitId, { state: item.state as ReadinessState }]),
-  );
+  const projectedUnitIds = sidebarProjection.projectedUnitIds;
+  const readinessByUnitId = readinessResult
+    ? projectionSidebar
+      ? readinessMapForProjectedUnits(
+          readinessResult.byUnitId as Map<string, { state: ReadinessState }>,
+          projectedUnitIds,
+        )
+      : Object.fromEntries(
+          [...readinessResult.byUnitId.entries()].map(([unitId, item]) => [
+            unitId,
+            { state: item.state as ReadinessState },
+          ]),
+        )
+    : {};
 
   return (
     <div
@@ -147,7 +191,11 @@ export async function AppShell({ children }: AppShellProps) {
 
       <div className={`mx-auto flex min-h-0 w-full ${shellClasses.maxWidth} flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden`}>
         <LeftSidebar
-          units={units}
+          units={projectionSidebar ? [] : legacyUnits}
+          projectionSections={
+            projectionSidebar ? (sidebarProjection.view?.sections ?? []) : undefined
+          }
+          projectionUnavailable={Boolean(projectionSidebar && sidebarProjection.error)}
           lockedUnitId={lockedUnitId}
           showOperationsCenterLink={showOperationsCenterLink}
           readinessByUnitId={readinessByUnitId}

@@ -9,6 +9,7 @@ import {
   isOperationalAssignmentsEnabled,
   isProjectionLocationsEnabled,
   isProjectionShadowEnabled,
+  isProjectionSidebarEnabled,
   isTaskSyncEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
@@ -164,5 +165,17 @@ test("isProjectionLocationsEnabled can be disabled for rollback", () => {
 test("isProjectionShadowEnabled defaults to false when unset", () => {
   withEnv("PROJECTION_SHADOW_ENABLED", undefined, () => {
     assert.equal(isProjectionShadowEnabled(), false);
+  });
+});
+
+test("isProjectionSidebarEnabled defaults to false when unset", () => {
+  withEnv("PROJECTION_SIDEBAR_ENABLED", undefined, () => {
+    assert.equal(isProjectionSidebarEnabled(), false);
+  });
+});
+
+test("isProjectionSidebarEnabled can be enabled for cutover", () => {
+  withEnv("PROJECTION_SIDEBAR_ENABLED", "true", () => {
+    assert.equal(isProjectionSidebarEnabled(), true);
   });
 });

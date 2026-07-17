@@ -60,8 +60,16 @@ export function isProjectionShadowEnabled(): boolean {
 /**
  * Defaults to enabled — Wave 15F Locations Experience cutover.
  * Set `PROJECTION_LOCATIONS_ENABLED=false` to roll back to legacy unit eligibility on `/units`.
- * Sidebar still uses legacy loaders until Wave 15G.
  */
 export function isProjectionLocationsEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_LOCATIONS_ENABLED, true);
+}
+
+/**
+ * Defaults to disabled — Wave 15G Sidebar location tree cutover.
+ * Set `PROJECTION_SIDEBAR_ENABLED=true` to serve Projection eligibility in the Locations rail.
+ * When off, `getSidebarUnitsForSession` remains the exclusive Sidebar eligibility path.
+ */
+export function isProjectionSidebarEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_SIDEBAR_ENABLED, false);
 }

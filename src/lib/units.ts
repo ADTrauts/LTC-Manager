@@ -25,7 +25,11 @@ export async function getActiveSidebarUnits(facilityId: string): Promise<Sidebar
   }
 }
 
-/** Email (`user`) sessions see all active units; PIN (`employee`) sessions may be limited by `EmployeeUnitAccess`. */
+/** Email (`user`) sessions see all active units; PIN (`employee`) sessions may be limited by `EmployeeUnitAccess`.
+ *
+ * Wave 15G: AppShell uses this **only** when `PROJECTION_SIDEBAR_ENABLED` is off.
+ * When the flag is on, Sidebar eligibility comes exclusively from Projection Runtime.
+ */
 export async function getSidebarUnitsForSession(session: AppJwtPayload): Promise<SidebarUnit[]> {
   noStore();
 
