@@ -56,3 +56,12 @@ export function isDepartmentOperationalProfilesEnabled(): boolean {
 export function isProjectionShadowEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_SHADOW_ENABLED, false);
 }
+
+/**
+ * Defaults to enabled — Wave 15F Locations Experience cutover.
+ * Set `PROJECTION_LOCATIONS_ENABLED=false` to roll back to legacy unit eligibility on `/units`.
+ * Sidebar still uses legacy loaders until Wave 15G.
+ */
+export function isProjectionLocationsEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_LOCATIONS_ENABLED, true);
+}

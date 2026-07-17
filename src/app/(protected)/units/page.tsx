@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { UnitsManager } from "@/components/units-manager";
 import { getSession } from "@/lib/auth";
 import { hasAtLeastRole } from "@/lib/access";
-import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
-import { prisma } from "@/lib/prisma";
+import { loadUnitsPageData } from "@/lib/locations";
 
 export default async function UnitsPage() {
   noStore();
@@ -15,48 +14,10 @@ export default async function UnitsPage() {
     redirect("/login");
   }
 
-  const facilityId = session.facilityId;
-
-  const [units, templates, logAssignments] = await Promise.all([
-    prisma.unit.findMany({
-      where: operationalUnitWhere(facilityId),
-      orderBy: { displayOrder: "asc" },
-      select: {
-        id: true,
-        name: true,
-        unitType: true,
-        parentUnitId: true,
-        isActive: true,
-        displayOrder: true,
-        description: true,
-        mealTimes: {
-          where: { isActive: true },
-          select: { mealType: true, scheduledTime: true },
-        },
-      },
-    }),
-    prisma.logTemplate.findMany({
-      where: { facilityId, isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.logAssignment.findMany({
-      where: { unit: { facilityId } },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        unitId: true,
-        isActive: true,
-        recurrence: true,
-        mealType: true,
-        timesPerDay: true,
-        template: { select: { name: true } },
-      },
-    }),
-  ]);
-
-  const parentOptions = units.map((unit) => ({ id: unit.id, name: unit.name }));
   const canManageLogAssignments = hasAtLeastRole(session.role, "MANAGER");
+  const data = await loadUnitsPageData(session, {
+    includeTemplates: canManageLogAssignments,
+  });
 
   return (
     <section className="space-y-4">
@@ -67,12 +28,17 @@ export default async function UnitsPage() {
           templates are built under Logs; managers can attach them to a unit here or on the Logs → Assignments
           tab.
         </p>
+        {data.projectionError ? (
+          <p className="mt-2 text-sm text-red-700" role="alert">
+            Location eligibility unavailable. Showing no locations (fail closed).
+          </p>
+        ) : null}
       </header>
       <UnitsManager
-        units={units}
-        parentOptions={parentOptions}
-        templates={canManageLogAssignments ? templates : []}
-        logAssignments={logAssignments}
+        units={data.units}
+        parentOptions={data.parentOptions}
+        templates={canManageLogAssignments ? data.templates : []}
+        logAssignments={data.logAssignments}
         canManageLogAssignments={canManageLogAssignments}
       />
     </section>

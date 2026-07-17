@@ -7,6 +7,8 @@ import {
   isAiShiftSummaryEnabled,
   isOperationEngineEnabled,
   isOperationalAssignmentsEnabled,
+  isProjectionLocationsEnabled,
+  isProjectionShadowEnabled,
   isTaskSyncEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
@@ -145,4 +147,22 @@ test("isOperationalAssignmentsEnabled parses falsey env values", () => {
       assert.equal(isOperationalAssignmentsEnabled(), false, value);
     });
   }
+});
+
+test("isProjectionLocationsEnabled defaults to true when unset", () => {
+  withEnv("PROJECTION_LOCATIONS_ENABLED", undefined, () => {
+    assert.equal(isProjectionLocationsEnabled(), true);
+  });
+});
+
+test("isProjectionLocationsEnabled can be disabled for rollback", () => {
+  withEnv("PROJECTION_LOCATIONS_ENABLED", "false", () => {
+    assert.equal(isProjectionLocationsEnabled(), false);
+  });
+});
+
+test("isProjectionShadowEnabled defaults to false when unset", () => {
+  withEnv("PROJECTION_SHADOW_ENABLED", undefined, () => {
+    assert.equal(isProjectionShadowEnabled(), false);
+  });
 });
