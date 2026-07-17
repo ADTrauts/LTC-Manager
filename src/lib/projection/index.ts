@@ -1,7 +1,7 @@
 /**
  * Projection Runtime Foundation — public domain barrel.
  *
- * Wave 15B domain plus Wave 15C pure resolution pipeline.
+ * Wave 15B domain, Wave 15C pure pipeline, Wave 15D source adapter + runtime.
  */
 
 export type {
@@ -66,6 +66,38 @@ export {
 } from "./pipeline";
 
 export {
+  buildAccessClass,
+  buildDepartmentLens,
+  buildFacilityLens,
+  buildPinAccessPrincipal,
+  buildProjectionRequest,
+  permissionKeysForRoleBand,
+  type BuildProjectionRequestInput,
+  type ProjectionRequestPrincipalInput,
+} from "./request";
+
+export {
+  loadProjectionSource,
+  type ProjectionSourceLoadDb,
+  type ProjectionSourceLoadResult,
+} from "./load-source";
+
+export {
+  createProjectionRuntimeMemo,
+  projectionRequestMemoKey,
+  type ProjectionRuntimeMemo,
+} from "./memo";
+
+export {
+  createProjectionRuntimeRequestScope,
+  formatProjectionRuntimeLog,
+  resolveProjectionRuntime,
+  type ProjectionRuntimeMetrics,
+  type ProjectionRuntimeResult,
+  type ResolveProjectionRuntimeOptions,
+} from "./runtime";
+
+export {
   DIETARY_GOLDEN_PROJECTION,
   EVS_GOLDEN_PROJECTION,
   FACILITY_OVERVIEW_GOLDEN_PROJECTION,
@@ -79,4 +111,3 @@ export {
   validateProjectionSnapshot,
   type ProjectionValidationIssue,
 } from "./validation";
-
