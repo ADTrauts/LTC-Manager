@@ -82,3 +82,12 @@ export function isProjectionSidebarEnabled(): boolean {
 export function isProjectionUnitWorkspaceEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_UNIT_WORKSPACE_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Wave 15I Today's Work Projection cutover.
+ * Set `PROJECTION_TODAYS_WORK_ENABLED=true` to assemble walk/coverage/handoffs
+ * within Projection eligibility only. When off, legacy Today's Work remains exclusive.
+ */
+export function isProjectionTodaysWorkEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_TODAYS_WORK_ENABLED, false);
+}

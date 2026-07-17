@@ -53,3 +53,17 @@ export {
   type HandoffSection,
   type HandoffSummary,
 } from "./handoffs";
+
+export {
+  adaptProjectionToTodaysWork,
+  assembleExperienceWalkContributions,
+  assembleProjectedTodaysWorkCoverage,
+  assembleProjectedTodaysWorkHandoffs,
+  assembleProjectedTodaysWorkHub,
+  assembleProjectedTodaysWorkWalk,
+  filterWalkListToProjectedUnits,
+  loadTodaysWorkProjection,
+  type AssembledTodaysWork,
+  type ExperienceWalkContribution,
+  type TodaysWorkProjectionView,
+} from "./projection";

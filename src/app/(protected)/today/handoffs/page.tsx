@@ -11,8 +11,10 @@ import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateShiftTransition } from "@/lib/ai/shift-transition";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { isAiShiftSummaryEnabled } from "@/lib/feature-flags";
-import { loadHandoffs } from "@/lib/todays-work";
+import { isAiShiftSummaryEnabled, isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
+import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import { assembleProjectedTodaysWorkHandoffs, loadHandoffs } from "@/lib/todays-work";
+import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
 
 export default async function TodaysWorkHandoffsPage() {
   noStore();
@@ -26,9 +28,29 @@ export default async function TodaysWorkHandoffsPage() {
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
-  const handoffs = await loadHandoffs(session.facilityId, {
+
+  let handoffs = await loadHandoffs(session.facilityId, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
+
+  if (isProjectionTodaysWorkEnabled()) {
+    const assembled = await assembleProjectedTodaysWorkHandoffs(session, {
+      memo: createProjectionRuntimeRequestScope(),
+      activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+    });
+    if (assembled.enabled && "error" in assembled && assembled.error && !("handoffs" in assembled)) {
+      return (
+        <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-handoffs-page">
+          <PageHeader icon="todaysWork" eyebrow="Today's Work" title="Handoffs" />
+          <TodaysWorkProjectionUnavailable message={assembled.error} />
+        </section>
+      );
+    }
+    if (assembled.enabled && "handoffs" in assembled && assembled.handoffs) {
+      handoffs = assembled.handoffs;
+    }
+  }
+
   const { sections, summary, operationContext, isClear } = handoffs;
 
   const aiEnabled = isAiShiftSummaryEnabled();

@@ -10,6 +10,7 @@ import {
   isProjectionLocationsEnabled,
   isProjectionShadowEnabled,
   isProjectionSidebarEnabled,
+  isProjectionTodaysWorkEnabled,
   isProjectionUnitWorkspaceEnabled,
   isTaskSyncEnabled,
   isTodaysWorkEnabled,
@@ -190,5 +191,17 @@ test("isProjectionUnitWorkspaceEnabled defaults to false when unset", () => {
 test("isProjectionUnitWorkspaceEnabled can be enabled for cutover", () => {
   withEnv("PROJECTION_UNIT_WORKSPACE_ENABLED", "true", () => {
     assert.equal(isProjectionUnitWorkspaceEnabled(), true);
+  });
+});
+
+test("isProjectionTodaysWorkEnabled defaults to false when unset", () => {
+  withEnv("PROJECTION_TODAYS_WORK_ENABLED", undefined, () => {
+    assert.equal(isProjectionTodaysWorkEnabled(), false);
+  });
+});
+
+test("isProjectionTodaysWorkEnabled can be enabled for cutover", () => {
+  withEnv("PROJECTION_TODAYS_WORK_ENABLED", "true", () => {
+    assert.equal(isProjectionTodaysWorkEnabled(), true);
   });
 });

@@ -11,12 +11,22 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import { resolveLocationIconKey } from "@/lib/design-system";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
+import {
+  TodaysWorkExperienceContributions,
+  TodaysWorkProjectionUnavailable,
+} from "@/components/todays-work/todays-work-experience-contributions";
 import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { loadCallDownList, loadWalkList } from "@/lib/todays-work";
+import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
+import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import {
+  assembleProjectedTodaysWorkHub,
+  loadCallDownList,
+  loadWalkList,
+} from "@/lib/todays-work";
 
 export default async function TodaysWorkHubPage() {
   noStore();
@@ -30,10 +40,137 @@ export default async function TodaysWorkHubPage() {
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const activeDepartmentKey = deptNav.activeOperationalDepartmentKey;
+
+  if (isProjectionTodaysWorkEnabled()) {
+    const memo = createProjectionRuntimeRequestScope();
+    const assembled = await assembleProjectedTodaysWorkHub(session, {
+      memo,
+      activeDepartmentKey,
+    });
+
+    if ("enabled" in assembled && assembled.enabled === false) {
+      // Flag flipped mid-request — fall through should not happen; show unavailable.
+      return (
+        <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
+          <TodaysWorkProjectionUnavailable message="Today's Work Projection is not available." />
+        </section>
+      );
+    }
+
+    if ("error" in assembled && assembled.error && !("walk" in assembled)) {
+      return (
+        <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
+          <PageHeader
+            icon="todaysWork"
+            eyebrow="Today's Work"
+            title="Supervisor hub"
+            subtitle="Projection-driven work queue for the active department."
+          />
+          <TodaysWorkProjectionUnavailable message={assembled.error} />
+        </section>
+      );
+    }
+
+    if (!("walk" in assembled)) {
+      return (
+        <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
+          <TodaysWorkProjectionUnavailable message="Today's Work Projection is not available." />
+        </section>
+      );
+    }
+
+    const { walk, callDowns, experienceContributions, projection } = assembled;
+    const { summary, operationContext, items, lookFirst } = walk;
+
+    return (
+      <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
+        <PageHeader
+          icon="todaysWork"
+          eyebrow="Today's Work"
+          title="Supervisor hub"
+          subtitle="Projected Experiences contribute locations; engines supply outstanding work."
+          below={<OperationContextBanner context={operationContext} embedded />}
+        />
+
+        {projection.lensMode === "FACILITY" ? (
+          <p className="text-xs text-zinc-500">
+            Facility Overview — Experience contributors remain department-labeled.
+          </p>
+        ) : null}
+
+        <WalkListSummaryCards summary={summary} />
+
+        <section>
+          <SectionHeader eyebrow="Projected work sources" className="mb-2" />
+          <TodaysWorkExperienceContributions contributions={experienceContributions} />
+        </section>
+
+        {lookFirst && lookFirst.status !== "ready" ? (
+          <section>
+            <SectionHeader eyebrow="Look here first" className="mb-2" />
+            <ActionCard
+              emphasized
+              icon={resolveLocationIconKey({
+                unitType: lookFirst.unitType,
+                name: lookFirst.unitName,
+              })}
+              title={lookFirst.unitName}
+              description={lookFirst.reason}
+              cta={
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={lookFirst.href}
+                    className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
+                  >
+                    Open unit workspace
+                  </Link>
+                  <Link
+                    href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
+                    className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+                  >
+                    Check staffing
+                  </Link>
+                </div>
+              }
+            />
+          </section>
+        ) : (
+          <EmptyState
+            icon="ready"
+            title="No locations need attention right now"
+            description="Walk preview still lists projected locations if you want a routine pass."
+            tone="success"
+            inset
+          />
+        )}
+
+        <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
+        <TodaysWorkCallDownList items={callDowns.items} />
+
+        <AppCard as="section" className="border-dashed bg-zinc-50/80 shadow-none">
+          <SectionHeader eyebrow="Related" muted className="mb-2" />
+          <div className="flex flex-wrap gap-3 text-sm">
+            <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+              Full walk list
+            </Link>
+            <Link href="/today/coverage" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+              Coverage
+            </Link>
+            <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+              Handoffs
+            </Link>
+            <Link href="/dashboard" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+              Operations Center
+            </Link>
+          </div>
+        </AppCard>
+      </section>
+    );
+  }
+
   const [walkList, callDowns] = await Promise.all([
-    loadWalkList(session.facilityId, {
-      activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
-    }),
+    loadWalkList(session.facilityId, { activeDepartmentKey }),
     loadCallDownList(session.facilityId),
   ]);
   const { summary, operationContext, items, lookFirst } = walkList;
@@ -54,26 +191,26 @@ export default async function TodaysWorkHubPage() {
         <section>
           <SectionHeader eyebrow="Look here first" className="mb-2" />
           <ActionCard
-          emphasized
-          icon={resolveLocationIconKey({ unitType: lookFirst.unitType, name: lookFirst.unitName })}
-          title={lookFirst.unitName}
-          description={lookFirst.reason}
-          cta={
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={lookFirst.href}
-                className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-              >
-                Open unit workspace
-              </Link>
-              <Link
-                href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
-                className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-              >
-                Check staffing
-              </Link>
-            </div>
-          }
+            emphasized
+            icon={resolveLocationIconKey({ unitType: lookFirst.unitType, name: lookFirst.unitName })}
+            title={lookFirst.unitName}
+            description={lookFirst.reason}
+            cta={
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={lookFirst.href}
+                  className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
+                >
+                  Open unit workspace
+                </Link>
+                <Link
+                  href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
+                  className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+                >
+                  Check staffing
+                </Link>
+              </div>
+            }
           />
         </section>
       ) : (
@@ -87,7 +224,6 @@ export default async function TodaysWorkHubPage() {
       )}
 
       <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
-
       <TodaysWorkCallDownList items={callDowns.items} />
 
       <AppCard as="section" className="border-dashed bg-zinc-50/80 shadow-none">

@@ -12,13 +12,20 @@ import { TodaysWorkCoverageList } from "@/components/todays-work/todays-work-cov
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isOperationalAssignmentsEnabled, isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
 import {
   loadDailyAssignmentBoard,
   buildAssignmentFulfillmentSummary,
 } from "@/lib/scheduling/operational-assignments";
 import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
-import { loadCallDownList, loadCoverageList } from "@/lib/todays-work";
+import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import {
+  assembleProjectedTodaysWorkCoverage,
+  filterCallDownsToProjectedUnits,
+  loadCallDownList,
+  loadCoverageList,
+} from "@/lib/todays-work";
+import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
 
 export default async function TodaysWorkCoveragePage() {
   noStore();
@@ -34,10 +41,31 @@ export default async function TodaysWorkCoveragePage() {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
 
-  const [coverage, callDowns] = await Promise.all([
-    loadCoverageList(session.facilityId),
-    loadCallDownList(session.facilityId),
-  ]);
+  let coverage = await loadCoverageList(session.facilityId);
+  let callDowns = await loadCallDownList(session.facilityId);
+
+  if (isProjectionTodaysWorkEnabled()) {
+    const assembled = await assembleProjectedTodaysWorkCoverage(session, {
+      memo: createProjectionRuntimeRequestScope(),
+      activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+    });
+    if (assembled.enabled && "error" in assembled && assembled.error && !("coverage" in assembled)) {
+      return (
+        <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-coverage-page">
+          <PageHeader icon="todaysWork" eyebrow="Today's Work" title="Coverage" />
+          <TodaysWorkProjectionUnavailable message={assembled.error} />
+        </section>
+      );
+    }
+    if (assembled.enabled && "coverage" in assembled && assembled.coverage) {
+      coverage = assembled.coverage;
+      callDowns = filterCallDownsToProjectedUnits(
+        callDowns,
+        assembled.projection.projectedUnitIds,
+      );
+    }
+  }
+
   const { summary, operationContext, items, priorityGap, dateIso } = coverage;
 
   const assignmentsEnabled = isOperationalAssignmentsEnabled();
