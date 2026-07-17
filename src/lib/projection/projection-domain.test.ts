@@ -21,7 +21,7 @@ import {
   validateProjectionSnapshot,
 } from "./validation";
 
-function mutableSnapshot(snapshot: ProjectionSnapshot): any {
+function mutableSnapshot(snapshot: ProjectionSnapshot): ProjectionSnapshot {
   return structuredClone(snapshot);
 }
 
@@ -214,24 +214,26 @@ describe("Projection Runtime Foundation — validation rules", () => {
 
   it("rejects circular Experience dependencies", () => {
     const invalid = mutableSnapshot(DIETARY_GOLDEN_PROJECTION);
-    invalid.experiences = invalid.experiences.map((experience) => {
-      if (experience.reference.experienceKey === "MEAL_SERVICE") {
+    invalid.experiences = invalid.experiences.map(
+      (experience: ProjectionSnapshot["experiences"][number]) => {
+        if (experience.reference.experienceKey === "MEAL_SERVICE") {
+          return {
+            ...experience,
+            reference: {
+              ...experience.reference,
+              dependencyExperienceKeys: ["TEMPERATURE_MONITORING"],
+            },
+          };
+        }
         return {
           ...experience,
           reference: {
             ...experience.reference,
-            dependencyExperienceKeys: ["TEMPERATURE_MONITORING"],
+            dependencyExperienceKeys: ["MEAL_SERVICE"],
           },
         };
-      }
-      return {
-        ...experience,
-        reference: {
-          ...experience.reference,
-          dependencyExperienceKeys: ["MEAL_SERVICE"],
-        },
-      };
-    });
+      },
+    );
     assert.ok(issueCodes(invalid).includes("CIRCULAR_EXPERIENCE_DEPENDENCY"));
   });
 

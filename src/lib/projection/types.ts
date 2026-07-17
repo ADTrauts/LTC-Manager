@@ -12,6 +12,7 @@ import type {
   NavigationContributionEntry,
 } from "@/lib/experiences";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import type { ExperienceConfiguration } from "@/lib/department-administration";
 
 export type ProjectionPurpose =
   | "SIDEBAR"
@@ -189,6 +190,15 @@ export type ProjectionExperience = {
   reference: ProjectionExperienceReference;
   label: string;
   order: number;
+  configurationByLocation: Readonly<
+    Record<string, ExperienceConfiguration | null>
+  >;
+  archetypeByLocation: Readonly<
+    Record<
+      string,
+      { id: string; key: string; name: string } | null
+    >
+  >;
   contracts: ProjectionContracts;
   queryScopeId: string;
   workspace: ProjectionWorkspaceContribution;
@@ -234,6 +244,16 @@ export type ProjectionDiagnosticCode =
   | "INVALID_LOCATION_REFERENCE"
   | "INVALID_AREA_ORDERING"
   | "INVALID_DESCRIPTOR"
+  | "INVALID_ARCHETYPE_REFERENCE"
+  | "ORPHAN_BINDING"
+  | "ROOM_UNMAPPED"
+  | "ROOM_EXCEPTION_INVALID"
+  | "MISSING_ACTIVE_PROFILE"
+  | "INACTIVE_DEPARTMENT"
+  | "UNKNOWN_DEPARTMENT"
+  | "PERMISSION_DENIED"
+  | "PERMISSION_LEAKAGE"
+  | "SOURCE_INVALID"
   | "MISSING_QUERY_SCOPE"
   | "MISSING_CONTRACT_REFERENCE"
   | "AREA_EXPERIENCE_MISMATCH"

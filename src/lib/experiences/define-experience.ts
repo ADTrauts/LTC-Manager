@@ -32,6 +32,16 @@ export type DefineExperienceInput = {
   };
 };
 
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      deepFreeze(child);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
 /**
  * Define one catalog Experience with identity + full declarative contracts.
  * Keeps a single registry path — no parallel metadata.
@@ -44,14 +54,15 @@ export function defineExperience(
     ...contractOptions
   } = input.contract;
 
-  const contracts =
+  const contracts = deepFreeze(
     replaceContracts ??
     buildExperienceContracts({
       experienceKey: input.key,
       experienceName: input.name,
       tools: input.tools,
       ...contractOptions,
-    });
+    }),
+  );
 
   return {
     id: input.key,

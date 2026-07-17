@@ -50,6 +50,12 @@ export type ResolveRoomProfileInput = {
   profile: ProfileSnapshot;
   room: RoomContext;
   archetypeBinding: RoomArchetypeBindingSnapshot | null;
+  /**
+   * Projection-only policy fallback (currently Plant facility-wide policy).
+   * This selects an existing profile archetype without fabricating a binding.
+   * Direct bindings always take precedence.
+   */
+  policyDefaultArchetypeKey?: string;
   exceptions: readonly RoomExceptionSnapshot[];
 };
 
@@ -71,12 +77,26 @@ export function resolveDepartmentRoomProfile(
   // 2. Resolve archetype selection/tuning.
   const archetype = archetypeBinding
     ? profile.archetypes.find((a) => a.id === archetypeBinding.archetypeId) ?? null
-    : null;
+    : input.policyDefaultArchetypeKey
+      ? profile.archetypes.find(
+          (candidate) => candidate.key === input.policyDefaultArchetypeKey,
+        ) ?? null
+      : null;
 
   if (archetypeBinding && !archetype) {
     diagnostics.push({
       code: "binding_unknown_archetype",
       message: `Room binding references unknown archetype ${archetypeBinding.archetypeId}`,
+    });
+  }
+  if (
+    !archetypeBinding &&
+    input.policyDefaultArchetypeKey &&
+    !archetype
+  ) {
+    diagnostics.push({
+      code: "policy_unknown_default_archetype",
+      message: `Policy references unknown archetype ${input.policyDefaultArchetypeKey}`,
     });
   }
   if (archetype && !archetype.isActive) {
@@ -85,7 +105,7 @@ export function resolveDepartmentRoomProfile(
       message: `Archetype ${archetype.key} is inactive`,
     });
   }
-  if (!archetypeBinding) {
+  if (!archetypeBinding && !input.policyDefaultArchetypeKey) {
     diagnostics.push({
       code: "room_unmapped",
       message: "Room has no archetype binding; profile-level Experiences shown",

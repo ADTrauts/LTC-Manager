@@ -1,7 +1,7 @@
 /**
  * Projection Runtime Foundation — public domain barrel.
  *
- * Wave 15B exports immutable domain models, fixtures, and validation only.
+ * Wave 15B domain plus Wave 15C pure resolution pipeline.
  */
 
 export type {
@@ -35,6 +35,35 @@ export type {
   ProjectionSnapshot,
   ProjectionWorkspaceContribution,
 } from "./types";
+
+export type {
+  ProjectionSource,
+  ProjectionSourceDepartment,
+  ProjectionSourceFacility,
+  ProjectionSourceLocation,
+  ProjectionSourcePolicy,
+  ProjectionSourceRoom,
+} from "./source";
+
+export {
+  buildAndPruneProjectionLocations,
+  buildProjectionAreas,
+  buildProjectionExperiences,
+  intersectProjectionPermissions,
+  normalizeProjectionHierarchy,
+  resolveActiveProjectionProfile,
+  resolveProjection,
+  resolveProjectionLens,
+  resolveProjectionQueryScopes,
+  resolveRegistryContracts,
+  resolveRoomEligibility,
+  resolveRoomProfiles,
+  type EligibleProjectionRoom,
+  type NormalizedProjectionHierarchy,
+  type PermissionedProjectionRoom,
+  type ResolvedProjectionLens,
+  type ResolvedProjectionRoom,
+} from "./pipeline";
 
 export {
   DIETARY_GOLDEN_PROJECTION,

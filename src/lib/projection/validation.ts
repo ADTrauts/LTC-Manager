@@ -38,6 +38,13 @@ function nonEmpty(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function grantsAll(
+  granted: readonly string[],
+  required: readonly string[],
+): boolean {
+  return granted.includes("*") || required.every((key) => granted.includes(key));
+}
+
 function validateLocationReference(
   reference: ProjectionLocationReference,
   snapshotFacilityId: string,
@@ -250,6 +257,11 @@ export function validateProjectionSnapshot(
   const experienceIds = new Set(
     snapshot.experiences.map((experience) => experience.id),
   );
+  const projectedExperienceKeys = new Set(
+    snapshot.experiences.map(
+      (experience) => experience.reference.experienceKey,
+    ),
+  );
   const locationIds = new Set(Object.keys(snapshot.locations.byId));
   const queryScopeIds = new Set(
     Object.values(snapshot.queryScopes.byExperience).map((scope) => scope.id),
@@ -320,6 +332,37 @@ export function validateProjectionSnapshot(
           `${path}.contracts.registryVersion`,
         ),
       );
+    }
+    if (
+      !grantsAll(
+        snapshot.context.request.accessClass.permissionKeys,
+        experience.permissions.readKeys,
+      )
+    ) {
+      issues.push(
+        issue(
+          "PERMISSION_LEAKAGE",
+          `${experience.id}: principal lacks required read permissions`,
+          `${path}.permissions.readKeys`,
+        ),
+      );
+    }
+    for (const action of experience.actions) {
+      if (
+        !experience.permissions.allowedActionKeys.includes(action.key) ||
+        !grantsAll(
+          snapshot.context.request.accessClass.permissionKeys,
+          action.permissionKeys,
+        )
+      ) {
+        issues.push(
+          issue(
+            "PERMISSION_LEAKAGE",
+            `${experience.id}: action ${action.key} exceeds principal permissions`,
+            `${path}.actions`,
+          ),
+        );
+      }
     }
     for (const contractIssue of validateExperienceContracts(
       experienceKey,
@@ -401,6 +444,24 @@ export function validateProjectionSnapshot(
       );
     }
   }
+  for (const [domain, scopeIds] of Object.entries(
+    snapshot.queryScopes.byDomain,
+  )) {
+    for (const scopeId of scopeIds) {
+      const scope = Object.values(snapshot.queryScopes.byExperience).find(
+        (candidate) => candidate.id === scopeId,
+      );
+      if (!scope || !scope.domains.includes(domain)) {
+        issues.push(
+          issue(
+            "MISSING_QUERY_SCOPE",
+            `Domain ${domain} references invalid scope ${scopeId}`,
+            `queryScopes.byDomain.${domain}`,
+          ),
+        );
+      }
+    }
+  }
 
   walkLocations(snapshot.locations.roots, (node, path) => {
     if (snapshot.locations.byId[node.id] !== node) {
@@ -421,6 +482,15 @@ export function validateProjectionSnapshot(
           issue(
             "UNKNOWN_EXPERIENCE_KEY",
             `${node.id}: unknown Experience key ${experienceKey}`,
+            `${path}.experienceKeys`,
+          ),
+        );
+      }
+      if (!projectedExperienceKeys.has(experienceKey)) {
+        issues.push(
+          issue(
+            "PERMISSION_LEAKAGE",
+            `${node.id}: location exposes non-projected Experience ${experienceKey}`,
             `${path}.experienceKeys`,
           ),
         );
@@ -478,6 +548,19 @@ export function validateProjectionSnapshot(
         "plantPolicy.createsRoomAssignments",
       ),
     );
+  }
+  if (snapshot.plantPolicy) {
+    for (const locationId of snapshot.plantPolicy.coveredLocationIds) {
+      if (!locationIds.has(locationId)) {
+        issues.push(
+          issue(
+            "INVALID_LOCATION_REFERENCE",
+            `Plant policy covers unknown location ${locationId}`,
+            "plantPolicy.coveredLocationIds",
+          ),
+        );
+      }
+    }
   }
 
   if (

@@ -259,6 +259,12 @@ function makeExperience(
     },
     label: experience.name,
     order: opts.order,
+    configurationByLocation: Object.fromEntries(
+      opts.locationIds.map((locationId) => [locationId, null]),
+    ),
+    archetypeByLocation: Object.fromEntries(
+      opts.locationIds.map((locationId) => [locationId, null]),
+    ),
     contracts: {
       experienceKey: opts.experienceKey,
       source: "EXPERIENCE_REGISTRY",
@@ -357,13 +363,35 @@ function snapshotFor(opts: {
   const purpose = opts.purpose ?? "UNIT_WORKSPACE";
   const accessClass = opts.accessClass ?? ACCESS_ALL;
   const req = request(lens, purpose, accessClass);
-  const allExperiences = opts.areas.flatMap((area) => area.experiences);
+  const grants = (required: readonly string[]) =>
+    accessClass.permissionKeys.includes("*") ||
+    required.every((key) => accessClass.permissionKeys.includes(key));
+  const allExperiences = opts.areas
+    .flatMap((area) => area.experiences)
+    .map((experience) => {
+      const actions = experience.actions.filter((action) =>
+        grants(action.permissionKeys),
+      );
+      return {
+        ...experience,
+        actions,
+        permissions: {
+          ...experience.permissions,
+          allowedActionKeys: actions.map((action) => action.key),
+        },
+      };
+    });
+  const experienceById = new Map(
+    allExperiences.map((experience) => [experience.id, experience]),
+  );
   const areas = opts.areas.map((area) =>
     makeArea(
       opts.departmentId,
       opts.departmentKey,
       area.key,
-      area.experiences.map((experience) => experience.id),
+      area.experiences
+        .map((experience) => experienceById.get(experience.id)?.id)
+        .filter((id): id is string => Boolean(id)),
     ),
   );
   const queryScopes = queryScopesFor(
