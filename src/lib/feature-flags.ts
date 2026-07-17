@@ -66,12 +66,12 @@ export function isProjectionLocationsEnabled(): boolean {
 }
 
 /**
- * Defaults to disabled — Wave 15G Sidebar location tree cutover.
- * Set `PROJECTION_SIDEBAR_ENABLED=true` to serve Projection eligibility in the Locations rail.
+ * Defaults to enabled — Location Experience Certification (nested hierarchy rail).
+ * Set `PROJECTION_SIDEBAR_ENABLED=false` to roll back to legacy flat Unit list.
  * When off, `getSidebarUnitsForSession` remains the exclusive Sidebar eligibility path.
  */
 export function isProjectionSidebarEnabled(): boolean {
-  return parseEnvFlag(process.env.PROJECTION_SIDEBAR_ENABLED, false);
+  return parseEnvFlag(process.env.PROJECTION_SIDEBAR_ENABLED, true);
 }
 
 /**

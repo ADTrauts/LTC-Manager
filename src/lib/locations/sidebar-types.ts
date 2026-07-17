@@ -11,6 +11,8 @@ import type { ReadinessState } from "@/lib/readiness";
 export type ProjectedSidebarNode = {
   id: string;
   label: string;
+  /** Room number or other secondary display when available. */
+  secondaryLabel: string | null;
   /** Facility vocabulary level label (Floor / Neighborhood / Room / …). */
   levelLabel: string | null;
   presentation: ProjectionLocationPresentation;
@@ -19,7 +21,7 @@ export type ProjectedSidebarNode = {
   unitId: string | null;
   /**
    * Navigable only when Projection marks ACTIONABLE.
-   * Rooms use owning Unit route (`/unit/[unitId]`) — no room route in 15G.
+   * Rooms prefer `/unit/[unitId]?space=[spaceId]` (no dedicated room route).
    * STRUCTURAL nodes are orientation-only (href null).
    */
   href: string | null;

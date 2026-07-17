@@ -63,12 +63,12 @@ function sidebarFromGolden(
   return adaptLocationsViewToSidebar(locations, vocabulary);
 }
 
-test("PROJECTION_SIDEBAR_ENABLED defaults to false (rollback-safe)", () => {
+test("PROJECTION_SIDEBAR_ENABLED defaults to true (certified nested rail)", () => {
   withEnv("PROJECTION_SIDEBAR_ENABLED", undefined, () => {
-    assert.equal(isProjectionSidebarEnabled(), false);
-  });
-  withEnv("PROJECTION_SIDEBAR_ENABLED", "true", () => {
     assert.equal(isProjectionSidebarEnabled(), true);
+  });
+  withEnv("PROJECTION_SIDEBAR_ENABLED", "false", () => {
+    assert.equal(isProjectionSidebarEnabled(), false);
   });
 });
 
@@ -195,7 +195,14 @@ test("21–22. Unit href compatibility for actionable nodes", () => {
     if (node.presentation === "ACTIONABLE") {
       assert.ok(node.href?.startsWith("/unit/"));
       assert.ok(node.unitId);
-      assert.equal(node.href, `/unit/${node.unitId}`);
+      if (node.kind === "ROOM") {
+        assert.ok(
+          node.href?.includes(`?space=`),
+          `room ${node.id} should carry space context`,
+        );
+      } else {
+        assert.equal(node.href, `/unit/${node.unitId}`);
+      }
     } else {
       assert.equal(node.href, null);
     }

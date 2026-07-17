@@ -3,6 +3,7 @@
  *
  * Shared LocationsViewModel → ProjectedSidebarNode presentation DTO.
  * Does not recompute eligibility, Plant policy, or department filters.
+ * Preserves hrefs from the shared tree (including room ?space= context).
  */
 
 import type { FacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
@@ -57,14 +58,14 @@ function adaptTreeNode(
         ? node.physicalId
         : null;
 
+  // Preserve shared-tree href (rooms may include ?space=). STRUCTURAL → null.
   const href =
-    node.presentation === "ACTIONABLE" && unitId
-      ? `/unit/${unitId}`
-      : null;
+    node.presentation === "ACTIONABLE" && node.href ? node.href : null;
 
   return {
     id: node.id,
     label: node.label,
+    secondaryLabel: node.secondaryLabel,
     levelLabel: levelLabelFor(node.kind, vocabulary),
     presentation: node.presentation,
     kind: node.kind,

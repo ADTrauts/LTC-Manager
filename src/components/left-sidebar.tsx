@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import { ReadinessChip } from "@/components/readiness-chip";
 import {
@@ -37,10 +38,12 @@ function sidebarLinkClass(isActive: boolean, disabled = false) {
     : "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
 }
 
-function structuralClass(depth: number) {
-  return `flex min-h-9 items-center gap-2.5 rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 ${
-    depth > 0 ? "" : ""
-  }`;
+function structuralClass() {
+  return "flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 hover:bg-zinc-50";
+}
+
+function hrefPathOnly(href: string): string {
+  return href.split("?")[0] ?? href;
 }
 
 function SidebarProjectedNode({
@@ -56,16 +59,81 @@ function SidebarProjectedNode({
   readinessByUnitId: Record<string, { state: ReadinessState }>;
   pathname: string;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const pad = depth > 0 ? { paddingLeft: `${12 + depth * 12}px` } : undefined;
   const unitId = node.unitId;
   const isLockedOut = Boolean(lockedUnitId && unitId && unitId !== lockedUnitId);
   const readiness = unitId ? readinessByUnitId[unitId] : undefined;
   const LocationIcon = AppIcons.locations;
+  const ChevronIcon = AppIcons.chevronDown;
+  const hasChildren = node.children.length > 0;
+
+  const expandControl = hasChildren ? (
+    <button
+      type="button"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+      aria-expanded={expanded}
+      aria-label={expanded ? `Collapse ${node.label}` : `Expand ${node.label}`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setExpanded((value) => !value);
+      }}
+    >
+      <ChevronIcon
+        className={`h-3.5 w-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
+        aria-hidden
+      />
+    </button>
+  ) : (
+    <span className="inline-block w-6 shrink-0" aria-hidden />
+  );
+
+  const children =
+    hasChildren && expanded
+      ? node.children.map((child) => (
+          <SidebarProjectedNode
+            key={child.id}
+            node={child}
+            depth={depth + 1}
+            lockedUnitId={lockedUnitId}
+            readinessByUnitId={readinessByUnitId}
+            pathname={pathname}
+          />
+        ))
+      : null;
+
+  if (node.presentation === "STRUCTURAL" || !node.href) {
+    return (
+      <div>
+        <div
+          className={structuralClass()}
+          style={pad}
+          data-presentation="STRUCTURAL"
+          data-location-id={node.id}
+          data-kind={node.kind}
+        >
+          {expandControl}
+          <span className="truncate">
+            {node.label}
+            {node.levelLabel ? (
+              <span className="sr-only"> ({node.levelLabel})</span>
+            ) : null}
+          </span>
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  const pathOnly = hrefPathOnly(node.href);
+  const isActive = isActiveNavPath(pathname, pathOnly);
 
   const labelBody = (
     <>
+      {expandControl}
       <LocationIcon
-        className={locationIconClassName(false, isLockedOut || node.href == null)}
+        className={locationIconClassName(isActive, isLockedOut)}
         aria-hidden
       />
       <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
@@ -82,33 +150,6 @@ function SidebarProjectedNode({
     </>
   );
 
-  if (node.presentation === "STRUCTURAL" || !node.href) {
-    return (
-      <div>
-        <div
-          className={structuralClass(depth)}
-          style={pad}
-          data-presentation="STRUCTURAL"
-          data-location-id={node.id}
-        >
-          <span className="truncate">{node.label}</span>
-        </div>
-        {node.children.map((child) => (
-          <SidebarProjectedNode
-            key={child.id}
-            node={child}
-            depth={depth + 1}
-            lockedUnitId={lockedUnitId}
-            readinessByUnitId={readinessByUnitId}
-            pathname={pathname}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  const isActive = isActiveNavPath(pathname, node.href);
-
   return (
     <div>
       {isLockedOut ? (
@@ -119,6 +160,7 @@ function SidebarProjectedNode({
           title="This tablet is locked to another unit"
           data-presentation="ACTIONABLE"
           data-location-id={node.id}
+          data-kind={node.kind}
         >
           {labelBody}
         </span>
@@ -129,31 +171,12 @@ function SidebarProjectedNode({
           style={pad}
           data-presentation="ACTIONABLE"
           data-location-id={node.id}
+          data-kind={node.kind}
         >
-          <>
-            <LocationIcon
-              className={locationIconClassName(isActive, false)}
-              aria-hidden
-            />
-            <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-              <span className="truncate">{node.label}</span>
-              {readiness ? (
-                <ReadinessChip state={readiness.state} className="shrink-0" />
-              ) : null}
-            </span>
-          </>
+          {labelBody}
         </Link>
       )}
-      {node.children.map((child) => (
-        <SidebarProjectedNode
-          key={child.id}
-          node={child}
-          depth={depth + 1}
-          lockedUnitId={lockedUnitId}
-          readinessByUnitId={readinessByUnitId}
-          pathname={pathname}
-        />
-      ))}
+      {children}
     </div>
   );
 }

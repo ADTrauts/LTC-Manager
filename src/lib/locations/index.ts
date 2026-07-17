@@ -2,8 +2,8 @@
  * Wave 15F/15G — Locations + Sidebar Projection consumers.
  *
  * Shared eligibility: ProjectionSnapshot → LocationsViewModel
- * Locations (15F): purpose LOCATIONS → Units page
- * Sidebar (15G): purpose SIDEBAR → LeftSidebar tree
+ * Locations: purpose LOCATIONS → read-only hierarchy browser
+ * Sidebar: purpose SIDEBAR → LeftSidebar tree
  */
 
 export type {
@@ -22,11 +22,22 @@ export type {
   SidebarReadinessByUnitId,
 } from "./sidebar-types";
 
+export type {
+  AncestryParityReport,
+  ProjectedAncestryRecord,
+} from "./ancestry";
+
 export { adaptProjectionToLocationsView } from "./adapt-projection";
 export {
   adaptLocationsViewToSidebar,
   sidebarProjectedUnitIds,
 } from "./adapt-sidebar";
+export {
+  collectLocationsAncestry,
+  collectSidebarAncestry,
+  compareLocationSidebarAncestry,
+} from "./ancestry";
+export { enrichLocationsRoomDisplay } from "./enrich-room-display";
 
 export {
   loadLocationsView,

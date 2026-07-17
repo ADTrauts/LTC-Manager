@@ -170,15 +170,15 @@ test("isProjectionShadowEnabled defaults to false when unset", () => {
   });
 });
 
-test("isProjectionSidebarEnabled defaults to false when unset", () => {
+test("isProjectionSidebarEnabled defaults to true when unset", () => {
   withEnv("PROJECTION_SIDEBAR_ENABLED", undefined, () => {
-    assert.equal(isProjectionSidebarEnabled(), false);
+    assert.equal(isProjectionSidebarEnabled(), true);
   });
 });
 
-test("isProjectionSidebarEnabled can be enabled for cutover", () => {
-  withEnv("PROJECTION_SIDEBAR_ENABLED", "true", () => {
-    assert.equal(isProjectionSidebarEnabled(), true);
+test("isProjectionSidebarEnabled can be disabled for rollback", () => {
+  withEnv("PROJECTION_SIDEBAR_ENABLED", "false", () => {
+    assert.equal(isProjectionSidebarEnabled(), false);
   });
 });
 

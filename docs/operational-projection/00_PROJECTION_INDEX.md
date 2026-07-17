@@ -40,6 +40,7 @@ Projection is not another feature. After this wave, every operational surface sh
 | 19 | [Wave 15I Today's Work Cutover](./19_WAVE_15I_TODAYS_WORK.md) | Today's Work Projection assembly |
 | 20 | [Wave 15J Operations Center Cutover](./20_WAVE_15J_OPERATIONS_CENTER.md) | Operations Center Projection aggregates |
 | 21 | [Wave 15K Business Workspace Cutover](./21_WAVE_15K_BUSINESS_WORKSPACE.md) | Business Workspace Projection composition |
+| 22 | [Location Experience Certification Fix](./22_LOCATION_EXPERIENCE_CERTIFICATION_FIX.md) | Shared hierarchy: Sidebar + Locations browser |
 
 ---
 

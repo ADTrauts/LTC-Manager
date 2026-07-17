@@ -33,17 +33,24 @@ export type LocationsAreaRef = {
 /**
  * Place-entry tree node:
  * Facility → Floor → Neighborhood → Room → Operational Areas → Experiences
+ *
+ * Shared by Locations and Sidebar — same physical keys, ancestry, actionability.
  */
 export type LocationsTreeNode = {
   id: string;
   label: string;
+  /** Room number or other secondary display (e.g. "32A"). */
+  secondaryLabel: string | null;
   presentation: ProjectionLocationPresentation;
   /** UNIT id for floors/neighborhoods/legacy units; SPACE id for rooms. */
   physicalId: string;
   kind: "FACILITY" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY" | "ROOM";
-  /** Parent Unit id for rooms; null for facility/unit nodes. */
+  hierarchyLevel: "LEVEL_1" | "LEVEL_2" | "LEVEL_3" | "LEGACY" | "FACILITY";
+  /** Parent node id in this tree (null for roots). */
+  parentId: string | null;
+  /** Parent Unit id for rooms; self Unit id for unit nodes. */
   unitId: string | null;
-  /** Workspace entry when a Unit destination exists. */
+  /** Workspace entry when Projection marks ACTIONABLE. */
   href: string | null;
   experienceKeys: readonly string[];
   areas: readonly LocationsAreaRef[];

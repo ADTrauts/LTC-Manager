@@ -275,14 +275,22 @@ test("Golden parity with Wave 15E shadow adapters (rooms + plant)", () => {
 test("Workspace hrefs preserve /unit/[unitId] destinations", () => {
   const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
   for (const node of allNodes(view)) {
+    if (node.kind === "FACILITY") {
+      assert.equal(node.href, null);
+      continue;
+    }
+    if (node.presentation === "STRUCTURAL") {
+      assert.equal(node.href, null);
+      continue;
+    }
     if (node.kind === "FLOOR" || node.kind === "NEIGHBORHOOD" || node.kind === "LEGACY") {
       assert.equal(node.href, `/unit/${node.physicalId}`);
     }
     if (node.kind === "ROOM" && node.unitId) {
-      assert.equal(node.href, `/unit/${node.unitId}`);
-    }
-    if (node.kind === "FACILITY") {
-      assert.equal(node.href, null);
+      assert.equal(
+        node.href,
+        `/unit/${node.unitId}?space=${encodeURIComponent(node.physicalId)}`,
+      );
     }
   }
 });

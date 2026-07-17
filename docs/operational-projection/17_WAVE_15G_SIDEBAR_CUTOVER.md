@@ -106,7 +106,7 @@ Level labels use `resolveFacilityVocabulary` (Floor / Neighborhood / Room, or ho
 
 | Flag | Default | Behavior |
 |------|---------|----------|
-| `PROJECTION_SIDEBAR_ENABLED` | **false** | Off → legacy `getSidebarUnitsForSession` only |
+| `PROJECTION_SIDEBAR_ENABLED` | **true** (certified default; set `false` for rollback) | Off → legacy `getSidebarUnitsForSession` only |
 | | | On → Projection only; **no union** with legacy |
 
 Rollback: set `PROJECTION_SIDEBAR_ENABLED=false`.
@@ -129,7 +129,7 @@ On Projection failure with flag on:
 
 **Removed from Sidebar path when flag on:** calling `getSidebarUnitsForSession` for eligibility.
 
-**Retained:** `getSidebarUnitsForSession` for flag-off rollback; `operationalUnitWhere` for other surfaces; Unit Workspace; auth/PIN helpers. See `src/lib/locations/LEGACY_UNTIL_SIDEBAR.md`.
+**Retained:** `getSidebarUnitsForSession` for flag-off rollback; `operationalUnitWhere` for other surfaces; Unit Workspace; auth/PIN helpers. See `src/lib/locations/LEGACY_LOCATION_BOUNDARIES.md`.
 
 ---
 

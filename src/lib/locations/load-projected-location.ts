@@ -27,6 +27,7 @@ import {
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
 import { adaptProjectionToLocationsView } from "./adapt-projection";
+import { enrichLocationsRoomDisplay } from "./enrich-room-display";
 import type { LocationsViewModel } from "./types";
 
 export type LoadProjectedLocationOptions = {
@@ -258,7 +259,8 @@ export async function loadProjectedLocationView(
     };
   }
 
-  const view = adaptProjectionToLocationsView(resolved.runtime.snapshot);
+  const adapted = adaptProjectionToLocationsView(resolved.runtime.snapshot);
+  const view = await enrichLocationsRoomDisplay(adapted);
   return {
     view,
     projectedUnitIds: view.projectedUnitIds,

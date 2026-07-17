@@ -1,8 +1,8 @@
 /**
- * Wave 15F — Location Projection Adapter.
+ * Wave Location Certification — adapt ProjectionSnapshot → LocationsViewModel.
  *
- * Pure: ProjectionSnapshot → LocationsViewModel.
- * Does not interpret capabilities, Plant policy, or permissions.
+ * Pure hierarchy adaptation. Room-number enrichment happens in a separate
+ * presentation pass (does not change Projection).
  */
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
@@ -77,19 +77,23 @@ function adaptNode(
   node: ProjectionLocationNode,
   areas: readonly ProjectionArea[],
   experiences: readonly ProjectionExperience[],
+  parentId: string | null,
 ): LocationsTreeNode {
   const locationAreas = areasForLocation(node.id, areas, experiences);
   const children = node.children.map((child) =>
-    adaptNode(child, areas, experiences),
+    adaptNode(child, areas, experiences, node.id),
   );
 
   if (node.reference.kind === "FACILITY") {
     return {
       id: node.id,
       label: node.label,
+      secondaryLabel: null,
       presentation: node.presentation,
       physicalId: node.reference.facilityId,
       kind: "FACILITY",
+      hierarchyLevel: "FACILITY",
+      parentId,
       unitId: null,
       href: null,
       experienceKeys: node.experienceKeys,
@@ -106,28 +110,50 @@ function adaptNode(
         : role === "NEIGHBORHOOD"
           ? "NEIGHBORHOOD"
           : "LEGACY";
+    const hierarchyLevel =
+      role === "FLOOR"
+        ? "LEVEL_1"
+        : role === "NEIGHBORHOOD"
+          ? "LEVEL_2"
+          : "LEGACY";
+    const href =
+      node.presentation === "ACTIONABLE"
+        ? `/unit/${node.reference.unitId}`
+        : null;
     return {
       id: node.id,
       label: node.label,
+      secondaryLabel: null,
       presentation: node.presentation,
       physicalId: node.reference.unitId,
       kind,
+      hierarchyLevel,
+      parentId,
       unitId: node.reference.unitId,
-      href: `/unit/${node.reference.unitId}`,
+      href,
       experienceKeys: node.experienceKeys,
       areas: locationAreas,
       children,
     };
   }
 
+  // SPACE → ROOM. Route to owning Unit with space context query (no new routes).
+  const spaceHref =
+    node.presentation === "ACTIONABLE"
+      ? `/unit/${node.reference.unitId}?space=${encodeURIComponent(node.reference.spaceId)}`
+      : null;
+
   return {
     id: node.id,
     label: node.label,
+    secondaryLabel: null,
     presentation: node.presentation,
     physicalId: node.reference.spaceId,
     kind: "ROOM",
+    hierarchyLevel: "LEVEL_3",
+    parentId,
     unitId: node.reference.unitId,
-    href: `/unit/${node.reference.unitId}`,
+    href: spaceHref,
     experienceKeys: node.experienceKeys,
     areas: locationAreas,
     children,
@@ -137,7 +163,11 @@ function adaptNode(
 function collectUnitIds(nodes: readonly LocationsTreeNode[]): string[] {
   const ids = new Set<string>();
   const visit = (node: LocationsTreeNode) => {
-    if (node.kind === "FLOOR" || node.kind === "NEIGHBORHOOD" || node.kind === "LEGACY") {
+    if (
+      node.kind === "FLOOR" ||
+      node.kind === "NEIGHBORHOOD" ||
+      node.kind === "LEGACY"
+    ) {
       ids.add(node.physicalId);
     }
     if (node.kind === "ROOM" && node.unitId) {
@@ -156,7 +186,7 @@ function adaptDepartmentSnapshot(
   if (lens.mode !== "DEPARTMENT") return null;
 
   const roots = snapshot.locations.roots.map((root) =>
-    adaptNode(root, snapshot.areas, snapshot.experiences),
+    adaptNode(root, snapshot.areas, snapshot.experiences, null),
   );
 
   return {
