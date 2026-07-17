@@ -1,15 +1,16 @@
 /**
  * Experience Registry — foundational types.
  *
- * Wave 14A: canonical operational vocabulary only.
- * No runtime consumers, Projection, Sidebar, or UI.
+ * Wave 14A: canonical operational vocabulary.
+ * Wave 15AC: Experience Contracts (declarative composition) on every Experience.
  *
- * Product Constitution: engines serve homes; Experiences are the reusable
- * operational building blocks that future homes will compose.
+ * No React, Projection, Shell, or UI consumers in this wave.
  */
 
 import type { AppIconKey } from "@/lib/design-system/icons";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
+
+import type { ExperienceContracts } from "./contracts";
 
 /** Stable lifecycle for a catalog Experience. */
 export type ExperienceStatus = "active" | "draft" | "deprecated";
@@ -55,6 +56,9 @@ export type ExperienceToolDefinition = {
 /**
  * Canonical Experience — one definition in the shared catalog.
  * Departments select Experiences; they do not author new catalog IDs.
+ *
+ * Operational Area placement remains owned by OPERATIONAL_AREA_CATALOG
+ * (department-scoped). Contracts describe composition for Projection/homes later.
  */
 export type ExperienceDefinition = {
   /** Stable identity — equals `key` for this registry wave. */
@@ -71,8 +75,13 @@ export type ExperienceDefinition = {
   /** Tools this Experience may expose in context. */
   tools: readonly ExperienceToolKey[];
   category: ExperienceCategory;
-  /** Catalog version for this definition. */
+  /** Catalog version for this definition (identity/metadata). */
   version: number;
+  /**
+   * Declarative Experience Contracts (Wave 15AC).
+   * Required for every catalog entry. No React / rendering.
+   */
+  contracts: ExperienceContracts;
 };
 
 /**
@@ -95,4 +104,4 @@ export type OperationalAreaDefinition = {
   version: number;
 };
 
-export type { OperationalDepartmentKey, AppIconKey };
+export type { OperationalDepartmentKey, AppIconKey, ExperienceContracts };

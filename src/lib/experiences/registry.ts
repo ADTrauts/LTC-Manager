@@ -8,6 +8,10 @@
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { AppIcons, type AppIconKey } from "@/lib/design-system/icons";
 
+import {
+  validateExperienceContracts,
+  type ExperienceContractIssue,
+} from "./contracts";
 import { EXPERIENCE_CATALOG } from "./experience-catalog";
 import { OPERATIONAL_AREA_CATALOG } from "./operational-area-catalog";
 import { isExperienceToolKey } from "./tools";
@@ -25,8 +29,11 @@ const areaByKey = new Map<string, OperationalAreaDefinition>(
   OPERATIONAL_AREA_CATALOG.map((area) => [area.key, area]),
 );
 
-/** Registry catalog version — bump when the foundation vocabulary ships a breaking change. */
-export const EXPERIENCE_REGISTRY_VERSION = 1;
+/**
+ * Registry catalog version — bump when the foundation vocabulary ships a
+ * breaking change. Wave 15AC (Experience Contracts) = 2.
+ */
+export const EXPERIENCE_REGISTRY_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Experience lookups
@@ -144,7 +151,8 @@ export type ExperienceRegistryIssue = {
 
 /**
  * Validate catalog integrity: uniqueness, tool/icon/department referential
- * integrity, and one Experience per Area within each department.
+ * integrity, one Experience per Area within each department, and Wave 15AC
+ * Experience Contract completeness.
  */
 export function validateExperienceRegistry(): ExperienceRegistryIssue[] {
   const issues: ExperienceRegistryIssue[] = [];
@@ -153,6 +161,9 @@ export function validateExperienceRegistry(): ExperienceRegistryIssue[] {
   const areaIds = new Set<string>();
   const areaKeys = new Set<string>();
   const validIcons = new Set<string>(Object.keys(AppIcons));
+  const knownExperienceKeys = new Set(
+    EXPERIENCE_CATALOG.map((experience) => experience.key),
+  );
 
   for (const experience of EXPERIENCE_CATALOG) {
     if (experience.id !== experience.key) {
@@ -212,6 +223,24 @@ export function validateExperienceRegistry(): ExperienceRegistryIssue[] {
         code: "invalid_experience_version",
         message: `${experience.key}: version must be >= 1`,
       });
+    }
+
+    if (!experience.contracts) {
+      issues.push({
+        code: "missing_contracts",
+        message: `${experience.key}: Wave 15AC contracts are required`,
+      });
+    } else {
+      const contractIssues: ExperienceContractIssue[] =
+        validateExperienceContracts(
+          experience.key,
+          experience.tools,
+          experience.contracts,
+          knownExperienceKeys,
+        );
+      for (const issue of contractIssues) {
+        issues.push(issue);
+      }
     }
   }
 

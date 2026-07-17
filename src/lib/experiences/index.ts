@@ -1,8 +1,8 @@
 /**
  * Experience Registry — public barrel.
  *
- * Wave 14A foundation. Canonical operational vocabulary for future
- * Projection, Sidebar, and Department Administration consumers.
+ * Wave 14A foundation + Wave 15AC Experience Contracts.
+ * Canonical operational vocabulary for future Projection, Shell, and homes.
  *
  * Do not import catalog arrays from outside this package except via helpers.
  */
@@ -10,6 +10,7 @@
 export type {
   AppIconKey,
   ExperienceCategory,
+  ExperienceContracts,
   ExperienceDefinition,
   ExperienceStatus,
   ExperienceToolDefinition,
@@ -17,6 +18,46 @@ export type {
   OperationalAreaDefinition,
   OperationalDepartmentKey,
 } from "./types";
+
+export type {
+  ExperienceActionCategory,
+  ExperienceActionDeclaration,
+  ExperienceActionPlacement,
+  ExperienceAvailabilityContract,
+  ExperienceCardDeclaration,
+  ExperienceCardKind,
+  ExperienceContractBuildOptions,
+  ExperienceContractIssue,
+  ExperienceDensity,
+  ExperienceQueryScopeContract,
+  ExperienceSectionDeclaration,
+  ExperienceSectionKey,
+  ExperienceStatusContract,
+  ExperienceStatusKey,
+  ExperienceToolHostDeclaration,
+  ExperienceWidgetDeclaration,
+  ExperienceWidgetKind,
+  HomeContributionContract,
+  NavigationContributionEntry,
+  QueryScopeGrain,
+} from "./contracts";
+
+export {
+  EXPERIENCE_ACTION_CATEGORIES,
+  EXPERIENCE_ACTION_PLACEMENTS,
+  EXPERIENCE_CARD_KINDS,
+  EXPERIENCE_DENSITIES,
+  EXPERIENCE_SECTION_KEYS,
+  EXPERIENCE_WIDGET_KINDS,
+  FORBIDDEN_SECTION_KEYS,
+  QUERY_SCOPE_GRAINS,
+  STATUS_VOCABULARY,
+  buildExperienceContracts,
+  isExperienceCardKind,
+  isExperienceSectionKey,
+  isExperienceWidgetKind,
+  validateExperienceContracts,
+} from "./contracts";
 
 export {
   EXPERIENCE_TOOL_KEYS,
@@ -28,6 +69,7 @@ export {
 
 export { EXPERIENCE_CATALOG } from "./experience-catalog";
 export { OPERATIONAL_AREA_CATALOG } from "./operational-area-catalog";
+export { defineExperience } from "./define-experience";
 
 export {
   EXPERIENCE_REGISTRY_VERSION,

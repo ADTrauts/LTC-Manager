@@ -76,7 +76,7 @@ describe("Experience Registry — validity", () => {
   });
 
   it("exposes a registry version for future versioning", () => {
-    assert.equal(EXPERIENCE_REGISTRY_VERSION, 1);
+    assert.equal(EXPERIENCE_REGISTRY_VERSION, 2);
   });
 });
 

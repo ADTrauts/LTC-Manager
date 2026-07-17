@@ -16,6 +16,8 @@ Implementation begins only in later authorized waves. Ordering below improves on
 - Golden fixtures for Temperature Monitoring, Meal Service, Cleaning.  
 - **No UI shell yet. No Projection. No Admin/FB changes.**
 
+**Status:** Implemented in `src/lib/experiences/` (Wave 15AC). Every catalog Experience carries declarative `contracts`. Registry version = 2.
+
 ### 15AD — Experience Shell Framework
 
 - Generic shell renderer + layout templates + card/widget registry stubs.  
