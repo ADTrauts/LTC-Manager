@@ -36,6 +36,7 @@ Projection is not another feature. After this wave, every operational surface sh
 | 15 | [Implementation Program](./15_IMPLEMENTATION_PROGRAM.md) | Certification waves 15B+; migration order |
 | 16 | [Certification](./16_CERTIFICATION.md) | Readiness score and gates |
 | 17 | [Wave 15G Sidebar Cutover](./17_WAVE_15G_SIDEBAR_CUTOVER.md) | Sidebar Projection consumer (implementation) |
+| 18 | [Wave 15H Unit Workspace Cutover](./18_WAVE_15H_UNIT_WORKSPACE.md) | Unit Workspace Area → Experience panels |
 
 ---
 

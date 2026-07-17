@@ -1,8 +1,8 @@
 /**
- * Wave 15G — Shared projected-location eligibility load.
+ * Shared session Projection resolve for Locations / Sidebar / Unit Workspace.
  *
- * ProjectionSnapshot → LocationsViewModel (shared tree).
- * Locations (15F) and Sidebar (15G) both consume this; purpose differs for memo keys.
+ * Returns LocationsViewModel for place-entry consumers, or raw runtime via
+ * `resolveSessionProjection` for Experience-driven surfaces.
  */
 
 import { cookies } from "next/headers";
@@ -18,6 +18,7 @@ import {
   createProjectionRuntimeRequestScope,
   permissionKeysForRoleBand,
   resolveProjectionRuntime,
+  type ProjectionLocationReference,
   type ProjectionPurpose,
   type ProjectionRuntimeMemo,
   type ProjectionRuntimeResult,
@@ -32,6 +33,7 @@ export type LoadProjectedLocationOptions = {
   purpose: ProjectionPurpose;
   db?: ProjectionSourceLoadDb;
   memo?: ProjectionRuntimeMemo<ProjectionRuntimeResult>;
+  focus?: ProjectionLocationReference;
   lensOverride?:
     | { mode: "FACILITY" }
     | {
@@ -42,6 +44,18 @@ export type LoadProjectedLocationOptions = {
   allowedUnitIdsOverride?: readonly string[] | "ALL";
   lockedUnitIdOverride?: string | null;
 };
+
+export type ResolveSessionProjectionResult =
+  | {
+      ok: true;
+      runtime: ProjectionRuntimeResult;
+      error: null;
+    }
+  | {
+      ok: false;
+      runtime: null;
+      error: string;
+    };
 
 export type LoadProjectedLocationResult = {
   view: LocationsViewModel;
@@ -142,19 +156,15 @@ async function resolvePrincipalAccess(
 }
 
 /**
- * One Projection Runtime resolve → shared LocationsViewModel tree.
- * Fail closed: never returns a broad legacy location set.
+ * One Projection Runtime resolve for the session (shared by Locations/Sidebar/UW).
  */
-export async function loadProjectedLocationView(
+export async function resolveSessionProjection(
   session: AppJwtPayload,
   options: LoadProjectedLocationOptions,
-): Promise<LoadProjectedLocationResult> {
+): Promise<ResolveSessionProjectionResult> {
   const facilityId = session.facilityId ?? "";
-  const purpose = options.purpose;
-
   if (!facilityId) {
-    const view = emptyProjectedLocationView("", purpose, "Projection requires a facility session");
-    return { view, projectedUnitIds: [], error: view.diagnostics[0]?.message ?? "error", metrics: null };
+    return { ok: false, runtime: null, error: "Projection requires a facility session" };
   }
 
   try {
@@ -186,16 +196,10 @@ export async function loadProjectedLocationView(
           deptNav.activeOperationalDepartmentKey,
         );
       } else {
-        const view = emptyProjectedLocationView(
-          facilityId,
-          purpose,
-          "Projection requires an active department lens or Facility Overview",
-        );
         return {
-          view,
-          projectedUnitIds: [],
-          error: view.diagnostics[0]?.message ?? "error",
-          metrics: null,
+          ok: false,
+          runtime: null,
+          error: "Projection requires an active department lens or Facility Overview",
         };
       }
     }
@@ -203,7 +207,8 @@ export async function loadProjectedLocationView(
     const request = buildProjectionRequest({
       facilityId,
       lens,
-      purpose,
+      purpose: options.purpose,
+      focus: options.focus,
       principal: {
         principalKind: access.principalKind,
         role: session.role,
@@ -214,26 +219,54 @@ export async function loadProjectedLocationView(
     });
 
     const memo = options.memo ?? createProjectionRuntimeRequestScope();
-    const result = await resolveProjectionRuntime(request, {
+    const runtime = await resolveProjectionRuntime(request, {
       db: options.db,
       memo,
     });
 
-    const view = adaptProjectionToLocationsView(result.snapshot);
-    return {
-      view,
-      projectedUnitIds: view.projectedUnitIds,
-      error: null,
-      metrics: {
-        totalDurationMs: result.metrics.totalDurationMs,
-        locationCount: result.metrics.locationCount,
-        actionableLocationCount: result.metrics.actionableLocationCount,
-      },
-    };
+    return { ok: true, runtime, error: null };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Projection eligibility failed";
-    const view = emptyProjectedLocationView(facilityId, purpose, message);
-    return { view, projectedUnitIds: [], error: message, metrics: null };
+    return { ok: false, runtime: null, error: message };
   }
+}
+
+/**
+ * One Projection Runtime resolve → shared LocationsViewModel tree.
+ * Fail closed: never returns a broad legacy location set.
+ */
+export async function loadProjectedLocationView(
+  session: AppJwtPayload,
+  options: LoadProjectedLocationOptions,
+): Promise<LoadProjectedLocationResult> {
+  const facilityId = session.facilityId ?? "";
+  const purpose = options.purpose;
+
+  const resolved = await resolveSessionProjection(session, options);
+  if (!resolved.ok || !resolved.runtime) {
+    const view = emptyProjectedLocationView(
+      facilityId,
+      purpose,
+      resolved.error ?? "Projection failed",
+    );
+    return {
+      view,
+      projectedUnitIds: [],
+      error: resolved.error,
+      metrics: null,
+    };
+  }
+
+  const view = adaptProjectionToLocationsView(resolved.runtime.snapshot);
+  return {
+    view,
+    projectedUnitIds: view.projectedUnitIds,
+    error: null,
+    metrics: {
+      totalDurationMs: resolved.runtime.metrics.totalDurationMs,
+      locationCount: resolved.runtime.metrics.locationCount,
+      actionableLocationCount: resolved.runtime.metrics.actionableLocationCount,
+    },
+  };
 }

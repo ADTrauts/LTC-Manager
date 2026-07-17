@@ -13,3 +13,13 @@ export type {
   UnitWorkspaceUnit,
   UnitWorkspaceViewModel,
 } from "./types";
+
+export {
+  adaptProjectionToUnitWorkspace,
+  loadUnitWorkspaceProjection,
+  type LoadUnitWorkspaceProjectionOptions,
+  type LoadUnitWorkspaceProjectionResult,
+  type UnitWorkspaceAreaPanel,
+  type UnitWorkspaceExperiencePanel,
+  type UnitWorkspaceProjectionView,
+} from "./projection";

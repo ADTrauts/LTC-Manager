@@ -12,18 +12,29 @@ import { UnitMyAssignmentPanel } from "@/components/unit-workspace/unit-my-assig
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
+import { ProjectedUnitWorkspaceBody } from "@/components/unit-workspace/projected-experience-panels";
 import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
+import { PageHeader } from "@/components/design-system/page-header";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { resolveLocationIconKey } from "@/lib/design-system";
+import {
+  isOperationalAssignmentsEnabled,
+  isProjectionUnitWorkspaceEnabled,
+} from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { prisma } from "@/lib/prisma";
+import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { loadEmployeeAssignmentsToday } from "@/lib/scheduling/operational-assignments";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
-import { loadUnitWorkspace } from "@/lib/unit-workspace";
+import {
+  loadUnitRecord,
+  loadUnitWorkspace,
+  loadUnitWorkspaceProjection,
+} from "@/lib/unit-workspace";
 
 type UnitDashboardPageProps = {
   params: Promise<{ unitId: string }>;
@@ -44,6 +55,61 @@ function formatRecordedAt(value: Date | null) {
   return value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+async function ProjectedUnitWorkspacePage({
+  session,
+  unitId,
+}: {
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  unitId: string;
+}) {
+  const unit = await loadUnitRecord(session.facilityId, unitId);
+  if (!unit) {
+    notFound();
+  }
+
+  const memo = createProjectionRuntimeRequestScope();
+  const projection = await loadUnitWorkspaceProjection(session, unitId, { memo });
+  const unitTypeLabel =
+    unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
+
+  const view = projection.view;
+  if (!view) {
+    return (
+      <section className="mx-auto max-w-5xl space-y-5" data-testid="unit-workspace">
+        <div
+          className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 shadow-sm"
+          role="status"
+        >
+          <p className="font-semibold text-zinc-900">Workspace unavailable</p>
+          <p className="mt-1">{projection.error ?? "Projection could not be loaded."}</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mx-auto max-w-5xl space-y-5 sm:space-y-6" data-testid="unit-workspace">
+      <header className="space-y-3 border-b border-zinc-200 pb-4 sm:pb-5">
+        <PageHeader
+          icon={resolveLocationIconKey({ unitType: unit.unitType, name: unit.name })}
+          eyebrow="Orientation"
+          title={unit.name}
+          subtitle={`${unitTypeLabel} · ${view.level2Label} workspace`}
+          compact
+          as="div"
+          className="border-0 pb-0"
+        />
+        {view.lensMode === "FACILITY" ? (
+          <p className="text-xs text-zinc-500">
+            Facility Overview — Experiences remain department-labeled below.
+          </p>
+        ) : null}
+      </header>
+      <ProjectedUnitWorkspaceBody view={view} unitName={unit.name} />
+    </section>
+  );
+}
+
 export default async function UnitDashboardPage({ params, searchParams }: UnitDashboardPageProps) {
   noStore();
   const { unitId } = await params;
@@ -52,6 +118,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
+  }
+
+  if (isProjectionUnitWorkspaceEnabled()) {
+    return <ProjectedUnitWorkspacePage session={session} unitId={unitId} />;
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
@@ -205,7 +275,6 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         </div>
       ) : null}
 
-      {/* Layer 1 — Orientation */}
       <header className="space-y-3 border-b border-zinc-200 pb-4 sm:space-y-4 sm:pb-5">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] md:items-start md:gap-4">
           <UnitOperationContextHeader
@@ -272,7 +341,6 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             <UnitMyAssignmentPanel assignment={myAssignment} />
           )}
 
-          {/* Layer 2 — Next work */}
           <UnitWorkQueuePanel queue={workQueue} />
 
           <div className="flex flex-wrap gap-2">
@@ -311,7 +379,6 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             activeInspectId={activeInspectId}
           />
 
-          {/* Layer 3 — Context (secondary, not dominant) */}
           <UnitContextPanel
             unit={unit}
             assignments={assignments}

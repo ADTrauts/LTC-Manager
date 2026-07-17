@@ -73,3 +73,12 @@ export function isProjectionLocationsEnabled(): boolean {
 export function isProjectionSidebarEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_SIDEBAR_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Wave 15H Unit Workspace Experience cutover.
+ * Set `PROJECTION_UNIT_WORKSPACE_ENABLED=true` to render Area → Experience panels from Projection.
+ * When off, the legacy module-based Unit Workspace remains exclusive (no mix).
+ */
+export function isProjectionUnitWorkspaceEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_UNIT_WORKSPACE_ENABLED, false);
+}

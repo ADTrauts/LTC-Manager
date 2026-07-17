@@ -36,9 +36,11 @@ export {
 
 export {
   loadProjectedLocationView,
+  resolveSessionProjection,
   emptyProjectedLocationView,
   type LoadProjectedLocationOptions,
   type LoadProjectedLocationResult,
+  type ResolveSessionProjectionResult,
 } from "./load-projected-location";
 
 export {
