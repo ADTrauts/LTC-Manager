@@ -9,6 +9,8 @@ import type { OperationsCenterDashboardData } from "@/lib/operations-center/type
 
 type OperationsCenterCardsProps = {
   data: OperationsCenterDashboardData;
+  /** Wave 15J — when set, only render cards eligible via Projection contributions. */
+  eligibleCardIds?: readonly OperationsCenterCardId[];
 };
 
 const linkActionClass = "rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100";
@@ -250,15 +252,35 @@ function renderCard(id: OperationsCenterCardId, data: OperationsCenterDashboardD
   }
 }
 
-export function OperationsCenterCards({ data }: OperationsCenterCardsProps) {
+export function OperationsCenterCards({
+  data,
+  eligibleCardIds,
+}: OperationsCenterCardsProps) {
   const order = getOperationsCenterCardOrder();
-  const primaryCards = order.slice(0, 4);
-  const secondaryRow = order.slice(4, 6);
-  const tertiaryCard = order[6];
+  const allowed =
+    eligibleCardIds === undefined
+      ? null
+      : new Set<OperationsCenterCardId>(eligibleCardIds);
+  const visible = allowed
+    ? order.filter((id) => allowed.has(id))
+    : order;
+  const primaryCards = visible.slice(0, 4);
+  const secondaryRow = visible.slice(4, 6);
+  const tertiaryCard = visible[6];
+
+  if (visible.length === 0) {
+    return (
+      <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-600">
+        No operational signal groups are projected for this lens.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 xl:grid-cols-2">{primaryCards.map((id) => renderCard(id, data))}</section>
+      <section className="grid gap-4 xl:grid-cols-2">
+        {primaryCards.map((id) => renderCard(id, data))}
+      </section>
       {secondaryRow.map((id) => renderCard(id, data))}
       {tertiaryCard ? renderCard(tertiaryCard, data) : null}
     </div>

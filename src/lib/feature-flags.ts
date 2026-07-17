@@ -91,3 +91,13 @@ export function isProjectionUnitWorkspaceEnabled(): boolean {
 export function isProjectionTodaysWorkEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_TODAYS_WORK_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Wave 15J Operations Center Projection cutover.
+ * Set `PROJECTION_OPERATIONS_CENTER_ENABLED=true` to aggregate OC within
+ * Projection eligibility only. When off, legacy OC remains exclusive (no mix).
+ * Do not reuse the Today's Work flag.
+ */
+export function isProjectionOperationsCenterEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_OPERATIONS_CENTER_ENABLED, false);
+}

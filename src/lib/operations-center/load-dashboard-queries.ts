@@ -11,6 +11,12 @@ export type LoadDashboardQueriesOptions = {
   /** IANA timezone used to resolve the facility-local RoomAreaStatus service date. */
   facilityTimezone?: string | null;
   now?: Date;
+  /**
+   * Wave 15J — when provided, constrain Unit-scoped operational queries early.
+   * Empty array = empty Projection (valid): return no operational domain rows.
+   * Omitted = legacy facility-wide load.
+   */
+  projectedUnitIds?: readonly string[];
 };
 
 export async function loadDashboardQueries(
@@ -21,6 +27,19 @@ export async function loadDashboardQueries(
   const month = new Date().getMonth() + 1;
   const now = options?.now ?? new Date();
   const roomAreaServiceDate = getFacilityServiceDate(options?.facilityTimezone, now);
+  const projectedUnitIds = options?.projectedUnitIds;
+  const unitScope =
+    projectedUnitIds === undefined
+      ? undefined
+      : projectedUnitIds.length === 0
+        ? { id: { in: [] as string[] } }
+        : { id: { in: [...projectedUnitIds] } };
+  const unitRelationScope =
+    projectedUnitIds === undefined
+      ? { facilityId }
+      : projectedUnitIds.length === 0
+        ? { facilityId, id: { in: [] as string[] } }
+        : { facilityId, id: { in: [...projectedUnitIds] } };
 
   const [
     units,
@@ -37,7 +56,7 @@ export async function loadDashboardQueries(
     managerCount,
   ] = await Promise.all([
     prisma.unit.findMany({
-      where: { isActive: true, facilityId },
+      where: { isActive: true, facilityId, ...unitScope },
       orderBy: { displayOrder: "asc" },
       select: {
         id: true,
@@ -54,7 +73,7 @@ export async function loadDashboardQueries(
       },
     }),
     prisma.logAssignment.findMany({
-      where: { isActive: true, unit: { facilityId } },
+      where: { isActive: true, unit: unitRelationScope },
       select: {
         id: true,
         unitId: true,
@@ -65,7 +84,10 @@ export async function loadDashboardQueries(
       },
     }),
     prisma.logSubmission.findMany({
-      where: { serviceDate: { gte: window.start, lt: window.end }, unit: { facilityId } },
+      where: {
+        serviceDate: { gte: window.start, lt: window.end },
+        unit: unitRelationScope,
+      },
       orderBy: { submittedAt: "desc" },
       select: {
         id: true,
@@ -76,15 +98,29 @@ export async function loadDashboardQueries(
       },
     }),
     prisma.scheduleEntry.findMany({
-      where: { date: { gte: window.start, lt: window.end }, unit: { facilityId } },
+      where: {
+        date: { gte: window.start, lt: window.end },
+        unit: unitRelationScope,
+      },
       select: { unitId: true, shift: true },
     }),
     prisma.assignmentOverride.findMany({
-      where: { date: { gte: window.start, lt: window.end }, employee: { facilityId } },
+      where: {
+        date: { gte: window.start, lt: window.end },
+        employee: { facilityId },
+        ...(projectedUnitIds === undefined
+          ? {}
+          : {
+              OR: [
+                { newUnitId: { in: [...projectedUnitIds] } },
+                { oldUnitId: { in: [...projectedUnitIds] } },
+              ],
+            }),
+      },
       select: { oldUnitId: true, newUnitId: true, mealType: true },
     }),
     prisma.repair.findMany({
-      where: { status: { not: "CLOSED" }, unit: { facilityId } },
+      where: { status: { not: "CLOSED" }, unit: unitRelationScope },
       select: {
         id: true,
         unitId: true,
@@ -113,7 +149,7 @@ export async function loadDashboardQueries(
     prisma.serveryMealServiceEvent.findMany({
       where: {
         serviceDate: { gte: window.start, lt: window.end },
-        unit: { facilityId },
+        unit: unitRelationScope,
       },
       select: {
         unitId: true,
@@ -123,7 +159,13 @@ export async function loadDashboardQueries(
       },
     }),
     prisma.roomAreaStatus.findMany({
-      where: { facilityId, statusDate: roomAreaServiceDate },
+      where: {
+        facilityId,
+        statusDate: roomAreaServiceDate,
+        ...(projectedUnitIds === undefined
+          ? {}
+          : { unitId: { in: [...projectedUnitIds] } }),
+      },
       select: {
         unitId: true,
         status: true,
@@ -134,7 +176,7 @@ export async function loadDashboardQueries(
     }),
     prisma.asset.findMany({
       where: {
-        unit: { facilityId },
+        unit: unitRelationScope,
         status: "OUT_OF_SERVICE",
       },
       select: {
@@ -152,6 +194,9 @@ export async function loadDashboardQueries(
         isActive: true,
         // Exclude future PM beyond the facility-local today window.
         nextDueAt: { lt: window.end },
+        ...(projectedUnitIds === undefined
+          ? {}
+          : { asset: { unitId: { in: [...projectedUnitIds] } } }),
       },
       select: {
         id: true,

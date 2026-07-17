@@ -91,4 +91,4 @@ Projection error → calm unavailable state. Never Facility Overview fallback. N
 
 ## Next wave
 
-**Wave 15J — Operations Center** Projection-scoped aggregates and labeled facility exception packs.
+**Wave 15J — Operations Center** Projection-scoped aggregates and labeled facility exception packs — see [20_WAVE_15J_OPERATIONS_CENTER.md](./20_WAVE_15J_OPERATIONS_CENTER.md).
