@@ -19,6 +19,7 @@ Trusted session / department lens
 ```
 
 Package: `src/lib/operations-center/projection/`  
+Server loader: `projection/load.ts` (import directly — not via `@/lib/operations-center` barrel)  
 Page: `/dashboard`
 
 ---

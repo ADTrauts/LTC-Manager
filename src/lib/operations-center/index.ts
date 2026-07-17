@@ -25,18 +25,19 @@ export type {
   SitePulseSummary,
 } from "./types";
 
+/**
+ * Pure Projection adapters only — never re-export `./projection/load` here.
+ * That module uses session Projection (`next/headers`) and must stay off the
+ * client graph (Business Workspace customize imports this barrel).
+ */
 export {
   adaptProjectionToOperationsCenter,
   applyProjectedScopeToDashboard,
-  assembleProjectedOperationsCenter,
   contributionKindsFromContracts,
   emptyOperationsCenterScope,
   filterCallDownsToProjectedUnits,
   intersectDashboardQueriesToProjectedUnits,
-  loadOperationsCenterProjection,
   resolveEligibleOcCards,
-  type AssembledOperationsCenter,
-  type LoadOperationsCenterProjectionOptions,
   type OcContributionKind,
   type OcDepartmentSection,
   type OcExperienceContributor,

@@ -1,5 +1,9 @@
 /**
- * Wave 15J — Operations Center Projection cutover.
+ * Wave 15J — Operations Center Projection cutover (client-safe barrel).
+ *
+ * Pure adapters / intersection only. Server loaders live in `./load`
+ * and must be imported from there (or via a Server Component) so
+ * `next/headers` never enters the client graph.
  */
 
 export type {
@@ -28,10 +32,3 @@ export {
   intersectDashboardQueriesToProjectedUnits,
   measureDomainRowIntersection,
 } from "./intersect";
-
-export {
-  assembleProjectedOperationsCenter,
-  loadOperationsCenterProjection,
-  type AssembledOperationsCenter,
-  type LoadOperationsCenterProjectionOptions,
-} from "./load";

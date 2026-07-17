@@ -18,10 +18,8 @@ import {
   isAiBriefEnabled,
   isProjectionOperationsCenterEnabled,
 } from "@/lib/feature-flags";
-import {
-  assembleProjectedOperationsCenter,
-  loadOperationsCenterDashboard,
-} from "@/lib/operations-center";
+import { loadOperationsCenterDashboard } from "@/lib/operations-center";
+import { assembleProjectedOperationsCenter } from "@/lib/operations-center/projection/load";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 
 type DashboardPageProps = {

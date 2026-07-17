@@ -1,5 +1,9 @@
 /**
  * Wave 15J — Operations Center Projection loader + assembled dashboard.
+ *
+ * Server-only entry: depends on session Projection resolve (`next/headers`).
+ * Do not re-export from `@/lib/operations-center` — import this path from
+ * Server Components only.
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
