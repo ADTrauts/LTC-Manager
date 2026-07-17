@@ -57,6 +57,8 @@ WHAT    Operational Engines        live truth inside a projected Experience
 | `docs/location-projection/` | Engine boundary, pruning, fail-closed, and consumer migration order remain valid. Capability-as-truth and Stage 3B implementation are **superseded**. |
 | `docs/department-operational-profiles/` | Profile/Experience model is upstream input. Projection Impact (`08`) is the bridge this package completes. |
 | `docs/department-administration/` | Recertification (`08`) requires Area-structured output. This package is that contract. |
+| `docs/experience-runtime/` | What an Experience is; Projection emits its contracts |
+| `docs/experience-framework/` | How Experiences assemble (sections/cards/widgets); Projection never emits React — only descriptors the framework renders |
 | `docs/product/` | Philosophy, homes, navigation, and decision model constrain consumer placement. Projection does not invent new homes. |
 
 ---

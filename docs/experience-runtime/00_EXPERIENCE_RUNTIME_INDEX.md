@@ -49,12 +49,13 @@ Without this layer, Projection would project an undefined noun. Implementation w
 WHERE / WHO     Facility Builder
 HOW             Department Administration → Operational Profile
 WHAT EXISTS     Experience Catalog + Experience Runtime   ← this package
+HOW ASSEMBLED   Experience Composition Framework          ← docs/experience-framework/
 WHICH           Operational Projection
 WHERE SHOWN     Homes (Workspace / OC / Today / Unit) + navigation
 WHAT IS TRUE    Operational Engines (live truth)
 ```
 
-Wave 15A described Experiences as projected descriptors. This package defines the **runtime meaning** of those descriptors.
+Wave 15A described Experiences as projected descriptors. This package defines the **runtime meaning** of those descriptors. Wave 15AB defines **how they are assembled into UI**.
 
 ---
 
@@ -65,6 +66,7 @@ Wave 15A described Experiences as projected descriptors. This package defines th
 | `docs/department-administration/03` | Catalog *governance*; this package adds *runtime anatomy & contracts* |
 | `docs/department-operational-profiles/03` | Product Experience model; this package is the constitutional runtime |
 | `docs/operational-projection/` | Projection delivers Experiences; does not define Experience internals |
+| `docs/experience-framework/` | **How** Experiences assemble (sections/cards/widgets/shell) — Wave 15AB |
 | Wave 14A `src/lib/experiences/` | Registry foundation; this package is the architecture it must grow into |
 
 ---

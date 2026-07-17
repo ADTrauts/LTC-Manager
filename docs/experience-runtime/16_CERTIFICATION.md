@@ -61,9 +61,9 @@ Certify Experience as the constitutional runtime building block of LTC Manager (
 
 ## Recommended next implementation wave
 
-**15AB — Experience Contract Expansion:** enrich the Wave 14A catalog with anatomy + canonical contracts so Projection (15B+) has a defined noun to emit — still without production surface wiring.
+**15AC — Experience Contract & Composition Expansion** (`docs/experience-framework/15`): enrich the Wave 14A catalog with anatomy, contracts, and composition declarations so Projection and the Experience Shell have a defined declarative noun — still without production surface wiring.
 
-Alternative if schedule forces Projection first: **15B Projection Domain Model** must still embed the contract descriptors defined here; do not invent a parallel module model.
+See also: `docs/experience-framework/` (Wave 15AB architecture for assembly).
 
 ---
 
