@@ -126,6 +126,11 @@ export async function loadBusinessWorkspaceInputs(input: {
   facilityName: string;
   activeDepartmentKey?: OperationalDepartmentKey | null;
   activeDepartmentName?: string | null;
+  /**
+   * Wave 15K — when set, constrain dashboard queries to projected Units early.
+   * Empty array = empty Projection (valid). Omit for legacy facility-wide load.
+   */
+  projectedUnitIds?: readonly string[];
 }): Promise<BusinessWorkspaceInputs> {
   const now = new Date();
   const facilityTimezone = await loadFacilityTimezone(prisma, input.facilityId);
@@ -136,9 +141,22 @@ export async function loadBusinessWorkspaceInputs(input: {
 
   const [queries, schedules, overrides, departments, inspectionsDueRows, activityBundle] =
     await Promise.all([
-      loadDashboardQueries(input.facilityId, window, { facilityTimezone, now }),
+      loadDashboardQueries(input.facilityId, window, {
+        facilityTimezone,
+        now,
+        projectedUnitIds: input.projectedUnitIds,
+      }),
       prisma.scheduleEntry.findMany({
-        where: { date: { gte: window.start, lt: window.end }, unit: { facilityId: input.facilityId } },
+        where: {
+          date: { gte: window.start, lt: window.end },
+          unit:
+            input.projectedUnitIds === undefined
+              ? { facilityId: input.facilityId }
+              : {
+                  facilityId: input.facilityId,
+                  id: { in: [...input.projectedUnitIds] },
+                },
+        },
         select: {
           employeeId: true,
           unitId: true,
@@ -150,6 +168,14 @@ export async function loadBusinessWorkspaceInputs(input: {
         where: {
           date: { gte: window.start, lt: window.end },
           employee: { facilityId: input.facilityId },
+          ...(input.projectedUnitIds === undefined
+            ? {}
+            : {
+                OR: [
+                  { newUnitId: { in: [...input.projectedUnitIds] } },
+                  { oldUnitId: { in: [...input.projectedUnitIds] } },
+                ],
+              }),
         },
         orderBy: { changedAt: "desc" },
         select: {
@@ -175,6 +201,14 @@ export async function loadBusinessWorkspaceInputs(input: {
           facilityId: input.facilityId,
           status: "OPEN",
           dueAt: { lte: new Date(now.getTime() + 24 * 60 * 60 * 1000) },
+          ...(input.projectedUnitIds === undefined
+            ? {}
+            : {
+                OR: [
+                  { unitId: { in: [...input.projectedUnitIds] } },
+                  { unitId: null },
+                ],
+              }),
         },
         orderBy: { dueAt: "asc" },
         take: 20,
@@ -190,7 +224,13 @@ export async function loadBusinessWorkspaceInputs(input: {
       Promise.all([
         prisma.repair.findMany({
           where: {
-            unit: { facilityId: input.facilityId },
+            unit:
+              input.projectedUnitIds === undefined
+                ? { facilityId: input.facilityId }
+                : {
+                    facilityId: input.facilityId,
+                    id: { in: [...input.projectedUnitIds] },
+                  },
             createdAt: { gte: lookback },
             priority: { in: ["HIGH", "URGENT"] },
           },
@@ -208,7 +248,13 @@ export async function loadBusinessWorkspaceInputs(input: {
         }),
         prisma.repair.findMany({
           where: {
-            unit: { facilityId: input.facilityId },
+            unit:
+              input.projectedUnitIds === undefined
+                ? { facilityId: input.facilityId }
+                : {
+                    facilityId: input.facilityId,
+                    id: { in: [...input.projectedUnitIds] },
+                  },
             status: "CLOSED",
             updatedAt: { gte: lookback },
             priority: { in: ["HIGH", "URGENT", "MEDIUM"] },
@@ -225,7 +271,18 @@ export async function loadBusinessWorkspaceInputs(input: {
           },
         }),
         prisma.inspectionSubmission.findMany({
-          where: { facilityId: input.facilityId, submittedAt: { gte: lookback } },
+          where: {
+            facilityId: input.facilityId,
+            submittedAt: { gte: lookback },
+            ...(input.projectedUnitIds === undefined
+              ? {}
+              : {
+                  OR: [
+                    { unitId: { in: [...input.projectedUnitIds] } },
+                    { unitId: null },
+                  ],
+                }),
+          },
           orderBy: { submittedAt: "desc" },
           take: 6,
           select: {

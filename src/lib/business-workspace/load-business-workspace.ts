@@ -16,6 +16,10 @@ import {
 } from "./build-workspace-priorities";
 import { loadCachedMorningBriefPreview } from "./load-cached-morning-brief";
 import { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
+import {
+  intersectInputsToProjectedScope,
+  type ProjectedBusinessWorkspaceScope,
+} from "./projection";
 import type {
   BusinessWorkspaceData,
   BusinessWorkspaceView,
@@ -28,6 +32,7 @@ import {
   isLinkAllowedForContext,
   resolveCompositionConfig,
   scopeInputsForContext,
+  type WorkspaceCompositionConfig,
 } from "./workspace-composition";
 import { greetingForLocalHour } from "./workspace-layout";
 import { canAccessBusinessWorkspace } from "./workspace-permissions";
@@ -54,6 +59,13 @@ export type LoadBusinessWorkspaceInput = {
   cachedMorningBrief?: WorkspaceCachedMorningBrief | null;
   /** Injected context for tests. Normally resolved from department inputs. */
   workspaceContext?: WorkspaceContext;
+  /**
+   * Wave 15K — when set with skipLegacyScope, Projection owns eligibility.
+   * Do not mix with scopeInputsForContext.
+   */
+  projectedScope?: ProjectedBusinessWorkspaceScope | null;
+  projectedCompositionConfig?: WorkspaceCompositionConfig | null;
+  skipLegacyScope?: boolean;
 };
 
 export function resolveWorkspaceContext(input: {
@@ -76,6 +88,9 @@ export function resolveWorkspaceContext(input: {
  * Compose Business Workspace from one coordinated facility input pipeline,
  * then pure section builders. Department context scopes signals before
  * builders run — builders see only their department's data.
+ *
+ * When `projectedScope` + `skipLegacyScope` are set (Wave 15K flag on),
+ * Projection eligibility replaces `scopeInputsForContext`.
  */
 export async function loadBusinessWorkspace(
   input: LoadBusinessWorkspaceInput,
@@ -85,7 +100,13 @@ export async function loadBusinessWorkspace(
   }
 
   const context = input.workspaceContext ?? resolveWorkspaceContext(input);
-  const config = resolveCompositionConfig(context);
+  const useProjection =
+    Boolean(input.skipLegacyScope && input.projectedScope) &&
+    input.projectedCompositionConfig != null;
+  const config = useProjection
+    ? input.projectedCompositionConfig!
+    : resolveCompositionConfig(context);
+  const projectedScope = useProjection ? input.projectedScope! : null;
 
   const [facilityInputs, preferences] = await Promise.all([
     loadBusinessWorkspaceInputs({
@@ -93,6 +114,7 @@ export async function loadBusinessWorkspace(
       facilityName: input.facilityName,
       activeDepartmentKey: input.activeDepartmentKey,
       activeDepartmentName: input.activeDepartmentName,
+      projectedUnitIds: projectedScope?.projectedUnitIds,
     }),
     input.preferences
       ? Promise.resolve(input.preferences)
@@ -104,7 +126,9 @@ export async function loadBusinessWorkspace(
         : Promise.resolve(emptyWorkspacePreferenceState()),
   ]);
 
-  const inputs = scopeInputsForContext(facilityInputs, context);
+  const inputs = useProjection
+    ? intersectInputsToProjectedScope(facilityInputs, projectedScope!)
+    : scopeInputsForContext(facilityInputs, context);
 
   const priorities = buildWorkspacePriorities(inputs);
   const managerFocus = buildManagerFocus(inputs, context);
@@ -119,15 +143,25 @@ export async function loadBusinessWorkspace(
     preferences,
   });
 
+  // Morning Brief: cache-peek only. Facility Overview suppressed.
+  // When Projection on, department must match projected lens.
+  const briefDepartmentKey = useProjection
+    ? projectedScope!.lensMode === "FACILITY"
+      ? null
+      : projectedScope!.departmentKey
+    : input.activeDepartmentKey;
+
   const cachedMorningBrief =
     input.cachedMorningBrief !== undefined
       ? input.cachedMorningBrief
-      : context.mode === "facility"
+      : context.mode === "facility" ||
+          (useProjection && projectedScope!.lensMode === "FACILITY") ||
+          briefDepartmentKey == null
         ? null
         : await loadCachedMorningBriefPreview({
             facilityId: input.facilityId,
             facilityLocalDate: facilityInputs.operationalTime.facilityLocalDate,
-            activeDepartmentKey: input.activeDepartmentKey,
+            activeDepartmentKey: briefDepartmentKey,
           });
 
   const allTodaysWorkLinks: WorkspaceLinkCard[] = [
@@ -241,7 +275,7 @@ export async function loadBusinessWorkspace(
     }),
     cachedMorningBrief,
     priorities,
-    departmentHealth: buildDepartmentHealth(facilityInputs, context),
+    departmentHealth: buildDepartmentHealth(inputs, context),
     todaysWorkLinks: allTodaysWorkLinks
       .filter((link) => todaysWorkLinkIds.has(link.id))
       .filter((link) => isLinkAllowedForContext(link.href, context)),

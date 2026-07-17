@@ -74,3 +74,21 @@ export {
   isLinkAllowedForContext,
   type WorkspaceCompositionConfig,
 } from "./workspace-composition";
+
+/**
+ * Pure Projection adapters only — never re-export `./projection/load` here.
+ * That module uses session Projection (`next/headers`) and must stay off the
+ * client graph (workspace-customize imports this barrel).
+ */
+export {
+  adaptProjectionToBusinessWorkspace,
+  contributionKindsFromContracts,
+  emptyBusinessWorkspaceScope,
+  intersectInputsToProjectedScope,
+  resolveAllowedQuickActionIds,
+  resolveProjectedCompositionConfig,
+  type BwContributionKind,
+  type BwDepartmentSection,
+  type BwManagerSignalContributor,
+  type ProjectedBusinessWorkspaceScope,
+} from "./projection";

@@ -3,15 +3,42 @@ import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { BusinessWorkspaceScreen } from "@/components/business-workspace/business-workspace-view";
+import { PageHeader } from "@/components/design-system/page-header";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import {
   canAccessBusinessWorkspace,
   loadBusinessWorkspace,
 } from "@/lib/business-workspace";
+import { assembleProjectedBusinessWorkspace } from "@/lib/business-workspace/projection/load";
+import { isProjectionBusinessWorkspaceEnabled } from "@/lib/feature-flags";
 import { getFacilityForSession } from "@/lib/facility-context";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { prisma } from "@/lib/prisma";
+
+function WorkspaceProjectionUnavailable({ message }: { message: string }) {
+  return (
+    <section className="space-y-6">
+      <PageHeader
+        icon="operationsCenter"
+        title="Workspace"
+        subtitle="Your personal operational priorities."
+        compact
+      />
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-6">
+        <h2 className="text-lg font-semibold text-zinc-900">
+          Workspace unavailable
+        </h2>
+        <p className="mt-2 text-sm text-zinc-600">
+          Configuration could not be resolved for this session. Operational data
+          was not loaded.
+        </p>
+        <p className="mt-3 text-xs text-zinc-500">{message}</p>
+      </section>
+    </section>
+  );
+}
 
 export default async function WorkspacePage() {
   noStore();
@@ -46,7 +73,7 @@ export default async function WorkspacePage() {
     departmentName = "All departments";
   }
 
-  const view = await loadBusinessWorkspace({
+  const workspaceInput = {
     facilityId: session.facilityId,
     facilityName: facility?.displayName ?? "Facility",
     userDisplayName: session.name,
@@ -55,7 +82,32 @@ export default async function WorkspacePage() {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
     activeDepartmentId: deptNav.activeDepartmentId,
     activeDepartmentName: departmentName,
-  });
+  };
+
+  if (isProjectionBusinessWorkspaceEnabled()) {
+    const assembled = await assembleProjectedBusinessWorkspace(
+      session,
+      workspaceInput,
+      {
+        memo: createProjectionRuntimeRequestScope(),
+        activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+      },
+    );
+
+    if (assembled.error || !assembled.view) {
+      return (
+        <WorkspaceProjectionUnavailable
+          message={
+            assembled.error ?? "Business Workspace Projection is not available."
+          }
+        />
+      );
+    }
+
+    return <BusinessWorkspaceScreen view={assembled.view} />;
+  }
+
+  const view = await loadBusinessWorkspace(workspaceInput);
 
   if (!view) {
     redirect("/dashboard");

@@ -101,3 +101,13 @@ export function isProjectionTodaysWorkEnabled(): boolean {
 export function isProjectionOperationsCenterEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_OPERATIONS_CENTER_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Wave 15K Business Workspace Projection cutover.
+ * Set `PROJECTION_BUSINESS_WORKSPACE_ENABLED=true` to compose Workspace from
+ * projected Experiences/scopes only. When off, legacy Workspace remains exclusive.
+ * Do not reuse OC or Today's Work flags.
+ */
+export function isProjectionBusinessWorkspaceEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_BUSINESS_WORKSPACE_ENABLED, false);
+}

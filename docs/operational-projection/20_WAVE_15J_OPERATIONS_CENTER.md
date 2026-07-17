@@ -225,6 +225,6 @@ Measured on scope.performance: projection duration, dashboard query duration, co
 
 ---
 
-## Next consumer wave
+## Next wave
 
-**Wave 15K — Business Workspace** (or AI Projection scopes for Morning Brief, per program order).
+**Wave 15K — Business Workspace** Projection-scoped manager priorities — see [21_WAVE_15K_BUSINESS_WORKSPACE.md](./21_WAVE_15K_BUSINESS_WORKSPACE.md).
