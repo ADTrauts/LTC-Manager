@@ -111,3 +111,14 @@ export function isProjectionOperationsCenterEnabled(): boolean {
 export function isProjectionBusinessWorkspaceEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_BUSINESS_WORKSPACE_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Wave 16A Experience Shell & Tool Host foundation.
+ * Set `EXPERIENCE_SHELL_ENABLED=true` to render projected Experiences through
+ * the reusable Experience Shell (sections/cards/widgets/tool host).
+ * When off, Unit Workspace Projection keeps legacy placeholder panels.
+ * No mixed rendering within a request.
+ */
+export function isExperienceShellEnabled(): boolean {
+  return parseEnvFlag(process.env.EXPERIENCE_SHELL_ENABLED, false);
+}

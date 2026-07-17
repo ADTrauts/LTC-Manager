@@ -40,6 +40,7 @@ Without this layer, Projection would project an undefined noun. Implementation w
 | 14 | [Migration Model](./14_MIGRATION_MODEL.md) | Modules / Logs / Knowledge / capabilities |
 | 15 | [Implementation Recommendations](./15_IMPLEMENTATION_RECOMMENDATIONS.md) | Ordered waves after architecture |
 | 16 | [Certification](./16_CERTIFICATION.md) | Readiness score and gates |
+| 17 | [Wave 16A Experience Shell](./17_WAVE_16A_EXPERIENCE_SHELL.md) | Reusable shell, Tool Host, registry |
 
 ---
 
