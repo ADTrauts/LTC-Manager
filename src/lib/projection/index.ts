@@ -1,7 +1,8 @@
 /**
  * Projection Runtime Foundation — public domain barrel.
  *
- * Wave 15B domain, Wave 15C pure pipeline, Wave 15D source adapter + runtime.
+ * Wave 15B domain, Wave 15C pure pipeline, Wave 15D source adapter + runtime,
+ * Wave 15E shadow parity.
  */
 
 export type {
@@ -111,3 +112,25 @@ export {
   validateProjectionSnapshot,
   type ProjectionValidationIssue,
 } from "./validation";
+
+export {
+  adaptLegacyEligibilityToShadowView,
+  adaptProjectionSnapshotToShadowView,
+  compareProjectionSnapshotsForShadow,
+  compareShadowViews,
+  formatShadowParityLog,
+  runProjectionShadow,
+  type CompareProjectionSnapshotsInput,
+  type LegacyShadowInput,
+  type LegacyShadowRoom,
+  type RunProjectionShadowInput,
+  type ShadowAreaView,
+  type ShadowEligibilityView,
+  type ShadowExperienceView,
+  type ShadowMismatch,
+  type ShadowMismatchKind,
+  type ShadowParityMetrics,
+  type ShadowParityReport,
+  type ShadowQueryScopeView,
+  type ShadowSeverity,
+} from "./shadow";

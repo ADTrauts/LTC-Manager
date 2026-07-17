@@ -51,3 +51,8 @@ export function isOperationalAssignmentsEnabled(): boolean {
 export function isDepartmentOperationalProfilesEnabled(): boolean {
   return parseEnvFlag(process.env.DEPARTMENT_OPERATIONAL_PROFILES_ENABLED, false);
 }
+
+/** Defaults to disabled — Wave 15E Projection Shadow Mode (parity diagnostics only). */
+export function isProjectionShadowEnabled(): boolean {
+  return parseEnvFlag(process.env.PROJECTION_SHADOW_ENABLED, false);
+}
