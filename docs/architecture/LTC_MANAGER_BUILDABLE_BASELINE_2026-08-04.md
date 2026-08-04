@@ -140,6 +140,32 @@ The developer's local `ltc_manager` database is not a product of a clean seed an
 treated as authoritative. Repository intent is defined by a fresh migrate-and-seed, as verified
 above. The local database is expected to diverge.
 
+#### Unintended seed against `ltc_manager` during baseline verification (2026-08-04)
+
+While verifying the clean checkout, `prisma db seed` ran against `ltc_manager` instead of the
+disposable database. The cause was an exported `DATABASE_URL` left in the shell environment by an
+earlier step; Prisma resolves real environment variables ahead of a project `.env` file. The
+verification was afterward re-run correctly against the disposable database, and the results
+recorded above come from that corrected run.
+
+The seed is upsert-only. No rows were deleted, no migrations were applied, and no schema changed.
+The additions were:
+
+| Table | Before | After |
+| --- | --- | --- |
+| `AppRoute` | 12 | 15 |
+| `RoleRoutePermission` | 70 | 90 |
+| `Organization` | 2 | 3 |
+| `Department` | 3 | 6 |
+
+`Role`, `Facility`, `User`, `Employee`, `Unit`, `EmployeeDepartment`, and `UserFacilityAccess`
+were unchanged.
+
+The additions were deliberately retained rather than reverted. Two consequences matter for future
+work: the local database no longer represents the pre-baseline "stale" state that the
+authorization census measured, and any future comparison of seed intent against local state should
+account for this event rather than treating the current counts as untouched development history.
+
 ### No continuous integration
 
 The repository has no CI configuration. All validation described here was run manually. Nothing
