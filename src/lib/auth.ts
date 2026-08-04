@@ -7,11 +7,29 @@ export const SESSION_COOKIE = "ltc_session";
 
 export type AuthKind = "user" | "employee";
 
+/** How the session was established. Records provenance only; it never grants authority. */
+export const authMethodValues = ["PASSWORD", "QUICK_PIN"] as const;
+export type AuthMethod = (typeof authMethodValues)[number];
+
+/**
+ * Cookies issued before the `authMethod` claim existed do not carry it. Those sessions are read
+ * as PASSWORD for `authKind: "user"` and QUICK_PIN for `authKind: "employee"`, which matches how
+ * each kind was always created, so existing sessions stay valid across this release.
+ */
+function resolveAuthMethod(raw: unknown, authKind: AuthKind): AuthMethod {
+  if (typeof raw === "string" && (authMethodValues as readonly string[]).includes(raw)) {
+    return raw as AuthMethod;
+  }
+  return authKind === "employee" ? "QUICK_PIN" : "PASSWORD";
+}
+
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
 export type AppJwtPayload = JWTPayload & {
   uid: string;
   authKind: AuthKind;
+  /** Credential surface used at login. Authorization still derives from `role` and relationships. */
+  authMethod: AuthMethod;
   role: AppRole;
   name: string;
   email: string;
@@ -35,6 +53,7 @@ function getJwtSecret() {
 export async function createSessionToken(payload: {
   uid: string;
   authKind?: AuthKind;
+  authMethod?: AuthMethod;
   role: AppRole;
   name: string;
   email: string;
@@ -47,6 +66,7 @@ export async function createSessionToken(payload: {
   const body: Record<string, unknown> = {
     uid: payload.uid,
     authKind,
+    authMethod: resolveAuthMethod(payload.authMethod, authKind),
     role: payload.role,
     name: payload.name,
     email: payload.email,
@@ -77,6 +97,7 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
     ...payload,
     uid: String(p.uid ?? ""),
     authKind,
+    authMethod: resolveAuthMethod(p.authMethod, authKind),
     role: p.role as AppRole,
     name: String(p.name ?? ""),
     email: String(p.email ?? ""),

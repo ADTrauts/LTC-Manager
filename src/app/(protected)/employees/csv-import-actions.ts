@@ -6,6 +6,10 @@ import { EmployeeStatus, Prisma, SeparationKind, type WorkStation } from "@prism
 import { requireAtLeastRole } from "@/lib/access";
 import { parseCsv } from "@/lib/csv-parse";
 import { mapHeaders, parseEmployeeRow, type ParsedCsvEmployeeRow } from "@/lib/employee-csv-import";
+import {
+  pinInvalidationAuditValues,
+  roleChangeInvalidatesPin,
+} from "@/lib/employee-pin-invalidation";
 import { buildTerminationSnapshotJson } from "@/lib/hr-audit";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
@@ -245,10 +249,31 @@ export async function importEmployeesFromCsvAction(formData: FormData): Promise<
               }),
         };
 
+        const clearsPin = roleChangeInvalidatesPin({
+          nextRoleType: row.roleType,
+          currentPinDigest: before.pinDigest,
+        });
+        if (clearsPin) {
+          // Same statement as the role change, so an import cannot promote an Employee and leave
+          // a usable Quick PIN behind.
+          updateData.pinDigest = null;
+        }
+
         await tx.employee.update({
           where: { id: employeeId },
           data: updateData,
         });
+
+        if (clearsPin) {
+          await tx.employeeHrAuditLog.create({
+            data: {
+              facilityId,
+              employeeId,
+              userId: uid ?? null,
+              ...pinInvalidationAuditValues(row.roleType),
+            },
+          });
+        }
 
         if (transitionToTerminated) {
           const fresh = await tx.employee.findUnique({

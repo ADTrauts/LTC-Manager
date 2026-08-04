@@ -98,6 +98,7 @@ export async function POST(request: Request) {
   const token = await createSessionToken({
     uid: user.id,
     authKind: "user",
+    authMethod: "PASSWORD",
     role: user.role.key,
     name: user.displayName,
     email: user.email,

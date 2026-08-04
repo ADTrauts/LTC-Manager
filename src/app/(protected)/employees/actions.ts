@@ -31,7 +31,15 @@ type UnitAccessTransaction = {
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
-import { accessMethodValues, requiresEmailPasswordAccount } from "@/lib/credential-policy";
+import {
+  accessMethodValues,
+  mayAuthenticateWithQuickPin,
+  requiresEmailPasswordAccount,
+} from "@/lib/credential-policy";
+import {
+  pinInvalidationAuditValues,
+  roleChangeInvalidatesPin,
+} from "@/lib/employee-pin-invalidation";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
@@ -487,6 +495,10 @@ export async function updateEmployeeProfileAction(formData: FormData) {
 
     const beforeSnap = snapshotFromEmployeeRow(existing);
     const terminated = parsed.status === EmployeeStatus.TERMINATED;
+    const clearsPin = roleChangeInvalidatesPin({
+      nextRoleType: parsed.roleType,
+      currentPinDigest: existing.pinDigest,
+    });
     const afterSnap = snapshotFromProfileForm(
       { ...parsed, email: normalizedProfileEmail },
       hr,
@@ -504,6 +516,8 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         email: normalizedProfileEmail,
         phone: parsed.phone,
         roleType: parsed.roleType,
+        // Same statement as the role change, so the promotion cannot commit with a usable PIN.
+        ...(clearsPin ? { pinDigest: null } : {}),
         employmentType: parsed.employmentType,
         status: parsed.status,
         primaryUnitId,
@@ -599,8 +613,19 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       }
     }
 
-    const diffs = diffProfileForAudit(beforeSnap, afterSnap);
     const actorUserId = sessionUserIdForFk(session);
+    if (clearsPin) {
+      await tx.employeeHrAuditLog.create({
+        data: {
+          facilityId: session.facilityId,
+          employeeId: parsed.employeeId,
+          userId: actorUserId,
+          ...pinInvalidationAuditValues(parsed.roleType),
+        },
+      });
+    }
+
+    const diffs = diffProfileForAudit(beforeSnap, afterSnap);
     if (diffs.length > 0) {
       await tx.employeeHrAuditLog.createMany({
         data: diffs.map((d) => ({
@@ -635,10 +660,15 @@ export async function setEmployeePinAction(formData: FormData) {
 
   const before = await prisma.employee.findFirst({
     where: { id: parsed.employeeId, facilityId: session.facilityId },
-    select: { pinDigest: true },
+    select: { pinDigest: true, roleType: true },
   });
   if (!before) {
     throw new Error("Employee not found.");
+  }
+  if (!mayAuthenticateWithQuickPin(before.roleType)) {
+    throw new Error(
+      "This role signs in with email and password, so a Quick PIN cannot be issued for it.",
+    );
   }
 
   try {

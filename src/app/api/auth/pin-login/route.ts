@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import {
   DEVICE_FACILITY_COOKIE,
   DEVICE_UNIT_COOKIE,
@@ -17,6 +18,12 @@ import { prisma } from "@/lib/prisma";
 const bodySchema = z.object({
   pin: z.string().trim().min(6).max(6),
 });
+
+/**
+ * Single message for every authentication failure. A wrong PIN, an inactive Employee, and a
+ * correct PIN belonging to a password-required role must be indistinguishable to the caller.
+ */
+const GENERIC_PIN_FAILURE = "Invalid PIN.";
 
 function clientKey(request: Request) {
   const fwd = request.headers.get("x-forwarded-for");
@@ -105,7 +112,26 @@ export async function POST(request: Request) {
 
   if (!employee) {
     registerPinFailure(facilityId, ck);
-    return NextResponse.json({ error: "Invalid PIN." }, { status: 401 });
+    return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
+  }
+
+  // A matching PIN is not sufficient: roles that must hold an email/password account may never
+  // mint a session from a shared-device PIN, however the digest came to exist. This is checked
+  // before any token is created, and the response is identical to a wrong PIN so the caller
+  // cannot learn that the submitted value belongs to a high-authority Employee.
+  if (!mayAuthenticateWithQuickPin(employee.roleType)) {
+    registerPinFailure(facilityId, ck);
+    await prisma.employeeHrAuditLog.create({
+      data: {
+        facilityId: employee.facilityId,
+        employeeId: employee.id,
+        userId: null,
+        fieldKey: "auth.quickPin.rejectedPasswordRequiredRole",
+        oldValue: employee.roleType,
+        newValue: "rejected",
+      },
+    });
+    return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
   }
 
   registerPinSuccess(facilityId, ck);
@@ -141,6 +167,7 @@ export async function POST(request: Request) {
   const token = await createSessionToken({
     uid: employee.id,
     authKind: "employee",
+    authMethod: "QUICK_PIN",
     role: employee.roleType,
     name: `${employee.firstName} ${employee.lastName}`.trim(),
     email: employee.email ?? "",
