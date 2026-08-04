@@ -2,6 +2,15 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import {
+  AuthRateLimitBucketType,
+  checkAuthRateLimit,
+  pinCandidateBucketKey,
+  pinFacilityBucketKey,
+  registerAuthFailure,
+  resetAuthRateLimitBucket,
+  type AuthRateLimitBucketRef,
+} from "@/lib/auth-rate-limit";
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import {
@@ -11,7 +20,6 @@ import {
 } from "@/lib/device-cookie";
 import { getEmployeeAllowedUnitIdSet, resolveInitialActiveUnitIdForPinLogin } from "@/lib/employee-units";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
-import { checkPinRateLimit, registerPinFailure, registerPinSuccess } from "@/lib/pin-rate-limit";
 import { isValidPinFormat, pinDigestForFacility } from "@/lib/pin";
 import { prisma } from "@/lib/prisma";
 
@@ -25,10 +33,21 @@ const bodySchema = z.object({
  */
 const GENERIC_PIN_FAILURE = "Invalid PIN.";
 
-function clientKey(request: Request) {
+function rateLimitedResponse(retryAfterSec: number) {
+  return NextResponse.json(
+    { error: "Too many attempts. Try again later." },
+    { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+  );
+}
+
+/**
+ * Only a diagnostic label on the kiosk audit record. It is never a rate-limit key, so a rotated
+ * forwarded-for header cannot influence throttling.
+ */
+function clientIpLabel(request: Request): string | null {
   const fwd = request.headers.get("x-forwarded-for");
-  const ip = fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-  return ip;
+  const ip = fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip");
+  return ip ? ip.slice(0, 64) : null;
 }
 
 export async function POST(request: Request) {
@@ -76,20 +95,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter a valid 6-digit PIN." }, { status: 400 });
   }
 
-  const ck = clientKey(request);
-  const limit = checkPinRateLimit(facilityId, ck);
-  if (!limit.ok) {
-    return NextResponse.json(
-      { error: `Too many attempts. Try again in ${limit.retryAfterSec} seconds.` },
-      { status: 429 },
-    );
-  }
-
+  let candidateBucketKey: string;
+  let buckets: AuthRateLimitBucketRef[];
   let digest: string;
   try {
+    candidateBucketKey = pinCandidateBucketKey(facilityId, parsed.data.pin);
+    buckets = [
+      { key: candidateBucketKey, type: AuthRateLimitBucketType.PIN_CANDIDATE },
+      { key: pinFacilityBucketKey(facilityId), type: AuthRateLimitBucketType.PIN_FACILITY },
+    ];
     digest = pinDigestForFacility(facilityId, parsed.data.pin);
   } catch {
     return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
+  }
+
+  const limit = await checkAuthRateLimit(buckets);
+  if (limit.locked) {
+    return rateLimitedResponse(limit.retryAfterSec);
   }
 
   const employee = await prisma.employee.findFirst({
@@ -111,7 +133,7 @@ export async function POST(request: Request) {
   });
 
   if (!employee) {
-    registerPinFailure(facilityId, ck);
+    await registerAuthFailure(buckets);
     return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
   }
 
@@ -120,7 +142,7 @@ export async function POST(request: Request) {
   // before any token is created, and the response is identical to a wrong PIN so the caller
   // cannot learn that the submitted value belongs to a high-authority Employee.
   if (!mayAuthenticateWithQuickPin(employee.roleType)) {
-    registerPinFailure(facilityId, ck);
+    await registerAuthFailure(buckets);
     await prisma.employeeHrAuditLog.create({
       data: {
         facilityId: employee.facilityId,
@@ -134,7 +156,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
   }
 
-  registerPinSuccess(facilityId, ck);
+  // Clears only the bucket this credential owns. The facility-wide bucket is left intact so one
+  // valid login cannot wipe out evidence of concurrent guessing at the same facility.
+  await resetAuthRateLimitBucket(candidateBucketKey);
 
   let activeUnitId: string | undefined;
   let kioskUnitAccessWarning = false;
@@ -152,7 +176,7 @@ export async function POST(request: Request) {
           employeeId: employee.id,
           unitId: deviceUnitId,
           unassignedToUnit: true,
-          clientIp: ck === "unknown" ? null : ck.slice(0, 64),
+          clientIp: clientIpLabel(request),
         },
       });
     }

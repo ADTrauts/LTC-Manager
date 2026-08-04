@@ -2006,3 +2006,35 @@ model OperationalAssignmentTemplateItem {
 
   @@index([templateId, sortOrder])
 }
+
+/// Which credential surface a rate-limit bucket protects.
+enum AuthRateLimitBucketType {
+  /// One normalized email/password account.
+  PASSWORD_ACCOUNT
+  /// One submitted PIN value within one facility.
+  PIN_CANDIDATE
+  /// All PIN attempts within one facility; backstop against candidate rotation.
+  PIN_FACILITY
+}
+
+/// Durable, cross-process authentication throttling. Shared by password and Quick PIN login so a
+/// limit cannot be bypassed by reaching a different application instance, rotating a forwarded-IP
+/// header, or clearing cookies. Rows hold only keyed hashes, never a credential (see
+/// `lib/auth-rate-limit/keys.ts`), and are pruned by `cleanupAuthRateLimitBuckets`.
+model AuthRateLimitBucket {
+  id              String                  @id @default(cuid())
+  /// HMAC of the throttled identity under `AUTH_SECRET`; never a raw email, PIN, or IP address.
+  bucketKey       String                  @unique
+  bucketType      AuthRateLimitBucketType
+  /// Start of the current counting window; a failure after the window elapses restarts the count.
+  windowStartedAt DateTime
+  attemptCount    Int                     @default(0)
+  /// Set once the threshold is reached; authentication is refused until this passes.
+  lockedUntil     DateTime?
+  lastAttemptAt   DateTime
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([bucketType, lockedUntil])
+  @@index([lastAttemptAt])
+}
