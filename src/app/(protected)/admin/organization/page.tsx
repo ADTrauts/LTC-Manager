@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { ROLE_PRIORITY, type AppRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { getFacilityForSession } from "@/lib/facility-context";
@@ -63,26 +64,29 @@ export default async function AdminOrganizationPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <p className="text-sm text-zinc-500">
-          <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Admin
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <span className="text-zinc-600">Organization</span>
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Organization</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Organization is the parent business entity; Facility remains the login and operational scope.
-          Only Facility Administrators can edit these settings.{" "}
-          <Link
-            href="/admin/organization/facilities"
-            className="font-medium text-zinc-800 underline hover:text-zinc-950"
+      <AdminPageHeader
+        title="Organization Settings"
+        trail={[{ label: "Organization Settings" }]}
+        subtitle="Organization is the parent business entity; Facility remains the login and operational scope. Only Facility Administrators can edit these settings."
+        below={
+          <div
+            className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm sm:px-5"
+            data-testid="org-facilities-secondary-nav"
           >
-            Manage facilities &amp; access
-          </Link>
-        </p>
-      </div>
+            <p className="text-sm font-medium text-zinc-900">Facilities &amp; User Access</p>
+            <p className="mt-0.5 text-sm text-zinc-600">
+              Optional multi-site facility visibility and explicit user facility grants. Not required for
+              normal single-facility operation.
+            </p>
+            <Link
+              href="/admin/organization/facilities"
+              className="mt-2 inline-flex text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+            >
+              Open Facilities &amp; User Access →
+            </Link>
+          </div>
+        }
+      />
 
       {organization ? (
         <OrganizationSettingsForm

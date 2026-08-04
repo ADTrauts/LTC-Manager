@@ -28,7 +28,20 @@ function toStep(raw: string): Step {
   return "facility";
 }
 
-const unitTypes: UnitType[] = ["SERVERY", "KITCHEN", "RETAIL", "OFFICE", "STORAGE", "OTHER"];
+const unitTypes: UnitType[] = [
+  "SERVERY",
+  "KITCHEN",
+  "RETAIL",
+  "OFFICE",
+  "STORAGE",
+  "RESIDENT_AREA",
+  "COMMON_AREA",
+  "MECHANICAL",
+  "RESTROOM_CLUSTER",
+  "EVS_ZONE",
+  "GROUND",
+  "OTHER",
+];
 
 function BillingCardForm({
   onSuccess,
@@ -98,7 +111,10 @@ export function SetupWizard() {
   const [managerInput, setManagerInput] = useState("");
   const [locationInput, setLocationInput] = useState("");
   const [locationType, setLocationType] = useState<UnitType>("OTHER");
-  const [locationItems, setLocationItems] = useState<Array<{ name: string; unitType: UnitType }>>([]);
+  const [locationItems, setLocationItems] = useState<
+    Array<{ name: string; unitType: UnitType; parentName: string | null }>
+  >([]);
+  const [locationParentName, setLocationParentName] = useState<string>("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [stripeBillingReady, setStripeBillingReady] = useState(true);
 
@@ -191,7 +207,13 @@ export function SetupWizard() {
     setBusy(true);
     setError(null);
     try {
-      const locations = skip ? [] : locationItems;
+      const locations = skip
+        ? []
+        : locationItems.map(({ name, unitType, parentName }) => ({
+            name,
+            unitType,
+            ...(parentName ? { parentName } : {}),
+          }));
       const res = await fetch("/api/onboarding/locations", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -359,48 +381,102 @@ export function SetupWizard() {
         {step === "locations" ? (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-zinc-900">Initial locations (optional)</h2>
-            <p className="text-sm text-zinc-600">Add locations now, or skip and do it later from the Units page.</p>
-            <div className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
-              <input
-                value={locationInput}
-                onChange={(e) => setLocationInput(e.target.value)}
-                className="app-input w-full"
-                placeholder="Example: Main Kitchen"
-              />
-              <select
-                value={locationType}
-                onChange={(e) => setLocationType(e.target.value as UnitType)}
-                className="app-input w-full"
-              >
-                {unitTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="app-button border border-zinc-300 bg-white font-semibold text-zinc-900"
-                onClick={() => {
-                  const trimmed = locationInput.trim();
-                  if (!trimmed) return;
-                  setLocationItems((prev) => [...prev, { name: trimmed, unitType: locationType }]);
-                  setLocationInput("");
-                }}
-              >
-                Add
-              </button>
+            <p className="text-sm text-zinc-600">
+              Add locations now, or skip and do it later from the Units page. You can nest a location under another
+              you already added (for example a servery under a building) using the optional parent field.
+            </p>
+            <div className="grid gap-2 md:grid-cols-2">
+              <label className="block space-y-1 text-sm md:col-span-2">
+                <span className="font-medium text-zinc-700">Name</span>
+                <input
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
+                  className="app-input w-full"
+                  placeholder="Example: Main Kitchen"
+                />
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-zinc-700">Type</span>
+                <select
+                  value={locationType}
+                  onChange={(e) => setLocationType(e.target.value as UnitType)}
+                  className="app-input w-full"
+                >
+                  {unitTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-zinc-700">Parent (optional)</span>
+                <select
+                  value={locationParentName}
+                  onChange={(e) => setLocationParentName(e.target.value)}
+                  className="app-input w-full"
+                  disabled={locationItems.length === 0}
+                >
+                  <option value="">Top level</option>
+                  {locationItems.map((loc, idx) => (
+                    <option key={`${loc.name}-${idx}`} value={loc.name}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-end md:col-span-2">
+                <button
+                  type="button"
+                  className="app-button border border-zinc-300 bg-white font-semibold text-zinc-900"
+                  onClick={() => {
+                    const trimmed = locationInput.trim();
+                    if (!trimmed) return;
+                    if (locationItems.some((row) => row.name.toLowerCase() === trimmed.toLowerCase())) {
+                      setError("That location name is already in the list.");
+                      return;
+                    }
+                    const parent = locationParentName.trim() || null;
+                    if (parent && !locationItems.some((row) => row.name === parent)) {
+                      setError("Pick a parent from the list, or leave parent as top level.");
+                      return;
+                    }
+                    setLocationItems((prev) => [
+                      ...prev,
+                      { name: trimmed, unitType: locationType, parentName: parent },
+                    ]);
+                    setLocationInput("");
+                    setLocationParentName("");
+                    setError(null);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
             </div>
             <ul className="space-y-2">
               {locationItems.map((item, index) => (
                 <li key={`${item.name}-${index}`} className="flex items-center justify-between rounded border border-zinc-200 p-2 text-sm">
                   <span>
-                    {item.name} <span className="text-zinc-500">({item.unitType})</span>
+                    {item.name}{" "}
+                    <span className="text-zinc-500">
+                      ({item.unitType}
+                      {item.parentName ? ` · under ${item.parentName}` : ""})
+                    </span>
                   </span>
                   <button
                     type="button"
                     className="text-xs font-medium text-red-700"
-                    onClick={() => setLocationItems((prev) => prev.filter((_, idx) => idx !== index))}
+                    onClick={() =>
+                      setLocationItems((prev) => {
+                        const removed = prev[index];
+                        return prev
+                          .filter((_, idx) => idx !== index)
+                          .map((row) =>
+                            row.parentName === removed.name ? { ...row, parentName: null } : row,
+                          );
+                      })
+                    }
                   >
                     Remove
                   </button>

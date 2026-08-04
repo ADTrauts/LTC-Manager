@@ -33,6 +33,7 @@ const LOG_RECURRENCES = [
 ] as const;
 
 const ROLE_KEYS = [
+  RoleKey.FACILITY_ADMINISTRATOR,
   RoleKey.GM,
   RoleKey.MANAGER,
   RoleKey.SUPERVISOR,

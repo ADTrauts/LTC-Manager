@@ -1,7 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { getSession } from "@/lib/auth";
 import { requireAtLeastRole } from "@/lib/access";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
@@ -21,19 +21,11 @@ export default async function FacilityBuilderPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
-      <header>
-        <p className="text-sm text-zinc-500">
-          <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Administration
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <span className="text-zinc-600">Facility Builder</span>
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Facility Builder</h1>
-        <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          {copy.page.subtitle}
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Facility Structure"
+        trail={[{ label: "Facility Structure" }]}
+        subtitle={`${copy.page.subtitle} This page configures physical places only — it does not create logs, tasks, inspections, procedures, or operational workflows.`}
+      />
       <FacilityTerminologySettings vocabulary={hierarchy.vocabulary} />
       <FacilityBuilderClient hierarchy={hierarchy} />
     </div>

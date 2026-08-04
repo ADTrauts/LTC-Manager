@@ -8,7 +8,7 @@ import { trackEvent } from "@/lib/telemetry";
 
 export async function POST() {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const facility = await prisma.facility.findUnique({
     where: { id: session.facilityId },

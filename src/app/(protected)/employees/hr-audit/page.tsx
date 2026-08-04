@@ -4,9 +4,18 @@ import { redirect } from "next/navigation";
 
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import {
+  employeeWhereForFacilityAndDept,
+  hrefWithEmployeesDept,
+  resolveEmployeesDeptScope,
+} from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
-export default async function EmployeesHrAuditPage() {
+export default async function EmployeesHrAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   noStore();
 
   const session = await getSession();
@@ -17,8 +26,15 @@ export default async function EmployeesHrAuditPage() {
     redirect("/dashboard");
   }
 
+  const facilityId = session.facilityId;
+  const sp = await searchParams;
+  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees/hr-audit", sp);
+
   const rows = await prisma.employeeHrAuditLog.findMany({
-    where: { facilityId: session.facilityId },
+    where: {
+      facilityId,
+      employee: employeeWhereForFacilityAndDept(facilityId, deptId),
+    },
     orderBy: { createdAt: "desc" },
     take: 500,
     include: {
@@ -32,6 +48,11 @@ export default async function EmployeesHrAuditPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">HR audit log</h1>
         <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+          {deptName ? (
+            <>
+              Showing <span className="font-medium text-zinc-800">{deptName}</span> only.{" "}
+            </>
+          ) : null}
           Recent field-level changes to employee profiles and floor PIN lifecycle (up to 500 entries). Open an
           employee from the directory to continue editing.
         </p>
@@ -52,12 +73,10 @@ export default async function EmployeesHrAuditPage() {
           <tbody className="divide-y divide-zinc-100">
             {rows.map((r) => (
               <tr key={r.id} className="align-top">
-                <td className="whitespace-nowrap px-3 py-2 text-zinc-700">
-                  {r.createdAt.toLocaleString()}
-                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-zinc-700">{r.createdAt.toLocaleString()}</td>
                 <td className="px-3 py-2">
                   <Link
-                    href={`/employees#employee-${r.employeeId}`}
+                    href={hrefWithEmployeesDept("/employees", deptId, `#employee-${r.employeeId}`)}
                     className="font-medium text-zinc-900 underline decoration-zinc-300 hover:text-zinc-950"
                   >
                     {r.employee.firstName} {r.employee.lastName}

@@ -1,5 +1,19 @@
 # Session Notes
 
+## 2026-05-15
+
+- **Departments — admin + Employees UX** (full thread from roster assignment pain through final design):
+  - Reverted facility-wide **`?dept=`** shell that hid the employee list and blocked department assignment; removed `employees-nav-shell`, `employees-department-tab-scope`.
+  - **Admin → Departments** (`/admin/departments`): GM toggles **`showInEmployeeApp`** per department; assigns **department head**; cannot hide a department while employees are on its roster.
+  - **Department head picker:** shows all active employees (on-roster vs other optgroups); saving a head outside the roster adds **primary** or **`EmployeeDepartment`** membership automatically.
+  - **Employees layout:** **department tabs** first, **section sub-nav** second (`employees/layout.tsx`). Department tabs on **all** `/employees/*` routes; switching department keeps current path (e.g. stay on Points).
+  - **`?dept=` scope:** filters **directory**, **points-summary**, **chrc-report**, **separations**, **hr-audit** (primary + `EmployeeDepartment`); **import** stays facility-wide. Section nav links preserve `dept`. Shared lib: `src/lib/employees-department-tabs.ts`.
+  - **Profile save bug:** primary department reverting to “Not set” when assigned dept was hidden from dropdown — fixed.
+  - **Add employee:** **primary department required** (schema + UI).
+  - **EmployeesSubNav:** role-aware (STAFF+ vs MANAGER+).
+- **Migrations:** `20260514220000_department_head_employee`, `20260515200000_department_show_in_employee_app`.
+- **Memory bank:** updated for full department-tab + cross-page filtering behavior.
+
 ## 2026-05-09
 
 - Hardened self-serve onboarding after first ship:

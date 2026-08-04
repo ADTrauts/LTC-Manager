@@ -9,6 +9,10 @@ import { OverviewPanel } from "@/app/(protected)/admin/departments/[departmentId
 import { RoomsPanel } from "@/app/(protected)/admin/departments/[departmentId]/rooms-panel";
 import { SettingsPanel } from "@/app/(protected)/admin/departments/[departmentId]/settings-panel";
 import { VersionsPanel } from "@/app/(protected)/admin/departments/[departmentId]/versions-panel";
+import {
+  AdminBreadcrumbs,
+  BackToAdministrationLink,
+} from "@/components/administration/admin-page-header";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import {
   loadDepartmentAdminView,
@@ -40,6 +44,15 @@ export default async function DepartmentAdministrationPage({
           title="Department Administration"
           subtitle="Department Operational Profiles are not enabled for this environment."
           icon="administration"
+          actions={<BackToAdministrationLink />}
+          below={
+            <AdminBreadcrumbs
+              trail={[
+                { label: "Departments", href: "/admin/departments" },
+                { label: "Department Administration" },
+              ]}
+            />
+          }
         />
         <p className="text-sm text-zinc-600">
           Set <code className="rounded bg-zinc-100 px-1">DEPARTMENT_OPERATIONAL_PROFILES_ENABLED=true</code>{" "}
@@ -89,28 +102,23 @@ export default async function DepartmentAdministrationPage({
           )
         }
         actions={
-          <Link
-            href="/admin/departments"
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-          >
-            All departments
-          </Link>
-        }
-        below={
-          <p className="text-xs text-zinc-500">
-            <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-              Admin
-            </Link>
-            <span className="mx-1.5 text-zinc-400">/</span>
+          <>
             <Link
               href="/admin/departments"
-              className="font-medium text-zinc-700 hover:text-zinc-900"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
             >
-              Departments
+              All departments
             </Link>
-            <span className="mx-1.5 text-zinc-400">/</span>
-            <span className="text-zinc-600">{view.department.name}</span>
-          </p>
+            <BackToAdministrationLink />
+          </>
+        }
+        below={
+          <AdminBreadcrumbs
+            trail={[
+              { label: "Departments", href: "/admin/departments" },
+              { label: view.department.name },
+            ]}
+          />
         }
       />
 

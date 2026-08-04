@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import { useNavPathname } from "@/hooks/use-nav-pathname";
+import { useNavPathname, useNavSearchParams } from "@/hooks/use-nav-pathname";
 
 type EmployeesSubNavProps = {
   role: AppRole;
@@ -15,10 +15,27 @@ function tabClass(isActive: boolean) {
     : "rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100";
 }
 
+const SUB_NAV_ITEMS: { href: string; label: string; minRole: AppRole }[] = [
+  { href: "/employees", label: "Employees", minRole: "STAFF" },
+  { href: "/employees/points-summary", label: "Points", minRole: "STAFF" },
+  { href: "/employees/separations", label: "Separations", minRole: "MANAGER" },
+  { href: "/employees/chrc-report", label: "CHRC", minRole: "STAFF" },
+  { href: "/employees/hr-audit", label: "HR audit", minRole: "MANAGER" },
+  { href: "/employees/import", label: "Import", minRole: "MANAGER" },
+];
+
 export function EmployeesSubNav({ role }: EmployeesSubNavProps) {
   const pathname = useNavPathname();
+  const searchParams = useNavSearchParams();
+  const dept = searchParams?.get("dept") ?? null;
 
-  if (!hasAtLeastRole(role, "MANAGER")) {
+  function hrefWithDept(href: string) {
+    if (!dept?.trim()) return href;
+    return `${href}?dept=${encodeURIComponent(dept.trim())}`;
+  }
+
+  const items = SUB_NAV_ITEMS.filter((item) => hasAtLeastRole(role, item.minRole));
+  if (items.length === 0) {
     return null;
   }
 
@@ -39,29 +56,31 @@ export function EmployeesSubNav({ role }: EmployeesSubNavProps) {
   const hrAuditActive =
     pathname !== null && (pathname === "/employees/hr-audit" || pathname.startsWith("/employees/hr-audit/"));
 
+  function isActiveForHref(href: string): boolean {
+    if (pathname === null) return false;
+    if (href === "/employees") return employeesActive;
+    if (href === "/employees/points-summary") return pointsActive;
+    if (href === "/employees/separations") return separationsActive;
+    if (href === "/employees/chrc-report") return chrcReportActive;
+    if (href === "/employees/hr-audit") return hrAuditActive;
+    if (href === "/employees/import") return importActive;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   return (
     <nav
       className="flex w-max max-w-full flex-wrap items-center gap-2 border-b border-zinc-200 pb-3"
       aria-label="Employees section"
     >
-      <Link href="/employees" className={`shrink-0 ${tabClass(employeesActive)}`}>
-        Employees
-      </Link>
-      <Link href="/employees/points-summary" className={`shrink-0 ${tabClass(pointsActive)}`}>
-        Points
-      </Link>
-      <Link href="/employees/separations" className={`shrink-0 ${tabClass(separationsActive)}`}>
-        Separations
-      </Link>
-      <Link href="/employees/chrc-report" className={`shrink-0 ${tabClass(chrcReportActive)}`}>
-        CHRC
-      </Link>
-      <Link href="/employees/hr-audit" className={`shrink-0 ${tabClass(hrAuditActive)}`}>
-        HR audit
-      </Link>
-      <Link href="/employees/import" className={`shrink-0 ${tabClass(importActive)}`}>
-        Import
-      </Link>
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={hrefWithDept(item.href)}
+          className={`shrink-0 ${tabClass(isActiveForHref(item.href))}`}
+        >
+          {item.label}
+        </Link>
+      ))}
     </nav>
   );
 }

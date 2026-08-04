@@ -1,5 +1,6 @@
 import type { AppJwtPayload } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
+import type { AppRole } from "@/lib/access";
 import { EmployeeStatus, EmploymentType, RoleKey } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -10,15 +11,24 @@ function displayNameSourceForRoster(displayName: string, email: string): string 
   if (d) return d;
   const local = email.split("@")[0]?.trim() ?? "";
   if (local) return local.replace(/[._]+/g, " ");
-  return "General Manager";
+  return "Facility leader";
 }
 
 /**
- * GM app accounts (`User`) should always have a matching `Employee` row for the roster, staffing, and HR flows.
- * Self-serve signup creates both; this covers legacy GMs and any missed backfills.
+ * FACILITY_ADMINISTRATOR and GM hub accounts (`User`) should always have a matching `Employee` row for the roster,
+ * staffing, and HR flows.
+ * Self-serve signup creates both; this covers legacy accounts and any missed backfills.
  */
+function rosterRoleTypeForEmailUser(role: AppRole): RoleKey | null {
+  if (role === "FACILITY_ADMINISTRATOR") return RoleKey.FACILITY_ADMINISTRATOR;
+  if (role === "GM") return RoleKey.GM;
+  return null;
+}
+
+/** Ensures FACILITY_ADMINISTRATOR and GM hub accounts appear on the employee roster when missing (legacy installs). */
 export async function ensureGmEmployeeRosterRow(session: AppJwtPayload): Promise<void> {
-  if (session.authKind !== "user" || session.role !== "GM" || !session.facilityId) {
+  const rosterRoleType = rosterRoleTypeForEmailUser(session.role);
+  if (session.authKind !== "user" || !rosterRoleType || !session.facilityId) {
     return;
   }
   const userId = sessionUserIdForFk(session);
@@ -51,7 +61,7 @@ export async function ensureGmEmployeeRosterRow(session: AppJwtPayload): Promise
       firstName,
       lastName,
       email: user.email.trim().toLowerCase(),
-      roleType: RoleKey.GM,
+      roleType: rosterRoleType,
       status: EmployeeStatus.ACTIVE,
       employmentType: EmploymentType.FULL_TIME,
     },

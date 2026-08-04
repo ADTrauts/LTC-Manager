@@ -23,7 +23,7 @@ const updateStateSchema = z.object({
 
 export async function GET() {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const facility = await prisma.facility.findUnique({
     where: { id: session.facilityId },
@@ -60,7 +60,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const body = await request.json().catch(() => null);
   const parsed = updateStateSchema.safeParse(body);

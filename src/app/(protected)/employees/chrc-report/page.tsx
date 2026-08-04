@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { CHRC_STATUS_LABEL } from "@/lib/employee-hr-labels";
 import { getSession } from "@/lib/auth";
+import { employeeWhereForFacilityAndDept, hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 function formatDate(d: Date | null): string {
@@ -12,7 +13,11 @@ function formatDate(d: Date | null): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default async function EmployeesChrcReportPage() {
+export default async function EmployeesChrcReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   noStore();
 
   const session = await getSession();
@@ -20,11 +25,15 @@ export default async function EmployeesChrcReportPage() {
     redirect("/login");
   }
   const facilityId = session.facilityId;
+  const sp = await searchParams;
+  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees/chrc-report", sp);
 
   const employees = await prisma.employee.findMany({
     where: {
-      facilityId,
-      status: { not: EmployeeStatus.TERMINATED },
+      AND: [
+        employeeWhereForFacilityAndDept(facilityId, deptId),
+        { status: { not: EmployeeStatus.TERMINATED } },
+      ],
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
@@ -50,9 +59,14 @@ export default async function EmployeesChrcReportPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">CHRC status</h1>
           <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-            Active and off-duty roster (excludes terminated). <span className="font-medium text-zinc-800">Cleared</span> means
-            CHRC status is set to Cleared; everyone else appears under <span className="font-medium text-zinc-800">Not cleared</span>
-            (pending, not started, N/A, or unset).
+            {deptName ? (
+              <>
+                Showing <span className="font-medium text-zinc-800">{deptName}</span> only.{" "}
+              </>
+            ) : null}
+            Active and off-duty roster (excludes terminated). <span className="font-medium text-zinc-800">Cleared</span>{" "}
+            means CHRC status is set to Cleared; everyone else appears under{" "}
+            <span className="font-medium text-zinc-800">Not cleared</span> (pending, not started, N/A, or unset).
           </p>
         </div>
       </header>
@@ -77,7 +91,7 @@ export default async function EmployeesChrcReportPage() {
                   <td className="px-4 py-2 text-zinc-700">{formatDate(row.chrcClearedAt)}</td>
                   <td className="px-4 py-2 text-right">
                     <Link
-                      href={`/employees#employee-${row.id}`}
+                      href={hrefWithEmployeesDept("/employees", deptId, `#employee-${row.id}`)}
                       className="text-zinc-700 underline hover:text-zinc-950"
                     >
                       Open card
@@ -85,15 +99,11 @@ export default async function EmployeesChrcReportPage() {
                   </td>
                 </tr>
               ))}
-              {cleared.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-zinc-500">
-                    No one on this roster is marked Cleared yet.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
+          {cleared.length === 0 ? (
+            <p className="p-6 text-sm text-zinc-500">No cleared employees.</p>
+          ) : null}
         </div>
       </div>
 
@@ -117,7 +127,7 @@ export default async function EmployeesChrcReportPage() {
                   <td className="px-4 py-2 text-zinc-700">{statusLabel(row.chrcStatus)}</td>
                   <td className="px-4 py-2 text-right">
                     <Link
-                      href={`/employees#employee-${row.id}`}
+                      href={hrefWithEmployeesDept("/employees", deptId, `#employee-${row.id}`)}
                       className="text-zinc-700 underline hover:text-zinc-950"
                     >
                       Open card
@@ -125,15 +135,11 @@ export default async function EmployeesChrcReportPage() {
                   </td>
                 </tr>
               ))}
-              {notCleared.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-zinc-500">
-                    Everyone on this roster is marked Cleared.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
+          {notCleared.length === 0 ? (
+            <p className="p-6 text-sm text-zinc-500">Everyone is cleared.</p>
+          ) : null}
         </div>
       </div>
     </section>

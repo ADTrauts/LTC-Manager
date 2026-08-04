@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { setDepartmentHeadAction } from "@/app/(protected)/admin/departments/actions";
 import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/department-visibility-form";
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { getSession } from "@/lib/auth";
 import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
@@ -66,22 +67,11 @@ export default async function AdminDepartmentsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <p className="text-sm text-zinc-500">
-          <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Admin
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <span className="text-zinc-600">Departments</span>
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Departments</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Choose which departments appear in employee profiles and related HR screens. Dietary, EVS, and Plant
-          Operations are created for every facility; turn off any you do not use. You can assign a{" "}
-          <span className="font-medium text-zinc-800">department head</span> for each visible department (operational
-          lead — separate from app permission level / GM).
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Departments"
+        trail={[{ label: "Departments" }]}
+        subtitle="Manage department visibility in the employee application and operational mode selector, assign department heads, and open department-specific operational settings. Dietary, EVS, and Plant Operations are available for every facility. This does not purchase or license modules."
+      />
 
       <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
         {departments.map((d) => (
@@ -103,9 +93,13 @@ export default async function AdminDepartmentsPage() {
                 <p className="text-xs text-zinc-500">
                   Key <span className="font-mono">{d.key}</span>
                   {d.showInEmployeeApp ? (
-                    <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-800">Visible in app</span>
+                    <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-800">
+                      Shown in employee app
+                    </span>
                   ) : (
-                    <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-600">Hidden from app</span>
+                    <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-600">
+                      Hidden from employee app
+                    </span>
                   )}
                 </p>
                 <p className="mt-2 text-sm text-zinc-600">

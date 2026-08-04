@@ -7,13 +7,22 @@ import { EmployeeStatus, SeparationKind } from "@prisma/client";
 import { RecordSeparationDrawer } from "@/app/(protected)/employees/record-separation-drawer";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import {
+  employeeWhereForFacilityAndDept,
+  hrefWithEmployeesDept,
+  resolveEmployeesDeptScope,
+} from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 function separationKindLabel(k: SeparationKind): string {
   return k === SeparationKind.RESIGNED ? "Resigned" : "Terminated";
 }
 
-export default async function EmployeesSeparationsPage() {
+export default async function EmployeesSeparationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   noStore();
 
   const session = await getSession();
@@ -24,9 +33,18 @@ export default async function EmployeesSeparationsPage() {
     redirect("/dashboard");
   }
 
+  const facilityId = session.facilityId;
+  const sp = await searchParams;
+  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees/separations", sp);
+
+  const employeeScope = employeeWhereForFacilityAndDept(facilityId, deptId);
+
   const [rows, roster] = await Promise.all([
     prisma.employeeTerminationRecord.findMany({
-      where: { facilityId: session.facilityId },
+      where: {
+        facilityId,
+        employee: employeeScope,
+      },
       orderBy: { terminatedAt: "desc" },
       take: 200,
       include: {
@@ -36,7 +54,7 @@ export default async function EmployeesSeparationsPage() {
     }),
     prisma.employee.findMany({
       where: {
-        facilityId: session.facilityId,
+        ...employeeScope,
         status: { not: EmployeeStatus.TERMINATED },
       },
       select: { id: true, firstName: true, lastName: true },
@@ -52,6 +70,11 @@ export default async function EmployeesSeparationsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Separations</h1>
           <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+            {deptName ? (
+              <>
+                Showing <span className="font-medium text-zinc-800">{deptName}</span> only.{" "}
+              </>
+            ) : null}
             Immutable log when someone leaves (a new row each time they are separated again after returning to
             active). Use <strong className="font-medium text-zinc-800">Record separation</strong> to end
             employment from the roster, or terminate from an employee card / import as before.
@@ -85,7 +108,7 @@ export default async function EmployeesSeparationsPage() {
                 </td>
                 <td className="px-3 py-2">
                   <Link
-                    href={`/employees#employee-${r.employee.id}`}
+                    href={hrefWithEmployeesDept("/employees", deptId, `#employee-${r.employee.id}`)}
                     className="font-medium text-zinc-900 underline decoration-zinc-300 hover:text-zinc-950"
                   >
                     {r.employee.firstName} {r.employee.lastName}

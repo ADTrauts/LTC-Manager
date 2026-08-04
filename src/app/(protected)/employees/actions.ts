@@ -546,7 +546,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         throw new Error("Role configuration is missing for this facility.");
       }
       try {
-        await tx.user.create({
+        const createdUser = await tx.user.create({
           data: {
             email: normalizedProfileEmail,
             displayName: `${parsed.firstName} ${parsed.lastName}`,
@@ -555,6 +555,10 @@ export async function updateEmployeeProfileAction(formData: FormData) {
             roleId: roleRow.id,
             isActive: true,
           },
+        });
+        await ensureUserFacilityAccessGrant(tx, {
+          userId: createdUser.id,
+          facilityId: session.facilityId,
         });
       } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {

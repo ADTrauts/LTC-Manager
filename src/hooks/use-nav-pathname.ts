@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 
 /**
  * Pathname safe for nav active-state styling after hydration.
@@ -18,4 +18,20 @@ export function useNavPathname(): string | null {
   }, []);
 
   return mounted ? pathname : null;
+}
+
+/**
+ * Search params safe for hrefs / active state after hydration.
+ * Same mount gate as `useNavPathname` — avoids mismatches when `dept` (or other
+ * query values) differ between SSR HTML and the client router URL.
+ */
+export function useNavSearchParams(): ReadonlyURLSearchParams | null {
+  const searchParams = useSearchParams();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return mounted ? searchParams : null;
 }

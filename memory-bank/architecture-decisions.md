@@ -13,11 +13,11 @@
 - Public self-serve routes:
   - `/` (hero landing for logged-out users)
   - `/signup` (first-admin account creation)
-  - `/setup` (guided onboarding wizard for GM until completion)
-- Access control is role-priority based in `src/lib/access.ts` (`hasAtLeastRole`, `requireAtLeastRole`, `canAccessRoute`).
+  - `/setup` (guided onboarding wizard for the facility administrator until completion)
+- Access control is role-priority based in `src/lib/access.ts` (`hasAtLeastRole`, `requireAtLeastRole`, `canAccessRoute`). Priority: **`FACILITY_ADMINISTRATOR`** (facility-wide hub) > **`GM`** (department-head tier; product rules scope by roster / active department) > `MANAGER` > `SUPERVISOR` > `LEAD_TEAM_MEMBER` > `STAFF`.
 - Request guard is enforced in `src/proxy.ts` (also requires `facilityId` on the JWT).
-- **Roles** (Prisma `RoleKey`): `GM` > `MANAGER` > `SUPERVISOR` > `LEAD_TEAM_MEMBER` > `STAFF` (STAFF = Team Member in UI). **Route minimums (summary):** `/settings` and `/admin` → GM (**`/settings`** redirects to **`/admin/organization`** for org profile / device binding); `/employees`, `/reports` → Manager+; `/units`, `/staffing`, `/assets` → Supervisor+; `/dashboard`, `/unit/*`, `/logs`, `/repairs` → all authenticated users (STAFF+). Server actions mirror this (e.g. unit CRUD requires Supervisor+, log template CRUD requires Manager+, log submit requires STAFF+).
-- Onboarding gate (GM only): when `Facility.onboardingCompletedAt` is null, proxy redirects protected navigation to `/setup` except setup/billing onboarding APIs; once complete, `/setup` redirects back to `/dashboard`.
+- **Route minimums (summary):** `/admin` → **Facility Administrator** only; `/settings` redirects to **`/admin/organization`** for org profile / device binding; `/employees`, `/reports` → Manager+; `/units`, `/staffing`, `/assets` → Supervisor+; `/dashboard`, `/unit/*`, `/logs`, `/repairs` → STAFF+ (some tools are further hidden by **department nav** — e.g. EVS has no Repairs link; create-only flow on **EVS board**). Server actions mirror minimums where applicable.
+- Onboarding gate (**Facility Administrator**): when `Facility.onboardingCompletedAt` is null, proxy redirects protected navigation to `/setup` except setup/billing onboarding APIs; once complete, `/setup` redirects back to `/dashboard`.
 
 ## Session shape (JWT cookie)
 
@@ -84,27 +84,49 @@ Related: device binding cookies (see `src/lib/device-cookie.ts`) — **not** par
 - **Layout:** CSS **grid** (`src/components/app-shell.tsx`): narrow screens use two columns (brand row + sign-out; full-width nav row); from **`lg`** up, three columns with a capped-width brand column, **flexible center**, and trailing actions.
 - **Branding:** Facility name and session text are **stacked** with **truncation** to avoid one overloaded line when display names are long.
 - **Top nav:** **`TopNav`** (`src/components/top-nav.tsx`) is **single-line**; the wrapper scrolls **horizontally** when items exceed width (`overflow-x-auto`, `flex-nowrap`, links `shrink-0`).
-- **Employees area (Manager+):** **Points**, **Terminations**, **HR audit**, and **Import** are **secondary tabs** under `/employees` (`employees/layout.tsx`, `EmployeesSubNav`) so the global header stays shorter; **`TOP_NAV_ITEMS`** lists **Employees** once; **`isActivePath`** treats those sub-routes as part of **Employees**.
-- **Sign out:** **`SignOutControls`** (`src/components/sign-out-controls.tsx`). **GM** gets a **split control**: main button signs out; a **chevron** opens a `<details>` panel for **Sign out & unbind device** (full logout + clear **`ltc_device_facility`** and **`ltc_device_unit`**). Other roles get a plain sign-out button only.
+- **Employees area:** Two tab layers (do not conflate):
+  1. **Section sub-nav** (`EmployeesSubNav` in `employees/layout.tsx`) on **all** `/employees/*` routes — **Employees**, **Points**, **CHRC** (STAFF+); **Separations**, **HR audit**, **Import** (MANAGER+). Top nav lists **Employees** once; **`TopNav`** / route permissions treat sub-routes as part of Employees.
+  2. **Department tabs** (`EmployeesDepartmentTabs` in **`employees/layout.tsx`**) — shown on **all** `/employees/*` routes; one tab per department with **`showInEmployeeApp: true`**, plus **All departments**. Query param **`dept`** filters **directory**, **Points**, **CHRC**, **Separations**, and **HR audit** via **`employeeBelongsToDepartmentWhere`** (primary or `EmployeeDepartment`). **`EmployeesSubNav`** links preserve `dept`. **Import** is not department-scoped.
+- **Admin → Departments** (**Facility Administrator**): `Department.showInEmployeeApp` (who sees the department in HR pickers). Department heads (`headEmployeeId`) can be set by **FA** or by a **GM** / manager who is the operational lead for that department (see `canManageDepartmentHeadSettings`).
+- **Sign out:** **`SignOutControls`**. **Facility Administrator** gets the split control (sign out + **Sign out & unbind device**). Other roles get a plain sign-out button only.
 - **Shell scrolling behavior:** from **`lg`** up, the left **Locations** rail and main pane scroll independently (pane-level overflow with constrained shell height). On smaller screens, layout stays single-column with unified page scroll.
 - **Kiosk unit banner:** When JWT has **`kioskUnitAccessWarning`**, **`AppShell`** renders **`KioskUnitAccessBanner`** (dismissible in the client for the current page session) above the main layout.
 - **Servery service controls:** unit servery actions are grouped under a meal-period selector (Breakfast/Lunch/Dinner) rather than rendering one full action block per meal. The selector preselects a local-time daypart default (Breakfast 4:00–10:30, Lunch 10:30–2:30, Dinner thereafter through evening), then actions submit for the selected meal.
-- **Brand accent system:** facility-scoped `brandColor` is set by GMs in **Admin > Organization** and exposed as a shell-level CSS variable (`--brand-accent`). Accent usage is intentionally limited to active-state controls, primary actions, and divider emphasis for better separation without introducing a high-saturation multicolor UI.
+- **Brand accent system:** facility-scoped `brandColor` is set in **Admin > Organization** and exposed as a shell-level CSS variable (`--brand-accent`).
 
 ## PIN and facility binding
 
 - **PIN format:** 6 digits, unique per facility when set.
 - **Storage:** **`pinDigest`** = HMAC-SHA256 of facility id + PIN using **`AUTH_SECRET`** (`lib/pin.ts`). Enables O(1) lookup without scanning employees with bcrypt. This is **not** the same as storing a slow bcrypt hash of the PIN alone; threat model assumes **`AUTH_SECRET`** stays server-only. To rotate PINs after a secret leak, reassign PINs or rotate **`AUTH_SECRET`** (invalidates all sessions and digests—plan accordingly).
-- **Device binding:** HttpOnly cookies on the browser (not in the JWT). **GM** applies binding from **Admin → Organization** via **`BindDeviceForm`** → **`POST /api/auth/bind-device`** with JSON **`{ unitId: string | null }`**: always refreshes **`ltc_device_facility`** to the current facility; **`unitId`** set writes **`ltc_device_unit`**, **`null`** clears unit lock (facility-wide PIN tablet).
+- **Device binding:** **Facility Administrator** applies binding from **Admin → Organization** via **`POST /api/auth/bind-device`** (JSON **`{ unitId: string | null }`**): refreshes **`ltc_device_facility`**; unit id writes **`ltc_device_unit`**, **`null`** clears unit lock.
 - **PIN login on unit-locked tablets:** **`POST /api/auth/pin-login`** sets **`activeUnitId`** to the device unit (overrides schedule/primary resolution). Response includes **`redirectTo`** (`/unit/{id}` or **`/dashboard`** when no unit lock). Staff with restricted **`EmployeeUnitAccess`** who are **not** assigned to that unit still sign in; JWT gets **`kioskUnitAccessWarning: true`**, UI shows the banner, and a **`KioskUnitPinLoginEvent`** row is written (**`unassignedToUnit`**, optional **`clientIp`**).
 - **PIN brute force:** **`lib/pin-rate-limit.ts`** — in-memory sliding window + lockout per facility + client key; **not** durable across processes—use **Redis** (or similar) in multi-instance production.
 
 ## Email (User) vs PIN (Employee)
 
-- **`User`** records are for **email + password** sign-in (laptops, management). **Self-serve signup** (`/signup` → `/api/auth/signup`) creates the first **GM** `User` for a new facility; other accounts remain provisioned by admins, seed, or `npm run db:provision` as before.
-- **`Employee`** records are the **roster** (directory, staffing, HR, PIN identity). **GM self-serve signup** also creates a matching **`Employee`** (same email, `RoleKey.GM`) so the GM appears on **Employees**; if a legacy GM `User` exists without a roster row, opening **`/employees`** runs **`ensureGmEmployeeRosterRow`** once to create the missing row (see `src/lib/ensure-gm-employee-roster.ts`). Optional bulk repair: **`npm run db:backfill-gm-roster`**.
-- **`Employee`** records are operational people; **PIN** is assigned in-app (GM) for **facility-bound** browsers. Floor staff typically use **PIN** only; they do not receive a `User` row unless they also need email access.
+- **`User`** records are for **email + password** sign-in (laptops, management). **Self-serve signup** (`/signup`) creates the first **`FACILITY_ADMINISTRATOR`** `User` for a new facility.
+- **`Employee`** records are the **roster**. Signup also creates a matching **`Employee`** (same email, `RoleKey.FACILITY_ADMINISTRATOR`). Opening **`/employees`** runs **`ensureGmEmployeeRosterRow`** for **FA** and **GM** hub users if the roster row is missing (see `src/lib/ensure-gm-employee-roster.ts`).
+- **`Employee`** records are operational people; **PIN** is assigned in-app (**GM+**) for **facility-bound** browsers.
 - **Sidebar units:** Email sessions see **all** active units. **Employee** (PIN) sessions use **`EmployeeUnitAccess`**: if the employee has **no** access rows, they may use **all** active units; if they have rows, they are **restricted** to those units. **`primaryUnitId`** sets the default **active unit** when they sign in with PIN **unless** the browser has a valid **`ltc_device_unit`** cookie (then PIN login forces that unit). **`getSidebarUnitsForSession`** also injects the current **`activeUnitId`** into the list when it would otherwise be missing (e.g. kiosk override). **`LeftSidebar`** receives **`lockedUnitId`** from **`AppShell`** when `authKind === "employee"` and device unit cookie matches **`session.activeUnitId`**, and renders non-locked units as **non-clickable** grey text.
+
+## Departments (facility operational structure)
+
+- **`Department`**: per-facility slug (`key`), display `name`, `sortOrder`, `isActive`. Default keys include Dietary, EVS, Plant Operations (`ensureDefaultDepartments`).
+- **`showInEmployeeApp`:** **Facility Administrator** controls visibility for employee HR UI. Hidden departments may still appear on an individual’s profile dropdown if they are already assigned (labeled “hidden in app”) so saves do not wipe `primaryDepartmentId`.
+- **`headEmployeeId`**: optional operational lead; assignable only when department is visible in app; save action can add the person to the department roster (primary if none, else `EmployeeDepartment`).
+- **`EmployeeDepartment`**: multi-department roster memberships (**floaters**); used with primary for department-scoped filters (directory, points, CHRC, separations, HR audit). Distinct from **`unionMember`** (HR contract field).
+- **`JobTitle`**: display job title separate from permission tier (`Employee.roleType` / `RoleKey`).
+- **`?dept=` filter:** layout-level department tabs on all `/employees/*` routes; server pages call `resolveEmployeesDeptScope` + `employeeWhereForFacilityAndDept`. **Import** is not department-scoped.
+- **Anti-pattern (removed):** redirect shell that hid the roster or forced `?dept=` before employees could be assigned a department.
+
+## Active department & nav
+
+- Cookie-backed **active department** (`src/lib/active-department-context.ts`, `department-nav.ts`) scopes top-nav tools for Dietary / EVS / Plant. **`FACILITY_ADMINISTRATOR`** with an **empty** cookie sees **all** department tools.
+
+## Operational repairs & assets routing
+
+- **`Repair.repairTrade`** combines with **`Asset.departmentId`** and unit **`UnitDepartmentResponsibility`** hints to default **`requestingDepartmentId`** / **`responsibleDepartmentId`** (`suggestRepairDepartmentIds`). EVS submits via **`createEvsRepairTicketAction`** (forced requesting = EVS; EVS navigation omits **`/repairs`**).
+- **Assets:** **`departmentId`** is the owning / routing department; UI sets it on create and can update per row (**`updateAssetDepartmentAction`**).
 
 ## Known Tradeoffs
 

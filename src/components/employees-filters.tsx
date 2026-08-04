@@ -17,6 +17,7 @@ export function EmployeesFiltersForm({
 }) {
   return (
     <form method="get" className={embedded ? embeddedFormClass : cardFormClass}>
+      {current.dept?.trim() ? <input type="hidden" name="dept" value={current.dept.trim()} /> : null}
       <label className="text-xs text-zinc-600">
         Search name
         <input

@@ -27,7 +27,14 @@ type RouteView = {
   permissionsByRoleId: Record<string, boolean>;
 };
 
-const ROLE_KEYS: RoleKey[] = [RoleKey.GM, RoleKey.MANAGER, RoleKey.SUPERVISOR, RoleKey.LEAD_TEAM_MEMBER, RoleKey.STAFF];
+const ROLE_KEYS: RoleKey[] = [
+  RoleKey.FACILITY_ADMINISTRATOR,
+  RoleKey.GM,
+  RoleKey.MANAGER,
+  RoleKey.SUPERVISOR,
+  RoleKey.LEAD_TEAM_MEMBER,
+  RoleKey.STAFF,
+];
 
 export function PermissionsManager({ roles, routes }: { roles: RoleView[]; routes: RouteView[] }) {
   const router = useRouter();
@@ -52,9 +59,9 @@ export function PermissionsManager({ roles, routes }: { roles: RoleView[]; route
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-900">Jobs</h2>
+        <h2 className="text-base font-semibold text-zinc-900">Roles</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Edit job labels and activate/deactivate jobs used in access control.
+          Edit role labels and activate or deactivate roles used in access control.
         </p>
         <div className="mt-4 space-y-3">
           {roles.map((role) => (
@@ -103,7 +110,7 @@ export function PermissionsManager({ roles, routes }: { roles: RoleView[]; route
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-zinc-900">Add job</h2>
+            <h2 className="text-base font-semibold text-zinc-900">Add role</h2>
             <p className="mt-1 text-sm text-zinc-600">Create a missing system role if it was previously removed.</p>
           </div>
           <form
@@ -150,7 +157,7 @@ export function PermissionsManager({ roles, routes }: { roles: RoleView[]; route
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-zinc-900">Route access matrix</h2>
-            <p className="mt-1 text-sm text-zinc-600">Toggle page access per job. Critical routes must remain assigned.</p>
+            <p className="mt-1 text-sm text-zinc-600">Toggle page access per role. Critical routes must remain assigned.</p>
           </div>
           <form
             action={(formData) => runAction("clone", () => cloneRolePermissionsAction(formData))}

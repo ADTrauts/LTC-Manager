@@ -12,7 +12,7 @@ Use it to keep operational context so future sessions do not drift.
 - `implementation-phases.md`: planned phases (facility through Phase E) and per-phase quality gates.
 - `runbook.md`: local setup, DB, auth, provisioning (`db:provision` blank facility), PIN/tablet flow, troubleshooting.
 - `session-notes.md`: dated summary of work sessions.
-- `employee-hr-source-of-truth.md`: shipped vs backlog for employee roster, HR fields, discipline, terminations, audit, CSV import, and **Employees** area navigation/filters.
+- `employee-hr-source-of-truth.md`: shipped vs backlog for employee roster, HR fields, discipline, terminations, audit, CSV import, **Employees** section/department navigation, and **Admin → Departments** (`showInEmployeeApp`, heads).
 - `future-projects-ltc-ops-strategy.md`: LTC facility/dining typology vs complex multi-servery sites; contract vs self-op; **phased product strategy** (dining-first wedge, modular expansion); positioning and non-goals.
 
 **Scripts (repo root `ltc-manager/`):** `scripts/provision-facility.mjs` — blank facility + GM user + GM employee PIN (env-driven); `npm run db:provision`. **`scripts/backfill-gm-employees-from-users.mjs`** — GM `User` rows missing a matching `Employee` by email; `npm run db:backfill-gm-roster`.

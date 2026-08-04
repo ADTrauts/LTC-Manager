@@ -43,16 +43,17 @@ export function DepartmentVisibilityForm({
       <div className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="departmentId" value={departmentId} />
         <label className="text-xs font-medium text-zinc-700">
-          In employee app
+          Show in employee application
           <select
             name="showInEmployeeApp"
             value={show}
             onChange={(e) => setShow(e.target.value)}
             className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+            aria-describedby={`department-visibility-help-${departmentId}`}
           >
-            <option value="on">Yes — show in pickers</option>
+            <option value="on">Yes — show in pickers and mode selector</option>
             <option value="off" disabled={cannotHide && show === "on"}>
-              No — hide
+              No — hide from employee app
             </option>
           </select>
         </label>
@@ -64,6 +65,13 @@ export function DepartmentVisibilityForm({
           {isPending ? "Saving…" : "Save visibility"}
         </button>
       </div>
+      <p
+        id={`department-visibility-help-${departmentId}`}
+        className="max-w-xs text-right text-xs text-zinc-500"
+      >
+        Controls employee-facing department pickers and the operational mode selector. This is not a
+        subscription or license setting.
+      </p>
       {cannotHide && showInEmployeeApp ? (
         <p className="max-w-xs text-right text-xs text-amber-800">
           {assignedEmployeeCount} employee

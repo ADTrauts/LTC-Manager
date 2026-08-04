@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { LogRecurrence, MealType, RoleKey, type UnitType } from "@prisma/client";
+import { LogRecurrence, MealType, RoleKey, UnitDepartmentKind, type UnitType } from "@prisma/client";
 
 import { Drawer } from "@/components/drawer";
 import {
@@ -11,6 +11,8 @@ import {
   reorderUnitAction,
   toggleUnitActiveAction,
   updateUnitAction,
+  upsertUnitDepartmentResponsibilityAction,
+  deleteUnitDepartmentResponsibilityAction,
 } from "@/app/(protected)/units/actions";
 import {
   createLogAssignmentAction,
@@ -23,6 +25,15 @@ type UnitMealTime = {
   scheduledTime: string;
 };
 
+type UnitDeptResp = {
+  id: string;
+  kind: UnitDepartmentKind;
+  riskLevel: string | null;
+  cleaningFrequency: string | null;
+  inspectionFrequency: string | null;
+  department: { id: string; key: string; name: string };
+};
+
 type UnitRow = {
   id: string;
   name: string;
@@ -32,6 +43,7 @@ type UnitRow = {
   displayOrder: number;
   description: string | null;
   mealTimes: UnitMealTime[];
+  departmentResponsibilities: UnitDeptResp[];
 };
 
 type ParentOption = {
@@ -52,6 +64,7 @@ type LogAssignmentRow = {
 type UnitsManagerProps = {
   units: UnitRow[];
   parentOptions: ParentOption[];
+  departments: { id: string; key: string; name: string }[];
   templates: { id: string; name: string }[];
   logAssignments: LogAssignmentRow[];
   canManageLogAssignments: boolean;
@@ -67,6 +80,12 @@ const unitTypeOptions: UnitType[] = [
   "RETAIL",
   "OFFICE",
   "STORAGE",
+  "RESIDENT_AREA",
+  "COMMON_AREA",
+  "MECHANICAL",
+  "RESTROOM_CLUSTER",
+  "EVS_ZONE",
+  "GROUND",
   "OTHER",
 ];
 
@@ -290,15 +309,102 @@ function UnitLogAssignments({
   );
 }
 
+function UnitDepartmentResponsibilitiesSection({
+  unitId,
+  rows,
+  departments,
+}: {
+  unitId: string;
+  rows: UnitDeptResp[];
+  departments: { id: string; key: string; name: string }[];
+}) {
+  const assignedDeptIds = new Set(rows.map((r) => r.department.id));
+  const available = departments.filter((d) => !assignedDeptIds.has(d.id));
+
+  return (
+    <div className="mt-6 border-t border-zinc-100 pt-4">
+      <h3 className="text-sm font-medium text-zinc-900">Department ownership</h3>
+      <p className="mt-0.5 text-xs text-zinc-500">
+        Links this location to Dietary, EVS, Plant Ops, and more. Drives meal boards and operational scoping.
+      </p>
+      <ul className="mt-3 space-y-2">
+        {rows.map((row) => (
+          <li
+            key={row.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-xs"
+          >
+            <div>
+              <span className="font-medium text-zinc-800">{row.department.name}</span>
+              <span className="text-zinc-500"> · {row.kind}</span>
+              {row.riskLevel ? <span className="text-zinc-500"> · Risk: {row.riskLevel}</span> : null}
+            </div>
+            <form action={deleteUnitDepartmentResponsibilityAction}>
+              <input type="hidden" name="responsibilityId" value={row.id} />
+              <button type="submit" className="text-red-700 hover:underline">
+                Remove
+              </button>
+            </form>
+          </li>
+        ))}
+        {rows.length === 0 ? <li className="text-xs text-zinc-500">No departments linked yet.</li> : null}
+      </ul>
+      {available.length > 0 ? (
+        <form
+          action={upsertUnitDepartmentResponsibilityAction}
+          className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <input type="hidden" name="unitId" value={unitId} />
+          <select name="departmentId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs">
+            {available.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+          <select name="kind" className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs" defaultValue="PRIMARY">
+            <option value="PRIMARY">Primary</option>
+            <option value="BACKUP">Backup</option>
+          </select>
+          <input
+            name="riskLevel"
+            placeholder="Risk level (optional)"
+            className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+          />
+          <input
+            name="cleaningFrequency"
+            placeholder="Cleaning cadence (optional)"
+            className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs sm:col-span-2 lg:col-span-1"
+          />
+          <input
+            name="inspectionFrequency"
+            placeholder="Inspection cadence (optional)"
+            className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs sm:col-span-2 lg:col-span-1"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+          >
+            Add department
+          </button>
+        </form>
+      ) : (
+        <p className="mt-2 text-xs text-zinc-500">All configured departments are linked to this unit.</p>
+      )}
+    </div>
+  );
+}
+
 function UnitCard({
   unit,
   parentOptions,
+  departments,
   templates,
   assignments,
   canManageLogAssignments,
 }: {
   unit: UnitRow;
   parentOptions: ParentOption[];
+  departments: { id: string; key: string; name: string }[];
   templates: { id: string; name: string }[];
   assignments: LogAssignmentRow[];
   canManageLogAssignments: boolean;
@@ -446,6 +552,12 @@ function UnitCard({
             </div>
           </form>
 
+          <UnitDepartmentResponsibilitiesSection
+            unitId={unit.id}
+            rows={unit.departmentResponsibilities}
+            departments={departments}
+          />
+
           <UnitLogAssignments
             unitId={unit.id}
             unitName={unit.name}
@@ -462,6 +574,7 @@ function UnitCard({
 export function UnitsManager({
   units,
   parentOptions,
+  departments,
   templates,
   logAssignments,
   canManageLogAssignments,
@@ -560,6 +673,7 @@ export function UnitsManager({
               <UnitCard
                 unit={unit}
                 parentOptions={parentOptions}
+                departments={departments}
                 templates={templates}
                 assignments={logAssignments.filter((a) => a.unitId === unit.id)}
                 canManageLogAssignments={canManageLogAssignments}

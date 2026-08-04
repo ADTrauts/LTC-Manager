@@ -47,6 +47,8 @@ export type EmployeeForManagementCard = {
   employmentType: EmploymentType;
   status: EmployeeStatus;
   primaryUnitId: string | null;
+  primaryDepartmentId: string | null;
+  jobTitleId: string | null;
   unitAccesses: { unitId: string }[];
   defaultAssignments: EmployeeCardAssignment[];
   unionMember: boolean;
@@ -69,10 +71,13 @@ export type EmployeeForManagementCard = {
 };
 
 type UnitOption = { id: string; name: string };
+type DeptJobOption = { id: string; name: string; showInEmployeeApp?: boolean };
 
 type EmployeeManagementCardProps = {
   employee: EmployeeForManagementCard;
   units: UnitOption[];
+  departments?: DeptJobOption[];
+  jobTitles?: DeptJobOption[];
   showManagerTools: boolean;
   /** When false, PIN blocks are not rendered at all (only GMs). */
   showPinManagement: boolean;
@@ -93,9 +98,13 @@ const TAB_LABEL: Record<CardTabId, string> = {
 function EmployeeProfileForm({
   employee,
   units,
+  departments,
+  jobTitles,
 }: {
   employee: EmployeeForManagementCard;
   units: UnitOption[];
+  departments: DeptJobOption[];
+  jobTitles: DeptJobOption[];
 }) {
   const [statusDraft, setStatusDraft] = useState(employee.status);
   const [unionDraft, setUnionDraft] = useState(employee.unionMember);
@@ -281,6 +290,36 @@ function EmployeeProfileForm({
               </option>
             ))}
           </select>
+          <label className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2">
+            Primary department
+            <select
+              name="primaryDepartmentId"
+              defaultValue={employee.primaryDepartmentId ?? ""}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="">Not set</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.showInEmployeeApp === false ? `${d.name} (hidden in app)` : d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2">
+            Job title
+            <select
+              name="jobTitleId"
+              defaultValue={employee.jobTitleId ?? ""}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="">Not set</option>
+              {jobTitles.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <EmployeeUnitAccessFields
             units={units}
             defaultMode={employee.unitAccesses.length > 0 ? "restricted" : "all"}
@@ -401,6 +440,8 @@ function EmployeeProfileForm({
 export function EmployeeManagementCard({
   employee,
   units,
+  departments = [],
+  jobTitles = [],
   showManagerTools,
   showPinManagement,
   hasPinSet = false,
@@ -471,6 +512,8 @@ export function EmployeeManagementCard({
                 key={`${employee.id}-${employee.status}-${employee.terminationDateIso ?? ""}-${employee.chrcOffboardingCompletedAtIso ?? ""}-${employee.chrcOffboardingNotes ?? ""}`}
                 employee={employee}
                 units={units}
+                departments={departments}
+                jobTitles={jobTitles}
               />
             </div>
           ) : (

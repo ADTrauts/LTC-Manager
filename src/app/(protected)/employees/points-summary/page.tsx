@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth";
+import { employeeWhereForFacilityAndDept, hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 type Row = {
@@ -15,7 +16,11 @@ type Row = {
   total: number;
 };
 
-export default async function EmployeesPointsSummaryPage() {
+export default async function EmployeesPointsSummaryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   noStore();
 
   const session = await getSession();
@@ -23,9 +28,16 @@ export default async function EmployeesPointsSummaryPage() {
     redirect("/login");
   }
   const facilityId = session.facilityId;
+  const sp = await searchParams;
+  const { deptId, deptName } = await resolveEmployeesDeptScope(
+    prisma,
+    facilityId,
+    "/employees/points-summary",
+    sp,
+  );
 
   const entries = await prisma.disciplinePointEntry.findMany({
-    where: { employee: { facilityId } },
+    where: { employee: employeeWhereForFacilityAndDept(facilityId, deptId) },
     select: {
       employeeId: true,
       category: true,
@@ -71,6 +83,11 @@ export default async function EmployeesPointsSummaryPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Discipline points summary</h1>
           <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+            {deptName ? (
+              <>
+                Showing <span className="font-medium text-zinc-800">{deptName}</span> only.{" "}
+              </>
+            ) : null}
             Union discipline totals (attendance + performance). Only employees with total points &gt; 0 are listed.
           </p>
         </div>
@@ -98,7 +115,7 @@ export default async function EmployeesPointsSummaryPage() {
                 <td className="px-4 py-2 font-semibold text-zinc-900">{row.total}</td>
                 <td className="px-4 py-2 text-right">
                   <Link
-                    href={`/employees#employee-${row.employeeId}`}
+                    href={hrefWithEmployeesDept("/employees", deptId, `#employee-${row.employeeId}`)}
                     className="text-zinc-700 underline hover:text-zinc-950"
                   >
                     Open card

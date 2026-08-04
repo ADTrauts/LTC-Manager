@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     email: session.email,
     facilityId: session.facilityId,
     activeUnitId: unitId ?? undefined,
+    primaryDepartmentId: session.primaryDepartmentId ?? undefined,
     kioskUnitAccessWarning: session.kioskUnitAccessWarning === true ? true : undefined,
   });
 

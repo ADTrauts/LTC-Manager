@@ -9,7 +9,8 @@ import {
   requiresEmailPasswordAccount,
 } from "@/lib/credential-policy";
 
-test("defaultAccessMethodForRole uses email/password for GM, Manager, and Supervisor", () => {
+test("defaultAccessMethodForRole uses email/password for Facility Admin, GM, Manager, and Supervisor", () => {
+  assert.equal(defaultAccessMethodForRole(RoleKey.FACILITY_ADMINISTRATOR), "EMAIL_PASSWORD");
   assert.equal(defaultAccessMethodForRole(RoleKey.GM), "EMAIL_PASSWORD");
   assert.equal(defaultAccessMethodForRole(RoleKey.MANAGER), "EMAIL_PASSWORD");
   assert.equal(defaultAccessMethodForRole(RoleKey.SUPERVISOR), "EMAIL_PASSWORD");
@@ -20,7 +21,8 @@ test("defaultAccessMethodForRole defaults to PIN for other roles", () => {
   assert.equal(defaultAccessMethodForRole(RoleKey.STAFF), "PIN_ONLY");
 });
 
-test("requiresEmailPasswordAccount identifies GM, Manager, and Supervisor", () => {
+test("requiresEmailPasswordAccount identifies Facility Admin, GM, Manager, and Supervisor", () => {
+  assert.equal(requiresEmailPasswordAccount(RoleKey.FACILITY_ADMINISTRATOR), true);
   assert.equal(requiresEmailPasswordAccount(RoleKey.GM), true);
   assert.equal(requiresEmailPasswordAccount(RoleKey.MANAGER), true);
   assert.equal(requiresEmailPasswordAccount(RoleKey.SUPERVISOR), true);

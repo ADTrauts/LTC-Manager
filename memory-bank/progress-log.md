@@ -468,3 +468,89 @@ Migrations:
 - `20260509140000_backfill_legacy_onboarding_complete`
 
 Gate: `npm run typecheck` passed on touched files.
+
+## Post–Phase E — Departments admin + Employees roster department tabs (2026-05-15)
+
+Status: complete
+
+### Problem / direction (product)
+
+- Earlier experiment scoped the **entire** Employees area by `?dept=` and hid the roster when no department was assigned — users could not assign departments and saw an empty list.
+- Desired model: **GM configures which departments exist in the employee app** under **Admin → Departments** (`showInEmployeeApp`); **department tabs** on **all** `/employees/*` routes filter HR views by enabled department; **section** tabs (Points, CHRC, etc.) stay in `EmployeesSubNav` and **preserve `?dept=`** when switching views.
+
+### Schema & migrations
+
+- **`Department.showInEmployeeApp`** (`Boolean`, default `true`) — when `false`, department is hidden from employee primary-department pickers and similar HR UI; index on `(facilityId, showInEmployeeApp)`.
+- **`Department.headEmployeeId`** — operational department lead (must be on department roster); distinct from app permission tier (`RoleKey` / GM).
+- Migrations:
+  - `20260514220000_department_head_employee`
+  - `20260515200000_department_show_in_employee_app`
+- Default departments (Dietary, EVS, Plant Operations) still seeded per facility via `src/lib/ensure-default-departments.ts` with `showInEmployeeApp: true` on **create** only.
+
+### Admin → Departments (`/admin/departments`)
+
+- Linked from **`/admin`**.
+- Per active department: toggle **In employee app** (yes/no); cannot hide while any employee has that department as **primary** or **`EmployeeDepartment`** membership.
+- **Department head** select (visible departments only): lists **on-roster** employees in one optgroup and **all other active** employees in another; **Save head** adds primary or floater membership when the chosen person is not yet on that department roster.
+- Server actions: `setDepartmentShowInEmployeeAppAction`, `setDepartmentHeadAction` in `src/app/(protected)/admin/departments/actions.ts`.
+
+### Employees layout — two tab rows (`employees/layout.tsx`)
+
+1. **Department tabs** (`EmployeesDepartmentTabs`) — first row on **every** `/employees/*` page; tabs = departments with **`showInEmployeeApp: true`** plus **All departments**. Uses current pathname so switching department **stays on the same view** (e.g. Points + Dietary stays on Points).
+2. **Section sub-nav** (`EmployeesSubNav`) — second row; links append **`?dept=`** when a department is selected.
+
+Shared server/client helpers: **`src/lib/employees-department-tabs.ts`**
+
+- `loadEmployeeAppDepartments`, `resolveEmployeesDeptScope` (invalid `dept` → redirect on current path)
+- `employeeWhereForFacilityAndDept` / `employeeBelongsToDepartmentWhere` — primary **or** `EmployeeDepartment`
+- `hrefWithEmployeesDept` — “Open card” links keep department context
+
+### Views filtered by `?dept=` (when a department tab is selected)
+
+| Route | What is scoped |
+|-------|----------------|
+| `/employees` | Directory cards + directory filters (`EmployeeDirectoryQuery.dept` → `buildEmployeeWhere`) |
+| `/employees/points-summary` | Discipline point totals |
+| `/employees/chrc-report` | Cleared / not cleared tables |
+| `/employees/separations` | Termination records + “Record separation” roster |
+| `/employees/hr-audit` | Audit log rows (last 500) |
+| `/employees/import` | **Not** department-scoped (facility-wide CSV) |
+
+- **All departments** clears `dept` and shows the full facility on each view.
+- Page subtitles note the active department when filtered (e.g. “Showing Dietary only”).
+- **Filters** on directory (`employees-filters.tsx`): hidden `dept` field so **Apply** does not drop the tab.
+
+### Employees directory — other behavior
+
+- **Profile department save fix:** dropdown includes visible departments **plus** any employee’s current primary if hidden (labeled “hidden in app”); server validation accepts active facility departments so saves do not silently clear to “Not set”.
+- **Add employee:** **`primaryDepartmentId` required** in `createEmployeeSchema` + UI (no “Not set”; defaults to first visible department; submit disabled if none enabled — message points to Admin → Departments).
+
+### Anti-patterns (do not reintroduce)
+
+- `employees-nav-shell.tsx`, `employees-department-tab-scope.ts`
+- Facility-wide **`?dept=` redirect** that hid the roster or blocked assigning departments before any employee had a primary department
+
+### Key files
+
+| Area | Path |
+|------|------|
+| Admin UI | `src/app/(protected)/admin/departments/page.tsx` |
+| Admin actions | `src/app/(protected)/admin/departments/actions.ts` |
+| Layout (both tab rows) | `src/app/(protected)/employees/layout.tsx` |
+| Department tabs (client) | `src/components/employees-department-tabs.tsx` |
+| Section sub-nav (client) | `src/components/employees-sub-nav.tsx` |
+| Dept scope helpers | `src/lib/employees-department-tabs.ts`, `src/lib/employee-department-scope.ts` |
+| Directory filters | `src/lib/employee-directory-filters.ts` |
+| Scoped pages | `employees/page.tsx`, `points-summary/page.tsx`, `chrc-report/page.tsx`, `separations/page.tsx`, `hr-audit/page.tsx` |
+| Create drawer | `src/components/create-employee-drawer.tsx` |
+| Employee actions | `src/app/(protected)/employees/actions.ts` |
+
+### Facility Administrator, department-scoped nav, repairs routing
+
+- **`RoleKey.FACILITY_ADMINISTRATOR`** tops `GM` for facility-wide **`/admin`**, onboarding APIs, Stripe billing helpers, device bind/unbind, and permissions/org server actions.
+- **`/signup`** seeds the hub user + roster row as **`FACILITY_ADMINISTRATOR`** (see `signup/route.ts`, `ensure-gm-employee-roster.ts`).
+- **Repairs:** `RepairTrade` on create + `suggestRepairDepartmentIds`; EVS **`createEvsRepairTicketAction`** + board form (no Repairs nav for EVS per `department-nav.ts`).
+- **Assets:** `departmentId` on **`createAssetAction`** / **`updateAssetDepartmentAction`** with unit-based default fallback.
+- **Tests:** extended `credential-policy.test.ts`, `route-permissions.test.ts` for FA semantics.
+
+Gate: `npx prisma migrate deploy`, `npx prisma generate`, `npx tsc --noEmit` passed after implementation.

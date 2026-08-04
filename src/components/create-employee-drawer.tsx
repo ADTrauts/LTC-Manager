@@ -17,9 +17,11 @@ type UnitOption = { id: string; name: string };
 
 type CreateEmployeeDrawerProps = {
   units: UnitOption[];
+  departments: UnitOption[];
+  jobTitles: UnitOption[];
 };
 
-export function CreateEmployeeDrawer({ units }: CreateEmployeeDrawerProps) {
+export function CreateEmployeeDrawer({ units, departments, jobTitles }: CreateEmployeeDrawerProps) {
   const [open, setOpen] = useState(false);
   const [roleType, setRoleType] = useState<RoleKey>(RoleKey.STAFF);
   const [accessMethod, setAccessMethod] = useState<AccessMethod>(defaultAccessMethodForRole(RoleKey.STAFF));
@@ -158,9 +160,49 @@ export function CreateEmployeeDrawer({ units }: CreateEmployeeDrawerProps) {
               }}
             />
           </div>
+          <label className="flex flex-col gap-1 text-xs text-zinc-600 sm:col-span-2">
+            <span>
+              Primary department <span className="font-medium text-red-700">(required)</span>
+            </span>
+            {departments.length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                No departments are enabled for the employee app. Open{" "}
+                <span className="font-medium">Admin → Departments</span> and turn on at least one department, then try
+                again.
+              </p>
+            ) : (
+              <select
+                name="primaryDepartmentId"
+                required
+                defaultValue={departments[0]!.id}
+                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+              >
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-zinc-600 sm:col-span-2">
+            Job title
+            <select name="jobTitleId" className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
+              <option value="">Not set</option>
+              {jobTitles.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <EmployeeUnitAccessFields units={units} />
           <div className="sm:col-span-2">
-            <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
+            <button
+              type="submit"
+              disabled={departments.length === 0}
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+            >
               Add employee
             </button>
           </div>

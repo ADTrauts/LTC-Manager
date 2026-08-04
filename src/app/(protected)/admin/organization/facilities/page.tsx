@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { ROLE_PRIORITY, type AppRole } from "@/lib/access";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import {
@@ -97,23 +98,14 @@ export default async function OrganizationFacilitiesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <p className="text-sm text-zinc-500">
-          <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Admin
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <Link href="/admin/organization" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Organization
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <span className="text-zinc-600">Facilities</span>
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Organization facilities</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          {orgName}. Facility remains the operational scope. Access requires an explicit grant.
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Facilities & User Access"
+        trail={[
+          { label: "Organization Settings", href: "/admin/organization" },
+          { label: "Facilities & User Access" },
+        ]}
+        subtitle={`${orgName}. Multi-site facility visibility and explicit user facility grants. Facility remains the operational scope; access requires an explicit grant. Not required for normal single-facility operation.`}
+      />
 
       <section className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-100 px-5 py-4">

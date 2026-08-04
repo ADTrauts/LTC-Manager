@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { UnitType } from "@prisma/client";
+import { UnitDepartmentKind, UnitType } from "@prisma/client";
 import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
@@ -15,6 +15,12 @@ const UNIT_TYPES = [
   UnitType.RETAIL,
   UnitType.OFFICE,
   UnitType.STORAGE,
+  UnitType.RESIDENT_AREA,
+  UnitType.COMMON_AREA,
+  UnitType.MECHANICAL,
+  UnitType.RESTROOM_CLUSTER,
+  UnitType.EVS_ZONE,
+  UnitType.GROUND,
   UnitType.OTHER,
 ] as const;
 
@@ -111,6 +117,7 @@ async function upsertMealTimes(unitId: string, input: ReturnType<typeof getMealT
 function revalidateShellViews() {
   revalidatePath("/units");
   revalidatePath("/dashboard");
+  revalidatePath("/evs");
   revalidatePath("/unit/[unitId]", "page");
 }
 
@@ -292,5 +299,93 @@ export async function reorderUnitListAction(formData: FormData) {
     ),
   );
 
+  revalidateShellViews();
+}
+
+const upsertResponsibilitySchema = z.object({
+  unitId: z.string().cuid(),
+  departmentId: z.string().cuid(),
+  riskLevel: z.string().trim().max(120).optional(),
+  cleaningFrequency: z.string().trim().max(120).optional(),
+  inspectionFrequency: z.string().trim().max(120).optional(),
+});
+
+const deleteResponsibilitySchema = z.object({
+  responsibilityId: z.string().cuid(),
+});
+
+export async function upsertUnitDepartmentResponsibilityAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+
+  const parsed = upsertResponsibilitySchema.parse({
+    unitId: formData.get("unitId"),
+    departmentId: formData.get("departmentId"),
+    riskLevel: toOptional(formData.get("riskLevel")),
+    cleaningFrequency: toOptional(formData.get("cleaningFrequency")),
+    inspectionFrequency: toOptional(formData.get("inspectionFrequency")),
+  });
+
+  const kind =
+    formData.get("kind") === UnitDepartmentKind.BACKUP
+      ? UnitDepartmentKind.BACKUP
+      : UnitDepartmentKind.PRIMARY;
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: parsed.unitId, facilityId: session.facilityId },
+    select: { id: true },
+  });
+  if (!unit) {
+    throw new Error("Unit not found.");
+  }
+
+  const dept = await prisma.department.findFirst({
+    where: { id: parsed.departmentId, facilityId: session.facilityId, isActive: true },
+    select: { id: true },
+  });
+  if (!dept) {
+    throw new Error("Department not found.");
+  }
+
+  await prisma.unitDepartmentResponsibility.upsert({
+    where: {
+      unitId_departmentId: { unitId: parsed.unitId, departmentId: parsed.departmentId },
+    },
+    update: {
+      kind,
+      riskLevel: parsed.riskLevel ?? null,
+      cleaningFrequency: parsed.cleaningFrequency ?? null,
+      inspectionFrequency: parsed.inspectionFrequency ?? null,
+    },
+    create: {
+      unitId: parsed.unitId,
+      departmentId: parsed.departmentId,
+      kind,
+      riskLevel: parsed.riskLevel ?? null,
+      cleaningFrequency: parsed.cleaningFrequency ?? null,
+      inspectionFrequency: parsed.inspectionFrequency ?? null,
+    },
+  });
+
+  revalidateShellViews();
+}
+
+export async function deleteUnitDepartmentResponsibilityAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+
+  const parsed = deleteResponsibilitySchema.parse({
+    responsibilityId: formData.get("responsibilityId"),
+  });
+
+  const row = await prisma.unitDepartmentResponsibility.findFirst({
+    where: { id: parsed.responsibilityId, unit: { facilityId: session.facilityId } },
+    select: { id: true },
+  });
+  if (!row) {
+    throw new Error("Responsibility not found.");
+  }
+
+  await prisma.unitDepartmentResponsibility.delete({ where: { id: row.id } });
   revalidateShellViews();
 }

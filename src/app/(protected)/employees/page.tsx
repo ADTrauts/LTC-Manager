@@ -16,6 +16,8 @@ import {
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
+import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
+import { resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 function toIsoDate(d: Date | null): string | null {
@@ -44,6 +46,8 @@ function toEmployeeCardProps(
     employmentType: EmployeeForManagementCard["employmentType"];
     status: EmployeeForManagementCard["status"];
     primaryUnitId: string | null;
+    primaryDepartmentId: string | null;
+    jobTitleId: string | null;
     unionMember: boolean;
     onLeave: boolean;
     hireDate: Date | null;
@@ -91,6 +95,8 @@ function toEmployeeCardProps(
     employmentType: employee.employmentType,
     status: employee.status,
     primaryUnitId: employee.primaryUnitId,
+    primaryDepartmentId: employee.primaryDepartmentId,
+    jobTitleId: employee.jobTitleId,
     unitAccesses: employee.unitAccesses,
     defaultAssignments: employee.defaultAssignments,
     unionMember: employee.unionMember,
@@ -126,6 +132,7 @@ function parseDirectoryQuery(sp: { [key: string]: string | string[] | undefined 
     hasPoints: one("hasPoints"),
     birthMonth: one("birthMonth"),
     sort: one("sort"),
+    dept: one("dept"),
   };
 }
 
@@ -145,12 +152,18 @@ export default async function EmployeesPage({
   const showPinManagement = hasAtLeastRole(session.role, "GM");
   const showManagerTools = hasAtLeastRole(session.role, "MANAGER");
 
+  if ((await prisma.department.count({ where: { facilityId } })) === 0) {
+    await ensureDefaultDepartments(prisma, facilityId);
+  }
+
   const sp = await searchParams;
+  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees", sp);
+
   const directoryQuery = parseDirectoryQuery(sp);
   const where = buildEmployeeWhere(facilityId, directoryQuery);
   const orderBy = buildEmployeeOrderBy(directoryQuery.sort);
 
-  const [employees, units] = await Promise.all([
+  const [employees, units, jobTitles] = await Promise.all([
     prisma.employee.findMany({
       where,
       orderBy,
@@ -164,6 +177,8 @@ export default async function EmployeesPage({
         status: true,
         employmentType: true,
         primaryUnitId: true,
+        primaryDepartmentId: true,
+        jobTitleId: true,
         unionMember: true,
         onLeave: true,
         hireDate: true,
@@ -201,7 +216,33 @@ export default async function EmployeesPage({
       orderBy: { displayOrder: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.jobTitle.findMany({
+      where: { facilityId, isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
   ]);
+
+  const primaryDeptIdsOnPage = [
+    ...new Set(
+      employees.map((e) => e.primaryDepartmentId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const departments = await prisma.department.findMany({
+    where: {
+      facilityId,
+      isActive: true,
+      OR: [
+        { showInEmployeeApp: true },
+        ...(primaryDeptIdsOnPage.length > 0 ? [{ id: { in: primaryDeptIdsOnPage } }] : []),
+      ],
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, showInEmployeeApp: true },
+  });
+
+  const departmentsForCreate = departments.filter((d) => d.showInEmployeeApp);
 
   const distinctEmails = [
     ...new Set(
@@ -231,12 +272,20 @@ export default async function EmployeesPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Employees</h1>
           <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+            {deptName ? (
+              <>
+                Showing <span className="font-medium text-zinc-800">{deptName}</span> only (primary or additional
+                department).{" "}
+              </>
+            ) : null}
             {showPinManagement
               ? "Create and update people, unit access for PIN sign-in, default assignments, HR fields, and floor PINs."
               : "Create and update people, unit access for PIN sign-in, default assignments, and HR fields."}
           </p>
         </div>
-        {showManagerTools ? <CreateEmployeeDrawer units={units} /> : null}
+        {showManagerTools ? (
+          <CreateEmployeeDrawer units={units} departments={departmentsForCreate} jobTitles={jobTitles} />
+        ) : null}
       </header>
 
       <EmployeesFiltersCollapsible
@@ -258,6 +307,8 @@ export default async function EmployeesPage({
               ),
             )}
             units={units}
+            departments={departments}
+            jobTitles={jobTitles}
             showManagerTools={showManagerTools}
             showPinManagement={showPinManagement}
             {...(showPinManagement ? { hasPinSet: Boolean(employee.pinDigest) } : {})}

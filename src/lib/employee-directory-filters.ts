@@ -1,5 +1,7 @@
 import { ChrcStatus, EmployeeStatus, JobClassification, Prisma, WorkStation } from "@prisma/client";
 
+import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
+
 export type EmployeeDirectoryQuery = {
   q?: string;
   status?: string;
@@ -13,6 +15,8 @@ export type EmployeeDirectoryQuery = {
   /** 1–12 or `all` */
   birthMonth?: string;
   sort?: string;
+  /** Department id (must be an app-visible department); roster shows primary + floater membership. */
+  dept?: string;
 };
 
 export function buildEmployeeWhere(
@@ -79,6 +83,11 @@ export function buildEmployeeWhere(
     }
   }
 
+  const deptId = query.dept?.trim();
+  if (deptId) {
+    parts.push(employeeBelongsToDepartmentWhere(deptId));
+  }
+
   return parts.length === 1 ? parts[0]! : { AND: parts };
 }
 
@@ -125,5 +134,6 @@ export function countNonDefaultEmployeeFilters(query: EmployeeDirectoryQuery): n
   if (query.hasPoints && query.hasPoints !== "all") n += 1;
   if (query.birthMonth && query.birthMonth !== "all") n += 1;
   if (query.sort && query.sort !== "name") n += 1;
+  if (query.dept?.trim()) n += 1;
   return n;
 }

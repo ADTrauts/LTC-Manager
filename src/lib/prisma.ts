@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 
-declare global {
-  var prisma: PrismaClient | undefined;
-}
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -11,15 +11,12 @@ function createPrismaClient() {
 }
 
 /**
- * In production we reuse one client on the global object (connection pooling).
- * In development we must NOT cache on `global`: after `prisma generate`, a cached
- * instance would still validate queries against the old schema until process restart.
+ * Reuse one PrismaClient per Node process. Required in Next.js dev: without this,
+ * Turbopack/HMR reloads leak connections until Postgres refuses new clients.
+ * After `prisma generate` or schema changes, restart the dev server (see AGENTS.md).
  */
-export const prisma =
-  process.env.NODE_ENV === "production"
-    ? (global.prisma ?? createPrismaClient())
-    : createPrismaClient();
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV === "production") {
-  global.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }

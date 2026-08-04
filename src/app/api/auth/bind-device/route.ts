@@ -33,8 +33,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  if (!hasAtLeastRole(session.role as AppRole, "GM")) {
-    return NextResponse.json({ error: "Only General Managers can bind this device." }, { status: 403 });
+  if (!hasAtLeastRole(session.role as AppRole, "FACILITY_ADMINISTRATOR")) {
+    return NextResponse.json({ error: "Only Facility Administrators can bind this device." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({}));

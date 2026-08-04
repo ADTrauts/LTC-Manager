@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { applyLogTemplatePresets } from "../prisma/apply-log-template-presets.mjs";
+import { upsertDefaultDepartments } from "../prisma/ensure-departments.mjs";
 
 function loadEnvFile() {
   try {
@@ -41,7 +42,12 @@ async function main() {
   const facilities = await prisma.facility.findMany({ select: { id: true, displayName: true } });
   for (const f of facilities) {
     console.log(`Applying log presets: ${f.displayName} (${f.id})`);
-    await applyLogTemplatePresets(prisma, { facilityId: f.id, createdByRoleId: null });
+    const departmentIds = await upsertDefaultDepartments(prisma, f.id);
+    await applyLogTemplatePresets(prisma, {
+      facilityId: f.id,
+      createdByRoleId: null,
+      departmentIds,
+    });
   }
   console.log("Done.");
 }

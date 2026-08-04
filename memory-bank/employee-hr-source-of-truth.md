@@ -20,7 +20,10 @@ These are **done in code** as of the consolidated Employees work and follow-on H
 
 | Item | Behavior |
 |------|----------|
-| **Navigation (Manager+)** | **Employees** is a single top-nav item. **Points**, **Terminations**, **CHRC report**, **HR audit**, and **Import** live in a **second row of tabs** under `/employees` (order: Employees → Points → Terminations → CHRC → HR audit → Import). The top **Employees** link stays highlighted for all of those routes. |
+| **Navigation (two rows in layout)** | **Employees** is one top-nav item. Under `/employees`, **`employees/layout.tsx`** renders: (1) **Department tabs** — Dietary / EVS / etc. (only departments with **`showInEmployeeApp`**) + **All departments**; (2) **Section tabs** (`EmployeesSubNav`) — **Employees**, **Points**, **CHRC** (STAFF+); **Separations**, **HR audit**, **Import** (MANAGER+). Section links **preserve `?dept=`**. |
+| **Department scope (`?dept=`)** | When a department tab is selected, **directory**, **Points**, **CHRC**, **Separations**, and **HR audit** list only employees on that department (**`primaryDepartmentId`** or **`EmployeeDepartment`**). **Import** is **not** department-scoped. **All departments** clears the filter. Directory **Search & filters** keep `dept` via a hidden field. Helpers: `src/lib/employees-department-tabs.ts`, `src/lib/employee-department-scope.ts`. |
+| **Admin → Departments (GM)** | **`/admin/departments`**: turn departments on/off for the employee app; assign **department head** (operational lead, not app GM role). Cannot hide a department while anyone is assigned to it. |
+| **Primary department** | On **Add employee**, primary department is **required** (visible departments only). On **profile edit**, optional “Not set” remains for edge cases; dropdown must include the employee’s current primary even if that department is hidden (labeled “hidden in app”). |
 | **Layout** | Single scrollable list of **employee cards** (directory + default assignments + profile no longer split into unrelated page sections). |
 | **Collapse** | Card body is **collapsed by default**; expand to see details. Expanded card uses **tabs**: **Personal**, **HR & Union**, **CHRC**, **Assignments**, and **Discipline** (when union member or union is checked before save). **Floor PIN** (GM-only) sits in a **footer** below the tabs, not inside them. |
 | **Profile save** | **One Save profile** submits Personal + HR & Union + CHRC + unit access (hidden tab panels stay in the DOM). **Add assignment** remains a separate action on the Assignments tab. |
@@ -29,12 +32,12 @@ These are **done in code** as of the consolidated Employees work and follow-on H
 | **Default assignments** | Per-employee **add assignment** (no global “pick employee” form). |
 | **HR fields (v1)** | **Union member** (single flag — covers seniority context + union discipline UI), hire date, classification, **multi-station** assignments, CHRC, shirt, notes, on-leave, birthday month-day — editable on the card (**HR & Union** / **CHRC** tabs). **Directory filters**: search, **employment status**, union, classification, station, CHRC, leave, **has discipline points**, **birth month**; **sort** (name, hire date, status). |
 | **Termination + CHRC offboarding** | When **employment status** is **Terminated**: **termination date**, **CHRC offboarding** (completed date + notes). Cleared when status is not terminated. |
-| **Termination records** | **Immutable** `EmployeeTerminationRecord` row + JSON **snapshot** on each transition to **Terminated**; report at **`/employees/terminations`**. |
-| **CHRC report** | **Managers+** at **`/employees/chrc-report`**: roster (non-terminated) split into **Cleared** (`chrcStatus === CLEARED`) vs **Not cleared** (any other status or unset), with optional cleared date and status label. |
-| **HR audit** | Field-level log for **profile** saves and **PIN** set/clear; report at **`/employees/hr-audit`** (last 500). |
+| **Termination records** | **Immutable** `EmployeeTerminationRecord` + JSON snapshot on transition to **Terminated**; **`/employees/separations`** (legacy **`/employees/terminations`** redirects); respects **`?dept=`** when set. |
+| **CHRC report** | **`/employees/chrc-report`**: non-terminated roster split **Cleared** vs **Not cleared**; respects active **`?dept=`** filter when set. |
+| **HR audit** | **`/employees/hr-audit`**: profile + PIN audit (last 500); respects active **`?dept=`** filter when set. |
 | **Union handbook** | **GM** uploads PDF under **Admin → Organization** (`/admin/organization`; **`/settings`** redirects there); **Managers+** open via **`/api/facility/union-handbook`**; link from union **discipline** card. |
 | **Dashboard** | **Birthdays this month** with links to `#employee-{id}` on `/employees`. |
-| **Union discipline** | **`DisciplinePointEntry`** (attendance / performance, date, note); shown on cards when **`unionMember`**; **Points summary** at `/employees/points-summary` (employees with totals **&gt; 0**). |
+| **Union discipline** | **`DisciplinePointEntry`** (attendance / performance, date, note); shown on cards when **`unionMember`**; **Points summary** at `/employees/points-summary` (totals **&gt; 0**; respects **`?dept=`** when set). |
 | **CSV roster import** | **Managers+** at **`/employees/import`**; downloadable template; **upsert** by email (preferred) or first+last name; **create** rows cannot use **Terminated** (use ACTIVE/OFFBOARDING); **update** can set terminated and sync termination/offboarding fields; **2 MB** / **500** data-row limits; **primary unit** by unit **name** when column present; stations as pipe/comma-separated codes. |
 
 **Data rule:** There is **no** separate “union discipline tracking” column — **`unionMember`** alone gates seniority-related copy and discipline/points surfaces.
@@ -101,7 +104,7 @@ The old tracker included:
 - **Do** use:
   - **Employees** (and future HR views): **filters** — e.g. union / non-union, classification, station, status (active / leave / terminated), CHRC status, “has discipline points,” birthday month, search by name. On the directory, the filter block is **collapsible** (collapsed by default; opens automatically when any filter is non-default; shows **N active** when collapsed and filters apply).
   - **Sorting** where useful (e.g. name, hire date, seniority for union).
-  - **In-app routes** — e.g. `/employees` with query or panel state for filters; optional **anchor/hash** to a specific employee card when sharing a link inside the app. Related HR surfaces (**points summary**, **terminations**, **CHRC report**, **CSV import**, **HR audit**) are reached via **tabs under Employees**, not separate top-nav items.
+  - **In-app routes** — `/employees` and related paths use query state for filters (`q`, `status`, union, etc.) and optional **`dept`** (department tabs in layout). **Points**, **CHRC**, **separations**, and **HR audit** honor the same **`dept`** filter; **import** does not. Optional **anchor/hash** `#employee-{id}` on directory links; “Open card” links include `dept` when a department is active.
 - **Reports** (points summary, terminations, audit): same idea — **filterable tables** and links to **open the employee in-app**, not export-only.
 
 **Gap vs §4.8 (minor):** **Seniority sort** is not a separate control (hire date proxies for union seniority). Optional **birthdays this week** on the dashboard (§5.4).
@@ -128,6 +131,9 @@ The old tracker included:
 | **CHRC** | Shipped | Status + notes pattern; terminations + offboarding (§2). |
 | **HR notes** | Shipped | Free text. |
 | **Shirt size / on-leave** | Shipped | As fields on employee. |
+| **Primary department** | Shipped | `Employee.primaryDepartmentId`; required on **create**; optional on profile edit; facility departments gated by **`showInEmployeeApp`** (Admin → Departments). |
+| **Floater / multi-dept** | Shipped | `EmployeeDepartment` join rows; included in department roster tab filter and department-head eligibility. |
+| **Job title** | Shipped | `JobTitle` model + `jobTitleId` on employee (separate from `roleType`). |
 
 ### 5.2 Discipline & points
 
@@ -159,6 +165,7 @@ The old tracker included:
 | Item | Status | Notes |
 |------|--------|--------|
 | Search + filters (status, union, classification, station, CHRC, leave, **has points**, **birth month**) | Shipped | Query params on `/employees`; **collapsible** “Search & filters” panel (see §4.8). |
+| **Department tabs** + **`dept` filter** | Shipped | Layout-level tabs on all `/employees/*` routes; filters directory, points, CHRC, separations, HR audit (not import). |
 | **Sort** (name, hire date, status) | Shipped | See §2. |
 | **CSV import** (roster) | Shipped | `/employees/import`; Manager+; **Import** tab last in **Employees** sub-nav (see §2). |
 | **CHRC report** (cleared vs not) | Shipped | `/employees/chrc-report`; non-terminated employees; see §2. |
@@ -219,4 +226,4 @@ Refine per role in app settings when RBAC is extended.
 2. **Scope debates**: If it’s not here, add it here first, then build.
 3. **After each milestone**: Update **§2** (shipped), **§5** (status tables), and **§5.0** if priorities shift.
 
-Last updated: 2026-03-31 — Employee cards **tabbed** (Personal, HR & Union, CHRC, Assignments, Discipline); single profile save; PIN **footer**; **CHRC report** at `/employees/chrc-report`; sub-nav order includes **CHRC** before HR audit; §2 and §5.4b updated.
+Last updated: 2026-05-15 — **Admin → Departments**; department tabs on **all** `/employees/*` pages; **`?dept=`** scopes directory, points, CHRC, separations, HR audit (import excluded); section sub-nav preserves `dept`; required primary department on create; profile save fix for hidden departments; §2, §4.8, §5.1, §5.4b updated.

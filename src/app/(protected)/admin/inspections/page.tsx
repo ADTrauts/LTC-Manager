@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   setInspectionDefinitionActiveAction,
 } from "@/app/(protected)/admin/inspections/actions";
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { InspectionDefinitionEditor } from "@/components/inspections/inspection-definition-editor";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import { prisma } from "@/lib/prisma";
@@ -58,21 +59,11 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <header>
-        <p className="text-sm text-zinc-500">
-          <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Admin
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <span className="text-zinc-600">Inspections</span>
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Inspection definitions</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Build structured location or department inspections for Unit Workspace. Separate from compliance logs.
-          Recurring due generation is not enabled yet — active definitions appear as available work on matching
-          units.
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Inspections"
+        trail={[{ label: "Inspections" }]}
+        subtitle="Create structured inspections, verification checklists, findings, and follow-up requirements. Separate from recurring operational logs. Recurring due generation is not enabled yet — active definitions appear as available work on matching units."
+      />
 
       {query?.saved ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

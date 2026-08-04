@@ -5,7 +5,12 @@ export type AccessMethod = (typeof accessMethodValues)[number];
 
 /** App sign-in with email/password is required for these employee role types. */
 export function requiresEmailPasswordAccount(role: RoleKey): boolean {
-  return role === RoleKey.GM || role === RoleKey.MANAGER || role === RoleKey.SUPERVISOR;
+  return (
+    role === RoleKey.FACILITY_ADMINISTRATOR ||
+    role === RoleKey.GM ||
+    role === RoleKey.MANAGER ||
+    role === RoleKey.SUPERVISOR
+  );
 }
 
 export function isLeadershipRole(role: RoleKey): boolean {

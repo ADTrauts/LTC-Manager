@@ -28,9 +28,9 @@ const createRoleSchema = z.object({
   description: z.string().trim().max(280).optional(),
 });
 
-async function assertGm() {
+async function assertFacilityAdministratorSession() {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   return session;
 }
 
@@ -40,7 +40,7 @@ function revalidatePermissionsViews() {
 }
 
 export async function updateRoleAction(formData: FormData) {
-  const session = await assertGm();
+  const session = await assertFacilityAdministratorSession();
   const parsed = updateRoleSchema.parse({
     roleId: formData.get("roleId"),
     name: formData.get("name"),
@@ -59,6 +59,9 @@ export async function updateRoleAction(formData: FormData) {
   if (role.key === RoleKey.GM && !parsed.isActive) {
     throw new Error("General Manager role cannot be deactivated.");
   }
+  if (role.key === RoleKey.FACILITY_ADMINISTRATOR && !parsed.isActive) {
+    throw new Error("Facility Administrator role cannot be deactivated.");
+  }
   if (role.key === session.role && !parsed.isActive) {
     throw new Error("You cannot deactivate your current role.");
   }
@@ -76,7 +79,7 @@ export async function updateRoleAction(formData: FormData) {
 }
 
 export async function createRoleAction(formData: FormData) {
-  await assertGm();
+  await assertFacilityAdministratorSession();
   const parsed = createRoleSchema.parse({
     key: formData.get("key"),
     name: formData.get("name"),
@@ -111,7 +114,10 @@ export async function createRoleAction(formData: FormData) {
       data: routes.map((route) => ({
         roleId: role.id,
         appRouteId: route.id,
-        allowed: route.isCritical ? parsed.key === RoleKey.GM : false,
+        allowed:
+          route.isCritical ?
+            parsed.key === RoleKey.FACILITY_ADMINISTRATOR || parsed.key === RoleKey.GM
+          : false,
       })),
     });
   }
@@ -120,7 +126,7 @@ export async function createRoleAction(formData: FormData) {
 }
 
 export async function setRoutePermissionAction(formData: FormData) {
-  await assertGm();
+  await assertFacilityAdministratorSession();
   const parsed = setPermissionSchema.parse({
     roleId: formData.get("roleId"),
     appRouteId: formData.get("appRouteId"),
@@ -174,7 +180,7 @@ export async function setRoutePermissionAction(formData: FormData) {
 }
 
 export async function cloneRolePermissionsAction(formData: FormData) {
-  await assertGm();
+  await assertFacilityAdministratorSession();
   const sourceRoleId = String(formData.get("sourceRoleId") ?? "");
   const targetRoleId = String(formData.get("targetRoleId") ?? "");
   if (!sourceRoleId || !targetRoleId || sourceRoleId === targetRoleId) {

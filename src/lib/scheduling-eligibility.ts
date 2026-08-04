@@ -6,6 +6,12 @@ const unitTypeEligibleStations: Record<UnitType, WorkStation[]> = {
   RETAIL: ["RETAIL"],
   OFFICE: ["OFFICE"],
   STORAGE: ["UTILITY", "PORTER"],
+  RESIDENT_AREA: [],
+  COMMON_AREA: [],
+  MECHANICAL: ["UTILITY"],
+  RESTROOM_CLUSTER: [],
+  EVS_ZONE: ["PORTER", "UTILITY"],
+  GROUND: ["PORTER"],
   OTHER: [],
 };
 

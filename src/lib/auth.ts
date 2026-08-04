@@ -17,6 +17,8 @@ export type AppJwtPayload = JWTPayload & {
   email: string;
   facilityId: string;
   activeUnitId?: string | null;
+  /** When set, department-scoped lists default to this department (user or employee primary). */
+  primaryDepartmentId?: string | null;
   /** Set when PIN login used a unit-locked tablet the employee is not assigned to (see `EmployeeUnitAccess`). */
   kioskUnitAccessWarning?: boolean;
 };
@@ -38,6 +40,7 @@ export async function createSessionToken(payload: {
   email: string;
   facilityId: string;
   activeUnitId?: string | null;
+  primaryDepartmentId?: string | null;
   kioskUnitAccessWarning?: boolean;
 }) {
   const authKind = payload.authKind ?? "user";
@@ -54,6 +57,9 @@ export async function createSessionToken(payload: {
   }
   if (payload.kioskUnitAccessWarning === true) {
     body.kioskUnitAccessWarning = true;
+  }
+  if (payload.primaryDepartmentId !== undefined && payload.primaryDepartmentId !== null) {
+    body.primaryDepartmentId = payload.primaryDepartmentId;
   }
 
   return new SignJWT(body)
@@ -76,6 +82,7 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
     email: String(p.email ?? ""),
     facilityId: String(p.facilityId ?? ""),
     activeUnitId: (p.activeUnitId as string | undefined) ?? undefined,
+    primaryDepartmentId: (p.primaryDepartmentId as string | undefined) ?? undefined,
     kioskUnitAccessWarning: p.kioskUnitAccessWarning === true,
   } as AppJwtPayload;
 }

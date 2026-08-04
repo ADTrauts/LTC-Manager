@@ -1,5 +1,6 @@
-/** App roles: STAFF = Team Member (operational floor role). */
+/** App roles: FACILITY_ADMINISTRATOR tops org-wide admin; GM = department-head tier at facility level enum (scoped by roster in product rules). STAFF = Team Member. */
 export const APP_ROLES = [
+  "FACILITY_ADMINISTRATOR",
   "GM",
   "MANAGER",
   "SUPERVISOR",
@@ -11,6 +12,7 @@ export type AppRole = (typeof APP_ROLES)[number];
 
 /** Higher number = more authority. */
 export const ROLE_PRIORITY: Record<AppRole, number> = {
+  FACILITY_ADMINISTRATOR: 6,
   GM: 5,
   MANAGER: 4,
   SUPERVISOR: 3,
@@ -26,4 +28,9 @@ export function requireAtLeastRole(role: AppRole, min: AppRole): void {
   if (!hasAtLeastRole(role, min)) {
     throw new Error("Insufficient permissions.");
   }
+}
+
+/** All role keys in priority order (highest first) for iteration. */
+export function allAppRolesDescending(): AppRole[] {
+  return [...APP_ROLES].sort((a, b) => ROLE_PRIORITY[b] - ROLE_PRIORITY[a]);
 }

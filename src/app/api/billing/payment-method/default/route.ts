@@ -13,7 +13,7 @@ const payloadSchema = z.object({
 
 export async function POST(request: Request) {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "GM");
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
   const body = await request.json().catch(() => null);
   const parsed = payloadSchema.safeParse(body);

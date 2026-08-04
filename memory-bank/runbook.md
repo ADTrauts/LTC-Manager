@@ -19,7 +19,7 @@ Required in `.env`:
 
 Typical local DB URL:
 
-`postgresql://ltc_admin:ltc_password@127.0.0.1:5432/ltc_manager?schema=public`
+`postgresql://USER:PASSWORD@127.0.0.1:5432/ltc_manager?schema=public`
 
 **Union handbook PDF:** GM uploads under **Organization** store files under `uploads/facilities/{facilityId}/` (gitignored). Back up this folder with your deployment backups if you rely on handbook storage.
 
@@ -74,6 +74,25 @@ Notes:
 - Stripe card collection for the full in-wizard flow depends on the three Stripe env vars above.
 - **GM missing from Employees roster:** open **`/employees`** once (auto-fix), or run **`npm run db:backfill-gm-roster`** from `ltc-manager/`.
 - Use `docs/self-serve-smoke-test.md` as a pre-release verification checklist for this flow.
+
+### Departments (employee app visibility + heads)
+
+After pulling code that adds department admin / roster tabs, apply:
+
+```bash
+cd "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager"
+npx prisma migrate deploy
+npx prisma generate
+```
+
+Relevant migrations:
+
+- `20260514220000_department_head_employee` — `Department.headEmployeeId`
+- `20260515200000_department_show_in_employee_app` — `Department.showInEmployeeApp` (default `true` for existing rows)
+
+**GM workflow:** **Admin → Departments** (`/admin/departments`) — turn departments on for the employee app, assign department heads. If **Add employee** is disabled for department, enable at least one department there.
+
+**Employees area:** department tabs appear on **all** `/employees/*` pages (layout). `?dept=<id>` filters **directory**, **points summary**, **CHRC report**, **separations**, and **HR audit** to employees whose **primary** department matches or who have an **`EmployeeDepartment`** row. **Import** is not filtered by department. **All departments** clears `dept`. Invalid `dept` values redirect on the **current** path without `dept`. Section tabs (Points, CHRC, etc.) keep `dept` in the URL when switching views.
 
 ### Shipped log template presets
 

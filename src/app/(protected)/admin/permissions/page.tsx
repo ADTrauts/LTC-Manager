@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { ROLE_PRIORITY, type AppRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -51,19 +51,11 @@ export default async function AdminPermissionsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <div>
-        <p className="text-sm text-zinc-500">
-          <Link href="/admin" className="font-medium text-zinc-700 hover:text-zinc-900">
-            Admin
-          </Link>
-          <span className="mx-1.5 text-zinc-400">/</span>
-          <span className="text-zinc-600">Permissions</span>
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Jobs and route permissions</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Manage app jobs and control which routes each job can access.
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Roles & Permissions"
+        trail={[{ label: "Roles & Permissions" }]}
+        subtitle="Configure application roles and control which areas each role may access."
+      />
 
       <PermissionsManager
         roles={roles}

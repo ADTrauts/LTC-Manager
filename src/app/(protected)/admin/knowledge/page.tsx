@@ -9,11 +9,11 @@ import {
 } from "@/components/knowledge/knowledge-article-editor";
 import { KnowledgeArticleLifecycleActions } from "@/components/knowledge/knowledge-article-lifecycle-actions";
 import { KnowledgeArticlePreview } from "@/components/knowledge/knowledge-article-preview";
+import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import {
   AppCard,
   EmptyState,
   OperationalListRow,
-  PageHeader,
   StatusBadge,
   operationalListShellClass,
 } from "@/components/design-system";
@@ -158,19 +158,10 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
 
   return (
     <div className="mx-auto max-w-4xl space-y-6" data-testid="admin-knowledge">
-      <PageHeader
-        icon="logs"
-        eyebrow="Administration"
-        title="Operational knowledge"
-        subtitle="Create and maintain reusable SOPs and reference content for locations, assets, logs, and inspections."
-        actions={
-          <Link
-            href="/admin"
-            className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800"
-          >
-            Admin home
-          </Link>
-        }
+      <AdminPageHeader
+        title="Procedures & Resources"
+        trail={[{ label: "Procedures & Resources" }]}
+        subtitle="Manage SOPs, policies, instructions, job aids, and reference materials. Link articles to departments, locations, assets, logs, and inspections so they surface at the point of work. These resources do not assign departments to rooms."
       />
 
       {query?.saved ? (

@@ -23,6 +23,8 @@ export type EmployeeProfileSnapshot = {
   terminationDateIso: string | null;
   chrcOffboardingCompletedAtIso: string | null;
   chrcOffboardingNotes: string | null;
+  primaryDepartmentId: string | null;
+  jobTitleId: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -125,6 +127,8 @@ export function diffProfileForAudit(
     "terminationDateIso",
     "chrcOffboardingCompletedAtIso",
     "chrcOffboardingNotes",
+    "primaryDepartmentId",
+    "jobTitleId",
   ];
 
   const out: { fieldKey: string; oldValue: string | null; newValue: string | null }[] = [];
@@ -157,6 +161,8 @@ export function snapshotFromProfileForm(
     roleType: RoleKey;
     employmentType: EmploymentType;
     status: EmployeeStatus;
+    primaryDepartmentId?: string;
+    jobTitleId?: string;
   },
   hr: {
     unionMember: boolean;
@@ -204,6 +210,8 @@ export function snapshotFromProfileForm(
         ? hr.chrcOffboardingCompletedAt.toISOString().slice(0, 10)
         : null,
     chrcOffboardingNotes: terminated ? hr.chrcOffboardingNotes : null,
+    primaryDepartmentId: parsed.primaryDepartmentId ?? null,
+    jobTitleId: parsed.jobTitleId ?? null,
   };
 }
 
@@ -230,6 +238,8 @@ export function snapshotFromEmployeeRow(row: {
   chrcOffboardingCompletedAt: Date | null;
   chrcOffboardingNotes: string | null;
   workStations: { station: WorkStation }[];
+  primaryDepartmentId: string | null;
+  jobTitleId: string | null;
 }): EmployeeProfileSnapshot {
   return {
     firstName: row.firstName,
@@ -256,5 +266,7 @@ export function snapshotFromEmployeeRow(row: {
       ? row.chrcOffboardingCompletedAt.toISOString().slice(0, 10)
       : null,
     chrcOffboardingNotes: row.chrcOffboardingNotes,
+    primaryDepartmentId: row.primaryDepartmentId,
+    jobTitleId: row.jobTitleId,
   };
 }
