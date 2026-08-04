@@ -31,6 +31,7 @@ import {
   applyWorkspacePreferences,
   emptyWorkspacePreferenceState,
 } from "@/lib/business-workspace/workspace-preferences";
+import type { WorkspacePreferenceState } from "@/lib/business-workspace/types";
 
 function withEnv(name: string, value: string | undefined, fn: () => void) {
   const previous = process.env[name];
@@ -53,15 +54,19 @@ function stubInputs(
     facilityTimezone: "America/New_York",
     now: new Date("2026-07-17T12:00:00Z"),
     operationalTime: {
+      nowUtc: new Date("2026-07-17T12:00:00Z"),
       facilityTimezone: "America/New_York",
       facilityLocalDate: "2026-07-17",
-      facilityLocal: { year: 2026, month: 7, day: 17, hour: 8, minute: 0 },
+      facilityLocal: { year: 2026, month: 7, day: 17, hour: 8, minute: 0, second: 0 },
       mealType: null,
       mealLabel: null,
       operationPhase: null,
       scheduledStartLocal: null,
-      minutesUntilService: null,
-    } as BusinessWorkspaceInputs["operationalTime"],
+      minutesUntilScheduledStart: null,
+      minutesSinceScheduledStart: null,
+      hasScheduledStartPassed: false,
+      isDueTimePassed: () => false,
+    },
     dashboard: {
       month: 7,
       managerCount: 1,
@@ -270,7 +275,8 @@ test("3. EVS — no Dietary meal Experiences / meal boards", () => {
   const scope = adaptProjectionToBusinessWorkspace(EVS_GOLDEN_PROJECTION);
   assert.ok(!scope.projectedExperienceKeys.includes("MEAL_SERVICE"));
   assert.equal(scope.showMealContext, false);
-  assert.ok(scope.allowedQuickActionIds.includes("evs-board"));
+  // EVS board route is deferred: cleaning Experiences must not emit an evs-board quick action.
+  assert.ok(!scope.allowedQuickActionIds.includes("evs-board"));
 });
 
 test("4. Plant — policy without fake assignments; no meal/EVS cleaning", () => {
@@ -294,7 +300,7 @@ test("5. Facility Overview — labeled department sections", () => {
 
 test("6. Staff/Lead denied; Manager/Supervisor allowed", () => {
   assert.equal(canAccessBusinessWorkspace("STAFF"), false);
-  assert.equal(canAccessBusinessWorkspace("LEAD"), false);
+  assert.equal(canAccessBusinessWorkspace("LEAD_TEAM_MEMBER"), false);
   assert.equal(canAccessBusinessWorkspace("SUPERVISOR"), true);
   assert.equal(canAccessBusinessWorkspace("MANAGER"), true);
 });
@@ -394,16 +400,17 @@ test("14. Permissions narrowing — actions subset", () => {
 });
 
 test("15. Preferences cannot invent sections outside role allowlist", () => {
+  // "bogus" is deliberately not a WorkspaceSectionId: the allowlist must drop it.
   const prefs = {
     ...emptyWorkspacePreferenceState(),
-    hiddenSectionIds: ["performance"] as const,
-    sectionOrder: ["bogus", "manager_focus"] as unknown as string[],
-  };
+    hiddenSectionIds: ["performance"],
+    sectionOrder: ["bogus", "manager_focus"],
+  } as unknown as WorkspacePreferenceState;
   const composed = applyWorkspacePreferences({
     role: "MANAGER",
     preferences: prefs,
   });
-  assert.ok(!composed.sectionOrder.includes("bogus"));
+  assert.ok(!(composed.sectionOrder as string[]).includes("bogus"));
   assert.ok(composed.visibleSections.includes("manager_focus"));
 });
 
@@ -431,12 +438,12 @@ test("17. Scope parity with Today’s Work / OC on same snapshot", () => {
   );
 });
 
-test("18. Compatibility quick-action mapping retained for assets/evs", () => {
+test("18. Compatibility quick-action mapping omits the deferred EVS board", () => {
   const ids = resolveAllowedQuickActionIds(
     adaptProjectionToBusinessWorkspace(EVS_GOLDEN_PROJECTION)
       .managerSignalContributors,
   );
-  assert.ok(ids.includes("evs-board"));
+  assert.ok(!ids.includes("evs-board"));
   assert.ok(ids.includes("todays-work"));
 });
 
@@ -459,7 +466,6 @@ test("20. Destination handles stay on existing routes", () => {
           handle.href.startsWith("/assets") ||
           handle.href.startsWith("/logs") ||
           handle.href.startsWith("/issues") ||
-          handle.href.startsWith("/evs") ||
           handle.href.startsWith("/admin/") ||
           handle.href.startsWith("/dashboard") ||
           handle.href.startsWith("/unit/"),

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { buildManagerFocus } from "@/lib/business-workspace/build-manager-focus";
+import type { BusinessWorkspaceInputs } from "@/lib/business-workspace/load-workspace-inputs";
 import {
   getRoleDefinition,
   getRolesForDepartment,
@@ -1305,7 +1307,6 @@ test("M4: workspace assignment summary unavailable when no templates", () => {
 // ---------------------------------------------------------------------------
 
 test("M4: buildManagerFocus surfaces unfilled positions", () => {
-  const { buildManagerFocus } = require("@/lib/business-workspace/build-manager-focus") as typeof import("@/lib/business-workspace/build-manager-focus");
   const inputs = {
     facilityId: "fac1",
     facilityName: "Test",
@@ -1337,14 +1338,13 @@ test("M4: buildManagerFocus surfaces unfilled positions", () => {
       activeCoverageAssignments: 0,
     },
   };
-  const cards = buildManagerFocus(inputs as any);
-  const assignmentCard = cards.find((c: any) => c.id === "focus-assignment-gaps");
+  const cards = buildManagerFocus(inputs as unknown as BusinessWorkspaceInputs);
+  const assignmentCard = cards.find((c) => c.id === "focus-assignment-gaps");
   assert.ok(assignmentCard, "should have assignment gap focus card");
   assert.ok(assignmentCard!.explanation.includes("2"), "should mention unfilled count");
 });
 
 test("M4: no assignment gap focus when all positions filled", () => {
-  const { buildManagerFocus } = require("@/lib/business-workspace/build-manager-focus") as typeof import("@/lib/business-workspace/build-manager-focus");
   const inputs = {
     facilityId: "fac1",
     facilityName: "Test",
@@ -1376,13 +1376,12 @@ test("M4: no assignment gap focus when all positions filled", () => {
       activeCoverageAssignments: 0,
     },
   };
-  const cards = buildManagerFocus(inputs as any);
-  const assignmentCard = cards.find((c: any) => c.id === "focus-assignment-gaps");
+  const cards = buildManagerFocus(inputs as unknown as BusinessWorkspaceInputs);
+  const assignmentCard = cards.find((c) => c.id === "focus-assignment-gaps");
   assert.ok(!assignmentCard, "should not have assignment gap card when all filled");
 });
 
 test("M4: no assignment focus when feature unavailable", () => {
-  const { buildManagerFocus } = require("@/lib/business-workspace/build-manager-focus") as typeof import("@/lib/business-workspace/build-manager-focus");
   const inputs = {
     facilityId: "fac1",
     facilityName: "Test",
@@ -1406,7 +1405,7 @@ test("M4: no assignment focus when feature unavailable", () => {
     activeDepartmentKeys: ["DIETARY" as const],
     activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
   };
-  const cards = buildManagerFocus(inputs as any);
-  const assignmentCard = cards.find((c: any) => c.id === "focus-assignment-gaps");
+  const cards = buildManagerFocus(inputs as unknown as BusinessWorkspaceInputs);
+  const assignmentCard = cards.find((c) => c.id === "focus-assignment-gaps");
   assert.ok(!assignmentCard, "should not have assignment card without assignmentSummary");
 });

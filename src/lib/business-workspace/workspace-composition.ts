@@ -50,7 +50,7 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     visibleSectionIds: ALL_SECTIONS,
     operationsLinkIds: SHARED_OPS_LINKS.filter((id) => id !== "issues"),
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
-    quickActionIds: [...SHARED_QUICK_ACTIONS.filter((id) => id !== "report-issue"), "evs-board"],
+    quickActionIds: SHARED_QUICK_ACTIONS.filter((id) => id !== "report-issue"),
     showLogCompletion: false,
     showMealContext: false,
   },

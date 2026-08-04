@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { LogSubmissionStatus, MealType, UnitType } from "@prisma/client";
+import { InspectionCadenceType, LogSubmissionStatus, MealType, UnitType } from "@prisma/client";
 
 import { buildUnitWorkspaceView } from "@/lib/unit-workspace/build-unit-workspace-view";
 
@@ -140,6 +140,7 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
           name: "Room walk",
           description: null,
           frequency: "Daily",
+          cadenceType: InspectionCadenceType.DAILY,
           facilityId: "fac-1",
           departmentId: null,
           unitId: "unit-1",
@@ -151,6 +152,7 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
           name: "Other unit only",
           description: null,
           frequency: null,
+          cadenceType: InspectionCadenceType.ON_DEMAND,
           facilityId: "fac-1",
           departmentId: null,
           unitId: "unit-9",
@@ -162,6 +164,7 @@ test("buildUnitWorkspaceView resolves log tab and meal service flash message", (
           name: "Inactive",
           description: null,
           frequency: null,
+          cadenceType: InspectionCadenceType.ON_DEMAND,
           facilityId: "fac-1",
           departmentId: null,
           unitId: null,

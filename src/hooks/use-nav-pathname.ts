@@ -1,7 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { usePathname, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
+
+const subscribeToNothing = () => () => {};
+
+/**
+ * False during SSR and the hydrating render, true afterwards. Same gate the
+ * previous mount effect provided, without a setState inside an effect.
+ */
+function useHasHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+}
 
 /**
  * Pathname safe for nav active-state styling after hydration.
@@ -11,13 +25,7 @@ import { usePathname, useSearchParams, type ReadonlyURLSearchParams } from "next
  */
 export function useNavPathname(): string | null {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  return mounted ? pathname : null;
+  return useHasHydrated() ? pathname : null;
 }
 
 /**
@@ -27,11 +35,5 @@ export function useNavPathname(): string | null {
  */
 export function useNavSearchParams(): ReadonlyURLSearchParams | null {
   const searchParams = useSearchParams();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  return mounted ? searchParams : null;
+  return useHasHydrated() ? searchParams : null;
 }

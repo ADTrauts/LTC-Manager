@@ -15,7 +15,8 @@ export type ResolveServeryEventOperationInstanceInput = {
 
 export type ResolveServeryEventOperationInstanceDeps = {
   isEngineEnabled?: typeof isOperationEngineEnabled;
-  hasPrisma?: typeof hasOperationEnginePrisma;
+  /** Boolean gate only — the result is never used to narrow `client`. */
+  hasPrisma?: (client: PrismaClient) => boolean;
   resolveDepartmentId?: typeof resolveOperationsCenterDepartmentId;
   findInstance?: (
     client: PrismaClient,

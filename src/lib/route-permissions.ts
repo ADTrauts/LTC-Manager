@@ -28,7 +28,6 @@ export const WAVE1_ROUTE_MIN_ROLES: Record<string, AppRole> = {
   "/menus": "SUPERVISOR",
   "/assets": "SUPERVISOR",
   "/logs": "STAFF",
-  "/evs": "STAFF",
   "/repairs": "STAFF",
   "/issues": "STAFF",
   "/unit": "STAFF",

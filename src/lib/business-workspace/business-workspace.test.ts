@@ -488,7 +488,7 @@ test("department health: Dietary/EVS/Plant semantics and links", () => {
   assert.equal(dietary.openPriorityWorkCount, 1);
   assert.match(dietary.reason, /Failed temperature/);
   assert.equal(evs.tone, "yellow");
-  assert.equal(evs.href, "/evs");
+  assert.equal(evs.href, "/dashboard");
   assert.equal(plant.tone, "green");
   assert.equal(plant.href, "/assets");
   assert.equal(plant.openPriorityWorkCount, 0);
@@ -869,7 +869,7 @@ test("quick actions keep existing routes and limit supervisor list", () => {
   assert.ok(managerActions.some((a) => a.href === "/dashboard"));
   assert.ok(!managerActions.some((a) => a.href === "/employees"));
   assert.ok(managerActions.some((a) => a.href === "/logs"), "Logs now in base action set");
-  assert.ok(managerActions.some((a) => a.href === "/evs"), "EVS Board now in base action set");
+  assert.ok(!managerActions.some((a) => a.href === "/evs"), "EVS Board route is deferred");
   const supervisorActions = buildQuickActions({ supervisor: true });
   assert.ok(supervisorActions.every((a) =>
     ["/issues", "/dashboard", "/today"].includes(a.href),
@@ -1524,12 +1524,12 @@ test("Dietary quick actions exclude /assets, include /logs", () => {
   assert.ok(!actions.find((a) => a.href === "/evs"), "Dietary should not show EVS Board");
 });
 
-test("EVS quick actions exclude /assets and /issues, include /evs", () => {
+test("EVS quick actions exclude /assets, /issues, and the deferred /evs board", () => {
   const config = resolveCompositionConfig(evsCtx);
   const actions = buildQuickActions({ context: evsCtx, config });
   assert.ok(!actions.find((a) => a.href === "/assets"), "EVS should not show Assets");
   assert.ok(!actions.find((a) => a.href === "/issues"), "EVS should not show Issues");
-  assert.ok(actions.find((a) => a.href === "/evs"), "EVS should show EVS Board");
+  assert.ok(!actions.find((a) => a.href === "/evs"), "EVS Board route is deferred");
   assert.ok(!actions.find((a) => a.href === "/logs"), "EVS should not show Logs");
 });
 
@@ -1889,12 +1889,11 @@ test("M2: Dietary quick action set", () => {
   assert.ok(!ids.includes("assets"));
 });
 
-test("M2: EVS quick action includes EVS Board only if route exists", () => {
+test("M2: EVS quick action omits EVS Board while the route is deferred", () => {
   const config = resolveCompositionConfig(evsCtx);
   const actions = buildQuickActions({ context: evsCtx, config });
-  const evsAction = actions.find((a) => a.id === "evs-board");
-  assert.ok(evsAction, "EVS should have EVS Board action");
-  assert.equal(evsAction!.href, "/evs");
+  assert.ok(!actions.find((a) => a.id === "evs-board"), "EVS Board route is deferred");
+  assert.ok(actions.every((a) => a.href !== "/evs"));
 });
 
 test("M2: Plant quick action includes assets and issues", () => {

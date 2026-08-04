@@ -18,7 +18,6 @@ test("resolveZoneForPathname maps routes to certified zones", () => {
   assert.equal(resolveZoneForPathname("/staffing"), "TODAYS_WORK");
   assert.equal(resolveZoneForPathname("/reports"), "REVIEW");
   assert.equal(resolveZoneForPathname("/employees/import"), "ADMINISTRATION");
-  assert.equal(resolveZoneForPathname("/evs"), "OPERATIONS_CENTER");
 });
 
 test("resolveZoneForPathname uses longest-prefix matching", () => {

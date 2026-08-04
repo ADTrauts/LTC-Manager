@@ -60,13 +60,6 @@ export function buildQuickActions(options?: {
       icon: "assets",
     },
     {
-      id: "evs-board",
-      title: "EVS Board",
-      description: "Cleaning assignments and room status",
-      href: "/evs",
-      icon: "logs",
-    },
-    {
       id: "logs",
       title: "Logs",
       description: "Compliance and temperature logs",

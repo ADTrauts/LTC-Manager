@@ -98,7 +98,7 @@ export function intersectInputsToProjectedScope(
   scope: ProjectedBusinessWorkspaceScope,
 ): BusinessWorkspaceInputs {
   const allowedUnits = new Set(scope.projectedUnitIds);
-  const allowedDepartments = new Set(
+  const allowedDepartments = new Set<string>(
     scope.departmentSections
       .map((s) => s.departmentKey)
       .filter((k): k is NonNullable<typeof k> => k != null),

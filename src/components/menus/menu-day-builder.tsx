@@ -74,6 +74,9 @@ export function MenuDayBuilder({
   );
 
   useEffect(() => {
+    // Baseline: pre-existing reset-on-prop-change. Replacing it changes whether an
+    // in-progress edit survives a parent refresh, which is a product decision.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLinesByKey(
       Object.fromEntries(
         periods.flatMap((period) =>

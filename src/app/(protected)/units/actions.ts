@@ -117,7 +117,6 @@ async function upsertMealTimes(unitId: string, input: ReturnType<typeof getMealT
 function revalidateShellViews() {
   revalidatePath("/units");
   revalidatePath("/dashboard");
-  revalidatePath("/evs");
   revalidatePath("/unit/[unitId]", "page");
 }
 

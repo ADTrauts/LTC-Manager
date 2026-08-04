@@ -22,11 +22,20 @@ export type UnitsPageUnitRow = {
   displayOrder: number;
   description: string | null;
   mealTimes: { mealType: import("@prisma/client").MealType; scheduledTime: string }[];
+  departmentResponsibilities: {
+    id: string;
+    kind: import("@prisma/client").UnitDepartmentKind;
+    riskLevel: string | null;
+    cleaningFrequency: string | null;
+    inspectionFrequency: string | null;
+    department: { id: string; key: string; name: string };
+  }[];
 };
 
 export type UnitsPageData = {
   units: UnitsPageUnitRow[];
   parentOptions: { id: string; name: string }[];
+  departments: { id: string; key: string; name: string }[];
   templates: { id: string; name: string }[];
   logAssignments: {
     id: string;
@@ -54,6 +63,16 @@ const unitSelect = {
     where: { isActive: true },
     select: { mealType: true, scheduledTime: true },
   },
+  departmentResponsibilities: {
+    select: {
+      id: true,
+      kind: true,
+      riskLevel: true,
+      cleaningFrequency: true,
+      inspectionFrequency: true,
+      department: { select: { id: true, key: true, name: true } },
+    },
+  },
 } as const;
 
 /** Collect Unit ids from a Locations view (adapter already dedupes). */
@@ -65,11 +84,16 @@ export function collectProjectedUnitIds(
 
 async function loadSupportingData(facilityId: string, unitIds: readonly string[]) {
   const idList = [...unitIds];
-  const [templates, logAssignments] = await Promise.all([
+  const [templates, departments, logAssignments] = await Promise.all([
     prisma.logTemplate.findMany({
       where: { facilityId, isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
+    }),
+    prisma.department.findMany({
+      where: { facilityId, isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, key: true, name: true },
     }),
     idList.length === 0
       ? Promise.resolve([])
@@ -88,7 +112,7 @@ async function loadSupportingData(facilityId: string, unitIds: readonly string[]
         }),
   ]);
 
-  return { templates, logAssignments };
+  return { templates, departments, logAssignments };
 }
 
 /**
@@ -118,6 +142,7 @@ export async function loadUnitsPageData(
     return {
       units,
       parentOptions: units.map((unit) => ({ id: unit.id, name: unit.name })),
+      departments: support.departments,
       templates: includeTemplates ? support.templates : [],
       logAssignments: support.logAssignments,
       locationsView: null,
@@ -158,6 +183,7 @@ export async function loadUnitsPageData(
   return {
     units,
     parentOptions: units.map((unit) => ({ id: unit.id, name: unit.name })),
+    departments: support.departments,
     templates: includeTemplates ? support.templates : [],
     logAssignments: support.logAssignments,
     locationsView: loaded.view,

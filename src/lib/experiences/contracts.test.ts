@@ -113,7 +113,14 @@ describe("Wave 15AC — contract integrity rules", () => {
       ],
     };
     // Force forbidden key past the type system
-    (broken.sections as { key: string }[]).push({
+    (
+      broken.sections as unknown as {
+        key: string;
+        order: number;
+        required: boolean;
+        cardKeys: string[];
+      }[]
+    ).push({
       key: FORBIDDEN_SECTION_KEYS[0],
       order: 100,
       required: false,

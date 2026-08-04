@@ -130,11 +130,13 @@ test("Walk filter never broadens beyond Projection", () => {
     ],
     summary: { total: 3, blocked: 3, inProgress: 0, ready: 0 },
     operationContext: {
-      serviceLabel: "Lunch",
-      phase: "SERVICE",
       mealType: "LUNCH",
-      asOf: new Date(),
-    } as WalkListData["operationContext"],
+      mealLabel: "Lunch",
+      serviceLabel: "Lunch",
+      phase: "Execution",
+      scheduledTimeLabel: null,
+      minutesUntilService: null,
+    },
     lookFirst: null,
   };
   const filtered = filterWalkListToProjectedUnits(walk, view.projectedUnitIds);

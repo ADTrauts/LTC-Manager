@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 function lensSummaryLabel(view: {
   lensMode: "DEPARTMENT" | "FACILITY";
   departmentKey: string | null;
-  departmentSnapshots: { label: string }[];
+  departmentSnapshots: readonly { label: string }[];
 }): string | null {
   if (view.lensMode === "FACILITY") return "Facility Overview";
   const label = view.departmentSnapshots[0]?.label;
@@ -60,6 +60,7 @@ export default async function UnitsPage() {
         <UnitsManager
           units={data.units}
           parentOptions={data.parentOptions}
+          departments={data.departments}
           templates={canManageLogAssignments ? data.templates : []}
           logAssignments={data.logAssignments}
           canManageLogAssignments={canManageLogAssignments}

@@ -118,6 +118,9 @@ function TerminologyEditor({
 
   // Reset when the drawer remounts with a new saved vocabulary.
   useEffect(() => {
+    // Baseline: pre-existing reset-on-prop-change. Replacing it changes whether an
+    // in-progress edit survives a parent refresh, which is a product decision.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProfileKey(initial.profileKey);
     setCustom(
       customFieldsFromVocabulary(

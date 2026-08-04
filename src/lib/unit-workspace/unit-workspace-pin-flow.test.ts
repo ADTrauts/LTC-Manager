@@ -126,6 +126,8 @@ test("failed logs still beat servery milestones so floor does not skip complianc
       submissions: [
         {
           id: "sub-fail",
+          assignmentId: "assign-temp",
+          mealType: MealType.LUNCH,
           status: LogSubmissionStatus.FAILED,
           submittedAt: new Date("2026-07-08T10:00:00"),
           template: { name: "Temp check" },

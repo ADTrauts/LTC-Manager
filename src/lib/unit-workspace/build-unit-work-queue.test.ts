@@ -36,6 +36,8 @@ test("buildUnitWorkQueue prioritizes failed logs before pending logs and repairs
       submissions: [
         {
           id: "s1",
+          assignmentId: "a1",
+          mealType: MealType.BREAKFAST,
           status: LogSubmissionStatus.FAILED,
           submittedAt: new Date("2026-07-08T08:00:00"),
           template: { name: "Temp check" },

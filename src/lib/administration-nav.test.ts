@@ -25,7 +25,6 @@ const fullNav: NavRouteItem[] = [
   item("/repairs", "Repairs"),
   item("/reports", "Review", "REVIEW"),
   item("/admin", "Administration"),
-  item("/evs", "EVS Board", "OPERATIONS_CENTER"),
 ];
 
 test("partitionTopNavItems moves management routes into Administration only", () => {
@@ -33,7 +32,7 @@ test("partitionTopNavItems moves management routes into Administration only", ()
 
   assert.deepEqual(
     primaryItems.map((i) => i.href),
-    ["/dashboard", "/today", "/units", "/reports", "/evs"],
+    ["/dashboard", "/today", "/units", "/reports"],
   );
   assert.deepEqual(
     administrationItems.map((i) => i.href),

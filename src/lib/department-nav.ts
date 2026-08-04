@@ -25,7 +25,6 @@ export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/reports", visibility: "shared" },
   { pathPrefix: "/department", visibility: "shared" },
   { pathPrefix: "/menus", visibility: "department", keys: ["DIETARY"] },
-  { pathPrefix: "/evs", visibility: "department", keys: ["EVS"] },
   { pathPrefix: "/assets", visibility: "department", keys: ["PLANT"] },
   { pathPrefix: "/repairs", visibility: "department", keys: ["DIETARY", "PLANT"] },
   { pathPrefix: "/issues", visibility: "department", keys: ["DIETARY", "PLANT"] },

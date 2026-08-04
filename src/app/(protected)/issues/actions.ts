@@ -27,7 +27,8 @@ function toOptional(value: FormDataEntryValue | null) {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-export function revalidateIssueSurfaces(opts: {
+/** Module-local helper: every export of a "use server" module must be an async Server Action. */
+function revalidateIssueSurfaces(opts: {
   issueId: string;
   unitId?: string | null;
 }) {

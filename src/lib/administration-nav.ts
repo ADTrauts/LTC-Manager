@@ -89,7 +89,7 @@ export function buildAdministrationMenuSections(
   }
 
   // Keep any unexpected admin-zone hrefs reachable without inventing new top-level links.
-  const known = new Set(ADMINISTRATION_MENU_HREFS);
+  const known = new Set<string>(ADMINISTRATION_MENU_HREFS);
   const extras = administrationItems
     .filter((item) => !known.has(item.href))
     .map(({ label, href }) => ({ label, href }));

@@ -50,7 +50,6 @@ export const NAV_ZONE_PATH_RULES: NavZonePathRule[] = (
     { pathPrefix: "/workspace", zone: "WORKSPACE" },
     { pathPrefix: "/dashboard", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/operations", zone: "OPERATIONS_CENTER" },
-    { pathPrefix: "/evs", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/unit", zone: "LOCATIONS" },
     { pathPrefix: "/units", zone: "LOCATIONS" },
     { pathPrefix: "/today", zone: "TODAYS_WORK" },

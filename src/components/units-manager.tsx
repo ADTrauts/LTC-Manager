@@ -414,6 +414,9 @@ function UnitCard({
   const showServingTimes = unitTypeUsesServingTimes(unitType);
 
   useEffect(() => {
+    // Baseline: pre-existing reset-on-prop-change. Replacing it changes whether an
+    // in-progress edit survives a parent refresh, which is a product decision.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUnitType(unit.unitType);
   }, [unit.unitType]);
 

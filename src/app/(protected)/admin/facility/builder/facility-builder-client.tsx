@@ -2360,6 +2360,9 @@ function AddSpaceResponsibilityForm({
     if (available.length === 0) return;
     if (available.some((d) => d.id === departmentId)) return;
     const next = available[0]!;
+    // Baseline: pre-existing selection repair after the department list changes.
+    // Restructuring it changes which department is selected mid-edit, a product decision.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDepartmentId(next.id);
     const nextRecommended = recommendResponsibilityPresetKey(
       next.key,

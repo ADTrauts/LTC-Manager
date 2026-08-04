@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { LogSubmissionStatus, MealType, UnitType } from "@prisma/client";
+import { LogSubmissionStatus, MealType, ShiftType, UnitType } from "@prisma/client";
 
 import { computeReadinessBatch } from "@/lib/readiness/compute-readiness-batch";
 import { computeUnitReadiness } from "@/lib/readiness/compute-unit-readiness";
@@ -126,7 +126,7 @@ test("dietary: future lunch log does not affect breakfast readiness", () => {
         mealType: MealType.BREAKFAST,
       },
     ],
-    scheduleEntriesToday: [{ unitId: "servery", shift: "AM" }],
+    scheduleEntriesToday: [{ unitId: "servery", shift: ShiftType.FULL_DAY }],
     overridesToday: [],
     openRepairs: [],
     serveryMealServiceEventsToday: [
@@ -969,7 +969,7 @@ test("fallback: operation engine off continues using heuristic operation context
     ],
     assignments: [],
     submissionsToday: [],
-    scheduleEntriesToday: [{ unitId: "kitchen", shift: "AM" }],
+    scheduleEntriesToday: [{ unitId: "kitchen", shift: ShiftType.FULL_DAY }],
     overridesToday: [],
     openRepairs: [],
     serveryMealServiceEventsToday: [],

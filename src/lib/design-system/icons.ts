@@ -88,7 +88,6 @@ export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
   "/issues": "repairs",
   "/reports": "review",
   "/admin": "administration",
-  "/evs": "logs",
 };
 
 export function resolveNavIconKey(href: string): AppIconKey | undefined {

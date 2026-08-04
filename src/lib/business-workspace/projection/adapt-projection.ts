@@ -196,14 +196,6 @@ function resolveDestinationHref(
   ) {
     return { href: "/assets", compatibility: true };
   }
-  if (
-    experienceKey === "ROOM_CLEANING" ||
-    experienceKey === "ROOM_STATUS" ||
-    experienceKey === "CLEANING" ||
-    id.includes("evs")
-  ) {
-    return { href: "/evs", compatibility: true };
-  }
   if (id.includes("log") || experienceKey === "TEMPERATURE_MONITORING") {
     return { href: "/logs", compatibility: true };
   }
@@ -378,15 +370,6 @@ export function resolveAllowedQuickActionIds(
     keys.has("PREVENTIVE_MAINTENANCE")
   ) {
     ids.add("assets");
-  }
-  if (
-    keys.has("ROOM_CLEANING") ||
-    keys.has("ROOM_STATUS") ||
-    keys.has("CLEANING") ||
-    keys.has("CLEANING_LISTS") ||
-    keys.has("PROJECT_CLEANING")
-  ) {
-    ids.add("evs-board");
   }
   if (
     (kinds.has("staffing") || kinds.has("assignments")) &&
