@@ -1,71 +1,31 @@
-import { redirect } from "next/navigation";
-
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
-import { ROLE_PRIORITY, type AppRole } from "@/lib/access";
-import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
+import { isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { buildAccessMatrix } from "@/lib/route-registry";
 
-import { PermissionsManager } from "./permissions-manager";
+import { AccessMatrix } from "./access-matrix";
 
+/**
+ * Read-only Access Matrix.
+ *
+ * Route policy is platform-owned and lives in `src/lib/route-registry/platform-routes.ts`. This page
+ * renders that policy; it holds no form, no Server Action, and no writable state. See
+ * `docs/architecture/ADR_PLATFORM_OWNED_ROUTE_AUTHORIZATION_2026-08-04.md`.
+ */
 export default async function AdminPermissionsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  if (ROLE_PRIORITY[session.role as AppRole] < ROLE_PRIORITY.GM) {
-    redirect("/dashboard");
-  }
+  await assertFacilityAdministratorPage();
 
-  const [roles, routes, permissions] = await Promise.all([
-    prisma.role.findMany({
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        key: true,
-        name: true,
-        description: true,
-        isActive: true,
-      },
-    }),
-    prisma.appRoute.findMany({
-      where: { isActive: true },
-      orderBy: [{ navOrder: "asc" }, { pathPrefix: "asc" }],
-      select: {
-        id: true,
-        label: true,
-        pathPrefix: true,
-        isCritical: true,
-      },
-    }),
-    prisma.roleRoutePermission.findMany({
-      select: {
-        roleId: true,
-        appRouteId: true,
-        allowed: true,
-      },
-    }),
-  ]);
-
-  const permissionMap = new Map<string, boolean>();
-  for (const item of permissions) {
-    permissionMap.set(`${item.appRouteId}:${item.roleId}`, item.allowed);
-  }
+  const matrix = buildAccessMatrix({ todaysWorkEnabled: isTodaysWorkEnabled() });
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <AdminPageHeader
         title="Roles & Permissions"
         trail={[{ label: "Roles & Permissions" }]}
-        subtitle="Configure application roles and control which areas each role may access."
+        subtitle="Review which product areas each platform role can reach. Role capabilities are platform-managed."
       />
 
-      <PermissionsManager
-        roles={roles}
-        routes={routes.map((route) => ({
-          ...route,
-          permissionsByRoleId: Object.fromEntries(
-            roles.map((role) => [role.id, permissionMap.get(`${route.id}:${role.id}`) ?? false]),
-          ),
-        }))}
-      />
+      <AccessMatrix groups={matrix.pageGroups} roles={matrix.roles} />
     </div>
   );
 }

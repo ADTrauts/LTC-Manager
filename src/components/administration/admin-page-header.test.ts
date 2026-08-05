@@ -73,11 +73,10 @@ test("presentation titles and nesting appear in page sources", () => {
   );
 });
 
-test("permissions manager user-facing copy uses Roles not Jobs", () => {
-  const source = readSrc("app/(protected)/admin/permissions/permissions-manager.tsx");
-  assert.match(source, />Roles</);
-  assert.match(source, /Add role/);
-  assert.match(source, /per role/);
+test("access matrix copy uses Roles not Jobs", () => {
+  const source = readSrc("app/(protected)/admin/permissions/access-matrix.tsx");
+  assert.match(source, /Platform-managed access/);
+  assert.match(source, /assign people to roles/);
   assert.doesNotMatch(source, />Jobs</);
   assert.doesNotMatch(source, /Add job/);
   assert.doesNotMatch(source, /per job/);
