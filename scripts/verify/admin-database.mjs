@@ -58,5 +58,26 @@ export async function dropDisposableDatabase(adminUrl, databaseName) {
   if (!/^[A-Za-z0-9_]+$/.test(databaseName)) {
     throw new Error("database name contains unsupported characters");
   }
-  await runAdminSql(adminUrl, `DROP DATABASE IF EXISTS "${databaseName}"`, "drop database");
+  // CI browsers and next start can leave sessions open briefly after SIGTERM.
+  await runAdminSql(
+    adminUrl,
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid()`,
+    "terminate database sessions",
+  );
+  let lastError;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await runAdminSql(adminUrl, `DROP DATABASE IF EXISTS "${databaseName}"`, "drop database");
+      return;
+    } catch (err) {
+      lastError = err;
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+      await runAdminSql(
+        adminUrl,
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid()`,
+        "terminate database sessions",
+      ).catch(() => {});
+    }
+  }
+  throw lastError;
 }
