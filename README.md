@@ -44,9 +44,9 @@ npm run db:migrate:dev -- --name init_phase0
 npm run db:seed
 ```
 
-Seeded login credentials:
+Seeded login credentials (**nonproduction demo only** — never reuse outside local development):
 - email: `admin@terraceview.local`
-- password: `ChangeMeNow123!`
+- password: `ChangeMeNow123!` (override with `SEED_DEMO_PASSWORD` in CI / verify runs)
 
 6) Start the app:
 
@@ -54,19 +54,29 @@ Seeded login credentials:
 npm run dev
 ```
 
-## Phase Exit Quality Gate Commands
+## Verification
 
-Run these before moving to the next phase:
+Before opening a PR, run the repository gate. Prefer a disposable database — never point
+verification at `ltc_manager`.
 
 ```bash
-npm run typecheck
-npm run lint
-npm run build
-npm run db:validate
+npm run verify:static
+npm run test:hermetic
+npm run verify:build
+
+# Disposable DB required for the full gate:
+export VERIFY_DATABASE_URL='postgresql://USER:PASSWORD@127.0.0.1:5432/ltc_verify_local?schema=public'
+export AUTH_SECRET='local-verify-secret'
+export SEED_DEMO_PASSWORD='LocalVerifySeed!ChangeMe'
+npm run verify:db
+# or: npm run verify:all
 ```
+
+Full command list, CI jobs, and triage: [`docs/engineering/CONTINUOUS_VERIFICATION_PHASE_5_2026-08-05.md`](docs/engineering/CONTINUOUS_VERIFICATION_PHASE_5_2026-08-05.md).
 
 ## Notes
 
 - Sidebar is database-driven (`Dashboard` + active units ordered by `display_order`).
 - Unit names are not hardcoded in code.
 - Phase 0 intentionally keeps modules as route scaffolds; full functionality is added in later phases.
+- GitHub Actions workflow `.github/workflows/verify.yml` runs the same scripts; it does not deploy.

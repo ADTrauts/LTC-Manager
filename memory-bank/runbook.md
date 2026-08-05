@@ -17,9 +17,11 @@ Required in `.env`:
 - `STRIPE_WEBHOOK_SECRET` (Stripe webhook verification)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (Stripe Elements on `/setup`)
 
-Typical local DB URL:
+Typical local DB URL (placeholder credentials — never commit a real password):
 
 `postgresql://USER:PASSWORD@127.0.0.1:5432/ltc_manager?schema=public`
+
+**Verification and CI must never target `ltc_manager`.** Use a disposable database named `ltc_verify_*`, `ltc_test_*`, or `ltc_ci_*` with `VERIFY_DATABASE_URL`. See `docs/engineering/CONTINUOUS_VERIFICATION_PHASE_5_2026-08-05.md`.
 
 **Union handbook PDF:** GM uploads under **Organization** store files under `uploads/facilities/{facilityId}/` (gitignored). Back up this folder with your deployment backups if you rely on handbook storage.
 
