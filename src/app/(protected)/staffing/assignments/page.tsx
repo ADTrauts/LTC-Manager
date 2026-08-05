@@ -12,19 +12,27 @@ import {
   loadAssignmentFormOptions,
   loadAssignmentEvents,
   buildAssignmentFulfillmentSummary,
+  resolveAssignmentAuthority,
   type AssignmentEventView,
 } from "@/lib/scheduling/operational-assignments";
+import {
+  ensureAssignmentPlan,
+  loadAssignmentPlanView,
+} from "@/lib/scheduling/operational-assignments/assignment-plan";
+import { buildDietaryCoverageSummary } from "@/lib/scheduling/operational-assignments/build-coverage-summary";
+import { prisma } from "@/lib/prisma";
+import { sessionUserIdForFk } from "@/lib/auth";
 import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
 import { assignmentStatusLabel } from "@/lib/scheduling/operational-assignments/assignment-status";
 import type { TemplateView } from "@/lib/scheduling/operational-assignments/template-types";
 
 import {
   createAssignmentAction,
-  // editAssignmentAction is exported and scoped; the dormant Assignments UI does not yet surface
-  // an edit form. Keep the Server Action; do not delete it to silence lint.
   editAssignmentAction,
   assignmentLifecycleAction,
   reassignAction,
+  confirmAssignmentPlanAction,
+  reopenAssignmentPlanAction,
 } from "./actions";
 
 void editAssignmentAction;
@@ -89,15 +97,60 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
   const selectedDate = parseIsoDateOrToday(query?.date);
   const selectedDateIso = toIsoDate(selectedDate);
 
-  const canEdit = hasAtLeastRole(session.role, "MANAGER");
+  const canEdit =
+    hasAtLeastRole(session.role, "SUPERVISOR") &&
+    (await resolveAssignmentAuthority({
+      session,
+      departmentId: deptNav.activeDepartmentId ?? "",
+      facilityId: session.facilityId,
+    })).canManage;
   const deptKey = deptNav.activeOperationalDepartmentKey;
-
-  const board = await loadDailyAssignmentBoard({
     facilityId: session.facilityId,
     serviceDate: selectedDateIso,
     departmentId: deptNav.activeDepartmentId,
     departmentKey: deptKey,
   });
+
+  const planView =
+    deptNav.activeDepartmentId != null
+      ? await (async () => {
+          await ensureAssignmentPlan(prisma, {
+            facilityId: session.facilityId,
+            departmentId: deptNav.activeDepartmentId!,
+            serviceDateKey: selectedDateIso,
+            actorUserId: sessionUserIdForFk(session),
+          });
+          return loadAssignmentPlanView(prisma, {
+            facilityId: session.facilityId,
+            departmentId: deptNav.activeDepartmentId!,
+            serviceDateKey: selectedDateIso,
+          });
+        })()
+      : null;
+
+  const coverage = deptNav.activeDepartmentId
+    ? await buildDietaryCoverageSummary(prisma, {
+        facilityId: session.facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        serviceDateKey: selectedDateIso,
+        planStatus: planView?.status ?? null,
+        assignments: board.assignments.map((a) => {
+          const emp = board.employees.find((e) => e.id === a.employeeId);
+          return {
+            unitId: a.unitId,
+            unitName: a.unitName,
+            roleKey: a.roleKey,
+            status: a.status,
+            hasCallDown: emp?.hasCallDown ?? false,
+          };
+        }),
+        scheduledEmployeeIds: board.employees.filter((e) => !e.hasCallDown).map((e) => e.id),
+        assignedEmployeeIds: board.assignments
+          .filter((a) => a.status === "PLANNED" || a.status === "ACTIVE")
+          .map((a) => a.employeeId),
+        callOffEmployeeIds: board.employees.filter((e) => e.hasCallDown).map((e) => e.id),
+      })
+    : null;
 
   const [formOptions, templates] = await Promise.all([
     canEdit && deptNav.activeDepartmentId && deptKey
@@ -159,9 +212,88 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             Daily Assignment Board
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-            Who is working, what they are assigned to, and where gaps or overlaps exist.
-            {board.departmentKey ? ` Showing ${board.departmentKey} assignments.` : ""}
+            Who is working where during each responsibility window — Schedule (hours) stays on the
+            Schedule View. Assignment is the official Unit responsibility plan.
+            {board.departmentKey ? ` Showing ${board.departmentKey}.` : ""}
           </p>
+          {planView ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
+              <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 font-medium text-zinc-800">
+                Plan: {planView.status}
+              </span>
+              {planView.confirmedByName ? (
+                <span>
+                  Confirmed by {planView.confirmedByName}
+                  {planView.confirmedAt
+                    ? ` · ${new Date(planView.confirmedAt).toLocaleString()}`
+                    : ""}
+                </span>
+              ) : null}
+              {planView.lastChangedAt ? (
+                <span>Last changed {new Date(planView.lastChangedAt).toLocaleString()}</span>
+              ) : null}
+            </div>
+          ) : null}
+          {coverage ? (
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-800">
+                Covered {coverage.covered}
+              </span>
+              <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-900">
+                At Risk {coverage.atRisk}
+              </span>
+              <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-800">
+                Uncovered {coverage.uncovered}
+              </span>
+              <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
+                Not Yet Assigned {coverage.notYetAssigned}
+              </span>
+              <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
+                Unassigned scheduled {coverage.unassignedScheduledCount}
+              </span>
+              <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
+                Call-offs {coverage.callOffAffectedCount}
+              </span>
+            </div>
+          ) : null}
+          {canEdit && deptNav.activeDepartmentId && planView ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(planView.status === "DRAFT" || planView.status === "REOPENED") && (
+                <form action={confirmAssignmentPlanAction} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
+                  <input type="hidden" name="serviceDate" value={selectedDateIso} />
+                  <label className="flex items-center gap-2 text-xs text-zinc-700">
+                    <input type="checkbox" name="acknowledgeCoverageGaps" value="true" />
+                    Acknowledge remaining coverage risks
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+                  >
+                    Confirm plan
+                  </button>
+                </form>
+              )}
+              {(planView.status === "CONFIRMED" || planView.status === "CLOSED") && (
+                <form action={reopenAssignmentPlanAction} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
+                  <input type="hidden" name="serviceDate" value={selectedDateIso} />
+                  <input
+                    name="reopenReason"
+                    required
+                    placeholder="Reason to reopen"
+                    className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
+                  >
+                    Reopen plan
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900">
               {selectedDateLabel}
@@ -237,6 +369,21 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                 <input type="time" name="startsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="Start" />
                 <input type="time" name="endsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="End" />
               </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select name="source" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="SCHEDULED_EMPLOYEE">Scheduled employee</option>
+                  <option value="MANUAL_ADDITION">Manual addition</option>
+                  <option value="UNSCHEDULED_COVERAGE">Unscheduled coverage</option>
+                  <option value="SUPERVISOR_OVERRIDE">Supervisor override</option>
+                </select>
+                <input
+                  type="text"
+                  name="changeReason"
+                  placeholder="Reason (required for unscheduled / override)"
+                  maxLength={500}
+                  className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                />
+              </div>
               <input type="text" name="notes" placeholder="Notes (optional)" maxLength={500} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
               <button type="submit" className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800">
                 Create Assignment
@@ -280,6 +427,27 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                 <input type="time" name="startsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="Start" />
                 <input type="time" name="endsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="End" />
               </div>
+              <select name="existingAssignmentId" className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                <option value="">Replace assignment (optional)…</option>
+                {activeAssignments.map((a) => {
+                  const emp = board.employees.find((e) => e.id === a.employeeId);
+                  const name = emp ? `${emp.lastName}, ${emp.firstName}` : a.employeeId.slice(-6);
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {name} · {a.roleLabel}
+                      {a.unitName ? ` · ${a.unitName}` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+              <input
+                type="text"
+                name="changeReason"
+                required
+                placeholder="Reason (required)"
+                maxLength={500}
+                className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+              />
               <input type="text" name="notes" placeholder="Notes (optional)" maxLength={500} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
               <button type="submit" className="rounded-md bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-600">
                 Add Coverage
@@ -333,6 +501,87 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           formOptions={formOptions}
         />
       )}
+
+      {/* Coverage requirement rows */}
+      {coverage && coverage.rows.length > 0 && (
+        <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="assignment-coverage-rows">
+          <h2 className="text-sm font-semibold text-zinc-900">Coverage by Unit / Duty</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Staffing coverage is not proof that meal service succeeded.
+          </p>
+          <ul className="mt-3 divide-y divide-zinc-100">
+            {coverage.rows.map((row) => (
+              <li key={`${row.templateItemId ?? row.roleKey}-${row.unitId ?? "any"}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="text-zinc-800">
+                  {row.unitName} · {row.roleLabel}
+                  <span className="ml-2 text-xs text-zinc-500">
+                    {row.filledCount}/{row.requiredCount}
+                  </span>
+                </span>
+                <span
+                  className={
+                    row.state === "COVERED"
+                      ? "rounded-md bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
+                      : row.state === "AT_RISK"
+                        ? "rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-900"
+                        : row.state === "UNCOVERED"
+                          ? "rounded-md bg-rose-50 px-2 py-0.5 text-xs text-rose-800"
+                          : "rounded-md bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700"
+                  }
+                >
+                  {row.state.replaceAll("_", " ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      )}
+
+      {/* Active assignments by unit */}
+      <article className="rounded-xl border border-zinc-200 bg-white shadow-sm" data-testid="assignment-by-unit">
+        <div className="border-b border-zinc-200 px-4 py-3">
+          <h2 className="text-lg font-semibold text-zinc-900">By Unit</h2>
+          <p className="text-sm text-zinc-600">
+            Grouped by assigned Unit. Unassigned-to-unit rows appear under Unassigned.
+          </p>
+        </div>
+        <div className="divide-y divide-zinc-100">
+          {Array.from(
+            activeAssignments.reduce((map, a) => {
+              const key = a.unitId ?? "__none__";
+              const list = map.get(key) ?? [];
+              list.push(a);
+              map.set(key, list);
+              return map;
+            }, new Map<string, typeof activeAssignments>()),
+          )
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([unitKey, list]) => {
+              const unitName = list[0]?.unitName ?? "Unassigned unit";
+              return (
+                <div key={unitKey} className="px-4 py-3">
+                  <p className="text-sm font-semibold text-zinc-900">{unitName}</p>
+                  <ul className="mt-2 space-y-1">
+                    {list.map((a) => {
+                      const emp = board.employees.find((e) => e.id === a.employeeId);
+                      return (
+                        <li key={a.id} className="text-sm text-zinc-700">
+                          {emp ? `${emp.lastName}, ${emp.firstName}` : "Employee"} · {a.roleLabel}
+                          {a.startsAt && a.endsAt
+                            ? ` · ${new Date(a.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}–${new Date(a.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          {activeAssignments.length === 0 && (
+            <p className="px-4 py-6 text-center text-sm text-zinc-500">No active assignments for this date.</p>
+          )}
+        </div>
+      </article>
 
       {/* Active assignments by employee */}
       <article className="rounded-xl border border-zinc-200 bg-white shadow-sm">

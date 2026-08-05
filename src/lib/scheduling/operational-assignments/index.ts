@@ -17,6 +17,32 @@ export {
   type AssignmentEventView,
 } from "./assignment-events";
 export {
+  resolveAssignmentAuthority,
+  requireAssignmentManage,
+  type AssignmentAuthorityDecision,
+} from "./assignment-authority";
+export {
+  ensureAssignmentPlan,
+  loadAssignmentPlanView,
+  isPlanFrontlineVisible,
+  type AssignmentPlanView,
+} from "./assignment-plan";
+export {
+  buildDietaryCoverageSummary,
+  type CoverageState,
+  type CoverageSummary,
+  type UnitCoverageRow,
+} from "./build-coverage-summary";
+export {
+  assertNoOverlappingActiveAssignments,
+  lockEmployeeAssignmentDay,
+} from "./enforce-overlap";
+export {
+  parseAssignmentWindowInstant,
+  assertValidResponsibilityWindow,
+  responsibilityWindowsOverlap,
+} from "./responsibility-window";
+export {
   buildAssignmentFulfillmentSummary,
   type AssignmentFulfillmentSummary,
   type FulfillmentPosition,
@@ -35,7 +61,10 @@ export {
   loadDailyAssignmentBoard,
   type LoadDailyAssignmentBoardInput,
 } from "./load-daily-assignment-board";
-export { loadEmployeeAssignmentsToday } from "./load-employee-assignments";
+export {
+  loadEmployeeAssignmentsToday,
+  loadEmployeeAssignmentOfflineContext,
+} from "./load-employee-assignments";
 export {
   resolveCurrentEmployeeAssignment,
   type EmployeeAssignmentRow,
