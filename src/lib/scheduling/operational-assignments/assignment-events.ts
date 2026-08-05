@@ -84,10 +84,17 @@ export type AssignmentEventView = {
 export async function loadAssignmentEvents(
   assignmentIds: string[],
   facilityId: string,
+  planId?: string | null,
 ): Promise<AssignmentEventView[]> {
-  if (assignmentIds.length === 0) return [];
+  if (assignmentIds.length === 0 && !planId) return [];
   const rows = await prisma.operationalAssignmentEvent.findMany({
-    where: { facilityId, assignmentId: { in: assignmentIds } },
+    where: {
+      facilityId,
+      OR: [
+        ...(assignmentIds.length > 0 ? [{ assignmentId: { in: assignmentIds } }] : []),
+        ...(planId ? [{ planId }] : []),
+      ],
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {

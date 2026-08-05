@@ -181,9 +181,10 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
     : { available: false as const };
 
   const allAssignmentIds = board.assignments.map((a) => a.id);
-  const events = allAssignmentIds.length > 0
-    ? await loadAssignmentEvents(allAssignmentIds, session.facilityId)
-    : [];
+  const events =
+    allAssignmentIds.length > 0 || planView?.id
+      ? await loadAssignmentEvents(allAssignmentIds, session.facilityId, planView?.id ?? null)
+      : [];
 
   const prevDate = new Date(selectedDate);
   prevDate.setDate(prevDate.getDate() - 1);
