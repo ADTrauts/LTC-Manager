@@ -29,7 +29,7 @@ test("phase7a sql: overlap enforcement rejects concurrent windows", { skip: skip
   assert.ok(databaseUrl);
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    const facility = await prisma.facility.findFirst({ where: { isActive: true } });
+    const facility = await prisma.facility.findFirst({});
     assert.ok(facility, "seed facility required");
     const dietary = await prisma.department.findFirst({
       where: { facilityId: facility.id, key: "DIETARY", isActive: true },
@@ -112,7 +112,7 @@ test("phase7a sql: plan confirm publishes frontline visibility", { skip: skipRea
   assert.ok(databaseUrl);
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    const facility = await prisma.facility.findFirst({ where: { isActive: true } });
+    const facility = await prisma.facility.findFirst({});
     assert.ok(facility);
     const dietary = await prisma.department.findFirst({
       where: { facilityId: facility.id, key: "DIETARY", isActive: true },
@@ -153,7 +153,7 @@ test("phase7a sql: coverage summary returns NOT_APPLICABLE without templates", {
   assert.ok(databaseUrl);
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    const facility = await prisma.facility.findFirst({ where: { isActive: true } });
+    const facility = await prisma.facility.findFirst({});
     assert.ok(facility);
     // Use a department with no templates if possible; otherwise still assert shape.
     const dept = await prisma.department.findFirst({

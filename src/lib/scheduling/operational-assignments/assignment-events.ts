@@ -100,7 +100,7 @@ export async function loadAssignmentEvents(
       summary: true,
       reason: true,
       createdAt: true,
-      actorUser: { select: { name: true } },
+      actorUser: { select: { displayName: true } },
     },
   });
   return rows.map((r) => ({
@@ -108,7 +108,7 @@ export async function loadAssignmentEvents(
     assignmentId: r.assignmentId,
     planId: r.planId,
     eventType: r.eventType,
-    actorName: r.actorUser?.name ?? null,
+    actorName: r.actorUser?.displayName ?? null,
     fromStatus: r.fromStatus,
     toStatus: r.toStatus,
     summary: r.summary,

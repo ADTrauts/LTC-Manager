@@ -105,6 +105,8 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
       facilityId: session.facilityId,
     })).canManage;
   const deptKey = deptNav.activeOperationalDepartmentKey;
+
+  const board = await loadDailyAssignmentBoard({
     facilityId: session.facilityId,
     serviceDate: selectedDateIso,
     departmentId: deptNav.activeDepartmentId,

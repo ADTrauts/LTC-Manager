@@ -1245,11 +1245,13 @@ test("M4: event view shape is correct", () => {
   const event: import("./assignment-events").AssignmentEventView = {
     id: "e1",
     assignmentId: "a1",
+    planId: null,
     eventType: "CREATED",
     actorName: "Jane Manager",
     fromStatus: null,
     toStatus: "PLANNED",
     summary: "Assignment created: Cook",
+    reason: null,
     createdAt: "2026-07-15T08:00:00Z",
   };
   assert.equal(event.eventType, "CREATED");
@@ -1261,11 +1263,13 @@ test("M4: lifecycle events have from/to status", () => {
   const event: import("./assignment-events").AssignmentEventView = {
     id: "e2",
     assignmentId: "a1",
+    planId: null,
     eventType: "ACTIVATED",
     actorName: "Jane Manager",
     fromStatus: "PLANNED",
     toStatus: "ACTIVE",
     summary: "Assignment activated",
+    reason: null,
     createdAt: "2026-07-15T09:00:00Z",
   };
   assert.equal(event.fromStatus, "PLANNED");
