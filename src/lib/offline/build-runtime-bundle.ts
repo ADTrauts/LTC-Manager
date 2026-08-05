@@ -15,6 +15,8 @@ import {
   resolveServeryMealServiceContext,
 } from "@/lib/servery";
 
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { loadEmployeeAssignmentOfflineContext } from "@/lib/scheduling/operational-assignments/load-employee-assignments";
 import { actorRefForSession, resolveMilestoneActor } from "./resolve-milestone-actor";
 import {
   OFFLINE_BUNDLE_LEASE_HOURS,
@@ -205,6 +207,11 @@ export async function buildRuntimeBundle(
   );
   const bundleVersion = `${serviceDateKey}:${serverRevision}`;
 
+  const assignmentContext =
+    isOperationalAssignmentsEnabled() && actor.employeeId
+      ? await loadEmployeeAssignmentOfflineContext(actor.employeeId, input.session.facilityId, now)
+      : null;
+
   const bundle: OfflineRuntimeBundle = {
     bundleVersion,
     serverRevision,
@@ -236,6 +243,7 @@ export async function buildRuntimeBundle(
     },
     milestones,
     procedureLabels: [],
+    assignmentContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({

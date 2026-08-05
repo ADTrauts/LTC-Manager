@@ -9,9 +9,10 @@ export function UnitMyAssignmentPanel({ assignment }: Props) {
 
   if (!current && !upcoming) {
     return (
-      <article className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
-        <p className="text-xs font-medium text-zinc-500">
-          No operational assignment is listed for this period.
+      <article className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm" data-testid="my-assignment-panel">
+        <p className="text-xs font-medium text-zinc-500">Assignment</p>
+        <p className="mt-0.5 text-sm text-zinc-700">
+          Assignment not confirmed. Check with your Supervisor.
         </p>
       </article>
     );

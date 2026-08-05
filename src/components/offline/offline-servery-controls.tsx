@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { MealType } from "@prisma/client";
 
 import { ServeryMealServiceControls } from "@/components/servery-meal-service-controls";
+import { OfflineAssignmentContext } from "@/components/offline/offline-assignment-context";
 import { deriveConnectivityState } from "@/lib/offline/connectivity-reducer";
 import type { OfflineConnectivityState } from "@/lib/offline/types";
 import {
@@ -178,6 +179,7 @@ export function OfflineServeryControls(props: OfflineServeryControlsProps) {
           </button>
         ) : null}
       </div>
+      <OfflineAssignmentContext />
       <ServeryMealServiceControls
         unitId={props.unitId}
         defaultMealType={props.defaultMealType}

@@ -104,6 +104,20 @@ export type OfflineRuntimeBundle = {
     started: OfflineMilestoneProjection;
   }[];
   procedureLabels: string[];
+  /**
+   * Read-only confirmed Assignment for the current actor only.
+   * Never includes other Employees. Editing remains online-only.
+   */
+  assignmentContext?: {
+    assignmentId: string;
+    unitId: string | null;
+    unitName: string | null;
+    duty: string;
+    startsAt: string | null;
+    endsAt: string | null;
+    confirmedAt: string | null;
+    lastSyncedAt: string;
+  } | null;
 };
 
 export type OfflineMilestoneProjection = {
