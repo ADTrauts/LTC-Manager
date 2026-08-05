@@ -436,9 +436,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
 
       {activeUnitTab === "overview" ? (
         <div className="space-y-6 sm:space-y-7">
-          {myAssignment && (myAssignment.current || myAssignment.upcoming) && (
-            <UnitMyAssignmentPanel assignment={myAssignment} />
-          )}
+          {myAssignment ? <UnitMyAssignmentPanel assignment={myAssignment} /> : null}
 
           <UnitWorkQueuePanel queue={workQueue} />
 

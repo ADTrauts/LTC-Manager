@@ -149,6 +149,17 @@ async function main() {
       primaryDepartmentId: null,
     });
 
+    // Password users resolve department/Assignment context via Employee email match.
+    const supervisorEmployee = await ensureEmployee(db, {
+      facilityId: facility.id,
+      email: supervisor.email,
+      firstName: "Assign",
+      lastName: "SupervisorEmp",
+      dietaryId: dietary.id,
+      roleType: "SUPERVISOR",
+    });
+    await ensureDeptMembership(db, supervisorEmployee.id, dietary.id);
+
     const staffEmployee = await ensureEmployee(db, {
       facilityId: facility.id,
       email: staff.email,
@@ -157,6 +168,17 @@ async function main() {
       dietaryId: dietary.id,
     });
     await ensureDeptMembership(db, staffEmployee.id, dietary.id);
+    await db.employeeUnitAccess.upsert({
+      where: {
+        employeeId_unitId: { employeeId: staffEmployee.id, unitId: servery.id },
+      },
+      update: {},
+      create: { employeeId: staffEmployee.id, unitId: servery.id },
+    });
+    await db.employee.update({
+      where: { id: staffEmployee.id },
+      data: { primaryUnitId: servery.id },
+    });
 
     const scaleCount = 100;
     const scaleIds = [];

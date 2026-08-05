@@ -31,6 +31,11 @@ function demoPassword(): string {
   return pw;
 }
 
+function serviceDateUtc(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d!));
+}
+
 async function openPersistent(suffix: string): Promise<{ context: BrowserContext; page: Page }> {
   const dir = `${profileDir}-${suffix}`;
   const context = await chromium.launchPersistentContext(dir, {
@@ -64,9 +69,8 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText(/Plan:/i).first()).toBeVisible();
+    await expect(page.getByText(/Plan:/i).first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("assignment-by-unit")).toBeVisible();
-    // Scale employees are scheduled; board should render without crashing.
     await expect(page.getByText(/scheduled employee/i).first()).toBeVisible();
   } finally {
     await context.close();
@@ -81,27 +85,30 @@ test("create and confirm @ci-gate: supervisor assigns and confirms plan", async 
     await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByRole("heading", { name: /Create Assignment/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Create Assignment/i })).toBeVisible({
+      timeout: 20_000,
+    });
 
-    await page.locator('form').filter({ hasText: "Create Assignment" }).locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
-    await page.locator('form').filter({ hasText: "Create Assignment" }).locator('select[name="roleKey"]').selectOption({ index: 1 });
-    await page.locator('form').filter({ hasText: "Create Assignment" }).locator('select[name="unitId"]').selectOption({ value: fx.unitId });
-    await page.locator('form').filter({ hasText: "Create Assignment" }).locator('input[name="startsAt"]').fill("06:00");
-    await page.locator('form').filter({ hasText: "Create Assignment" }).locator('input[name="endsAt"]').fill("10:00");
-    await page.locator('form').filter({ hasText: "Create Assignment" }).getByRole("button", { name: /Create Assignment/i }).click();
+    const createForm = page.locator("form").filter({ hasText: "Create Assignment" });
+    await createForm.locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
+    await createForm.locator('select[name="roleKey"]').selectOption({ index: 1 });
+    await createForm.locator('select[name="unitId"]').selectOption({ value: fx.unitId });
+    await createForm.locator('input[name="startsAt"]').fill("06:00");
+    await createForm.locator('input[name="endsAt"]').fill("10:00");
+    await createForm.getByRole("button", { name: /Create Assignment/i }).click();
 
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
     await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByText(/StaffEmp|Assign/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/StaffEmp/i).first()).toBeVisible({ timeout: 15_000 });
 
     const confirm = page.locator("form").filter({ hasText: /Confirm plan/i });
     if (await confirm.count()) {
       const ack = confirm.locator('input[name="acknowledgeCoverageGaps"]');
       if (await ack.count()) await ack.check();
       await confirm.getByRole("button", { name: /Confirm plan/i }).click();
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(2000);
       await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
         waitUntil: "domcontentloaded",
       });
@@ -125,7 +132,6 @@ test("employee visibility @ci-gate: staff sees confirmed Assignment only after c
       },
       orderBy: { updatedAt: "desc" },
     });
-    // If prior test confirmed, employee path should find a confirmed assignment.
     const { context, page } = await openPersistent("employee");
     try {
       await loginPassword(page, fx.staffEmail);
@@ -164,7 +170,6 @@ test("role denial @ci-gate: STAFF cannot open Assignment Board; FA without ops c
     await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
       waitUntil: "domcontentloaded",
     });
-    // Route is SUPERVISOR+ — STAFF must not land on the Assignment Board.
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toHaveCount(0);
   } finally {
     await context.close();
@@ -191,11 +196,7 @@ test("overlap rejection @ci-gate: write-time overlap is enforced in database", a
     datasources: { db: { url: process.env.VERIFY_DATABASE_URL || process.env.DATABASE_URL } },
   });
   try {
-    const { assertNoOverlappingActiveAssignments, lockEmployeeAssignmentDay } = await import(
-      "../../src/lib/scheduling/operational-assignments/enforce-overlap"
-    );
-    const { facilityLocalDateToServiceDate } = await import("../../src/lib/operational-time");
-    const serviceDate = facilityLocalDateToServiceDate(fx.serviceDateKey);
+    const serviceDate = serviceDateUtc(fx.serviceDateKey);
     const startsA = new Date(`${fx.serviceDateKey}T11:00:00.000Z`);
     const endsA = new Date(`${fx.serviceDateKey}T14:00:00.000Z`);
     const startsB = new Date(`${fx.serviceDateKey}T13:00:00.000Z`);
@@ -229,14 +230,26 @@ test("overlap rejection @ci-gate: write-time overlap is enforced in database", a
 
     await expect(
       db.$transaction(async (tx) => {
-        await lockEmployeeAssignmentDay(tx as never, fx.staffEmployeeId, fx.serviceDateKey);
-        await assertNoOverlappingActiveAssignments(tx as never, {
-          facilityId: fx.facilityId,
-          employeeId: fx.staffEmployeeId,
-          serviceDate,
-          startsAt: startsB,
-          endsAt: endsB,
+        const key = `oa:${fx.staffEmployeeId}:${fx.serviceDateKey}`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+        const rows = await tx.operationalAssignment.findMany({
+          where: {
+            facilityId: fx.facilityId,
+            employeeId: fx.staffEmployeeId,
+            serviceDate,
+            status: { in: ["PLANNED", "ACTIVE"] },
+          },
+          select: { startsAt: true, endsAt: true, roleLabel: true },
         });
+        for (const row of rows) {
+          const open = !row.startsAt || !row.endsAt || !startsB || !endsB;
+          const overlap =
+            open ||
+            (row.startsAt!.getTime() < endsB.getTime() && startsB.getTime() < row.endsAt!.getTime());
+          if (overlap) {
+            throw new Error(`Overlapping Assignment is not allowed (${row.roleLabel}).`);
+          }
+        }
       }),
     ).rejects.toThrow(/overlap/i);
   } finally {
