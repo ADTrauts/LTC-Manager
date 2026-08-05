@@ -114,6 +114,15 @@ export async function loadUnitQueries(params: {
             mealType: true,
             mealServiceReadyAt: true,
             mealServiceStartedAt: true,
+            readyRecordedAt: true,
+            startedRecordedAt: true,
+            readyRecordedBy: { select: { displayName: true } },
+            startedRecordedBy: { select: { displayName: true } },
+            readyRecordedByEmployee: { select: { firstName: true, lastName: true } },
+            startedRecordedByEmployee: { select: { firstName: true, lastName: true } },
+            // Only which milestones have ever been corrected; the values themselves live on the
+            // projection above and the full history stays in the entry log.
+            entries: { where: { kind: "CORRECTION" }, select: { milestone: true } },
           },
         })
       : Promise.resolve([]),

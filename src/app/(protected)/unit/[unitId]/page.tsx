@@ -29,7 +29,15 @@ import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { loadEmployeeAssignmentsToday } from "@/lib/scheduling/operational-assignments";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { pickDefaultMealTypeForUnitSlots } from "@/lib/servery-meal-service";
+import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import { sessionUserIdForFk } from "@/lib/auth";
+import {
+  describeMealServiceContext,
+  evaluateServeryMilestoneAccess,
+  recordableMealForContext,
+  resolveServeryMealServiceContext,
+  roleMayCorrectMilestones,
+} from "@/lib/servery";
 import {
   loadUnitRecord,
   loadUnitWorkspace,
@@ -187,6 +195,37 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     ? openInspectionFollowUps.find((task) => task.id === activeFollowUpTaskId) ?? null
     : null;
 
+  const employeeLabel = (employee?: { firstName: string; lastName: string } | null) =>
+    employee ? `${employee.firstName} ${employee.lastName}`.trim() : null;
+
+  const mealServiceContext = resolveServeryMealServiceContext({
+    unitType: unit.unitType,
+    mealTimes: unit.mealTimes,
+    now,
+    facilityTimezone,
+  });
+
+  // The buttons offered come from the same evaluation the write path uses, so the interface cannot
+  // present an action the server would refuse.
+  const milestoneAccess =
+    unit.unitType === "SERVERY"
+      ? await evaluateServeryMilestoneAccess({
+          facilityId: session.facilityId,
+          unitId: unit.id,
+          action: "RECORD",
+          actor: {
+            userId: sessionUserIdForFk(session),
+            employeeId: await getOperationalEmployeeIdForSession(session),
+            role: session.role,
+            authMethod: session.authMethod === "QUICK_PIN" ? "QUICK_PIN" : "PASSWORD",
+          },
+          deviceBoundUnitId: (await cookies()).get(DEVICE_UNIT_COOKIE)?.value?.trim() || null,
+        })
+      : null;
+  const canRecordMilestones = milestoneAccess?.ok === true;
+  const canCorrectMilestones =
+    canRecordMilestones && roleMayCorrectMilestones(session.role);
+
   const activeInspectionDefinition = activeInspectId
     ? await prisma.inspectionDefinition.findFirst({
         where: {
@@ -287,21 +326,36 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           {unit.unitType === "SERVERY" ? (
             <ServeryMealServiceControls
               unitId={unit.id}
-              defaultMealType={pickDefaultMealTypeForUnitSlots(
-                unit.mealTimes.map((m) => m.mealType),
-                now,
-              )}
+              defaultMealType={recordableMealForContext(mealServiceContext)?.mealType ?? null}
               returnTab={activeUnitTab}
               returnLogTab={activeLogTab ?? ""}
               slots={unit.mealTimes}
+              contextNote={describeMealServiceContext(mealServiceContext)}
+              canRecord={canRecordMilestones}
+              canCorrect={canCorrectMilestones}
               eventByMeal={Object.fromEntries(
                 unit.mealTimes.map((slot) => {
                   const ev = mealServiceEventByMeal.get(slot.mealType);
+                  const corrected = new Set(ev?.entries?.map((entry) => entry.milestone) ?? []);
                   return [
                     slot.mealType,
                     {
-                      mealServiceReadyAt: ev?.mealServiceReadyAt?.toISOString() ?? null,
-                      mealServiceStartedAt: ev?.mealServiceStartedAt?.toISOString() ?? null,
+                      ready: {
+                        occurredAt: ev?.mealServiceReadyAt?.toISOString() ?? null,
+                        recordedAt: ev?.readyRecordedAt?.toISOString() ?? null,
+                        recordedByLabel:
+                          ev?.readyRecordedBy?.displayName ??
+                          employeeLabel(ev?.readyRecordedByEmployee),
+                        corrected: corrected.has("READY"),
+                      },
+                      started: {
+                        occurredAt: ev?.mealServiceStartedAt?.toISOString() ?? null,
+                        recordedAt: ev?.startedRecordedAt?.toISOString() ?? null,
+                        recordedByLabel:
+                          ev?.startedRecordedBy?.displayName ??
+                          employeeLabel(ev?.startedRecordedByEmployee),
+                        corrected: corrected.has("SERVICE_STARTED"),
+                      },
                     },
                   ];
                 }),

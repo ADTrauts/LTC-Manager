@@ -60,7 +60,7 @@ test("buildUnitWorkspaceView computes log totals and staffing coverage", () => {
           mealType: MealType.BREAKFAST,
           mealServiceReadyAt: new Date("2026-07-08T07:15:00"),
           mealServiceStartedAt: null,
-        },
+        } as never,
       ],
       mealServiceHistory: [],
       logHistory: [],
