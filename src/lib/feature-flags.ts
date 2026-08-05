@@ -42,7 +42,7 @@ export function isAiRecoveryAssistantEnabled(): boolean {
   return parseEnvFlag(process.env.AI_RECOVERY_ASSISTANT_ENABLED, false);
 }
 
-/** Defaults to disabled — Wave 14 Operational Assignments stay off until scheduling workflow is verified. */
+/** Defaults to disabled — Phase 7A Dietary Assignments; enable with OPERATIONAL_ASSIGNMENTS_ENABLED=true for pilot. */
 export function isOperationalAssignmentsEnabled(): boolean {
   return parseEnvFlag(process.env.OPERATIONAL_ASSIGNMENTS_ENABLED, false);
 }

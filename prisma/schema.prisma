@@ -158,6 +158,7 @@ model Facility {
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   roomAreaStatuses               RoomAreaStatus[]
   operationalAssignments         OperationalAssignment[]
+  assignmentPlans                OperationalAssignmentPlan[]
   assignmentTemplates            OperationalAssignmentTemplate[]
   attachments                    Attachment[]
   tasks                          Task[]
@@ -203,6 +204,7 @@ model Department {
   inspectionOccurrences          InspectionOccurrence[]
   knowledgeArticles              KnowledgeArticle[]
   operationalAssignments         OperationalAssignment[]
+  assignmentPlans                OperationalAssignmentPlan[]
   assignmentTemplates            OperationalAssignmentTemplate[]
   operationalProfiles            DepartmentOperationalProfile[]
   createdAt                      DateTime                        @default(now())
@@ -378,8 +380,14 @@ model User {
   createdSchedules          ScheduleEntry[]                 @relation("ScheduleCreatedBy")
   changedOverrides          AssignmentOverride[]            @relation("OverrideChangedBy")
   createdAssignments        OperationalAssignment[]         @relation("AssignmentCreatedBy")
+  lastChangedAssignments    OperationalAssignment[]         @relation("AssignmentLastChangedBy")
   createdTemplates          OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
   assignmentEvents          OperationalAssignmentEvent[]    @relation("AssignmentEventActor")
+  assignmentPlansConfirmed  OperationalAssignmentPlan[]     @relation("AssignmentPlanConfirmedBy")
+  assignmentPlansReopened   OperationalAssignmentPlan[]     @relation("AssignmentPlanReopenedBy")
+  assignmentPlansClosed     OperationalAssignmentPlan[]     @relation("AssignmentPlanClosedBy")
+  assignmentPlansCoverageAck OperationalAssignmentPlan[]    @relation("AssignmentPlanCoverageAckBy")
+  assignmentPlansLastChanged OperationalAssignmentPlan[]   @relation("AssignmentPlanLastChangedBy")
   reportedRepairs           Repair[]                        @relation("RepairReportedBy")
   repairUpdates             RepairUpdate[]
   disciplinePointsCreated   DisciplinePointEntry[]          @relation("DisciplinePointCreatedBy")
@@ -2031,6 +2039,54 @@ enum OperationalAssignmentSource {
   TEMPLATE
   COVERAGE
   REASSIGNMENT
+  SCHEDULED_EMPLOYEE
+  UNSCHEDULED_COVERAGE
+  SUPERVISOR_OVERRIDE
+  CALL_OFF_REPLACEMENT
+  MANUAL_ADDITION
+}
+
+enum OperationalAssignmentPlanStatus {
+  DRAFT
+  CONFIRMED
+  REOPENED
+  CLOSED
+}
+
+/// Daily Assignment plan for a Facility + Department + operational date.
+/// Separates draft preparation from the confirmed frontline Assignment plan.
+model OperationalAssignmentPlan {
+  id                             String                           @id @default(cuid())
+  facilityId                     String
+  facility                       Facility                         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId                   String
+  department                     Department                       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  serviceDate                    DateTime                         @db.Date
+  status                         OperationalAssignmentPlanStatus  @default(DRAFT)
+  confirmedByUserId              String?
+  confirmedByUser                User?                            @relation("AssignmentPlanConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmedAt                    DateTime?
+  reopenedByUserId               String?
+  reopenedByUser                 User?                            @relation("AssignmentPlanReopenedBy", fields: [reopenedByUserId], references: [id], onDelete: SetNull)
+  reopenedAt                     DateTime?
+  reopenReason                   String?
+  closedByUserId                 String?
+  closedByUser                   User?                            @relation("AssignmentPlanClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  closedAt                       DateTime?
+  coverageAcknowledgedAt         DateTime?
+  coverageAcknowledgedByUserId   String?
+  coverageAcknowledgedByUser     User?                            @relation("AssignmentPlanCoverageAckBy", fields: [coverageAcknowledgedByUserId], references: [id], onDelete: SetNull)
+  lastChangedByUserId            String?
+  lastChangedByUser              User?                            @relation("AssignmentPlanLastChangedBy", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
+  lastChangedAt                  DateTime?
+  assignments                    OperationalAssignment[]
+  events                         OperationalAssignmentEvent[]
+  createdAt                      DateTime                         @default(now())
+  updatedAt                      DateTime                         @updatedAt
+
+  @@unique([facilityId, departmentId, serviceDate])
+  @@index([facilityId, serviceDate])
+  @@index([departmentId, serviceDate])
 }
 
 /// Operational responsibility during a defined time or operation.
@@ -2041,6 +2097,8 @@ model OperationalAssignment {
   facility            Facility                           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId        String
   department          Department                         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  planId              String?
+  plan                OperationalAssignmentPlan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
   employeeId          String
   employee            Employee                           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   unitId              String?
@@ -2057,36 +2115,58 @@ model OperationalAssignment {
   status              OperationalAssignmentStatus        @default(PLANNED)
   source              OperationalAssignmentSource        @default(MANUAL)
   notes               String?
+  changeReason        String?
+  /// Client-supplied idempotency key (unique per facility when present).
+  clientCommandId     String?
   createdByUserId     String?
   createdByUser       User?                              @relation("AssignmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lastChangedByUserId String?
+  lastChangedByUser   User?                              @relation("AssignmentLastChangedBy", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
+  lastChangedAt       DateTime?
   events              OperationalAssignmentEvent[]
   createdAt           DateTime                           @default(now())
   updatedAt           DateTime                           @updatedAt
 
+  @@unique([facilityId, clientCommandId])
   @@index([facilityId, serviceDate])
   @@index([departmentId, serviceDate])
   @@index([employeeId, serviceDate])
   @@index([unitId, serviceDate])
   @@index([operationInstanceId])
   @@index([templateItemId])
+  @@index([planId])
 }
 
 /// Append-only audit log for assignment lifecycle changes.
 model OperationalAssignmentEvent {
-  id           String                @id @default(cuid())
-  assignmentId String
-  assignment   OperationalAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  facilityId   String
-  eventType    String
-  actorUserId  String?
-  actorUser    User?                 @relation("AssignmentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
-  fromStatus   String?
-  toStatus     String?
-  summary      String
-  createdAt    DateTime              @default(now())
+  id              String                 @id @default(cuid())
+  /// Nullable for plan-level events (confirm / reopen / close / coverage ack).
+  assignmentId    String?
+  assignment      OperationalAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  planId          String?
+  plan            OperationalAssignmentPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  facilityId      String
+  departmentId    String?
+  employeeId      String?
+  unitId          String?
+  serviceDate     DateTime?              @db.Date
+  eventType       String
+  actorUserId     String?
+  actorUser       User?                  @relation("AssignmentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorRole       String?
+  authMethod      String?
+  fromStatus      String?
+  toStatus        String?
+  summary         String
+  reason          String?
+  priorValuesJson String?
+  newValuesJson   String?
+  createdAt       DateTime               @default(now())
 
   @@index([assignmentId, createdAt])
+  @@index([planId, createdAt])
   @@index([facilityId, createdAt])
+  @@index([departmentId, createdAt])
 }
 
 /// Reusable operating pattern describing required operational positions.
@@ -2099,6 +2179,10 @@ model OperationalAssignmentTemplate {
   name                  String
   description           String?
   isActive              Boolean                             @default(true)
+  /// Inclusive start of effectiveness for coverage requirements. Null = already effective historically.
+  effectiveFrom         DateTime?                           @db.Date
+  /// Inclusive end of effectiveness. Null = not retired. Retired templates do not apply prospectively.
+  effectiveTo           DateTime?                           @db.Date
   operationDefinitionId String?
   operationDefinition   OperationDefinition?                @relation(fields: [operationDefinitionId], references: [id], onDelete: SetNull)
   workShiftId           String?
@@ -2111,6 +2195,7 @@ model OperationalAssignmentTemplate {
 
   @@index([facilityId, departmentId])
   @@index([facilityId, isActive])
+  @@index([facilityId, departmentId, effectiveFrom, effectiveTo])
 }
 
 model OperationalAssignmentTemplateItem {
