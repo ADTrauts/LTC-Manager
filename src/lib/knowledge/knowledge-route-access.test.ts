@@ -1,30 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { APP_ROLES, ROLE_PRIORITY, type AppRole } from "@/lib/access";
-import {
-  resolveRouteAccess,
-  WAVE1_ROUTE_MIN_ROLES,
-  type RoutePermissionRule,
-} from "@/lib/route-permissions";
+import { APP_ROLES, type AppRole } from "@/lib/access";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 
-function buildFallbackRules(): RoutePermissionRule[] {
-  return Object.entries(WAVE1_ROUTE_MIN_ROLES)
-    .map(([pathPrefix, minRole]) => ({
-      pathPrefix,
-      allowedRoleKeys: new Set(
-        APP_ROLES.filter((role) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[minRole]),
-      ),
-    }))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
-}
+const FLAGS = { todaysWorkEnabled: true };
 
-test("/admin/knowledge inherits /admin FACILITY_ADMINISTRATOR gate", () => {
-  const rules = buildFallbackRules();
-  assert.equal(
-    resolveRouteAccess("/admin/knowledge", "FACILITY_ADMINISTRATOR" as AppRole, rules),
-    true,
-  );
-  assert.equal(resolveRouteAccess("/admin/knowledge", "MANAGER" as AppRole, rules), false);
-  assert.equal(resolveRouteAccess("/admin/knowledge/clxyz", "STAFF" as AppRole, rules), false);
+test("/admin/knowledge keeps the FACILITY_ADMINISTRATOR gate of the Administration area", () => {
+  assert.equal(roleMayAccessRoute("/admin/knowledge", "FACILITY_ADMINISTRATOR" as AppRole, FLAGS), true);
+  for (const role of APP_ROLES.filter((r) => r !== "FACILITY_ADMINISTRATOR")) {
+    assert.equal(roleMayAccessRoute("/admin/knowledge", role, FLAGS), false, `${role} denied`);
+  }
+});
+
+test("unregistered /admin/knowledge descendants are denied for every role", () => {
+  for (const role of APP_ROLES) {
+    assert.equal(roleMayAccessRoute("/admin/knowledge/clxyz", role, FLAGS), false, `${role} denied`);
+  }
 });

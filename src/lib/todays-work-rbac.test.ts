@@ -5,11 +5,7 @@ import { APP_ROLES, ROLE_PRIORITY, type AppRole } from "@/lib/access";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { isTodaysWorkPathname, resolveDefaultHomePath } from "@/lib/nav-zones";
-import {
-  resolveRouteAccess,
-  WAVE1_ROUTE_MIN_ROLES,
-  type RoutePermissionRule,
-} from "@/lib/route-permissions";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 
 const TODAYS_WORK_PATHS = ["/today", "/today/walk", "/today/coverage", "/today/handoffs"] as const;
 
@@ -21,15 +17,10 @@ const BELOW_SUPERVISOR_ROLES: AppRole[] = APP_ROLES.filter(
   (role) => ROLE_PRIORITY[role] < ROLE_PRIORITY.SUPERVISOR,
 );
 
-function buildWave1FallbackRules(): RoutePermissionRule[] {
-  return Object.entries(WAVE1_ROUTE_MIN_ROLES)
-    .map(([pathPrefix, minRole]) => ({
-      pathPrefix,
-      allowedRoleKeys: new Set(
-        APP_ROLES.filter((role) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[minRole]),
-      ),
-    }))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
+const FLAGS = { todaysWorkEnabled: true };
+
+function mayAccess(path: string, role: AppRole): boolean {
+  return roleMayAccessRoute(path, role, FLAGS);
 }
 
 function withTodaysWorkFlag(value: string | undefined, fn: () => void) {
@@ -51,29 +42,31 @@ function withTodaysWorkFlag(value: string | undefined, fn: () => void) {
 }
 
 test("Today's Work RBAC — supervisor+ roles can access all /today routes", () => {
-  const rules = buildWave1FallbackRules();
   for (const role of SUPERVISOR_PLUS_ROLES) {
     for (const path of TODAYS_WORK_PATHS) {
-      assert.equal(resolveRouteAccess(path, role, rules), true, `${role} should access ${path}`);
+      assert.equal(mayAccess(path, role), true, `${role} should access ${path}`);
     }
   }
 });
 
 test("Today's Work RBAC — below-supervisor roles are denied all /today routes", () => {
-  const rules = buildWave1FallbackRules();
   for (const role of BELOW_SUPERVISOR_ROLES) {
     for (const path of TODAYS_WORK_PATHS) {
-      assert.equal(resolveRouteAccess(path, role, rules), false, `${role} should be denied ${path}`);
+      assert.equal(mayAccess(path, role), false, `${role} should be denied ${path}`);
     }
   }
 });
 
-test("Today's Work RBAC — nested /today paths inherit supervisor gate", () => {
-  const rules = buildWave1FallbackRules();
-  assert.equal(resolveRouteAccess("/today/walk/nested", "SUPERVISOR", rules), true);
-  assert.equal(resolveRouteAccess("/today/coverage/details", "MANAGER", rules), true);
-  assert.equal(resolveRouteAccess("/today/handoffs/archive", "STAFF", rules), false);
-  assert.equal(resolveRouteAccess("/today-evil", "STAFF", rules), true);
+test("Today's Work RBAC — unregistered /today descendants and lookalikes are denied", () => {
+  // These paths do not exist in src/app. Under platform-owned policy they are unregistered, so no
+  // role reaches them: an unmatched path is Not Found rather than inheriting the parent's grant.
+  for (const role of [...SUPERVISOR_PLUS_ROLES, ...BELOW_SUPERVISOR_ROLES]) {
+    assert.equal(mayAccess("/today/walk/nested", role), false, `${role} /today/walk/nested`);
+    assert.equal(mayAccess("/today/coverage/details", role), false, `${role} /today/coverage/details`);
+    assert.equal(mayAccess("/today/handoffs/archive", role), false, `${role} /today/handoffs/archive`);
+    // Segment-boundary safety: /today-evil is a different first segment, not a child of /today.
+    assert.equal(mayAccess("/today-evil", role), false, `${role} /today-evil`);
+  }
 });
 
 test("Today's Work RBAC — pathname detection covers hub and subpaths only", () => {
@@ -104,10 +97,9 @@ test("Today's Work RBAC — floor and manager homes stay off /today", () => {
 });
 
 test("Today's Work RBAC — staff retain Operations Center and unit workspace access", () => {
-  const rules = buildWave1FallbackRules();
-  assert.equal(resolveRouteAccess("/dashboard", "STAFF", rules), true);
-  assert.equal(resolveRouteAccess("/operations", "STAFF", rules), true);
-  assert.equal(resolveRouteAccess("/unit/abc", "STAFF", rules), true);
+  assert.equal(mayAccess("/dashboard", "STAFF"), true);
+  assert.equal(mayAccess("/operations", "STAFF"), true);
+  assert.equal(mayAccess("/unit/abc", "STAFF"), true);
 });
 
 test("Today's Work RBAC — feature flag off keeps supervisor on Business Workspace", () => {
@@ -115,4 +107,16 @@ test("Today's Work RBAC — feature flag off keeps supervisor on Business Worksp
     assert.equal(isTodaysWorkEnabled(), false);
     assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/workspace");
   });
+});
+
+test("Today's Work RBAC — disabling the feature withdraws /today from every role", () => {
+  for (const role of SUPERVISOR_PLUS_ROLES) {
+    for (const path of TODAYS_WORK_PATHS) {
+      assert.equal(
+        roleMayAccessRoute(path, role, { todaysWorkEnabled: false }),
+        false,
+        `${role} should be blocked from ${path} while the feature is off`,
+      );
+    }
+  }
 });

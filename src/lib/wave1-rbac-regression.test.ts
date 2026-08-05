@@ -1,30 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { APP_ROLES, ROLE_PRIORITY, type AppRole } from "@/lib/access";
+import { APP_ROLES, type AppRole } from "@/lib/access";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { isTodaysWorkPathname, resolveDefaultHomePath } from "@/lib/nav-zones";
-import {
-  resolveRouteAccess,
-  WAVE1_ROUTE_MIN_ROLES,
-  type RoutePermissionRule,
-} from "@/lib/route-permissions";
+import { PLATFORM_ROUTES, roleMayAccessRoute } from "@/lib/route-registry";
 
-function buildWave1FallbackRules(): RoutePermissionRule[] {
-  return Object.entries(WAVE1_ROUTE_MIN_ROLES)
-    .map(([pathPrefix, minRole]) => ({
-      pathPrefix,
-      allowedRoleKeys: new Set(
-        APP_ROLES.filter((role) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[minRole]),
-      ),
-    }))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
-}
+const FLAGS = { todaysWorkEnabled: true };
 
-function roleShouldAccessRoute(role: AppRole, pathPrefix: string): boolean {
-  const minRole = WAVE1_ROUTE_MIN_ROLES[pathPrefix];
-  assert.ok(minRole, `missing min role for ${pathPrefix}`);
-  return ROLE_PRIORITY[role] >= ROLE_PRIORITY[minRole];
+function mayAccess(path: string, role: AppRole): boolean {
+  return roleMayAccessRoute(path, role, FLAGS);
 }
 
 const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
@@ -65,37 +50,31 @@ const WAVE1_RBAC_DENIALS: { role: AppRole; path: string }[] = [
   { role: "MANAGER", path: "/admin" },
 ];
 
-test("Wave 1 RBAC matrix — entitled roles pass fallback route rules", () => {
-  const rules = buildWave1FallbackRules();
+test("Wave 1 RBAC matrix — entitled roles pass platform route policy", () => {
   for (const { role, path } of WAVE1_RBAC_MATRIX) {
-    assert.equal(
-      resolveRouteAccess(path, role, rules),
-      true,
-      `${role} should access ${path}`,
-    );
+    assert.equal(mayAccess(path, role), true, `${role} should access ${path}`);
   }
 });
 
 test("Wave 1 RBAC matrix — under-privileged roles are denied", () => {
-  const rules = buildWave1FallbackRules();
   for (const { role, path } of WAVE1_RBAC_DENIALS) {
-    assert.equal(
-      resolveRouteAccess(path, role, rules),
-      false,
-      `${role} should be denied ${path}`,
-    );
+    assert.equal(mayAccess(path, role), false, `${role} should be denied ${path}`);
   }
 });
 
-test("Wave 1 RBAC matrix — every seeded route min role matches expectations", () => {
-  const rules = buildWave1FallbackRules();
-  for (const pathPrefix of Object.keys(WAVE1_ROUTE_MIN_ROLES)) {
+test("Wave 1 RBAC matrix — every role-restricted page matches its approved role list", () => {
+  const restricted = PLATFORM_ROUTES.filter(
+    (route) => route.surface === "PAGE" && route.access.kind === "ROLE_RESTRICTED",
+  );
+  assert.ok(restricted.length > 0, "registry should declare role-restricted pages");
+
+  for (const route of restricted) {
+    if (route.access.kind !== "ROLE_RESTRICTED") continue;
     for (const role of APP_ROLES) {
-      const expected = roleShouldAccessRoute(role, pathPrefix);
       assert.equal(
-        resolveRouteAccess(pathPrefix, role, rules),
-        expected,
-        `${role} access to ${pathPrefix}`,
+        mayAccess(route.pattern, role),
+        route.access.allowedRoles.includes(role),
+        `${role} access to ${route.pattern}`,
       );
     }
   }
@@ -119,10 +98,7 @@ test("Wave 1 RBAC matrix — /today is shared across operational modes", () => {
 });
 
 test("Wave 1 RBAC matrix — floor default home avoids /units redirect loop", () => {
-  assert.equal(
-    resolveDefaultHomePath({ authKind: "employee", role: "STAFF" }),
-    "/logs",
-  );
+  assert.equal(resolveDefaultHomePath({ authKind: "employee", role: "STAFF" }), "/logs");
   assert.equal(
     resolveDefaultHomePath({
       authKind: "employee",
@@ -138,8 +114,7 @@ test("Wave 1 RBAC matrix — manager homes on Workspace; supervisor homes on Tod
   assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
 });
 
-test("Wave 1 RBAC matrix — /today subpaths inherit supervisor+ gate", () => {
-  const rules = buildWave1FallbackRules();
-  assert.equal(resolveRouteAccess("/today/handoffs", "SUPERVISOR", rules), true);
-  assert.equal(resolveRouteAccess("/today/handoffs", "STAFF", rules), false);
+test("Wave 1 RBAC matrix — /today subpaths keep the supervisor+ gate", () => {
+  assert.equal(mayAccess("/today/handoffs", "SUPERVISOR"), true);
+  assert.equal(mayAccess("/today/handoffs", "STAFF"), false);
 });

@@ -37,8 +37,7 @@ import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import type { BusinessWorkspaceInputs } from "@/lib/business-workspace/load-workspace-inputs";
 import type { UnitReadiness } from "@/lib/readiness";
 import { resolveDefaultHomePath, resolveZoneForPathPrefix, normalizePrimaryNavLabel } from "@/lib/nav-zones";
-import { resolveRouteAccess, WAVE1_ROUTE_MIN_ROLES, type RoutePermissionRule } from "@/lib/route-permissions";
-import { APP_ROLES, ROLE_PRIORITY, type AppRole } from "@/lib/access";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 
 const defaultOperation = {
   mealType: "LUNCH" as const,
@@ -709,20 +708,12 @@ test("staff never default to workspace", () => {
   );
 });
 
-test("workspace route is SUPERVISOR+ in WAVE1 fallback", () => {
-  assert.equal(WAVE1_ROUTE_MIN_ROLES["/workspace"], "SUPERVISOR");
-  const rules: RoutePermissionRule[] = Object.entries(WAVE1_ROUTE_MIN_ROLES)
-    .map(([pathPrefix, minRole]) => ({
-      pathPrefix,
-      allowedRoleKeys: new Set(
-        APP_ROLES.filter((role) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[minRole as AppRole]),
-      ),
-    }))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
-
-  assert.equal(resolveRouteAccess("/workspace", "STAFF", rules), false);
-  assert.equal(resolveRouteAccess("/workspace", "SUPERVISOR", rules), true);
-  assert.equal(resolveRouteAccess("/workspace", "MANAGER", rules), true);
+test("workspace route is SUPERVISOR+ in platform route policy", () => {
+  const flags = { todaysWorkEnabled: true };
+  assert.equal(roleMayAccessRoute("/workspace", "STAFF", flags), false);
+  assert.equal(roleMayAccessRoute("/workspace", "LEAD_TEAM_MEMBER", flags), false);
+  assert.equal(roleMayAccessRoute("/workspace", "SUPERVISOR", flags), true);
+  assert.equal(roleMayAccessRoute("/workspace", "MANAGER", flags), true);
 });
 
 test("workspace maps to Workspace nav zone and label", () => {

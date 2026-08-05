@@ -5,7 +5,7 @@ import { ROLE_PRIORITY, hasAtLeastRole } from "@/lib/access";
 import { upsertInspectionDefinitionSchema } from "@/lib/work/inspections/definition-schema";
 import { filterInspectionsForUnit } from "@/lib/work/inspections/list-unit-inspections";
 import { inspectionResultOperatorCopy } from "@/lib/work/inspections/result-copy";
-import { WAVE1_ROUTE_MIN_ROLES } from "@/lib/route-permissions";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 import { UNIT_WORK_QUEUE_PRIORITY } from "@/lib/unit-workspace/work-queue-priority";
 import { buildUnitWorkQueue } from "@/lib/unit-workspace/build-unit-work-queue";
 import { UnitType } from "@prisma/client";
@@ -149,7 +149,10 @@ test("available inspections sit behind genuine operational work in the queue", (
 });
 
 test("inspection builder remains behind Administration (/admin) FA gate", () => {
-  assert.equal(WAVE1_ROUTE_MIN_ROLES["/admin"], "FACILITY_ADMINISTRATOR");
+  const flags = { todaysWorkEnabled: true };
+  assert.equal(roleMayAccessRoute("/admin/inspections", "FACILITY_ADMINISTRATOR", flags), true);
+  assert.equal(roleMayAccessRoute("/admin/inspections", "GM", flags), false);
+  assert.equal(roleMayAccessRoute("/admin/inspections", "MANAGER", flags), false);
   assert.equal(hasAtLeastRole("FACILITY_ADMINISTRATOR", "MANAGER"), true);
   assert.equal(hasAtLeastRole("STAFF", "MANAGER"), false);
   assert.ok(ROLE_PRIORITY.FACILITY_ADMINISTRATOR > ROLE_PRIORITY.STAFF);

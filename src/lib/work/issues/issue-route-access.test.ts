@@ -4,36 +4,21 @@ import test from "node:test";
 import { APP_ROLES, ROLE_PRIORITY, type AppRole } from "@/lib/access";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { resolveZoneForPathname } from "@/lib/nav-zones";
-import {
-  resolveRouteAccess,
-  WAVE1_ROUTE_MIN_ROLES,
-  type RoutePermissionRule,
-} from "@/lib/route-permissions";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 import { issueDetailPath, repairDetailAliasPath } from "@/lib/work/issues/issue-copy";
 
-function buildFallbackRules(): RoutePermissionRule[] {
-  return Object.entries(WAVE1_ROUTE_MIN_ROLES)
-    .map(([pathPrefix, minRole]) => ({
-      pathPrefix,
-      allowedRoleKeys: new Set(
-        APP_ROLES.filter((role) => ROLE_PRIORITY[role] >= ROLE_PRIORITY[minRole]),
-      ),
-    }))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
-}
+const FLAGS = { todaysWorkEnabled: true };
 
-test("/issues inherits STAFF+ access like /repairs", () => {
-  assert.equal(WAVE1_ROUTE_MIN_ROLES["/issues"], "STAFF");
-  const rules = buildFallbackRules();
+test("/issues detail keeps the same STAFF+ access as the /repairs alias", () => {
   for (const role of APP_ROLES) {
     const allowed = ROLE_PRIORITY[role as AppRole] >= ROLE_PRIORITY.STAFF;
     assert.equal(
-      resolveRouteAccess("/issues/clxxxxxxxxxxxxxxxxxxxxxxxx", role, rules),
+      roleMayAccessRoute("/issues/clxxxxxxxxxxxxxxxxxxxxxxxx", role, FLAGS),
       allowed,
       `${role} /issues detail`,
     );
     assert.equal(
-      resolveRouteAccess("/repairs/clxxxxxxxxxxxxxxxxxxxxxxxx", role, rules),
+      roleMayAccessRoute("/repairs/clxxxxxxxxxxxxxxxxxxxxxxxx", role, FLAGS),
       allowed,
       `${role} /repairs alias`,
     );
