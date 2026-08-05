@@ -5,11 +5,22 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/verify/verify-build.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test $(find src -name '*.test.ts' | sort)",
+    "test": "node scripts/verify/run-tests.mjs",
+    "test:hermetic": "node scripts/verify/run-tests.mjs hermetic",
+    "test:db": "node scripts/verify/run-tests.mjs db",
+    "verify:static": "node scripts/verify/verify-static.mjs",
+    "verify:build": "node scripts/verify/verify-build.mjs",
+    "verify:db": "node scripts/verify/verify-db.mjs",
+    "verify:all": "node scripts/verify/verify-all.mjs",
+    "verify:discovery": "node scripts/verify/test-discovery-sentinel.mjs",
+    "verify:migrations": "node scripts/verify/migration-integrity.mjs",
+    "verify:hygiene": "node scripts/verify/repository-hygiene.mjs",
+    "verify:schema-drift": "node scripts/verify/schema-drift.mjs",
+    "maintenance:auth-rate-limits": "node scripts/maintenance/auth-rate-limits.mjs",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "route-mirror:generate": "tsx scripts/generate-legacy-route-mirror.ts",
@@ -20,6 +31,9 @@
     "db:provision": "node scripts/provision-facility.mjs",
     "db:sync-operation-instances": "npx tsx scripts/sync-operation-instances.ts",
     "db:generate-inspection-work": "npx tsx scripts/generate-inspection-work.ts"
+  },
+  "engines": {
+    "node": ">=20 <21"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

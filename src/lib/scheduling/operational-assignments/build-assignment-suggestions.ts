@@ -21,7 +21,11 @@ export function suggestEmployeeForPosition(input: {
   existingAssignments: AssignmentBoardEntry[];
   alreadySuggestedIds: Set<string>;
 }): SuggestionCandidate | null {
-  const { roleKey, unitId, scheduledEmployees, existingAssignments, alreadySuggestedIds } = input;
+  // roleKey is part of the public suggestion input for callers that filter by role; matching
+  // by role is not yet applied inside this helper.
+  const { roleKey: _roleKey, unitId, scheduledEmployees, existingAssignments, alreadySuggestedIds } =
+    input;
+  void _roleKey;
 
   const assignedEmployeeIds = new Set(
     existingAssignments

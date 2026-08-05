@@ -154,7 +154,21 @@ async function main() {
     where: { key: RoleKey.FACILITY_ADMINISTRATOR },
   });
 
-  const hash = await bcrypt.hash("ChangeMeNow123!", 12);
+  // Nonproduction demo password for the Terrace View seed admin only.
+  // Never reuse outside local development. CI and verify:db must set SEED_DEMO_PASSWORD to a
+  // synthetic value. In production-like environments the default is refused unless
+  // ALLOW_DEMO_SEED_PASSWORD=1 is set explicitly.
+  const demoPassword =
+    process.env.SEED_DEMO_PASSWORD ||
+    (process.env.ALLOW_DEMO_SEED_PASSWORD === "1" || process.env.NODE_ENV !== "production"
+      ? "ChangeMeNow123!"
+      : null);
+  if (!demoPassword) {
+    throw new Error(
+      "Seed refuses the hardcoded demo password when NODE_ENV=production. Set SEED_DEMO_PASSWORD or ALLOW_DEMO_SEED_PASSWORD=1 for nonproduction seeding only.",
+    );
+  }
+  const hash = await bcrypt.hash(demoPassword, 12);
 
   await prisma.user.upsert({
     where: { email: "admin@terraceview.local" },

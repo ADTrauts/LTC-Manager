@@ -12,7 +12,6 @@ import {
   loadAssignmentFormOptions,
   loadAssignmentEvents,
   buildAssignmentFulfillmentSummary,
-  type AssignmentFulfillmentSummary,
   type AssignmentEventView,
 } from "@/lib/scheduling/operational-assignments";
 import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
@@ -21,10 +20,14 @@ import type { TemplateView } from "@/lib/scheduling/operational-assignments/temp
 
 import {
   createAssignmentAction,
+  // editAssignmentAction is exported and scoped; the dormant Assignments UI does not yet surface
+  // an edit form. Keep the Server Action; do not delete it to silence lint.
   editAssignmentAction,
   assignmentLifecycleAction,
   reassignAction,
 } from "./actions";
+
+void editAssignmentAction;
 import {
   createTemplateAction,
   editTemplateAction,

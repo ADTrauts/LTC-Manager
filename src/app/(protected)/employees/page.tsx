@@ -157,7 +157,7 @@ export default async function EmployeesPage({
   }
 
   const sp = await searchParams;
-  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees", sp);
+  const { deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees", sp);
 
   const directoryQuery = parseDirectoryQuery(sp);
   const where = buildEmployeeWhere(facilityId, directoryQuery);

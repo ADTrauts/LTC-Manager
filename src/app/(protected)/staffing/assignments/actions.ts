@@ -20,13 +20,6 @@ import {
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
 import { recordAssignmentEvent } from "@/lib/scheduling/operational-assignments/assignment-events";
 
-const statusValues = [
-  OperationalAssignmentStatus.PLANNED,
-  OperationalAssignmentStatus.ACTIVE,
-  OperationalAssignmentStatus.COMPLETED,
-  OperationalAssignmentStatus.CANCELLED,
-] as const;
-
 const sourceValues = [
   OperationalAssignmentSource.MANUAL,
   OperationalAssignmentSource.TEMPLATE,

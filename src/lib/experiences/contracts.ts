@@ -661,11 +661,14 @@ export function buildExperienceContracts(
   const statusSections = sectionKeysOrdered.filter((k) =>
     (["HEADER", "CURRENT_STATUS"] as ExperienceSectionKey[]).includes(k),
   );
+  // Reserved for the action-band layout when experience shells distinguish status vs action
+  // sections. Retained so the ordering contract stays explicit even before every shell consumes it.
   const actionSections = sectionKeysOrdered.filter((k) =>
     (
       ["HEADER", "OUTSTANDING_WORK", "TODAYS_WORK", "TASKS"] as ExperienceSectionKey[]
     ).includes(k),
   );
+  void actionSections;
 
   const primaryActions = actions
     .filter((a) => a.placement === "HEADER" || a.category === "SUBMIT")
