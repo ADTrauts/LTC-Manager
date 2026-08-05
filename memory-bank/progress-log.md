@@ -388,7 +388,13 @@ Gate: `./node_modules/.bin/tsc --noEmit` passed on edited code; Prisma client re
 
 ## Post–Phase E — Admin-managed jobs and route permissions (2026-05-05)
 
-Status: complete
+Status: superseded 2026-08-04
+
+> **Superseded 2026-08-04.** Route authorization and navigation no longer read `AppRoute` or
+> `RoleRoutePermission`. Policy is platform-owned in `src/lib/route-registry/platform-routes.ts`;
+> the permission-editing UI and its Server Actions were removed. See
+> `docs/architecture/ADR_PLATFORM_OWNED_ROUTE_AUTHORIZATION_2026-08-04.md`.
+
 
 - Added DB-backed permission entities:
   - `Role.isActive`

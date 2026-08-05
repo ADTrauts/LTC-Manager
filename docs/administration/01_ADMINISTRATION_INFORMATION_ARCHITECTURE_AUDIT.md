@@ -42,7 +42,7 @@ The Administration experience feels fragmented because **several distinct proble
 | Facility Builder | `/admin/facility/builder` | `FacilityBuilderPage` → `FacilityBuilderClient`, `FacilityTerminologySettings` | `loadFacilityHierarchy`, builder `actions.ts` | `Unit`, `UnitSpace`, `UnitSpaceResponsibility`, `UnitDepartmentResponsibility`, `Facility` vocabulary | FA layout; page/actions often MANAGER+ (redundant) | Physical hierarchy + room/unit department responsibility + capabilities + vocabulary | Crumb: **Administration** → Builder | **Keep** — align landing vocabulary; standardize crumb |
 | Departments | `/admin/departments` | `AdminDepartmentsPage`, `DepartmentVisibilityForm` | `ensureDefaultDepartments`, `setDepartmentShowInEmployeeAppAction`, `setDepartmentHeadAction` | `Department`, `Employee` | FA | Toggle `showInEmployeeApp`, assign heads, deep-link to Dept Admin | Crumb: **Admin** | **Keep** — clarify copy (HR visibility ≠ licensing) |
 | Department Administration | `/admin/departments/[departmentId]` | `DepartmentAdministrationPage` + tab panels | `loadDepartmentAdminView`, profile actions | `DepartmentOperationalProfile`, areas, archetypes, bindings, exceptions | FA + `DEPARTMENT_OPERATIONAL_PROFILES_ENABLED`; writes Manager+ | Operational model authoring (Areas, Experiences, archetypes, profile lifecycle) | Crumb Admin / Departments / name; local tabs | **Keep** (nested) — do not promote to top-level hub card |
-| Permissions | `/admin/permissions` | `AdminPermissionsPage` → `PermissionsManager` | Role/route CRUD actions | `Role`, `AppRoute`, `RoleRoutePermission` | FA; page still checks GM+ (unreachable) | Role × route matrix (“Jobs” label) | Crumb: Admin | **Rename** presentation (“Roles & route access”); **Keep** domain |
+| Permissions | `/admin/permissions` | `AdminPermissionsPage` → `AccessMatrix` | None — read only | `src/lib/route-registry/platform-routes.ts` (no database read) | FA only, via `assertFacilityAdministratorPage` | Read-only Access Matrix of platform role × product area | Crumb: Admin | **Done** — route policy is platform-owned (see `ADR_PLATFORM_OWNED_ROUTE_AUTHORIZATION_2026-08-04.md`) |
 | Inspections | `/admin/inspections` | `AdminInspectionsPage` → `InspectionDefinitionEditor` | `upsertInspectionDefinitionAction`, inspection lib | `InspectionDefinition`, items, submissions, occurrences | FA page; MANAGER+ actions | Author inspection definitions; list submissions | Crumb: Admin | **Keep** — consider regroup under Operational configuration |
 | Operational knowledge | `/admin/knowledge` | `AdminKnowledgePage` | knowledge actions, contextual loaders | `KnowledgeArticle` + link tables | FA page; MANAGER+ actions | SOP/reference library + object links | Unique “Admin home” button | **Rename** presentation (e. for Procedures & resources); **Keep** domain |
 | Organization | `/admin/organization` | `AdminOrganizationPage` | org/facility actions, handbook, device bind | `Organization`, `Facility` | FA | Org entity + facility settings + legacy operator label + handbook + PIN device | Crumb: Admin | **Keep** / **Regroup** under Facility & Organization |
@@ -121,8 +121,9 @@ flowchart TB
 
   subgraph access [Access]
     Role[Role / RoleKey]
-    RRP[RoleRoutePermission]
-    AppRoute[AppRoute]
+    RRP[RoleRoutePermission - non-authoritative]
+    AppRoute[AppRoute - non-authoritative]
+    Registry[Platform route registry - authoritative]
     JT[JobTitle HR]
     Emp[Employee / User]
     ED[EmployeeDepartment]
@@ -305,7 +306,7 @@ FACILITY SETTINGS (Admin → Departments)
   Cannot hide if employees remain assigned
 
 USER SESSION
-  Role (RoleRoutePermission) → which routes appear
+  Role + platform route registry → which routes appear (AppRoute/RoleRoutePermission are not consulted)
   primaryDepartmentId / EmployeeDepartment → which modes user may select
   Cookie ltc_active_department → current lens
   FA + empty cookie → showAllDepartmentNav (Facility Overview)
@@ -529,7 +530,7 @@ Do **not** implement in this audit. Suggested stages:
 | Department Admin | `src/lib/department-administration/*`, `admin/departments/**` |
 | Projection / Locations | `src/lib/projection/*`, `src/lib/locations/*`, `LEGACY_LOCATION_BOUNDARIES.md` |
 | Mode / visibility | `src/lib/active-department-context.ts`, `src/lib/department-nav.ts`, `src/components/app-shell.tsx` |
-| Permissions | `src/lib/route-permissions.ts`, `admin/permissions/*` |
+| Route policy | `src/lib/route-registry/*` (authoritative), `admin/permissions/*` (read-only view) |
 | Logs / Inspections | `src/app/(protected)/logs/*`, `admin/inspections/*`, `src/lib/work/inspections/*` |
 | Knowledge | `admin/knowledge/*`, `src/lib/knowledge/*` |
 | Org / Stripe | `admin/organization/*`, `src/lib/organization/*`, `src/lib/stripe.ts` |
