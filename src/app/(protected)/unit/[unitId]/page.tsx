@@ -198,6 +198,8 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
   const employeeLabel = (employee?: { firstName: string; lastName: string } | null) =>
     employee ? `${employee.firstName} ${employee.lastName}`.trim() : null;
 
+  const sessionEmployeeId = await getOperationalEmployeeIdForSession(session);
+
   const mealServiceContext = resolveServeryMealServiceContext({
     unitType: unit.unitType,
     mealTimes: unit.mealTimes,
@@ -215,7 +217,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           action: "RECORD",
           actor: {
             userId: sessionUserIdForFk(session),
-            employeeId: await getOperationalEmployeeIdForSession(session),
+            employeeId: sessionEmployeeId,
             role: session.role,
             authMethod: session.authMethod === "QUICK_PIN" ? "QUICK_PIN" : "PASSWORD",
           },
@@ -286,11 +288,9 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
   ]);
 
   const myAssignment = isOperationalAssignmentsEnabled()
-    ? await (async () => {
-        const empId = await getOperationalEmployeeIdForSession(session);
-        if (!empId) return null;
-        return loadEmployeeAssignmentsToday(empId, session.facilityId, now);
-      })()
+    ? sessionEmployeeId
+      ? await loadEmployeeAssignmentsToday(sessionEmployeeId, session.facilityId, now)
+      : null
     : null;
 
   const unitTypeLabel =
