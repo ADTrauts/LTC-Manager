@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "migration": "20260423105656",
+      "repoSha256": "c94c71258d91d8d4eb14c3d3aca09886fdb54ff8b46b0ffc88c9cf43fa039555",
+      "documentedIn": "docs/engineering/MIGRATION_HISTORY_EXCEPTIONS.md",
+      "classification": "ACCEPTED_HISTORICAL_APPLIED_MIGRATION_EDIT",
+      "summary": "Guarded DROP DEFAULT on ServeryMealServiceEvent.updatedAt for shadow-database replay"
+    }
+  ]
+}

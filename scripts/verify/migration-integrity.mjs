@@ -8,6 +8,8 @@ import { execSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { verifyRepoMigrationChecksums } from "./lib/migration-checksum.mjs";
+
 const ROOT = process.cwd();
 const MIGRATIONS_DIR = join(ROOT, "prisma", "migrations");
 
@@ -107,6 +109,14 @@ function main() {
   // lock file present
   if (!existsSync(join(MIGRATIONS_DIR, "migration_lock.toml"))) {
     fail("migration_lock.toml is missing");
+  }
+
+  const checksums = verifyRepoMigrationChecksums({ migrationsDir: MIGRATIONS_DIR });
+  if (!checksums.pass) {
+    fail(checksums.message ?? "migration checksum manifest verification failed");
+  }
+  if (checksums.exceptionCount > 0) {
+    console.log(`  documented checksum exceptions: ${checksums.exceptionCount}`);
   }
 
   console.log(`migration-integrity: PASS — ${dirs.length} migrations`);

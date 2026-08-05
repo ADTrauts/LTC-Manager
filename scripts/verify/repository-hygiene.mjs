@@ -27,6 +27,8 @@ function gitTracked() {
 const ALLOWLISTED_DEMO_PATHS = new Set([
   "prisma/seed.mjs",
   "docs/engineering/CONTINUOUS_VERIFICATION_PHASE_5_2026-08-05.md",
+  "docs/engineering/CONTINUOUS_VERIFICATION_PHASE_5_REMEDIATION_2026-08-05.md",
+  "docs/engineering/MIGRATION_HISTORY_EXCEPTIONS.md",
   "docs/security/AUTHORIZATION_INTEGRITY_PHASE_4_2026-08-05.md",
   "docs/security/RUNTIME_HARDENING_PHASE_3_2026-08-04.md",
   "docs/security/AUTHORIZATION_HARDENING_PHASE_2_2026-08-04.md",
