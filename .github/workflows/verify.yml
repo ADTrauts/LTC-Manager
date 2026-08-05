@@ -1,0 +1,129 @@
+# Continuous repository verification — does not deploy.
+#
+# Invokes the same package scripts developers run locally. Database work uses a
+# disposable PostgreSQL service database (ltc_ci_*), never ltc_manager.
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AUTH_SECRET: phase5-ci-auth-secret-not-for-production
+  SEED_DEMO_PASSWORD: CiSeedPassword!ChangeMe
+  ALLOW_DEMO_SEED_PASSWORD: "1"
+
+jobs:
+  static-hermetic:
+    name: Static and hermetic
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test discovery sentinel
+        run: npm run verify:discovery
+
+      - name: Migration integrity
+        run: npm run verify:migrations
+
+      - name: Repository hygiene
+        run: npm run verify:hygiene
+
+      - name: Hermetic tests
+        run: npm run test:hermetic
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Prisma validate
+        run: npx prisma validate
+
+      - name: Production build
+        run: npm run verify:build
+
+  database-integration:
+    name: Database integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ltc_ci
+          POSTGRES_PASSWORD: ltc_ci_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ltc_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      VERIFY_DATABASE_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/ltc_ci_verify?schema=public
+      VERIFY_DATABASE_ADMIN_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/postgres
+      VERIFY_MANAGE_DATABASE: "1"
+      MAINTENANCE_DATABASE_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/ltc_ci_verify?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Database safety refuses ltc_manager
+        run: |
+          set +e
+          VERIFY_DATABASE_URL='postgresql://ltc_ci:ltc_ci_password@localhost:5432/ltc_manager?schema=public' \
+            npm run verify:db
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "expected ltc_manager to be rejected" >&2
+            exit 1
+          fi
+          echo "ltc_manager correctly rejected"
+
+      - name: verify:db (migrate, seed×2, SQL-backed tests)
+        run: npm run verify:db
+
+      - name: Recreate DB for maintenance command
+        run: |
+          PGPASSWORD=ltc_ci_password psql -h localhost -U ltc_ci -d postgres -v ON_ERROR_STOP=1 \
+            -c 'DROP DATABASE IF EXISTS ltc_ci_verify;' \
+            -c 'CREATE DATABASE ltc_ci_verify;'
+          DATABASE_URL="$VERIFY_DATABASE_URL" DIRECT_URL="$VERIFY_DATABASE_URL" npx prisma migrate deploy
+          DATABASE_URL="$VERIFY_DATABASE_URL" DIRECT_URL="$VERIFY_DATABASE_URL" npx prisma db seed
+
+      - name: Rate-limit cleanup dry-run
+        run: npm run maintenance:auth-rate-limits -- --dry-run
+
+      - name: Rate-limit cleanup
+        run: npm run maintenance:auth-rate-limits
