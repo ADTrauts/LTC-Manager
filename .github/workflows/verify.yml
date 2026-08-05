@@ -236,3 +236,55 @@ jobs:
           path: tmp/assignment-browser-artifacts/
           if-no-files-found: ignore
           retention-days: 7
+
+  dietary-pilot-gate:
+    name: Dietary pilot gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ltc_ci
+          POSTGRES_PASSWORD: ltc_ci_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ltc_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      VERIFY_DATABASE_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/ltc_ci_dietary_pilot?schema=public
+      VERIFY_DATABASE_ADMIN_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/postgres
+      VERIFY_MANAGE_DATABASE: "1"
+      DIETARY_PILOT_CI_GATE: "1"
+      TZ: America/New_York
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Dietary integrated pilot certification (CI gate)
+        run: npm run test:dietary-pilot
+
+      - name: Upload dietary pilot failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dietary-pilot-artifacts
+          path: tmp/dietary-pilot-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
