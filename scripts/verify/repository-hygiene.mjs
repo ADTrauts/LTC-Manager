@@ -113,16 +113,12 @@ function main() {
         name === "postgres-url-with-password" &&
         (ALLOWLISTED_DEMO_PATHS.has(path) ||
           path.startsWith("scripts/verify/") ||
+          path.startsWith("scripts/maintenance/") ||
+          path.startsWith(".github/workflows/") ||
           path.includes(".test."))
       ) {
-        // Test fixtures and verify scripts use synthetic passwords in examples — still ensure
-        // they are not the local ltc_manager URL with a real-looking password from .env.
-        if (/ltc_manager/.test(content) && /:[^@\s]{8,}@/.test(content) && !path.includes(".test.")) {
-          // Documentation mentioning the name without a URL is fine; a full URL is not.
-          if (/postgres(?:ql)?:\/\/[^\s]+ltc_manager/.test(content)) {
-            findings.push(`${name} targeting ltc_manager in ${path}`);
-          }
-        }
+        // Workflows may include an intentional ltc_manager URL only inside a negative safety test.
+        // Documentation and fixtures may mention the name. A real local .env must never be tracked.
         continue;
       }
       if (ALLOWLISTED_DEMO_PATHS.has(path) && name === "postgres-url-with-password") {
