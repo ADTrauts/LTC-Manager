@@ -90,11 +90,22 @@ Resolution (supervisor+):
 
 See [OFFLINE_RUNTIME_RECOVERY_NOTE.md](./OFFLINE_RUNTIME_RECOVERY_NOTE.md).
 
+## Browser certification closeout
+
+The original Phase 6A tip certified the offline Runtime vertical slice with unit, API, SQL-backed, clean-checkout, and hosted verification, and recorded that the interactive browser network-emulation matrix had not yet been executed.
+
+That remaining finding is closed by:
+
+[OFFLINE_RUNTIME_PHASE_6A_BROWSER_CERTIFICATION_2026-08-05.md](./OFFLINE_RUNTIME_PHASE_6A_BROWSER_CERTIFICATION_2026-08-05.md)
+
+Repository command: `npm run test:offline-browser` (disposable database + production Next server + Chromium).
+
 ## Known limitations
 
-- Browser offline scenarios require manual verification when CI lacks stable network emulation
+- Hosted CI runs the certification-critical browser subset (`OFFLINE_BROWSER_CI_GATE=1`); the full thirty-two-scenario matrix is the repository-owned command
 - Background Sync API is optional enhancement only
 - Facility Administrator without Dietary operational authority cannot obtain a frontline bundle
+- Human PWA install gestures are not claimed from automation; installability criteria are verified instead
 
 ## Future Phase 6B boundary
 
