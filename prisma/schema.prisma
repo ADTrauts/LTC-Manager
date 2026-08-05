@@ -388,6 +388,9 @@ model User {
   serveryMealReadyEvents    ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedBy")
   serveryMealStartedEvents  ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedBy")
   serveryMilestoneEntries   ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorUser")
+  offlineBundleIssuances    OfflineBundleIssuance[]         @relation("OfflineBundleIssuanceActorUser")
+  offlineSyncReceipts       OfflineSyncReceipt[]            @relation("OfflineSyncReceiptActorUser")
+  offlineConflictsResolved  OfflineConflict[]               @relation("OfflineConflictResolvedByUser")
   attachmentsCreated        Attachment[]                    @relation("AttachmentCreatedByUser")
   knowledgeArticlesCreated  KnowledgeArticle[]              @relation("KnowledgeArticleCreatedBy")
   knowledgeArticlesUpdated  KnowledgeArticle[]              @relation("KnowledgeArticleUpdatedBy")
@@ -1191,6 +1194,9 @@ model Employee {
   serveryMealReadyEvents     ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedByEmployee")
   serveryMealStartedEvents   ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedByEmployee")
   serveryMilestoneEntries    ServeryMilestoneEntry[]     @relation("ServeryMilestoneEntryActorEmployee")
+  offlineBundleIssuances     OfflineBundleIssuance[]     @relation("OfflineBundleIssuanceActorEmployee")
+  offlineSyncReceipts        OfflineSyncReceipt[]        @relation("OfflineSyncReceiptActorEmployee")
+  offlineConflictsResolved   OfflineConflict[]           @relation("OfflineConflictResolvedByEmployee")
   assignedRepairs            Repair[]                    @relation("RepairAssignedEmployee")
   roomAreaStatusUpdates      RoomAreaStatus[]
   assignedTasks              Task[]                      @relation("TaskAssignedEmployee")
@@ -2157,4 +2163,81 @@ model AuthRateLimitBucket {
 
   @@index([bucketType, lockedUntil])
   @@index([lastAttemptAt])
+}
+
+enum OfflineConflictResolution {
+  PENDING
+  MARKED_DUPLICATE
+  APPLIED_AS_CORRECTION
+  REJECTED_WITH_REASON
+}
+
+/// Safe audit record when an offline Runtime bundle is issued to a tablet.
+model OfflineBundleIssuance {
+  id                     String            @id @default(cuid())
+  facilityId             String
+  unitId                 String
+  actorUserId            String?
+  actorUser              User?             @relation("OfflineBundleIssuanceActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmployeeId        String?
+  actorEmployee          Employee?         @relation("OfflineBundleIssuanceActorEmployee", fields: [actorEmployeeId], references: [id], onDelete: SetNull)
+  actorRole              RoleKey
+  authMethod             SessionAuthMethod
+  deviceFacilityId       String
+  deviceBoundUnitId      String?
+  sessionVersion         Int
+  bundleVersion          String
+  serverRevision         String
+  issuedAt               DateTime          @default(now())
+  offlineAuthorizedUntil DateTime
+
+  @@index([facilityId, unitId, issuedAt])
+}
+
+/// Transport audit for synchronized offline commands. Milestone history remains authoritative.
+model OfflineSyncReceipt {
+  id                String    @id @default(cuid())
+  facilityId        String
+  unitId            String
+  clientCommandId   String
+  commandType       String
+  resultCategory    String
+  reasonCode        String?
+  actorUserId       String?
+  actorUser         User?     @relation("OfflineSyncReceiptActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmployeeId   String?
+  actorEmployee     Employee? @relation("OfflineSyncReceiptActorEmployee", fields: [actorEmployeeId], references: [id], onDelete: SetNull)
+  sessionVersion    Int
+  deviceBoundUnitId String?
+  locallyRecordedAt DateTime?
+  serverAcceptedAt  DateTime?
+  milestoneEntryId  String?
+  createdAt         DateTime  @default(now())
+
+  @@unique([facilityId, unitId, clientCommandId])
+  @@index([facilityId, unitId, createdAt])
+}
+
+/// Persisted Milestone conflict requiring supervisor review.
+model OfflineConflict {
+  id                   String                    @id @default(cuid())
+  facilityId           String
+  unitId               String
+  clientCommandId      String
+  conflictCategory     String
+  commandPayload       Json
+  authoritativeState   Json
+  reasonCode           String?
+  resolution           OfflineConflictResolution @default(PENDING)
+  resolvedByUserId     String?
+  resolvedByUser       User?                     @relation("OfflineConflictResolvedByUser", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  resolvedByEmployeeId String?
+  resolvedByEmployee   Employee?                 @relation("OfflineConflictResolvedByEmployee", fields: [resolvedByEmployeeId], references: [id], onDelete: SetNull)
+  resolutionReason     String?
+  resolvedAt           DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@unique([facilityId, unitId, clientCommandId])
+  @@index([facilityId, unitId, resolution])
 }

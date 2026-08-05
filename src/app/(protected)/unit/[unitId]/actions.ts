@@ -8,20 +8,18 @@ import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { sessionUserIdForFk } from "@/lib/auth";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import { resolveMilestoneActor } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
-import {
-  recordServeryMilestone,
-  type RecordServeryMilestoneResult,
-  type ServeryMilestone,
-  type ServeryMilestoneActor,
-} from "@/lib/servery";
-import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import {
   defaultRepairTradeForIssueType,
   suggestRepairDepartmentIds,
 } from "@/lib/repair-routing";
+import {
+  recordServeryMilestone,
+  type RecordServeryMilestoneResult,
+  type ServeryMilestone,
+} from "@/lib/servery";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 import { submitInspection } from "@/lib/work/inspections";
 import type { InspectionItemAnswerInput } from "@/lib/work/inspections/types";
@@ -55,15 +53,10 @@ const MILESTONE_BY_EVENT_TYPE = {
  * A PIN session carries an Employee id and no User row, which is why the previous code recorded no
  * actor for exactly the shared-tablet case this workflow exists to serve.
  */
-async function resolveMilestoneActor(
+async function resolveMilestoneActorFromSession(
   session: Awaited<ReturnType<typeof requireFacilitySession>>,
-): Promise<ServeryMilestoneActor> {
-  return {
-    userId: sessionUserIdForFk(session),
-    employeeId: await getOperationalEmployeeIdForSession(session),
-    role: session.role,
-    authMethod: session.authMethod === "QUICK_PIN" ? "QUICK_PIN" : "PASSWORD",
-  };
+) {
+  return resolveMilestoneActor(session);
 }
 
 /** The Unit this tablet is locked to, when the device has been bound to one. */
@@ -97,7 +90,7 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
     milestone,
     action: "RECORD",
     clientActionId: parsed.clientActionId,
-    actor: await resolveMilestoneActor(session),
+    actor: await resolveMilestoneActorFromSession(session),
     deviceBoundUnitId: await resolveDeviceBoundUnitId(),
   });
 
@@ -149,7 +142,7 @@ export async function correctServeryServiceTimeAction(formData: FormData) {
     clientActionId: parsed.clientActionId,
     occurredAt,
     reason: parsed.reason,
-    actor: await resolveMilestoneActor(session),
+    actor: await resolveMilestoneActorFromSession(session),
     deviceBoundUnitId: await resolveDeviceBoundUnitId(),
   });
 
