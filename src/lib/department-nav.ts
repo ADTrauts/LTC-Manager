@@ -1,4 +1,4 @@
-import type { NavRouteItem } from "@/lib/route-permissions";
+import type { NavRouteItem } from "@/lib/nav-zones";
 
 /** Cookie stores facility department cuid (operational scope). */
 export const ACTIVE_DEPARTMENT_COOKIE = "ltc_active_department";

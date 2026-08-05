@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import bcrypt from "bcryptjs";
 import {
   AssetStatus,
@@ -24,50 +26,19 @@ const SEED_FACILITY_ID = "cmfacseed0000000000000001";
 /** Wave 11 seed Organization for Terrace View. */
 const SEED_ORGANIZATION_ID = "cmorgseed0000000000000001";
 
-const ROUTE_DEFINITIONS = [
-  { key: "admin", pathPrefix: "/admin", label: "Administration", navVisible: true, navOrder: 100, isCritical: true },
-  { key: "employees", pathPrefix: "/employees", label: "Employees", navVisible: true, navOrder: 30, isCritical: false },
-  { key: "reports", pathPrefix: "/reports", label: "Review", navVisible: true, navOrder: 90, isCritical: false },
-  { key: "units", pathPrefix: "/units", label: "Locations", navVisible: true, navOrder: 20, isCritical: false },
-  { key: "staffing", pathPrefix: "/staffing", label: "Today's Work", navVisible: false, navOrder: 50, isCritical: false },
-  { key: "menus", pathPrefix: "/menus", label: "Menus", navVisible: true, navOrder: 60, isCritical: false },
-  { key: "assets", pathPrefix: "/assets", label: "Assets", navVisible: true, navOrder: 70, isCritical: false },
-  { key: "logs", pathPrefix: "/logs", label: "Logs", navVisible: true, navOrder: 40, isCritical: false },
-  { key: "repairs", pathPrefix: "/repairs", label: "Repairs", navVisible: true, navOrder: 80, isCritical: false },
-  { key: "issues", pathPrefix: "/issues", label: "Issues", navVisible: false, navOrder: 81, isCritical: false },
-  { key: "unit", pathPrefix: "/unit", label: "Unit Workspace", navVisible: false, navOrder: 200, isCritical: false },
-  { key: "workspace", pathPrefix: "/workspace", label: "Workspace", navVisible: true, navOrder: 5, isCritical: true },
-  { key: "dashboard", pathPrefix: "/dashboard", label: "Operations Center", navVisible: false, navOrder: 10, isCritical: true },
-  { key: "operations", pathPrefix: "/operations", label: "Operations Center", navVisible: false, navOrder: 11, isCritical: false },
-  { key: "today", pathPrefix: "/today", label: "Today's Work", navVisible: true, navOrder: 15, isCritical: false },
-];
+/**
+ * Legacy compatibility mirror for `AppRoute` / `RoleRoutePermission`.
+ *
+ * These tables are NON-AUTHORITATIVE. Runtime authorization is decided entirely by the platform
+ * route registry in `src/lib/route-registry/platform-routes.ts` and never reads them. Seed keeps
+ * them populated for historical continuity and transitional inspection only, and the values come
+ * from a file generated off that same registry (`npm run route-mirror:generate`), so the mirror
+ * cannot drift into describing a policy the product does not enforce.
+ */
+const LEGACY_ROUTE_MIRROR = JSON.parse(
+  readFileSync(new URL("./legacy-route-mirror.json", import.meta.url), "utf8"),
+);
 
-const ROUTE_MIN_ROLE = {
-  "/admin": RoleKey.FACILITY_ADMINISTRATOR,
-  "/employees": RoleKey.MANAGER,
-  "/reports": RoleKey.MANAGER,
-  "/units": RoleKey.SUPERVISOR,
-  "/staffing": RoleKey.SUPERVISOR,
-  "/menus": RoleKey.SUPERVISOR,
-  "/assets": RoleKey.SUPERVISOR,
-  "/logs": RoleKey.STAFF,
-  "/repairs": RoleKey.STAFF,
-  "/issues": RoleKey.STAFF,
-  "/unit": RoleKey.STAFF,
-  "/workspace": RoleKey.SUPERVISOR,
-  "/dashboard": RoleKey.STAFF,
-  "/operations": RoleKey.STAFF,
-  "/today": RoleKey.SUPERVISOR,
-};
-
-const ROLE_PRIORITY = {
-  [RoleKey.FACILITY_ADMINISTRATOR]: 6,
-  [RoleKey.GM]: 5,
-  [RoleKey.MANAGER]: 4,
-  [RoleKey.SUPERVISOR]: 3,
-  [RoleKey.LEAD_TEAM_MEMBER]: 2,
-  [RoleKey.STAFF]: 1,
-};
 
 async function main() {
   const organization = await prisma.organization.upsert({
@@ -133,26 +104,19 @@ async function main() {
     });
   }
 
-  for (const route of ROUTE_DEFINITIONS) {
+  for (const route of LEGACY_ROUTE_MIRROR.routes) {
+    const fields = {
+      pathPrefix: route.pathPrefix,
+      label: route.label,
+      navVisible: route.navVisible,
+      navOrder: route.navOrder,
+      isActive: true,
+      isCritical: route.isCritical,
+    };
     await prisma.appRoute.upsert({
       where: { key: route.key },
-      update: {
-        pathPrefix: route.pathPrefix,
-        label: route.label,
-        navVisible: route.navVisible,
-        navOrder: route.navOrder,
-        isActive: true,
-        isCritical: route.isCritical,
-      },
-      create: {
-        key: route.key,
-        pathPrefix: route.pathPrefix,
-        label: route.label,
-        navVisible: route.navVisible,
-        navOrder: route.navOrder,
-        isActive: true,
-        isCritical: route.isCritical,
-      },
+      update: fields,
+      create: { key: route.key, ...fields },
     });
   }
 
@@ -160,12 +124,15 @@ async function main() {
     prisma.role.findMany({ select: { id: true, key: true } }),
     prisma.appRoute.findMany({ select: { id: true, pathPrefix: true } }),
   ]);
+  const allowedRolesByPrefix = new Map(
+    LEGACY_ROUTE_MIRROR.routes.map((route) => [route.pathPrefix, new Set(route.allowedRoles)]),
+  );
 
   for (const role of dbRoles) {
     for (const route of dbRoutes) {
-      const minRole = ROUTE_MIN_ROLE[route.pathPrefix];
-      if (!minRole) continue;
-      const allowed = ROLE_PRIORITY[role.key] >= ROLE_PRIORITY[minRole];
+      const allowedRoles = allowedRolesByPrefix.get(route.pathPrefix);
+      if (!allowedRoles) continue;
+      const allowed = allowedRoles.has(role.key);
       await prisma.roleRoutePermission.upsert({
         where: {
           roleId_appRouteId: {

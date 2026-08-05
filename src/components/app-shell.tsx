@@ -18,11 +18,11 @@ import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { loadFacilityAccessContext } from "@/lib/facility-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
-import { isProjectionSidebarEnabled } from "@/lib/feature-flags";
+import { isProjectionSidebarEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
-import { getNavItemsForRole } from "@/lib/route-permissions";
+import { platformNavItemsForRole } from "@/lib/route-registry";
 import { loadUnitReadinessBatch } from "@/lib/readiness";
 import type { ReadinessState } from "@/lib/readiness";
 import { getSidebarUnitsForSession } from "@/lib/units";
@@ -112,14 +112,14 @@ export async function AppShell({ children }: AppShellProps) {
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   const showOperationsCenterLink =
     authKind === "user" && hasAtLeastRole(session.role, "SUPERVISOR");
-  const [rawNavItems, scopeDepartments] = await Promise.all([
-    getNavItemsForRole(session.role),
-    prisma.department.findMany({
-      where: { facilityId: session.facilityId, isActive: true, showInEmployeeApp: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
-    }),
-  ]);
+  const rawNavItems = platformNavItemsForRole(session.role, {
+    todaysWorkEnabled: isTodaysWorkEnabled(),
+  });
+  const scopeDepartments = await prisma.department.findMany({
+    where: { facilityId: session.facilityId, isActive: true, showInEmployeeApp: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true },
+  });
 
   const navItems = filterNavItemsForDepartmentScope(rawNavItems, {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,

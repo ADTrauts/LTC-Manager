@@ -18,6 +18,11 @@ enum RoleKey {
   STAFF
 }
 
+/// Platform role reference data: identity, display name, and the User relation.
+///
+/// A role's *capabilities* are not stored here. What each role may reach is defined in
+/// `src/lib/route-registry/platform-routes.ts` and is not editable at runtime. Rows in this table
+/// exist so users can be assigned a role and so the role can be named in the UI.
 model Role {
   id               String                @id @default(cuid())
   key              RoleKey               @unique
@@ -31,6 +36,17 @@ model Role {
   updatedAt        DateTime              @updatedAt
 }
 
+/// NON-AUTHORITATIVE compatibility data. Does not control access.
+///
+/// Route authorization, navigation, route labels, and the Access Matrix are all resolved from the
+/// platform route registry in `src/lib/route-registry/platform-routes.ts`. Nothing reads this table
+/// at runtime. Missing rows, extra rows, stale labels, and an empty table all leave authorization
+/// unchanged.
+///
+/// Retained for historical migration continuity and transitional inspection. The only writers are
+/// migrations and `prisma/seed.mjs`, which populates it from `prisma/legacy-route-mirror.json` —
+/// a file generated from the registry, so the mirror cannot describe a policy the product does not
+/// enforce. Removal is deferred to a later phase.
 model AppRoute {
   id          String                @id @default(cuid())
   key         String                @unique
@@ -45,6 +61,10 @@ model AppRoute {
   updatedAt   DateTime              @updatedAt
 }
 
+/// NON-AUTHORITATIVE compatibility data. Does not grant or deny access.
+///
+/// See `AppRoute`. Editing these rows — including granting STAFF access to /admin or revoking it
+/// from FACILITY_ADMINISTRATOR — has no effect on what any user can reach.
 model RoleRoutePermission {
   id         String   @id @default(cuid())
   roleId     String

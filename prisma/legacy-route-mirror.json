@@ -1,0 +1,223 @@
+{
+  "generatedFrom": "src/lib/route-registry/platform-routes.ts",
+  "note": "Non-authoritative compatibility data. Runtime authorization never reads AppRoute or RoleRoutePermission; regenerate with the route-registry legacy mirror test.",
+  "routes": [
+    {
+      "key": "admin",
+      "pathPrefix": "/admin",
+      "label": "Administration",
+      "navVisible": true,
+      "navOrder": 100,
+      "isCritical": true,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR"
+      ]
+    },
+    {
+      "key": "assets",
+      "pathPrefix": "/assets",
+      "label": "Assets",
+      "navVisible": true,
+      "navOrder": 70,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "dashboard",
+      "pathPrefix": "/dashboard",
+      "label": "Operations Center",
+      "navVisible": false,
+      "navOrder": 10,
+      "isCritical": true,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR",
+        "LEAD_TEAM_MEMBER",
+        "STAFF"
+      ]
+    },
+    {
+      "key": "employees",
+      "pathPrefix": "/employees",
+      "label": "Employees",
+      "navVisible": true,
+      "navOrder": 30,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "issues",
+      "pathPrefix": "/issues",
+      "label": "Issues",
+      "navVisible": false,
+      "navOrder": 81,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR",
+        "LEAD_TEAM_MEMBER",
+        "STAFF"
+      ]
+    },
+    {
+      "key": "logs",
+      "pathPrefix": "/logs",
+      "label": "Logs",
+      "navVisible": true,
+      "navOrder": 40,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR",
+        "LEAD_TEAM_MEMBER",
+        "STAFF"
+      ]
+    },
+    {
+      "key": "menus",
+      "pathPrefix": "/menus",
+      "label": "Menus",
+      "navVisible": true,
+      "navOrder": 60,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "operations",
+      "pathPrefix": "/operations",
+      "label": "Operations Center",
+      "navVisible": false,
+      "navOrder": 11,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR",
+        "LEAD_TEAM_MEMBER",
+        "STAFF"
+      ]
+    },
+    {
+      "key": "repairs",
+      "pathPrefix": "/repairs",
+      "label": "Repairs",
+      "navVisible": true,
+      "navOrder": 80,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR",
+        "LEAD_TEAM_MEMBER",
+        "STAFF"
+      ]
+    },
+    {
+      "key": "reports",
+      "pathPrefix": "/reports",
+      "label": "Review",
+      "navVisible": true,
+      "navOrder": 90,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "staffing",
+      "pathPrefix": "/staffing",
+      "label": "Today's Work",
+      "navVisible": false,
+      "navOrder": 50,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "today",
+      "pathPrefix": "/today",
+      "label": "Today's Work",
+      "navVisible": true,
+      "navOrder": 15,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "unit",
+      "pathPrefix": "/unit",
+      "label": "Unit Workspace",
+      "navVisible": false,
+      "navOrder": 200,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR",
+        "LEAD_TEAM_MEMBER",
+        "STAFF"
+      ]
+    },
+    {
+      "key": "units",
+      "pathPrefix": "/units",
+      "label": "Locations",
+      "navVisible": true,
+      "navOrder": 20,
+      "isCritical": false,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "workspace",
+      "pathPrefix": "/workspace",
+      "label": "Workspace",
+      "navVisible": true,
+      "navOrder": 5,
+      "isCritical": true,
+      "allowedRoles": [
+        "FACILITY_ADMINISTRATOR",
+        "GM",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    }
+  ]
+}

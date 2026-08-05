@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import type { AppRole } from "@/lib/access";
 import type { AppJwtPayload } from "@/lib/auth";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
@@ -8,27 +8,27 @@ import { resolveActiveDepartmentForNav } from "@/lib/active-department-context";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { resolveDefaultHomePath, isTodaysWorkPathname } from "@/lib/nav-zones";
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
-import { canAccessRouteByRole } from "@/lib/route-permissions";
+import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
 
-const PUBLIC_PATHS = [
-  "/",
-  "/login",
-  "/signup",
-  "/setup",
-  "/api/auth/login",
-  "/api/auth/signup",
-  "/api/auth/logout",
-  "/api/auth/pin-login",
-  "/api/auth/active-department",
-  "/api/auth/device-facility",
-  "/api/billing/webhook",
-];
+function routeFeatureFlags() {
+  return { todaysWorkEnabled: isTodaysWorkEnabled() };
+}
 
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+function notFoundResponse(surface: "PAGE" | "API" | "INTERNAL") {
+  if (surface === "API") {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+  return new NextResponse(null, { status: 404 });
+}
+
+function unauthenticatedResponse(request: NextRequest, surface: "PAGE" | "API" | "INTERNAL") {
+  if (surface === "API") {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
 function resolveLockedUnitId(session: AppJwtPayload, deviceUnitId: string | undefined): string | undefined {
@@ -43,33 +43,74 @@ function resolveLockedUnitId(session: AppJwtPayload, deviceUnitId: string | unde
   return undefined;
 }
 
-function defaultHomeRedirect(request: NextRequest, session: AppJwtPayload, lockedUnitId?: string) {
-  const path = resolveDefaultHomePath({
+function defaultHomePath(session: AppJwtPayload, lockedUnitId?: string) {
+  return resolveDefaultHomePath({
     authKind: session.authKind ?? "user",
     role: session.role as AppRole,
     activeUnitId: session.activeUnitId,
     lockedUnitId,
   });
-  return NextResponse.redirect(new URL(path, request.url));
+}
+
+function defaultHomeRedirect(request: NextRequest, session: AppJwtPayload, lockedUnitId?: string) {
+  return NextResponse.redirect(new URL(defaultHomePath(session, lockedUnitId), request.url));
+}
+
+/**
+ * Turn a platform-registry decision into an HTTP response.
+ *
+ * Pages keep the product's established behavior — sign-in for no session, the caller's own home for
+ * a denial — so a denied link never dead-ends. APIs get status codes instead of redirects, because a
+ * redirect into a page is not a usable answer to a fetch and hides the denial from the caller.
+ */
+function respondToDecision(
+  request: NextRequest,
+  decision: RouteAuthorizationDecision,
+  session: AppJwtPayload,
+  lockedUnitId?: string,
+): NextResponse | null {
+  switch (decision.outcome) {
+    case "ALLOW":
+      return null;
+    case "NOT_FOUND":
+      return notFoundResponse(decision.surface);
+    case "REQUIRE_AUTHENTICATION":
+      return unauthenticatedResponse(request, decision.surface);
+    case "DENY":
+      return decision.surface === "API"
+        ? NextResponse.json({ error: "Forbidden." }, { status: 403 })
+        : defaultHomeRedirect(request, session, lockedUnitId);
+    case "REDIRECT":
+      return NextResponse.redirect(
+        new URL(decision.destination ?? defaultHomePath(session, lockedUnitId), request.url),
+      );
+  }
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const featureFlags = routeFeatureFlags();
 
-  if (isPublicPath(pathname)) {
+  // Resolve the path against the registry before touching the session, so unregistered paths and
+  // public routes never depend on cookie or database state.
+  const anonymousDecision = authorizeRoute({ pathname, role: null, featureFlags });
+  if (anonymousDecision.outcome === "ALLOW") {
     return NextResponse.next();
+  }
+  if (anonymousDecision.outcome === "NOT_FOUND") {
+    return notFoundResponse(anonymousDecision.surface);
   }
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
   }
 
   try {
     const sessionRaw = await verifySessionToken(token);
     const session = sessionRaw as AppJwtPayload;
     if (!session.facilityId) {
-      const response = NextResponse.redirect(new URL("/login", request.url));
+      const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
       response.cookies.delete(SESSION_COOKIE);
       return response;
     }
@@ -97,35 +138,25 @@ export async function proxy(request: NextRequest) {
       return defaultHomeRedirect(request, session, lockedUnitId);
     }
 
-    if (pathname === "/settings" || pathname.startsWith("/settings/")) {
-      if (hasAtLeastRole(role, "FACILITY_ADMINISTRATOR")) {
-        return NextResponse.redirect(new URL("/admin/organization", request.url));
-      }
-      return defaultHomeRedirect(request, session, lockedUnitId);
-    }
-    if (isTodaysWorkPathname(pathname)) {
-      if (!isTodaysWorkEnabled()) {
-        return defaultHomeRedirect(request, session, lockedUnitId);
-      }
-      if (!hasAtLeastRole(role, "SUPERVISOR")) {
-        return defaultHomeRedirect(request, session, lockedUnitId);
-      }
-    }
-    if (!(await canAccessRouteByRole(pathname, role))) {
-      return defaultHomeRedirect(request, session, lockedUnitId);
+    const decision = authorizeRoute({ pathname, role, featureFlags });
+    const denial = respondToDecision(request, decision, session, lockedUnitId);
+    if (denial) {
+      return denial;
     }
 
     const deptCtx = await resolveActiveDepartmentForNav(request, session);
     if (!deptCtx.showAllDepartmentNav) {
       const key = deptCtx.activeOperationalDepartmentKey;
       if (!pathnameAllowedForDepartmentKey(pathname, key)) {
-        return defaultHomeRedirect(request, session, lockedUnitId);
+        return isApiPathname(pathname)
+          ? NextResponse.json({ error: "Forbidden." }, { status: 403 })
+          : defaultHomeRedirect(request, session, lockedUnitId);
       }
     }
 
     return NextResponse.next();
   } catch {
-    const response = NextResponse.redirect(new URL("/login", request.url));
+    const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
     response.cookies.delete(SESSION_COOKIE);
     return response;
   }
