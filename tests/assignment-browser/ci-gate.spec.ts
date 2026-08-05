@@ -73,7 +73,8 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
       timeout: 20_000,
     });
     await expect(page.getByTestId("assignment-by-unit")).toBeVisible();
-    await expect(page.getByText(/scheduled employee/i).first()).toBeVisible();
+    await expect(page.getByTestId("assignment-by-unit").or(page.getByRole("heading", { name: /By Employee/i }))).toBeVisible();
+    await expect(page.getByRole("heading", { name: /By Employee/i })).toBeVisible();
   } finally {
     await context.close();
   }
@@ -130,22 +131,56 @@ test("employee visibility @ci-gate: staff sees confirmed Assignment only after c
     datasources: { db: { url: process.env.VERIFY_DATABASE_URL || process.env.DATABASE_URL } },
   });
   try {
-    const plan = await db.operationalAssignmentPlan.findFirst({
+    const serviceDate = serviceDateUtc(fx.serviceDateKey);
+    const plan = await db.operationalAssignmentPlan.upsert({
       where: {
+        facilityId_departmentId_serviceDate: {
+          facilityId: fx.facilityId,
+          departmentId: fx.departmentId,
+          serviceDate,
+        },
+      },
+      update: { status: "CONFIRMED", confirmedAt: new Date() },
+      create: {
         facilityId: fx.facilityId,
         departmentId: fx.departmentId,
+        serviceDate,
+        status: "CONFIRMED",
+        confirmedAt: new Date(),
       },
-      orderBy: { updatedAt: "desc" },
     });
+    await db.operationalAssignment.deleteMany({
+      where: {
+        facilityId: fx.facilityId,
+        employeeId: fx.staffEmployeeId,
+        serviceDate,
+      },
+    });
+    await db.operationalAssignment.create({
+      data: {
+        facilityId: fx.facilityId,
+        departmentId: fx.departmentId,
+        planId: plan.id,
+        employeeId: fx.staffEmployeeId,
+        serviceDate,
+        roleKey: "SERVER",
+        roleLabel: "Server",
+        unitId: fx.unitId,
+        startsAt: new Date(`${fx.serviceDateKey}T10:00:00.000Z`),
+        endsAt: new Date(`${fx.serviceDateKey}T18:00:00.000Z`),
+        status: "PLANNED",
+        source: "SCHEDULED_EMPLOYEE",
+      },
+    });
+
     const { context, page } = await openPersistent("employee");
     try {
       await loginPassword(page, fx.staffEmail);
       await page.goto(`/unit/${fx.unitId}`, { waitUntil: "domcontentloaded" });
       const panel = page.getByTestId("my-assignment-panel");
       await expect(panel).toBeVisible({ timeout: 20_000 });
-      if (plan?.status === "CONFIRMED" || plan?.status === "REOPENED" || plan?.status === "CLOSED") {
-        await expect(panel).not.toContainText(/Assignment not confirmed/i);
-      }
+      await expect(panel).toContainText(/Server/i);
+      await expect(panel).not.toContainText(/Assignment not confirmed/i);
     } finally {
       await context.close();
     }
