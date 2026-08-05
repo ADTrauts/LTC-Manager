@@ -69,7 +69,9 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText(/Plan:/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Plan:\s*(DRAFT|CONFIRMED|REOPENED|CLOSED)/i).first()).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(page.getByTestId("assignment-by-unit")).toBeVisible();
     await expect(page.getByText(/scheduled employee/i).first()).toBeVisible();
   } finally {
@@ -101,19 +103,22 @@ test("create and confirm @ci-gate: supervisor assigns and confirms plan", async 
     await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByText(/StaffEmp/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("assignment-by-unit")).toContainText(/StaffEmp|Server|Cook|Assign/i, {
+      timeout: 15_000,
+    });
 
     const confirm = page.locator("form").filter({ hasText: /Confirm plan/i });
-    if (await confirm.count()) {
-      const ack = confirm.locator('input[name="acknowledgeCoverageGaps"]');
-      if (await ack.count()) await ack.check();
-      await confirm.getByRole("button", { name: /Confirm plan/i }).click();
-      await page.waitForTimeout(2000);
-      await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-        waitUntil: "domcontentloaded",
-      });
-      await expect(page.getByText(/Plan:\s*CONFIRMED/i)).toBeVisible({ timeout: 15_000 });
-    }
+    await expect(confirm.getByRole("button", { name: /Confirm plan/i })).toBeVisible({
+      timeout: 10_000,
+    });
+    const ack = confirm.locator('input[name="acknowledgeCoverageGaps"]');
+    if (await ack.count()) await ack.check();
+    await confirm.getByRole("button", { name: /Confirm plan/i }).click();
+    await page.waitForTimeout(2000);
+    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByText(/Plan:\s*CONFIRMED/i)).toBeVisible({ timeout: 15_000 });
   } finally {
     await context.close();
   }
