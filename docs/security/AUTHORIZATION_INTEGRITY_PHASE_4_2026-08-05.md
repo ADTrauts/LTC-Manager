@@ -119,7 +119,8 @@ its own lifetime, which is the defect this phase exists to remove.
 | Quick PIN set or changed (`setEmployeePinAction`) | n/a | Revoked | Same transaction as the digest write | `employee.sessionRevocation` |
 | Quick PIN removed (`clearEmployeePinAction`) | n/a | Revoked | Same transaction | `employee.sessionRevocation` |
 | Employee role changed (`updateEmployeeProfileAction`) | n/a | Revoked | Same transaction | `employee.sessionRevocation` |
-| Employee terminated (profile or status action) | n/a | Revoked, and refused on status independently | Same transaction | `employee.sessionRevocation` |
+| Employee terminated (profile, status, or separation action) | n/a | Revoked, and refused on status independently | Same transaction | `employee.sessionRevocation` |
+| Employee role / status / PIN change via CSV import | n/a | Revoked on the same terms as a single edit | Same transaction | `employee.sessionRevocation` |
 | PIN cleared by promotion (Phase 1 rule) | n/a | Revoked | Same transaction | `employee.sessionRevocation` |
 | Facility access revoked (`revokeUserFacilityAccess`) | Revoked | n/a | Caller's transaction | `facility_access.revoked` |
 | User deactivated | Refused on `isActive` | n/a | — | existing behavior |

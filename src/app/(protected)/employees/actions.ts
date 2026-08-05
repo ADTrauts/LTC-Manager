@@ -937,6 +937,17 @@ export async function recordEmployeeSeparationAction(formData: FormData) {
         onLeave: false,
       },
     });
+    await revokeEmployeeSessions(tx, parsed.employeeId);
+    await tx.employeeHrAuditLog.create({
+      data: {
+        facilityId: session.facilityId,
+        employeeId: parsed.employeeId,
+        userId: sessionUserIdForFk(session),
+        fieldKey: "employee.sessionRevocation",
+        oldValue: null,
+        newValue: describeRevocation("EMPLOYEE_TERMINATED"),
+      },
+    });
 
     const fresh = await tx.employee.findUnique({
       where: { id: parsed.employeeId },

@@ -13,6 +13,11 @@ import {
 import { buildTerminationSnapshotJson } from "@/lib/hr-audit";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import {
+  describeRevocation,
+  employeeRevocationReasons,
+  revokeEmployeeSessions,
+} from "@/lib/session-revocation";
 
 const MAX_BYTES = 2_000_000;
 const MAX_ROWS = 500;
@@ -263,6 +268,33 @@ export async function importEmployeesFromCsvAction(formData: FormData): Promise<
           where: { id: employeeId },
           data: updateData,
         });
+
+        // A bulk import changes the same authority a single edit does, so it ends sessions on the
+        // same terms. Without this, an import that demoted someone would leave their elevated
+        // session live until it expired.
+        const revocations = employeeRevocationReasons(
+          { roleType: before.roleType, status: before.status, hasPin: before.pinDigest != null },
+          {
+            roleType: row.roleType,
+            status: row.status,
+            hasPin: before.pinDigest != null && !clearsPin,
+          },
+        );
+        if (revocations.length > 0) {
+          await revokeEmployeeSessions(tx, employeeId);
+          for (const reason of revocations) {
+            await tx.employeeHrAuditLog.create({
+              data: {
+                facilityId,
+                employeeId,
+                userId: uid ?? null,
+                fieldKey: "employee.sessionRevocation",
+                oldValue: null,
+                newValue: describeRevocation(reason),
+              },
+            });
+          }
+        }
 
         if (clearsPin) {
           await tx.employeeHrAuditLog.create({
