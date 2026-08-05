@@ -19,6 +19,7 @@ env:
   AUTH_SECRET: phase5-ci-auth-secret-not-for-production
   SEED_DEMO_PASSWORD: CiSeedPassword!ChangeMe
   ALLOW_DEMO_SEED_PASSWORD: "1"
+  TZ: America/New_York
 
 jobs:
   static-hermetic:
@@ -120,9 +121,10 @@ jobs:
 
       - name: Recreate DB for maintenance command
         run: |
-          PGPASSWORD=ltc_ci_password psql -h localhost -U ltc_ci -d postgres -v ON_ERROR_STOP=1 \
-            -c 'DROP DATABASE IF EXISTS ltc_ci_verify;' \
-            -c 'CREATE DATABASE ltc_ci_verify;'
+          node --input-type=module -e "
+          import { recreateDisposableDatabase } from './scripts/verify/admin-database.mjs';
+          await recreateDisposableDatabase(process.env.VERIFY_DATABASE_ADMIN_URL, 'ltc_ci_verify');
+          "
           DATABASE_URL="$VERIFY_DATABASE_URL" DIRECT_URL="$VERIFY_DATABASE_URL" npx prisma migrate deploy
           DATABASE_URL="$VERIFY_DATABASE_URL" DIRECT_URL="$VERIFY_DATABASE_URL" npx prisma db seed
 

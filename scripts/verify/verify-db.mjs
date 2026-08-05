@@ -14,8 +14,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import {
+  dropDisposableDatabase,
+  recreateDisposableDatabase,
+} from "./admin-database.mjs";
+import {
   assertDisposableDatabaseUrl,
-  parseDatabaseName,
   redactDatabaseUrl,
   SQL_BACKED_DATABASE_ENV_KEYS,
 } from "./lib/database-target.mjs";
@@ -35,30 +38,8 @@ function run(command, args, env, label) {
   }
 }
 
-function assertAdminUrl(adminUrl) {
-  const name = parseDatabaseName(adminUrl);
-  if (!name) fail("VERIFY_DATABASE_ADMIN_URL could not be parsed");
-  // Admin connections target the cluster maintenance database only.
-  if (name !== "postgres") {
-    fail("VERIFY_DATABASE_ADMIN_URL must target the postgres maintenance database");
-  }
-  // Never print credentials
+function logAdminUrl(adminUrl) {
   console.log(`verify-db: admin ${redactDatabaseUrl(adminUrl)}`);
-}
-
-function psqlAdmin(adminUrl, sql) {
-  const result = spawnSync("psql", [adminUrl, "-v", "ON_ERROR_STOP=1", "-c", sql], {
-    cwd: ROOT,
-    encoding: "utf8",
-    env: process.env,
-  });
-  if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || "unknown").replace(
-      /:[^@\s/]+@/g,
-      ":***@",
-    );
-    fail(`psql admin command failed: ${detail}`);
-  }
 }
 
 async function assertSchema(env) {
@@ -115,9 +96,8 @@ async function main() {
 
     if (manage) {
       if (!adminUrl) fail("VERIFY_DATABASE_ADMIN_URL is required when VERIFY_MANAGE_DATABASE=1");
-      assertAdminUrl(adminUrl);
-      psqlAdmin(adminUrl, `DROP DATABASE IF EXISTS "${databaseName}";`);
-      psqlAdmin(adminUrl, `CREATE DATABASE "${databaseName}";`);
+      logAdminUrl(adminUrl);
+      await recreateDisposableDatabase(adminUrl, databaseName);
       created = true;
       console.log(`verify-db: created disposable database ${databaseName}`);
     }
@@ -149,10 +129,7 @@ async function main() {
   } finally {
     if (created && process.env.VERIFY_DATABASE_ADMIN_URL && databaseName) {
       try {
-        psqlAdmin(
-          process.env.VERIFY_DATABASE_ADMIN_URL,
-          `DROP DATABASE IF EXISTS "${databaseName}";`,
-        );
+        await dropDisposableDatabase(process.env.VERIFY_DATABASE_ADMIN_URL, databaseName);
         console.log(`verify-db: dropped disposable database ${databaseName}`);
       } catch (cleanupErr) {
         console.error(`verify-db: cleanup warning — ${cleanupErr.message}`);
