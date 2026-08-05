@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
-import { ServeryMealServiceControls } from "@/components/servery-meal-service-controls";
+import { OfflineConflictReview } from "@/components/offline/offline-conflict-review";
+import { OfflineServeryControls } from "@/components/offline/offline-servery-controls";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
 import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
 import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
@@ -29,7 +30,8 @@ import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { loadEmployeeAssignmentsToday } from "@/lib/scheduling/operational-assignments";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { sessionUserIdForFk } from "@/lib/auth";
 import {
   describeMealServiceContext,
@@ -293,6 +295,40 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       : null
     : null;
 
+  const cookieJar = await cookies();
+  const deviceFacilityId = cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null;
+  const deviceBoundUnitId = cookieJar.get(DEVICE_UNIT_COOKIE)?.value?.trim() || null;
+
+  const openOfflineConflicts = await prisma.offlineConflict.findMany({
+    where: {
+      facilityId: session.facilityId,
+      unitId: unit.id,
+      resolution: "PENDING",
+    },
+    select: {
+      clientCommandId: true,
+      conflictCategory: true,
+      commandPayload: true,
+    },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+  });
+
+  const conflictRows = openOfflineConflicts.map((c) => {
+    const payload = c.commandPayload as {
+      mealType?: string;
+      commandType?: string;
+      occurredAt?: string;
+    };
+    return {
+      clientCommandId: c.clientCommandId,
+      conflictCategory: c.conflictCategory,
+      mealType: payload.mealType ?? "UNKNOWN",
+      commandType: payload.commandType ?? "UNKNOWN",
+      occurredAt: payload.occurredAt ?? new Date().toISOString(),
+    };
+  });
+
   const unitTypeLabel =
     unit.unitType.charAt(0) + unit.unitType.slice(1).toLowerCase().replace(/_/g, " ");
 
@@ -324,8 +360,13 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             readiness={readiness}
           />
           {unit.unitType === "SERVERY" ? (
-            <ServeryMealServiceControls
+            <OfflineServeryControls
               unitId={unit.id}
+              facilityId={session.facilityId}
+              sessionVersion={session.sessionVersion ?? 0}
+              actorRef={actorRefForSession(session)}
+              deviceFacilityId={deviceFacilityId}
+              deviceBoundUnitId={deviceBoundUnitId}
               defaultMealType={recordableMealForContext(mealServiceContext)?.mealType ?? null}
               returnTab={activeUnitTab}
               returnLogTab={activeLogTab ?? ""}
@@ -388,6 +429,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           </Link>
         </nav>
       </header>
+
+      {conflictRows.length > 0 && canCorrectMilestones ? (
+        <OfflineConflictReview unitId={unit.id} conflicts={conflictRows} />
+      ) : null}
 
       {activeUnitTab === "overview" ? (
         <div className="space-y-6 sm:space-y-7">

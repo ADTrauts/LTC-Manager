@@ -461,6 +461,25 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Handler verifies the caller's granted Facility access before reissuing the session token.",
   },
 
+  {
+    pattern: "/api/offline/runtime-bundle",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HANDLER_AUTHORIZED_API" },
+    module: "offline",
+    requiresDownstreamAuthorization: true,
+    notes: "Issues scoped Unit Workspace offline bundle; requires session, sessionVersion, device enrollment, and Dietary operational authority.",
+  },
+  {
+    pattern: "/api/offline/runtime-sync",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HANDLER_AUTHORIZED_API" },
+    module: "offline",
+    requiresDownstreamAuthorization: true,
+    notes: "Synchronizes bounded offline Milestone command batches with authority revalidation.",
+  },
+
   // ── Role-restricted APIs (proxy floor plus handler authorization) ─────────
   {
     pattern: "/api/auth/bind-device",
@@ -579,6 +598,34 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
   {
     pattern: "/vercel.svg",
     match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+  },
+  {
+    pattern: "/manifest.webmanifest",
+    match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+  },
+  {
+    pattern: "/sw.js",
+    match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+  },
+  {
+    pattern: "/offline.html",
+    match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+  },
+  {
+    pattern: "/icons",
+    match: "PREFIX",
     surface: "INTERNAL",
     access: { kind: "INTERNAL" },
     module: "framework",

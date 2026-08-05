@@ -207,6 +207,15 @@ type ServeryMealServiceControlsProps = {
   canRecord: boolean;
   /** True when the viewer may correct an already-recorded time. */
   canCorrect: boolean;
+  offline?: {
+    enabled: boolean;
+    isOfflineMode: boolean;
+    pendingCount: number;
+    onOfflineRecord: (input: {
+      mealType: MealType;
+      commandType: "RECORD_SERVERY_READY" | "RECORD_MEAL_SERVICE_STARTED";
+    }) => Promise<void>;
+  };
 };
 
 export function ServeryMealServiceControls({
@@ -219,6 +228,7 @@ export function ServeryMealServiceControls({
   contextNote,
   canRecord,
   canCorrect,
+  offline,
 }: ServeryMealServiceControlsProps) {
   const orderedSlots = useMemo(
     () => MEAL_ORDER.flatMap((m) => slots.find((s) => s.mealType === m) ?? []),
@@ -245,6 +255,8 @@ export function ServeryMealServiceControls({
     return () => clearInterval(t);
   }, []);
 
+  const [localPending, setLocalPending] = useState<{ ready?: boolean; started?: boolean }>({});
+
   if (orderedSlots.length === 0 || !selectedSlot) {
     return (
       <div
@@ -264,6 +276,23 @@ export function ServeryMealServiceControls({
   const started = event?.started ?? EMPTY_MILESTONE;
   const readyAt = ready.occurredAt ? new Date(ready.occurredAt) : null;
   const startedAt = started.occurredAt ? new Date(started.occurredAt) : null;
+
+  const useOfflineFlow = offline?.enabled && offline.isOfflineMode;
+
+  async function handleOfflineReady() {
+    if (!offline || !useOfflineFlow) return;
+    await offline.onOfflineRecord({ mealType: activeMeal, commandType: "RECORD_SERVERY_READY" });
+    setLocalPending((p) => ({ ...p, ready: true }));
+  }
+
+  async function handleOfflineStarted() {
+    if (!offline || !useOfflineFlow) return;
+    await offline.onOfflineRecord({
+      mealType: activeMeal,
+      commandType: "RECORD_MEAL_SERVICE_STARTED",
+    });
+    setLocalPending((p) => ({ ...p, started: true }));
+  }
 
   return (
     <div
@@ -300,40 +329,69 @@ export function ServeryMealServiceControls({
 
       {canRecord ? (
         <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-1">
-          <form action={recordServeryServiceTimeAction}>
-            <input type="hidden" name="unitId" value={unitId} />
-            <input type="hidden" name="mealType" value={activeMeal} />
-            <input type="hidden" name="eventType" value="READY" />
-            <input
-              type="hidden"
-              name="clientActionId"
-              value={clientActionIdFor(unitId, activeMeal, "READY", ready)}
-            />
-            <input type="hidden" name="returnTab" value={returnTab} />
-            <input type="hidden" name="returnLogTab" value={returnLogTab} />
-            <MilestoneSubmitButton
-              label="Servery Ready"
-              stamp={formatServeryLiveStamp(readyAt, now)}
-              disabled={ready.occurredAt != null}
-            />
-          </form>
-          <form action={recordServeryServiceTimeAction}>
-            <input type="hidden" name="unitId" value={unitId} />
-            <input type="hidden" name="mealType" value={activeMeal} />
-            <input type="hidden" name="eventType" value="STARTED" />
-            <input
-              type="hidden"
-              name="clientActionId"
-              value={clientActionIdFor(unitId, activeMeal, "STARTED", started)}
-            />
-            <input type="hidden" name="returnTab" value={returnTab} />
-            <input type="hidden" name="returnLogTab" value={returnLogTab} />
-            <MilestoneSubmitButton
-              label="Meal Service Started"
-              stamp={formatServeryLiveStamp(startedAt, now)}
-              disabled={started.occurredAt != null}
-            />
-          </form>
+          {useOfflineFlow ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleOfflineReady()}
+                disabled={ready.occurredAt != null || localPending.ready}
+                className="flex min-h-12 w-full flex-col justify-center rounded-lg border-2 border-zinc-900 bg-zinc-900 px-4 py-3 text-left text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:border-zinc-400 disabled:bg-zinc-400 touch-manipulation"
+              >
+                <span>{localPending.ready ? "Saved on this tablet" : "Servery Ready"}</span>
+                <span className="text-xs font-medium text-zinc-200">
+                  {formatServeryLiveStamp(readyAt, now)}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleOfflineStarted()}
+                disabled={started.occurredAt != null || localPending.started}
+                className="flex min-h-12 w-full flex-col justify-center rounded-lg border-2 border-zinc-900 bg-zinc-900 px-4 py-3 text-left text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:border-zinc-400 disabled:bg-zinc-400 touch-manipulation"
+              >
+                <span>{localPending.started ? "Saved on this tablet" : "Meal Service Started"}</span>
+                <span className="text-xs font-medium text-zinc-200">
+                  {formatServeryLiveStamp(startedAt, now)}
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              <form action={recordServeryServiceTimeAction}>
+                <input type="hidden" name="unitId" value={unitId} />
+                <input type="hidden" name="mealType" value={activeMeal} />
+                <input type="hidden" name="eventType" value="READY" />
+                <input
+                  type="hidden"
+                  name="clientActionId"
+                  value={clientActionIdFor(unitId, activeMeal, "READY", ready)}
+                />
+                <input type="hidden" name="returnTab" value={returnTab} />
+                <input type="hidden" name="returnLogTab" value={returnLogTab} />
+                <MilestoneSubmitButton
+                  label="Servery Ready"
+                  stamp={formatServeryLiveStamp(readyAt, now)}
+                  disabled={ready.occurredAt != null}
+                />
+              </form>
+              <form action={recordServeryServiceTimeAction}>
+                <input type="hidden" name="unitId" value={unitId} />
+                <input type="hidden" name="mealType" value={activeMeal} />
+                <input type="hidden" name="eventType" value="STARTED" />
+                <input
+                  type="hidden"
+                  name="clientActionId"
+                  value={clientActionIdFor(unitId, activeMeal, "STARTED", started)}
+                />
+                <input type="hidden" name="returnTab" value={returnTab} />
+                <input type="hidden" name="returnLogTab" value={returnLogTab} />
+                <MilestoneSubmitButton
+                  label="Meal Service Started"
+                  stamp={formatServeryLiveStamp(startedAt, now)}
+                  disabled={started.occurredAt != null}
+                />
+              </form>
+            </>
+          )}
         </div>
       ) : (
         <p className="text-xs text-zinc-500" data-testid="servery-milestone-readonly">
@@ -343,7 +401,13 @@ export function ServeryMealServiceControls({
 
       <div className="mt-3 space-y-1 border-t border-zinc-200 pt-2">
         <MilestoneStatus label="Servery Ready" state={ready} />
+        {localPending.ready ? (
+          <p className="text-xs font-semibold text-amber-700">Saved on this tablet · waiting to synchronize</p>
+        ) : null}
         <MilestoneStatus label="Meal Service Started" state={started} />
+        {localPending.started ? (
+          <p className="text-xs font-semibold text-amber-700">Saved on this tablet · waiting to synchronize</p>
+        ) : null}
         {canCorrect ? (
           <div data-testid="servery-milestone-corrections">
             <CorrectionForm
