@@ -73,7 +73,6 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
       timeout: 20_000,
     });
     await expect(page.getByTestId("assignment-by-unit")).toBeVisible();
-    await expect(page.getByTestId("assignment-by-unit").or(page.getByRole("heading", { name: /By Employee/i }))).toBeVisible();
     await expect(page.getByRole("heading", { name: /By Employee/i })).toBeVisible();
   } finally {
     await context.close();
@@ -166,8 +165,9 @@ test("employee visibility @ci-gate: staff sees confirmed Assignment only after c
         roleKey: "SERVER",
         roleLabel: "Server",
         unitId: fx.unitId,
-        startsAt: new Date(`${fx.serviceDateKey}T10:00:00.000Z`),
-        endsAt: new Date(`${fx.serviceDateKey}T18:00:00.000Z`),
+        // Null bounds = full operational day (always current for resolveCurrentEmployeeAssignment).
+        startsAt: null,
+        endsAt: null,
         status: "PLANNED",
         source: "SCHEDULED_EMPLOYEE",
       },
