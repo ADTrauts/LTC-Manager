@@ -8,6 +8,8 @@ import {
   DEVICE_UNIT_COOKIE,
   getDeviceCookieOptions,
 } from "@/lib/device-cookie";
+import { prisma } from "@/lib/prisma";
+import { revokeOwnSessions } from "@/lib/session-revocation";
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
@@ -26,6 +28,14 @@ export async function POST(request: Request) {
   if (!hasAtLeastRole(session.role as AppRole, "FACILITY_ADMINISTRATOR")) {
     return NextResponse.json({ error: "Only Facility Administrators can unbind this device." }, { status: 403 });
   }
+
+  // Unbinding the device is a security action, so it ends every session for this identity rather
+  // than only the cookie on this browser. A tablet handed back to the facility should not leave a
+  // usable session behind on any device.
+  await revokeOwnSessions(prisma, {
+    kind: session.authKind === "employee" ? "employee" : "user",
+    id: session.uid,
+  });
 
   const url = new URL(request.url);
   const response = NextResponse.redirect(new URL("/login", url.origin), 303);

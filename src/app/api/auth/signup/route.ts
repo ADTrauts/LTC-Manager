@@ -102,6 +102,7 @@ export async function POST(request: Request) {
     name: created.user.displayName,
     email: created.user.email,
     facilityId: created.user.facilityId,
+    sessionVersion: created.user.sessionVersion,
   });
 
   await trackEvent("signup.completed", {

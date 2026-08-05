@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createSessionToken, getCookieOptions, SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isUnitAllowedForEmployee } from "@/lib/employee-units";
 import { prisma } from "@/lib/prisma";
+import { currentSessionVersionFor } from "@/lib/session-revocation";
 
 const schema = z.object({
   unitId: z.string().cuid().nullable(),
@@ -58,6 +59,12 @@ export async function POST(request: Request) {
     activeUnitId: unitId ?? undefined,
     primaryDepartmentId: session.primaryDepartmentId ?? undefined,
     kioskUnitAccessWarning: session.kioskUnitAccessWarning === true ? true : undefined,
+    // Re-read rather than carry the claim forward: re-issuing a token must never resurrect a
+    // session that was revoked between this request's validation and this write.
+    sessionVersion: await currentSessionVersionFor(
+      { kind: session.authKind === "employee" ? "employee" : "user", id: session.uid },
+      prisma,
+    ),
   });
 
   const response = NextResponse.json({ ok: true });

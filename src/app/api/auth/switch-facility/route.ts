@@ -12,6 +12,7 @@ import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
 import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
 import { switchActiveFacility } from "@/lib/facility-access";
 import { prisma } from "@/lib/prisma";
+import { currentSessionVersionFor } from "@/lib/session-revocation";
 
 const bodySchema = z.object({
   facilityId: z.string().min(1).max(64),
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
       primaryDepartmentId: result.primaryDepartmentId,
       // Clear unit lock from prior facility
       activeUnitId: null,
+      sessionVersion: await currentSessionVersionFor({ kind: "user", id: userId }, prisma),
     });
 
     const response = NextResponse.json({

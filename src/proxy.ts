@@ -12,6 +12,7 @@ import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
+import { validateSessionAuthority } from "@/lib/session-revocation";
 
 function routeFeatureFlags() {
   return { todaysWorkEnabled: isTodaysWorkEnabled() };
@@ -114,6 +115,18 @@ export async function proxy(request: NextRequest) {
       response.cookies.delete(SESSION_COOKIE);
       return response;
     }
+
+    // A valid signature proves the server issued this session, not that the holder still has the
+    // authority it was issued under. Termination, a role change, or a password reset must take
+    // effect now rather than when the token happens to expire.
+    const authority = await validateSessionAuthority(session, prisma);
+    if (!authority.valid) {
+      const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
+      response.cookies.delete(SESSION_COOKIE);
+      return response;
+    }
+    // Department authority the identity no longer holds is dropped before it can reach nav scoping.
+    session.primaryDepartmentId = authority.effectiveDepartmentId ?? undefined;
 
     const facility = await prisma.facility.findUnique({
       where: { id: session.facilityId },

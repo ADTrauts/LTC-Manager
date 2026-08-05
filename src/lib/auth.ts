@@ -39,6 +39,14 @@ export type AppJwtPayload = JWTPayload & {
   primaryDepartmentId?: string | null;
   /** Set when PIN login used a unit-locked tablet the employee is not assigned to (see `EmployeeUnitAccess`). */
   kioskUnitAccessWarning?: boolean;
+  /**
+   * The identity's `sessionVersion` when this token was issued.
+   *
+   * Compared against current server state on every protected request, so a material authority
+   * change ends the session before its expiry rather than after it. Absent on tokens minted before
+   * this claim existed, which fail closed rather than being assumed current.
+   */
+  sessionVersion?: number;
 };
 
 function getJwtSecret() {
@@ -61,6 +69,8 @@ export async function createSessionToken(payload: {
   activeUnitId?: string | null;
   primaryDepartmentId?: string | null;
   kioskUnitAccessWarning?: boolean;
+  /** Current `sessionVersion` of the User or Employee this session is being issued for. */
+  sessionVersion: number;
 }) {
   const authKind = payload.authKind ?? "user";
   const body: Record<string, unknown> = {
@@ -71,6 +81,7 @@ export async function createSessionToken(payload: {
     name: payload.name,
     email: payload.email,
     facilityId: payload.facilityId,
+    sessionVersion: payload.sessionVersion,
   };
   if (payload.activeUnitId !== undefined && payload.activeUnitId !== null) {
     body.activeUnitId = payload.activeUnitId;
@@ -105,6 +116,9 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
     activeUnitId: (p.activeUnitId as string | undefined) ?? undefined,
     primaryDepartmentId: (p.primaryDepartmentId as string | undefined) ?? undefined,
     kioskUnitAccessWarning: p.kioskUnitAccessWarning === true,
+    // Left undefined rather than defaulted when absent, so `validateSessionAuthority` can tell a
+    // pre-Phase-4 token apart from one legitimately issued at version zero.
+    sessionVersion: typeof p.sessionVersion === "number" ? p.sessionVersion : undefined,
   } as AppJwtPayload;
 }
 
@@ -132,9 +146,21 @@ export async function getSession(): Promise<AppJwtPayload | null> {
     if (!payload.facilityId) {
       return null;
     }
+
+    // Every caller of `getSession` — pages, API routes, and Server Actions alike — reaches current
+    // authority through this one check, so a revoked session cannot be used to read or write
+    // protected data even on a path that never passes through the proxy. Memoized per request.
+    const { validateSessionForRequest } = await import("@/lib/session-revocation");
+    const authority = await validateSessionForRequest(payload);
+    if (!authority.valid) {
+      return null;
+    }
+
     return {
       ...payload,
       authKind: payload.authKind ?? "user",
+      // Department authority the identity no longer holds never reaches the caller.
+      primaryDepartmentId: authority.effectiveDepartmentId ?? undefined,
     };
   } catch {
     return null;

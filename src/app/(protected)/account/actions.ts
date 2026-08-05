@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { ChangePasswordState } from "@/app/(protected)/account/change-password-state";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import { revokeUserSessions } from "@/lib/session-revocation";
 
 const changePasswordSchema = z
   .object({
@@ -53,9 +54,15 @@ export async function changeOwnPasswordAction(
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash },
+  // One transaction: the new password cannot take effect while sessions established with the old
+  // one stay usable. This also signs the caller out of their own current session, which is the
+  // intended behavior — the caller re-authenticates with the password they just set.
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+    await revokeUserSessions(tx, user.id);
   });
   console.info("password_change_success", { userId: user.id, facilityId: session.facilityId, email: user.email });
 

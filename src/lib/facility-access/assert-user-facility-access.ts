@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import { trackEvent } from "@/lib/telemetry";
+import { revokeUserSessions } from "@/lib/session-revocation";
 
 type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
@@ -248,6 +249,12 @@ export async function revokeUserFacilityAccess(
     where: { id: grant.id },
     data: { isActive: false, revokedAt: new Date() },
   });
+
+  // A session already scoped into the revoked facility would otherwise keep working until its
+  // token expired. Request-time validation catches that on its own, but incrementing here ends
+  // the session immediately and records the change through the same code path as every other
+  // revocation.
+  await revokeUserSessions(db, input.targetUserId);
 
   await trackEvent("facility_access.revoked", {
     actorUserId: input.actorUserId,

@@ -18,6 +18,7 @@ import {
   userHasActiveFacilityAccess,
 } from "@/lib/facility-access";
 import { prisma } from "@/lib/prisma";
+import { INITIAL_SESSION_VERSION } from "@/lib/session-revocation";
 
 const loginSchema = z.object({
   email: z.string().email().max(200),
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
 
   const refreshed = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { facilityId: true, primaryDepartmentId: true },
+    select: { facilityId: true, primaryDepartmentId: true, sessionVersion: true },
   });
   activeFacilityId = refreshed?.facilityId ?? activeFacilityId;
 
@@ -146,6 +147,7 @@ export async function POST(request: Request) {
     email: user.email,
     facilityId: activeFacilityId,
     primaryDepartmentId: refreshed?.primaryDepartmentId ?? user.primaryDepartmentId,
+    sessionVersion: refreshed?.sessionVersion ?? INITIAL_SESSION_VERSION,
   });
 
   const response = NextResponse.json({ ok: true });

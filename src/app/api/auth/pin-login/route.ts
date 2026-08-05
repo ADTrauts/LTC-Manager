@@ -22,6 +22,7 @@ import { getEmployeeAllowedUnitIdSet, resolveInitialActiveUnitIdForPinLogin } fr
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isValidPinFormat, pinDigestForFacility } from "@/lib/pin";
 import { prisma } from "@/lib/prisma";
+import { currentSessionVersionFor } from "@/lib/session-revocation";
 
 const bodySchema = z.object({
   pin: z.string().trim().min(6).max(6),
@@ -199,6 +200,10 @@ export async function POST(request: Request) {
     activeUnitId,
     kioskUnitAccessWarning,
     primaryDepartmentId: employee.primaryDepartmentId,
+    sessionVersion: await currentSessionVersionFor(
+      { kind: "employee", id: employee.id },
+      prisma,
+    ),
   });
 
   const redirectTo = resolveDefaultHomePath({

@@ -45,6 +45,13 @@ import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import {
+  describeRevocation,
+  employeeRevocationReasons,
+  revokeEmployeeSessions,
+  revokeEmployeeSessionsAdministratively,
+} from "@/lib/session-revocation";
+import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import {
   buildTerminationSnapshotJson,
   diffProfileForAudit,
   snapshotFromEmployeeRow,
@@ -613,6 +620,36 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       }
     }
 
+    const revocations = employeeRevocationReasons(
+      {
+        roleType: existing.roleType,
+        status: existing.status,
+        hasPin: existing.pinDigest != null,
+      },
+      {
+        roleType: parsed.roleType,
+        status: parsed.status,
+        hasPin: existing.pinDigest != null && !clearsPin,
+      },
+    );
+    if (revocations.length > 0) {
+      // Same transaction as the authority change, so the edit cannot commit while sessions issued
+      // under the previous role, employment status, or PIN remain usable.
+      await revokeEmployeeSessions(tx, parsed.employeeId);
+      for (const reason of revocations) {
+        await tx.employeeHrAuditLog.create({
+          data: {
+            facilityId: session.facilityId,
+            employeeId: parsed.employeeId,
+            userId: sessionUserIdForFk(session),
+            fieldKey: "employee.sessionRevocation",
+            oldValue: null,
+            newValue: describeRevocation(reason),
+          },
+        });
+      }
+    }
+
     const actorUserId = sessionUserIdForFk(session);
     if (clearsPin) {
       await tx.employeeHrAuditLog.create({
@@ -677,6 +714,9 @@ export async function setEmployeePinAction(formData: FormData) {
         where: { id: parsed.employeeId, facilityId: session.facilityId },
         data: { pinDigest: digest },
       });
+      // Same transaction as the credential change: a PIN reset cannot commit while sessions
+      // established with the previous PIN stay usable.
+      await revokeEmployeeSessions(tx, parsed.employeeId);
       await tx.employeeHrAuditLog.create({
         data: {
           facilityId: session.facilityId,
@@ -685,6 +725,16 @@ export async function setEmployeePinAction(formData: FormData) {
           fieldKey: "employee.pinDigest",
           oldValue: before.pinDigest ? "set" : "unset",
           newValue: "set",
+        },
+      });
+      await tx.employeeHrAuditLog.create({
+        data: {
+          facilityId: session.facilityId,
+          employeeId: parsed.employeeId,
+          userId: sessionUserIdForFk(session),
+          fieldKey: "employee.sessionRevocation",
+          oldValue: null,
+          newValue: describeRevocation("PIN_CHANGED"),
         },
       });
     });
@@ -720,6 +770,7 @@ export async function clearEmployeePinAction(formData: FormData) {
       where: { id: employeeId, facilityId: session.facilityId },
       data: { pinDigest: null },
     });
+    await revokeEmployeeSessions(tx, employeeId);
     await tx.employeeHrAuditLog.create({
       data: {
         facilityId: session.facilityId,
@@ -728,6 +779,16 @@ export async function clearEmployeePinAction(formData: FormData) {
         fieldKey: "employee.pinDigest",
         oldValue: before.pinDigest ? "set" : "unset",
         newValue: "unset",
+      },
+    });
+    await tx.employeeHrAuditLog.create({
+      data: {
+        facilityId: session.facilityId,
+        employeeId,
+        userId: sessionUserIdForFk(session),
+        fieldKey: "employee.sessionRevocation",
+        oldValue: null,
+        newValue: describeRevocation("PIN_REMOVED"),
       },
     });
   });
@@ -772,6 +833,18 @@ export async function updateEmployeeStatusAction(formData: FormData) {
       existing.status !== EmployeeStatus.TERMINATED && status === EmployeeStatus.TERMINATED;
 
     if (transitionToTerminated) {
+      await revokeEmployeeSessions(tx, employeeId);
+      await tx.employeeHrAuditLog.create({
+        data: {
+          facilityId: session.facilityId,
+          employeeId,
+          userId: sessionUserIdForFk(session),
+          fieldKey: "employee.sessionRevocation",
+          oldValue: null,
+          newValue: describeRevocation("EMPLOYEE_TERMINATED"),
+        },
+      });
+
       const fresh = await tx.employee.findUnique({
         where: { id: employeeId },
         include: { workStations: { select: { station: true } } },
@@ -1014,4 +1087,64 @@ export async function deleteDisciplinePointEntryAction(formData: FormData) {
   await prisma.disciplinePointEntry.delete({ where: { id: entryId } });
 
   revalidateEmployeeViews();
+}
+
+/**
+ * End every session for a managed employee.
+ *
+ * Separate from the profile form because it is a security action rather than an edit: it is the
+ * response to a lost tablet or a shared PIN, and it should not require also changing the record.
+ */
+export async function revokeEmployeeSessionsAction(formData: FormData) {
+  const session = await requireFacilitySession();
+
+  const employeeId = String(formData.get("employeeId") ?? "");
+  if (!employeeId) {
+    throw new Error("Invalid employee.");
+  }
+
+  const actorEmployee = await getOperationalEmployeeIdForSession(session);
+  const actorDepartmentIds = actorEmployee
+    ? await loadEmployeeDepartmentIds(actorEmployee)
+    : session.primaryDepartmentId
+      ? [session.primaryDepartmentId]
+      : [];
+
+  const result = await revokeEmployeeSessionsAdministratively(prisma, {
+    actorRole: session.role,
+    actorFacilityId: session.facilityId,
+    actorDepartmentIds,
+    actorUserId: sessionUserIdForFk(session),
+    targetEmployeeId: employeeId,
+  });
+
+  if (!result.ok) {
+    // A target outside the caller's scope is reported the same way as one that does not exist, so
+    // the action cannot be used to probe for employees in other facilities or departments.
+    throw new Error(
+      result.reason === "INSUFFICIENT_ROLE"
+        ? "You do not have permission to end sessions for this employee."
+        : "Employee not found.",
+    );
+  }
+
+  revalidateEmployeeViews();
+}
+
+/** Departments the actor holds authority in: primary, explicit membership, or headship. */
+async function loadEmployeeDepartmentIds(employeeId: string): Promise<string[]> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      primaryDepartmentId: true,
+      employeeDepartments: { select: { departmentId: true } },
+      headedDepartments: { select: { id: true } },
+    },
+  });
+  if (!employee) return [];
+  return [
+    ...(employee.primaryDepartmentId ? [employee.primaryDepartmentId] : []),
+    ...employee.employeeDepartments.map((row) => row.departmentId),
+    ...employee.headedDepartments.map((row) => row.id),
+  ];
 }

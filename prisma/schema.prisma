@@ -367,6 +367,10 @@ model User {
   role                      Role                            @relation(fields: [roleId], references: [id], onDelete: Restrict)
   isActive                  Boolean                         @default(true)
   lastLoginAt               DateTime?
+  /// Monotonic counter carried in the session token and compared on every protected request.
+  /// Incrementing it invalidates every session issued before the change. See
+  /// docs/security/AUTHORIZATION_INTEGRITY_PHASE_4_2026-08-05.md.
+  sessionVersion            Int                             @default(0)
   /// Optional primary operational department for session/nav scoping.
   primaryDepartmentId       String?
   primaryDepartment         Department?                     @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
@@ -1152,6 +1156,10 @@ model Employee {
   unitAccesses               EmployeeUnitAccess[]
   roleType                   RoleKey
   status                     EmployeeStatus              @default(ACTIVE)
+  /// Monotonic counter carried in the PIN session token and compared on every protected request.
+  /// Incrementing it invalidates every PIN session issued before the change. See
+  /// docs/security/AUTHORIZATION_INTEGRITY_PHASE_4_2026-08-05.md.
+  sessionVersion             Int                         @default(0)
   employmentType             EmploymentType              @default(FULL_TIME)
   defaultAssignments         DefaultAssignment[]
   scheduleEntries            ScheduleEntry[]

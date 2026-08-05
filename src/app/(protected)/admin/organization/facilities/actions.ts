@@ -115,6 +115,7 @@ export async function setUserActiveFacilityAction(formData: FormData) {
         email: true,
         facilityId: true,
         primaryDepartmentId: true,
+        sessionVersion: true,
         role: { select: { key: true } },
       },
     });
@@ -127,6 +128,7 @@ export async function setUserActiveFacilityAction(formData: FormData) {
         email: user.email,
         facilityId: user.facilityId,
         primaryDepartmentId: user.primaryDepartmentId,
+        sessionVersion: user.sessionVersion,
       });
       jar.set(SESSION_COOKIE, token, getCookieOptions());
       jar.set(DEVICE_FACILITY_COOKIE, resultFacility, getDeviceCookieOptions());
