@@ -68,10 +68,15 @@ export function OfflineServeryControls(props: OfflineServeryControlsProps) {
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   const refresh = useCallback(async () => {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setConnectivity("OFFLINE");
+      setIsOfflineMode(true);
+    }
     const snap = await getOfflineRuntimeSnapshot();
+    const navigatorOnline = snap.navigatorOnline;
     const state = deriveConnectivityState({
       probeOnline: snap.probeOnline,
-      navigatorOnline: snap.navigatorOnline,
+      navigatorOnline,
       synchronizing: false,
       pendingCount: snap.pendingCount,
       conflictCount: snap.conflictCount,
@@ -79,10 +84,16 @@ export function OfflineServeryControls(props: OfflineServeryControlsProps) {
       hasBundle: snap.bundle != null,
       lastSyncError: null,
     });
-    setConnectivity(state);
+    // Never let a stale probe flip the UX back to online while the browser reports offline.
+    if (!navigatorOnline) {
+      setConnectivity(snap.bundle != null ? "OFFLINE" : "NO_BUNDLE");
+      setIsOfflineMode(true);
+    } else {
+      setConnectivity(state);
+      setIsOfflineMode(!snap.probeOnline);
+    }
     setPendingCount(snap.pendingCount);
     setLastSync(snap.bundle?.lastSuccessfulSyncAt ?? null);
-    setIsOfflineMode(!snap.probeOnline);
   }, []);
 
   useEffect(() => {
@@ -98,7 +109,20 @@ export function OfflineServeryControls(props: OfflineServeryControlsProps) {
     });
     void fetchAndStoreBundle(props.unitId).then(() => refresh());
     const stop = startSyncEngine(props.unitId, refresh);
-    return stop;
+    const onOffline = () => {
+      // Flip UX immediately — do not wait for an async probe that can race the offline event.
+      setConnectivity("OFFLINE");
+      setIsOfflineMode(true);
+      void refresh();
+    };
+    const onOnline = () => void refresh();
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    return () => {
+      stop();
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
   }, [
     props.unitId,
     props.deviceFacilityId,
@@ -113,7 +137,9 @@ export function OfflineServeryControls(props: OfflineServeryControlsProps) {
     commandType: "RECORD_SERVERY_READY" | "RECORD_MEAL_SERVICE_STARTED";
   }) => {
     const snap = await getOfflineRuntimeSnapshot();
-    if (!snap.bundle) return;
+    if (!snap.bundle) {
+      throw new Error("NO_OFFLINE_BUNDLE");
+    }
     await queueOfflineMilestoneCommand({
       bundle: snap.bundle,
       commandType: input.commandType,

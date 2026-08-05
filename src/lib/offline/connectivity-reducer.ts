@@ -11,10 +11,13 @@ export function deriveConnectivityState(input: {
   lastSyncError: string | null;
 }): OfflineConnectivityState {
   if (input.reauthenticationRequired) return "REAUTHENTICATION_REQUIRED";
+  if (!input.navigatorOnline) {
+    return input.hasBundle ? "OFFLINE" : "NO_BUNDLE";
+  }
   if (!input.hasBundle && !input.probeOnline) return "NO_BUNDLE";
   if (input.conflictCount > 0) return "CONFLICT_REVIEW_REQUIRED";
   if (input.synchronizing) return "SYNCHRONIZING";
-  if (!input.probeOnline && !input.navigatorOnline) return "OFFLINE";
+  if (!input.probeOnline) return "OFFLINE";
   if (input.pendingCount > 0 && input.lastSyncError) return "UNABLE_TO_SYNC";
   if (input.pendingCount > 0) return "OFFLINE";
   if (input.probeOnline && input.pendingCount === 0) return "SYNCHRONIZED";

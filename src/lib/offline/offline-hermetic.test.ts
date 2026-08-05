@@ -100,6 +100,20 @@ test("connectivity reducer prefers reauthentication", () => {
   assert.equal(state, "REAUTHENTICATION_REQUIRED");
 });
 
+test("connectivity reducer treats navigator offline as OFFLINE when a bundle exists", () => {
+  const state = deriveConnectivityState({
+    probeOnline: true,
+    navigatorOnline: false,
+    synchronizing: false,
+    pendingCount: 0,
+    conflictCount: 0,
+    reauthenticationRequired: false,
+    hasBundle: true,
+    lastSyncError: null,
+  });
+  assert.equal(state, "OFFLINE");
+});
+
 test("manifest is valid JSON webmanifest", () => {
   const path = join(process.cwd(), "public/manifest.webmanifest");
   const raw = readFileSync(path, "utf8");

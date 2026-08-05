@@ -65,6 +65,14 @@ export function OfflineConflictReview({
                 <input type="hidden" name="reason" value="Rejected during offline conflict review" />
                 <ConflictButton label="Reject with reason" />
               </form>
+              <form action={resolveOfflineConflictAction}>
+                <input type="hidden" name="unitId" value={unitId} />
+                <input type="hidden" name="clientCommandId" value={c.clientCommandId} />
+                <input type="hidden" name="resolution" value="APPLIED_AS_CORRECTION" />
+                <input type="hidden" name="reason" value="Applied as correction during offline conflict review" />
+                <input type="hidden" name="occurredAt" value={c.occurredAt} />
+                <ConflictButton label="Apply as correction" />
+              </form>
             </div>
           </li>
         ))}

@@ -2,8 +2,10 @@ import {
   applySyncResults,
   countOpenConflicts,
   countPendingCommands,
+  enqueueCommand,
   loadActiveBundle,
   loadPendingCommands,
+  purgeAcceptedCommands,
   saveActiveBundle,
   saveDeviceContext,
   updateCommand,
@@ -45,12 +47,18 @@ let retryTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function probeConnectivity(): Promise<boolean> {
   if (typeof window === "undefined") return true;
+  // Short-circuit before fetch: offline probes must not hang waiting on a network timeout.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3_000);
     const res = await fetch("/api/auth/session", {
       method: "GET",
       cache: "no-store",
       credentials: "same-origin",
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     return res.ok;
   } catch {
     return false;
@@ -114,7 +122,8 @@ export async function queueOfflineMilestoneCommand(input: {
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
-  const { enqueueCommand } = await import("./local-store");
+  // Static import only — dynamic import() of local-store fails while offline if the chunk
+  // was not already in Cache Storage / module graph.
   await enqueueCommand(command);
   return command;
 }
@@ -180,11 +189,6 @@ export async function runSyncBatch(unitId: string): Promise<OfflineSyncResponse 
   }
 }
 
-async function purgeAcceptedCommands(hours: number) {
-  const { purgeAcceptedCommands: purge } = await import("./local-store");
-  await purge(hours);
-}
-
 export function startSyncEngine(unitId: string, onChange?: () => void): () => void {
   if (typeof window === "undefined") return () => {};
 
@@ -196,11 +200,17 @@ export function startSyncEngine(unitId: string, onChange?: () => void): () => vo
   void tick();
 
   const onOnline = () => void tick();
+  const onOffline = () => {
+    // Connectivity UI must flip immediately when the browser reports offline; sync ticks alone
+    // only run on the online event and the 30s interval.
+    onChange?.();
+  };
   const onVisible = () => {
     if (document.visibilityState === "visible") void tick();
   };
 
   window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
   document.addEventListener("visibilitychange", onVisible);
   retryTimer = setInterval(() => void tick(), 30_000);
 
@@ -210,6 +220,7 @@ export function startSyncEngine(unitId: string, onChange?: () => void): () => vo
 
   return () => {
     window.removeEventListener("online", onOnline);
+    window.removeEventListener("offline", onOffline);
     document.removeEventListener("visibilitychange", onVisible);
     if (retryTimer) clearInterval(retryTimer);
   };

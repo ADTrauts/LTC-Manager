@@ -1,11 +1,53 @@
+"use client";
+
 import Link from "next/link";
+import type { FormEvent } from "react";
 
 import { AppIcons } from "@/lib/design-system";
+import { clearAllOfflineData, clearForSignOut } from "@/lib/offline/local-store";
 
 type SignOutControlsProps = {
   showUnbind: boolean;
   showChangePassword?: boolean;
 };
+
+async function postLogoutAndRedirect(form: HTMLFormElement) {
+  const action = form.getAttribute("action") || "/api/auth/logout";
+  try {
+    await fetch(action, {
+      method: "POST",
+      credentials: "same-origin",
+      redirect: "manual",
+    });
+  } catch {
+    // Continue to login even if the network blips after local clearance.
+  }
+  window.location.assign("/login");
+}
+
+async function prepareStandardSignOut(event: FormEvent<HTMLFormElement>) {
+  // Clear the active operational bundle before the session cookie is removed so the next
+  // shared-tablet user cannot see prior workspace state from IndexedDB.
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    await clearForSignOut();
+  } catch {
+    // Best-effort: still sign out even if IndexedDB is unavailable.
+  }
+  await postLogoutAndRedirect(form);
+}
+
+async function prepareFullSignOut(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    await clearAllOfflineData();
+  } catch {
+    // Best-effort.
+  }
+  await postLogoutAndRedirect(form);
+}
 
 function SignOutButton({ className, compactLabel = false }: { className: string; compactLabel?: boolean }) {
   const SignOutIcon = AppIcons.signOut;
@@ -32,7 +74,7 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
             <span className="hidden sm:inline">Change password</span>
           </Link>
         ) : null}
-        <form action="/api/auth/logout" method="post">
+        <form action="/api/auth/logout" method="post" onSubmit={(e) => void prepareStandardSignOut(e)}>
           <SignOutButton
             compactLabel
             className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 sm:px-3.5"
@@ -53,7 +95,12 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
         </Link>
       ) : null}
       <div className="flex min-h-10 items-stretch rounded-md border border-zinc-300 bg-white shadow-sm">
-        <form action="/api/auth/logout" method="post" className="flex min-w-0">
+        <form
+          action="/api/auth/logout"
+          method="post"
+          className="flex min-w-0"
+          onSubmit={(e) => void prepareStandardSignOut(e)}
+        >
           <SignOutButton
             compactLabel
             className="inline-flex min-h-10 items-center rounded-l-md border-r border-zinc-200 px-2.5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:px-3.5"
@@ -67,7 +114,7 @@ export function SignOutControls({ showUnbind, showChangePassword = false }: Sign
             <AppIcons.chevronDown className="h-4 w-4" aria-hidden />
           </summary>
           <div className="absolute right-0 top-full z-50 mt-1 min-w-[14rem] rounded-md border border-zinc-200 bg-white py-1 shadow-lg ring-1 ring-black/5">
-            <form action="/api/auth/logout-full" method="post">
+            <form action="/api/auth/logout-full" method="post" onSubmit={(e) => void prepareFullSignOut(e)}>
               <button
                 type="submit"
                 className="w-full px-3 py-2 text-left text-sm font-medium text-amber-900 hover:bg-amber-50"

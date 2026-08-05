@@ -5,12 +5,19 @@ import {
   getOrCreateDeviceLocalKey,
   type EncryptedBlob,
 } from "./crypto";
+import { applySyncResultToQueueState } from "./queue-policy";
 import { OFFLINE_STORE_VERSION } from "./types";
 import type {
   OfflineQueuedCommand,
   OfflineRuntimeBundle,
   OfflineSyncCommandResult,
 } from "./types";
+
+/** IndexedDB row shape when the command payload is AES-GCM sealed. */
+type SealedCommandRow = {
+  clientCommandId: string;
+  sealed: EncryptedBlob | OfflineQueuedCommand;
+};
 
 const DB_NAME = "ltc-offline-runtime";
 const STORE_META = "meta";
@@ -125,11 +132,25 @@ export async function saveActiveBundle(bundle: OfflineRuntimeBundle): Promise<vo
 export async function loadActiveBundle(): Promise<OfflineRuntimeBundle | null> {
   const raw = await txGet<EncryptedBlob | OfflineRuntimeBundle>(STORE_BUNDLE, "active");
   if (!raw) return null;
-  return protectRead<OfflineRuntimeBundle>(raw);
+  try {
+    return await protectRead<OfflineRuntimeBundle>(raw);
+  } catch {
+    return null;
+  }
 }
 
 export async function enqueueCommand(command: OfflineQueuedCommand): Promise<void> {
-  await txPut(STORE_COMMANDS, command.clientCommandId, await protectWrite(command));
+  // Object store uses keyPath clientCommandId. Encrypted blobs must be wrapped so the keyPath
+  // remains present — otherwise IndexedDB rejects the write when AES-GCM sealing is active.
+  const sealed = await protectWrite(command);
+  const row: SealedCommandRow = { clientCommandId: command.clientCommandId, sealed };
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_COMMANDS, "readwrite");
+    tx.objectStore(STORE_COMMANDS).put(row);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error("command write failed"));
+  });
 }
 
 export async function updateCommand(command: OfflineQueuedCommand): Promise<void> {
@@ -137,10 +158,20 @@ export async function updateCommand(command: OfflineQueuedCommand): Promise<void
 }
 
 export async function loadAllCommands(): Promise<OfflineQueuedCommand[]> {
-  const rows = await txGetAll<EncryptedBlob | OfflineQueuedCommand>(STORE_COMMANDS);
+  const rows = await txGetAll<SealedCommandRow | EncryptedBlob | OfflineQueuedCommand>(STORE_COMMANDS);
   const out: OfflineQueuedCommand[] = [];
   for (const row of rows) {
-    out.push(await protectRead<OfflineQueuedCommand>(row));
+    try {
+      if (row && typeof row === "object" && "sealed" in row) {
+        out.push(await protectRead<OfflineQueuedCommand>((row as SealedCommandRow).sealed));
+      } else if (row && typeof row === "object" && "queueState" in row && "clientCommandId" in row) {
+        out.push(row as OfflineQueuedCommand);
+      } else {
+        out.push(await protectRead<OfflineQueuedCommand>(row as EncryptedBlob | OfflineQueuedCommand));
+      }
+    } catch {
+      // Skip undecryptable legacy rows rather than failing the whole queue read.
+    }
   }
   return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
@@ -158,7 +189,6 @@ export async function applySyncResults(results: OfflineSyncCommandResult[]): Pro
   for (const result of results) {
     const cmd = byId.get(result.clientCommandId);
     if (!cmd) continue;
-    const { applySyncResultToQueueState } = await import("./queue-policy");
     cmd.queueState = applySyncResultToQueueState(result.category);
     cmd.updatedAt = new Date().toISOString();
     if (result.retryAfterSeconds) {

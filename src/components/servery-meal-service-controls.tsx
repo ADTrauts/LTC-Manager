@@ -281,17 +281,25 @@ export function ServeryMealServiceControls({
 
   async function handleOfflineReady() {
     if (!offline || !useOfflineFlow) return;
-    await offline.onOfflineRecord({ mealType: activeMeal, commandType: "RECORD_SERVERY_READY" });
     setLocalPending((p) => ({ ...p, ready: true }));
+    try {
+      await offline.onOfflineRecord({ mealType: activeMeal, commandType: "RECORD_SERVERY_READY" });
+    } catch {
+      setLocalPending((p) => ({ ...p, ready: false }));
+    }
   }
 
   async function handleOfflineStarted() {
     if (!offline || !useOfflineFlow) return;
-    await offline.onOfflineRecord({
-      mealType: activeMeal,
-      commandType: "RECORD_MEAL_SERVICE_STARTED",
-    });
     setLocalPending((p) => ({ ...p, started: true }));
+    try {
+      await offline.onOfflineRecord({
+        mealType: activeMeal,
+        commandType: "RECORD_MEAL_SERVICE_STARTED",
+      });
+    } catch {
+      setLocalPending((p) => ({ ...p, started: false }));
+    }
   }
 
   return (
