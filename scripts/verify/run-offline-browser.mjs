@@ -237,7 +237,6 @@ async function main() {
     rmSync(PROFILE_DIR, { recursive: true, force: true });
     // Also clear scenario-specific persistent profiles created by specs.
     try {
-      const { readdirSync } = await import("node:fs");
       for (const name of readdirSync(join(ROOT, "tmp"))) {
         if (name.startsWith("offline-browser-profile")) {
           rmSync(join(ROOT, "tmp", name), { recursive: true, force: true });
