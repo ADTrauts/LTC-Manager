@@ -12,6 +12,7 @@
     "test": "node scripts/verify/run-tests.mjs",
     "test:hermetic": "node scripts/verify/run-tests.mjs hermetic",
     "test:db": "node scripts/verify/run-tests.mjs db",
+    "test:offline-browser": "node scripts/verify/run-offline-browser.mjs",
     "verify:static": "node scripts/verify/verify-static.mjs",
     "verify:build": "node scripts/verify/verify-build.mjs",
     "verify:db": "node scripts/verify/verify-db.mjs",
@@ -53,6 +54,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
