@@ -109,6 +109,20 @@ export async function createRepairAction(formData: FormData) {
     }
   }
 
+  // Vendor is facility-owned (`Vendor.facilityId`, unique per facility by name), so a submitted
+  // vendor id must resolve inside this facility before it can be connected. Reported as "not
+  // found" rather than "forbidden" so the action cannot confirm that another facility's vendor
+  // exists.
+  if (parsed.vendorId) {
+    const vendor = await prisma.vendor.findFirst({
+      where: { id: parsed.vendorId, facilityId: session.facilityId },
+      select: { id: true },
+    });
+    if (!vendor) {
+      throw new Error("Vendor not found.");
+    }
+  }
+
   const repairTrade = parsed.repairTrade ?? defaultRepairTradeForIssueType(parsed.issueType);
   const suggested = await suggestRepairDepartmentIds(prisma, {
     facilityId: session.facilityId,

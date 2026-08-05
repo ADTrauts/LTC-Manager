@@ -37,6 +37,7 @@ export default async function RepairsPage() {
       select: { id: true, assetCode: true, name: true },
     }),
     prisma.vendor.findMany({
+      where: { facilityId },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

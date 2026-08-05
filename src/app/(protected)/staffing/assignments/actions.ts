@@ -12,6 +12,11 @@ import { sessionUserIdForFk } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
+import { toServiceDateKey } from "@/lib/operational-time";
+import {
+  describeAssignmentReferenceRejection,
+  resolveAssignmentReferences,
+} from "@/lib/staffing/assignment-references";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
 import { recordAssignmentEvent } from "@/lib/scheduling/operational-assignments/assignment-events";
 
@@ -122,12 +127,15 @@ export async function createAssignmentAction(formData: FormData) {
     if (!unit) throw new Error("Unit not found.");
   }
 
-  if (parsed.operationInstanceId) {
-    const op = await prisma.operationInstance.findFirst({
-      where: { id: parsed.operationInstanceId, facilityId: session.facilityId },
-      select: { id: true },
-    });
-    if (!op) throw new Error("Operation not found.");
+  const references = await resolveAssignmentReferences(prisma, {
+    facilityId: session.facilityId,
+    departmentId: parsed.departmentId,
+    serviceDateKey: parsed.serviceDate,
+    unitId: parsed.unitId,
+    operationInstanceId: parsed.operationInstanceId,
+  });
+  if (!references.ok) {
+    throw new Error(describeAssignmentReferenceRejection(references.reason));
   }
 
   const serviceDate = new Date(`${parsed.serviceDate}T00:00:00`);
@@ -180,7 +188,14 @@ export async function editAssignmentAction(formData: FormData) {
 
   const assignment = await prisma.operationalAssignment.findFirst({
     where: { id: parsed.assignmentId, facilityId: session.facilityId },
-    select: { id: true, status: true, departmentId: true, department: { select: { key: true } } },
+    select: {
+      id: true,
+      status: true,
+      departmentId: true,
+      serviceDate: true,
+      unitId: true,
+      department: { select: { key: true } },
+    },
   });
   if (!assignment) throw new Error("Assignment not found.");
   if (assignment.status === "COMPLETED" || assignment.status === "CANCELLED") {
@@ -198,17 +213,22 @@ export async function editAssignmentAction(formData: FormData) {
     data.roleLabel = roleDef?.label ?? parsed.roleKey;
   }
 
+  // Validate the unit and operation as the pair they will become, not one at a time: an edit that
+  // changes only the operation still has to agree with the unit already on the assignment.
+  const nextUnitId = parsed.unitId !== undefined ? parsed.unitId || null : assignment.unitId;
+  const references = await resolveAssignmentReferences(prisma, {
+    facilityId: session.facilityId,
+    departmentId: assignment.departmentId,
+    serviceDateKey: toServiceDateKey(assignment.serviceDate),
+    unitId: nextUnitId,
+    operationInstanceId: parsed.operationInstanceId,
+  });
+  if (!references.ok) {
+    throw new Error(describeAssignmentReferenceRejection(references.reason));
+  }
+
   if (parsed.unitId !== undefined) {
-    if (parsed.unitId) {
-      const unit = await prisma.unit.findFirst({
-        where: { id: parsed.unitId, facilityId: session.facilityId },
-        select: { id: true },
-      });
-      if (!unit) throw new Error("Unit not found.");
-      data.unitId = parsed.unitId;
-    } else {
-      data.unitId = null;
-    }
+    data.unitId = parsed.unitId || null;
   }
 
   if (parsed.operationInstanceId !== undefined) {
@@ -325,6 +345,19 @@ export async function reassignAction(formData: FormData) {
   const roleDef = getRoleDefinition(parsed.roleKey);
   if (!roleDef || !isRoleValidForDepartment(parsed.roleKey, department.key)) {
     throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
+  }
+
+  // Validated before the replace branch below cancels anything, so a rejected reference cannot
+  // leave the previous assignment cancelled with no replacement created.
+  const references = await resolveAssignmentReferences(prisma, {
+    facilityId: session.facilityId,
+    departmentId: parsed.departmentId,
+    serviceDateKey: parsed.serviceDate,
+    unitId: parsed.unitId,
+    operationInstanceId: parsed.operationInstanceId,
+  });
+  if (!references.ok) {
+    throw new Error(describeAssignmentReferenceRejection(references.reason));
   }
 
   const actorUserId = sessionUserIdForFk(session);

@@ -52,6 +52,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       select: { id: true, name: true },
     }),
     prisma.vendor.findMany({
+      where: { facilityId },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
