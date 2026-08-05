@@ -31,6 +31,31 @@ run("repository-hygiene", process.execPath, [
 ]);
 run("typecheck", "npx", ["tsc", "--noEmit"]);
 run("lint", "npx", ["eslint", "."]);
-run("prisma validate", "npx", ["prisma", "validate"]);
+
+// prisma validate reads env() URLs from the schema even though it does not connect.
+// Supply synthetic disposable placeholders so a clean clone without .env still validates.
+{
+  console.log("\n=== prisma validate ===");
+  const env = {
+    ...process.env,
+    DATABASE_URL:
+      process.env.DATABASE_URL ||
+      "postgresql://verify:verify@127.0.0.1:5432/ltc_verify_schema_validate?schema=public",
+    DIRECT_URL:
+      process.env.DIRECT_URL ||
+      process.env.DATABASE_URL ||
+      "postgresql://verify:verify@127.0.0.1:5432/ltc_verify_schema_validate?schema=public",
+  };
+  delete env.NODE_ENV;
+  const result = spawnSync("npx", ["prisma", "validate"], {
+    cwd: ROOT,
+    env,
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    console.error(`verify-static: FAIL — prisma validate exited ${result.status ?? 1}`);
+    process.exit(result.status ?? 1);
+  }
+}
 
 console.log("\nverify-static: PASS");
