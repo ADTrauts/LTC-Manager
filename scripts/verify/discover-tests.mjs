@@ -50,6 +50,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/session-revocation/session-version.test.ts",
   "src/lib/staffing/assignment-references.test.ts",
   "src/lib/offline/runtime-api.test.ts",
+  "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts",
 ];
 
 function main() {

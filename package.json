@@ -13,6 +13,7 @@
     "test:hermetic": "node scripts/verify/run-tests.mjs hermetic",
     "test:db": "node scripts/verify/run-tests.mjs db",
     "test:offline-browser": "node scripts/verify/run-offline-browser.mjs",
+    "test:assignment-browser": "node scripts/verify/run-assignment-browser.mjs",
     "verify:static": "node scripts/verify/verify-static.mjs",
     "verify:build": "node scripts/verify/verify-build.mjs",
     "verify:db": "node scripts/verify/verify-db.mjs",
