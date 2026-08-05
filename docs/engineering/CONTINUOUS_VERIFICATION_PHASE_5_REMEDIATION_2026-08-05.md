@@ -85,7 +85,20 @@ Run from repo root on remediation tip:
 2. `test(db): govern documented migration checksum exception` — manifest, integrity wiring, tests
 3. `docs(engineering): record Phase 5 remediation` — this file + migration exception doc
 
+## Hosted rerun results
+
+| Run | Commit | Conclusion | Duration | URL |
+| --- | --- | --- | --- | --- |
+| 31025801223 | `9ffc3a7` (docs commit) | **success** (both jobs) | ~2m 25s | https://github.com/ADTrauts/LTC-Manager/actions/runs/31025801223 |
+| 31026011454 | `c83d7cc` (tip: always pin TZ) | **success** (both jobs) | ~2m 21s | https://github.com/ADTrauts/LTC-Manager/actions/runs/31026011454 |
+
+Failed original Phase 5 tip run: [31012166369](https://github.com/ADTrauts/LTC-Manager/actions/runs/31012166369) @ `be597a9`.
+
 ## Certification
 
-**PASS WITH DOCUMENTED HISTORICAL EXCEPTION** once hosted Verify is green on the remediation branch
-and the governed exception for `20260423105656` remains the only manifest entry.
+**PASS WITH DOCUMENTED HISTORICAL EXCEPTION**
+
+- Hosted Verify is green on remediation tip `c83d7cc`.
+- Both jobs succeed (static/hermetic and database integration).
+- The only governed checksum exception remains `20260423105656`.
+- Empty-database migrate/seed/SQL suites remain green in CI Job 2.
