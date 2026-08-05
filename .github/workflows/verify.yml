@@ -133,3 +133,55 @@ jobs:
 
       - name: Rate-limit cleanup
         run: npm run maintenance:auth-rate-limits
+
+  offline-browser-gate:
+    name: Offline browser gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ltc_ci
+          POSTGRES_PASSWORD: ltc_ci_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ltc_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      VERIFY_DATABASE_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/ltc_ci_offline_browser?schema=public
+      VERIFY_DATABASE_ADMIN_URL: postgresql://ltc_ci:ltc_ci_password@localhost:5432/postgres
+      VERIFY_MANAGE_DATABASE: "1"
+      OFFLINE_BROWSER_CI_GATE: "1"
+      TZ: America/New_York
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Offline browser certification (CI gate subset)
+        run: npm run test:offline-browser
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-browser-artifacts
+          path: tmp/offline-browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
