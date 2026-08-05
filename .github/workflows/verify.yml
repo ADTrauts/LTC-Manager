@@ -57,6 +57,10 @@ jobs:
         run: npm run lint
 
       - name: Prisma validate
+        env:
+          # Schema declares env() URLs; validate does not connect.
+          DATABASE_URL: postgresql://verify:verify@127.0.0.1:5432/ltc_verify_schema_validate?schema=public
+          DIRECT_URL: postgresql://verify:verify@127.0.0.1:5432/ltc_verify_schema_validate?schema=public
         run: npx prisma validate
 
       - name: Production build
