@@ -60,10 +60,9 @@ function main() {
       delete env.NODE_ENV;
     }
     // GitHub-hosted runners default to UTC. Many tests use timezone-less Date strings that
-    // represent facility-local America/New_York instants; pin TZ so hermetic runs are portable.
-    if (!env.TZ) {
-      env.TZ = "America/New_York";
-    }
+    // represent facility-local America/New_York instants; always pin TZ so hermetic runs are
+    // portable even when the caller exports TZ=UTC (common CI default / verification matrix).
+    env.TZ = "America/New_York";
 
     if (mode === "hermetic") {
       for (const key of SQL_BACKED_DATABASE_ENV_KEYS) {
