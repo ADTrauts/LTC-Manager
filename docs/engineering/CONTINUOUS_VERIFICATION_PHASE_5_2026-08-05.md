@@ -4,6 +4,8 @@
 **Branch:** `engineering/continuous-verification-phase-5-2026-08-05`  
 **Base:** `security/authorization-integrity-phase-4-2026-08-05` @ `7d7e38e507da4841a01df9dfdd12c444cb46084e`
 
+**Remediation (hosted Verify repair):** [CONTINUOUS_VERIFICATION_PHASE_5_REMEDIATION_2026-08-05.md](./CONTINUOUS_VERIFICATION_PHASE_5_REMEDIATION_2026-08-05.md) on branch `engineering/continuous-verification-phase-5-remediation-2026-08-05`. Initial Phase 5 push @ `be597a9` failed hermetic tests (UTC timezone) and `verify:db` (`psql` absent on runners).
+
 Phases 1–4 built a substantial security and runtime baseline. This phase makes that baseline
 automatically enforceable through repository-owned commands and GitHub Actions.
 
