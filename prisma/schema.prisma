@@ -383,6 +383,7 @@ model User {
   terminationRecordsCreated EmployeeTerminationRecord[]     @relation("TerminationCreatedBy")
   serveryMealReadyEvents    ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedBy")
   serveryMealStartedEvents  ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedBy")
+  serveryMilestoneEntries   ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorUser")
   attachmentsCreated        Attachment[]                    @relation("AttachmentCreatedByUser")
   knowledgeArticlesCreated  KnowledgeArticle[]              @relation("KnowledgeArticleCreatedBy")
   knowledgeArticlesUpdated  KnowledgeArticle[]              @relation("KnowledgeArticleUpdatedBy")
@@ -492,6 +493,27 @@ enum MealType {
   BREAKFAST
   LUNCH
   DINNER
+}
+
+/// The two Dietary service milestones, named as they appear in the product.
+enum ServeryMilestone {
+  /// "Servery Ready"
+  READY
+  /// "Meal Service Started"
+  SERVICE_STARTED
+}
+
+/// Whether a milestone entry is the first record of an occurrence or a later correction of one.
+enum ServeryMilestoneEntryKind {
+  ORIGINAL
+  CORRECTION
+}
+
+/// Credential surface used at sign-in. Records provenance only; it never grants authority.
+/// Mirrors `authMethodValues` in src/lib/auth.ts.
+enum SessionAuthMethod {
+  PASSWORD
+  QUICK_PIN
 }
 
 /// Lifecycle state for a date-bound operation occurrence (Wave 5 Operations Engine).
@@ -1003,27 +1025,94 @@ model DepartmentRoomExperienceException {
   @@index([areaExperienceId])
 }
 
+/// Current state of the two Dietary service milestones for one Unit, service date, and meal.
+///
+/// This row is a projection of `ServeryMilestoneEntry`, which is the append-only record of what was
+/// entered and by whom. Readers (dashboard, Unit Workspace, logs) use this row so they never have to
+/// reduce the entry log themselves; corrections update it while the entry log preserves history.
+///
+/// `mealServiceReadyAt` / `mealServiceStartedAt` are when the milestone *occurred*.
+/// `readyRecordedAt` / `startedRecordedAt` are when the server *accepted* the record. These are
+/// deliberately separate: conflating them would make a late entry indistinguishable from a late meal.
 model ServeryMealServiceEvent {
-  id                   String             @id @default(cuid())
-  unitId               String
-  unit                 Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  serviceDate          DateTime           @db.Date
-  mealType             MealType
-  mealServiceReadyAt   DateTime?
-  mealServiceStartedAt DateTime?
-  readyRecordedById    String?
-  readyRecordedBy      User?              @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
-  startedRecordedById  String?
-  startedRecordedBy    User?              @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
+  id                        String                  @id @default(cuid())
+  unitId                    String
+  unit                      Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  serviceDate               DateTime                @db.Date
+  mealType                  MealType
+  /// When Servery Ready occurred.
+  mealServiceReadyAt        DateTime?
+  /// When Meal Service Started occurred.
+  mealServiceStartedAt      DateTime?
+  /// Server acceptance time for the current Ready value. Null for rows predating this column.
+  readyRecordedAt           DateTime?
+  /// Server acceptance time for the current Started value. Null for rows predating this column.
+  startedRecordedAt         DateTime?
+  readyRecordedById         String?
+  readyRecordedBy           User?                   @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
+  startedRecordedById       String?
+  startedRecordedBy         User?                   @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
+  /// Employee attribution for PIN sessions, which have no `User` row. Null for password sessions.
+  readyRecordedByEmployeeId String?
+  readyRecordedByEmployee   Employee?               @relation("ServeryReadyRecordedByEmployee", fields: [readyRecordedByEmployeeId], references: [id], onDelete: SetNull)
+  startedRecordedByEmployeeId String?
+  startedRecordedByEmployee Employee?               @relation("ServeryStartedRecordedByEmployee", fields: [startedRecordedByEmployeeId], references: [id], onDelete: SetNull)
+  /// Credential surface of the session that recorded the current value. Null for historical rows.
+  readyAuthMethod           SessionAuthMethod?
+  startedAuthMethod         SessionAuthMethod?
   /// Optional link to the dated operation occurrence when the operations engine is enabled.
-  operationInstanceId  String?
-  operationInstance    OperationInstance? @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  operationInstanceId       String?
+  operationInstance         OperationInstance?      @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  entries                   ServeryMilestoneEntry[]
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
   @@unique([unitId, serviceDate, mealType])
   @@index([serviceDate])
   @@index([operationInstanceId])
+}
+
+/// Append-only record of every Dietary milestone entry and correction.
+///
+/// Rows are never updated or deleted by the product. A correction appends a `CORRECTION` entry that
+/// carries the value it replaced in `previousOccurredAt`, so the original occurrence time, its
+/// actor, and its acceptance time all survive. This is what makes "Not Confirmed" distinguishable
+/// from "Did Not Occur" and a corrected record distinguishable from an original one.
+///
+/// `clientActionId` is the idempotency key. Its uniqueness is scoped by `eventId`, which already
+/// encodes Facility (through Unit), Unit, service date, and meal, plus `milestone` — so a replayed
+/// command returns the original effect and cannot collide across contexts.
+model ServeryMilestoneEntry {
+  id                 String                    @id @default(cuid())
+  eventId            String
+  event              ServeryMealServiceEvent   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  milestone          ServeryMilestone
+  kind               ServeryMilestoneEntryKind @default(ORIGINAL)
+  /// When the milestone occurred, as recorded by this entry.
+  occurredAt         DateTime
+  /// When the server accepted this entry. Always server-generated.
+  recordedAt         DateTime                  @default(now())
+  /// The occurrence time this entry replaced. Set on corrections only.
+  previousOccurredAt DateTime?
+  /// Required for corrections; null for original entries.
+  reason             String?
+  actorUserId        String?
+  actorUser          User?                     @relation("ServeryMilestoneEntryActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmployeeId    String?
+  actorEmployee      Employee?                 @relation("ServeryMilestoneEntryActorEmployee", fields: [actorEmployeeId], references: [id], onDelete: SetNull)
+  /// Role held at the time of entry. Null for rows backfilled from before this table existed.
+  actorRole          RoleKey?
+  /// Credential surface used. Null for backfilled rows.
+  authMethod         SessionAuthMethod?
+  /// Unit the recording tablet was bound to, when it was unit-locked.
+  deviceUnitId       String?
+  /// Idempotency key supplied by the client command.
+  clientActionId     String
+
+  @@unique([eventId, milestone, clientActionId])
+  @@index([eventId, milestone, recordedAt])
+  @@index([actorUserId])
+  @@index([actorEmployeeId])
 }
 
 model UnitMealTime {
@@ -1091,6 +1180,9 @@ model Employee {
   hrAuditLogs                EmployeeHrAuditLog[]
   terminationRecords         EmployeeTerminationRecord[]
   kioskUnitPinLoginEvents    KioskUnitPinLoginEvent[]
+  serveryMealReadyEvents     ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedByEmployee")
+  serveryMealStartedEvents   ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedByEmployee")
+  serveryMilestoneEntries    ServeryMilestoneEntry[]     @relation("ServeryMilestoneEntryActorEmployee")
   assignedRepairs            Repair[]                    @relation("RepairAssignedEmployee")
   roomAreaStatusUpdates      RoomAreaStatus[]
   assignedTasks              Task[]                      @relation("TaskAssignedEmployee")
