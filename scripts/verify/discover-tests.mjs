@@ -49,6 +49,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/servery/record-milestone.test.ts",
   "src/lib/session-revocation/session-version.test.ts",
   "src/lib/staffing/assignment-references.test.ts",
+  "src/lib/offline/runtime-api.test.ts",
 ];
 
 function main() {
