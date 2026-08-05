@@ -19,6 +19,13 @@ type LogsPageProps = {
   searchParams: Promise<{ assignmentId?: string; tab?: string; logTab?: string }>;
 };
 
+/** Present an Employee in the shape the log rows already use for a User recorder. */
+function employeeAsRecorder(
+  employee: { firstName: string; lastName: string } | null,
+): { displayName: string } | null {
+  return employee ? { displayName: `${employee.firstName} ${employee.lastName}`.trim() } : null;
+}
+
 function parseTab(raw: string | undefined, hasAssignmentId: boolean): LogsTabId {
   if (hasAssignmentId && (!raw || !LOG_TABS.includes(raw as LogsTabId))) {
     return "submit";
@@ -100,6 +107,10 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
         unit: { select: { name: true } },
         readyRecordedBy: { select: { displayName: true } },
         startedRecordedBy: { select: { displayName: true } },
+        // PIN sessions have no User row, so without the Employee fallback every milestone
+        // recorded from a servery tablet would appear unattributed in the audit view.
+        readyRecordedByEmployee: { select: { firstName: true, lastName: true } },
+        startedRecordedByEmployee: { select: { firstName: true, lastName: true } },
       },
     }),
     loadFacilityMenuData(prisma, facilityId),
@@ -138,8 +149,8 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
     mealServiceReadyAt: row.mealServiceReadyAt?.toISOString() ?? null,
     mealServiceStartedAt: row.mealServiceStartedAt?.toISOString() ?? null,
     unit: row.unit,
-    readyRecordedBy: row.readyRecordedBy,
-    startedRecordedBy: row.startedRecordedBy,
+    readyRecordedBy: row.readyRecordedBy ?? employeeAsRecorder(row.readyRecordedByEmployee),
+    startedRecordedBy: row.startedRecordedBy ?? employeeAsRecorder(row.startedRecordedByEmployee),
   }));
 
   const selectedAssignment =
