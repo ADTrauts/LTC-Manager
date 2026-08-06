@@ -14,6 +14,8 @@ import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspe
 import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
 import { UnitMyAssignmentPanel } from "@/components/unit-workspace/unit-my-assignment-panel";
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
+import { AssetIssueReportPanel } from "@/components/asset-operations/asset-issue-report-panel";
+import { UnitRuntimeAssetsPanel } from "@/components/asset-operations/unit-runtime-assets-panel";
 import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
 import { ProjectedUnitWorkspaceBody } from "@/components/unit-workspace/projected-experience-panels";
@@ -22,10 +24,12 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { resolveLocationIconKey } from "@/lib/design-system";
 import { loadEmployeeJobFlow } from "@/lib/dietary-job-flow";
 import {
+  isDietaryAssetOperationsEnabled,
   isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
   isOperationalAssignmentsEnabled,
@@ -66,6 +70,7 @@ type UnitDashboardPageProps = {
     followUpTask?: string;
     occurrence?: string;
     evidence?: string;
+    reportAsset?: string;
   }>;
 };
 
@@ -306,7 +311,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     : null;
 
   const unitAssets = await prisma.asset.findMany({
-    where: { unitId: unit.id, status: "ACTIVE" },
+    where: {
+      unitId: unit.id,
+      status: { in: ["ACTIVE", "OPERATIONAL", "DEGRADED"] },
+    },
     orderBy: { name: "asc" },
     take: 40,
     select: { id: true, name: true },
@@ -345,7 +353,9 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     : null;
 
   const dietaryDepartment =
-    isDietaryOperationalCyclesEnabled() || isDietaryJobFlowEnabled()
+    isDietaryOperationalCyclesEnabled() ||
+    isDietaryJobFlowEnabled() ||
+    isDietaryAssetOperationsEnabled()
       ? await prisma.department.findFirst({
           where: {
             facilityId: session.facilityId,
@@ -354,6 +364,20 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           },
           select: { id: true },
         })
+      : null;
+
+  const runtimeAssets =
+    isDietaryAssetOperationsEnabled() && dietaryDepartment
+      ? await loadUnitRuntimeAssets(unit.id, session.facilityId, {
+          departmentId: dietaryDepartment.id,
+        })
+      : [];
+
+  const reportAssetId =
+    typeof query?.reportAsset === "string" &&
+    query.reportAsset.trim() &&
+    query.reportAsset.trim() !== "1"
+      ? query.reportAsset.trim()
       : null;
 
   const jobFlowEnabled = isDietaryJobFlowEnabled();
@@ -562,7 +586,35 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             <ContextualKnowledgePanel articles={unitKnowledge.articles} />
           </div>
 
-          <UnitQuickIssuePanel unitId={unit.id} unitName={unit.name} assets={unitAssets} />
+          {isDietaryAssetOperationsEnabled() && dietaryDepartment ? (
+            <>
+              <UnitRuntimeAssetsPanel
+                assets={runtimeAssets}
+                unitId={unit.id}
+                canReport
+                reportHref={`/unit/${unit.id}?reportAsset=1`}
+              />
+              <AssetIssueReportPanel
+                facilityId={session.facilityId}
+                departmentId={dietaryDepartment.id}
+                unitId={unit.id}
+                defaultAssetId={reportAssetId}
+                assets={runtimeAssets.map((a) => ({
+                  id: a.assetId,
+                  name: a.name,
+                  assetCode: a.assetCode,
+                  statusLabel: a.statusLabel,
+                  openIssueAlreadyReported: a.openIssueAlreadyReported,
+                }))}
+                deviceFacilityId={deviceFacilityId}
+                deviceBoundUnitId={deviceBoundUnitId}
+                actorRef={actorRefForSession(session)}
+                sessionVersion={session.sessionVersion ?? 0}
+              />
+            </>
+          ) : (
+            <UnitQuickIssuePanel unitId={unit.id} unitName={unit.name} assets={unitAssets} />
+          )}
 
           {activeFollowUp ? (
             <UnitInspectionFollowUpActions unitId={unit.id} task={activeFollowUp} />
