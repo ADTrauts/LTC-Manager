@@ -16,6 +16,7 @@
     "test:assignment-browser": "node scripts/verify/run-assignment-browser.mjs",
     "test:operational-cycles-browser": "node scripts/verify/run-operational-cycles-browser.mjs",
     "test:job-flow-browser": "node scripts/verify/run-job-flow-browser.mjs",
+    "test:operational-evidence-browser": "node scripts/verify/run-operational-evidence-browser.mjs",
     "test:dietary-pilot": "node scripts/verify/run-dietary-pilot.mjs",
     "verify:static": "node scripts/verify/verify-static.mjs",
     "verify:build": "node scripts/verify/verify-build.mjs",

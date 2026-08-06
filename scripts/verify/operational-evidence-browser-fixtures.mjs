@@ -14,9 +14,9 @@ import { PrismaClient } from "@prisma/client";
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const ARTIFACT_DIR = join(ROOT, "tmp", "job-flow-browser-artifacts");
+const ARTIFACT_DIR = join(ROOT, "tmp", "operational-evidence-browser-artifacts");
 const FIXTURE_PATH =
-  process.env.JOB_FLOW_BROWSER_FIXTURE_PATH || join(ARTIFACT_DIR, "fixtures.json");
+  process.env.OPERATIONAL_EVIDENCE_BROWSER_FIXTURE_PATH || join(ARTIFACT_DIR, "fixtures.json");
 const PINS_PATH = join(ARTIFACT_DIR, "pins.env");
 
 const SYNTHETIC_PASSWORD = process.env.SEED_DEMO_PASSWORD;
@@ -749,6 +749,146 @@ async function main() {
       },
     });
 
+    // Phase 9C evidence fixtures
+    const { randomBytes } = await import("node:crypto");
+    const cuid = () => `c${randomBytes(12).toString("hex")}`;
+    const coolerAsset = await db.asset.create({
+      data: {
+        assetCode: `EVID-COOLER-${Date.now()}`,
+        name: "Synthetic Cooler",
+        equipmentType: "COOLER",
+        unitId: primaryUnit.id,
+        departmentId: dietary.id,
+        status: "ACTIVE",
+      },
+    });
+    const publishedCycleKeys = await db.departmentOperationalCycle.findMany({
+      where: { departmentId: dietary.id, status: "PUBLISHED" },
+      select: { stableKey: true },
+      distinct: ["stableKey"],
+      take: 2,
+    });
+    const coolerDraft = await db.operationalTemplate.create({
+      data: {
+        id: cuid(),
+        facilityId: facility.id,
+        departmentId: dietary.id,
+        stableKey: "cooler_temperature_log",
+        version: 1,
+        name: "Cooler Temperature Log",
+        description: "Synthetic cooler log",
+        instructions: "Enter cooler temperature.",
+        purposeType: "LOG",
+        status: "PUBLISHED",
+        presetKey: "COOLER_TEMPERATURE_LOG",
+        publishedAt: new Date(),
+        fields: {
+          create: [
+            {
+              id: cuid(),
+              fieldKey: "cooler_temperature",
+              label: "Cooler temperature",
+              fieldType: "TEMPERATURE",
+              isRequired: true,
+              displaySequence: 10,
+              unitLabel: "°F",
+              minNumber: 33,
+              maxNumber: 41,
+              correctiveActionTrigger: true,
+              correctiveActionRequired: true,
+            },
+          ],
+        },
+        applicabilities: {
+          create: [{ id: cuid(), kind: "SPECIFIC_ASSET", assetId: coolerAsset.id }],
+        },
+        schedules: {
+          create: (publishedCycleKeys.length
+            ? publishedCycleKeys
+            : [{ stableKey: "jf_morning_prep" }]
+          ).map((c) => ({
+            id: cuid(),
+            kind: "OPERATIONAL_CYCLE",
+            cycleStableKey: c.stableKey,
+          })),
+        },
+      },
+    });
+    await db.operationalTemplate.create({
+      data: {
+        id: cuid(),
+        facilityId: facility.id,
+        departmentId: dietary.id,
+        stableKey: "draft_only_checklist",
+        version: 1,
+        name: "Draft Only Checklist",
+        purposeType: "CHECKLIST",
+        status: "DRAFT",
+        fields: {
+          create: [
+            {
+              id: cuid(),
+              fieldKey: "attestation",
+              label: "Attest",
+              fieldType: "ATTESTATION",
+              isRequired: true,
+              displaySequence: 10,
+            },
+          ],
+        },
+      },
+    });
+    const historyRecordIds = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(serviceDate);
+      d.setUTCDate(d.getUTCDate() - i);
+      const rec = await db.operationalEvidenceRecord.create({
+        data: {
+          id: cuid(),
+          facilityId: facility.id,
+          departmentId: dietary.id,
+          templateId: coolerDraft.id,
+          templateStableKey: coolerDraft.stableKey,
+          templateVersion: 1,
+          templateName: coolerDraft.name,
+          purposeType: "LOG",
+          requirementKey: `hist-${i}`,
+          operationalDate: d,
+          scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
+          unitId: primaryUnit.id,
+          assetId: coolerAsset.id,
+          status: "COMPLETED",
+          occurredAt: d,
+          recordedAt: d,
+          synchronizedAt: d,
+          recordedOnline: true,
+          recordedByLabel: "Synthetic History",
+          templateSnapshotJson: {
+            templateId: coolerDraft.id,
+            stableKey: coolerDraft.stableKey,
+            version: 1,
+            name: coolerDraft.name,
+            description: coolerDraft.description,
+            instructions: coolerDraft.instructions,
+            purposeType: "LOG",
+            fields: [],
+          },
+          values: {
+            create: [
+              {
+                id: cuid(),
+                fieldKey: "cooler_temperature",
+                label: "Cooler temperature",
+                fieldType: "TEMPERATURE",
+                valueNumber: 38,
+              },
+            ],
+          },
+        },
+      });
+      historyRecordIds.push(rec.id);
+    }
+
     mkdirSync(dirname(FIXTURE_PATH), { recursive: true });
     writeFileSync(
       FIXTURE_PATH,
@@ -781,6 +921,12 @@ async function main() {
           templateId: template.id,
           draftCycleLabel: "Evening Closeout Draft",
           retiredCycleLabel: "Retired Ghost Cycle",
+          coolerAssetId: coolerAsset.id,
+          publishedTemplateId: coolerDraft.id,
+          publishedTemplateName: coolerDraft.name,
+          templateBuilderPath: "/staffing/templates",
+          logBookPath: "/staffing/log-book",
+          historyRecordIds,
           builderCyclesPath: `/admin/departments/${dietary.id}?tab=cycles`,
           unitWorkspacePath: `/unit/${primaryUnit.id}`,
           operationsBoardPath: "/staffing/operations",

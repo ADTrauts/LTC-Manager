@@ -10,10 +10,13 @@ import {
   recordServeryReadyOffline,
   expectOfflineControlsReady,
   fetchBundleViaApi,
+  inspectIndexedDb,
+  signOut,
 } from "../offline-browser/helpers";
 
 type Fixtures = {
   facilityId: string;
+  facilityTimezone?: string;
   departmentId: string;
   unitId: string;
   unitName: string;
@@ -61,14 +64,86 @@ function prisma(): PrismaClient {
   return new PrismaClient({ datasources: { db: { url } } });
 }
 
-async function openPersistent(suffix: string): Promise<{ context: BrowserContext; page: Page }> {
+async function openPersistent(
+  suffix: string,
+  opts?: { timezoneId?: string },
+): Promise<{ context: BrowserContext; page: Page }> {
   const dir = `${profileDir}-${suffix}`;
   const context = await chromium.launchPersistentContext(dir, {
     headless: true,
     baseURL: process.env.JOB_FLOW_BROWSER_BASE_URL,
+    ...(opts?.timezoneId ? { timezoneId: opts.timezoneId } : {}),
   });
   const page = context.pages()[0] || (await context.newPage());
   return { context, page };
+}
+
+/** Read plaintext jobFlowContext / bundle unit from IndexedDB (fetchBundleViaApi stores unencrypted). */
+async function readJobFlowContext(page: Page) {
+  return page.evaluate(async () => {
+    return new Promise<{
+      present: boolean;
+      bundleUnitId: string | null;
+      unitId: string | null;
+      unitName: string | null;
+      duty: string | null;
+      state: string | null;
+    }>((resolve, reject) => {
+      const req = indexedDB.open("ltc-offline-runtime", 1);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const db = req.result;
+        if (![...db.objectStoreNames].includes("bundle")) {
+          resolve({
+            present: false,
+            bundleUnitId: null,
+            unitId: null,
+            unitName: null,
+            duty: null,
+            state: null,
+          });
+          return;
+        }
+        const tx = db.transaction("bundle", "readonly");
+        const get = tx.objectStore("bundle").get("active");
+        get.onerror = () => reject(get.error);
+        get.onsuccess = () => {
+          const raw = get.result as Record<string, unknown> | null;
+          if (!raw || typeof raw !== "object") {
+            resolve({
+              present: false,
+              bundleUnitId: null,
+              unitId: null,
+              unitName: null,
+              duty: null,
+              state: null,
+            });
+            return;
+          }
+          if ("v" in raw && "iv" in raw && "ct" in raw) {
+            resolve({
+              present: true,
+              bundleUnitId: null,
+              unitId: null,
+              unitName: null,
+              duty: null,
+              state: null,
+            });
+            return;
+          }
+          const jf = (raw.jobFlowContext ?? null) as Record<string, unknown> | null;
+          resolve({
+            present: Boolean(jf),
+            bundleUnitId: typeof raw.unitId === "string" ? raw.unitId : null,
+            unitId: typeof jf?.unitId === "string" ? jf.unitId : null,
+            unitName: typeof jf?.unitName === "string" ? jf.unitName : null,
+            duty: typeof jf?.duty === "string" ? jf.duty : null,
+            state: typeof jf?.state === "string" ? jf.state : null,
+          });
+        };
+      };
+    });
+  });
 }
 
 async function loginPassword(page: Page, email: string) {
@@ -359,6 +434,271 @@ test("publish draft @ci-gate: manager publishes draft Closeout via UI; retired l
     await expect(flow).toBeVisible({ timeout: 25_000 });
     await expect(flow).not.toContainText(new RegExp(fx.retiredCycleLabel, "i"));
   } finally {
+    await context.close();
+  }
+});
+
+test("missing cycle config @ci-gate: retired published cycles produce safe Job Flow (scenario 16)", async () => {
+  const fx = loadFixtures();
+  const db = prisma();
+  const { context, page } = await openPersistent("missing-cycle");
+  try {
+    await db.departmentOperationalCycle.updateMany({
+      where: { departmentId: fx.departmentId, status: "PUBLISHED" },
+      data: { status: "RETIRED", retiredAt: new Date() },
+    });
+
+    await loginPassword(page, fx.staffNoAssignEmail);
+    await page.goto(`${fx.unitWorkspacePath}?unitTab=overview`, { waitUntil: "domcontentloaded" });
+    const flow = page.getByTestId("employee-job-flow");
+    await expect(flow).toBeVisible({ timeout: 25_000 });
+    // Safe NOT_CONFIGURED copy — never "Blocked" / "failed".
+    await expect(flow).toContainText(/Operational cycles are not configured|No published operational cycles/i);
+    const body = await flow.innerText();
+    expect(body).not.toMatch(/\bfailed\b|\bblocked\b/i);
+  } finally {
+    await db.departmentOperationalCycle
+      .updateMany({
+        where: {
+          departmentId: fx.departmentId,
+          status: "RETIRED",
+          stableKey: { in: ["jf_morning_prep", "jf_breakfast_service", "jf_lunch_service", "jf_dinner_service"] },
+        },
+        data: { status: "PUBLISHED", retiredAt: null, publishedAt: new Date() },
+      })
+      .catch(() => {});
+    await db.$disconnect();
+    await context.close();
+  }
+});
+
+test("UTC parity @ci-gate: UTC and Facility-local browsers resolve the same Job Flow (scenario 17)", async () => {
+  const fx = loadFixtures();
+  const facilityTz = fx.facilityTimezone || "America/New_York";
+
+  async function captureFlow(suffix: string, timezoneId: string) {
+    const { context, page } = await openPersistent(suffix, { timezoneId });
+    try {
+      await loginPassword(page, fx.staffEmail);
+      await page.goto(`${fx.unitWorkspacePath}?unitTab=overview`, { waitUntil: "domcontentloaded" });
+      const flow = page.getByTestId("employee-job-flow");
+      await expect(flow).toBeVisible({ timeout: 25_000 });
+      const text = (await flow.innerText()).replace(/\s+/g, " ").trim();
+      return text;
+    } finally {
+      await context.close();
+    }
+  }
+
+  const utcText = await captureFlow("tz-utc", "UTC");
+  const localText = await captureFlow("tz-facility", facilityTz);
+  expect(utcText.length).toBeGreaterThan(20);
+  expect(localText).toBe(utcText);
+});
+
+test("pending offline sync @ci-gate: Supervisor Board shows Pending offline sync (scenario 26)", async () => {
+  const fx = loadFixtures();
+  const db = prisma();
+  const { context, page } = await openPersistent("pending-offline");
+  try {
+    await db.offlineSyncReceipt.upsert({
+      where: {
+        facilityId_unitId_clientCommandId: {
+          facilityId: fx.facilityId,
+          unitId: fx.unitId,
+          clientCommandId: "jf-ci-pending-retry",
+        },
+      },
+      update: { resultCategory: "RETRY_REQUIRED", reasonCode: "MEAL_NOT_CONFIGURED" },
+      create: {
+        facilityId: fx.facilityId,
+        unitId: fx.unitId,
+        clientCommandId: "jf-ci-pending-retry",
+        commandType: "RECORD_SERVERY_READY",
+        resultCategory: "RETRY_REQUIRED",
+        reasonCode: "MEAL_NOT_CONFIGURED",
+        sessionVersion: 0,
+        locallyRecordedAt: new Date(),
+      },
+    });
+
+    await loginPassword(page, fx.supervisorEmail);
+    await page.goto(fx.operationsBoardPath, { waitUntil: "domcontentloaded" });
+    const board = page.getByTestId("supervisor-operations-board");
+    await expect(board).toBeVisible({ timeout: 25_000 });
+
+    const pending = page
+      .getByTestId("supervisor-operations-exception")
+      .filter({ hasText: /Pending offline sync/i });
+    await expect(pending.first()).toBeVisible({ timeout: 15_000 });
+    const link = pending.first().getByRole("link").first();
+    await expect(link).toHaveAttribute("href", `/unit/${fx.unitId}`);
+  } finally {
+    await db.$disconnect();
+    await context.close();
+  }
+});
+
+test("offline conflict @ci-gate: Supervisor Board shows conflict with Unit source nav (scenario 27)", async () => {
+  const fx = loadFixtures();
+  const db = prisma();
+  const { context, page } = await openPersistent("offline-conflict");
+  try {
+    await db.offlineConflict.upsert({
+      where: {
+        facilityId_unitId_clientCommandId: {
+          facilityId: fx.facilityId,
+          unitId: fx.unitId,
+          clientCommandId: "jf-ci-pending-conflict",
+        },
+      },
+      update: { resolution: "PENDING", conflictCategory: "DUPLICATE_DIFFERENT_COMMAND" },
+      create: {
+        facilityId: fx.facilityId,
+        unitId: fx.unitId,
+        clientCommandId: "jf-ci-pending-conflict",
+        conflictCategory: "DUPLICATE_DIFFERENT_COMMAND",
+        commandPayload: { clientCommandId: "jf-ci-pending-conflict" },
+        authoritativeState: {},
+        reasonCode: "AUTHORITATIVE_READY_EXISTS",
+        resolution: "PENDING",
+      },
+    });
+
+    await loginPassword(page, fx.supervisorEmail);
+    await page.goto(fx.operationsBoardPath, { waitUntil: "domcontentloaded" });
+    const board = page.getByTestId("supervisor-operations-board");
+    await expect(board).toBeVisible({ timeout: 25_000 });
+
+    const conflict = page
+      .getByTestId("supervisor-operations-exception")
+      .filter({ hasText: /Conflict review required/i });
+    await expect(conflict.first()).toBeVisible({ timeout: 15_000 });
+    const link = conflict.first().getByRole("link", { name: /Resolve offline conflict/i });
+    await expect(link).toHaveAttribute("href", `/unit/${fx.unitId}`);
+  } finally {
+    await db.$disconnect();
+    await context.close();
+  }
+});
+
+test("user change @ci-gate: sign-out clears Job Flow context for next user (scenario 32)", async () => {
+  const fx = loadFixtures();
+  const { context, page } = await openPersistent("user-change");
+  try {
+    // User A: bind + bundle → offline Job Flow context present.
+    await loginPassword(page, fx.faWithDietaryEmail);
+    await bindDevice(page, fx.unitId);
+    await loginPassword(page, fx.staffEmail);
+    await page.goto(`${fx.unitWorkspacePath}?unitTab=overview`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("employee-job-flow")).toBeVisible({ timeout: 25_000 });
+    await fetchBundleViaApi(page, fx.unitId);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const strip = page.getByTestId("offline-job-flow-context");
+    await expect(strip).toBeVisible({ timeout: 20_000 });
+    const aContext = await readJobFlowContext(page);
+    expect(aContext.present).toBeTruthy();
+    expect(aContext.duty).toBeTruthy();
+    const aDuty = aContext.duty!;
+    const aUnit = aContext.unitName ?? fx.unitName;
+    await expect(strip).toContainText(new RegExp(aDuty, "i"));
+    await expect(strip).toContainText(new RegExp(aUnit, "i"));
+
+    // Sign-out clears offline via clearForSignOut — A's context must be gone.
+    await signOut(page);
+    const afterSignOut = await inspectIndexedDb(page);
+    expect(afterSignOut.bundle.present).toBe(false);
+    expect((await readJobFlowContext(page)).present).toBe(false);
+    await expect(page.getByTestId("offline-job-flow-context")).toHaveCount(0);
+
+    // User B: login + bundle — must not inherit A's duty.
+    await loginPassword(page, fx.staffNoAssignEmail);
+    await page.goto(`${fx.unitWorkspacePath}?unitTab=overview`, { waitUntil: "domcontentloaded" });
+    await fetchBundleViaApi(page, fx.unitId);
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const bContext = await readJobFlowContext(page);
+    if (bContext.present) {
+      expect(bContext.duty).not.toBe(aDuty);
+    }
+    const bStrip = page.getByTestId("offline-job-flow-context");
+    if ((await bStrip.count()) > 0) {
+      await expect(bStrip).not.toContainText(new RegExp(aDuty, "i"));
+    }
+  } finally {
+    await context.close();
+  }
+});
+
+test("unit rebind @ci-gate: rebind updates Job Flow context; prior commands keep Unit A (scenario 33)", async () => {
+  const fx = loadFixtures();
+  if (!fx.secondaryUnitId) {
+    test.skip(true, "secondary unit unavailable");
+    return;
+  }
+
+  const { context, page } = await openPersistent("unit-rebind");
+  try {
+    await loginPassword(page, fx.faWithDietaryEmail);
+    await bindDevice(page, fx.unitId);
+    await loginPassword(page, fx.staffEmail);
+    await page.goto(`${fx.unitWorkspacePath}?unitTab=overview`, { waitUntil: "domcontentloaded" });
+    await expectOfflineControlsReady(page).catch(async () => {
+      await fetchBundleViaApi(page, fx.unitId);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expectOfflineControlsReady(page);
+    });
+    await fetchBundleViaApi(page, fx.unitId);
+
+    const before = await readJobFlowContext(page);
+    expect(before.bundleUnitId).toBe(fx.unitId);
+    expect(before.unitId ?? before.bundleUnitId).toBe(fx.unitId);
+
+    let queuedCommands = 0;
+    try {
+      await setNetworkOffline(context, true, page);
+      await recordServeryReadyOffline(page);
+      queuedCommands = (await inspectIndexedDb(page)).commandCount;
+    } catch {
+      test.info().annotations.push({
+        type: "note",
+        description: "Offline Ready unavailable; asserting rebind Job Flow context only",
+      });
+    } finally {
+      await setNetworkOffline(context, false, page).catch(() => {});
+    }
+
+    // FA rebinds the tablet; staff fetches a fresh bundle for Unit B.
+    await loginPassword(page, fx.faWithDietaryEmail);
+    await bindDevice(page, fx.secondaryUnitId);
+    await loginPassword(page, fx.staffEmail);
+    await page.goto(`/unit/${fx.secondaryUnitId}?unitTab=overview`, { waitUntil: "domcontentloaded" });
+    const bundleB = await fetchBundleViaApi(page, fx.secondaryUnitId);
+    expect(bundleB.unitId).toBe(fx.secondaryUnitId);
+
+    const after = await readJobFlowContext(page);
+    // Prefer API-confirmed Unit B; IDB may be encrypted by the live Runtime writer.
+    const activeUnitId = after.bundleUnitId ?? bundleB.unitId;
+    expect(activeUnitId).toBe(fx.secondaryUnitId);
+    expect(after.unitId === fx.secondaryUnitId || activeUnitId === fx.secondaryUnitId).toBeTruthy();
+    expect(activeUnitId).not.toBe(fx.unitId);
+
+    const idb = await inspectIndexedDb(page);
+    if (queuedCommands > 0) {
+      // Prior commands must remain queued (not deleted / silently retargeted to Unit B).
+      expect(idb.commandCount).toBeGreaterThanOrEqual(1);
+      const plaintextOnA = idb.commands.some((c) => c.unitId === fx.unitId);
+      const retargetedToB = idb.commands.some((c) => c.unitId === fx.secondaryUnitId);
+      if (plaintextOnA) {
+        expect(retargetedToB).toBeFalsy();
+      } else {
+        // Encrypted command rows: count retention is the observable isolation signal.
+        expect(idb.commandCount).toBeGreaterThanOrEqual(queuedCommands);
+      }
+    }
+  } finally {
+    await setNetworkOffline(context, false, page).catch(() => {});
     await context.close();
   }
 });

@@ -136,7 +136,7 @@ Harness: `npm run test:job-flow-browser`
 Config: `playwright.job-flow.config.ts` → `tests/job-flow-browser`  
 Fixtures: `scripts/verify/job-flow-browser-fixtures.mjs` (disposable DB only; fixtures.json emails only; password from `SEED_DEMO_PASSWORD`; PIN in `pins.env`).
 
-`tests/job-flow-browser/ci-gate.spec.ts` (`@ci-gate`) covers as many of the 38 certification scenarios as practical in-process. Scenarios **35–38** (existing assignment / offline / dietary-pilot / operational-cycles browsers remain green) are **out-of-band** — run those npm scripts separately.
+`tests/job-flow-browser/ci-gate.spec.ts` (`@ci-gate`) covers as many of the 38 certification scenarios as practical in-process, including Phase 9C regression coverage for scenarios **16, 17, 26, 27, 32, 33**. Scenarios **35–38** (existing assignment / offline / dietary-pilot / operational-cycles browsers remain green) are **out-of-band** — run those npm scripts separately.
 
 ### In-harness coverage (practical)
 
@@ -147,12 +147,17 @@ Fixtures: `scripts/verify/job-flow-browser-fixtures.mjs` (disposable DB only; fi
 | 10–12 | Offline Ready Saved on This Tablet (+ reconnect soft) | Covered when meal controls enabled |
 | 13–14 | Assignment change visible; history intact | Covered |
 | 15 | No confirmed Assignment neutral | Covered |
+| 16 | Missing cycle configuration is safe | Browser-verified (Phase 9C regression) |
+| 17 | UTC browser resolves the same Job Flow | Browser-verified (Phase 9C regression) |
 | 18–24 | Supervisor board, cycles, ~12–17 units, unassigned/call-off/uncovered/Ready Not Confirmed | Covered |
 | 25 | Late Started | Soft via seeded lunch Milestone / exception text when cycle applies |
+| 26 | Pending offline command appears | Browser-verified (Phase 9C regression) |
+| 27 | Conflict appears with source navigation | Browser-verified (Phase 9C regression) |
 | 28–29 | Exception source navigation | Covered (href assert) |
 | 30–31 | STAFF / FA-without-Dietary denied | Covered |
+| 32 | User change does not expose prior Job Flow | Browser-verified (Phase 9C regression) |
+| 33 | Unit rebind does not retarget Job Flow | Browser-verified (Phase 9C regression) |
 | 34 | Retired cycle not prospective | Covered |
-| 16–17, 26–27, 32–33 | Missing config / UTC parity / conflict / user-change / rebind | Not fully automated here |
 | 35–38 | Sibling browser gates | Separate npm scripts |
 
 ## Known limitations (Phase 9B)

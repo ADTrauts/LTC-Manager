@@ -114,10 +114,10 @@ export async function fetchBundleViaApi(page: Page, unitId: string) {
       cache: "no-store",
     });
     if (!res.ok) {
-      return { ok: false as const, status: res.status, body: await res.text() };
+      return { ok: false as const, status: res.status, body: await res.text(), unitId: null as string | null };
     }
-    const data = (await res.json()) as { bundle?: unknown };
-    if (!data.bundle) return { ok: false as const, status: res.status, body: "missing bundle" };
+    const data = (await res.json()) as { bundle?: { unitId?: string } };
+    if (!data.bundle) return { ok: false as const, status: res.status, body: "missing bundle", unitId: null };
     await new Promise<void>((resolve, reject) => {
       const req = indexedDB.open("ltc-offline-runtime", 1);
       req.onupgradeneeded = () => {
@@ -141,9 +141,15 @@ export async function fetchBundleViaApi(page: Page, unitId: string) {
       };
       req.onerror = () => reject(req.error);
     });
-    return { ok: true as const, status: res.status, body: "" };
+    return {
+      ok: true as const,
+      status: res.status,
+      body: "",
+      unitId: typeof data.bundle.unitId === "string" ? data.bundle.unitId : null,
+    };
   }, unitId);
   expect(result.ok, `runtime-bundle failed status=${result.status}`).toBeTruthy();
+  return result;
 }
 
 /** Confirm the Unit Workspace has device enrollment and offline controls. */
