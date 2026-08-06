@@ -42,6 +42,8 @@ Do not modify the release branch after creation. All Phase 8A work lands on the 
 | 65 forward migrations | `prisma/migrations/*`; `prisma migrate deploy` | Yes | Migration identity | Ready | No migrate rollback | Ops procedure |
 | `AUTH_SECRET` | `src/lib/auth.ts`, PIN HMAC, rate-limit keys | Yes | Secret store | Config required | Rotation invalidates sessions/PINs | Generate ≥32 chars |
 | `OPERATIONAL_ASSIGNMENTS_ENABLED=true` | `feature-flags.ts` default false | Yes | Env | Config required | Silent deny if unset | Set on pilot |
+| `DIETARY_OPERATIONAL_CYCLES_ENABLED=true` | `feature-flags.ts` default false | Soft (Phase 9A+) | Env | Optional until cycles productized | Cycles/Job Flow surfaces off | Set when enabling cycles |
+| `DIETARY_JOB_FLOW_ENABLED=true` | `feature-flags.ts` default false | Soft (Phase 9B+) | Env | Optional; requires cycles + assignments for full value | Job Flow / Operations Board off | Set when enabling Job Flow; keep `OPERATION_ENGINE_ENABLED=false` |
 | `OPERATION_ENGINE_ENABLED=false` | default false | Yes (keep off) | Env | Ready off | Accidental enable | Leave false |
 | HTTPS | Secure cookies when `NODE_ENV=production`; SW requires HTTPS | Yes | TLS terminator / platform | Provider decision | Cookies/SW fail without TLS | Select HTTPS path |
 | Service worker scope `/` | `public/sw.js`, `PwaRegister` | Yes (tablets) | HTTPS + static assets | Ready | Cache isolation | Allow `/sw.js`, manifest, icons |

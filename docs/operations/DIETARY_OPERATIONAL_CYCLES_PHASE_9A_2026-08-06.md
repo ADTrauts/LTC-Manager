@@ -134,6 +134,15 @@ Default is safe (cycles off). Server actions and Runtime respect the flag.
 
 Job Flow guidance, evidence requirements tied to cycles, richer Supervisor board, and optional concurrent-cycle support — without conflating meal clocks or activating unfinished Operations Engine behaviors prematurely.
 
+Activation for Phase 9B (in addition to cycles):
+
+```bash
+DIETARY_JOB_FLOW_ENABLED=true
+# OPERATION_ENGINE_ENABLED must remain false
+```
+
+See `docs/operations/DIETARY_EMPLOYEE_JOB_FLOW_PHASE_9B_2026-08-06.md`.
+
 ## Verification commands
 
 ```bash
@@ -147,4 +156,5 @@ npm run test:assignment-browser
 npm run test:offline-browser
 npm run test:dietary-pilot
 npm run test:operational-cycles-browser
+npm run test:job-flow-browser
 ```
