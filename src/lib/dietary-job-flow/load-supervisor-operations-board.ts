@@ -7,7 +7,7 @@
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isDietaryJobFlowEnabled } from "@/lib/feature-flags";
+import { isDietaryJobFlowEnabled, isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -68,6 +68,7 @@ function exceptionRank(
     Coverage: 200,
     Readiness: 300,
     ServiceTiming: 400,
+    Evidence: 450,
     OfflineSync: 500,
     Configuration: 600,
   };
@@ -105,40 +106,59 @@ export async function loadSupervisorOperationsBoard(
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
 
-  const [facility, department, plan, cycleOverview, board, cycles, pendingConflicts] =
-    await Promise.all([
-      prisma.facility.findFirst({
-        where: { id: input.facilityId },
-        select: { id: true, displayName: true },
-      }),
-      prisma.department.findFirst({
-        where: { id: input.departmentId, facilityId: input.facilityId },
-        select: { id: true, name: true },
-      }),
-      loadAssignmentPlanView(prisma, {
+  const [
+    facility,
+    department,
+    plan,
+    cycleOverview,
+    board,
+    cycles,
+    pendingConflictRows,
+    pendingOfflineReceipts,
+  ] = await Promise.all([
+    prisma.facility.findFirst({
+      where: { id: input.facilityId },
+      select: { id: true, displayName: true },
+    }),
+    prisma.department.findFirst({
+      where: { id: input.departmentId, facilityId: input.facilityId },
+      select: { id: true, name: true },
+    }),
+    loadAssignmentPlanView(prisma, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      serviceDateKey: operationalDateKey,
+    }),
+    loadSupervisorCycleOverview({
+      session: input.session,
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      now,
+    }),
+    loadDailyAssignmentBoard({
+      facilityId: input.facilityId,
+      serviceDate: operationalDateKey,
+      departmentId: input.departmentId,
+    }),
+    loadPublishedCyclesForDate(input.facilityId, input.departmentId, operationalDateKey),
+    prisma.offlineConflict.findMany({
+      where: {
         facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        serviceDateKey: operationalDateKey,
-      }),
-      loadSupervisorCycleOverview({
-        session: input.session,
+        resolution: "PENDING",
+      },
+      select: { id: true, unitId: true },
+      take: 50,
+    }),
+    prisma.offlineSyncReceipt.findMany({
+      where: {
         facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        now,
-      }),
-      loadDailyAssignmentBoard({
-        facilityId: input.facilityId,
-        serviceDate: operationalDateKey,
-        departmentId: input.departmentId,
-      }),
-      loadPublishedCyclesForDate(input.facilityId, input.departmentId, operationalDateKey),
-      prisma.offlineConflict.count({
-        where: {
-          facilityId: input.facilityId,
-          resolution: "PENDING",
-        },
-      }),
-    ]);
+        resultCategory: "RETRY_REQUIRED",
+      },
+      select: { id: true, unitId: true },
+      take: 50,
+    }),
+  ]);
+  const pendingConflicts = pendingConflictRows.length;
 
   if (!facility || !department) {
     throw new Error("Facility or department not found.");
@@ -362,31 +382,112 @@ export async function loadSupervisorOperationsBoard(
     }
   }
 
-  if (pendingConflicts > 0) {
-    const conflicts = await prisma.offlineConflict.findMany({
-      where: { facilityId: input.facilityId, resolution: "PENDING" },
-      select: { id: true, unitId: true },
+  // Phase 9C Evidence exceptions (flag-gated, exception-first).
+  if (isDietaryOperationalEvidenceEnabled()) {
+    const evidenceUnitNameById = new Map(
+      cycleOverview.rows.map((r) => [r.unitId, r.unitName] as const),
+    );
+    const outOfStandard = await prisma.operationalEvidenceRecord.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        operationalDate: serviceDate,
+        OR: [
+          { outOfStandard: true },
+          { status: { in: ["COMPLETED_WITH_CORRECTIVE_ACTION", "NEEDS_REVIEW"] } },
+        ],
+      },
+      select: {
+        id: true,
+        unitId: true,
+        templateName: true,
+        status: true,
+        outOfStandard: true,
+        correctiveActionText: true,
+      },
       take: 50,
     });
-    const unitIds = [...new Set(conflicts.map((c) => c.unitId))];
-    const units = await prisma.unit.findMany({
-      where: { id: { in: unitIds } },
-      select: { id: true, name: true },
-    });
-    const nameById = new Map(units.map((u) => [u.id, u.name]));
-    for (const c of conflicts) {
-      const temporal: SupervisorExceptionTemporal = "Current";
+    for (const row of outOfStandard) {
+      const temporal: SupervisorExceptionTemporal =
+        row.status === "NEEDS_REVIEW" ? "Current" : "NotConfirmed";
       exceptions.push({
-        group: "OfflineSync",
-        status: "Conflict review required",
+        group: "Evidence",
+        status: row.correctiveActionText
+          ? "Corrective action recorded"
+          : row.outOfStandard
+            ? "Out-of-standard result"
+            : "Evidence needs review",
         temporal,
-        unitId: c.unitId,
-        unitName: nameById.get(c.unitId) ?? null,
-        sourceHref: `/unit/${c.unitId}`,
-        availableActions: ["Resolve offline conflict"],
-        sortRank: exceptionRank("OfflineSync", temporal),
+        unitId: row.unitId,
+        unitName: row.unitId ? evidenceUnitNameById.get(row.unitId) ?? null : null,
+        sourceHref: `/staffing/log-book/${row.id}`,
+        availableActions: ["Open evidence record", "Open Log Book"],
+        sortRank: exceptionRank("Evidence", temporal),
       });
     }
+
+    const publishedCount = await prisma.operationalTemplate.count({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        status: "PUBLISHED",
+      },
+    });
+    if (publishedCount === 0) {
+      exceptions.push({
+        group: "Evidence",
+        status: "Missing Template configuration",
+        temporal: "NotConfirmed",
+        sourceHref: "/staffing/templates",
+        availableActions: ["Open Template Builder"],
+        sortRank: exceptionRank("Evidence", "NotConfirmed"),
+      });
+    }
+  }
+
+  const offlineSyncUnitIds = [
+    ...new Set([
+      ...pendingOfflineReceipts.map((r) => r.unitId),
+      ...pendingConflictRows.map((c) => c.unitId),
+    ]),
+  ];
+  const offlineSyncUnits =
+    offlineSyncUnitIds.length > 0
+      ? await prisma.unit.findMany({
+          where: { id: { in: offlineSyncUnitIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+  const offlineSyncNameById = new Map(offlineSyncUnits.map((u) => [u.id, u.name]));
+
+  // Pending offline sync (server-visible RETRY_REQUIRED receipts) — one exception per Unit.
+  const pendingReceiptUnitIds = [...new Set(pendingOfflineReceipts.map((r) => r.unitId))];
+  for (const unitId of pendingReceiptUnitIds) {
+    const temporal: SupervisorExceptionTemporal = "Current";
+    exceptions.push({
+      group: "OfflineSync",
+      status: "Pending offline sync",
+      temporal,
+      unitId,
+      unitName: offlineSyncNameById.get(unitId) ?? null,
+      sourceHref: `/unit/${unitId}`,
+      availableActions: ["Open Unit Workspace"],
+      sortRank: exceptionRank("OfflineSync", temporal),
+    });
+  }
+
+  for (const c of pendingConflictRows) {
+    const temporal: SupervisorExceptionTemporal = "Current";
+    exceptions.push({
+      group: "OfflineSync",
+      status: "Conflict review required",
+      temporal,
+      unitId: c.unitId,
+      unitName: offlineSyncNameById.get(c.unitId) ?? null,
+      sourceHref: `/unit/${c.unitId}`,
+      availableActions: ["Resolve offline conflict"],
+      sortRank: exceptionRank("OfflineSync", temporal),
+    });
   }
 
   exceptions.sort(

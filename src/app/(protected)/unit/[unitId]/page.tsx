@@ -6,6 +6,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { OfflineConflictReview } from "@/components/offline/offline-conflict-review";
 import { OfflineServeryControls } from "@/components/offline/offline-servery-controls";
 import { EmployeeJobFlowPanel } from "@/components/unit-workspace/employee-job-flow-panel";
+import { EvidenceEntryForm } from "@/components/operational-evidence/evidence-entry-form";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
 import { UnitCycleContextPanel } from "@/components/unit-workspace/unit-cycle-context-panel";
 import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
@@ -64,6 +65,7 @@ type UnitDashboardPageProps = {
     inspectionName?: string;
     followUpTask?: string;
     occurrence?: string;
+    evidence?: string;
   }>;
 };
 
@@ -526,6 +528,19 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
               jobFlow={jobFlow}
               canManage={canManageCycles && session.authMethod !== "QUICK_PIN"}
               departmentId={dietaryDepartment?.id ?? null}
+            />
+          ) : null}
+          {jobFlow &&
+          dietaryDepartment &&
+          query?.evidence &&
+          jobFlow.evidenceRequirements.some((r) => r.requirementKey === query.evidence) ? (
+            <EvidenceEntryForm
+              facilityId={session.facilityId}
+              departmentId={dietaryDepartment.id}
+              unitId={unit.id}
+              requirement={
+                jobFlow.evidenceRequirements.find((r) => r.requirementKey === query.evidence)!
+              }
             />
           ) : null}
           {/* Assignment remains authoritative and visible even when Job Flow is on. */}

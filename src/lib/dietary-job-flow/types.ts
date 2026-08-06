@@ -12,6 +12,7 @@ import type { MealType, OperationalCycleType, ServeryMilestone } from "@prisma/c
 
 import type { CycleMilestoneStatusKey } from "@/lib/operational-cycles/milestone-cycle-status";
 import type { OfflineConnectivityState, OfflineMilestoneUiState } from "@/lib/offline/types";
+import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 
 /** Due Soon window: 45 minutes before cycle start. */
 export const DUE_SOON_MS = 45 * 60 * 1000;
@@ -46,7 +47,10 @@ export type JobFlowAttentionKind =
   | "pending_sync"
   | "conflict_review"
   | "missing_config"
-  | "stale";
+  | "stale"
+  | "evidence_due"
+  | "evidence_corrective"
+  | "evidence_review";
 
 export type JobFlowAssignmentSnapshot = {
   id: string;
@@ -128,6 +132,8 @@ export type JobFlowBase = {
   next: JobFlowNext;
   progress: { phases: JobFlowProgressPhase[] };
   attention: JobFlowAttentionItem[];
+  /** Derived evidence requirements for the current unit/date (Phase 9C). Empty when flag off. */
+  evidenceRequirements: EvidenceRequirement[];
 };
 
 /** Only assignment-bearing / cycle-bearing variants carry those fields. */
@@ -180,6 +186,7 @@ export type SupervisorExceptionGroup =
   | "Coverage"
   | "Readiness"
   | "ServiceTiming"
+  | "Evidence"
   | "OfflineSync"
   | "Configuration";
 

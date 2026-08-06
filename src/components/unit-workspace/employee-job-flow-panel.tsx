@@ -294,9 +294,65 @@ export function EmployeeJobFlowPanel({
         </ul>
       ) : null}
 
+      {jobFlow.evidenceRequirements.length > 0 ? (
+        <ul
+          className="mt-3 space-y-1 border-t border-zinc-100 pt-2"
+          aria-label="Evidence requirements"
+          data-testid="job-flow-evidence-requirements"
+        >
+          {jobFlow.evidenceRequirements.map((req) => {
+            const href =
+              unitIdForEvidence(jobFlow) != null
+                ? `/unit/${unitIdForEvidence(jobFlow)}?evidence=${encodeURIComponent(req.requirementKey)}`
+                : null;
+            return (
+              <li
+                key={req.requirementKey}
+                className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-700"
+                data-testid={`job-flow-evidence-${req.state}`}
+                data-requirement-key={req.requirementKey}
+              >
+                <span>
+                  {req.templateName}
+                  {req.assetId ? " (asset)" : ""}
+                </span>
+                <span className="text-zinc-500">
+                  {req.stateLabel}
+                  {href &&
+                  (req.state === "DUE" ||
+                    req.state === "UPCOMING" ||
+                    req.state === "NOT_CONFIRMED" ||
+                    req.state === "SAVED_ON_THIS_TABLET" ||
+                    req.state === "COMPLETED" ||
+                    req.state === "COMPLETED_WITH_CORRECTIVE_ACTION" ||
+                    req.state === "NEEDS_REVIEW") ? (
+                    <>
+                      {" · "}
+                      <Link
+                        href={href}
+                        className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+                        data-testid={`open-evidence-${req.requirementKey}`}
+                      >
+                        Open
+                      </Link>
+                    </>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
       <OfflineStrip offline={offline} />
     </article>
   );
+}
+
+function unitIdForEvidence(jobFlow: JobFlowContext): string | null {
+  if ("unit" in jobFlow.current && jobFlow.current.unit?.id) return jobFlow.current.unit.id;
+  if ("assignment" in jobFlow && jobFlow.assignment?.unitId) return jobFlow.assignment.unitId;
+  return null;
 }
 
 function OfflineStrip({ offline }: { offline: EmployeeJobFlowOfflineProps | null }) {

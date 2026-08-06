@@ -21,6 +21,7 @@ const GROUP_ORDER: SupervisorExceptionGroup[] = [
   "Coverage",
   "Readiness",
   "ServiceTiming",
+  "Evidence",
   "OfflineSync",
   "Configuration",
 ];

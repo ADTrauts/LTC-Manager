@@ -4,7 +4,7 @@
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isDietaryJobFlowEnabled } from "@/lib/feature-flags";
+import { isDietaryJobFlowEnabled, isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -12,8 +12,11 @@ import {
   facilityLocalDateToServiceDate,
 } from "@/lib/operational-time";
 import { loadEmployeeCycleContext } from "@/lib/operational-cycles/load-employee-cycle-context";
+import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operational-cycle";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
+import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
+import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import { prisma } from "@/lib/prisma";
@@ -27,7 +30,11 @@ import {
   resolveJobFlow,
   type JobFlowOfflineQueueSummary,
 } from "./resolve-job-flow";
-import type { JobFlowAssignmentSnapshot, JobFlowContext } from "./types";
+import type {
+  JobFlowAssignmentSnapshot,
+  JobFlowAttentionItem,
+  JobFlowContext,
+} from "./types";
 
 export type LoadEmployeeJobFlowInput = {
   session: AppJwtPayload;
@@ -300,7 +307,7 @@ export async function loadEmployeeJobFlow(
     endsAt: assignments.current?.endsAt ?? assignments.upcoming?.endsAt ?? null,
   });
 
-  return resolveJobFlow({
+  const jobFlow = resolveJobFlow({
     now,
     facilityTimezone: timezone,
     operationalDateKey,
@@ -319,4 +326,76 @@ export async function loadEmployeeJobFlow(
     assignmentUpdated: revision.changed,
     unit: unitSnapshot,
   });
+
+  if (!isDietaryOperationalEvidenceEnabled() || !unitId) {
+    return jobFlow;
+  }
+
+  const cycleWindows = cycles.flatMap((c) => {
+    const window = resolveCycleWindowInstants({
+      startLocal: c.startLocal,
+      endLocal: c.endLocal,
+      overnight: c.overnight,
+      operationalDateKey,
+      facilityTimezone: timezone,
+    });
+    if (!window) return [];
+    return [
+      {
+        stableKey: c.stableKey,
+        label: c.label,
+        startLocal: c.startLocal,
+        endLocal: c.endLocal,
+        overnight: c.overnight,
+        startsAt: window.startsAt,
+        endsAt: window.endsAt,
+      },
+    ];
+  });
+
+  const evidenceRequirements = await resolveUnitEvidenceRequirements({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    operationalDateKey,
+    operationalDate: serviceDate,
+    now,
+    facilityTimezone: timezone,
+    unitId,
+    publishedCycles: cycleWindows,
+  });
+
+  const evidenceAttention = buildEvidenceAttention(evidenceRequirements);
+
+  return {
+    ...jobFlow,
+    evidenceRequirements,
+    attention: [...jobFlow.attention, ...evidenceAttention].filter(
+      (item, idx, arr) =>
+        arr.findIndex((x) => x.kind === item.kind && x.message === item.message) === idx,
+    ),
+  };
+}
+
+function buildEvidenceAttention(
+  requirements: EvidenceRequirement[],
+): JobFlowAttentionItem[] {
+  const items: JobFlowAttentionItem[] = [];
+  if (requirements.some((r) => r.state === "DUE")) {
+    items.push({ kind: "evidence_due", message: "Evidence requirement is due now." });
+  }
+  if (
+    requirements.some(
+      (r) =>
+        r.state === "COMPLETED_WITH_CORRECTIVE_ACTION" || r.state === "NEEDS_REVIEW",
+    )
+  ) {
+    items.push({
+      kind: "evidence_corrective",
+      message: "Evidence recorded with corrective action or needs review.",
+    });
+  }
+  if (requirements.some((r) => r.state === "CONFLICT_REVIEW")) {
+    items.push({ kind: "evidence_review", message: "Evidence requires conflict review." });
+  }
+  return items;
 }

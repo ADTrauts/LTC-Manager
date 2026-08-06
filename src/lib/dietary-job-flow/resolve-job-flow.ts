@@ -61,7 +61,13 @@ function emptyBase(
   expectation: string,
 ): Pick<
   JobFlowContext,
-  "operationalDateKey" | "facilityTimezone" | "current" | "next" | "progress" | "attention"
+  | "operationalDateKey"
+  | "facilityTimezone"
+  | "current"
+  | "next"
+  | "progress"
+  | "attention"
+  | "evidenceRequirements"
 > {
   return {
     operationalDateKey: input.operationalDateKey,
@@ -74,6 +80,7 @@ function emptyBase(
     next: {},
     progress: { phases: [] },
     attention: buildAttention(input, null),
+    evidenceRequirements: [],
   };
 }
 
@@ -451,6 +458,7 @@ export function resolveJobFlow(input: JobFlowResolveInput): JobFlowContext {
     },
     progress,
     attention,
+    evidenceRequirements: [] as import("./types").JobFlowContext["evidenceRequirements"],
   };
 
   // No confirmed assignment at all.
