@@ -145,3 +145,17 @@ export function isDietaryOperationalCyclesEnabled(): boolean {
 export function isDietaryJobFlowEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_JOB_FLOW_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 9C Dietary Operational Evidence (Templates / Runtime / Log Book).
+ * Set `DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true` for Builder, derived requirements, and records.
+ * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Typical local activation:
+ *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
+ *   DIETARY_JOB_FLOW_ENABLED=true
+ *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ */
+export function isDietaryOperationalEvidenceEnabled(): boolean {
+  return parseEnvFlag(process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED, false);
+}

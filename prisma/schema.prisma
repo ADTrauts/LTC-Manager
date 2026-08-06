@@ -170,6 +170,8 @@ model Facility {
   workspacePreferences           WorkspacePreference[]
   departmentOperationalProfiles  DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
+  operationalTemplates           OperationalTemplate[]
+  operationalEvidenceRecords     OperationalEvidenceRecord[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -209,6 +211,8 @@ model Department {
   assignmentTemplates            OperationalAssignmentTemplate[]
   operationalProfiles            DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
+  operationalTemplates           OperationalTemplate[]
+  operationalEvidenceRecords     OperationalEvidenceRecord[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -360,55 +364,57 @@ model MenuItem {
 }
 
 model User {
-  id                        String                          @id @default(cuid())
-  email                     String                          @unique
-  displayName               String
-  passwordHash              String
+  id                             String                          @id @default(cuid())
+  email                          String                          @unique
+  displayName                    String
+  passwordHash                   String
   /// All app users belong to one facility in this deployment; session JWT carries facilityId for query scope.
-  facilityId                String
-  facility                  Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  roleId                    String
-  role                      Role                            @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  isActive                  Boolean                         @default(true)
-  lastLoginAt               DateTime?
+  facilityId                     String
+  facility                       Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  roleId                         String
+  role                           Role                            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  isActive                       Boolean                         @default(true)
+  lastLoginAt                    DateTime?
   /// Monotonic counter carried in the session token and compared on every protected request.
   /// Incrementing it invalidates every session issued before the change. See
   /// docs/security/AUTHORIZATION_INTEGRITY_PHASE_4_2026-08-05.md.
-  sessionVersion            Int                             @default(0)
+  sessionVersion                 Int                             @default(0)
   /// Optional primary operational department for session/nav scoping.
-  primaryDepartmentId       String?
-  primaryDepartment         Department?                     @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
-  submissions               LogSubmission[]
-  createdSchedules          ScheduleEntry[]                 @relation("ScheduleCreatedBy")
-  changedOverrides          AssignmentOverride[]            @relation("OverrideChangedBy")
-  createdAssignments        OperationalAssignment[]         @relation("AssignmentCreatedBy")
-  lastChangedAssignments    OperationalAssignment[]         @relation("AssignmentLastChangedBy")
-  createdTemplates          OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
-  assignmentEvents          OperationalAssignmentEvent[]    @relation("AssignmentEventActor")
-  assignmentPlansConfirmed  OperationalAssignmentPlan[]     @relation("AssignmentPlanConfirmedBy")
-  assignmentPlansReopened   OperationalAssignmentPlan[]     @relation("AssignmentPlanReopenedBy")
-  assignmentPlansClosed     OperationalAssignmentPlan[]     @relation("AssignmentPlanClosedBy")
-  assignmentPlansCoverageAck OperationalAssignmentPlan[]    @relation("AssignmentPlanCoverageAckBy")
-  assignmentPlansLastChanged OperationalAssignmentPlan[]   @relation("AssignmentPlanLastChangedBy")
-  reportedRepairs           Repair[]                        @relation("RepairReportedBy")
-  repairUpdates             RepairUpdate[]
-  disciplinePointsCreated   DisciplinePointEntry[]          @relation("DisciplinePointCreatedBy")
-  employeeHrAuditLogs       EmployeeHrAuditLog[]
-  terminationRecordsCreated EmployeeTerminationRecord[]     @relation("TerminationCreatedBy")
-  serveryMealReadyEvents    ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedBy")
-  serveryMealStartedEvents  ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedBy")
-  serveryMilestoneEntries   ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorUser")
-  offlineBundleIssuances    OfflineBundleIssuance[]         @relation("OfflineBundleIssuanceActorUser")
-  offlineSyncReceipts       OfflineSyncReceipt[]            @relation("OfflineSyncReceiptActorUser")
-  offlineConflictsResolved  OfflineConflict[]               @relation("OfflineConflictResolvedByUser")
-  attachmentsCreated        Attachment[]                    @relation("AttachmentCreatedByUser")
-  knowledgeArticlesCreated  KnowledgeArticle[]              @relation("KnowledgeArticleCreatedBy")
-  knowledgeArticlesUpdated  KnowledgeArticle[]              @relation("KnowledgeArticleUpdatedBy")
-  facilityAccesses          UserFacilityAccess[]            @relation("UserFacilityAccessUser")
-  facilityAccessesGranted   UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
-  workspacePreferences      WorkspacePreference[]
-  createdAt                 DateTime                        @default(now())
-  updatedAt                 DateTime                        @updatedAt
+  primaryDepartmentId            String?
+  primaryDepartment              Department?                     @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
+  submissions                    LogSubmission[]
+  createdSchedules               ScheduleEntry[]                 @relation("ScheduleCreatedBy")
+  changedOverrides               AssignmentOverride[]            @relation("OverrideChangedBy")
+  createdAssignments             OperationalAssignment[]         @relation("AssignmentCreatedBy")
+  lastChangedAssignments         OperationalAssignment[]         @relation("AssignmentLastChangedBy")
+  createdTemplates               OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
+  assignmentEvents               OperationalAssignmentEvent[]    @relation("AssignmentEventActor")
+  assignmentPlansConfirmed       OperationalAssignmentPlan[]     @relation("AssignmentPlanConfirmedBy")
+  assignmentPlansReopened        OperationalAssignmentPlan[]     @relation("AssignmentPlanReopenedBy")
+  assignmentPlansClosed          OperationalAssignmentPlan[]     @relation("AssignmentPlanClosedBy")
+  assignmentPlansCoverageAck     OperationalAssignmentPlan[]     @relation("AssignmentPlanCoverageAckBy")
+  assignmentPlansLastChanged     OperationalAssignmentPlan[]     @relation("AssignmentPlanLastChangedBy")
+  reportedRepairs                Repair[]                        @relation("RepairReportedBy")
+  repairUpdates                  RepairUpdate[]
+  disciplinePointsCreated        DisciplinePointEntry[]          @relation("DisciplinePointCreatedBy")
+  employeeHrAuditLogs            EmployeeHrAuditLog[]
+  terminationRecordsCreated      EmployeeTerminationRecord[]     @relation("TerminationCreatedBy")
+  serveryMealReadyEvents         ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedBy")
+  serveryMealStartedEvents       ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedBy")
+  serveryMilestoneEntries        ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorUser")
+  offlineBundleIssuances         OfflineBundleIssuance[]         @relation("OfflineBundleIssuanceActorUser")
+  offlineSyncReceipts            OfflineSyncReceipt[]            @relation("OfflineSyncReceiptActorUser")
+  offlineConflictsResolved       OfflineConflict[]               @relation("OfflineConflictResolvedByUser")
+  operationalEvidenceRecords     OperationalEvidenceRecord[]     @relation("EvidenceRecordedByUser")
+  operationalEvidenceCorrections OperationalEvidenceCorrection[] @relation("EvidenceCorrectedByUser")
+  attachmentsCreated             Attachment[]                    @relation("AttachmentCreatedByUser")
+  knowledgeArticlesCreated       KnowledgeArticle[]              @relation("KnowledgeArticleCreatedBy")
+  knowledgeArticlesUpdated       KnowledgeArticle[]              @relation("KnowledgeArticleUpdatedBy")
+  facilityAccesses               UserFacilityAccess[]            @relation("UserFacilityAccessUser")
+  facilityAccessesGranted        UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
+  workspacePreferences           WorkspacePreference[]
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
 
   @@index([roleId])
   @@index([isActive])
@@ -763,20 +769,20 @@ enum AttachmentParentKind {
 }
 
 model Unit {
-  id                         String                              @id @default(cuid())
+  id                         String                               @id @default(cuid())
   facilityId                 String
-  facility                   Facility                            @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  facility                   Facility                             @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   name                       String
   unitType                   UnitType
   /// Explicit Facility Builder role. Null for legacy records (compatibility fallback applies).
   hierarchyRole              UnitHierarchyRole?
   parentUnitId               String?
-  parentUnit                 Unit?                               @relation("UnitHierarchy", fields: [parentUnitId], references: [id], onDelete: SetNull)
-  childUnits                 Unit[]                              @relation("UnitHierarchy")
-  isActive                   Boolean                             @default(true)
-  displayOrder               Int                                 @default(100)
+  parentUnit                 Unit?                                @relation("UnitHierarchy", fields: [parentUnitId], references: [id], onDelete: SetNull)
+  childUnits                 Unit[]                               @relation("UnitHierarchy")
+  isActive                   Boolean                              @default(true)
+  displayOrder               Int                                  @default(100)
   description                String?
-  primaryForEmployees        Employee[]                          @relation("EmployeePrimaryUnit")
+  primaryForEmployees        Employee[]                           @relation("EmployeePrimaryUnit")
   employeeUnitAccess         EmployeeUnitAccess[]
   mealTimes                  UnitMealTime[]
   childSpaces                UnitSpace[]
@@ -785,8 +791,8 @@ model Unit {
   logSubmissions             LogSubmission[]
   defaultAssignments         DefaultAssignment[]
   scheduleEntries            ScheduleEntry[]
-  overrideOldUnit            AssignmentOverride[]                @relation("OverrideOldUnit")
-  overrideNewUnit            AssignmentOverride[]                @relation("OverrideNewUnit")
+  overrideOldUnit            AssignmentOverride[]                 @relation("OverrideOldUnit")
+  overrideNewUnit            AssignmentOverride[]                 @relation("OverrideNewUnit")
   assets                     Asset[]
   repairs                    Repair[]
   roomAreaStatuses           RoomAreaStatus[]
@@ -800,8 +806,9 @@ model Unit {
   operationalAssignments     OperationalAssignment[]
   assignmentTemplateItems    OperationalAssignmentTemplateItem[]
   operationalCycleLocations  DepartmentOperationalCycleLocation[]
-  createdAt                  DateTime                            @default(now())
-  updatedAt                  DateTime                            @updatedAt
+  operationalEvidenceRecords OperationalEvidenceRecord[]
+  createdAt                  DateTime                             @default(now())
+  updatedAt                  DateTime                             @updatedAt
 
   @@unique([facilityId, name])
   @@index([parentUnitId])
@@ -834,25 +841,27 @@ model UnitDepartmentResponsibility {
 /// Physical sub-location within a Unit (room, service area, storage, etc.).
 /// unitId null = Facility Builder undesignated staging (not operational).
 model UnitSpace {
-  id               String                    @id @default(cuid())
-  unitId           String?
-  unit             Unit?                     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  facilityId       String
-  facility         Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  name             String
-  spaceType        SpaceType
+  id                                 String                              @id @default(cuid())
+  unitId                             String?
+  unit                               Unit?                               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  facilityId                         String
+  facility                           Facility                            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  name                               String
+  spaceType                          SpaceType
   /// User-facing type label when it differs from the canonical SpaceType label (presets / Custom).
-  customTypeLabel  String?
-  roomNumber       String?
-  code             String?
-  isActive         Boolean                   @default(true)
-  sortOrder        Int                       @default(100)
-  description      String?
-  responsibilities UnitSpaceResponsibility[]
-  archetypeBindings    DepartmentRoomArchetypeBinding[]
-  experienceExceptions DepartmentRoomExperienceException[]
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  customTypeLabel                    String?
+  roomNumber                         String?
+  code                               String?
+  isActive                           Boolean                             @default(true)
+  sortOrder                          Int                                 @default(100)
+  description                        String?
+  responsibilities                   UnitSpaceResponsibility[]
+  archetypeBindings                  DepartmentRoomArchetypeBinding[]
+  experienceExceptions               DepartmentRoomExperienceException[]
+  operationalTemplateApplicabilities OperationalTemplateApplicability[]
+  operationalEvidenceRecords         OperationalEvidenceRecord[]
+  createdAt                          DateTime                            @default(now())
+  updatedAt                          DateTime                            @updatedAt
 
   @@index([facilityId])
   @@index([unitId, isActive, sortOrder])
@@ -951,18 +960,18 @@ model DepartmentOperationalArea {
 /// Places one catalog Experience (by registry key) into one Operational Area.
 /// experienceKey must exist in the Wave 14A Experience Registry.
 model DepartmentAreaExperience {
-  id                    String                              @id @default(cuid())
-  areaId                String
-  area                  DepartmentOperationalArea           @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  experienceKey         String
-  sortOrder             Int                                 @default(100)
-  isActive              Boolean                             @default(true)
+  id                   String                              @id @default(cuid())
+  areaId               String
+  area                 DepartmentOperationalArea           @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  experienceKey        String
+  sortOrder            Int                                 @default(100)
+  isActive             Boolean                             @default(true)
   /// Bounded Experience tuning only — never live operational data.
-  configurationJson     Json?
-  archetypeExperiences  DepartmentArchetypeExperience[]
-  roomExceptions        DepartmentRoomExperienceException[]
-  createdAt             DateTime                            @default(now())
-  updatedAt             DateTime                            @updatedAt
+  configurationJson    Json?
+  archetypeExperiences DepartmentArchetypeExperience[]
+  roomExceptions       DepartmentRoomExperienceException[]
+  createdAt            DateTime                            @default(now())
+  updatedAt            DateTime                            @updatedAt
 
   @@unique([areaId, experienceKey])
   @@index([areaId, sortOrder])
@@ -1053,37 +1062,37 @@ model DepartmentRoomExperienceException {
 /// `readyRecordedAt` / `startedRecordedAt` are when the server *accepted* the record. These are
 /// deliberately separate: conflating them would make a late entry indistinguishable from a late meal.
 model ServeryMealServiceEvent {
-  id                        String                  @id @default(cuid())
-  unitId                    String
-  unit                      Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  serviceDate               DateTime                @db.Date
-  mealType                  MealType
+  id                          String                  @id @default(cuid())
+  unitId                      String
+  unit                        Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  serviceDate                 DateTime                @db.Date
+  mealType                    MealType
   /// When Servery Ready occurred.
-  mealServiceReadyAt        DateTime?
+  mealServiceReadyAt          DateTime?
   /// When Meal Service Started occurred.
-  mealServiceStartedAt      DateTime?
+  mealServiceStartedAt        DateTime?
   /// Server acceptance time for the current Ready value. Null for rows predating this column.
-  readyRecordedAt           DateTime?
+  readyRecordedAt             DateTime?
   /// Server acceptance time for the current Started value. Null for rows predating this column.
-  startedRecordedAt         DateTime?
-  readyRecordedById         String?
-  readyRecordedBy           User?                   @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
-  startedRecordedById       String?
-  startedRecordedBy         User?                   @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
+  startedRecordedAt           DateTime?
+  readyRecordedById           String?
+  readyRecordedBy             User?                   @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
+  startedRecordedById         String?
+  startedRecordedBy           User?                   @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
   /// Employee attribution for PIN sessions, which have no `User` row. Null for password sessions.
-  readyRecordedByEmployeeId String?
-  readyRecordedByEmployee   Employee?               @relation("ServeryReadyRecordedByEmployee", fields: [readyRecordedByEmployeeId], references: [id], onDelete: SetNull)
+  readyRecordedByEmployeeId   String?
+  readyRecordedByEmployee     Employee?               @relation("ServeryReadyRecordedByEmployee", fields: [readyRecordedByEmployeeId], references: [id], onDelete: SetNull)
   startedRecordedByEmployeeId String?
-  startedRecordedByEmployee Employee?               @relation("ServeryStartedRecordedByEmployee", fields: [startedRecordedByEmployeeId], references: [id], onDelete: SetNull)
+  startedRecordedByEmployee   Employee?               @relation("ServeryStartedRecordedByEmployee", fields: [startedRecordedByEmployeeId], references: [id], onDelete: SetNull)
   /// Credential surface of the session that recorded the current value. Null for historical rows.
-  readyAuthMethod           SessionAuthMethod?
-  startedAuthMethod         SessionAuthMethod?
+  readyAuthMethod             SessionAuthMethod?
+  startedAuthMethod           SessionAuthMethod?
   /// Optional link to the dated operation occurrence when the operations engine is enabled.
-  operationInstanceId       String?
-  operationInstance         OperationInstance?      @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  entries                   ServeryMilestoneEntry[]
-  createdAt                 DateTime                @default(now())
-  updatedAt                 DateTime                @updatedAt
+  operationInstanceId         String?
+  operationInstance           OperationInstance?      @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
+  entries                     ServeryMilestoneEntry[]
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
 
   @@unique([unitId, serviceDate, mealType])
   @@index([serviceDate])
@@ -1148,73 +1157,75 @@ model UnitMealTime {
 }
 
 model Employee {
-  id                         String                      @id @default(cuid())
-  facilityId                 String
-  facility                   Facility                    @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  firstName                  String
-  lastName                   String
-  phone                      String?
-  email                      String?
+  id                             String                          @id @default(cuid())
+  facilityId                     String
+  facility                       Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  firstName                      String
+  lastName                       String
+  phone                          String?
+  email                          String?
   /// HMAC digest for 6-digit PIN lookup; unique per facility when set (see `lib/pin.ts`).
-  pinDigest                  String?
+  pinDigest                      String?
   /// Default unit focus for PIN sessions (must be allowed, or any unit when access list is empty).
-  primaryUnitId              String?
-  primaryUnit                Unit?                       @relation("EmployeePrimaryUnit", fields: [primaryUnitId], references: [id], onDelete: SetNull)
+  primaryUnitId                  String?
+  primaryUnit                    Unit?                           @relation("EmployeePrimaryUnit", fields: [primaryUnitId], references: [id], onDelete: SetNull)
   /// Optional primary operational department for PIN session / HR scoping.
-  primaryDepartmentId        String?
-  primaryDepartment          Department?                 @relation("EmployeePrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
-  jobTitleId                 String?
-  jobTitle                   JobTitle?                   @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
-  headedDepartments          Department[]                @relation("DepartmentHead")
-  employeeDepartments        EmployeeDepartment[]
-  unitAccesses               EmployeeUnitAccess[]
-  roleType                   RoleKey
-  status                     EmployeeStatus              @default(ACTIVE)
+  primaryDepartmentId            String?
+  primaryDepartment              Department?                     @relation("EmployeePrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
+  jobTitleId                     String?
+  jobTitle                       JobTitle?                       @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
+  headedDepartments              Department[]                    @relation("DepartmentHead")
+  employeeDepartments            EmployeeDepartment[]
+  unitAccesses                   EmployeeUnitAccess[]
+  roleType                       RoleKey
+  status                         EmployeeStatus                  @default(ACTIVE)
   /// Monotonic counter carried in the PIN session token and compared on every protected request.
   /// Incrementing it invalidates every PIN session issued before the change. See
   /// docs/security/AUTHORIZATION_INTEGRITY_PHASE_4_2026-08-05.md.
-  sessionVersion             Int                         @default(0)
-  employmentType             EmploymentType              @default(FULL_TIME)
-  defaultAssignments         DefaultAssignment[]
-  scheduleEntries            ScheduleEntry[]
-  assignmentOverrides        AssignmentOverride[]
-  operationalAssignments     OperationalAssignment[]
-  logSubmissions             LogSubmission[]             @relation("SubmissionByEmployee")
+  sessionVersion                 Int                             @default(0)
+  employmentType                 EmploymentType                  @default(FULL_TIME)
+  defaultAssignments             DefaultAssignment[]
+  scheduleEntries                ScheduleEntry[]
+  assignmentOverrides            AssignmentOverride[]
+  operationalAssignments         OperationalAssignment[]
+  logSubmissions                 LogSubmission[]                 @relation("SubmissionByEmployee")
   /// HR (see memory-bank/employee-hr-source-of-truth.md)
-  unionMember                Boolean                     @default(false)
-  hireDate                   DateTime?                   @db.Date
-  birthMonth                 Int?
-  birthDay                   Int?
-  jobClassification          JobClassification?
-  chrcStatus                 ChrcStatus?
-  chrcClearedAt              DateTime?
-  chrcNotes                  String?
-  onLeave                    Boolean                     @default(false)
-  shirtSize                  String?
-  hrNotes                    String?
-  workStations               EmployeeWorkStation[]
-  disciplinePointEntries     DisciplinePointEntry[]
+  unionMember                    Boolean                         @default(false)
+  hireDate                       DateTime?                       @db.Date
+  birthMonth                     Int?
+  birthDay                       Int?
+  jobClassification              JobClassification?
+  chrcStatus                     ChrcStatus?
+  chrcClearedAt                  DateTime?
+  chrcNotes                      String?
+  onLeave                        Boolean                         @default(false)
+  shirtSize                      String?
+  hrNotes                        String?
+  workStations                   EmployeeWorkStation[]
+  disciplinePointEntries         DisciplinePointEntry[]
   /// Last day / effective termination date when `status` is TERMINATED (HR).
-  terminationDate            DateTime?                   @db.Date
+  terminationDate                DateTime?                       @db.Date
   /// When the facility completed removing the person from the CHRC process (checklist).
-  chrcOffboardingCompletedAt DateTime?
-  chrcOffboardingNotes       String?
-  hrAuditLogs                EmployeeHrAuditLog[]
-  terminationRecords         EmployeeTerminationRecord[]
-  kioskUnitPinLoginEvents    KioskUnitPinLoginEvent[]
-  serveryMealReadyEvents     ServeryMealServiceEvent[]   @relation("ServeryReadyRecordedByEmployee")
-  serveryMealStartedEvents   ServeryMealServiceEvent[]   @relation("ServeryStartedRecordedByEmployee")
-  serveryMilestoneEntries    ServeryMilestoneEntry[]     @relation("ServeryMilestoneEntryActorEmployee")
-  offlineBundleIssuances     OfflineBundleIssuance[]     @relation("OfflineBundleIssuanceActorEmployee")
-  offlineSyncReceipts        OfflineSyncReceipt[]        @relation("OfflineSyncReceiptActorEmployee")
-  offlineConflictsResolved   OfflineConflict[]           @relation("OfflineConflictResolvedByEmployee")
-  assignedRepairs            Repair[]                    @relation("RepairAssignedEmployee")
-  roomAreaStatusUpdates      RoomAreaStatus[]
-  assignedTasks              Task[]                      @relation("TaskAssignedEmployee")
-  attachmentsCreated         Attachment[]                @relation("AttachmentCreatedByEmployee")
-  inspectionSubmissions      InspectionSubmission[]      @relation("InspectionSubmittedByEmployee")
-  createdAt                  DateTime                    @default(now())
-  updatedAt                  DateTime                    @updatedAt
+  chrcOffboardingCompletedAt     DateTime?
+  chrcOffboardingNotes           String?
+  hrAuditLogs                    EmployeeHrAuditLog[]
+  terminationRecords             EmployeeTerminationRecord[]
+  kioskUnitPinLoginEvents        KioskUnitPinLoginEvent[]
+  serveryMealReadyEvents         ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedByEmployee")
+  serveryMealStartedEvents       ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedByEmployee")
+  serveryMilestoneEntries        ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorEmployee")
+  offlineBundleIssuances         OfflineBundleIssuance[]         @relation("OfflineBundleIssuanceActorEmployee")
+  offlineSyncReceipts            OfflineSyncReceipt[]            @relation("OfflineSyncReceiptActorEmployee")
+  offlineConflictsResolved       OfflineConflict[]               @relation("OfflineConflictResolvedByEmployee")
+  operationalEvidenceRecords     OperationalEvidenceRecord[]     @relation("EvidenceRecordedByEmployee")
+  operationalEvidenceCorrections OperationalEvidenceCorrection[] @relation("EvidenceCorrectedByEmployee")
+  assignedRepairs                Repair[]                        @relation("RepairAssignedEmployee")
+  roomAreaStatusUpdates          RoomAreaStatus[]
+  assignedTasks                  Task[]                          @relation("TaskAssignedEmployee")
+  attachmentsCreated             Attachment[]                    @relation("AttachmentCreatedByEmployee")
+  inspectionSubmissions          InspectionSubmission[]          @relation("InspectionSubmittedByEmployee")
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
 
   @@unique([facilityId, pinDigest])
   @@index([status, roleType])
@@ -1409,26 +1420,28 @@ model Vendor {
 }
 
 model Asset {
-  id                             String                          @id @default(cuid())
-  assetCode                      String                          @unique
-  name                           String
-  equipmentType                  String
-  unitId                         String
-  unit                           Unit                            @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  departmentId                   String?
-  department                     Department?                     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  model                          String?
-  serialNumber                   String?
-  vendorId                       String?
-  vendor                         Vendor?                         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  status                         AssetStatus                     @default(ACTIVE)
-  criticality                    AssetCriticality                @default(ROUTINE)
-  notes                          String?
-  repairs                        Repair[]
-  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
-  knowledgeArticleAssets         KnowledgeArticleAsset[]
-  createdAt                      DateTime                        @default(now())
-  updatedAt                      DateTime                        @updatedAt
+  id                                 String                             @id @default(cuid())
+  assetCode                          String                             @unique
+  name                               String
+  equipmentType                      String
+  unitId                             String
+  unit                               Unit                               @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  departmentId                       String?
+  department                         Department?                        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  model                              String?
+  serialNumber                       String?
+  vendorId                           String?
+  vendor                             Vendor?                            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  status                             AssetStatus                        @default(ACTIVE)
+  criticality                        AssetCriticality                   @default(ROUTINE)
+  notes                              String?
+  repairs                            Repair[]
+  preventiveMaintenanceSchedules     PreventiveMaintenanceSchedule[]
+  knowledgeArticleAssets             KnowledgeArticleAsset[]
+  operationalTemplateApplicabilities OperationalTemplateApplicability[]
+  operationalEvidenceRecords         OperationalEvidenceRecord[]
+  createdAt                          DateTime                           @default(now())
+  updatedAt                          DateTime                           @updatedAt
 
   @@index([unitId, status])
   @@index([unitId, criticality])
@@ -2059,33 +2072,33 @@ enum OperationalAssignmentPlanStatus {
 /// Daily Assignment plan for a Facility + Department + operational date.
 /// Separates draft preparation from the confirmed frontline Assignment plan.
 model OperationalAssignmentPlan {
-  id                             String                           @id @default(cuid())
-  facilityId                     String
-  facility                       Facility                         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId                   String
-  department                     Department                       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  serviceDate                    DateTime                         @db.Date
-  status                         OperationalAssignmentPlanStatus  @default(DRAFT)
-  confirmedByUserId              String?
-  confirmedByUser                User?                            @relation("AssignmentPlanConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
-  confirmedAt                    DateTime?
-  reopenedByUserId               String?
-  reopenedByUser                 User?                            @relation("AssignmentPlanReopenedBy", fields: [reopenedByUserId], references: [id], onDelete: SetNull)
-  reopenedAt                     DateTime?
-  reopenReason                   String?
-  closedByUserId                 String?
-  closedByUser                   User?                            @relation("AssignmentPlanClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
-  closedAt                       DateTime?
-  coverageAcknowledgedAt         DateTime?
-  coverageAcknowledgedByUserId   String?
-  coverageAcknowledgedByUser     User?                            @relation("AssignmentPlanCoverageAckBy", fields: [coverageAcknowledgedByUserId], references: [id], onDelete: SetNull)
-  lastChangedByUserId            String?
-  lastChangedByUser              User?                            @relation("AssignmentPlanLastChangedBy", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
-  lastChangedAt                  DateTime?
-  assignments                    OperationalAssignment[]
-  events                         OperationalAssignmentEvent[]
-  createdAt                      DateTime                         @default(now())
-  updatedAt                      DateTime                         @updatedAt
+  id                           String                          @id @default(cuid())
+  facilityId                   String
+  facility                     Facility                        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId                 String
+  department                   Department                      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  serviceDate                  DateTime                        @db.Date
+  status                       OperationalAssignmentPlanStatus @default(DRAFT)
+  confirmedByUserId            String?
+  confirmedByUser              User?                           @relation("AssignmentPlanConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmedAt                  DateTime?
+  reopenedByUserId             String?
+  reopenedByUser               User?                           @relation("AssignmentPlanReopenedBy", fields: [reopenedByUserId], references: [id], onDelete: SetNull)
+  reopenedAt                   DateTime?
+  reopenReason                 String?
+  closedByUserId               String?
+  closedByUser                 User?                           @relation("AssignmentPlanClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  closedAt                     DateTime?
+  coverageAcknowledgedAt       DateTime?
+  coverageAcknowledgedByUserId String?
+  coverageAcknowledgedByUser   User?                           @relation("AssignmentPlanCoverageAckBy", fields: [coverageAcknowledgedByUserId], references: [id], onDelete: SetNull)
+  lastChangedByUserId          String?
+  lastChangedByUser            User?                           @relation("AssignmentPlanLastChangedBy", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
+  lastChangedAt                DateTime?
+  assignments                  OperationalAssignment[]
+  events                       OperationalAssignmentEvent[]
+  createdAt                    DateTime                        @default(now())
+  updatedAt                    DateTime                        @updatedAt
 
   @@unique([facilityId, departmentId, serviceDate])
   @@index([facilityId, serviceDate])
@@ -2142,20 +2155,20 @@ model OperationalAssignment {
 
 /// Append-only audit log for assignment lifecycle changes.
 model OperationalAssignmentEvent {
-  id              String                 @id @default(cuid())
+  id              String                     @id @default(cuid())
   /// Nullable for plan-level events (confirm / reopen / close / coverage ack).
   assignmentId    String?
-  assignment      OperationalAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment      OperationalAssignment?     @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   planId          String?
   plan            OperationalAssignmentPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
   facilityId      String
   departmentId    String?
   employeeId      String?
   unitId          String?
-  serviceDate     DateTime?              @db.Date
+  serviceDate     DateTime?                  @db.Date
   eventType       String
   actorUserId     String?
-  actorUser       User?                  @relation("AssignmentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUser       User?                      @relation("AssignmentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   actorRole       String?
   authMethod      String?
   fromStatus      String?
@@ -2164,7 +2177,7 @@ model OperationalAssignmentEvent {
   reason          String?
   priorValuesJson String?
   newValuesJson   String?
-  createdAt       DateTime               @default(now())
+  createdAt       DateTime                   @default(now())
 
   @@index([assignmentId, createdAt])
   @@index([planId, createdAt])
@@ -2300,6 +2313,7 @@ model OfflineSyncReceipt {
   locallyRecordedAt DateTime?
   serverAcceptedAt  DateTime?
   milestoneEntryId  String?
+  evidenceRecordId  String?
   createdAt         DateTime  @default(now())
 
   @@unique([facilityId, unitId, clientCommandId])
@@ -2362,35 +2376,35 @@ enum OperationalCycleLocationMode {
 /// Meal service target times remain on UnitMealTime — cycles reference MealType only.
 /// Occurrences for a given operational date are derived, not persisted.
 model DepartmentOperationalCycle {
-  id                   String                         @id @default(cuid())
+  id                   String                               @id @default(cuid())
   facilityId           String
-  facility             Facility                       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility             Facility                             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId         String
-  department           Department                     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department           Department                           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   /// Stable identity across versions of the same logical cycle within a department.
   stableKey            String
-  version              Int                            @default(1)
+  version              Int                                  @default(1)
   label                String
   description          String?
   cycleType            OperationalCycleType
-  displaySequence      Int                            @default(100)
+  displaySequence      Int                                  @default(100)
   /// Facility-local wall-clock start (`HH:mm`).
   startLocal           String
   /// Facility-local wall-clock end (`HH:mm`). May be before start when overnight=true.
   endLocal             String
   /// Structural overnight support; Phase 9A Dietary defaults remain same-day.
-  overnight            Boolean                        @default(false)
+  overnight            Boolean                              @default(false)
   /// Facility-local weekdays: 0=Sunday … 6=Saturday.
   applicableDaysOfWeek Int[]
-  effectiveFrom        DateTime                       @db.Date
-  effectiveTo          DateTime?                      @db.Date
+  effectiveFrom        DateTime                             @db.Date
+  effectiveTo          DateTime?                            @db.Date
   /// Optional meal association — service targets come from UnitMealTime, not copied here.
   mealType             MealType?
-  locationMode         OperationalCycleLocationMode   @default(ALL_DEPARTMENT_UNITS)
+  locationMode         OperationalCycleLocationMode         @default(ALL_DEPARTMENT_UNITS)
   applicableUnitTypes  UnitType[]
   /// Expected confirmations for SERVICE cycles (READY / SERVICE_STARTED). Absence ≠ failure.
   expectedMilestones   ServeryMilestone[]
-  status               OperationalCycleStatus         @default(DRAFT)
+  status               OperationalCycleStatus               @default(DRAFT)
   createdByUserId      String?
   publishedByUserId    String?
   lastChangedByUserId  String?
@@ -2398,8 +2412,8 @@ model DepartmentOperationalCycle {
   retiredAt            DateTime?
   locations            DepartmentOperationalCycleLocation[]
   events               DepartmentOperationalCycleEvent[]
-  createdAt            DateTime                       @default(now())
-  updatedAt            DateTime                       @updatedAt
+  createdAt            DateTime                             @default(now())
+  updatedAt            DateTime                             @updatedAt
 
   @@unique([departmentId, stableKey, version])
   @@index([facilityId, departmentId, status])
@@ -2410,12 +2424,12 @@ model DepartmentOperationalCycle {
 
 /// Explicit Unit applicability when locationMode = EXPLICIT_UNITS.
 model DepartmentOperationalCycleLocation {
-  id      String                     @id @default(cuid())
-  cycleId String
-  cycle   DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  unitId  String
-  unit    Unit                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  createdAt DateTime                 @default(now())
+  id        String                     @id @default(cuid())
+  cycleId   String
+  cycle     DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  unitId    String
+  unit      Unit                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdAt DateTime                   @default(now())
 
   @@unique([cycleId, unitId])
   @@index([unitId])
@@ -2436,4 +2450,279 @@ model DepartmentOperationalCycleEvent {
 
   @@index([cycleId, createdAt])
   @@index([facilityId, departmentId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9C — Unified Operational Templates + Evidence Records (Dietary)
+// Separate from legacy LogTemplate / InspectionDefinition. Operations Engine stays off.
+// Requirement occurrences are derived for an operational date (not persisted).
+// ---------------------------------------------------------------------------
+
+/// Presentation / purpose type — one storage model for LOG, CHECKLIST, INSPECTION.
+enum OperationalTemplatePurposeType {
+  LOG
+  CHECKLIST
+  INSPECTION
+}
+
+enum OperationalTemplateStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum OperationalEvidenceFieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  NUMBER
+  TEMPERATURE
+  YES_NO
+  PASS_NEEDS_ATTENTION
+  SINGLE_SELECT
+  MULTI_SELECT
+  DATE
+  TIME
+  ATTESTATION
+  OPTIONAL_COMMENT
+}
+
+enum OperationalTemplateApplicabilityKind {
+  SPECIFIC_ASSET
+  ASSET_TYPE
+  SPECIFIC_SPACE
+  SPACE_TYPE
+  DEPARTMENT_UNIT
+}
+
+enum OperationalTemplateScheduleKind {
+  OPERATIONAL_CYCLE
+  FIXED_DAILY_WINDOW
+  ONCE_PER_OPERATIONAL_DATE
+  AD_HOC
+}
+
+enum OperationalEvidenceRecordStatus {
+  COMPLETED
+  COMPLETED_WITH_CORRECTIVE_ACTION
+  NEEDS_REVIEW
+}
+
+/// Unified Operational Template — authoritative evidence definition for Phase 9C.
+/// Versioned via stableKey + version. Published versions are immutable; edits create successors.
+model OperationalTemplate {
+  id                  String                             @id @default(cuid())
+  facilityId          String
+  facility            Facility                           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department                         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// Stable identity across versions within a department.
+  stableKey           String
+  version             Int                                @default(1)
+  name                String
+  description         String?
+  instructions        String?
+  purposeType         OperationalTemplatePurposeType
+  status              OperationalTemplateStatus          @default(DRAFT)
+  /// Optional preset key for synthetic Dietary reference drafts (never auto-published).
+  presetKey           String?
+  allowAdHoc          Boolean                            @default(false)
+  createdByUserId     String?
+  publishedByUserId   String?
+  lastChangedByUserId String?
+  publishedAt         DateTime?
+  retiredAt           DateTime?
+  fields              OperationalTemplateField[]
+  applicabilities     OperationalTemplateApplicability[]
+  schedules           OperationalTemplateSchedule[]
+  events              OperationalTemplateEvent[]
+  evidenceRecords     OperationalEvidenceRecord[]
+  createdAt           DateTime                           @default(now())
+  updatedAt           DateTime                           @updatedAt
+
+  @@unique([departmentId, stableKey, version])
+  @@index([facilityId, departmentId, status])
+  @@index([facilityId, departmentId, purposeType])
+  @@index([departmentId, status, name])
+}
+
+model OperationalTemplateField {
+  id                       String                       @id @default(cuid())
+  templateId               String
+  template                 OperationalTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  /// Stable within a template lineage for mapping values across versions when needed.
+  fieldKey                 String
+  label                    String
+  fieldType                OperationalEvidenceFieldType
+  isRequired               Boolean                      @default(true)
+  displaySequence          Int
+  helpText                 String?
+  unitLabel                String?
+  minNumber                Float?
+  maxNumber                Float?
+  allowedSelections        String[]                     @default([])
+  /// When true, out-of-standard results make corrective action visible.
+  correctiveActionTrigger  Boolean                      @default(false)
+  /// When true and triggered, corrective action text is required to submit.
+  correctiveActionRequired Boolean                      @default(false)
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
+
+  @@unique([templateId, fieldKey])
+  @@unique([templateId, displaySequence])
+  @@index([templateId])
+}
+
+model OperationalTemplateApplicability {
+  id         String                               @id @default(cuid())
+  templateId String
+  template   OperationalTemplate                  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  kind       OperationalTemplateApplicabilityKind
+  assetId    String?
+  asset      Asset?                               @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  /// Free-text equipment type match against Asset.equipmentType when kind=ASSET_TYPE.
+  assetType  String?
+  spaceId    String?
+  space      UnitSpace?                           @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+  spaceType  SpaceType?
+  unitId     String?
+  createdAt  DateTime                             @default(now())
+
+  @@index([templateId])
+  @@index([assetId])
+  @@index([spaceId])
+  @@index([unitId])
+}
+
+model OperationalTemplateSchedule {
+  id               String                          @id @default(cuid())
+  templateId       String
+  template         OperationalTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  kind             OperationalTemplateScheduleKind
+  /// References DepartmentOperationalCycle.stableKey (not a copied window).
+  cycleStableKey   String?
+  /// Facility-local wall-clock window start (`HH:mm`) when kind=FIXED_DAILY_WINDOW.
+  windowStartLocal String?
+  /// Facility-local wall-clock window end (`HH:mm`) when kind=FIXED_DAILY_WINDOW.
+  windowEndLocal   String?
+  createdAt        DateTime                        @default(now())
+
+  @@index([templateId])
+  @@index([cycleStableKey])
+}
+
+model OperationalTemplateEvent {
+  id           String              @id @default(cuid())
+  templateId   String
+  template     OperationalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  facilityId   String
+  departmentId String
+  eventType    String
+  actorUserId  String?
+  actorLabel   String?
+  detailJson   Json?
+  createdAt    DateTime            @default(now())
+
+  @@index([templateId, createdAt])
+  @@index([facilityId, departmentId, createdAt])
+}
+
+/// Persisted Evidence Record. Requirements are derived; records are durable.
+/// templateSnapshotJson preserves published definition so later edits never rewrite history.
+model OperationalEvidenceRecord {
+  id                           String                          @id @default(cuid())
+  facilityId                   String
+  facility                     Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  departmentId                 String
+  department                   Department                      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  /// Published template version row used at capture time.
+  templateId                   String
+  template                     OperationalTemplate             @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  templateStableKey            String
+  templateVersion              Int
+  templateName                 String
+  purposeType                  OperationalTemplatePurposeType
+  /// Deterministic requirement identity for the operational date + scope + window.
+  requirementKey               String
+  operationalDate              DateTime                        @db.Date
+  scheduleKind                 OperationalTemplateScheduleKind
+  cycleStableKey               String?
+  cycleLabel                   String?
+  windowStartLocal             String?
+  windowEndLocal               String?
+  unitId                       String?
+  unit                         Unit?                           @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  spaceId                      String?
+  space                        UnitSpace?                      @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+  assetId                      String?
+  asset                        Asset?                          @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  status                       OperationalEvidenceRecordStatus @default(COMPLETED)
+  outOfStandard                Boolean                         @default(false)
+  correctiveActionText         String?
+  correctiveActionAt           DateTime?
+  correctiveActionByUserId     String?
+  correctiveActionByEmployeeId String?
+  occurredAt                   DateTime
+  recordedAt                   DateTime                        @default(now())
+  synchronizedAt               DateTime?
+  recordedOnline               Boolean                         @default(true)
+  clientCommandId              String?
+  deviceBoundUnitId            String?
+  recordedByUserId             String?
+  recordedByUser               User?                           @relation("EvidenceRecordedByUser", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+  recordedByEmployeeId         String?
+  recordedByEmployee           Employee?                       @relation("EvidenceRecordedByEmployee", fields: [recordedByEmployeeId], references: [id], onDelete: SetNull)
+  recordedByLabel              String?
+  /// Immutable snapshot of template fields/standards/instructions at submit time.
+  templateSnapshotJson         Json
+  values                       OperationalEvidenceFieldValue[]
+  corrections                  OperationalEvidenceCorrection[]
+  createdAt                    DateTime                        @default(now())
+  updatedAt                    DateTime                        @updatedAt
+
+  @@unique([facilityId, departmentId, clientCommandId])
+  @@index([facilityId, departmentId, operationalDate])
+  @@index([facilityId, departmentId, templateStableKey, operationalDate])
+  @@index([facilityId, unitId, operationalDate])
+  @@index([facilityId, assetId, operationalDate])
+  @@index([requirementKey, operationalDate])
+  @@index([recordedByEmployeeId])
+  @@index([status])
+}
+
+model OperationalEvidenceFieldValue {
+  id              String                       @id @default(cuid())
+  recordId        String
+  record          OperationalEvidenceRecord    @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  fieldKey        String
+  label           String
+  fieldType       OperationalEvidenceFieldType
+  valueText       String?
+  valueNumber     Float?
+  valueBoolean    Boolean?
+  valueDateTime   DateTime?
+  valueSelections String[]                     @default([])
+  outOfStandard   Boolean                      @default(false)
+  createdAt       DateTime                     @default(now())
+
+  @@unique([recordId, fieldKey])
+  @@index([recordId])
+}
+
+/// Append-preserving correction — never silently overwrites prior values.
+model OperationalEvidenceCorrection {
+  id                           String                          @id @default(cuid())
+  recordId                     String
+  record                       OperationalEvidenceRecord       @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  reason                       String
+  previousValuesJson           Json
+  previousStatus               OperationalEvidenceRecordStatus
+  previousCorrectiveActionText String?
+  correctedByUserId            String?
+  correctedByUser              User?                           @relation("EvidenceCorrectedByUser", fields: [correctedByUserId], references: [id], onDelete: SetNull)
+  correctedByEmployeeId        String?
+  correctedByEmployee          Employee?                       @relation("EvidenceCorrectedByEmployee", fields: [correctedByEmployeeId], references: [id], onDelete: SetNull)
+  correctedByLabel             String?
+  createdAt                    DateTime                        @default(now())
+
+  @@index([recordId, createdAt])
 }
