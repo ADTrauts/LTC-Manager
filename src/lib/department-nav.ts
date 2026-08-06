@@ -25,7 +25,9 @@ export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/reports", visibility: "shared" },
   { pathPrefix: "/department", visibility: "shared" },
   { pathPrefix: "/menus", visibility: "department", keys: ["DIETARY"] },
-  { pathPrefix: "/assets", visibility: "department", keys: ["PLANT"] },
+  /** Phase 10A: Dietary Asset Operations uses the shared Asset registry (Plant remains allowed). */
+  { pathPrefix: "/assets", visibility: "department", keys: ["DIETARY", "PLANT"] },
+  { pathPrefix: "/asset-issues", visibility: "department", keys: ["DIETARY", "PLANT"] },
   { pathPrefix: "/repairs", visibility: "department", keys: ["DIETARY", "PLANT"] },
   { pathPrefix: "/issues", visibility: "department", keys: ["DIETARY", "PLANT"] },
   { pathPrefix: "/admin", visibility: "shared" },

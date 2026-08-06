@@ -159,3 +159,19 @@ export function isDietaryJobFlowEnabled(): boolean {
 export function isDietaryOperationalEvidenceEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 10A Dietary Asset Operations (Assets / Issues / Work Orders).
+ * Set `DIETARY_ASSET_OPERATIONS_ENABLED=true` for Asset Builder, Issue reporting, Work Orders,
+ * Supervisor Asset exceptions, and offline Issue commands.
+ * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Typical local activation:
+ *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
+ *   DIETARY_JOB_FLOW_ENABLED=true
+ *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
+ *   DIETARY_ASSET_OPERATIONS_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ */
+export function isDietaryAssetOperationsEnabled(): boolean {
+  return parseEnvFlag(process.env.DIETARY_ASSET_OPERATIONS_ENABLED, false);
+}

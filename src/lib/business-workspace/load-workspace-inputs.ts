@@ -33,7 +33,16 @@ export type WorkspaceOpenRepair = {
   unitId: string;
   title: string;
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  status: "OPEN" | "IN_PROGRESS" | "WAITING_PARTS" | "CLOSED";
+  status:
+    | "OPEN"
+    | "ASSIGNED"
+    | "IN_PROGRESS"
+    | "WAITING_PARTS"
+    | "WAITING_ON_VENDOR"
+    | "ON_HOLD"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "CLOSED";
   workOrderKind: "CORRECTIVE" | "PREVENTIVE";
   dueAt: Date | null;
   unitName: string | null;

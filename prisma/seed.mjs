@@ -516,7 +516,7 @@ async function main() {
       unitName: "Central Kitchen",
       model: "ArcticMax 9000",
       serialNumber: "AM9K-001",
-      status: AssetStatus.ACTIVE,
+      status: AssetStatus.OPERATIONAL,
     },
     {
       assetCode: "SV-COOL-1A",
@@ -525,7 +525,7 @@ async function main() {
       unitName: "1A Naval Park",
       model: "SafeChill 420",
       serialNumber: "SC420-1A",
-      status: AssetStatus.ACTIVE,
+      status: AssetStatus.OPERATIONAL,
     },
   ];
 

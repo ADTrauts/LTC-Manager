@@ -1580,8 +1580,9 @@ test("isLinkAllowedForContext allows all links for facility mode", () => {
   assert.equal(isLinkAllowedForContext("/menus", facilityCtx), true);
 });
 
-test("isLinkAllowedForContext restricts /assets for Dietary", () => {
-  assert.equal(isLinkAllowedForContext("/assets", dietaryCtx), false);
+test("isLinkAllowedForContext allows /assets for Dietary (Phase 10A Asset Operations)", () => {
+  assert.equal(isLinkAllowedForContext("/assets", dietaryCtx), true);
+  assert.equal(isLinkAllowedForContext("/asset-issues/x", dietaryCtx), true);
 });
 
 test("isLinkAllowedForContext restricts /issues for EVS", () => {

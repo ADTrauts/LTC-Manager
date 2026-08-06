@@ -12,8 +12,10 @@ import {
 } from "@/app/(protected)/assets/actions";
 import { AssetKnowledgeTrigger } from "@/components/knowledge/asset-knowledge-trigger";
 import { ASSET_CRITICALITY_OPTIONS, assetCriticalityLabel } from "@/lib/asset-criticality";
+import { assetStatusLabel, normalizeAssetStatus } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import {
   loadContextualKnowledgeByAssetIds,
   toContextualKnowledgeClientArticles,
@@ -34,10 +36,18 @@ function subtabHref(subtab: "vendors" | "assets") {
   return `/assets?${params.toString()}`;
 }
 
+const ASSET_OPS_STATUS_OPTIONS = [
+  "OPERATIONAL",
+  "DEGRADED",
+  "OUT_OF_SERVICE",
+  "RETIRED",
+] as const;
+
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   noStore();
   const params = await searchParams;
   const activeSubtab = parseSubtab(typeof params.subtab === "string" ? params.subtab : undefined);
+  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
 
   const session = await getSession();
   if (!session?.facilityId) {
@@ -81,6 +91,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   });
 
   const routineDefaultCount = assets.filter((asset) => asset.criticality === AssetCriticality.ROUTINE).length;
+  const statusOptions = assetOpsEnabled
+    ? ASSET_OPS_STATUS_OPTIONS
+    : (Object.values(AssetStatus) as string[]);
+  const defaultStatus = assetOpsEnabled ? "OPERATIONAL" : AssetStatus.ACTIVE;
 
   return (
     <section className="space-y-6">
@@ -146,13 +160,13 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         </>
       ) : (
         <>
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-builder">
             <h2 className="text-lg font-semibold text-zinc-900">Add Asset</h2>
             <form action={createAssetAction} className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <input name="assetCode" required placeholder="Asset code" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-              <input name="name" required placeholder="Asset name" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-              <input name="equipmentType" required placeholder="Equipment type" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-              <select name="unitId" required className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
+              <input name="assetCode" required placeholder="Asset code" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" data-testid="create-asset-code" />
+              <input name="name" required placeholder="Asset name" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" data-testid="create-asset-name" />
+              <input name="equipmentType" required placeholder="Equipment type" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" data-testid="create-asset-type" />
+              <select name="unitId" required className="rounded-md border border-zinc-300 px-3 py-2 text-sm" data-testid="create-asset-unit">
                 <option value="">Select unit</option>
                 {units.map((unit) => (
                   <option key={unit.id} value={unit.id}>
@@ -170,7 +184,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   </option>
                 ))}
               </select>
-              <select name="departmentId" defaultValue="" className="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-4">
+              <select name="departmentId" defaultValue="" className="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-4" data-testid="create-asset-department">
                 <option value="">Responsible dept (defaults from unit if possible)</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -178,8 +192,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   </option>
                 ))}
               </select>
-              <select name="status" defaultValue={AssetStatus.ACTIVE} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
-                {Object.values(AssetStatus).map((value) => (
+              <select name="status" defaultValue={defaultStatus} className="rounded-md border border-zinc-300 px-3 py-2 text-sm" data-testid="create-asset-status">
+                {statusOptions.map((value) => (
                   <option key={value} value={value}>
                     {value}
                   </option>
@@ -204,7 +218,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               </label>
               <input name="notes" placeholder="Notes" className="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-4" />
               <div className="md:col-span-2 xl:col-span-4">
-                <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
+                <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" data-testid="create-asset-submit">
                   Add asset
                 </button>
               </div>
@@ -219,17 +233,32 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 (the default). Review Critical and Important equipment so Plant readiness stays accurate.
               </p>
             ) : null}
-            <div className="mt-3 space-y-2">
-              {assets.map((asset) => (
-                <div key={asset.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 p-2">
+            <div className="mt-3 space-y-2" data-testid="asset-registry">
+              {assets.map((asset) => {
+                const statusDisplay = assetOpsEnabled
+                  ? assetStatusLabel(asset.status)
+                  : asset.status;
+                const normalized = normalizeAssetStatus(asset.status);
+                return (
+                <div key={asset.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 p-2" data-testid={`asset-row-${asset.id}`} data-asset-status={normalized}>
                   <div className="text-sm text-zinc-700">
                     <p className="font-medium text-zinc-900">
-                      {asset.assetCode} · {asset.name}
+                      {assetOpsEnabled ? (
+                        <Link href={`/assets/${asset.id}`} className="underline underline-offset-2" data-testid={`asset-profile-link-${asset.id}`}>
+                          {asset.assetCode} · {asset.name}
+                        </Link>
+                      ) : (
+                        <>
+                          {asset.assetCode} · {asset.name}
+                        </>
+                      )}
                     </p>
                     <p className="text-xs">
                       {asset.equipmentType} · {asset.unit.name} · {asset.vendor?.name ?? "No vendor"}
                       {" · "}
                       {assetCriticalityLabel(asset.criticality)}
+                      {" · "}
+                      <span data-testid={`asset-status-label-${asset.id}`}>{statusDisplay}</span>
                       {" · "}
                       {asset.department?.name ? (
                         <>Dept: {asset.department.name}</>
@@ -279,8 +308,11 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                     </form>
                   <form action={updateAssetStatusAction} className="flex items-center gap-2">
                     <input type="hidden" name="assetId" value={asset.id} />
-                    <select name="status" defaultValue={asset.status} className="rounded-md border border-zinc-300 px-2 py-1 text-xs">
-                      {Object.values(AssetStatus).map((value) => (
+                    {asset.departmentId ? (
+                      <input type="hidden" name="departmentId" value={asset.departmentId} />
+                    ) : null}
+                    <select name="status" defaultValue={assetOpsEnabled ? normalized : asset.status} className="rounded-md border border-zinc-300 px-2 py-1 text-xs">
+                      {statusOptions.map((value) => (
                         <option key={value} value={value}>
                           {value}
                         </option>
@@ -292,7 +324,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   </form>
                   </div>
                 </div>
-              ))}
+              );
+              })}
               {assets.length === 0 ? <p className="text-sm text-zinc-500">No assets yet.</p> : null}
             </div>
           </section>

@@ -10,7 +10,15 @@ import {
   isAssetCriticality,
   type AssetCriticalityValue,
 } from "@/lib/asset-criticality";
+import {
+  changeAssetStatus,
+  createAsset,
+  retireAsset,
+  updateAssetIdentity,
+  type AssetOperationalStatus,
+} from "@/lib/asset-operations";
 import { requireFacilitySession } from "@/lib/facility-context";
+import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 async function resolveDefaultResponsibleDepartmentForUnit(unitId: string, facilityId: string) {
@@ -25,11 +33,18 @@ async function resolveDefaultResponsibleDepartmentForUnit(unitId: string, facili
   return anyPrimary?.departmentId ?? null;
 }
 
-const assetStatusValues = [
+const legacyAssetStatusValues = [
   AssetStatus.ACTIVE,
   AssetStatus.OUT_OF_SERVICE,
   AssetStatus.RETIRED,
 ] as const;
+
+const operationalAssetStatusValues = [
+  "OPERATIONAL",
+  "DEGRADED",
+  "OUT_OF_SERVICE",
+  "RETIRED",
+] as const satisfies readonly AssetOperationalStatus[];
 
 const createVendorSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -48,9 +63,12 @@ const createAssetSchema = z.object({
   serialNumber: z.string().trim().max(120).optional(),
   vendorId: z.string().cuid().optional(),
   departmentId: z.string().cuid().optional(),
-  status: z.enum(assetStatusValues),
+  status: z.string(),
   criticality: z.enum(ASSET_CRITICALITY_VALUES).default("ROUTINE"),
   notes: z.string().trim().max(500).optional(),
+  manufacturer: z.string().trim().max(120).optional(),
+  facilityAssetNumber: z.string().trim().max(80).optional(),
+  description: z.string().trim().max(500).optional(),
 });
 
 function toOptional(value: FormDataEntryValue | null) {
@@ -59,11 +77,22 @@ function toOptional(value: FormDataEntryValue | null) {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-function revalidateAssetViews() {
+function revalidateAssetViews(assetId?: string) {
   revalidatePath("/assets");
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
   revalidatePath("/unit/[unitId]", "page");
+  if (assetId) {
+    revalidatePath(`/assets/${assetId}`);
+  }
+}
+
+function parseOperationalStatus(raw: string): AssetOperationalStatus {
+  if (raw === "ACTIVE") return "OPERATIONAL";
+  if ((operationalAssetStatusValues as readonly string[]).includes(raw)) {
+    return raw as AssetOperationalStatus;
+  }
+  throw new Error("Invalid asset status.");
 }
 
 export async function createVendorAction(formData: FormData) {
@@ -105,6 +134,9 @@ export async function createAssetAction(formData: FormData) {
     status: formData.get("status"),
     criticality: isAssetCriticality(criticalityRaw) ? criticalityRaw : "ROUTINE",
     notes: toOptional(formData.get("notes")),
+    manufacturer: toOptional(formData.get("manufacturer")),
+    facilityAssetNumber: toOptional(formData.get("facilityAssetNumber")),
+    description: toOptional(formData.get("description")),
   });
 
   const unit = await prisma.unit.findFirst({
@@ -138,6 +170,33 @@ export async function createAssetAction(formData: FormData) {
     throw new Error("Department not found.");
   }
 
+  if (isDietaryAssetOperationsEnabled()) {
+    const status = parseOperationalStatus(parsed.status);
+    const created = await createAsset(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      unitId: parsed.unitId,
+      assetCode: parsed.assetCode,
+      name: parsed.name,
+      equipmentType: parsed.equipmentType,
+      model: parsed.model,
+      serialNumber: parsed.serialNumber,
+      vendorId: parsed.vendorId,
+      manufacturer: parsed.manufacturer,
+      facilityAssetNumber: parsed.facilityAssetNumber,
+      description: parsed.description,
+      criticality: parsed.criticality as AssetCriticality,
+      notes: parsed.notes,
+      status,
+    });
+    revalidateAssetViews(created.id);
+    return;
+  }
+
+  if (!(legacyAssetStatusValues as readonly string[]).includes(parsed.status)) {
+    throw new Error("Invalid asset status.");
+  }
+
   await prisma.asset.create({
     data: {
       assetCode: parsed.assetCode,
@@ -148,7 +207,7 @@ export async function createAssetAction(formData: FormData) {
       serialNumber: parsed.serialNumber,
       vendorId: parsed.vendorId,
       departmentId,
-      status: parsed.status,
+      status: parsed.status as AssetStatus,
       criticality: parsed.criticality as AssetCriticality,
       notes: parsed.notes,
     },
@@ -162,25 +221,128 @@ export async function updateAssetStatusAction(formData: FormData) {
   requireAtLeastRole(session.role, "SUPERVISOR");
 
   const assetId = String(formData.get("assetId") ?? "");
-  const status = String(formData.get("status") ?? "") as AssetStatus;
-  if (!assetId || !assetStatusValues.includes(status)) {
+  const statusRaw = String(formData.get("status") ?? "");
+  const note = toOptional(formData.get("note"));
+  const departmentIdRaw = toOptional(formData.get("departmentId"));
+
+  if (!assetId) {
     throw new Error("Invalid asset status update.");
   }
 
   const asset = await prisma.asset.findFirst({
     where: { id: assetId, unit: { facilityId: session.facilityId } },
-    select: { id: true },
+    select: { id: true, departmentId: true },
   });
   if (!asset) {
     throw new Error("Asset not found.");
   }
 
+  if (isDietaryAssetOperationsEnabled()) {
+    const departmentId = departmentIdRaw ?? asset.departmentId;
+    if (!departmentId) {
+      throw new Error("Select a responsible department before changing Asset status.");
+    }
+    const toStatus = parseOperationalStatus(statusRaw);
+    if (toStatus === "RETIRED") {
+      await retireAsset(session, {
+        facilityId: session.facilityId,
+        departmentId,
+        assetId,
+        reason: note ?? "Asset retired",
+      });
+    } else {
+      await changeAssetStatus(session, {
+        facilityId: session.facilityId,
+        departmentId,
+        assetId,
+        toStatus,
+        reason: toStatus === "OPERATIONAL" ? "RETURN_TO_SERVICE" : "MANUAL",
+        note: note ?? null,
+      });
+    }
+    revalidateAssetViews(assetId);
+    return;
+  }
+
+  if (!(legacyAssetStatusValues as readonly string[]).includes(statusRaw)) {
+    throw new Error("Invalid asset status update.");
+  }
+
   await prisma.asset.update({
     where: { id: assetId },
-    data: { status },
+    data: { status: statusRaw as AssetStatus },
   });
 
-  revalidateAssetViews();
+  revalidateAssetViews(assetId);
+}
+
+export async function updateAssetIdentityAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  if (!isDietaryAssetOperationsEnabled()) {
+    throw new Error("Dietary Asset Operations is not enabled.");
+  }
+
+  const assetId = String(formData.get("assetId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!assetId || !departmentId) {
+    throw new Error("Invalid asset identity update.");
+  }
+
+  const criticalityRaw = toOptional(formData.get("criticality"));
+  const vendorIdRaw = formData.get("vendorId");
+  const vendorId =
+    vendorIdRaw === null || vendorIdRaw === undefined
+      ? undefined
+      : String(vendorIdRaw).trim() === ""
+        ? null
+        : String(vendorIdRaw).trim();
+
+  await updateAssetIdentity(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    assetId,
+    name: toOptional(formData.get("name")),
+    equipmentType: toOptional(formData.get("equipmentType")),
+    model: toOptional(formData.get("model")) ?? null,
+    serialNumber: toOptional(formData.get("serialNumber")) ?? null,
+    manufacturer: toOptional(formData.get("manufacturer")) ?? null,
+    facilityAssetNumber: toOptional(formData.get("facilityAssetNumber")) ?? null,
+    description: toOptional(formData.get("description")) ?? null,
+    notes: toOptional(formData.get("notes")) ?? null,
+    procedureInstructions: toOptional(formData.get("procedureInstructions")) ?? null,
+    vendorId,
+    unitId: toOptional(formData.get("unitId")),
+    departmentIdNext: toOptional(formData.get("departmentIdNext")) ?? undefined,
+    criticality:
+      criticalityRaw && isAssetCriticality(criticalityRaw)
+        ? (criticalityRaw as AssetCriticality)
+        : undefined,
+  });
+
+  revalidateAssetViews(assetId);
+}
+
+export async function retireAssetAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  if (!isDietaryAssetOperationsEnabled()) {
+    throw new Error("Dietary Asset Operations is not enabled.");
+  }
+
+  const assetId = String(formData.get("assetId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const reason = toOptional(formData.get("reason"));
+  if (!assetId || !departmentId) {
+    throw new Error("Invalid retirement request.");
+  }
+
+  await retireAsset(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    assetId,
+    reason: reason ?? "Asset retired",
+  });
+
+  revalidateAssetViews(assetId);
 }
 
 export async function updateAssetCriticalityAction(formData: FormData) {
@@ -195,10 +357,21 @@ export async function updateAssetCriticalityAction(formData: FormData) {
 
   const asset = await prisma.asset.findFirst({
     where: { id: assetId, unit: { facilityId: session.facilityId } },
-    select: { id: true },
+    select: { id: true, departmentId: true },
   });
   if (!asset) {
     throw new Error("Asset not found.");
+  }
+
+  if (isDietaryAssetOperationsEnabled() && asset.departmentId) {
+    await updateAssetIdentity(session, {
+      facilityId: session.facilityId,
+      departmentId: asset.departmentId,
+      assetId,
+      criticality: criticalityRaw as AssetCriticality,
+    });
+    revalidateAssetViews(assetId);
+    return;
   }
 
   await prisma.asset.update({
@@ -206,7 +379,7 @@ export async function updateAssetCriticalityAction(formData: FormData) {
     data: { criticality: criticalityRaw },
   });
 
-  revalidateAssetViews();
+  revalidateAssetViews(assetId);
 }
 
 export async function updateAssetDepartmentAction(formData: FormData) {
@@ -221,10 +394,42 @@ export async function updateAssetDepartmentAction(formData: FormData) {
 
   const asset = await prisma.asset.findFirst({
     where: { id: assetId, unit: { facilityId: session.facilityId } },
-    select: { id: true },
+    select: { id: true, departmentId: true },
   });
   if (!asset) {
     throw new Error("Asset not found.");
+  }
+
+  if (isDietaryAssetOperationsEnabled()) {
+    const authorityDept = asset.departmentId ?? deptRaw;
+    if (!authorityDept) {
+      throw new Error("Select a responsible department.");
+    }
+    if (!deptRaw) {
+      await updateAssetIdentity(session, {
+        facilityId: session.facilityId,
+        departmentId: authorityDept,
+        assetId,
+        departmentIdNext: null,
+      });
+      revalidateAssetViews(assetId);
+      return;
+    }
+    const dept = await prisma.department.findFirst({
+      where: { id: deptRaw, facilityId: session.facilityId },
+      select: { id: true },
+    });
+    if (!dept) {
+      throw new Error("Department not found.");
+    }
+    await updateAssetIdentity(session, {
+      facilityId: session.facilityId,
+      departmentId: authorityDept,
+      assetId,
+      departmentIdNext: deptRaw,
+    });
+    revalidateAssetViews(assetId);
+    return;
   }
 
   if (!deptRaw) {
@@ -232,7 +437,7 @@ export async function updateAssetDepartmentAction(formData: FormData) {
       where: { id: assetId },
       data: { departmentId: null },
     });
-    revalidateAssetViews();
+    revalidateAssetViews(assetId);
     return;
   }
 
@@ -249,5 +454,5 @@ export async function updateAssetDepartmentAction(formData: FormData) {
     data: { departmentId: deptRaw },
   });
 
-  revalidateAssetViews();
+  revalidateAssetViews(assetId);
 }

@@ -296,6 +296,26 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     nav: { label: "Assets", order: 70 },
   },
   {
+    pattern: "/assets/[assetId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "assets",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Phase 10A Asset profile. Downstream authority scopes Facility and Dietary Asset Operations manage/view.",
+  },
+  {
+    pattern: "/asset-issues/[issueId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "issues",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Phase 10A Asset Issue triage. STAFF may read own report status; SUPERVISOR+ triage; MANAGER Work Orders. Downstream Facility/department auth applies.",
+  },
+  {
     pattern: "/repairs",
     match: "EXACT",
     surface: "PAGE",

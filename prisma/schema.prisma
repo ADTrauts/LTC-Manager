@@ -172,6 +172,7 @@ model Facility {
   operationalCycles              DepartmentOperationalCycle[]
   operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
+  assetIssues                    AssetIssue[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -213,6 +214,7 @@ model Department {
   operationalCycles              DepartmentOperationalCycle[]
   operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
+  assetIssues                    AssetIssue[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -413,6 +415,12 @@ model User {
   facilityAccesses               UserFacilityAccess[]            @relation("UserFacilityAccessUser")
   facilityAccessesGranted        UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
   workspacePreferences           WorkspacePreference[]
+  assetsCreated                  Asset[]                         @relation("AssetCreatedByUser")
+  assetsLastChanged              Asset[]                         @relation("AssetLastChangedByUser")
+  assetStatusHistoryChanges      AssetStatusHistory[]            @relation("AssetStatusHistoryChangedBy")
+  assetIssuesReported            AssetIssue[]                    @relation("AssetIssueReportedByUser")
+  assetIssueUpdates              AssetIssueUpdate[]              @relation("AssetIssueUpdateByUser")
+  assetIssueEvidenceLinks        AssetIssueEvidenceLink[]        @relation("AssetIssueEvidenceLinkedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -639,10 +647,42 @@ enum ShiftType {
   FULL_DAY
 }
 
+/// Asset operational status. ACTIVE remains for legacy rows; prefer OPERATIONAL.
 enum AssetStatus {
   ACTIVE
+  OPERATIONAL
+  DEGRADED
   OUT_OF_SERVICE
   RETIRED
+}
+
+/// Why an Asset status changed (append-preserving AssetStatusHistory).
+enum AssetStatusChangeReason {
+  INITIAL
+  MANUAL
+  TRIAGE
+  RETURN_TO_SERVICE
+  RETIREMENT
+  CORRECTION
+}
+
+/// Reported Asset condition / problem (Phase 10A). Separate from Repair (Work Order).
+enum AssetIssueStatus {
+  REPORTED
+  ACKNOWLEDGED
+  TRIAGED
+  MONITORING
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+/// Neutral operational impact on Unit / service (not a technical safety certification).
+enum AssetOperationalImpact {
+  NO_IMMEDIATE_IMPACT
+  WORKAROUND_AVAILABLE
+  SERVICE_AT_RISK
+  EQUIPMENT_UNAVAILABLE
 }
 
 /// Operational criticality for Plant readiness. Defaults to ROUTINE for backward compatibility.
@@ -659,10 +699,16 @@ enum RepairPriority {
   URGENT
 }
 
+/// Work Order lifecycle on Repair. CLOSED/WAITING_PARTS retained for legacy rows.
 enum RepairStatus {
   OPEN
+  ASSIGNED
   IN_PROGRESS
   WAITING_PARTS
+  WAITING_ON_VENDOR
+  ON_HOLD
+  COMPLETED
+  CANCELLED
   CLOSED
 }
 
@@ -807,6 +853,7 @@ model Unit {
   assignmentTemplateItems    OperationalAssignmentTemplateItem[]
   operationalCycleLocations  DepartmentOperationalCycleLocation[]
   operationalEvidenceRecords OperationalEvidenceRecord[]
+  assetIssues                AssetIssue[]
   createdAt                  DateTime                             @default(now())
   updatedAt                  DateTime                             @updatedAt
 
@@ -860,6 +907,8 @@ model UnitSpace {
   experienceExceptions               DepartmentRoomExperienceException[]
   operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
+  assets                             Asset[]
+  assetIssues                        AssetIssue[]
   createdAt                          DateTime                            @default(now())
   updatedAt                          DateTime                            @updatedAt
 
@@ -1224,6 +1273,8 @@ model Employee {
   assignedTasks                  Task[]                          @relation("TaskAssignedEmployee")
   attachmentsCreated             Attachment[]                    @relation("AttachmentCreatedByEmployee")
   inspectionSubmissions          InspectionSubmission[]          @relation("InspectionSubmittedByEmployee")
+  assetIssuesReported            AssetIssue[]                    @relation("AssetIssueReportedByEmployee")
+  assetIssueUpdates              AssetIssueUpdate[]              @relation("AssetIssueUpdateByEmployee")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -1426,20 +1477,37 @@ model Asset {
   equipmentType                      String
   unitId                             String
   unit                               Unit                               @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  spaceId                            String?
+  space                              UnitSpace?                         @relation(fields: [spaceId], references: [id], onDelete: SetNull)
   departmentId                       String?
   department                         Department?                        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  manufacturer                       String?
   model                              String?
   serialNumber                       String?
+  /// Facility-facing Asset number when distinct from assetCode.
+  facilityAssetNumber                String?
+  description                        String?
   vendorId                           String?
   vendor                             Vendor?                            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  status                             AssetStatus                        @default(ACTIVE)
+  status                             AssetStatus                        @default(OPERATIONAL)
   criticality                        AssetCriticality                   @default(ROUTINE)
   notes                              String?
+  procedureInstructions              String?
+  inServiceDate                      DateTime?                          @db.Date
+  warrantyExpiresAt                  DateTime?                          @db.Date
+  retiredAt                          DateTime?
+  retiredReason                      String?
+  createdByUserId                    String?
+  createdByUser                      User?                              @relation("AssetCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lastChangedByUserId                String?
+  lastChangedByUser                  User?                              @relation("AssetLastChangedByUser", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
   repairs                            Repair[]
   preventiveMaintenanceSchedules     PreventiveMaintenanceSchedule[]
   knowledgeArticleAssets             KnowledgeArticleAsset[]
   operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
+  statusHistory                      AssetStatusHistory[]
+  assetIssues                        AssetIssue[]
   createdAt                          DateTime                           @default(now())
   updatedAt                          DateTime                           @updatedAt
 
@@ -1447,6 +1515,113 @@ model Asset {
   @@index([unitId, criticality])
   @@index([vendorId])
   @@index([departmentId])
+  @@index([spaceId])
+  @@index([status])
+}
+
+/// Append-preserving Asset operational status changes (Phase 10A).
+model AssetStatusHistory {
+  id              String                  @id @default(cuid())
+  assetId         String
+  asset           Asset                   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fromStatus      AssetStatus?
+  toStatus        AssetStatus
+  reason          AssetStatusChangeReason @default(MANUAL)
+  note            String?
+  changedByUserId String?
+  changedByUser   User?                   @relation("AssetStatusHistoryChangedBy", fields: [changedByUserId], references: [id], onDelete: SetNull)
+  sourceIssueId   String?
+  sourceIssue     AssetIssue?             @relation(fields: [sourceIssueId], references: [id], onDelete: SetNull)
+  sourceRepairId  String?
+  sourceRepair    Repair?                 @relation(fields: [sourceRepairId], references: [id], onDelete: SetNull)
+  changedAt       DateTime                @default(now())
+
+  @@index([assetId, changedAt])
+  @@index([sourceIssueId])
+  @@index([sourceRepairId])
+}
+
+/// Reported Asset problem / observed condition (Phase 10A). Not a Work Order.
+model AssetIssue {
+  id                       String                 @id @default(cuid())
+  issueCode                String                 @unique
+  facilityId               String
+  facility                 Facility               @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  departmentId             String
+  department               Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assetId                  String
+  asset                    Asset                  @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  unitId                   String
+  unit                     Unit                   @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  spaceId                  String?
+  space                    UnitSpace?             @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  summary                  String
+  description              String
+  status                   AssetIssueStatus       @default(REPORTED)
+  priority                 RepairPriority         @default(MEDIUM)
+  operationalImpact        AssetOperationalImpact @default(NO_IMMEDIATE_IMPACT)
+  equipmentRemainsUsable   Boolean                @default(true)
+  workaroundInstruction    String?
+  observedAt               DateTime
+  reportedAt               DateTime               @default(now())
+  synchronizedAt           DateTime?
+  recordedOnline           Boolean                @default(true)
+  clientCommandId          String?
+  deviceBoundUnitId        String?
+  reportedByUserId         String?
+  reportedByUser           User?                  @relation("AssetIssueReportedByUser", fields: [reportedByUserId], references: [id], onDelete: SetNull)
+  reportedByEmployeeId     String?
+  reportedByEmployee       Employee?              @relation("AssetIssueReportedByEmployee", fields: [reportedByEmployeeId], references: [id], onDelete: SetNull)
+  reportedByLabel          String?
+  triageNote               String?
+  resolvedAt               DateTime?
+  closedAt                 DateTime?
+  resolutionReason         String?
+  workOrderId              String?                @unique
+  workOrder                Repair?                @relation("AssetIssueWorkOrder", fields: [workOrderId], references: [id], onDelete: SetNull)
+  updates                  AssetIssueUpdate[]
+  evidenceLinks            AssetIssueEvidenceLink[]
+  statusHistoryLinks       AssetStatusHistory[]
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+
+  @@unique([facilityId, departmentId, clientCommandId])
+  @@index([facilityId, departmentId, status])
+  @@index([facilityId, assetId, status])
+  @@index([facilityId, unitId, status])
+  @@index([priority, status])
+  @@index([observedAt])
+}
+
+model AssetIssueUpdate {
+  id                String           @id @default(cuid())
+  issueId           String
+  issue             AssetIssue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  updateText        String
+  statusAfterUpdate AssetIssueStatus?
+  updatedByUserId   String?
+  updatedByUser     User?            @relation("AssetIssueUpdateByUser", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  updatedByEmployeeId String?
+  updatedByEmployee Employee?        @relation("AssetIssueUpdateByEmployee", fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
+  updatedAt         DateTime         @default(now())
+
+  @@index([issueId, updatedAt])
+}
+
+/// Supporting Evidence for an Asset Issue (many-to-many; neither owns the other).
+model AssetIssueEvidenceLink {
+  id               String                    @id @default(cuid())
+  issueId          String
+  issue            AssetIssue                @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  evidenceRecordId String
+  evidenceRecord   OperationalEvidenceRecord @relation(fields: [evidenceRecordId], references: [id], onDelete: Cascade)
+  linkedByUserId   String?
+  linkedByUser     User?                     @relation("AssetIssueEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+  linkedAt         DateTime                  @default(now())
+  note             String?
+
+  @@unique([issueId, evidenceRecordId])
+  @@index([evidenceRecordId])
 }
 
 model Repair {
@@ -1462,7 +1637,7 @@ model Repair {
   status                  RepairStatus                   @default(OPEN)
   workOrderKind           WorkOrderKind                  @default(CORRECTIVE)
   repairTrade             RepairTrade                    @default(GENERAL)
-  /// Product “Issue” classification; Repair remains the persistence model (ADL-008).
+  /// Product “Issue” classification on legacy Repair façade (ADL-008).
   issueType               IssueType                      @default(EQUIPMENT)
   requestingDepartmentId  String?
   requestingDepartment    Department?                    @relation("RepairRequestingDepartment", fields: [requestingDepartmentId], references: [id], onDelete: SetNull)
@@ -1473,14 +1648,27 @@ model Repair {
   preventiveScheduleId    String?
   preventiveSchedule      PreventiveMaintenanceSchedule? @relation(fields: [preventiveScheduleId], references: [id], onDelete: SetNull)
   dueAt                   DateTime?
+  /// Target completion date for Phase 10A Work Order tracking.
+  targetDate              DateTime?
+  requestedAt             DateTime                       @default(now())
+  startedAt               DateTime?
   estimatedLaborMinutes   Int?
   partsNote               String?
+  workPerformed           String?
+  resolution              String?
+  followUpRequired        Boolean                        @default(false)
+  followUpNote            String?
+  /// Explicit return-to-service confirmation on the Work Order (does not mutate Asset alone).
+  returnToServiceReady    Boolean                        @default(false)
   reportedById            String?
   reportedBy              User?                          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
   vendorId                String?
   vendor                  Vendor?                        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  /// Optional Phase 10A source Asset Issue (Issue and Work Order remain separate rows).
+  sourceAssetIssue        AssetIssue?                    @relation("AssetIssueWorkOrder")
   updates                 RepairUpdate[]
   attachments             Attachment[]
+  assetStatusHistoryLinks AssetStatusHistory[]
   createdAt               DateTime                       @default(now())
   completedAt             DateTime?
   updatedAt               DateTime                       @updatedAt
@@ -1493,6 +1681,7 @@ model Repair {
   @@index([assignedEmployeeId])
   @@index([preventiveScheduleId])
   @@index([dueAt])
+  @@index([targetDate])
 }
 
 model RepairUpdate {
@@ -2314,6 +2503,7 @@ model OfflineSyncReceipt {
   serverAcceptedAt  DateTime?
   milestoneEntryId  String?
   evidenceRecordId  String?
+  assetIssueId      String?
   createdAt         DateTime  @default(now())
 
   @@unique([facilityId, unitId, clientCommandId])
@@ -2676,6 +2866,7 @@ model OperationalEvidenceRecord {
   templateSnapshotJson         Json
   values                       OperationalEvidenceFieldValue[]
   corrections                  OperationalEvidenceCorrection[]
+  assetIssueLinks              AssetIssueEvidenceLink[]
   createdAt                    DateTime                        @default(now())
   updatedAt                    DateTime                        @updatedAt
 
