@@ -133,6 +133,8 @@ async function main() {
     ALLOW_DEMO_SEED_PASSWORD: "1",
     // Pilot path: legacy Unit Workspace with offline controls.
     PROJECTION_UNIT_WORKSPACE_ENABLED: "",
+    DIETARY_JOB_FLOW_ENABLED: "",
+    OPERATION_ENGINE_ENABLED: "",
   };
 
   try {
