@@ -1,0 +1,80 @@
+# LTC Manager — Dietary V1 Stage 0 staging (Render Hobby)
+# Cost floor (list): Standard web $25 + Basic-1gb Postgres $19 + 1GB disk $0.30 + cron ≈ $45–50
+# Hard ceiling: $60/mo. Do not enlarge plans, enable storage autoscaling, or add custom domains without approval.
+# Deploy branch: deployment/dietary-v1-pilot-environment-phase-8b-2026-08-05 (certified product + Phase 8A closures)
+# Auto-deploy: OFF — manual deploys of approved SHAs only.
+
+services:
+  - type: web
+    name: ltc-manager-dietary-v1-staging
+    runtime: node
+    plan: standard
+    region: oregon
+    branch: deployment/dietary-v1-pilot-environment-phase-8b-2026-08-05
+    autoDeployTrigger: "off"
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    preDeployCommand: npx prisma migrate deploy
+    healthCheckPath: /api/health/ready
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: America/New_York
+      - key: OPERATIONAL_ASSIGNMENTS_ENABLED
+        value: "true"
+      - key: OPERATION_ENGINE_ENABLED
+        value: "false"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ltc-manager-dietary-v1-staging-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: ltc-manager-dietary-v1-staging-db
+          property: connectionString
+
+  - type: cron
+    name: ltc-manager-dietary-v1-staging-auth-rate-limits
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: deployment/dietary-v1-pilot-environment-phase-8b-2026-08-05
+    autoDeployTrigger: "off"
+    schedule: "15 6 * * *"
+    buildCommand: npm ci
+    startCommand: >-
+      node scripts/maintenance/auth-rate-limits.mjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: America/New_York
+      - key: MAINTENANCE_ALLOW_PILOT
+        value: "1"
+      - key: MAINTENANCE_CONFIRM_DATABASE_NAME
+        value: ltc_staging_dietary_v1
+      - key: MAINTENANCE_DATABASE_URL
+        fromDatabase:
+          name: ltc-manager-dietary-v1-staging-db
+          property: connectionString
+      - key: AUTH_SECRET
+        fromService:
+          name: ltc-manager-dietary-v1-staging
+          type: web
+          envVarKey: AUTH_SECRET
+
+databases:
+  - name: ltc-manager-dietary-v1-staging-db
+    plan: basic-1gb
+    region: oregon
+    postgresMajorVersion: "16"
+    databaseName: ltc_staging_dietary_v1
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: temporary-stage0-allow-all-tighten-after-bootstrap
