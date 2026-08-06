@@ -131,3 +131,17 @@ export function isExperienceShellEnabled(): boolean {
 export function isDietaryOperationalCyclesEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 9B Dietary Employee Job Flow & Supervisor Operations Board.
+ * Set `DIETARY_JOB_FLOW_ENABLED=true` for derived Job Flow / Operations Board projections.
+ * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Job Flow is a derived Runtime projection (no JobFlowRecord / no migration).
+ * Typical local activation:
+ *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
+ *   DIETARY_JOB_FLOW_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ */
+export function isDietaryJobFlowEnabled(): boolean {
+  return parseEnvFlag(process.env.DIETARY_JOB_FLOW_ENABLED, false);
+}

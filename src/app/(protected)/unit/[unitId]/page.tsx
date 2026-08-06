@@ -5,6 +5,7 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { OfflineConflictReview } from "@/components/offline/offline-conflict-review";
 import { OfflineServeryControls } from "@/components/offline/offline-servery-controls";
+import { EmployeeJobFlowPanel } from "@/components/unit-workspace/employee-job-flow-panel";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
 import { UnitCycleContextPanel } from "@/components/unit-workspace/unit-cycle-context-panel";
 import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
@@ -22,7 +23,9 @@ import { resolveActiveDepartmentForShell } from "@/lib/active-department-context
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { resolveLocationIconKey } from "@/lib/design-system";
+import { loadEmployeeJobFlow } from "@/lib/dietary-job-flow";
 import {
+  isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
   isOperationalAssignmentsEnabled,
   isProjectionUnitWorkspaceEnabled,
@@ -102,14 +105,27 @@ async function ProjectedUnitWorkspacePage({
   }
 
   const dietary =
-    isDietaryOperationalCyclesEnabled()
+    isDietaryOperationalCyclesEnabled() || isDietaryJobFlowEnabled()
       ? await prisma.department.findFirst({
           where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
           select: { id: true },
         })
       : null;
+
+  const sessionEmployeeId = await getOperationalEmployeeIdForSession(session);
+  const jobFlow =
+    dietary && isDietaryJobFlowEnabled() && sessionEmployeeId
+      ? await loadEmployeeJobFlow({
+          session,
+          facilityId: session.facilityId,
+          departmentId: dietary.id,
+          employeeId: sessionEmployeeId,
+          unitId: unit.id,
+        })
+      : null;
+
   const cycleContextCard =
-    dietary && isDietaryOperationalCyclesEnabled()
+    dietary && isDietaryOperationalCyclesEnabled() && !jobFlow
       ? await loadEmployeeCycleContext({
           facilityId: session.facilityId,
           departmentId: dietary.id,
@@ -136,6 +152,13 @@ async function ProjectedUnitWorkspacePage({
           </p>
         ) : null}
       </header>
+      {jobFlow ? (
+        <EmployeeJobFlowPanel
+          jobFlow={jobFlow}
+          canManage={false}
+          departmentId={dietary?.id ?? null}
+        />
+      ) : null}
       {cycleContextCard ? (
         <UnitCycleContextPanel card={cycleContextCard} canManage={false} />
       ) : null}
@@ -320,7 +343,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     : null;
 
   const dietaryDepartment =
-    isDietaryOperationalCyclesEnabled()
+    isDietaryOperationalCyclesEnabled() || isDietaryJobFlowEnabled()
       ? await prisma.department.findFirst({
           where: {
             facilityId: session.facilityId,
@@ -331,8 +354,21 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         })
       : null;
 
+  const jobFlowEnabled = isDietaryJobFlowEnabled();
+  const jobFlow =
+    jobFlowEnabled && dietaryDepartment != null && sessionEmployeeId
+      ? await loadEmployeeJobFlow({
+          session,
+          facilityId: session.facilityId,
+          departmentId: dietaryDepartment.id,
+          employeeId: sessionEmployeeId,
+          unitId: unit.id,
+          now,
+        })
+      : null;
+
   const cycleContextCard =
-    dietaryDepartment != null
+    !jobFlow && dietaryDepartment != null && isDietaryOperationalCyclesEnabled()
       ? await loadEmployeeCycleContext({
           session,
           facilityId: session.facilityId,
@@ -485,8 +521,16 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
 
       {activeUnitTab === "overview" ? (
         <div className="space-y-6 sm:space-y-7">
+          {jobFlow ? (
+            <EmployeeJobFlowPanel
+              jobFlow={jobFlow}
+              canManage={canManageCycles && session.authMethod !== "QUICK_PIN"}
+              departmentId={dietaryDepartment?.id ?? null}
+            />
+          ) : null}
+          {/* Assignment remains authoritative and visible even when Job Flow is on. */}
           {myAssignment ? <UnitMyAssignmentPanel assignment={myAssignment} /> : null}
-          {cycleContextCard ? (
+          {!jobFlow && cycleContextCard ? (
             <UnitCycleContextPanel
               card={cycleContextCard}
               canManage={canManageCycles && session.authMethod !== "QUICK_PIN"}
