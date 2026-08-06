@@ -3,13 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
-import type { ActionResult } from "@/app/(protected)/admin/departments/[departmentId]/actions";
+type ActionResultLike =
+  | { ok: true; message?: string; profileId?: string; cycleId?: string }
+  | { ok: false; message: string; errors?: string[] };
 
 type Props = {
-  action: (formData: FormData) => Promise<ActionResult>;
+  action: (formData: FormData) => Promise<ActionResultLike>;
   children: ReactNode;
   className?: string;
-  onSuccessRedirect?: (result: ActionResult) => string | null;
+  onSuccessRedirect?: (result: ActionResultLike) => string | null;
 };
 
 /**

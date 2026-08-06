@@ -10,19 +10,22 @@ type Props = {
   departmentId: string;
   activeTab: DepartmentAdminTabId;
   profileId: string | null;
+  /** When set, only these tabs render (feature-flag filtered). */
+  tabs?: readonly (typeof DEPARTMENT_ADMIN_TABS)[number][];
 };
 
 export function DepartmentAdminLocalNav({
   departmentId,
   activeTab,
   profileId,
+  tabs = DEPARTMENT_ADMIN_TABS,
 }: Props) {
   return (
     <nav
       aria-label="Department Administration"
       className="space-y-1 rounded-xl border border-zinc-200 bg-white p-2 shadow-sm"
     >
-      {DEPARTMENT_ADMIN_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = tab.id === activeTab;
         return (
           <Link

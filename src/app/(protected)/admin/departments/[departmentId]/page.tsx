@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AreasPanel } from "@/app/(protected)/admin/departments/[departmentId]/areas-panel";
 import { ArchetypesPanel } from "@/app/(protected)/admin/departments/[departmentId]/archetypes-panel";
+import { CyclesPanel } from "@/app/(protected)/admin/departments/[departmentId]/cycles-panel";
 import { DiagnosticsPanel } from "@/app/(protected)/admin/departments/[departmentId]/diagnostics-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
 import { OverviewPanel } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
@@ -15,12 +16,17 @@ import {
 } from "@/components/administration/admin-page-header";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import {
+  departmentAdminTabsForFlags,
   loadDepartmentAdminView,
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
 } from "@/lib/department-administration";
 import { getSession } from "@/lib/auth";
-import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
+import {
+  isDepartmentOperationalProfilesEnabled,
+  isDietaryOperationalCyclesEnabled,
+} from "@/lib/feature-flags";
+import { prisma } from "@/lib/prisma";
 
 type PageProps = {
   params: Promise<{ departmentId: string }>;
@@ -36,13 +42,16 @@ export default async function DepartmentAdministrationPage({
     redirect("/login");
   }
 
-  if (!isDepartmentOperationalProfilesEnabled()) {
+  const profilesEnabled = isDepartmentOperationalProfilesEnabled();
+  const cyclesEnabled = isDietaryOperationalCyclesEnabled();
+
+  if (!profilesEnabled && !cyclesEnabled) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <PageHeader
           eyebrow="Administration"
           title="Department Administration"
-          subtitle="Department Operational Profiles are not enabled for this environment."
+          subtitle="Department Operational Profiles and Operational Cycles are not enabled for this environment."
           icon="administration"
           actions={<BackToAdministrationLink />}
           below={
@@ -55,8 +64,15 @@ export default async function DepartmentAdministrationPage({
           }
         />
         <p className="text-sm text-zinc-600">
-          Set <code className="rounded bg-zinc-100 px-1">DEPARTMENT_OPERATIONAL_PROFILES_ENABLED=true</code>{" "}
-          to author operational models. No runtime surfaces consume profiles yet.
+          Set{" "}
+          <code className="rounded bg-zinc-100 px-1">
+            DEPARTMENT_OPERATIONAL_PROFILES_ENABLED=true
+          </code>{" "}
+          and/or{" "}
+          <code className="rounded bg-zinc-100 px-1">
+            DIETARY_OPERATIONAL_CYCLES_ENABLED=true
+          </code>{" "}
+          to author department configuration.
         </p>
         <Link
           href="/admin/departments"
@@ -70,7 +86,81 @@ export default async function DepartmentAdministrationPage({
 
   const { departmentId } = await params;
   const query = await searchParams;
-  const tab = resolveDepartmentAdminTab(query.tab);
+  const availableTabs = departmentAdminTabsForFlags({
+    profilesEnabled,
+    cyclesEnabled,
+  });
+  const availableTabIds = availableTabs.map((tab) => tab.id);
+  const tab = resolveDepartmentAdminTab(query.tab, {
+    availableTabIds,
+    fallback: profilesEnabled ? "overview" : "cycles",
+  });
+
+  // Cycles-only: load department without requiring a profile.
+  if (!profilesEnabled && cyclesEnabled) {
+    const department = await prisma.department.findFirst({
+      where: {
+        id: departmentId,
+        facilityId: session.facilityId,
+        isActive: true,
+      },
+      select: { id: true, name: true, key: true },
+    });
+    if (!department) {
+      notFound();
+    }
+
+    return (
+      <div className="mx-auto max-w-6xl space-y-6">
+        <PageHeader
+          eyebrow="Administration"
+          icon="operationalMode"
+          title={department.name}
+          subtitle="Configure Operational Cycles for this department. Job Flow is not part of Phase 9A."
+          status={<StatusBadge variant="neutral">Cycles</StatusBadge>}
+          actions={
+            <>
+              <Link
+                href="/admin/departments"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+              >
+                All departments
+              </Link>
+              <BackToAdministrationLink />
+            </>
+          }
+          below={
+            <AdminBreadcrumbs
+              trail={[
+                { label: "Departments", href: "/admin/departments" },
+                { label: department.name },
+              ]}
+            />
+          }
+        />
+
+        <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+          <DepartmentAdminLocalNav
+            departmentId={department.id}
+            activeTab={tab}
+            profileId={null}
+            tabs={availableTabs}
+          />
+          <div className="min-w-0">
+            {tab === "cycles" ? (
+              <CyclesPanel
+                session={session}
+                facilityId={session.facilityId}
+                departmentId={department.id}
+                departmentName={department.name}
+              />
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const view = await loadDepartmentAdminView({
     facilityId: session.facilityId,
     departmentId,
@@ -89,7 +179,11 @@ export default async function DepartmentAdministrationPage({
         eyebrow="Administration"
         icon="operationalMode"
         title={view.department.name}
-        subtitle="Configure how this department operates. The Operational Profile is the persisted output — Projection will consume it later."
+        subtitle={
+          cyclesEnabled
+            ? "Configure how this department operates — Operational Profiles and Operational Cycles."
+            : "Configure how this department operates. The Operational Profile is the persisted output — Projection will consume it later."
+        }
         status={
           view.workingProfileMeta ? (
             <StatusBadge
@@ -127,6 +221,7 @@ export default async function DepartmentAdministrationPage({
           departmentId={view.department.id}
           activeTab={tab}
           profileId={profileId}
+          tabs={availableTabs}
         />
         <div className="min-w-0">
           {tab === "overview" ? <OverviewPanel view={view} /> : null}
@@ -135,6 +230,14 @@ export default async function DepartmentAdministrationPage({
           {tab === "rooms" ? <RoomsPanel view={view} /> : null}
           {tab === "diagnostics" ? <DiagnosticsPanel view={view} /> : null}
           {tab === "versions" ? <VersionsPanel view={view} /> : null}
+          {tab === "cycles" && cyclesEnabled ? (
+            <CyclesPanel
+              session={session}
+              facilityId={session.facilityId}
+              departmentId={view.department.id}
+              departmentName={view.department.name}
+            />
+          ) : null}
           {tab === "settings" ? <SettingsPanel view={view} /> : null}
         </div>
       </div>

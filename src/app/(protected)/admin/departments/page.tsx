@@ -6,7 +6,10 @@ import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/de
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { getSession } from "@/lib/auth";
 import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
-import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
+import {
+  isDepartmentOperationalProfilesEnabled,
+  isDietaryOperationalCyclesEnabled,
+} from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { EmployeeStatus } from "@prisma/client";
 
@@ -17,6 +20,8 @@ export default async function AdminDepartmentsPage() {
   }
   const facilityId = session.facilityId;
   const profilesEnabled = isDepartmentOperationalProfilesEnabled();
+  const cyclesEnabled = isDietaryOperationalCyclesEnabled();
+  const departmentAdminEnabled = profilesEnabled || cyclesEnabled;
 
   if ((await prisma.department.count({ where: { facilityId } })) === 0) {
     await ensureDefaultDepartments(prisma, facilityId);
@@ -79,9 +84,13 @@ export default async function AdminDepartmentsPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-zinc-900">
-                  {profilesEnabled ? (
+                  {departmentAdminEnabled ? (
                     <Link
-                      href={`/admin/departments/${d.id}`}
+                      href={
+                        profilesEnabled
+                          ? `/admin/departments/${d.id}`
+                          : `/admin/departments/${d.id}?tab=cycles`
+                      }
                       className="hover:underline"
                     >
                       {d.name}
@@ -108,13 +117,19 @@ export default async function AdminDepartmentsPage() {
                     ? `${d.headEmployee.lastName}, ${d.headEmployee.firstName}`
                     : "Not assigned"}
                 </p>
-                {profilesEnabled ? (
+                {departmentAdminEnabled ? (
                   <p className="mt-2">
                     <Link
-                      href={`/admin/departments/${d.id}`}
+                      href={
+                        profilesEnabled
+                          ? `/admin/departments/${d.id}`
+                          : `/admin/departments/${d.id}?tab=cycles`
+                      }
                       className="text-xs font-medium text-zinc-800 underline-offset-2 hover:underline"
                     >
-                      Open Department Administration →
+                      {profilesEnabled
+                        ? "Open Department Administration →"
+                        : "Open Operational Cycles →"}
                     </Link>
                   </p>
                 ) : null}

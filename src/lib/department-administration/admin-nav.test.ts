@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   DEPARTMENT_ADMIN_TABS,
   departmentAdminHref,
+  departmentAdminTabsForFlags,
   isDepartmentAdminTabId,
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
@@ -22,6 +23,7 @@ describe("Department Administration local navigation", () => {
         "rooms",
         "diagnostics",
         "versions",
+        "cycles",
         "settings",
       ],
     );
@@ -30,9 +32,27 @@ describe("Department Administration local navigation", () => {
   it("resolves tab query params with overview default", () => {
     assert.equal(resolveDepartmentAdminTab(undefined), "overview");
     assert.equal(resolveDepartmentAdminTab("rooms"), "rooms");
+    assert.equal(resolveDepartmentAdminTab("cycles"), "cycles");
     assert.equal(resolveDepartmentAdminTab("not-a-tab"), "overview");
     assert.equal(isDepartmentAdminTabId("areas"), true);
+    assert.equal(isDepartmentAdminTabId("cycles"), true);
     assert.equal(isDepartmentAdminTabId("projection"), false);
+  });
+
+  it("filters tabs by feature flags and falls back when cycles-only", () => {
+    assert.deepEqual(
+      departmentAdminTabsForFlags({ profilesEnabled: false, cyclesEnabled: true }).map(
+        (t) => t.id,
+      ),
+      ["cycles"],
+    );
+    assert.equal(
+      resolveDepartmentAdminTab("overview", {
+        availableTabIds: ["cycles"],
+        fallback: "cycles",
+      }),
+      "cycles",
+    );
   });
 
   it("builds local hrefs without leaking into global nav paths", () => {

@@ -35,6 +35,11 @@ export const DEPARTMENT_ADMIN_TABS = [
     description: "Draft, certified, active, and retired history",
   },
   {
+    id: "cycles",
+    label: "Operational Cycles",
+    description: "Named phases of the operating day",
+  },
+  {
     id: "settings",
     label: "Settings",
     description: "Baseline and profile identity",
@@ -43,15 +48,45 @@ export const DEPARTMENT_ADMIN_TABS = [
 
 export type DepartmentAdminTabId = (typeof DEPARTMENT_ADMIN_TABS)[number]["id"];
 
+/** Profile-authoring tabs — hidden when Department Operational Profiles are off. */
+export const DEPARTMENT_PROFILE_TAB_IDS: readonly DepartmentAdminTabId[] = [
+  "overview",
+  "areas",
+  "archetypes",
+  "rooms",
+  "diagnostics",
+  "versions",
+  "settings",
+];
+
 export function isDepartmentAdminTabId(value: string): value is DepartmentAdminTabId {
   return DEPARTMENT_ADMIN_TABS.some((tab) => tab.id === value);
 }
 
+export function departmentAdminTabsForFlags(input: {
+  profilesEnabled: boolean;
+  cyclesEnabled: boolean;
+}): (typeof DEPARTMENT_ADMIN_TABS)[number][] {
+  return DEPARTMENT_ADMIN_TABS.filter((tab) => {
+    if (tab.id === "cycles") return input.cyclesEnabled;
+    return input.profilesEnabled;
+  });
+}
+
 export function resolveDepartmentAdminTab(
   value: string | null | undefined,
+  options?: { availableTabIds?: readonly DepartmentAdminTabId[]; fallback?: DepartmentAdminTabId },
 ): DepartmentAdminTabId {
-  if (value && isDepartmentAdminTabId(value)) return value;
-  return "overview";
+  const fallback = options?.fallback ?? "overview";
+  if (value && isDepartmentAdminTabId(value)) {
+    if (!options?.availableTabIds || options.availableTabIds.includes(value)) {
+      return value;
+    }
+  }
+  if (options?.availableTabIds?.length) {
+    return options.availableTabIds[0]!;
+  }
+  return fallback;
 }
 
 export function departmentAdminHref(

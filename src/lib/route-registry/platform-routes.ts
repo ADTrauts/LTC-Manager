@@ -148,6 +148,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
   },
+  {
+    pattern: "/staffing/cycles",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes:
+      "Dietary Operational Cycles supervisor overview. Page enforces DIETARY_OPERATIONAL_CYCLES_ENABLED.",
+  },
 
   // ── Locations ─────────────────────────────────────────────────────────────
   {
@@ -303,14 +312,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     pattern: "/admin/departments",
     match: "EXACT",
     surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    // Phase 9A: Manager+ may reach Department Builder for Operational Cycles.
+    // Cycle mutations still enforce Dietary operational authority (FA alone is denied).
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "administration",
   },
   {
     pattern: "/admin/departments/[departmentId]",
     match: "EXACT",
     surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "administration",
     requiresDownstreamAuthorization: true,
   },

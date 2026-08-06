@@ -106,7 +106,9 @@ export {
 
 export {
   DEPARTMENT_ADMIN_TABS,
+  DEPARTMENT_PROFILE_TAB_IDS,
   departmentAdminHref,
+  departmentAdminTabsForFlags,
   isDepartmentAdminTabId,
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,

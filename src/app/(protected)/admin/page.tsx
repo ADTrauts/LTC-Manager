@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import { ADMIN_HUB_SECTIONS } from "@/lib/administration/admin-hub";
+import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  await assertFacilityAdministratorPage();
+
   return (
     <div className="mx-auto max-w-3xl space-y-8" data-testid="admin-hub">
       <header>

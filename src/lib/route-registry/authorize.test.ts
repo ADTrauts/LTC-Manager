@@ -92,7 +92,6 @@ test("role policy — /admin permits only FACILITY_ADMINISTRATOR", () => {
     "/admin/permissions",
     "/admin/organization",
     "/admin/organization/facilities",
-    "/admin/departments",
     "/admin/knowledge",
     "/admin/inspections",
     "/admin/facility/builder",
@@ -100,6 +99,19 @@ test("role policy — /admin permits only FACILITY_ADMINISTRATOR", () => {
     assert.equal(roleMayAccessRoute(path, "FACILITY_ADMINISTRATOR", FLAGS), true, path);
     for (const role of APP_ROLES.filter((r) => r !== "FACILITY_ADMINISTRATOR")) {
       assert.equal(roleMayAccessRoute(path, role, FLAGS), false, `${role} at ${path}`);
+    }
+  }
+});
+
+test("role policy — Department Builder admits Manager+ for Operational Cycles", () => {
+  const managementTier: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER"];
+  for (const path of ["/admin/departments", "/admin/departments/cldept0001"]) {
+    for (const role of APP_ROLES) {
+      assert.equal(
+        roleMayAccessRoute(path, role, FLAGS),
+        managementTier.includes(role),
+        `${role} at ${path}`,
+      );
     }
   }
 });
@@ -133,8 +145,11 @@ test("role policy — /today keeps its Supervisor floor", () => {
 test("role policy — /staffing keeps its Supervisor floor", () => {
   assert.equal(roleMayAccessRoute("/staffing", "SUPERVISOR", FLAGS), true);
   assert.equal(roleMayAccessRoute("/staffing/assignments", "SUPERVISOR", FLAGS), true);
+  assert.equal(roleMayAccessRoute("/staffing/cycles", "SUPERVISOR", FLAGS), true);
+  assert.equal(roleMayAccessRoute("/staffing/cycles", "MANAGER", FLAGS), true);
   assert.equal(roleMayAccessRoute("/staffing", "LEAD_TEAM_MEMBER", FLAGS), false);
   assert.equal(roleMayAccessRoute("/staffing/assignments", "STAFF", FLAGS), false);
+  assert.equal(roleMayAccessRoute("/staffing/cycles", "STAFF", FLAGS), false);
 });
 
 test("role policy — /account stays available to every authenticated role", () => {
