@@ -468,7 +468,7 @@ export async function loadBuilderTemplates(input: {
       departmentId: input.departmentId,
     },
     include: {
-      fields: { select: { id: true }, take: 1 },
+      ...templateDetailInclude,
       _count: { select: { fields: true, applicabilities: true, schedules: true } },
     },
     orderBy: [{ name: "asc" }, { stableKey: "asc" }, { version: "desc" }],

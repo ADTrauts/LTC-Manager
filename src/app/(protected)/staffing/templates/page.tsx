@@ -85,6 +85,27 @@ export default async function OperationalTemplateBuilderPage() {
     orderBy: { name: "asc" },
     take: 200,
   });
+  const units = await prisma.unit.findMany({
+    where: {
+      facilityId: session.facilityId,
+      isActive: true,
+      departmentResponsibilities: { some: { departmentId: dietary.id } },
+    },
+    select: { id: true, name: true, unitType: true },
+    orderBy: { name: "asc" },
+    take: 200,
+  });
+  const unitIds = units.map((u) => u.id);
+  const spaces = await prisma.unitSpace.findMany({
+    where: {
+      facilityId: session.facilityId,
+      isActive: true,
+      OR: [{ unitId: { in: unitIds } }, { unitId: null }],
+    },
+    select: { id: true, name: true, spaceType: true, unitId: true },
+    orderBy: { name: "asc" },
+    take: 200,
+  });
   const cycles = await prisma.departmentOperationalCycle.findMany({
     where: {
       facilityId: session.facilityId,
@@ -95,6 +116,49 @@ export default async function OperationalTemplateBuilderPage() {
     orderBy: [{ displaySequence: "asc" }, { version: "desc" }],
   });
   const uniqueCycles = Array.from(new Map(cycles.map((c) => [c.stableKey, c])).values());
+  const assetTypes = Array.from(new Set(assets.map((a) => a.equipmentType).filter(Boolean))).sort();
+
+  const templatesForPanel = builder.templates.map((t) => ({
+    id: t.id,
+    name: t.name,
+    purposeType: t.purposeType,
+    status: t.status,
+    version: t.version,
+    stableKey: t.stableKey,
+    presetKey: t.presetKey,
+    description: t.description,
+    instructions: t.instructions,
+    allowAdHoc: t.allowAdHoc,
+    fields: t.fields.map((f) => ({
+      fieldKey: f.fieldKey,
+      label: f.label,
+      fieldType: f.fieldType,
+      isRequired: f.isRequired,
+      displaySequence: f.displaySequence,
+      helpText: f.helpText,
+      unitLabel: f.unitLabel,
+      minNumber: f.minNumber,
+      maxNumber: f.maxNumber,
+      allowedSelections: f.allowedSelections,
+      correctiveActionTrigger: f.correctiveActionTrigger,
+      correctiveActionRequired: f.correctiveActionRequired,
+    })),
+    applicabilities: t.applicabilities.map((a) => ({
+      kind: a.kind,
+      assetId: a.assetId,
+      assetType: a.assetType,
+      spaceId: a.spaceId,
+      spaceType: a.spaceType,
+      unitId: a.unitId,
+    })),
+    schedules: t.schedules.map((s) => ({
+      kind: s.kind,
+      cycleStableKey: s.cycleStableKey,
+      windowStartLocal: s.windowStartLocal,
+      windowEndLocal: s.windowEndLocal,
+    })),
+    _count: t._count,
+  }));
 
   return (
     <section className="mx-auto max-w-5xl space-y-4" data-testid="operational-template-builder">
@@ -127,10 +191,13 @@ export default async function OperationalTemplateBuilderPage() {
         departmentId={dietary.id}
         canManage={authority.canManage}
         canPublish={authority.canPublish}
-        templates={builder.templates}
+        templates={templatesForPanel}
         presets={listTemplatePresetSummaries()}
         assets={assets}
+        spaces={spaces}
+        units={units}
         cycleOptions={uniqueCycles}
+        assetTypes={assetTypes}
       />
     </section>
   );
