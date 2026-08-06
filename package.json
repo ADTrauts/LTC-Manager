@@ -29,11 +29,13 @@
     "route-mirror:generate": "tsx scripts/generate-legacy-route-mirror.ts",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "db:bootstrap-pilot-admin": "node scripts/bootstrap-pilot-facility-admin.mjs",
     "db:backfill-log-presets": "node scripts/backfill-log-template-presets.mjs",
     "db:backfill-gm-roster": "node scripts/backfill-gm-employees-from-users.mjs",
     "db:provision": "node scripts/provision-facility.mjs",
     "db:sync-operation-instances": "npx tsx scripts/sync-operation-instances.ts",
-    "db:generate-inspection-work": "npx tsx scripts/generate-inspection-work.ts"
+    "db:generate-inspection-work": "npx tsx scripts/generate-inspection-work.ts",
+    "verify:pilot-environment": "node scripts/verify/verify-pilot-environment.mjs"
   },
   "engines": {
     "node": ">=20 <21"

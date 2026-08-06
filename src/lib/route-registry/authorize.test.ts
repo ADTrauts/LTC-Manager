@@ -51,7 +51,15 @@ test("fail closed — no path resolves to ALLOW without a registry entry", () =>
 // ── Authentication ─────────────────────────────────────────────────────────────
 
 test("authentication — public routes need no session", () => {
-  for (const path of ["/", "/login", "/signup", "/api/auth/login", "/api/auth/pin-login"]) {
+  for (const path of [
+    "/",
+    "/login",
+    "/signup",
+    "/api/auth/login",
+    "/api/auth/pin-login",
+    "/api/health/live",
+    "/api/health/ready",
+  ]) {
     assert.equal(outcome(path, null), "ALLOW", path);
   }
 });

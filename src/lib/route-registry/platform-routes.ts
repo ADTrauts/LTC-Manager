@@ -374,6 +374,23 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
 
   // ── Public APIs ───────────────────────────────────────────────────────────
   {
+    pattern: "/api/health/live",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "operations",
+    notes: "Liveness probe. Process-only; no database and no secrets.",
+  },
+  {
+    pattern: "/api/health/ready",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "operations",
+    notes:
+      "Readiness probe. Returns only boolean dependency signals (auth secret, database, migrations).",
+  },
+  {
     pattern: "/api/auth/login",
     match: "EXACT",
     surface: "API",
