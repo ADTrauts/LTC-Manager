@@ -11,6 +11,7 @@ export const OFFLINE_COMMAND_TYPES = [
   "RECORD_SERVERY_READY",
   "RECORD_MEAL_SERVICE_STARTED",
   "SUBMIT_OPERATIONAL_EVIDENCE",
+  "REPORT_ASSET_ISSUE",
 ] as const;
 
 export type OfflineCommandType = (typeof OFFLINE_COMMAND_TYPES)[number];
@@ -202,6 +203,21 @@ export type OfflineRuntimeBundle = {
     }>;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Minimal unit-scoped Asset context for offline Issue reporting.
+   * Never includes full catalog, Vendor details, or management notes.
+   */
+  assetContext?: {
+    assets: Array<{
+      id: string;
+      name: string;
+      assetCode: string;
+      status: string;
+      statusLabel: string;
+      openIssueSummary: string | null;
+    }>;
+    lastSyncedAt: string;
+  } | null;
 };
 
 export type OfflineMilestoneProjection = {
@@ -250,6 +266,24 @@ export type OfflineCommandEnvelope = {
       valueDateTime?: string | null;
       valueSelections?: string[];
     }>;
+  };
+  /** Phase 10A Asset Issue payload — present when commandType=REPORT_ASSET_ISSUE. */
+  assetIssue?: {
+    assetId: string;
+    spaceId?: string | null;
+    summary: string;
+    description: string;
+    priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+    operationalImpact?:
+      | "NO_IMMEDIATE_IMPACT"
+      | "WORKAROUND_AVAILABLE"
+      | "SERVICE_AT_RISK"
+      | "EQUIPMENT_UNAVAILABLE";
+    equipmentRemainsUsable?: boolean;
+    workaroundInstruction?: string | null;
+    evidenceRecordId?: string | null;
+    comment?: string | null;
+    allowDuplicateOpen?: boolean;
   };
 };
 

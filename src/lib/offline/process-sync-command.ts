@@ -1,7 +1,11 @@
 import type { MealType, OperationalTemplateScheduleKind, PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import { reportAssetIssue } from "@/lib/asset-operations";
+import {
+  isDietaryAssetOperationsEnabled,
+  isDietaryOperationalEvidenceEnabled,
+} from "@/lib/feature-flags";
 import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { recordServeryMilestone, type ServeryMilestone } from "@/lib/servery";
@@ -66,6 +70,10 @@ export async function processSyncCommand(
 
   if (command.commandType === "SUBMIT_OPERATIONAL_EVIDENCE") {
     return processEvidenceCommand(input, client, now);
+  }
+
+  if (command.commandType === "REPORT_ASSET_ISSUE") {
+    return processAssetIssueCommand(input, client, now);
   }
 
   const actor = await resolveMilestoneActor(input.session);
@@ -266,6 +274,7 @@ async function processEvidenceCommand(
       synchronizedAt,
       null,
       record.id,
+      null,
     );
 
     return {
@@ -281,7 +290,91 @@ async function processEvidenceCommand(
     };
   } catch (err) {
     const reason = err instanceof Error ? err.message : "EVIDENCE_SUBMIT_FAILED";
-    await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null);
+    await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null, null);
+    return reject(command.clientCommandId, reason);
+  }
+}
+
+async function processAssetIssueCommand(
+  input: ProcessSyncCommandInput,
+  client: PrismaClient,
+  now: Date,
+): Promise<OfflineSyncCommandResult> {
+  const { command } = input;
+  if (!isDietaryAssetOperationsEnabled()) {
+    return reject(command.clientCommandId, "ASSET_OPERATIONS_FLAG_DISABLED");
+  }
+  const payload = command.assetIssue;
+  if (!payload?.assetId || !payload.summary?.trim() || !payload.description?.trim()) {
+    return reject(command.clientCommandId, "ASSET_ISSUE_PAYLOAD_INVALID");
+  }
+
+  const occurredAt = new Date(command.occurredAt);
+  if (Number.isNaN(occurredAt.getTime())) {
+    return reject(command.clientCommandId, "OCCURRENCE_TIME_INVALID");
+  }
+
+  try {
+    const result = await reportAssetIssue(input.session, {
+      facilityId: command.facilityId,
+      departmentId: command.departmentId,
+      assetId: payload.assetId,
+      unitId: command.unitId,
+      spaceId: payload.spaceId,
+      summary: payload.summary,
+      description: payload.description,
+      observedAt: occurredAt,
+      priority: payload.priority,
+      operationalImpact: payload.operationalImpact,
+      equipmentRemainsUsable: payload.equipmentRemainsUsable,
+      workaroundInstruction: payload.workaroundInstruction,
+      evidenceRecordId: payload.evidenceRecordId,
+      comment: payload.comment,
+      allowDuplicateOpen: payload.allowDuplicateOpen,
+      clientCommandId: command.clientCommandId,
+      deviceBoundUnitId: input.deviceBoundUnitId,
+      recordedOnline: false,
+      now,
+      client,
+    });
+
+    const synchronizedAt = result.issue.synchronizedAt ?? now;
+    if (!result.issue.synchronizedAt) {
+      await client.assetIssue.update({
+        where: { id: result.issue.id },
+        data: { synchronizedAt },
+      });
+    }
+
+    const category: OfflineSyncResultCategory = result.idempotent
+      ? "ALREADY_ACCEPTED"
+      : "ACCEPTED";
+    await upsertReceipt(
+      client,
+      input,
+      command,
+      category,
+      null,
+      synchronizedAt,
+      null,
+      null,
+      result.issue.id,
+    );
+
+    return {
+      clientCommandId: command.clientCommandId,
+      category,
+      reasonCode: null,
+      authoritativeRecordId: result.issue.id,
+      serverAcceptedAt: synchronizedAt.toISOString(),
+      serverRevision: null,
+      retryAfterSeconds: null,
+      conflictCategory: null,
+      authoritativeMilestone: null,
+    };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "ASSET_ISSUE_REPORT_FAILED";
+    await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null, null);
     return reject(command.clientCommandId, reason);
   }
 }
@@ -309,6 +402,7 @@ async function upsertReceipt(
   serverAcceptedAt: Date | null,
   milestoneEntryId: string | null,
   evidenceRecordId: string | null,
+  assetIssueId: string | null = null,
 ) {
   const actor = await resolveMilestoneActor(input.session);
   await client.offlineSyncReceipt.upsert({
@@ -334,6 +428,7 @@ async function upsertReceipt(
       serverAcceptedAt,
       milestoneEntryId,
       evidenceRecordId,
+      assetIssueId,
     },
     update: {
       resultCategory,
@@ -341,6 +436,7 @@ async function upsertReceipt(
       serverAcceptedAt,
       milestoneEntryId,
       evidenceRecordId,
+      assetIssueId,
     },
   });
 }

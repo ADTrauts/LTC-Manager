@@ -40,6 +40,7 @@ function toSyncEnvelope(command: OfflineQueuedCommand): OfflineCommandEnvelope {
     expectedServerRevision: command.expectedServerRevision,
     deviceTimezoneOffsetMinutes: command.deviceTimezoneOffsetMinutes,
     evidence: command.evidence,
+    assetIssue: command.assetIssue,
   };
 }
 import { OFFLINE_ACCEPTED_RETENTION_HOURS } from "./types";
@@ -167,6 +168,51 @@ export async function queueOfflineEvidenceCommand(input: {
     expectedServerRevision: input.bundle.serverRevision,
     deviceTimezoneOffsetMinutes: -now.getTimezoneOffset(),
     evidence: input.evidence,
+  };
+  const command: OfflineQueuedCommand = {
+    ...envelope,
+    queueState: "PENDING",
+    attemptCount: 0,
+    lastAttemptAt: null,
+    retryAfterAt: null,
+    lastErrorCategory: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  await enqueueCommand(command);
+  return command;
+}
+
+export async function queueOfflineAssetIssueCommand(input: {
+  bundle: OfflineRuntimeBundle;
+  assetIssue: NonNullable<OfflineCommandEnvelope["assetIssue"]>;
+  mealType?: "BREAKFAST" | "LUNCH" | "DINNER";
+  occurredAt?: Date;
+}): Promise<OfflineQueuedCommand> {
+  const now = new Date();
+  const occurredAt = input.occurredAt ?? now;
+  const mealType =
+    input.mealType ??
+    input.bundle.mealContext.applicableMealType ??
+    "LUNCH";
+  const envelope: OfflineCommandEnvelope = {
+    clientCommandId: generateClientCommandId(),
+    commandType: "REPORT_ASSET_ISSUE",
+    facilityId: input.bundle.facilityId,
+    departmentId: input.bundle.departmentId,
+    unitId: input.bundle.unitId,
+    operationalDate: input.bundle.operationalDate,
+    mealType,
+    occurredAt: occurredAt.toISOString(),
+    locallyRecordedAt: now.toISOString(),
+    deviceBoundUnitId: input.bundle.deviceBoundUnitId,
+    actorRef: input.bundle.actor.actorRef,
+    authMethod: input.bundle.actor.authMethod,
+    role: input.bundle.actor.role,
+    bundleVersion: input.bundle.bundleVersion,
+    expectedServerRevision: input.bundle.serverRevision,
+    deviceTimezoneOffsetMinutes: -now.getTimezoneOffset(),
+    assetIssue: input.assetIssue,
   };
   const command: OfflineQueuedCommand = {
     ...envelope,

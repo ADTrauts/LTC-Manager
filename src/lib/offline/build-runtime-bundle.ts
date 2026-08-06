@@ -18,11 +18,13 @@ import {
 import { resolveJobFlow } from "@/lib/dietary-job-flow";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow";
 import {
+  isDietaryAssetOperationsEnabled,
   isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
   isDietaryOperationalEvidenceEnabled,
   isOperationalAssignmentsEnabled,
 } from "@/lib/feature-flags";
+import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
@@ -572,6 +574,31 @@ export async function buildRuntimeBundle(
     }
   }
 
+  let assetContext: OfflineRuntimeBundle["assetContext"] = null;
+  if (isDietaryAssetOperationsEnabled()) {
+    try {
+      const runtimeAssets = await loadUnitRuntimeAssets(unit.id, input.session.facilityId, {
+        departmentId: dietary.id,
+        includeRetired: false,
+      });
+      assetContext = {
+        assets: runtimeAssets.map((a) => ({
+          id: a.assetId,
+          name: a.name,
+          assetCode: a.assetCode,
+          status: a.status,
+          statusLabel: a.statusLabel,
+          openIssueSummary: a.openIssueAlreadyReported
+            ? a.openImpactLabel ?? "Open issue already reported"
+            : null,
+        })),
+        lastSyncedAt: issuedAt.toISOString(),
+      };
+    } catch {
+      assetContext = null;
+    }
+  }
+
   const bundle: OfflineRuntimeBundle = {
     bundleVersion,
     serverRevision,
@@ -607,6 +634,7 @@ export async function buildRuntimeBundle(
     cycleContext,
     jobFlowContext,
     evidenceContext,
+    assetContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({
