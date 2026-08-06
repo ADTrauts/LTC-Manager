@@ -53,8 +53,9 @@ Restore drills that temporarily spin a second Postgres instance must be destroye
 
 | Blocker | Class | Notes |
 |---------|-------|-------|
-| Render payment method missing | CONFIGURATION REQUIRED | Blueprint validate returns `need_payment_info`. Hobby workspace is active; **Add Card** required before paid Standard web / Basic-1gb Postgres / Starter cron can be created. No resources created yet (no spend). |
-| Supplemental object storage for ≥14-day logical dumps | CONFIGURATION REQUIRED | Render Objects EA not enabled on workspace. Need S3-compatible bucket + keys (or enable Render Objects if owner chooses) within ceiling |
+| Paid Render deferred by owner | OWNER DECISION | 2026-08-06 — push off payment as long as possible; complete local build/rehearsal first, then set up Render. No paid resources until owner re-authorizes card + provision. |
+| Render payment method missing | CONFIGURATION REQUIRED | Blueprint validate returns `need_payment_info`. Hobby workspace ready; **Add Card** required before paid resources. |
+| Supplemental object storage for ≥14-day logical dumps | CONFIGURATION REQUIRED | Needed when Render staging is stood up; not required for local rehearsal |
 | Staging FA password delivery channel | OPERATIONAL PROCEDURE REQUIRED | Generate out-of-band; never commit |
 
 ## Cleared blockers
@@ -62,6 +63,23 @@ Restore drills that temporarily spin a second Postgres instance must be destroye
 | Item | Notes |
 |------|-------|
 | Render CLI auth | Login successful 2026-08-06; workspace `Andrew's workspace` (`tea-d9q5r1vlk1mc73el6o90`); Hobby plan confirmed |
+
+## Local rehearsal track (authorized while Render deferred)
+
+| Activity | Status |
+|----------|--------|
+| Disposable local Postgres `ltc_staging_local_rehearsal` (never `ltc_manager`) | **Done** 2026-08-06 |
+| Local Postgres version | **14.18** Homebrew — note: Render staging still requires **16**; local is rehearsal only |
+| Unique local-staging `AUTH_SECRET` (`.local-staging/rehearsal.env`, gitignored) | **Done** — not shared with future Render |
+| 65 migrations via `prisma migrate deploy` | **Done** — schema up to date |
+| `db:bootstrap-pilot-admin` (synthetic FA only; no demo seed) | **Done** — email `staging.fa.local@example.com`; password redacted in `.local-staging/rehearsal.env` |
+| Flags: Assignments on / Operation Engine off | **Done** in rehearsal env |
+| Node 20 production build | **Done** — `verify-build: PASS` (Next.js 16.2.1) |
+| Health probes on local `next start` | **Done** — live `ok`; ready `authSecret/database/migrations` all true |
+| Anonymous offline bundle denied | **Done** — HTTP 401 |
+| Local smoke (Assignment / Milestone / offline / revocation / GM) | Pending (optional while Render deferred) |
+| `verify:pilot-environment` against HTTPS staging | Deferred until Render |
+| Native PITR / logical dump / restore drill | Deferred until Render |
 
 ---
 

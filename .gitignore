@@ -40,6 +40,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Local Stage 0 rehearsal secrets / disposable target (never commit)
+.local-staging/
+
 # vercel
 .vercel
 
