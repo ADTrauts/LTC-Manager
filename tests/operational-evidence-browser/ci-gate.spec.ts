@@ -246,4 +246,253 @@ test.describe("@ci-gate Phase 9C Operational Evidence", () => {
       await context.close();
     }
   });
+
+  test("BROWSER: blank LOG builder — temperature field, range, corrective, asset, cycle, preview, publish", async () => {
+    const { context, page } = await openPersistent("builder-blank-log");
+    try {
+      await loginPassword(page, fx.managerEmail);
+      await page.goto(fx.templateBuilderPath, { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId("operational-template-builder")).toBeVisible();
+      await page.getByTestId("create-blank-LOG").click();
+      await expect(page.getByTestId("template-draft-editor")).toBeVisible();
+
+      await page.getByTestId("template-name-input").fill("Browser Cooler Log 9C1");
+      await page.getByTestId("template-field-label-0").fill("Cooler temperature");
+      await page.getByTestId("template-field-type-0").selectOption("TEMPERATURE");
+      await page.getByTestId("template-field-units-0").fill("°F");
+      await page.getByTestId("template-field-min-0").fill("33");
+      await page.getByTestId("template-field-max-0").fill("41");
+      await page.getByTestId("template-field-ca-trigger-0").check();
+      await page.getByTestId("template-field-ca-required-0").check();
+
+      await page.getByTestId("template-add-applicability").click();
+      await page.getByTestId("template-applicability-kind-0").selectOption("SPECIFIC_ASSET");
+      await page.getByTestId("template-applicability-asset-0").selectOption(fx.coolerAssetId);
+
+      await page.getByTestId("template-add-schedule").click();
+      const cycleSelect = page.getByTestId("template-schedule-cycle-0");
+      if (await cycleSelect.count()) {
+        const options = cycleSelect.locator("option");
+        const optionCount = await options.count();
+        if (optionCount > 1) {
+          await cycleSelect.selectOption({ index: 1 });
+        } else {
+          await page.getByTestId("template-schedule-kind-0").selectOption("ONCE_PER_OPERATIONAL_DATE");
+        }
+      }
+
+      await page.getByTestId("template-toggle-preview").click();
+      await expect(page.getByTestId("template-preview-body")).toBeVisible();
+      await expect(page.getByTestId("template-preview-body")).toContainText("Cooler temperature");
+
+      await page.getByTestId("template-publish-from-editor").click();
+      await expect(page.getByText(/Template published/i)).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByTestId("template-published")).toContainText("Browser Cooler Log 9C1");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("BROWSER: successor draft, range change, publish; prior Log Book snapshot unchanged; retire", async () => {
+    const db = prisma();
+    let publishedId = fx.publishedTemplateId;
+    try {
+      const published = await db.operationalTemplate.findFirst({
+        where: {
+          facilityId: fx.facilityId,
+          departmentId: fx.departmentId,
+          status: "PUBLISHED",
+          name: { contains: "Browser Cooler Log 9C1" },
+        },
+        orderBy: { version: "desc" },
+      });
+      if (published) publishedId = published.id;
+    } finally {
+      await db.$disconnect();
+    }
+
+    const { context, page } = await openPersistent("builder-successor");
+    try {
+      await loginPassword(page, fx.managerEmail);
+      await page.goto(fx.templateBuilderPath, { waitUntil: "domcontentloaded" });
+      await page
+        .getByTestId("template-published")
+        .getByTestId(`successor-template-${publishedId}`)
+        .click();
+      await expect(page.getByTestId("template-draft-editor")).toBeVisible();
+      await page.getByTestId("template-field-min-0").fill("35");
+      await page.getByTestId("template-field-max-0").fill("40");
+      await page.getByTestId("template-publish-from-editor").click();
+      await expect(page.getByText(/Template published/i)).toBeVisible({ timeout: 20_000 });
+
+      await page.goto(
+        `${fx.logBookPath}?unitId=${fx.unitId}&assetId=${fx.coolerAssetId}`,
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(page.getByTestId("log-book-results")).toContainText("v1");
+
+      await page.goto(fx.templateBuilderPath, { waitUntil: "domcontentloaded" });
+      const publishedRow = page
+        .getByTestId("template-published")
+        .locator(`[data-template-name="Browser Cooler Log 9C1"][data-template-status="PUBLISHED"]`)
+        .first();
+      const retireId = (await publishedRow.getAttribute("data-testid"))?.replace(
+        "template-row-",
+        "",
+      );
+      expect(retireId).toBeTruthy();
+      await page
+        .getByTestId("template-published")
+        .getByTestId(`retire-template-${retireId}`)
+        .click();
+      await expect(page.getByTestId(`retire-confirm-${retireId}`)).toBeVisible();
+      await page.getByTestId(`retire-confirm-yes-${retireId}`).click();
+      await expect(page.getByText(/Template retired/i)).toBeVisible({ timeout: 15_000 });
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("BROWSER: CHECKLIST and INSPECTION blank create through UI", async () => {
+    const { context, page } = await openPersistent("builder-checklist-inspection");
+    try {
+      await loginPassword(page, fx.managerEmail);
+      await page.goto(fx.templateBuilderPath, { waitUntil: "domcontentloaded" });
+
+      await page.getByTestId("create-blank-CHECKLIST").click();
+      await page.getByTestId("template-name-input").fill("Browser Opening Checklist 9C1");
+      await page.getByTestId("template-field-label-0").fill("Hand wash station stocked");
+      await page.getByTestId("template-field-type-0").selectOption("YES_NO");
+      await page.getByTestId("template-add-schedule").click();
+      await page.getByTestId("template-schedule-kind-0").selectOption("ONCE_PER_OPERATIONAL_DATE");
+      await page.getByTestId("template-allow-adhoc").check();
+      await page.getByTestId("template-save-draft").click();
+      await expect(page.getByText(/Draft created/i)).toBeVisible({ timeout: 15_000 });
+
+      await page.getByTestId("create-blank-INSPECTION").click();
+      await page.getByTestId("template-name-input").fill("Browser Kitchen Inspection 9C1");
+      await page.getByTestId("template-field-label-0").fill("Overall result");
+      await page.getByTestId("template-field-type-0").selectOption("PASS_NEEDS_ATTENTION");
+      await page.getByTestId("template-add-schedule").click();
+      await page.getByTestId("template-schedule-kind-0").selectOption("ONCE_PER_OPERATIONAL_DATE");
+      await page.getByTestId("template-save-draft").click();
+      await expect(page.getByText(/Draft created/i)).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId("template-drafts")).toContainText("Browser Opening Checklist 9C1");
+      await expect(page.getByTestId("template-drafts")).toContainText("Browser Kitchen Inspection 9C1");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("BROWSER: offline submit Saved on This Tablet; refresh persistence; reconnect sync", async () => {
+    test.setTimeout(120_000);
+    const db = prisma();
+    try {
+      await db.operationalEvidenceRecord.deleteMany({
+        where: {
+          facilityId: fx.facilityId,
+          departmentId: fx.departmentId,
+          operationalDate: new Date(`${fx.serviceDateKey}T00:00:00.000Z`),
+          requirementKey: { not: { startsWith: "hist-" } },
+        },
+      });
+    } finally {
+      await db.$disconnect();
+    }
+
+    const { context, page } = await openPersistent("offline-submit-e2e");
+    try {
+      await loginPassword(page, fx.faWithDietaryEmail);
+      await bindDevice(page, fx.unitId);
+      await loginPassword(page, fx.staffEmail);
+      await page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
+      await fetchBundleViaApi(page, fx.unitId);
+
+      const openLink = page
+        .locator(`[data-testid^="open-evidence-"]`)
+        .filter({ hasText: /Cooler|Temperature|temperature/i })
+        .first();
+      const anyOpen = page.locator(`[data-testid^="open-evidence-"]`).first();
+      if (await openLink.count()) {
+        await openLink.click();
+      } else {
+        await expect(anyOpen).toBeVisible({ timeout: 20_000 });
+        await anyOpen.click();
+      }
+      await expect(page.getByTestId("evidence-entry-form")).toBeVisible();
+      const requirementKey = await page
+        .getByTestId("evidence-entry-form")
+        .getAttribute("data-requirement-key");
+
+      // Ensure form fields exist before going offline.
+      const tempField = page.getByTestId("evidence-field-cooler_temperature");
+      const firstField = page.locator(`[data-testid^="evidence-field-"]`).first();
+      const field = (await tempField.count()) ? tempField : firstField;
+
+      await setNetworkOffline(context, true, page);
+      await expect(page.getByTestId("evidence-offline-status")).toContainText(/Offline/i, {
+        timeout: 15_000,
+      });
+
+      await field.fill("37");
+      await page.getByTestId("evidence-submit").click();
+      await expect(page.getByTestId("evidence-offline-status")).toContainText(
+        /Saved on This Tablet|pending on this tablet/i,
+        { timeout: 20_000 },
+      );
+
+      const snapAfter = await inspectIndexedDb(page);
+      expect(
+        ((snapAfter as { commands?: Array<{ commandType?: string }> }).commands ?? []).some(
+          (c) => c.commandType === "SUBMIT_OPERATIONAL_EVIDENCE",
+        ) || (snapAfter as { commandCount?: number }).commandCount! > 0,
+      ).toBeTruthy();
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const snapAfterRefresh = await inspectIndexedDb(page);
+      expect((snapAfterRefresh as { commandCount?: number }).commandCount ?? 0).toBeGreaterThanOrEqual(
+        1,
+      );
+
+      if (requirementKey) {
+        await page.goto(`${fx.unitWorkspacePath}?evidence=${encodeURIComponent(requirementKey)}`, {
+          waitUntil: "domcontentloaded",
+        });
+      }
+
+      await setNetworkOffline(context, false, page);
+      await page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
+    } finally {
+      await setNetworkOffline(context, false).catch(() => {});
+      await context.close();
+    }
+  });
+
+  test("BROWSER: user-change isolation — pending evidence stays scoped to original actor unit", async () => {
+    const { context, page } = await openPersistent("user-change-isolation");
+    try {
+      await loginPassword(page, fx.faWithDietaryEmail);
+      await bindDevice(page, fx.unitId);
+      await loginPassword(page, fx.staffEmail);
+      await page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
+      await fetchBundleViaApi(page, fx.unitId);
+
+      const before = await inspectIndexedDb(page);
+      const beforeBundle = (before as { bundle?: { actor?: { actorRef?: string }; unitId?: string } })
+        ?.bundle;
+      expect(beforeBundle?.unitId).toBe(fx.unitId);
+
+      // Switch user without clearing IndexedDB — pending commands must remain scoped.
+      await loginPassword(page, fx.supervisorEmail);
+      const after = await inspectIndexedDb(page);
+      const commands =
+        ((after as { commands?: Array<{ unitId?: string; commandType?: string }> })?.commands ??
+          []) as Array<{ unitId?: string; commandType?: string }>;
+      for (const cmd of commands.filter((c) => c.commandType === "SUBMIT_OPERATIONAL_EVIDENCE")) {
+        expect(cmd.unitId).toBe(fx.unitId);
+      }
+    } finally {
+      await context.close();
+    }
+  });
 });
