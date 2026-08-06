@@ -15,9 +15,17 @@ import {
   resolveServeryMealServiceContext,
 } from "@/lib/servery";
 
-import { isDietaryOperationalCyclesEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { resolveJobFlow } from "@/lib/dietary-job-flow";
+import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow";
+import {
+  isDietaryJobFlowEnabled,
+  isDietaryOperationalCyclesEnabled,
+  isOperationalAssignmentsEnabled,
+} from "@/lib/feature-flags";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
+import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { loadEmployeeAssignmentOfflineContext } from "@/lib/scheduling/operational-assignments/load-employee-assignments";
+import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import { actorRefForSession, resolveMilestoneActor } from "./resolve-milestone-actor";
 import {
   OFFLINE_BUNDLE_LEASE_HOURS,
@@ -214,13 +222,16 @@ export async function buildRuntimeBundle(
       : null;
 
   let cycleContext: OfflineRuntimeBundle["cycleContext"] = null;
-  if (isDietaryOperationalCyclesEnabled()) {
+  let resolvedCycle =
+    null as ReturnType<typeof resolveOperationalCycle> | null;
+
+  if (isDietaryOperationalCyclesEnabled() || isDietaryJobFlowEnabled()) {
     const cycles = await loadPublishedCyclesForDate(
       input.session.facilityId,
       dietary.id,
       serviceDateKey,
     );
-    const resolved = resolveOperationalCycle({
+    resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
       facilityTimezone,
@@ -232,69 +243,237 @@ export async function buildRuntimeBundle(
       })),
     });
 
-    const syncedAt = issuedAt.toISOString();
-    if (resolved.state === "ACTIVE") {
-      cycleContext = {
-        cycleId: resolved.primary.id,
-        label: resolved.primary.label,
-        cycleType: resolved.primary.cycleType,
-        startLocal: resolved.primary.startLocal,
-        endLocal: resolved.primary.endLocal,
-        operationalDate: serviceDateKey,
-        mealType: resolved.primary.mealType,
-        mealTargetTime: resolved.mealTargetTime,
-        expectedMilestones: resolved.primary.expectedMilestones,
-        nextCycleLabel: resolved.next?.label ?? null,
-        bundleRevision: serverRevision,
-        lastSyncedAt: syncedAt,
-      };
-    } else if (resolved.state === "UPCOMING" || resolved.state === "BETWEEN") {
-      const next = resolved.next;
-      cycleContext = {
-        cycleId: next.id,
-        label: next.label,
-        cycleType: next.cycleType,
-        startLocal: next.startLocal,
-        endLocal: next.endLocal,
-        operationalDate: serviceDateKey,
-        mealType: next.mealType,
-        mealTargetTime: resolved.mealTargetTime,
-        expectedMilestones: next.expectedMilestones,
-        nextCycleLabel: next.label,
-        bundleRevision: serverRevision,
-        lastSyncedAt: syncedAt,
-      };
-    } else if (resolved.state === "DAY_COMPLETE") {
-      cycleContext = {
-        cycleId: resolved.last.id,
-        label: resolved.last.label,
-        cycleType: resolved.last.cycleType,
-        startLocal: resolved.last.startLocal,
-        endLocal: resolved.last.endLocal,
-        operationalDate: serviceDateKey,
-        mealType: resolved.last.mealType,
-        mealTargetTime: resolved.mealTargetTime,
-        expectedMilestones: resolved.last.expectedMilestones,
-        nextCycleLabel: null,
-        bundleRevision: serverRevision,
-        lastSyncedAt: syncedAt,
-      };
-    } else {
-      cycleContext = {
-        cycleId: null,
-        label: null,
-        cycleType: null,
-        startLocal: null,
-        endLocal: null,
-        operationalDate: serviceDateKey,
-        mealType: null,
-        mealTargetTime: null,
-        expectedMilestones: [],
-        nextCycleLabel: null,
-        bundleRevision: serverRevision,
-        lastSyncedAt: syncedAt,
-      };
+    if (isDietaryOperationalCyclesEnabled()) {
+      const syncedAt = issuedAt.toISOString();
+      if (resolvedCycle.state === "ACTIVE") {
+        cycleContext = {
+          cycleId: resolvedCycle.primary.id,
+          label: resolvedCycle.primary.label,
+          cycleType: resolvedCycle.primary.cycleType,
+          startLocal: resolvedCycle.primary.startLocal,
+          endLocal: resolvedCycle.primary.endLocal,
+          operationalDate: serviceDateKey,
+          mealType: resolvedCycle.primary.mealType,
+          mealTargetTime: resolvedCycle.mealTargetTime,
+          expectedMilestones: [...resolvedCycle.primary.expectedMilestones],
+          nextCycleLabel: resolvedCycle.next?.label ?? null,
+          bundleRevision: serverRevision,
+          lastSyncedAt: syncedAt,
+        };
+      } else if (resolvedCycle.state === "UPCOMING" || resolvedCycle.state === "BETWEEN") {
+        const next = resolvedCycle.next;
+        cycleContext = {
+          cycleId: next.id,
+          label: next.label,
+          cycleType: next.cycleType,
+          startLocal: next.startLocal,
+          endLocal: next.endLocal,
+          operationalDate: serviceDateKey,
+          mealType: next.mealType,
+          mealTargetTime: resolvedCycle.mealTargetTime,
+          expectedMilestones: [...next.expectedMilestones],
+          nextCycleLabel: next.label,
+          bundleRevision: serverRevision,
+          lastSyncedAt: syncedAt,
+        };
+      } else if (resolvedCycle.state === "DAY_COMPLETE") {
+        cycleContext = {
+          cycleId: resolvedCycle.last.id,
+          label: resolvedCycle.last.label,
+          cycleType: resolvedCycle.last.cycleType,
+          startLocal: resolvedCycle.last.startLocal,
+          endLocal: resolvedCycle.last.endLocal,
+          operationalDate: serviceDateKey,
+          mealType: resolvedCycle.last.mealType,
+          mealTargetTime: resolvedCycle.mealTargetTime,
+          expectedMilestones: [...resolvedCycle.last.expectedMilestones],
+          nextCycleLabel: null,
+          bundleRevision: serverRevision,
+          lastSyncedAt: syncedAt,
+        };
+      } else {
+        cycleContext = {
+          cycleId: null,
+          label: null,
+          cycleType: null,
+          startLocal: null,
+          endLocal: null,
+          operationalDate: serviceDateKey,
+          mealType: null,
+          mealTargetTime: null,
+          expectedMilestones: [],
+          nextCycleLabel: null,
+          bundleRevision: serverRevision,
+          lastSyncedAt: syncedAt,
+        };
+      }
     }
+  }
+
+  let jobFlowContext: OfflineRuntimeBundle["jobFlowContext"] = null;
+  if (isDietaryJobFlowEnabled() && actor.employeeId && resolvedCycle) {
+    const assignmentRows = await client.operationalAssignment.findMany({
+      where: {
+        employeeId: actor.employeeId,
+        facilityId: input.session.facilityId,
+        departmentId: dietary.id,
+        serviceDate,
+        status: { in: ["PLANNED", "ACTIVE", "COMPLETED"] },
+      },
+      select: {
+        id: true,
+        roleKey: true,
+        roleLabel: true,
+        unitId: true,
+        unit: { select: { name: true } },
+        startsAt: true,
+        endsAt: true,
+        status: true,
+        plan: { select: { status: true } },
+      },
+      orderBy: { startsAt: "asc" },
+    });
+
+    const visible = assignmentRows.filter((r) =>
+      isPlanFrontlineVisible(r.plan?.status ?? null),
+    );
+    const snapshots: JobFlowAssignmentSnapshot[] = visible.map((r) => ({
+      id: r.id,
+      roleKey: r.roleKey,
+      roleLabel: r.roleLabel,
+      unitId: r.unitId,
+      unitName: r.unit?.name ?? null,
+      startsAt: r.startsAt,
+      endsAt: r.endsAt,
+      status: r.status,
+    }));
+
+    const activeOrPlanned = snapshots.filter(
+      (a) => a.status === "ACTIVE" || a.status === "PLANNED",
+    );
+    const resolved = resolveCurrentEmployeeAssignment(
+      activeOrPlanned.map((a) => ({
+        id: a.id,
+        roleKey: a.roleKey,
+        roleLabel: a.roleLabel,
+        unitName: a.unitName,
+        operationLabel: null,
+        startsAt: a.startsAt,
+        endsAt: a.endsAt,
+        status: a.status as "PLANNED" | "ACTIVE",
+        source: "MANUAL" as const,
+        notes: null,
+      })),
+      now,
+    );
+    const byId = new Map(snapshots.map((s) => [s.id, s]));
+    const currentAssignment = resolved.current ? byId.get(resolved.current.id) ?? null : null;
+    const upcomingAssignment = resolved.upcoming ? byId.get(resolved.upcoming.id) ?? null : null;
+    const previousAssignment =
+      snapshots
+        .filter(
+          (a) =>
+            a.id !== currentAssignment?.id &&
+            a.id !== upcomingAssignment?.id &&
+            a.endsAt != null &&
+            a.endsAt.getTime() <= now.getTime(),
+        )
+        .sort((a, b) => (b.endsAt?.getTime() ?? 0) - (a.endsAt?.getTime() ?? 0))[0] ?? null;
+
+    const mealTypeForEvent =
+      resolvedCycle.state === "ACTIVE"
+        ? resolvedCycle.primary.mealType
+        : resolvedCycle.state === "UPCOMING" || resolvedCycle.state === "BETWEEN"
+          ? resolvedCycle.next.mealType
+          : resolvedCycle.state === "DAY_COMPLETE"
+            ? resolvedCycle.last.mealType
+            : null;
+
+    const milestoneEventRow = mealTypeForEvent
+      ? events.find((e) => e.mealType === mealTypeForEvent)
+      : null;
+    const milestoneEvent = milestoneEventRow
+      ? {
+          mealType: milestoneEventRow.mealType,
+          mealServiceReadyAt: milestoneEventRow.mealServiceReadyAt,
+          mealServiceStartedAt: milestoneEventRow.mealServiceStartedAt,
+          hasCorrection: milestoneEventRow.entries.some((x) => x.kind === "CORRECTION"),
+        }
+      : null;
+
+    const mealTargetTime =
+      resolvedCycle.state === "NOT_APPLICABLE" || resolvedCycle.state === "NOT_CONFIGURED"
+        ? null
+        : resolvedCycle.mealTargetTime;
+
+    const plan = await client.operationalAssignmentPlan.findUnique({
+      where: {
+        facilityId_departmentId_serviceDate: {
+          facilityId: input.session.facilityId,
+          departmentId: dietary.id,
+          serviceDate,
+        },
+      },
+      select: { status: true },
+    });
+
+    const jobFlow = resolveJobFlow({
+      now,
+      facilityTimezone,
+      operationalDateKey: serviceDateKey,
+      currentAssignment,
+      upcomingAssignment,
+      previousAssignment,
+      dayAssignments: snapshots,
+      cycleContext: resolvedCycle,
+      mealTargetTime,
+      milestoneEvent,
+      offlineQueue: null,
+      planStatus: plan?.status ?? null,
+      unit: { id: unit.id, name: unit.name },
+    });
+
+    const assignment =
+      ("assignment" in jobFlow ? jobFlow.assignment : null) ??
+      jobFlow.current.assignment ??
+      null;
+    const cycle =
+      ("cycle" in jobFlow ? jobFlow.cycle : null) ?? jobFlow.current.cycle ?? null;
+    const startsIso = assignment?.startsAt?.toISOString() ?? null;
+    const syncedAt = issuedAt.toISOString();
+
+    jobFlowContext = {
+      state: jobFlow.state,
+      assignmentId: assignment?.id ?? null,
+      assignmentRevision:
+        assignment?.id != null
+          ? `${assignment.id}:${startsIso ?? ""}`
+          : null,
+      unitId: jobFlow.current.unit?.id ?? assignment?.unitId ?? unit.id,
+      unitName: jobFlow.current.unit?.name ?? assignment?.unitName ?? unit.name,
+      duty: assignment?.roleLabel ?? null,
+      windowStart: startsIso,
+      windowEnd: assignment?.endsAt?.toISOString() ?? null,
+      cycleId: cycle?.id ?? null,
+      cycleLabel: cycle?.label ?? null,
+      cycleType: cycle?.cycleType ?? null,
+      expectation: jobFlow.current.expectation,
+      mealTargetTime: jobFlow.current.targetTime ?? mealTargetTime,
+      nextCycleLabel: jobFlow.next.cycle?.label ?? null,
+      expectedMilestones: cycle ? [...cycle.expectedMilestones] : [],
+      milestoneStates: jobFlow.current.milestoneState
+        ? [{ key: jobFlow.current.milestoneState.key, label: jobFlow.current.milestoneState.label }]
+        : [],
+      progressPhases: jobFlow.progress.phases.map((p) => ({
+        key: p.id,
+        label: p.label,
+        status: p.status,
+      })),
+      attentionKinds: jobFlow.attention.map((a) => a.kind),
+      bundleRevision: serverRevision,
+      lastSyncedAt: syncedAt,
+      stale: false,
+    };
   }
 
   const bundle: OfflineRuntimeBundle = {
@@ -330,6 +509,7 @@ export async function buildRuntimeBundle(
     procedureLabels: [],
     assignmentContext,
     cycleContext,
+    jobFlowContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({

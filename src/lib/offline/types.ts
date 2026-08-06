@@ -136,6 +136,34 @@ export type OfflineRuntimeBundle = {
     bundleRevision: string;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Read-only Dietary Job Flow context derived from Assignment + Cycle.
+   * No new command types. Never authoritative — refresh when online.
+   */
+  jobFlowContext?: {
+    state: string;
+    assignmentId: string | null;
+    /** Assignment id + startsAt ISO as revision token. */
+    assignmentRevision: string | null;
+    unitId: string | null;
+    unitName: string | null;
+    duty: string | null;
+    windowStart: string | null;
+    windowEnd: string | null;
+    cycleId: string | null;
+    cycleLabel: string | null;
+    cycleType: string | null;
+    expectation: string | null;
+    mealTargetTime: string | null;
+    nextCycleLabel: string | null;
+    expectedMilestones: string[];
+    milestoneStates: { key: string; label: string }[];
+    progressPhases: { key: string; label: string; status: string }[];
+    attentionKinds: string[];
+    bundleRevision: string;
+    lastSyncedAt: string;
+    stale: boolean;
+  } | null;
 };
 
 export type OfflineMilestoneProjection = {
