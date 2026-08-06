@@ -169,6 +169,7 @@ model Facility {
   aiOperationalBriefs            AiOperationalBrief[]
   workspacePreferences           WorkspacePreference[]
   departmentOperationalProfiles  DepartmentOperationalProfile[]
+  operationalCycles              DepartmentOperationalCycle[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -207,6 +208,7 @@ model Department {
   assignmentPlans                OperationalAssignmentPlan[]
   assignmentTemplates            OperationalAssignmentTemplate[]
   operationalProfiles            DepartmentOperationalProfile[]
+  operationalCycles              DepartmentOperationalCycle[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -797,6 +799,7 @@ model Unit {
   knowledgeArticleUnits      KnowledgeArticleUnit[]
   operationalAssignments     OperationalAssignment[]
   assignmentTemplateItems    OperationalAssignmentTemplateItem[]
+  operationalCycleLocations  DepartmentOperationalCycleLocation[]
   createdAt                  DateTime                            @default(now())
   updatedAt                  DateTime                            @updatedAt
 
@@ -2325,4 +2328,112 @@ model OfflineConflict {
 
   @@unique([facilityId, unitId, clientCommandId])
   @@index([facilityId, unitId, resolution])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9A — Department-owned Operational Cycles (Dietary day phases)
+// Separate from OperationDefinition / Operations Engine. Engine stays disabled.
+// ---------------------------------------------------------------------------
+
+/// Named phase of a Department operating day (e.g. Breakfast Preparation).
+enum OperationalCycleType {
+  PREPARATION
+  SERVICE
+  TRANSITION
+  CLOSEOUT
+  CUSTOM
+}
+
+/// Build lifecycle for an Operational Cycle definition.
+enum OperationalCycleStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+/// How a cycle selects applicable Units.
+enum OperationalCycleLocationMode {
+  ALL_DEPARTMENT_UNITS
+  UNIT_TYPES
+  EXPLICIT_UNITS
+}
+
+/// Department-owned Operational Cycle definition.
+/// Meal service target times remain on UnitMealTime — cycles reference MealType only.
+/// Occurrences for a given operational date are derived, not persisted.
+model DepartmentOperationalCycle {
+  id                   String                         @id @default(cuid())
+  facilityId           String
+  facility             Facility                       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId         String
+  department           Department                     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// Stable identity across versions of the same logical cycle within a department.
+  stableKey            String
+  version              Int                            @default(1)
+  label                String
+  description          String?
+  cycleType            OperationalCycleType
+  displaySequence      Int                            @default(100)
+  /// Facility-local wall-clock start (`HH:mm`).
+  startLocal           String
+  /// Facility-local wall-clock end (`HH:mm`). May be before start when overnight=true.
+  endLocal             String
+  /// Structural overnight support; Phase 9A Dietary defaults remain same-day.
+  overnight            Boolean                        @default(false)
+  /// Facility-local weekdays: 0=Sunday … 6=Saturday.
+  applicableDaysOfWeek Int[]
+  effectiveFrom        DateTime                       @db.Date
+  effectiveTo          DateTime?                      @db.Date
+  /// Optional meal association — service targets come from UnitMealTime, not copied here.
+  mealType             MealType?
+  locationMode         OperationalCycleLocationMode   @default(ALL_DEPARTMENT_UNITS)
+  applicableUnitTypes  UnitType[]
+  /// Expected confirmations for SERVICE cycles (READY / SERVICE_STARTED). Absence ≠ failure.
+  expectedMilestones   ServeryMilestone[]
+  status               OperationalCycleStatus         @default(DRAFT)
+  createdByUserId      String?
+  publishedByUserId    String?
+  lastChangedByUserId  String?
+  publishedAt          DateTime?
+  retiredAt            DateTime?
+  locations            DepartmentOperationalCycleLocation[]
+  events               DepartmentOperationalCycleEvent[]
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+
+  @@unique([departmentId, stableKey, version])
+  @@index([facilityId, departmentId, status])
+  @@index([facilityId, departmentId, effectiveFrom])
+  @@index([departmentId, displaySequence])
+  @@index([departmentId, status, displaySequence])
+}
+
+/// Explicit Unit applicability when locationMode = EXPLICIT_UNITS.
+model DepartmentOperationalCycleLocation {
+  id      String                     @id @default(cuid())
+  cycleId String
+  cycle   DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  unitId  String
+  unit    Unit                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  createdAt DateTime                 @default(now())
+
+  @@unique([cycleId, unitId])
+  @@index([unitId])
+}
+
+/// Append-only audit for Operational Cycle configuration changes.
+model DepartmentOperationalCycleEvent {
+  id           String                     @id @default(cuid())
+  cycleId      String
+  cycle        DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  facilityId   String
+  departmentId String
+  eventType    String
+  actorUserId  String?
+  actorLabel   String?
+  detailJson   Json?
+  createdAt    DateTime                   @default(now())
+
+  @@index([cycleId, createdAt])
+  @@index([facilityId, departmentId, createdAt])
 }

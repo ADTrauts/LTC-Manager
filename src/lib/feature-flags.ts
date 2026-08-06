@@ -122,3 +122,12 @@ export function isProjectionBusinessWorkspaceEnabled(): boolean {
 export function isExperienceShellEnabled(): boolean {
   return parseEnvFlag(process.env.EXPERIENCE_SHELL_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 9A Dietary Operational Cycles.
+ * Set `DIETARY_OPERATIONAL_CYCLES_ENABLED=true` for Department Builder / runtime cycle context.
+ * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ */
+export function isDietaryOperationalCyclesEnabled(): boolean {
+  return parseEnvFlag(process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED, false);
+}

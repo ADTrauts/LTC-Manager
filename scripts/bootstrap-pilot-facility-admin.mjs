@@ -114,6 +114,8 @@ async function main() {
   const faDisplayName = (process.env.FA_DISPLAY_NAME ?? "Facility Administrator").trim();
   const firstName = (process.env.FA_FIRST_NAME ?? "Facility").trim();
   const lastName = (process.env.FA_LAST_NAME ?? "Administrator").trim();
+  void firstName;
+  void lastName;
   const markOnboardingComplete = process.env.BOOTSTRAP_MARK_ONBOARDING_COMPLETE === "1";
   const force = process.env.BOOTSTRAP_FORCE === "1";
 
