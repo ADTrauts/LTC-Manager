@@ -10,6 +10,7 @@ export const OFFLINE_STORE_VERSION = 1 as const;
 export const OFFLINE_COMMAND_TYPES = [
   "RECORD_SERVERY_READY",
   "RECORD_MEAL_SERVICE_STARTED",
+  "SUBMIT_OPERATIONAL_EVIDENCE",
 ] as const;
 
 export type OfflineCommandType = (typeof OFFLINE_COMMAND_TYPES)[number];
@@ -160,9 +161,46 @@ export type OfflineRuntimeBundle = {
     milestoneStates: { key: string; label: string }[];
     progressPhases: { key: string; label: string; status: string }[];
     attentionKinds: string[];
+    evidenceRequirementKeys: string[];
     bundleRevision: string;
     lastSyncedAt: string;
     stale: boolean;
+  } | null;
+  /**
+   * Scoped evidence forms for DUE/UPCOMING requirements only — never the full catalog.
+   */
+  evidenceContext?: {
+    requirements: Array<{
+      requirementKey: string;
+      templateId: string;
+      templateVersion: number;
+      templateName: string;
+      purposeType: string;
+      state: string;
+      scheduleKind: string;
+      cycleStableKey: string | null;
+      cycleLabel: string | null;
+      windowStartLocal: string | null;
+      windowEndLocal: string | null;
+      assetId: string | null;
+      spaceId: string | null;
+      instructions: string | null;
+      fields: Array<{
+        fieldKey: string;
+        label: string;
+        fieldType: string;
+        isRequired: boolean;
+        displaySequence: number;
+        helpText: string | null;
+        unitLabel: string | null;
+        minNumber: number | null;
+        maxNumber: number | null;
+        allowedSelections: string[];
+        correctiveActionTrigger: boolean;
+        correctiveActionRequired: boolean;
+      }>;
+    }>;
+    lastSyncedAt: string;
   } | null;
 };
 
@@ -191,6 +229,28 @@ export type OfflineCommandEnvelope = {
   bundleVersion: string;
   expectedServerRevision: string;
   deviceTimezoneOffsetMinutes: number;
+  /** Phase 9C evidence payload — present when commandType=SUBMIT_OPERATIONAL_EVIDENCE. */
+  evidence?: {
+    templateId: string;
+    templateVersion: number;
+    requirementKey: string;
+    scheduleKind: string;
+    cycleStableKey?: string | null;
+    cycleLabel?: string | null;
+    windowStartLocal?: string | null;
+    windowEndLocal?: string | null;
+    spaceId?: string | null;
+    assetId?: string | null;
+    correctiveActionText?: string | null;
+    values: Array<{
+      fieldKey: string;
+      valueText?: string | null;
+      valueNumber?: number | null;
+      valueBoolean?: boolean | null;
+      valueDateTime?: string | null;
+      valueSelections?: string[];
+    }>;
+  };
 };
 
 export type OfflineQueuedCommand = OfflineCommandEnvelope & {

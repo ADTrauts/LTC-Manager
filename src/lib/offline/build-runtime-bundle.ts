@@ -470,6 +470,7 @@ export async function buildRuntimeBundle(
         status: p.status,
       })),
       attentionKinds: jobFlow.attention.map((a) => a.kind),
+      evidenceRequirementKeys: jobFlow.evidenceRequirements.map((r) => r.requirementKey),
       bundleRevision: serverRevision,
       lastSyncedAt: syncedAt,
       stale: false,
