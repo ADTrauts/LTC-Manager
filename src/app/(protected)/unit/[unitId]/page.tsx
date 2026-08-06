@@ -541,6 +541,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
               requirement={
                 jobFlow.evidenceRequirements.find((r) => r.requirementKey === query.evidence)!
               }
+              deviceFacilityId={deviceFacilityId}
+              deviceBoundUnitId={deviceBoundUnitId}
+              actorRef={actorRefForSession(session)}
+              sessionVersion={session.sessionVersion ?? 0}
             />
           ) : null}
           {/* Assignment remains authoritative and visible even when Job Flow is on. */}

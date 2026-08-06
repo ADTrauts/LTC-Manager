@@ -4,6 +4,7 @@ import {
   countPendingCommands,
   enqueueCommand,
   loadActiveBundle,
+  loadDeviceContext,
   loadPendingCommands,
   purgeAcceptedCommands,
   saveActiveBundle,
@@ -38,6 +39,7 @@ function toSyncEnvelope(command: OfflineQueuedCommand): OfflineCommandEnvelope {
     bundleVersion: command.bundleVersion,
     expectedServerRevision: command.expectedServerRevision,
     deviceTimezoneOffsetMinutes: command.deviceTimezoneOffsetMinutes,
+    evidence: command.evidence,
   };
 }
 import { OFFLINE_ACCEPTED_RETENTION_HOURS } from "./types";
@@ -81,6 +83,13 @@ export async function fetchAndStoreBundle(unitId: string): Promise<OfflineRuntim
     credentials: "same-origin",
   });
   if (!res.ok) return null;
+  // Refuse to overwrite after sign-out clearance (shared-tablet isolation).
+  try {
+    const ctx = await loadDeviceContext();
+    if (ctx?.signedOut) return null;
+  } catch {
+    // proceed
+  }
   const data = (await res.json()) as { bundle: OfflineRuntimeBundle };
   await saveActiveBundle(data.bundle);
   return data.bundle;
@@ -124,6 +133,51 @@ export async function queueOfflineMilestoneCommand(input: {
   };
   // Static import only — dynamic import() of local-store fails while offline if the chunk
   // was not already in Cache Storage / module graph.
+  await enqueueCommand(command);
+  return command;
+}
+
+export async function queueOfflineEvidenceCommand(input: {
+  bundle: OfflineRuntimeBundle;
+  evidence: NonNullable<OfflineCommandEnvelope["evidence"]>;
+  mealType?: "BREAKFAST" | "LUNCH" | "DINNER";
+  occurredAt?: Date;
+}): Promise<OfflineQueuedCommand> {
+  const now = new Date();
+  const occurredAt = input.occurredAt ?? now;
+  const mealType =
+    input.mealType ??
+    input.bundle.mealContext.applicableMealType ??
+    "LUNCH";
+  const envelope: OfflineCommandEnvelope = {
+    clientCommandId: generateClientCommandId(),
+    commandType: "SUBMIT_OPERATIONAL_EVIDENCE",
+    facilityId: input.bundle.facilityId,
+    departmentId: input.bundle.departmentId,
+    unitId: input.bundle.unitId,
+    operationalDate: input.bundle.operationalDate,
+    mealType,
+    occurredAt: occurredAt.toISOString(),
+    locallyRecordedAt: now.toISOString(),
+    deviceBoundUnitId: input.bundle.deviceBoundUnitId,
+    actorRef: input.bundle.actor.actorRef,
+    authMethod: input.bundle.actor.authMethod,
+    role: input.bundle.actor.role,
+    bundleVersion: input.bundle.bundleVersion,
+    expectedServerRevision: input.bundle.serverRevision,
+    deviceTimezoneOffsetMinutes: -now.getTimezoneOffset(),
+    evidence: input.evidence,
+  };
+  const command: OfflineQueuedCommand = {
+    ...envelope,
+    queueState: "PENDING",
+    attemptCount: 0,
+    lastAttemptAt: null,
+    retryAfterAt: null,
+    lastErrorCategory: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
   await enqueueCommand(command);
   return command;
 }

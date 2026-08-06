@@ -41,8 +41,9 @@ export function OfflineConflictReview({
     >
       <p className="font-semibold">Conflict review required</p>
       <p className="mt-1 text-xs text-amber-900">
-        A supervisor or manager must resolve these offline Milestone conflicts. Both histories are
-        preserved.
+        A supervisor or manager must resolve these offline conflicts (milestones or evidence). Both
+        histories are preserved. Purely local pending commands are not visible here until the tablet
+        has synchronized a receipt or conflict.
       </p>
       <ul className="mt-3 space-y-2">
         {conflicts.map((c) => (

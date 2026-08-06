@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSession, sessionUserIdForFk } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
 import {
   submitEvidenceRecord,

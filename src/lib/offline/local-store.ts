@@ -224,12 +224,13 @@ export async function clearActiveBundle(): Promise<void> {
 }
 
 export async function clearForSignOut(): Promise<void> {
-  await clearActiveBundle();
-  const ctx = await loadDeviceContext();
+  // Mark signed-out first so in-flight bundle fetches refuse to rewrite IndexedDB.
+  const ctx = await loadDeviceContext().catch(() => null);
   if (ctx) {
     ctx.signedOut = true;
     await saveDeviceContext(ctx);
   }
+  await clearActiveBundle();
 }
 
 export async function clearForDeviceRebind(): Promise<void> {

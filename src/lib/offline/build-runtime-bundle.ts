@@ -20,9 +20,12 @@ import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow";
 import {
   isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
+  isDietaryOperationalEvidenceEnabled,
   isOperationalAssignmentsEnabled,
 } from "@/lib/feature-flags";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
+import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
+import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { loadEmployeeAssignmentOfflineContext } from "@/lib/scheduling/operational-assignments/load-employee-assignments";
 import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
@@ -470,11 +473,103 @@ export async function buildRuntimeBundle(
         status: p.status,
       })),
       attentionKinds: jobFlow.attention.map((a) => a.kind),
-      evidenceRequirementKeys: jobFlow.evidenceRequirements.map((r) => r.requirementKey),
+      evidenceRequirementKeys: [],
       bundleRevision: serverRevision,
       lastSyncedAt: syncedAt,
       stale: false,
     };
+  }
+
+  let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
+  if (isDietaryOperationalEvidenceEnabled()) {
+    try {
+      const publishedCycles = await loadPublishedCyclesForDate(
+        input.session.facilityId,
+        dietary.id,
+        serviceDateKey,
+        client,
+      );
+      const cycleWindows = publishedCycles.flatMap((c) => {
+        const window = resolveCycleWindowInstants({
+          startLocal: c.startLocal,
+          endLocal: c.endLocal,
+          overnight: c.overnight,
+          operationalDateKey: serviceDateKey,
+          facilityTimezone,
+        });
+        if (!window) return [];
+        return [
+          {
+            stableKey: c.stableKey,
+            label: c.label,
+            startLocal: c.startLocal,
+            endLocal: c.endLocal,
+            overnight: c.overnight,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt,
+          },
+        ];
+      });
+      const evidenceRequirements = await resolveUnitEvidenceRequirements({
+        facilityId: input.session.facilityId,
+        departmentId: dietary.id,
+        operationalDateKey: serviceDateKey,
+        operationalDate: serviceDate,
+        now,
+        facilityTimezone,
+        unitId: unit.id,
+        publishedCycles: cycleWindows,
+      });
+      const scoped = evidenceRequirements.filter(
+        (r) =>
+          r.state === "DUE" ||
+          r.state === "UPCOMING" ||
+          r.state === "NOT_CONFIRMED" ||
+          r.state === "NEEDS_REVIEW",
+      );
+      evidenceContext = {
+        requirements: scoped.map((r) => ({
+          requirementKey: r.requirementKey,
+          templateId: r.templateId,
+          templateVersion: r.templateVersion,
+          templateName: r.templateName,
+          purposeType: r.purposeType,
+          state: r.state,
+          scheduleKind: r.scheduleKind,
+          cycleStableKey: r.cycleStableKey,
+          cycleLabel: r.cycleLabel,
+          windowStartLocal: r.windowStartLocal,
+          windowEndLocal: r.windowEndLocal,
+          assetId: r.assetId,
+          spaceId: r.spaceId,
+          instructions: r.instructions,
+          fields: r.fields.map((f) => ({
+            fieldKey: f.fieldKey,
+            label: f.label,
+            fieldType: f.fieldType,
+            isRequired: f.isRequired,
+            displaySequence: f.displaySequence,
+            helpText: f.helpText,
+            unitLabel: f.unitLabel,
+            minNumber: f.minNumber,
+            maxNumber: f.maxNumber,
+            allowedSelections: f.allowedSelections,
+            correctiveActionTrigger: f.correctiveActionTrigger,
+            correctiveActionRequired: f.correctiveActionRequired,
+          })),
+        })),
+        lastSyncedAt: issuedAt.toISOString(),
+      };
+      if (jobFlowContext) {
+        jobFlowContext = {
+          ...jobFlowContext,
+          evidenceRequirementKeys: evidenceRequirements.map((r) => r.requirementKey),
+        };
+      }
+    } catch {
+      // Evidence context is additive — never fail the Runtime bundle for servery offline use.
+      evidenceContext = null;
+    }
   }
 
   const bundle: OfflineRuntimeBundle = {
@@ -511,6 +606,7 @@ export async function buildRuntimeBundle(
     assignmentContext,
     cycleContext,
     jobFlowContext,
+    evidenceContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({
