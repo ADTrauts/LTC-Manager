@@ -6,8 +6,13 @@
  * Due Soon window: {@link DUE_SOON_MS} (45 minutes before cycle start).
  */
 
+import { loadSupervisorAssetExceptions } from "@/lib/asset-operations";
 import type { AppJwtPayload } from "@/lib/auth";
-import { isDietaryJobFlowEnabled, isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import {
+  isDietaryAssetOperationsEnabled,
+  isDietaryJobFlowEnabled,
+  isDietaryOperationalEvidenceEnabled,
+} from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -69,6 +74,8 @@ function exceptionRank(
     Readiness: 300,
     ServiceTiming: 400,
     Evidence: 450,
+    Asset: 470,
+    Equipment: 475,
     OfflineSync: 500,
     Configuration: 600,
   };
@@ -459,6 +466,27 @@ export async function loadSupervisorOperationsBoard(
         })
       : [];
   const offlineSyncNameById = new Map(offlineSyncUnits.map((u) => [u.id, u.name]));
+
+  // Phase 10A Asset / Equipment exceptions (flag-gated, derived only).
+  if (isDietaryAssetOperationsEnabled()) {
+    const assetExceptions = await loadSupervisorAssetExceptions(
+      input.facilityId,
+      input.departmentId,
+    );
+    for (const row of assetExceptions) {
+      const temporal = row.temporal;
+      exceptions.push({
+        group: row.group,
+        status: row.status,
+        temporal,
+        unitId: row.unitId,
+        unitName: row.unitName,
+        sourceHref: row.sourceHref,
+        availableActions: row.availableActions,
+        sortRank: exceptionRank(row.group, temporal),
+      });
+    }
+  }
 
   // Pending offline sync (server-visible RETRY_REQUIRED receipts) — one exception per Unit.
   const pendingReceiptUnitIds = [...new Set(pendingOfflineReceipts.map((r) => r.unitId))];

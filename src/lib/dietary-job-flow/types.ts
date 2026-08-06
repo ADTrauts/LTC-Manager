@@ -187,6 +187,8 @@ export type SupervisorExceptionGroup =
   | "Readiness"
   | "ServiceTiming"
   | "Evidence"
+  | "Asset"
+  | "Equipment"
   | "OfflineSync"
   | "Configuration";
 
