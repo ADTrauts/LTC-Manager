@@ -157,6 +157,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes:
       "Dietary Operational Cycles supervisor overview. Page enforces DIETARY_OPERATIONAL_CYCLES_ENABLED.",
   },
+  {
+    pattern: "/staffing/operations",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes:
+      "Dietary Supervisor Operations Board. Page enforces DIETARY_JOB_FLOW_ENABLED and Job Flow authority.",
+  },
 
   // ── Locations ─────────────────────────────────────────────────────────────
   {

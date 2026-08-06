@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { isDietaryJobFlowEnabled } from "@/lib/feature-flags";
 import type { GmCycleSummary } from "@/lib/operational-cycles";
 
 type Props = {
@@ -18,6 +19,8 @@ export function GmCycleSummaryStrip({ summary }: Props) {
   ]
     .filter(Boolean)
     .join(" · ");
+
+  const jobFlowEnabled = isDietaryJobFlowEnabled();
 
   return (
     <div
@@ -39,12 +42,22 @@ export function GmCycleSummaryStrip({ summary }: Props) {
             : ""}
         </span>
       </p>
-      <Link
-        href="/staffing/cycles"
-        className="text-xs font-medium text-zinc-800 underline-offset-2 hover:underline"
-      >
-        Cycle overview
-      </Link>
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/staffing/cycles"
+          className="text-xs font-medium text-zinc-800 underline-offset-2 hover:underline"
+        >
+          Cycle overview
+        </Link>
+        {jobFlowEnabled ? (
+          <Link
+            href="/staffing/operations"
+            className="text-xs font-medium text-zinc-800 underline-offset-2 hover:underline"
+          >
+            Operations Board
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

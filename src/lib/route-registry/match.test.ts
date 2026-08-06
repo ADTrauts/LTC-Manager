@@ -13,6 +13,7 @@ test("matching — exact routes match only themselves", () => {
   assert.equal(patternFor("/admin"), "/admin");
   assert.equal(patternFor("/api/auth/login"), "/api/auth/login");
   assert.equal(patternFor("/staffing/cycles"), "/staffing/cycles");
+  assert.equal(patternFor("/staffing/operations"), "/staffing/operations");
   assert.equal(patternFor("/staffing/assignments"), "/staffing/assignments");
 });
 

@@ -147,9 +147,12 @@ test("role policy — /staffing keeps its Supervisor floor", () => {
   assert.equal(roleMayAccessRoute("/staffing/assignments", "SUPERVISOR", FLAGS), true);
   assert.equal(roleMayAccessRoute("/staffing/cycles", "SUPERVISOR", FLAGS), true);
   assert.equal(roleMayAccessRoute("/staffing/cycles", "MANAGER", FLAGS), true);
+  assert.equal(roleMayAccessRoute("/staffing/operations", "SUPERVISOR", FLAGS), true);
+  assert.equal(roleMayAccessRoute("/staffing/operations", "MANAGER", FLAGS), true);
   assert.equal(roleMayAccessRoute("/staffing", "LEAD_TEAM_MEMBER", FLAGS), false);
   assert.equal(roleMayAccessRoute("/staffing/assignments", "STAFF", FLAGS), false);
   assert.equal(roleMayAccessRoute("/staffing/cycles", "STAFF", FLAGS), false);
+  assert.equal(roleMayAccessRoute("/staffing/operations", "STAFF", FLAGS), false);
 });
 
 test("role policy — /account stays available to every authenticated role", () => {

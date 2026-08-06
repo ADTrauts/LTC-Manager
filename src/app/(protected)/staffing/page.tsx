@@ -10,6 +10,7 @@ import { StaffingDateAutoAdvance } from "@/components/staffing-date-auto-advance
 import { StaffingToolbar } from "@/components/staffing-toolbar";
 import { getSession } from "@/lib/auth";
 import {
+  isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
   isOperationalAssignmentsEnabled,
 } from "@/lib/feature-flags";
@@ -184,6 +185,14 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
               >
                 Cycle overview
+              </Link>
+            )}
+            {isDietaryJobFlowEnabled() && (
+              <Link
+                href="/staffing/operations"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+              >
+                Operations Board
               </Link>
             )}
           </div>
