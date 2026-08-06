@@ -14,6 +14,7 @@
     "test:db": "node scripts/verify/run-tests.mjs db",
     "test:offline-browser": "node scripts/verify/run-offline-browser.mjs",
     "test:assignment-browser": "node scripts/verify/run-assignment-browser.mjs",
+    "test:operational-cycles-browser": "node scripts/verify/run-operational-cycles-browser.mjs",
     "test:dietary-pilot": "node scripts/verify/run-dietary-pilot.mjs",
     "verify:static": "node scripts/verify/verify-static.mjs",
     "verify:build": "node scripts/verify/verify-build.mjs",
