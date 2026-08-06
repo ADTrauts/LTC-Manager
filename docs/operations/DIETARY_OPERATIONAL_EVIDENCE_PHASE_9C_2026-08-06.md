@@ -93,8 +93,12 @@ Phase 9C does **not** implement: general task generation, automatic scheduling, 
 
 - Legacy `/logs` and `/admin/inspections` remain separate; not migrated into Operational Templates in this phase.
 - Tablet-pending offline commands are not fully server-visible until sync/retry receipts exist; Supervisor Board surfaces RETRY_REQUIRED receipts and PENDING conflicts.
-- Builder editing of applicability/schedules after preset create is intentionally lean in the first UI (seeded fixtures and publish/retire covered).
+- Some offline edge cases (response-loss replay instrumentation, unit-rebind isolation browser path) are covered primarily at service/SQL layers — see Phase 9C.1 classification.
 
 ## Next-phase Boundary
 
-Richer Builder field editors, broader offline UX for all evidence types, deeper Log Book export, and optional legacy template migration remain out of Phase 9C.
+Phase 9C.1 closes Builder field/applicability/scheduling editors, successor/retire UX, and offline Evidence tablet enqueue. Remaining optional work: deeper Log Book export, optional legacy template migration, and broader response-loss browser instrumentation.
+
+## Phase 9C.1 follow-up
+
+See [`DIETARY_TEMPLATE_BUILDER_PHASE_9C1_2026-08-06.md`](./DIETARY_TEMPLATE_BUILDER_PHASE_9C1_2026-08-06.md).
