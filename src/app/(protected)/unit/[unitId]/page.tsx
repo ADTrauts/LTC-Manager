@@ -6,6 +6,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { OfflineConflictReview } from "@/components/offline/offline-conflict-review";
 import { OfflineServeryControls } from "@/components/offline/offline-servery-controls";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
+import { UnitCycleContextPanel } from "@/components/unit-workspace/unit-cycle-context-panel";
 import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
 import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
 import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
@@ -16,15 +17,18 @@ import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-
 import { ProjectedUnitWorkspaceBody } from "@/components/unit-workspace/projected-experience-panels";
 import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
 import { PageHeader } from "@/components/design-system/page-header";
+import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { resolveLocationIconKey } from "@/lib/design-system";
 import {
+  isDietaryOperationalCyclesEnabled,
   isOperationalAssignmentsEnabled,
   isProjectionUnitWorkspaceEnabled,
 } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
+import { loadEmployeeCycleContext } from "@/lib/operational-cycles";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
@@ -97,6 +101,23 @@ async function ProjectedUnitWorkspacePage({
     );
   }
 
+  const dietary =
+    isDietaryOperationalCyclesEnabled()
+      ? await prisma.department.findFirst({
+          where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
+          select: { id: true },
+        })
+      : null;
+  const cycleContextCard =
+    dietary && isDietaryOperationalCyclesEnabled()
+      ? await loadEmployeeCycleContext({
+          facilityId: session.facilityId,
+          departmentId: dietary.id,
+          unitId: unit.id,
+          session,
+        })
+      : null;
+
   return (
     <section className="mx-auto max-w-5xl space-y-5 sm:space-y-6" data-testid="unit-workspace">
       <header className="space-y-3 border-b border-zinc-200 pb-4 sm:pb-5">
@@ -115,6 +136,9 @@ async function ProjectedUnitWorkspacePage({
           </p>
         ) : null}
       </header>
+      {cycleContextCard ? (
+        <UnitCycleContextPanel card={cycleContextCard} canManage={false} />
+      ) : null}
       <ProjectedUnitWorkspaceBody view={view} unitName={unit.name} />
     </section>
   );
@@ -295,6 +319,31 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       : null
     : null;
 
+  const dietaryDepartment =
+    isDietaryOperationalCyclesEnabled()
+      ? await prisma.department.findFirst({
+          where: {
+            facilityId: session.facilityId,
+            key: "DIETARY",
+            isActive: true,
+          },
+          select: { id: true },
+        })
+      : null;
+
+  const cycleContextCard =
+    dietaryDepartment != null
+      ? await loadEmployeeCycleContext({
+          session,
+          facilityId: session.facilityId,
+          departmentId: dietaryDepartment.id,
+          unitId: unit.id,
+          now,
+        })
+      : null;
+
+  const canManageCycles = hasAtLeastRole(session.role, "MANAGER");
+
   const cookieJar = await cookies();
   const deviceFacilityId = cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null;
   const deviceBoundUnitId = cookieJar.get(DEVICE_UNIT_COOKIE)?.value?.trim() || null;
@@ -437,6 +486,12 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       {activeUnitTab === "overview" ? (
         <div className="space-y-6 sm:space-y-7">
           {myAssignment ? <UnitMyAssignmentPanel assignment={myAssignment} /> : null}
+          {cycleContextCard ? (
+            <UnitCycleContextPanel
+              card={cycleContextCard}
+              canManage={canManageCycles && session.authMethod !== "QUICK_PIN"}
+            />
+          ) : null}
 
           <UnitWorkQueuePanel queue={workQueue} />
 

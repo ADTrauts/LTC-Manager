@@ -118,6 +118,24 @@ export type OfflineRuntimeBundle = {
     confirmedAt: string | null;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Read-only Operational Cycle context for the scoped unit/date.
+   * Draft / department-wide Builder config is never included.
+   */
+  cycleContext?: {
+    cycleId: string | null;
+    label: string | null;
+    cycleType: string | null;
+    startLocal: string | null;
+    endLocal: string | null;
+    operationalDate: string;
+    mealType: string | null;
+    mealTargetTime: string | null;
+    expectedMilestones: string[];
+    nextCycleLabel: string | null;
+    bundleRevision: string;
+    lastSyncedAt: string;
+  } | null;
 };
 
 export type OfflineMilestoneProjection = {

@@ -1,4 +1,7 @@
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import {
+  isDietaryOperationalCyclesEnabled,
+  isOperationalAssignmentsEnabled,
+} from "@/lib/feature-flags";
 
 import type { WorkspaceContext, WorkspaceQuickAction } from "./types";
 import { isLinkAllowedForContext, type WorkspaceCompositionConfig } from "./workspace-composition";
@@ -81,6 +84,16 @@ export function buildQuickActions(options?: {
       title: "Assignment Board",
       description: "Daily operational assignments and coverage",
       href: "/staffing/assignments",
+      icon: "todaysWork",
+    });
+  }
+
+  if (isDietaryOperationalCyclesEnabled()) {
+    all.push({
+      id: "cycle-overview",
+      title: "Cycle overview",
+      description: "Servery operational cycle readiness",
+      href: "/staffing/cycles",
       icon: "todaysWork",
     });
   }

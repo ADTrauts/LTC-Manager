@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { BirthdaysCard } from "@/components/operations-center/birthdays-card";
+import { GmCycleSummaryStrip } from "@/components/operations-center/gm-cycle-summary-strip";
 import { MorningBriefCard } from "@/components/operations-center/morning-brief-card";
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { OperationsCenterCards } from "@/components/operations-center/operations-center-cards";
@@ -16,11 +17,14 @@ import { resolveActiveDepartmentForShell } from "@/lib/active-department-context
 import { getSession } from "@/lib/auth";
 import {
   isAiBriefEnabled,
+  isDietaryOperationalCyclesEnabled,
   isProjectionOperationsCenterEnabled,
 } from "@/lib/feature-flags";
+import { loadGmCycleSummary } from "@/lib/operational-cycles";
 import { loadOperationsCenterDashboard } from "@/lib/operations-center";
 import { assembleProjectedOperationsCenter } from "@/lib/operations-center/projection/load";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import { prisma } from "@/lib/prisma";
 
 type DashboardPageProps = {
   searchParams?: Promise<{
@@ -120,6 +124,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       : null;
   const canRefreshBrief = hasAtLeastRole(session.role, "MANAGER");
 
+  const gmCycleSummary =
+    isDietaryOperationalCyclesEnabled() && !showSecondaryEmployees
+      ? await (async () => {
+          const dietary = await prisma.department.findFirst({
+            where: {
+              facilityId: session.facilityId,
+              key: "DIETARY",
+              isActive: true,
+            },
+            select: { id: true },
+          });
+          if (!dietary) return null;
+          return loadGmCycleSummary({
+            session,
+            facilityId: session.facilityId,
+            departmentId: dietary.id,
+          });
+        })()
+      : null;
+
   return (
     <section className="space-y-6">
       {onboardingCompleteFlag ? (
@@ -174,6 +198,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <div className="space-y-6">
             <OperationContextBanner context={data.operationContext} embedded />
+            {gmCycleSummary ? <GmCycleSummaryStrip summary={gmCycleSummary} /> : null}
             <SitePulseSummaryCard pulse={data.sitePulse} />
             {morningBrief ? (
               <MorningBriefCard

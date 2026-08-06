@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import {
+  isDietaryOperationalCyclesEnabled,
+  isOperationalAssignmentsEnabled,
+} from "@/lib/feature-flags";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import {
   loadDailyAssignmentBoard,
@@ -313,6 +316,14 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <Link href={`/staffing?date=${selectedDateIso}`} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50">
               Schedule View
             </Link>
+            {isDietaryOperationalCyclesEnabled() ? (
+              <Link
+                href="/staffing/cycles"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
+              >
+                Cycle overview
+              </Link>
+            ) : null}
           </div>
         </div>
       </header>

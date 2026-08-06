@@ -15,7 +15,8 @@ import {
   resolveServeryMealServiceContext,
 } from "@/lib/servery";
 
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isDietaryOperationalCyclesEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
 import { loadEmployeeAssignmentOfflineContext } from "@/lib/scheduling/operational-assignments/load-employee-assignments";
 import { actorRefForSession, resolveMilestoneActor } from "./resolve-milestone-actor";
 import {
@@ -212,6 +213,90 @@ export async function buildRuntimeBundle(
       ? await loadEmployeeAssignmentOfflineContext(actor.employeeId, input.session.facilityId, now)
       : null;
 
+  let cycleContext: OfflineRuntimeBundle["cycleContext"] = null;
+  if (isDietaryOperationalCyclesEnabled()) {
+    const cycles = await loadPublishedCyclesForDate(
+      input.session.facilityId,
+      dietary.id,
+      serviceDateKey,
+    );
+    const resolved = resolveOperationalCycle({
+      cycles,
+      now,
+      facilityTimezone,
+      operationalDateKey: serviceDateKey,
+      unit: { id: unit.id, unitType: "SERVERY" },
+      mealTargets: unit.mealTimes.map((m) => ({
+        mealType: m.mealType,
+        scheduledTime: m.scheduledTime,
+      })),
+    });
+
+    const syncedAt = issuedAt.toISOString();
+    if (resolved.state === "ACTIVE") {
+      cycleContext = {
+        cycleId: resolved.primary.id,
+        label: resolved.primary.label,
+        cycleType: resolved.primary.cycleType,
+        startLocal: resolved.primary.startLocal,
+        endLocal: resolved.primary.endLocal,
+        operationalDate: serviceDateKey,
+        mealType: resolved.primary.mealType,
+        mealTargetTime: resolved.mealTargetTime,
+        expectedMilestones: resolved.primary.expectedMilestones,
+        nextCycleLabel: resolved.next?.label ?? null,
+        bundleRevision: serverRevision,
+        lastSyncedAt: syncedAt,
+      };
+    } else if (resolved.state === "UPCOMING" || resolved.state === "BETWEEN") {
+      const next = resolved.next;
+      cycleContext = {
+        cycleId: next.id,
+        label: next.label,
+        cycleType: next.cycleType,
+        startLocal: next.startLocal,
+        endLocal: next.endLocal,
+        operationalDate: serviceDateKey,
+        mealType: next.mealType,
+        mealTargetTime: resolved.mealTargetTime,
+        expectedMilestones: next.expectedMilestones,
+        nextCycleLabel: next.label,
+        bundleRevision: serverRevision,
+        lastSyncedAt: syncedAt,
+      };
+    } else if (resolved.state === "DAY_COMPLETE") {
+      cycleContext = {
+        cycleId: resolved.last.id,
+        label: resolved.last.label,
+        cycleType: resolved.last.cycleType,
+        startLocal: resolved.last.startLocal,
+        endLocal: resolved.last.endLocal,
+        operationalDate: serviceDateKey,
+        mealType: resolved.last.mealType,
+        mealTargetTime: resolved.mealTargetTime,
+        expectedMilestones: resolved.last.expectedMilestones,
+        nextCycleLabel: null,
+        bundleRevision: serverRevision,
+        lastSyncedAt: syncedAt,
+      };
+    } else {
+      cycleContext = {
+        cycleId: null,
+        label: null,
+        cycleType: null,
+        startLocal: null,
+        endLocal: null,
+        operationalDate: serviceDateKey,
+        mealType: null,
+        mealTargetTime: null,
+        expectedMilestones: [],
+        nextCycleLabel: null,
+        bundleRevision: serverRevision,
+        lastSyncedAt: syncedAt,
+      };
+    }
+  }
+
   const bundle: OfflineRuntimeBundle = {
     bundleVersion,
     serverRevision,
@@ -244,6 +329,7 @@ export async function buildRuntimeBundle(
     milestones,
     procedureLabels: [],
     assignmentContext,
+    cycleContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({
