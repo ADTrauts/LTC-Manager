@@ -166,6 +166,32 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes:
       "Dietary Supervisor Operations Board. Page enforces DIETARY_JOB_FLOW_ENABLED and Job Flow authority.",
   },
+  {
+    pattern: "/staffing/templates",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes:
+      "Unified Operational Template Builder (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
+  },
+  {
+    pattern: "/staffing/log-book",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes:
+      "Dietary Operational Evidence Log Book (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
+  },
+  {
+    pattern: "/staffing/log-book/[recordId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes: "Evidence record detail / printable view (Phase 9C).",
+  },
 
   // ── Locations ─────────────────────────────────────────────────────────────
   {
