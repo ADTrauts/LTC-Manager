@@ -10,6 +10,7 @@ services:
     runtime: node
     plan: standard
     region: oregon
+    repo: https://github.com/ADTrauts/LTC-Manager
     branch: deployment/dietary-v1-pilot-environment-phase-8b-2026-08-05
     autoDeployTrigger: "off"
     buildCommand: npm ci && npm run build
@@ -42,6 +43,7 @@ services:
     runtime: node
     plan: starter
     region: oregon
+    repo: https://github.com/ADTrauts/LTC-Manager
     branch: deployment/dietary-v1-pilot-environment-phase-8b-2026-08-05
     autoDeployTrigger: "off"
     schedule: "15 6 * * *"

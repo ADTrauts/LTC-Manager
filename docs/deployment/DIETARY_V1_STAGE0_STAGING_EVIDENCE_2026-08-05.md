@@ -53,9 +53,15 @@ Restore drills that temporarily spin a second Postgres instance must be destroye
 
 | Blocker | Class | Notes |
 |---------|-------|-------|
-| Render API authentication missing in this environment | CONFIGURATION REQUIRED | `render` CLI installed; `RENDER_API_KEY` unset; `render login` not completed |
-| Supplemental object storage credentials for ≥14-day logical dumps | CONFIGURATION REQUIRED | Need S3-compatible bucket + keys (or owner-approved alternative) within ceiling |
+| Render payment method missing | CONFIGURATION REQUIRED | Blueprint validate returns `need_payment_info`. Hobby workspace is active; **Add Card** required before paid Standard web / Basic-1gb Postgres / Starter cron can be created. No resources created yet (no spend). |
+| Supplemental object storage for ≥14-day logical dumps | CONFIGURATION REQUIRED | Render Objects EA not enabled on workspace. Need S3-compatible bucket + keys (or enable Render Objects if owner chooses) within ceiling |
 | Staging FA password delivery channel | OPERATIONAL PROCEDURE REQUIRED | Generate out-of-band; never commit |
+
+## Cleared blockers
+
+| Item | Notes |
+|------|-------|
+| Render CLI auth | Login successful 2026-08-06; workspace `Andrew's workspace` (`tea-d9q5r1vlk1mc73el6o90`); Hobby plan confirmed |
 
 ---
 
