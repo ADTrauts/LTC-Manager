@@ -233,7 +233,15 @@ No PILOT BLOCKER requiring unsafe redesign was opened for remediation beyond the
 | `test:offline-browser` | PASS — full matrix 25/25 (32 scenarios combined) |
 | `test:dietary-pilot` | PASS — `@ci-gate` 5/5 |
 
-Hosted Verify for this certification branch must complete successfully before product readiness is claimed as CI-confirmed.
+### Hosted Verify (certification branch)
+
+| Item | Value |
+|------|--------|
+| Run ID | `31058110054` |
+| Commit | `4592373665fc389af7e253ecb65162a0ee2f039a` |
+| Conclusion | **success** |
+| Jobs | Static and hermetic · Database integration · Offline browser gate · Assignment browser gate · Dietary pilot gate — all success |
+| URL | https://github.com/ADTrauts/LTC-Manager/actions/runs/31058110054 |
 
 ---
 
