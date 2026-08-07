@@ -11,6 +11,7 @@ import {
 } from "@/lib/department-operations";
 import { deriveSpaceWorkSummary, resolveUnitWorkRequirements } from "@/lib/department-work";
 import type { WorkRequirement } from "@/lib/department-work/types";
+import { formatRoomDisplayName } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -24,6 +25,11 @@ import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-publis
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
+import {
+  buildDeterministicLocationSequence,
+  formatAssignedScopeSummary,
+} from "@/lib/scheduling/operational-assignments/location-sequencing";
+import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import { prisma } from "@/lib/prisma";
 
@@ -40,6 +46,8 @@ import type {
   JobFlowAssignmentSnapshot,
   JobFlowAttentionItem,
   JobFlowContext,
+  JobFlowLocationSequence,
+  JobFlowScopeSummary,
 } from "./types";
 
 export type LoadEmployeeJobFlowInput = {
@@ -68,6 +76,7 @@ async function loadConfirmedAssignmentsForEmployee(input: {
   upcoming: JobFlowAssignmentSnapshot | null;
   previous: JobFlowAssignmentSnapshot | null;
   day: JobFlowAssignmentSnapshot[];
+  locationsByAssignmentId: Map<string, ResolvedAssignmentLocation[]>;
 }> {
   const rows = await prisma.operationalAssignment.findMany({
     where: {
@@ -87,6 +96,23 @@ async function loadConfirmedAssignmentsForEmployee(input: {
       endsAt: true,
       status: true,
       plan: { select: { status: true } },
+      sourceZone: { select: { name: true } },
+      locations: {
+        select: {
+          unitSpaceId: true,
+          unitId: true,
+          labelSnapshot: true,
+          sortOrder: true,
+          unitSpace: {
+            select: {
+              name: true,
+              roomNumber: true,
+              unit: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
     },
     orderBy: { startsAt: "asc" },
   });
@@ -94,16 +120,33 @@ async function loadConfirmedAssignmentsForEmployee(input: {
   // Draft plans never appear for frontline Job Flow.
   const visible = rows.filter((r) => isPlanFrontlineVisible(r.plan?.status ?? null));
 
-  const snapshots: JobFlowAssignmentSnapshot[] = visible.map((r) => ({
-    id: r.id,
-    roleKey: r.roleKey,
-    roleLabel: r.roleLabel,
-    unitId: r.unitId,
-    unitName: r.unit?.name ?? null,
-    startsAt: r.startsAt,
-    endsAt: r.endsAt,
-    status: r.status,
-  }));
+  const locationsByAssignmentId = new Map<string, ResolvedAssignmentLocation[]>();
+  const snapshots: JobFlowAssignmentSnapshot[] = visible.map((r) => {
+    const locations: ResolvedAssignmentLocation[] = r.locations.map((l) => ({
+      unitSpaceId: l.unitSpaceId,
+      unitId: l.unitId,
+      label: l.labelSnapshot?.trim() || formatRoomDisplayName(l.unitSpace),
+      sortOrder: l.sortOrder,
+      roomNumber: l.unitSpace.roomNumber,
+      spaceName: l.unitSpace.name,
+      unitName: l.unitSpace.unit?.name ?? null,
+    }));
+    locationsByAssignmentId.set(r.id, locations);
+    return {
+      id: r.id,
+      roleKey: r.roleKey,
+      roleLabel: r.roleLabel,
+      unitId: r.unitId,
+      unitName: r.unit?.name ?? null,
+      startsAt: r.startsAt,
+      endsAt: r.endsAt,
+      status: r.status,
+      scopeKind: locations.length > 0 ? "SPACES" : "UNIT",
+      locationCount: locations.length,
+      locationLabels: locations.map((l) => l.label),
+      sourceZoneName: r.sourceZone?.name ?? null,
+    };
+  });
 
   const activeOrPlanned = snapshots.filter(
     (a) => a.status === "ACTIVE" || a.status === "PLANNED",
@@ -140,14 +183,73 @@ async function loadConfirmedAssignmentsForEmployee(input: {
       )
       .sort((a, b) => (b.endsAt?.getTime() ?? 0) - (a.endsAt?.getTime() ?? 0))[0] ?? null;
 
-  return { current, upcoming, previous, day: snapshots };
+  return { current, upcoming, previous, day: snapshots, locationsByAssignmentId };
 }
 
-function buildSpaceSummaries(requirements: WorkRequirement[]) {
+function buildSpaceSummaries(
+  requirements: WorkRequirement[],
+  locationLabelById?: Map<string, string>,
+) {
   const spaceIds = [
     ...new Set(requirements.map((r) => r.spaceId).filter((id): id is string => Boolean(id))),
   ];
-  return spaceIds.map((spaceId) => deriveSpaceWorkSummary({ spaceId, requirements }));
+  return spaceIds.map((spaceId) => {
+    const summary = deriveSpaceWorkSummary({ spaceId, requirements });
+    const friendly = locationLabelById?.get(spaceId);
+    return friendly
+      ? { ...summary, label: `${friendly} · ${summary.label}` }
+      : summary;
+  });
+}
+
+function toJobFlowLocationSequence(
+  locations: ResolvedAssignmentLocation[],
+  workRequirements: WorkRequirement[],
+): JobFlowLocationSequence {
+  const seq = buildDeterministicLocationSequence({
+    locations,
+    workRequirements,
+  });
+  const mapItem = (item: (typeof seq.all)[number]) => ({
+    unitSpaceId: item.unitSpaceId,
+    label: item.label,
+    hasCurrentWork: item.hasCurrentWork,
+    allComplete: item.allComplete,
+    hasUrgent: item.hasUrgent,
+  });
+  return {
+    now: seq.now ? mapItem(seq.now) : null,
+    next: seq.next ? mapItem(seq.next) : null,
+    queue: seq.queue.map(mapItem),
+    all: seq.all.map(mapItem),
+    sequencingNote: seq.sequencingNote,
+  };
+}
+
+function buildEvsScopeAttachment(input: {
+  departmentKey: string;
+  assignment: JobFlowAssignmentSnapshot | null;
+  locations: ResolvedAssignmentLocation[];
+  workRequirements: WorkRequirement[];
+}): {
+  scopeSummary: JobFlowScopeSummary | null;
+  locationSequence: JobFlowLocationSequence | null;
+} {
+  if (input.departmentKey !== "EVS" || !input.assignment) {
+    return { scopeSummary: null, locationSequence: null };
+  }
+  const scopeKind = input.assignment.scopeKind ?? "UNIT";
+  const scopeSummary = formatAssignedScopeSummary({
+    scopeKind,
+    unitName: input.assignment.unitName,
+    zoneName: input.assignment.sourceZoneName,
+    locations: input.locations,
+  });
+  const locationSequence =
+    scopeKind === "SPACES" && input.locations.length > 0
+      ? toJobFlowLocationSequence(input.locations, input.workRequirements)
+      : null;
+  return { scopeSummary, locationSequence };
 }
 
 /**
@@ -359,15 +461,26 @@ export async function loadEmployeeJobFlow(
     unit: unitSnapshot,
   });
 
+  const activeAssignment = assignments.current ?? assignments.upcoming;
+  const assignmentLocations = activeAssignment
+    ? (assignments.locationsByAssignmentId.get(activeAssignment.id) ?? [])
+    : [];
+
   const evidenceEnabled = isDepartmentOperationalEvidenceEnabled(department.key);
   const workEnabled = isDepartmentWorkPlansEnabled(department.key);
 
-  if (!evidenceEnabled && !workEnabled) {
-    return jobFlow;
-  }
-
-  if (!unitId) {
-    return jobFlow;
+  if ((!evidenceEnabled && !workEnabled) || !unitId) {
+    const scope = buildEvsScopeAttachment({
+      departmentKey: department.key,
+      assignment: activeAssignment,
+      locations: assignmentLocations,
+      workRequirements: [],
+    });
+    return {
+      ...jobFlow,
+      scopeSummary: scope.scopeSummary,
+      locationSequence: scope.locationSequence,
+    };
   }
 
   const cycleWindows = cycles.flatMap((c) => {
@@ -405,7 +518,7 @@ export async function loadEmployeeJobFlow(
       })
     : [];
 
-  const workRequirements = workEnabled
+  const workRequirementsRaw = workEnabled
     ? await resolveUnitWorkRequirements({
         facilityId: input.facilityId,
         departmentId: input.departmentId,
@@ -417,15 +530,46 @@ export async function loadEmployeeJobFlow(
       })
     : [];
 
-  const spaceWorkSummaries = buildSpaceSummaries(workRequirements);
-  const evidenceAttention = buildEvidenceAttention(evidenceRequirements);
+  const assignedSpaceIds =
+    activeAssignment?.scopeKind === "SPACES"
+      ? new Set(assignmentLocations.map((l) => l.unitSpaceId))
+      : null;
+
+  // SPACES scope: assigned rooms + unit-level (null space) items. UNIT scope: full unit Work.
+  const workRequirements =
+    assignedSpaceIds == null
+      ? workRequirementsRaw
+      : workRequirementsRaw.filter(
+          (r) => r.spaceId == null || assignedSpaceIds.has(r.spaceId),
+        );
+
+  const evidenceRequirementsScoped =
+    assignedSpaceIds == null
+      ? evidenceRequirements
+      : evidenceRequirements.filter((r) => r.spaceId == null || assignedSpaceIds.has(r.spaceId));
+
+  const spaceWorkSummaries = buildSpaceSummaries(
+    workRequirements,
+    new Map(assignmentLocations.map((l) => [l.unitSpaceId, l.label])),
+  );
+
+  const scope = buildEvsScopeAttachment({
+    departmentKey: department.key,
+    assignment: activeAssignment,
+    locations: assignmentLocations,
+    workRequirements,
+  });
+
+  const evidenceAttention = buildEvidenceAttention(evidenceRequirementsScoped);
   const workAttention = buildWorkAttention(workRequirements);
 
   return {
     ...jobFlow,
-    evidenceRequirements,
+    evidenceRequirements: evidenceRequirementsScoped,
     workRequirements,
     spaceWorkSummaries,
+    scopeSummary: scope.scopeSummary,
+    locationSequence: scope.locationSequence,
     attention: [...jobFlow.attention, ...evidenceAttention, ...workAttention].filter(
       (item, idx, arr) =>
         arr.findIndex((x) => x.kind === item.kind && x.message === item.message) === idx,

@@ -218,7 +218,12 @@ export function EmployeeJobFlowPanel({
       ) : null}
 
       <dl className="mt-2 space-y-1.5 text-sm">
-        {unitName ? (
+        {jobFlow.scopeSummary ? (
+          <div data-testid="job-flow-scope-summary">
+            <dt className="text-xs text-zinc-500">{jobFlow.scopeSummary.title}</dt>
+            <dd className="font-semibold text-zinc-900">{jobFlow.scopeSummary.detail}</dd>
+          </div>
+        ) : unitName ? (
           <div>
             <dt className="text-xs text-zinc-500">Unit</dt>
             <dd className="font-semibold text-zinc-900">{unitName}</dd>
@@ -255,6 +260,18 @@ export function EmployeeJobFlowPanel({
           <div>
             <dt className="text-xs text-zinc-500">Target</dt>
             <dd className="text-zinc-800">{jobFlow.current.targetTime}</dd>
+          </div>
+        ) : null}
+        {jobFlow.locationSequence?.now ? (
+          <div data-testid="job-flow-location-now">
+            <dt className="text-xs text-zinc-500">Now</dt>
+            <dd className="text-zinc-800">{jobFlow.locationSequence.now.label}</dd>
+          </div>
+        ) : null}
+        {jobFlow.locationSequence?.next ? (
+          <div data-testid="job-flow-location-next">
+            <dt className="text-xs text-zinc-500">Next Room</dt>
+            <dd className="text-zinc-800">{jobFlow.locationSequence.next.label}</dd>
           </div>
         ) : null}
         {nextEvent ? (
@@ -344,6 +361,36 @@ export function EmployeeJobFlowPanel({
         </ul>
       ) : null}
 
+      {jobFlow.locationSequence && jobFlow.locationSequence.all.length > 0 ? (
+        <details className="mt-3 border-t border-zinc-100 pt-2" data-testid="job-flow-assigned-locations">
+          <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+            Assigned locations ({jobFlow.locationSequence.all.length})
+          </summary>
+          <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto text-xs text-zinc-700">
+            {jobFlow.locationSequence.all.map((loc) => (
+              <li key={loc.unitSpaceId} className="flex justify-between gap-2">
+                <span>{loc.label}</span>
+                <span className="text-zinc-500">
+                  {loc.hasUrgent
+                    ? "Urgent"
+                    : loc.allComplete
+                      ? "Complete"
+                      : loc.hasCurrentWork
+                        ? "Work remaining"
+                        : "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {jobFlow.locationSequence.queue.length > 0 ? (
+            <p className="mt-1 text-xs text-zinc-500" data-testid="job-flow-location-queue">
+              Queue: {jobFlow.locationSequence.queue.map((q) => q.label).join(" → ")}
+            </p>
+          ) : null}
+          <p className="mt-1 text-[11px] text-zinc-400">{jobFlow.locationSequence.sequencingNote}</p>
+        </details>
+      ) : null}
+
       {jobFlow.workRequirements.length > 0 ? (
         <WorkRequirementsStrip jobFlow={jobFlow} />
       ) : null}
@@ -354,20 +401,25 @@ export function EmployeeJobFlowPanel({
           aria-label="Space work progress"
           data-testid="job-flow-space-work-summaries"
         >
-          {jobFlow.spaceWorkSummaries.map((space) => (
-            <li
-              key={space.spaceId}
-              className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-700"
-            >
-              <span>Space {space.spaceId.slice(-6)}</span>
-              <span className="text-zinc-500">
-                {space.label}
-                {space.totalCount > 0
-                  ? ` · ${space.completedCount}/${space.totalCount}`
-                  : ""}
-              </span>
-            </li>
-          ))}
+          {jobFlow.spaceWorkSummaries.map((space) => {
+            const locationLabel =
+              jobFlow.locationSequence?.all.find((l) => l.unitSpaceId === space.spaceId)?.label ??
+              null;
+            return (
+              <li
+                key={space.spaceId}
+                className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-700"
+              >
+                <span>{locationLabel ?? "Room / Space"}</span>
+                <span className="text-zinc-500">
+                  {space.label}
+                  {space.totalCount > 0
+                    ? ` · ${space.completedCount}/${space.totalCount}`
+                    : ""}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 
