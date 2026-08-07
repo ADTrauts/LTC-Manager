@@ -28,6 +28,9 @@ import type { CycleMilestoneStatusKey } from "@/lib/operational-cycles/milestone
 import { buildDietaryCoverageSummary } from "@/lib/scheduling/operational-assignments/build-coverage-summary";
 import { loadAssignmentPlanView } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { loadDailyAssignmentBoard } from "@/lib/scheduling/operational-assignments/load-daily-assignment-board";
+import { buildLocationCoverageSummary } from "@/lib/scheduling/operational-assignments/location-coverage";
+import { loadZonesForDepartment } from "@/lib/department-zones";
+import { isEvsOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 import { resolveJobFlowAuthority, requireSupervisorBoard } from "./job-flow-authority";
@@ -37,7 +40,9 @@ import {
   type SupervisorBoardUnitRow,
   type SupervisorExceptionItem,
   type SupervisorExceptionTemporal,
+  type SupervisorLocationCoverageRow,
   type SupervisorOperationsBoard,
+  type SupervisorOperationsFilters,
 } from "./types";
 
 export type LoadSupervisorOperationsBoardInput = {
@@ -45,6 +50,13 @@ export type LoadSupervisorOperationsBoardInput = {
   facilityId: string;
   departmentId: string;
   now?: Date;
+  /** Phase 11C EVS location filters (query params). */
+  filters?: {
+    floor?: string | null;
+    unit?: string | null;
+    zone?: string | null;
+    employee?: string | null;
+  };
 };
 
 function temporalForCycle(opts: {
@@ -260,6 +272,11 @@ export async function loadSupervisorOperationsBoard(
     startedLate: cycleOverview.counts.late,
     startedNotConfirmed: cycleOverview.counts.notConfirmed,
     conflicts: pendingConflicts + cycleOverview.counts.startedWithoutReady,
+    locationCovered: null,
+    locationAtRisk: null,
+    locationUncovered: null,
+    locationOverlapping: null,
+    locationRequired: null,
   };
 
   const exceptions: SupervisorExceptionItem[] = [];
@@ -588,12 +605,119 @@ export async function loadSupervisorOperationsBoard(
     };
   });
 
+  const isEvs = departmentRow.key === "EVS" && isEvsOperationsEnabled();
+  let locationCoverage: SupervisorOperationsBoard["locationCoverage"] = null;
+  let filtersOut: SupervisorOperationsFilters | null = null;
+
+  if (isEvs) {
+    const [locSummary, zones] = await Promise.all([
+      buildLocationCoverageSummary(prisma, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        serviceDate,
+        now,
+        callOffEmployeeIds,
+      }),
+      loadZonesForDepartment(prisma, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
+    ]);
+
+    summary.locationCovered = locSummary.covered;
+    summary.locationAtRisk = locSummary.atRisk;
+    summary.locationUncovered = locSummary.uncovered;
+    summary.locationOverlapping = locSummary.overlapping;
+    summary.locationRequired = locSummary.totalRequired;
+
+    const filterFloor = input.filters?.floor?.trim() || null;
+    const filterUnit = input.filters?.unit?.trim() || null;
+    const filterZone = input.filters?.zone?.trim() || null;
+    const filterEmployee = input.filters?.employee?.trim() || null;
+
+    const matchesFilters = (row: {
+      unitId: string | null;
+      floorUnitId: string | null;
+      zoneIds: string[];
+      employeeIds: string[];
+    }) => {
+      if (filterFloor && row.floorUnitId !== filterFloor) return false;
+      if (filterUnit && row.unitId !== filterUnit) return false;
+      if (filterZone && !row.zoneIds.includes(filterZone)) return false;
+      if (filterEmployee && !row.employeeIds.includes(filterEmployee)) return false;
+      return true;
+    };
+
+    const filteredRows = locSummary.rows.filter(matchesFilters);
+
+    const toLocationRow = (
+      row: (typeof locSummary.rows)[number],
+    ): SupervisorLocationCoverageRow => ({
+      unitSpaceId: row.unitSpaceId,
+      label: row.label,
+      unitId: row.unitId,
+      unitName: row.unitName,
+      floorUnitId: row.floorUnitId,
+      floorName: row.floorName,
+      state: row.state,
+      employeeLabels: row.employeeLabels,
+      zoneIds: row.zoneIds,
+    });
+
+    locationCoverage = {
+      unassigned: filteredRows.filter((r) => r.state === "UNCOVERED").map(toLocationRow),
+      overlapping: filteredRows.filter((r) => r.state === "OVERLAPPING").map(toLocationRow),
+    };
+
+    const floorOptions = new Map<string, string>();
+    const unitOptions = new Map<string, string>();
+    for (const row of locSummary.rows) {
+      if (row.floorUnitId && row.floorName) floorOptions.set(row.floorUnitId, row.floorName);
+      if (row.unitId && row.unitName) unitOptions.set(row.unitId, row.unitName);
+    }
+
+    filtersOut = {
+      floor: filterFloor,
+      unit: filterUnit,
+      zone: filterZone,
+      employee: filterEmployee,
+      floors: [...floorOptions.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      units: [...unitOptions.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      zones: zones
+        .filter((z) => z.status === "ACTIVE" || z.status === "DRAFT")
+        .map((z) => ({ id: z.id, name: z.name })),
+      employees: board.employees
+        .map((e) => ({
+          id: e.id,
+          name: `${e.firstName} ${e.lastName}`.trim(),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+
+    // Filter unit board sections when unit/floor filters applied.
+    if (filterUnit || filterFloor) {
+      const allowedUnitIds = new Set(
+        filteredRows.map((r) => r.unitId).filter((id): id is string => Boolean(id)),
+      );
+      for (let i = viewAllUnits.length - 1; i >= 0; i--) {
+        if (!allowedUnitIds.has(viewAllUnits[i]!.unitId)) {
+          viewAllUnits.splice(i, 1);
+        }
+      }
+    }
+  }
+
   return {
     header: {
       facilityId: facility.id,
       facilityName: facility.displayName,
       departmentId: department.id,
       departmentName: department.name,
+      departmentKey: departmentRow.key,
       operationalDateKey,
       currentCycleLabel,
       nextCycleLabel,
@@ -603,5 +727,7 @@ export async function loadSupervisorOperationsBoard(
     summary,
     exceptions,
     viewAllUnits,
+    locationCoverage,
+    filters: filtersOut,
   };
 }

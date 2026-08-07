@@ -64,7 +64,23 @@ function groupExceptions(items: SupervisorExceptionItem[]) {
   );
 }
 
-export default async function SupervisorOperationsBoardPage() {
+function firstParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0]?.trim() || null;
+  return value?.trim() || null;
+}
+
+type OperationsPageProps = {
+  searchParams?: Promise<{
+    floor?: string | string[];
+    unit?: string | string[];
+    zone?: string | string[];
+    employee?: string | string[];
+  }>;
+};
+
+export default async function SupervisorOperationsBoardPage({
+  searchParams,
+}: OperationsPageProps) {
   noStore();
 
   if (!isAnyStaffingOperationalFeatureEnabled("jobFlow")) {
@@ -113,12 +129,24 @@ export default async function SupervisorOperationsBoardPage() {
     );
   }
 
+  const query = searchParams ? await searchParams : undefined;
+  const filterFloor = firstParam(query?.floor);
+  const filterUnit = firstParam(query?.unit);
+  const filterZone = firstParam(query?.zone);
+  const filterEmployee = firstParam(query?.employee);
+
   let board;
   try {
     board = await loadSupervisorOperationsBoard({
       session,
       facilityId: session.facilityId,
       departmentId: department.id,
+      filters: {
+        floor: filterFloor,
+        unit: filterUnit,
+        zone: filterZone,
+        employee: filterEmployee,
+      },
     });
   } catch (error) {
     return (
@@ -146,7 +174,7 @@ export default async function SupervisorOperationsBoardPage() {
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
   const builderHref = `/admin/departments/${department.id}?tab=cycles`;
   const exceptionGroups = groupExceptions(board.exceptions);
-  const { header, summary } = board;
+  const { header, summary, filters, locationCoverage } = board;
 
   const workPlansEnabled = isDepartmentWorkPlansEnabled(department.key);
   const oneOffUnits = workPlansEnabled
@@ -242,6 +270,22 @@ export default async function SupervisorOperationsBoardPage() {
         <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">
           Uncovered: {summary.uncovered}
         </span>
+        {summary.locationRequired != null ? (
+          <>
+            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-900">
+              Locations covered: {summary.locationCovered ?? 0}
+            </span>
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">
+              Locations at risk: {summary.locationAtRisk ?? 0}
+            </span>
+            <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-900">
+              Locations unassigned: {summary.locationUncovered ?? 0}
+            </span>
+            <span className="rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-violet-900">
+              Locations overlapping: {summary.locationOverlapping ?? 0}
+            </span>
+          </>
+        ) : null}
         <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">
           Ready confirmed: {summary.readyConfirmed}
         </span>
@@ -259,6 +303,161 @@ export default async function SupervisorOperationsBoardPage() {
         </span>
       </div>
 
+      {filters ? (
+        <form
+          method="get"
+          className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
+          data-testid="supervisor-ops-location-filters"
+        >
+          <label className="text-xs text-zinc-600">
+            Floor
+            <select
+              name="floor"
+              defaultValue={filters.floor ?? ""}
+              className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
+            >
+              <option value="">All floors</option>
+              {filters.floors.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-zinc-600">
+            Unit
+            <select
+              name="unit"
+              defaultValue={filters.unit ?? ""}
+              className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
+            >
+              <option value="">All units</option>
+              {filters.units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-zinc-600">
+            Zone
+            <select
+              name="zone"
+              defaultValue={filters.zone ?? ""}
+              className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
+            >
+              <option value="">All zones</option>
+              {filters.zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-zinc-600">
+            Employee
+            <select
+              name="employee"
+              defaultValue={filters.employee ?? ""}
+              className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
+            >
+              <option value="">All employees</option>
+              {filters.employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            Apply filters
+          </button>
+          <Link
+            href="/staffing/operations"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
+          >
+            Clear
+          </Link>
+        </form>
+      ) : null}
+
+      {locationCoverage ? (
+        <section className="space-y-4" data-testid="supervisor-ops-location-exceptions">
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-zinc-900">
+              Unassigned locations ({locationCoverage.unassigned.length})
+            </h2>
+            {locationCoverage.unassigned.length === 0 ? (
+              <p className="rounded-xl border border-zinc-200 bg-white px-4 py-4 text-sm text-zinc-500 shadow-sm">
+                No unassigned Rooms / Spaces for the current filters.
+              </p>
+            ) : (
+              <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
+                {locationCoverage.unassigned.map((row) => (
+                  <li
+                    key={row.unitSpaceId}
+                    className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    data-testid="supervisor-ops-unassigned-location"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
+                      <p className="text-xs text-zinc-600">
+                        {[row.floorName, row.unitName].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <Link
+                      href="/staffing/assignments"
+                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
+                    >
+                      Open Assignment Board
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-zinc-900">
+              Overlapping locations ({locationCoverage.overlapping.length})
+            </h2>
+            {locationCoverage.overlapping.length === 0 ? (
+              <p className="rounded-xl border border-zinc-200 bg-white px-4 py-4 text-sm text-zinc-500 shadow-sm">
+                No overlapping Room / Space responsibility for the current filters.
+              </p>
+            ) : (
+              <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
+                {locationCoverage.overlapping.map((row) => (
+                  <li
+                    key={row.unitSpaceId}
+                    className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    data-testid="supervisor-ops-overlapping-location"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
+                      <p className="text-xs text-zinc-600">
+                        {[row.floorName, row.unitName].filter(Boolean).join(" · ")}
+                        {row.employeeLabels.length > 0
+                          ? ` · ${row.employeeLabels.join(", ")}`
+                          : ""}
+                      </p>
+                    </div>
+                    <Link
+                      href="/staffing/assignments"
+                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
+                    >
+                      Open Assignment Board
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      ) : null}
+
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-zinc-900">Exceptions</h2>
         {exceptionGroups.length === 0 ? (
@@ -272,14 +471,14 @@ export default async function SupervisorOperationsBoardPage() {
               <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
                 {items.map((item, index) => (
                   <li
-                    key={`${group}-${item.unitId ?? item.employeeId ?? index}-${item.status}`}
+                    key={`${group}-${item.locationLabel ?? item.unitId ?? item.employeeId ?? index}-${item.status}`}
                     className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                     data-testid="supervisor-operations-exception"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold text-zinc-900">
-                          {item.unitName ?? item.employeeName ?? item.status}
+                          {item.locationLabel ?? item.unitName ?? item.employeeName ?? item.status}
                         </p>
                         <StatusBadge variant={temporalVariant(item.temporal)}>
                           {item.temporal.replace(/([a-z])([A-Z])/g, "$1 $2")}
@@ -287,6 +486,8 @@ export default async function SupervisorOperationsBoardPage() {
                       </div>
                       <p className="mt-1 text-xs text-zinc-600">
                         {item.status}
+                        {item.unitName && item.locationLabel ? ` · ${item.unitName}` : ""}
+                        {item.employeeName && item.locationLabel ? ` · ${item.employeeName}` : ""}
                         {item.cycleLabel ? ` · ${item.cycleLabel}` : ""}
                         {item.time ? ` · ${item.time}` : ""}
                       </p>

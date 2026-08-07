@@ -65,6 +65,31 @@ export type JobFlowAssignmentSnapshot = {
   startsAt: Date | null;
   endsAt: Date | null;
   status: string;
+  scopeKind?: "UNIT" | "SPACES";
+  locationCount?: number;
+  locationLabels?: string[];
+  sourceZoneName?: string | null;
+};
+
+export type JobFlowScopeSummary = {
+  title: string;
+  detail: string;
+};
+
+export type JobFlowLocationSequenceItem = {
+  unitSpaceId: string;
+  label: string;
+  hasCurrentWork: boolean;
+  allComplete: boolean;
+  hasUrgent: boolean;
+};
+
+export type JobFlowLocationSequence = {
+  now: JobFlowLocationSequenceItem | null;
+  next: JobFlowLocationSequenceItem | null;
+  queue: JobFlowLocationSequenceItem[];
+  all: JobFlowLocationSequenceItem[];
+  sequencingNote: string;
 };
 
 export type JobFlowUnitSnapshot = {
@@ -148,6 +173,10 @@ export type JobFlowBase = {
     totalCount: number;
     label: string;
   }>;
+  /** Phase 11C — assigned location scope summary for Employee Job Flow. */
+  scopeSummary?: JobFlowScopeSummary | null;
+  /** Phase 11C — deterministic NOW/NEXT/QUEUE (not route optimization). */
+  locationSequence?: JobFlowLocationSequence | null;
 };
 
 /** Only assignment-bearing / cycle-bearing variants carry those fields. */
@@ -221,6 +250,8 @@ export type SupervisorExceptionItem = {
   temporal: SupervisorExceptionTemporal;
   unitId?: string | null;
   unitName?: string | null;
+  /** Friendly Room/Space label for location coverage exceptions (Phase 11C). */
+  locationLabel?: string | null;
   employeeId?: string | null;
   employeeName?: string | null;
   cycleLabel?: string | null;
@@ -245,6 +276,12 @@ export type SupervisorBoardSummaryCounts = {
   startedLate: number;
   startedNotConfirmed: number;
   conflicts: number;
+  /** Phase 11C EVS location coverage counts (null for Dietary). */
+  locationCovered?: number | null;
+  locationAtRisk?: number | null;
+  locationUncovered?: number | null;
+  locationOverlapping?: number | null;
+  locationRequired?: number | null;
 };
 
 export type SupervisorBoardUnitRow = {
@@ -259,12 +296,36 @@ export type SupervisorBoardUnitRow = {
   workspaceHref: string;
 };
 
+export type SupervisorLocationCoverageRow = {
+  unitSpaceId: string;
+  label: string;
+  unitId: string | null;
+  unitName: string | null;
+  floorUnitId: string | null;
+  floorName: string | null;
+  state: string;
+  employeeLabels: string[];
+  zoneIds: string[];
+};
+
+export type SupervisorOperationsFilters = {
+  floor: string | null;
+  unit: string | null;
+  zone: string | null;
+  employee: string | null;
+  floors: Array<{ id: string; name: string }>;
+  units: Array<{ id: string; name: string }>;
+  zones: Array<{ id: string; name: string }>;
+  employees: Array<{ id: string; name: string }>;
+};
+
 export type SupervisorOperationsBoard = {
   header: {
     facilityId: string;
     facilityName: string;
     departmentId: string;
     departmentName: string;
+    departmentKey: string;
     operationalDateKey: string;
     currentCycleLabel: string | null;
     nextCycleLabel: string | null;
@@ -274,4 +335,10 @@ export type SupervisorOperationsBoard = {
   summary: SupervisorBoardSummaryCounts;
   exceptions: SupervisorExceptionItem[];
   viewAllUnits: SupervisorBoardUnitRow[];
+  /** Phase 11C — EVS location coverage projection (null when not EVS). */
+  locationCoverage: {
+    unassigned: SupervisorLocationCoverageRow[];
+    overlapping: SupervisorLocationCoverageRow[];
+  } | null;
+  filters: SupervisorOperationsFilters | null;
 };
