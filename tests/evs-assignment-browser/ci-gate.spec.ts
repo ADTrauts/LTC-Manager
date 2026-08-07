@@ -43,7 +43,6 @@ type Fixtures = {
   unitWorkspacePath: string;
   staffPin: string;
   scaleEmployeeCount: number;
-  faWithEvsEmail?: string;
 };
 
 const profileDir =
