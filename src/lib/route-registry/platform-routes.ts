@@ -176,6 +176,24 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Unified Operational Template Builder (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
   },
   {
+    pattern: "/staffing/work-plans",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "staffing",
+    notes:
+      "Dietary Department Work Plan Builder (Phase 11A). Page enforces DIETARY_WORK_PLANS_ENABLED.",
+  },
+  {
+    pattern: "/staffing/work-plans/[workPlanId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "staffing",
+    notes:
+      "Dietary Work Plan detail (Phase 11A). Page enforces DIETARY_WORK_PLANS_ENABLED.",
+  },
+  {
     pattern: "/staffing/log-book",
     match: "EXACT",
     surface: "PAGE",

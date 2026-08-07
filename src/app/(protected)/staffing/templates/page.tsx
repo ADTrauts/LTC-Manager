@@ -171,6 +171,9 @@ export default async function OperationalTemplateBuilderPage() {
             <Link href="/staffing/log-book" className="underline-offset-2 hover:underline">
               Log Book
             </Link>
+            <Link href="/staffing/work-plans" className="underline-offset-2 hover:underline">
+              Work Plans
+            </Link>
             <Link href="/staffing/operations" className="underline-offset-2 hover:underline">
               Operations Board
             </Link>
