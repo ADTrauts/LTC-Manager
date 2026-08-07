@@ -16,6 +16,10 @@ export function OfflineAssignmentContext() {
     endsAt: string | null;
     confirmedAt: string | null;
     lastSyncedAt: string;
+    scopeKind?: "UNIT" | "SPACES";
+    locationCount?: number;
+    assignedLocations?: Array<{ unitSpaceId: string; label: string }>;
+    sourceZoneName?: string | null;
   } | null | undefined>(undefined);
 
   useEffect(() => {
@@ -33,6 +37,10 @@ export function OfflineAssignmentContext() {
               endsAt: assignment.endsAt,
               confirmedAt: assignment.confirmedAt,
               lastSyncedAt: assignment.lastSyncedAt,
+              scopeKind: assignment.scopeKind,
+              locationCount: assignment.locationCount,
+              assignedLocations: assignment.assignedLocations,
+              sourceZoneName: assignment.sourceZoneName,
             }
           : null,
       );
@@ -67,6 +75,14 @@ export function OfflineAssignmentContext() {
 
   const start = fmt(ctx.startsAt);
   const end = fmt(ctx.endsAt);
+  const locationPreview =
+    ctx.scopeKind === "SPACES" && ctx.assignedLocations && ctx.assignedLocations.length > 0
+      ? ctx.assignedLocations
+          .slice(0, 6)
+          .map((l) => l.label)
+          .join(", ") +
+        (ctx.assignedLocations.length > 6 ? ` +${ctx.assignedLocations.length - 6} more` : "")
+      : null;
 
   return (
     <article
@@ -78,6 +94,16 @@ export function OfflineAssignmentContext() {
         {ctx.duty}
         {ctx.unitName ? ` — ${ctx.unitName}` : ""}
       </p>
+      {ctx.sourceZoneName ? (
+        <p className="text-xs text-zinc-600">Zone convenience: {ctx.sourceZoneName}</p>
+      ) : null}
+      {locationPreview ? (
+        <p className="text-xs text-zinc-700" data-testid="offline-assigned-locations">
+          {ctx.locationCount} Rooms: {locationPreview}
+        </p>
+      ) : ctx.scopeKind === "UNIT" && ctx.unitName ? (
+        <p className="text-xs text-zinc-600">Entire Unit</p>
+      ) : null}
       {start && end ? (
         <p className="text-xs text-zinc-600">
           {start}–{end}

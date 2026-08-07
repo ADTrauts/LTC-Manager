@@ -378,6 +378,15 @@ export async function buildRuntimeBundle(
         endsAt: true,
         status: true,
         plan: { select: { status: true } },
+        sourceZone: { select: { name: true } },
+        locations: {
+          select: {
+            unitSpaceId: true,
+            labelSnapshot: true,
+            unitSpace: { select: { name: true, roomNumber: true } },
+          },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        },
       },
       orderBy: { startsAt: "asc" },
     });
@@ -385,16 +394,28 @@ export async function buildRuntimeBundle(
     const visible = assignmentRows.filter((r) =>
       isPlanFrontlineVisible(r.plan?.status ?? null),
     );
-    const snapshots: JobFlowAssignmentSnapshot[] = visible.map((r) => ({
-      id: r.id,
-      roleKey: r.roleKey,
-      roleLabel: r.roleLabel,
-      unitId: r.unitId,
-      unitName: r.unit?.name ?? null,
-      startsAt: r.startsAt,
-      endsAt: r.endsAt,
-      status: r.status,
-    }));
+    const snapshots: JobFlowAssignmentSnapshot[] = visible.map((r) => {
+      const locationLabels = r.locations.map(
+        (l) =>
+          l.labelSnapshot?.trim() ||
+          [l.unitSpace.roomNumber, l.unitSpace.name].filter(Boolean).join(" • ") ||
+          l.unitSpace.name,
+      );
+      return {
+        id: r.id,
+        roleKey: r.roleKey,
+        roleLabel: r.roleLabel,
+        unitId: r.unitId,
+        unitName: r.unit?.name ?? null,
+        startsAt: r.startsAt,
+        endsAt: r.endsAt,
+        status: r.status,
+        scopeKind: r.locations.length > 0 ? "SPACES" : "UNIT",
+        locationCount: r.locations.length,
+        locationLabels,
+        sourceZoneName: r.sourceZone?.name ?? null,
+      };
+    });
 
     const activeOrPlanned = snapshots.filter(
       (a) => a.status === "ACTIVE" || a.status === "PLANNED",
@@ -655,11 +676,22 @@ export async function buildRuntimeBundle(
         facilityTimezone,
         unitId: unit.id,
       });
-      const scoped = workRequirements.filter((r) =>
-        ["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
-          r.state,
-        ),
-      );
+      const assignedSpaceIds =
+        assignmentContext?.scopeKind === "SPACES"
+          ? new Set(assignmentContext.assignedLocations?.map((l) => l.unitSpaceId) ?? [])
+          : null;
+      const scoped = workRequirements.filter((r) => {
+        if (
+          !["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
+            r.state,
+          )
+        ) {
+          return false;
+        }
+        if (assignedSpaceIds == null) return true;
+        // SPACES scope: only assigned rooms — never the full unit Work catalog.
+        return r.spaceId != null && assignedSpaceIds.has(r.spaceId);
+      });
       workContext = {
         requirements: scoped.map((r) => ({
           occurrenceKey: r.occurrenceKey,

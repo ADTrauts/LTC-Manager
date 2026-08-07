@@ -120,6 +120,13 @@ export type OfflineRuntimeBundle = {
     endsAt: string | null;
     confirmedAt: string | null;
     lastSyncedAt: string;
+    /** Phase 11C — UNIT or SPACES. */
+    scopeKind?: "UNIT" | "SPACES";
+    locationCount?: number;
+    assignedLocations?: Array<{ unitSpaceId: string; label: string }>;
+    sourceZoneName?: string | null;
+    /** assignmentId + startsAt + locationCount for stale detection. */
+    assignmentRevision?: string;
   } | null;
   /**
    * Read-only Operational Cycle context for the scoped unit/date.
