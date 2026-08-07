@@ -72,12 +72,12 @@ export function WorkCompletionPanel({
 
   useEffect(() => {
     void refreshOffline();
+    // Mirror Asset Issue: sync callback must not call router.refresh() — offline RSC refresh hangs.
     const stop = startSyncEngine(unitId, () => {
       void refreshOffline();
-      router.refresh();
     });
     return stop;
-  }, [unitId, refreshOffline, router]);
+  }, [unitId, refreshOffline]);
 
   const completed =
     requirement.state === "COMPLETED" || requirement.state === "COMPLETED_WITH_EVIDENCE";
@@ -121,13 +121,18 @@ export function WorkCompletionPanel({
             lastServerVerificationAt: null,
           });
         }
+        // Mirror Asset Issue: never fetch/refresh while offline — RSC refresh hangs.
+        const offline =
+          typeof navigator !== "undefined" && navigator.onLine === false;
         let snap = await getOfflineRuntimeSnapshot();
-        if (!snap?.bundle) {
+        if (!snap?.bundle && !offline) {
           await fetchAndStoreBundle(unitId);
           snap = await getOfflineRuntimeSnapshot();
         }
         if (!snap?.bundle) {
-          throw new Error("Offline Runtime bundle unavailable.");
+          throw new Error(
+            "No offline bundle. Open Unit Workspace online first, then save Work on this tablet.",
+          );
         }
         await queueOfflineWorkCompletionCommand({
           bundle: snap.bundle,
@@ -158,8 +163,11 @@ export function WorkCompletionPanel({
         });
         setNotice("Saved on This Tablet.");
         setOfflineStatus("Saved on This Tablet");
-        void runSyncBatch(unitId);
-        router.refresh();
+        await refreshOffline();
+        if (!offline) {
+          void runSyncBatch(unitId);
+          router.refresh();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not queue offline completion.");
       }

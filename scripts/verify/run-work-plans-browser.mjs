@@ -22,6 +22,11 @@ const ARTIFACT_DIR = join(ROOT, "tmp", "work-plans-browser-artifacts");
 const PROFILE_DIR = join(ROOT, "tmp", "work-plans-browser-profile");
 const FIXTURE_PATH = join(ARTIFACT_DIR, "fixtures.json");
 const PINS_PATH = join(ARTIFACT_DIR, "pins.env");
+/** Prefer isolated dist when concurrent VERIFY agents wipe shared `.next`. */
+const DIST_DIR =
+  process.env.WORK_PLANS_BROWSER_DIST_DIR ||
+  process.env.NEXT_DIST_DIR ||
+  ".next-workplans-browser";
 
 function fail(message) {
   console.error(`test:work-plans-browser: FAIL — ${message}`);
@@ -127,6 +132,8 @@ async function main() {
     AUTH_SECRET: process.env.AUTH_SECRET,
     SEED_DEMO_PASSWORD: process.env.SEED_DEMO_PASSWORD,
     ALLOW_DEMO_SEED_PASSWORD: "1",
+    NEXT_DIST_DIR: DIST_DIR,
+    WORK_PLANS_BROWSER_DIST_DIR: DIST_DIR,
     DIETARY_JOB_FLOW_ENABLED: "true",
     DIETARY_OPERATIONAL_CYCLES_ENABLED: "true",
     DIETARY_OPERATIONAL_EVIDENCE_ENABLED: "true",
@@ -161,16 +168,21 @@ async function main() {
     );
 
     if (process.env.WORK_PLANS_BROWSER_SKIP_BUILD !== "1") {
-      run("node", ["scripts/verify/verify-build.mjs"], baseEnv, "production build");
-    } else if (!existsSync(join(ROOT, ".next", "BUILD_ID"))) {
-      fail("WORK_PLANS_BROWSER_SKIP_BUILD=1 but .next/BUILD_ID is missing — run a production build");
+      console.log(`test:work-plans-browser: production build → ${DIST_DIR}`);
+      const buildEnv = { ...baseEnv };
+      delete buildEnv.NODE_ENV;
+      run("npx", ["next", "build", "--webpack"], buildEnv, "production build");
+    } else if (!existsSync(join(ROOT, DIST_DIR, "BUILD_ID"))) {
+      fail(
+        `WORK_PLANS_BROWSER_SKIP_BUILD=1 but ${DIST_DIR}/BUILD_ID is missing — build with NEXT_DIST_DIR=${DIST_DIR}`,
+      );
     }
 
     const port = await freePort();
     const baseUrl = `http://127.0.0.1:${port}`;
     writeFileSync(join(ARTIFACT_DIR, "base-url.txt"), baseUrl);
 
-    console.log(`test:work-plans-browser: starting next start on ${baseUrl}`);
+    console.log(`test:work-plans-browser: starting next start on ${baseUrl} (distDir=${DIST_DIR})`);
     serverChild = spawn(
       process.execPath,
       ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)],
@@ -180,12 +192,13 @@ async function main() {
           ...baseEnv,
           NODE_ENV: "production",
           PORT: String(port),
+          NEXT_DIST_DIR: DIST_DIR,
           DIETARY_JOB_FLOW_ENABLED: "true",
           DIETARY_OPERATIONAL_CYCLES_ENABLED: "true",
           DIETARY_OPERATIONAL_EVIDENCE_ENABLED: "true",
           DIETARY_ASSET_OPERATIONS_ENABLED: "true",
-    DIETARY_WORK_PLANS_ENABLED: "true",
-    TASK_SYNC_ENABLED: "",
+          DIETARY_WORK_PLANS_ENABLED: "true",
+          TASK_SYNC_ENABLED: "",
           OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
           OPERATION_ENGINE_ENABLED: "",
           DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
