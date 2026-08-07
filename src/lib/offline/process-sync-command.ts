@@ -2,13 +2,13 @@ import type { MealType, OperationalTemplateScheduleKind, PrismaClient } from "@p
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { reportAssetIssue } from "@/lib/asset-operations";
+import {
+  isDepartmentAssetOperationsEnabled,
+  isDepartmentOperationalEvidenceEnabled,
+  isDepartmentWorkPlansEnabled,
+} from "@/lib/department-operations";
 import { completeExplicit } from "@/lib/department-work";
 import type { WorkRequirement } from "@/lib/department-work/types";
-import {
-  isDietaryAssetOperationsEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-} from "@/lib/feature-flags";
 import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { recordServeryMilestone, type ServeryMilestone } from "@/lib/servery";
@@ -26,6 +26,17 @@ const MILESTONE_BY_COMMAND = {
   RECORD_SERVERY_READY: "READY",
   RECORD_MEAL_SERVICE_STARTED: "SERVICE_STARTED",
 } as const satisfies Record<"RECORD_SERVERY_READY" | "RECORD_MEAL_SERVICE_STARTED", ServeryMilestone>;
+
+async function departmentKeyForCommand(
+  client: PrismaClient,
+  departmentId: string,
+): Promise<string | null> {
+  const dept = await client.department.findFirst({
+    where: { id: departmentId, isActive: true },
+    select: { key: true },
+  });
+  return dept?.key ?? null;
+}
 
 function safeReasonFromFailure(reason: string): string {
   return reason;
@@ -183,7 +194,8 @@ async function processEvidenceCommand(
   now: Date,
 ): Promise<OfflineSyncCommandResult> {
   const { command } = input;
-  if (!isDietaryOperationalEvidenceEnabled()) {
+  const departmentKey = await departmentKeyForCommand(client, command.departmentId);
+  if (!isDepartmentOperationalEvidenceEnabled(departmentKey)) {
     return reject(command.clientCommandId, "EVIDENCE_FLAG_DISABLED");
   }
   const payload = command.evidence;
@@ -308,7 +320,8 @@ async function processAssetIssueCommand(
   now: Date,
 ): Promise<OfflineSyncCommandResult> {
   const { command } = input;
-  if (!isDietaryAssetOperationsEnabled()) {
+  const departmentKey = await departmentKeyForCommand(client, command.departmentId);
+  if (!isDepartmentAssetOperationsEnabled(departmentKey)) {
     return reject(command.clientCommandId, "ASSET_OPERATIONS_FLAG_DISABLED");
   }
   const payload = command.assetIssue;
@@ -392,7 +405,8 @@ async function processWorkCompletionCommand(
   now: Date,
 ): Promise<OfflineSyncCommandResult> {
   const { command } = input;
-  if (!isDietaryWorkPlansEnabled()) {
+  const departmentKey = await departmentKeyForCommand(client, command.departmentId);
+  if (!isDepartmentWorkPlansEnabled(departmentKey)) {
     return reject(command.clientCommandId, "WORK_PLANS_FLAG_DISABLED");
   }
   const payload = command.workCompletion;

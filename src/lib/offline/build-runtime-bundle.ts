@@ -18,13 +18,14 @@ import {
 import { resolveJobFlow } from "@/lib/dietary-job-flow";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow";
 import {
-  isDietaryAssetOperationsEnabled,
-  isDietaryJobFlowEnabled,
-  isDietaryOperationalCyclesEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-  isOperationalAssignmentsEnabled,
-} from "@/lib/feature-flags";
+  isDepartmentAssetOperationsEnabled,
+  isDepartmentJobFlowEnabled,
+  isDepartmentOperationalCyclesEnabled,
+  isDepartmentOperationalEvidenceEnabled,
+  isDepartmentWorkPlansEnabled,
+  resolveUnitOperationalDepartment,
+} from "@/lib/department-operations";
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
@@ -98,19 +99,6 @@ export async function buildRuntimeBundle(
 ): Promise<BuildRuntimeBundleResult> {
   const now = input.now ?? new Date();
   const actor = await resolveMilestoneActor(input.session);
-  const access = await evaluateServeryMilestoneAccess(
-    {
-      facilityId: input.session.facilityId,
-      unitId: input.unitId,
-      action: "RECORD",
-      actor,
-      deviceBoundUnitId: input.deviceBoundUnitId,
-    },
-    client,
-  );
-  if (!access.ok) {
-    return { ok: false, reason: access.reason, status: 403 };
-  }
 
   if (input.deviceFacilityId !== input.session.facilityId) {
     return { ok: false, reason: "DEVICE_FACILITY_MISMATCH", status: 403 };
@@ -120,10 +108,11 @@ export async function buildRuntimeBundle(
   }
 
   const unit = await client.unit.findFirst({
-    where: { id: input.unitId, facilityId: input.session.facilityId, isActive: true, unitType: "SERVERY" },
+    where: { id: input.unitId, facilityId: input.session.facilityId, isActive: true },
     select: {
       id: true,
       name: true,
+      unitType: true,
       updatedAt: true,
       facility: { select: { id: true, displayName: true, timezone: true } },
       mealTimes: {
@@ -137,11 +126,55 @@ export async function buildRuntimeBundle(
     return { ok: false, reason: "UNIT_NOT_FOUND", status: 404 };
   }
 
-  const dietary = await client.department.findFirst({
-    where: { facilityId: input.session.facilityId, key: "DIETARY", isActive: true },
-    select: { id: true, name: true },
+  // Prefer flagged Job Flow / Work Plans department (DIETARY or EVS). Classic SERVERY
+  // milestone offline must still work when DIETARY_JOB_FLOW_ENABLED is off — fall back
+  // to Dietary for SERVERY units (Phase 6/9 offline foundation).
+  let operationalDepartment = await resolveUnitOperationalDepartment({
+    facilityId: input.session.facilityId,
+    activeDepartmentId: input.session.primaryDepartmentId ?? null,
+    unitId: unit.id,
+    feature: "jobFlow",
   });
-  if (!dietary) {
+  if (!operationalDepartment && unit.unitType === "SERVERY") {
+    const dietaryFallback = await client.department.findFirst({
+      where: { facilityId: input.session.facilityId, key: "DIETARY", isActive: true },
+      select: { id: true, name: true, key: true },
+    });
+    if (dietaryFallback?.key === "DIETARY") {
+      operationalDepartment = {
+        id: dietaryFallback.id,
+        name: dietaryFallback.name,
+        key: "DIETARY",
+      };
+    }
+  }
+  if (!operationalDepartment) {
+    return { ok: false, reason: "DEPARTMENT_UNAVAILABLE", status: 403 };
+  }
+  const dietary = operationalDepartment;
+  const includeMealMilestones = dietary.key === "DIETARY";
+
+  if (includeMealMilestones) {
+    if (unit.unitType !== "SERVERY") {
+      return { ok: false, reason: "UNIT_NOT_FOUND", status: 404 };
+    }
+    const access = await evaluateServeryMilestoneAccess(
+      {
+        facilityId: input.session.facilityId,
+        unitId: input.unitId,
+        action: "RECORD",
+        actor,
+        deviceBoundUnitId: input.deviceBoundUnitId,
+      },
+      client,
+    );
+    if (!access.ok) {
+      return { ok: false, reason: access.reason, status: 403 };
+    }
+  } else if (
+    !isDepartmentJobFlowEnabled(dietary.key) &&
+    !isDepartmentWorkPlansEnabled(dietary.key)
+  ) {
     return { ok: false, reason: "DEPARTMENT_UNAVAILABLE", status: 403 };
   }
 
@@ -149,36 +182,41 @@ export async function buildRuntimeBundle(
   const serviceDate = getFacilityServiceDate(facilityTimezone, now);
   const serviceDateKey = toServiceDateKey(serviceDate);
 
-  const events = await client.serveryMealServiceEvent.findMany({
-    where: { unitId: unit.id, serviceDate },
-    select: {
-      id: true,
-      mealType: true,
-      updatedAt: true,
-      mealServiceReadyAt: true,
-      mealServiceStartedAt: true,
-      readyRecordedAt: true,
-      startedRecordedAt: true,
-      readyRecordedBy: { select: { displayName: true } },
-      startedRecordedBy: { select: { displayName: true } },
-      readyRecordedByEmployee: { select: { firstName: true, lastName: true } },
-      startedRecordedByEmployee: { select: { firstName: true, lastName: true } },
-      entries: { select: { milestone: true, kind: true } },
-    },
-  });
+  const events = includeMealMilestones
+    ? await client.serveryMealServiceEvent.findMany({
+        where: { unitId: unit.id, serviceDate },
+        select: {
+          id: true,
+          mealType: true,
+          updatedAt: true,
+          mealServiceReadyAt: true,
+          mealServiceStartedAt: true,
+          readyRecordedAt: true,
+          startedRecordedAt: true,
+          readyRecordedBy: { select: { displayName: true } },
+          startedRecordedBy: { select: { displayName: true } },
+          readyRecordedByEmployee: { select: { firstName: true, lastName: true } },
+          startedRecordedByEmployee: { select: { firstName: true, lastName: true } },
+          entries: { select: { milestone: true, kind: true } },
+        },
+      })
+    : [];
 
-  const mealContext = resolveServeryMealServiceContext({
-    unitType: "SERVERY",
-    mealTimes: unit.mealTimes.map((m) => ({ mealType: m.mealType, scheduledTime: m.scheduledTime })),
-    now,
-    facilityTimezone,
-  });
-  const recordable = recordableMealForContext(mealContext);
+  const mealContext = includeMealMilestones
+    ? resolveServeryMealServiceContext({
+        unitType: "SERVERY",
+        mealTimes: unit.mealTimes.map((m) => ({ mealType: m.mealType, scheduledTime: m.scheduledTime })),
+        now,
+        facilityTimezone,
+      })
+    : null;
+  const recordable = mealContext ? recordableMealForContext(mealContext) : null;
 
   const employeeLabel = (e?: { firstName: string; lastName: string } | null) =>
     e ? `${e.firstName} ${e.lastName}`.trim() : null;
 
-  const milestones = unit.mealTimes.map((slot) => {
+  const milestones = includeMealMilestones
+    ? unit.mealTimes.map((slot) => {
     const ev = events.find((e) => e.mealType === slot.mealType);
     const corrected = new Set(ev?.entries?.filter((x) => x.kind === "CORRECTION").map((x) => x.milestone) ?? []);
     return {
@@ -199,7 +237,8 @@ export async function buildRuntimeBundle(
         corrected: corrected.has("SERVICE_STARTED"),
       }),
     };
-  });
+  })
+    : [];
 
   const mealTimesUpdatedAt = unit.mealTimes.reduce(
     (max, m) => (m.updatedAt > max ? m.updatedAt : max),
@@ -232,7 +271,7 @@ export async function buildRuntimeBundle(
   let resolvedCycle =
     null as ReturnType<typeof resolveOperationalCycle> | null;
 
-  if (isDietaryOperationalCyclesEnabled() || isDietaryJobFlowEnabled()) {
+  if (isDepartmentOperationalCyclesEnabled(dietary.key) || isDepartmentJobFlowEnabled(dietary.key)) {
     const cycles = await loadPublishedCyclesForDate(
       input.session.facilityId,
       dietary.id,
@@ -243,14 +282,16 @@ export async function buildRuntimeBundle(
       now,
       facilityTimezone,
       operationalDateKey: serviceDateKey,
-      unit: { id: unit.id, unitType: "SERVERY" },
-      mealTargets: unit.mealTimes.map((m) => ({
-        mealType: m.mealType,
-        scheduledTime: m.scheduledTime,
-      })),
+      unit: { id: unit.id, unitType: unit.unitType },
+      mealTargets: includeMealMilestones
+        ? unit.mealTimes.map((m) => ({
+            mealType: m.mealType,
+            scheduledTime: m.scheduledTime,
+          }))
+        : [],
     });
 
-    if (isDietaryOperationalCyclesEnabled()) {
+    if (isDepartmentOperationalCyclesEnabled(dietary.key)) {
       const syncedAt = issuedAt.toISOString();
       if (resolvedCycle.state === "ACTIVE") {
         cycleContext = {
@@ -318,7 +359,7 @@ export async function buildRuntimeBundle(
   }
 
   let jobFlowContext: OfflineRuntimeBundle["jobFlowContext"] = null;
-  if (isDietaryJobFlowEnabled() && actor.employeeId && resolvedCycle) {
+  if (isDepartmentJobFlowEnabled(dietary.key) && actor.employeeId && resolvedCycle) {
     const assignmentRows = await client.operationalAssignment.findMany({
       where: {
         employeeId: actor.employeeId,
@@ -396,9 +437,10 @@ export async function buildRuntimeBundle(
             ? resolvedCycle.last.mealType
             : null;
 
-    const milestoneEventRow = mealTypeForEvent
-      ? events.find((e) => e.mealType === mealTypeForEvent)
-      : null;
+    const milestoneEventRow =
+      includeMealMilestones && mealTypeForEvent
+        ? events.find((e) => e.mealType === mealTypeForEvent)
+        : null;
     const milestoneEvent = milestoneEventRow
       ? {
           mealType: milestoneEventRow.mealType,
@@ -485,7 +527,7 @@ export async function buildRuntimeBundle(
   }
 
   let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
-  if (isDietaryOperationalEvidenceEnabled()) {
+  if (isDepartmentOperationalEvidenceEnabled(dietary.key)) {
     try {
       const publishedCycles = await loadPublishedCyclesForDate(
         input.session.facilityId,
@@ -577,7 +619,7 @@ export async function buildRuntimeBundle(
   }
 
   let assetContext: OfflineRuntimeBundle["assetContext"] = null;
-  if (isDietaryAssetOperationsEnabled()) {
+  if (isDepartmentAssetOperationsEnabled(dietary.key)) {
     try {
       const runtimeAssets = await loadUnitRuntimeAssets(unit.id, input.session.facilityId, {
         departmentId: dietary.id,
@@ -602,7 +644,7 @@ export async function buildRuntimeBundle(
   }
 
   let workContext: OfflineRuntimeBundle["workContext"] = null;
-  if (isDietaryWorkPlansEnabled()) {
+  if (isDepartmentWorkPlansEnabled(dietary.key)) {
     try {
       const workRequirements = await resolveUnitWorkRequirements({
         facilityId: input.session.facilityId,
@@ -670,11 +712,17 @@ export async function buildRuntimeBundle(
       sessionVersion: input.session.sessionVersion ?? 0,
     },
     operationalDate: serviceDateKey,
-    mealContext: {
-      applicableMealType: recordable?.mealType ?? null,
-      label: recordable ? `${recordable.mealType} · ${recordable.scheduledTime}` : null,
-      expectedServiceTime: recordable?.scheduledTime ?? null,
-    },
+    mealContext: includeMealMilestones
+      ? {
+          applicableMealType: recordable?.mealType ?? null,
+          label: recordable ? `${recordable.mealType} · ${recordable.scheduledTime}` : null,
+          expectedServiceTime: recordable?.scheduledTime ?? null,
+        }
+      : {
+          applicableMealType: null,
+          label: null,
+          expectedServiceTime: null,
+        },
     milestones,
     procedureLabels: [],
     assignmentContext,
