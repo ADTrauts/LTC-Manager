@@ -1506,10 +1506,10 @@ test("Facility Overview uses unscoped inputs (all signals)", () => {
 
 // -- Quick actions --
 
-test("Dietary quick actions exclude /assets, include /logs", () => {
+test("Dietary quick actions include /assets and /logs (Phase 11A closes Phase 10A nav gap)", () => {
   const config = resolveCompositionConfig(dietaryCtx);
   const actions = buildQuickActions({ context: dietaryCtx, config });
-  assert.ok(!actions.find((a) => a.href === "/assets"), "Dietary should not show Assets quick action");
+  assert.ok(actions.find((a) => a.href === "/assets"), "Dietary should show Assets quick action");
   assert.ok(actions.find((a) => a.href === "/issues"), "Dietary should show Issues quick action");
   assert.ok(actions.find((a) => a.href === "/logs"), "Dietary should show Logs quick action");
   assert.ok(!actions.find((a) => a.href === "/evs"), "Dietary should not show EVS Board");
@@ -1877,8 +1877,8 @@ test("M2: Dietary quick action set", () => {
   assert.ok(ids.includes("todays-work"));
   assert.ok(ids.includes("knowledge"));
   assert.ok(ids.includes("logs"));
+  assert.ok(ids.includes("assets"));
   assert.ok(!ids.includes("evs-board"));
-  assert.ok(!ids.includes("assets"));
 });
 
 test("M2: EVS quick action omits EVS Board while the route is deferred", () => {

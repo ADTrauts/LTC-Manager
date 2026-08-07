@@ -38,9 +38,10 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     contextLabel: "Dietary",
     contextDescription: "Dietary service, staffing, and compliance priorities.",
     visibleSectionIds: ALL_SECTIONS,
-    operationsLinkIds: [...SHARED_OPS_LINKS, "logs"],
+    // Phase 10A/11A: /assets is an authorized Dietary route (Asset Operations).
+    operationsLinkIds: [...SHARED_OPS_LINKS, "logs", "assets"],
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
-    quickActionIds: [...SHARED_QUICK_ACTIONS, "logs"],
+    quickActionIds: [...SHARED_QUICK_ACTIONS, "logs", "assets"],
     showLogCompletion: true,
     showMealContext: true,
   },

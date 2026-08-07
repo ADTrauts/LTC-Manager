@@ -192,6 +192,38 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
       workOrderId = href?.split("/").pop() ?? null;
       expect(workOrderId).toBeTruthy();
 
+      // WO UI lifecycle: open WO detail from Issue (Phase 10A strengthening)
+      await mgrWo.page.getByTestId("linked-work-order").click();
+      await expect(mgrWo.page.getByTestId("issue-detail")).toBeVisible({ timeout: 15_000 });
+      await mgrWo.page.goto(issueUrl, { waitUntil: "domcontentloaded" });
+
+      // Evidence ↔ Issue link UI (when a completed evidence record exists)
+      const evidenceDb = prisma();
+      try {
+        const evidence = await evidenceDb.operationalEvidenceRecord.findFirst({
+          where: {
+            facilityId: fx.facilityId,
+            departmentId: fx.departmentId,
+            status: { in: ["COMPLETED", "COMPLETED_WITH_CORRECTIVE_ACTION"] },
+          },
+          select: { id: true },
+          orderBy: { createdAt: "desc" },
+        });
+        if (evidence) {
+          await mgrWo.page.getByTestId("link-evidence-id").fill(evidence.id);
+          await mgrWo.page.getByRole("button", { name: /Link evidence/i }).click();
+          await expect(mgrWo.page.getByTestId("issue-evidence-links")).toContainText(evidence.id, {
+            timeout: 15_000,
+          });
+          await mgrWo.page.goto(`/staffing/log-book/${evidence.id}`, {
+            waitUntil: "domcontentloaded",
+          });
+          await expect(mgrWo.page.getByTestId("evidence-record-detail")).toBeVisible();
+        }
+      } finally {
+        await evidenceDb.$disconnect();
+      }
+
       // Foreign vendor reject via action path using Prisma assertion after bogus assign attempt
       const db = prisma();
       try {
