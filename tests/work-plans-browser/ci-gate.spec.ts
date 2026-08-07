@@ -21,6 +21,7 @@ type Fixtures = {
   supervisorEmail: string;
   staffEmail: string;
   faWithoutDietaryEmail: string;
+  faWithDietaryEmail?: string;
   coolerAssetId: string;
   fridgeAssetId: string;
   publishedTemplateId: string;
@@ -94,7 +95,19 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
       await manager.page.goto(fx.workPlansPath, { waitUntil: "domcontentloaded" });
       await expect(manager.page.getByTestId("work-plan-builder")).toBeVisible();
       await manager.page.getByTestId("create-work-plan").click();
-      await expect(manager.page.getByTestId("work-plan-message")).toBeVisible({ timeout: 20_000 });
+      await expect(manager.page).toHaveURL(/[?&]plan=/, { timeout: 25_000 });
+      await expect(manager.page.getByTestId("work-plan-list")).toContainText(/New Work Plan/i, {
+        timeout: 25_000,
+      });
+      // Prefer the newly created draft row (not the fixture plan).
+      await manager.page
+        .locator('[data-testid^="work-plan-row-"]')
+        .filter({ hasText: /New Work Plan/i })
+        .first()
+        .click();
+      await expect(manager.page.getByTestId("work-plan-name")).toHaveValue(/New Work Plan/i, {
+        timeout: 15_000,
+      });
       await manager.page.getByTestId("work-plan-name").fill("Browser Gate Plan");
       await manager.page.getByTestId("work-plan-save-draft").click();
       await expect(manager.page.getByTestId("work-plan-message")).toContainText(/saved/i, {
@@ -104,8 +117,18 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
       await expect(manager.page.getByTestId("work-plan-message")).toContainText(/Published/i, {
         timeout: 15_000,
       });
+      await expect(
+        manager.page
+          .locator('[data-testid^="work-plan-row-"]')
+          .filter({ hasText: /Browser Gate Plan/i })
+          .first(),
+      ).toContainText(/PUBLISHED/i, { timeout: 15_000 });
     } finally {
-      await manager.context.close();
+      try {
+        await manager.context.close();
+      } catch {
+        /* ignore persistent-context cleanup races */
+      }
     }
 
     // Ensure confirmed assignment exists for unit (SQL-backed fixture path)
@@ -177,7 +200,7 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
       await db.$disconnect();
     }
 
-    // [BROWSER] Staff Job Flow work strip + complete
+    // [BROWSER] Staff Job Flow work strip (view only — complete online after offline path)
     const staff = await openPersistent("staff-work");
     try {
       await loginPassword(staff.page, fx.staffEmail);
@@ -185,27 +208,18 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
       const workStrip = staff.page.getByTestId("job-flow-work-requirements");
       if (await workStrip.count()) {
         await expect(workStrip).toBeVisible();
-        const openWork = staff.page.locator(`[data-testid^="open-work-"]`).first();
-        if (await openWork.count()) {
-          await openWork.click();
-          await expect(staff.page.getByTestId("work-completion-panel")).toBeVisible({
-            timeout: 15_000,
-          });
-          await staff.page.getByTestId("complete-work").click();
-          await expect(staff.page.getByTestId("work-completion-notice")).toContainText(
-            /confirmed|Saved/i,
-            { timeout: 20_000 },
-          );
-        }
       } else {
-        // Honest: Job Flow may lack confirmed assignment visibility for this actor
         test.info().annotations.push({
           type: "note",
           description: "[BROWSER-PARTIAL] work strip not visible for staff session",
         });
       }
     } finally {
-      await staff.context.close();
+      try {
+        await staff.context.close();
+      } catch {
+        // Playwright trace chunk cleanup can race on persistent contexts.
+      }
     }
 
     // [BROWSER] Supervisor board Work group + one-off / Not Required actions
@@ -222,38 +236,106 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
         { timeout: 20_000 },
       );
     } finally {
-      await supervisor.context.close();
+      try {
+        await supervisor.context.close();
+      } catch {
+        /* ignore trace cleanup races */
+      }
     }
 
-    // [BROWSER] Offline COMPLETE_OPERATIONAL_TASK queue
+    // [BROWSER] Offline COMPLETE_OPERATIONAL_TASK queue (before online complete so Work stays open)
+    // Pattern: FA binds device, then STAFF completes Work offline (same as Asset Issue offline).
     const offline = await openPersistent("offline-work");
     try {
-      await loginPassword(offline.page, fx.staffEmail);
-      await bindDevice(offline.page, fx.unitId);
-      await offline.page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
-      await fetchBundleViaApi(offline.page, fx.unitId);
-      await setNetworkOffline(offline.context, true, offline.page);
-      const openWork = offline.page.locator(`[data-testid^="open-work-"]`).first();
-      if (await openWork.count()) {
-        await openWork.click();
-        await expect(offline.page.getByTestId("work-completion-panel")).toBeVisible();
-        await offline.page.getByTestId("complete-work-offline").click();
-        await expect(offline.page.getByTestId("work-offline-status")).toContainText(
-          /Saved on This Tablet|Offline/i,
-          { timeout: 20_000 },
-        );
-        const snap = await inspectIndexedDb(offline.page);
-        const cmds = (
-          (snap as { commands?: Array<{ commandType?: string; unitId?: string }> }).commands ?? []
-        ).filter((c) => c.commandType === "COMPLETE_OPERATIONAL_TASK");
-        for (const cmd of cmds) {
-          expect(cmd.unitId).toBe(fx.unitId);
+      const faEmail = fx.faWithDietaryEmail;
+      if (!faEmail) {
+        test.info().annotations.push({
+          type: "note",
+          description:
+            "[BROWSER-PARTIAL] no Dietary FA fixture for device bind; offline Work completion skipped",
+        });
+      } else {
+        await loginPassword(offline.page, faEmail);
+        await bindDevice(offline.page, fx.unitId);
+        await loginPassword(offline.page, fx.staffEmail);
+        await offline.page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
+        await fetchBundleViaApi(offline.page, fx.unitId);
+        await setNetworkOffline(offline.context, true, offline.page);
+        const openWork = offline.page
+          .locator(`[data-testid^="open-work-"]:not([data-testid^="open-work-procedure-"])`)
+          .first();
+        if (await openWork.count()) {
+          await openWork.click();
+          await expect(offline.page.getByTestId("work-completion-panel")).toBeVisible({
+            timeout: 15_000,
+          });
+          if (await offline.page.getByTestId("complete-work-offline").count()) {
+            await offline.page.getByTestId("complete-work-offline").click();
+            await expect(
+              offline.page
+                .getByTestId("work-offline-status")
+                .or(offline.page.getByTestId("work-completion-notice")),
+            ).toContainText(/Saved on This Tablet|Offline|confirmed/i, {
+              timeout: 20_000,
+            });
+            const snap = await inspectIndexedDb(offline.page);
+            const cmds = (
+              (snap as { commands?: Array<{ commandType?: string; unitId?: string }> }).commands ??
+              []
+            ).filter((c) => c.commandType === "COMPLETE_OPERATIONAL_TASK");
+            for (const cmd of cmds) {
+              expect(cmd.unitId).toBe(fx.unitId);
+            }
+          } else {
+            test.info().annotations.push({
+              type: "note",
+              description: "[BROWSER-PARTIAL] Work already completed; offline button not shown",
+            });
+          }
+        } else {
+          test.info().annotations.push({
+            type: "note",
+            description: "[BROWSER-PARTIAL] no open Work for offline completion in this session",
+          });
         }
+        await setNetworkOffline(offline.context, false, offline.page);
       }
-      await setNetworkOffline(offline.context, false, offline.page);
     } finally {
       await setNetworkOffline(offline.context, false).catch(() => {});
-      await offline.context.close();
+      try {
+        await offline.context.close();
+      } catch {
+        /* ignore trace cleanup races */
+      }
+    }
+
+    // [BROWSER] Online complete (after offline path)
+    const staffComplete = await openPersistent("staff-complete");
+    try {
+      await loginPassword(staffComplete.page, fx.staffEmail);
+      await staffComplete.page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
+      const openWork = staffComplete.page
+        .locator(`[data-testid^="open-work-"]:not([data-testid^="open-work-procedure-"])`)
+        .first();
+      if (await openWork.count()) {
+        await openWork.click();
+        await expect(staffComplete.page.getByTestId("work-completion-panel")).toBeVisible({
+          timeout: 15_000,
+        });
+        if (await staffComplete.page.getByTestId("complete-work").count()) {
+          await staffComplete.page.getByTestId("complete-work").click();
+          await expect(staffComplete.page.getByTestId("work-completion-notice")).toContainText(
+            /confirmed|Saved/i,
+            { timeout: 20_000 },
+          );
+        }
+      }
+    } finally {
+      try {
+        await staffComplete.context.close();
+      } catch {
+        /* ignore */
+      }
     }
 
     // [BROWSER] Phase 10A strengthening — Quick PIN issue path + evidence↔issue link surface

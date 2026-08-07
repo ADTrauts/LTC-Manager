@@ -16,8 +16,13 @@ import {
 import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
-export default async function WorkPlanBuilderPage() {
+export default async function WorkPlanBuilderPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ plan?: string }>;
+}) {
   noStore();
+  const params = searchParams ? await searchParams : {};
 
   if (!isDietaryWorkPlansEnabled()) {
     redirect("/staffing");
@@ -181,10 +186,12 @@ export default async function WorkPlanBuilderPage() {
         </Link>
       </p>
       <WorkPlanBuilderPanel
+        key={params.plan ?? "work-plan-builder"}
         facilityId={session.facilityId}
         departmentId={dietary.id}
         canManage={builder.canManage}
         canPublish={builder.canPublish}
+        initialPlanId={params.plan ?? null}
         plans={plans}
         presets={listWorkPlanPresetSummaries()}
         procedures={procedures}

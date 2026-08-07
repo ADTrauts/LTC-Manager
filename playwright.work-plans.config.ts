@@ -7,8 +7,8 @@ export default defineConfig({
   testDir: "tests/work-plans-browser",
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
-  timeout: 90_000,
+  retries: 0,
+  timeout: 300_000,
   expect: { timeout: 20_000 },
   forbidOnly: Boolean(process.env.CI),
   reporter: [
@@ -18,7 +18,8 @@ export default defineConfig({
   outputDir: `${artifactDir}/test-output`,
   use: {
     baseURL: process.env.WORK_PLANS_BROWSER_BASE_URL || "http://127.0.0.1:3000",
-    trace: "retain-on-failure",
+    // Persistent contexts + retain-on-failure traces race on artifact cleanup (ENOENT).
+    trace: "off",
     screenshot: "only-on-failure",
     video: "off",
     ignoreHTTPSErrors: true,

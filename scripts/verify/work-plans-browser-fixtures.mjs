@@ -35,6 +35,74 @@ async function main() {
 
   mkdirSync(ARTIFACT_DIR, { recursive: true });
 
+  // Sequential gates re-seed then re-run fixtures on the same VERIFY DB.
+  // Clear prior browser fixture templates so OperationalTemplate unique keys do not collide.
+  const cleanupDb = new PrismaClient({ datasources: { db: { url } } });
+  try {
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalEvidenceFieldValue"
+      WHERE "recordId" IN (
+        SELECT id FROM "OperationalEvidenceRecord"
+        WHERE "templateStableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           OR "templateId" IN (
+             SELECT id FROM "OperationalTemplate"
+             WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           )
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "AssetIssueEvidenceLink"
+      WHERE "evidenceRecordId" IN (
+        SELECT id FROM "OperationalEvidenceRecord"
+        WHERE "templateStableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           OR "templateId" IN (
+             SELECT id FROM "OperationalTemplate"
+             WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           )
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalEvidenceRecord"
+      WHERE "templateStableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+         OR "templateId" IN (
+           SELECT id FROM "OperationalTemplate"
+           WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+         )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateApplicability"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateField"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateSchedule"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateEvent"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplate"
+      WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')`);
+  } catch (err) {
+    console.warn(
+      `work-plans-browser-fixtures: template cleanup warning — ${err instanceof Error ? err.message : String(err)}`,
+    );
+  } finally {
+    await cleanupDb.$disconnect();
+  }
+
+  // Always generate Asset fixtures against the current VERIFY_DATABASE_URL.
+  // Do not reuse prior artifact fixtures from a different disposable database.
   const assetResult = spawnSync(
     process.execPath,
     ["scripts/verify/asset-operations-browser-fixtures.mjs"],
@@ -56,6 +124,17 @@ async function main() {
 
   const db = new PrismaClient({ datasources: { db: { url } } });
   try {
+    // Confirm department exists in this database before linking KnowledgeArticle.
+    const dietary = await db.department.findFirst({
+      where: { id: fx.departmentId, facilityId: fx.facilityId },
+      select: { id: true },
+    });
+    if (!dietary) {
+      fail(
+        `fixture departmentId ${fx.departmentId} missing in VERIFY database — regenerate Asset fixtures for this URL`,
+      );
+    }
+
     const article =
       (await db.knowledgeArticle.findFirst({
         where: {

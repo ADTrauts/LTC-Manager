@@ -66,6 +66,8 @@ type Props = {
   departmentId: string;
   canManage: boolean;
   canPublish: boolean;
+  /** When set (e.g. after create/successor), keep the editor on this plan across refresh. */
+  initialPlanId?: string | null;
   plans: PlanRow[];
   presets: Array<{ key: string; name: string; description: string | null; itemCount: number }>;
   procedures: ProcedureOption[];
@@ -145,6 +147,7 @@ export function WorkPlanBuilderPanel({
   departmentId,
   canManage,
   canPublish,
+  initialPlanId = null,
   plans,
   presets,
   procedures,
@@ -154,9 +157,11 @@ export function WorkPlanBuilderPanel({
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [selectedId, setSelectedId] = useState<string | null>(plans[0]?.id ?? null);
+  const starting =
+    (initialPlanId ? plans.find((p) => p.id === initialPlanId) : null) ?? plans[0] ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(starting?.id ?? null);
   const [draft, setDraft] = useState<WorkPlanDraftInput>(() =>
-    plans[0] ? toDraft(plans[0]) : blankDraft(),
+    starting ? toDraft(starting) : blankDraft(),
   );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,20 +173,31 @@ export function WorkPlanBuilderPanel({
   );
   const isDraft = !selected || selected.status === "DRAFT";
 
+  function planHref(planId: string) {
+    return `/staffing/work-plans?plan=${encodeURIComponent(planId)}`;
+  }
+
   function selectPlan(plan: PlanRow) {
     setSelectedId(plan.id);
     setDraft(toDraft(plan));
     setMessage(null);
     setError(null);
+    // Local selection only — avoid remount races on list clicks.
   }
 
-  function run(action: () => Promise<void>) {
+  function run(action: () => Promise<string | void>) {
     setError(null);
     setMessage(null);
     startTransition(async () => {
       try {
-        await action();
-        router.refresh();
+        const nextPlanId = await action();
+        if (typeof nextPlanId === "string" && nextPlanId.length > 0 && nextPlanId !== selectedId) {
+          // Selection changed — remount with ?plan= so refresh keeps the editor on the new draft.
+          router.replace(planHref(nextPlanId));
+        } else {
+          // Same plan — soft refresh preserves ephemeral success messages.
+          router.refresh();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -206,8 +222,10 @@ export function WorkPlanBuilderPanel({
                       departmentId,
                       draft: blankDraft(),
                     });
+                    setDraft(blankDraft());
                     setMessage(`Created draft ${created.id}`);
                     setSelectedId(created.id);
+                    return created.id;
                   })
                 }
               >
@@ -229,6 +247,7 @@ export function WorkPlanBuilderPanel({
                       });
                       setMessage(`Created preset draft ${preset.name}`);
                       setSelectedId(created.id);
+                      return created.id;
                     })
                   }
                 >
@@ -526,6 +545,7 @@ export function WorkPlanBuilderPanel({
                     });
                     setSelectedId(created.id);
                     setMessage("Successor draft created.");
+                    return created.id;
                   })
                 }
               >

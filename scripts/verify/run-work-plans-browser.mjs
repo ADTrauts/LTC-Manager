@@ -162,8 +162,8 @@ async function main() {
 
     if (process.env.WORK_PLANS_BROWSER_SKIP_BUILD !== "1") {
       run("node", ["scripts/verify/verify-build.mjs"], baseEnv, "production build");
-    } else if (!existsSync(join(ROOT, ".next"))) {
-      fail("WORK_PLANS_BROWSER_SKIP_BUILD=1 but .next is missing");
+    } else if (!existsSync(join(ROOT, ".next", "BUILD_ID"))) {
+      fail("WORK_PLANS_BROWSER_SKIP_BUILD=1 but .next/BUILD_ID is missing — run a production build");
     }
 
     const port = await freePort();
