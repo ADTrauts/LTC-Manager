@@ -176,6 +176,8 @@ model Facility {
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
+  departmentRequestRoutes        DepartmentRequestRoute[]
+  operationalRequests            OperationalRequest[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -221,6 +223,11 @@ model Department {
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
+  requestRoutesAsRequesting      DepartmentRequestRoute[]        @relation("RequestRouteRequesting")
+  requestRoutesAsResponsible     DepartmentRequestRoute[]        @relation("RequestRouteResponsible")
+  operationalRequestsRequesting  OperationalRequest[]            @relation("OperationalRequestRequesting")
+  operationalRequestsResponsible OperationalRequest[]            @relation("OperationalRequestResponsible")
+  operationalRequestsAffected    OperationalRequest[]            @relation("OperationalRequestAffected")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -427,6 +434,9 @@ model User {
   assetIssuesReported            AssetIssue[]                    @relation("AssetIssueReportedByUser")
   assetIssueUpdates              AssetIssueUpdate[]              @relation("AssetIssueUpdateByUser")
   assetIssueEvidenceLinks        AssetIssueEvidenceLink[]        @relation("AssetIssueEvidenceLinkedBy")
+  operationalRequestsReported    OperationalRequest[]            @relation("OperationalRequestReportedByUser")
+  operationalRequestUpdates      OperationalRequestUpdate[]     @relation("OperationalRequestUpdateByUser")
+  operationalRequestEvidenceLinks OperationalRequestEvidenceLink[] @relation("OperationalRequestEvidenceLinkedBy")
   workPlansCreated               DepartmentWorkPlan[]            @relation("WorkPlanCreatedBy")
   workPlansPublished             DepartmentWorkPlan[]            @relation("WorkPlanPublishedBy")
   workPlansRetired               DepartmentWorkPlan[]            @relation("WorkPlanRetiredBy")
@@ -694,6 +704,22 @@ enum AssetIssueStatus {
   CANCELLED
 }
 
+/// Cross-department Operational Request lifecycle (Phase 12A). Supports triage + requester-visible mapping.
+enum OperationalRequestStatus {
+  REPORTED
+  ACKNOWLEDGED
+  UNDER_REVIEW
+  WORK_ASSIGNED
+  WORK_IN_PROGRESS
+  WAITING_ON_VENDOR
+  WAITING_ON_PARTS
+  MONITORING
+  RESOLVED
+  CLOSED
+  CANCELLED
+  REOPENED
+}
+
 /// Neutral operational impact on Unit / service (not a technical safety certification).
 enum AssetOperationalImpact {
   NO_IMMEDIATE_IMPACT
@@ -871,6 +897,7 @@ model Unit {
   operationalCycleLocations  DepartmentOperationalCycleLocation[]
   operationalEvidenceRecords OperationalEvidenceRecord[]
   assetIssues                AssetIssue[]
+  operationalRequests        OperationalRequest[]
   departmentWorkOccurrences  DepartmentWorkOccurrence[]
   createdAt                  DateTime                             @default(now())
   updatedAt                  DateTime                             @updatedAt
@@ -927,6 +954,7 @@ model UnitSpace {
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   assets                             Asset[]
   assetIssues                        AssetIssue[]
+  operationalRequests                OperationalRequest[]
   departmentWorkOccurrences          DepartmentWorkOccurrence[]
   zoneMemberships                    DepartmentOperationalZoneLocation[]
   assignmentLocations                OperationalAssignmentLocation[]
@@ -1296,6 +1324,8 @@ model Employee {
   inspectionSubmissions          InspectionSubmission[]          @relation("InspectionSubmittedByEmployee")
   assetIssuesReported            AssetIssue[]                    @relation("AssetIssueReportedByEmployee")
   assetIssueUpdates              AssetIssueUpdate[]              @relation("AssetIssueUpdateByEmployee")
+  operationalRequestsReported    OperationalRequest[]            @relation("OperationalRequestReportedByEmployee")
+  operationalRequestUpdates      OperationalRequestUpdate[]     @relation("OperationalRequestUpdateByEmployee")
   workOccurrencesCompleted       DepartmentWorkOccurrence[]      @relation("WorkOccurrenceCompletedByEmployee")
   workOccurrencesAssigned        DepartmentWorkOccurrence[]      @relation("WorkOccurrenceAssignedEmployee")
   workOccurrencesOriginalAssigned DepartmentWorkOccurrence[]     @relation("WorkOccurrenceOriginalAssignedEmployee")
@@ -1533,6 +1563,7 @@ model Asset {
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   statusHistory                      AssetStatusHistory[]
   assetIssues                        AssetIssue[]
+  operationalRequests                OperationalRequest[]
   departmentWorkOccurrences          DepartmentWorkOccurrence[]
   createdAt                          DateTime                           @default(now())
   updatedAt                          DateTime                           @updatedAt
@@ -1605,6 +1636,8 @@ model AssetIssue {
   resolutionReason         String?
   workOrderId              String?                @unique
   workOrder                Repair?                @relation("AssetIssueWorkOrder", fields: [workOrderId], references: [id], onDelete: SetNull)
+  /// Reverse of OperationalRequest.relatedAssetIssueId (Request owns the FK).
+  relatedFromOperationalRequest OperationalRequest? @relation("OperationalRequestRelatedIssue")
   updates                  AssetIssueUpdate[]
   evidenceLinks            AssetIssueEvidenceLink[]
   statusHistoryLinks       AssetStatusHistory[]
@@ -1650,6 +1683,126 @@ model AssetIssueEvidenceLink {
   @@index([evidenceRecordId])
 }
 
+/// Facility-scoped allowed Request destinations (requesting dept → responsible dept).
+/// No rules engine — reporter picks from configured routes (or sole default).
+model DepartmentRequestRoute {
+  id                     String     @id @default(cuid())
+  facilityId             String
+  facility               Facility   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  requestingDepartmentId String
+  requestingDepartment   Department @relation("RequestRouteRequesting", fields: [requestingDepartmentId], references: [id], onDelete: Cascade)
+  responsibleDepartmentId String
+  responsibleDepartment  Department @relation("RequestRouteResponsible", fields: [responsibleDepartmentId], references: [id], onDelete: Cascade)
+  isActive               Boolean    @default(true)
+  sortOrder              Int        @default(100)
+  note                   String?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  @@unique([facilityId, requestingDepartmentId, responsibleDepartmentId])
+  @@index([facilityId, requestingDepartmentId])
+  @@index([facilityId, requestingDepartmentId, isActive])
+}
+
+/// Cross-department Operational Request (Asset optional). Owns intake / triage / requester-visible status.
+/// Does not own repair work — Work Order link is explicit via workOrderId.
+model OperationalRequest {
+  id                           String                   @id @default(cuid())
+  requestCode                  String                   @unique
+  facilityId                   String
+  facility                     Facility                 @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  requestingDepartmentId       String
+  requestingDepartment         Department               @relation("OperationalRequestRequesting", fields: [requestingDepartmentId], references: [id], onDelete: Restrict)
+  responsibleDepartmentId      String
+  responsibleDepartment        Department               @relation("OperationalRequestResponsible", fields: [responsibleDepartmentId], references: [id], onDelete: Restrict)
+  affectedDepartmentId         String?
+  affectedDepartment           Department?              @relation("OperationalRequestAffected", fields: [affectedDepartmentId], references: [id], onDelete: SetNull)
+  unitId                       String
+  unit                         Unit                     @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  spaceId                      String?
+  space                        UnitSpace?               @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  assetId                      String?
+  asset                        Asset?                   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  summary                      String
+  description                  String
+  status                       OperationalRequestStatus @default(REPORTED)
+  priority                     RepairPriority           @default(MEDIUM)
+  operationalImpact            AssetOperationalImpact   @default(NO_IMMEDIATE_IMPACT)
+  /// Null when no Asset is attached.
+  equipmentRemainsUsable       Boolean?
+  observedAt                   DateTime
+  reportedAt                   DateTime                 @default(now())
+  /// Limited factual status for requesters (never private triage / vendor internals).
+  requesterVisibleStatusSummary String?
+  /// Requester-visible workaround when intended.
+  workaroundInstruction        String?
+  reportedByUserId             String?
+  reportedByUser               User?                    @relation("OperationalRequestReportedByUser", fields: [reportedByUserId], references: [id], onDelete: SetNull)
+  reportedByEmployeeId         String?
+  reportedByEmployee           Employee?                @relation("OperationalRequestReportedByEmployee", fields: [reportedByEmployeeId], references: [id], onDelete: SetNull)
+  reportedByLabel              String?
+  /// Internal triage note — never requester-visible.
+  triageNote                   String?
+  resolutionReason             String?
+  resolvedAt                   DateTime?
+  closedAt                     DateTime?
+  relatedAssetIssueId          String?                  @unique
+  relatedAssetIssue            AssetIssue?              @relation("OperationalRequestRelatedIssue", fields: [relatedAssetIssueId], references: [id], onDelete: SetNull)
+  workOrderId                  String?                  @unique
+  workOrder                    Repair?                  @relation("OperationalRequestWorkOrder", fields: [workOrderId], references: [id], onDelete: SetNull)
+  clientCommandId              String?
+  recordedOnline               Boolean                  @default(true)
+  synchronizedAt               DateTime?
+  deviceBoundUnitId            String?
+  updates                      OperationalRequestUpdate[]
+  evidenceLinks                OperationalRequestEvidenceLink[]
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
+
+  @@unique([facilityId, requestingDepartmentId, clientCommandId])
+  @@index([facilityId, responsibleDepartmentId, status])
+  @@index([facilityId, requestingDepartmentId, status])
+  @@index([facilityId, unitId, status])
+  @@index([priority, status])
+  @@index([assetId])
+  @@index([workOrderId])
+  @@index([relatedAssetIssueId])
+  @@index([observedAt])
+}
+
+model OperationalRequestUpdate {
+  id                  String                   @id @default(cuid())
+  requestId           String
+  request             OperationalRequest       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  updateText          String
+  statusAfterUpdate   OperationalRequestStatus?
+  updatedByUserId     String?
+  updatedByUser       User?                    @relation("OperationalRequestUpdateByUser", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  updatedByEmployeeId String?
+  updatedByEmployee   Employee?                @relation("OperationalRequestUpdateByEmployee", fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
+  /// When true, this history line may appear in requester-visible status.
+  requesterVisible    Boolean                  @default(false)
+  updatedAt           DateTime                 @default(now())
+
+  @@index([requestId, updatedAt])
+}
+
+/// Supporting Evidence for an Operational Request (many-to-many; neither owns the other).
+model OperationalRequestEvidenceLink {
+  id               String                    @id @default(cuid())
+  requestId        String
+  request          OperationalRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  evidenceRecordId String
+  evidenceRecord   OperationalEvidenceRecord @relation(fields: [evidenceRecordId], references: [id], onDelete: Cascade)
+  linkedByUserId   String?
+  linkedByUser     User?                     @relation("OperationalRequestEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+  linkedAt         DateTime                  @default(now())
+  note             String?
+
+  @@unique([requestId, evidenceRecordId])
+  @@index([evidenceRecordId])
+}
+
 model Repair {
   id                      String                         @id @default(cuid())
   repairCode              String                         @unique
@@ -1692,6 +1845,8 @@ model Repair {
   vendor                  Vendor?                        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   /// Optional Phase 10A source Asset Issue (Issue and Work Order remain separate rows).
   sourceAssetIssue        AssetIssue?                    @relation("AssetIssueWorkOrder")
+  /// Optional Phase 12A source Operational Request (Request owns the FK).
+  sourceOperationalRequest OperationalRequest?           @relation("OperationalRequestWorkOrder")
   updates                 RepairUpdate[]
   attachments             Attachment[]
   assetStatusHistoryLinks AssetStatusHistory[]
@@ -1718,6 +1873,8 @@ model RepairUpdate {
   updatedById       String?
   updatedBy         User?         @relation(fields: [updatedById], references: [id], onDelete: SetNull)
   statusAfterUpdate RepairStatus?
+  /// When true, this update may appear in requester-visible status summaries (Phase 12A).
+  requesterVisible  Boolean       @default(false)
   updatedAt         DateTime      @default(now())
 
   @@index([repairId, updatedAt])
@@ -2974,6 +3131,7 @@ model OperationalEvidenceRecord {
   values                       OperationalEvidenceFieldValue[]
   corrections                  OperationalEvidenceCorrection[]
   assetIssueLinks              AssetIssueEvidenceLink[]
+  operationalRequestLinks      OperationalRequestEvidenceLink[]
   createdAt                    DateTime                        @default(now())
   updatedAt                    DateTime                        @updatedAt
 

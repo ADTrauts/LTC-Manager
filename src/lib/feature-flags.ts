@@ -207,3 +207,17 @@ export function isDietaryWorkPlansEnabled(): boolean {
 export function isEvsOperationsEnabled(): boolean {
   return parseEnvFlag(process.env.EVS_OPERATIONS_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 12A Plant Operations (Request routing / triage / WO Runtime).
+ * Set `PLANT_OPERATIONS_ENABLED=true` for local / test Plant Department operational surfaces.
+ * Does not enable `OPERATION_ENGINE_ENABLED` or `TASK_SYNC_ENABLED`.
+ * Dietary and EVS remain gated by their own flags independently.
+ * Typical local activation:
+ *   PLANT_OPERATIONS_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ *   TASK_SYNC_ENABLED=false
+ */
+export function isPlantOperationsEnabled(): boolean {
+  return parseEnvFlag(process.env.PLANT_OPERATIONS_ENABLED, false);
+}
