@@ -200,6 +200,7 @@ test(
         facilityId: fx.facility.id,
         departmentId: fx.dietary.id,
         actor,
+        client: prisma,
         draft: {
           name: `Phase11A Plan ${cuidLike().slice(0, 8)}`,
           description: "SQL coverage",
@@ -225,6 +226,7 @@ test(
         departmentId: fx.dietary.id,
         workPlanId: draft.id,
         actor,
+        client: prisma,
       });
       assert.equal(published.status, "PUBLISHED");
 
@@ -234,6 +236,7 @@ test(
         departmentId: fx.dietary.id,
         workPlanId: published.id,
         actor,
+        client: prisma,
         draft: {
           name: `${published.name} v2`,
           stableKey: published.stableKey,
@@ -275,6 +278,7 @@ test(
         actor: { ...actor, employeeId: fx.staffEmployee?.id ?? null },
         clientCommandId: cmd,
         note: "done",
+        client: prisma,
       });
       assert.equal(first.deduplicated, false);
       assert.equal(first.occurrence.status, "COMPLETED");
@@ -286,6 +290,7 @@ test(
         operationalDate,
         actor,
         clientCommandId: cmd,
+        client: prisma,
       });
       assert.equal(second.deduplicated, true);
       assert.equal(second.occurrence.id, first.occurrence.id);
@@ -295,25 +300,28 @@ test(
         departmentId: fx.dietary.id,
         occurrenceId: first.occurrence.id,
         actor,
+        client: prisma,
       });
       const reopened = await prisma.departmentWorkOccurrence.findUniqueOrThrow({
         where: { id: first.occurrence.id },
       });
       assert.equal(reopened.status, "REOPENED");
 
-      if (fx.supervisorEmployee) {
+      const reassignTarget = fx.staffEmployee ?? fx.supervisorEmployee;
+      if (reassignTarget) {
         await reassignOccurrence(mgr, {
           facilityId: fx.facility.id,
           departmentId: fx.dietary.id,
           requirement: { ...req, occurrenceId: first.occurrence.id },
           operationalDate,
-          assignedEmployeeId: fx.supervisorEmployee.id,
+          assignedEmployeeId: reassignTarget.id,
           actor,
+          client: prisma,
         });
         const reassigned = await prisma.departmentWorkOccurrence.findUniqueOrThrow({
           where: { id: first.occurrence.id },
         });
-        assert.equal(reassigned.assignedEmployeeId, fx.supervisorEmployee.id);
+        assert.equal(reassigned.assignedEmployeeId, reassignTarget.id);
       }
 
       await markNotRequired(mgr, {
@@ -323,6 +331,7 @@ test(
         operationalDate,
         actor,
         reason: "Unit closed",
+        client: prisma,
       });
       const notRequired = await prisma.departmentWorkOccurrence.findUniqueOrThrow({
         where: { id: first.occurrence.id },
@@ -340,6 +349,7 @@ test(
           assignedEmployeeId: fx.staffEmployee?.id ?? null,
         },
         actor,
+        client: prisma,
       });
       assert.equal(oneOff.sourceKind, "ONE_OFF");
       assert.equal(oneOff.status, "OPEN");
@@ -350,6 +360,7 @@ test(
         occurrenceId: oneOff.id,
         actor,
         reason: "No longer needed",
+        client: prisma,
       });
       const cancelled = await prisma.departmentWorkOccurrence.findUniqueOrThrow({
         where: { id: oneOff.id },
@@ -441,6 +452,7 @@ test(
         departmentId: fx.dietary.id,
         workPlanId: published.id,
         actor,
+        client: prisma,
       });
       const retired = await prisma.departmentWorkPlan.findUniqueOrThrow({
         where: { id: published.id },

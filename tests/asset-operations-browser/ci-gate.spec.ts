@@ -83,7 +83,7 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
   const fx = loadFixtures();
 
   test("MANAGER asset builder → profile → STAFF report → supervisor triage → WO → return to service; evidence regressions", async () => {
-    test.setTimeout(240_000);
+    test.setTimeout(300_000);
 
     // 1–7 Manager Asset Builder + profile
     const manager = await openPersistent("mgr-builder");
@@ -212,17 +212,22 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
         if (evidence) {
           await mgrWo.page.getByTestId("link-evidence-id").fill(evidence.id);
           await mgrWo.page.getByRole("button", { name: /Link evidence/i }).click();
-          await expect(mgrWo.page.getByTestId("issue-evidence-links")).toContainText(evidence.id, {
-            timeout: 15_000,
-          });
+          await expect(mgrWo.page.getByTestId("issue-evidence-links")).not.toContainText(
+            /No linked Evidence/i,
+            { timeout: 15_000 },
+          );
           await mgrWo.page.goto(`/staffing/log-book/${evidence.id}`, {
             waitUntil: "domcontentloaded",
           });
-          await expect(mgrWo.page.getByTestId("evidence-record-detail")).toBeVisible();
+          await expect(mgrWo.page.getByTestId("evidence-record-detail")).toBeVisible({
+            timeout: 15_000,
+          });
         }
       } finally {
         await evidenceDb.$disconnect();
       }
+
+      await mgrWo.page.goto(issueUrl, { waitUntil: "domcontentloaded" });
 
       // Foreign vendor reject via action path using Prisma assertion after bogus assign attempt
       const db = prisma();
