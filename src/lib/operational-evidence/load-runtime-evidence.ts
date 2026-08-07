@@ -4,7 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import { isDepartmentOperationalEvidenceEnabled } from "@/lib/department-operations";
 import type {
   ExistingEvidenceRecordForResolve,
   PublishedCycleWindowForResolve,
@@ -145,7 +145,11 @@ export async function resolveUnitEvidenceRequirements(input: {
   synchronizingKeys?: string[];
   conflictKeys?: string[];
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
+  const department = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { key: true },
+  });
+  if (!isDepartmentOperationalEvidenceEnabled(department?.key)) {
     return [];
   }
 

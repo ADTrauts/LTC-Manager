@@ -1,8 +1,8 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import { isDepartmentOperationalEvidenceEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type EvidenceAuthorityDecision = {
@@ -44,7 +44,7 @@ export function decideEvidenceAuthority(input: {
   if (!input.flagEnabled) {
     return {
       ...DENIED,
-      reason: "Dietary Operational Evidence is not enabled.",
+      reason: "Operational Evidence is not enabled for this department.",
     };
   }
 
@@ -70,7 +70,7 @@ export function decideEvidenceAuthority(input: {
       return {
         ...DENIED,
         reason:
-          "Facility Administrator status alone does not grant Dietary Operational Evidence authority.",
+          "Facility Administrator status alone does not grant Operational Evidence authority.",
       };
     }
   }
@@ -129,21 +129,7 @@ export async function resolveEvidenceAuthority(
   facilityId: string,
   departmentId: string,
 ): Promise<EvidenceAuthorityDecision> {
-  const flagEnabled = isDietaryOperationalEvidenceEnabled();
-
-  if (!flagEnabled) {
-    return decideEvidenceAuthority({
-      flagEnabled: false,
-      role: session.role as AppRole,
-      authMethod: session.authMethod,
-      sessionFacilityId: session.facilityId,
-      facilityId,
-      departmentId,
-      departmentExists: false,
-      primaryDepartmentId: null,
-    });
-  }
-
+  // Cross-facility first so flag-off messaging does not mask facility denial.
   if (session.facilityId !== facilityId) {
     return decideEvidenceAuthority({
       flagEnabled: true,
@@ -159,7 +145,7 @@ export async function resolveEvidenceAuthority(
 
   const department = await prisma.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
-    select: { id: true },
+    select: { id: true, key: true },
   });
 
   let primaryDepartmentId = session.primaryDepartmentId ?? null;
@@ -172,7 +158,7 @@ export async function resolveEvidenceAuthority(
   }
 
   return decideEvidenceAuthority({
-    flagEnabled: true,
+    flagEnabled: isDepartmentOperationalEvidenceEnabled(department?.key),
     role: session.role as AppRole,
     authMethod: session.authMethod,
     sessionFacilityId: session.facilityId,

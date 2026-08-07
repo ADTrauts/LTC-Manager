@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
 import { loadEvidenceRecordDetail } from "@/lib/operational-evidence";
 import { toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +17,7 @@ export default async function EvidenceLogBookRecordPage({
 }) {
   noStore();
 
-  if (!isDietaryOperationalEvidenceEnabled()) {
+  if (!isAnyStaffingOperationalFeatureEnabled("evidence")) {
     redirect("/staffing");
   }
 

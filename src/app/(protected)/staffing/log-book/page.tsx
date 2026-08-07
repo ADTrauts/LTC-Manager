@@ -7,7 +7,10 @@ import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import {
+  isAnyStaffingOperationalFeatureEnabled,
+  resolveStaffingOperationalDepartment,
+} from "@/lib/department-operations";
 import { searchEvidenceRecords, resolveEvidenceAuthority } from "@/lib/operational-evidence";
 import { toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -26,7 +29,7 @@ export default async function EvidenceLogBookPage({
 }) {
   noStore();
 
-  if (!isDietaryOperationalEvidenceEnabled()) {
+  if (!isAnyStaffingOperationalFeatureEnabled("evidence")) {
     redirect("/staffing");
   }
 
@@ -47,32 +50,21 @@ export default async function EvidenceLogBookPage({
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const dietary =
-    (deptNav.activeDepartmentId
-      ? await prisma.department.findFirst({
-          where: {
-            id: deptNav.activeDepartmentId,
-            facilityId: session.facilityId,
-            key: "DIETARY",
-            isActive: true,
-          },
-          select: { id: true, name: true },
-        })
-      : null) ??
-    (await prisma.department.findFirst({
-      where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
-      select: { id: true, name: true },
-    }));
+  const department = await resolveStaffingOperationalDepartment({
+    facilityId: session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    feature: "evidence",
+  });
 
-  if (!dietary) {
+  if (!department) {
     return (
       <section className="mx-auto max-w-5xl">
-        <PageHeader title="Log Book" subtitle="No Dietary department found." compact />
+        <PageHeader title="Log Book" subtitle="No operational department found." compact />
       </section>
     );
   }
 
-  const authority = await resolveEvidenceAuthority(session, session.facilityId, dietary.id);
+  const authority = await resolveEvidenceAuthority(session, session.facilityId, department.id);
   if (!authority.canViewLogBook) {
     return (
       <section className="mx-auto max-w-5xl" data-testid="evidence-log-book-denied">
@@ -95,7 +87,7 @@ export default async function EvidenceLogBookPage({
 
   const result = await searchEvidenceRecords(session, {
     facilityId: session.facilityId,
-    departmentId: dietary.id,
+    departmentId: department.id,
     unitId,
     assetId,
     templateStableKey,
@@ -125,7 +117,7 @@ export default async function EvidenceLogBookPage({
       where: {
         facilityId: session.facilityId,
         isActive: true,
-        departmentResponsibilities: { some: { departmentId: dietary.id } },
+        departmentResponsibilities: { some: { departmentId: department.id } },
       },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -141,7 +133,7 @@ export default async function EvidenceLogBookPage({
     <section className="mx-auto max-w-5xl space-y-4" data-testid="evidence-log-book">
       <PageHeader
         title="Log Book"
-        subtitle={`${dietary.name} historical operational evidence.`}
+        subtitle={`${department.name} historical operational evidence.`}
         compact
         actions={
           <Link href="/staffing/templates" className="text-sm underline-offset-2 hover:underline">
