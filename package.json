@@ -20,6 +20,8 @@
     "test:asset-operations-browser": "node scripts/verify/run-asset-operations-browser.mjs",
     "test:work-plans-browser": "node scripts/verify/run-work-plans-browser.mjs",
     "test:evs-browser": "node scripts/verify/run-evs-browser.mjs",
+    "test:evs-assignment-browser": "node scripts/verify/run-evs-assignment-browser.mjs",
+    "test:evs-assignment-browser": "node scripts/verify/run-evs-assignment-browser.mjs",
     "test:dietary-pilot": "node scripts/verify/run-dietary-pilot.mjs",
     "verify:static": "node scripts/verify/verify-static.mjs",
     "verify:build": "node scripts/verify/verify-build.mjs",
