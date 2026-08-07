@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { SupervisorWorkActionsPanel } from "@/components/department-work/supervisor-work-actions-panel";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -13,7 +14,7 @@ import {
   type SupervisorExceptionItem,
   type SupervisorExceptionTemporal,
 } from "@/lib/dietary-job-flow";
-import { isDietaryJobFlowEnabled } from "@/lib/feature-flags";
+import { isDietaryJobFlowEnabled, isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 const GROUP_ORDER: SupervisorExceptionGroup[] = [
@@ -22,6 +23,7 @@ const GROUP_ORDER: SupervisorExceptionGroup[] = [
   "Readiness",
   "ServiceTiming",
   "Evidence",
+  "Work",
   "Asset",
   "Equipment",
   "OfflineSync",
@@ -152,6 +154,20 @@ export default async function SupervisorOperationsBoardPage() {
   const builderHref = `/admin/departments/${dietary.id}?tab=cycles`;
   const exceptionGroups = groupExceptions(board.exceptions);
   const { header, summary } = board;
+
+  const workPlansEnabled = isDietaryWorkPlansEnabled();
+  const oneOffUnits = workPlansEnabled
+    ? await prisma.unit.findMany({
+        where: {
+          facilityId: session.facilityId,
+          isActive: true,
+          departmentResponsibilities: { some: { departmentId: dietary.id } },
+        },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: 40,
+      })
+    : [];
 
   return (
     <section className="mx-auto max-w-5xl space-y-6" data-testid="supervisor-operations-board">
@@ -332,6 +348,14 @@ export default async function SupervisorOperationsBoardPage() {
           )}
         </ul>
       </details>
+
+      {workPlansEnabled ? (
+        <SupervisorWorkActionsPanel
+          facilityId={session.facilityId}
+          departmentId={dietary.id}
+          units={oneOffUnits}
+        />
+      ) : null}
     </section>
   );
 }
