@@ -157,8 +157,7 @@
       "allowedRoles": [
         "FACILITY_ADMINISTRATOR",
         "GM",
-        "MANAGER",
-        "SUPERVISOR"
+        "MANAGER"
       ]
     },
     {

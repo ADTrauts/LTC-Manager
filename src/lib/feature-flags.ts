@@ -175,3 +175,21 @@ export function isDietaryOperationalEvidenceEnabled(): boolean {
 export function isDietaryAssetOperationsEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_ASSET_OPERATIONS_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 11A Dietary Department Work Plans.
+ * Set `DIETARY_WORK_PLANS_ENABLED=true` for Work Plan Builder, Job Flow Work,
+ * Supervisor Work exceptions, one-off Work, and offline Work completion.
+ * Does not enable `OPERATION_ENGINE_ENABLED` or `TASK_SYNC_ENABLED`.
+ * Typical local activation:
+ *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
+ *   DIETARY_JOB_FLOW_ENABLED=true
+ *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
+ *   DIETARY_ASSET_OPERATIONS_ENABLED=true
+ *   DIETARY_WORK_PLANS_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ *   TASK_SYNC_ENABLED=false
+ */
+export function isDietaryWorkPlansEnabled(): boolean {
+  return parseEnvFlag(process.env.DIETARY_WORK_PLANS_ENABLED, false);
+}

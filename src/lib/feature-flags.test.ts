@@ -5,6 +5,7 @@ import {
   isAiBriefEnabled,
   isAiRecoveryAssistantEnabled,
   isAiShiftSummaryEnabled,
+  isDietaryWorkPlansEnabled,
   isOperationEngineEnabled,
   isOperationalAssignmentsEnabled,
   isProjectionLocationsEnabled,
@@ -203,5 +204,33 @@ test("isProjectionTodaysWorkEnabled defaults to false when unset", () => {
 test("isProjectionTodaysWorkEnabled can be enabled for cutover", () => {
   withEnv("PROJECTION_TODAYS_WORK_ENABLED", "true", () => {
     assert.equal(isProjectionTodaysWorkEnabled(), true);
+  });
+});
+
+test("isDietaryWorkPlansEnabled defaults to false when unset", () => {
+  withEnv("DIETARY_WORK_PLANS_ENABLED", undefined, () => {
+    assert.equal(isDietaryWorkPlansEnabled(), false);
+  });
+});
+
+test("isDietaryWorkPlansEnabled parses truthy and falsey env values", () => {
+  for (const value of ["true", "1", "on", "yes"]) {
+    withEnv("DIETARY_WORK_PLANS_ENABLED", value, () => {
+      assert.equal(isDietaryWorkPlansEnabled(), true, value);
+    });
+  }
+  for (const value of ["false", "0", "off", "no"]) {
+    withEnv("DIETARY_WORK_PLANS_ENABLED", value, () => {
+      assert.equal(isDietaryWorkPlansEnabled(), false, value);
+    });
+  }
+});
+
+test("Phase 11A keeps Operation Engine and Task sync disabled by default", () => {
+  withEnv("OPERATION_ENGINE_ENABLED", undefined, () => {
+    withEnv("TASK_SYNC_ENABLED", undefined, () => {
+      assert.equal(isOperationEngineEnabled(), false);
+      assert.equal(isTaskSyncEnabled(), false);
+    });
   });
 });
