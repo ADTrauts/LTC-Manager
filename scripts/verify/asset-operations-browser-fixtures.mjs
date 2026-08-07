@@ -35,6 +35,72 @@ async function main() {
 
   mkdirSync(ARTIFACT_DIR, { recursive: true });
 
+  // Sequential gates re-seed then re-run fixtures on the same VERIFY DB.
+  // Clear prior browser fixture templates so OperationalTemplate unique keys do not collide.
+  const cleanupDb = new PrismaClient({ datasources: { db: { url } } });
+  try {
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalEvidenceFieldValue"
+      WHERE "recordId" IN (
+        SELECT id FROM "OperationalEvidenceRecord"
+        WHERE "templateStableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           OR "templateId" IN (
+             SELECT id FROM "OperationalTemplate"
+             WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           )
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "AssetIssueEvidenceLink"
+      WHERE "evidenceRecordId" IN (
+        SELECT id FROM "OperationalEvidenceRecord"
+        WHERE "templateStableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           OR "templateId" IN (
+             SELECT id FROM "OperationalTemplate"
+             WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+           )
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalEvidenceRecord"
+      WHERE "templateStableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+         OR "templateId" IN (
+           SELECT id FROM "OperationalTemplate"
+           WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+         )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateApplicability"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateField"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateSchedule"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplateEvent"
+      WHERE "templateId" IN (
+        SELECT id FROM "OperationalTemplate"
+        WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')
+      )`);
+    await cleanupDb.$executeRawUnsafe(`
+      DELETE FROM "OperationalTemplate"
+      WHERE "stableKey" IN ('cooler_temperature_log', 'draft_only_checklist')`);
+  } catch (err) {
+    console.warn(
+      `asset-operations-browser-fixtures: template cleanup warning — ${err instanceof Error ? err.message : String(err)}`,
+    );
+  } finally {
+    await cleanupDb.$disconnect();
+  }
+
   // Reuse Phase 9C fixtures for evidence regression coverage (39–42).
   const evidenceResult = spawnSync(
     process.execPath,
