@@ -177,3 +177,46 @@ npm run test:operational-evidence-browser
 npm run test:asset-operations-browser
 npm run test:work-plans-browser
 ```
+
+## Final sequential verification record (2026-08-07)
+
+Authoritative tip at verification:
+
+- Branch: `product/department-work-plans-phase-11a-2026-08-06`
+- Full SHA: `494f115b0543a602aeb6dc5622001f8e97108e5b`
+- Local and `origin/product/department-work-plans-phase-11a-2026-08-06` identical before verification
+- Migrations: **70**
+- `OPERATION_ENGINE_ENABLED=false`
+- `TASK_SYNC_ENABLED=false`
+- `ltc_manager` untouched
+- No cloud resources
+- Disposable VERIFY DBs recreated/dropped per gate; leftover multi-agent VERIFY DBs cleaned after the matrix
+
+Commands run **sequentially** (one at a time; no concurrent Next builds / Playwright / VERIFY jobs):
+
+| # | Command | Result | Totals / notes |
+|---|---------|--------|----------------|
+| 1 | `verify:static` | **PASS** | Discovery 141 files; migration-integrity 70; typecheck+lint+prisma validate |
+| 2 | `test:hermetic` | **PASS** | 1515 tests; pass 1435; fail 0; skipped 80 (hermetic-only skips) |
+| 3 | `verify:build` | **PASS** | Production build; `BUILD_ID=odJ8wCFH4kuzXDU2w5EHc` |
+| 4 | `verify:db` | **PASS** | 1515 tests; pass 1515; fail 0; **skipped 0**; disposable DB dropped |
+| 5 | `test:assignment-browser` | **PASS** | 6 passed |
+| 6 | `test:offline-browser` | **PASS** | 25 passed |
+| 7 | `test:dietary-pilot` | **PASS** | 5 passed |
+| 8 | `test:operational-cycles-browser` | **PASS** | 6 passed |
+| 9 | `test:job-flow-browser` | **PASS** | 13 passed (prior late-night contention flakes **not** reproduced) |
+| 10 | `test:operational-evidence-browser` | **PASS** | 10 passed (prior user-change flake **not** reproduced) |
+| 11 | `test:asset-operations-browser` | **PASS** | 1 passed |
+| 12 | `test:work-plans-browser` | **PASS** | 1 passed; isolated `distDir=.next-workplans-browser` |
+
+Isolated reruns: **none required** — every gate passed on the first sequential attempt.
+
+Environmental contention findings: Earlier multi-agent sessions recorded job-flow (2) and evidence (1) failures under concurrent VERIFY / `.next` contention. This clean sequential matrix did not reproduce those failures; they are classified as **environmental**, not product defects.
+
+Phase 10A finding closure matrix above is **unchanged** (no silent promotion of SERVICE/SQL to BROWSER).
+
+### Certification recommendation
+
+**PHASE 11A — PASS WITH FINDINGS**
+
+Retained findings remain: projected Unit Workspace Asset panels (flag default false); Foreign Vendor foreign-ID reject SERVICE/SQL (+ BROWSER SELECTOR SCOPE); residual WO status steps SQL. Closed findings remain closed as documented.
