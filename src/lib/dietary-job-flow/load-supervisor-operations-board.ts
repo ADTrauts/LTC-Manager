@@ -8,13 +8,13 @@
 
 import { loadSupervisorAssetExceptions } from "@/lib/asset-operations";
 import type { AppJwtPayload } from "@/lib/auth";
-import { loadSupervisorWorkExceptions } from "@/lib/department-work";
 import {
-  isDietaryAssetOperationsEnabled,
-  isDietaryJobFlowEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-} from "@/lib/feature-flags";
+  isDepartmentAssetOperationsEnabled,
+  isDepartmentJobFlowEnabled,
+  isDepartmentOperationalEvidenceEnabled,
+  isDepartmentWorkPlansEnabled,
+} from "@/lib/department-operations";
+import { loadSupervisorWorkExceptions } from "@/lib/department-work";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -94,15 +94,20 @@ function exceptionRank(
 }
 
 /**
- * Load the Dietary Supervisor Operations Board.
+ * Load the Supervisor Operations Board (department-keyed flags — Phase 11B).
  * Returns null when flag is off; throws when authority is denied.
  */
 export async function loadSupervisorOperationsBoard(
   input: LoadSupervisorOperationsBoardInput,
 ): Promise<SupervisorOperationsBoard | null> {
-  if (!isDietaryJobFlowEnabled()) {
+  const departmentRow = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { id: true, name: true, key: true },
+  });
+  if (!departmentRow || !isDepartmentJobFlowEnabled(departmentRow.key)) {
     return null;
   }
+  const includeMealSections = departmentRow.key === "DIETARY";
 
   const authority = await resolveJobFlowAuthority(
     input.session,
@@ -353,7 +358,10 @@ export async function loadSupervisorOperationsBoard(
       continue;
     }
 
-    if (statusKey === "READY_NOT_CONFIRMED" || statusKey === "NOT_CONFIRMED") {
+    if (
+      includeMealSections &&
+      (statusKey === "READY_NOT_CONFIRMED" || statusKey === "NOT_CONFIRMED")
+    ) {
       const temporal = temporalForCycle({
         now,
         startsAt: nextCycleStartsAt,
@@ -375,7 +383,10 @@ export async function loadSupervisorOperationsBoard(
       });
     }
 
-    if (statusKey === "SERVICE_STARTED_LATE" || statusKey === "STARTED_WITHOUT_READY") {
+    if (
+      includeMealSections &&
+      (statusKey === "SERVICE_STARTED_LATE" || statusKey === "STARTED_WITHOUT_READY")
+    ) {
       const temporal: SupervisorExceptionTemporal = "Late";
       exceptions.push({
         group: "ServiceTiming",
@@ -393,7 +404,7 @@ export async function loadSupervisorOperationsBoard(
   }
 
   // Phase 9C Evidence exceptions (flag-gated, exception-first).
-  if (isDietaryOperationalEvidenceEnabled()) {
+  if (isDepartmentOperationalEvidenceEnabled(departmentRow.key)) {
     const evidenceUnitNameById = new Map(
       cycleOverview.rows.map((r) => [r.unitId, r.unitName] as const),
     );
@@ -471,7 +482,7 @@ export async function loadSupervisorOperationsBoard(
   const offlineSyncNameById = new Map(offlineSyncUnits.map((u) => [u.id, u.name]));
 
   // Phase 10A Asset / Equipment exceptions (flag-gated, derived only).
-  if (isDietaryAssetOperationsEnabled()) {
+  if (isDepartmentAssetOperationsEnabled(departmentRow.key)) {
     const assetExceptions = await loadSupervisorAssetExceptions(
       input.facilityId,
       input.departmentId,
@@ -492,7 +503,7 @@ export async function loadSupervisorOperationsBoard(
   }
 
   // Phase 11A Work exceptions (flag-gated, derived only).
-  if (isDietaryWorkPlansEnabled()) {
+  if (isDepartmentWorkPlansEnabled(departmentRow.key)) {
     const workExceptions = await loadSupervisorWorkExceptions({
       facilityId: input.facilityId,
       departmentId: input.departmentId,

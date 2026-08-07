@@ -12,7 +12,7 @@ import {
   resolveUnitWorkRequirements,
   type WorkRequirement,
 } from "@/lib/department-work";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
+import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -21,10 +21,12 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
-function requireFlag() {
-  if (!isDietaryWorkPlansEnabled()) {
-    throw new Error("Dietary Work Plans are not enabled.");
-  }
+async function requireWorkPlans(departmentId: string) {
+  await requireDepartmentFeatureEnabled(
+    departmentId,
+    "workPlans",
+    "Work Plans are not enabled for this department.",
+  );
 }
 
 async function actorFromSession(session: NonNullable<Awaited<ReturnType<typeof getSession>>>) {
@@ -72,7 +74,7 @@ export async function completeWorkRequirementAction(input: {
   clientCommandId?: string | null;
   deviceBoundUnitId?: string | null;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const { requirement, operationalDateKey } = await loadRequirement(input);
@@ -99,7 +101,7 @@ export async function markWorkNotRequiredAction(input: {
   occurrenceKey: string;
   reason: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const { requirement, operationalDateKey } = await loadRequirement(input);
@@ -123,7 +125,7 @@ export async function reopenWorkOccurrenceAction(input: {
   occurrenceKey: string;
   reason?: string | null;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const timezone = await loadFacilityTimezone(prisma, input.facilityId);
@@ -161,7 +163,7 @@ export async function createOneOffWorkAction(input: {
   assignedEmployeeId?: string | null;
   dueAt?: string | null;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const timezone = await loadFacilityTimezone(prisma, input.facilityId);
@@ -191,7 +193,7 @@ export async function cancelOneOffWorkAction(input: {
   unitId?: string | null;
   reason?: string | null;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await cancelOneOff(session, {

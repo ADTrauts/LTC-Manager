@@ -30,10 +30,14 @@ import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { resolveLocationIconKey } from "@/lib/design-system";
 import { loadEmployeeJobFlow } from "@/lib/dietary-job-flow";
 import {
-  isDietaryAssetOperationsEnabled,
-  isDietaryJobFlowEnabled,
-  isDietaryOperationalCyclesEnabled,
-  isDietaryWorkPlansEnabled,
+  isAnyStaffingOperationalFeatureEnabled,
+  isDepartmentAssetOperationsEnabled,
+  isDepartmentJobFlowEnabled,
+  isDepartmentOperationalCyclesEnabled,
+  isDepartmentWorkPlansEnabled,
+  resolveUnitOperationalDepartment,
+} from "@/lib/department-operations";
+import {
   isOperationalAssignmentsEnabled,
   isProjectionUnitWorkspaceEnabled,
 } from "@/lib/feature-flags";
@@ -115,31 +119,39 @@ async function ProjectedUnitWorkspacePage({
     );
   }
 
-  const dietary =
-    isDietaryOperationalCyclesEnabled() || isDietaryJobFlowEnabled()
-      ? await prisma.department.findFirst({
-          where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
-          select: { id: true },
+  const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const operationalDepartment =
+    isAnyStaffingOperationalFeatureEnabled("jobFlow") ||
+    isAnyStaffingOperationalFeatureEnabled("cycles")
+      ? await resolveUnitOperationalDepartment({
+          facilityId: session.facilityId,
+          activeDepartmentId: deptNav.activeDepartmentId,
+          unitId: unit.id,
+          feature: isAnyStaffingOperationalFeatureEnabled("jobFlow") ? "jobFlow" : "cycles",
         })
       : null;
 
   const sessionEmployeeId = await getOperationalEmployeeIdForSession(session);
   const jobFlow =
-    dietary && isDietaryJobFlowEnabled() && sessionEmployeeId
+    operationalDepartment &&
+    isDepartmentJobFlowEnabled(operationalDepartment.key) &&
+    sessionEmployeeId
       ? await loadEmployeeJobFlow({
           session,
           facilityId: session.facilityId,
-          departmentId: dietary.id,
+          departmentId: operationalDepartment.id,
           employeeId: sessionEmployeeId,
           unitId: unit.id,
         })
       : null;
 
   const cycleContextCard =
-    dietary && isDietaryOperationalCyclesEnabled() && !jobFlow
+    operationalDepartment &&
+    isDepartmentOperationalCyclesEnabled(operationalDepartment.key) &&
+    !jobFlow
       ? await loadEmployeeCycleContext({
           facilityId: session.facilityId,
-          departmentId: dietary.id,
+          departmentId: operationalDepartment.id,
           unitId: unit.id,
           session,
         })
@@ -167,7 +179,7 @@ async function ProjectedUnitWorkspacePage({
         <EmployeeJobFlowPanel
           jobFlow={jobFlow}
           canManage={false}
-          departmentId={dietary?.id ?? null}
+          departmentId={operationalDepartment?.id ?? null}
         />
       ) : null}
       {cycleContextCard ? (
@@ -357,21 +369,23 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
     : null;
 
   const dietaryDepartment =
-    isDietaryOperationalCyclesEnabled() ||
-    isDietaryJobFlowEnabled() ||
-    isDietaryAssetOperationsEnabled()
-      ? await prisma.department.findFirst({
-          where: {
-            facilityId: session.facilityId,
-            key: "DIETARY",
-            isActive: true,
-          },
-          select: { id: true },
+    isAnyStaffingOperationalFeatureEnabled("jobFlow") ||
+    isAnyStaffingOperationalFeatureEnabled("cycles") ||
+    isAnyStaffingOperationalFeatureEnabled("asset")
+      ? await resolveUnitOperationalDepartment({
+          facilityId: session.facilityId,
+          activeDepartmentId: deptNav.activeDepartmentId,
+          unitId: unit.id,
+          feature: isAnyStaffingOperationalFeatureEnabled("jobFlow")
+            ? "jobFlow"
+            : isAnyStaffingOperationalFeatureEnabled("cycles")
+              ? "cycles"
+              : "asset",
         })
       : null;
 
   const runtimeAssets =
-    isDietaryAssetOperationsEnabled() && dietaryDepartment
+    dietaryDepartment && isDepartmentAssetOperationsEnabled(dietaryDepartment.key)
       ? await loadUnitRuntimeAssets(unit.id, session.facilityId, {
           departmentId: dietaryDepartment.id,
         })
@@ -384,7 +398,8 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       ? query.reportAsset.trim()
       : null;
 
-  const jobFlowEnabled = isDietaryJobFlowEnabled();
+  const jobFlowEnabled =
+    dietaryDepartment != null && isDepartmentJobFlowEnabled(dietaryDepartment.key);
   const jobFlow =
     jobFlowEnabled && dietaryDepartment != null && sessionEmployeeId
       ? await loadEmployeeJobFlow({
@@ -398,7 +413,9 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
       : null;
 
   const cycleContextCard =
-    !jobFlow && dietaryDepartment != null && isDietaryOperationalCyclesEnabled()
+    !jobFlow &&
+    dietaryDepartment != null &&
+    isDepartmentOperationalCyclesEnabled(dietaryDepartment.key)
       ? await loadEmployeeCycleContext({
           session,
           facilityId: session.facilityId,
@@ -577,7 +594,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           ) : null}
           {jobFlow &&
           dietaryDepartment &&
-          isDietaryWorkPlansEnabled() &&
+          isDepartmentWorkPlansEnabled(dietaryDepartment.key) &&
           query?.work &&
           jobFlow.workRequirements.some((r) => r.occurrenceKey === query.work) ? (
             <WorkCompletionPanel
@@ -608,7 +625,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             <ContextualKnowledgePanel articles={unitKnowledge.articles} />
           </div>
 
-          {isDietaryAssetOperationsEnabled() && dietaryDepartment ? (
+          {dietaryDepartment && isDepartmentAssetOperationsEnabled(dietaryDepartment.key) ? (
             <>
               <UnitRuntimeAssetsPanel
                 assets={runtimeAssets}

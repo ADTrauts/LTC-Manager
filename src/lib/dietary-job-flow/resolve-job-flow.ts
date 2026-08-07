@@ -69,6 +69,7 @@ function emptyBase(
   | "attention"
   | "evidenceRequirements"
   | "workRequirements"
+  | "spaceWorkSummaries"
 > {
   return {
     operationalDateKey: input.operationalDateKey,
@@ -83,6 +84,7 @@ function emptyBase(
     attention: buildAttention(input, null),
     evidenceRequirements: [],
     workRequirements: [],
+    spaceWorkSummaries: [],
   };
 }
 
@@ -462,6 +464,7 @@ export function resolveJobFlow(input: JobFlowResolveInput): JobFlowContext {
     attention,
     evidenceRequirements: [] as import("./types").JobFlowContext["evidenceRequirements"],
     workRequirements: [] as import("./types").JobFlowContext["workRequirements"],
+    spaceWorkSummaries: [] as import("./types").JobFlowContext["spaceWorkSummaries"],
   };
 
   // No confirmed assignment at all.

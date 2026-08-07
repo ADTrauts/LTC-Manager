@@ -112,7 +112,7 @@ export function EmployeeJobFlowPanel({
           </p>
         ) : null}
         {jobFlow.current.targetTime ? (
-          <p className="mt-1 text-xs text-zinc-600">Meal target: {jobFlow.current.targetTime}</p>
+          <p className="mt-1 text-xs text-zinc-600">Target: {jobFlow.current.targetTime}</p>
         ) : null}
         <OfflineStrip offline={offline} />
       </article>
@@ -253,7 +253,7 @@ export function EmployeeJobFlowPanel({
         </div>
         {jobFlow.current.targetTime ? (
           <div>
-            <dt className="text-xs text-zinc-500">Meal target</dt>
+            <dt className="text-xs text-zinc-500">Target</dt>
             <dd className="text-zinc-800">{jobFlow.current.targetTime}</dd>
           </div>
         ) : null}
@@ -346,6 +346,29 @@ export function EmployeeJobFlowPanel({
 
       {jobFlow.workRequirements.length > 0 ? (
         <WorkRequirementsStrip jobFlow={jobFlow} />
+      ) : null}
+
+      {jobFlow.spaceWorkSummaries.length > 0 ? (
+        <ul
+          className="mt-3 space-y-1 border-t border-zinc-100 pt-2"
+          aria-label="Space work progress"
+          data-testid="job-flow-space-work-summaries"
+        >
+          {jobFlow.spaceWorkSummaries.map((space) => (
+            <li
+              key={space.spaceId}
+              className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-700"
+            >
+              <span>Space {space.spaceId.slice(-6)}</span>
+              <span className="text-zinc-500">
+                {space.label}
+                {space.totalCount > 0
+                  ? ` · ${space.completedCount}/${space.totalCount}`
+                  : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       <OfflineStrip offline={offline} />

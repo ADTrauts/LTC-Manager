@@ -140,6 +140,14 @@ export type JobFlowBase = {
   evidenceRequirements: EvidenceRequirement[];
   /** Derived Work requirements for the current unit/date (Phase 11A). Empty when flag off. */
   workRequirements: WorkRequirement[];
+  /** Compact space Work progress when requirements carry spaceIds (Phase 11B EVS). */
+  spaceWorkSummaries: Array<{
+    spaceId: string;
+    state: string;
+    completedCount: number;
+    totalCount: number;
+    label: string;
+  }>;
 };
 
 /** Only assignment-bearing / cycle-bearing variants carry those fields. */

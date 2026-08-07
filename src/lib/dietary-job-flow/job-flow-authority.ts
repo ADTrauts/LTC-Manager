@@ -1,8 +1,8 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import { isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { isDietaryJobFlowEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type JobFlowAuthorityDecision = {
@@ -18,7 +18,7 @@ const DENIED: JobFlowAuthorityDecision = {
 };
 
 /**
- * Pure authority decision for Dietary Job Flow / Supervisor Operations Board (Phase 9B).
+ * Pure authority decision for Job Flow / Supervisor Operations Board (Phase 9B / 11B).
  * Quick PIN never grants Supervisor Board.
  * Facility Administrator alone is denied without primaryDepartmentId === departmentId
  * (mirrors cycle-authority / assignment-authority).
@@ -36,7 +36,7 @@ export function decideJobFlowAuthority(input: {
   if (!input.flagEnabled) {
     return {
       ...DENIED,
-      reason: "Dietary Job Flow is not enabled.",
+      reason: "Job Flow is not enabled for this department.",
     };
   }
 
@@ -71,7 +71,7 @@ export function decideJobFlowAuthority(input: {
       return {
         ...DENIED,
         reason:
-          "Facility Administrator status alone does not grant Dietary Job Flow or Supervisor Board authority.",
+          "Facility Administrator status alone does not grant Job Flow or Supervisor Board authority.",
       };
     }
   }
@@ -88,29 +88,15 @@ export function decideJobFlowAuthority(input: {
 }
 
 /**
- * Canonical Phase 9B Job Flow authority.
- * Facility Administrator role alone does not grant Dietary Supervisor Board.
+ * Canonical Job Flow authority (department-keyed flags — Phase 11B).
+ * Facility Administrator role alone does not grant Supervisor Board.
  */
 export async function resolveJobFlowAuthority(
   session: AppJwtPayload,
   facilityId: string,
   departmentId: string,
 ): Promise<JobFlowAuthorityDecision> {
-  const flagEnabled = isDietaryJobFlowEnabled();
-
-  if (!flagEnabled) {
-    return decideJobFlowAuthority({
-      flagEnabled: false,
-      role: session.role as AppRole,
-      authMethod: session.authMethod,
-      sessionFacilityId: session.facilityId,
-      facilityId,
-      departmentId,
-      departmentExists: false,
-      primaryDepartmentId: null,
-    });
-  }
-
+  // Cross-facility first so flag-off messaging does not mask facility denial.
   if (session.facilityId !== facilityId) {
     return decideJobFlowAuthority({
       flagEnabled: true,
@@ -126,7 +112,7 @@ export async function resolveJobFlowAuthority(
 
   const department = await prisma.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
-    select: { id: true },
+    select: { id: true, key: true },
   });
 
   let primaryDepartmentId = session.primaryDepartmentId ?? null;
@@ -139,7 +125,7 @@ export async function resolveJobFlowAuthority(
   }
 
   return decideJobFlowAuthority({
-    flagEnabled: true,
+    flagEnabled: isDepartmentJobFlowEnabled(department?.key),
     role: session.role as AppRole,
     authMethod: session.authMethod,
     sessionFacilityId: session.facilityId,

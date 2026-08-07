@@ -79,6 +79,12 @@ export async function loadSupervisorCycleOverview(input: {
     throw new Error(authority.reason ?? "Insufficient Operational Cycle authority.");
   }
 
+  const departmentMeta = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { key: true },
+  });
+  const departmentKey = departmentMeta?.key ?? "DIETARY";
+
   const now = input.now ?? new Date();
   const timezone = await loadFacilityTimezone(prisma, input.facilityId);
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
@@ -94,7 +100,9 @@ export async function loadSupervisorCycleOverview(input: {
     where: {
       facilityId: input.facilityId,
       isActive: true,
-      unitType: { in: ["SERVERY", "KITCHEN"] },
+      ...(departmentKey === "DIETARY"
+        ? { unitType: { in: ["SERVERY", "KITCHEN"] as const } }
+        : {}),
       departmentResponsibilities: {
         some: { departmentId: input.departmentId },
       },
@@ -111,23 +119,27 @@ export async function loadSupervisorCycleOverview(input: {
     orderBy: { name: "asc" },
   });
 
-  const events = await prisma.serveryMealServiceEvent.findMany({
-    where: {
-      serviceDate,
-      unitId: { in: units.map((u) => u.id) },
-    },
-    select: {
-      unitId: true,
-      mealType: true,
-      mealServiceReadyAt: true,
-      mealServiceStartedAt: true,
-      entries: {
-        where: { kind: "CORRECTION" },
-        select: { id: true },
-        take: 1,
-      },
-    },
-  });
+  const includeMealMilestones = departmentKey === "DIETARY";
+
+  const events = includeMealMilestones
+    ? await prisma.serveryMealServiceEvent.findMany({
+        where: {
+          serviceDate,
+          unitId: { in: units.map((u) => u.id) },
+        },
+        select: {
+          unitId: true,
+          mealType: true,
+          mealServiceReadyAt: true,
+          mealServiceStartedAt: true,
+          entries: {
+            where: { kind: "CORRECTION" },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      })
+    : [];
 
   const eventByUnitMeal = new Map(
     events.map((e) => [`${e.unitId}:${e.mealType}`, e] as const),
@@ -180,7 +192,7 @@ export async function loadSupervisorCycleOverview(input: {
           ? context.mealTargetTime
           : context.mealTargetTime;
 
-      if (activeOrNext.cycleType === "SERVICE" && activeOrNext.mealType) {
+      if (includeMealMilestones && activeOrNext.cycleType === "SERVICE" && activeOrNext.mealType) {
         const event = eventByUnitMeal.get(`${unit.id}:${activeOrNext.mealType}`) ?? null;
         const targetTime =
           unit.mealTimes.find((m) => m.mealType === activeOrNext.mealType)?.scheduledTime ??

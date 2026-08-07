@@ -9,12 +9,16 @@ import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import {
+  isAnyStaffingOperationalFeatureEnabled,
+  isDepartmentWorkPlansEnabled,
+  resolveStaffingOperationalDepartment,
+} from "@/lib/department-operations";
+import {
   loadSupervisorOperationsBoard,
   type SupervisorExceptionGroup,
   type SupervisorExceptionItem,
   type SupervisorExceptionTemporal,
 } from "@/lib/dietary-job-flow";
-import { isDietaryJobFlowEnabled, isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 const GROUP_ORDER: SupervisorExceptionGroup[] = [
@@ -63,7 +67,7 @@ function groupExceptions(items: SupervisorExceptionItem[]) {
 export default async function SupervisorOperationsBoardPage() {
   noStore();
 
-  if (!isDietaryJobFlowEnabled()) {
+  if (!isAnyStaffingOperationalFeatureEnabled("jobFlow")) {
     redirect("/staffing");
   }
 
@@ -91,29 +95,18 @@ export default async function SupervisorOperationsBoardPage() {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
 
-  const dietary =
-    (deptNav.activeDepartmentId
-      ? await prisma.department.findFirst({
-          where: {
-            id: deptNav.activeDepartmentId,
-            facilityId: session.facilityId,
-            key: "DIETARY",
-            isActive: true,
-          },
-          select: { id: true, name: true },
-        })
-      : null) ??
-    (await prisma.department.findFirst({
-      where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
-      select: { id: true, name: true },
-    }));
+  const department = await resolveStaffingOperationalDepartment({
+    facilityId: session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    feature: "jobFlow",
+  });
 
-  if (!dietary) {
+  if (!department) {
     return (
       <section className="mx-auto max-w-5xl space-y-4">
         <PageHeader
           title="Operations Board"
-          subtitle="Dietary department is not available for this facility."
+          subtitle="No operational department is available for this facility."
           compact
         />
       </section>
@@ -125,12 +118,12 @@ export default async function SupervisorOperationsBoardPage() {
     board = await loadSupervisorOperationsBoard({
       session,
       facilityId: session.facilityId,
-      departmentId: dietary.id,
+      departmentId: department.id,
     });
   } catch (error) {
     return (
       <section className="mx-auto max-w-5xl space-y-4">
-        <PageHeader title="Operations Board" subtitle={dietary.name} compact />
+        <PageHeader title="Operations Board" subtitle={department.name} compact />
         <p className="text-sm text-zinc-600">
           {error instanceof Error ? error.message : "Unable to load Operations Board."}
         </p>
@@ -143,7 +136,7 @@ export default async function SupervisorOperationsBoardPage() {
       <section className="mx-auto max-w-5xl space-y-4">
         <PageHeader
           title="Operations Board"
-          subtitle="Dietary Job Flow is not enabled."
+          subtitle={`${department.name} Job Flow is not enabled.`}
           compact
         />
       </section>
@@ -151,17 +144,17 @@ export default async function SupervisorOperationsBoardPage() {
   }
 
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
-  const builderHref = `/admin/departments/${dietary.id}?tab=cycles`;
+  const builderHref = `/admin/departments/${department.id}?tab=cycles`;
   const exceptionGroups = groupExceptions(board.exceptions);
   const { header, summary } = board;
 
-  const workPlansEnabled = isDietaryWorkPlansEnabled();
+  const workPlansEnabled = isDepartmentWorkPlansEnabled(department.key);
   const oneOffUnits = workPlansEnabled
     ? await prisma.unit.findMany({
         where: {
           facilityId: session.facilityId,
           isActive: true,
-          departmentResponsibilities: { some: { departmentId: dietary.id } },
+          departmentResponsibilities: { some: { departmentId: department.id } },
         },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
@@ -352,7 +345,7 @@ export default async function SupervisorOperationsBoardPage() {
       {workPlansEnabled ? (
         <SupervisorWorkActionsPanel
           facilityId={session.facilityId}
-          departmentId={dietary.id}
+          departmentId={department.id}
           units={oneOffUnits}
         />
       ) : null}

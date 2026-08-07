@@ -13,7 +13,7 @@ import {
   type OneOffWorkInput,
   type WorkRequirement,
 } from "@/lib/department-work";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
+import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
 
 function actorFromSession(session: NonNullable<Awaited<ReturnType<typeof getSession>>>) {
   return {
@@ -23,10 +23,12 @@ function actorFromSession(session: NonNullable<Awaited<ReturnType<typeof getSess
   };
 }
 
-function requireFlag() {
-  if (!isDietaryWorkPlansEnabled()) {
-    throw new Error("Dietary Work Plans are not enabled.");
-  }
+async function requireWorkPlans(departmentId: string) {
+  await requireDepartmentFeatureEnabled(
+    departmentId,
+    "workPlans",
+    "Work Plans are not enabled for this department.",
+  );
 }
 
 export async function completeWorkAction(input: {
@@ -36,7 +38,7 @@ export async function completeWorkAction(input: {
   requirement: WorkRequirement;
   note?: string | null;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const result = await completeExplicit(session, {
@@ -59,7 +61,7 @@ export async function markWorkNotRequiredAction(input: {
   requirement: WorkRequirement;
   reason: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await markNotRequired(session, {
@@ -78,7 +80,7 @@ export async function reopenWorkAction(input: {
   departmentId: string;
   occurrenceId: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await reopenOccurrence(session, {
@@ -97,7 +99,7 @@ export async function reassignWorkAction(input: {
   requirement: WorkRequirement;
   assignedEmployeeId: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await reassignOccurrence(session, {
@@ -114,7 +116,7 @@ export async function reassignWorkAction(input: {
 export async function createOneOffWorkAction(input: {
   work: OneOffWorkInput;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.work.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const created = await createOneOff(session, {
@@ -131,7 +133,7 @@ export async function cancelOneOffWorkAction(input: {
   occurrenceId: string;
   reason?: string | null;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await cancelOneOff(session, {

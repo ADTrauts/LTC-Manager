@@ -4,7 +4,13 @@
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isDietaryJobFlowEnabled, isDietaryOperationalEvidenceEnabled, isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
+import {
+  isDepartmentJobFlowEnabled,
+  isDepartmentOperationalEvidenceEnabled,
+  isDepartmentWorkPlansEnabled,
+} from "@/lib/department-operations";
+import { deriveSpaceWorkSummary, resolveUnitWorkRequirements } from "@/lib/department-work";
+import type { WorkRequirement } from "@/lib/department-work/types";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -17,8 +23,6 @@ import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operat
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
-import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import { prisma } from "@/lib/prisma";
@@ -139,16 +143,30 @@ async function loadConfirmedAssignmentsForEmployee(input: {
   return { current, upcoming, previous, day: snapshots };
 }
 
+function buildSpaceSummaries(requirements: WorkRequirement[]) {
+  const spaceIds = [
+    ...new Set(requirements.map((r) => r.spaceId).filter((id): id is string => Boolean(id))),
+  ];
+  return spaceIds.map((spaceId) => deriveSpaceWorkSummary({ spaceId, requirements }));
+}
+
 /**
  * Load derived Employee Job Flow for one employee.
  * Composes Job Flow authority, confirmed Assignments, cycle context, and milestones.
+ * Soft-skips UnitMealTime / servery meal milestones when department is EVS.
  */
 export async function loadEmployeeJobFlow(
   input: LoadEmployeeJobFlowInput,
 ): Promise<JobFlowContext | null> {
-  if (!isDietaryJobFlowEnabled()) {
+  const department = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { id: true, key: true },
+  });
+  if (!department || !isDepartmentJobFlowEnabled(department.key)) {
     return null;
   }
+
+  const includeMealMilestones = department.key === "DIETARY";
 
   const authority = await resolveJobFlowAuthority(
     input.session,
@@ -184,7 +202,7 @@ export async function loadEmployeeJobFlow(
   });
 
   let cycleContext = cycleCard?.context;
-  let mealTargets = cycleCard?.mealTargets ?? [];
+  let mealTargets = includeMealMilestones ? (cycleCard?.mealTargets ?? []) : [];
   const cycleDescriptions: Record<string, string | null> = {};
 
   const cycles = await loadPublishedCyclesForDate(
@@ -204,15 +222,19 @@ export async function loadEmployeeJobFlow(
         select: {
           id: true,
           unitType: true,
-          mealTimes: {
-            where: { isActive: true },
-            select: { mealType: true, scheduledTime: true },
-          },
+          mealTimes: includeMealMilestones
+            ? {
+                where: { isActive: true },
+                select: { mealType: true, scheduledTime: true },
+              }
+            : false,
         },
       });
       if (row) {
         unit = { id: row.id, unitType: row.unitType };
-        mealTargets = row.mealTimes;
+        if (includeMealMilestones && Array.isArray(row.mealTimes)) {
+          mealTargets = row.mealTimes;
+        }
       }
     }
     cycleContext = resolveOperationalCycle({
@@ -221,7 +243,7 @@ export async function loadEmployeeJobFlow(
       facilityTimezone: timezone,
       operationalDateKey,
       unit,
-      mealTargets,
+      mealTargets: includeMealMilestones ? mealTargets : [],
     });
   }
 
@@ -233,7 +255,9 @@ export async function loadEmployeeJobFlow(
     hasCorrection: boolean;
   } | null = null;
   let mealTargetTime: string | null =
-    cycleContext.state === "NOT_APPLICABLE" || cycleContext.state === "NOT_CONFIGURED"
+    !includeMealMilestones ||
+    cycleContext.state === "NOT_APPLICABLE" ||
+    cycleContext.state === "NOT_CONFIGURED"
       ? null
       : cycleContext.mealTargetTime;
 
@@ -243,50 +267,56 @@ export async function loadEmployeeJobFlow(
       select: {
         id: true,
         name: true,
-        mealTimes: {
-          where: { isActive: true },
-          select: { mealType: true, scheduledTime: true },
-        },
+        mealTimes: includeMealMilestones
+          ? {
+              where: { isActive: true },
+              select: { mealType: true, scheduledTime: true },
+            }
+          : false,
       },
     });
     if (unit) {
       unitSnapshot = { id: unit.id, name: unit.name };
-      if (!mealTargets.length) mealTargets = unit.mealTimes;
+      if (includeMealMilestones && Array.isArray(unit.mealTimes) && !mealTargets.length) {
+        mealTargets = unit.mealTimes;
+      }
     }
 
-    const mealType =
-      cycleContext.state === "ACTIVE"
-        ? cycleContext.primary.mealType
-        : cycleContext.state === "UPCOMING" || cycleContext.state === "BETWEEN"
-          ? cycleContext.next.mealType
-          : cycleContext.state === "DAY_COMPLETE"
-            ? cycleContext.last.mealType
-            : null;
+    if (includeMealMilestones) {
+      const mealType =
+        cycleContext.state === "ACTIVE"
+          ? cycleContext.primary.mealType
+          : cycleContext.state === "UPCOMING" || cycleContext.state === "BETWEEN"
+            ? cycleContext.next.mealType
+            : cycleContext.state === "DAY_COMPLETE"
+              ? cycleContext.last.mealType
+              : null;
 
-    if (mealType) {
-      mealTargetTime =
-        mealTargets.find((m) => m.mealType === mealType)?.scheduledTime ?? mealTargetTime;
+      if (mealType) {
+        mealTargetTime =
+          mealTargets.find((m) => m.mealType === mealType)?.scheduledTime ?? mealTargetTime;
 
-      const event = await prisma.serveryMealServiceEvent.findFirst({
-        where: { unitId, serviceDate, mealType },
-        select: {
-          mealType: true,
-          mealServiceReadyAt: true,
-          mealServiceStartedAt: true,
-          entries: {
-            where: { kind: "CORRECTION" },
-            select: { id: true },
-            take: 1,
+        const event = await prisma.serveryMealServiceEvent.findFirst({
+          where: { unitId, serviceDate, mealType },
+          select: {
+            mealType: true,
+            mealServiceReadyAt: true,
+            mealServiceStartedAt: true,
+            entries: {
+              where: { kind: "CORRECTION" },
+              select: { id: true },
+              take: 1,
+            },
           },
-        },
-      });
-      if (event) {
-        milestoneEvent = {
-          mealType: event.mealType,
-          mealServiceReadyAt: event.mealServiceReadyAt,
-          mealServiceStartedAt: event.mealServiceStartedAt,
-          hasCorrection: event.entries.length > 0,
-        };
+        });
+        if (event) {
+          milestoneEvent = {
+            mealType: event.mealType,
+            mealServiceReadyAt: event.mealServiceReadyAt,
+            mealServiceStartedAt: event.mealServiceStartedAt,
+            hasCorrection: event.entries.length > 0,
+          };
+        }
       }
     }
   }
@@ -329,7 +359,10 @@ export async function loadEmployeeJobFlow(
     unit: unitSnapshot,
   });
 
-  if (!isDietaryOperationalEvidenceEnabled() && !isDietaryWorkPlansEnabled()) {
+  const evidenceEnabled = isDepartmentOperationalEvidenceEnabled(department.key);
+  const workEnabled = isDepartmentWorkPlansEnabled(department.key);
+
+  if (!evidenceEnabled && !workEnabled) {
     return jobFlow;
   }
 
@@ -359,7 +392,7 @@ export async function loadEmployeeJobFlow(
     ];
   });
 
-  const evidenceRequirements = isDietaryOperationalEvidenceEnabled()
+  const evidenceRequirements = evidenceEnabled
     ? await resolveUnitEvidenceRequirements({
         facilityId: input.facilityId,
         departmentId: input.departmentId,
@@ -372,7 +405,7 @@ export async function loadEmployeeJobFlow(
       })
     : [];
 
-  const workRequirements = isDietaryWorkPlansEnabled()
+  const workRequirements = workEnabled
     ? await resolveUnitWorkRequirements({
         facilityId: input.facilityId,
         departmentId: input.departmentId,
@@ -384,6 +417,7 @@ export async function loadEmployeeJobFlow(
       })
     : [];
 
+  const spaceWorkSummaries = buildSpaceSummaries(workRequirements);
   const evidenceAttention = buildEvidenceAttention(evidenceRequirements);
   const workAttention = buildWorkAttention(workRequirements);
 
@@ -391,6 +425,7 @@ export async function loadEmployeeJobFlow(
     ...jobFlow,
     evidenceRequirements,
     workRequirements,
+    spaceWorkSummaries,
     attention: [...jobFlow.attention, ...evidenceAttention, ...workAttention].filter(
       (item, idx, arr) =>
         arr.findIndex((x) => x.kind === item.kind && x.message === item.message) === idx,
