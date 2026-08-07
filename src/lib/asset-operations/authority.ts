@@ -1,8 +1,8 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type AssetOperationsAuthorityDecision = {
@@ -28,13 +28,13 @@ const DENIED: AssetOperationsAuthorityDecision = {
   canChangeAssetStatus: false,
   canViewManagementNotes: false,
   canViewVendorDetails: false,
-  reason: "Insufficient Dietary Asset Operations authority.",
+  reason: "Insufficient Asset Operations authority.",
 };
 
 /**
- * Pure authority decision for Dietary Asset Operations (Phase 10A).
+ * Pure authority decision for Asset Operations (Phase 10A / 11B / 12A).
  * Quick PIN may report scoped Issues; never grants Asset Builder / Vendor / Work Order manage.
- * Facility Administrator alone is denied unless primaryDepartment matches Dietary scope.
+ * Facility Administrator alone is denied unless primaryDepartment matches scope.
  */
 export function decideAssetOperationsAuthority(input: {
   flagEnabled: boolean;
@@ -50,7 +50,7 @@ export function decideAssetOperationsAuthority(input: {
   if (!input.flagEnabled) {
     return {
       ...DENIED,
-      reason: "Dietary Asset Operations is not enabled.",
+      reason: "Asset Operations is not enabled for this department.",
     };
   }
 
@@ -73,7 +73,7 @@ export function decideAssetOperationsAuthority(input: {
       return {
         ...DENIED,
         reason:
-          "Facility Administrator status alone does not grant Dietary Asset or Work Order authority.",
+          "Facility Administrator status alone does not grant Asset or Work Order authority.",
       };
     }
   }
@@ -111,7 +111,7 @@ export function decideAssetOperationsAuthority(input: {
     };
   }
 
-  // MANAGER / GM (+ FA with Dietary primary dept)
+  // MANAGER / GM (+ FA with matching primary dept)
   if (pinBlocksManage) {
     return {
       canViewRuntime: true,
@@ -152,7 +152,7 @@ export async function resolveAssetOperationsAuthority(
   });
 
   return decideAssetOperationsAuthority({
-    flagEnabled: isDietaryAssetOperationsEnabled(),
+    flagEnabled: isDepartmentAssetOperationsEnabled(department?.key),
     role: session.role as AppRole,
     authMethod: session.authMethod ?? "PASSWORD",
     sessionFacilityId: session.facilityId,

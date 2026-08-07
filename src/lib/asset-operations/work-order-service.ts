@@ -26,6 +26,61 @@ import { normalizeAssetStatus, OPEN_ASSET_ISSUE_STATUSES } from "./types";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
+async function resolveWorkOrderActorAuthority(
+  session: AppJwtPayload,
+  facilityId: string,
+  departmentId: string,
+  opts?: { repairId?: string },
+) {
+  const department = await prisma.department.findFirst({
+    where: { id: departmentId, facilityId, isActive: true },
+    select: { id: true, key: true },
+  });
+
+  if (department?.key === "PLANT") {
+    const { resolvePlantOperationsAuthority, requirePlantWorkOrderManage } =
+      await import("@/lib/operational-requests/authority");
+
+    let isAssignedTechnician = false;
+    if (opts?.repairId && session.authKind === "employee") {
+      const repair = await prisma.repair.findFirst({
+        where: { id: opts.repairId, unit: { facilityId } },
+        select: { assignedEmployeeId: true },
+      });
+      isAssignedTechnician = repair?.assignedEmployeeId === session.uid;
+    }
+
+    const plantAuth = await resolvePlantOperationsAuthority(
+      session,
+      facilityId,
+      departmentId,
+      { isAssignedTechnician },
+    );
+    requirePlantWorkOrderManage(plantAuth);
+    return {
+      kind: "plant" as const,
+      canManage: plantAuth.canManageWorkOrders,
+      canAssignVendor: plantAuth.canManageVendors,
+      canActAssigned: plantAuth.canActOnAssignedWorkOrder,
+      plantAuth,
+    };
+  }
+
+  const authority = await resolveAssetOperationsAuthority(
+    session,
+    facilityId,
+    departmentId,
+  );
+  requireWorkOrderManage(authority);
+  return {
+    kind: "asset" as const,
+    canManage: authority.canManageWorkOrders,
+    canAssignVendor: authority.canAssignVendor,
+    canActAssigned: false,
+    assetAuth: authority,
+  };
+}
+
 function cuidLike() {
   return `c${randomBytes(12).toString("hex")}`;
 }
@@ -95,6 +150,7 @@ async function appendRepairUpdate(
     updateText: string;
     statusAfterUpdate: RepairStatus | null;
     updatedById: string | null;
+    requesterVisible?: boolean;
   },
 ) {
   await client.repairUpdate.create({
@@ -104,6 +160,7 @@ async function appendRepairUpdate(
       updateText: input.updateText,
       statusAfterUpdate: input.statusAfterUpdate,
       updatedById: input.updatedById,
+      requesterVisible: input.requesterVisible ?? false,
     },
   });
 }
@@ -586,6 +643,315 @@ export async function completeWorkOrder(
     statusAfterUpdate: "COMPLETED",
     updatedById: actorUserId,
   });
+
+  return updated;
+}
+
+/**
+ * Explicit Work Order create from an Operational Request (Phase 12A).
+ * Never automatic. Completing the WO does not close the Request or mutate Asset status.
+ */
+export async function createWorkOrderFromOperationalRequest(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    plantDepartmentId: string;
+    requestId: string;
+    title?: string | null;
+    description?: string | null;
+    priority?: RepairPriority;
+    repairTrade?: RepairTrade;
+    vendorId?: string | null;
+    assignedEmployeeId?: string | null;
+    targetDate?: Date | null;
+    client?: DbClient;
+    now?: Date;
+  },
+) {
+  const client = input.client ?? prisma;
+  const actor = await resolveWorkOrderActorAuthority(
+    session,
+    input.facilityId,
+    input.plantDepartmentId,
+  );
+  if (!actor.canManage) {
+    throw new Error("Work Order creation denied.");
+  }
+
+  const request = await client.operationalRequest.findFirst({
+    where: {
+      id: input.requestId,
+      facilityId: input.facilityId,
+      responsibleDepartmentId: input.plantDepartmentId,
+    },
+  });
+  if (!request) throw new Error("Operational Request not found.");
+  if (request.workOrderId) {
+    const existing = await client.repair.findFirst({
+      where: { id: request.workOrderId },
+    });
+    if (existing) return existing;
+  }
+  if (
+    request.status === "CLOSED" ||
+    request.status === "CANCELLED"
+  ) {
+    throw new Error("Cannot create a Work Order from a closed or cancelled Request.");
+  }
+
+  if (input.vendorId) {
+    const vendor = await client.vendor.findFirst({
+      where: { id: input.vendorId, facilityId: input.facilityId },
+      select: { id: true },
+    });
+    if (!vendor) throw new Error("Vendor not found.");
+  }
+
+  if (input.assignedEmployeeId) {
+    const employee = await client.employee.findFirst({
+      where: { id: input.assignedEmployeeId, facilityId: input.facilityId },
+      select: { id: true },
+    });
+    if (!employee) throw new Error("Employee not found.");
+  }
+
+  const actorUserId = sessionUserIdForFk(session);
+  const now = input.now ?? new Date();
+  const repairCode = await nextRepairCode(client);
+  const initialStatus: RepairStatus = input.assignedEmployeeId ? "ASSIGNED" : "OPEN";
+
+  const created = await client.repair.create({
+    data: {
+      id: cuidLike(),
+      repairCode,
+      assetId: request.assetId ?? null,
+      unitId: request.unitId,
+      title: input.title?.trim() || request.summary,
+      description: input.description?.trim() || request.description,
+      priority: input.priority ?? request.priority,
+      status: initialStatus,
+      workOrderKind: "CORRECTIVE",
+      repairTrade: input.repairTrade ?? "GENERAL",
+      issueType: "EQUIPMENT",
+      requestingDepartmentId: request.requestingDepartmentId,
+      responsibleDepartmentId: request.responsibleDepartmentId,
+      assignedEmployeeId: input.assignedEmployeeId ?? null,
+      vendorId: input.vendorId ?? null,
+      targetDate: input.targetDate ?? null,
+      requestedAt: now,
+      reportedById: actorUserId,
+      updates: {
+        create: {
+          id: cuidLike(),
+          updateText: `Work Order created from request ${request.requestCode}`,
+          statusAfterUpdate: initialStatus,
+          updatedById: actorUserId,
+          requesterVisible: false,
+        },
+      },
+    },
+  });
+
+  await client.operationalRequest.update({
+    where: { id: request.id },
+    data: {
+      workOrderId: created.id,
+      status: input.assignedEmployeeId ? "WORK_ASSIGNED" : "UNDER_REVIEW",
+      requesterVisibleStatusSummary: input.assignedEmployeeId
+        ? "Work assigned"
+        : "Under review",
+    },
+  });
+
+  await client.operationalRequestUpdate.create({
+    data: {
+      id: cuidLike(),
+      requestId: request.id,
+      updateText: `Work Order ${created.repairCode} linked`,
+      statusAfterUpdate: input.assignedEmployeeId ? "WORK_ASSIGNED" : "UNDER_REVIEW",
+      updatedByUserId: actorUserId,
+      requesterVisible: true,
+    },
+  });
+
+  return created;
+}
+
+/**
+ * Technician / supervisor Work Order action path (Plant or Asset-ops department).
+ * Completing does NOT change Asset status and does NOT auto-close Request / AssetIssue.
+ */
+export async function technicianUpdateWorkOrder(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    repairId: string;
+    action:
+      | "START"
+      | "NOTE"
+      | "WAITING_PARTS"
+      | "WAITING_ON_VENDOR"
+      | "COMPLETE"
+      | "FOLLOW_UP";
+    note?: string | null;
+    requesterVisible?: boolean;
+    workPerformed?: string | null;
+    resolution?: string | null;
+    followUpRequired?: boolean;
+    followUpNote?: string | null;
+    client?: DbClient;
+    now?: Date;
+  },
+) {
+  const client = input.client ?? prisma;
+  await resolveWorkOrderActorAuthority(
+    session,
+    input.facilityId,
+    input.departmentId,
+    { repairId: input.repairId },
+  );
+
+  const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
+  const actorUserId = sessionUserIdForFk(session);
+  const now = input.now ?? new Date();
+  const requesterVisible = input.requesterVisible === true;
+
+  if (input.action === "NOTE") {
+    if (!input.note?.trim()) throw new Error("Note text is required.");
+    await appendRepairUpdate(client, {
+      repairId: repair.id,
+      updateText: input.note.trim(),
+      statusAfterUpdate: repair.status,
+      updatedById: actorUserId,
+      requesterVisible,
+    });
+    return repair;
+  }
+
+  if (input.action === "FOLLOW_UP") {
+    const updated = await client.repair.update({
+      where: { id: repair.id },
+      data: {
+        followUpRequired: input.followUpRequired ?? true,
+        followUpNote: input.followUpNote?.trim() || input.note?.trim() || repair.followUpNote,
+      },
+    });
+    await appendRepairUpdate(client, {
+      repairId: repair.id,
+      updateText: input.note?.trim() || "Follow-up flagged",
+      statusAfterUpdate: repair.status,
+      updatedById: actorUserId,
+      requesterVisible,
+    });
+    return updated;
+  }
+
+  let toStatus: RepairStatus;
+  if (input.action === "START") toStatus = "IN_PROGRESS";
+  else if (input.action === "WAITING_PARTS") toStatus = "WAITING_PARTS";
+  else if (input.action === "WAITING_ON_VENDOR") toStatus = "WAITING_ON_VENDOR";
+  else if (input.action === "COMPLETE") toStatus = "COMPLETED";
+  else throw new Error("Unsupported Work Order action.");
+
+  if (input.action === "COMPLETE") {
+    if (repair.status === "COMPLETED" || repair.status === "CLOSED") {
+      return repair;
+    }
+    if (repair.status === "CANCELLED") {
+      throw new Error("Cancelled Work Orders cannot be completed.");
+    }
+    const allowedFrom = [
+      "OPEN",
+      "ASSIGNED",
+      "IN_PROGRESS",
+      "WAITING_PARTS",
+      "WAITING_ON_VENDOR",
+      "ON_HOLD",
+    ] as RepairStatus[];
+    if (!allowedFrom.includes(repair.status)) {
+      throw new Error(`Cannot complete Work Order from status ${repair.status}.`);
+    }
+
+    const updated = await client.repair.update({
+      where: { id: repair.id },
+      data: {
+        status: "COMPLETED",
+        completedAt: now,
+        startedAt: repair.startedAt ?? now,
+        workPerformed: input.workPerformed?.trim() || repair.workPerformed,
+        resolution: input.resolution?.trim() || repair.resolution,
+        followUpRequired: input.followUpRequired ?? repair.followUpRequired,
+        followUpNote:
+          input.followUpNote !== undefined
+            ? input.followUpNote?.trim() || null
+            : repair.followUpNote,
+      },
+    });
+
+    await appendRepairUpdate(client, {
+      repairId: repair.id,
+      updateText:
+        input.note?.trim() ||
+        input.resolution?.trim() ||
+        "Work Order completed",
+      statusAfterUpdate: "COMPLETED",
+      updatedById: actorUserId,
+      requesterVisible,
+    });
+
+    // Explicit: do NOT close OperationalRequest, do NOT mutate Asset status.
+    return updated;
+  }
+
+  assertTransition(repair.status, toStatus);
+  const data: Prisma.RepairUpdateInput = { status: toStatus };
+  if (toStatus === "IN_PROGRESS" && !repair.startedAt) {
+    data.startedAt = now;
+  }
+
+  const updated = await client.repair.update({
+    where: { id: repair.id },
+    data,
+  });
+
+  await appendRepairUpdate(client, {
+    repairId: repair.id,
+    updateText: input.note?.trim() || `Status changed to ${toStatus}`,
+    statusAfterUpdate: toStatus,
+    updatedById: actorUserId,
+    requesterVisible,
+  });
+
+  // Sync linked Operational Request status when responsible dept is Plant — never auto-close.
+  const linkedRequest = await client.operationalRequest.findFirst({
+    where: { workOrderId: repair.id },
+    select: { id: true, status: true },
+  });
+  if (linkedRequest && linkedRequest.status !== "CLOSED" && linkedRequest.status !== "CANCELLED" && linkedRequest.status !== "RESOLVED") {
+    const nextRequestStatus =
+      toStatus === "IN_PROGRESS"
+        ? "WORK_IN_PROGRESS"
+        : toStatus === "WAITING_ON_VENDOR"
+          ? "WAITING_ON_VENDOR"
+          : toStatus === "WAITING_PARTS"
+            ? "WAITING_ON_PARTS"
+            : null;
+    if (nextRequestStatus) {
+      await client.operationalRequest.update({
+        where: { id: linkedRequest.id },
+        data: {
+          status: nextRequestStatus,
+          requesterVisibleStatusSummary:
+            nextRequestStatus === "WORK_IN_PROGRESS"
+              ? "Work in progress"
+              : nextRequestStatus === "WAITING_ON_VENDOR"
+                ? "Waiting on vendor"
+                : "Waiting on parts",
+        },
+      });
+    }
+  }
 
   return updated;
 }

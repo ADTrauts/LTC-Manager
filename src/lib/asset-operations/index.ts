@@ -76,7 +76,9 @@ export {
   completeWorkOrder,
   createWorkOrderDirect,
   createWorkOrderFromIssue,
+  createWorkOrderFromOperationalRequest,
   markReturnToServiceReady,
+  technicianUpdateWorkOrder,
   updateWorkOrderStatus,
   type CreateWorkOrderDirectInput,
 } from "./work-order-service";
