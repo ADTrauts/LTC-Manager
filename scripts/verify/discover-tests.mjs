@@ -56,6 +56,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
   "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
   "src/lib/department-work/phase-11a-department-work.test.ts",
+  "src/lib/evs/phase-11b-evs-operations.test.ts",
 ];
 
 function main() {
