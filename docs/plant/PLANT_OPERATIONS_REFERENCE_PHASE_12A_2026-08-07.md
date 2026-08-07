@@ -350,6 +350,35 @@ Do not create unrelated work merely to close these.
 
 ---
 
+## FINAL SEQUENTIAL CERTIFICATION
+
+**Sequential verification date:** 2026-08-07  
+**Branch:** `product/plant-operations-reference-phase-12a-2026-08-07`
+
+### Gates
+
+| Command | Result |
+|---------|--------|
+| `verify:static` | PASS — migrations=72; 0 lint warnings |
+| `test:hermetic` | PASS — 1563 tests / 1470 pass / 0 fail / 93 skipped |
+| `verify:build` | PASS |
+| `verify:db` (disposable PG16) | PASS — migrations=72; 1563 pass / 0 skip |
+| `test:plant-browser` | PASS — 7 passed |
+| `test:dietary-pilot` | PASS — 5 |
+| `test:evs-browser` | PASS — 9 |
+| `test:evs-assignment-browser` | PASS — 10 |
+| `test:assignment-browser` | PASS — 6 |
+| `test:offline-browser` | PASS — 25 |
+| `test:asset-operations-browser` | PASS — 1 |
+| `test:job-flow-browser` | PASS — 13 |
+
+Flags: `OPERATION_ENGINE_ENABLED=false`, `TASK_SYNC_ENABLED=false`. `ltc_manager` untouched. No cloud resources.
+
+### Recommendation
+
+**PASS WITH FINDINGS** — retained Unit Workspace Asset panel + Vendor arbitrary-ID findings; Plant browser CI covers critical path (7 automated tests) with remaining scenario matrix rows classified as SQL / hermetic / service / docs / prior-gate rather than full 80 live browser steps.
+
+
 ## Phase 12B Boundary
 
 Suggested next phase (not in 12A):
