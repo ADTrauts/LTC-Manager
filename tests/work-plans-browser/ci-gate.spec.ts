@@ -276,13 +276,11 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
           await offline.page.waitForTimeout(250);
           try {
             await offlineComplete.click({ timeout: 10_000 });
-            await expect(
-              offline.page
-                .getByTestId("work-offline-status")
-                .or(offline.page.getByTestId("work-completion-notice")),
-            ).toContainText(/Saved on This Tablet|Offline|confirmed/i, {
-              timeout: 20_000,
-            });
+            // Prefer notice; offline-status may also render — avoid .or() dual-match strict mode.
+            await expect(offline.page.getByTestId("work-completion-notice")).toContainText(
+              /Saved on This Tablet|confirmed/i,
+              { timeout: 20_000 },
+            );
             const snap = await inspectIndexedDb(offline.page);
             const cmds = (
               (snap as { commands?: Array<{ commandType?: string; unitId?: string }> }).commands ??
