@@ -36,7 +36,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     ".next-evs-assignment-browser/types/**/*.ts",
-    ".next-evs-assignment-browser/dev/types/**/*.ts"
+    ".next-evs-assignment-browser/dev/types/**/*.ts",
+    ".next-plant-browser/types/**/*.ts",
+    ".next-plant-browser/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
