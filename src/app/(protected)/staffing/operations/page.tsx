@@ -197,8 +197,7 @@ export default async function SupervisorOperationsBoardPage({
   const showPlantRouting =
     department.key === "PLANT" &&
     isPlantOperationsEnabled() &&
-    hasAtLeastRole(session.role, "MANAGER") &&
-    session.authMethod !== "QUICK_PIN";
+    hasAtLeastRole(session.role, "MANAGER");
 
   let plantRouting: {
     routes: Array<{
