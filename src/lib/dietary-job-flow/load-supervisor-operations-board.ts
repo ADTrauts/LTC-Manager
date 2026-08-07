@@ -8,10 +8,12 @@
 
 import { loadSupervisorAssetExceptions } from "@/lib/asset-operations";
 import type { AppJwtPayload } from "@/lib/auth";
+import { loadSupervisorWorkExceptions } from "@/lib/department-work";
 import {
   isDietaryAssetOperationsEnabled,
   isDietaryJobFlowEnabled,
   isDietaryOperationalEvidenceEnabled,
+  isDietaryWorkPlansEnabled,
 } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
@@ -74,6 +76,7 @@ function exceptionRank(
     Readiness: 300,
     ServiceTiming: 400,
     Evidence: 450,
+    Work: 460,
     Asset: 470,
     Equipment: 475,
     OfflineSync: 500,
@@ -484,6 +487,43 @@ export async function loadSupervisorOperationsBoard(
         sourceHref: row.sourceHref,
         availableActions: row.availableActions,
         sortRank: exceptionRank(row.group, temporal),
+      });
+    }
+  }
+
+  // Phase 11A Work exceptions (flag-gated, derived only).
+  if (isDietaryWorkPlansEnabled()) {
+    const workExceptions = await loadSupervisorWorkExceptions({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      operationalDate: serviceDate,
+      operationalDateKey,
+      now,
+      facilityTimezone: timezone,
+    });
+    for (const row of workExceptions) {
+      const temporal: SupervisorExceptionTemporal =
+        row.state === "PAST_DUE_NOT_CONFIRMED"
+          ? "NotConfirmed"
+          : row.state === "DUE"
+            ? "Current"
+            : row.state === "CONFLICT_REVIEW"
+              ? "Current"
+              : "Upcoming";
+      exceptions.push({
+        group: "Work",
+        status:
+          row.state === "PAST_DUE_NOT_CONFIRMED"
+            ? `${row.label} — past due not confirmed`
+            : `${row.label} — ${row.state.replaceAll("_", " ").toLowerCase()}`,
+        temporal,
+        unitId: row.unitId,
+        unitName: row.unitName,
+        sourceHref: row.unitId
+          ? `/staffing/operations?work=${encodeURIComponent(row.occurrenceKey)}&unit=${row.unitId}`
+          : `/staffing/operations?work=${encodeURIComponent(row.occurrenceKey)}`,
+        availableActions: ["Open Work", "Create one-off"],
+        sortRank: exceptionRank("Work", temporal),
       });
     }
   }

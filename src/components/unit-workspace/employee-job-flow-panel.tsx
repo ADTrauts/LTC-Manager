@@ -344,8 +344,102 @@ export function EmployeeJobFlowPanel({
         </ul>
       ) : null}
 
+      {jobFlow.workRequirements.length > 0 ? (
+        <WorkRequirementsStrip jobFlow={jobFlow} />
+      ) : null}
+
       <OfflineStrip offline={offline} />
     </article>
+  );
+}
+
+function workStateLabel(state: string): string {
+  switch (state) {
+    case "PAST_DUE_NOT_CONFIRMED":
+      return "Past due — not confirmed";
+    case "SAVED_ON_THIS_TABLET":
+      return "Saved on This Tablet";
+    case "COMPLETED_WITH_EVIDENCE":
+      return "Completed with Evidence";
+    case "NOT_REQUIRED":
+      return "Not Required";
+    default:
+      return state.replaceAll("_", " ");
+  }
+}
+
+function WorkRequirementsStrip({ jobFlow }: { jobFlow: JobFlowContext }) {
+  const openStates = new Set([
+    "DUE",
+    "CURRENT",
+    "UPCOMING",
+    "PAST_DUE_NOT_CONFIRMED",
+    "SAVED_ON_THIS_TABLET",
+    "SYNCHRONIZING",
+    "REOPENED",
+  ]);
+  const actionable = jobFlow.workRequirements.filter((r) => openStates.has(r.state));
+  const primary = actionable[0] ?? jobFlow.workRequirements[0];
+  const upcoming = actionable.slice(1, 4);
+  if (!primary) return null;
+  const unitId = unitIdForEvidence(jobFlow);
+
+  return (
+    <div
+      className="mt-3 space-y-2 border-t border-zinc-100 pt-2"
+      data-testid="job-flow-work-requirements"
+    >
+      <div
+        className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2"
+        data-testid="job-flow-work-primary"
+        data-occurrence-key={primary.occurrenceKey}
+      >
+        <p className="text-xs font-medium text-zinc-900">{primary.label}</p>
+        <p className="text-xs text-zinc-600">{workStateLabel(primary.state)}</p>
+        <div className="mt-1 flex flex-wrap gap-3 text-xs">
+          {primary.knowledgeArticleId ? (
+            <Link
+              href={
+                unitId
+                  ? `/unit/${unitId}?procedure=${encodeURIComponent(primary.knowledgeArticleId)}&work=${encodeURIComponent(primary.occurrenceKey)}`
+                  : "#"
+              }
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+              data-testid={`open-work-procedure-${primary.occurrenceKey}`}
+            >
+              View procedure
+            </Link>
+          ) : null}
+          {unitId &&
+          (primary.state === "DUE" ||
+            primary.state === "CURRENT" ||
+            primary.state === "PAST_DUE_NOT_CONFIRMED" ||
+            primary.state === "SAVED_ON_THIS_TABLET") ? (
+            <Link
+              href={`/unit/${unitId}?work=${encodeURIComponent(primary.occurrenceKey)}`}
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+              data-testid={`open-work-${primary.occurrenceKey}`}
+            >
+              Open work
+            </Link>
+          ) : null}
+        </div>
+      </div>
+      {upcoming.length > 0 ? (
+        <ul className="space-y-1" aria-label="Upcoming work" data-testid="job-flow-work-upcoming">
+          {upcoming.map((req) => (
+            <li
+              key={req.occurrenceKey}
+              className="flex justify-between gap-2 text-xs text-zinc-700"
+              data-testid={`job-flow-work-${req.state}`}
+            >
+              <span>{req.label}</span>
+              <span className="text-zinc-500">{workStateLabel(req.state)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

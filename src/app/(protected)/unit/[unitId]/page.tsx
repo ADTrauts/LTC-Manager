@@ -16,6 +16,7 @@ import { UnitMyAssignmentPanel } from "@/components/unit-workspace/unit-my-assig
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { AssetIssueReportPanel } from "@/components/asset-operations/asset-issue-report-panel";
 import { UnitRuntimeAssetsPanel } from "@/components/asset-operations/unit-runtime-assets-panel";
+import { WorkCompletionPanel } from "@/components/department-work/work-completion-panel";
 import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
 import { ProjectedUnitWorkspaceBody } from "@/components/unit-workspace/projected-experience-panels";
@@ -32,6 +33,7 @@ import {
   isDietaryAssetOperationsEnabled,
   isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
+  isDietaryWorkPlansEnabled,
   isOperationalAssignmentsEnabled,
   isProjectionUnitWorkspaceEnabled,
 } from "@/lib/feature-flags";
@@ -71,6 +73,8 @@ type UnitDashboardPageProps = {
     occurrence?: string;
     evidence?: string;
     reportAsset?: string;
+    work?: string;
+    procedure?: string;
   }>;
 };
 
@@ -564,6 +568,24 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
               unitId={unit.id}
               requirement={
                 jobFlow.evidenceRequirements.find((r) => r.requirementKey === query.evidence)!
+              }
+              deviceFacilityId={deviceFacilityId}
+              deviceBoundUnitId={deviceBoundUnitId}
+              actorRef={actorRefForSession(session)}
+              sessionVersion={session.sessionVersion ?? 0}
+            />
+          ) : null}
+          {jobFlow &&
+          dietaryDepartment &&
+          isDietaryWorkPlansEnabled() &&
+          query?.work &&
+          jobFlow.workRequirements.some((r) => r.occurrenceKey === query.work) ? (
+            <WorkCompletionPanel
+              facilityId={session.facilityId}
+              departmentId={dietaryDepartment.id}
+              unitId={unit.id}
+              requirement={
+                jobFlow.workRequirements.find((r) => r.occurrenceKey === query.work)!
               }
               deviceFacilityId={deviceFacilityId}
               deviceBoundUnitId={deviceBoundUnitId}

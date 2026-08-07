@@ -4,7 +4,7 @@
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isDietaryJobFlowEnabled, isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import { isDietaryJobFlowEnabled, isDietaryOperationalEvidenceEnabled, isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -17,6 +17,8 @@ import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operat
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
+import { resolveUnitWorkRequirements } from "@/lib/department-work";
+import type { WorkRequirement } from "@/lib/department-work/types";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import { prisma } from "@/lib/prisma";
@@ -327,7 +329,11 @@ export async function loadEmployeeJobFlow(
     unit: unitSnapshot,
   });
 
-  if (!isDietaryOperationalEvidenceEnabled() || !unitId) {
+  if (!isDietaryOperationalEvidenceEnabled() && !isDietaryWorkPlansEnabled()) {
+    return jobFlow;
+  }
+
+  if (!unitId) {
     return jobFlow;
   }
 
@@ -353,23 +359,39 @@ export async function loadEmployeeJobFlow(
     ];
   });
 
-  const evidenceRequirements = await resolveUnitEvidenceRequirements({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    operationalDateKey,
-    operationalDate: serviceDate,
-    now,
-    facilityTimezone: timezone,
-    unitId,
-    publishedCycles: cycleWindows,
-  });
+  const evidenceRequirements = isDietaryOperationalEvidenceEnabled()
+    ? await resolveUnitEvidenceRequirements({
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        operationalDateKey,
+        operationalDate: serviceDate,
+        now,
+        facilityTimezone: timezone,
+        unitId,
+        publishedCycles: cycleWindows,
+      })
+    : [];
+
+  const workRequirements = isDietaryWorkPlansEnabled()
+    ? await resolveUnitWorkRequirements({
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        operationalDateKey,
+        operationalDate: serviceDate,
+        now,
+        facilityTimezone: timezone,
+        unitId,
+      })
+    : [];
 
   const evidenceAttention = buildEvidenceAttention(evidenceRequirements);
+  const workAttention = buildWorkAttention(workRequirements);
 
   return {
     ...jobFlow,
     evidenceRequirements,
-    attention: [...jobFlow.attention, ...evidenceAttention].filter(
+    workRequirements,
+    attention: [...jobFlow.attention, ...evidenceAttention, ...workAttention].filter(
       (item, idx, arr) =>
         arr.findIndex((x) => x.kind === item.kind && x.message === item.message) === idx,
     ),
@@ -396,6 +418,23 @@ function buildEvidenceAttention(
   }
   if (requirements.some((r) => r.state === "CONFLICT_REVIEW")) {
     items.push({ kind: "evidence_review", message: "Evidence requires conflict review." });
+  }
+  return items;
+}
+
+function buildWorkAttention(requirements: WorkRequirement[]): JobFlowAttentionItem[] {
+  const items: JobFlowAttentionItem[] = [];
+  if (requirements.some((r) => r.state === "DUE" || r.state === "CURRENT")) {
+    items.push({ kind: "work_due", message: "Department Work is due now." });
+  }
+  if (requirements.some((r) => r.state === "PAST_DUE_NOT_CONFIRMED")) {
+    items.push({
+      kind: "work_past_due",
+      message: "Work is past due and not confirmed.",
+    });
+  }
+  if (requirements.some((r) => r.state === "CONFLICT_REVIEW")) {
+    items.push({ kind: "work_conflict", message: "Work requires conflict review." });
   }
   return items;
 }
