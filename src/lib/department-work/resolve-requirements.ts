@@ -1,7 +1,11 @@
 /**
- * Derived Work Requirements for an operational date (Phase 11A).
+ * Derived Work Requirements for an operational date (Phase 11A / 11B).
  * Draft plans never appear. Retired plans are not prospective.
  * PAST_DUE_NOT_CONFIRMED is neutral — not proof work did not occur.
+ *
+ * Phase 11B: SPECIFIC_SPACE / SPACE_TYPE applicabilities expand one requirement
+ * per matching UnitSpace in the unit. Room = UnitSpace. EACH_ASSIGNED_EMPLOYEE
+ * remains skipped.
  */
 
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
@@ -50,13 +54,73 @@ export type ResolveWorkRequirementsInput = {
   pendingEvidenceKeys?: readonly string[];
 };
 
-function planAppliesToUnit(plan: PublishedWorkPlanForResolve, unitId: string | null): boolean {
+function spacesForUnit(
+  spaces: readonly SpaceScopeForWorkResolve[] | undefined,
+  unitId: string,
+): SpaceScopeForWorkResolve[] {
+  return (spaces ?? []).filter((s) => !s.unitId || s.unitId === unitId);
+}
+
+function planAppliesToUnit(
+  plan: PublishedWorkPlanForResolve,
+  unitId: string | null,
+  spaces?: readonly SpaceScopeForWorkResolve[],
+): boolean {
   if (!plan.applicabilities.length) return true;
-  return plan.applicabilities.some(
-    (a) =>
-      a.kind === "DEPARTMENT_UNIT" ||
-      (a.kind === "SPECIFIC_UNIT" && unitId && a.unitId === unitId),
+  return plan.applicabilities.some((a) => {
+    if (a.kind === "DEPARTMENT_UNIT") return true;
+    if (a.kind === "SPECIFIC_UNIT" && unitId && a.unitId === unitId) return true;
+    if (!unitId) return false;
+    if (a.kind === "SPECIFIC_SPACE" && a.spaceId) {
+      return spacesForUnit(spaces, unitId).some((s) => s.id === a.spaceId);
+    }
+    if (a.kind === "SPACE_TYPE" && a.spaceType) {
+      return spacesForUnit(spaces, unitId).some((s) => s.spaceType === a.spaceType);
+    }
+    return false;
+  });
+}
+
+/**
+ * Resolve which spaceId values to emit for an item under a plan.
+ * - item.spaceId set → that single space (must belong to unit when spaces provided)
+ * - plan has SPECIFIC_SPACE / SPACE_TYPE → one per matching unit space
+ * - else → unit-level (null spaceId)
+ */
+function resolveSpaceIdsForItem(input: {
+  plan: PublishedWorkPlanForResolve;
+  itemSpaceId: string | null;
+  unitId: string;
+  spaces?: readonly SpaceScopeForWorkResolve[];
+}): Array<string | null> {
+  const unitSpaces = spacesForUnit(input.spaces, input.unitId);
+
+  if (input.itemSpaceId) {
+    if (input.spaces !== undefined && input.spaces !== null) {
+      const belongs = unitSpaces.some((s) => s.id === input.itemSpaceId);
+      if (!belongs) return [];
+    }
+    return [input.itemSpaceId];
+  }
+
+  const spaceApps = input.plan.applicabilities.filter(
+    (a) => a.kind === "SPECIFIC_SPACE" || a.kind === "SPACE_TYPE",
   );
+  if (!spaceApps.length) {
+    return [null];
+  }
+
+  const matched = new Map<string, SpaceScopeForWorkResolve>();
+  for (const space of unitSpaces) {
+    for (const app of spaceApps) {
+      if (app.kind === "SPECIFIC_SPACE" && app.spaceId === space.id) {
+        matched.set(space.id, space);
+      } else if (app.kind === "SPACE_TYPE" && app.spaceType === space.spaceType) {
+        matched.set(space.id, space);
+      }
+    }
+  }
+  return [...matched.keys()];
 }
 
 function deriveState(input: {
@@ -170,7 +234,7 @@ export function resolveWorkRequirements(
     if (plan.status && plan.status !== "PUBLISHED") continue;
 
     for (const unitId of targetUnitIds) {
-      if (!planAppliesToUnit(plan, unitId)) continue;
+      if (!planAppliesToUnit(plan, unitId, input.spaces)) continue;
       const assignmentsHere = input.confirmedAssignments.filter((a) => a.unitId === unitId);
 
       for (const item of plan.items) {
@@ -183,6 +247,14 @@ export function resolveWorkRequirements(
           if (!roleMatch) continue;
         }
         if (item.unitId && item.unitId !== unitId) continue;
+
+        const spaceIds = resolveSpaceIdsForItem({
+          plan,
+          itemSpaceId: item.spaceId,
+          unitId,
+          spaces: input.spaces,
+        });
+        if (!spaceIds.length) continue;
 
         const scheduleTargets: {
           cycleStableKey: string | null;
@@ -233,83 +305,85 @@ export function resolveWorkRequirements(
           });
         }
 
-        for (const target of scheduleTargets) {
-          const occurrenceKey = buildOccurrenceKey({
-            sourceKind: "WORK_PLAN",
-            workPlanStableKey: plan.stableKey,
-            workPlanVersion: plan.version,
-            workItemKey: item.itemKey,
-            operationalDate: input.operationalDateKey,
-            unitId,
-            spaceId: item.spaceId,
-            cycleStableKey: target.cycleStableKey,
-            windowStartLocal: target.windowStartLocal,
-            windowEndLocal: target.windowEndLocal,
-          });
+        for (const spaceId of spaceIds) {
+          for (const target of scheduleTargets) {
+            const occurrenceKey = buildOccurrenceKey({
+              sourceKind: "WORK_PLAN",
+              workPlanStableKey: plan.stableKey,
+              workPlanVersion: plan.version,
+              workItemKey: item.itemKey,
+              operationalDate: input.operationalDateKey,
+              unitId,
+              spaceId,
+              cycleStableKey: target.cycleStableKey,
+              windowStartLocal: target.windowStartLocal,
+              windowEndLocal: target.windowEndLocal,
+            });
 
-          const occurrence = occurrenceByKey.get(occurrenceKey) ?? null;
-          const matchedEvidence =
-            item.completionMode === "LINKED_EVIDENCE" && item.linkedTemplateStableKey
-              ? accepted.find(
-                  (e) =>
-                    e.templateStableKey === item.linkedTemplateStableKey &&
-                    (e.unitId == null || e.unitId === unitId),
-                ) ?? null
-              : null;
+            const occurrence = occurrenceByKey.get(occurrenceKey) ?? null;
+            const matchedEvidence =
+              item.completionMode === "LINKED_EVIDENCE" && item.linkedTemplateStableKey
+                ? accepted.find(
+                    (e) =>
+                      e.templateStableKey === item.linkedTemplateStableKey &&
+                      (e.unitId == null || e.unitId === unitId),
+                  ) ?? null
+                : null;
 
-          const { state, evidenceRecordId } = deriveState({
-            now: input.now,
-            windowStartsAt: target.windowStartsAt,
-            windowEndsAt: target.windowEndsAt,
-            occurrence,
-            occurrenceKey,
-            pendingOfflineKeys: pending,
-            synchronizingKeys: syncing,
-            conflictKeys: conflicts,
-            completionMode: item.completionMode,
-            acceptedEvidence: matchedEvidence,
-            evidencePending: pendingEvidence.has(occurrenceKey),
-          });
+            const { state, evidenceRecordId } = deriveState({
+              now: input.now,
+              windowStartsAt: target.windowStartsAt,
+              windowEndsAt: target.windowEndsAt,
+              occurrence,
+              occurrenceKey,
+              pendingOfflineKeys: pending,
+              synchronizingKeys: syncing,
+              conflictKeys: conflicts,
+              completionMode: item.completionMode,
+              acceptedEvidence: matchedEvidence,
+              evidencePending: pendingEvidence.has(occurrenceKey),
+            });
 
-          results.push({
-            occurrenceKey,
-            workPlanId: plan.id,
-            workPlanStableKey: plan.stableKey,
-            workPlanVersion: plan.version,
-            workPlanName: plan.name,
-            workItemId: item.id,
-            workItemKey: item.itemKey,
-            label: item.label,
-            instructions: item.instructions,
-            priority: item.priority,
-            completionMode: item.completionMode,
-            responsibilityMode: item.responsibilityMode,
-            scheduleKind: item.scheduleKind,
-            cycleStableKey: target.cycleStableKey,
-            windowStartLocal: target.windowStartLocal,
-            windowEndLocal: target.windowEndLocal,
-            dueAt: target.windowEndsAt ?? target.windowStartsAt,
-            windowStartsAt: target.windowStartsAt,
-            windowEndsAt: target.windowEndsAt,
-            unitId,
-            unitName: input.unitNames?.get(unitId) ?? null,
-            spaceId: item.spaceId,
-            assetId: item.assetId,
-            roleKeys: item.roleKeys,
-            knowledgeArticleId: item.knowledgeArticleId,
-            procedureTitle: item.procedureTitleSnapshot,
-            linkedTemplateStableKey: item.linkedTemplateStableKey,
-            linkedTemplateId: item.linkedTemplateId,
-            state,
-            occurrenceId: occurrence?.id ?? null,
-            occurrenceStatus: occurrence?.status ?? null,
-            assignedEmployeeId: occurrence?.assignedEmployeeId ?? null,
-            completedByLabel: occurrence?.completedByLabel ?? null,
-            completedAt: occurrence?.completedAt ?? null,
-            evidenceRecordId: evidenceRecordId ?? occurrence?.evidenceRecordId ?? null,
-            sourceKind: "WORK_PLAN",
-            sourceHref: `/staffing/work-plans`,
-          });
+            results.push({
+              occurrenceKey,
+              workPlanId: plan.id,
+              workPlanStableKey: plan.stableKey,
+              workPlanVersion: plan.version,
+              workPlanName: plan.name,
+              workItemId: item.id,
+              workItemKey: item.itemKey,
+              label: item.label,
+              instructions: item.instructions,
+              priority: item.priority,
+              completionMode: item.completionMode,
+              responsibilityMode: item.responsibilityMode,
+              scheduleKind: item.scheduleKind,
+              cycleStableKey: target.cycleStableKey,
+              windowStartLocal: target.windowStartLocal,
+              windowEndLocal: target.windowEndLocal,
+              dueAt: target.windowEndsAt ?? target.windowStartsAt,
+              windowStartsAt: target.windowStartsAt,
+              windowEndsAt: target.windowEndsAt,
+              unitId,
+              unitName: input.unitNames?.get(unitId) ?? null,
+              spaceId,
+              assetId: item.assetId,
+              roleKeys: item.roleKeys,
+              knowledgeArticleId: item.knowledgeArticleId,
+              procedureTitle: item.procedureTitleSnapshot,
+              linkedTemplateStableKey: item.linkedTemplateStableKey,
+              linkedTemplateId: item.linkedTemplateId,
+              state,
+              occurrenceId: occurrence?.id ?? null,
+              occurrenceStatus: occurrence?.status ?? null,
+              assignedEmployeeId: occurrence?.assignedEmployeeId ?? null,
+              completedByLabel: occurrence?.completedByLabel ?? null,
+              completedAt: occurrence?.completedAt ?? null,
+              evidenceRecordId: evidenceRecordId ?? occurrence?.evidenceRecordId ?? null,
+              sourceKind: "WORK_PLAN",
+              sourceHref: `/staffing/work-plans`,
+            });
+          }
         }
       }
     }

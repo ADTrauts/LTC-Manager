@@ -180,3 +180,105 @@ test("linked accepted evidence completes work without duplicate occurrence", () 
   assert.equal(reqs[0]!.evidenceRecordId, "ev1");
   assert.equal(reqs[0]!.occurrenceId, null);
 });
+
+const roomCleanItem = plan.items[0]!;
+
+test("SPACE_TYPE PATIENT_ROOM expands one requirement per matching space", () => {
+  const spacePlan: PublishedWorkPlanForResolve = {
+    ...plan,
+    stableKey: "routine_room_clean",
+    applicabilities: [{ kind: "SPACE_TYPE", unitId: null, spaceId: null, spaceType: "PATIENT_ROOM", assetId: null, assetType: null }],
+    items: [{ ...roomCleanItem, itemKey: "surfaces", label: "Clean surfaces" }],
+  };
+  const reqs = resolveWorkRequirements({
+    facilityId: "f1",
+    departmentId: "evs",
+    operationalDateKey: "2026-08-06",
+    now: new Date("2026-08-06T15:00:00.000Z"),
+    facilityTimezone: "America/New_York",
+    unitId: "u1",
+    spaces: [
+      { id: "r1", spaceType: "PATIENT_ROOM", unitId: "u1" },
+      { id: "r2", spaceType: "PATIENT_ROOM", unitId: "u1" },
+      { id: "hall", spaceType: "PUBLIC_AREA", unitId: "u1" },
+    ],
+    publishedPlans: [spacePlan],
+    publishedCycles: [],
+    confirmedAssignments: [{ employeeId: "e1", unitId: "u1", roleKey: null }],
+    existingOccurrences: [],
+  });
+  assert.equal(reqs.length, 2);
+  assert.deepEqual(
+    reqs.map((r) => r.spaceId).sort(),
+    ["r1", "r2"],
+  );
+});
+
+test("SPECIFIC_SPACE expands only that space", () => {
+  const specificPlan: PublishedWorkPlanForResolve = {
+    ...plan,
+    stableKey: "room_turn",
+    applicabilities: [
+      { kind: "SPECIFIC_SPACE", unitId: null, spaceId: "r2", spaceType: null, assetId: null, assetType: null },
+    ],
+    items: [{ ...roomCleanItem, itemKey: "special_clean", label: "Special clean" }],
+  };
+  const reqs = resolveWorkRequirements({
+    facilityId: "f1",
+    departmentId: "evs",
+    operationalDateKey: "2026-08-06",
+    now: new Date("2026-08-06T15:00:00.000Z"),
+    facilityTimezone: "America/New_York",
+    unitId: "u1",
+    spaces: [
+      { id: "r1", spaceType: "PATIENT_ROOM", unitId: "u1" },
+      { id: "r2", spaceType: "PATIENT_ROOM", unitId: "u1" },
+    ],
+    publishedPlans: [specificPlan],
+    publishedCycles: [],
+    confirmedAssignments: [{ employeeId: "e1", unitId: "u1", roleKey: null }],
+    existingOccurrences: [],
+  });
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0]!.spaceId, "r2");
+});
+
+test("Dietary DEPARTMENT_UNIT plan without spaces still one unit-level requirement", () => {
+  const reqs = resolveWorkRequirements({
+    facilityId: "f1",
+    departmentId: "d1",
+    operationalDateKey: "2026-08-06",
+    now: new Date("2026-08-06T15:00:00.000Z"),
+    facilityTimezone: "America/New_York",
+    unitId: "u1",
+    publishedPlans: [plan],
+    publishedCycles: [],
+    confirmedAssignments: [{ employeeId: "e1", unitId: "u1", roleKey: "COOK" }],
+    existingOccurrences: [],
+  });
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0]!.spaceId, null);
+  assert.equal(reqs[0]!.unitId, "u1");
+});
+
+test("space expansion still requires confirmed assignment", () => {
+  const spacePlan: PublishedWorkPlanForResolve = {
+    ...plan,
+    stableKey: "routine_room_clean",
+    applicabilities: [{ kind: "SPACE_TYPE", unitId: null, spaceId: null, spaceType: "PATIENT_ROOM", assetId: null, assetType: null }],
+  };
+  const reqs = resolveWorkRequirements({
+    facilityId: "f1",
+    departmentId: "evs",
+    operationalDateKey: "2026-08-06",
+    now: new Date("2026-08-06T15:00:00.000Z"),
+    facilityTimezone: "America/New_York",
+    unitId: "u1",
+    spaces: [{ id: "r1", spaceType: "PATIENT_ROOM", unitId: "u1" }],
+    publishedPlans: [spacePlan],
+    publishedCycles: [],
+    confirmedAssignments: [],
+    existingOccurrences: [],
+  });
+  assert.equal(reqs.length, 0);
+});
