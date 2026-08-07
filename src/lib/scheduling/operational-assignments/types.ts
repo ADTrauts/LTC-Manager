@@ -28,12 +28,19 @@ export type AssignmentBoardEntry = {
   status: OperationalAssignmentStatus;
   source: OperationalAssignmentSource;
   notes: string | null;
+  /** UNIT = whole unit (zero location rows). SPACES = explicit Room/Space snapshot. */
+  scopeKind: "UNIT" | "SPACES";
+  locationCount: number;
+  locationLabels: string[];
+  sourceZoneId: string | null;
+  sourceZoneName: string | null;
 };
 
 export type AssignmentWarningKind =
   | "unassigned_employee"
   | "outside_shift"
   | "overlapping_primary"
+  | "overlapping_location"
   | "inactive_unit"
   | "cancelled_operation"
   | "reassignment_conflict";

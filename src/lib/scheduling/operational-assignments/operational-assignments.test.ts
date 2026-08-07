@@ -224,6 +224,11 @@ function makeEntry(overrides: Partial<AssignmentBoardEntry>): AssignmentBoardEnt
     status: "PLANNED",
     source: "MANUAL",
     notes: null,
+    scopeKind: "UNIT",
+    locationCount: 0,
+    locationLabels: [],
+    sourceZoneId: null,
+    sourceZoneName: null,
     ...overrides,
   };
 }

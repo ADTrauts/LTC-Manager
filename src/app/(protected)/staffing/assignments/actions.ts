@@ -37,6 +37,24 @@ import {
   assertValidResponsibilityWindow,
   parseAssignmentWindowInstant,
 } from "@/lib/scheduling/operational-assignments/responsibility-window";
+import {
+  assertNoLocationResponsibilityOverlaps,
+  replaceAssignmentLocations,
+  resolveAssignmentLocationWrites,
+} from "@/lib/scheduling/operational-assignments/location-scope";
+import { loadZoneSpaceIds } from "@/lib/department-zones";
+
+function parseUnitSpaceIds(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(/[,\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
 
 const sourceValues = [
   OperationalAssignmentSource.MANUAL,
@@ -63,6 +81,9 @@ const createSchema = z.object({
   notes: z.string().max(500).optional(),
   changeReason: z.string().max(500).optional(),
   clientCommandId: z.string().max(120).optional(),
+  /** Comma-separated UnitSpace ids for EVS Room/Space scope. Empty = unit-wide. */
+  unitSpaceIds: z.string().optional(),
+  sourceZoneId: z.string().min(1).optional(),
 });
 
 const editSchema = z.object({
@@ -74,6 +95,8 @@ const editSchema = z.object({
   endsAt: z.string().optional(),
   notes: z.string().max(500).optional(),
   changeReason: z.string().min(1).max(500).optional(),
+  unitSpaceIds: z.string().optional(),
+  sourceZoneId: z.string().optional(),
 });
 
 const lifecycleSchema = z.object({
@@ -136,6 +159,8 @@ export async function createAssignmentAction(formData: FormData) {
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")),
     clientCommandId: opt(formData.get("clientCommandId")),
+    unitSpaceIds: opt(formData.get("unitSpaceIds")),
+    sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
   await requireManageForDepartment(session, parsed.departmentId);
@@ -184,6 +209,24 @@ export async function createAssignmentAction(formData: FormData) {
     throw new Error(describeAssignmentReferenceRejection(references.reason));
   }
 
+  let unitSpaceIds = parseUnitSpaceIds(parsed.unitSpaceIds);
+  if (unitSpaceIds.length === 0 && parsed.sourceZoneId) {
+    unitSpaceIds = await loadZoneSpaceIds(prisma, {
+      facilityId: session.facilityId,
+      zoneId: parsed.sourceZoneId,
+    });
+  }
+  // Dietary and unit-wide EVS keep zero location rows.
+  if (department.key !== "EVS") {
+    unitSpaceIds = [];
+  }
+
+  const locationWrites = await resolveAssignmentLocationWrites(prisma, {
+    facilityId: session.facilityId,
+    unitId: parsed.unitId,
+    unitSpaceIds,
+  });
+
   const serviceDate = facilityLocalDateToServiceDate(parsed.serviceDate);
   const startsAt = parseAssignmentWindowInstant(parsed.serviceDate, parsed.startsAt, timezone);
   const endsAt = parseAssignmentWindowInstant(parsed.serviceDate, parsed.endsAt, timezone);
@@ -218,6 +261,19 @@ export async function createAssignmentAction(formData: FormData) {
       endsAt,
     });
 
+    if (department.key === "EVS" && (locationWrites.length > 0 || parsed.unitId)) {
+      await assertNoLocationResponsibilityOverlaps(tx, {
+        facilityId: session.facilityId,
+        departmentId: parsed.departmentId,
+        serviceDate,
+        employeeId: parsed.employeeId,
+        unitId: parsed.unitId ?? null,
+        unitSpaceIds: locationWrites.map((l) => l.unitSpaceId),
+        startsAt,
+        endsAt,
+      });
+    }
+
     const created = await tx.operationalAssignment.create({
       data: {
         facilityId: session.facilityId,
@@ -228,6 +284,7 @@ export async function createAssignmentAction(formData: FormData) {
         roleKey: parsed.roleKey,
         roleLabel: roleDef.label,
         unitId: parsed.unitId ?? null,
+        sourceZoneId: department.key === "EVS" ? parsed.sourceZoneId ?? null : null,
         operationInstanceId: parsed.operationInstanceId ?? null,
         startsAt,
         endsAt,
@@ -240,6 +297,10 @@ export async function createAssignmentAction(formData: FormData) {
         lastChangedAt: new Date(),
       },
     });
+
+    if (locationWrites.length > 0) {
+      await replaceAssignmentLocations(tx, created.id, locationWrites);
+    }
 
     await tx.operationalAssignmentPlan.update({
       where: { id: plan.id },
@@ -258,8 +319,17 @@ export async function createAssignmentAction(formData: FormData) {
       actorRole: session.role,
       authMethod: session.authMethod,
       toStatus: "PLANNED",
-      summary: `Assignment created: ${roleDef.label}`,
+      summary:
+        locationWrites.length > 0
+          ? `Assignment created: ${roleDef.label} · ${locationWrites.length} Rooms/Spaces`
+          : `Assignment created: ${roleDef.label}`,
       reason: parsed.changeReason ?? null,
+      newValuesJson: JSON.stringify({
+        unitId: parsed.unitId ?? null,
+        sourceZoneId: parsed.sourceZoneId ?? null,
+        unitSpaceIds: locationWrites.map((l) => l.unitSpaceId),
+        locationCount: locationWrites.length,
+      }),
       client: tx,
     });
   });
@@ -280,6 +350,8 @@ export async function editAssignmentAction(formData: FormData) {
     endsAt: opt(formData.get("endsAt")),
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")),
+    unitSpaceIds: opt(formData.get("unitSpaceIds")),
+    sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
   const assignment = await prisma.operationalAssignment.findFirst({
@@ -293,8 +365,10 @@ export async function editAssignmentAction(formData: FormData) {
       employeeId: true,
       startsAt: true,
       endsAt: true,
+      sourceZoneId: true,
       plan: { select: { status: true } },
       department: { select: { key: true } },
+      locations: { select: { unitSpaceId: true } },
     },
   });
   if (!assignment) throw new Error("Assignment not found.");
@@ -318,6 +392,8 @@ export async function editAssignmentAction(formData: FormData) {
     unitId: assignment.unitId,
     startsAt: assignment.startsAt?.toISOString() ?? null,
     endsAt: assignment.endsAt?.toISOString() ?? null,
+    unitSpaceIds: assignment.locations.map((l) => l.unitSpaceId),
+    sourceZoneId: assignment.sourceZoneId,
   };
 
   if (parsed.roleKey) {
@@ -345,6 +421,9 @@ export async function editAssignmentAction(formData: FormData) {
   if (parsed.operationInstanceId !== undefined) {
     data.operationInstanceId = parsed.operationInstanceId || null;
   }
+  if (parsed.sourceZoneId !== undefined && assignment.department.key === "EVS") {
+    data.sourceZoneId = parsed.sourceZoneId || null;
+  }
 
   const nextStarts =
     parsed.startsAt !== undefined
@@ -360,6 +439,15 @@ export async function editAssignmentAction(formData: FormData) {
   if (parsed.notes !== undefined) data.notes = parsed.notes || null;
   if (parsed.changeReason) data.changeReason = parsed.changeReason;
 
+  let locationWrites: Awaited<ReturnType<typeof resolveAssignmentLocationWrites>> | null = null;
+  if (parsed.unitSpaceIds !== undefined && assignment.department.key === "EVS") {
+    locationWrites = await resolveAssignmentLocationWrites(prisma, {
+      facilityId: session.facilityId,
+      unitId: nextUnitId,
+      unitSpaceIds: parseUnitSpaceIds(parsed.unitSpaceIds),
+    });
+  }
+
   const actorUserId = sessionUserIdForFk(session);
   data.lastChangedByUserId = actorUserId;
   data.lastChangedAt = new Date();
@@ -374,7 +462,28 @@ export async function editAssignmentAction(formData: FormData) {
       endsAt: nextEnds,
       excludeAssignmentId: assignment.id,
     });
+
+    const spaceIdsForOverlap =
+      locationWrites?.map((l) => l.unitSpaceId) ??
+      assignment.locations.map((l) => l.unitSpaceId);
+    if (assignment.department.key === "EVS" && (spaceIdsForOverlap.length > 0 || nextUnitId)) {
+      await assertNoLocationResponsibilityOverlaps(tx, {
+        facilityId: session.facilityId,
+        departmentId: assignment.departmentId,
+        serviceDate: assignment.serviceDate,
+        employeeId: assignment.employeeId,
+        unitId: nextUnitId,
+        unitSpaceIds: spaceIdsForOverlap,
+        startsAt: nextStarts,
+        endsAt: nextEnds,
+        excludeAssignmentId: assignment.id,
+      });
+    }
+
     await tx.operationalAssignment.update({ where: { id: assignment.id }, data });
+    if (locationWrites) {
+      await replaceAssignmentLocations(tx, assignment.id, locationWrites);
+    }
     await recordAssignmentEvent({
       assignmentId: assignment.id,
       facilityId: session.facilityId,
@@ -393,6 +502,8 @@ export async function editAssignmentAction(formData: FormData) {
         unitId: data.unitId ?? assignment.unitId,
         startsAt: nextStarts?.toISOString() ?? null,
         endsAt: nextEnds?.toISOString() ?? null,
+        unitSpaceIds: locationWrites?.map((l) => l.unitSpaceId) ?? prior.unitSpaceIds,
+        locationCount: locationWrites?.length ?? prior.unitSpaceIds.length,
       }),
       client: tx,
     });
@@ -484,6 +595,8 @@ export async function reassignAction(formData: FormData) {
     endsAt: opt(formData.get("endsAt")),
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")) ?? opt(formData.get("notes")),
+    unitSpaceIds: opt(formData.get("unitSpaceIds")),
+    sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
   await requireManageForDepartment(session, parsed.departmentId);
@@ -493,6 +606,8 @@ export async function reassignAction(formData: FormData) {
 
   formData.set("source", mode === "reassignment" ? "REASSIGNMENT" : "CALL_OFF_REPLACEMENT");
   formData.set("changeReason", parsed.changeReason ?? parsed.notes ?? "Coverage");
+  if (parsed.unitSpaceIds) formData.set("unitSpaceIds", parsed.unitSpaceIds);
+  if (parsed.sourceZoneId) formData.set("sourceZoneId", parsed.sourceZoneId);
   if (existingId && mode === "replace") {
     const existing = await prisma.operationalAssignment.findFirst({
       where: { id: existingId, facilityId: session.facilityId },

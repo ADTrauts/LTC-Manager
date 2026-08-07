@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getFacilityServiceDate, loadFacilityTimezone } from "@/lib/operational-time";
+import { formatRoomDisplayName } from "@/lib/facility-builder/load-facility-hierarchy";
 
 import { isPlanFrontlineVisible } from "./assignment-plan";
 import type { EmployeeAssignmentRow, ResolvedCurrentAssignment } from "./resolve-current-assignment";
@@ -61,12 +62,7 @@ export async function loadEmployeeAssignmentsToday(
   return resolveCurrentEmployeeAssignment(assignments, now);
 }
 
-/** Read-only Assignment snapshot for offline Runtime bundles (current employee only). */
-export async function loadEmployeeAssignmentOfflineContext(
-  employeeId: string,
-  facilityId: string,
-  now: Date = new Date(),
-): Promise<{
+export type EmployeeAssignmentOfflineContext = {
   assignmentId: string;
   unitId: string | null;
   unitName: string | null;
@@ -75,7 +71,19 @@ export async function loadEmployeeAssignmentOfflineContext(
   endsAt: string | null;
   confirmedAt: string | null;
   lastSyncedAt: string;
-} | null> {
+  scopeKind: "UNIT" | "SPACES";
+  locationCount: number;
+  assignedLocations: Array<{ unitSpaceId: string; label: string }>;
+  sourceZoneName: string | null;
+  assignmentRevision: string;
+};
+
+/** Read-only Assignment snapshot for offline Runtime bundles (current employee only). */
+export async function loadEmployeeAssignmentOfflineContext(
+  employeeId: string,
+  facilityId: string,
+  now: Date = new Date(),
+): Promise<EmployeeAssignmentOfflineContext | null> {
   const resolved = await loadEmployeeAssignmentsToday(employeeId, facilityId, now);
   const current = resolved.current;
   if (!current) return null;
@@ -91,18 +99,40 @@ export async function loadEmployeeAssignmentOfflineContext(
       endsAt: true,
       plan: { select: { confirmedAt: true } },
       updatedAt: true,
+      sourceZone: { select: { name: true } },
+      locations: {
+        select: {
+          unitSpaceId: true,
+          labelSnapshot: true,
+          sortOrder: true,
+          unitSpace: { select: { name: true, roomNumber: true } },
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
     },
   });
   if (!row) return null;
+
+  const assignedLocations = row.locations.map((l) => ({
+    unitSpaceId: l.unitSpaceId,
+    label: l.labelSnapshot?.trim() || formatRoomDisplayName(l.unitSpace),
+  }));
+  const scopeKind = assignedLocations.length > 0 ? "SPACES" : "UNIT";
+  const startsIso = row.startsAt?.toISOString() ?? null;
 
   return {
     assignmentId: row.id,
     unitId: row.unitId,
     unitName: row.unit?.name ?? null,
     duty: row.roleLabel,
-    startsAt: row.startsAt?.toISOString() ?? null,
+    startsAt: startsIso,
     endsAt: row.endsAt?.toISOString() ?? null,
     confirmedAt: row.plan?.confirmedAt?.toISOString() ?? null,
     lastSyncedAt: now.toISOString(),
+    scopeKind,
+    locationCount: assignedLocations.length,
+    assignedLocations,
+    sourceZoneName: row.sourceZone?.name ?? null,
+    assignmentRevision: `${row.id}|${startsIso ?? ""}|${assignedLocations.length}|${row.updatedAt.toISOString()}`,
   };
 }

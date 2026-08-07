@@ -91,6 +91,17 @@ export async function loadDailyAssignmentBoard(
         status: true,
         source: true,
         notes: true,
+        sourceZoneId: true,
+        sourceZone: { select: { name: true } },
+        locations: {
+          select: {
+            unitSpaceId: true,
+            labelSnapshot: true,
+            sortOrder: true,
+            unitSpace: { select: { name: true, roomNumber: true } },
+          },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        },
       },
     }),
     prisma.unit.findMany({
@@ -136,21 +147,34 @@ export async function loadDailyAssignmentBoard(
     });
   }
 
-  const boardEntries: AssignmentBoardEntry[] = assignments.map((a) => ({
-    id: a.id,
-    employeeId: a.employeeId,
-    roleKey: a.roleKey,
-    roleLabel: a.roleLabel,
-    unitId: a.unitId,
-    unitName: a.unit?.name ?? (a.unitId ? unitNameById.get(a.unitId) ?? null : null),
-    operationInstanceId: a.operationInstanceId,
-    operationLabel: a.operationInstance?.label ?? null,
-    startsAt: a.startsAt?.toISOString() ?? null,
-    endsAt: a.endsAt?.toISOString() ?? null,
-    status: a.status,
-    source: a.source,
-    notes: a.notes,
-  }));
+  const boardEntries: AssignmentBoardEntry[] = assignments.map((a) => {
+    const locationLabels = a.locations.map(
+      (l) =>
+        l.labelSnapshot?.trim() ||
+        [l.unitSpace.roomNumber, l.unitSpace.name].filter(Boolean).join(" • ") ||
+        l.unitSpace.name,
+    );
+    return {
+      id: a.id,
+      employeeId: a.employeeId,
+      roleKey: a.roleKey,
+      roleLabel: a.roleLabel,
+      unitId: a.unitId,
+      unitName: a.unit?.name ?? (a.unitId ? unitNameById.get(a.unitId) ?? null : null),
+      operationInstanceId: a.operationInstanceId,
+      operationLabel: a.operationInstance?.label ?? null,
+      startsAt: a.startsAt?.toISOString() ?? null,
+      endsAt: a.endsAt?.toISOString() ?? null,
+      status: a.status,
+      source: a.source,
+      notes: a.notes,
+      scopeKind: a.locations.length > 0 ? "SPACES" : "UNIT",
+      locationCount: a.locations.length,
+      locationLabels,
+      sourceZoneId: a.sourceZoneId,
+      sourceZoneName: a.sourceZone?.name ?? null,
+    };
+  });
 
   const warnings = computeWarnings(employees, boardEntries, assignments);
 
