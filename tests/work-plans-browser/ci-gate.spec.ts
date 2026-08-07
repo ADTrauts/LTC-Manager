@@ -131,19 +131,33 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
       }
     }
 
-    // Ensure confirmed assignment exists for unit (SQL-backed fixture path)
+    // Ensure confirmed assignment exists for unit (resolve Dietary dept from live DB —
+    // never trust a stale fixtures.json departmentId from a concurrent agent overwrite).
     const db = prisma();
     try {
+      const dietary = await db.department.findFirst({
+        where: {
+          facilityId: fx.facilityId,
+          key: "DIETARY",
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      const departmentId = dietary?.id ?? fx.departmentId;
+      const unit = await db.unit.findFirst({
+        where: { id: fx.unitId, facilityId: fx.facilityId, isActive: true },
+        select: { id: true },
+      });
       const staff = await db.employee.findFirst({
         where: { facilityId: fx.facilityId, status: "ACTIVE", roleType: "STAFF" },
         select: { id: true },
       });
-      if (staff) {
+      if (departmentId && unit && staff) {
         const serviceDate = new Date(`${fx.serviceDateKey}T00:00:00.000Z`);
         let plan = await db.operationalAssignmentPlan.findFirst({
           where: {
             facilityId: fx.facilityId,
-            departmentId: fx.departmentId,
+            departmentId,
             serviceDate,
           },
         });
@@ -151,22 +165,12 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
           plan = await db.operationalAssignmentPlan.create({
             data: {
               facilityId: fx.facilityId,
-              departmentId: fx.departmentId,
+              departmentId,
               serviceDate,
               status: "CONFIRMED",
             },
           });
-        } else if (
-          plan.status !== "CONFIRMED" &&
-          plan.status !== "REOPENED" &&
-          plan.status !== "CLOSED" &&
-          plan.status !== "DRAFT"
-        ) {
-          plan = await db.operationalAssignmentPlan.update({
-            where: { id: plan.id },
-            data: { status: "CONFIRMED" },
-          });
-        } else if (plan.status === "DRAFT") {
+        } else if (plan.status === "DRAFT" || plan.status === "REOPENED") {
           plan = await db.operationalAssignmentPlan.update({
             where: { id: plan.id },
             data: { status: "CONFIRMED" },
@@ -175,7 +179,7 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
         const existing = await db.operationalAssignment.findFirst({
           where: {
             planId: plan.id,
-            unitId: fx.unitId,
+            unitId: unit.id,
             employeeId: staff.id,
           },
         });
@@ -183,11 +187,11 @@ test.describe("@ci-gate Phase 11A Department Work Plans", () => {
           await db.operationalAssignment.create({
             data: {
               facilityId: fx.facilityId,
-              departmentId: fx.departmentId,
+              departmentId,
               planId: plan.id,
               serviceDate,
               employeeId: staff.id,
-              unitId: fx.unitId,
+              unitId: unit.id,
               status: "PLANNED",
               roleKey: "SERVER",
               roleLabel: "Server",

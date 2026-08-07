@@ -18,8 +18,18 @@ import {
 } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const ARTIFACT_DIR = join(ROOT, "tmp", "work-plans-browser-artifacts");
-const PROFILE_DIR = join(ROOT, "tmp", "work-plans-browser-profile");
+/** Unique per run so concurrent agents cannot overwrite fixtures mid-build. */
+const RUN_ID = process.env.WORK_PLANS_BROWSER_RUN_ID || String(process.pid);
+const ARTIFACT_DIR = join(
+  ROOT,
+  "tmp",
+  process.env.WORK_PLANS_BROWSER_ARTIFACT_DIR_NAME || `work-plans-browser-artifacts-${RUN_ID}`,
+);
+const PROFILE_DIR = join(
+  ROOT,
+  "tmp",
+  process.env.WORK_PLANS_BROWSER_PROFILE_DIR_NAME || `work-plans-browser-profile-${RUN_ID}`,
+);
 const FIXTURE_PATH = join(ARTIFACT_DIR, "fixtures.json");
 const PINS_PATH = join(ARTIFACT_DIR, "pins.env");
 /** Prefer isolated dist when concurrent VERIFY agents wipe shared `.next`. */
@@ -157,15 +167,6 @@ async function main() {
 
     run("npx", ["prisma", "migrate", "deploy"], baseEnv, "migrate deploy");
     run("npx", ["prisma", "db", "seed"], baseEnv, "seed");
-    run(
-      "node",
-      ["scripts/verify/work-plans-browser-fixtures.mjs"],
-      {
-        ...baseEnv,
-        WORK_PLANS_BROWSER_FIXTURE_PATH: FIXTURE_PATH,
-      },
-      "work plans fixtures",
-    );
 
     if (process.env.WORK_PLANS_BROWSER_SKIP_BUILD !== "1") {
       console.log(`test:work-plans-browser: production build → ${DIST_DIR}`);
@@ -177,6 +178,19 @@ async function main() {
         `WORK_PLANS_BROWSER_SKIP_BUILD=1 but ${DIST_DIR}/BUILD_ID is missing — build with NEXT_DIST_DIR=${DIST_DIR}`,
       );
     }
+
+    // Fixtures AFTER build so a long build cannot race concurrent agents overwriting shared JSON.
+    run(
+      "node",
+      ["scripts/verify/work-plans-browser-fixtures.mjs"],
+      {
+        ...baseEnv,
+        WORK_PLANS_BROWSER_FIXTURE_PATH: FIXTURE_PATH,
+        ASSET_OPERATIONS_BROWSER_FIXTURE_PATH: FIXTURE_PATH,
+      },
+      "work plans fixtures",
+    );
+    if (!existsSync(FIXTURE_PATH)) fail(`fixtures missing at ${FIXTURE_PATH}`);
 
     const port = await freePort();
     const baseUrl = `http://127.0.0.1:${port}`;
