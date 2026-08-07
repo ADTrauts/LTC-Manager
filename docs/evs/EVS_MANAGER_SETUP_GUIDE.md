@@ -1,6 +1,6 @@
 # EVS Manager Setup Guide
 
-**Phase:** 11B — EVS Reference Implementation  
+**Phase:** 11C — EVS Assignment Scope, Zones, and Scale  
 **Audience:** EVS Manager / GM-equivalent with EVS operational authority
 
 ---
@@ -26,7 +26,19 @@ Open **Staffing → Cycles** (or Department Admin Cycles).
 
 ---
 
-## 2. Procedures
+## 2. Department Zones (optional convenience)
+
+Open **Staffing → Assignments** → Department Zones.
+
+- Create named Zones (Floor 1 East, Floor 1 West, Public Areas).  
+- Select existing Rooms / Spaces.  
+- Activate when ready; Retire to preserve identity without deleting history.  
+- Zones are **not** physical locations and do **not** grant authority.  
+- Assignments that use a Zone **snapshot** current members — later Zone edits do not rewrite those Assignments.
+
+---
+
+## 3. Procedures
 
 Open **Administration → Knowledge / Procedures**.
 
@@ -36,7 +48,7 @@ Open **Administration → Knowledge / Procedures**.
 
 ---
 
-## 3. Inspection Templates
+## 4. Inspection Templates
 
 Open **Staffing → Templates**.
 

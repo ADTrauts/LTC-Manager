@@ -1,6 +1,6 @@
 # EVS Employee Guide
 
-**Phase:** 11B — EVS Reference Implementation  
+**Phase:** 11C — EVS Assignment Scope, Zones, and Scale  
 **Audience:** EVS Staff / Lead Team Member using shared-device Quick PIN or password Runtime
 
 ---
@@ -16,10 +16,10 @@
 
 | Question | Where it appears |
 |----------|------------------|
-| Where am I responsible today? | Current Assignment (Unit / area) |
-| Which rooms or spaces are in my scope? | Job Flow location / space list |
+| Where am I responsible today? | Assigned Area / Assigned Rooms summary |
+| Which rooms or spaces are in my scope? | Expandable assigned location list |
+| What is current / next? | NOW and NEXT (deterministic order — not an optimized route) |
 | What work should I do now? | Current Work |
-| What should I work on next? | Next Work |
 | Which work is routine vs urgent? | Priority on Work items / one-offs |
 | Which Procedures apply? | Procedure link on the Work item |
 | Which inspection is required? | Evidence / Inspection when linked |
@@ -27,6 +27,8 @@
 | What remains Not Confirmed? | Past Due / Not Confirmed (neutral) |
 | What was saved offline? | Saved on This Tablet |
 | Has my Assignment changed? | Attention / Assignment section |
+
+Offline devices only cache **your assigned** Rooms / Spaces — not the whole Facility.
 
 ---
 
@@ -37,6 +39,8 @@
 3. Complete required steps / confirm Work.  
 4. Complete linked Evidence or Inspection when required.  
 5. Job Flow and room/space summary update from the same records.
+
+If your Assignment changes while you are offline, reconnect safely — do not assume old Room scope still authorizes new completions.
 
 **Work Complete** on a room means configured EVS Work for that room is confirmed. It does **not** mean the room is clinically safe or ready for occupancy.
 
