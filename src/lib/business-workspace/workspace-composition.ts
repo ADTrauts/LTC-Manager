@@ -49,9 +49,10 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
     contextLabel: "Environmental Services",
     contextDescription: "Environmental Services coverage, assignments, and cleaning priorities.",
     visibleSectionIds: ALL_SECTIONS,
-    operationsLinkIds: SHARED_OPS_LINKS.filter((id) => id !== "issues"),
+    // Phase 11B: thin Asset / Issue reporting via shared Asset system (not Plant WO management).
+    operationsLinkIds: [...SHARED_OPS_LINKS, "assets"],
     todaysWorkLinkIds: SHARED_TODAYS_WORK,
-    quickActionIds: SHARED_QUICK_ACTIONS.filter((id) => id !== "report-issue"),
+    quickActionIds: [...SHARED_QUICK_ACTIONS, "assets"],
     showLogCompletion: false,
     showMealContext: false,
   },

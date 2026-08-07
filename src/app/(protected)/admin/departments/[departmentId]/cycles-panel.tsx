@@ -2,6 +2,7 @@ import {
   createCycleDraftAction,
   duplicateCycleAction,
   generateDietaryDefaultsAction,
+  generateEvsDefaultsAction,
   publishCycleAction,
   reorderCycleDraftsAction,
   retireCycleAction,
@@ -23,6 +24,7 @@ type Props = {
   facilityId: string;
   departmentId: string;
   departmentName: string;
+  departmentKey?: string;
 };
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -423,6 +425,7 @@ export async function CyclesPanel({
   facilityId,
   departmentId,
   departmentName,
+  departmentKey,
 }: Props) {
   const timezone = await loadFacilityTimezone(prisma, facilityId);
   const previewDateKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
@@ -440,6 +443,7 @@ export async function CyclesPanel({
   const draftOrder = [...drafts]
     .sort((a, b) => a.displaySequence - b.displaySequence || a.label.localeCompare(b.label))
     .map((d) => d.id);
+  const isEvs = departmentKey === "EVS";
 
   return (
     <div className="space-y-6" data-testid="operational-cycles-panel">
@@ -470,17 +474,31 @@ export async function CyclesPanel({
 
       {builder.canManage ? (
         <div className="flex flex-wrap gap-3">
-          <DepartmentAdminActionForm action={generateDietaryDefaultsAction}>
-            <input type="hidden" name="departmentId" value={departmentId} />
-            <input type="hidden" name="effectiveFrom" value={previewDateKey} />
-            <button
-              type="submit"
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-              data-testid="generate-dietary-defaults"
-            >
-              Generate Dietary defaults
-            </button>
-          </DepartmentAdminActionForm>
+          {isEvs ? (
+            <DepartmentAdminActionForm action={generateEvsDefaultsAction}>
+              <input type="hidden" name="departmentId" value={departmentId} />
+              <input type="hidden" name="effectiveFrom" value={previewDateKey} />
+              <button
+                type="submit"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+                data-testid="generate-evs-defaults"
+              >
+                Generate EVS defaults
+              </button>
+            </DepartmentAdminActionForm>
+          ) : (
+            <DepartmentAdminActionForm action={generateDietaryDefaultsAction}>
+              <input type="hidden" name="departmentId" value={departmentId} />
+              <input type="hidden" name="effectiveFrom" value={previewDateKey} />
+              <button
+                type="submit"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+                data-testid="generate-dietary-defaults"
+              >
+                Generate Dietary defaults
+              </button>
+            </DepartmentAdminActionForm>
+          )}
           {drafts.length > 1 ? (
             <DepartmentAdminActionForm action={reorderCycleDraftsAction} className="space-y-2">
               <input type="hidden" name="departmentId" value={departmentId} />
@@ -524,7 +542,9 @@ export async function CyclesPanel({
                 defaults={{
                   effectiveFrom: previewDateKey,
                   locationMode: "UNIT_TYPES",
-                  applicableUnitTypes: ["SERVERY", "KITCHEN"],
+                  applicableUnitTypes: isEvs
+                    ? ["RESIDENT_AREA", "COMMON_AREA", "EVS_ZONE", "RESTROOM_CLUSTER"]
+                    : ["SERVERY", "KITCHEN"],
                   applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
                 }}
               />

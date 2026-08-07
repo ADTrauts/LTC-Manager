@@ -25,11 +25,11 @@ test("/issues detail keeps the same STAFF+ access as the /repairs alias", () => 
   }
 });
 
-test("/issues maps to ADMINISTRATION zone and Dietary/Plant department visibility", () => {
+test("/issues maps to ADMINISTRATION zone and Dietary/EVS/Plant department visibility", () => {
   assert.equal(resolveZoneForPathname("/issues/abc"), "ADMINISTRATION");
   assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "DIETARY"), true);
   assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "PLANT"), true);
-  assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "EVS"), false);
+  assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "EVS"), true);
 });
 
 test("detail path helpers stay stable for bookmarks", () => {

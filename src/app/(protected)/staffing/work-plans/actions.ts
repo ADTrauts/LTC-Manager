@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
+import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
 import {
   createDraft,
   createDraftFromPreset,
@@ -23,10 +23,12 @@ function actorFromSession(session: NonNullable<Awaited<ReturnType<typeof getSess
   };
 }
 
-function requireFlag() {
-  if (!isDietaryWorkPlansEnabled()) {
-    throw new Error("Dietary Work Plans are not enabled.");
-  }
+async function requireWorkPlans(departmentId: string) {
+  await requireDepartmentFeatureEnabled(
+    departmentId,
+    "workPlans",
+    "Work Plans are not enabled for this department.",
+  );
 }
 
 export async function createWorkPlanDraftAction(input: {
@@ -34,7 +36,7 @@ export async function createWorkPlanDraftAction(input: {
   departmentId: string;
   draft: WorkPlanDraftInput;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const created = await createDraft(session, {
@@ -52,7 +54,7 @@ export async function createWorkPlanPresetDraftAction(input: {
   departmentId: string;
   presetKey: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   if (!isDepartmentWorkPresetKey(input.presetKey)) {
     throw new Error("Unknown Work Plan preset.");
   }
@@ -74,7 +76,7 @@ export async function updateWorkPlanDraftAction(input: {
   workPlanId: string;
   draft: WorkPlanDraftInput;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const updated = await updateDraft(session, {
@@ -93,7 +95,7 @@ export async function publishWorkPlanAction(input: {
   departmentId: string;
   workPlanId: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await publishWorkPlan(session, {
@@ -110,7 +112,7 @@ export async function retireWorkPlanAction(input: {
   departmentId: string;
   workPlanId: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await retireWorkPlan(session, {
@@ -127,7 +129,7 @@ export async function duplicateWorkPlanAction(input: {
   departmentId: string;
   workPlanId: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const created = await duplicateWorkPlan(session, {
@@ -145,7 +147,7 @@ export async function createWorkPlanSuccessorAction(input: {
   departmentId: string;
   workPlanId: string;
 }) {
-  requireFlag();
+  await requireWorkPlans(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const created = await createSuccessorDraft(session, {

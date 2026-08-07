@@ -2,9 +2,9 @@
  * Batch load Work Requirements for Job Flow / Supervisor Board (Phase 11A).
  */
 
+import { isDepartmentWorkPlansEnabled } from "@/lib/department-operations";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
@@ -230,10 +230,23 @@ export type ResolveUnitWorkRequirementsInput = {
   conflictKeys?: readonly string[];
 };
 
+async function departmentWorkPlansEnabledFor(
+  facilityId: string,
+  departmentId: string,
+): Promise<boolean> {
+  const department = await prisma.department.findFirst({
+    where: { id: departmentId, facilityId },
+    select: { key: true },
+  });
+  return isDepartmentWorkPlansEnabled(department?.key);
+}
+
 export async function resolveUnitWorkRequirements(
   input: ResolveUnitWorkRequirementsInput,
 ): Promise<WorkRequirement[]> {
-  if (!isDietaryWorkPlansEnabled()) return [];
+  if (!(await departmentWorkPlansEnabledFor(input.facilityId, input.departmentId))) {
+    return [];
+  }
 
   const serviceDate = facilityLocalDateToServiceDate(input.operationalDateKey);
 
@@ -337,8 +350,6 @@ export async function loadSupervisorWorkExceptions(input: {
   now: Date;
   facilityTimezone?: string | null;
 }): Promise<SupervisorWorkExceptionItem[]> {
-  if (!isDietaryWorkPlansEnabled()) return [];
-
   const requirements = await resolveUnitWorkRequirements(input);
   return requirements
     .filter(

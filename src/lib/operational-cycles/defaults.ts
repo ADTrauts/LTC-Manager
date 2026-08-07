@@ -1,5 +1,5 @@
 /**
- * Dietary default Operational Cycle draft plan (pure).
+ * Dietary / EVS default Operational Cycle draft plans (pure).
  * Labels and windows are examples for a typical day — generate then review.
  * Never auto-applied to facilities.
  */
@@ -18,6 +18,23 @@ export type DietaryDefaultCyclePlan = {
   applicableDaysOfWeek: number[];
   mealType: MealType | null;
   expectedMilestones: ServeryMilestone[];
+  locationMode: "ALL_DEPARTMENT_UNITS" | "UNIT_TYPES" | "EXPLICIT_UNITS";
+  applicableUnitTypes: UnitType[];
+};
+
+/** EVS cycles: no mealType, no expectedMilestones (no FIXED_WINDOW enum — use PREPARATION/CLOSEOUT/TRANSITION/CUSTOM). */
+export type EvsDefaultCyclePlan = {
+  stableKey: string;
+  label: string;
+  description: string;
+  cycleType: OperationalCycleType;
+  displaySequence: number;
+  startLocal: string;
+  endLocal: string;
+  overnight: boolean;
+  applicableDaysOfWeek: number[];
+  mealType: null;
+  expectedMilestones: [];
   locationMode: "ALL_DEPARTMENT_UNITS" | "UNIT_TYPES" | "EXPLICIT_UNITS";
   applicableUnitTypes: UnitType[];
 };
@@ -164,6 +181,92 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       expectedMilestones: [],
       locationMode: "UNIT_TYPES",
       applicableUnitTypes: ["KITCHEN", "SERVERY"],
+    },
+  ];
+}
+
+/**
+ * Example EVS operating day for Department Builder "generate defaults" review.
+ * No mealType and no expectedMilestones. SERVICE is wrong without meals —
+ * use PREPARATION / TRANSITION / CLOSEOUT / CUSTOM labeled windows.
+ */
+export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
+  const unitTypes: UnitType[] = ["RESIDENT_AREA", "COMMON_AREA", "EVS_ZONE", "RESTROOM_CLUSTER"];
+  return [
+    {
+      stableKey: "morning_routine",
+      label: "Morning Routine",
+      description: "Morning room and area cleaning window.",
+      cycleType: "PREPARATION",
+      displaySequence: 10,
+      startLocal: "06:00",
+      endLocal: "10:00",
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [],
+      locationMode: "UNIT_TYPES",
+      applicableUnitTypes: unitTypes,
+    },
+    {
+      stableKey: "day_cleaning",
+      label: "Day Cleaning",
+      description: "Midday cleaning window.",
+      cycleType: "CUSTOM",
+      displaySequence: 20,
+      startLocal: "10:00",
+      endLocal: "13:00",
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [],
+      locationMode: "UNIT_TYPES",
+      applicableUnitTypes: unitTypes,
+    },
+    {
+      stableKey: "afternoon_round",
+      label: "Afternoon Round",
+      description: "Common-area and restroom round window.",
+      cycleType: "TRANSITION",
+      displaySequence: 30,
+      startLocal: "13:00",
+      endLocal: "16:00",
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [],
+      locationMode: "UNIT_TYPES",
+      applicableUnitTypes: unitTypes,
+    },
+    {
+      stableKey: "evening_cleaning",
+      label: "Evening Cleaning",
+      description: "Evening cleaning window.",
+      cycleType: "CUSTOM",
+      displaySequence: 40,
+      startLocal: "16:00",
+      endLocal: "19:00",
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [],
+      locationMode: "UNIT_TYPES",
+      applicableUnitTypes: unitTypes,
+    },
+    {
+      stableKey: "shift_closeout",
+      label: "Shift Closeout",
+      description: "End-of-shift EVS closeout.",
+      cycleType: "CLOSEOUT",
+      displaySequence: 50,
+      startLocal: "19:00",
+      endLocal: "21:00",
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [],
+      locationMode: "UNIT_TYPES",
+      applicableUnitTypes: unitTypes,
     },
   ];
 }

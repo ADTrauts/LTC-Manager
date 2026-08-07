@@ -7,9 +7,11 @@ import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import {
+  isAnyStaffingOperationalFeatureEnabled,
+  resolveStaffingOperationalDepartment,
+} from "@/lib/department-operations";
 import { loadWorkPlanDetail } from "@/lib/department-work";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
-import { prisma } from "@/lib/prisma";
 
 type Props = {
   params: Promise<{ workPlanId: string }>;
@@ -17,7 +19,7 @@ type Props = {
 
 export default async function WorkPlanDetailPage({ params }: Props) {
   noStore();
-  if (!isDietaryWorkPlansEnabled()) redirect("/staffing");
+  if (!isAnyStaffingOperationalFeatureEnabled("workPlans")) redirect("/staffing");
 
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
@@ -26,30 +28,19 @@ export default async function WorkPlanDetailPage({ params }: Props) {
   const { workPlanId } = await params;
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const dietary =
-    (deptNav.activeDepartmentId
-      ? await prisma.department.findFirst({
-          where: {
-            id: deptNav.activeDepartmentId,
-            facilityId: session.facilityId,
-            key: "DIETARY",
-            isActive: true,
-          },
-          select: { id: true },
-        })
-      : null) ??
-    (await prisma.department.findFirst({
-      where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
-      select: { id: true },
-    }));
-  if (!dietary) notFound();
+  const department = await resolveStaffingOperationalDepartment({
+    facilityId: session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    feature: "workPlans",
+  });
+  if (!department) notFound();
 
   let detail;
   try {
     detail = await loadWorkPlanDetail({
       session,
       facilityId: session.facilityId,
-      departmentId: dietary.id,
+      departmentId: department.id,
       workPlanId,
     });
   } catch {
@@ -62,7 +53,7 @@ export default async function WorkPlanDetailPage({ params }: Props) {
     <section className="mx-auto max-w-4xl space-y-4" data-testid="work-plan-detail">
       <PageHeader
         title={plan.name}
-        subtitle={`${plan.status} · v${plan.version} · ${plan.stableKey}`}
+        subtitle={`${department.name} · ${plan.status} · v${plan.version} · ${plan.stableKey}`}
         compact
         actions={
           <Link href="/staffing/work-plans" className="text-sm underline-offset-2 hover:underline">

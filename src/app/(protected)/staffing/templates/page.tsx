@@ -8,7 +8,10 @@ import { OperationalTemplateBuilderPanel } from "@/components/operational-eviden
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import {
+  isAnyStaffingOperationalFeatureEnabled,
+  resolveStaffingOperationalDepartment,
+} from "@/lib/department-operations";
 import {
   listTemplatePresetSummaries,
   loadBuilderTemplates,
@@ -19,7 +22,7 @@ import { prisma } from "@/lib/prisma";
 export default async function OperationalTemplateBuilderPage() {
   noStore();
 
-  if (!isDietaryOperationalEvidenceEnabled()) {
+  if (!isAnyStaffingOperationalFeatureEnabled("evidence")) {
     redirect("/staffing");
   }
 
@@ -32,32 +35,21 @@ export default async function OperationalTemplateBuilderPage() {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const dietary =
-    (deptNav.activeDepartmentId
-      ? await prisma.department.findFirst({
-          where: {
-            id: deptNav.activeDepartmentId,
-            facilityId: session.facilityId,
-            key: "DIETARY",
-            isActive: true,
-          },
-          select: { id: true, name: true },
-        })
-      : null) ??
-    (await prisma.department.findFirst({
-      where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
-      select: { id: true, name: true },
-    }));
+  const department = await resolveStaffingOperationalDepartment({
+    facilityId: session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    feature: "evidence",
+  });
 
-  if (!dietary) {
+  if (!department) {
     return (
       <section className="mx-auto max-w-5xl space-y-4">
-        <PageHeader title="Operational Templates" subtitle="No Dietary department found." compact />
+        <PageHeader title="Operational Templates" subtitle="No operational department found." compact />
       </section>
     );
   }
 
-  const authority = await resolveEvidenceAuthority(session, session.facilityId, dietary.id);
+  const authority = await resolveEvidenceAuthority(session, session.facilityId, department.id);
   if (!authority.canViewDepartment && !authority.canManage) {
     return (
       <section className="mx-auto max-w-5xl space-y-4" data-testid="operational-template-builder-denied">
@@ -73,11 +65,11 @@ export default async function OperationalTemplateBuilderPage() {
   const builder = await loadBuilderTemplates({
     session,
     facilityId: session.facilityId,
-    departmentId: dietary.id,
+    departmentId: department.id,
   });
   const assets = await prisma.asset.findMany({
     where: {
-      OR: [{ departmentId: dietary.id }, { departmentId: null }],
+      OR: [{ departmentId: department.id }, { departmentId: null }],
       status: { not: "RETIRED" },
       unit: { facilityId: session.facilityId },
     },
@@ -89,7 +81,7 @@ export default async function OperationalTemplateBuilderPage() {
     where: {
       facilityId: session.facilityId,
       isActive: true,
-      departmentResponsibilities: { some: { departmentId: dietary.id } },
+      departmentResponsibilities: { some: { departmentId: department.id } },
     },
     select: { id: true, name: true, unitType: true },
     orderBy: { name: "asc" },
@@ -109,7 +101,7 @@ export default async function OperationalTemplateBuilderPage() {
   const cycles = await prisma.departmentOperationalCycle.findMany({
     where: {
       facilityId: session.facilityId,
-      departmentId: dietary.id,
+      departmentId: department.id,
       status: "PUBLISHED",
     },
     select: { stableKey: true, label: true, version: true },
@@ -164,7 +156,7 @@ export default async function OperationalTemplateBuilderPage() {
     <section className="mx-auto max-w-5xl space-y-4" data-testid="operational-template-builder">
       <PageHeader
         title="Operational Templates"
-        subtitle={`${dietary.name} — unified Logs, Checklists, and Inspections.`}
+        subtitle={`${department.name} — unified Logs, Checklists, and Inspections.`}
         compact
         actions={
           <div className="flex flex-wrap gap-2 text-sm">
@@ -178,7 +170,7 @@ export default async function OperationalTemplateBuilderPage() {
               Operations Board
             </Link>
             <Link
-              href={`/admin/departments/${dietary.id}?tab=cycles`}
+              href={`/admin/departments/${department.id}?tab=cycles`}
               className="underline-offset-2 hover:underline"
             >
               Cycles
@@ -191,7 +183,7 @@ export default async function OperationalTemplateBuilderPage() {
       ) : null}
       <OperationalTemplateBuilderPanel
         facilityId={session.facilityId}
-        departmentId={dietary.id}
+        departmentId={department.id}
         canManage={authority.canManage}
         canPublish={authority.canPublish}
         templates={templatesForPanel}

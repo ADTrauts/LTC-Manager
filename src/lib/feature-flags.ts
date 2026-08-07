@@ -193,3 +193,17 @@ export function isDietaryAssetOperationsEnabled(): boolean {
 export function isDietaryWorkPlansEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_WORK_PLANS_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 11B EVS Operations (Cycles / Job Flow / Evidence / Work / thin Assets).
+ * Set `EVS_OPERATIONS_ENABLED=true` for local / test EVS Department operational surfaces.
+ * Does not enable `OPERATION_ENGINE_ENABLED` or `TASK_SYNC_ENABLED`.
+ * Dietary remains gated by existing `DIETARY_*` flags independently.
+ * Typical local activation:
+ *   EVS_OPERATIONS_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ *   TASK_SYNC_ENABLED=false
+ */
+export function isEvsOperationsEnabled(): boolean {
+  return parseEnvFlag(process.env.EVS_OPERATIONS_ENABLED, false);
+}

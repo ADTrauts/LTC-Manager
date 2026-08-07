@@ -9,11 +9,14 @@ import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import {
+  isAnyStaffingOperationalFeatureEnabled,
+  resolveStaffingOperationalDepartment,
+} from "@/lib/department-operations";
+import {
   listWorkPlanPresetSummaries,
   loadBuilderWorkPlans,
   resolveWorkAuthority,
 } from "@/lib/department-work";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export default async function WorkPlanBuilderPage({
@@ -24,7 +27,7 @@ export default async function WorkPlanBuilderPage({
   noStore();
   const params = searchParams ? await searchParams : {};
 
-  if (!isDietaryWorkPlansEnabled()) {
+  if (!isAnyStaffingOperationalFeatureEnabled("workPlans")) {
     redirect("/staffing");
   }
 
@@ -37,32 +40,21 @@ export default async function WorkPlanBuilderPage({
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const dietary =
-    (deptNav.activeDepartmentId
-      ? await prisma.department.findFirst({
-          where: {
-            id: deptNav.activeDepartmentId,
-            facilityId: session.facilityId,
-            key: "DIETARY",
-            isActive: true,
-          },
-          select: { id: true, name: true },
-        })
-      : null) ??
-    (await prisma.department.findFirst({
-      where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
-      select: { id: true, name: true },
-    }));
+  const department = await resolveStaffingOperationalDepartment({
+    facilityId: session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    feature: "workPlans",
+  });
 
-  if (!dietary) {
+  if (!department) {
     return (
       <section className="mx-auto max-w-5xl space-y-4">
-        <PageHeader title="Work Plans" subtitle="No Dietary department found." compact />
+        <PageHeader title="Work Plans" subtitle="No operational department found." compact />
       </section>
     );
   }
 
-  const authority = await resolveWorkAuthority(session, session.facilityId, dietary.id);
+  const authority = await resolveWorkAuthority(session, session.facilityId, department.id);
   if (!authority.canViewDepartment && !authority.canManage) {
     return (
       <section className="mx-auto max-w-5xl space-y-4" data-testid="work-plan-builder-denied">
@@ -78,7 +70,7 @@ export default async function WorkPlanBuilderPage({
   const builder = await loadBuilderWorkPlans({
     session,
     facilityId: session.facilityId,
-    departmentId: dietary.id,
+    departmentId: department.id,
   });
 
   const [procedures, units, cycles, templates] = await Promise.all([
@@ -86,7 +78,7 @@ export default async function WorkPlanBuilderPage({
       where: {
         facilityId: session.facilityId,
         status: "PUBLISHED",
-        OR: [{ departmentId: dietary.id }, { departmentId: null }],
+        OR: [{ departmentId: department.id }, { departmentId: null }],
       },
       select: { id: true, title: true },
       orderBy: { title: "asc" },
@@ -96,7 +88,7 @@ export default async function WorkPlanBuilderPage({
       where: {
         facilityId: session.facilityId,
         isActive: true,
-        departmentResponsibilities: { some: { departmentId: dietary.id } },
+        departmentResponsibilities: { some: { departmentId: department.id } },
       },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -104,7 +96,7 @@ export default async function WorkPlanBuilderPage({
     prisma.departmentOperationalCycle.findMany({
       where: {
         facilityId: session.facilityId,
-        departmentId: dietary.id,
+        departmentId: department.id,
         status: "PUBLISHED",
       },
       select: { stableKey: true, label: true },
@@ -114,7 +106,7 @@ export default async function WorkPlanBuilderPage({
     prisma.operationalTemplate.findMany({
       where: {
         facilityId: session.facilityId,
-        departmentId: dietary.id,
+        departmentId: department.id,
         status: "PUBLISHED",
       },
       select: { id: true, stableKey: true, name: true },
@@ -172,7 +164,7 @@ export default async function WorkPlanBuilderPage({
     <section className="mx-auto max-w-6xl space-y-4" data-testid="work-plan-builder-page">
       <PageHeader
         title="Work Plans"
-        subtitle="Configure Dietary Department Work Plans. Publish creates an immutable version. Viewing a Procedure never completes Work."
+        subtitle={`Configure ${department.name} Work Plans. Publish creates an immutable version. Viewing a Procedure never completes Work.`}
         compact
       />
       <p className="text-sm text-slate-600">
@@ -188,12 +180,12 @@ export default async function WorkPlanBuilderPage({
       <WorkPlanBuilderPanel
         key={params.plan ?? "work-plan-builder"}
         facilityId={session.facilityId}
-        departmentId={dietary.id}
+        departmentId={department.id}
         canManage={builder.canManage}
         canPublish={builder.canPublish}
         initialPlanId={params.plan ?? null}
         plans={plans}
-        presets={listWorkPlanPresetSummaries()}
+        presets={listWorkPlanPresetSummaries(department.key)}
         procedures={procedures}
         units={units}
         cycleOptions={cycles}

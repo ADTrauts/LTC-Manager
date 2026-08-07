@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
 import {
   createDraft,
   createDraftFromPreset,
@@ -21,14 +21,20 @@ function actorFromSession(session: NonNullable<Awaited<ReturnType<typeof getSess
   };
 }
 
+async function requireEvidence(departmentId: string) {
+  await requireDepartmentFeatureEnabled(
+    departmentId,
+    "evidence",
+    "Operational Evidence is not enabled for this department.",
+  );
+}
+
 export async function createEvidenceTemplateDraftAction(input: {
   facilityId: string;
   departmentId: string;
   draft: TemplateDraftInput;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
+  await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const created = await createDraft(session, {
@@ -46,9 +52,7 @@ export async function createEvidencePresetDraftAction(input: {
   departmentId: string;
   presetKey: string;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
+  await requireEvidence(input.departmentId);
   if (!isOperationalEvidencePresetKey(input.presetKey)) {
     throw new Error("Unknown template preset.");
   }
@@ -70,9 +74,7 @@ export async function updateEvidenceTemplateDraftAction(input: {
   templateId: string;
   draft: TemplateDraftInput;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
+  await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await updateDraft(session, {
@@ -90,9 +92,7 @@ export async function publishEvidenceTemplateAction(input: {
   departmentId: string;
   templateId: string;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
+  await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await publishTemplate(session, {
@@ -110,9 +110,7 @@ export async function retireEvidenceTemplateAction(input: {
   departmentId: string;
   templateId: string;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
+  await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   await retireTemplate(session, {
@@ -133,9 +131,7 @@ export async function createEvidenceSuccessorDraftAction(input: {
   departmentId: string;
   templateId: string;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
+  await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
   const { loadTemplateDetail } = await import("@/lib/operational-evidence");

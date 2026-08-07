@@ -23,9 +23,10 @@ import {
 } from "@/lib/department-administration";
 import { getSession } from "@/lib/auth";
 import {
-  isDepartmentOperationalProfilesEnabled,
-  isDietaryOperationalCyclesEnabled,
-} from "@/lib/feature-flags";
+  isAnyStaffingOperationalFeatureEnabled,
+  isDepartmentOperationalCyclesEnabled,
+} from "@/lib/department-operations";
+import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -43,7 +44,7 @@ export default async function DepartmentAdministrationPage({
   }
 
   const profilesEnabled = isDepartmentOperationalProfilesEnabled();
-  const cyclesEnabled = isDietaryOperationalCyclesEnabled();
+  const cyclesEnabled = isAnyStaffingOperationalFeatureEnabled("cycles");
 
   if (!profilesEnabled && !cyclesEnabled) {
     return (
@@ -68,11 +69,7 @@ export default async function DepartmentAdministrationPage({
           <code className="rounded bg-zinc-100 px-1">
             DEPARTMENT_OPERATIONAL_PROFILES_ENABLED=true
           </code>{" "}
-          and/or{" "}
-          <code className="rounded bg-zinc-100 px-1">
-            DIETARY_OPERATIONAL_CYCLES_ENABLED=true
-          </code>{" "}
-          to author department configuration.
+          and/or Dietary / EVS operational cycle flags to author department configuration.
         </p>
         <Link
           href="/admin/departments"
@@ -153,6 +150,7 @@ export default async function DepartmentAdministrationPage({
                 facilityId={session.facilityId}
                 departmentId={department.id}
                 departmentName={department.name}
+                departmentKey={department.key}
               />
             ) : null}
           </div>
@@ -230,12 +228,14 @@ export default async function DepartmentAdministrationPage({
           {tab === "rooms" ? <RoomsPanel view={view} /> : null}
           {tab === "diagnostics" ? <DiagnosticsPanel view={view} /> : null}
           {tab === "versions" ? <VersionsPanel view={view} /> : null}
-          {tab === "cycles" && cyclesEnabled ? (
+          {tab === "cycles" &&
+          isDepartmentOperationalCyclesEnabled(view.department.key) ? (
             <CyclesPanel
               session={session}
               facilityId={session.facilityId}
               departmentId={view.department.id}
               departmentName={view.department.name}
+              departmentKey={view.department.key}
             />
           ) : null}
           {tab === "settings" ? <SettingsPanel view={view} /> : null}

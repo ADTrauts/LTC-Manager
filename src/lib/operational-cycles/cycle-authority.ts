@@ -1,8 +1,8 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import { isDepartmentOperationalCyclesEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { isDietaryOperationalCyclesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type CycleAuthorityDecision = {
@@ -22,7 +22,7 @@ const DENIED: CycleAuthorityDecision = {
 };
 
 /**
- * Pure authority decision for Operational Cycles (Phase 9A).
+ * Pure authority decision for Operational Cycles (Phase 9A / 11B).
  * Quick PIN never grants Build (manage/publish) access.
  */
 export function decideCycleAuthority(input: {
@@ -38,7 +38,7 @@ export function decideCycleAuthority(input: {
   if (!input.flagEnabled) {
     return {
       ...DENIED,
-      reason: "Dietary Operational Cycles are not enabled.",
+      reason: "Operational Cycles are not enabled for this department.",
     };
   }
 
@@ -74,7 +74,7 @@ export function decideCycleAuthority(input: {
       return {
         ...DENIED,
         reason:
-          "Facility Administrator status alone does not grant Dietary Operational Cycle authority.",
+          "Facility Administrator status alone does not grant Operational Cycle authority.",
       };
     }
   }
@@ -106,29 +106,15 @@ export function decideCycleAuthority(input: {
 }
 
 /**
- * Canonical Phase 9A Operational Cycle authority.
- * Facility Administrator role alone does not grant Dietary cycle management.
+ * Canonical Operational Cycle authority (department-keyed — Phase 11B).
+ * Facility Administrator role alone does not grant cycle management.
  */
 export async function resolveCycleAuthority(
   session: AppJwtPayload,
   facilityId: string,
   departmentId: string,
 ): Promise<CycleAuthorityDecision> {
-  const flagEnabled = isDietaryOperationalCyclesEnabled();
-
-  if (!flagEnabled) {
-    return decideCycleAuthority({
-      flagEnabled: false,
-      role: session.role as AppRole,
-      authMethod: session.authMethod,
-      sessionFacilityId: session.facilityId,
-      facilityId,
-      departmentId,
-      departmentExists: false,
-      primaryDepartmentId: null,
-    });
-  }
-
+  // Cross-facility first so flag-off messaging does not mask facility denial.
   if (session.facilityId !== facilityId) {
     return decideCycleAuthority({
       flagEnabled: true,
@@ -144,7 +130,7 @@ export async function resolveCycleAuthority(
 
   const department = await prisma.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
-    select: { id: true },
+    select: { id: true, key: true },
   });
 
   let primaryDepartmentId = session.primaryDepartmentId ?? null;
@@ -157,7 +143,7 @@ export async function resolveCycleAuthority(
   }
 
   return decideCycleAuthority({
-    flagEnabled: true,
+    flagEnabled: isDepartmentOperationalCyclesEnabled(department?.key),
     role: session.role as AppRole,
     authMethod: session.authMethod,
     sessionFacilityId: session.facilityId,

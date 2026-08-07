@@ -1355,7 +1355,11 @@ test("resolveCompositionConfig returns EVS config for EVS context", () => {
   assert.equal(config.contextLabel, "Environmental Services");
   assert.equal(config.showLogCompletion, false);
   assert.equal(config.showMealContext, false);
-  assert.ok(!config.operationsLinkIds.includes("issues"));
+  // Phase 11B: thin Asset / Issue reporting is allowed for EVS.
+  assert.ok(config.operationsLinkIds.includes("issues"));
+  assert.ok(config.operationsLinkIds.includes("assets"));
+  assert.ok(config.quickActionIds.includes("report-issue"));
+  assert.ok(config.quickActionIds.includes("assets"));
 });
 
 test("resolveCompositionConfig returns Plant config for PLANT context", () => {
@@ -1515,13 +1519,13 @@ test("Dietary quick actions include /assets and /logs (Phase 11A closes Phase 10
   assert.ok(!actions.find((a) => a.href === "/evs"), "Dietary should not show EVS Board");
 });
 
-test("EVS quick actions exclude /assets, /issues, and the deferred /evs board", () => {
+test("EVS quick actions include thin Asset/Issue reporting; exclude deferred /evs board and Dietary logs", () => {
   const config = resolveCompositionConfig(evsCtx);
   const actions = buildQuickActions({ context: evsCtx, config });
-  assert.ok(!actions.find((a) => a.href === "/assets"), "EVS should not show Assets");
-  assert.ok(!actions.find((a) => a.href === "/issues"), "EVS should not show Issues");
+  assert.ok(actions.find((a) => a.href === "/assets"), "EVS Phase 11B shows Assets");
+  assert.ok(actions.find((a) => a.href === "/issues"), "EVS Phase 11B shows Issues");
   assert.ok(!actions.find((a) => a.href === "/evs"), "EVS Board route is deferred");
-  assert.ok(!actions.find((a) => a.href === "/logs"), "EVS should not show Logs");
+  assert.ok(!actions.find((a) => a.href === "/logs"), "EVS should not show Dietary Logs");
 });
 
 test("Plant quick actions include /assets, exclude /evs and /logs", () => {
@@ -1585,8 +1589,9 @@ test("isLinkAllowedForContext allows /assets for Dietary (Phase 10A Asset Operat
   assert.equal(isLinkAllowedForContext("/asset-issues/x", dietaryCtx), true);
 });
 
-test("isLinkAllowedForContext restricts /issues for EVS", () => {
-  assert.equal(isLinkAllowedForContext("/issues", evsCtx), false);
+test("isLinkAllowedForContext allows /issues and /assets for EVS (Phase 11B)", () => {
+  assert.equal(isLinkAllowedForContext("/issues", evsCtx), true);
+  assert.equal(isLinkAllowedForContext("/assets", evsCtx), true);
 });
 
 test("isLinkAllowedForContext allows shared routes for all departments", () => {

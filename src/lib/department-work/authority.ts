@@ -1,8 +1,8 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import { isDepartmentWorkPlansEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type WorkAuthorityDecision = {
@@ -32,9 +32,9 @@ const DENIED: WorkAuthorityDecision = {
 };
 
 /**
- * Pure authority decision for Dietary Department Work Plans (Phase 11A).
+ * Pure authority decision for Department Work Plans (Phase 11A / 11B).
  * Quick PIN may complete frontline Work; never grants Builder / publish.
- * FA alone denied without Dietary operational department relationship.
+ * FA alone denied without operational department relationship.
  */
 export function decideWorkAuthority(input: {
   flagEnabled: boolean;
@@ -45,9 +45,12 @@ export function decideWorkAuthority(input: {
   departmentId: string;
   departmentExists: boolean;
   primaryDepartmentId: string | null | undefined;
+  departmentLabel?: string;
 }): WorkAuthorityDecision {
+  const label = input.departmentLabel?.trim() || "Department";
+
   if (!input.flagEnabled) {
-    return { ...DENIED, reason: "Dietary Work Plans are not enabled." };
+    return { ...DENIED, reason: "Department Work Plans are not enabled." };
   }
 
   if (input.sessionFacilityId !== input.facilityId) {
@@ -62,8 +65,7 @@ export function decideWorkAuthority(input: {
     if (input.primaryDepartmentId !== input.departmentId) {
       return {
         ...DENIED,
-        reason:
-          "Facility Administrator status alone does not grant Dietary Work Plan or operational Work authority.",
+        reason: `Facility Administrator status alone does not grant ${label} Work Plan or operational Work authority.`,
       };
     }
   }
@@ -126,13 +128,27 @@ export async function resolveWorkAuthority(
   facilityId: string,
   departmentId: string,
 ): Promise<WorkAuthorityDecision> {
+  // Cross-facility first so flag-off messaging does not mask facility denial.
+  if (session.facilityId !== facilityId) {
+    return decideWorkAuthority({
+      flagEnabled: true,
+      role: session.role,
+      authMethod: session.authMethod,
+      sessionFacilityId: session.facilityId,
+      facilityId,
+      departmentId,
+      departmentExists: false,
+      primaryDepartmentId: null,
+    });
+  }
+
   const department = await prisma.department.findFirst({
     where: { id: departmentId, facilityId },
-    select: { id: true },
+    select: { id: true, key: true, name: true },
   });
 
   return decideWorkAuthority({
-    flagEnabled: isDietaryWorkPlansEnabled(),
+    flagEnabled: isDepartmentWorkPlansEnabled(department?.key),
     role: session.role,
     authMethod: session.authMethod,
     sessionFacilityId: session.facilityId,
@@ -140,6 +156,7 @@ export async function resolveWorkAuthority(
     departmentId,
     departmentExists: Boolean(department),
     primaryDepartmentId: session.primaryDepartmentId,
+    departmentLabel: department?.name ?? department?.key ?? "Department",
   });
 }
 

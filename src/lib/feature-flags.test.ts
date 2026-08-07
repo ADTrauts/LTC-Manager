@@ -6,6 +6,7 @@ import {
   isAiRecoveryAssistantEnabled,
   isAiShiftSummaryEnabled,
   isDietaryWorkPlansEnabled,
+  isEvsOperationsEnabled,
   isOperationEngineEnabled,
   isOperationalAssignmentsEnabled,
   isProjectionLocationsEnabled,
@@ -231,6 +232,37 @@ test("Phase 11A keeps Operation Engine and Task sync disabled by default", () =>
     withEnv("TASK_SYNC_ENABLED", undefined, () => {
       assert.equal(isOperationEngineEnabled(), false);
       assert.equal(isTaskSyncEnabled(), false);
+    });
+  });
+});
+
+test("isEvsOperationsEnabled defaults to false when unset", () => {
+  withEnv("EVS_OPERATIONS_ENABLED", undefined, () => {
+    assert.equal(isEvsOperationsEnabled(), false);
+  });
+});
+
+test("isEvsOperationsEnabled parses truthy and falsey env values", () => {
+  for (const value of ["true", "1", "on", "yes"]) {
+    withEnv("EVS_OPERATIONS_ENABLED", value, () => {
+      assert.equal(isEvsOperationsEnabled(), true, value);
+    });
+  }
+  for (const value of ["false", "0", "off", "no"]) {
+    withEnv("EVS_OPERATIONS_ENABLED", value, () => {
+      assert.equal(isEvsOperationsEnabled(), false, value);
+    });
+  }
+});
+
+test("Phase 11B EVS flag does not enable Operation Engine or Task sync", () => {
+  withEnv("EVS_OPERATIONS_ENABLED", "true", () => {
+    withEnv("OPERATION_ENGINE_ENABLED", undefined, () => {
+      withEnv("TASK_SYNC_ENABLED", undefined, () => {
+        assert.equal(isEvsOperationsEnabled(), true);
+        assert.equal(isOperationEngineEnabled(), false);
+        assert.equal(isTaskSyncEnabled(), false);
+      });
     });
   });
 });

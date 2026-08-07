@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isDietaryOperationalCyclesEnabled } from "@/lib/feature-flags";
+import { isDepartmentOperationalCyclesEnabled } from "@/lib/department-operations";
 import {
   createDraft,
   duplicateCycle,
   generateDietaryDefaultsDrafts,
+  generateEvsDefaultsDrafts,
   publishCycle,
   reorderDrafts,
   retireCycle,
@@ -64,9 +65,13 @@ function actorFromSession(session: {
   };
 }
 
-function requireCyclesFeature(): void {
-  if (!isDietaryOperationalCyclesEnabled()) {
-    throw new Error("Dietary Operational Cycles are not enabled.");
+async function requireCyclesFeature(departmentId: string): Promise<void> {
+  const dept = await prisma.department.findFirst({
+    where: { id: departmentId, isActive: true },
+    select: { key: true },
+  });
+  if (!isDepartmentOperationalCyclesEnabled(dept?.key)) {
+    throw new Error("Operational Cycles are not enabled for this department.");
   }
 }
 
@@ -192,9 +197,9 @@ function toErrors(error: unknown): CycleActionResult {
 
 export async function createCycleDraftAction(formData: FormData): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const draft = parseDraftFromForm(formData);
     const created = await createDraft(session, {
@@ -212,9 +217,9 @@ export async function createCycleDraftAction(formData: FormData): Promise<CycleA
 
 export async function updateCycleDraftAction(formData: FormData): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     const cycleId = z.string().cuid().parse(formData.get("cycleId"));
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const draft = parseDraftFromForm(formData);
@@ -234,9 +239,9 @@ export async function updateCycleDraftAction(formData: FormData): Promise<CycleA
 
 export async function duplicateCycleAction(formData: FormData): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     const cycleId = z.string().cuid().parse(formData.get("cycleId"));
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const created = await duplicateCycle(session, {
@@ -258,9 +263,9 @@ export async function duplicateCycleAction(formData: FormData): Promise<CycleAct
 
 export async function reorderCycleDraftsAction(formData: FormData): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const orderedCycleIds = String(formData.get("orderedCycleIds") ?? "")
       .split(",")
@@ -287,9 +292,9 @@ export async function reorderCycleDraftsAction(formData: FormData): Promise<Cycl
 
 export async function publishCycleAction(formData: FormData): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     const cycleId = z.string().cuid().parse(formData.get("cycleId"));
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const published = await publishCycle(session, {
@@ -307,9 +312,9 @@ export async function publishCycleAction(formData: FormData): Promise<CycleActio
 
 export async function retireCycleAction(formData: FormData): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     const cycleId = z.string().cuid().parse(formData.get("cycleId"));
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const retired = await retireCycle(session, {
@@ -329,9 +334,9 @@ export async function generateDietaryDefaultsAction(
   formData: FormData,
 ): Promise<CycleActionResult> {
   try {
-    requireCyclesFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
     await assertDepartmentInFacility(departmentId, session.facilityId);
     const effectiveFrom = z
       .string()
@@ -352,3 +357,32 @@ export async function generateDietaryDefaultsAction(
     return toErrors(error);
   }
 }
+
+export async function generateEvsDefaultsAction(
+  formData: FormData,
+): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const effectiveFrom = z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .parse(String(formData.get("effectiveFrom") ?? "").trim());
+    const created = await generateEvsDefaultsDrafts(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      effectiveFrom,
+      actor: actorFromSession(session),
+    });
+    revalidateCycles(departmentId);
+    return {
+      ok: true,
+      message: `Created ${created.length} EVS default drafts for review.`,
+    };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+

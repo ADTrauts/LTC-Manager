@@ -9,11 +9,8 @@ import { StaffingAutoAssignForm } from "@/components/staffing-auto-assign-form";
 import { StaffingDateAutoAdvance } from "@/components/staffing-date-auto-advance";
 import { StaffingToolbar } from "@/components/staffing-toolbar";
 import { getSession } from "@/lib/auth";
-import {
-  isDietaryJobFlowEnabled,
-  isDietaryOperationalCyclesEnabled,
-  isOperationalAssignmentsEnabled,
-} from "@/lib/feature-flags";
+import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { parseCallDownReason } from "@/lib/todays-work/call-down";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
@@ -179,7 +176,7 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
                 Assignment Board
               </Link>
             )}
-            {isDietaryOperationalCyclesEnabled() && (
+            {isAnyStaffingOperationalFeatureEnabled("cycles") && (
               <Link
                 href="/staffing/cycles"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
@@ -187,7 +184,7 @@ export default async function StaffingPage({ searchParams }: StaffingPageProps) 
                 Cycle overview
               </Link>
             )}
-            {isDietaryJobFlowEnabled() && (
+            {isAnyStaffingOperationalFeatureEnabled("jobFlow") && (
               <Link
                 href="/staffing/operations"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"

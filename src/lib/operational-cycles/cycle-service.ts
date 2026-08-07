@@ -15,7 +15,7 @@ import {
   requireCyclePublish,
   resolveCycleAuthority,
 } from "./cycle-authority";
-import { buildDietaryDefaultCyclePlans } from "./defaults";
+import { buildDietaryDefaultCyclePlans, buildEvsDefaultCyclePlans } from "./defaults";
 import type { PublishedCycleOverlapCandidate } from "./validate-cycle";
 import { validateCycle, validateCycleForPublish } from "./validate-cycle";
 import type { CycleDraftInput } from "./types";
@@ -622,6 +622,53 @@ export async function generateDietaryDefaultsDrafts(
         locationMode: plan.locationMode,
         applicableUnitTypes: plan.applicableUnitTypes,
         expectedMilestones: plan.expectedMilestones,
+      },
+    });
+    created.push(row);
+  }
+  return created;
+}
+
+/**
+ * Create draft defaults from the EVS example plan for review.
+ * No mealType / SERVICE meal milestones — never auto-applied.
+ */
+export async function generateEvsDefaultsDrafts(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    effectiveFrom: string;
+    actor: CycleActor;
+    client?: DbClient;
+  },
+) {
+  const client = input.client ?? prisma;
+  await assertManage(session, input.facilityId, input.departmentId);
+
+  const plans = buildEvsDefaultCyclePlans();
+  const created = [];
+  for (const plan of plans) {
+    const row = await createDraft(session, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      actor: input.actor,
+      client,
+      draft: {
+        stableKey: plan.stableKey,
+        label: plan.label,
+        description: plan.description,
+        cycleType: plan.cycleType,
+        displaySequence: plan.displaySequence,
+        startLocal: plan.startLocal,
+        endLocal: plan.endLocal,
+        overnight: plan.overnight,
+        applicableDaysOfWeek: plan.applicableDaysOfWeek,
+        effectiveFrom: input.effectiveFrom,
+        mealType: null,
+        locationMode: plan.locationMode,
+        applicableUnitTypes: plan.applicableUnitTypes,
+        expectedMilestones: [],
       },
     });
     created.push(row);

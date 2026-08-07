@@ -49,6 +49,7 @@ export {
   createDraft,
   duplicateCycle,
   generateDietaryDefaultsDrafts,
+  generateEvsDefaultsDrafts,
   publishCycle,
   reorderDrafts,
   retireCycle,
@@ -82,5 +83,7 @@ export {
 
 export {
   buildDietaryDefaultCyclePlans,
+  buildEvsDefaultCyclePlans,
   type DietaryDefaultCyclePlan,
+  type EvsDefaultCyclePlan,
 } from "./defaults";
