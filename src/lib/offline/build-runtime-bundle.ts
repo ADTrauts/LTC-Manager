@@ -22,9 +22,11 @@ import {
   isDietaryJobFlowEnabled,
   isDietaryOperationalCyclesEnabled,
   isDietaryOperationalEvidenceEnabled,
+  isDietaryWorkPlansEnabled,
   isOperationalAssignmentsEnabled,
 } from "@/lib/feature-flags";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
+import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
@@ -599,6 +601,51 @@ export async function buildRuntimeBundle(
     }
   }
 
+  let workContext: OfflineRuntimeBundle["workContext"] = null;
+  if (isDietaryWorkPlansEnabled()) {
+    try {
+      const workRequirements = await resolveUnitWorkRequirements({
+        facilityId: input.session.facilityId,
+        departmentId: dietary.id,
+        operationalDate: serviceDate,
+        operationalDateKey: serviceDateKey,
+        now: issuedAt,
+        facilityTimezone,
+        unitId: unit.id,
+      });
+      const scoped = workRequirements.filter((r) =>
+        ["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
+          r.state,
+        ),
+      );
+      workContext = {
+        requirements: scoped.map((r) => ({
+          occurrenceKey: r.occurrenceKey,
+          label: r.label,
+          state: r.state,
+          priority: r.priority,
+          completionMode: r.completionMode,
+          workPlanStableKey: r.workPlanStableKey,
+          workPlanVersion: r.workPlanVersion,
+          workItemKey: r.workItemKey,
+          workPlanId: r.workPlanId,
+          workItemId: r.workItemId,
+          instructions: r.instructions,
+          knowledgeArticleId: r.knowledgeArticleId,
+          procedureTitle: r.procedureTitle,
+          dueAt: r.dueAt?.toISOString() ?? null,
+          cycleStableKey: r.cycleStableKey,
+          windowStartLocal: r.windowStartLocal,
+          windowEndLocal: r.windowEndLocal,
+          assignedEmployeeId: r.assignedEmployeeId,
+        })),
+        lastSyncedAt: issuedAt.toISOString(),
+      };
+    } catch {
+      workContext = null;
+    }
+  }
+
   const bundle: OfflineRuntimeBundle = {
     bundleVersion,
     serverRevision,
@@ -635,6 +682,7 @@ export async function buildRuntimeBundle(
     jobFlowContext,
     evidenceContext,
     assetContext,
+    workContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({

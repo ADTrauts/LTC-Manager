@@ -12,6 +12,7 @@ export const OFFLINE_COMMAND_TYPES = [
   "RECORD_MEAL_SERVICE_STARTED",
   "SUBMIT_OPERATIONAL_EVIDENCE",
   "REPORT_ASSET_ISSUE",
+  "COMPLETE_OPERATIONAL_TASK",
 ] as const;
 
 export type OfflineCommandType = (typeof OFFLINE_COMMAND_TYPES)[number];
@@ -218,6 +219,33 @@ export type OfflineRuntimeBundle = {
     }>;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Scoped Work requirements for DUE/CURRENT/UPCOMING only — never full catalog.
+   * Unit rebind does not retarget occurrence keys in queued commands.
+   */
+  workContext?: {
+    requirements: Array<{
+      occurrenceKey: string;
+      label: string;
+      state: string;
+      priority: string;
+      completionMode: string;
+      workPlanStableKey: string;
+      workPlanVersion: number;
+      workItemKey: string;
+      workPlanId: string;
+      workItemId: string;
+      instructions: string | null;
+      knowledgeArticleId: string | null;
+      procedureTitle: string | null;
+      dueAt: string | null;
+      cycleStableKey: string | null;
+      windowStartLocal: string | null;
+      windowEndLocal: string | null;
+      assignedEmployeeId: string | null;
+    }>;
+    lastSyncedAt: string;
+  } | null;
 };
 
 export type OfflineMilestoneProjection = {
@@ -284,6 +312,33 @@ export type OfflineCommandEnvelope = {
     evidenceRecordId?: string | null;
     comment?: string | null;
     allowDuplicateOpen?: boolean;
+  };
+  /** Phase 11A Work completion payload — present when commandType=COMPLETE_OPERATIONAL_TASK. */
+  workCompletion?: {
+    occurrenceKey: string;
+    workPlanId: string;
+    workPlanStableKey: string;
+    workPlanVersion: number;
+    workItemId: string;
+    workItemKey: string;
+    label: string;
+    instructions?: string | null;
+    priority?: string;
+    completionMode?: string;
+    responsibilityMode?: string;
+    scheduleKind?: string;
+    cycleStableKey?: string | null;
+    windowStartLocal?: string | null;
+    windowEndLocal?: string | null;
+    dueAt?: string | null;
+    spaceId?: string | null;
+    assetId?: string | null;
+    knowledgeArticleId?: string | null;
+    procedureTitle?: string | null;
+    note?: string | null;
+    evidenceRecordId?: string | null;
+    /** Actor who queued — reassignment conflict if occurrence assigned elsewhere. */
+    expectedAssignedEmployeeId?: string | null;
   };
 };
 

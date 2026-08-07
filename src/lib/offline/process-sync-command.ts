@@ -2,9 +2,12 @@ import type { MealType, OperationalTemplateScheduleKind, PrismaClient } from "@p
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { reportAssetIssue } from "@/lib/asset-operations";
+import { completeExplicit } from "@/lib/department-work";
+import type { WorkRequirement } from "@/lib/department-work/types";
 import {
   isDietaryAssetOperationsEnabled,
   isDietaryOperationalEvidenceEnabled,
+  isDietaryWorkPlansEnabled,
 } from "@/lib/feature-flags";
 import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -74,6 +77,10 @@ export async function processSyncCommand(
 
   if (command.commandType === "REPORT_ASSET_ISSUE") {
     return processAssetIssueCommand(input, client, now);
+  }
+
+  if (command.commandType === "COMPLETE_OPERATIONAL_TASK") {
+    return processWorkCompletionCommand(input, client, now);
   }
 
   const actor = await resolveMilestoneActor(input.session);
@@ -374,6 +381,188 @@ async function processAssetIssueCommand(
     };
   } catch (err) {
     const reason = err instanceof Error ? err.message : "ASSET_ISSUE_REPORT_FAILED";
+    await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null, null);
+    return reject(command.clientCommandId, reason);
+  }
+}
+
+async function processWorkCompletionCommand(
+  input: ProcessSyncCommandInput,
+  client: PrismaClient,
+  now: Date,
+): Promise<OfflineSyncCommandResult> {
+  const { command } = input;
+  if (!isDietaryWorkPlansEnabled()) {
+    return reject(command.clientCommandId, "WORK_PLANS_FLAG_DISABLED");
+  }
+  const payload = command.workCompletion;
+  if (!payload?.occurrenceKey || !payload.workItemKey || !payload.label?.trim()) {
+    return reject(command.clientCommandId, "WORK_COMPLETION_PAYLOAD_INVALID");
+  }
+
+  // Unit rebind must not retarget — occurrence identity stays as queued.
+  if (input.deviceBoundUnitId && command.unitId !== input.deviceBoundUnitId) {
+    const conflictCategory: OfflineConflictCategory = "UNIT_CONTEXT_CHANGED";
+    await upsertConflict(client, input, command, conflictCategory, "UNIT_REBIND_NON_RETARGET");
+    await upsertReceipt(
+      client,
+      input,
+      command,
+      "CONFLICT_REVIEW_REQUIRED",
+      "UNIT_REBIND_NON_RETARGET",
+      null,
+      null,
+      null,
+    );
+    return {
+      clientCommandId: command.clientCommandId,
+      category: "CONFLICT_REVIEW_REQUIRED",
+      reasonCode: "UNIT_REBIND_NON_RETARGET",
+      authoritativeRecordId: null,
+      serverAcceptedAt: null,
+      serverRevision: null,
+      retryAfterSeconds: null,
+      conflictCategory,
+      authoritativeMilestone: null,
+    };
+  }
+
+  const existing = await client.departmentWorkOccurrence.findFirst({
+    where: {
+      facilityId: command.facilityId,
+      departmentId: command.departmentId,
+      occurrenceKey: payload.occurrenceKey,
+    },
+  });
+  if (
+    existing?.assignedEmployeeId &&
+    payload.expectedAssignedEmployeeId &&
+    existing.assignedEmployeeId !== payload.expectedAssignedEmployeeId
+  ) {
+    const conflictCategory: OfflineConflictCategory = "AUTHORITATIVE_STATE_CHANGED";
+    await upsertConflict(client, input, command, conflictCategory, "WORK_REASSIGNMENT_CONFLICT");
+    await upsertReceipt(
+      client,
+      input,
+      command,
+      "CONFLICT_REVIEW_REQUIRED",
+      "WORK_REASSIGNMENT_CONFLICT",
+      null,
+      null,
+      null,
+    );
+    return {
+      clientCommandId: command.clientCommandId,
+      category: "CONFLICT_REVIEW_REQUIRED",
+      reasonCode: "WORK_REASSIGNMENT_CONFLICT",
+      authoritativeRecordId: existing.id,
+      serverAcceptedAt: null,
+      serverRevision: null,
+      retryAfterSeconds: null,
+      conflictCategory,
+      authoritativeMilestone: null,
+    };
+  }
+
+  const requirement: WorkRequirement = {
+    occurrenceKey: payload.occurrenceKey,
+    workPlanId: payload.workPlanId,
+    workPlanStableKey: payload.workPlanStableKey,
+    workPlanVersion: payload.workPlanVersion,
+    workPlanName: payload.label,
+    workItemId: payload.workItemId,
+    workItemKey: payload.workItemKey,
+    label: payload.label,
+    instructions: payload.instructions ?? null,
+    priority: (payload.priority as WorkRequirement["priority"]) ?? "ROUTINE",
+    completionMode:
+      (payload.completionMode as WorkRequirement["completionMode"]) ?? "EXPLICIT_CONFIRMATION",
+    responsibilityMode:
+      (payload.responsibilityMode as WorkRequirement["responsibilityMode"]) ?? "UNIT_SHARED",
+    scheduleKind:
+      (payload.scheduleKind as WorkRequirement["scheduleKind"]) ?? "ONCE_PER_OPERATIONAL_DATE",
+    cycleStableKey: payload.cycleStableKey ?? null,
+    windowStartLocal: payload.windowStartLocal ?? null,
+    windowEndLocal: payload.windowEndLocal ?? null,
+    dueAt: payload.dueAt ? new Date(payload.dueAt) : null,
+    windowStartsAt: null,
+    windowEndsAt: null,
+    unitId: command.unitId,
+    unitName: null,
+    spaceId: payload.spaceId ?? null,
+    assetId: payload.assetId ?? null,
+    roleKeys: [],
+    knowledgeArticleId: payload.knowledgeArticleId ?? null,
+    procedureTitle: payload.procedureTitle ?? null,
+    linkedTemplateStableKey: null,
+    linkedTemplateId: null,
+    state: "DUE",
+    occurrenceId: existing?.id ?? null,
+    occurrenceStatus: existing?.status ?? null,
+    assignedEmployeeId: existing?.assignedEmployeeId ?? null,
+    completedByLabel: null,
+    completedAt: null,
+    evidenceRecordId: payload.evidenceRecordId ?? null,
+    sourceKind: "WORK_PLAN",
+    sourceHref: null,
+  };
+
+  try {
+    const milestoneActor = await resolveMilestoneActor(input.session);
+    const result = await completeExplicit(input.session, {
+      facilityId: command.facilityId,
+      departmentId: command.departmentId,
+      requirement,
+      operationalDate: command.operationalDate,
+      actor: {
+        userId: milestoneActor.userId,
+        employeeId: milestoneActor.employeeId,
+        label: input.session.name || input.session.email || null,
+        authenticationMethod: input.session.authMethod,
+      },
+      note: payload.note,
+      clientCommandId: command.clientCommandId,
+      deviceBoundUnitId: input.deviceBoundUnitId,
+      recordedOnline: false,
+      evidenceRecordId: payload.evidenceRecordId,
+      client,
+    });
+
+    const synchronizedAt = result.occurrence.synchronizedAt ?? now;
+    if (!result.occurrence.synchronizedAt) {
+      await client.departmentWorkOccurrence.update({
+        where: { id: result.occurrence.id },
+        data: { synchronizedAt },
+      });
+    }
+
+    const category: OfflineSyncResultCategory = result.deduplicated
+      ? "ALREADY_ACCEPTED"
+      : "ACCEPTED";
+    await upsertReceipt(
+      client,
+      input,
+      command,
+      category,
+      null,
+      synchronizedAt,
+      null,
+      null,
+    );
+
+    return {
+      clientCommandId: command.clientCommandId,
+      category,
+      reasonCode: null,
+      authoritativeRecordId: result.occurrence.id,
+      serverAcceptedAt: synchronizedAt.toISOString(),
+      serverRevision: null,
+      retryAfterSeconds: null,
+      conflictCategory: null,
+      authoritativeMilestone: null,
+    };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "WORK_COMPLETION_FAILED";
     await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null, null);
     return reject(command.clientCommandId, reason);
   }
