@@ -330,13 +330,17 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
   }
 }
 
-export function listWorkPlanPresetSummaries(departmentKey?: "DIETARY" | "EVS") {
+export function listWorkPlanPresetSummaries(
+  departmentKey?: "DIETARY" | "EVS" | "PLANT",
+) {
   const keys =
     departmentKey === "DIETARY"
       ? DIETARY_WORK_PRESET_KEYS
       : departmentKey === "EVS"
         ? EVS_WORK_PRESET_KEYS
-        : DEPARTMENT_WORK_PRESET_KEYS;
+        : departmentKey === "PLANT"
+          ? ([] as const)
+          : DEPARTMENT_WORK_PRESET_KEYS;
 
   return keys.map((key) => {
     const draft = buildWorkPlanPresetDraft(key);

@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { SupervisorWorkActionsPanel } from "@/components/department-work/supervisor-work-actions-panel";
+import { PlantRequestRoutingPanel } from "@/components/operational-requests/plant-request-routing-panel";
+import { PlantTriagePanel } from "@/components/operational-requests/plant-triage-panel";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -19,6 +21,8 @@ import {
   type SupervisorExceptionItem,
   type SupervisorExceptionTemporal,
 } from "@/lib/dietary-job-flow";
+import { isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { listRoutesForFacility } from "@/lib/operational-requests";
 import { prisma } from "@/lib/prisma";
 
 const GROUP_ORDER: SupervisorExceptionGroup[] = [
@@ -174,7 +178,7 @@ export default async function SupervisorOperationsBoardPage({
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
   const builderHref = `/admin/departments/${department.id}?tab=cycles`;
   const exceptionGroups = groupExceptions(board.exceptions);
-  const { header, summary, filters, locationCoverage } = board;
+  const { header, summary, filters, locationCoverage, plantOperations } = board;
 
   const workPlansEnabled = isDepartmentWorkPlansEnabled(department.key);
   const oneOffUnits = workPlansEnabled
@@ -189,6 +193,58 @@ export default async function SupervisorOperationsBoardPage({
         take: 40,
       })
     : [];
+
+  const showPlantRouting =
+    department.key === "PLANT" &&
+    isPlantOperationsEnabled() &&
+    hasAtLeastRole(session.role, "MANAGER") &&
+    session.authMethod !== "QUICK_PIN";
+
+  let plantRouting: {
+    routes: Array<{
+      id: string;
+      requestingDepartmentId: string;
+      requestingDepartmentName: string;
+      requestingDepartmentKey: string;
+      responsibleDepartmentId: string;
+      responsibleDepartmentName: string;
+      responsibleDepartmentKey: string;
+      isActive: boolean;
+      sortOrder: number;
+      note: string | null;
+    }>;
+    departments: Array<{ id: string; name: string; key: string }>;
+  } | null = null;
+
+  if (showPlantRouting) {
+    try {
+      const [routes, departments] = await Promise.all([
+        listRoutesForFacility(session, session.facilityId, department.id),
+        prisma.department.findMany({
+          where: { facilityId: session.facilityId, isActive: true },
+          select: { id: true, name: true, key: true },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        }),
+      ]);
+      plantRouting = {
+        routes: routes.map((r) => ({
+          id: r.id,
+          requestingDepartmentId: r.requestingDepartmentId,
+          requestingDepartmentName: r.requestingDepartment.name,
+          requestingDepartmentKey: r.requestingDepartment.key,
+          responsibleDepartmentId: r.responsibleDepartmentId,
+          responsibleDepartmentName: r.responsibleDepartment.name,
+          responsibleDepartmentKey: r.responsibleDepartment.key,
+          isActive: r.isActive,
+          sortOrder: r.sortOrder,
+          note: r.note,
+        })),
+        departments,
+      };
+    } catch {
+      plantRouting = null;
+    }
+  }
 
   return (
     <section className="mx-auto max-w-5xl space-y-6" data-testid="supervisor-operations-board">
@@ -247,6 +303,34 @@ export default async function SupervisorOperationsBoardPage({
           ) : null}
         </p>
       </div>
+
+      {plantRouting ? (
+        <PlantRequestRoutingPanel
+          plantDepartmentId={header.departmentId}
+          routes={plantRouting.routes}
+          departments={plantRouting.departments}
+        />
+      ) : null}
+
+      {plantOperations ? (
+        <PlantTriagePanel
+          plantDepartmentId={header.departmentId}
+          requests={plantOperations.requests}
+          technicians={plantOperations.technicians}
+          summary={{
+            newRequests: plantOperations.newRequests,
+            untriaged: plantOperations.untriaged,
+            urgent: plantOperations.urgent,
+            openWorkOrders: plantOperations.openWorkOrders,
+            inProgressWorkOrders: plantOperations.inProgressWorkOrders,
+            waitingVendor: plantOperations.waitingVendor,
+            waitingParts: plantOperations.waitingParts,
+            overdueWorkOrders: plantOperations.overdueWorkOrders,
+            unassignedWorkOrders: plantOperations.unassignedWorkOrders,
+            outOfServiceAssets: plantOperations.outOfServiceAssets,
+          }}
+        />
+      ) : null}
 
       <div className="flex flex-wrap gap-2 text-xs text-zinc-700">
         <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">

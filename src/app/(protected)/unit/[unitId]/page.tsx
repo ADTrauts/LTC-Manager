@@ -16,6 +16,7 @@ import { UnitMyAssignmentPanel } from "@/components/unit-workspace/unit-my-assig
 import { UnitOperationContextHeader } from "@/components/unit-workspace/unit-operation-context-header";
 import { AssetIssueReportPanel } from "@/components/asset-operations/asset-issue-report-panel";
 import { UnitRuntimeAssetsPanel } from "@/components/asset-operations/unit-runtime-assets-panel";
+import { ReportProblemForm } from "@/components/operational-requests/report-problem-form";
 import { WorkCompletionPanel } from "@/components/department-work/work-completion-panel";
 import { UnitQuickIssuePanel } from "@/components/unit-workspace/unit-quick-issue-panel";
 import { UnitWorkQueuePanel } from "@/components/unit-workspace/unit-work-queue-panel";
@@ -654,6 +655,20 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           ) : (
             <UnitQuickIssuePanel unitId={unit.id} unitName={unit.name} assets={unitAssets} />
           )}
+
+          {dietaryDepartment && isDepartmentJobFlowEnabled(dietaryDepartment.key) ? (
+            <ReportProblemForm
+              facilityId={session.facilityId}
+              requestingDepartmentId={dietaryDepartment.id}
+              unitId={unit.id}
+              assets={runtimeAssets.map((a) => ({
+                id: a.assetId,
+                name: a.name,
+                assetCode: a.assetCode,
+              }))}
+              compact
+            />
+          ) : null}
 
           {activeFollowUp ? (
             <UnitInspectionFollowUpActions unitId={unit.id} task={activeFollowUp} />

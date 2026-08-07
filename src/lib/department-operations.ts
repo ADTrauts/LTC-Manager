@@ -1,6 +1,7 @@
 /**
- * Department-keyed operational feature gates (Phase 11B).
- * DIETARY uses existing DIETARY_* flags; EVS uses EVS_OPERATIONS_ENABLED umbrella.
+ * Department-keyed operational feature gates (Phase 11B / 12A).
+ * DIETARY uses existing DIETARY_* flags; EVS uses EVS_OPERATIONS_ENABLED umbrella;
+ * PLANT uses PLANT_OPERATIONS_ENABLED umbrella.
  * Does not enable OPERATION_ENGINE_ENABLED or TASK_SYNC_ENABLED.
  */
 
@@ -11,12 +12,13 @@ import {
   isDietaryOperationalEvidenceEnabled,
   isDietaryWorkPlansEnabled,
   isEvsOperationsEnabled,
+  isPlantOperationsEnabled,
 } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type OperationalDepartmentKey = "DIETARY" | "EVS" | "PLANT";
 
-type StaffingOperationalKey = "DIETARY" | "EVS";
+type StaffingOperationalKey = "DIETARY" | "EVS" | "PLANT";
 
 export type StaffingOperationalFeature =
   | "workPlans"
@@ -36,6 +38,7 @@ export function isDepartmentOperationalCyclesEnabled(
   const k = normalizeKey(key);
   if (k === "DIETARY") return isDietaryOperationalCyclesEnabled();
   if (k === "EVS") return isEvsOperationsEnabled();
+  if (k === "PLANT") return isPlantOperationsEnabled();
   return false;
 }
 
@@ -43,6 +46,7 @@ export function isDepartmentJobFlowEnabled(key: string | null | undefined): bool
   const k = normalizeKey(key);
   if (k === "DIETARY") return isDietaryJobFlowEnabled();
   if (k === "EVS") return isEvsOperationsEnabled();
+  if (k === "PLANT") return isPlantOperationsEnabled();
   return false;
 }
 
@@ -52,6 +56,7 @@ export function isDepartmentOperationalEvidenceEnabled(
   const k = normalizeKey(key);
   if (k === "DIETARY") return isDietaryOperationalEvidenceEnabled();
   if (k === "EVS") return isEvsOperationsEnabled();
+  if (k === "PLANT") return isPlantOperationsEnabled();
   return false;
 }
 
@@ -61,6 +66,7 @@ export function isDepartmentAssetOperationsEnabled(
   const k = normalizeKey(key);
   if (k === "DIETARY") return isDietaryAssetOperationsEnabled();
   if (k === "EVS") return isEvsOperationsEnabled();
+  if (k === "PLANT") return isPlantOperationsEnabled();
   return false;
 }
 
@@ -68,11 +74,12 @@ export function isDepartmentWorkPlansEnabled(key: string | null | undefined): bo
   const k = normalizeKey(key);
   if (k === "DIETARY") return isDietaryWorkPlansEnabled();
   if (k === "EVS") return isEvsOperationsEnabled();
+  if (k === "PLANT") return isPlantOperationsEnabled();
   return false;
 }
 
 function isStaffingKey(key: string | null | undefined): key is StaffingOperationalKey {
-  return key === "DIETARY" || key === "EVS";
+  return key === "DIETARY" || key === "EVS" || key === "PLANT";
 }
 
 function isFeatureEnabledForKey(
@@ -93,18 +100,20 @@ function isFeatureEnabledForKey(
   }
 }
 
-/** True when Dietary or EVS has the named staffing feature family enabled. */
+/** True when Dietary, EVS, or Plant has the named staffing feature family enabled. */
 export function isAnyStaffingOperationalFeatureEnabled(
   feature: StaffingOperationalFeature,
 ): boolean {
   return (
-    isFeatureEnabledForKey(feature, "DIETARY") || isFeatureEnabledForKey(feature, "EVS")
+    isFeatureEnabledForKey(feature, "DIETARY") ||
+    isFeatureEnabledForKey(feature, "EVS") ||
+    isFeatureEnabledForKey(feature, "PLANT")
   );
 }
 
 /**
- * Resolve DIETARY or EVS department for `/staffing/*` when that department's
- * matching feature flag is enabled (Dietary: DIETARY_*; EVS: EVS_OPERATIONS_ENABLED).
+ * Resolve DIETARY | EVS | PLANT department for `/staffing/*` when that department's
+ * matching feature flag is enabled.
  */
 export async function resolveStaffingOperationalDepartment(input: {
   facilityId: string;
@@ -113,7 +122,7 @@ export async function resolveStaffingOperationalDepartment(input: {
   preferKeys?: readonly StaffingOperationalKey[];
 }): Promise<{ id: string; name: string; key: StaffingOperationalKey } | null> {
   const feature = input.feature ?? "workPlans";
-  const preferKeys = input.preferKeys ?? (["DIETARY", "EVS"] as const);
+  const preferKeys = input.preferKeys ?? (["DIETARY", "EVS", "PLANT"] as const);
 
   if (input.activeDepartmentId) {
     const active = await prisma.department.findFirst({
@@ -166,8 +175,8 @@ export async function requireDepartmentFeatureEnabled(
 }
 
 /**
- * Resolve DIETARY|EVS for Unit Workspace Job Flow / cycles:
- * prefer active department when flagged; else Dietary; else EVS.
+ * Resolve DIETARY|EVS|PLANT for Unit Workspace Job Flow / cycles:
+ * prefer active department when flagged; else Dietary; else EVS; else Plant.
  */
 export async function resolveUnitOperationalDepartment(input: {
   facilityId: string;
@@ -189,13 +198,13 @@ export async function resolveUnitOperationalDepartment(input: {
       where: {
         unitId: input.unitId,
         unit: { facilityId: input.facilityId, isActive: true },
-        department: { isActive: true, key: { in: ["DIETARY", "EVS"] } },
+        department: { isActive: true, key: { in: ["DIETARY", "EVS", "PLANT"] } },
       },
       select: {
         department: { select: { id: true, name: true, key: true } },
       },
     });
-    for (const key of ["DIETARY", "EVS"] as const) {
+    for (const key of ["DIETARY", "EVS", "PLANT"] as const) {
       if (!isFeatureEnabledForKey(feature, key)) continue;
       const match = responsibilities.find((r) => r.department.key === key);
       if (match && isStaffingKey(match.department.key)) {
@@ -209,4 +218,19 @@ export async function resolveUnitOperationalDepartment(input: {
   }
 
   return null;
+}
+
+/** Resolve Plant department when PLANT_OPERATIONS_ENABLED for the named feature. */
+export async function resolvePlantOperationalDepartment(input: {
+  facilityId: string;
+  feature?: StaffingOperationalFeature;
+}): Promise<{ id: string; name: string; key: "PLANT" } | null> {
+  const feature = input.feature ?? "jobFlow";
+  if (!isFeatureEnabledForKey(feature, "PLANT")) return null;
+  const dept = await prisma.department.findFirst({
+    where: { facilityId: input.facilityId, key: "PLANT", isActive: true },
+    select: { id: true, name: true, key: true },
+  });
+  if (!dept || dept.key !== "PLANT") return null;
+  return { id: dept.id, name: dept.name, key: "PLANT" };
 }
