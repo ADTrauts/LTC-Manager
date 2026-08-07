@@ -562,6 +562,14 @@ export async function loadEmployeeJobFlow(
 
   const evidenceAttention = buildEvidenceAttention(evidenceRequirementsScoped);
   const workAttention = buildWorkAttention(workRequirements);
+  const plantAttention =
+    department.key === "PLANT"
+      ? await buildPlantWorkOrderAttention({
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+          employeeId: input.employeeId,
+        })
+      : [];
 
   return {
     ...jobFlow,
@@ -570,11 +578,53 @@ export async function loadEmployeeJobFlow(
     spaceWorkSummaries,
     scopeSummary: scope.scopeSummary,
     locationSequence: scope.locationSequence,
-    attention: [...jobFlow.attention, ...evidenceAttention, ...workAttention].filter(
+    attention: [
+      ...jobFlow.attention,
+      ...evidenceAttention,
+      ...workAttention,
+      ...plantAttention,
+    ].filter(
       (item, idx, arr) =>
         arr.findIndex((x) => x.kind === item.kind && x.message === item.message) === idx,
     ),
   };
+}
+
+async function buildPlantWorkOrderAttention(input: {
+  facilityId: string;
+  departmentId: string;
+  employeeId: string;
+}): Promise<JobFlowAttentionItem[]> {
+  const openAssigned = await prisma.repair.count({
+    where: {
+      responsibleDepartmentId: input.departmentId,
+      assignedEmployeeId: input.employeeId,
+      unit: { facilityId: input.facilityId },
+      status: { in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_PARTS", "WAITING_ON_VENDOR", "ON_HOLD"] },
+    },
+  });
+  const urgentRequests = await prisma.operationalRequest.count({
+    where: {
+      facilityId: input.facilityId,
+      responsibleDepartmentId: input.departmentId,
+      priority: { in: ["URGENT", "HIGH"] },
+      status: { in: ["REPORTED", "ACKNOWLEDGED", "UNDER_REVIEW", "WORK_ASSIGNED", "WORK_IN_PROGRESS", "REOPENED"] },
+    },
+  });
+  const items: JobFlowAttentionItem[] = [];
+  if (openAssigned > 0) {
+    items.push({
+      kind: "work_due",
+      message: `${openAssigned} assigned Work Order${openAssigned === 1 ? "" : "s"} need attention.`,
+    });
+  }
+  if (urgentRequests > 0) {
+    items.push({
+      kind: "work_past_due",
+      message: `${urgentRequests} urgent operational request${urgentRequests === 1 ? "" : "s"} in Plant queue.`,
+    });
+  }
+  return items;
 }
 
 function buildEvidenceAttention(

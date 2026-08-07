@@ -25,7 +25,8 @@ import {
   isDepartmentWorkPlansEnabled,
   resolveUnitOperationalDepartment,
 } from "@/lib/department-operations";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isOperationalAssignmentsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
@@ -720,6 +721,53 @@ export async function buildRuntimeBundle(
     }
   }
 
+  let plantWorkOrderContext: OfflineRuntimeBundle["plantWorkOrderContext"] = null;
+  if (
+    isPlantOperationsEnabled() &&
+    dietary.key === "PLANT" &&
+    actor.employeeId
+  ) {
+    try {
+      const assignedWos = await client.repair.findMany({
+        where: {
+          responsibleDepartmentId: dietary.id,
+          assignedEmployeeId: actor.employeeId,
+          unit: { facilityId: input.session.facilityId },
+          status: { in: [...OPEN_WORK_ORDER_STATUSES] },
+        },
+        select: {
+          id: true,
+          repairCode: true,
+          title: true,
+          description: true,
+          status: true,
+          priority: true,
+          asset: { select: { name: true } },
+          unit: { select: { name: true } },
+        },
+        take: 40,
+        orderBy: [{ priority: "desc" }, { requestedAt: "asc" }],
+      });
+      plantWorkOrderContext = {
+        readOnly: true,
+        offlineMutationsSupported: false,
+        workOrders: assignedWos.map((w) => ({
+          id: w.id,
+          repairCode: w.repairCode,
+          title: w.title,
+          summary: w.description,
+          status: w.status,
+          priority: w.priority,
+          assetName: w.asset?.name ?? null,
+          unitName: w.unit?.name ?? null,
+        })),
+        lastSyncedAt: issuedAt.toISOString(),
+      };
+    } catch {
+      plantWorkOrderContext = null;
+    }
+  }
+
   const bundle: OfflineRuntimeBundle = {
     bundleVersion,
     serverRevision,
@@ -763,6 +811,7 @@ export async function buildRuntimeBundle(
     evidenceContext,
     assetContext,
     workContext,
+    plantWorkOrderContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({

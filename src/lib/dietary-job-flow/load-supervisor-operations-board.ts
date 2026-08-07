@@ -30,7 +30,9 @@ import { loadAssignmentPlanView } from "@/lib/scheduling/operational-assignments
 import { loadDailyAssignmentBoard } from "@/lib/scheduling/operational-assignments/load-daily-assignment-board";
 import { buildLocationCoverageSummary } from "@/lib/scheduling/operational-assignments/location-coverage";
 import { loadZonesForDepartment } from "@/lib/department-zones";
-import { isEvsOperationsEnabled } from "@/lib/feature-flags";
+import { isEvsOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { OPEN_OPERATIONAL_REQUEST_STATUSES } from "@/lib/operational-requests/types";
+import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { prisma } from "@/lib/prisma";
 
 import { resolveJobFlowAuthority, requireSupervisorBoard } from "./job-flow-authority";
@@ -606,8 +608,111 @@ export async function loadSupervisorOperationsBoard(
   });
 
   const isEvs = departmentRow.key === "EVS" && isEvsOperationsEnabled();
+  const isPlant = departmentRow.key === "PLANT" && isPlantOperationsEnabled();
   let locationCoverage: SupervisorOperationsBoard["locationCoverage"] = null;
   let filtersOut: SupervisorOperationsFilters | null = null;
+  let plantOperations: SupervisorOperationsBoard["plantOperations"] = null;
+
+  if (isPlant) {
+    const [requests, workOrders, oosAssets, requestingDepts, technicians] =
+      await Promise.all([
+        prisma.operationalRequest.findMany({
+          where: {
+            facilityId: input.facilityId,
+            responsibleDepartmentId: input.departmentId,
+            status: { in: OPEN_OPERATIONAL_REQUEST_STATUSES },
+          },
+          include: {
+            requestingDepartment: { select: { id: true, name: true } },
+            unit: { select: { name: true } },
+            workOrder: { select: { repairCode: true } },
+          },
+          orderBy: [{ priority: "desc" }, { reportedAt: "asc" }],
+          take: 80,
+        }),
+        prisma.repair.findMany({
+          where: {
+            responsibleDepartmentId: input.departmentId,
+            unit: { facilityId: input.facilityId },
+            status: { in: OPEN_WORK_ORDER_STATUSES },
+          },
+          include: {
+            unit: { select: { name: true } },
+            assignedEmployee: { select: { firstName: true, lastName: true } },
+          },
+          orderBy: [{ priority: "desc" }, { dueAt: "asc" }],
+          take: 80,
+        }),
+        prisma.asset.count({
+          where: {
+            unit: { facilityId: input.facilityId },
+            departmentId: input.departmentId,
+            status: "OUT_OF_SERVICE",
+          },
+        }),
+        prisma.department.findMany({
+          where: { facilityId: input.facilityId, isActive: true },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.employee.findMany({
+          where: {
+            facilityId: input.facilityId,
+            status: "ACTIVE",
+            primaryDepartmentId: input.departmentId,
+          },
+          select: { id: true, firstName: true, lastName: true },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          take: 100,
+        }),
+      ]);
+
+    const untriagedStatuses = new Set(["REPORTED", "ACKNOWLEDGED", "REOPENED"]);
+    plantOperations = {
+      newRequests: requests.filter((r) => r.status === "REPORTED").length,
+      untriaged: requests.filter((r) => untriagedStatuses.has(r.status)).length,
+      urgent: requests.filter((r) => r.priority === "URGENT" || r.priority === "HIGH").length,
+      outOfServiceAssets: oosAssets,
+      openWorkOrders: workOrders.filter((w) => w.status === "OPEN" || w.status === "ASSIGNED")
+        .length,
+      inProgressWorkOrders: workOrders.filter((w) => w.status === "IN_PROGRESS").length,
+      waitingVendor: workOrders.filter((w) => w.status === "WAITING_ON_VENDOR").length,
+      waitingParts: workOrders.filter((w) => w.status === "WAITING_PARTS").length,
+      overdueWorkOrders: workOrders.filter(
+        (w) => w.dueAt != null && w.dueAt.getTime() < now.getTime(),
+      ).length,
+      unassignedWorkOrders: workOrders.filter((w) => !w.assignedEmployeeId).length,
+      requests: requests.map((r) => ({
+        id: r.id,
+        requestCode: r.requestCode,
+        summary: r.summary,
+        status: r.status,
+        priority: r.priority,
+        requestingDepartmentName: r.requestingDepartment.name,
+        unitName: r.unit.name,
+        reportedAt: r.reportedAt.toISOString(),
+        workOrderCode: r.workOrder?.repairCode ?? null,
+      })),
+      workOrders: workOrders.map((w) => ({
+        id: w.id,
+        repairCode: w.repairCode,
+        title: w.title,
+        status: w.status,
+        priority: w.priority,
+        assignedEmployeeName: w.assignedEmployee
+          ? `${w.assignedEmployee.firstName} ${w.assignedEmployee.lastName}`.trim()
+          : null,
+        unitName: w.unit.name,
+        dueAt: w.dueAt?.toISOString() ?? null,
+        overdue: Boolean(w.dueAt && w.dueAt.getTime() < now.getTime()),
+      })),
+      requestingDepartments: requestingDepts,
+      technicians: technicians.map((t) => ({
+        id: t.id,
+        name: `${t.firstName} ${t.lastName}`.trim(),
+      })),
+    };
+  }
 
   if (isEvs) {
     const [locSummary, zones] = await Promise.all([
@@ -729,5 +834,6 @@ export async function loadSupervisorOperationsBoard(
     viewAllUnits,
     locationCoverage,
     filters: filtersOut,
+    plantOperations,
   };
 }

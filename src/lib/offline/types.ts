@@ -253,6 +253,25 @@ export type OfflineRuntimeBundle = {
     }>;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Phase 12A Plant — read-only assigned open Work Orders + assignment coverage.
+   * Offline Work Order mutations are NOT implemented in Phase 12A.
+   */
+  plantWorkOrderContext?: {
+    readOnly: true;
+    offlineMutationsSupported: false;
+    workOrders: Array<{
+      id: string;
+      repairCode: string;
+      title: string;
+      summary: string;
+      status: string;
+      priority: string;
+      assetName: string | null;
+      unitName: string | null;
+    }>;
+    lastSyncedAt: string;
+  } | null;
 };
 
 export type OfflineMilestoneProjection = {

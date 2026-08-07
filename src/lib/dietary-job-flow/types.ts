@@ -341,4 +341,41 @@ export type SupervisorOperationsBoard = {
     overlapping: SupervisorLocationCoverageRow[];
   } | null;
   filters: SupervisorOperationsFilters | null;
+  /** Phase 12A — Plant triage / WO queue projection (null when not Plant). */
+  plantOperations: {
+    newRequests: number;
+    untriaged: number;
+    urgent: number;
+    outOfServiceAssets: number;
+    openWorkOrders: number;
+    inProgressWorkOrders: number;
+    waitingVendor: number;
+    waitingParts: number;
+    overdueWorkOrders: number;
+    unassignedWorkOrders: number;
+    requests: Array<{
+      id: string;
+      requestCode: string;
+      summary: string;
+      status: string;
+      priority: string;
+      requestingDepartmentName: string;
+      unitName: string;
+      reportedAt: string;
+      workOrderCode: string | null;
+    }>;
+    workOrders: Array<{
+      id: string;
+      repairCode: string;
+      title: string;
+      status: string;
+      priority: string;
+      assignedEmployeeName: string | null;
+      unitName: string;
+      dueAt: string | null;
+      overdue: boolean;
+    }>;
+    requestingDepartments: Array<{ id: string; name: string }>;
+    technicians: Array<{ id: string; name: string }>;
+  } | null;
 };
