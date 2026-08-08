@@ -4,6 +4,8 @@
 **Branch:** `product/v1-ux-completion-phase-14-2026-08-08`
 **Date:** 2026-08-08
 **Status:** COMPLETE — remaining Phase 13 shell/UX findings closed; V1 readiness recorded.
+**Certification:** **PHASE 14 — PASS WITH FINDINGS** (full V1 UX certification matrix green; see §7).
+**Certified code SHA:** `205fa0606978d802744749ec2dcf43ffdc60fa2c` (Phase 14 feature commit; this record is a docs-only commit on top).
 
 RUN / BUILD remains the canonical product model. ADMIN remains governance only. Product mode
 stays a **presentation** projection over the platform route registry — never an authorization
@@ -91,3 +93,82 @@ database was dropped afterward. `ltc_manager` was never touched.
   unit test; a future enhancement could seed a small Floor/Neighborhood/Room hierarchy so the browser gate
   also exercises a populated rail.
 - **FA governance home** (a dedicated Admin landing for an FA without an operational relationship) remains deferred.
+
+---
+
+## 7. V1 UX Certification matrix (2026-08-08)
+
+Full, sequential certification run (no concurrent gates) against the certified code commit
+`205fa0606978d802744749ec2dcf43ffdc60fa2c`. All database-backed work used a **disposable local
+PostgreSQL 16.13** instance (`ltc_admin@localhost:5433`, Docker container `ltc-pg16-verify`) with
+per-gate `ltc_verify_*` databases created and dropped by the runners. `ltc_manager` was never a target.
+
+**Git state at certification**
+
+| Check | Value |
+|-------|-------|
+| `git branch --show-current` | `product/v1-ux-completion-phase-14-2026-08-08` |
+| `git rev-parse HEAD` | `205fa0606978d802744749ec2dcf43ffdc60fa2c` (code) |
+| `git rev-parse origin/<branch>` | `205fa06…` — local and remote matched |
+| `git status` | clean tree, branch tracking origin |
+
+**Static + unit + build + db (sequential)**
+
+| Gate | Result |
+|------|--------|
+| `env -u NODE_ENV npm run verify:static` | **PASS** — test-discovery 149 files; migration-integrity **72 migrations**; repository-hygiene 1195 files; typecheck; lint; prisma validate. |
+| `env -u NODE_ENV npm run test:hermetic` | **PASS** — 1478 pass / 0 fail / 93 skipped. |
+| `env -u NODE_ENV npm run verify:build` | **PASS** — production (`--webpack`) build. |
+| `env -u NODE_ENV npm run verify:db` (disposable PG16) | **PASS** — migrate deploy + double seed (idempotent) + schema assertions + SQL-backed suites: 1571 pass / 0 fail; disposable DB dropped. |
+
+**Browser gates (sequential, disposable PG16, production build each)**
+
+| # | Gate | Result |
+|---|------|--------|
+| 1 | `test:product-shell-browser` | **PASS** — 17/17 (`@ci-gate`), incl. Phase 14 scenarios 13–17. |
+| 2 | `test:assignment-browser` | **PASS** — 6/6. |
+| 3 | `test:offline-browser` | **PASS** — 25/25. |
+| 4 | `test:dietary-pilot` | **PASS** — 5/5 (Dietary regression). |
+| 5 | `test:operational-cycles-browser` | **PASS** — 6/6. |
+| 6 | `test:job-flow-browser` | **PASS** — 13/13. |
+| 7 | `test:operational-evidence-browser` | **PASS** — 10/10. |
+| 8 | `test:asset-operations-browser` | **PASS** — 1/1. |
+| 9 | `test:work-plans-browser` | **PASS** — 1/1. |
+| 10 | `test:evs-browser` | **PASS** — 9/9 (EVS regression). First attempt aborted during fixture setup with a transient disposable-DB-creation error; **isolated re-run passed**. Classified as environmental contention, not a product defect (no product code changed). |
+| 11 | `test:evs-assignment-browser` | **PASS** — 10/10. |
+| 12 | `test:plant-browser` | **PASS** — 7/7 (Plant regression). |
+
+**Phase 14 UX contracts (evidence)**
+
+| Contract | Evidence | Result |
+|----------|----------|--------|
+| `/build` is the canonical BUILD landing | Registry EXACT route (nav order 200) + product-mode rule; gate scenario-13. | PASS |
+| BUILD cards derive from the authoritative navigation projection | Page composes `platformNavItemsForRole` → `groupNavItemsByMode` → `buildHubCards`; `build-hub.test.ts`. | PASS |
+| BUILD does not grant authorization | `/build` is `ROLE_RESTRICTED` (SUPERVISOR floor) in the registry; page guards defensively; cards are filtered from already-authorized nav only. | PASS |
+| Quick PIN frontline cannot access BUILD | Gate scenario-09 (Quick PIN STAFF is RUN-only, no BUILD/ADMIN) + scenario-10 (direct URL stays server-authorized). | PASS |
+| ADMIN remains governance-only | Gate scenario-02 (manager sees no ADMIN) + scenario-06 (FA sees ADMIN). | PASS |
+| Offline shell indicator invisible online | `ShellOfflineIndicator` renders `null` while online; gate scenario-15. | PASS |
+| Offline shell indicator visible offline | Gate scenario-15 (surfaces on transient drop). | PASS |
+| Tablet landscape has no horizontal shell overflow | Gate scenario-14 (1024×768). | PASS |
+| Tablet portrait has no horizontal shell overflow | Gate scenario-14 (820×1180). | PASS |
+| Floor → Neighborhood / Unit → Room hierarchy preserved | `sidebar-hierarchy.test.ts` + gate scenario-16. | PASS |
+| Structural location nodes expand rather than navigate | `sidebar-hierarchy.test.ts` (structural non-anchor) + scenario-16. | PASS |
+| Actionable Room / Space nodes navigate correctly | Gate scenario-16 (actionable → `/unit/…?space=`). | PASS |
+| Empty hierarchy states remain safe | Gate scenario-16 explicit "No active locations" branch. | PASS |
+| Build → Run first-use journey succeeds | Gate scenario-17. | PASS |
+| Deleted administration-menu / administration-nav have no live imports | Source scan clean across `src/` and `tests/`. | PASS |
+| Legacy Surface Register reflects their removal | Register row marked REMOVED (Phase 14); `/build` recorded as active authority. | PASS |
+| No new source-of-truth models introduced | Phase 14 commit changed no `prisma/` schema or migration files. | PASS |
+| Migration count remains 72 | `migration-integrity` PASS (72). | PASS |
+| `OPERATION_ENGINE_ENABLED=false` | Held empty by gate env; hermetic operation-engine suites skipped. | PASS |
+| `TASK_SYNC_ENABLED=false` | Held empty by gate env. | PASS |
+| `ltc_manager` untouched | Only disposable `ltc_verify_*` databases on the PG16 container were targeted. | PASS |
+| No cloud resources | All verification local (Docker PG16 + localhost Next start). | PASS |
+
+**Retained cross-phase findings** (genuine product boundaries, not unverified regressions):
+- Empty projected locations rail for the seed manager — hierarchy proven by the deterministic unit test; populated-rail seeding is a future enhancement.
+- FA governance home (dedicated Admin landing for an FA without an operational relationship) remains deferred.
+- Hosted staging remains deferred (no cloud spend authorized).
+
+**Certification result:** **PHASE 14 — PASS WITH FINDINGS.** The findings above are retained product
+boundaries; the complete regression matrix is green.
