@@ -22,15 +22,20 @@ export const NAV_ZONE_LABELS: Record<NavZone, string> = {
   ADMINISTRATION: "Administration",
 };
 
-/** Canonical visible labels for primary top-nav routes (pathPrefix → zone-facing label). */
+/**
+ * Canonical visible labels for primary top-nav routes (pathPrefix → product-facing label).
+ *
+ * Phase 13: labels use RUN/BUILD product terminology. Routes not listed here fall back to their
+ * route-registry `nav.label`.
+ */
 export const PRIMARY_NAV_LABELS: Record<string, string> = {
-  "/workspace": NAV_ZONE_LABELS.WORKSPACE,
+  "/workspace": "Dashboard",
   "/dashboard": NAV_ZONE_LABELS.OPERATIONS_CENTER,
   "/today": NAV_ZONE_LABELS.TODAYS_WORK,
-  "/staffing": NAV_ZONE_LABELS.TODAYS_WORK,
+  "/staffing": "Employees",
   "/reports": NAV_ZONE_LABELS.REVIEW,
   "/units": NAV_ZONE_LABELS.LOCATIONS,
-  "/admin": NAV_ZONE_LABELS.ADMINISTRATION,
+  "/admin": "Admin",
 };
 
 export function normalizePrimaryNavLabel(pathPrefix: string, label: string): string {

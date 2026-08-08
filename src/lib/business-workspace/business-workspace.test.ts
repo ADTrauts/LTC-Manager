@@ -716,9 +716,10 @@ test("workspace route is SUPERVISOR+ in platform route policy", () => {
   assert.equal(roleMayAccessRoute("/workspace", "MANAGER", flags), true);
 });
 
-test("workspace maps to Workspace nav zone and label", () => {
+test("workspace maps to Workspace nav zone and the RUN Dashboard label", () => {
   assert.equal(resolveZoneForPathPrefix("/workspace"), "WORKSPACE");
-  assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Workspace");
+  // Phase 13: the Business Workspace is presented as the RUN "Dashboard".
+  assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Dashboard");
 });
 
 test("manager focus: ranking prefers overdue inspection then staffing then disruption", () => {

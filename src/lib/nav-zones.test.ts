@@ -44,16 +44,18 @@ test("groupNavItemsByZone preserves nav order within zones and zone order global
     ["WORKSPACE", "TODAYS_WORK", "REVIEW", "ADMINISTRATION"],
   );
   assert.equal(groups[0]?.items[0]?.href, "/workspace");
-  assert.equal(groups[0]?.items[0]?.label, "Workspace");
+  assert.equal(groups[0]?.items[0]?.label, "Dashboard");
 });
 
-test("normalizePrimaryNavLabel maps legacy module labels to zone names", () => {
+test("normalizePrimaryNavLabel maps module labels to product-facing names", () => {
   assert.equal(normalizePrimaryNavLabel("/dashboard", "Dashboard"), "Operations Center");
-  assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Today's Work");
+  assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Dashboard");
+  assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Employees");
   assert.equal(normalizePrimaryNavLabel("/reports", "Reports"), "Review");
   assert.equal(normalizePrimaryNavLabel("/units", "Units"), "Locations");
-  assert.equal(normalizePrimaryNavLabel("/admin", "Admin"), "Administration");
-  assert.equal(normalizePrimaryNavLabel("/employees", "Employees"), "Employees");
+  assert.equal(normalizePrimaryNavLabel("/admin", "Admin"), "Admin");
+  // Routes without an explicit product label fall back to their registry label.
+  assert.equal(normalizePrimaryNavLabel("/employees", "Employee Builder"), "Employee Builder");
 });
 
 test("shouldShowZoneHeading hides redundant zone label for single matching link", () => {

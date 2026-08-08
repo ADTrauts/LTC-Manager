@@ -76,7 +76,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "workspace",
     legacyArea: { key: "workspace", label: "Workspace", navOrder: 5, navVisible: true, critical: true },
-    nav: { label: "Workspace", order: 5 },
+    // RUN · Dashboard — the manager/GM operating picture and default home.
+    nav: { label: "Dashboard", order: 10 },
   },
   {
     pattern: "/dashboard",
@@ -105,7 +106,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "todays-work",
     legacyArea: { key: "today", label: "Today's Work", navOrder: 15, navVisible: true, critical: false },
     featureFlag: "TODAYS_WORK",
-    nav: { label: "Today's Work", order: 15 },
+    // RUN · Today's Work — supervisor exception board / walk / coverage / handoffs.
+    nav: { label: "Today's Work", order: 20 },
   },
   {
     pattern: "/today/coverage",
@@ -140,6 +142,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
     legacyArea: { key: "staffing", label: "Today's Work", navOrder: 50, navVisible: false, critical: false },
+    // RUN · Employees — today's workforce operations (schedule / attendance / assignments / coverage).
+    // Workforce configuration (person, employment, role) lives in BUILD Employee Builder (/employees).
+    nav: { label: "Employees", order: 40 },
   },
   {
     pattern: "/staffing/assignments",
@@ -172,6 +177,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
+    featureFlag: "DIETARY_OPERATIONAL_EVIDENCE",
+    // BUILD · Operational Templates — the authoritative unified LOG / CHECKLIST / INSPECTION builder.
+    nav: { label: "Operational Templates", order: 240 },
     notes:
       "Unified Operational Template Builder (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
   },
@@ -181,6 +189,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "staffing",
+    featureFlag: "DIETARY_WORK_PLANS",
+    // BUILD · Work Plans — Department Work Plan builder.
+    nav: { label: "Work Plans", order: 250 },
     notes:
       "Dietary Department Work Plan Builder (Phase 11A). Page enforces DIETARY_WORK_PLANS_ENABLED.",
   },
@@ -199,6 +210,10 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
+    featureFlag: "DIETARY_OPERATIONAL_EVIDENCE",
+    // RUN · Log Book — historical operational evidence and records. Nav hidden when the capability is
+    // off (the page keeps its own DIETARY_OPERATIONAL_EVIDENCE_ENABLED guard downstream).
+    nav: { label: "Log Book", order: 50 },
     notes:
       "Dietary Operational Evidence Log Book (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
   },
@@ -240,7 +255,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "employees",
     legacyArea: { key: "employees", label: "Employees", navOrder: 30, navVisible: true, critical: false },
-    nav: { label: "Employees", order: 30 },
+    // BUILD · Employee Builder — workforce configuration (person, employment, department, job role, HR).
+    // Today's staffing/attendance/assignments live in RUN Employees (/staffing).
+    nav: { label: "Employee Builder", order: 230 },
   },
   {
     pattern: "/employees/chrc-report",
@@ -293,7 +310,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "logs",
     legacyArea: { key: "logs", label: "Logs", navOrder: 40, navVisible: true, critical: false },
-    nav: { label: "Logs", order: 40 },
+    // RUN · Logs — frontline STAFF logging surface (kept; see Legacy Surface Register for its
+    // relationship to the Operational Evidence Log Book).
+    nav: { label: "Logs", order: 70 },
   },
   {
     pattern: "/menus",
@@ -302,7 +321,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "menus",
     legacyArea: { key: "menus", label: "Menus", navOrder: 60, navVisible: true, critical: false },
-    nav: { label: "Menus", order: 60 },
+    // BUILD · Menu Building — Dietary menu cycle/period/item configuration.
+    nav: { label: "Menu Building", order: 235 },
   },
   {
     pattern: "/assets",
@@ -311,7 +331,10 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "assets",
     legacyArea: { key: "assets", label: "Assets", navOrder: 70, navVisible: true, critical: false },
-    nav: { label: "Assets", order: 70 },
+    // RUN · Assets — operational asset view (status / evidence / issues / requests / work orders).
+    // Asset configuration (identity, type, department, retirement) is composed within this area's
+    // Build tab and the Department Builder; there is one asset registry.
+    nav: { label: "Assets", order: 60 },
   },
   {
     pattern: "/assets/[assetId]",
@@ -340,7 +363,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "repairs",
     legacyArea: { key: "repairs", label: "Repairs", navOrder: 80, navVisible: true, critical: false },
-    nav: { label: "Repairs", order: 80 },
+    // RUN · Repairs / Work Orders — operational repair runtime.
+    nav: { label: "Repairs", order: 90 },
   },
   {
     pattern: "/repairs/[id]",
@@ -368,7 +392,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "reports",
     legacyArea: { key: "reports", label: "Review", navOrder: 90, navVisible: true, critical: false },
-    nav: { label: "Review", order: 90 },
+    // RUN · Review — reporting / review surfaces.
+    nav: { label: "Review", order: 100 },
   },
 
   // ── Administration (Facility Administrator only) ──────────────────────────
@@ -379,7 +404,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
     legacyArea: { key: "admin", label: "Administration", navOrder: 100, navVisible: true, critical: true },
-    nav: { label: "Administration", order: 100 },
+    // ADMIN · governance home (organization, facilities, access matrix). Not a co-equal operating mode.
+    nav: { label: "Admin", order: 300 },
   },
   {
     pattern: "/admin/departments",
@@ -389,6 +415,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // Cycle mutations still enforce Dietary operational authority (FA alone is denied).
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "administration",
+    // BUILD · Department Builder — the operational-programming center (capability-aware per department:
+    // Locations, Zones, Operational Cycles, Work Plans, Request/Routing behavior).
+    nav: { label: "Department Builder", order: 220 },
   },
   {
     pattern: "/admin/departments/[departmentId]",
@@ -404,6 +433,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
+    // BUILD · Facility Builder — physical structure and identity only (floors, neighborhoods/units,
+    // rooms/spaces, space types, location hierarchy). It does not own department operating logic.
+    nav: { label: "Facility Builder", order: 210 },
   },
   {
     pattern: "/admin/inspections",
@@ -411,6 +443,10 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
+    // LEGACY (hidden from nav): superseded by the unified Operational Template Builder. Reachable by
+    // URL for FACILITY_ADMINISTRATOR; see docs/product/LEGACY_SURFACE_REGISTER.md.
+    notes:
+      "Legacy inspections configuration. Superseded by the unified Operational Template Builder (BUILD). Hidden from navigation; kept reachable and read-authoritative for FA until dependencies retire.",
   },
   {
     pattern: "/admin/knowledge",
@@ -418,6 +454,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
+    // BUILD · Procedures & Resources — the operational knowledge/procedure library, presented in
+    // operational language rather than "Operational Knowledge".
+    nav: { label: "Procedures & Resources", order: 260 },
   },
   {
     pattern: "/admin/organization",

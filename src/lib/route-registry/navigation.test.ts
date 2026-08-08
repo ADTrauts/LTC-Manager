@@ -49,21 +49,34 @@ test("navigation — labels come from the registry, not from database rows", () 
   const byHref = new Map(
     platformNavItemsForRole("FACILITY_ADMINISTRATOR", FLAGS).map((item) => [item.href, item.label]),
   );
-  assert.equal(byHref.get("/workspace"), "Workspace");
+  assert.equal(byHref.get("/workspace"), "Dashboard");
   assert.equal(byHref.get("/units"), "Locations");
   assert.equal(byHref.get("/reports"), "Review");
-  assert.equal(byHref.get("/admin"), "Administration");
+  assert.equal(byHref.get("/admin"), "Admin");
   assert.equal(byHref.get("/today"), "Today's Work");
+  // Phase 13 product-mode surfaces.
+  assert.equal(byHref.get("/staffing"), "Employees");
+  assert.equal(byHref.get("/employees"), "Employee Builder");
+  assert.equal(byHref.get("/admin/departments"), "Department Builder");
+  assert.equal(byHref.get("/admin/facility/builder"), "Facility Builder");
+  assert.equal(byHref.get("/admin/knowledge"), "Procedures & Resources");
 });
 
 test("navigation — absence from navigation does not deny access", () => {
-  // /dashboard, /operations, /staffing, /account and the dynamic detail routes are intentionally
-  // hidden. They stay reachable by URL for the roles the registry approves.
+  // /dashboard, /operations, /account and the dynamic detail routes are intentionally hidden.
+  // They stay reachable by URL for the roles the registry approves.
   for (const path of ["/dashboard", "/operations", "/account"]) {
     assert.equal(hrefsFor("STAFF").includes(path), false, `${path} should be hidden`);
     assert.equal(roleMayAccessRoute(path, "STAFF", FLAGS), true, `${path} should stay reachable`);
   }
-  assert.equal(hrefsFor("SUPERVISOR").includes("/staffing"), false);
+  // The Operations Center dashboard stays reachable by URL but is not offered in nav.
+  assert.equal(hrefsFor("SUPERVISOR").includes("/dashboard"), false);
+  assert.equal(roleMayAccessRoute("/dashboard", "SUPERVISOR", FLAGS), true);
+});
+
+test("navigation — Phase 13 RUN Employees surface is offered to supervisors", () => {
+  // /staffing became the canonical RUN Employees surface (today's workforce operations).
+  assert.equal(hrefsFor("SUPERVISOR").includes("/staffing"), true);
   assert.equal(roleMayAccessRoute("/staffing", "SUPERVISOR", FLAGS), true);
 });
 
