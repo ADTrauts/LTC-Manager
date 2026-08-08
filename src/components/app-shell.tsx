@@ -18,7 +18,12 @@ import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { loadFacilityAccessContext } from "@/lib/facility-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
-import { isProjectionSidebarEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
+import {
+  isDietaryOperationalEvidenceEnabled,
+  isDietaryWorkPlansEnabled,
+  isProjectionSidebarEnabled,
+  isTodaysWorkEnabled,
+} from "@/lib/feature-flags";
 import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
@@ -114,6 +119,8 @@ export async function AppShell({ children }: AppShellProps) {
     authKind === "user" && hasAtLeastRole(session.role, "SUPERVISOR");
   const rawNavItems = platformNavItemsForRole(session.role, {
     todaysWorkEnabled: isTodaysWorkEnabled(),
+    dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
+    dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
   });
   const scopeDepartments = await prisma.department.findMany({
     where: { facilityId: session.facilityId, isActive: true, showInEmployeeApp: true },
