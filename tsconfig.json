@@ -38,7 +38,13 @@
     ".next-evs-assignment-browser/types/**/*.ts",
     ".next-evs-assignment-browser/dev/types/**/*.ts",
     ".next-plant-browser/types/**/*.ts",
-    ".next-plant-browser/dev/types/**/*.ts"
+    ".next-plant-browser/dev/types/**/*.ts",
+    ".next-product-shell-browser/types/**/*.ts",
+    ".next-product-shell-browser/dev/types/**/*.ts",
+    ".next-evs-browser/types/**/*.ts",
+    ".next-evs-browser/dev/types/**/*.ts",
+    ".next-workplans-browser/types/**/*.ts",
+    ".next-workplans-browser/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
