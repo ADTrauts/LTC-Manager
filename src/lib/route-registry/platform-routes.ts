@@ -396,6 +396,19 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     nav: { label: "Review", order: 100 },
   },
 
+  // ── Build hub ─────────────────────────────────────────────────────────────
+  {
+    pattern: "/build",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "build",
+    // BUILD · hub — the dedicated Build-mode landing. It composes the Build navigation group and is
+    // presentation only: it lists only the configuration surfaces the role/department may already
+    // reach, and never grants access. Frontline (STAFF / Quick PIN) stays Run-only below this floor.
+    nav: { label: "Build Home", order: 200 },
+  },
+
   // ── Administration (Facility Administrator only) ──────────────────────────
   {
     pattern: "/admin",

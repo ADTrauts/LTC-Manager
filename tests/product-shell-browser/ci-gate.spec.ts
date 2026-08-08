@@ -67,14 +67,28 @@ function staffPin(): string {
   return pin;
 }
 
-async function openPersistent(suffix: string): Promise<{ context: BrowserContext; page: Page }> {
+type Viewport = { width: number; height: number };
+
+/** Common device viewports the product shell must remain usable at. */
+const DESKTOP_VIEWPORT: Viewport = { width: 1360, height: 900 };
+/** iPad landscape — the primary tablet the operational runtime targets. */
+const TABLET_LANDSCAPE_VIEWPORT: Viewport = { width: 1024, height: 768 };
+/** iPad portrait — the shell stacks the locations rail above content below the lg breakpoint. */
+const TABLET_PORTRAIT_VIEWPORT: Viewport = { width: 820, height: 1180 };
+
+async function openPersistent(
+  suffix: string,
+  viewport: Viewport = DESKTOP_VIEWPORT,
+): Promise<{ context: BrowserContext; page: Page }> {
   const context = await chromium.launchPersistentContext(`${profileDir}-${suffix}`, {
     headless: true,
-    viewport: { width: 1360, height: 900 },
+    viewport,
   });
   const page = context.pages()[0] ?? (await context.newPage());
   return { context, page };
 }
+
+const SIDEBAR_KINDS = new Set(["FACILITY", "FLOOR", "NEIGHBORHOOD", "LEGACY", "ROOM"]);
 
 /** Password login via the real API (deterministic; avoids PIN-default gate on later contexts). */
 async function loginPassword(page: Page, email: string, password: string) {
@@ -319,6 +333,159 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
       const res = await page.goto("/definitely-not-a-real-route", { waitUntil: "domcontentloaded" });
       expect(res?.status()).toBe(404);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // ── Phase 14 — V1 UX completion ──────────────────────────────────────────
+
+  test("scenario-13: the Build mode segment lands on the dedicated Build hub @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-build-hub");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      // Clicking the Build mode segment routes to the dedicated /build landing (its first nav item).
+      await modeSegment(page, "BUILD").click();
+      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
+      // The hub composes the Build group as cards — only surfaces the role may actually reach.
+      // (Each card's accessible name is label + description, so target by the stable data-href.)
+      const hub = page.getByTestId("build-hub");
+      await expect(hub).toBeVisible();
+      await expect(
+        hub.locator('[data-testid="build-hub-card"][data-href="/admin/departments"]'),
+      ).toBeVisible();
+      await expect(
+        hub.locator('[data-testid="build-hub-card"][data-href="/employees"]'),
+      ).toBeVisible();
+      // The hub never lists its own home link as a card.
+      await expect(page.locator('[data-testid="build-hub-card"][data-href="/build"]')).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-14: the product shell stays usable at tablet viewports @ci-gate", async () => {
+    const fx = loadFixtures();
+    for (const [suffix, viewport] of [
+      ["mgr-tablet-landscape", TABLET_LANDSCAPE_VIEWPORT],
+      ["mgr-tablet-portrait", TABLET_PORTRAIT_VIEWPORT],
+    ] as const) {
+      const { context, page } = await openPersistent(suffix, viewport);
+      try {
+        await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+        await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+        // The single top-navigation surface, both mode segments, and the RUN home remain reachable.
+        await expect(modeSegment(page, "RUN")).toBeVisible({ timeout: 30_000 });
+        await expect(modeSegment(page, "BUILD")).toBeVisible();
+        await expect(banner(page).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+        // The locations rail is present (stacked above content in portrait, beside it in landscape).
+        await expect(page.locator('aside[aria-label="Locations rail"]')).toBeVisible();
+        // The viewport does not scroll horizontally — the shell fits the tablet width.
+        const overflowsX = await page.evaluate(
+          () => document.documentElement.scrollWidth > window.innerWidth + 1,
+        );
+        expect(overflowsX, `horizontal overflow at ${viewport.width}x${viewport.height}`).toBe(false);
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
+  test("scenario-15: the shell offline indicator reacts to connectivity events @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-offline");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const indicator = page.getByTestId("shell-offline-indicator");
+      // Healthy connectivity adds no chrome.
+      await expect(indicator).toHaveCount(0);
+      // Simulate a transient connectivity drop on the already-loaded shell (a hard network cut would
+      // trigger the PWA offline fallback instead of the live shell). The chip must surface politely.
+      await page.evaluate(() => {
+        Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+        window.dispatchEvent(new Event("offline"));
+      });
+      await expect(indicator).toBeVisible({ timeout: 15_000 });
+      await expect(indicator).toHaveAttribute("data-online", "false");
+      // Recovering hides it again.
+      await page.evaluate(() => {
+        Object.defineProperty(navigator, "onLine", { configurable: true, get: () => true });
+        window.dispatchEvent(new Event("online"));
+      });
+      await expect(indicator).toHaveCount(0, { timeout: 15_000 });
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-16: the locations rail renders the projected hierarchy contract @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-rail");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const rail = page.locator('aside[aria-label="Locations rail"]');
+      await expect(rail).toBeVisible({ timeout: 30_000 });
+
+      // The rail always renders a defined state: either projected location nodes or the explicit
+      // empty state — never a broken/blank region. (The Floor → Neighborhood → Room nesting itself
+      // is pinned deterministically in src/lib/locations/sidebar-hierarchy.test.ts.)
+      const nodes = rail.locator("[data-location-id][data-kind]");
+      const nodeCount = await nodes.count();
+      if (nodeCount === 0) {
+        await expect(rail.getByText("No active locations.")).toBeVisible();
+      } else {
+        // Every node advertises a kind from the Floor → Neighborhood → Room vocabulary.
+        const kinds = await nodes.evaluateAll((els) => els.map((el) => el.getAttribute("data-kind")));
+        for (const kind of kinds) {
+          expect(SIDEBAR_KINDS.has(kind ?? ""), `unexpected rail kind ${kind}`).toBe(true);
+        }
+        // Actionable location nodes open a Unit workspace; structural nodes orient only (no anchor).
+        const actionable = rail.locator('a[data-presentation="ACTIONABLE"][data-location-id]');
+        if ((await actionable.count()) > 0) {
+          const href = await actionable.first().getAttribute("href");
+          expect(href ?? "", "actionable rail node must link into /unit").toMatch(/^\/unit\//);
+        }
+        const structural = rail.locator('[data-presentation="STRUCTURAL"][data-location-id]');
+        const structuralCount = await structural.count();
+        for (let i = 0; i < structuralCount; i += 1) {
+          expect(await structural.nth(i).evaluate((el) => el.tagName)).not.toBe("A");
+        }
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-17: first-use Build → Run journey reaches operate-today from configure @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-build-run-journey");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      // 1) Start on the RUN home.
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible({ timeout: 30_000 });
+      // 2) Enter BUILD via the mode segment → the dedicated hub.
+      await modeSegment(page, "BUILD").click();
+      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
+      // 3) Configure: open a builder from the hub (target the stable data-href, not the composite name).
+      await page
+        .locator('[data-testid="build-hub-card"][data-href="/admin/departments"]')
+        .click();
+      await page.waitForURL((u) => u.pathname.startsWith("/admin/departments"), { timeout: 30_000 });
+      await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
+      // 4) Return to RUN via the mode segment and reach an operate-today surface.
+      await modeSegment(page, "RUN").click();
+      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible();
+      await page.goto("/units", { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/units(\?|$)/);
+      await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible();
     } finally {
       await context.close();
     }

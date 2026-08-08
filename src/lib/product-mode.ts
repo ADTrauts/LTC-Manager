@@ -46,6 +46,7 @@ type ModePathRule = { pathPrefix: string; mode: ProductMode; label: string };
 export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
   [
     // ── BUILD — configuration surfaces ─────────────────────────────────────
+    { pathPrefix: "/build", mode: "BUILD", label: "Build Home" },
     { pathPrefix: "/admin/facility/builder", mode: "BUILD", label: "Facility Builder" },
     { pathPrefix: "/admin/departments", mode: "BUILD", label: "Department Builder" },
     { pathPrefix: "/admin/knowledge", mode: "BUILD", label: "Procedures & Resources" },

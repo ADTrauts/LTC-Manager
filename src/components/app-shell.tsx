@@ -9,6 +9,7 @@ import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
 import { SignOutControls } from "@/components/sign-out-controls";
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
+import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
 import { TopNav } from "@/components/top-nav";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
@@ -188,7 +189,8 @@ export async function AppShell({ children }: AppShellProps) {
             />
           ) : null}
           <TopNav items={navItems} />
-          <div className="shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
+            <ShellOfflineIndicator />
             <SignOutControls showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
           </div>
         </div>

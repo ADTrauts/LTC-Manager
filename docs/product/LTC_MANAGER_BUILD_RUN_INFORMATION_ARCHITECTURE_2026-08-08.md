@@ -218,9 +218,11 @@ Department-operational pages keep their own downstream flag guards regardless of
 
 1. **FA default home** stays RUN Dashboard; a dedicated Admin/governance home for FA-without-operational-relationship is deferred.
 2. **Asset Builder** and **Employee Builder** are compositions over existing surfaces (`/assets`, `/employees`) rather than dedicated `/build/*` routes — intentional (no new domain routes this phase).
-3. **BUILD hub** is the Build mode's nav group + Department Builder as landing; a dedicated `/build` landing page is a future enhancement.
+3. ~~**BUILD hub** is the Build mode's nav group + Department Builder as landing; a dedicated `/build` landing page is a future enhancement.~~ **Closed in Phase 14:** a dedicated `/build` hub now composes the Build navigation group as cards and is the Build mode segment's landing.
 4. Legacy `/logs` and `/admin/inspections` remain reachable; retirement tracked in the Legacy Surface Register.
-5. Old zone-based components (`administration-menu.tsx`, `administration-nav.ts`) are retained but no longer rendered; safe to remove in a later cleanup.
+5. ~~Old zone-based components (`administration-menu.tsx`, `administration-nav.ts`) are retained but no longer rendered; safe to remove in a later cleanup.~~ **Closed in Phase 14:** removed (dead code, no importers), with their unit tests.
+
+> **Phase 14 (V1 UX Completion) also closed:** shell-level offline indicator, explicit tablet-viewport verification, explicit Floor → Neighborhood → Room sidebar assertions, and an end-to-end first-use Build → Run journey. See `docs/product/LTC_MANAGER_V1_UX_COMPLETION_PHASE_14_2026-08-08.md`.
 
 ---
 

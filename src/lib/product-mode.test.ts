@@ -32,6 +32,7 @@ test("product-mode — operational surfaces resolve to RUN", () => {
 
 test("product-mode — configuration surfaces resolve to BUILD", () => {
   for (const path of [
+    "/build",
     "/admin/facility/builder",
     "/admin/departments",
     "/admin/departments/dept-1",
@@ -69,6 +70,7 @@ test("product-mode — unknown paths default to RUN (never hides a surface behin
 
 test("product-mode — area label is available for the mode indicator", () => {
   assert.equal(resolveProductAreaLabel("/units"), "Locations");
+  assert.equal(resolveProductAreaLabel("/build"), "Build Home");
   assert.equal(resolveProductAreaLabel("/admin/departments"), "Department Builder");
   assert.equal(resolveProductAreaLabel("/staffing/log-book"), "Log Book");
 });
