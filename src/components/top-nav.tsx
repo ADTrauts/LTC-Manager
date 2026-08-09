@@ -4,13 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useNavPathname } from "@/hooks/use-nav-pathname";
-import { AppIcons, navIconClassName, resolveNavIcon } from "@/lib/design-system";
+import { navIconClassName, resolveNavIcon } from "@/lib/design-system";
 import type { NavRouteItem } from "@/lib/nav-zones";
 import {
   groupNavItemsByMode,
   headerNavItemsForMode,
   resolveActiveMode,
-  type ProductMode,
 } from "@/lib/product-mode";
 import { isActiveNavPath } from "@/lib/nav-utils";
 
@@ -24,62 +23,11 @@ function linkClass(isActive: boolean) {
     : "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-sm px-2 text-sm font-medium text-zinc-600 outline-offset-2 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400 sm:px-2.5";
 }
 
-/** Segmented Run / Build mode control. Each segment links to its mode's hub (first nav item). */
-function ModeSwitch({
-  segments,
-  activeMode,
-}: {
-  segments: { mode: ProductMode; label: string; href: string }[];
-  activeMode: ProductMode;
-}) {
-  if (segments.length < 2) return null;
-  return (
-    <div
-      className="flex shrink-0 items-center rounded-md border border-zinc-200 bg-zinc-50 p-0.5"
-      role="group"
-      aria-label="Product mode"
-    >
-      {segments.map((segment) => {
-        const isActive = segment.mode === activeMode;
-        const activeClass =
-          segment.mode === "BUILD"
-            ? "inline-flex min-h-8 items-center rounded-[5px] bg-amber-100 px-3 text-sm font-semibold text-amber-900 shadow-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"
-            : "inline-flex min-h-8 items-center rounded-[5px] bg-white px-3 text-sm font-semibold text-zinc-900 shadow-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400";
-        return (
-          <Link
-            key={segment.mode}
-            href={segment.href}
-            aria-current={isActive ? "true" : undefined}
-            data-mode={segment.mode}
-            data-mode-active={isActive ? "true" : undefined}
-            className={
-              isActive
-                ? activeClass
-                : "inline-flex min-h-8 items-center rounded-[5px] px-3 text-sm font-medium text-zinc-500 hover:text-zinc-800 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400"
-            }
-          >
-            {segment.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 export function TopNav({ items }: TopNavProps) {
   const pathname = useNavPathname();
   const groups = useMemo(() => groupNavItemsByMode(items), [items]);
   const activeMode = resolveActiveMode(pathname ?? "", groups);
 
-  const primarySegments = groups
-    .filter((group) => group.mode === "RUN" || group.mode === "BUILD")
-    .map((group) => ({
-      mode: group.mode,
-      label: group.label,
-      href: group.items[0]?.href ?? "/",
-    }));
-
-  const adminGroup = groups.find((group) => group.mode === "ADMIN");
   const activeGroup = groups.find((group) => group.mode === activeMode) ?? groups[0];
   const visibleItems = useMemo(
     () => headerNavItemsForMode(activeMode, activeGroup?.items ?? []),
@@ -130,12 +78,8 @@ export function TopNav({ items }: TopNavProps) {
 
   if (groups.length === 0) return null;
 
-  const AdminIcon = AppIcons.administration;
-
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-      <ModeSwitch segments={primarySegments} activeMode={activeMode} />
-
       <div className="relative min-w-0 flex-1">
         {canScrollLeft ? (
           <div
@@ -174,27 +118,6 @@ export function TopNav({ items }: TopNavProps) {
           })}
         </nav>
       </div>
-
-      {adminGroup ? (
-        <div className="flex shrink-0 items-center">
-          <span className="mx-1 hidden h-5 w-px shrink-0 bg-zinc-200 sm:block" aria-hidden="true" />
-          {adminGroup.items.map((item) => {
-            const isActive = isActiveNavPath(pathname, item.href) || activeMode === "ADMIN";
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={linkClass(isActive)}
-                data-nav-active={isActive ? "true" : undefined}
-                aria-current={isActiveNavPath(pathname, item.href) ? "page" : undefined}
-              >
-                <AdminIcon className={navIconClassName(isActive)} aria-hidden />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
     </div>
   );
 }

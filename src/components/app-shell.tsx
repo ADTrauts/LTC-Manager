@@ -22,6 +22,8 @@ import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { loadFacilityAccessContext } from "@/lib/facility-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 import {
   isDietaryOperationalEvidenceEnabled,
   isDietaryWorkPlansEnabled,
@@ -119,12 +121,23 @@ export async function AppShell({ children }: AppShellProps) {
       : `Signed in as ${session.name} (${session.role})`;
   const showGmUnbind =
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
-  const showOperationsCenterLink =
-    authKind === "user" && hasAtLeastRole(session.role, "SUPERVISOR");
-  const rawNavItems = platformNavItemsForRole(session.role, {
+  const navFeatureFlags = {
     todaysWorkEnabled: isTodaysWorkEnabled(),
     dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
     dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+  };
+  const rawNavItems = platformNavItemsForRole(session.role, navFeatureFlags);
+
+  // Workspace/governance switching lives in the context menu. These are presentation-only
+  // projections of the platform route registry — a menu entry is offered only when the session may
+  // already reach the surface; it never grants authority.
+  const menuShowBuild = roleMayAccessRoute("/build", session.role, navFeatureFlags);
+  const menuShowAdmin = roleMayAccessRoute("/admin", session.role, navFeatureFlags);
+  const menuRunHomeHref = resolveDefaultHomePath({
+    authKind,
+    role: session.role,
+    activeUnitId: session.activeUnitId,
+    lockedUnitId,
   });
   const scopeDepartments = await resolveSelectableDepartmentsForSession(session);
 
@@ -187,7 +200,14 @@ export async function AppShell({ children }: AppShellProps) {
           <TopNav items={navItems} />
           <div className="flex shrink-0 items-center gap-2">
             <ShellOfflineIndicator />
-            <AccountMenu showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
+            <AccountMenu
+              showUnbind={showGmUnbind}
+              showChangePassword={authKind === "user"}
+              menuLabel={session.name}
+              runHomeHref={menuRunHomeHref}
+              showBuild={menuShowBuild}
+              showAdmin={menuShowAdmin}
+            />
           </div>
         </div>
       </header>
@@ -202,7 +222,6 @@ export async function AppShell({ children }: AppShellProps) {
           }
           projectionUnavailable={Boolean(projectionSidebar && sidebarProjection.error)}
           lockedUnitId={lockedUnitId}
-          showOperationsCenterLink={showOperationsCenterLink}
           readinessByUnitId={readinessByUnitId}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:overflow-hidden">
