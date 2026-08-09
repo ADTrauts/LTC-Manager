@@ -68,12 +68,9 @@ function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
     return (
       <EmptyState
         title="Current operations are on track."
-        description="Open Operations Center or Today&apos;s Work when you are ready."
+        description="Open Today&apos;s Work when you are ready for the current-day walk."
         action={
           <div className="flex flex-wrap gap-3">
-            <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
-              Operations Center
-            </Link>
             <Link href="/today" className="text-sm font-medium text-zinc-800 underline">
               Today&apos;s Work
             </Link>
@@ -205,12 +202,9 @@ function PrioritiesSection({ view }: { view: WorkspaceViewModel }) {
     return (
       <EmptyState
         title="Current operations are on track."
-        description="Open Operations Center or Today&apos;s Work when you need the detailed walk."
+        description="Open Today&apos;s Work when you need the detailed current-day walk."
         action={
           <div className="flex flex-wrap gap-3">
-            <Link href="/dashboard" className="text-sm font-medium text-zinc-800 underline">
-              Operations Center
-            </Link>
             <Link href="/today" className="text-sm font-medium text-zinc-800 underline">
               Today&apos;s Work
             </Link>

@@ -20,6 +20,7 @@ import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import {
@@ -36,7 +37,13 @@ export default async function TodaysWorkHubPage() {
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
-    redirect("/dashboard");
+    redirect(
+      resolveDefaultHomePath({
+        authKind: session.authKind,
+        role: session.role,
+        activeUnitId: session.activeUnitId,
+      }),
+    );
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
@@ -160,8 +167,8 @@ export default async function TodaysWorkHubPage() {
             <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
               Handoffs
             </Link>
-            <Link href="/dashboard" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-              Operations Center
+            <Link href="/workspace" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+              Dashboard
             </Link>
           </div>
         </AppCard>
@@ -238,8 +245,8 @@ export default async function TodaysWorkHubPage() {
           <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Handoffs
           </Link>
-          <Link href="/dashboard" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-            Operations Center
+          <Link href="/workspace" className="font-medium text-zinc-800 underline hover:text-zinc-600">
+            Dashboard
           </Link>
           <Link href="/staffing" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Staffing

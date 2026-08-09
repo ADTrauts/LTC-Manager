@@ -11,7 +11,8 @@ const DEPT_META: Record<
   { label: string; href: string }
 > = {
   DIETARY: { label: "Dietary", href: "/today/walk" },
-  /** EVS has no dedicated surface while the EVS board is deferred; Operations Center is the shared fallback. */
+  // EVS has no dedicated surface while the EVS board is deferred. `/dashboard` is the retired
+  // Operations Center alias, which now redirects to the caller's canonical RUN home (Dashboard).
   EVS: { label: "EVS", href: "/dashboard" },
   PLANT: { label: "Plant", href: "/assets" },
 };

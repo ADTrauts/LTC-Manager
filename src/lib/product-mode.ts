@@ -66,8 +66,11 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
 
     // ── RUN — operational surfaces (default) ───────────────────────────────
     { pathPrefix: "/workspace", mode: "RUN", label: "Dashboard" },
-    { pathPrefix: "/dashboard", mode: "RUN", label: "Operations Center" },
-    { pathPrefix: "/operations", mode: "RUN", label: "Operations Center" },
+    // `/dashboard` and `/operations` are the RETIRED Operations Center routes; they now redirect to
+    // the caller's canonical RUN home. Kept as RUN + "Dashboard" so any transient chrome reads
+    // correctly. See the Legacy Surface Register.
+    { pathPrefix: "/dashboard", mode: "RUN", label: "Dashboard" },
+    { pathPrefix: "/operations", mode: "RUN", label: "Dashboard" },
     { pathPrefix: "/today", mode: "RUN", label: "Today's Work" },
     { pathPrefix: "/units", mode: "RUN", label: "Locations" },
     { pathPrefix: "/unit", mode: "RUN", label: "Location Runtime" },

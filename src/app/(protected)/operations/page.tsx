@@ -1,17 +1,24 @@
 import { redirect } from "next/navigation";
 
-type OperationsAliasPageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
+import { getSession } from "@/lib/auth";
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
-export default async function OperationsAliasPage({ searchParams }: OperationsAliasPageProps) {
-  const query = searchParams ? await searchParams : {};
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (typeof value === "string") {
-      params.set(key, value);
-    }
+/**
+ * `/operations` is a legacy alias of the retired Operations Center. It redirects to the caller's
+ * canonical RUN home (see the retirement note on `/dashboard`). Kept as a registered redirect so
+ * existing bookmarks/deep links never dead-end.
+ */
+export default async function RetiredOperationsAliasPage() {
+  const session = await getSession();
+  if (!session?.facilityId) {
+    redirect("/login");
   }
-  const suffix = params.toString();
-  redirect(suffix ? `/dashboard?${suffix}` : "/dashboard");
+
+  redirect(
+    resolveDefaultHomePath({
+      authKind: session.authKind,
+      role: session.role,
+      activeUnitId: session.activeUnitId,
+    }),
+  );
 }

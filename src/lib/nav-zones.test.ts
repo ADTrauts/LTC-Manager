@@ -48,7 +48,8 @@ test("groupNavItemsByZone preserves nav order within zones and zone order global
 });
 
 test("normalizePrimaryNavLabel maps module labels to product-facing names", () => {
-  assert.equal(normalizePrimaryNavLabel("/dashboard", "Dashboard"), "Operations Center");
+  // `/dashboard` is the retired Operations Center route; it now reads as the canonical Dashboard.
+  assert.equal(normalizePrimaryNavLabel("/dashboard", "Dashboard"), "Dashboard");
   assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Dashboard");
   assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Employees");
   assert.equal(normalizePrimaryNavLabel("/reports", "Reports"), "Review");
@@ -60,7 +61,7 @@ test("normalizePrimaryNavLabel maps module labels to product-facing names", () =
 
 test("shouldShowZoneHeading hides redundant zone label for single matching link", () => {
   const solo = groupNavItemsByZone([
-    { label: "Dashboard", href: "/dashboard", zone: "OPERATIONS_CENTER" },
+    { label: "Units", href: "/units", zone: "LOCATIONS" },
   ])[0]!;
   assert.equal(shouldShowZoneHeading(solo), false);
 

@@ -30,7 +30,8 @@ export const NAV_ZONE_LABELS: Record<NavZone, string> = {
  */
 export const PRIMARY_NAV_LABELS: Record<string, string> = {
   "/workspace": "Dashboard",
-  "/dashboard": NAV_ZONE_LABELS.OPERATIONS_CENTER,
+  // `/dashboard` is the retired Operations Center route (redirects to the canonical RUN home).
+  "/dashboard": "Dashboard",
   "/today": NAV_ZONE_LABELS.TODAYS_WORK,
   "/staffing": "Employees",
   "/reports": NAV_ZONE_LABELS.REVIEW,

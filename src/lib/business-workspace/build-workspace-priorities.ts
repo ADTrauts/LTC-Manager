@@ -280,8 +280,8 @@ export function buildWorkspacePriorities(inputs: BusinessWorkspaceInputs): Works
     id: "watch-modules",
     rank: 6,
     isWatch: true,
-    title: "Operations Center & Today's Work",
-    detail: "Open the detailed exception and walk surfaces when you need them",
+    title: "Dashboard & Today's Work",
+    detail: "Open the manager overview and current-day walk when you need them",
     href: "/dashboard",
     tone: "neutral",
   });

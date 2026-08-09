@@ -8,7 +8,6 @@ import { ReadinessChip } from "@/components/readiness-chip";
 import {
   AppIcons,
   locationIconClassName,
-  navIconClassName,
   resolveLocationIcon,
 } from "@/lib/design-system";
 import type { ProjectedSidebarNode, ProjectedSidebarSection } from "@/lib/locations";
@@ -24,8 +23,6 @@ type LeftSidebarProps = {
   projectionSections?: readonly ProjectedSidebarSection[];
   projectionUnavailable?: boolean;
   lockedUnitId?: string;
-  /** Supervisor+ user sessions see the Operations Center entry; floor PIN sessions do not. */
-  showOperationsCenterLink?: boolean;
   readinessByUnitId?: Record<string, { state: ReadinessState }>;
 };
 
@@ -198,13 +195,9 @@ export function LeftSidebar({
   projectionSections,
   projectionUnavailable = false,
   lockedUnitId,
-  showOperationsCenterLink = true,
   readinessByUnitId = {},
 }: LeftSidebarProps) {
   const pathname = usePathname();
-  const operationsCenterLabel = NAV_ZONE_LABELS.OPERATIONS_CENTER;
-  const OperationsIcon = AppIcons.operationsCenter;
-  const dashboardActive = isActiveNavPath(pathname, "/dashboard");
   const useProjection = projectionSections != null;
 
   return (
@@ -213,20 +206,6 @@ export function LeftSidebar({
       aria-label="Locations rail"
     >
       <div className="flex flex-col gap-6 p-4 lg:px-4 lg:py-5">
-        {showOperationsCenterLink ? (
-          <section aria-label={operationsCenterLabel}>
-            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
-              {operationsCenterLabel}
-            </h2>
-            <div className="space-y-0.5">
-              <Link href="/dashboard" className={sidebarLinkClass(dashboardActive)}>
-                <OperationsIcon className={navIconClassName(dashboardActive)} aria-hidden />
-                <span className="truncate">{operationsCenterLabel}</span>
-              </Link>
-            </div>
-          </section>
-        ) : null}
-
         <section aria-label="Service points">
           <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
             {NAV_ZONE_LABELS.LOCATIONS}

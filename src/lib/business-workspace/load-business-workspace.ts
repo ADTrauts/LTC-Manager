@@ -198,8 +198,8 @@ export async function loadBusinessWorkspace(
   const allOperationsLinks: WorkspaceLinkCard[] = [
     {
       id: "oc",
-      title: "Operations Center",
-      description: "What is happening right now",
+      title: "Dashboard",
+      description: "Manager overview of what is happening right now",
       href: "/dashboard",
       icon: "operationsCenter",
     },

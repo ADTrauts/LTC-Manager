@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
@@ -40,8 +41,40 @@ function WorkspaceProjectionUnavailable({ message }: { message: string }) {
   );
 }
 
-export default async function WorkspacePage() {
+type WorkspacePageProps = {
+  searchParams?: Promise<{
+    onboarding?: string | string[] | undefined;
+  }>;
+};
+
+function OnboardingLaunchChecklist() {
+  return (
+    <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <h2 className="text-lg font-semibold text-emerald-900">Setup complete</h2>
+      <p className="mt-1 text-sm text-emerald-800">
+        Your workspace is ready. Use this checklist to finish launch tasks.
+      </p>
+      <ul className="mt-3 space-y-1 text-sm text-emerald-900">
+        <li>
+          Add managers in{" "}
+          <Link href="/employees" className="font-medium underline">
+            Employees
+          </Link>
+          .
+        </li>
+        <li>Confirm locations and serving units in Locations.</li>
+        <li>Assign route permissions for each role in Administration.</li>
+      </ul>
+    </section>
+  );
+}
+
+export default async function WorkspacePage({ searchParams }: WorkspacePageProps) {
   noStore();
+
+  const query = searchParams ? await searchParams : {};
+  const onboardingComplete =
+    typeof query.onboarding === "string" && query.onboarding === "complete";
 
   const session = await getSession();
   if (!session?.facilityId) {
@@ -104,14 +137,26 @@ export default async function WorkspacePage() {
       );
     }
 
-    return <BusinessWorkspaceScreen view={assembled.view} />;
+    return (
+      <>
+        {onboardingComplete ? <OnboardingLaunchChecklist /> : null}
+        <BusinessWorkspaceScreen view={assembled.view} />
+      </>
+    );
   }
 
   const view = await loadBusinessWorkspace(workspaceInput);
 
   if (!view) {
-    redirect("/dashboard");
+    return (
+      <WorkspaceProjectionUnavailable message="Business Workspace could not be composed for this session." />
+    );
   }
 
-  return <BusinessWorkspaceScreen view={view} />;
+  return (
+    <>
+      {onboardingComplete ? <OnboardingLaunchChecklist /> : null}
+      <BusinessWorkspaceScreen view={view} />
+    </>
+  );
 }

@@ -68,7 +68,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Department-head authority is decided per department by canManageDepartmentHeadSettings, so the role floor cannot be expressed as a static list.",
   },
 
-  // ── Workspace and Operations Center ───────────────────────────────────────
+  // ── Dashboard (RUN overview) and retired Operations Center ────────────────
   {
     pattern: "/workspace",
     match: "EXACT",
@@ -76,7 +76,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "workspace",
     legacyArea: { key: "workspace", label: "Workspace", navOrder: 5, navVisible: true, critical: true },
-    // RUN · Dashboard — the manager/GM operating picture and default home.
+    // RUN · Dashboard — the canonical manager/GM operating overview and default home.
     nav: { label: "Dashboard", order: 10 },
   },
   {
@@ -86,7 +86,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "operations-center",
     legacyArea: { key: "dashboard", label: "Operations Center", navOrder: 10, navVisible: false, critical: true },
-    notes: "Reachable by every role; also the fallback destination for denied navigation.",
+    notes:
+      "RETIRED Operations Center surface. The page no longer renders operational content — it redirects every role to their canonical RUN home (managers → /workspace, supervisors → /today, frontline → their unit/logs). Kept reachable by all roles so bookmarks/deep links and internal 'home' redirects never dead-end. See docs/product/LEGACY_SURFACE_REGISTER.md.",
   },
   {
     pattern: "/operations",
@@ -95,6 +96,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "operations-center",
     legacyArea: { key: "operations", label: "Operations Center", navOrder: 11, navVisible: false, critical: false },
+    notes:
+      "Legacy alias of the retired Operations Center. Redirects to the caller's canonical RUN home.",
   },
 
   // ── Today's Work (feature-gated) ──────────────────────────────────────────

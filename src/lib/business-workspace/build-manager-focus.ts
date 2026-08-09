@@ -231,7 +231,7 @@ export function buildManagerFocus(
       title: copy.serviceRiskTitle,
       explanation: `${dashboard.operationContext.serviceLabel} has live exceptions`,
       whyItMatters: "Execution-phase exceptions need manager oversight now.",
-      actionLabel: "Operations Center",
+      actionLabel: "Open Dashboard",
       href: "/dashboard",
       tone: "warning",
       rank: 3,
@@ -377,7 +377,7 @@ export function buildManagerFocusHealthyGuidance(
   return {
     title: healthyTitle,
     detail: detailText,
-    primary: { label: "Open Operations Center", href: "/dashboard" },
+    primary: { label: "Open Dashboard", href: "/dashboard" },
     secondary: secondary.slice(0, 2),
   };
 }

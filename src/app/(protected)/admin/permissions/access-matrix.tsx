@@ -32,7 +32,7 @@ const MODULE_LABELS: Record<string, string> = {
   marketing: "Public site",
   menus: "Menus",
   onboarding: "Setup",
-  "operations-center": "Operations Center",
+  "operations-center": "Dashboard (retired route)",
   repairs: "Repairs",
   reports: "Review",
   staffing: "Staffing",

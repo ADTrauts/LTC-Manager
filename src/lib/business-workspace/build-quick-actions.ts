@@ -43,8 +43,8 @@ export function buildQuickActions(options?: {
     },
     {
       id: "operations-center",
-      title: "Operations Center",
-      description: "Live exception sweep for this facility",
+      title: "Dashboard",
+      description: "Manager overview: staffing, service timing, and site exceptions",
       href: "/dashboard",
       icon: "operationsCenter",
     },

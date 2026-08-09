@@ -24,7 +24,7 @@ export function CachedMorningBriefPreview({
         href={brief.href}
         className="mt-2 inline-block text-sm font-medium text-zinc-800 underline"
       >
-        Open in Operations Center
+        Open in Dashboard
       </Link>
     </aside>
   );
