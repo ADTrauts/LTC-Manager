@@ -337,6 +337,18 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     nav: { label: "Assets", order: 60 },
   },
   {
+    pattern: "/assets/builder",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "assets",
+    // BUILD · Asset Builder — the canonical asset-configuration surface (identity, equipment type,
+    // responsible department, criticality, status). It shares the single asset registry and the same
+    // server actions the RUN Assets area uses; it introduces no new authority. Same SUPERVISOR floor
+    // and department scoping as /assets, so it appears on Build Home only for authorized users.
+    nav: { label: "Asset Builder", order: 233 },
+  },
+  {
     pattern: "/assets/[assetId]",
     match: "EXACT",
     surface: "PAGE",

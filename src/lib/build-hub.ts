@@ -19,6 +19,8 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
     "Configure how each department operates — locations, zones, operational cycles, work plans, and request routing.",
   "/employees":
     "Workforce configuration — people, employment, department, job role, and HR records.",
+  "/assets/builder":
+    "Equipment configuration — register assets and set identity, responsible department, criticality, and status.",
   "/menus": "Dietary menu building — cycles, periods, and menu items.",
   "/staffing/templates":
     "Build the logs, checklists, and inspections your teams complete during the shift.",

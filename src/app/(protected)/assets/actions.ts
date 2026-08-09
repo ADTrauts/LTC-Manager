@@ -79,6 +79,7 @@ function toOptional(value: FormDataEntryValue | null) {
 
 function revalidateAssetViews(assetId?: string) {
   revalidatePath("/assets");
+  revalidatePath("/assets/builder");
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
   revalidatePath("/unit/[unitId]", "page");
