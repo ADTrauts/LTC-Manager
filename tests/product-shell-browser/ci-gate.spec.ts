@@ -6,9 +6,12 @@ import { test, expect, chromium, type BrowserContext, type Page } from "@playwri
 /**
  * Phase 13 — Build / Run Product Shell & Information Architecture browser gate.
  *
- * Verifies the RUN / BUILD / ADMIN product model in the real shell: mode switch, mode-aware
- * navigation that follows authority (never becomes authorization), role homes, Quick PIN RUN-only
- * frontline, direct-URL server authorization, legacy redirect authorization, and fail-closed 404.
+ * Verifies the RUN / BUILD / ADMIN product model in the real shell. Since the 2026-08-09 RUN surface
+ * rationalization, Run / Build / Admin switching lives in the right-side context/account menu (not a
+ * permanent top-bar toggle), and the legacy Operations Center routes redirect to the canonical RUN
+ * home. Covers: menu-driven workspace switching that follows authority (never becomes authorization),
+ * role homes, Quick PIN RUN-only frontline, direct-URL server authorization, legacy redirect
+ * authorization, Operations Center retirement redirect, and fail-closed 404.
  *
  * Scenario map (Section W). BROWSER unless noted.
  *  1 Manager signs in.                              — scenario-01
@@ -104,8 +107,30 @@ function banner(page: Page) {
   return page.getByRole("banner");
 }
 
-function modeSegment(page: Page, mode: "RUN" | "BUILD") {
-  return banner(page).locator(`[data-mode="${mode}"]`);
+/**
+ * V1 RUN surface rationalization (2026-08-09): Run / Build / Admin switching moved OUT of the
+ * permanent top bar into the right-side context/account menu. Open the menu, then act on its entries.
+ */
+async function openAccountMenu(page: Page) {
+  const trigger = page.getByTestId("account-menu-trigger");
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  const panel = page.getByTestId("account-menu-panel");
+  if (!(await panel.isVisible().catch(() => false))) {
+    await trigger.click();
+  }
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+/** Switch workspace/governance from the context menu and wait for the destination. */
+async function switchFromMenu(
+  page: Page,
+  testId: "account-menu-run" | "account-menu-build" | "account-menu-admin",
+  destination: string,
+) {
+  await openAccountMenu(page);
+  await page.getByTestId(testId).click();
+  await page.waitForURL((u) => u.pathname === destination, { timeout: 30_000 });
 }
 
 test.describe("Phase 13 Product Shell @ci-gate", () => {
@@ -129,17 +154,21 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     }
   });
 
-  test("scenario-02: BUILD visible to manager; ADMIN not visible to manager @ci-gate", async () => {
+  test("scenario-02: BUILD visible to manager in the context menu; ADMIN not @ci-gate", async () => {
     const fx = loadFixtures();
     const { context, page } = await openPersistent("mgr-modes");
     try {
       await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
-      // Run and Build mode segments are both present for an authorized manager.
-      await expect(modeSegment(page, "RUN")).toBeVisible({ timeout: 30_000 });
-      await expect(modeSegment(page, "BUILD")).toBeVisible();
-      // Admin is governance-only: a manager sees no Admin entry.
+      // Run/Build/Admin are no longer permanent top-bar controls.
+      await expect(banner(page).locator('[data-mode]')).toHaveCount(0);
       await expect(banner(page).getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
+      // In the context menu, an authorized manager gets the Run/Build workspace switch...
+      await openAccountMenu(page);
+      await expect(page.getByTestId("account-menu-run")).toBeVisible();
+      await expect(page.getByTestId("account-menu-build")).toBeVisible();
+      // ...but Admin is governance-only, so no Admin entry appears.
+      await expect(page.getByTestId("account-menu-admin")).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -175,9 +204,9 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     try {
       await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
-      await modeSegment(page, "BUILD").click();
+      // Enter BUILD from the context menu (no permanent top-bar toggle).
+      await switchFromMenu(page, "account-menu-build", "/build");
       // Landing on a BUILD surface flips the mode indicator to BUILD and lands on the hub.
-      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
       // V1 refinement: the global header exposes Build Home, not every individual builder.
       await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toBeVisible();
@@ -218,9 +247,11 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     try {
       await loginPassword(page, fx.users.fa.email, fx.users.fa.password);
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
-      await expect(modeSegment(page, "RUN")).toBeVisible({ timeout: 30_000 });
-      await expect(modeSegment(page, "BUILD")).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Admin", exact: true })).toBeVisible();
+      // A governance-authorized FA gets Run, Build, and Admin — all in the context menu.
+      await openAccountMenu(page);
+      await expect(page.getByTestId("account-menu-run")).toBeVisible();
+      await expect(page.getByTestId("account-menu-build")).toBeVisible();
+      await expect(page.getByTestId("account-menu-admin")).toBeVisible();
     } finally {
       await context.close();
     }
@@ -303,9 +334,15 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
 
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
-      // RUN-only: no Build/Admin governance/config nav is offered to a frontline PIN session.
+      // RUN-only: no Build/Admin governance/config nav is offered to a frontline PIN session — not in
+      // the top bar and not in the context menu. A Run-only session gets no pointless workspace group.
       await expect(banner(page).getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
-      await expect(modeSegment(page, "BUILD")).toHaveCount(0);
+      await openAccountMenu(page);
+      await expect(page.getByTestId("account-menu-workspace-group")).toHaveCount(0);
+      await expect(page.getByTestId("account-menu-build")).toHaveCount(0);
+      await expect(page.getByTestId("account-menu-admin")).toHaveCount(0);
+      // Account actions remain available (Sign out).
+      await expect(page.getByTestId("account-menu-sign-out")).toBeVisible();
     } finally {
       await context.close();
     }
@@ -360,9 +397,8 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     try {
       await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
-      // Clicking the Build mode segment routes to the dedicated /build landing (its first nav item).
-      await modeSegment(page, "BUILD").click();
-      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      // Choosing Build from the context menu routes to the dedicated /build landing.
+      await switchFromMenu(page, "account-menu-build", "/build");
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
       // The hub composes the Build group as cards — only surfaces the role may actually reach.
       // (Each card's accessible name is label + description, so target by the stable data-href.)
@@ -395,10 +431,13 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       try {
         await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
         await page.goto("/workspace", { waitUntil: "domcontentloaded" });
-        // The single top-navigation surface, both mode segments, and the RUN home remain reachable.
-        await expect(modeSegment(page, "RUN")).toBeVisible({ timeout: 30_000 });
-        await expect(modeSegment(page, "BUILD")).toBeVisible();
+        // The RUN home and the context-menu workspace switch remain reachable at tablet widths.
         await expect(banner(page).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+        await openAccountMenu(page);
+        await expect(page.getByTestId("account-menu-run")).toBeVisible();
+        await expect(page.getByTestId("account-menu-build")).toBeVisible();
+        // Close the menu again so it does not obscure the rail assertion below.
+        await page.getByTestId("account-menu-trigger").click();
         // The locations rail is present (stacked above content in portrait, beside it in landscape).
         await expect(page.locator('aside[aria-label="Locations rail"]')).toBeVisible();
         // The viewport does not scroll horizontally — the shell fits the tablet width.
@@ -487,9 +526,8 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       // 1) Start on the RUN home.
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
       await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible({ timeout: 30_000 });
-      // 2) Enter BUILD via the mode segment → the dedicated hub.
-      await modeSegment(page, "BUILD").click();
-      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      // 2) Enter BUILD via the context menu → the dedicated hub.
+      await switchFromMenu(page, "account-menu-build", "/build");
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
       // 3) Configure: open a builder from the hub (target the stable data-href, not the composite name).
       await page
@@ -497,9 +535,8 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
         .click();
       await page.waitForURL((u) => u.pathname.startsWith("/admin/departments"), { timeout: 30_000 });
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
-      // 4) Return to RUN via the mode segment and reach an operate-today surface.
-      await modeSegment(page, "RUN").click();
-      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      // 4) Return to RUN via the context menu and reach an operate-today surface.
+      await switchFromMenu(page, "account-menu-run", "/workspace");
       await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible();
       await page.goto("/units", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/units(\?|$)/);
@@ -544,16 +581,15 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(shellRoot).toHaveAttribute("data-product-mode", "RUN", { timeout: 30_000 });
       const runHeaderBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
 
-      // BUILD: shell root flips to BUILD and the header background changes (amber treatment applied).
-      await modeSegment(page, "BUILD").click();
-      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      // BUILD: entering Build from the context menu flips the shell root to BUILD and the header
+      // background changes (amber treatment applied) — the menu relocation does not weaken BUILD identity.
+      await switchFromMenu(page, "account-menu-build", "/build");
       await expect(shellRoot).toHaveAttribute("data-product-mode", "BUILD");
       const buildHeaderBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
       expect(buildHeaderBg, "BUILD header should differ from RUN header").not.toBe(runHeaderBg);
 
-      // Switching back to RUN restores the neutral treatment.
-      await modeSegment(page, "RUN").click();
-      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      // Switching back to RUN from the menu restores the neutral treatment.
+      await switchFromMenu(page, "account-menu-run", "/workspace");
       await expect(shellRoot).toHaveAttribute("data-product-mode", "RUN");
       const backToRunBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
       expect(backToRunBg).toBe(runHeaderBg);
@@ -650,10 +686,13 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
         await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
         await page.goto("/build", { waitUntil: "domcontentloaded" });
         await expect(page.getByTestId("build-hub")).toBeVisible({ timeout: 30_000 });
-        // Both mode segments and the department context remain present; BUILD treatment is applied.
-        await expect(modeSegment(page, "RUN")).toBeVisible();
-        await expect(modeSegment(page, "BUILD")).toBeVisible();
+        // BUILD treatment is applied and the context-menu workspace switch remains reachable at tablet
+        // widths (Run shown as current, Build available).
         await expect(page.locator("[data-shell-root]")).toHaveAttribute("data-product-mode", "BUILD");
+        await openAccountMenu(page);
+        await expect(page.getByTestId("account-menu-run")).toBeVisible();
+        await expect(page.getByTestId("account-menu-build")).toBeVisible();
+        await page.getByTestId("account-menu-trigger").click();
         const overflowsX = await page.evaluate(
           () => document.documentElement.scrollWidth > window.innerWidth + 1,
         );
@@ -661,6 +700,45 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       } finally {
         await context.close();
       }
+    }
+  });
+
+  // ── RUN surface rationalization (2026-08-09) ─────────────────────────────
+
+  test("scenario-25: retired Operations Center routes redirect to the canonical RUN home @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-oc-retired");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      // Both legacy Operations Center entrypoints resolve to the manager's canonical Dashboard —
+      // no dead route, no Operations Center surface, and the RUN mode indicator is intact.
+      for (const legacy of ["/dashboard", "/operations"]) {
+        await page.goto(legacy, { waitUntil: "domcontentloaded" });
+        await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+        await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible({ timeout: 30_000 });
+      }
+      // The retired surface is not offered anywhere in the shell navigation.
+      await expect(banner(page).getByRole("link", { name: /operations center/i })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-26: the context menu exposes Run/Build and account actions together @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-menu-structure");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const panel = await openAccountMenu(page);
+      // Workspace group (Run current + Build) and Account actions coexist in one context menu.
+      await expect(panel.getByTestId("account-menu-workspace-group")).toBeVisible();
+      await expect(panel.getByTestId("account-menu-run")).toHaveAttribute("data-mode-active", "true");
+      await expect(panel.getByTestId("account-menu-build")).toBeVisible();
+      await expect(panel.getByTestId("account-menu-change-password")).toBeVisible();
+      await expect(panel.getByTestId("account-menu-sign-out")).toBeVisible();
+    } finally {
+      await context.close();
     }
   });
 });
