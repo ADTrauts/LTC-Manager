@@ -108,9 +108,9 @@ RUN Employees and BUILD Employee Builder are deliberately **not** blurred.
 | `/repairs`, `/repairs/[id]` | Repairs / Work Orders | Top nav (RUN) | STAFF+ (scoped) | RUN | Keep |
 | `/issues/[issueId]` | Issue | URL | STAFF+ (scoped) | RUN | Keep |
 | `/operational-requests` | Requests | Compose | scoped | RUN | Compose (Plant intake/routing) |
-| Asset **configuration** | Asset Builder | Compose | MANAGER+ | BUILD | Compose within Assets (Build tab) + Department Builder — one asset registry |
+| `/assets/builder` | Asset Builder | Build Home card (BUILD) | SUPERVISOR+ (dept-scoped) | BUILD | **Amended (V1 shell refinement 2026-08-09):** now a first-class BUILD surface that appears on Build Home. Shares the single asset registry and the same server actions as RUN `/assets`; adds no new authority. |
 
-There is **one** asset registry; Asset Builder is a Build composition over it, not a duplicate.
+There is **one** asset registry; Asset Builder is a Build surface over it (also composed within Assets' Build tab and Department Builder), not a duplicate registry. As of 2026-08-09 the dedicated `/assets/builder` route makes Asset Builder reachable as a Build Home card via the BUILD navigation projection.
 
 ### Build
 
@@ -158,12 +158,14 @@ There is **one** asset registry; Asset Builder is a Build composition over it, n
 
 - **Product identity** — brand block (facility name + session label).
 - **Facility context** — Facility Switcher (only when the user has >1 accessible facility).
-- **Department context** — Department Scope Switcher (only when the facility has operational departments); a lens, never authority.
-- **RUN / BUILD control** — segmented mode switch (`TopNav`), only shows a mode segment when that mode has authorized nav.
-- **User / role context** — session label + Sign-out controls.
+- **Department context** — **Department** control (labelled "Department", not "Operational mode"); a context lens, never authority. **Progressive (V1 refinement 2026-08-09):** compact identity chip when the user has a single available department, a selector when several are available. Availability is derived from the user's actual department memberships (FA sees all active, employee-app-visible departments), never from role name.
+- **RUN / BUILD control** — segmented mode switch (`TopNav`), only shows a mode segment when that mode has authorized nav. The active **BUILD** segment carries the amber accent.
+- **BUILD chrome (V1 refinement 2026-08-09)** — when product mode = BUILD, the shell header and mode indicator take a restrained amber treatment, driven from a single `data-product-mode` classification (`ShellModeFrame` → `resolveProductModeForPath`). RUN and ADMIN keep the neutral/brand treatment; colour is never the only cue (the "Build" / "Build Home" text remains).
+- **Simplified BUILD header (V1 refinement 2026-08-09)** — in BUILD the global header exposes only **Build Home**; individual builders (Facility/Department/Employee/Asset/…) are reached from Build Home cards and the breadcrumb return path, not as permanent header links. RUN keeps its full operational navigation.
+- **Account menu (V1 refinement 2026-08-09)** — a single right-aligned account dropdown holding **Change password** and **Sign out** (plus "Sign out & unbind device" for FA). Change password is no longer a permanent top-level header button. Sign-out still clears the offline bundle first (shared-tablet safety).
 - **Online / offline status** — offline runtime indicator surfaces on operational runtime.
-- **Account / Admin** — Admin appears as a trailing governance entry only for authorized users; Account in the user menu.
-- **Mode + area indicator** — persistent breadcrumb ("Run / Locations", "Build / Department Builder").
+- **Admin** — Admin appears as a trailing governance entry only for authorized users; it is not a peer toggle beside Run/Build and never inherits BUILD styling.
+- **Mode + area indicator** — persistent breadcrumb ("Run / Locations", "Build / Department Builder"). In BUILD the "Build" segment links back to Build Home.
 
 Desktop uses the persistent product shell (admin/manager use). Tablet prioritizes operational runtime; frontline shared-tablet (Quick PIN) users are RUN-only and never routed through Build.
 
@@ -217,7 +219,7 @@ Department-operational pages keep their own downstream flag guards regardless of
 ## 10. Known limitations / future UX work
 
 1. **FA default home** stays RUN Dashboard; a dedicated Admin/governance home for FA-without-operational-relationship is deferred.
-2. **Asset Builder** and **Employee Builder** are compositions over existing surfaces (`/assets`, `/employees`) rather than dedicated `/build/*` routes — intentional (no new domain routes this phase).
+2. **Employee Builder** is a composition over an existing surface (`/employees`). **Asset Builder** was likewise a composition until the V1 shell refinement (2026-08-09), which promoted it to a dedicated `/assets/builder` BUILD route so it appears on Build Home via the navigation projection (still over the one asset registry; no new authority, no new model, no migration).
 3. ~~**BUILD hub** is the Build mode's nav group + Department Builder as landing; a dedicated `/build` landing page is a future enhancement.~~ **Closed in Phase 14:** a dedicated `/build` hub now composes the Build navigation group as cards and is the Build mode segment's landing.
 4. Legacy `/logs` and `/admin/inspections` remain reachable; retirement tracked in the Legacy Surface Register.
 5. ~~Old zone-based components (`administration-menu.tsx`, `administration-nav.ts`) are retained but no longer rendered; safe to remove in a later cleanup.~~ **Closed in Phase 14:** removed (dead code, no importers), with their unit tests.

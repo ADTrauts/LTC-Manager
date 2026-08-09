@@ -5,6 +5,8 @@
 **Purpose:** Explicitly govern every legacy / duplicate route so legacy surfaces are governed rather than silently competing for authority.
 
 > **Phase 14 amendment (2026-08-08):** the deprecated zone-based navigation code (row 9) has been **removed** (no longer DEPRECATED-retained), and the dedicated BUILD hub (`/build`, row 11) is now the Build-mode landing. See `docs/product/LTC_MANAGER_V1_UX_COMPLETION_PHASE_14_2026-08-08.md`.
+>
+> **V1 shell UX refinement amendment (2026-08-09):** Asset Builder is now a first-class BUILD surface (`/assets/builder`, row 12) that appears on Build Home; the global header now exposes only **Build Home** in BUILD mode (individual builders are reached from the hub, not from permanent header links); Change password moved into the account menu. See `docs/product/LTC_MANAGER_V1_SHELL_UX_REFINEMENT_2026-08-09.md`.
 
 ---
 
@@ -38,6 +40,7 @@
 | 9 | Old zone-based nav components (`src/components/navigation/administration-menu.tsx`, `src/lib/administration-nav.ts`, `src/lib/administration-menu-position.ts`) | **REMOVED (Phase 14)** | `TopNav` mode grouping + `src/lib/product-mode.ts` | Dead after the Run/Build shell — no live importers. Deleted with their unit tests in Phase 14; `link-integrity` / `navigation` registry tests remain green. | Removed. No route affected. |
 | 10 | Dormant Operation Engine / Task Sync pages | **HIDDEN / DORMANT (do not activate)** | — | `OPERATION_ENGINE_ENABLED` and `TASK_SYNC_ENABLED` remain **false**. Phase 14 does not activate dormant systems. | No change; keep dormant. |
 | 11 | `/build` (BUILD hub) | **ACTIVE AUTHORITY** (new, Phase 14) | — | Dedicated Build-mode landing that composes the Build navigation group as cards. Presentation-only projection (SUPERVISOR floor); frontline stays Run-only below it. The Build mode segment lands here. | Keep; mode = BUILD. |
+| 12 | `/assets/builder` (Asset Builder) | **ACTIVE AUTHORITY** (new, V1 shell refinement 2026-08-09) | — | Canonical BUILD asset-configuration surface. Shares the single asset registry and the same server actions as the RUN `/assets` view (adds no new authority); SUPERVISOR floor + department scope match `/assets`. Restored to Build Home via the BUILD nav projection. | Keep; mode = BUILD. |
 
 ---
 
