@@ -1,5 +1,6 @@
-import { EmployeeStatus } from "@prisma/client";
+import { EmployeeStatus, type Prisma } from "@prisma/client";
 
+import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { getFacilityServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -19,6 +20,35 @@ export type LoadDashboardQueriesOptions = {
   projectedUnitIds?: readonly string[];
 };
 
+/**
+ * Resolve the Unit where-clauses this loader uses, honouring the canonical operational hierarchy.
+ *
+ * Exported so the RUN-surface contract can be tested without a database: the legacy (non-projected)
+ * path must exclude Units retired to a builder-only hierarchy role (STAGED) even while `isActive`
+ * remains true, so Dashboard (`/workspace`) and Today's Work (`/today`) — which still fall back to
+ * this loader — never present retired locations as currently active. When a Projection scope is
+ * supplied, `projectedUnitIds` has already excluded ineligible Units, so we only intersect by id.
+ */
+export function resolveDashboardUnitScopes(
+  facilityId: string,
+  projectedUnitIds: readonly string[] | undefined,
+): { unitWhere: Prisma.UnitWhereInput; unitRelationScope: Prisma.UnitWhereInput } {
+  const unitScope =
+    projectedUnitIds === undefined
+      ? undefined
+      : projectedUnitIds.length === 0
+        ? { id: { in: [] as string[] } }
+        : { id: { in: [...projectedUnitIds] } };
+  const unitWhere = operationalUnitWhere(facilityId, { isActive: true, ...unitScope });
+  const unitRelationScope: Prisma.UnitWhereInput =
+    projectedUnitIds === undefined
+      ? operationalUnitWhere(facilityId)
+      : projectedUnitIds.length === 0
+        ? { facilityId, id: { in: [] as string[] } }
+        : { facilityId, id: { in: [...projectedUnitIds] } };
+  return { unitWhere, unitRelationScope };
+}
+
 export async function loadDashboardQueries(
   facilityId: string,
   window: TodayWindow,
@@ -28,18 +58,7 @@ export async function loadDashboardQueries(
   const now = options?.now ?? new Date();
   const roomAreaServiceDate = getFacilityServiceDate(options?.facilityTimezone, now);
   const projectedUnitIds = options?.projectedUnitIds;
-  const unitScope =
-    projectedUnitIds === undefined
-      ? undefined
-      : projectedUnitIds.length === 0
-        ? { id: { in: [] as string[] } }
-        : { id: { in: [...projectedUnitIds] } };
-  const unitRelationScope =
-    projectedUnitIds === undefined
-      ? { facilityId }
-      : projectedUnitIds.length === 0
-        ? { facilityId, id: { in: [] as string[] } }
-        : { facilityId, id: { in: [...projectedUnitIds] } };
+  const { unitWhere, unitRelationScope } = resolveDashboardUnitScopes(facilityId, projectedUnitIds);
 
   const [
     units,
@@ -56,7 +75,7 @@ export async function loadDashboardQueries(
     managerCount,
   ] = await Promise.all([
     prisma.unit.findMany({
-      where: { isActive: true, facilityId, ...unitScope },
+      where: unitWhere,
       orderBy: { displayOrder: "asc" },
       select: {
         id: true,
