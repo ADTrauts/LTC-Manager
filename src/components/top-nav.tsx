@@ -8,6 +8,7 @@ import { AppIcons, navIconClassName, resolveNavIcon } from "@/lib/design-system"
 import type { NavRouteItem } from "@/lib/nav-zones";
 import {
   groupNavItemsByMode,
+  headerNavItemsForMode,
   resolveActiveMode,
   type ProductMode,
 } from "@/lib/product-mode";
@@ -40,6 +41,10 @@ function ModeSwitch({
     >
       {segments.map((segment) => {
         const isActive = segment.mode === activeMode;
+        const activeClass =
+          segment.mode === "BUILD"
+            ? "inline-flex min-h-8 items-center rounded-[5px] bg-amber-100 px-3 text-sm font-semibold text-amber-900 shadow-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"
+            : "inline-flex min-h-8 items-center rounded-[5px] bg-white px-3 text-sm font-semibold text-zinc-900 shadow-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400";
         return (
           <Link
             key={segment.mode}
@@ -49,7 +54,7 @@ function ModeSwitch({
             data-mode-active={isActive ? "true" : undefined}
             className={
               isActive
-                ? "inline-flex min-h-8 items-center rounded-[5px] bg-white px-3 text-sm font-semibold text-zinc-900 shadow-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400"
+                ? activeClass
                 : "inline-flex min-h-8 items-center rounded-[5px] px-3 text-sm font-medium text-zinc-500 hover:text-zinc-800 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-400"
             }
           >
@@ -77,7 +82,7 @@ export function TopNav({ items }: TopNavProps) {
   const adminGroup = groups.find((group) => group.mode === "ADMIN");
   const activeGroup = groups.find((group) => group.mode === activeMode) ?? groups[0];
   const visibleItems = useMemo(
-    () => (activeMode === "ADMIN" ? [] : activeGroup?.items ?? []),
+    () => headerNavItemsForMode(activeMode, activeGroup?.items ?? []),
     [activeMode, activeGroup],
   );
 

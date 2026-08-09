@@ -108,6 +108,25 @@ select option {
   font-weight: 600;
 }
 
+/**
+ * BUILD product-mode chrome treatment.
+ *
+ * A restrained amber wash on the shell header and the mode indicator so BUILD reads as distinct
+ * from RUN at a glance, without turning the whole application orange or implying an alarm/error.
+ * Driven from a single source: the shell root publishes `data-product-mode` (see ShellModeFrame),
+ * so BUILD detection is never duplicated per surface. RUN and ADMIN keep the neutral treatment.
+ * Colour is only a reinforcement — the visible "Build" / "Build Home" text remains the primary cue.
+ */
+[data-product-mode="BUILD"] [data-shell-region="header"] {
+  background-color: #fffbeb; /* amber-50 */
+  border-bottom-color: #fde68a; /* amber-200 */
+}
+
+[data-product-mode="BUILD"] [data-shell-region="mode-indicator"] {
+  background-color: #fffbeb; /* amber-50 */
+  border-bottom-color: #fde68a; /* amber-200 */
+}
+
 /** Compact header nav: hide native scrollbar while keeping scroll/keyboard access. */
 .shell-nav-scroller {
   -ms-overflow-style: none;

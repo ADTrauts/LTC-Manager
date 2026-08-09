@@ -53,6 +53,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/admin/inspections", mode: "BUILD", label: "Inspections (legacy)" },
     { pathPrefix: "/department/settings", mode: "BUILD", label: "Department Settings" },
     { pathPrefix: "/employees", mode: "BUILD", label: "Employee Builder" },
+    { pathPrefix: "/assets/builder", mode: "BUILD", label: "Asset Builder" },
     { pathPrefix: "/menus", mode: "BUILD", label: "Menu Building" },
     { pathPrefix: "/staffing/templates", mode: "BUILD", label: "Operational Templates" },
     { pathPrefix: "/staffing/work-plans", mode: "BUILD", label: "Work Plans" },
@@ -116,7 +117,28 @@ export function resolveProductAreaLabel(pathname: string): string | null {
   return ruleForPath(pathname)?.label ?? null;
 }
 
+/** Canonical Build Home hub path (mirrors BUILD_HUB_HOME_HREF; kept local to avoid a cycle). */
+export const BUILD_HOME_HREF = "/build";
+
 export type ModeNavItem = { label: string; href: string };
+
+/**
+ * The nav items the *global header* should expose for the active mode.
+ *
+ * - RUN keeps its full canonical operational navigation.
+ * - BUILD is organized by the dedicated Build Home hub, so the header exposes only Build Home; the
+ *   individual builders are reached from the hub's cards and the breadcrumb return path (they are
+ *   never reintroduced as permanent global header links, even if a stale nav source lists them).
+ * - ADMIN is a trailing governance destination rendered separately, so it contributes no items here.
+ */
+export function headerNavItemsForMode<T extends ModeNavItem>(
+  mode: ProductMode,
+  items: readonly T[],
+): T[] {
+  if (mode === "ADMIN") return [];
+  if (mode === "BUILD") return items.filter((item) => item.href === BUILD_HOME_HREF);
+  return [...items];
+}
 
 export type ModeNavGroup = {
   mode: ProductMode;

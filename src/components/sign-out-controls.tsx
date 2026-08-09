@@ -6,7 +6,7 @@ import type { FormEvent } from "react";
 import { AppIcons } from "@/lib/design-system";
 import { clearAllOfflineData, clearForSignOut } from "@/lib/offline/local-store";
 
-type SignOutControlsProps = {
+type AccountMenuProps = {
   showUnbind: boolean;
   showChangePassword?: boolean;
 };
@@ -49,91 +49,63 @@ async function prepareFullSignOut(event: FormEvent<HTMLFormElement>) {
   await postLogoutAndRedirect(form);
 }
 
-function SignOutButton({ className, compactLabel = false }: { className: string; compactLabel?: boolean }) {
+const MENU_ITEM_CLASS =
+  "block w-full px-3 py-2 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400";
+
+/**
+ * Account menu — the single right-aligned entry point for user/account actions.
+ *
+ * Change password and Sign out live here rather than as permanent top-level header buttons, keeping
+ * the global bar focused on context (facility, department, Run/Build) instead of every account
+ * destination. Facility Administrators additionally get "Sign out & unbind device". Sign-out still
+ * clears the offline bundle before the session cookie is removed (shared-tablet safety).
+ */
+export function AccountMenu({ showUnbind, showChangePassword = false }: AccountMenuProps) {
+  const UserIcon = AppIcons.user;
   const SignOutIcon = AppIcons.signOut;
 
   return (
-    <button type="submit" className={className} title="Sign out">
-      <SignOutIcon className="h-4 w-4 shrink-0 opacity-70 sm:mr-1.5" aria-hidden />
-      <span className={compactLabel ? "sr-only sm:not-sr-only" : undefined}>Sign out</span>
-    </button>
-  );
-}
-
-export function SignOutControls({ showUnbind, showChangePassword = false }: SignOutControlsProps) {
-  if (!showUnbind) {
-    return (
-      <div className="flex items-center gap-1.5 sm:gap-2">
+    <details className="group relative flex" data-testid="account-menu">
+      <summary
+        data-testid="account-menu-trigger"
+        className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400 [&::-webkit-details-marker]:hidden sm:px-3"
+        aria-label="Account menu"
+        title="Account"
+      >
+        <UserIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+        <span className="hidden sm:inline">Account</span>
+        <AppIcons.chevronDown className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+      </summary>
+      <div
+        className="absolute right-0 top-full z-50 mt-1 min-w-[14rem] rounded-md border border-zinc-200 bg-white py-1 shadow-lg ring-1 ring-black/5"
+        data-testid="account-menu-panel"
+      >
         {showChangePassword ? (
-          <Link
-            href="/account"
-            className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 sm:px-3"
-            title="Change password"
-          >
-            <span className="sm:hidden">Password</span>
-            <span className="hidden sm:inline">Change password</span>
+          <Link href="/account" className={MENU_ITEM_CLASS} data-testid="account-menu-change-password">
+            Change password
           </Link>
         ) : null}
         <form action="/api/auth/logout" method="post" onSubmit={(e) => void prepareStandardSignOut(e)}>
-          <SignOutButton
-            compactLabel
-            className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 sm:px-3.5"
-          />
+          <button type="submit" className={MENU_ITEM_CLASS} data-testid="account-menu-sign-out">
+            <span className="inline-flex items-center gap-2">
+              <SignOutIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+              Sign out
+            </span>
+          </button>
         </form>
+        {showUnbind ? (
+          <form action="/api/auth/logout-full" method="post" onSubmit={(e) => void prepareFullSignOut(e)}>
+            <button
+              type="submit"
+              className="block w-full px-3 py-2 text-left text-sm font-medium text-amber-900 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+              data-testid="account-menu-unbind"
+              title="Clears session, facility binding, and unit lock on this browser"
+            >
+              Sign out &amp; unbind device
+            </button>
+          </form>
+        ) : null}
       </div>
-    );
-  }
-
-  return (
-    <div className="flex items-stretch gap-1.5 sm:gap-2">
-      {showChangePassword ? (
-        <Link
-          href="/account"
-          className="hidden min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 xl:inline-flex"
-        >
-          Change password
-        </Link>
-      ) : null}
-      <div className="flex min-h-10 items-stretch rounded-md border border-zinc-300 bg-white shadow-sm">
-        <form
-          action="/api/auth/logout"
-          method="post"
-          className="flex min-w-0"
-          onSubmit={(e) => void prepareStandardSignOut(e)}
-        >
-          <SignOutButton
-            compactLabel
-            className="inline-flex min-h-10 items-center rounded-l-md border-r border-zinc-200 px-2.5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:px-3.5"
-          />
-        </form>
-        <details className="group relative flex">
-          <summary
-            className="flex min-h-10 cursor-pointer list-none items-center justify-center rounded-r-md px-2 text-zinc-600 hover:bg-zinc-50 [&::-webkit-details-marker]:hidden"
-            aria-label="Additional sign-out options"
-          >
-            <AppIcons.chevronDown className="h-4 w-4" aria-hidden />
-          </summary>
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[14rem] rounded-md border border-zinc-200 bg-white py-1 shadow-lg ring-1 ring-black/5">
-            <form action="/api/auth/logout-full" method="post" onSubmit={(e) => void prepareFullSignOut(e)}>
-              <button
-                type="submit"
-                className="w-full px-3 py-2 text-left text-sm font-medium text-amber-900 hover:bg-amber-50"
-                title="Clears session, facility binding, and unit lock on this browser"
-              >
-                Sign out &amp; unbind device
-              </button>
-            </form>
-            {showChangePassword ? (
-              <Link
-                href="/account"
-                className="block px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 xl:hidden"
-              >
-                Change password
-              </Link>
-            ) : null}
-          </div>
-        </details>
-      </div>
-    </div>
+    </details>
   );
 }

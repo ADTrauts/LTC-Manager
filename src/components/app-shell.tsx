@@ -1,19 +1,22 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import type { CSSProperties } from "react";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { LeftSidebar } from "@/components/left-sidebar";
 import { FacilitySwitcher } from "@/components/facility-switcher";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { ShellModeFrame } from "@/components/shell-mode-frame";
 import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
-import { SignOutControls } from "@/components/sign-out-controls";
+import { AccountMenu } from "@/components/sign-out-controls";
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
 import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
 import { TopNav } from "@/components/top-nav";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import {
+  resolveActiveDepartmentForShell,
+  resolveSelectableDepartmentsForSession,
+} from "@/lib/active-department-context";
 import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { loadFacilityAccessContext } from "@/lib/facility-access";
@@ -123,11 +126,7 @@ export async function AppShell({ children }: AppShellProps) {
     dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
     dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
   });
-  const scopeDepartments = await prisma.department.findMany({
-    where: { facilityId: session.facilityId, isActive: true, showInEmployeeApp: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const scopeDepartments = await resolveSelectableDepartmentsForSession(session);
 
   const navItems = filterNavItemsForDepartmentScope(rawNavItems, {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
@@ -150,15 +149,12 @@ export async function AppShell({ children }: AppShellProps) {
     : {};
 
   return (
-    <div
-      className="flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-50"
-      style={
-        {
-          "--brand-accent": facility?.brandColor ?? "#18181b",
-        } as CSSProperties
-      }
-    >
-      <header className="shrink-0 border-b border-zinc-200 bg-white" role="banner">
+    <ShellModeFrame brandColor={facility?.brandColor ?? "#18181b"}>
+      <header
+        className="shell-header shrink-0 border-b border-zinc-200 bg-white"
+        role="banner"
+        data-shell-region="header"
+      >
         <div
           className={`mx-auto flex w-full ${shellClasses.maxWidth} flex-nowrap items-center gap-2 px-3 py-1.5 sm:gap-2.5 sm:px-4 sm:py-2 lg:gap-3 lg:px-6`}
         >
@@ -191,7 +187,7 @@ export async function AppShell({ children }: AppShellProps) {
           <TopNav items={navItems} />
           <div className="flex shrink-0 items-center gap-2">
             <ShellOfflineIndicator />
-            <SignOutControls showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
+            <AccountMenu showUnbind={showGmUnbind} showChangePassword={authKind === "user"} />
           </div>
         </div>
       </header>
@@ -219,6 +215,6 @@ export async function AppShell({ children }: AppShellProps) {
           ? `Operated by ${facility.managementCompanyName}.`
           : "Nutrition operations workspace."}
       </footer>
-    </div>
+    </ShellModeFrame>
   );
 }

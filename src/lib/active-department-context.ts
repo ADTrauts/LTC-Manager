@@ -128,6 +128,47 @@ export async function resolveActiveDepartmentForShell(
   return resolveNavWithRawCookie(session, raw);
 }
 
+export type SelectableDepartment = { id: string; name: string };
+
+/**
+ * The department contexts actually available to the authenticated user — the basis for the
+ * progressive department control (compact when there is a single context, a selector when there are
+ * several). This is presentation only: it never grants access. A Facility Administrator sees every
+ * active, employee-app-visible department; everyone else sees only the departments they are a member
+ * of (primary + secondary), intersected with the facility's active, employee-app-visible set.
+ */
+export async function resolveSelectableDepartmentsForSession(
+  session: AppJwtPayload,
+): Promise<SelectableDepartment[]> {
+  const facilityId = session.facilityId;
+  const facilityDepartments = await prisma.department.findMany({
+    where: { facilityId, isActive: true, showInEmployeeApp: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true },
+  });
+
+  if (isFacilityAdministratorRole(session.role)) {
+    return facilityDepartments;
+  }
+
+  const empId = await getOperationalEmployeeIdForSession(session);
+  if (!empId) return [];
+  const employee = await prisma.employee.findFirst({
+    where: { id: empId, facilityId },
+    select: {
+      primaryDepartmentId: true,
+      employeeDepartments: { select: { departmentId: true } },
+    },
+  });
+  if (!employee) return [];
+
+  const memberIds = new Set<string>();
+  if (employee.primaryDepartmentId) memberIds.add(employee.primaryDepartmentId);
+  for (const row of employee.employeeDepartments) memberIds.add(row.departmentId);
+
+  return facilityDepartments.filter((dept) => memberIds.has(dept.id));
+}
+
 /** Validates a deliberate department picker choice (cookie / API body). */
 export async function validateActiveDepartmentPick(session: AppJwtPayload, pick: string): Promise<boolean> {
   const trimmed = pick.trim();
