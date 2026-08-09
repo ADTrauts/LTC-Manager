@@ -74,6 +74,23 @@ test("navigation — absence from navigation does not deny access", () => {
   assert.equal(roleMayAccessRoute("/dashboard", "SUPERVISOR", FLAGS), true);
 });
 
+test("navigation — Asset Builder is offered to SUPERVISOR+ but withheld from STAFF", () => {
+  // Restored BUILD Asset Builder: reachable for the SUPERVISOR floor, never granted to frontline.
+  assert.equal(hrefsFor("SUPERVISOR").includes("/assets/builder"), true);
+  assert.equal(hrefsFor("MANAGER").includes("/assets/builder"), true);
+  assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/assets/builder"), true);
+  assert.equal(hrefsFor("STAFF").includes("/assets/builder"), false);
+  assert.equal(roleMayAccessRoute("/assets/builder", "STAFF", FLAGS), false);
+  assert.equal(roleMayAccessRoute("/assets/builder", "SUPERVISOR", FLAGS), true);
+});
+
+test("navigation — Asset Builder label comes from the registry", () => {
+  const byHref = new Map(
+    platformNavItemsForRole("FACILITY_ADMINISTRATOR", FLAGS).map((item) => [item.href, item.label]),
+  );
+  assert.equal(byHref.get("/assets/builder"), "Asset Builder");
+});
+
 test("navigation — Phase 13 RUN Employees surface is offered to supervisors", () => {
   // /staffing became the canonical RUN Employees surface (today's workforce operations).
   assert.equal(hrefsFor("SUPERVISOR").includes("/staffing"), true);

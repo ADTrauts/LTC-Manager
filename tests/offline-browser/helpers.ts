@@ -401,7 +401,14 @@ export async function clickRetrySync(page: Page) {
 }
 
 export async function signOut(page: Page) {
-  await page.getByRole("button", { name: /Sign out/i }).first().click();
+  // Sign out now lives inside the account menu dropdown; open it first when present.
+  const trigger = page.getByTestId("account-menu-trigger");
+  if (await trigger.count().then((c) => c > 0).catch(() => false)) {
+    await trigger.first().click();
+    await page.getByTestId("account-menu-sign-out").first().click();
+  } else {
+    await page.getByRole("button", { name: /Sign out/i }).first().click();
+  }
   await page.waitForURL(/\/login/, { timeout: 30_000 });
 }
 

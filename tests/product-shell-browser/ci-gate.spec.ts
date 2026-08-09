@@ -169,19 +169,26 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     }
   });
 
-  test("scenario-04: BUILD holds Department Builder + Operational Templates + Work Plans @ci-gate", async () => {
+  test("scenario-04: BUILD organizes builders on Build Home, not as global header links @ci-gate", async () => {
     const fx = loadFixtures();
     const { context, page } = await openPersistent("mgr-build");
     try {
       await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
       await modeSegment(page, "BUILD").click();
-      // Landing on a BUILD surface flips the mode indicator to BUILD.
+      // Landing on a BUILD surface flips the mode indicator to BUILD and lands on the hub.
+      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
-      await expect(banner(page).getByRole("link", { name: "Department Builder", exact: true })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Employee Builder", exact: true })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Operational Templates", exact: true })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Work Plans", exact: true })).toBeVisible();
+      // V1 refinement: the global header exposes Build Home, not every individual builder.
+      await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Department Builder", exact: true })).toHaveCount(0);
+      await expect(banner(page).getByRole("link", { name: "Facility Builder", exact: true })).toHaveCount(0);
+      // The builders are organized as Build Home cards instead.
+      const hub = page.getByTestId("build-hub");
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/departments"]')).toBeVisible();
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/employees"]')).toBeVisible();
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/staffing/templates"]')).toBeVisible();
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/staffing/work-plans"]')).toBeVisible();
     } finally {
       await context.close();
     }
@@ -219,16 +226,23 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     }
   });
 
-  test("scenario-07: FA BUILD holds Facility Builder + Procedures & Resources @ci-gate", async () => {
+  test("scenario-07: FA BUILD surfaces stay in BUILD with a return path to Build Home @ci-gate", async () => {
     const fx = loadFixtures();
     const { context, page } = await openPersistent("fa-build");
     try {
       await loginPassword(page, fx.users.fa.email, fx.users.fa.password);
+      // FA Build Home lists Facility Builder + Procedures & Resources as cards.
+      await page.goto("/build", { waitUntil: "domcontentloaded" });
+      const hub = page.getByTestId("build-hub");
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/facility/builder"]')).toBeVisible({ timeout: 30_000 });
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/knowledge"]')).toBeVisible();
+      // Opening a builder stays in BUILD; the header exposes Build Home (not every builder) and the
+      // mode indicator provides a return path back to Build Home.
       await page.goto("/admin/facility/builder", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/admin\/facility\/builder(\?|$)/);
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
-      await expect(banner(page).getByRole("link", { name: "Facility Builder", exact: true })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Procedures & Resources", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Facility Builder", exact: true })).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -360,6 +374,10 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(
         hub.locator('[data-testid="build-hub-card"][data-href="/employees"]'),
       ).toBeVisible();
+      // Asset Builder is restored to Build Home for an eligible user.
+      await expect(
+        hub.locator('[data-testid="build-hub-card"][data-href="/assets/builder"]'),
+      ).toBeVisible();
       // The hub never lists its own home link as a card.
       await expect(page.locator('[data-testid="build-hub-card"][data-href="/build"]')).toHaveCount(0);
     } finally {
@@ -488,6 +506,161 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible();
     } finally {
       await context.close();
+    }
+  });
+
+  // ── V1 shell UX refinement (2026-08-09) ──────────────────────────────────
+
+  test("scenario-18: Build Home shows Asset Builder and it opens the Asset Builder surface @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-asset-builder");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/build", { waitUntil: "domcontentloaded" });
+      const card = page
+        .getByTestId("build-hub")
+        .locator('[data-testid="build-hub-card"][data-href="/assets/builder"]');
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await card.click();
+      await page.waitForURL((u) => u.pathname === "/assets/builder", { timeout: 30_000 });
+      // The Asset Builder surface is BUILD-classified and hosts the asset configuration form.
+      await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
+      await expect(page.getByTestId("asset-builder")).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-19: BUILD gets the amber shell treatment and RUN does not; switching updates it @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-build-treatment");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      const shellRoot = page.locator("[data-shell-root]");
+      const header = banner(page);
+
+      // RUN: shell root advertises RUN and the header uses the neutral treatment.
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      await expect(shellRoot).toHaveAttribute("data-product-mode", "RUN", { timeout: 30_000 });
+      const runHeaderBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+      // BUILD: shell root flips to BUILD and the header background changes (amber treatment applied).
+      await modeSegment(page, "BUILD").click();
+      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      await expect(shellRoot).toHaveAttribute("data-product-mode", "BUILD");
+      const buildHeaderBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(buildHeaderBg, "BUILD header should differ from RUN header").not.toBe(runHeaderBg);
+
+      // Switching back to RUN restores the neutral treatment.
+      await modeSegment(page, "RUN").click();
+      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      await expect(shellRoot).toHaveAttribute("data-product-mode", "RUN");
+      const backToRunBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(backToRunBg).toBe(runHeaderBg);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-20: Change password is not a top-level header button but lives in the account menu @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-account-menu");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const trigger = page.getByTestId("account-menu-trigger");
+      await expect(trigger).toBeVisible({ timeout: 30_000 });
+      // Change password is not exposed as a permanent top-level control before opening the menu.
+      await expect(page.getByTestId("account-menu-change-password")).toBeHidden();
+      // Opening the account menu reveals Change password and Sign out together.
+      await trigger.click();
+      await expect(page.getByTestId("account-menu-change-password")).toBeVisible();
+      await expect(page.getByTestId("account-menu-sign-out")).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-21: the department control is progressive and never mislabels mode @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-dept-context");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const deptContext = page.getByTestId("department-context");
+      await expect(deptContext).toBeVisible({ timeout: 30_000 });
+      // The control is labelled Department (context lens), separate from the Run/Build mode switch.
+      await expect(banner(page).getByText("Department", { exact: true }).first()).toBeVisible();
+      // Progressive behaviour: a single available department is compact (no combobox); multiple
+      // available departments render the selector.
+      const shape = await deptContext.getAttribute("data-department-context");
+      const comboboxes = deptContext.getByRole("combobox");
+      if (shape === "single") {
+        await expect(comboboxes).toHaveCount(0);
+      } else {
+        await expect(comboboxes.first()).toBeVisible();
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-22: a facility-wide administrator with multiple departments sees the selector @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("fa-dept-selector");
+    try {
+      await loginPassword(page, fx.users.fa.email, fx.users.fa.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const deptContext = page.getByTestId("department-context");
+      await expect(deptContext).toBeVisible({ timeout: 30_000 });
+      // The seeded facility has more than one department, so the FA gets the multi-department selector.
+      await expect(deptContext).toHaveAttribute("data-department-context", "multi");
+      await expect(deptContext.getByRole("combobox").first()).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-23: Build Home stays reachable from inside a builder via the mode indicator @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("mgr-build-return");
+    try {
+      await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+      await page.goto("/admin/departments", { waitUntil: "domcontentloaded" });
+      await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
+      // The persistent mode indicator becomes a return path back to Build Home.
+      const returnLink = page.getByTestId("mode-indicator-build-home");
+      await expect(returnLink).toBeVisible();
+      await returnLink.click();
+      await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
+      await expect(page.getByTestId("build-hub")).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-24: tablet portrait and landscape have no horizontal overflow in BUILD @ci-gate", async () => {
+    const fx = loadFixtures();
+    for (const [suffix, viewport] of [
+      ["mgr-build-tablet-landscape", TABLET_LANDSCAPE_VIEWPORT],
+      ["mgr-build-tablet-portrait", TABLET_PORTRAIT_VIEWPORT],
+    ] as const) {
+      const { context, page } = await openPersistent(suffix, viewport);
+      try {
+        await loginPassword(page, fx.users.manager.email, fx.users.manager.password);
+        await page.goto("/build", { waitUntil: "domcontentloaded" });
+        await expect(page.getByTestId("build-hub")).toBeVisible({ timeout: 30_000 });
+        // Both mode segments and the department context remain present; BUILD treatment is applied.
+        await expect(modeSegment(page, "RUN")).toBeVisible();
+        await expect(modeSegment(page, "BUILD")).toBeVisible();
+        await expect(page.locator("[data-shell-root]")).toHaveAttribute("data-product-mode", "BUILD");
+        const overflowsX = await page.evaluate(
+          () => document.documentElement.scrollWidth > window.innerWidth + 1,
+        );
+        expect(overflowsX, `horizontal overflow at ${viewport.width}x${viewport.height}`).toBe(false);
+      } finally {
+        await context.close();
+      }
     }
   });
 });

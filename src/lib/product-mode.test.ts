@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   PRODUCT_MODES,
   groupNavItemsByMode,
+  headerNavItemsForMode,
   resolveActiveMode,
   resolveProductAreaLabel,
   resolveProductModeForPath,
@@ -30,6 +31,15 @@ test("product-mode — operational surfaces resolve to RUN", () => {
   }
 });
 
+test("product-mode — Asset Builder is BUILD while the operational Assets view stays RUN", () => {
+  // Longest-prefix: /assets/builder is a BUILD configuration surface; /assets and asset profiles
+  // remain RUN operational surfaces (one asset registry, two product modes over it).
+  assert.equal(resolveProductModeForPath("/assets/builder"), "BUILD");
+  assert.equal(resolveProductAreaLabel("/assets/builder"), "Asset Builder");
+  assert.equal(resolveProductModeForPath("/assets"), "RUN");
+  assert.equal(resolveProductModeForPath("/assets/asset-1"), "RUN");
+});
+
 test("product-mode — configuration surfaces resolve to BUILD", () => {
   for (const path of [
     "/build",
@@ -39,6 +49,7 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
     "/admin/knowledge",
     "/employees",
     "/employees/import",
+    "/assets/builder",
     "/menus",
     "/staffing/templates",
     "/staffing/work-plans",
@@ -120,6 +131,35 @@ test("resolveActiveMode — active mode follows the path, falling back to an ava
   assert.equal(resolveActiveMode("/admin/departments", full), "BUILD");
   assert.equal(resolveActiveMode("/workspace", full), "RUN");
   assert.equal(resolveActiveMode("/admin", full), "ADMIN");
+});
+
+test("headerNavItemsForMode — RUN keeps its full canonical operational navigation", () => {
+  const runItems = [
+    { label: "Dashboard", href: "/workspace" },
+    { label: "Locations", href: "/units" },
+    { label: "Employees", href: "/staffing" },
+    { label: "Assets", href: "/assets" },
+  ];
+  assert.deepEqual(headerNavItemsForMode("RUN", runItems), runItems);
+});
+
+test("headerNavItemsForMode — BUILD exposes only Build Home in the global header", () => {
+  // Even if a stale nav source lists individual builders in the BUILD group, the header must only
+  // surface Build Home; the builders are reached from the hub, not permanent header links.
+  const buildItems = [
+    { label: "Build Home", href: "/build" },
+    { label: "Facility Builder", href: "/admin/facility/builder" },
+    { label: "Department Builder", href: "/admin/departments" },
+    { label: "Employee Builder", href: "/employees" },
+    { label: "Asset Builder", href: "/assets/builder" },
+  ];
+  assert.deepEqual(headerNavItemsForMode("BUILD", buildItems), [
+    { label: "Build Home", href: "/build" },
+  ]);
+});
+
+test("headerNavItemsForMode — ADMIN contributes no header nav items (rendered separately)", () => {
+  assert.deepEqual(headerNavItemsForMode("ADMIN", [{ label: "Admin", href: "/admin" }]), []);
 });
 
 test("product-mode — exactly three modes are defined", () => {
