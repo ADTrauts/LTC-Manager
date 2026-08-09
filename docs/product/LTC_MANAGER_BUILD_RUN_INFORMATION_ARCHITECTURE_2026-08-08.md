@@ -6,6 +6,18 @@
 **Status:** Consolidation of Phases 9–12 into one coherent product experience
 **Scope:** Product UX and Information Architecture only. No new domain architecture, no schema migrations.
 
+> **RUN surface rationalization amendment (2026-08-09):** the RUN/BUILD/ADMIN switch is **no longer a
+> permanent top-bar segmented control**. Run / Build / Admin switching moved into the right-side
+> **context/account menu** (Workspace → Run · Build; Administration → Admin; Account → Change password ·
+> Sign out). The primary top bar now shows only the current workspace's destinations. **Operations
+> Center is retired** — `/dashboard` and `/operations` render nothing and redirect to the caller's
+> canonical RUN home. Canonical RUN destinations: **Dashboard** (`/workspace`, overview) · **Today's
+> Work** (`/today`, current-day execution) · **Locations** (`/units`, place-based) · **Employees**
+> (`/staffing`) · **Assets** (`/assets`) · **Log Book** (`/staffing/log-book`). BUILD is accessed from
+> the menu; **Build Home** (`/build`) remains the canonical BUILD landing with the amber treatment.
+> ADMIN is accessed from the menu; governance only. See
+> `docs/product/LTC_MANAGER_RUN_SURFACE_RATIONALIZATION_2026-08-09.md`.
+
 ---
 
 ## 1. Product mental model

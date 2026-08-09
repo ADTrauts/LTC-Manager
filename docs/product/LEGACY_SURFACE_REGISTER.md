@@ -7,6 +7,8 @@
 > **Phase 14 amendment (2026-08-08):** the deprecated zone-based navigation code (row 9) has been **removed** (no longer DEPRECATED-retained), and the dedicated BUILD hub (`/build`, row 11) is now the Build-mode landing. See `docs/product/LTC_MANAGER_V1_UX_COMPLETION_PHASE_14_2026-08-08.md`.
 >
 > **V1 shell UX refinement amendment (2026-08-09):** Asset Builder is now a first-class BUILD surface (`/assets/builder`, row 12) that appears on Build Home; the global header now exposes only **Build Home** in BUILD mode (individual builders are reached from the hub, not from permanent header links); Change password moved into the account menu. See `docs/product/LTC_MANAGER_V1_SHELL_UX_REFINEMENT_2026-08-09.md`.
+>
+> **RUN surface rationalization amendment (2026-08-09):** **Operations Center is RETIRED** as a peer RUN destination (row 3 reclassified **HIDDEN FROM NAVIGATION → REDIRECT**). `/dashboard` and `/operations` no longer render an operational surface — both server-redirect to the caller's canonical RUN home (managers → `/workspace` Dashboard, supervisors → `/today` Today's Work, frontline → their unit/logs). Run / Build / Admin switching moved out of the permanent top bar into the right-side context/account menu. The stale-location defect (retired Units shown as active) was root-caused and fixed in the shared `loadDashboardQueries` loader. See `docs/product/LTC_MANAGER_RUN_SURFACE_RATIONALIZATION_2026-08-09.md`.
 
 ---
 
@@ -31,7 +33,7 @@
 |---|-------|---------------|---------------------------|-----------|----------|
 | 1 | `/admin/inspections` | **LEGACY READ-ONLY / HIDDEN FROM NAVIGATION** | `/staffing/templates` (Operational Templates) | Unified Operational Template architecture (Phase 9C) supersedes legacy inspection configuration. | Hide from nav; keep reachable & read-authoritative for FA; retire when no active dependency. No data deleted. |
 | 2 | `/logs` | **ACTIVE AUTHORITY** (frontline) | — | Frontline STAFF logging entry point; distinct from the Operational Evidence Log Book. Not a duplicate of `/staffing/log-book`. | Keep in RUN nav. Re-evaluate once Operational Evidence is the exclusive logging path facility-wide. |
-| 3 | `/dashboard`, `/operations` | **HIDDEN FROM NAVIGATION** | `/workspace` (RUN Dashboard) | Operations Center is the deliberate exception glance, not the everyday home. Kept reachable and linked from the Dashboard. | Hidden from nav; reachable by URL (STAFF+). |
+| 3 | `/dashboard`, `/operations` | **REDIRECT (RETIRED — RUN surface rationalization 2026-08-09)** | Role-aware canonical RUN home (`/workspace` Dashboard, `/today` Today's Work, or unit/logs) | Operations Center overlapped Dashboard and Today's Work and displayed stale/retired locations. Retired as a peer RUN destination; both routes now render nothing and redirect via `resolveDefaultHomePath`. Kept reachable by all roles (STAFF+) so bookmarks/deep links and internal "home" fallbacks never dead-end. No historical records deleted. | Redirect; reachable by URL (STAFF+); absent from all navigation. |
 | 4 | `/staffing` (as "Today's Work" label) | **ACTIVE AUTHORITY** (relabeled) | — | Repurposed as RUN **Employees** (today's workforce ops). Old label retired. | Keep; product label = Employees. |
 | 5 | `/employees` (as top-level "Employees") | **ACTIVE AUTHORITY** (reclassified) | — | Reclassified from RUN people-ops to BUILD **Employee Builder** (workforce configuration). | Keep; mode = BUILD. |
 | 6 | `/menus` (as "Menus" in Administration dropdown) | **ACTIVE AUTHORITY** (reclassified) | — | Reclassified to BUILD **Menu Building**. | Keep; mode = BUILD. |
@@ -47,9 +49,11 @@
 ## Redirect / deprecation decisions summary
 
 - **Redirect:** `/settings → /admin/organization` (pre-existing; unchanged).
-- **Hidden from navigation:** `/admin/inspections`, `/dashboard`, `/operations` (all reachable by URL, server-authorized).
+- **Redirect (RETIRED, 2026-08-09):** `/dashboard` and `/operations` → role-aware canonical RUN home (`resolveDefaultHomePath`). Operations Center is retired as a peer RUN destination; the pages render nothing but the routes remain registered (STAFF+) so redirects preserve authorization and avoid dead links.
+- **Hidden from navigation:** `/admin/inspections` (reachable by URL, server-authorized).
 - **Added (Phase 14):** `/build` BUILD hub (ROLE_RESTRICTED, SUPERVISOR floor) — a new page route, registered in `platform-routes.ts`.
 - **Removed (Phase 14):** deprecated zone-based nav code (row 9). No **route** was removed; only dead components/tests were deleted.
+- **Stale-location root cause (2026-08-09):** the shared `loadDashboardQueries` loader (`src/lib/operations-center/load-dashboard-queries.ts`) filtered Units by `isActive: true` **only**, so a Unit retired to the builder-only `STAGED` hierarchy role (which stays `isActive: true`) leaked in as an active operational location. Because the Projection feature flags for Dashboard (`/workspace`) and Today's Work (`/today`) default **off**, this legacy loader was the live default for those surfaces too — the defect was not limited to the retired Operations Center. **Fix:** the legacy path now composes its Unit where-clause with `operationalUnitWhere`, which excludes `BUILDER_ONLY_HIERARCHY_ROLES` (`STAGED`). No new model, no migration (count stays 72). Historical rows are untouched — only their presentation as *currently active* locations is corrected.
 
 ## Route policy note
 
