@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AppIcons } from "@/lib/design-system";
 import { clearAllOfflineData, clearForSignOut } from "@/lib/offline/local-store";
@@ -124,6 +124,7 @@ export function AccountMenu({
   const pathname = usePathname();
   const activeMode = resolveProductModeForPath(pathname ?? "/");
   const rootRef = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
   const UserIcon = AppIcons.user;
   const SignOutIcon = AppIcons.signOut;
 
@@ -131,39 +132,46 @@ export function AccountMenu({
   // from — a Run-only frontline session gets no pointless Run entry.
   const showWorkspaceGroup = showBuild;
 
-  // Native <details> stays open on outside clicks; dismiss on outside pointer, Escape, and route change.
+  // Close on navigation so a stale panel never follows the user into the next surface.
   useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
+    setOpen(false);
+  }, [pathname]);
 
-    function close() {
-      root?.removeAttribute("open");
-    }
-
-    close();
+  // Native <details> does not dismiss on outside click; close on outside pointer or Escape.
+  useEffect(() => {
+    if (!open) return;
 
     function onPointerDown(event: PointerEvent) {
-      if (!root?.open) return;
+      const root = rootRef.current;
+      if (!root) return;
       const target = event.target;
       if (target instanceof Node && root.contains(target)) return;
-      close();
+      setOpen(false);
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape" || !root?.open) return;
-      close();
+      if (event.key !== "Escape") return;
+      setOpen(false);
     }
 
-    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [pathname]);
+  }, [open]);
 
   return (
-    <details ref={rootRef} className="group relative flex" data-testid="account-menu">
+    <details
+      ref={rootRef}
+      open={open}
+      onToggle={(event) => {
+        setOpen(event.currentTarget.open);
+      }}
+      className="group relative flex"
+      data-testid="account-menu"
+    >
       <summary
         data-testid="account-menu-trigger"
         className="flex min-h-10 max-w-[10rem] cursor-pointer list-none items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400 [&::-webkit-details-marker]:hidden sm:px-3"
