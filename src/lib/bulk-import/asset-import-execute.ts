@@ -172,7 +172,8 @@ export async function executeAssetImportPlan(
   let skippedCount = plan.rows.filter((r) => r.action === "skip").length;
   const assetOpsEnabled = isDietaryAssetOperationsEnabled();
 
-  await client.$transaction(async (tx) => {
+  await client.$transaction(
+    async (tx) => {
     const live = await loadAssetImportCatalog(tx, facilityId);
 
     for (const row of createRows) {
@@ -258,7 +259,9 @@ export async function executeAssetImportPlan(
       }
       createdCount += 1;
     }
-  });
+  },
+    { timeout: 180_000, maxWait: 30_000 },
+  );
 
   return { createdCount, skippedCount };
 }

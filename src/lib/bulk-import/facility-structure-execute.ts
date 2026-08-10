@@ -104,7 +104,8 @@ export async function executeFacilityStructurePlan(
 
   const ops = orderedFacilityCreatePlan(plan);
 
-  return client.$transaction(async (tx) => {
+  return client.$transaction(
+    async (tx) => {
     const catalog = await loadFacilityStructureCatalog(tx, facilityId);
     const floorIdByKey = new Map<string, string>();
     const neighborhoodIdByKey = new Map<string, string>();
@@ -247,5 +248,7 @@ export async function executeFacilityStructurePlan(
       neighborhoodsReused: plan.neighborhoodsReused,
       spacesReused: plan.spacesReused,
     };
-  });
+  },
+    { timeout: 120_000, maxWait: 30_000 },
+  );
 }
