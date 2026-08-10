@@ -33,13 +33,17 @@ import {
   type BulkImportRowStatus,
 } from "./types";
 
-export const FACILITY_STRUCTURE_TEMPLATE_VERSION = "2026-08-09";
+export const FACILITY_STRUCTURE_TEMPLATE_VERSION = "2026-08-09-b";
 
+/**
+ * User-facing Facility Structure CSV headers.
+ * Internal UnitSpace domain remains unchanged; `locationName` / `locationType` are import UX terms.
+ */
 export const FACILITY_STRUCTURE_CSV_HEADERS = [
   "floor",
   "neighborhood",
-  "space",
-  "spaceType",
+  "locationName",
+  "locationType",
   "roomNumber",
   "code",
   "description",
@@ -48,6 +52,11 @@ export const FACILITY_STRUCTURE_CSV_HEADERS = [
 ] as const;
 
 export type FacilityStructureField = (typeof FACILITY_STRUCTURE_CSV_HEADERS)[number];
+
+/** Readable Location Type values shown in templates / help (from Facility Builder presets). */
+export const FACILITY_LOCATION_TYPE_LABELS = SPACE_TYPE_PRESETS.filter(
+  (p) => !p.requiresCustomLabel,
+).map((p) => p.label);
 
 const HEADER_ALIASES: Record<string, FacilityStructureField> = {
   floor: "floor",
@@ -58,14 +67,20 @@ const HEADER_ALIASES: Record<string, FacilityStructureField> = {
   neighborhood_unit: "neighborhood",
   level2: "neighborhood",
   level_2: "neighborhood",
-  space: "space",
-  room: "space",
-  room_space: "space",
-  level3: "space",
-  level_3: "space",
-  spacetype: "spaceType",
-  space_type: "spaceType",
-  type: "spaceType",
+  // Canonical user-facing headers
+  locationname: "locationName",
+  location_name: "locationName",
+  locationtype: "locationType",
+  location_type: "locationType",
+  // Backward-compatible aliases (parser only — not product terminology)
+  space: "locationName",
+  room: "locationName",
+  room_space: "locationName",
+  level3: "locationName",
+  level_3: "locationName",
+  spacetype: "locationType",
+  space_type: "locationType",
+  type: "locationType",
   roomnumber: "roomNumber",
   room_number: "roomNumber",
   code: "code",
@@ -81,30 +96,16 @@ const HEADER_ALIASES: Record<string, FacilityStructureField> = {
 export const FACILITY_STRUCTURE_CSV_TEMPLATE = rowsToCsv(
   [...FACILITY_STRUCTURE_CSV_HEADERS],
   [
-    [
-      "Floor 1",
-      "1A - Naval Park",
-      "Room 101",
-      "Resident Room",
-      "101",
-      "",
-      "",
-      "Dietary",
-      "",
-    ],
-    [
-      "Floor 1",
-      "1A - Naval Park",
-      "Servery",
-      "Servery",
-      "",
-      "",
-      "Neighborhood servery",
-      "Dietary",
-      "",
-    ],
+    ["Floor 1", "1A - Naval Park", "Room 101", "Resident Room", "101", "", "", "", ""],
+    ["Floor 1", "1A - Naval Park", "Room 102", "Resident Room", "102", "", "", "", ""],
+    ["Floor 1", "1A - Naval Park", "Servery", "Servery", "", "", "", "Dietary", ""],
+    ["Floor 1", "1A - Naval Park", "Dining Room", "Dining Room", "", "", "", "", ""],
+    ["Floor 1", "1A - Naval Park", "Clean Utility", "Utility Room", "", "", "", "", ""],
   ],
 );
+
+/** Row intent derived from which hierarchy fields are filled. */
+export type FacilityStructureRowIntent = "floor" | "neighborhood" | "location";
 
 export type ExistingUnitSnapshot = {
   id: string;
@@ -146,8 +147,10 @@ export type ParsedFacilityStructureRow = {
   rowNumber: number;
   floor: string;
   neighborhood: string;
-  space: string;
-  spaceTypeRaw: string;
+  /** User-facing Location Name; maps to UnitSpace.name internally. */
+  locationName: string;
+  /** User-facing Location Type raw value; maps to SpaceType presets internally. */
+  locationTypeRaw: string;
   roomNumber: string;
   code: string;
   description: string;
@@ -159,11 +162,13 @@ export type ParsedFacilityStructureRow = {
 export type FacilityStructureRowPlan = {
   rowNumber: number;
   status: BulkImportRowStatus;
+  intent: FacilityStructureRowIntent;
   floorKey: string;
   neighborhoodKey: string;
   spaceKey: string;
   floorName: string;
   neighborhoodName: string;
+  /** UnitSpace.name (user-facing Location Name). */
   spaceName: string;
   resolvedType: ResolvedSpaceTypeInput | null;
   roomNumber: string | null;
@@ -182,16 +187,39 @@ export type FacilityStructureRowPlan = {
   cells: string[];
 };
 
+export type FacilityHierarchyPreviewLocation = {
+  name: string;
+  typeLabel: string;
+  roomNumber: string | null;
+  action: "create" | "reuse" | "skip";
+  /** Secondary line, e.g. "Resident Room · #101" or "Servery". */
+  metaLine: string;
+};
+
 export type FacilityHierarchyPreviewNode = {
   name: string;
   action: "create" | "reuse";
   neighborhoods: Array<{
     name: string;
     action: "create" | "reuse";
+    /** @deprecated Prefer locationCounts — kept for wizard compatibility. */
     spaceCounts: Record<string, number>;
     spaceTotal: number;
+    locationCounts: Record<string, number>;
+    locationTotal: number;
+    locations: FacilityHierarchyPreviewLocation[];
   }>;
 };
+
+export function formatFacilityLocationPreviewMeta(
+  typeLabel: string,
+  roomNumber: string | null,
+): string {
+  const type = typeLabel.trim() || "Location";
+  const room = roomNumber?.trim();
+  if (room) return `${type} · #${room}`;
+  return type;
+}
 
 export type FacilityStructureImportPlan = {
   fileName: string | null;
@@ -237,10 +265,8 @@ function resolveSpaceTypeLabel(raw: string, customTypeLabel: string): {
   if (!trimmed) {
     return {
       ok: false,
-      reason: "Space type is required.",
-      suggestion: `Use one of: ${SPACE_TYPE_PRESETS.filter((p) => !p.requiresCustomLabel)
-        .map((p) => p.label)
-        .join(", ")}`,
+      reason: "Location Type is required when creating a location.",
+      suggestion: `Use one of: ${FACILITY_LOCATION_TYPE_LABELS.join(", ")}`,
     };
   }
 
@@ -259,7 +285,7 @@ function resolveSpaceTypeLabel(raw: string, customTypeLabel: string): {
     } catch (err) {
       return {
         ok: false,
-        reason: err instanceof Error ? err.message : "Invalid space type.",
+        reason: err instanceof Error ? err.message : "Invalid Location Type.",
       };
     }
   }
@@ -279,7 +305,7 @@ function resolveSpaceTypeLabel(raw: string, customTypeLabel: string): {
     } catch (err) {
       return {
         ok: false,
-        reason: err instanceof Error ? err.message : "Invalid space type.",
+        reason: err instanceof Error ? err.message : "Invalid Location Type.",
       };
     }
   }
@@ -316,14 +342,14 @@ function resolveSpaceTypeLabel(raw: string, customTypeLabel: string): {
       return {
         ok: false,
         reason: err instanceof Error ? err.message : "Custom type label is required.",
-        suggestion: "Provide customTypeLabel when spaceType is Other / Custom.",
+        suggestion: "Provide customTypeLabel when Location Type is Other / Custom.",
       };
     }
   }
 
   return {
     ok: false,
-    reason: `Unknown space type "${trimmed}".`,
+    reason: `Unknown Location Type "${trimmed}".`,
     suggestion: `Accepted values include: ${SPACE_TYPE_PRESETS.map((p) => p.label).join(", ")}`,
   };
 }
@@ -338,13 +364,12 @@ export function parseFacilityStructureCsv(text: string, fileName?: string | null
   if (!read.ok) return read;
 
   const colMap = mapHeadersWithAliases(read.headers, HEADER_ALIASES);
-  const required: FacilityStructureField[] = ["floor", "neighborhood", "space", "spaceType"];
   const present = new Set(colMap.values());
-  const missing = required.filter((f) => !present.has(f));
-  if (missing.length > 0) {
+  if (!present.has("floor")) {
     return {
       ok: false,
-      error: `Missing required columns: ${missing.join(", ")}. Download the Facility Structure template.`,
+      error:
+        "Missing required column: floor. Download the Facility Structure template (Location Name / Location Type).",
     };
   }
 
@@ -352,8 +377,8 @@ export function parseFacilityStructureCsv(text: string, fileName?: string | null
     rowNumber: idx + 2,
     floor: cellAt(cells, colMap, "floor"),
     neighborhood: cellAt(cells, colMap, "neighborhood"),
-    space: cellAt(cells, colMap, "space"),
-    spaceTypeRaw: cellAt(cells, colMap, "spaceType"),
+    locationName: cellAt(cells, colMap, "locationName"),
+    locationTypeRaw: cellAt(cells, colMap, "locationType"),
     roomNumber: cellAt(cells, colMap, "roomNumber"),
     code: cellAt(cells, colMap, "code"),
     description: cellAt(cells, colMap, "description"),
@@ -363,6 +388,15 @@ export function parseFacilityStructureCsv(text: string, fileName?: string | null
   }));
 
   return { ok: true, rows, headers: [...FACILITY_STRUCTURE_CSV_HEADERS], fileName: read.fileName };
+}
+
+export function resolveFacilityStructureRowIntent(row: {
+  neighborhood: string;
+  locationName: string;
+}): FacilityStructureRowIntent {
+  if (row.locationName.trim()) return "location";
+  if (row.neighborhood.trim()) return "neighborhood";
+  return "floor";
 }
 
 function findUnitsByName(
@@ -413,6 +447,7 @@ function spaceTypeConflicts(
 
 /**
  * Validate CSV rows against a preloaded facility catalog (batch-loaded; no N+1).
+ * Supports Floor-only, Floor+Neighborhood, and Floor+Neighborhood+Location rows.
  */
 export function planFacilityStructureImport(
   parsedRows: ParsedFacilityStructureRow[],
@@ -436,6 +471,7 @@ export function planFacilityStructureImport(
       action: "create" | "reuse" | "skip";
       id: string | null;
       typeLabel: string;
+      roomNumber: string | null;
     }
   >();
   const fileSpaceKeys = new Set<string>();
@@ -454,29 +490,22 @@ export function planFacilityStructureImport(
     let existingNeighborhoodId: string | null = null;
     let existingSpaceId: string | null = null;
 
-    if (!raw.floor) {
+    const intent = resolveFacilityStructureRowIntent(raw);
+    const hasLocationName = Boolean(raw.locationName.trim());
+    const hasLocationType = Boolean(raw.locationTypeRaw.trim());
+    const hasRoomNumber = Boolean(raw.roomNumber.trim());
+    const hasCustomTypeLabel = Boolean(raw.customTypeLabel.trim());
+    const hasDepartment = Boolean(raw.department.trim());
+    const hasCode = Boolean(raw.code.trim());
+    const hasDescription = Boolean(raw.description.trim());
+
+    if (!raw.floor.trim()) {
       errors.push({
         row: raw.rowNumber,
         field: "floor",
         value: "",
         reason: "Floor is required.",
         suggestion: "Provide the Floor name (e.g. Floor 1).",
-      });
-    }
-    if (!raw.neighborhood) {
-      errors.push({
-        row: raw.rowNumber,
-        field: "neighborhood",
-        value: "",
-        reason: "Neighborhood / Unit is required.",
-      });
-    }
-    if (!raw.space) {
-      errors.push({
-        row: raw.rowNumber,
-        field: "space",
-        value: "",
-        reason: "Room / Space is required.",
       });
     }
     if (raw.floor.length > 120) {
@@ -495,12 +524,12 @@ export function planFacilityStructureImport(
         reason: "Neighborhood name must be 120 characters or fewer.",
       });
     }
-    if (raw.space.length > 120) {
+    if (raw.locationName.length > 120) {
       errors.push({
         row: raw.rowNumber,
-        field: "space",
-        value: raw.space,
-        reason: "Space name must be 120 characters or fewer.",
+        field: "locationName",
+        value: raw.locationName,
+        reason: "Location Name must be 120 characters or fewer.",
       });
     }
     if (raw.roomNumber.length > 32) {
@@ -508,7 +537,7 @@ export function planFacilityStructureImport(
         row: raw.rowNumber,
         field: "roomNumber",
         value: raw.roomNumber,
-        reason: "Room number must be 32 characters or fewer.",
+        reason: "Room Number must be 32 characters or fewer.",
       });
     }
     if (raw.code.length > 20) {
@@ -528,20 +557,82 @@ export function planFacilityStructureImport(
       });
     }
 
-    const typeResolved = resolveSpaceTypeLabel(raw.spaceTypeRaw, raw.customTypeLabel);
-    if (!typeResolved.ok) {
-      errors.push({
-        row: raw.rowNumber,
-        field: "spaceType",
-        value: raw.spaceTypeRaw,
-        reason: typeResolved.reason,
-        suggestion: typeResolved.suggestion,
-      });
-    } else {
-      resolvedType = typeResolved.value;
+    // Cross-field hierarchy intent rules
+    if (!hasLocationName) {
+      if (hasLocationType) {
+        errors.push({
+          row: raw.rowNumber,
+          field: "locationType",
+          value: raw.locationTypeRaw,
+          reason: "Location Type was provided without a Location Name.",
+          suggestion:
+            "Add a Location Name, or clear Location Type when the row only creates a Floor or Neighborhood.",
+        });
+      }
+      if (hasRoomNumber) {
+        errors.push({
+          row: raw.rowNumber,
+          field: "roomNumber",
+          value: raw.roomNumber,
+          reason: "Room Number was provided without a Location Name.",
+          suggestion: "Room Number is optional metadata for a location — add a Location Name first.",
+        });
+      }
+      if (hasCustomTypeLabel) {
+        errors.push({
+          row: raw.rowNumber,
+          field: "customTypeLabel",
+          value: raw.customTypeLabel,
+          reason: "Custom type label was provided without a Location Name / Location Type.",
+          suggestion: "Provide Location Name and Location Type when using customTypeLabel.",
+        });
+      }
+      if (intent === "floor" && (hasDepartment || hasCode || hasDescription)) {
+        errors.push({
+          row: raw.rowNumber,
+          field: hasDepartment ? "department" : hasCode ? "code" : "description",
+          value: hasDepartment ? raw.department : hasCode ? raw.code : raw.description.slice(0, 80),
+          reason:
+            "Location-only fields (code, description, department) require a Location Name.",
+          suggestion:
+            "Leave those columns blank for Floor-only rows, or add Location Name and Location Type.",
+        });
+      }
     }
 
-    if (raw.department) {
+    if (intent === "location") {
+      if (!raw.neighborhood.trim()) {
+        errors.push({
+          row: raw.rowNumber,
+          field: "neighborhood",
+          value: "",
+          reason: "Neighborhood / Unit is required when creating a location.",
+          suggestion:
+            "Locations sit under a Neighborhood. Add the Neighborhood name, or remove Location Name for a Floor-only row.",
+        });
+      }
+      const typeResolved = resolveSpaceTypeLabel(raw.locationTypeRaw, raw.customTypeLabel);
+      if (!typeResolved.ok) {
+        errors.push({
+          row: raw.rowNumber,
+          field: "locationType",
+          value: raw.locationTypeRaw,
+          reason: typeResolved.reason,
+          suggestion: typeResolved.suggestion,
+        });
+      } else {
+        resolvedType = typeResolved.value;
+      }
+    } else if (hasCustomTypeLabel && !hasLocationType) {
+      errors.push({
+        row: raw.rowNumber,
+        field: "customTypeLabel",
+        value: raw.customTypeLabel,
+        reason: "Custom type label requires a Location Type.",
+      });
+    }
+
+    if (hasDepartment && intent === "location") {
       const dept = findDepartment(catalog, raw.department);
       if (!dept.ok) {
         errors.push({
@@ -555,11 +646,22 @@ export function planFacilityStructureImport(
         departmentId = dept.department.id;
         departmentName = dept.department.name;
       }
+    } else if (hasDepartment && intent === "neighborhood") {
+      errors.push({
+        row: raw.rowNumber,
+        field: "department",
+        value: raw.department,
+        reason: "Department applies to locations, not Neighborhood-only rows.",
+        suggestion: "Clear department, or add Location Name and Location Type.",
+      });
     }
 
     const floorKey = normKey(raw.floor);
-    const neighborhoodKey = normKey(raw.neighborhood);
-    const spaceKey = `${neighborhoodKey}::${normKey(raw.space)}`;
+    const neighborhoodKey = raw.neighborhood.trim() ? normKey(raw.neighborhood) : "";
+    const spaceKey =
+      intent === "location" && neighborhoodKey
+        ? `${neighborhoodKey}::${normKey(raw.locationName)}`
+        : "";
 
     if (errors.length === 0) {
       // Floor resolution
@@ -567,6 +669,13 @@ export function planFacilityStructureImport(
       if (plannedFloor) {
         floorAction = plannedFloor.action;
         existingFloorId = plannedFloor.id;
+        if (intent === "floor" && plannedFloor.action === "reuse") {
+          status = "reuse";
+          messages.push(`Reusing existing Floor "${plannedFloor.name}".`);
+        } else if (intent === "floor" && plannedFloor.action === "create") {
+          status = "reuse";
+          messages.push(`Floor "${plannedFloor.name}" already planned earlier in this file.`);
+        }
       } else {
         const matches = findUnitsByName(catalog, raw.floor);
         if (matches.length > 1) {
@@ -604,6 +713,7 @@ export function planFacilityStructureImport(
               id: match.id,
             });
             messages.push(`Reusing existing Floor "${match.name}".`);
+            if (intent === "floor") status = "reuse";
           }
         } else {
           floorAction = "create";
@@ -612,11 +722,15 @@ export function planFacilityStructureImport(
             action: "create",
             id: null,
           });
+          if (intent === "floor") {
+            status = "create";
+            messages.push(`Will create Floor "${raw.floor.trim()}".`);
+          }
         }
       }
 
-      // Neighborhood resolution (facility-wide unique names)
-      if (errors.length === 0) {
+      // Neighborhood resolution (when present)
+      if (errors.length === 0 && (intent === "neighborhood" || intent === "location")) {
         const plannedNbh = plannedNeighborhoods.get(neighborhoodKey);
         if (plannedNbh) {
           if (plannedNbh.floorKey !== floorKey) {
@@ -629,6 +743,14 @@ export function planFacilityStructureImport(
           } else {
             neighborhoodAction = plannedNbh.action;
             existingNeighborhoodId = plannedNbh.id;
+            if (intent === "neighborhood") {
+              status = plannedNbh.action === "reuse" ? "reuse" : "reuse";
+              messages.push(
+                plannedNbh.action === "reuse"
+                  ? `Reusing existing Neighborhood "${plannedNbh.name}".`
+                  : `Neighborhood "${plannedNbh.name}" already planned earlier in this file.`,
+              );
+            }
           }
         } else {
           const matches = findUnitsByName(catalog, raw.neighborhood);
@@ -699,6 +821,7 @@ export function planFacilityStructureImport(
                 id: match.id,
               });
               messages.push(`Reusing existing Neighborhood "${match.name}".`);
+              if (intent === "neighborhood") status = "reuse";
             }
           } else {
             neighborhoodAction = "create";
@@ -708,61 +831,70 @@ export function planFacilityStructureImport(
               action: "create",
               id: null,
             });
+            if (intent === "neighborhood") {
+              status = "create";
+              messages.push(`Will create Neighborhood "${raw.neighborhood.trim()}".`);
+            }
           }
         }
       }
 
-      // Space resolution
-      if (errors.length === 0 && resolvedType) {
+      // Location (UnitSpace) resolution
+      if (errors.length === 0 && intent === "location" && resolvedType) {
         if (fileSpaceKeys.has(spaceKey)) {
           spaceAction = "skip";
           status = "skip";
-          messages.push("Duplicate row in file — space already planned; will not create twice.");
-          plannedSpaces.set(spaceKey, plannedSpaces.get(spaceKey) ?? {
-            name: raw.space.trim(),
-            neighborhoodKey,
-            action: "skip",
-            id: null,
-            typeLabel: raw.spaceTypeRaw,
-          });
+          messages.push(
+            "Duplicate row in file — location already planned; will not create twice.",
+          );
+          plannedSpaces.set(
+            spaceKey,
+            plannedSpaces.get(spaceKey) ?? {
+              name: raw.locationName.trim(),
+              neighborhoodKey,
+              action: "skip",
+              id: null,
+              typeLabel: raw.locationTypeRaw,
+              roomNumber: raw.roomNumber || null,
+            },
+          );
         } else {
           fileSpaceKeys.add(spaceKey);
           const parentId = existingNeighborhoodId;
           const existingSpaces = catalog.spaces.filter(
             (s) =>
-              normKey(s.name) === normKey(raw.space) &&
+              normKey(s.name) === normKey(raw.locationName) &&
               (parentId ? s.unitId === parentId : false),
           );
 
-          // Also detect same name under planned-new neighborhood as new create
           if (neighborhoodAction === "reuse" && parentId) {
             if (existingSpaces.length > 1) {
               errors.push({
                 row: raw.rowNumber,
-                field: "space",
-                value: raw.space,
-                reason: `Ambiguous space "${raw.space}" under this neighborhood.`,
+                field: "locationName",
+                value: raw.locationName,
+                reason: `Ambiguous location "${raw.locationName}" under this neighborhood.`,
               });
             } else if (existingSpaces.length === 1) {
               const existing = existingSpaces[0]!;
               if (!existing.isActive) {
                 errors.push({
                   row: raw.rowNumber,
-                  field: "space",
-                  value: raw.space,
-                  reason: `Space "${existing.name}" is inactive.`,
+                  field: "locationName",
+                  value: raw.locationName,
+                  reason: `Location "${existing.name}" is inactive.`,
                 });
               } else if (spaceTypeConflicts(existing, resolvedType)) {
                 status = "conflict";
                 errors.push({
                   row: raw.rowNumber,
-                  field: "spaceType",
-                  value: raw.spaceTypeRaw,
-                  reason: `Space "${existing.name}" already exists with a different type. Import will not overwrite.`,
-                  suggestion: "Change the type in Facility Builder, or use a different space name.",
+                  field: "locationType",
+                  value: raw.locationTypeRaw,
+                  reason: `Location "${existing.name}" already exists with a different type. Import will not overwrite.`,
+                  suggestion:
+                    "Change the type in Facility Builder, or use a different Location Name.",
                 });
               } else {
-                // Optional field differences → warning, still reuse
                 const optionalDiff =
                   (raw.roomNumber &&
                     (existing.roomNumber ?? "") !== raw.roomNumber) ||
@@ -774,37 +906,40 @@ export function planFacilityStructureImport(
                 status = optionalDiff ? "warning" : "reuse";
                 if (optionalDiff) {
                   messages.push(
-                    "Existing space reused; optional fields differ and will not be overwritten.",
+                    "Existing location reused; optional fields differ and will not be overwritten.",
                   );
                 } else {
-                  messages.push(`Reusing existing Space "${existing.name}".`);
+                  messages.push(`Reusing existing location "${existing.name}".`);
                 }
                 plannedSpaces.set(spaceKey, {
                   name: existing.name,
                   neighborhoodKey,
                   action: "reuse",
                   id: existing.id,
-                  typeLabel: raw.spaceTypeRaw,
+                  typeLabel: raw.locationTypeRaw,
+                  roomNumber: existing.roomNumber,
                 });
               }
             } else {
               spaceAction = "create";
               plannedSpaces.set(spaceKey, {
-                name: raw.space.trim(),
+                name: raw.locationName.trim(),
                 neighborhoodKey,
                 action: "create",
                 id: null,
-                typeLabel: raw.spaceTypeRaw,
+                typeLabel: raw.locationTypeRaw,
+                roomNumber: raw.roomNumber || null,
               });
             }
           } else if (neighborhoodAction === "create") {
             spaceAction = "create";
             plannedSpaces.set(spaceKey, {
-              name: raw.space.trim(),
+              name: raw.locationName.trim(),
               neighborhoodKey,
               action: "create",
               id: null,
-              typeLabel: raw.spaceTypeRaw,
+              typeLabel: raw.locationTypeRaw,
+              roomNumber: raw.roomNumber || null,
             });
           }
         }
@@ -827,19 +962,20 @@ export function planFacilityStructureImport(
       // already set
     } else if (status === "warning" || status === "reuse") {
       // ok
-    } else if (spaceAction === "create") {
+    } else if (spaceAction === "create" || floorAction === "create" || neighborhoodAction === "create") {
       status = "create";
     }
 
     rows.push({
       rowNumber: raw.rowNumber,
       status,
+      intent,
       floorKey,
       neighborhoodKey,
       spaceKey,
       floorName: raw.floor.trim(),
       neighborhoodName: raw.neighborhood.trim(),
-      spaceName: raw.space.trim(),
+      spaceName: raw.locationName.trim(),
       resolvedType,
       roomNumber: raw.roomNumber || null,
       code: raw.code || null,
@@ -892,7 +1028,6 @@ export function planFacilityStructureImport(
       row.spaceAction === "create" &&
       row.resolvedType
     ) {
-      // Only first create per spaceKey
       if (!createOps.spaces.some((s) => s.key === row.spaceKey)) {
         createOps.spaces.push({
           key: row.spaceKey,
@@ -937,6 +1072,14 @@ export function planFacilityStructureImport(
   };
 }
 
+function locationTypeLabel(row: FacilityStructureRowPlan): string {
+  return (
+    row.resolvedType?.customTypeLabel ||
+    SPACE_TYPE_PRESETS.find((p) => p.canonicalType === row.resolvedType?.spaceType)?.label ||
+    "Location"
+  );
+}
+
 function buildHierarchyPreview(
   rows: FacilityStructureRowPlan[],
   plannedFloors: Map<string, { name: string; action: "create" | "reuse"; id: string | null }>,
@@ -958,41 +1101,52 @@ function buildHierarchyPreview(
   for (const [nbhKey, nbh] of plannedNeighborhoods.entries()) {
     const floor = floorNodes.get(nbh.floorKey);
     if (!floor) continue;
-    const spaceCounts: Record<string, number> = {};
-    let spaceTotal = 0;
-    for (const row of rows) {
-      if (row.neighborhoodKey !== nbhKey) continue;
-      if (row.status === "invalid" || row.status === "conflict") continue;
-      if (row.spaceAction === "none") continue;
-      const label =
-        row.resolvedType?.customTypeLabel ||
-        SPACE_TYPE_PRESETS.find((p) => p.canonicalType === row.resolvedType?.spaceType)?.label ||
-        "Space";
-      spaceCounts[label] = (spaceCounts[label] ?? 0) + (row.spaceAction === "skip" ? 0 : 1);
-      if (row.spaceAction !== "skip") spaceTotal += 1;
-    }
-    // Deduplicate counts for skip duplicates — recount unique spaces from planned set
+
     const uniqueLabels: Record<string, number> = {};
+    const locations: FacilityHierarchyPreviewLocation[] = [];
     const seen = new Set<string>();
     for (const row of rows) {
       if (row.neighborhoodKey !== nbhKey) continue;
       if (row.status === "invalid" || row.status === "conflict") continue;
+      if (row.intent !== "location" || row.spaceAction === "none") continue;
       if (seen.has(row.spaceKey)) continue;
       seen.add(row.spaceKey);
-      const label =
-        row.resolvedType?.customTypeLabel ||
-        SPACE_TYPE_PRESETS.find((p) => p.canonicalType === row.resolvedType?.spaceType)?.label ||
-        "Space";
-      uniqueLabels[label] = (uniqueLabels[label] ?? 0) + 1;
+      const typeLabel = locationTypeLabel(row);
+      uniqueLabels[typeLabel] = (uniqueLabels[typeLabel] ?? 0) + 1;
+      const action =
+        row.spaceAction === "reuse" || row.spaceAction === "skip" || row.spaceAction === "create"
+          ? row.spaceAction
+          : "create";
+      locations.push({
+        name: row.spaceName,
+        typeLabel,
+        roomNumber: row.roomNumber,
+        action,
+        metaLine: formatFacilityLocationPreviewMeta(typeLabel, row.roomNumber),
+      });
     }
+
+    const locationTotal = Object.values(uniqueLabels).reduce((a, b) => a + b, 0);
     floor.neighborhoods.push({
       name: nbh.name,
       action: nbh.action,
       spaceCounts: uniqueLabels,
-      spaceTotal: Object.values(uniqueLabels).reduce((a, b) => a + b, 0),
+      spaceTotal: locationTotal,
+      locationCounts: uniqueLabels,
+      locationTotal,
+      locations,
     });
-    void spaceCounts;
-    void spaceTotal;
+  }
+
+  // Floor-only rows: ensure floor appears even with no neighborhoods
+  for (const [floorKey, floor] of plannedFloors.entries()) {
+    if (!floorNodes.has(floorKey)) {
+      floorNodes.set(floorKey, {
+        name: floor.name,
+        action: floor.action,
+        neighborhoods: [],
+      });
+    }
   }
 
   return [...floorNodes.values()];
