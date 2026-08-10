@@ -27,6 +27,8 @@ BUILD should feel like configuring one product. It intentionally has a **small**
 
 Owns **only** physical structure and identity. It does **not** own department operating logic. Department ownership / responsibility may be assigned here only where already certified as physical-structure configuration (room responsibility). It does not duplicate Department Builder.
 
+**Bulk Import (V1 onboarding):** managers may download a Facility Structure CSV template, validate/preview, then confirm create-only Floor → Neighborhood → Room imports. Existing exact hierarchy is reused; imports never delete, move, or overwrite. See `docs/product/LTC_MANAGER_V1_BULK_ONBOARDING_IMPORTS_2026-08-09.md`.
+
 ## Department Builder (Section H)
 
 The operational-programming center, organized by **capability-aware composition** — each department exposes only the tabs it uses:
@@ -54,7 +56,9 @@ These are deliberately kept distinct.
 
 ## Asset Builder (Section K)
 
-Asset **configuration** (identity, type, location, department relationship, configuration, retirement, preferred vendor) is composed within the Assets area's Build affordances and Department Builder. RUN Assets (`/assets`) shows operational status/evidence/issues/requests/work-orders/history. There is **one** asset registry — Asset Builder is a Build composition over it, not a duplicate.
+Asset **configuration** (identity, type, location, department relationship, configuration, retirement, preferred vendor) lives on `/assets/builder` (Build composition over the single asset registry). RUN Assets (`/assets`) shows operational status/evidence/issues/requests/work-orders/history. There is **one** asset registry — Asset Builder is a Build composition over it, not a duplicate.
+
+**Bulk Import (V1 onboarding):** authorized users may CSV-import assets with human-readable Floor → Neighborhood → Space location matching. Create-only; stable identifiers skip existing rows; never creates issues/repairs/evidence. See `docs/product/LTC_MANAGER_V1_BULK_ONBOARDING_IMPORTS_2026-08-09.md`.
 
 ## Procedures & Resources (Section L)
 
