@@ -28,6 +28,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   ChevronDown,
@@ -47,6 +48,7 @@ import {
   Search,
   ArrowRightLeft,
   ListPlus,
+  Upload,
 } from "lucide-react";
 
 import { Drawer } from "@/components/drawer";
@@ -121,6 +123,7 @@ import {
   toggleBuilderUnitActiveAction,
   convertBuilderLegacyToFloorAction,
 } from "./actions";
+import { FacilityBulkImportPanel } from "./facility-bulk-import-panel";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -161,11 +164,13 @@ type CreateUnitDrawerState = {
 // ---------------------------------------------------------------------------
 
 export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierarchy }) {
+  const router = useRouter();
   const copy = useMemo(
     () => buildBuilderCopy(hierarchy.vocabulary),
     [hierarchy.vocabulary],
   );
   const [selection, setSelection] = useState<Selection>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const set = new Set<string>();
     for (const u of hierarchy.units) set.add(u.id);
@@ -421,6 +426,10 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
   const hasAnyUnits = hierarchy.units.length > 0;
   const hasFloors = hierarchy.units.some((u) => resolveBuilderNodeDisplayKind(u) === "floor");
+  const isEmptyFacility =
+    hierarchy.units.length === 0 &&
+    hierarchy.stagedUnits.length === 0 &&
+    hierarchy.undesignatedSpaces.length === 0;
 
   function openAddFloor() {
     setCreateUnitDrawer({ parentId: null, depth: 0, intent: "floor" });
@@ -449,6 +458,16 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
   return (
     <BuilderCopyContext.Provider value={copy}>
+    {showBulkImport ? (
+      <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4" data-testid="facility-bulk-import-panel">
+        <FacilityBulkImportPanel
+          onClose={() => setShowBulkImport(false)}
+          onImported={() => {
+            router.refresh();
+          }}
+        />
+      </div>
+    ) : null}
     <DndContext
       id="facility-builder"
       sensors={sensors}
@@ -456,7 +475,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-6 items-start">
+      <div className="flex gap-6 items-start" data-testid="facility-builder">
         {/* Left — Hierarchy tree */}
         <div className="flex w-80 shrink-0 flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
@@ -508,6 +527,15 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 {copy.toolbar.addLevel3}
               </button>
             </div>
+            <button
+              type="button"
+              data-testid="facility-bulk-import-open"
+              onClick={() => setShowBulkImport(true)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Bulk Import
+            </button>
           </div>
 
           <div className="max-h-[calc(70vh-4rem)] overflow-y-auto px-1 py-1.5">
@@ -542,17 +570,30 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
               <div className="px-4 py-6 text-center">
                 <p className="text-sm font-medium text-zinc-700">{copy.tree.emptyTitle}</p>
                 <p className="mt-2 text-xs text-zinc-500">
-                  {copy.tree.emptyBody}
+                  {isEmptyFacility
+                    ? "Create your first location, or import Floors, Neighborhoods, and Rooms from a CSV."
+                    : copy.tree.emptyBody}
                 </p>
-                <button
-                  type="button"
-                  data-testid="add-floor-empty"
-                  onClick={openAddFloor}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  {copy.tree.emptyAction}
-                </button>
+                <div className="mt-4 flex flex-col items-stretch gap-2">
+                  <button
+                    type="button"
+                    data-testid="add-floor-empty"
+                    onClick={openAddFloor}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create your first location
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="facility-bulk-import-empty"
+                    onClick={() => setShowBulkImport(true)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import facility structure
+                  </button>
+                </div>
               </div>
             ) : isSearching && displayUnits.length === 0 && !showUndesignatedSection ? (
               <div className="px-4 py-8 text-center">
@@ -614,15 +655,26 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
               <p className="mt-3 text-sm text-zinc-500">
                 {copy.tree.selectPrompt}
               </p>
-              <button
-                type="button"
-                data-testid="add-floor-editor-empty"
-                onClick={openAddFloor}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-              >
-                <Plus className="h-4 w-4" />
-                {copy.tree.emptyAction}
-              </button>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  data-testid="add-floor-editor-empty"
+                  onClick={openAddFloor}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create your first location
+                </button>
+                <button
+                  type="button"
+                  data-testid="facility-bulk-import-editor-empty"
+                  onClick={() => setShowBulkImport(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+                >
+                  <Upload className="h-4 w-4" />
+                  Import facility structure
+                </button>
+              </div>
             </div>
           )}
 
