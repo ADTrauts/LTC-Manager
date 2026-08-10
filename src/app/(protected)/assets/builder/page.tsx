@@ -16,6 +16,8 @@ import { getSession } from "@/lib/auth";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
+import { AssetBuilderClient } from "./asset-builder-client";
+
 /**
  * BUILD · Asset Builder — the canonical asset-configuration surface.
  *
@@ -90,7 +92,8 @@ export default async function AssetBuilderPage() {
         </div>
       </header>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-builder">
+      <AssetBuilderClient isEmpty={assets.length === 0}>
+      <section id="asset-builder-add" className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-builder">
         <h2 className="text-lg font-semibold text-zinc-900">Add Asset</h2>
         <form action={createAssetAction} className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <input name="assetCode" required placeholder="Asset code" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" data-testid="create-asset-code" />
@@ -237,6 +240,7 @@ export default async function AssetBuilderPage() {
           {assets.length === 0 ? <p className="text-sm text-zinc-500">No assets yet.</p> : null}
         </div>
       </section>
+      </AssetBuilderClient>
     </section>
   );
 }
