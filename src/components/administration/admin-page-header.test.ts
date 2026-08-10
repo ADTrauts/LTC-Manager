@@ -33,14 +33,9 @@ test("admin hub page uses Administration title and Facility Administrators wordi
 
 test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
   const pages = [
-    "app/(protected)/admin/facility/builder/page.tsx",
-    "app/(protected)/admin/departments/page.tsx",
     "app/(protected)/admin/permissions/page.tsx",
-    "app/(protected)/admin/inspections/page.tsx",
-    "app/(protected)/admin/knowledge/page.tsx",
     "app/(protected)/admin/organization/page.tsx",
     "app/(protected)/admin/organization/facilities/page.tsx",
-    "app/(protected)/admin/departments/[departmentId]/page.tsx",
   ];
   for (const page of pages) {
     const source = readSrc(page);
@@ -54,6 +49,29 @@ test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
       source,
       />Admin</,
       `${page} must not use bare Admin breadcrumb root`,
+    );
+  }
+});
+
+test("BUILD surfaces under /admin use Build chrome, not Back to Administration", () => {
+  const pages = [
+    "app/(protected)/admin/facility/builder/page.tsx",
+    "app/(protected)/admin/departments/page.tsx",
+    "app/(protected)/admin/departments/[departmentId]/page.tsx",
+    "app/(protected)/admin/inspections/page.tsx",
+    "app/(protected)/admin/knowledge/page.tsx",
+  ];
+  for (const page of pages) {
+    const source = readSrc(page);
+    assert.match(
+      source,
+      /BuildPageHeader|BuildBreadcrumb|BackToBuildHomeLink/,
+      `${page} should use Build chrome`,
+    );
+    assert.doesNotMatch(
+      source,
+      /BackToAdministrationLink|AdminPageHeader/,
+      `${page} must not use Administration back chrome`,
     );
   }
 });

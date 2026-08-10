@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { setDepartmentHeadAction } from "@/app/(protected)/admin/departments/actions";
 import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/department-visibility-form";
-import { AdminPageHeader } from "@/components/administration/admin-page-header";
+import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { getSession } from "@/lib/auth";
 import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
 import {
@@ -72,9 +72,9 @@ export default async function AdminDepartmentsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <AdminPageHeader
+      <BuildPageHeader
         title="Departments"
-        trail={[{ label: "Departments" }]}
+        breadcrumbCurrent="Department Builder"
         subtitle="Manage department visibility in the employee application and operational mode selector, assign department heads, and open department-specific operational settings. Dietary, EVS, and Plant Operations are available for every facility. This does not purchase or license modules."
       />
 

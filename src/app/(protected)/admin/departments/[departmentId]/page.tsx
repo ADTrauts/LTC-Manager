@@ -11,9 +11,9 @@ import { RoomsPanel } from "@/app/(protected)/admin/departments/[departmentId]/r
 import { SettingsPanel } from "@/app/(protected)/admin/departments/[departmentId]/settings-panel";
 import { VersionsPanel } from "@/app/(protected)/admin/departments/[departmentId]/versions-panel";
 import {
-  AdminBreadcrumbs,
-  BackToAdministrationLink,
-} from "@/components/administration/admin-page-header";
+  BackToBuildHomeLink,
+  BuildBreadcrumb,
+} from "@/components/build/build-breadcrumb";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import {
   departmentAdminTabsForFlags,
@@ -50,19 +50,12 @@ export default async function DepartmentAdministrationPage({
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <PageHeader
-          eyebrow="Administration"
-          title="Department Administration"
+          eyebrow="Build"
+          title="Department Builder"
           subtitle="Department Operational Profiles and Operational Cycles are not enabled for this environment."
-          icon="administration"
-          actions={<BackToAdministrationLink />}
-          below={
-            <AdminBreadcrumbs
-              trail={[
-                { label: "Departments", href: "/admin/departments" },
-                { label: "Department Administration" },
-              ]}
-            />
-          }
+          icon="operationalMode"
+          actions={<BackToBuildHomeLink />}
+          below={<BuildBreadcrumb current="Department Builder" />}
         />
         <p className="text-sm text-zinc-600">
           Set{" "}
@@ -110,7 +103,7 @@ export default async function DepartmentAdministrationPage({
     return (
       <div className="mx-auto max-w-6xl space-y-6">
         <PageHeader
-          eyebrow="Administration"
+          eyebrow="Build"
           icon="operationalMode"
           title={department.name}
           subtitle="Configure Operational Cycles for this department. Job Flow is not part of Phase 9A."
@@ -123,17 +116,10 @@ export default async function DepartmentAdministrationPage({
               >
                 All departments
               </Link>
-              <BackToAdministrationLink />
+              <BackToBuildHomeLink />
             </>
           }
-          below={
-            <AdminBreadcrumbs
-              trail={[
-                { label: "Departments", href: "/admin/departments" },
-                { label: department.name },
-              ]}
-            />
-          }
+          below={<BuildBreadcrumb current={department.name} />}
         />
 
         <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -174,7 +160,7 @@ export default async function DepartmentAdministrationPage({
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="Build"
         icon="operationalMode"
         title={view.department.name}
         subtitle={
@@ -201,17 +187,10 @@ export default async function DepartmentAdministrationPage({
             >
               All departments
             </Link>
-            <BackToAdministrationLink />
+            <BackToBuildHomeLink />
           </>
         }
-        below={
-          <AdminBreadcrumbs
-            trail={[
-              { label: "Departments", href: "/admin/departments" },
-              { label: view.department.name },
-            ]}
-          />
-        }
+        below={<BuildBreadcrumb current={view.department.name} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">

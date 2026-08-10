@@ -67,7 +67,7 @@ export function SettingsPanel({ view }: Props) {
         )}
       </AppCard>
 
-      <AppCard title="Related administration">
+      <AppCard title="Related Build surfaces">
         <ul className="space-y-2 text-sm">
           <li>
             <Link
@@ -88,7 +88,7 @@ export function SettingsPanel({ view }: Props) {
         </ul>
         <p className="mt-3 text-xs text-zinc-500">
           Projection, Sidebar, Locations, and operational engines are intentionally
-          unchanged by Department Administration.
+          unchanged by Department Builder.
         </p>
       </AppCard>
     </div>

@@ -9,7 +9,7 @@ import {
 } from "@/components/knowledge/knowledge-article-editor";
 import { KnowledgeArticleLifecycleActions } from "@/components/knowledge/knowledge-article-lifecycle-actions";
 import { KnowledgeArticlePreview } from "@/components/knowledge/knowledge-article-preview";
-import { AdminPageHeader } from "@/components/administration/admin-page-header";
+import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import {
   AppCard,
   EmptyState,
@@ -158,9 +158,8 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
 
   return (
     <div className="mx-auto max-w-4xl space-y-6" data-testid="admin-knowledge">
-      <AdminPageHeader
+      <BuildPageHeader
         title="Procedures & Resources"
-        trail={[{ label: "Procedures & Resources" }]}
         subtitle="Manage SOPs, policies, instructions, job aids, and reference materials. Link articles to departments, locations, assets, logs, and inspections so they surface at the point of work. These resources do not assign departments to rooms."
       />
 

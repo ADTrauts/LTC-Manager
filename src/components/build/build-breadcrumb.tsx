@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { AppIcons } from "@/lib/design-system";
 import { BUILD_HUB_HOME_HREF } from "@/lib/build-hub";
@@ -61,5 +62,40 @@ export function BackToBuildHomeLink({ className = "" }: { className?: string }) 
     >
       {BACK_TO_BUILD_HOME_LABEL}
     </Link>
+  );
+}
+
+/**
+ * Shared BUILD child-page chrome: Build Home breadcrumb + title + back action.
+ * Prefer this over Administration headers on BUILD surfaces (even when the URL still lives under `/admin/...`).
+ */
+export function BuildPageHeader({
+  title,
+  subtitle,
+  breadcrumbCurrent,
+  actions,
+  className = "",
+}: {
+  title: string;
+  subtitle?: string;
+  /** Label for the current page in the Build Home breadcrumb. Defaults to `title`. */
+  breadcrumbCurrent?: string;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-3 ${className}`.trim()} data-testid="build-page-header">
+      <BuildBreadcrumb current={breadcrumbCurrent ?? title} />
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
+          {subtitle ? <p className="max-w-3xl text-sm text-zinc-600">{subtitle}</p> : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+          <BackToBuildHomeLink />
+        </div>
+      </header>
+    </div>
   );
 }
