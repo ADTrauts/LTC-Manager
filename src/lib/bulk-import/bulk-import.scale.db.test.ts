@@ -79,19 +79,14 @@ function buildFacilityCsv(): string {
           "",
         ]);
       }
-      // one servery per neighborhood
-      spaceCount += 1;
-      rows.push([
-        floor,
-        nbh,
-        "Servery",
-        "Servery",
-        "",
-        "",
-        "",
-        "Dietary",
-        "",
-      ]);
+      // one servery + dining + office + storage per neighborhood (no room numbers)
+      spaceCount += 4;
+      rows.push(
+        [floor, nbh, "Servery", "Servery", "", "", "", "Dietary", ""],
+        [floor, nbh, "Dining Room", "Dining Room", "", "", "", "", ""],
+        [floor, nbh, "Dietitian Office", "Office", "", "", "", "", ""],
+        [floor, nbh, "Clean Utility", "Utility Room", "", "", "", "", ""],
+      );
     }
   }
   assert.ok(nbhCount >= 17, `expected >=17 neighborhoods, got ${nbhCount}`);
@@ -181,10 +176,31 @@ test(
 
       const spaces = await prisma.unitSpace.findMany({
         where: { facilityId: facility.id, unitId: { in: neighborhoods.map((n) => n.id) } },
-        select: { id: true, unitId: true },
+        select: { id: true, unitId: true, name: true, roomNumber: true },
       });
       assert.ok(spaces.length >= 200);
       assert.ok(spaces.every((s) => s.unitId != null));
+      assert.ok(spaces.every((s) => s.name.trim().length > 0));
+      const serveries = spaces.filter((s) => s.name === "Servery");
+      assert.ok(serveries.length >= 17);
+      assert.ok(serveries.every((s) => s.roomNumber == null || s.roomNumber === ""));
+      const dining = spaces.filter((s) => s.name === "Dining Room");
+      assert.ok(dining.length >= 17);
+      assert.ok(dining.every((s) => s.roomNumber == null || s.roomNumber === ""));
+      const offices = spaces.filter((s) => s.name === "Dietitian Office");
+      assert.ok(offices.length >= 17);
+      assert.ok(offices.every((s) => s.roomNumber == null || s.roomNumber === ""));
+      const residentRooms = spaces.filter((s) => s.name.startsWith("Room "));
+      assert.ok(residentRooms.length >= 100);
+      assert.ok(residentRooms.every((s) => s.roomNumber != null && s.roomNumber !== ""));
+      // No placeholder room numbers on non-room locations
+      assert.ok(
+        !spaces.some(
+          (s) =>
+            ["Servery", "Dining Room", "Dietitian Office", "Clean Utility"].includes(s.name) &&
+            Boolean(s.roomNumber?.trim()),
+        ),
+      );
 
       // Replay — no duplicates
       const catalog2 = await loadFacilityStructureCatalog(prisma, facility.id);

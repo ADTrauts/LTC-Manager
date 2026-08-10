@@ -61,18 +61,27 @@ async function loginPassword(page: Page, email: string) {
 
 function facilityCsv(prefix: string): string {
   return [
-    "floor,neighborhood,space,spaceType,roomNumber,code,description,department,customTypeLabel",
+    "floor,neighborhood,locationName,locationType,roomNumber,code,description,department,customTypeLabel",
     `${prefix} Floor 1,${prefix} 1A,Room 101,Resident Room,101,,,Dietary,`,
     `${prefix} Floor 1,${prefix} 1A,Room 102,Resident Room,102,,,Dietary,`,
     `${prefix} Floor 1,${prefix} 1A,Servery,Servery,,,,Dietary,`,
+    `${prefix} Floor 1,${prefix} 1A,Dining Room,Dining Room,,,,,`,
     `${prefix} Floor 1,${prefix} 1B,Servery,Servery,,,,Dietary,`,
     `${prefix} Floor 2,${prefix} 2A,Room 201,Resident Room,201,,,Dietary,`,
   ].join("\n");
 }
 
+function legacyFacilityCsv(prefix: string): string {
+  return [
+    "floor,neighborhood,space,spaceType,roomNumber",
+    `${prefix} Legacy Floor,${prefix} Legacy 1A,Room 301,Resident Room,301`,
+    `${prefix} Legacy Floor,${prefix} Legacy 1A,Servery,Servery,`,
+  ].join("\n");
+}
+
 function invalidFacilityCsv(): string {
   return [
-    "floor,neighborhood,space,spaceType",
+    "floor,neighborhood,locationName,locationType",
     ",Missing Floor Parent,Room 1,Resident Room",
     "Floor X,Unit Y,Room Z,NotARealType",
   ].join("\n");
@@ -109,6 +118,24 @@ test.describe("@ci-gate V1 Bulk Onboarding Imports", () => {
       await mgr.page.getByTestId("facility-bulk-import-open").click();
       await expect(mgr.page.getByTestId("facility-bulk-import-wizard")).toBeVisible();
       await expect(mgr.page.getByTestId("facility-bulk-import-download-template")).toBeVisible();
+      await expect(mgr.page.getByTestId("facility-bulk-import-wizard")).toContainText(
+        "Location Name",
+      );
+      await expect(mgr.page.getByTestId("facility-bulk-import-wizard")).toContainText(
+        "Location Type",
+      );
+      await expect(mgr.page.getByTestId("facility-bulk-import-wizard")).toContainText(
+        "Room Number",
+      );
+      await expect(mgr.page.getByTestId("facility-bulk-import-wizard")).not.toContainText(
+        "UnitSpace",
+      );
+      const templateHref = await mgr.page
+        .getByTestId("facility-bulk-import-download-template")
+        .getAttribute("href");
+      expect(templateHref || "").toContain("locationName");
+      expect(templateHref || "").toContain("locationType");
+      expect(decodeURIComponent(templateHref || "")).not.toMatch(/,space,/);
       await mgr.page.getByTestId("facility-bulk-import-continue-upload").click();
 
       const validPath = writeTempCsv(`facility-valid-${prefix}.csv`, facilityCsv(prefix));
@@ -153,7 +180,32 @@ test.describe("@ci-gate V1 Bulk Onboarding Imports", () => {
       });
       await expect(mgr.page.getByTestId("facility-bulk-import-confirm")).toBeDisabled();
       await expect(mgr.page.getByTestId("facility-bulk-import-download-errors")).toBeVisible();
+      await expect(mgr.page.getByTestId("facility-bulk-import-issues")).toContainText(
+        /Location Type/i,
+      );
       await mgr.page.getByTestId("facility-bulk-import-close").click();
+
+      // Legacy space / spaceType headers still parse
+      await mgr.page.getByTestId("facility-bulk-import-open").click();
+      await mgr.page.getByTestId("facility-bulk-import-continue-upload").click();
+      const legacyPath = writeTempCsv(
+        `facility-legacy-${prefix}.csv`,
+        legacyFacilityCsv(prefix),
+      );
+      await mgr.page.getByTestId("facility-bulk-import-file-input").setInputFiles(legacyPath);
+      await mgr.page.getByTestId("facility-bulk-import-validate").click();
+      await expect(mgr.page.getByTestId("facility-bulk-import-confirm")).toBeEnabled({
+        timeout: 30_000,
+      });
+      await mgr.page.getByTestId("facility-bulk-import-confirm").click();
+      await expect(mgr.page.getByTestId("facility-bulk-import-complete")).toBeVisible({
+        timeout: 60_000,
+      });
+      await mgr.page.getByTestId("facility-bulk-import-done").click();
+      await mgr.page.goto(fx.facilityBuilderPath, { waitUntil: "domcontentloaded" });
+      await expect(mgr.page.getByText(`${prefix} Legacy Floor`).first()).toBeVisible({
+        timeout: 30_000,
+      });
 
       // Asset Builder bulk import
       await mgr.page.goto(fx.assetBuilderPath, { waitUntil: "domcontentloaded" });
