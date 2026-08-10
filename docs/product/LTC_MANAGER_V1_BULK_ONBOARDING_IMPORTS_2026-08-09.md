@@ -47,40 +47,68 @@ Limits: **2,000 rows / 2 MB**. Format: **CSV only**.
 
 ## Facility Structure template
 
-Headers:
+Headers (downloadable template — new terminology only):
 
 ```
-floor,neighborhood,space,spaceType,roomNumber,code,description,department,customTypeLabel
+floor,neighborhood,locationName,locationType,roomNumber,code,description,department,customTypeLabel
 ```
 
 | Column | Required | Notes |
 |--------|----------|-------|
 | floor | yes | Creates/reuses `Unit` with `hierarchyRole=FLOOR` |
-| neighborhood | yes | Creates/reuses Neighborhood under Floor (`NEIGHBORHOOD`) |
-| space | yes | Creates/reuses `UnitSpace` under Neighborhood |
-| spaceType | yes | Facility Builder preset labels (e.g. Resident Room, Servery) |
-| roomNumber | no | max 32 |
+| neighborhood | when creating Neighborhood or Location | Creates/reuses Neighborhood under Floor (`NEIGHBORHOOD`) |
+| locationName | when creating a lowest-level location | Human-readable name → `UnitSpace.name` (e.g. Room 101, Servery) |
+| locationType | when creating a location | Facility Builder preset labels (e.g. Resident Room, Servery) |
+| roomNumber | **no** (optional metadata) | max 32; blank for Servery / Dining / Office / etc. |
 | code | no | max 20 |
 | description | no | max 500 |
-| department | no | Active department name/key → space responsibility on create |
-| customTypeLabel | no | Required when spaceType is Other/Custom |
+| department | no | Active department name/key → location responsibility on create |
+| customTypeLabel | no | Required when locationType is Other/Custom |
+
+### Facility Import Terminology
+
+- Internal canonical model is unchanged: **Floor → Neighborhood/Unit → UnitSpace**.
+- User-facing import language uses **Location Name** / **Location Type** / **Room Number**.
+- Do not expose “UnitSpace”, “space”, or “spaceType” in templates, UI, or validation errors.
+- Parser aliases (compatibility only): `space` → `locationName`, `spaceType` → `locationType`.
+- Downloaded templates use **new headers only**.
+- `roomNumber` is never required by import validation (including legacy-header files).
+
+### Hierarchy-only rows
+
+Supported when the Facility Builder model already allows them:
+
+| Row intent | Example | Creates |
+|------------|---------|---------|
+| Floor only | `Floor 1,,,,,,,,` | Floor |
+| Floor + Neighborhood | `Floor 1,1A - Naval Park,,,,,,,` | Floor + Neighborhood |
+| + Location | `Floor 1,1A - Naval Park,Servery,Servery,,,,,` | + UnitSpace |
+
+No empty/placeholder UnitSpace records are invented to satisfy validation.
 
 ### Hierarchy rules
 
-- One file builds Floor → Neighborhood → Room.
+- One file may mix Floor-only, Neighborhood, and Location rows.
 - Repeated parent names create parents once.
 - Exact existing matches are **reused** (create-only).
 - Ambiguous names → invalid (no silent guess).
 - Inactive / STAGED parents → invalid.
-- Existing space with different type → **conflict** (no overwrite).
+- Existing location with different type → **conflict** (no overwrite).
 - Imports never delete, retire, rename, or move hierarchy.
+- Invalid: locationType or roomNumber without locationName; unknown locationType.
+
+### Valid Location Types (user-facing presets)
+
+Resident Room, Patient Room, Servery, Dining Room, Hallway, Restroom, Office, Storage, Utility Room, Mechanical Room, Public Area, Production Area, Other / Custom (requires `customTypeLabel`).
+
+Readable labels preferred; canonical enum tokens accepted when mappable. Unknown values → validation error (no silent coercion).
 
 ### Transaction / idempotency
 
 - Full-file validation before write.
 - Parent-before-child deterministic create order inside `prisma.$transaction`.
 - Replay of the same file reuses existing nodes; create counts stay at zero.
-- Large imports use extended interactive transaction timeouts (facility 120s, assets 180s) so 200+ spaces / 250+ assets can confirm atomically.
+- Large imports use extended interactive transaction timeouts (facility 120s, assets 180s) so 200+ locations / 250+ assets can confirm atomically.
 
 ## Asset template
 

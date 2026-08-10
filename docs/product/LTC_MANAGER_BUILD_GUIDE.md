@@ -27,7 +27,7 @@ BUILD should feel like configuring one product. It intentionally has a **small**
 
 Owns **only** physical structure and identity. It does **not** own department operating logic. Department ownership / responsibility may be assigned here only where already certified as physical-structure configuration (room responsibility). It does not duplicate Department Builder.
 
-**Bulk Import (V1 onboarding):** managers may download a Facility Structure CSV template, validate/preview, then confirm create-only Floor → Neighborhood → Room imports. Existing exact hierarchy is reused; imports never delete, move, or overwrite. See `docs/product/LTC_MANAGER_V1_BULK_ONBOARDING_IMPORTS_2026-08-09.md`.
+**Bulk Import (V1 onboarding):** managers may download a Facility Structure CSV template, validate/preview, then confirm create-only Floor → Neighborhood → Location imports. Location Name / Location Type are user-facing terms for UnitSpace; Room Number is optional. Existing exact hierarchy is reused; imports never delete, move, or overwrite. See `docs/product/LTC_MANAGER_V1_BULK_ONBOARDING_IMPORTS_2026-08-09.md`.
 
 ## Department Builder (Section H)
 
