@@ -6,7 +6,10 @@ import {
   BulkImportWizard,
   type BulkImportPreviewModel,
 } from "@/components/build/bulk-import-wizard";
-import { FACILITY_STRUCTURE_CSV_TEMPLATE } from "@/lib/bulk-import/facility-structure";
+import {
+  FACILITY_LOCATION_TYPE_LABELS,
+  FACILITY_STRUCTURE_CSV_TEMPLATE,
+} from "@/lib/bulk-import/facility-structure";
 import type { BulkImportCompletionSummary } from "@/lib/bulk-import/types";
 
 import {
@@ -61,7 +64,7 @@ export function FacilityBulkImportPanel({ onClose, onImported }: Props) {
   return (
     <BulkImportWizard
       title="Bulk Import — Facility Structure"
-      description="Create Floors, Neighborhoods/Units, and Rooms/Spaces from a CSV. Existing exact hierarchy is reused; nothing is deleted or moved."
+      description="Create Floors, Neighborhoods/Units, and Locations from a CSV. Existing exact hierarchy is reused; nothing is deleted or moved."
       templateFileName="ltc-facility-structure-import-template.csv"
       templateCsv={FACILITY_STRUCTURE_CSV_TEMPLATE}
       testIdPrefix="facility-bulk-import"
@@ -73,24 +76,35 @@ export function FacilityBulkImportPanel({ onClose, onImported }: Props) {
           <p className="font-medium text-zinc-900">Import instructions</p>
           <ul className="list-inside list-disc space-y-1">
             <li>
-              Required columns: <code>floor</code>, <code>neighborhood</code>,{" "}
-              <code>space</code>, <code>spaceType</code>
+              Columns: <code>floor</code>, <code>neighborhood</code>,{" "}
+              <code>locationName</code>, <code>locationType</code>,{" "}
+              <code>roomNumber</code>, <code>code</code>, <code>description</code>,{" "}
+              <code>department</code>, <code>customTypeLabel</code>
             </li>
             <li>
-              Optional: <code>roomNumber</code>, <code>code</code>,{" "}
-              <code>description</code>, <code>department</code>,{" "}
-              <code>customTypeLabel</code>
+              <strong>Location Name:</strong> The name people use for this room or area,
+              such as Room 101, Servery, Dining Room, or Dietitian Office.
             </li>
             <li>
-              Space types use Facility Builder labels (e.g. Resident Room, Servery).
+              <strong>Location Type:</strong> The category of location, such as Resident
+              Room, Servery, Office, or Storage. Accepted values include:{" "}
+              {FACILITY_LOCATION_TYPE_LABELS.join(", ")}.
             </li>
             <li>
-              One file builds the full Floor → Neighborhood → Room hierarchy. Repeated
-              parent names create parents once.
+              <strong>Room Number:</strong> Optional. Use only when the location has a
+              room number.
             </li>
             <li>
-              Exact existing matches are reused. Conflicts and type mismatches are
-              errors — never silent overwrites.
+              You may leave Location Name blank when the row is only creating a Floor or
+              Neighborhood.
+            </li>
+            <li>
+              Rows may create Floor only, Floor + Neighborhood, or Floor + Neighborhood +
+              Location. Do not invent placeholder locations.
+            </li>
+            <li>
+              Exact existing matches are reused. Conflicts and type mismatches are errors
+              — never silent overwrites.
             </li>
             <li>CSV only. Max 2,000 rows / 2 MB.</li>
           </ul>

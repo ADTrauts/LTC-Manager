@@ -46,6 +46,15 @@ export type FacilityStructurePreviewResult = {
       action: "create" | "reuse";
       spaceCounts: Record<string, number>;
       spaceTotal: number;
+      locationCounts: Record<string, number>;
+      locationTotal: number;
+      locations: Array<{
+        name: string;
+        typeLabel: string;
+        roomNumber: string | null;
+        action: "create" | "reuse" | "skip";
+        metaLine: string;
+      }>;
     }>;
   }>;
   summaryLines: string[];
@@ -61,6 +70,27 @@ export type FacilityStructurePreviewResult = {
   neighborhoodsToCreate: number;
   spacesToCreate: number;
 } | { ok: false; error: string };
+
+function facilityRowPreviewLabel(row: {
+  intent: "floor" | "neighborhood" | "location";
+  floorName: string;
+  neighborhoodName: string;
+  spaceName: string;
+  roomNumber: string | null;
+  resolvedType: { customTypeLabel: string | null; spaceType: string } | null;
+}): string {
+  if (row.intent === "floor") return `Floor: ${row.floorName}`;
+  if (row.intent === "neighborhood") {
+    return `${row.floorName} / ${row.neighborhoodName}`;
+  }
+  const type =
+    row.resolvedType?.customTypeLabel?.trim() ||
+    row.resolvedType?.spaceType ||
+    "Location";
+  const room = row.roomNumber?.trim();
+  const meta = room ? `${type} · #${room}` : type;
+  return `${row.floorName} / ${row.neighborhoodName} / ${row.spaceName} (${meta})`;
+}
 
 function revalidateBuilderViews() {
   revalidatePath("/admin/facility/builder");
@@ -132,13 +162,13 @@ export async function previewFacilityStructureImportAction(
       summaryLines: [
         `${plan.floorsToCreate} Floors to create · ${plan.floorsReused} reused`,
         `${plan.neighborhoodsToCreate} Neighborhoods/Units to create · ${plan.neighborhoodsReused} reused`,
-        `${plan.spacesToCreate} Rooms/Spaces to create · ${plan.spacesReused} reused`,
+        `${plan.spacesToCreate} Locations to create · ${plan.spacesReused} reused`,
         "Create-only: imports never delete, retire, rename, or move existing hierarchy.",
       ],
       rowPreview: plan.rows.map((r) => ({
         rowNumber: r.rowNumber,
         status: r.status,
-        label: `${r.floorName} / ${r.neighborhoodName} / ${r.spaceName}`,
+        label: facilityRowPreviewLabel(r),
         detail: r.messages[0] ?? r.errors[0]?.reason,
       })),
     };
@@ -187,6 +217,6 @@ export async function confirmFacilityStructureImportAction(
     skippedCount,
     warningCount: built.plan.counts.warningRows,
     failedCount: 0,
-    message: `Created ${result.floorsCreated} floors, ${result.neighborhoodsCreated} neighborhoods, ${result.spacesCreated} spaces. Reused ${skippedCount} existing hierarchy nodes.`,
+    message: `Created ${result.floorsCreated} floors, ${result.neighborhoodsCreated} neighborhoods, ${result.spacesCreated} locations. Reused ${skippedCount} existing hierarchy nodes.`,
   };
 }

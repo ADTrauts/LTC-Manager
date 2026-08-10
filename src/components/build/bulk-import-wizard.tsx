@@ -10,11 +10,23 @@ export type BulkImportWizardStep =
   | "preview"
   | "complete";
 
+export type HierarchyPreviewLocation = {
+  name: string;
+  typeLabel: string;
+  roomNumber: string | null;
+  action: "create" | "reuse" | "skip";
+  metaLine: string;
+};
+
 export type HierarchyPreviewNeighborhood = {
   name: string;
   action: "create" | "reuse";
+  /** @deprecated Prefer locationCounts */
   spaceCounts: Record<string, number>;
   spaceTotal: number;
+  locationCounts?: Record<string, number>;
+  locationTotal?: number;
+  locations?: HierarchyPreviewLocation[];
 };
 
 export type HierarchyPreviewFloor = {
@@ -258,18 +270,37 @@ export function BulkImportWizard({
                       <span className="text-xs font-normal text-zinc-500">({floor.action})</span>
                     </p>
                     <ul className="mt-1 space-y-1 pl-4">
-                      {floor.neighborhoods.map((nbh) => (
-                        <li key={`${floor.name}-${nbh.name}`}>
-                          <span className="font-medium">{nbh.name}</span>{" "}
-                          <span className="text-xs text-zinc-500">({nbh.action})</span>
-                          <span className="block text-xs text-zinc-600">
-                            {nbh.spaceTotal} spaces
-                            {Object.entries(nbh.spaceCounts)
-                              .map(([label, n]) => ` · ${n} ${label}`)
-                              .join("")}
-                          </span>
-                        </li>
-                      ))}
+                      {floor.neighborhoods.map((nbh) => {
+                        const locationTotal = nbh.locationTotal ?? nbh.spaceTotal;
+                        const locationCounts = nbh.locationCounts ?? nbh.spaceCounts;
+                        return (
+                          <li key={`${floor.name}-${nbh.name}`}>
+                            <span className="font-medium">{nbh.name}</span>{" "}
+                            <span className="text-xs text-zinc-500">({nbh.action})</span>
+                            <span className="block text-xs text-zinc-600">
+                              {locationTotal} location{locationTotal === 1 ? "" : "s"}
+                              {Object.entries(locationCounts)
+                                .map(([label, n]) => ` · ${n} ${label}`)
+                                .join("")}
+                            </span>
+                            {nbh.locations && nbh.locations.length > 0 ? (
+                              <ul className="mt-1 space-y-1 pl-4 text-xs text-zinc-700">
+                                {nbh.locations.slice(0, 40).map((loc) => (
+                                  <li key={`${nbh.name}-${loc.name}`}>
+                                    <span className="font-medium text-zinc-800">{loc.name}</span>
+                                    <span className="block text-zinc-600">{loc.metaLine}</span>
+                                  </li>
+                                ))}
+                                {nbh.locations.length > 40 ? (
+                                  <li className="text-zinc-500">
+                                    …and {nbh.locations.length - 40} more
+                                  </li>
+                                ) : null}
+                              </ul>
+                            ) : null}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}
