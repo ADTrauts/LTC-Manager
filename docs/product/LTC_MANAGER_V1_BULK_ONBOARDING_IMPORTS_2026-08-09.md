@@ -80,6 +80,7 @@ floor,neighborhood,space,spaceType,roomNumber,code,description,department,custom
 - Full-file validation before write.
 - Parent-before-child deterministic create order inside `prisma.$transaction`.
 - Replay of the same file reuses existing nodes; create counts stay at zero.
+- Large imports use extended interactive transaction timeouts (facility 120s, assets 180s) so 200+ spaces / 250+ assets can confirm atomically.
 
 ## Asset template
 
