@@ -268,6 +268,9 @@ test(
       }
       const assetCsv = rowsToCsv([...ASSET_CSV_HEADERS], assetRows);
 
+      // Asset-ops statuses (OPERATIONAL) require the flag before catalog/plan parsing.
+      process.env.DIETARY_ASSET_OPERATIONS_ENABLED = "true";
+
       const assetCatalog1 = await loadAssetImportCatalog(prisma, facility.id);
       const assetPlan1 = buildAssetImportPlanFromCsv(assetCsv, assetCatalog1, "scale-assets.csv");
       assert.ok(assetPlan1.ok, assetPlan1.ok ? "" : assetPlan1.error);
@@ -284,7 +287,6 @@ test(
         primaryDepartmentId: dietary.id,
       });
 
-      process.env.DIETARY_ASSET_OPERATIONS_ENABLED = "true";
       const assetExec1 = await executeAssetImportPlan(
         actor,
         facility.id,

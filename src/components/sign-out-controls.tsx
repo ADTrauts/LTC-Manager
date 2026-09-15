@@ -131,6 +131,7 @@ export function AccountMenu({
   const activeMode = resolveProductModeForPath(pathname ?? "/");
   const rootRef = useRef<HTMLDetailsElement>(null);
   const [open, setOpen] = useState(false);
+  const [menuPathname, setMenuPathname] = useState(pathname);
   const UserIcon = AppIcons.user;
   const SignOutIcon = AppIcons.signOut;
 
@@ -138,10 +139,11 @@ export function AccountMenu({
   // from — a Run-only frontline session gets no pointless Run entry.
   const showWorkspaceGroup = showBuild;
 
-  // Close on navigation so a stale panel never follows the user into the next surface.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  // Close the menu when the route changes without an effect (avoids set-state-in-effect lint).
+  if (pathname !== menuPathname) {
+    setMenuPathname(pathname);
+    if (open) setOpen(false);
+  }
 
   // Native <details> does not dismiss on outside click; close on outside pointer or Escape.
   useEffect(() => {
