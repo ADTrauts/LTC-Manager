@@ -114,6 +114,78 @@ export default function DesignLabIndexPage() {
           ))}
         </div>
 
+        <section
+          style={{
+            marginTop: "1.75rem",
+            border: "1px solid #e4e4e7",
+            borderRadius: "0.75rem",
+            background: "#fff",
+            padding: "1.1rem 1.15rem",
+          }}
+        >
+          <h2 style={{ fontSize: "1.05rem", fontWeight: 650 }}>Run vs Build (separate question)</h2>
+          <p style={{ marginTop: "0.4rem", fontSize: "0.875rem", color: "#52525b", lineHeight: 1.5 }}>
+            Product modes are different from Harbor colors. Run = operate today. Build = configure how
+            the operation works. Preview the current subtle signal vs a clearer Build signal.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.75rem" }}>
+            <Link
+              href="/design-lab/run-build?mode=run&strength=current"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: "2rem",
+                border: "1px solid #d4d4d8",
+                borderRadius: "0.375rem",
+                padding: "0.3rem 0.65rem",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                color: "#18181b",
+                textDecoration: "none",
+                background: "#fafafa",
+              }}
+            >
+              Run · current signal
+            </Link>
+            <Link
+              href="/design-lab/run-build?mode=build&strength=current"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: "2rem",
+                border: "1px solid #d4d4d8",
+                borderRadius: "0.375rem",
+                padding: "0.3rem 0.65rem",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                color: "#18181b",
+                textDecoration: "none",
+                background: "#fafafa",
+              }}
+            >
+              Build · current signal
+            </Link>
+            <Link
+              href="/design-lab/run-build?mode=build&strength=clear"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: "2rem",
+                border: "1px solid #d4d4d8",
+                borderRadius: "0.375rem",
+                padding: "0.3rem 0.65rem",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                color: "#18181b",
+                textDecoration: "none",
+                background: "#fafafa",
+              }}
+            >
+              Build · clearer signal
+            </Link>
+          </div>
+        </section>
+
         <p style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: "#71717a" }}>
           Prefer a hybrid? Tell me which direction wins for shell chrome vs. content density, and we
           can compose a fifth option before touching production.
