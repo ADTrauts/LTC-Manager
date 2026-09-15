@@ -219,7 +219,7 @@ function LoginScreen() {
     <div className="dl-login">
       <aside className="dl-login-aside">
         <div>
-          <p className="dl-brand-kicker" style={{ color: "var(--dl-rail-muted)" }}>
+          <p className="dl-brand-kicker" style={{ color: "var(--dl-login-aside-muted)" }}>
             LTC Manager
           </p>
           <h1
@@ -240,7 +240,7 @@ function LoginScreen() {
               maxWidth: "22rem",
               fontSize: "0.95rem",
               lineHeight: 1.5,
-              color: "var(--dl-rail-muted)",
+              color: "var(--dl-login-aside-muted)",
             }}
           >
             Sign in to run today’s work, locations, staffing, and follow-ups from one calm workspace.
@@ -254,7 +254,7 @@ function LoginScreen() {
             padding: 0,
             listStyle: "none",
             fontSize: "0.875rem",
-            color: "var(--dl-rail-muted)",
+            color: "var(--dl-login-aside-muted)",
           }}
         >
           <li style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

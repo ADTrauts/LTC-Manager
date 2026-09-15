@@ -25,6 +25,9 @@
   --dl-rail-fg: #e2e8f0;
   --dl-rail-muted: #94a3b8;
   --dl-rail-active: #1e293b;
+  --dl-login-aside: #0b1220;
+  --dl-login-aside-fg: #e2e8f0;
+  --dl-login-aside-muted: #94a3b8;
   --dl-accent: #2563eb;
   --dl-accent-fg: #ffffff;
   --dl-accent-soft: #dbeafe;
@@ -54,6 +57,9 @@
   --dl-rail-fg: #12202c;
   --dl-rail-muted: #5b6b7a;
   --dl-rail-active: #0f766e;
+  --dl-login-aside: #0b3d3a;
+  --dl-login-aside-fg: #e7f7f4;
+  --dl-login-aside-muted: #9ecac3;
   --dl-accent: #0f766e;
   --dl-accent-fg: #ffffff;
   --dl-accent-soft: #ccfbf1;
@@ -83,6 +89,9 @@
   --dl-rail-fg: #111111;
   --dl-rail-muted: #666666;
   --dl-rail-active: #111111;
+  --dl-login-aside: #111111;
+  --dl-login-aside-fg: #f5f5f5;
+  --dl-login-aside-muted: #a3a3a3;
   --dl-accent: #111111;
   --dl-accent-fg: #ffffff;
   --dl-accent-soft: #f0f0f0;
@@ -112,6 +121,9 @@
   --dl-rail-fg: #e8eef8;
   --dl-rail-muted: #9aa8c0;
   --dl-rail-active: #243048;
+  --dl-login-aside: #172033;
+  --dl-login-aside-fg: #e8eef8;
+  --dl-login-aside-muted: #9aa8c0;
   --dl-accent: #1d4ed8;
   --dl-accent-fg: #ffffff;
   --dl-accent-soft: #dbe7ff;
@@ -408,8 +420,8 @@
   flex-direction: column;
   justify-content: space-between;
   padding: 2.5rem;
-  background: var(--dl-rail);
-  color: var(--dl-rail-fg);
+  background: var(--dl-login-aside);
+  color: var(--dl-login-aside-fg);
 }
 
 .dl-login-panel {
