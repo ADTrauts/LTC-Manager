@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/signup",
   "/setup",
+  "/design-lab",
   "/api/auth/login",
   "/api/auth/signup",
   "/api/auth/logout",
