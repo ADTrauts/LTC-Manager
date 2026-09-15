@@ -79,10 +79,12 @@ function WorkspaceLink({
   testId: string;
 }) {
   const isActive = mode === activeMode;
-  const isBuild = mode === "BUILD";
-  const activeClass = isBuild
-    ? "bg-amber-50 text-amber-900"
-    : "bg-zinc-100 text-zinc-900";
+  const activeClass =
+    mode === "BUILD"
+      ? "bg-orange-500 text-white hover:bg-orange-500"
+      : mode === "RUN"
+        ? "bg-emerald-700 text-white hover:bg-emerald-700"
+        : "bg-zinc-100 text-zinc-900";
   return (
     <Link
       href={href}
@@ -94,7 +96,11 @@ function WorkspaceLink({
     >
       <span>{label}</span>
       {isActive ? (
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+        <span
+          className={`text-[10px] font-semibold uppercase tracking-wide ${
+            mode === "BUILD" || mode === "RUN" ? "text-white/80" : "text-zinc-400"
+          }`}
+        >
           Current
         </span>
       ) : null}
@@ -125,6 +131,7 @@ export function AccountMenu({
   const activeMode = resolveProductModeForPath(pathname ?? "/");
   const rootRef = useRef<HTMLDetailsElement>(null);
   const [open, setOpen] = useState(false);
+  const [menuPathname, setMenuPathname] = useState(pathname);
   const UserIcon = AppIcons.user;
   const SignOutIcon = AppIcons.signOut;
 
@@ -132,10 +139,11 @@ export function AccountMenu({
   // from — a Run-only frontline session gets no pointless Run entry.
   const showWorkspaceGroup = showBuild;
 
-  // Close on navigation so a stale panel never follows the user into the next surface.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  // Close the menu when the route changes without an effect (avoids set-state-in-effect lint).
+  if (pathname !== menuPathname) {
+    setMenuPathname(pathname);
+    if (open) setOpen(false);
+  }
 
   // Native <details> does not dismiss on outside click; close on outside pointer or Escape.
   useEffect(() => {

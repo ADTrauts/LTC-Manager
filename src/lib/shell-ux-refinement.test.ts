@@ -65,13 +65,22 @@ test("V1 refinement — Change password and individual builders are not permanen
   assert.doesNotMatch(shell, /href="\/admin\/departments"/);
 });
 
-test("V1 refinement — BUILD mode gets a restrained amber treatment on shell chrome", () => {
+test("V1 refinement — RUN uses emerald and BUILD uses orange shell chrome", () => {
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="header"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="header"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="mode-indicator"\]/);
+  assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="sidebar"\]/);
+  assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="sidebar"\]/);
+  assert.match(css, /#fff7ed/); // Build orange-50 header
+  assert.match(css, /#f3faf6/); // Run emerald soft header
 
   const frame = readFileSync(join(process.cwd(), "src/components/shell-mode-frame.tsx"), "utf8");
-  // The amber treatment derives from the single product-mode classifier, not duplicated detection.
+  // Mode accents derive from the single product-mode classifier, not duplicated detection.
   assert.match(frame, /resolveProductModeForPath/);
   assert.match(frame, /data-product-mode/);
+
+  const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
+  assert.match(shell, /ProductModePill/);
+  assert.match(shell, /ProductModeBanner/);
 });

@@ -204,6 +204,7 @@ export function LeftSidebar({
     <aside
       className="w-full shrink-0 border-r border-zinc-200 bg-white lg:min-h-0 lg:w-72 lg:overflow-y-auto"
       aria-label="Locations rail"
+      data-shell-region="sidebar"
     >
       <div className="flex flex-col gap-6 p-4 lg:px-4 lg:py-5">
         <section aria-label="Service points">

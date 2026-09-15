@@ -32,6 +32,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Hosts both email/password sign-in and Quick PIN sign-in.",
   },
   {
+    pattern: "/design-lab/locked",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "marketing",
+    notes: "Temporary public preview for locked Run/Build accent contract; remove after visual QA.",
+  },
+  {
     pattern: "/signup",
     match: "EXACT",
     surface: "PAGE",

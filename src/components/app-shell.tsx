@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { LeftSidebar } from "@/components/left-sidebar";
 import { FacilitySwitcher } from "@/components/facility-switcher";
+import { ProductModeBanner } from "@/components/product-mode-banner";
+import { ProductModePill } from "@/components/product-mode-pill";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { ShellModeFrame } from "@/components/shell-mode-frame";
 import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
@@ -200,6 +202,7 @@ export async function AppShell({ children }: AppShellProps) {
           <TopNav items={navItems} />
           <div className="flex shrink-0 items-center gap-2">
             <ShellOfflineIndicator />
+            <ProductModePill runHomeHref={menuRunHomeHref} showBuild={menuShowBuild} />
             <AccountMenu
               showUnbind={showGmUnbind}
               showChangePassword={authKind === "user"}
@@ -211,6 +214,8 @@ export async function AppShell({ children }: AppShellProps) {
           </div>
         </div>
       </header>
+
+      <ProductModeBanner />
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 

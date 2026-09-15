@@ -109,22 +109,43 @@ select option {
 }
 
 /**
- * BUILD product-mode chrome treatment.
+ * Locked product-mode chrome accents.
  *
- * A restrained amber wash on the shell header and the mode indicator so BUILD reads as distinct
- * from RUN at a glance, without turning the whole application orange or implying an alarm/error.
+ * RUN  = calming emerald (operate today)
+ * BUILD = intense orange (configure / construction)
+ *
  * Driven from a single source: the shell root publishes `data-product-mode` (see ShellModeFrame),
- * so BUILD detection is never duplicated per surface. RUN and ADMIN keep the neutral treatment.
- * Colour is only a reinforcement — the visible "Build" / "Build Home" text remains the primary cue.
+ * so mode detection is never duplicated per surface. Colour reinforces the visible Run/Build labels
+ * and the header mode pill — it never replaces them.
  */
+[data-product-mode="RUN"] [data-shell-region="header"] {
+  background-color: #f3faf6; /* emerald soft */
+  border-bottom-color: #a7f3d0; /* emerald-200 */
+}
+
+[data-product-mode="RUN"] [data-shell-region="mode-indicator"] {
+  background-color: #ecfdf5; /* emerald-50 */
+  border-bottom-color: #a7f3d0;
+}
+
+[data-product-mode="RUN"] [data-shell-region="sidebar"] {
+  background-color: #f3faf6;
+  border-right-color: #a7f3d0;
+}
+
 [data-product-mode="BUILD"] [data-shell-region="header"] {
-  background-color: #fffbeb; /* amber-50 */
-  border-bottom-color: #fde68a; /* amber-200 */
+  background-color: #fff7ed; /* orange-50 */
+  border-bottom-color: #fdba74; /* orange-300 */
 }
 
 [data-product-mode="BUILD"] [data-shell-region="mode-indicator"] {
-  background-color: #fffbeb; /* amber-50 */
-  border-bottom-color: #fde68a; /* amber-200 */
+  background-color: #ffedd5; /* orange-100 */
+  border-bottom-color: #fed7aa; /* orange-200 */
+}
+
+[data-product-mode="BUILD"] [data-shell-region="sidebar"] {
+  background-color: #fff4eb;
+  border-right-color: #fed7aa;
 }
 
 /** Compact header nav: hide native scrollbar while keeping scroll/keyboard access. */
