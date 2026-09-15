@@ -80,10 +80,13 @@ function WorkspaceLink({
   onNavigate: () => void;
 }) {
   const isActive = mode === activeMode;
-  const isBuild = mode === "BUILD";
-  const activeClass = isBuild
-    ? "bg-blue-50 text-blue-900"
-    : "bg-zinc-100 text-zinc-900";
+  const hasModeAccent = mode === "BUILD" || mode === "RUN";
+  const activeClass =
+    mode === "BUILD"
+      ? "bg-orange-500 text-white hover:bg-orange-500"
+      : mode === "RUN"
+        ? "bg-emerald-700 text-white hover:bg-emerald-700"
+        : "bg-zinc-100 text-zinc-900";
   return (
     <Link
       href={href}
@@ -96,7 +99,7 @@ function WorkspaceLink({
     >
       <span className="inline-flex items-center gap-2">
         {isActive ? (
-          <span className="text-zinc-500" aria-hidden>
+          <span className={hasModeAccent ? "text-white/80" : "text-zinc-500"} aria-hidden>
             ✓
           </span>
         ) : (
@@ -105,7 +108,11 @@ function WorkspaceLink({
         {label}
       </span>
       {isActive ? (
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+        <span
+          className={`text-[11px] font-semibold uppercase tracking-wide ${
+            hasModeAccent ? "text-white/80" : "text-zinc-400"
+          }`}
+        >
           Current
         </span>
       ) : null}

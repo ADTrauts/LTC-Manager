@@ -364,6 +364,7 @@ export function LeftSidebar({
       className="hidden w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white xl:block xl:min-h-0"
       aria-label="Locations rail"
       data-testid="locations-rail"
+      data-shell-region="sidebar"
     >
       {body}
     </aside>
