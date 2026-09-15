@@ -7,7 +7,7 @@ type PageProps = {
 export default async function RunBuildPreviewPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const mode = params.mode === "build" ? "build" : "run";
-  const strength = params.strength === "clear" ? "clear" : "current";
+  const strength = params.strength === "bold" ? "bold" : "current";
 
   return <RunBuildPreview mode={mode} strength={strength} />;
 }

@@ -145,7 +145,7 @@ export default function DesignLabIndexPage() {
                 background: "#fafafa",
               }}
             >
-              Run · current signal
+              Run · as today
             </Link>
             <Link
               href="/design-lab/run-build?mode=build&strength=current"
@@ -163,10 +163,10 @@ export default function DesignLabIndexPage() {
                 background: "#fafafa",
               }}
             >
-              Build · current signal
+              Build · as today
             </Link>
             <Link
-              href="/design-lab/run-build?mode=build&strength=clear"
+              href="/design-lab/run-build?mode=build&strength=bold"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -181,7 +181,7 @@ export default function DesignLabIndexPage() {
                 background: "#fafafa",
               }}
             >
-              Build · clearer signal
+              Build · bolder
             </Link>
           </div>
         </section>
