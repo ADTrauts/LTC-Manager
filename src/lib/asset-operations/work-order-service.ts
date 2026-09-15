@@ -22,6 +22,7 @@ import {
   requireWorkOrderManage,
   resolveAssetOperationsAuthority,
 } from "./authority";
+import { resolvePreferredRepairProviderForAsset } from "./responsibility";
 import { normalizeAssetStatus, OPEN_ASSET_ISSUE_STATUSES } from "./types";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -355,6 +356,18 @@ export async function createWorkOrderFromIssue(
     throw new Error("Cannot create a Work Order from a closed or cancelled Issue.");
   }
 
+  let vendorId = input.vendorId ?? null;
+  if (!vendorId && issue.assetId) {
+    const asset = await client.asset.findFirst({
+      where: { id: issue.assetId, unit: { facilityId: input.facilityId } },
+      select: { vendorId: true },
+    });
+    vendorId = resolvePreferredRepairProviderForAsset({
+      existingRepairVendorId: input.vendorId,
+      assetPreferredVendorId: asset?.vendorId,
+    });
+  }
+
   const created = await createWorkOrderDirect(session, {
     facilityId: input.facilityId,
     departmentId: input.departmentId,
@@ -364,7 +377,7 @@ export async function createWorkOrderFromIssue(
     description: input.description?.trim() || issue.description,
     priority: input.priority ?? issue.priority,
     repairTrade: input.repairTrade,
-    vendorId: input.vendorId,
+    vendorId,
     responsibleDepartmentId: input.responsibleDepartmentId,
     assignedEmployeeId: input.assignedEmployeeId,
     targetDate: input.targetDate,

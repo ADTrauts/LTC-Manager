@@ -12,6 +12,7 @@ import {
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
 import { searchEvidenceRecords, resolveEvidenceAuthority } from "@/lib/operational-evidence";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -133,12 +134,19 @@ export default async function EvidenceLogBookPage({
     <section className="mx-auto max-w-5xl space-y-4" data-testid="evidence-log-book">
       <PageHeader
         title="Log Book"
-        subtitle={`${department.name} historical operational evidence.`}
+        subtitle={`${department.name} Log history.`}
         compact
         actions={
-          <Link href="/staffing/templates" className="text-sm underline-offset-2 hover:underline">
-            Template Builder
-          </Link>
+          <div className="flex flex-wrap gap-3 text-sm">
+            {isCanonicalLogsEnabled() ? (
+              <Link href="/staffing/logs" className="underline-offset-2 hover:underline">
+                Today&apos;s Logs
+              </Link>
+            ) : null}
+            <Link href="/staffing/templates" className="underline-offset-2 hover:underline">
+              Template Builder
+            </Link>
+          </div>
         }
       />
 

@@ -5,6 +5,7 @@ import {
 } from "@/components/design-system/OperationalListRow";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import type { WalkListItem } from "@/lib/todays-work";
+import { walkListItemKey } from "@/lib/todays-work";
 
 import { WalkListRow } from "./walk-list-row";
 
@@ -22,7 +23,9 @@ export function TodaysWorkWalkList({
   const attentionItems = items.filter((item) => item.status !== "ready");
   const healthyItems = items.filter((item) => item.status === "ready");
   const primaryItem = lookFirst && lookFirst.status !== "ready" ? lookFirst : attentionItems[0] ?? null;
-  const remainingAttention = attentionItems.filter((item) => item.unitId !== primaryItem?.unitId);
+  const remainingAttention = attentionItems.filter(
+    (item) => walkListItemKey(item) !== (primaryItem ? walkListItemKey(primaryItem) : ""),
+  );
 
   if (items.length === 0) {
     return <p className="text-sm text-zinc-500">No active locations configured.</p>;
@@ -53,7 +56,7 @@ export function TodaysWorkWalkList({
           <div className={operationalListShellClass}>
             <ul className="divide-y divide-zinc-100">
               {remainingAttention.map((item, index) => (
-                <WalkListRow key={item.unitId} item={item} rank={index + 2} />
+                <WalkListRow key={walkListItemKey(item)} item={item} rank={index + 2} />
               ))}
             </ul>
           </div>
@@ -67,7 +70,7 @@ export function TodaysWorkWalkList({
             <ul className="divide-y divide-zinc-100">
               {healthyItems.map((item, index) => (
                 <WalkListRow
-                  key={item.unitId}
+                  key={walkListItemKey(item)}
                   item={item}
                   rank={attentionItems.length > 0 ? attentionItems.length + index + 1 : index + 1}
                 />

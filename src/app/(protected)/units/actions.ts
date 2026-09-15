@@ -80,38 +80,10 @@ async function upsertMealTimes(unitId: string, input: ReturnType<typeof getMealT
   validateMealTime(input.breakfastTime);
   validateMealTime(input.lunchTime);
   validateMealTime(input.dinnerTime);
-
-  await prisma.unitMealTime.deleteMany({ where: { unitId } });
-
-  const records = [
-    input.breakfastTime
-      ? {
-          unitId,
-          mealType: "BREAKFAST" as const,
-          scheduledTime: input.breakfastTime,
-        }
-      : null,
-    input.lunchTime
-      ? {
-          unitId,
-          mealType: "LUNCH" as const,
-          scheduledTime: input.lunchTime,
-        }
-      : null,
-    input.dinnerTime
-      ? {
-          unitId,
-          mealType: "DINNER" as const,
-          scheduledTime: input.dinnerTime,
-        }
-      : null,
-  ].filter((record): record is { unitId: string; mealType: "BREAKFAST" | "LUNCH" | "DINNER"; scheduledTime: string } => record !== null);
-
-  if (records.length > 0) {
-    await prisma.unitMealTime.createMany({
-      data: records,
-    });
-  }
+  // UnitMealTime is legacy Runtime compatibility. Configured meal times are
+  // authored on Operational Cycles. Do not independently rewrite this table.
+  void unitId;
+  void input;
 }
 
 function revalidateShellViews() {

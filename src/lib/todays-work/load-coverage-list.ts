@@ -61,7 +61,7 @@ export async function loadCoverageList(facilityId: string): Promise<CoverageData
   const scopedQueries = applyOperationScopedFacilityQueries(queries, activeOperation);
   const dashboard = buildDashboardAggregates({ ...scopedQueries, now, facilityTimezone });
   const mealScope = resolveStaffingMealScope(activeOperation);
-  const scheduleRows = schedules.map((entry) => ({
+  const scheduleRows: import("./coverage-list").CoverageScheduleEntry[] = schedules.map((entry) => ({
     employeeId: entry.employeeId,
     unitId: entry.unitId,
     shift: entry.shift,

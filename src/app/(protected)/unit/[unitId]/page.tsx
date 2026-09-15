@@ -9,6 +9,8 @@ import { EmployeeJobFlowPanel } from "@/components/unit-workspace/employee-job-f
 import { EvidenceEntryForm } from "@/components/operational-evidence/evidence-entry-form";
 import { UnitContextPanel } from "@/components/unit-workspace/unit-context-panel";
 import { UnitCycleContextPanel } from "@/components/unit-workspace/unit-cycle-context-panel";
+import { RunLocationOperationCard } from "@/components/unit-workspace/run-location-operation-card";
+import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
 import { UnitInspectionFollowUpActions } from "@/components/unit-workspace/unit-inspection-follow-up-actions";
 import { UnitInspectionSubmitForm } from "@/components/unit-workspace/unit-inspection-submit-form";
 import { UnitInspectionsPanel } from "@/components/unit-workspace/unit-inspections-panel";
@@ -43,7 +45,7 @@ import {
   isProjectionUnitWorkspaceEnabled,
 } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
-import { loadEmployeeCycleContext } from "@/lib/operational-cycles";
+import { loadEmployeeCycleContext, resolveUnitWorkspaceRunContext } from "@/lib/operational-cycles";
 import { fmtMealLabel } from "@/lib/operations-center";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
@@ -68,20 +70,27 @@ import {
 type UnitDashboardPageProps = {
   params: Promise<{ unitId: string }>;
   searchParams?: Promise<{
-    mealServiceEvent?: string;
-    unitTab?: string;
-    logTab?: string;
-    inspect?: string;
-    inspectionResult?: string;
-    inspectionName?: string;
-    followUpTask?: string;
-    occurrence?: string;
-    evidence?: string;
-    reportAsset?: string;
-    work?: string;
-    procedure?: string;
+    mealServiceEvent?: string | string[];
+    unitTab?: string | string[];
+    logTab?: string | string[];
+    inspect?: string | string[];
+    inspectionResult?: string | string[];
+    inspectionName?: string | string[];
+    followUpTask?: string | string[];
+    occurrence?: string | string[];
+    evidence?: string | string[];
+    reportAsset?: string | string[];
+    work?: string | string[];
+    procedure?: string | string[];
+    space?: string | string[];
   }>;
 };
+
+function firstSearchValue(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : null;
+}
 
 function formatRecordedAt(value: Date | null) {
   if (!value) return "Not recorded";
@@ -91,9 +100,11 @@ function formatRecordedAt(value: Date | null) {
 async function ProjectedUnitWorkspacePage({
   session,
   unitId,
+  spaceId,
 }: {
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
   unitId: string;
+  spaceId: string | null;
 }) {
   const unit = await loadUnitRecord(session.facilityId, unitId);
   if (!unit) {
@@ -121,6 +132,17 @@ async function ProjectedUnitWorkspacePage({
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const runContext = await resolveUnitWorkspaceRunContext({
+    session,
+    facilityId: session.facilityId,
+    unitId: unit.id,
+    spaceId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+  });
+  if (runContext.notFound) notFound();
+  if (runContext.redirectTo) redirect(runContext.redirectTo);
+  const { selectedRoom, runPresentation, departmentPresentation } = runContext;
+
   const operationalDepartment =
     isAnyStaffingOperationalFeatureEnabled("jobFlow") ||
     isAnyStaffingOperationalFeatureEnabled("cycles")
@@ -149,27 +171,43 @@ async function ProjectedUnitWorkspacePage({
   const cycleContextCard =
     operationalDepartment &&
     isDepartmentOperationalCyclesEnabled(operationalDepartment.key) &&
-    !jobFlow
+    !jobFlow &&
+    runPresentation?.provenance !== "NEW_PERIOD_KEY_TIME"
       ? await loadEmployeeCycleContext({
           facilityId: session.facilityId,
           departmentId: operationalDepartment.id,
           unitId: unit.id,
+          spaceId,
           session,
         })
       : null;
+
+  const headerTitle = selectedRoom?.title ?? runPresentation?.location.title ?? unit.name;
+  const headerSubtitle = selectedRoom
+    ? [selectedRoom.roomTypeLabel, selectedRoom.contextLabel].filter(Boolean).join(" · ")
+    : runPresentation
+      ? [runPresentation.location.roomTypeLabel, runPresentation.location.contextLabel]
+          .filter(Boolean)
+          .join(" · ")
+      : `${unitTypeLabel} · ${view.level2Label} workspace`;
 
   return (
     <section className="mx-auto max-w-5xl space-y-5 sm:space-y-6" data-testid="unit-workspace">
       <header className="space-y-3 border-b border-zinc-200 pb-4 sm:pb-5">
         <PageHeader
-          icon={resolveLocationIconKey({ unitType: unit.unitType, name: unit.name })}
+          icon={resolveLocationIconKey({ unitType: unit.unitType, name: headerTitle })}
           eyebrow="Orientation"
-          title={unit.name}
-          subtitle={`${unitTypeLabel} · ${view.level2Label} workspace`}
+          title={headerTitle}
+          subtitle={headerSubtitle}
           compact
           as="div"
           className="border-0 pb-0"
         />
+        {runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+          <RunLocationOperationCard presentation={runPresentation} />
+        ) : departmentPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+          <TodaysWorkRunOperationBanner presentation={departmentPresentation} />
+        ) : null}
         {view.lensMode === "FACILITY" ? (
           <p className="text-xs text-zinc-500">
             Facility Overview — Experiences remain department-labeled below.
@@ -202,19 +240,25 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
   }
 
   if (isProjectionUnitWorkspaceEnabled()) {
-    return <ProjectedUnitWorkspacePage session={session} unitId={unitId} />;
+    return (
+      <ProjectedUnitWorkspacePage
+        session={session}
+        unitId={unitId}
+        spaceId={firstSearchValue(query?.space)}
+      />
+    );
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const view = await loadUnitWorkspace(session.facilityId, unitId, {
-    unitTab: query?.unitTab,
-    logTab: query?.logTab,
-    mealServiceEvent: query?.mealServiceEvent,
-    inspect: query?.inspect,
-    inspectionResult: query?.inspectionResult,
-    inspectionName: query?.inspectionName,
-    followUpTask: query?.followUpTask,
-    occurrence: query?.occurrence,
+    unitTab: firstSearchValue(query?.unitTab) ?? undefined,
+    logTab: firstSearchValue(query?.logTab) ?? undefined,
+    mealServiceEvent: firstSearchValue(query?.mealServiceEvent) ?? undefined,
+    inspect: firstSearchValue(query?.inspect) ?? undefined,
+    inspectionResult: firstSearchValue(query?.inspectionResult) ?? undefined,
+    inspectionName: firstSearchValue(query?.inspectionName) ?? undefined,
+    followUpTask: firstSearchValue(query?.followUpTask) ?? undefined,
+    occurrence: firstSearchValue(query?.occurrence) ?? undefined,
   }, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
@@ -392,12 +436,10 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         })
       : [];
 
-  const reportAssetId =
-    typeof query?.reportAsset === "string" &&
-    query.reportAsset.trim() &&
-    query.reportAsset.trim() !== "1"
-      ? query.reportAsset.trim()
-      : null;
+  const reportAssetId = (() => {
+    const value = firstSearchValue(query?.reportAsset);
+    return value && value !== "1" ? value : null;
+  })();
 
   const jobFlowEnabled =
     dietaryDepartment != null && isDepartmentJobFlowEnabled(dietaryDepartment.key);
@@ -413,8 +455,27 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         })
       : null;
 
+  const spaceId = firstSearchValue(query?.space);
+  const spaceQuery = spaceId ? `&space=${encodeURIComponent(spaceId)}` : "";
+
+  const runContext = await resolveUnitWorkspaceRunContext({
+    session,
+    facilityId: session.facilityId,
+    unitId: unit.id,
+    spaceId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    now,
+  });
+  if (runContext.notFound) notFound();
+  if (runContext.redirectTo) redirect(runContext.redirectTo);
+  const { selectedRoom, runPresentation, departmentPresentation } = runContext;
+  const newModelPresentation =
+    runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ||
+    departmentPresentation?.provenance === "NEW_PERIOD_KEY_TIME";
+
   const cycleContextCard =
     !jobFlow &&
+    !newModelPresentation &&
     dietaryDepartment != null &&
     isDepartmentOperationalCyclesEnabled(dietaryDepartment.key)
       ? await loadEmployeeCycleContext({
@@ -422,6 +483,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           facilityId: session.facilityId,
           departmentId: dietaryDepartment.id,
           unitId: unit.id,
+          spaceId,
           now,
         })
       : null;
@@ -491,8 +553,11 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             unitTypeLabel={unitTypeLabel}
             context={operationContext}
             readiness={readiness}
+            selectedRoom={selectedRoom}
+            runPresentation={runPresentation}
+            departmentPresentation={departmentPresentation}
           />
-          {unit.unitType === "SERVERY" ? (
+          {unit.unitType === "SERVERY" && !newModelPresentation ? (
             <OfflineServeryControls
               unitId={unit.id}
               facilityId={session.facilityId}
@@ -539,7 +604,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
         </div>
         <nav className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" aria-label="Unit sections">
           <Link
-            href={`/unit/${unit.id}?unitTab=overview`}
+            href={`/unit/${unit.id}?unitTab=overview${spaceQuery.replace(/^&/, "&")}`}
             className={`inline-flex min-h-11 items-center justify-center rounded-md px-3 py-2 text-sm font-semibold touch-manipulation ${
               activeUnitTab === "overview"
                 ? "bg-zinc-900 text-white shadow-sm"
@@ -550,7 +615,7 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
             Workspace
           </Link>
           <Link
-            href={`/unit/${unit.id}?unitTab=logs${activeLogTab ? `&logTab=${encodeURIComponent(activeLogTab)}` : ""}`}
+            href={`/unit/${unit.id}?unitTab=logs${activeLogTab ? `&logTab=${encodeURIComponent(activeLogTab)}` : ""}${spaceQuery}`}
             className={`inline-flex min-h-11 items-center justify-center rounded-md px-3 py-2 text-sm font-semibold touch-manipulation ${
               activeUnitTab === "logs"
                 ? "bg-zinc-900 text-white shadow-sm"
@@ -578,14 +643,14 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           ) : null}
           {jobFlow &&
           dietaryDepartment &&
-          query?.evidence &&
-          jobFlow.evidenceRequirements.some((r) => r.requirementKey === query.evidence) ? (
+          firstSearchValue(query?.evidence) &&
+          jobFlow.evidenceRequirements.some((r) => r.requirementKey === firstSearchValue(query?.evidence)) ? (
             <EvidenceEntryForm
               facilityId={session.facilityId}
               departmentId={dietaryDepartment.id}
               unitId={unit.id}
               requirement={
-                jobFlow.evidenceRequirements.find((r) => r.requirementKey === query.evidence)!
+                jobFlow.evidenceRequirements.find((r) => r.requirementKey === firstSearchValue(query?.evidence))!
               }
               deviceFacilityId={deviceFacilityId}
               deviceBoundUnitId={deviceBoundUnitId}
@@ -613,14 +678,49 @@ export default async function UnitDashboardPage({ params, searchParams }: UnitDa
           ) : null}
           {/* Assignment remains authoritative and visible even when Job Flow is on. */}
           {myAssignment ? <UnitMyAssignmentPanel assignment={myAssignment} /> : null}
-          {!jobFlow && cycleContextCard ? (
+          {!jobFlow &&
+          cycleContextCard &&
+          runPresentation?.provenance !== "NEW_PERIOD_KEY_TIME" ? (
             <UnitCycleContextPanel
               card={cycleContextCard}
               canManage={canManageCycles && session.authMethod !== "QUICK_PIN"}
             />
           ) : null}
 
-          <UnitWorkQueuePanel queue={workQueue} />
+          <UnitWorkQueuePanel
+            queue={
+              newModelPresentation
+                ? {
+                    items: workQueue.items.filter(
+                      (item) => item.kind !== "servery-ready" && item.kind !== "servery-started",
+                    ),
+                    primaryItem:
+                      workQueue.items.filter(
+                        (item) =>
+                          item.kind !== "servery-ready" &&
+                          item.kind !== "servery-started" &&
+                          item.priority < 600,
+                      )[0] ?? null,
+                    operationalCount: workQueue.items.filter(
+                      (item) =>
+                        item.kind !== "servery-ready" &&
+                        item.kind !== "servery-started" &&
+                        item.priority < 600,
+                    ).length,
+                  }
+                : workQueue
+            }
+            emptyTitle={
+              runPresentation?.provenance === "NEW_PERIOD_KEY_TIME"
+                ? runPresentation.attention.title
+                : undefined
+            }
+            emptyDescription={
+              runPresentation?.provenance === "NEW_PERIOD_KEY_TIME"
+                ? runPresentation.attention.description
+                : undefined
+            }
+          />
 
           <div className="flex flex-wrap gap-2">
             <ContextualKnowledgePanel articles={unitKnowledge.articles} />

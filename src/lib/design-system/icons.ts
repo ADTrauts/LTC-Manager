@@ -18,6 +18,7 @@ import {
   Loader2,
   LogOut,
   MapPin,
+  Menu,
   Package,
   Search,
   Shield,
@@ -58,6 +59,8 @@ export const AppIcons = {
   signOut: LogOut,
   facility: Building2,
   chevronDown: ChevronDown,
+  /** Compact shell navigation trigger. */
+  menu: Menu,
   /** @deprecated Use operationalMode — kept for readiness/activity surfaces. */
   activity: Activity,
   locationKitchen: ChefHat,
@@ -69,6 +72,7 @@ export const AppIcons = {
   locationDefault: MapPin,
 } as const satisfies Record<string, LucideIcon>;
 
+
 export type AppIconKey = keyof typeof AppIcons;
 
 /** Default nav path → icon key (for shell and future module chrome). */
@@ -78,16 +82,22 @@ export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
   "/dashboard": "operationsCenter",
   "/operations": "operationsCenter",
   "/today": "todaysWork",
+  "/staffing/templates": "logs",
+  "/staffing/work-plans": "todaysWork",
   "/staffing": "todaysWork",
   "/units": "locations",
   "/unit": "locations",
   "/employees": "employees",
   "/logs": "logs",
   "/menus": "menus",
+  "/assets/builder": "assets",
   "/assets": "assets",
   "/repairs": "repairs",
   "/issues": "repairs",
   "/reports": "review",
+  "/admin/facility/builder": "locations",
+  "/admin/departments": "administration",
+  "/admin/knowledge": "review",
   "/admin": "administration",
 };
 

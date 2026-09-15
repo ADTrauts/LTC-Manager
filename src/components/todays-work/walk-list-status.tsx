@@ -5,7 +5,7 @@ import type { WalkListStatus } from "@/lib/todays-work";
 export function walkListStatusLabel(status: WalkListStatus): string {
   if (status === "blocked") return "Needs Attention";
   if (status === "in_progress") return "In Progress";
-  return "Ready";
+  return "On Track";
 }
 
 const WALK_STATUS_VARIANT: Record<WalkListStatus, StatusBadgeVariant> = {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppCard } from "@/components/design-system/AppCard";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import type { WalkListItem } from "@/lib/todays-work";
+import { walkListItemKey } from "@/lib/todays-work";
 
 import { WalkListRow } from "./walk-list-row";
 
@@ -35,7 +36,7 @@ export function TodaysWorkWalkPreview({ items, lookFirst }: TodaysWorkWalkPrevie
       ) : (
         <ul className="mt-4 divide-y divide-zinc-100 border-t border-zinc-100 pt-4">
           {preview.map((item, index) => (
-            <WalkListRow key={item.unitId} item={item} rank={index + 1} />
+            <WalkListRow key={walkListItemKey(item)} item={item} rank={index + 1} />
           ))}
         </ul>
       )}

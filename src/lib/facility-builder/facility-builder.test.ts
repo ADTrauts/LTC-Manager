@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
@@ -58,7 +60,14 @@ import {
   resolveSpaceTypeDisplayLabel,
   looksLikeTechnicalEnumName,
   findSpaceTypePreset,
+  roomTypeIdentity,
+  sharedRoomTypeDescription,
 } from "./space-type-presets";
+import {
+  baseTypeKeyFromLegacyRoomIdentity,
+  legacyFieldsForFacilityRoomType,
+  requireFacilityBaseType,
+} from "./facility-base-types";
 import { unitTypeLabel, UNIT_TYPE_LABELS } from "../unit-type-config";
 import { SpaceType } from "@prisma/client";
 
@@ -795,7 +804,7 @@ describe("Space type presets", () => {
   it("Custom requires label", () => {
     assert.throws(
       () => resolveSpaceTypeFromPreset({ presetKey: "custom", customTypeLabel: "  " }),
-      /Custom type label is required/,
+      /Custom room type is required/,
     );
   });
 
@@ -841,6 +850,90 @@ describe("Space type presets", () => {
       assert.ok(keys.includes(key), key);
     }
   });
+
+  it("roomTypeIdentity uses preset keys and custom labels, not enum names", () => {
+    const servery = roomTypeIdentity({
+      spaceType: SpaceType.SERVICE_AREA,
+      customTypeLabel: "Servery",
+    });
+    assert.equal(servery.key, "servery");
+    assert.equal(servery.label, "Servery");
+    assert.equal(servery.isCustom, false);
+
+    const custom = roomTypeIdentity({
+      spaceType: SpaceType.OTHER,
+      customTypeLabel: "Nourishment Pantry",
+    });
+    assert.equal(custom.key, "custom:nourishment pantry");
+    assert.equal(custom.label, "Nourishment Pantry");
+    assert.equal(custom.isCustom, true);
+  });
+
+  it("facility base type identity survives Room Type display renames", () => {
+    const renamed = legacyFieldsForFacilityRoomType({
+      baseTypeKey: "kitchen",
+      displayName: "Main Servery Kitchen",
+    });
+    assert.equal(
+      baseTypeKeyFromLegacyRoomIdentity({
+        presetKey: "servery",
+        spaceType: renamed.spaceType,
+        customTypeLabel: renamed.customTypeLabel,
+      }).baseTypeKey,
+      "kitchen",
+    );
+    assert.equal(requireFacilityBaseType("kitchen").label, "Kitchen");
+    assert.equal(
+      roomTypeIdentity({
+        spaceType: SpaceType.SERVICE_AREA,
+        customTypeLabel: "Servery",
+      }).key,
+      "servery",
+    );
+  });
+
+  it("shared Room Type descriptions are owned by Facility presets", () => {
+    assert.match(sharedRoomTypeDescription("servery") ?? "", /point-of-service/i);
+    assert.match(sharedRoomTypeDescription("production_area") ?? "", /production/i);
+  });
+
+  it("Facility Builder user-facing copy says Room Type, not Space Type", () => {
+    const client = readFileSync(
+      join(process.cwd(), "src/app/(protected)/admin/facility/builder/facility-builder-client.tsx"),
+      "utf8",
+    );
+    assert.match(client, /Room Type/);
+    assert.equal(/[>]Space type</.test(client), false);
+    assert.equal(/spaceType\/customTypeLabel/.test(client), false);
+    assert.match(client, /Manage Room Types/);
+  });
+
+  it("Facility Builder puts Structure before Room Types and defaults to Structure", () => {
+    const page = readFileSync(
+      join(process.cwd(), "src/app/(protected)/admin/facility/builder/page.tsx"),
+      "utf8",
+    );
+    const roomTypesTab = page.indexOf('builderTabHref("room-types"');
+    const structureTab = page.indexOf('builderTabHref("structure"');
+    assert.ok(roomTypesTab >= 0 && structureTab >= 0);
+    assert.ok(structureTab < roomTypesTab);
+    assert.match(page, /value === "room-types" \? "room-types" : "structure"/);
+  });
+
+  it("Facility Builder tree starts collapsed", () => {
+    const client = readFileSync(
+      join(process.cwd(), "src/app/(protected)/admin/facility/builder/facility-builder-client.tsx"),
+      "utf8",
+    );
+    assert.match(client, /useState<Set<string>>\(\(\) => new Set\(\)\)/);
+    assert.equal(/for \(const u of hierarchy\.units\) set\.add/.test(client), false);
+  });
+
+  it("Prisma SpaceType enum remains the internal implementation", () => {
+    const schema = readFileSync(join(process.cwd(), "prisma/schema.prisma"), "utf8");
+    assert.match(schema, /enum SpaceType/);
+    assert.match(schema, /spaceType\s+SpaceType/);
+  });
 });
 
 describe("Create intent defaults and append order", () => {
@@ -881,7 +974,7 @@ describe("Create intent defaults and append order", () => {
   it("invalid preset key is rejected", () => {
     assert.throws(
       () => resolveSpaceTypeFromPreset({ presetKey: "PATIENT_ROOM" }),
-      /Invalid space type/,
+      /Invalid room type/,
     );
   });
 
@@ -969,5 +1062,66 @@ describe("Stage 2D — undesignated staging", () => {
     assert.ok(dests.some((d) => d.id === UNDESIGNATED_DROP_ID));
     assert.ok(dests.some((d) => d.kind === "floor"));
     assert.ok(dests.some((d) => d.kind === "neighborhood" || d.kind === "legacy_location"));
+  });
+});
+
+describe("Facility Builder department responsibility — structural vs actionable", () => {
+  /**
+   * Product model (Facility Builder responsibility UI only):
+   * Floor = structural organizer (bulk apply scope, no direct checkboxes)
+   * Neighborhood / legacy / staged = actionable units (direct checkboxes)
+   * Rooms = actionable spaces (direct checkboxes; tested via SpaceEditor wiring)
+   *
+   * Note: Locations Projection marks Neighborhood as STRUCTURAL for sidebar hrefs —
+   * that nav presentation is intentionally separate from this responsibility model.
+   */
+  function usesDirectDepartmentResponsibility(
+    kind: ReturnType<typeof resolveBuilderNodeDisplayKind>,
+  ): boolean {
+    return kind !== "floor";
+  }
+
+  it("floors are structural for department responsibility", () => {
+    const kind = resolveBuilderNodeDisplayKind({
+      parentUnitId: null,
+      hierarchyRole: "FLOOR",
+    });
+    assert.equal(kind, "floor");
+    assert.equal(usesDirectDepartmentResponsibility(kind), false);
+  });
+
+  it("neighborhoods remain actionable for department responsibility", () => {
+    const kind = resolveBuilderNodeDisplayKind({
+      parentUnitId: "floor-1",
+      hierarchyRole: "NEIGHBORHOOD",
+    });
+    assert.equal(kind, "neighborhood");
+    assert.equal(usesDirectDepartmentResponsibility(kind), true);
+  });
+
+  it("legacy and staged units remain actionable for department responsibility", () => {
+    assert.ok(
+      usesDirectDepartmentResponsibility(
+        resolveBuilderNodeDisplayKind({
+          parentUnitId: null,
+          hierarchyRole: "LEGACY_LOCATION",
+        }),
+      ),
+    );
+    assert.ok(
+      usesDirectDepartmentResponsibility(
+        resolveBuilderNodeDisplayKind({
+          parentUnitId: null,
+          hierarchyRole: "STAGED",
+        }),
+      ),
+    );
+  });
+
+  it("floor creation rules are unchanged (neighborhood + room under floor)", () => {
+    assert.ok(canAddNeighborhood("floor"));
+    assert.ok(canAddRoom("floor"));
+    assert.ok(!canAddNeighborhood("neighborhood"));
+    assert.ok(canAddRoom("neighborhood"));
   });
 });

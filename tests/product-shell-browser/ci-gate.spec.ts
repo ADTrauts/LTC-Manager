@@ -147,7 +147,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       // Canonical RUN nav.
       await expect(banner(page).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
       await expect(banner(page).getByRole("link", { name: "Locations", exact: true })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Employees", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Schedule", exact: true })).toBeVisible();
       await expect(banner(page).getByRole("link", { name: "Assets", exact: true })).toBeVisible();
     } finally {
       await context.close();
@@ -182,7 +182,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       for (const [path, area] of [
         ["/workspace", "Dashboard"],
         ["/units", "Locations"],
-        ["/staffing", "Employees"],
+        ["/staffing", "Schedule"],
         ["/staffing/log-book", "Log Book"],
         ["/assets", "Assets"],
       ] as const) {
@@ -208,13 +208,16 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await switchFromMenu(page, "account-menu-build", "/build");
       // Landing on a BUILD surface flips the mode indicator to BUILD and lands on the hub.
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
-      // V1 refinement: the global header exposes Build Home, not every individual builder.
-      await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toBeVisible();
+      // Phase 1: global header has no Build destinations — Build Home lives in the left rail.
+      await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toHaveCount(0);
       await expect(banner(page).getByRole("link", { name: "Department Builder", exact: true })).toHaveCount(0);
       await expect(banner(page).getByRole("link", { name: "Facility Builder", exact: true })).toHaveCount(0);
+      const buildRail = page.getByTestId("build-sidebar");
+      await expect(buildRail).toBeVisible({ timeout: 30_000 });
+      await expect(buildRail.locator('[data-testid="build-sidebar-link"][data-href="/build"]')).toBeVisible();
       // The builders are organized as Build Home cards instead.
       const hub = page.getByTestId("build-hub");
-      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/departments"]')).toBeVisible();
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/departments"], [data-testid="build-hub-card"][data-href^="/admin/departments/"]').first()).toBeVisible();
       await expect(hub.locator('[data-testid="build-hub-card"][data-href="/employees"]')).toBeVisible();
       await expect(hub.locator('[data-testid="build-hub-card"][data-href="/staffing/templates"]')).toBeVisible();
       await expect(hub.locator('[data-testid="build-hub-card"][data-href="/staffing/work-plans"]')).toBeVisible();
@@ -267,13 +270,27 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       const hub = page.getByTestId("build-hub");
       await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/facility/builder"]')).toBeVisible({ timeout: 30_000 });
       await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/knowledge"]')).toBeVisible();
-      // Opening a builder stays in BUILD; the header exposes Build Home (not every builder) and the
+      // BUILD replaces the Locations rail with Build navigation (Build Home + builders).
+      const buildRail = page.getByTestId("build-sidebar");
+      await expect(buildRail).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator('aside[aria-label="Locations rail"]')).toHaveCount(0);
+      await expect(buildRail.locator('[data-testid="build-sidebar-link"][data-href="/build"]')).toHaveAttribute(
+        "data-active",
+        "true",
+      );
+      // Opening a builder stays in BUILD; Build Home lives in the left rail and the
       // mode indicator provides a return path back to Build Home.
       await page.goto("/admin/facility/builder", { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/admin\/facility\/builder(\?|$)/);
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible({ timeout: 30_000 });
-      await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Build Home", exact: true })).toHaveCount(0);
       await expect(banner(page).getByRole("link", { name: "Facility Builder", exact: true })).toHaveCount(0);
+      await expect(page.getByTestId("build-sidebar")).toBeVisible();
+      await expect(
+        page.locator('[data-testid="build-sidebar-link"][data-href="/admin/facility/builder"]'),
+      ).toHaveAttribute("data-active", "true");
+      await expect(page.getByTestId("mode-indicator-build-home")).toBeVisible();
+      await expect(page.getByTestId("back-to-build-home")).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -405,7 +422,9 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       const hub = page.getByTestId("build-hub");
       await expect(hub).toBeVisible();
       await expect(
-        hub.locator('[data-testid="build-hub-card"][data-href="/admin/departments"]'),
+        hub.locator(
+          '[data-testid="build-hub-card"][data-href="/admin/departments"], [data-testid="build-hub-card"][data-href^="/admin/departments/"]',
+        ).first(),
       ).toBeVisible();
       await expect(
         hub.locator('[data-testid="build-hub-card"][data-href="/employees"]'),
@@ -494,7 +513,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       const nodes = rail.locator("[data-location-id][data-kind]");
       const nodeCount = await nodes.count();
       if (nodeCount === 0) {
-        await expect(rail.getByText("No active locations.")).toBeVisible();
+        await expect(rail.getByText("No assigned locations.")).toBeVisible();
       } else {
         // Every node advertises a kind from the Floor → Neighborhood → Room vocabulary.
         const kinds = await nodes.evaluateAll((els) => els.map((el) => el.getAttribute("data-kind")));
@@ -531,10 +550,16 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
       // 3) Configure: open a builder from the hub (target the stable data-href, not the composite name).
       await page
-        .locator('[data-testid="build-hub-card"][data-href="/admin/departments"]')
+        .locator(
+          '[data-testid="build-hub-card"][data-href="/admin/departments"], [data-testid="build-hub-card"][data-href^="/admin/departments/"]',
+        )
+        .first()
         .click();
       await page.waitForURL((u) => u.pathname.startsWith("/admin/departments"), { timeout: 30_000 });
-      await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
+      // Selected-department flow opens the Department Builder workspace (or list when no selection).
+      await expect(
+        page.getByTestId("department-builder").or(page.getByTestId("departments-all-list")),
+      ).toBeVisible({ timeout: 30_000 });
       // 4) Return to RUN via the context menu and reach an operate-today surface.
       await switchFromMenu(page, "account-menu-run", "/workspace");
       await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible();
@@ -670,6 +695,11 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await returnLink.click();
       await page.waitForURL((u) => u.pathname === "/build", { timeout: 30_000 });
       await expect(page.getByTestId("build-hub")).toBeVisible();
+      // Returning to Run restores the Locations rail (not Build navigation).
+      await switchFromMenu(page, "account-menu-run", "/workspace");
+      await expect(page.locator('[data-product-mode="RUN"]').first()).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator('aside[aria-label="Locations rail"]')).toBeVisible();
+      await expect(page.getByTestId("build-sidebar")).toHaveCount(0);
     } finally {
       await context.close();
     }

@@ -150,14 +150,14 @@ describe("builder copy — default LTC vocabulary", () => {
     assert.equal(copy.toolbar.addLevel1, "Floor");
     assert.equal(copy.toolbar.addLevel2, "Neighborhood");
     assert.equal(copy.toolbar.addLevel3, "Room");
-    assert.equal(copy.toolbar.searchPlaceholder, "Search floors, rooms…");
+    assert.equal(copy.toolbar.searchPlaceholder, "Search facility structure");
   });
 
   it("drawer titles use LTC terms", () => {
     assert.equal(copy.drawers.addLevel1, "Add Floor");
     assert.equal(copy.drawers.addLevel2, "Add Neighborhood");
     assert.equal(copy.drawers.addLevel3, "Add Room");
-    assert.equal(copy.drawers.addLevel3Bulk, "Add Multiple Rooms");
+    assert.equal(copy.drawers.addLevel3Bulk, "Bulk add rooms");
     assert.equal(copy.drawers.moveToLevel1, "Move to Floor");
     assert.equal(copy.drawers.moveToLevel2, "Move to Neighborhood");
   });
@@ -270,8 +270,8 @@ describe("builder copy — Custom vocabulary", () => {
     assert.equal(copy.toolbar.addLevel1, "Deck");
     assert.equal(copy.toolbar.addLevel2, "Zone");
     assert.equal(copy.toolbar.addLevel3, "Cabin");
-    assert.equal(copy.toolbar.searchPlaceholder, "Search decks, cabins…");
-    assert.equal(copy.drawers.addLevel3Bulk, "Add Multiple Cabins");
+    assert.equal(copy.toolbar.searchPlaceholder, "Search facility structure");
+    assert.equal(copy.drawers.addLevel3Bulk, "Bulk add cabins");
     assert.equal(copy.tree.emptyTitle, "No decks have been added yet.");
     assert.equal(copy.editor.level3ListTitle(2), "Cabins (2)");
     assert.equal(copy.forms.level3NameLabel, "Cabin name");

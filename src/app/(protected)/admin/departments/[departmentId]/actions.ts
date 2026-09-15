@@ -7,12 +7,16 @@ import type { AppRole } from "@/lib/access";
 import {
   activateProfile,
   addRoomExperienceException,
+  bindRoomsToArchetype,
   bindRoomToArchetype,
   certifyProfile,
   clearRoomArchetypeBinding,
   createBaselineDraft,
   createNextDraftVersion,
   createRoomArchetype,
+  ensureWorkingDraftForPatterns,
+  loadProfile,
+  toProfileSnapshot,
   moveAreaExperience,
   removeRoomExperienceException,
   reorderAreaExperiences,
@@ -22,6 +26,8 @@ import {
   updateRoomArchetype,
   type ProfileActor,
 } from "@/lib/department-administration";
+import { departmentArchetypeForRoomType } from "@/lib/department-administration/room-types";
+import type { AuthMethod } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
@@ -30,11 +36,13 @@ function actorFromSession(session: {
   uid: string;
   role: string;
   facilityId: string;
+  authMethod?: AuthMethod;
 }): ProfileActor {
   return {
     userId: session.uid,
     role: session.role as AppRole,
     facilityId: session.facilityId,
+    authMethod: session.authMethod ?? "PASSWORD",
   };
 }
 
@@ -230,9 +238,271 @@ export async function reorderExperiencesAction(formData: FormData): Promise<Acti
   }
 }
 
+export async function createOperationalTypeAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const name = z.string().min(1).max(120).parse(String(formData.get("name") ?? "").trim());
+    const description = z
+      .string()
+      .max(500)
+      .optional()
+      .parse(String(formData.get("description") ?? "").trim() || undefined);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    await createRoomArchetype(actorFromSession(session), {
+      profileId: draft.profileId,
+      name,
+      description: description ?? null,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: `Operational type “${name}” created.`,
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not create operational type.",
+    };
+  }
+}
+
+export async function ensurePatternDraftAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: draft.created
+        ? "Draft operational configuration created."
+        : "Draft operational configuration is ready.",
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not prepare operational types.",
+    };
+  }
+}
+
+export async function bindRoomsToOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const archetypeKey = z
+      .string()
+      .min(1)
+      .max(64)
+      .parse(String(formData.get("archetypeKey") ?? formData.get("archetypeId") ?? "").trim());
+    const rawIds = String(formData.get("unitSpaceIds") ?? "");
+    const unitSpaceIds = rawIds
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    z.array(z.string().cuid()).min(1).parse(unitSpaceIds);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    const loaded = await loadProfile(draft.profileId);
+    const archetype =
+      loaded.archetypes.find((row) => row.key === archetypeKey) ??
+      loaded.archetypes.find((row) => row.id === archetypeKey);
+    if (!archetype) {
+      throw new Error("That operational type was not found on the draft.");
+    }
+    const result = await bindRoomsToArchetype(actor, {
+      profileId: draft.profileId,
+      archetypeId: archetype.id,
+      unitSpaceIds,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: `Applied operational type to ${result.bound} location${result.bound === 1 ? "" : "s"}.`,
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not assign operational type.",
+    };
+  }
+}
+
+export async function clearRoomOperationalTypeAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    await clearRoomArchetypeBinding(actor, {
+      profileId: draft.profileId,
+      unitSpaceId,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return { ok: true, message: "Operational type removed. Location remains assigned." };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not remove operational type.",
+    };
+  }
+}
+
+export async function renameOperationalTypeAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const archetypeKey = z.string().min(1).max(64).parse(String(formData.get("archetypeKey") ?? "").trim());
+    const name = z.string().min(1).max(120).parse(String(formData.get("name") ?? "").trim());
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    const loaded = await loadProfile(draft.profileId);
+    const archetype = loaded.archetypes.find((row) => row.key === archetypeKey);
+    if (!archetype) {
+      throw new Error("That operational type was not found on the draft.");
+    }
+    await updateRoomArchetype(actor, {
+      profileId: draft.profileId,
+      archetypeId: archetype.id,
+      name,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return { ok: true, message: `Operational type renamed to “${name}”.`, profileId: draft.profileId };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not rename operational type.",
+    };
+  }
+}
+
+export async function updateRoomTypeDepartmentUseAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const roomTypeKey = z.string().min(1).max(120).parse(String(formData.get("roomTypeKey") ?? "").trim());
+    const description = z
+      .string()
+      .max(1000)
+      .parse(String(formData.get("description") ?? "").trim());
+    const department = await assertDepartmentInFacility(departmentId, session.facilityId);
+    if (roomTypeKey.startsWith("custom:")) {
+      throw new Error("Reusable configuration is not available for custom Room Types yet.");
+    }
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    const loaded = await loadProfile(draft.profileId);
+    const snapshot = toProfileSnapshot(loaded);
+    const archetype = departmentArchetypeForRoomType({
+      departmentKey: department.key,
+      roomTypeKey,
+      profile: snapshot,
+    });
+    if (!archetype) {
+      throw new Error("Set up department configuration for this Room Type first.");
+    }
+    await updateRoomArchetype(actor, {
+      profileId: draft.profileId,
+      archetypeId: archetype.id,
+      description,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: "About this Room Type saved.",
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not save department use.",
+    };
+  }
+}
+
+export async function setRoomTypeExperiencesAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const roomTypeKey = z.string().min(1).max(120).parse(String(formData.get("roomTypeKey") ?? "").trim());
+    const selectedRaw = String(formData.get("selectedIds") ?? "");
+    const selectedIds = selectedRaw
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    z.array(z.string().cuid()).parse(selectedIds);
+    const department = await assertDepartmentInFacility(departmentId, session.facilityId);
+    if (roomTypeKey.startsWith("custom:")) {
+      throw new Error("Reusable configuration is not available for custom Room Types yet.");
+    }
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    const loaded = await loadProfile(draft.profileId);
+    const snapshot = toProfileSnapshot(loaded);
+    const archetype = departmentArchetypeForRoomType({
+      departmentKey: department.key,
+      roomTypeKey,
+      profile: snapshot,
+    });
+    if (!archetype) {
+      throw new Error("Set up department configuration for this Room Type first.");
+    }
+    await setArchetypeExperiences(actor, {
+      profileId: draft.profileId,
+      archetypeId: archetype.id,
+      selections: selectedIds.map((areaExperienceId) => ({ areaExperienceId })),
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: "Department configuration saved.",
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not save configuration.",
+    };
+  }
+}
+
 export async function createArchetypeAction(formData: FormData): Promise<ActionResult> {
   try {
-    requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const key = z.string().min(1).max(64).parse(formData.get("key"));
@@ -254,7 +524,6 @@ export async function createArchetypeAction(formData: FormData): Promise<ActionR
 
 export async function updateArchetypeAction(formData: FormData): Promise<ActionResult> {
   try {
-    requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const archetypeId = z.string().cuid().parse(formData.get("archetypeId"));
@@ -282,7 +551,6 @@ export async function updateArchetypeAction(formData: FormData): Promise<ActionR
 
 export async function setArchetypeExperiencesAction(formData: FormData): Promise<ActionResult> {
   try {
-    requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const archetypeId = z.string().cuid().parse(formData.get("archetypeId"));
@@ -299,7 +567,7 @@ export async function setArchetypeExperiencesAction(formData: FormData): Promise
       selections: selectedIds.map((areaExperienceId) => ({ areaExperienceId })),
     });
     revalidateDepartmentAdmin(profile.departmentId);
-    return { ok: true, message: "Archetype Experiences updated." };
+    return { ok: true, message: "Department configuration saved." };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Update failed." };
   }
@@ -307,7 +575,6 @@ export async function setArchetypeExperiencesAction(formData: FormData): Promise
 
 export async function bindRoomAction(formData: FormData): Promise<ActionResult> {
   try {
-    requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const archetypeId = z.string().cuid().parse(formData.get("archetypeId"));
@@ -327,7 +594,6 @@ export async function bindRoomAction(formData: FormData): Promise<ActionResult> 
 
 export async function clearRoomBindingAction(formData: FormData): Promise<ActionResult> {
   try {
-    requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));

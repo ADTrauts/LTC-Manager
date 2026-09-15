@@ -11,6 +11,7 @@ import {
   defaultRepairTradeForIssueType,
   suggestRepairDepartmentIds,
 } from "@/lib/repair-routing";
+import { resolvePreferredRepairProviderForAsset } from "@/lib/asset-operations";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 
 const priorityValues = [
@@ -99,23 +100,28 @@ export async function createRepairAction(formData: FormData) {
     throw new Error("Unit not found.");
   }
 
+  let vendorId = parsed.vendorId ?? null;
   if (parsed.assetId) {
     const asset = await prisma.asset.findFirst({
       where: { id: parsed.assetId, unit: { facilityId: session.facilityId } },
-      select: { id: true },
+      select: { id: true, vendorId: true },
     });
     if (!asset) {
       throw new Error("Asset not found.");
     }
+    vendorId = resolvePreferredRepairProviderForAsset({
+      existingRepairVendorId: vendorId,
+      assetPreferredVendorId: asset.vendorId,
+    });
   }
 
   // Vendor is facility-owned (`Vendor.facilityId`, unique per facility by name), so a submitted
   // vendor id must resolve inside this facility before it can be connected. Reported as "not
   // found" rather than "forbidden" so the action cannot confirm that another facility's vendor
   // exists.
-  if (parsed.vendorId) {
+  if (vendorId) {
     const vendor = await prisma.vendor.findFirst({
-      where: { id: parsed.vendorId, facilityId: session.facilityId },
+      where: { id: vendorId, facilityId: session.facilityId },
       select: { id: true },
     });
     if (!vendor) {
@@ -141,7 +147,7 @@ export async function createRepairAction(formData: FormData) {
       repairCode,
       unitId: parsed.unitId,
       assetId: parsed.assetId,
-      vendorId: parsed.vendorId,
+      vendorId,
       title: parsed.title,
       description: parsed.description,
       priority: parsed.priority,

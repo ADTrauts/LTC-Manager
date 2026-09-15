@@ -6,7 +6,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { resolveActiveDepartmentForNav } from "@/lib/active-department-context";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
-import { isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
@@ -15,7 +15,11 @@ import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "
 import { validateSessionAuthority } from "@/lib/session-revocation";
 
 function routeFeatureFlags() {
-  return { todaysWorkEnabled: isTodaysWorkEnabled() };
+  return {
+    todaysWorkEnabled: isTodaysWorkEnabled(),
+    // Fail closed when omitted elsewhere — do not treat absent as enabled for Canonical Logs.
+    canonicalLogsEnabled: isCanonicalLogsEnabled(),
+  };
 }
 
 function notFoundResponse(surface: "PAGE" | "API" | "INTERNAL") {
@@ -168,7 +172,20 @@ export async function proxy(request: NextRequest) {
     }
 
     return NextResponse.next();
-  } catch {
+  } catch (error) {
+    // JWT/session failures → sign-in. Infrastructure failures (e.g. Prisma) must not
+    // clear the session cookie or Next server actions get an HTML /login response.
+    const message = error instanceof Error ? error.message : String(error);
+    const looksLikeInfra =
+      message.includes("Prisma") ||
+      message.includes("prisma") ||
+      message.includes("Can't reach database") ||
+      message.includes("Service temporarily unavailable") ||
+      message.includes("Prisma Client is stale");
+    if (looksLikeInfra) {
+      console.error("[proxy] infrastructure error on", pathname, error);
+      return new NextResponse("Service temporarily unavailable.", { status: 503 });
+    }
     const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
     response.cookies.delete(SESSION_COOKIE);
     return response;

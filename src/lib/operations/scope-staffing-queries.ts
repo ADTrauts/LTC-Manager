@@ -6,7 +6,8 @@ import { resolveLogDueMealScope } from "./scope-log-due-queries";
 import type { ResolvedActiveOperation } from "./types";
 
 export type StaffingScheduleRow = {
-  unitId: string;
+  /** Nullable on new canonical Shifts (legacy assignment placement, demoted). */
+  unitId: string | null;
   shift: ShiftType;
 };
 

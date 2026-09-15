@@ -31,6 +31,7 @@ export default async function TodaysWorkHandoffsPage() {
 
   let handoffs = await loadHandoffs(session.facilityId, {
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+    session,
   });
 
   if (isProjectionTodaysWorkEnabled()) {

@@ -291,7 +291,7 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
     vocabulary: v,
 
     page: {
-      subtitle: `Define your facility's physical structure — ${lower(l1s)}, ${lower(l2s)}, and ${lower(l3s)}. Assign department responsibilities that control operational access at each location.`,
+      subtitle: `Define the physical structure of your facility — ${lower(l1s)}, ${lower(l2s)}, and ${lower(l3s)} — and assign departmental responsibility.`,
     },
 
     labels: {
@@ -309,14 +309,14 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
       addLevel1: l1,
       addLevel2: l2,
       addLevel3: l3,
-      searchPlaceholder: `Search ${lower(l1s)}, ${lower(l3s)}…`,
+      searchPlaceholder: "Search facility structure",
     },
 
     drawers: {
       addLevel1: `Add ${l1}`,
       addLevel2: `Add ${l2}`,
       addLevel3: `Add ${l3}`,
-      addLevel3Bulk: `Add Multiple ${l3s}`,
+      addLevel3Bulk: `Bulk add ${lower(l3s)}`,
       moveToLevel1: `Move to ${l1}`,
       moveToLevel2: `Move to ${l2}`,
     },
@@ -349,7 +349,7 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
       moveToAnotherLevel1: `Move to another ${l1}…`,
       addLevel2: `Add ${l2}`,
       addLevel3: `Add ${l3}`,
-      addLevel3Bulk: `Add Multiple ${l3s}`,
+      addLevel3Bulk: `Bulk add ${lower(l3s)}`,
       moveToAnotherLevel2: `Move to another ${l2}…`,
     },
 
@@ -359,7 +359,7 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
       level3ListTitle: (n: number) => `${l3s} (${n})`,
       addLevel2: `Add ${l2}`,
       addLevel3: `Add ${l3}`,
-      addLevel3Bulk: `Add Multiple ${l3s}`,
+      addLevel3Bulk: `Bulk add ${lower(l3s)}`,
       unassignedToLevel1: `Unassigned to a ${lower(l1)}`,
       level3Badge: l3,
       level3NameLabel: `${l3} name`,

@@ -89,7 +89,8 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
     const manager = await openPersistent("mgr-builder");
     try {
       await loginPassword(manager.page, fx.managerEmail);
-      await manager.page.goto(fx.assetsPath, { waitUntil: "domcontentloaded" });
+      // BUILD owns create; RUN owns operational profile / condition.
+      await manager.page.goto("/assets/builder", { waitUntil: "domcontentloaded" });
       await expect(manager.page.getByTestId("asset-builder")).toBeVisible();
 
       const code = `BR-${Date.now().toString().slice(-6)}`;
@@ -98,13 +99,15 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
       await manager.page.getByTestId("create-asset-type").fill("Refrigerator");
       await manager.page.getByTestId("create-asset-unit").selectOption({ index: 1 });
       await manager.page.getByTestId("create-asset-department").selectOption({ index: 1 });
-      await manager.page.getByTestId("create-asset-status").selectOption("OPERATIONAL");
+      await manager.page.getByTestId("create-asset-status").selectOption("ACTIVE");
       await manager.page.getByTestId("create-asset-submit").click();
       await expect(manager.page.getByTestId("asset-registry")).toContainText(code, {
         timeout: 20_000,
       });
-      await expect(manager.page.getByTestId("asset-registry")).toContainText(/Operational/i);
+      await expect(manager.page.getByTestId("asset-registry")).toContainText(/Active/i);
 
+      await manager.page.goto(fx.assetsPath, { waitUntil: "domcontentloaded" });
+      await expect(manager.page.getByTestId("run-assets-page")).toBeVisible();
       const profileLink = manager.page.locator(`[data-testid^="asset-profile-link-"]`).filter({
         hasText: code,
       });

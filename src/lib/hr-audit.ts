@@ -24,7 +24,9 @@ export type EmployeeProfileSnapshot = {
   chrcOffboardingCompletedAtIso: string | null;
   chrcOffboardingNotes: string | null;
   primaryDepartmentId: string | null;
+  additionalDepartmentIdsSorted: string[];
   jobTitleId: string | null;
+  teamMembershipsSorted: string[];
 };
 
 function str(v: unknown): string | null {
@@ -128,7 +130,9 @@ export function diffProfileForAudit(
     "chrcOffboardingCompletedAtIso",
     "chrcOffboardingNotes",
     "primaryDepartmentId",
+    "additionalDepartmentIdsSorted",
     "jobTitleId",
+    "teamMembershipsSorted",
   ];
 
   const out: { fieldKey: string; oldValue: string | null; newValue: string | null }[] = [];
@@ -139,11 +143,19 @@ export function diffProfileForAudit(
     const os =
       k === "workStationsSorted"
         ? (before.workStationsSorted ?? []).join(",")
-        : str(o as unknown);
+        : k === "additionalDepartmentIdsSorted"
+          ? (before.additionalDepartmentIdsSorted ?? []).join(",")
+          : k === "teamMembershipsSorted"
+            ? (before.teamMembershipsSorted ?? []).join(",")
+            : str(o as unknown);
     const ns =
       k === "workStationsSorted"
         ? (after.workStationsSorted ?? []).join(",")
-        : str(n as unknown);
+        : k === "additionalDepartmentIdsSorted"
+          ? (after.additionalDepartmentIdsSorted ?? []).join(",")
+          : k === "teamMembershipsSorted"
+            ? (after.teamMembershipsSorted ?? []).join(",")
+            : str(n as unknown);
     if (os !== ns) {
       out.push({ fieldKey: `profile.${k}`, oldValue: os, newValue: ns });
     }
@@ -161,8 +173,10 @@ export function snapshotFromProfileForm(
     roleType: RoleKey;
     employmentType: EmploymentType;
     status: EmployeeStatus;
-    primaryDepartmentId?: string;
-    jobTitleId?: string;
+    primaryDepartmentId?: string | null;
+    jobTitleId?: string | null;
+    additionalDepartmentIds?: string[];
+    teamMembershipsSorted?: string[];
   },
   hr: {
     unionMember: boolean;
@@ -211,7 +225,9 @@ export function snapshotFromProfileForm(
         : null,
     chrcOffboardingNotes: terminated ? hr.chrcOffboardingNotes : null,
     primaryDepartmentId: parsed.primaryDepartmentId ?? null,
+    additionalDepartmentIdsSorted: [...(parsed.additionalDepartmentIds ?? [])].sort(),
     jobTitleId: parsed.jobTitleId ?? null,
+    teamMembershipsSorted: [...(parsed.teamMembershipsSorted ?? [])].sort(),
   };
 }
 
@@ -240,6 +256,8 @@ export function snapshotFromEmployeeRow(row: {
   workStations: { station: WorkStation }[];
   primaryDepartmentId: string | null;
   jobTitleId: string | null;
+  employeeDepartments?: { departmentId: string }[];
+  teamMemberships?: { teamId: string; isPrimary: boolean }[];
 }): EmployeeProfileSnapshot {
   return {
     firstName: row.firstName,
@@ -267,6 +285,13 @@ export function snapshotFromEmployeeRow(row: {
       : null,
     chrcOffboardingNotes: row.chrcOffboardingNotes,
     primaryDepartmentId: row.primaryDepartmentId,
+    additionalDepartmentIdsSorted: (row.employeeDepartments ?? [])
+      .map((d) => d.departmentId)
+      .filter((id) => id !== row.primaryDepartmentId)
+      .sort(),
     jobTitleId: row.jobTitleId,
+    teamMembershipsSorted: (row.teamMemberships ?? [])
+      .map((m) => `${m.teamId}:${m.isPrimary ? "primary" : "additional"}`)
+      .sort(),
   };
 }

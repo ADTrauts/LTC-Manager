@@ -10,7 +10,7 @@ import {
   createContext,
   type ReactNode,
 } from "react";
-import { UnitDepartmentKind, type UnitType } from "@prisma/client";
+import { UnitType } from "@prisma/client";
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ChevronRight,
   ChevronDown,
@@ -51,18 +52,15 @@ import {
   Upload,
 } from "lucide-react";
 
+import { Button } from "@/components/design-system/Button";
 import { Drawer } from "@/components/drawer";
 import type {
   FacilityHierarchy,
+  FacilityRoomTypeView,
   UnitHierarchyNode,
   SpaceView,
-  DeptResponsibilityView,
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
-  CAPABILITY_KEYS,
-  CAPABILITY_LABELS,
-  PLANT_FACILITY_WIDE_ACCESS_NOTE,
-  ROOM_RESPONSIBILITY_EMPTY_MESSAGE,
   formatRoomDisplayName,
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
@@ -84,23 +82,14 @@ import {
   shouldReorderUnitsAsSiblings,
   splitHighlightParts,
 } from "@/lib/facility-builder/builder-setup";
-import {
-  SPACE_TYPE_PRESETS,
-  CUSTOM_SPACE_PRESET_KEY,
-  findPresetForStoredSpace,
-  resolveSpaceTypeDisplayLabel,
-} from "@/lib/facility-builder/space-type-presets";
-import {
-  listPresetsForDepartment,
-  recommendResponsibilityPresetKey,
-  capabilitiesForPreset,
-} from "@/lib/facility-builder/department-responsibility-presets";
+import { resolveSpaceTypeDisplayLabel } from "@/lib/facility-builder/space-type-presets";
 import { unitTypeLabel } from "@/lib/unit-type-config";
 import {
   buildBuilderCopy,
   DEFAULT_BUILDER_COPY,
   type BuilderCopy,
 } from "@/lib/facility-builder/facility-vocabulary";
+import { locationTreePaddingLeft } from "@/components/location-tree/location-tree-tokens";
 import {
   createBuilderFloorAction,
   createBuilderNeighborhoodAction,
@@ -110,10 +99,6 @@ import {
   createBuilderSpacesBulkAction,
   updateBuilderSpaceAction,
   deleteBuilderSpaceAction,
-  upsertBuilderUnitResponsibilityAction,
-  deleteBuilderUnitResponsibilityAction,
-  upsertBuilderSpaceResponsibilityAction,
-  deleteBuilderSpaceResponsibilityAction,
   moveBuilderUnitAction,
   moveBuilderSpaceAction,
   reorderBuilderUnitsAction,
@@ -123,7 +108,12 @@ import {
   toggleBuilderUnitActiveAction,
   convertBuilderLegacyToFloorAction,
 } from "./actions";
+import {
+  DepartmentResponsibilityCheckboxes,
+  FloorBulkDepartmentApply,
+} from "./department-responsibility-checkboxes";
 import { FacilityBulkImportPanel } from "./facility-bulk-import-panel";
+import { useFacilityBuilderCompact } from "./use-facility-builder-compact";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -135,17 +125,43 @@ const UNIT_TYPE_OPTIONS: UnitType[] = [
   "EVS_ZONE", "GROUND",
 ];
 
-const KIND_LABELS: Record<UnitDepartmentKind, string> = {
-  PRIMARY: "Primary",
-  BACKUP: "Backup",
-  SUPPORT: "Support",
-};
-
 /** Facility vocabulary copy — provided once at the builder root; consumed everywhere. */
 const BuilderCopyContext = createContext<BuilderCopy>(DEFAULT_BUILDER_COPY);
 
 function useBuilderCopy(): BuilderCopy {
   return useContext(BuilderCopyContext);
+}
+
+const FacilityRoomTypesContext = createContext<FacilityRoomTypeView[]>([]);
+
+function useFacilityRoomTypes(): FacilityRoomTypeView[] {
+  return useContext(FacilityRoomTypesContext);
+}
+
+function activeRoomTypes(roomTypes: FacilityRoomTypeView[]): FacilityRoomTypeView[] {
+  return roomTypes.filter((row) => row.isActive);
+}
+
+function defaultFacilityRoomTypeId(roomTypes: FacilityRoomTypeView[]): string {
+  const active = activeRoomTypes(roomTypes);
+  const preferred = active.find((row) =>
+    /patient|resident|guest/i.test(row.displayName),
+  );
+  return preferred?.id ?? active[0]?.id ?? "";
+}
+
+function roomTypeDisplayLabel(
+  space: Pick<SpaceView, "facilityRoomTypeId" | "spaceType" | "customTypeLabel">,
+  roomTypes: FacilityRoomTypeView[],
+): string {
+  if (space.facilityRoomTypeId) {
+    const match = roomTypes.find((row) => row.id === space.facilityRoomTypeId);
+    if (match) return match.displayName;
+  }
+  return resolveSpaceTypeDisplayLabel({
+    spaceType: space.spaceType,
+    customTypeLabel: space.customTypeLabel,
+  });
 }
 
 type Selection =
@@ -163,7 +179,13 @@ type CreateUnitDrawerState = {
 // Root
 // ---------------------------------------------------------------------------
 
-export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierarchy }) {
+export function FacilityBuilderClient({
+  hierarchy,
+  canonicalLogsEnabled = false,
+}: {
+  hierarchy: FacilityHierarchy;
+  canonicalLogsEnabled?: boolean;
+}) {
   const router = useRouter();
   const copy = useMemo(
     () => buildBuilderCopy(hierarchy.vocabulary),
@@ -171,11 +193,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   );
   const [selection, setSelection] = useState<Selection>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    const set = new Set<string>();
-    for (const u of hierarchy.units) set.add(u.id);
-    return set;
-  });
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [createUnitDrawer, setCreateUnitDrawer] = useState<CreateUnitDrawerState | null>(null);
   const [createSpaceDrawer, setCreateSpaceDrawer] = useState<{ unitId?: string | null } | null>(null);
@@ -192,7 +210,9 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   } | null>(null);
   const [renaming, setRenaming] = useState<{ type: "unit"; id: string } | { type: "space"; id: string } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [compactDetailOpen, setCompactDetailOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const isCompact = useFacilityBuilderCompact();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -217,11 +237,13 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   const effectiveExpanded = isSearching
     ? new Set([...searchResult.expandedIds, ...stagedSearchResult.expandedIds])
     : expanded;
-  const showUndesignatedSection =
-    !isSearching ||
-    displayStagedUnits.length > 0 ||
-    displayUndesignatedSpaces.length > 0;
   const undesignatedCount = hierarchy.stagedUnits.length + hierarchy.undesignatedSpaces.length;
+  /** Staging zone: show when it has items, while searching matches, or during an active drag. */
+  const showUndesignatedSection =
+    undesignatedCount > 0 ||
+    Boolean(activeDragId) ||
+    (isSearching &&
+      (displayStagedUnits.length > 0 || displayUndesignatedSpaces.length > 0));
 
   function toggleExpand(id: string) {
     if (isSearching) return;
@@ -250,8 +272,37 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
   const parentUnitOfSpace = selection?.type === "space" && selection.unitId
     ? findUnitInHierarchy(hierarchy, selection.unitId)
     : null;
+  const grandparentOfSpace =
+    parentUnitOfSpace?.parentUnitId != null
+      ? findUnitInHierarchy(hierarchy, parentUnitOfSpace.parentUnitId)
+      : null;
 
   const allFlatUnits = flattenUnits(hierarchy.units, hierarchy.stagedUnits);
+
+  function selectPlace(next: Selection) {
+    setSelection(next);
+    if (isCompact && next) setCompactDetailOpen(true);
+  }
+
+  useEffect(() => {
+    if (isCompact && selection) setCompactDetailOpen(true);
+    // Open detail when entering compact with an existing selection (e.g. resize).
+    // Intentionally omits `selection` so closing the drawer does not reopen it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selection open is handled by selectPlace
+  }, [isCompact]);
+
+  const placeDetailTitle = selectedUnit
+    ? selectedUnit.name
+    : selectedSpace
+      ? formatRoomDisplayName(selectedSpace)
+      : "Place details";
+
+  const createSpaceParentName = createSpaceDrawer?.unitId
+    ? findUnitInHierarchy(hierarchy, createSpaceDrawer.unitId)?.name
+    : null;
+  const createNeighborhoodParentName = createUnitDrawer?.parentId
+    ? findUnitInHierarchy(hierarchy, createUnitDrawer.parentId)?.name
+    : null;
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDragId(event.active.id as string);
@@ -431,16 +482,26 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
     hierarchy.stagedUnits.length === 0 &&
     hierarchy.undesignatedSpaces.length === 0;
 
+  const structureSummary = (() => {
+    let floors = 0;
+    let neighborhoods = 0;
+    let rooms = hierarchy.undesignatedSpaces.length;
+    function walk(nodes: UnitHierarchyNode[]) {
+      for (const u of nodes) {
+        const kind = resolveBuilderNodeDisplayKind(u);
+        if (kind === "floor") floors += 1;
+        else if (kind === "neighborhood" || kind === "legacy_location") neighborhoods += 1;
+        rooms += u.childSpaces.length;
+        walk(u.childUnits);
+      }
+    }
+    walk(hierarchy.units);
+    walk(hierarchy.stagedUnits);
+    return { floors, neighborhoods, rooms };
+  })();
+
   function openAddFloor() {
     setCreateUnitDrawer({ parentId: null, depth: 0, intent: "floor" });
-  }
-
-  function openAddNeighborhood() {
-    setCreateUnitDrawer({ parentId: null, depth: 0, intent: "neighborhood" });
-  }
-
-  function openAddRoom() {
-    setCreateSpaceDrawer({ unitId: null });
   }
 
   useEffect(() => {
@@ -456,10 +517,117 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
 
   void isPending;
 
+  const editorPanel = (
+    <>
+      {!selection && (
+        <div
+          className="px-1 py-2 sm:px-2"
+          data-testid="facility-editor-empty"
+          data-empty-kind={isEmptyFacility ? "no-locations" : "nothing-selected"}
+        >
+          {isEmptyFacility ? (
+            <div className="max-w-md py-6 text-center sm:py-10">
+              <Building2 className="mx-auto h-8 w-8 text-zinc-300" aria-hidden />
+              <h3 className="mt-4 text-lg font-semibold text-zinc-900">
+                Build your facility structure
+              </h3>
+              <p className="mt-2 text-sm text-zinc-600">
+                Start by adding the first {copy.labels.level1.toLowerCase()}.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  data-testid="add-floor-editor-empty"
+                  onClick={openAddFloor}
+                  icon={<Plus className="h-4 w-4" />}
+                >
+                  {copy.tree.emptyAction}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid="facility-bulk-import-empty-editor"
+                  onClick={() => setShowBulkImport(true)}
+                  icon={<Upload className="h-4 w-4" />}
+                >
+                  Bulk import
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-lg py-4 sm:py-8" data-testid="facility-editor-orientation">
+              <h3 className="text-xl font-semibold tracking-tight text-zinc-900">
+                {hierarchy.facilityName}
+              </h3>
+              <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                <div>
+                  <dt className="text-zinc-500">{copy.labels.level1Plural}</dt>
+                  <dd className="text-lg font-semibold tabular-nums text-zinc-900">
+                    {structureSummary.floors}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-zinc-500">{copy.labels.level2Plural}</dt>
+                  <dd className="text-lg font-semibold tabular-nums text-zinc-900">
+                    {structureSummary.neighborhoods}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-zinc-500">{copy.labels.level3Plural}</dt>
+                  <dd className="text-lg font-semibold tabular-nums text-zinc-900">
+                    {structureSummary.rooms}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-5 text-sm text-zinc-600">{copy.tree.selectPrompt}</p>
+              <p className="mt-2 text-xs text-zinc-500">
+                Use the structure panel to add or reorganize locations.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedUnit && (
+        <UnitEditor
+          unit={selectedUnit}
+          displayKind={resolveBuilderNodeDisplayKind(selectedUnit)}
+          allUnits={allFlatUnits}
+          parentFloorName={
+            selectedUnit.parentUnitId
+              ? findUnitInHierarchy(hierarchy, selectedUnit.parentUnitId)?.name ?? null
+              : null
+          }
+          departments={hierarchy.departments}
+          canonicalLogsEnabled={canonicalLogsEnabled}
+          onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+          onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
+          onCreateNeighborhood={(unitId) =>
+            setCreateUnitDrawer({ parentId: unitId, depth: 1, intent: "neighborhood" })
+          }
+          onSelectSpace={(spaceId, unitId) => selectPlace({ type: "space", spaceId, unitId })}
+          onSelectUnit={(unitId) => selectPlace({ type: "unit", unitId })}
+        />
+      )}
+
+      {selectedSpace && (
+        <SpaceEditor
+          space={selectedSpace}
+          parentUnit={parentUnitOfSpace}
+          parentFloorName={grandparentOfSpace?.name ?? null}
+          departments={hierarchy.departments}
+          isUndesignated={selection?.type === "space" && !selection.unitId}
+          canonicalLogsEnabled={canonicalLogsEnabled}
+        />
+      )}
+    </>
+  );
+
   return (
     <BuilderCopyContext.Provider value={copy}>
+    <FacilityRoomTypesContext.Provider value={hierarchy.roomTypes}>
     {showBulkImport ? (
-      <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4" data-testid="facility-bulk-import-panel">
+      <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4" data-testid="facility-bulk-import-panel">
         <FacilityBulkImportPanel
           onClose={() => setShowBulkImport(false)}
           onImported={() => {
@@ -475,18 +643,33 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-6 items-start" data-testid="facility-builder">
-        {/* Left — Hierarchy tree */}
-        <div className="flex w-80 shrink-0 flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-zinc-400" />
-              <h2 className="text-sm font-semibold text-zinc-900">{hierarchy.facilityName}</h2>
+      <div
+        className="flex flex-col items-stretch gap-0 overflow-hidden rounded-lg border border-zinc-200 bg-white xl:flex-row xl:min-h-[min(70vh,52rem)]"
+        data-testid="facility-builder"
+      >
+        {/* Hierarchy pane */}
+        <div
+          className="flex w-full shrink-0 flex-col border-zinc-200 xl:w-80 xl:border-r"
+          data-testid="facility-hierarchy-pane"
+        >
+          <div className="border-b border-zinc-100 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900">Structure</h2>
+                {!isEmptyFacility ? (
+                  <p className="mt-0.5 text-[11px] tabular-nums text-zinc-500">
+                    {structureSummary.floors} {copy.labels.level1Plural}
+                    {" · "}
+                    {structureSummary.neighborhoods} {copy.labels.level2Plural}
+                    {" · "}
+                    {structureSummary.rooms} {copy.labels.level3Plural}
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
 
-          {/* Toolbar: Search + Add Floor / Neighborhood / Room */}
-          <div className="space-y-2 border-b border-zinc-100 px-2 py-2">
+          <div className="space-y-2 border-b border-zinc-100 px-3 py-2.5">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
               <input
@@ -495,50 +678,43 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={copy.toolbar.searchPlaceholder}
                 data-testid="hierarchy-search"
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none"
+                className="w-full rounded-md border border-zinc-200 bg-zinc-50/80 py-2 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none"
               />
             </label>
-            <div className="flex gap-1.5">
-              <button
+            <div className="flex flex-wrap gap-1.5">
+              {hasAnyUnits ? (
+                <Button
+                  type="button"
+                  size="compact"
+                  data-testid="add-floor-root"
+                  onClick={openAddFloor}
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                  className="flex-1"
+                >
+                  {copy.tree.emptyAction}
+                </Button>
+              ) : null}
+              <Button
                 type="button"
-                data-testid="add-floor-root"
-                onClick={openAddFloor}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-2 py-2 text-xs font-medium text-white hover:bg-zinc-700 transition-colors"
+                variant="secondary"
+                size="compact"
+                data-testid="facility-bulk-import-open"
+                onClick={() => setShowBulkImport(true)}
+                icon={<Upload className="h-3.5 w-3.5" />}
+                className={hasAnyUnits ? "flex-1" : "w-full"}
               >
-                <Plus className="h-3.5 w-3.5" />
-                {copy.toolbar.addLevel1}
-              </button>
-              <button
-                type="button"
-                data-testid="add-neighborhood-root"
-                onClick={openAddNeighborhood}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {copy.toolbar.addLevel2}
-              </button>
-              <button
-                type="button"
-                data-testid="add-room-root"
-                onClick={openAddRoom}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {copy.toolbar.addLevel3}
-              </button>
+                Bulk import
+              </Button>
             </div>
-            <button
-              type="button"
-              data-testid="facility-bulk-import-open"
-              onClick={() => setShowBulkImport(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Bulk Import
-            </button>
           </div>
 
-          <div className="max-h-[calc(70vh-4rem)] overflow-y-auto px-1 py-1.5">
+          {isCompact && !selection && !isEmptyFacility ? (
+            <div className="border-b border-zinc-100 px-4 py-2.5 text-xs text-zinc-600">
+              Select a place to open its details.
+            </div>
+          ) : null}
+
+          <div className="max-h-[min(62vh,40rem)] flex-1 overflow-y-auto px-1 py-1.5 xl:max-h-none">
             {showUndesignatedSection && (
               <UndesignatedSection
                 stagedUnits={displayStagedUnits}
@@ -549,8 +725,9 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                 renaming={renaming}
                 searchQuery={searchQuery}
                 dndEnabled={!isSearching}
+                quietEmpty={!undesignatedCount && Boolean(activeDragId)}
                 onToggle={toggleExpand}
-                onSelect={setSelection}
+                onSelect={selectPlace}
                 onContextMenu={(e, target) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -567,32 +744,31 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             )}
 
             {!hasAnyUnits ? (
-              <div className="px-4 py-6 text-center">
+              <div className="px-4 py-6 text-center" data-testid="facility-tree-empty">
                 <p className="text-sm font-medium text-zinc-700">{copy.tree.emptyTitle}</p>
                 <p className="mt-2 text-xs text-zinc-500">
                   {isEmptyFacility
-                    ? "Create your first location, or import Floors, Neighborhoods, and Rooms from a CSV."
+                    ? `Start by adding your first ${copy.labels.level1.toLowerCase()}.`
                     : copy.tree.emptyBody}
                 </p>
                 <div className="mt-4 flex flex-col items-stretch gap-2">
-                  <button
+                  <Button
                     type="button"
                     data-testid="add-floor-empty"
                     onClick={openAddFloor}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                    icon={<Plus className="h-4 w-4" />}
                   >
-                    <Plus className="h-4 w-4" />
-                    Create your first location
-                  </button>
-                  <button
+                    {copy.tree.emptyAction}
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
                     data-testid="facility-bulk-import-empty"
                     onClick={() => setShowBulkImport(true)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+                    icon={<Upload className="h-4 w-4" />}
                   >
-                    <Upload className="h-4 w-4" />
                     Import facility structure
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : isSearching && displayUnits.length === 0 && !showUndesignatedSection ? (
@@ -605,7 +781,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             ) : (
               <>
                 {!hasFloors && !isSearching && (
-                  <p className="mx-2 mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <p className="mx-2 mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     {copy.tree.legacyTopLevelHint}
                   </p>
                 )}
@@ -625,7 +801,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
                         searchQuery={searchQuery}
                         dndEnabled={!isSearching}
                         onToggle={toggleExpand}
-                        onSelect={setSelection}
+                        onSelect={selectPlace}
                         onContextMenu={(e, target) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -647,60 +823,29 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           </div>
         </div>
 
-        {/* Right — Editor panel */}
-        <div className="min-w-0 flex-1">
-          {!selection && (
-            <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-16 text-center">
-              <Building2 className="mx-auto h-8 w-8 text-zinc-300" />
-              <p className="mt-3 text-sm text-zinc-500">
-                {copy.tree.selectPrompt}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  data-testid="add-floor-editor-empty"
-                  onClick={openAddFloor}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create your first location
-                </button>
-                <button
-                  type="button"
-                  data-testid="facility-bulk-import-editor-empty"
-                  onClick={() => setShowBulkImport(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-                >
-                  <Upload className="h-4 w-4" />
-                  Import facility structure
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Desktop editor */}
+        {!isCompact ? (
+          <div
+            className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6"
+            data-testid="facility-place-editor"
+          >
+            <div className="mx-auto w-full max-w-3xl">{editorPanel}</div>
+          </div>
+        ) : null}
 
-          {selectedUnit && (
-            <UnitEditor
-              unit={selectedUnit}
-              displayKind={resolveBuilderNodeDisplayKind(selectedUnit)}
-              allUnits={allFlatUnits}
-              departments={hierarchy.departments}
-              onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
-              onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
-              onCreateNeighborhood={(unitId) =>
-                setCreateUnitDrawer({ parentId: unitId, depth: 1, intent: "neighborhood" })
-              }
-            />
-          )}
-
-          {selectedSpace && (
-            <SpaceEditor
-              space={selectedSpace}
-              parentUnit={parentUnitOfSpace}
-              departments={hierarchy.departments}
-              isUndesignated={selection?.type === "space" && !selection.unitId}
-            />
-          )}
-        </div>
+        {/* Tablet / compact place detail */}
+        {isCompact ? (
+          <Drawer
+            open={compactDetailOpen && Boolean(selection)}
+            onClose={() => setCompactDetailOpen(false)}
+            title={placeDetailTitle}
+            closeLabel="Back to structure"
+            size="lg"
+            data-testid="facility-place-detail-drawer"
+          >
+            <div className="pb-6">{editorPanel}</div>
+          </Drawer>
+        ) : null}
 
         {/* Context menu */}
         {contextMenu && (
@@ -816,7 +961,9 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
             title={
               createUnitDrawer.intent === "floor"
                 ? copy.drawers.addLevel1
-                : copy.drawers.addLevel2
+                : createNeighborhoodParentName
+                  ? `Add ${copy.labels.level2} to ${createNeighborhoodParentName}`
+                  : copy.drawers.addLevel2
             }
           >
             {createUnitDrawer.intent === "floor" ? (
@@ -837,7 +984,11 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
           <Drawer
             open
             onClose={() => setCreateSpaceDrawer(null)}
-            title={copy.drawers.addLevel3}
+            title={
+              createSpaceParentName
+                ? `Add ${copy.labels.level3} to ${createSpaceParentName}`
+                : copy.drawers.addLevel3
+            }
           >
             <CreateSpaceForm
               unitId={createSpaceDrawer.unitId ?? null}
@@ -913,6 +1064,7 @@ export function FacilityBuilderClient({ hierarchy }: { hierarchy: FacilityHierar
         )}
       </DragOverlay>
     </DndContext>
+    </FacilityRoomTypesContext.Provider>
     </BuilderCopyContext.Provider>
   );
 }
@@ -930,6 +1082,7 @@ function UndesignatedSection({
   renaming,
   searchQuery,
   dndEnabled,
+  quietEmpty = false,
   onToggle,
   onSelect,
   onContextMenu,
@@ -947,6 +1100,7 @@ function UndesignatedSection({
   renaming: { type: "unit" | "space"; id: string } | null;
   searchQuery: string;
   dndEnabled: boolean;
+  quietEmpty?: boolean;
   onToggle: (id: string) => void;
   onSelect: (s: Selection) => void;
   onContextMenu: (e: React.MouseEvent, target: ContextTarget) => void;
@@ -968,14 +1122,18 @@ function UndesignatedSection({
     <div
       ref={setNodeRef}
       data-testid="undesignated-section"
-      className={`mb-2 rounded-lg border px-1 py-1.5 transition-colors ${
+      className={`mb-2 rounded-md px-1 py-1.5 transition-colors ${
         isOver
-          ? "border-amber-300 bg-amber-50/60"
-          : "border-zinc-200 bg-zinc-50/50"
+          ? "border border-amber-300 bg-amber-50/60"
+          : hasItems
+            ? "border border-zinc-200 bg-zinc-50/50"
+            : quietEmpty
+              ? "border border-dashed border-amber-200 bg-amber-50/40"
+              : "border border-transparent"
       }`}
     >
       {undesignatedCount > 0 && (
-        <div className="mx-1 mb-2 rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2">
+        <div className="mx-1 mb-2 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2">
           <p className="text-xs font-medium text-amber-900">
             {copy.undesignatedSection.warningTitle}
           </p>
@@ -985,8 +1143,8 @@ function UndesignatedSection({
         </div>
       )}
 
-      {!hasItems && (
-        <p className="px-2 py-1.5 text-[11px] text-zinc-400">
+      {!hasItems && quietEmpty && (
+        <p className="px-2 py-1.5 text-[11px] text-zinc-500">
           {copy.undesignatedSection.dropHint}
         </p>
       )}
@@ -1343,23 +1501,25 @@ function TreeUnitNode({
   void isPending;
 
   return (
-    <li ref={setNodeRef} style={style} data-display-kind={displayKind}>
+    <li ref={setNodeRef} style={style} data-display-kind={displayKind} className="group/unit">
       <div
-        className={`group flex items-center rounded-lg cursor-pointer transition-colors ${
+        className={`group flex items-center rounded-md cursor-pointer transition-colors ${
           isSelected
-            ? "bg-zinc-900 text-white"
+            ? "border-l-2 border-l-amber-700 bg-amber-50 text-amber-950"
             : displayKind === "floor"
-              ? "text-zinc-900 hover:bg-zinc-50 font-medium"
-              : "text-zinc-800 hover:bg-zinc-50"
-        }`}
-        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+              ? "border-l-2 border-l-transparent text-zinc-900 hover:bg-zinc-50 font-medium"
+              : "border-l-2 border-l-transparent text-zinc-800 hover:bg-zinc-50"
+        } ${displayKind === "floor" && !isSelected ? "mt-1" : ""}`}
+        style={{ paddingLeft: `${locationTreePaddingLeft(depth)}px` }}
+        aria-selected={isSelected}
       >
         <button
           type="button"
           className={`shrink-0 p-1 cursor-grab opacity-0 group-hover:opacity-60 transition-opacity ${
-            isSelected ? "text-zinc-400" : "text-zinc-300"
+            isSelected ? "text-amber-700/70" : "text-zinc-300"
           } ${!dndEnabled ? "invisible" : ""}`}
           {...(dndEnabled ? { ...attributes, ...listeners } : {})}
+          aria-label={`Drag ${unit.name}`}
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
@@ -1369,14 +1529,16 @@ function TreeUnitNode({
           onClick={(e) => { e.stopPropagation(); onToggle(unit.id); }}
           className={`shrink-0 p-0.5 transition-transform ${
             canExpand ? "" : "invisible"
-          } ${isSelected ? "text-zinc-400" : "text-zinc-400"}`}
+          } ${isSelected ? "text-amber-800/70" : "text-zinc-400"}`}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? `Collapse ${unit.name}` : `Expand ${unit.name}`}
         >
           {isExpanded
             ? <ChevronDown className="h-4 w-4" />
             : <ChevronRight className="h-4 w-4" />}
         </button>
 
-        <span className={`shrink-0 mr-2 ${isSelected ? "text-zinc-400" : "text-zinc-400"}`}>
+        <span className={`shrink-0 mr-2 ${isSelected ? "text-amber-800/80" : "text-zinc-400"}`}>
           <KindIcon className="h-4 w-4" />
         </span>
 
@@ -1395,7 +1557,7 @@ function TreeUnitNode({
               onCancel={onRenameComplete}
             />
           ) : (
-            <span className={`text-sm ${displayKind === "floor" ? "font-semibold" : "font-medium"} ${!unit.isActive ? "opacity-40 line-through" : ""}`}>
+            <span className={`text-sm ${displayKind === "floor" ? "font-semibold" : displayKind === "neighborhood" ? "font-medium" : "font-medium"} ${!unit.isActive ? "opacity-40 line-through" : ""}`}>
               <HighlightedText text={unit.name} query={searchQuery} selected={isSelected} />
             </span>
           )}
@@ -1404,7 +1566,7 @@ function TreeUnitNode({
         {!isRenaming && displayKind === "legacy_location" && (
           <span
             className={`shrink-0 mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-              isSelected ? "bg-zinc-700 text-zinc-300" : "bg-amber-50 text-amber-700"
+              isSelected ? "bg-amber-100 text-amber-900" : "bg-amber-50 text-amber-700"
             }`}
             title={copy.tree.unassignedTitle}
           >
@@ -1415,7 +1577,7 @@ function TreeUnitNode({
         {!isRenaming && displayKind === "staged" && (
           <span
             className={`shrink-0 mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-              isSelected ? "bg-zinc-700 text-zinc-300" : "bg-amber-50 text-amber-700"
+              isSelected ? "bg-amber-100 text-amber-900" : "bg-amber-50 text-amber-700"
             }`}
             title={copy.tree.stagedTitle}
           >
@@ -1423,10 +1585,23 @@ function TreeUnitNode({
           </span>
         )}
 
-        {!isRenaming && totalRooms > 0 && (
-          <span className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
-            isSelected ? "bg-zinc-700 text-zinc-300" : "bg-zinc-100 text-zinc-500"
-          }`}>
+        {!isRenaming && displayKind === "floor" && unit.childUnits.length > 0 && (
+          <span
+            className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
+              isSelected ? "bg-amber-100 text-amber-900" : "bg-zinc-100 text-zinc-500"
+            }`}
+            title={`${unit.childUnits.length} ${copy.labels.level2Plural.toLowerCase()}`}
+          >
+            {unit.childUnits.length}
+          </span>
+        )}
+        {!isRenaming && displayKind !== "floor" && totalRooms > 0 && (
+          <span
+            className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
+              isSelected ? "bg-amber-100 text-amber-900" : "bg-zinc-100 text-zinc-500"
+            }`}
+            title={`${totalRooms} ${copy.labels.level3Plural.toLowerCase()}`}
+          >
             {totalRooms}
           </span>
         )}
@@ -1438,11 +1613,12 @@ function TreeUnitNode({
               e.stopPropagation();
               onContextMenu(e, { type: "unit", unit, depth });
             }}
-            className={`shrink-0 rounded p-1 transition-opacity ${
+            className={`shrink-0 rounded p-1 transition-opacity builder-essential-touch-visible min-h-10 min-w-10 ${
               isSelected
-                ? "text-zinc-400 hover:text-white opacity-100"
-                : "text-zinc-400 hover:text-zinc-600 opacity-0 group-hover:opacity-100"
+                ? "builder-essential-selected text-amber-800/70 hover:text-amber-950"
+                : "text-zinc-500 hover:text-zinc-700"
             }`}
+            aria-label={`More actions for ${unit.name}`}
           >
             <MoreVertical className="h-3.5 w-3.5" />
           </button>
@@ -1504,15 +1680,17 @@ function TreeUnitNode({
           {(showAddNeighborhood || showAddRoom) && (
             <li>
               <div
-                className="flex flex-wrap items-center gap-1 py-0.5"
-                style={{ paddingLeft: `${(depth + 1) * 20 + 28}px` }}
+                className={`builder-essential-touch-visible flex flex-wrap items-center gap-1 py-0.5 transition-opacity ${
+                  isSelected ? "builder-essential-selected" : ""
+                }`}
+                style={{ paddingLeft: `${(depth + 1) * 16 + 28}px` }}
               >
                 {showAddNeighborhood && (
                   <button
                     type="button"
                     data-testid={`add-neighborhood-${unit.id}`}
                     onClick={() => onCreateUnit(unit.id, depth + 1)}
-                    className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                    className="flex min-h-10 items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800 transition-colors"
                   >
                     <Plus className="h-3 w-3" />
                     {copy.labels.level2}
@@ -1524,7 +1702,7 @@ function TreeUnitNode({
                       type="button"
                       data-testid={`add-room-${unit.id}`}
                       onClick={() => onCreateSpace(unit.id)}
-                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                      className="flex min-h-10 items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800 transition-colors"
                     >
                       <Plus className="h-3 w-3" />
                       {copy.labels.level3}
@@ -1533,10 +1711,10 @@ function TreeUnitNode({
                       type="button"
                       data-testid={`add-rooms-bulk-${unit.id}`}
                       onClick={() => onBulkCreateSpace(unit.id)}
-                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                      className="flex min-h-10 items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800 transition-colors"
                     >
                       <ListPlus className="h-3 w-3" />
-                      Multiple
+                      Bulk add
                     </button>
                   </>
                 )}
@@ -1598,26 +1776,28 @@ function TreeSpaceNode({
   return (
     <li ref={setNodeRef} style={style}>
       <div
-        className={`group flex items-center rounded-lg cursor-pointer transition-colors ${
+        className={`group flex items-center rounded-md cursor-pointer transition-colors ${
           isSelected
-            ? "bg-zinc-900 text-white"
-            : "text-zinc-700 hover:bg-zinc-50"
+            ? "border-l-2 border-l-amber-700 bg-amber-50 text-amber-950"
+            : "border-l-2 border-l-transparent text-zinc-700 hover:bg-zinc-50"
         }`}
-        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        style={{ paddingLeft: `${locationTreePaddingLeft(depth)}px` }}
+        aria-selected={isSelected}
       >
         <button
           type="button"
           className={`shrink-0 p-1 cursor-grab opacity-0 group-hover:opacity-60 transition-opacity ${
-            isSelected ? "text-zinc-400" : "text-zinc-300"
+            isSelected ? "text-amber-700/70" : "text-zinc-300"
           } ${!dndEnabled ? "invisible" : ""}`}
           {...(dndEnabled ? { ...attributes, ...listeners } : {})}
+          aria-label={`Drag ${formatRoomDisplayName(space)}`}
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
 
         <span className="shrink-0 w-5" />
 
-        <span className={`shrink-0 mr-2 ${isSelected ? "text-zinc-400" : "text-zinc-400"}`}>
+        <span className={`shrink-0 mr-2 ${isSelected ? "text-amber-800/80" : "text-zinc-400"}`}>
           <DoorOpen className="h-4 w-4" />
         </span>
 
@@ -1653,11 +1833,12 @@ function TreeSpaceNode({
               e.stopPropagation();
               onContextMenu(e, { type: "space", space, unitId });
             }}
-            className={`shrink-0 rounded p-1 transition-opacity ${
+            className={`shrink-0 rounded p-1 transition-opacity builder-essential-touch-visible min-h-10 min-w-10 ${
               isSelected
-                ? "text-zinc-400 hover:text-white opacity-100"
-                : "text-zinc-400 hover:text-zinc-600 opacity-0 group-hover:opacity-100"
+                ? "builder-essential-selected text-amber-800/70 hover:text-amber-950"
+                : "text-zinc-500 hover:text-zinc-700"
             }`}
+            aria-label={`More actions for ${formatRoomDisplayName(space)}`}
           >
             <MoreVertical className="h-3.5 w-3.5" />
           </button>
@@ -1719,24 +1900,31 @@ function UnitEditor({
   unit,
   displayKind,
   allUnits,
+  parentFloorName,
   departments,
+  canonicalLogsEnabled = false,
   onCreateSpace,
   onBulkCreateSpace,
   onCreateNeighborhood,
+  onSelectSpace,
+  onSelectUnit,
 }: {
   unit: UnitHierarchyNode;
   displayKind: BuilderNodeDisplayKind;
   allUnits: { id: string; name: string; parentUnitId: string | null }[];
+  parentFloorName: string | null;
   departments: { id: string; key: string; name: string }[];
+  canonicalLogsEnabled?: boolean;
   onCreateSpace: (unitId: string) => void;
   onBulkCreateSpace: (unitId: string) => void;
   onCreateNeighborhood: (unitId: string) => void;
+  onSelectSpace: (spaceId: string, unitId: string) => void;
+  onSelectUnit: (unitId: string) => void;
 }) {
   const copy = useBuilderCopy();
+  const roomTypes = useFacilityRoomTypes();
   const label = displayKindLabel(displayKind, copy);
   const totalRooms = countSpaces(unit);
-  const totalResps = unit.departmentResponsibilities.length;
-  const [showResps, setShowResps] = useState(false);
   void allUnits;
   const KindIcon =
     displayKind === "floor"
@@ -1747,244 +1935,376 @@ function UnitEditor({
           ? MapPin
           : MapPin;
 
+  const summaryParts: string[] = [];
+  if (displayKind === "floor") {
+    if (unit.childUnits.length > 0) summaryParts.push(copy.editor.level2Count(unit.childUnits.length));
+    if (totalRooms > 0) summaryParts.push(copy.editor.level3Count(totalRooms));
+  } else if (displayKind === "neighborhood") {
+    if (parentFloorName) summaryParts.push(parentFloorName);
+    summaryParts.push(copy.editor.level3Count(unit.childSpaces.length));
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6" data-testid="facility-unit-editor">
       {displayKind === "staged" && <NotYetPlacedBanner />}
 
-      {/* Header card */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
-        <div className="px-5 py-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-zinc-900">{unit.name}</h2>
-              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
-                <span className="inline-flex items-center gap-1">
-                  <KindIcon className="h-3.5 w-3.5" />
-                  {label}
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">{unit.name}</h2>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-600">
+              <span className="inline-flex items-center gap-1 font-medium text-zinc-800">
+                <KindIcon className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+                {label}
+              </span>
+              {displayKind === "legacy_location" && (
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                  {copy.editor.unassignedToLevel1}
                 </span>
-                {displayKind === "legacy_location" && (
-                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                    {copy.editor.unassignedToLevel1}
-                  </span>
-                )}
-                {displayKind === "staged" && (
-                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                    {copy.labels.undesignated}
-                  </span>
-                )}
-                {totalRooms > 0 && (
-                  <span>{copy.editor.level3Count(totalRooms)}</span>
-                )}
-                {unit.childUnits.length > 0 && (
-                  <span>{copy.editor.level2Count(unit.childUnits.length)}</span>
-                )}
-                {totalResps > 0 && (
-                  <span>{totalResps} responsibilit{totalResps !== 1 ? "ies" : "y"}</span>
-                )}
-                {!unit.isActive && (
-                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-500">
-                    Inactive
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {canAddNeighborhood(displayKind) && (
-                <button
+              )}
+              {displayKind === "staged" && (
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                  {copy.labels.undesignated}
+                </span>
+              )}
+              {!unit.isActive && (
+                <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-500">
+                  Inactive
+                </span>
+              )}
+            </p>
+            {summaryParts.length > 0 ? (
+              <p className="mt-1 text-sm text-zinc-500">{summaryParts.join(" · ")}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {canAddNeighborhood(displayKind) && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="compact"
+                onClick={() => onCreateNeighborhood(unit.id)}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                {`Add ${copy.labels.level2.toLowerCase()} to ${unit.name}`}
+              </Button>
+            )}
+            {canAddRoom(displayKind) && (
+              <>
+                <Button
                   type="button"
-                  onClick={() => onCreateNeighborhood(unit.id)}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  variant="secondary"
+                  size="compact"
+                  onClick={() => onCreateSpace(unit.id)}
+                  icon={<Plus className="h-3.5 w-3.5" />}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Plus className="h-3.5 w-3.5" />
-                    {copy.editor.addLevel2}
-                  </span>
-                </button>
-              )}
-              {canAddRoom(displayKind) && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onCreateSpace(unit.id)}
-                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Plus className="h-3.5 w-3.5" />
-                      {copy.editor.addLevel3}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="add-multiple-rooms-editor"
-                    onClick={() => onBulkCreateSpace(unit.id)}
-                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <ListPlus className="h-3.5 w-3.5" />
-                      {copy.editor.addLevel3Bulk}
-                    </span>
-                  </button>
-                </>
-              )}
-            </div>
+                  {`Add ${copy.labels.level3.toLowerCase()} to ${unit.name}`}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="compact"
+                  data-testid="add-multiple-rooms-editor"
+                  onClick={() => onBulkCreateSpace(unit.id)}
+                  icon={<ListPlus className="h-3.5 w-3.5" />}
+                >
+                  Bulk add {copy.labels.level3Plural.toLowerCase()}
+                </Button>
+              </>
+            )}
           </div>
         </div>
+      </header>
 
-        {/* Quick settings */}
-        <div className="border-t border-zinc-100 px-5 py-4">
-          <form action={updateBuilderUnitAction} className="grid gap-3 sm:grid-cols-2">
-            <input type="hidden" name="unitId" value={unit.id} />
-            {displayKind === "floor" && (
-              <input type="hidden" name="parentUnitId" value="" />
-            )}
-            {displayKind !== "floor" && unit.parentUnitId && (
-              <input type="hidden" name="parentUnitId" value={unit.parentUnitId} />
-            )}
-            <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Name
-              <input
-                name="name"
-                defaultValue={unit.name}
-                required
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Description
-              <input
-                name="description"
-                defaultValue={unit.description ?? ""}
-                placeholder="Optional notes"
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
-              <input type="checkbox" name="isActive" defaultChecked={unit.isActive} className="rounded" />
-              Active
-            </label>
-
-            {displayKind !== "floor" && (
-              <details className="sm:col-span-2 rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2">
-                <summary className="cursor-pointer text-xs font-medium text-zinc-600">
-                  Advanced operational settings
-                </summary>
-                <div className="mt-3 space-y-2">
-                  <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-                    Legacy operational type
-                    <select
-                      name="unitType"
-                      defaultValue={unit.unitType}
-                      className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-                    >
-                      {UNIT_TYPE_OPTIONS.map((t) => (
-                        <option key={t} value={t}>{unitTypeLabel(t)}</option>
-                      ))}
-                    </select>
-                    <span className="text-[10px] font-normal text-zinc-400">
-                      Used by older operational workflows. Most locations can remain General.
-                    </span>
-                  </label>
-                </div>
-              </details>
-            )}
-
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
-              >
-                Save changes
-              </button>
-            </div>
-          </form>
-          <form
-            action={async (formData) => {
-              try {
-                await deleteBuilderUnitAction(formData);
-              } catch (err) {
-                alert(err instanceof Error ? err.message : "Delete failed.");
-              }
-            }}
-            className="mt-2"
+      {canonicalLogsEnabled && displayKind !== "floor" ? (
+        <section className="max-w-xl space-y-1" data-testid="facility-unit-logs-link">
+          <h3 className="text-sm font-semibold text-zinc-900">Logs</h3>
+          <p className="text-xs text-zinc-500">Attach Catalog Logs to this unit.</p>
+          <Link
+            href={`/build/logs/targets/unit/${unit.id}`}
+            className="inline-flex min-h-9 items-center text-sm font-medium text-zinc-900 underline underline-offset-2"
           >
-            <input type="hidden" name="unitId" value={unit.id} />
-            <button
-              type="submit"
-              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-              onClick={(e) => {
-                if (!confirm(copy.editor.deleteConfirm(unit.name))) {
-                  e.preventDefault();
-                }
-              }}
-            >
-              Delete
-            </button>
-          </form>
-        </div>
-      </div>
+            Manage Logs
+          </Link>
+        </section>
+      ) : null}
 
-      {/* Rooms list */}
-      {unit.childSpaces.length > 0 && (
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-zinc-900">
-            {copy.editor.level3ListTitle(unit.childSpaces.length)}
-          </h3>
-          <ul className="mt-2 divide-y divide-zinc-100">
-            {unit.childSpaces.map((s) => (
-              <li key={s.id} className="flex items-center justify-between py-2.5 text-sm">
-                <span className="flex items-center gap-2">
-                  <DoorOpen className="h-3.5 w-3.5 text-zinc-400" />
-                  <span className={`text-zinc-800 ${!s.isActive ? "opacity-50" : ""}`}>
-                    {formatRoomDisplayName(s)}
+      <section className="max-w-xl space-y-3" aria-labelledby="place-identity-heading">
+        <h3 id="place-identity-heading" className="text-sm font-semibold text-zinc-900">
+          Identity
+        </h3>
+        <form action={updateBuilderUnitAction} className="grid gap-3">
+          <input type="hidden" name="unitId" value={unit.id} />
+          {displayKind === "floor" && <input type="hidden" name="parentUnitId" value="" />}
+          {displayKind !== "floor" && unit.parentUnitId && (
+            <input type="hidden" name="parentUnitId" value={unit.parentUnitId} />
+          )}
+          <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+            Name
+            <input
+              name="name"
+              defaultValue={unit.name}
+              required
+              className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+            Description
+            <input
+              name="description"
+              defaultValue={unit.description ?? ""}
+              placeholder="Optional notes"
+              className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input type="checkbox" name="isActive" defaultChecked={unit.isActive} className="rounded" />
+            Active
+          </label>
+
+          {displayKind !== "floor" && (
+            <details className="rounded-md border border-zinc-100 bg-zinc-50/60 px-3 py-2">
+              <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+                Advanced operational settings
+              </summary>
+              <div className="mt-3 space-y-2">
+                <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+                  Legacy operational type
+                  <select
+                    name="unitType"
+                    defaultValue={unit.unitType}
+                    className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                  >
+                    {UNIT_TYPE_OPTIONS.map((t) => (
+                      <option key={t} value={t}>{unitTypeLabel(t)}</option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] font-normal text-zinc-400">
+                    Used by older operational workflows. Most locations can remain General.
                   </span>
-                  <span className="text-xs text-zinc-400">
-                    {resolveSpaceTypeDisplayLabel({
-                      spaceType: s.spaceType,
-                      customTypeLabel: s.customTypeLabel,
-                    })}
-                  </span>
-                </span>
-                <span className="text-xs text-zinc-400">
-                  {s.responsibilities.length > 0
-                    ? `${s.responsibilities.length} responsibilit${s.responsibilities.length !== 1 ? "ies" : "y"}`
-                    : "No responsibilities"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </label>
+              </div>
+            </details>
+          )}
+
+          <div>
+            <Button type="submit">Save changes</Button>
+          </div>
+        </form>
+      </section>
+
+      {displayKind !== "floor" && (
+        <section className="border-t border-zinc-100 pt-5">
+          <DepartmentResponsibilityCheckboxes
+            mode="unit"
+            locationId={unit.id}
+            locationName={unit.name}
+            selectedDepartmentIds={unit.departmentResponsibilities.map((r) => r.department.id)}
+            departments={departments}
+            unitForDescendants={unit}
+            level2Singular={copy.labels.level2}
+            level2Plural={copy.labels.level2Plural}
+            level3Singular={copy.labels.level3}
+            level3Plural={copy.labels.level3Plural}
+          />
+        </section>
       )}
 
-      {/* Department responsibilities — secondary section */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowResps(!showResps)}
-          className="flex w-full items-center justify-between px-5 py-3.5 text-left"
-        >
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-zinc-900">Responsibilities</h3>
-            {totalResps > 0 && (
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">
-                {totalResps}
-              </span>
+      {displayKind === "floor" && (
+        <section className="space-y-4 border-t border-zinc-100 pt-5">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {copy.labels.level2Plural}
+              </h3>
+              {canAddNeighborhood(displayKind) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="compact"
+                  onClick={() => onCreateNeighborhood(unit.id)}
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                >
+                  Add {copy.labels.level2.toLowerCase()}
+                </Button>
+              ) : null}
+            </div>
+            {unit.childUnits.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500">
+                No {copy.labels.level2Plural.toLowerCase()} on this {copy.labels.level1.toLowerCase()} yet.
+              </p>
+            ) : (
+              <ul className="mt-2 divide-y divide-zinc-100">
+                {unit.childUnits.map((child) => (
+                  <li key={child.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectUnit(child.id)}
+                      className="flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+                      <span className={!child.isActive ? "opacity-50" : undefined}>{child.name}</span>
+                      <span className="ml-auto text-xs text-zinc-400 tabular-nums">
+                        {child.childSpaces.length} {copy.labels.level3Plural.toLowerCase()}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-          {showResps
-            ? <ChevronDown className="h-4 w-4 text-zinc-400" />
-            : <ChevronRight className="h-4 w-4 text-zinc-400" />}
-        </button>
 
-        {showResps && (
-          <div className="border-t border-zinc-100 px-5 py-4">
-            <UnitResponsibilityEditor
-              unitId={unit.id}
-              responsibilities={unit.departmentResponsibilities}
-              departments={departments}
-            />
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {copy.labels.level3Plural} on this {copy.labels.level1}
+              </h3>
+              {canAddRoom(displayKind) ? (
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="compact"
+                    onClick={() => onCreateSpace(unit.id)}
+                    icon={<Plus className="h-3.5 w-3.5" />}
+                  >
+                    Add {copy.labels.level3.toLowerCase()}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="compact"
+                    onClick={() => onBulkCreateSpace(unit.id)}
+                    icon={<ListPlus className="h-3.5 w-3.5" />}
+                  >
+                    Bulk add
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            {unit.childSpaces.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500">
+                No {copy.labels.level3Plural.toLowerCase()} directly on this {copy.labels.level1.toLowerCase()}.
+              </p>
+            ) : (
+              <ul className="mt-2 divide-y divide-zinc-100">
+                {unit.childSpaces.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectSpace(s.id, unit.id)}
+                      className="flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950"
+                    >
+                      <DoorOpen className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+                      <span className={!s.isActive ? "opacity-50" : undefined}>
+                        {formatRoomDisplayName(s)}
+                      </span>
+                      <span className="text-xs text-zinc-400">
+                        {roomTypeDisplayLabel(s, roomTypes)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        )}
-      </div>
+        </section>
+      )}
+
+      {displayKind === "neighborhood" && (
+        <section className="border-t border-zinc-100 pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-zinc-900">{copy.labels.level3Plural}</h3>
+            <div className="flex flex-wrap gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                onClick={() => onCreateSpace(unit.id)}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Add {copy.labels.level3.toLowerCase()}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                data-testid="add-multiple-rooms-editor-section"
+                onClick={() => onBulkCreateSpace(unit.id)}
+                icon={<ListPlus className="h-3.5 w-3.5" />}
+              >
+                Bulk add {copy.labels.level3Plural.toLowerCase()}
+              </Button>
+            </div>
+          </div>
+          {unit.childSpaces.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">
+              No {copy.labels.level3Plural.toLowerCase()} here yet.
+            </p>
+          ) : (
+            <ul className="mt-2 divide-y divide-zinc-100">
+              {unit.childSpaces.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectSpace(s.id, unit.id)}
+                    className="flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950"
+                  >
+                    <DoorOpen className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+                    <span className={!s.isActive ? "opacity-50" : undefined}>
+                      {formatRoomDisplayName(s)}
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      {roomTypeDisplayLabel(s, roomTypes)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {displayKind === "floor" && (
+        <section className="border-t border-zinc-100 pt-5">
+          <FloorBulkDepartmentApply
+            floor={unit}
+            departments={departments}
+            level2Singular={copy.labels.level2}
+            level2Plural={copy.labels.level2Plural}
+            level3Singular={copy.labels.level3}
+            level3Plural={copy.labels.level3Plural}
+          />
+        </section>
+      )}
+
+      <details className="border-t border-zinc-100 pt-4">
+        <summary className="cursor-pointer text-xs font-medium text-zinc-500">More</summary>
+        <form
+          action={async (formData) => {
+            try {
+              await deleteBuilderUnitAction(formData);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : "Delete failed.");
+            }
+          }}
+          className="mt-3"
+        >
+          <input type="hidden" name="unitId" value={unit.id} />
+          <Button
+            type="submit"
+            variant="destructive"
+            size="compact"
+            onClick={(e) => {
+              if (!confirm(copy.editor.deleteConfirm(unit.name))) {
+                e.preventDefault();
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </form>
+      </details>
     </div>
   );
 }
@@ -1996,551 +2316,235 @@ function UnitEditor({
 function SpaceEditor({
   space,
   parentUnit,
+  parentFloorName,
   departments,
   isUndesignated = false,
+  canonicalLogsEnabled = false,
 }: {
   space: SpaceView;
   parentUnit: UnitHierarchyNode | null;
+  parentFloorName: string | null;
   departments: { id: string; key: string; name: string }[];
   isUndesignated?: boolean;
+  canonicalLogsEnabled?: boolean;
 }) {
   const copy = useBuilderCopy();
-  const [showResps, setShowResps] = useState(false);
-  const totalResps = space.responsibilities.length;
+  const roomTypes = useFacilityRoomTypes();
+  const matchedType = space.facilityRoomTypeId
+    ? roomTypes.find((row) => row.id === space.facilityRoomTypeId)
+    : null;
+  const roomTypeLabel = matchedType?.displayName ?? "Not assigned";
+  const baseTypeLabel = matchedType?.baseTypeLabel ?? null;
+  const parentPath = parentUnit
+    ? parentFloorName && resolveBuilderNodeDisplayKind(parentUnit) !== "floor"
+      ? `${parentUnit.name} · ${parentFloorName}`
+      : parentUnit.name
+    : copy.labels.undesignated;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6" data-testid="facility-space-editor">
       {isUndesignated && <NotYetPlacedBanner />}
 
-      {/* Header card */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
-        <div className="px-5 py-4">
-          <h2 className="text-xl font-semibold text-zinc-900">
-            {formatRoomDisplayName(space)}
-          </h2>
-          <div className="mt-1.5 flex items-center gap-3 text-sm text-zinc-500">
-            <span className="inline-flex items-center gap-1">
-              <DoorOpen className="h-3.5 w-3.5" />
-              {copy.editor.level3Badge}
-            </span>
-            <span>
-              {parentUnit ? `in ${parentUnit.name}` : copy.labels.undesignated}
-            </span>
-            <span>
-              {resolveSpaceTypeDisplayLabel({
-                spaceType: space.spaceType,
-                customTypeLabel: space.customTypeLabel,
-              })}
-            </span>
-            {!space.isActive && (
-              <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-500">
-                Inactive
-              </span>
-            )}
-          </div>
-        </div>
+      <header className="space-y-1">
+        <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          {formatRoomDisplayName(space)}
+        </h2>
+        <p className="text-sm font-medium text-zinc-800">
+          {copy.editor.level3Badge} · {roomTypeLabel}
+        </p>
+        {baseTypeLabel ? (
+          <p className="text-xs text-zinc-500">Base type: {baseTypeLabel}</p>
+        ) : null}
+        <p className="text-sm text-zinc-500">{parentPath}</p>
+        {!space.isActive && (
+          <span className="inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-500">
+            Inactive
+          </span>
+        )}
+      </header>
 
-        <div className="border-t border-zinc-100 px-5 py-4">
-          <form action={updateBuilderSpaceAction} className="grid gap-3 sm:grid-cols-2">
-            <input type="hidden" name="spaceId" value={space.id} />
-            {parentUnit && (
-              <input type="hidden" name="unitId" value={parentUnit.id} />
-            )}
-            <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              {copy.editor.level3NameLabel}
-              <input
-                name="name"
-                defaultValue={space.name}
-                required
-                placeholder="e.g. Resident Room, Servery, Mechanical Room"
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <SpaceTypePresetFields
-                defaultPresetKey={findPresetForStoredSpace({
-                  spaceType: space.spaceType,
-                  customTypeLabel: space.customTypeLabel,
-                }).key}
-                defaultCustomLabel={space.customTypeLabel ?? ""}
-              />
+      {canonicalLogsEnabled ? (
+        <section className="max-w-xl space-y-1" data-testid="facility-space-logs-link">
+          <h3 className="text-sm font-semibold text-zinc-900">Logs</h3>
+          <p className="text-xs text-zinc-500">Attach Catalog Logs to this room.</p>
+          <Link
+            href={`/build/logs/targets/space/${space.id}`}
+            className="inline-flex min-h-9 items-center text-sm font-medium text-zinc-900 underline underline-offset-2"
+          >
+            Manage Logs
+          </Link>
+        </section>
+      ) : null}
+
+      <section className="max-w-xl space-y-3" aria-labelledby="room-identity-heading">
+        <h3 id="room-identity-heading" className="text-sm font-semibold text-zinc-900">
+          Identity
+        </h3>
+        <form action={updateBuilderSpaceAction} className="grid gap-3">
+          <input type="hidden" name="spaceId" value={space.id} />
+          {parentUnit && <input type="hidden" name="unitId" value={parentUnit.id} />}
+          <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+            Name
+            <input
+              name="name"
+              defaultValue={space.name}
+              required
+              placeholder="e.g. Central Kitchen, Dietitian Office, Room 101"
+              className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+            />
+          </label>
+          <FacilityRoomTypeSelect
+            defaultRoomTypeId={space.facilityRoomTypeId ?? defaultFacilityRoomTypeId(roomTypes)}
+          />
+          <details className="rounded-md border border-zinc-100 bg-zinc-50/60 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+              Optional number / code
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+                {copy.editor.level3NumberLabel}
+                <input
+                  name="roomNumber"
+                  defaultValue={space.roomNumber ?? ""}
+                  placeholder="Optional — e.g. 101"
+                  maxLength={32}
+                  className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+                Code
+                <input
+                  name="code"
+                  defaultValue={space.code ?? ""}
+                  placeholder="Optional short code"
+                  maxLength={20}
+                  className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                />
+              </label>
             </div>
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              {copy.editor.level3NumberLabel}
-              <input
-                name="roomNumber"
-                defaultValue={space.roomNumber ?? ""}
-                placeholder="e.g. 101, 32A, B-12"
-                maxLength={32}
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Code
-              <input
-                name="code"
-                defaultValue={space.code ?? ""}
-                placeholder="Optional short code"
-                maxLength={20}
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-medium text-zinc-500">
-              Description
-              <input
-                name="description"
-                defaultValue={space.description ?? ""}
-                placeholder="Optional notes"
-                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
-              <input type="checkbox" name="isActive" defaultChecked={space.isActive} className="rounded" />
-              Active
-            </label>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
-              >
-                Save changes
-              </button>
-            </div>
-          </form>
-          <form
-            action={async (formData) => {
-              try {
-                await deleteBuilderSpaceAction(formData);
-              } catch (err) {
-                alert(err instanceof Error ? err.message : "Delete failed.");
+          </details>
+          <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+            Description
+            <input
+              name="description"
+              defaultValue={space.description ?? ""}
+              placeholder="Optional notes"
+              className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input type="checkbox" name="isActive" defaultChecked={space.isActive} className="rounded" />
+            Active
+          </label>
+          <div>
+            <Button type="submit">Save changes</Button>
+          </div>
+        </form>
+      </section>
+
+      <section className="border-t border-zinc-100 pt-5">
+        <DepartmentResponsibilityCheckboxes
+          mode="space"
+          locationId={space.id}
+          locationName={space.name}
+          selectedDepartmentIds={space.responsibilities.map((r) => r.department.id)}
+          departments={departments}
+        />
+      </section>
+
+      <details className="border-t border-zinc-100 pt-4">
+        <summary className="cursor-pointer text-xs font-medium text-zinc-500">More</summary>
+        <form
+          action={async (formData) => {
+            try {
+              await deleteBuilderSpaceAction(formData);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : "Delete failed.");
+            }
+          }}
+          className="mt-3"
+        >
+          <input type="hidden" name="spaceId" value={space.id} />
+          <Button
+            type="submit"
+            variant="destructive"
+            size="compact"
+            onClick={(e) => {
+              if (!confirm(`Delete "${space.name}"? This cannot be undone.`)) {
+                e.preventDefault();
               }
             }}
-            className="mt-2"
           >
-            <input type="hidden" name="spaceId" value={space.id} />
-            <button
-              type="submit"
-              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-              onClick={(e) => {
-                if (!confirm(`Delete "${space.name}"? This cannot be undone.`)) {
-                  e.preventDefault();
-                }
-              }}
-            >
-              Delete
-            </button>
-          </form>
-        </div>
-      </div>
+            Delete
+          </Button>
+        </form>
+      </details>
+    </div>
+  );
+}
 
-      {/* Room responsibility section */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowResps(!showResps)}
-          className="flex w-full items-center justify-between px-5 py-3.5 text-left"
+// ---------------------------------------------------------------------------
+// Facility Room Type picker
+// ---------------------------------------------------------------------------
+
+function FacilityRoomTypeSelect({
+  defaultRoomTypeId,
+}: {
+  defaultRoomTypeId?: string;
+}) {
+  const roomTypes = useFacilityRoomTypes();
+  const active = activeRoomTypes(roomTypes);
+  const fallbackId = defaultFacilityRoomTypeId(roomTypes);
+  const selectedId = defaultRoomTypeId && active.some((row) => row.id === defaultRoomTypeId)
+    ? defaultRoomTypeId
+    : fallbackId;
+
+  if (active.length === 0) {
+    return (
+      <p className="text-sm text-amber-800">
+        No Room Types are available.{" "}
+        <a
+          href="/admin/facility/builder?tab=room-types"
+          className="font-medium underline underline-offset-2"
         >
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-zinc-900">Responsibilities</h3>
-            {totalResps > 0 && (
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">
-                {totalResps}
-              </span>
-            )}
-          </div>
-          {showResps
-            ? <ChevronDown className="h-4 w-4 text-zinc-400" />
-            : <ChevronRight className="h-4 w-4 text-zinc-400" />}
-        </button>
-
-        {showResps && (
-          <div className="border-t border-zinc-100 px-5 py-4">
-            <SpaceResponsibilityEditor
-              space={space}
-              parentUnit={parentUnit}
-              departments={departments}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Unit responsibility editor (unchanged logic, refined presentation)
-// ---------------------------------------------------------------------------
-
-function UnitResponsibilityEditor({
-  unitId,
-  responsibilities,
-  departments,
-}: {
-  unitId: string;
-  responsibilities: DeptResponsibilityView[];
-  departments: { id: string; key: string; name: string }[];
-}) {
-  const assignedDeptIds = new Set(responsibilities.map((r) => r.department.id));
-  const available = departments.filter((d) => !assignedDeptIds.has(d.id));
-
-  return (
-    <div>
-      <p className="text-xs text-zinc-500">
-        Which departments operate here and what capabilities they have.
+          Add Room Types
+        </a>{" "}
+        before assigning rooms.
       </p>
-
-      <ul className="mt-3 space-y-2">
-        {responsibilities.map((r) => (
-          <li key={r.id} className="rounded-lg border border-zinc-200 bg-zinc-50/60 px-3 py-2.5">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-sm font-medium text-zinc-800">{r.department.name}</span>
-                <span className="ml-1.5 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
-                  {KIND_LABELS[r.kind]}
-                </span>
-                {r.riskLevel && (
-                  <span className="ml-1.5 text-xs text-zinc-500">Risk: {r.riskLevel}</span>
-                )}
-              </div>
-              <form action={deleteBuilderUnitResponsibilityAction}>
-                <input type="hidden" name="responsibilityId" value={r.id} />
-                <button type="submit" className="text-xs text-red-600 hover:underline">
-                  Remove
-                </button>
-              </form>
-            </div>
-            {r.capabilities.length > 0 ? (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {r.capabilities.map((cap) => (
-                  <span
-                    key={cap}
-                    className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600"
-                  >
-                    {CAPABILITY_LABELS[cap as keyof typeof CAPABILITY_LABELS] ?? cap}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-1 text-[10px] text-zinc-400">
-                No capabilities — legacy full access
-              </p>
-            )}
-          </li>
-        ))}
-        {responsibilities.length === 0 && (
-          <li className="text-xs text-zinc-500">No departments linked yet.</li>
-        )}
-      </ul>
-
-      {available.length > 0 && (
-        <AddUnitResponsibilityForm unitId={unitId} available={available} />
-      )}
-    </div>
-  );
-}
-
-function AddUnitResponsibilityForm({
-  unitId,
-  available,
-}: {
-  unitId: string;
-  available: { id: string; key: string; name: string }[];
-}) {
-  const [showCaps, setShowCaps] = useState(false);
-
-  return (
-    <form
-      action={upsertBuilderUnitResponsibilityAction}
-      className="mt-4 space-y-3 rounded-lg border border-dashed border-zinc-300 p-3"
-    >
-      <input type="hidden" name="unitId" value={unitId} />
-      <div className="grid gap-2 sm:grid-cols-3">
-        <select name="departmentId" required className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs">
-          {available.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-        <select name="kind" defaultValue="PRIMARY" className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs">
-          {Object.entries(KIND_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <input
-          name="riskLevel"
-          placeholder="Risk level (optional)"
-          className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs"
-        />
-      </div>
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowCaps((v) => !v)}
-          className="text-xs font-medium text-zinc-600 hover:text-zinc-900"
-        >
-          {showCaps ? "Hide capabilities" : "Add capabilities (optional)"}
-        </button>
-        {showCaps && (
-          <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
-            {CAPABILITY_KEYS.map((key) => (
-              <label key={key} className="flex items-center gap-1.5 text-xs text-zinc-700">
-                <input type="checkbox" name="capabilities" value={key} />
-                {CAPABILITY_LABELS[key]}
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-      <button
-        type="submit"
-        className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
-      >
-        Add department
-      </button>
-    </form>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Space responsibility editor (explicit room responsibilities)
-// ---------------------------------------------------------------------------
-
-function SpaceResponsibilityEditor({
-  space,
-  departments,
-}: {
-  space: SpaceView;
-  parentUnit: UnitHierarchyNode | null;
-  departments: { id: string; key: string; name: string }[];
-}) {
-  const copy = useBuilderCopy();
-  const assignedDeptIds = new Set(space.responsibilities.map((r) => r.department.id));
-  const available = departments.filter((d) => !assignedDeptIds.has(d.id));
-
-  return (
-    <div>
-      <p className="text-xs text-zinc-500">{copy.editor.level3ResponsibilityHelp}</p>
-
-      <ul className="mt-3 space-y-2">
-        {space.responsibilities.map((row) => (
-          <li key={row.department.id} className="rounded-lg border border-zinc-200 bg-zinc-50/60 px-3 py-2.5">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-sm font-medium text-zinc-800">{row.department.name}</span>
-                <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
-                  Direct
-                </span>
-              </div>
-              <form action={deleteBuilderSpaceResponsibilityAction}>
-                <input type="hidden" name="responsibilityId" value={row.id} />
-                <button type="submit" className="text-xs text-red-600 hover:underline">
-                  Remove
-                </button>
-              </form>
-            </div>
-            {row.capabilities.length > 0 ? (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {row.capabilities.map((cap) => (
-                  <span
-                    key={cap}
-                    className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600"
-                  >
-                    {CAPABILITY_LABELS[cap as keyof typeof CAPABILITY_LABELS] ?? cap}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-1 text-[10px] text-zinc-400">
-                No capabilities selected for this department yet.
-              </p>
-            )}
-          </li>
-        ))}
-        {space.responsibilities.length === 0 && (
-          <li className="text-xs text-zinc-500">{ROOM_RESPONSIBILITY_EMPTY_MESSAGE}</li>
-        )}
-      </ul>
-
-      <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
-        {PLANT_FACILITY_WIDE_ACCESS_NOTE}
-      </p>
-
-      {available.length > 0 && (
-        <AddSpaceResponsibilityForm
-          spaceId={space.id}
-          spaceType={space.spaceType}
-          customTypeLabel={space.customTypeLabel}
-          available={available}
-        />
-      )}
-    </div>
-  );
-}
-
-function AddSpaceResponsibilityForm({
-  spaceId,
-  spaceType,
-  customTypeLabel,
-  available,
-}: {
-  spaceId: string;
-  spaceType: SpaceView["spaceType"];
-  customTypeLabel: string | null;
-  available: { id: string; key: string; name: string }[];
-}) {
-  const copy = useBuilderCopy();
-  const spacePresetKey = findPresetForStoredSpace({
-    spaceType,
-    customTypeLabel,
-  }).key;
-
-  const [departmentId, setDepartmentId] = useState(available[0]?.id ?? "");
-  const selectedDept = available.find((d) => d.id === departmentId) ?? available[0];
-  const presets = listPresetsForDepartment(selectedDept?.key ?? "");
-
-  const recommendedKey = recommendResponsibilityPresetKey(
-    selectedDept?.key ?? "",
-    spacePresetKey,
-  );
-
-  const [presetKey, setPresetKey] = useState<string>(recommendedKey ?? "");
-  const [selectedCaps, setSelectedCaps] = useState<Set<string>>(() =>
-    new Set(recommendedKey ? capabilitiesForPreset(recommendedKey) : []),
-  );
-
-  // When available departments change (e.g. after add), keep a valid selection.
-  useEffect(() => {
-    if (available.length === 0) return;
-    if (available.some((d) => d.id === departmentId)) return;
-    const next = available[0]!;
-    // Baseline: pre-existing selection repair after the department list changes.
-    // Restructuring it changes which department is selected mid-edit, a product decision.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDepartmentId(next.id);
-    const nextRecommended = recommendResponsibilityPresetKey(
-      next.key,
-      spacePresetKey,
-    );
-    setPresetKey(nextRecommended ?? "");
-    setSelectedCaps(
-      new Set(nextRecommended ? capabilitiesForPreset(nextRecommended) : []),
-    );
-  }, [available, departmentId, spacePresetKey]);
-
-  // Department change → re-recommend preset + apply its capabilities.
-  function handleDepartmentChange(nextId: string) {
-    setDepartmentId(nextId);
-    const dept = available.find((d) => d.id === nextId);
-    const nextRecommended = recommendResponsibilityPresetKey(
-      dept?.key ?? "",
-      spacePresetKey,
-    );
-    setPresetKey(nextRecommended ?? "");
-    setSelectedCaps(
-      new Set(nextRecommended ? capabilitiesForPreset(nextRecommended) : []),
     );
   }
 
-  // Preset change → replace checkbox selection (admin can still edit after).
-  function handlePresetChange(nextKey: string) {
-    setPresetKey(nextKey);
-    setSelectedCaps(new Set(capabilitiesForPreset(nextKey)));
-  }
-
-  function toggleCapability(key: string) {
-    setSelectedCaps((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  const hasPresets = presets.length > 0;
-
   return (
-    <form
-      action={upsertBuilderSpaceResponsibilityAction}
-      className="mt-4 space-y-3 rounded-lg border border-dashed border-zinc-300 p-3"
-      data-testid="add-space-responsibility-form"
-    >
-      <input type="hidden" name="spaceId" value={spaceId} />
-      <p className="text-xs font-medium text-zinc-600">{copy.editor.addLevel3Responsibility}</p>
-
-      <label className="flex flex-col gap-1 text-[11px] font-medium text-zinc-500">
-        Department
+    <div className="space-y-1">
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Room Type
         <select
-          name="departmentId"
+          name="facilityRoomTypeId"
+          defaultValue={selectedId}
           required
-          value={departmentId}
-          onChange={(e) => handleDepartmentChange(e.target.value)}
-          className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-900"
-          data-testid="responsibility-department"
+          data-testid="facility-room-type-select"
+          className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         >
-          {available.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
+          {active.map((row) => (
+            <option key={row.id} value={row.id}>
+              {row.displayName}
+            </option>
           ))}
         </select>
       </label>
-
-      {hasPresets && (
-        <label className="flex flex-col gap-1 text-[11px] font-medium text-zinc-500">
-          Responsibility template
-          <select
-            value={presetKey}
-            onChange={(e) => handlePresetChange(e.target.value)}
-            className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-900"
-            data-testid="responsibility-preset"
-          >
-            {presets.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-                {p.key === recommendedKey ? " (suggested)" : ""}
-              </option>
-            ))}
-          </select>
-          {presets.find((p) => p.key === presetKey)?.description ? (
-            <span className="font-normal text-zinc-400">
-              {presets.find((p) => p.key === presetKey)!.description}
-            </span>
-          ) : null}
-        </label>
-      )}
-
-      <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-        {CAPABILITY_KEYS.map((key) => (
-          <label key={key} className="flex items-center gap-1.5 text-xs text-zinc-700">
-            <input
-              type="checkbox"
-              name="capabilities"
-              value={key}
-              checked={selectedCaps.has(key)}
-              onChange={() => toggleCapability(key)}
-            />
-            {CAPABILITY_LABELS[key]}
-          </label>
-        ))}
-      </div>
-      <p className="text-[10px] text-zinc-400">
-        Templates only preselect capabilities — edit checkboxes freely before saving.
-        Nothing about the template is stored.
+      <p className="text-xs text-zinc-500">
+        Changes this room&apos;s facility classification. Does not change Departments, Teams, or
+        Operational Cycles.{" "}
+        <a
+          href="/admin/facility/builder?tab=room-types"
+          className="font-medium text-zinc-700 underline underline-offset-2"
+        >
+          Manage Room Types
+        </a>
       </p>
-      <button
-        type="submit"
-        className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
-      >
-        Add department
-      </button>
-    </form>
+    </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Create forms
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Create forms
-// ---------------------------------------------------------------------------
 
 function CreateFloorForm({
   onDone,
@@ -2647,50 +2651,6 @@ function CreateNeighborhoodForm({
   );
 }
 
-function SpaceTypePresetFields({
-  defaultPresetKey = "patient_room",
-  defaultCustomLabel = "",
-}: {
-  defaultPresetKey?: string;
-  defaultCustomLabel?: string;
-}) {
-  const [presetKey, setPresetKey] = useState(defaultPresetKey);
-  const isCustom = presetKey === CUSTOM_SPACE_PRESET_KEY;
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 sm:col-span-2">
-        Space type
-        <select
-          name="spaceTypePreset"
-          value={presetKey}
-          onChange={(e) => setPresetKey(e.target.value)}
-          data-testid="space-type-preset"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-        >
-          {SPACE_TYPE_PRESETS.map((p) => (
-            <option key={p.key} value={p.key}>{p.label}</option>
-          ))}
-        </select>
-      </label>
-      {isCustom && (
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 sm:col-span-2">
-          Custom type label
-          <input
-            name="customTypeLabel"
-            required
-            defaultValue={defaultCustomLabel}
-            placeholder="e.g. Soil Hold, Family Lounge, Loading Dock"
-            maxLength={80}
-            data-testid="custom-type-label"
-            className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
-          />
-        </label>
-      )}
-    </div>
-  );
-}
-
 function CreateSpaceForm({
   unitId,
   onDone,
@@ -2720,7 +2680,7 @@ function CreateSpaceForm({
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         />
       </label>
-      <SpaceTypePresetFields />
+      <FacilityRoomTypeSelect />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         {copy.forms.level3NumberLabel}
         <input
@@ -2814,7 +2774,7 @@ function BulkCreateSpacesForm({
       <p className="text-xs text-zinc-500">
         {copy.forms.bulkMaxHint(BULK_ROOM_MAX)}
       </p>
-      <SpaceTypePresetFields defaultPresetKey="patient_room" />
+      <FacilityRoomTypeSelect />
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         Description (optional, applied to all)
         <input

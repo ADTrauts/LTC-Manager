@@ -57,7 +57,7 @@ export async function resolveInitialActiveUnitIdForPinLogin(employee: {
     orderBy: [{ createdAt: "desc" }],
     select: { unitId: true },
   });
-  const scheduledUnitId = scheduledUnitRows.find((row) => pool.includes(row.unitId))?.unitId;
+  const scheduledUnitId = scheduledUnitRows.find((row) => row.unitId && pool.includes(row.unitId))?.unitId ?? null;
   if (scheduledUnitId) return scheduledUnitId;
 
   if (employee.primaryUnitId && pool.includes(employee.primaryUnitId)) {

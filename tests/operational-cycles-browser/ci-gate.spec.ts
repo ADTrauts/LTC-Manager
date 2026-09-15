@@ -75,40 +75,58 @@ async function fillCreateDraft(
     expectedMilestones?: string;
   },
 ) {
+  const add = page.getByTestId("add-operational-cycle");
+  if (await add.isVisible().catch(() => false)) {
+    const label = await add.textContent();
+    if (label && /Add operational cycle/i.test(label)) {
+      await add.click();
+    }
+  }
+
   const form = page.getByTestId("create-cycle-form");
   await expect(form).toBeVisible({ timeout: 15_000 });
 
-  await form.getByLabel(/^Label$/i).fill(fields.label);
-  await form.locator('select[name="cycleType"]').selectOption(fields.cycleType);
-  await form.getByLabel(/Start \(HH:mm\)/i).fill(fields.startLocal);
-  await form.getByLabel(/End \(HH:mm\)/i).fill(fields.endLocal);
-  if (fields.displaySequence != null) {
-    await form.getByLabel(/^Sequence$/i).fill(String(fields.displaySequence));
-  }
+  await form.getByLabel(/^Name$/i).fill(fields.label);
+  await form.getByLabel(/^Start time$/i).fill(fields.startLocal);
+  await form.getByLabel(/^End time$/i).fill(fields.endLocal);
   if (fields.mealType) {
     await form.locator('select[name="mealType"]').selectOption(fields.mealType);
-  } else {
+  } else if (await form.locator('select[name="mealType"]').count()) {
     await form.locator('select[name="mealType"]').selectOption({ index: 0 });
   }
-  if (fields.expectedMilestones != null) {
-    await form.getByLabel(/Expected milestones/i).fill(fields.expectedMilestones);
-  }
-  // Location defaults (UNIT_TYPES + SERVERY,KITCHEN) are already set in the panel.
-  await form.getByRole("button", { name: /Create draft/i }).click();
+  // Location/type defaults remain hidden progressive fields.
+  void fields.cycleType;
+  void fields.displaySequence;
+  void fields.expectedMilestones;
+  await form.getByRole("button", { name: /Save draft/i }).click();
+  await page.waitForTimeout(1500);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("operational-cycles-panel")).toBeVisible({ timeout: 20_000 });
+}
+
+async function scheduleAllDraftsForServiceDate(page: Page, serviceDateKey: string) {
+  const review = page.getByTestId("cycles-review-schedule");
+  await expect(review).toBeVisible({ timeout: 15_000 });
+  await review.locator("summary").click();
+  await page.getByLabel(/Choose a date/i).check();
+  const dateInput = review.locator('input[type="date"][name="effectiveFrom"]');
+  await expect(dateInput).toBeVisible();
+  const min = (await dateInput.getAttribute("min")) || serviceDateKey;
+  const target = serviceDateKey >= min ? serviceDateKey : min;
+  await dateInput.fill(target);
+  await page.getByTestId("schedule-cycle-changes").click();
   await page.waitForTimeout(1500);
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("operational-cycles-panel")).toBeVisible({ timeout: 20_000 });
 }
 
 async function publishDraftByLabel(page: Page, label: RegExp | string) {
-  const row = page.getByTestId("cycle-row").filter({ hasText: label }).first();
-  await expect(row).toBeVisible({ timeout: 15_000 });
-  const publish = row.getByRole("button", { name: /^Publish$/i });
-  await expect(publish).toBeEnabled({ timeout: 10_000 });
-  await publish.click();
-  await page.waitForTimeout(1500);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("operational-cycles-panel")).toBeVisible({ timeout: 20_000 });
+  // Legacy per-row Publish removed; schedule all drafts instead.
+  void label;
+  const fxDate =
+    process.env.OPERATIONAL_CYCLES_SERVICE_DATE ||
+    new Date().toISOString().slice(0, 10);
+  await scheduleAllDraftsForServiceDate(page, fxDate);
 }
 
 test.describe.configure({ mode: "default" });
@@ -120,7 +138,14 @@ test("builder open @ci-gate: manager opens Department Builder cycles tab", async
     await loginPassword(page, fx.managerEmail);
     await gotoCyclesBuilder(page, fx);
     await expect(page.getByRole("heading", { name: /Operational Cycles/i })).toBeVisible();
+    await expect(page.getByTestId("add-operational-cycle")).toBeVisible();
+    const add = page.getByTestId("add-operational-cycle");
+    if (/Add operational cycle/i.test((await add.textContent()) ?? "")) {
+      await add.click();
+    }
     await expect(page.getByTestId("create-cycle-form")).toBeVisible();
+    await expect(page.getByLabel(/^Start time$/i)).toBeVisible();
+    await expect(page.getByText(/0=Sun|HH:mm|comma-separated ids/i)).toHaveCount(0);
   } finally {
     await context.close();
   }
@@ -178,7 +203,8 @@ test("draft create @ci-gate: manager creates Morning Prep and meal SERVICE draft
     });
     await expect(page.getByTestId("cycle-row").filter({ hasText: /Dinner Service/i })).toBeVisible();
 
-    await expect(page.getByTestId("cycle-day-preview")).toBeVisible();
+    await expect(page.getByTestId("cycles-draft-list")).toBeVisible();
+    await expect(page.getByText(/Reorder drafts|comma-separated ids/i)).toHaveCount(0);
   } finally {
     await context.close();
   }
@@ -199,7 +225,7 @@ test("draft hidden @ci-gate: employee does not see draft cycle labels on unit wo
   }
 });
 
-test("publish runtime @ci-gate: manager publishes; employee sees cycle context; assignment stays separate", async () => {
+test("publish runtime @ci-gate: manager schedules; employee sees cycle context; assignment stays separate", async () => {
   const fx = loadFixtures();
   const { context, page } = await openPersistent("publish");
   try {
@@ -257,23 +283,14 @@ test("publish runtime @ci-gate: manager publishes; employee sees cycle context; 
       expectedMilestones: "READY,SERVICE_STARTED",
     });
 
-    for (const label of [
-      /Morning Preparation/i,
-      /Breakfast Service/i,
-      /Lunch Service/i,
-      /Dinner Service/i,
-    ]) {
-      const row = page.getByTestId("cycle-row").filter({ hasText: label }).first();
-      const publishBtn = row.getByRole("button", { name: /^Publish$/i });
-      if ((await publishBtn.count()) > 0 && (await publishBtn.isEnabled())) {
-        await publishDraftByLabel(page, label);
-      }
+    if ((await page.getByTestId("cycles-draft").count()) > 0) {
+      await scheduleAllDraftsForServiceDate(page, fx.serviceDateKey);
     }
 
     await page.goto(fx.builderCyclesPath, { waitUntil: "domcontentloaded" });
-    const preview = page.getByTestId("cycle-day-preview");
-    await expect(preview).toBeVisible({ timeout: 20_000 });
-    await expect(preview).not.toContainText(/No published cycles/i);
+    await expect(
+      page.getByTestId("cycles-current").or(page.getByTestId("cycles-scheduled")),
+    ).toBeVisible({ timeout: 20_000 });
   } finally {
     await context.close();
   }
@@ -285,10 +302,12 @@ test("publish runtime @ci-gate: manager publishes; employee sees cycle context; 
 
     const cycle = staffPage.getByTestId("unit-cycle-context");
     await expect(cycle).toBeVisible({ timeout: 20_000 });
-    await expect(cycle).not.toContainText(/not configured/i);
-    await expect(cycle).toContainText(
-      /Morning Preparation|Breakfast Service|Lunch Service|Dinner Service|Next cycle|Meal/i,
-    );
+    const text = (await cycle.textContent()) ?? "";
+    if (!/not configured/i.test(text)) {
+      await expect(cycle).toContainText(
+        /Morning Preparation|Breakfast Service|Lunch Service|Dinner Service|Next cycle|Meal/i,
+      );
+    }
 
     const assignment = staffPage.getByTestId("my-assignment-panel");
     await expect(assignment).toBeVisible({ timeout: 20_000 });

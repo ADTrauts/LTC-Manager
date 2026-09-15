@@ -301,6 +301,11 @@ export default async function SupervisorOperationsBoardPage({
             <span className="ml-3 text-xs text-zinc-500">Plan: {header.planStatus}</span>
           ) : null}
         </p>
+        {header.activePhaseLabels && header.activePhaseLabels.length > 1 ? (
+          <p className="mt-1 text-xs text-zinc-600" data-testid="active-phase-labels">
+            {header.activePhaseLabels.join(" · ")}
+          </p>
+        ) : null}
       </div>
 
       {plantRouting ? (

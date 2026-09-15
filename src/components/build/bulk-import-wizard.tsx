@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 
-import type { BulkImportCounts, BulkImportCompletionSummary, BulkImportRowIssue } from "@/lib/bulk-import/types";
+import {
+  BULK_IMPORT_MAX_BYTES,
+  type BulkImportCounts,
+  type BulkImportCompletionSummary,
+  type BulkImportRowIssue,
+} from "@/lib/bulk-import/types";
 
 export type BulkImportWizardStep =
   | "template"
@@ -69,6 +74,15 @@ const STEPS: Array<{ key: BulkImportWizardStep; label: string }> = [
   { key: "complete", label: "6. Summary" },
 ];
 
+function formatUploadError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  if (/body exceeded|413|too large|Payload Too Large/i.test(message)) {
+    return `File is too large to upload (max ${Math.floor(BULK_IMPORT_MAX_BYTES / 1_000_000)} MB CSV). Split the file or remove unused columns, then try again.`;
+  }
+  if (message.trim()) return message;
+  return "Validation failed.";
+}
+
 export function BulkImportWizard({
   title,
   description,
@@ -104,6 +118,17 @@ export function BulkImportWizard({
       setFatal("Choose a CSV file first.");
       return;
     }
+    if (file.size > BULK_IMPORT_MAX_BYTES) {
+      setFatal(
+        `File is too large (max ${Math.floor(BULK_IMPORT_MAX_BYTES / 1_000_000)} MB).`,
+      );
+      return;
+    }
+    const lower = file.name.toLowerCase();
+    if (lower && !lower.endsWith(".csv")) {
+      setFatal("Use a .csv file (download the template, don’t upload Excel/Word).");
+      return;
+    }
     setFatal(null);
     startTransition(async () => {
       try {
@@ -111,7 +136,7 @@ export function BulkImportWizard({
         setPreview(model);
         setStep("preview");
       } catch (err) {
-        setFatal(err instanceof Error ? err.message : "Validation failed.");
+        setFatal(formatUploadError(err));
       }
     });
   }
@@ -125,7 +150,8 @@ export function BulkImportWizard({
         setSummary(result);
         setStep("complete");
       } catch (err) {
-        setFatal(err instanceof Error ? err.message : "Import failed.");
+        const mapped = formatUploadError(err);
+        setFatal(mapped === "Validation failed." ? "Import failed." : mapped);
       }
     });
   }
@@ -204,12 +230,33 @@ export function BulkImportWizard({
           <p className="mt-2 text-sm text-zinc-600">
             Uploading validates and previews only. Nothing is written until you confirm.
           </p>
-          <label className="mt-4 block text-sm text-zinc-700">
-            <span className="text-xs text-zinc-600">File (.csv)</span>
+          <label
+            className={[
+              "mt-4 flex cursor-pointer flex-col items-start gap-2 rounded-xl border-2 border-dashed px-4 py-5 transition-colors",
+              file
+                ? "border-emerald-300 bg-emerald-50/60 hover:border-emerald-400"
+                : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 hover:bg-zinc-100",
+            ].join(" ")}
+          >
+            <span className="text-sm font-semibold text-zinc-900">
+              {file ? "Change CSV file" : "Choose CSV file"}
+            </span>
+            <span className="text-sm text-zinc-600">
+              {file ? (
+                <>
+                  Selected: <span className="font-medium text-zinc-900">{file.name}</span>
+                </>
+              ) : (
+                "Click this box to open the file picker, then select your completed .csv template."
+              )}
+            </span>
+            <span className="inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-sm">
+              {file ? "Browse…" : "Browse for CSV…"}
+            </span>
             <input
               type="file"
               accept=".csv,text/csv"
-              className="mt-1 block w-full text-sm"
+              className="sr-only"
               data-testid={`${testIdPrefix}-file-input`}
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
@@ -218,6 +265,9 @@ export function BulkImportWizard({
               }}
             />
           </label>
+          <p className="mt-2 text-xs text-zinc-500">
+            If the file window doesn’t appear, it may be behind another app — bring your browser to the front.
+          </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"

@@ -221,3 +221,18 @@ export function isEvsOperationsEnabled(): boolean {
 export function isPlantOperationsEnabled(): boolean {
   return parseEnvFlag(process.env.PLANT_OPERATIONS_ENABLED, false);
 }
+
+/**
+ * Defaults to disabled — Phase 3 Canonical Logs (platform Catalog + facility Attachment).
+ * Set `CANONICAL_LOGS_ENABLED=true` for Catalog/Attachment services and Attachment-backed
+ * Evidence submissions. Legacy `/logs` and Phase 9C OperationalTemplate remain independent.
+ * Typical local activation:
+ *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
+ *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
+ *   CANONICAL_LOGS_ENABLED=true
+ *   OPERATION_ENGINE_ENABLED=false
+ */
+export function isCanonicalLogsEnabled(): boolean {
+  return parseEnvFlag(process.env.CANONICAL_LOGS_ENABLED, false);
+}
+

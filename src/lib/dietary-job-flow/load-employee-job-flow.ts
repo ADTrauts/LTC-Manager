@@ -484,6 +484,7 @@ export async function loadEmployeeJobFlow(
   }
 
   const cycleWindows = cycles.flatMap((c) => {
+    if (!c.startLocal || !c.endLocal) return [];
     const window = resolveCycleWindowInstants({
       startLocal: c.startLocal,
       endLocal: c.endLocal,

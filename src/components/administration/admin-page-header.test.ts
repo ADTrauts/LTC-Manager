@@ -65,7 +65,7 @@ test("BUILD surfaces under /admin use Build chrome, not Back to Administration",
     const source = readSrc(page);
     assert.match(
       source,
-      /BuildPageHeader|BuildBreadcrumb|BackToBuildHomeLink/,
+      /BuildPageHeader/,
       `${page} should use Build chrome`,
     );
     assert.doesNotMatch(

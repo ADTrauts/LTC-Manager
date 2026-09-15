@@ -328,6 +328,8 @@ export type SupervisorOperationsBoard = {
     departmentKey: string;
     operationalDateKey: string;
     currentCycleLabel: string | null;
+    /** Concurrent phase labels under the active major cycle(s). */
+    activePhaseLabels?: string[];
     nextCycleLabel: string | null;
     planStatus: string | null;
     lastUpdated: string;

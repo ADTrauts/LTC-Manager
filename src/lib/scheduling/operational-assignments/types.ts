@@ -31,6 +31,8 @@ export type AssignmentBoardEntry = {
   /** UNIT = whole unit (zero location rows). SPACES = explicit Room/Space snapshot. */
   scopeKind: "UNIT" | "SPACES";
   locationCount: number;
+  /** Human-readable scope summary derived from persisted room locations. */
+  scopeSummaryLabel: string;
   locationLabels: string[];
   sourceZoneId: string | null;
   sourceZoneName: string | null;

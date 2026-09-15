@@ -1,7 +1,9 @@
 import { unstable_noStore as noStore } from "next/cache";
 
+import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { MenuDayBuilder } from "@/components/menus/menu-day-builder";
 import { MenuPeriodSettingsForm } from "@/components/menus/menu-period-settings-form";
+import { buildPageIntro } from "@/lib/build-hub";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { dayLabelsForWeekStart, ensureMenuSettingsDefaults, menuForCycleSlot, menuForDate } from "@/lib/menu-cycle";
 import { loadFacilityMenuData } from "@/lib/menu-db";
@@ -44,18 +46,16 @@ export default async function MenusPage({ searchParams }: MenusPageProps) {
   });
 
   return (
-    <section className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Menu Building</h1>
-        <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          Build a repeating 3- or 4-week menu cycle and keep daily meal items aligned with servery operations and temperature logs.
-        </p>
-        {menuUnavailableReason ? (
-          <div className="mt-3 max-w-3xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            {menuUnavailableReason}
-          </div>
-        ) : null}
-      </header>
+    <section className="space-y-4">
+      <BuildPageHeader
+        title="Menu Building"
+        subtitle={buildPageIntro("/menus")}
+      />
+      {menuUnavailableReason ? (
+        <div className="max-w-3xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {menuUnavailableReason}
+        </div>
+      ) : null}
 
       <nav className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3" aria-label="Menu sections">
         <a

@@ -28,7 +28,7 @@ export function StaffingDateAutoAdvance({
 
     const timer = window.setTimeout(() => {
       const nextIso = toIsoDate(new Date());
-      router.replace(`/staffing?date=${nextIso}`);
+      router.replace(`/staffing/legacy?date=${nextIso}`);
       router.refresh();
     }, msUntilNextMidnight);
 

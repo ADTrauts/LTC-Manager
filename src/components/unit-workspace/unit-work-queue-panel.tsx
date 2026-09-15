@@ -9,6 +9,8 @@ import type { UnitWorkQueue, UnitWorkQueueItem, UnitWorkQueueKind } from "@/lib/
 
 type UnitWorkQueuePanelProps = {
   queue: UnitWorkQueue;
+  emptyTitle?: string;
+  emptyDescription?: string;
 };
 
 function queueItemIcon(kind: UnitWorkQueueKind): AppIconKey {
@@ -66,7 +68,11 @@ function RemainingQueueItem({ item }: { item: UnitWorkQueueItem }) {
   );
 }
 
-export function UnitWorkQueuePanel({ queue }: UnitWorkQueuePanelProps) {
+export function UnitWorkQueuePanel({
+  queue,
+  emptyTitle = "All caught up for this meal period",
+  emptyDescription = "No failed logs, pending submissions, servery milestones, or open repairs need attention right now.",
+}: UnitWorkQueuePanelProps) {
   const operational = queue.items.filter((item) => item.priority < 600);
 
   return (
@@ -82,8 +88,8 @@ export function UnitWorkQueuePanel({ queue }: UnitWorkQueuePanelProps) {
         <EmptyState
           className="mt-3"
           icon="ready"
-          title="All caught up for this meal period"
-          description="No failed logs, pending submissions, servery milestones, or open repairs need attention right now."
+          title={emptyTitle}
+          description={emptyDescription}
           tone="success"
           inset
         />

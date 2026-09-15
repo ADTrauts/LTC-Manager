@@ -30,6 +30,7 @@ import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
+import { roomTypeKeyForStoredSpace } from "@/lib/operational-cycles/cycle-scope";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
@@ -114,12 +115,17 @@ export async function buildRuntimeBundle(
       id: true,
       name: true,
       unitType: true,
+      parentUnitId: true,
       updatedAt: true,
       facility: { select: { id: true, displayName: true, timezone: true } },
       mealTimes: {
         where: { isActive: true },
         select: { mealType: true, scheduledTime: true, updatedAt: true },
         orderBy: { mealType: "asc" },
+      },
+      childSpaces: {
+        where: { isActive: true },
+        select: { id: true, spaceType: true, customTypeLabel: true },
       },
     },
   });
@@ -155,6 +161,38 @@ export async function buildRuntimeBundle(
   const dietary = operationalDepartment;
   const includeMealMilestones = dietary.key === "DIETARY";
 
+  let runtimeMealTimes = unit.mealTimes;
+  let keyTimeExpectations: NonNullable<OfflineRuntimeBundle["keyTimeExpectations"]> = [];
+  if (includeMealMilestones) {
+    const {
+      materializeMealServiceDayExpectations,
+      timingsForOwnerUnits,
+    } = await import("@/lib/operational-cycles/materialize-day-expectations");
+    const { timingOwnerUnitIds } = await import(
+      "@/lib/operational-cycles/plan-day-expectations"
+    );
+    const materialized = await materializeMealServiceDayExpectations(
+      {
+        facilityId: input.session.facilityId,
+        departmentId: dietary.id,
+        now,
+      },
+      client,
+    );
+    const ownerIds = timingOwnerUnitIds({
+      id: unit.id,
+      parentUnitId: unit.parentUnitId,
+    });
+    const unitTimings = timingsForOwnerUnits(materialized.timings, ownerIds);
+    if (unitTimings.length > 0) {
+      runtimeMealTimes = unitTimings.map((timing) => ({
+        mealType: timing.mealType as MealType,
+        scheduledTime: timing.expectedToday ?? "",
+        updatedAt: timing.adjustedAt ?? unit.updatedAt,
+      }));
+    }
+  }
+
   if (includeMealMilestones) {
     if (unit.unitType !== "SERVERY") {
       return { ok: false, reason: "UNIT_NOT_FOUND", status: 404 };
@@ -183,6 +221,64 @@ export async function buildRuntimeBundle(
   const serviceDate = getFacilityServiceDate(facilityTimezone, now);
   const serviceDateKey = toServiceDateKey(serviceDate);
 
+  {
+    const { materializeKeyTimeDayExpectations, timingsForOwnerUnits } = await import(
+      "@/lib/operational-cycles/materialize-key-time-day-expectations"
+    );
+    const { timingOwnerUnitIds } = await import(
+      "@/lib/operational-cycles/plan-day-expectations"
+    );
+    const { describeKeyTimeStatus, localHhMmFromInstant } = await import(
+      "@/lib/operational-cycles/key-time-day-expectation"
+    );
+    const { hasAtLeastRole } = await import("@/lib/access");
+    try {
+      const keyMaterialized = await materializeKeyTimeDayExpectations(
+        {
+          facilityId: input.session.facilityId,
+          departmentId: dietary.id,
+          now,
+        },
+        client,
+      );
+      const ownerIds = timingOwnerUnitIds({
+        id: unit.id,
+        parentUnitId: unit.parentUnitId,
+      });
+      const nowLocal = localHhMmFromInstant(now, facilityTimezone);
+      const role = input.session.role;
+      keyTimeExpectations = timingsForOwnerUnits(keyMaterialized.timings, ownerIds).map(
+        (timing) => {
+          const status = describeKeyTimeStatus({
+            configuredDueLocal: timing.configuredDueLocal,
+            adjustedDueLocal: timing.adjustedDueLocal,
+            actualDueLocal: timing.actualDueLocal,
+            nowLocalHhMm: nowLocal,
+          });
+          return {
+            expectationId: timing.expectationId,
+            spaceId: timing.spaceId,
+            spaceName: timing.spaceName ?? null,
+            facilityRoomTypeName: timing.facilityRoomTypeName ?? null,
+            cycleLabel: timing.cycleLabel,
+            parentCycleLabel: timing.parentCycleLabel,
+            displayPath: timing.displayPath,
+            configuredDueLocal: timing.configuredDueLocal,
+            adjustedDueLocal: timing.adjustedDueLocal,
+            expectedToday: timing.expectedToday,
+            actualDueLocal: timing.actualDueLocal,
+            statusKey: status.key,
+            statusLabel: status.label,
+            canAdjust: hasAtLeastRole(role, "SUPERVISOR") && !timing.actualDueLocal,
+            canComplete: hasAtLeastRole(role, "STAFF") && !timing.actualDueLocal,
+          };
+        },
+      );
+    } catch (error) {
+      console.warn("[offline] key time materialization skipped:", error);
+    }
+  }
+
   const events = includeMealMilestones
     ? await client.serveryMealServiceEvent.findMany({
         where: { unitId: unit.id, serviceDate },
@@ -206,7 +302,7 @@ export async function buildRuntimeBundle(
   const mealContext = includeMealMilestones
     ? resolveServeryMealServiceContext({
         unitType: "SERVERY",
-        mealTimes: unit.mealTimes.map((m) => ({ mealType: m.mealType, scheduledTime: m.scheduledTime })),
+        mealTimes: runtimeMealTimes.map((m) => ({ mealType: m.mealType, scheduledTime: m.scheduledTime })),
         now,
         facilityTimezone,
       })
@@ -217,7 +313,7 @@ export async function buildRuntimeBundle(
     e ? `${e.firstName} ${e.lastName}`.trim() : null;
 
   const milestones = includeMealMilestones
-    ? unit.mealTimes.map((slot) => {
+    ? runtimeMealTimes.map((slot) => {
     const ev = events.find((e) => e.mealType === slot.mealType);
     const corrected = new Set(ev?.entries?.filter((x) => x.kind === "CORRECTION").map((x) => x.milestone) ?? []);
     return {
@@ -241,9 +337,9 @@ export async function buildRuntimeBundle(
   })
     : [];
 
-  const mealTimesUpdatedAt = unit.mealTimes.reduce(
+  const mealTimesUpdatedAt = runtimeMealTimes.reduce(
     (max, m) => (m.updatedAt > max ? m.updatedAt : max),
-    unit.mealTimes[0]?.updatedAt ?? unit.updatedAt,
+    runtimeMealTimes[0]?.updatedAt ?? unit.updatedAt,
   );
 
   const serverRevision = computeServerRevision({
@@ -278,14 +374,22 @@ export async function buildRuntimeBundle(
       dietary.id,
       serviceDateKey,
     );
+    const roomTypeKeys = [
+      ...new Set(unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
+    ];
     resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
       facilityTimezone,
       operationalDateKey: serviceDateKey,
-      unit: { id: unit.id, unitType: unit.unitType },
+      unit: {
+        id: unit.id,
+        unitType: unit.unitType,
+        childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
+        spaceIds: unit.childSpaces.map((space) => space.id),
+      },
       mealTargets: includeMealMilestones
-        ? unit.mealTimes.map((m) => ({
+        ? runtimeMealTimes.map((m) => ({
             mealType: m.mealType,
             scheduledTime: m.scheduledTime,
           }))
@@ -294,10 +398,19 @@ export async function buildRuntimeBundle(
 
     if (isDepartmentOperationalCyclesEnabled(dietary.key)) {
       const syncedAt = issuedAt.toISOString();
+      const pathFields = (occ: {
+        label: string;
+        displayPath: string;
+        ancestorLabels: string[];
+      }) => ({
+        label: occ.label,
+        displayPath: occ.displayPath,
+        parentLabel: occ.ancestorLabels[0] ?? null,
+      });
       if (resolvedCycle.state === "ACTIVE") {
         cycleContext = {
           cycleId: resolvedCycle.primary.id,
-          label: resolvedCycle.primary.label,
+          ...pathFields(resolvedCycle.primary),
           cycleType: resolvedCycle.primary.cycleType,
           startLocal: resolvedCycle.primary.startLocal,
           endLocal: resolvedCycle.primary.endLocal,
@@ -305,7 +418,9 @@ export async function buildRuntimeBundle(
           mealType: resolvedCycle.primary.mealType,
           mealTargetTime: resolvedCycle.mealTargetTime,
           expectedMilestones: [...resolvedCycle.primary.expectedMilestones],
-          nextCycleLabel: resolvedCycle.next?.label ?? null,
+          nextCycleLabel: resolvedCycle.next
+            ? resolvedCycle.next.displayPath || resolvedCycle.next.label
+            : null,
           bundleRevision: serverRevision,
           lastSyncedAt: syncedAt,
         };
@@ -313,7 +428,7 @@ export async function buildRuntimeBundle(
         const next = resolvedCycle.next;
         cycleContext = {
           cycleId: next.id,
-          label: next.label,
+          ...pathFields(next),
           cycleType: next.cycleType,
           startLocal: next.startLocal,
           endLocal: next.endLocal,
@@ -321,14 +436,14 @@ export async function buildRuntimeBundle(
           mealType: next.mealType,
           mealTargetTime: resolvedCycle.mealTargetTime,
           expectedMilestones: [...next.expectedMilestones],
-          nextCycleLabel: next.label,
+          nextCycleLabel: next.displayPath || next.label,
           bundleRevision: serverRevision,
           lastSyncedAt: syncedAt,
         };
       } else if (resolvedCycle.state === "DAY_COMPLETE") {
         cycleContext = {
           cycleId: resolvedCycle.last.id,
-          label: resolvedCycle.last.label,
+          ...pathFields(resolvedCycle.last),
           cycleType: resolvedCycle.last.cycleType,
           startLocal: resolvedCycle.last.startLocal,
           endLocal: resolvedCycle.last.endLocal,
@@ -344,6 +459,8 @@ export async function buildRuntimeBundle(
         cycleContext = {
           cycleId: null,
           label: null,
+          displayPath: null,
+          parentLabel: null,
           cycleType: null,
           startLocal: null,
           endLocal: null,
@@ -558,6 +675,7 @@ export async function buildRuntimeBundle(
         client,
       );
       const cycleWindows = publishedCycles.flatMap((c) => {
+        if (!c.startLocal || !c.endLocal) return [];
         const window = resolveCycleWindowInstants({
           startLocal: c.startLocal,
           endLocal: c.endLocal,
@@ -807,6 +925,7 @@ export async function buildRuntimeBundle(
     procedureLabels: [],
     assignmentContext,
     cycleContext,
+    keyTimeExpectations,
     jobFlowContext,
     evidenceContext,
     assetContext,

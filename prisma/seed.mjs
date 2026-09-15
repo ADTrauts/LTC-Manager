@@ -17,6 +17,7 @@ import {
 } from "@prisma/client";
 
 import { applyLogTemplatePresets } from "./apply-log-template-presets.mjs";
+import { upsertPublishedCatalogSeeds } from "./apply-catalog-log-seeds.mjs";
 import { backfillUnitDepartmentRows, upsertDefaultDepartments } from "./ensure-departments.mjs";
 
 const prisma = new PrismaClient();
@@ -294,6 +295,9 @@ async function main() {
     createdByRoleId: faRole.id,
     departmentIds,
   });
+
+  // Platform Catalog seeds (Canonical Logs). Idempotent by stableKey+version.
+  await upsertPublishedCatalogSeeds(prisma);
 
   const serveryId = unitIdByName["1A Naval Park"];
   const kitchenId = unitIdByName["Central Kitchen"];

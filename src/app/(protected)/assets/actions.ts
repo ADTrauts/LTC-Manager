@@ -59,10 +59,13 @@ const createAssetSchema = z.object({
   name: z.string().trim().min(2).max(120),
   equipmentType: z.string().trim().min(2).max(80),
   unitId: z.string().cuid(),
+  spaceId: z.string().cuid().optional(),
   model: z.string().trim().max(120).optional(),
   serialNumber: z.string().trim().max(120).optional(),
   vendorId: z.string().cuid().optional(),
   departmentId: z.string().cuid().optional(),
+  responsibleOrganizationId: z.string().cuid().optional(),
+  /** BUILD lifecycle: ACTIVE → OPERATIONAL, RETIRED → RETIRED. Legacy paths may send raw status. */
   status: z.string(),
   criticality: z.enum(ASSET_CRITICALITY_VALUES).default("ROUTINE"),
   notes: z.string().trim().max(500).optional(),
@@ -123,16 +126,19 @@ export async function createAssetAction(formData: FormData) {
   requireAtLeastRole(session.role, "SUPERVISOR");
 
   const criticalityRaw = String(formData.get("criticality") ?? "ROUTINE");
+  const lifecycleOrStatus = String(formData.get("lifecycle") ?? formData.get("status") ?? "ACTIVE");
   const parsed = createAssetSchema.parse({
     assetCode: formData.get("assetCode"),
     name: formData.get("name"),
     equipmentType: formData.get("equipmentType"),
     unitId: formData.get("unitId"),
+    spaceId: toOptional(formData.get("spaceId")),
     model: toOptional(formData.get("model")),
     serialNumber: toOptional(formData.get("serialNumber")),
     vendorId: toOptional(formData.get("vendorId")),
     departmentId: toOptional(formData.get("departmentId")),
-    status: formData.get("status"),
+    responsibleOrganizationId: toOptional(formData.get("responsibleOrganizationId")),
+    status: lifecycleOrStatus === "ACTIVE" ? "OPERATIONAL" : lifecycleOrStatus,
     criticality: isAssetCriticality(criticalityRaw) ? criticalityRaw : "ROUTINE",
     notes: toOptional(formData.get("notes")),
     manufacturer: toOptional(formData.get("manufacturer")),
@@ -171,18 +177,49 @@ export async function createAssetAction(formData: FormData) {
     throw new Error("Department not found.");
   }
 
+  if (parsed.spaceId) {
+    const space = await prisma.unitSpace.findFirst({
+      where: {
+        id: parsed.spaceId,
+        facilityId: session.facilityId,
+        unitId: parsed.unitId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!space) {
+      throw new Error("Room not found for the selected location.");
+    }
+  }
+
+  if (parsed.responsibleOrganizationId) {
+    const org = await prisma.facilityOrganization.findFirst({
+      where: {
+        id: parsed.responsibleOrganizationId,
+        facilityId: session.facilityId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!org) {
+      throw new Error("Responsible organization not found.");
+    }
+  }
+
   if (isDietaryAssetOperationsEnabled()) {
     const status = parseOperationalStatus(parsed.status);
     const created = await createAsset(session, {
       facilityId: session.facilityId,
       departmentId,
       unitId: parsed.unitId,
+      spaceId: parsed.spaceId ?? null,
       assetCode: parsed.assetCode,
       name: parsed.name,
       equipmentType: parsed.equipmentType,
       model: parsed.model,
       serialNumber: parsed.serialNumber,
       vendorId: parsed.vendorId,
+      responsibleOrganizationId: parsed.responsibleOrganizationId ?? null,
       manufacturer: parsed.manufacturer,
       facilityAssetNumber: parsed.facilityAssetNumber,
       description: parsed.description,
@@ -204,10 +241,12 @@ export async function createAssetAction(formData: FormData) {
       name: parsed.name,
       equipmentType: parsed.equipmentType,
       unitId: parsed.unitId,
+      spaceId: parsed.spaceId ?? null,
       model: parsed.model,
       serialNumber: parsed.serialNumber,
       vendorId: parsed.vendorId,
       departmentId,
+      responsibleOrganizationId: parsed.responsibleOrganizationId ?? null,
       status: parsed.status as AssetStatus,
       criticality: parsed.criticality as AssetCriticality,
       notes: parsed.notes,
@@ -298,6 +337,22 @@ export async function updateAssetIdentityAction(formData: FormData) {
         ? null
         : String(vendorIdRaw).trim();
 
+  const spaceRaw = formData.get("spaceId");
+  const spaceId =
+    spaceRaw === null || spaceRaw === undefined
+      ? undefined
+      : String(spaceRaw).trim() === ""
+        ? null
+        : String(spaceRaw).trim();
+
+  const orgRaw = formData.get("responsibleOrganizationId");
+  const responsibleOrganizationId =
+    orgRaw === null || orgRaw === undefined
+      ? undefined
+      : String(orgRaw).trim() === ""
+        ? null
+        : String(orgRaw).trim();
+
   await updateAssetIdentity(session, {
     facilityId: session.facilityId,
     departmentId,
@@ -312,7 +367,9 @@ export async function updateAssetIdentityAction(formData: FormData) {
     notes: toOptional(formData.get("notes")) ?? null,
     procedureInstructions: toOptional(formData.get("procedureInstructions")) ?? null,
     vendorId,
+    responsibleOrganizationId,
     unitId: toOptional(formData.get("unitId")),
+    spaceId,
     departmentIdNext: toOptional(formData.get("departmentIdNext")) ?? undefined,
     criticality:
       criticalityRaw && isAssetCriticality(criticalityRaw)
@@ -456,4 +513,31 @@ export async function updateAssetDepartmentAction(formData: FormData) {
   });
 
   revalidateAssetViews(assetId);
+}
+
+const createFacilityOrganizationSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  notes: z.string().trim().max(500).optional(),
+});
+
+/** Minimal BUILD registry for Responsible Organizations (not Vendors). */
+export async function createFacilityOrganizationAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+
+  const parsed = createFacilityOrganizationSchema.parse({
+    name: formData.get("name"),
+    notes: toOptional(formData.get("notes")),
+  });
+
+  await prisma.facilityOrganization.create({
+    data: {
+      facilityId: session.facilityId,
+      name: parsed.name,
+      notes: parsed.notes ?? null,
+      isActive: true,
+    },
+  });
+
+  revalidateAssetViews();
 }

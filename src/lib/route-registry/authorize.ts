@@ -12,6 +12,7 @@ export type RouteFeatureFlags = {
    */
   dietaryOperationalEvidenceEnabled?: boolean;
   dietaryWorkPlansEnabled?: boolean;
+  canonicalLogsEnabled?: boolean;
 };
 
 export type RouteAuthorizationInput = {
@@ -52,6 +53,10 @@ function featureEnabled(route: PlatformRoute, flags: RouteAuthorizationInput["fe
       return flags.dietaryOperationalEvidenceEnabled ?? true;
     case "DIETARY_WORK_PLANS":
       return flags.dietaryWorkPlansEnabled ?? true;
+    case "CANONICAL_LOGS":
+      // Fail closed when unset — unlike Dietary flags, Canonical Logs must not appear in nav
+      // or pass the proxy unless the caller explicitly supplies the live flag value.
+      return flags.canonicalLogsEnabled === true;
     default:
       return true;
   }

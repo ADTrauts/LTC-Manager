@@ -141,9 +141,11 @@ model Facility {
   userFacilityAccesses           UserFacilityAccess[]
   units                          Unit[]
   unitSpaces                     UnitSpace[]
+  facilityRoomTypes              FacilityRoomType[]
   employees                      Employee[]
   logTemplates                   LogTemplate[]
   vendors                        Vendor[]
+  facilityOrganizations          FacilityOrganization[]
   employeeHrAuditLogs            EmployeeHrAuditLog[]
   employeeTerminationRecords     EmployeeTerminationRecord[]
   menuSettings                   MenuSettings?
@@ -170,12 +172,17 @@ model Facility {
   workspacePreferences           WorkspacePreference[]
   departmentOperationalProfiles  DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
+  cycleDayExpectations           OperationalCycleDayExpectation[]
+  keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
   operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
+  logAttachments                 LogAttachment[]
   assetIssues                    AssetIssue[]
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
+  departmentTeams                DepartmentTeam[]
+  departmentJobRoles             DepartmentJobRole[]
   departmentRequestRoutes        DepartmentRequestRoute[]
   operationalRequests            OperationalRequest[]
   createdAt                      DateTime                        @default(now())
@@ -217,12 +224,20 @@ model Department {
   assignmentTemplates            OperationalAssignmentTemplate[]
   operationalProfiles            DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
+  cycleDayExpectations           OperationalCycleDayExpectation[]
+  keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
   operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
+  logAttachments                 LogAttachment[]                 @relation("LogAttachmentOwningDepartment")
+  logAttachmentsAsTarget         LogAttachment[]                 @relation("LogAttachmentTargetDepartment")
   assetIssues                    AssetIssue[]
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
+  scheduleEntries                ScheduleEntry[]
+  teams                          DepartmentTeam[]
+  jobRoles                       DepartmentJobRole[]
+  employeeJobRoleAssignments     EmployeeDepartmentJobRole[]
   requestRoutesAsRequesting      DepartmentRequestRoute[]        @relation("RequestRouteRequesting")
   requestRoutesAsResponsible     DepartmentRequestRoute[]        @relation("RequestRouteResponsible")
   operationalRequestsRequesting  OperationalRequest[]            @relation("OperationalRequestRequesting")
@@ -253,13 +268,16 @@ model JobTitle {
   @@index([facilityId])
 }
 
-/// Many-to-many: employee membership in operational departments (with role in that dept).
+/// Additional Department membership (not the primary Department).
+/// Canonical membership is Employee.primaryDepartmentId ∪ EmployeeDepartment.
+/// `roleType` is dormant — Employee.roleType remains canonical authority.
 model EmployeeDepartment {
   id           String     @id @default(cuid())
   employeeId   String
   employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// Dormant. Do not treat as per-Department authority.
   roleType     RoleKey    @default(STAFF)
   createdAt    DateTime   @default(now())
 
@@ -448,6 +466,9 @@ model User {
   workEventsAsActor              DepartmentWorkEvent[]           @relation("WorkEventActorUser")
   departmentZonesCreated         DepartmentOperationalZone[]     @relation("DepartmentZoneCreatedBy")
   departmentZonesLastChanged     DepartmentOperationalZone[]     @relation("DepartmentZoneLastChangedBy")
+  cycleDayExpectationAdjustments OperationalCycleDayExpectation[] @relation("CycleDayExpectationAdjustedByUser")
+  keyTimeDayExpectationAdjustments OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByUser")
+  keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByUser")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -545,6 +566,12 @@ enum SpaceType {
   MECHANICAL
   PUBLIC_AREA
   OTHER
+}
+
+/// Operational Cycle hierarchy node kind (Build). Nested PERIOD = Phase; KEY_TIME = checkpoint.
+enum OperationalCycleNodeKind {
+  PERIOD
+  KEY_TIME
 }
 
 enum MealType {
@@ -894,8 +921,11 @@ model Unit {
   knowledgeArticleUnits      KnowledgeArticleUnit[]
   operationalAssignments     OperationalAssignment[]
   assignmentTemplateItems    OperationalAssignmentTemplateItem[]
-  operationalCycleLocations  DepartmentOperationalCycleLocation[]
-  operationalEvidenceRecords OperationalEvidenceRecord[]
+  operationalCycleLocations       DepartmentOperationalCycleLocation[]
+  operationalCycleMilestoneTimes  DepartmentOperationalCycleMilestoneTime[]
+  cycleDayExpectations            OperationalCycleDayExpectation[]
+  operationalEvidenceRecords      OperationalEvidenceRecord[]
+  logAttachments                  LogAttachment[]
   assetIssues                AssetIssue[]
   operationalRequests        OperationalRequest[]
   departmentWorkOccurrences  DepartmentWorkOccurrence[]
@@ -930,6 +960,29 @@ model UnitDepartmentResponsibility {
   @@index([departmentId])
 }
 
+/// Facility-owned reusable Room Type (local vocabulary).
+/// Base type is a system catalog key (e.g. kitchen); displayName is facility-visible.
+/// Rooms and Build config reference this row by id — rename is identity-safe.
+model FacilityRoomType {
+  id           String      @id @default(cuid())
+  facilityId   String
+  facility     Facility    @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  /// Generic system base type key from the Facility Base Type catalog.
+  baseTypeKey  String
+  displayName  String
+  description  String?
+  displayOrder Int         @default(100)
+  isActive     Boolean     @default(true)
+  archivedAt   DateTime?
+  spaces       UnitSpace[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([facilityId, displayName])
+  @@index([facilityId, isActive, displayOrder])
+  @@index([facilityId, baseTypeKey])
+}
+
 /// Physical sub-location within a Unit (room, service area, storage, etc.).
 /// unitId null = Facility Builder undesignated staging (not operational).
 model UnitSpace {
@@ -941,7 +994,11 @@ model UnitSpace {
   name                               String
   spaceType                          SpaceType
   /// User-facing type label when it differs from the canonical SpaceType label (presets / Custom).
+  /// Compatibility debt — FacilityRoomType is the Build-facing canonical source.
   customTypeLabel                    String?
+  /// Canonical Facility Room Type. Nullable until backfill / for undesignated staging.
+  facilityRoomTypeId                 String?
+  facilityRoomType                   FacilityRoomType?                   @relation(fields: [facilityRoomTypeId], references: [id], onDelete: Restrict)
   roomNumber                         String?
   code                               String?
   isActive                           Boolean                             @default(true)
@@ -952,17 +1009,147 @@ model UnitSpace {
   experienceExceptions               DepartmentRoomExperienceException[]
   operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
+  logAttachments                     LogAttachment[]
   assets                             Asset[]
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
   departmentWorkOccurrences          DepartmentWorkOccurrence[]
   zoneMemberships                    DepartmentOperationalZoneLocation[]
+  teamMemberships                    DepartmentTeamRoomMembership[]
   assignmentLocations                OperationalAssignmentLocation[]
+  operationalCycleLocations          DepartmentOperationalCycleLocation[]
+  keyTimeGroupRooms                  DepartmentOperationalCycleKeyTimeGroupRoom[]
+  keyTimeDayExpectations             OperationalCycleKeyTimeDayExpectation[]
   createdAt                          DateTime                            @default(now())
   updatedAt                          DateTime                            @updatedAt
 
   @@index([facilityId])
   @@index([unitId, isActive, sortOrder])
+  @@index([facilityRoomTypeId])
+}
+
+/// Lifecycle for an enduring Department Team (organizational subgroup).
+/// Teams persist immediately as Build configuration — not Draft/Publish versioned.
+enum DepartmentTeamStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Optional enduring organizational subgroup inside one Department.
+/// Facility-named. Not a permission, Job Role, Zone, Cycle, or daily assignment.
+model DepartmentTeam {
+  id                String                        @id @default(cuid())
+  facilityId        String
+  facility          Facility                      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId      String
+  department        Department                    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  displayName       String
+  description       String?
+  displayOrder      Int                           @default(100)
+  status            DepartmentTeamStatus          @default(ACTIVE)
+  archivedAt        DateTime?
+  /// Explicit accountable manager. Does not grant RoleKey authority.
+  managerEmployeeId String?
+  managerEmployee   Employee?                     @relation("DepartmentTeamManager", fields: [managerEmployeeId], references: [id], onDelete: SetNull)
+  roomMemberships   DepartmentTeamRoomMembership[]
+  employeeMemberships EmployeeTeamMembership[]
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  @@index([facilityId, departmentId, status, displayOrder])
+  @@index([departmentId, status])
+  @@index([managerEmployeeId])
+}
+
+/// Team normal operating Rooms. Identity is UnitSpace.id — never Room Type / Floor / Neighborhood.
+/// Overlapping membership across Teams in the same Department is allowed.
+model DepartmentTeamRoomMembership {
+  id        String         @id @default(cuid())
+  teamId    String
+  team      DepartmentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  spaceId   String
+  space     UnitSpace      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([teamId, spaceId])
+  @@index([spaceId])
+}
+
+/// Employee organizational home on a Department Team.
+/// Not authority, Job Title, WorkStation, Unit access, or daily assignment.
+/// At most one Primary Team per Department is enforced in the write transaction.
+model EmployeeTeamMembership {
+  id         String         @id @default(cuid())
+  employeeId String
+  employee   Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  teamId     String
+  team       DepartmentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  isPrimary  Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([employeeId, teamId])
+  @@index([employeeId])
+  @@index([teamId])
+}
+
+/// Generic operational responsibility tier for Department-owned Job Roles.
+/// Stable platform semantics — not user-facing labels (Departments rename via displayName).
+/// Not RoleKey / platform authority. Facility Administrator is not a Department Job Role tier.
+enum DepartmentJobRoleTier {
+  TEAM_MEMBER
+  LEAD
+  SUPERVISOR
+  MANAGER
+}
+
+enum DepartmentJobRoleStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Department-owned operational Job Role (capability package + relative tier).
+/// Distinct from JobTitle (what job you perform) and RoleKey (platform authority).
+/// Capabilities are validated against the product catalog; not route permissions.
+model DepartmentJobRole {
+  id           String                   @id @default(cuid())
+  facilityId   String
+  facility     Facility                 @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  displayName  String
+  tier         DepartmentJobRoleTier
+  description  String?
+  displayOrder Int                      @default(100)
+  status       DepartmentJobRoleStatus  @default(ACTIVE)
+  archivedAt   DateTime?
+  /// Explicit operational capability keys (see lib/department-job-roles/capabilities).
+  capabilities String[]                 @default([])
+  assignments  EmployeeDepartmentJobRole[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([facilityId, departmentId, status, displayOrder])
+  @@index([departmentId, status])
+}
+
+/// One active Job Role assignment per Employee per Department (V1).
+/// Requires Department membership. Removing membership reconciles this row.
+model EmployeeDepartmentJobRole {
+  id           String            @id @default(cuid())
+  employeeId   String
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  jobRoleId    String
+  jobRole      DepartmentJobRole @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([employeeId, departmentId])
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([jobRoleId])
 }
 
 /// Department responsibility assigned directly at the room/space level.
@@ -1273,7 +1460,10 @@ model Employee {
   jobTitleId                     String?
   jobTitle                       JobTitle?                       @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
   headedDepartments              Department[]                    @relation("DepartmentHead")
+  managedTeams                   DepartmentTeam[]                @relation("DepartmentTeamManager")
   employeeDepartments            EmployeeDepartment[]
+  teamMemberships                EmployeeTeamMembership[]
+  departmentJobRoles             EmployeeDepartmentJobRole[]
   unitAccesses                   EmployeeUnitAccess[]
   roleType                       RoleKey
   status                         EmployeeStatus                  @default(ACTIVE)
@@ -1330,6 +1520,9 @@ model Employee {
   workOccurrencesAssigned        DepartmentWorkOccurrence[]      @relation("WorkOccurrenceAssignedEmployee")
   workOccurrencesOriginalAssigned DepartmentWorkOccurrence[]     @relation("WorkOccurrenceOriginalAssignedEmployee")
   workEventsAsActor              DepartmentWorkEvent[]           @relation("WorkEventActorEmployee")
+  cycleDayExpectationAdjustments OperationalCycleDayExpectation[] @relation("CycleDayExpectationAdjustedByEmployee")
+  keyTimeDayExpectationAdjustments OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByEmployee")
+  keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByEmployee")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -1462,15 +1655,32 @@ model DefaultAssignment {
   @@index([employeeId, isActive])
 }
 
+/// RUN: Canonical Shift / employee presence record.
+///
+/// Canonical fields (Shift semantics):
+///   employeeId, date, plannedStart, plannedEnd, departmentId, workShiftId
+///
+/// Demoted / compatibility fields:
+///   unitId     - legacy placement; optional on new canonical Shifts
+///   shift      - meal-slot label (BREAKFAST/LUNCH/DINNER/FULL_DAY); compatibility only
+///   roleType   - platform authority leakage; demoted; nullable on new canonical Shifts
+///
+/// See: src/lib/scheduling/SCHEDULING_ARCHITECTURE_CONTRACT.md
 model ScheduleEntry {
   id           String               @id @default(cuid())
   employeeId   String
   employee     Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   date         DateTime
   shift        ShiftType
-  roleType     RoleKey
-  unitId       String
-  unit         Unit                 @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  /// Nullable on new canonical Shifts. Platform RoleKey is not Shift identity.
+  roleType     RoleKey?
+  /// Nullable on new canonical Shifts. Unit placement is legacy assignment fact.
+  unitId       String?
+  unit         Unit?                @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  /// Explicit Department ownership — canonical Shift fact (added migration 81).
+  /// NULL on legacy rows created before this migration.
+  departmentId String?
+  department   Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   workShiftId  String?
   workShift    WorkShift?           @relation(fields: [workShiftId], references: [id], onDelete: SetNull)
   plannedStart String?
@@ -1484,6 +1694,7 @@ model ScheduleEntry {
   @@index([date, unitId])
   @@index([employeeId, date])
   @@index([workShiftId])
+  @@index([departmentId, date])
 }
 
 model AssignmentOverride {
@@ -1525,6 +1736,23 @@ model Vendor {
   @@index([facilityId])
 }
 
+/// Facility-scoped organization responsible for maintaining/repairing assets (e.g. facility operator, contracted manager).
+/// Distinct from platform Organization (tenancy parent) and from Vendor (external service provider).
+model FacilityOrganization {
+  id         String   @id @default(cuid())
+  facilityId String
+  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name       String
+  isActive   Boolean  @default(true)
+  notes      String?
+  assets     Asset[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([facilityId, name])
+  @@index([facilityId, isActive])
+}
+
 model Asset {
   id                                 String                             @id @default(cuid())
   assetCode                          String                             @unique
@@ -1536,12 +1764,16 @@ model Asset {
   space                              UnitSpace?                         @relation(fields: [spaceId], references: [id], onDelete: SetNull)
   departmentId                       String?
   department                         Department?                        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  /// Organization responsible for maintenance and repair (not Department; not Vendor).
+  responsibleOrganizationId          String?
+  responsibleOrganization            FacilityOrganization?              @relation(fields: [responsibleOrganizationId], references: [id], onDelete: SetNull)
   manufacturer                       String?
   model                              String?
   serialNumber                       String?
   /// Facility-facing Asset number when distinct from assetCode.
   facilityAssetNumber                String?
   description                        String?
+  /// Preferred repair/service provider (Vendor). Not manufacturer; not Responsible Organization.
   vendorId                           String?
   vendor                             Vendor?                            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   status                             AssetStatus                        @default(OPERATIONAL)
@@ -1561,6 +1793,7 @@ model Asset {
   knowledgeArticleAssets             KnowledgeArticleAsset[]
   operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
+  logAttachments                     LogAttachment[]
   statusHistory                      AssetStatusHistory[]
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
@@ -1572,6 +1805,7 @@ model Asset {
   @@index([unitId, criticality])
   @@index([vendorId])
   @@index([departmentId])
+  @@index([responsibleOrganizationId])
   @@index([spaceId])
   @@index([status])
 }
@@ -2819,16 +3053,22 @@ enum OperationalCycleStatus {
   RETIRED
 }
 
-/// How a cycle selects applicable Units.
+/// How a cycle selects applicable locations.
 enum OperationalCycleLocationMode {
   ALL_DEPARTMENT_UNITS
+  /// Legacy Unit.unitType targeting — not used by new Department Builder UI.
   UNIT_TYPES
+  /// Explicit Unit and/or UnitSpace targets (user-facing: Specific locations).
   EXPLICIT_UNITS
+  /// Canonical Facility Builder Room Type preset key (e.g. servery).
+  ROOM_TYPE
 }
 
 /// Department-owned Operational Cycle definition.
-/// Meal service target times remain on UnitMealTime — cycles reference MealType only.
+/// Configured service-start times live on DepartmentOperationalCycleMilestoneTime (versioned).
+/// UnitMealTime remains a legacy Runtime compatibility table.
 /// Occurrences for a given operational date are derived, not persisted.
+/// Build node kinds: PERIOD (cycle/phase window) and KEY_TIME (checkpoint with time groups).
 model DepartmentOperationalCycle {
   id                   String                               @id @default(cuid())
   facilityId           String
@@ -2837,26 +3077,36 @@ model DepartmentOperationalCycle {
   department           Department                           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   /// Stable identity across versions of the same logical cycle within a department.
   stableKey            String
+  /// Logical parent cycle identity within the department. Null = top-level.
+  /// Versioned with this row — Draft successors copy it; published rows are not mutated in place.
+  parentStableKey      String?
+  /// PERIOD = operating window (root = Operational Cycle, nested = Phase). KEY_TIME = checkpoint.
+  nodeKind             OperationalCycleNodeKind             @default(PERIOD)
   version              Int                                  @default(1)
   label                String
   description          String?
   cycleType            OperationalCycleType
   displaySequence      Int                                  @default(100)
-  /// Facility-local wall-clock start (`HH:mm`).
-  startLocal           String
-  /// Facility-local wall-clock end (`HH:mm`). May be before start when overnight=true.
-  endLocal             String
+  /// Facility-local wall-clock start (`HH:mm`). Required for PERIOD; null for KEY_TIME.
+  startLocal           String?
+  /// Facility-local wall-clock end (`HH:mm`). Required for PERIOD; null for KEY_TIME.
+  endLocal             String?
   /// Structural overnight support; Phase 9A Dietary defaults remain same-day.
   overnight            Boolean                              @default(false)
   /// Facility-local weekdays: 0=Sunday … 6=Saturday.
   applicableDaysOfWeek Int[]
   effectiveFrom        DateTime                             @db.Date
   effectiveTo          DateTime?                            @db.Date
-  /// Optional meal association — service targets come from UnitMealTime, not copied here.
   mealType             MealType?
   locationMode         OperationalCycleLocationMode         @default(ALL_DEPARTMENT_UNITS)
+  /// When true (nested PERIOD only), effective rooms come from the immediate parent.
+  locationInheritFromParent Boolean                         @default(false)
   applicableUnitTypes  UnitType[]
+  /// Facility Room Type preset key when locationMode = ROOM_TYPE (e.g. "servery").
+  /// Legacy Build/Run compatibility — new Build authoring uses explicit Rooms.
+  roomTypeKey          String?
   /// Expected confirmations for SERVICE cycles (READY / SERVICE_STARTED). Absence ≠ failure.
+  /// Legacy Run compatibility — not the primary new Build UX.
   expectedMilestones   ServeryMilestone[]
   status               OperationalCycleStatus               @default(DRAFT)
   createdByUserId      String?
@@ -2865,6 +3115,10 @@ model DepartmentOperationalCycle {
   publishedAt          DateTime?
   retiredAt            DateTime?
   locations            DepartmentOperationalCycleLocation[]
+  milestoneTimes       DepartmentOperationalCycleMilestoneTime[]
+  keyTimeGroups        DepartmentOperationalCycleKeyTimeGroup[]
+  dayExpectations      OperationalCycleDayExpectation[]
+  keyTimeDayExpectations OperationalCycleKeyTimeDayExpectation[]
   events               DepartmentOperationalCycleEvent[]
   createdAt            DateTime                             @default(now())
   updatedAt            DateTime                             @updatedAt
@@ -2874,19 +3128,176 @@ model DepartmentOperationalCycle {
   @@index([facilityId, departmentId, effectiveFrom])
   @@index([departmentId, displaySequence])
   @@index([departmentId, status, displaySequence])
+  @@index([departmentId, roomTypeKey])
+  @@index([departmentId, parentStableKey])
+  @@index([departmentId, nodeKind])
 }
 
-/// Explicit Unit applicability when locationMode = EXPLICIT_UNITS.
+/// Explicit Unit or Room applicability when locationMode = EXPLICIT_UNITS.
+/// Exactly one of unitId / spaceId is set (enforced in SQL).
 model DepartmentOperationalCycleLocation {
   id        String                     @id @default(cuid())
   cycleId   String
   cycle     DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  unitId    String
-  unit      Unit                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  spaceId   String?
+  space     UnitSpace?                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   createdAt DateTime                   @default(now())
 
   @@unique([cycleId, unitId])
+  @@unique([cycleId, spaceId])
   @@index([unitId])
+  @@index([spaceId])
+}
+
+/// Versioned Key Time due-time group (Build). One Key Time node may have multiple groups.
+model DepartmentOperationalCycleKeyTimeGroup {
+  id              String                     @id @default(cuid())
+  cycleId         String
+  cycle           DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  /// Facility-local wall-clock due time (`HH:mm`).
+  dueLocal        String
+  displaySequence Int                        @default(100)
+  rooms           DepartmentOperationalCycleKeyTimeGroupRoom[]
+  dayExpectations OperationalCycleKeyTimeDayExpectation[]
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  @@unique([cycleId, dueLocal])
+  @@index([cycleId, displaySequence])
+}
+
+/// Room membership for one Key Time due-time group.
+/// Denormalized cycleId enforces one room → one group per Key Time version.
+model DepartmentOperationalCycleKeyTimeGroupRoom {
+  id             String                                  @id @default(cuid())
+  keyTimeGroupId String
+  keyTimeGroup   DepartmentOperationalCycleKeyTimeGroup  @relation(fields: [keyTimeGroupId], references: [id], onDelete: Cascade)
+  /// Parent KEY_TIME cycle version — unique with spaceId so a room cannot sit in two groups.
+  cycleId        String
+  spaceId        String
+  space          UnitSpace                               @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                                @default(now())
+
+  @@unique([keyTimeGroupId, spaceId])
+  @@unique([cycleId, spaceId])
+  @@index([spaceId])
+  @@index([cycleId])
+}
+
+/// Versioned configured milestone time at Neighborhood/Unit grain.
+/// Tied to a cycle row (version). Recurs on every day the parent cycle applies.
+/// Legacy Run compatibility — new Build Key Times do not dual-write here.
+model DepartmentOperationalCycleMilestoneTime {
+  id              String                     @id @default(cuid())
+  cycleId         String
+  cycle           DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            Unit                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  milestone       ServeryMilestone
+  configuredTime  String
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  @@unique([cycleId, unitId, milestone])
+  @@index([unitId])
+}
+
+/// Runtime meal-service timing for one operational date + cycle version + Neighborhood.
+/// Configured time is a snapshot of the governing Build version. Adjusted time is today's
+/// Run overlay. Actual occurrence remains on ServeryMealServiceEvent / ServeryMilestoneEntry.
+model OperationalCycleDayExpectation {
+  id                     String                     @id @default(cuid())
+  facilityId             String
+  facility               Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId           String
+  department             Department                 @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// Facility-local operational date (same grain as ServeryMealServiceEvent.serviceDate).
+  serviceDate            DateTime                   @db.Date
+  cycleId                String
+  cycle                  DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleStableKey         String
+  cycleVersion           Int
+  cycleLabel             String
+  mealType               MealType
+  unitId                 String
+  unit                   Unit                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  milestone              ServeryMilestone
+  /// Snapshot of Build configuredTime. Null = in scope, time not configured.
+  configuredTime         String?
+  /// Today's revised expected time. Null = use configuredTime.
+  adjustedTime           String?
+  adjustmentReason       String?
+  adjustedAt             DateTime?
+  adjustedByUserId       String?
+  adjustedByUser         User?                      @relation("CycleDayExpectationAdjustedByUser", fields: [adjustedByUserId], references: [id], onDelete: SetNull)
+  adjustedByEmployeeId   String?
+  adjustedByEmployee     Employee?                  @relation("CycleDayExpectationAdjustedByEmployee", fields: [adjustedByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  @@unique([serviceDate, cycleId, unitId, milestone])
+  @@index([facilityId, departmentId, serviceDate])
+  @@index([unitId, serviceDate])
+  @@index([cycleId])
+  @@index([adjustedByUserId])
+  @@index([adjustedByEmployeeId])
+}
+
+/// Runtime Key Time expectation for one operational date + published KEY_TIME version + Room.
+/// Configured due time is a snapshot of the governing Key Time group. Adjusted/actual are
+/// today's Run overlays. Build Key Time groups are never mutated from Run.
+model OperationalCycleKeyTimeDayExpectation {
+  id                   String                     @id @default(cuid())
+  facilityId           String
+  facility             Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId         String
+  department           Department                 @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// Facility-local operational date (same grain as meal day expectations).
+  serviceDate          DateTime                   @db.Date
+  cycleId              String
+  cycle                DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleStableKey       String
+  cycleVersion         Int
+  cycleLabel           String
+  /// Frozen parent PERIOD label for Run display (e.g. Breakfast). Null when top-level Key Time.
+  parentCycleLabel     String?
+  /// Frozen display path (e.g. Breakfast → Breakfast Due).
+  displayPath          String
+  keyTimeGroupId       String
+  keyTimeGroup         DepartmentOperationalCycleKeyTimeGroup @relation(fields: [keyTimeGroupId], references: [id], onDelete: Restrict)
+  spaceId              String
+  space                UnitSpace                  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  /// Snapshot of Build group dueLocal (HH:mm).
+  configuredDueLocal   String
+  /// Today's revised expected due time. Null = use configuredDueLocal.
+  adjustedDueLocal     String?
+  adjustmentReason     String?
+  adjustedAt           DateTime?
+  adjustedByUserId     String?
+  adjustedByUser       User?                      @relation("KeyTimeDayExpectationAdjustedByUser", fields: [adjustedByUserId], references: [id], onDelete: SetNull)
+  adjustedByEmployeeId String?
+  adjustedByEmployee   Employee?                  @relation("KeyTimeDayExpectationAdjustedByEmployee", fields: [adjustedByEmployeeId], references: [id], onDelete: SetNull)
+  /// When the Key Time was marked complete (facility-local HH:mm snapshot).
+  actualDueLocal       String?
+  completedAt          DateTime?
+  completedByUserId    String?
+  completedByUser      User?                      @relation("KeyTimeDayExpectationCompletedByUser", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  completedByEmployeeId String?
+  completedByEmployee  Employee?                  @relation("KeyTimeDayExpectationCompletedByEmployee", fields: [completedByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@unique([serviceDate, cycleId, spaceId])
+  @@index([facilityId, departmentId, serviceDate])
+  @@index([spaceId, serviceDate])
+  @@index([cycleId])
+  @@index([keyTimeGroupId])
+  @@index([adjustedByUserId])
+  @@index([adjustedByEmployeeId])
+  @@index([completedByUserId])
+  @@index([completedByEmployeeId])
 }
 
 /// Append-only audit for Operational Cycle configuration changes.
@@ -3082,21 +3493,32 @@ model OperationalTemplateEvent {
 
 /// Persisted Evidence Record. Requirements are derived; records are durable.
 /// templateSnapshotJson preserves published definition so later edits never rewrite history.
+/// Canonical Attachment-backed Logs may omit templateId and set logAttachmentId + catalogDefinitionId.
 model OperationalEvidenceRecord {
   id                           String                          @id @default(cuid())
   facilityId                   String
   facility                     Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   departmentId                 String
   department                   Department                      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  /// Published template version row used at capture time.
-  templateId                   String
-  template                     OperationalTemplate             @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  /// Published Phase 9C template version at capture time. Null for Catalog Attachment submissions.
+  templateId                   String?
+  template                     OperationalTemplate?            @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  /// Canonical Catalog Attachment (nullable for legacy Phase 9C evidence).
+  logAttachmentId              String?
+  logAttachment                LogAttachment?                  @relation(fields: [logAttachmentId], references: [id], onDelete: SetNull)
+  /// Denormalized Attachment lineage for historical reconstruction.
+  attachmentStableKey          String?
+  /// Published Catalog version row used at capture (Attachment-backed).
+  catalogDefinitionId          String?
+  catalogDefinition            CatalogLogDefinition?           @relation(fields: [catalogDefinitionId], references: [id], onDelete: SetNull)
   templateStableKey            String
   templateVersion              Int
   templateName                 String
   purposeType                  OperationalTemplatePurposeType
   /// Deterministic requirement identity for the operational date + scope + window.
   requirementKey               String
+  /// Attachment-backed requirement key (nullable for legacy Phase 9C / ad hoc).
+  logRequirementKey            String?
   operationalDate              DateTime                        @db.Date
   scheduleKind                 OperationalTemplateScheduleKind
   cycleStableKey               String?
@@ -3126,7 +3548,8 @@ model OperationalEvidenceRecord {
   recordedByEmployeeId         String?
   recordedByEmployee           Employee?                       @relation("EvidenceRecordedByEmployee", fields: [recordedByEmployeeId], references: [id], onDelete: SetNull)
   recordedByLabel              String?
-  /// Immutable snapshot of template fields/standards/instructions at submit time.
+  /// Immutable snapshot of template/Catalog fields/standards/instructions at submit time.
+  /// Attachment-backed records use snapshotSchemaVersion >= 2 (LogSubmissionSnapshot).
   templateSnapshotJson         Json
   values                       OperationalEvidenceFieldValue[]
   corrections                  OperationalEvidenceCorrection[]
@@ -3141,6 +3564,10 @@ model OperationalEvidenceRecord {
   @@index([facilityId, unitId, operationalDate])
   @@index([facilityId, assetId, operationalDate])
   @@index([requirementKey, operationalDate])
+  @@index([logAttachmentId, operationalDate])
+  @@index([logRequirementKey, operationalDate])
+  @@index([catalogDefinitionId])
+  @@index([attachmentStableKey])
   @@index([recordedByEmployeeId])
   @@index([status])
 }
@@ -3473,4 +3900,205 @@ model DepartmentWorkEvent {
 
   @@index([occurrenceId, createdAt])
   @@index([facilityId, departmentId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Canonical Logs: LTC Corp Catalog + Facility Log Attachment
+// Platform-owned Catalog (no facilityId). Facility-owned Attachments.
+// RUN submissions remain OperationalEvidenceRecord with optional Attachment link.
+// ---------------------------------------------------------------------------
+
+enum CatalogLogStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum CatalogLogPurposeType {
+  LOG
+  CHECKLIST
+}
+
+enum CatalogLogCategory {
+  TEMPERATURE
+  SANITATION
+  CLEANING
+  EQUIPMENT
+  FOOD_SAFETY
+  OPENING_CLOSING
+  COMPLIANCE
+  OTHER
+}
+
+enum CatalogRecommendedCadence {
+  ONCE_DAILY
+  TWICE_DAILY
+  THREE_TIMES_DAILY
+  ONCE_PER_OPERATIONAL_CYCLE
+  WEEKLY
+  MONTHLY
+  AD_HOC
+}
+
+enum LogAttachmentStatus {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+enum LogAttachmentTargetKind {
+  ASSET
+  SPACE
+  UNIT
+  DEPARTMENT
+  FACILITY
+}
+
+enum LogAttachmentTimingMode {
+  DAILY_WINDOWS
+  OPERATIONAL_CYCLE
+  CALENDAR
+  AD_HOC
+}
+
+enum LogAttachmentCalendarCadence {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+/// Platform / LTC Corp Catalog Log definition. No facilityId.
+/// Versioned via stableKey + version. Published versions are immutable in service logic.
+model CatalogLogDefinition {
+  id                          String                          @id @default(cuid())
+  stableKey                   String
+  version                     Int                             @default(1)
+  status                      CatalogLogStatus                @default(DRAFT)
+  name                        String
+  description                 String?
+  instructions                String?
+  purposeType                 CatalogLogPurposeType
+  category                    CatalogLogCategory              @default(OTHER)
+  recommendedCadence          CatalogRecommendedCadence?
+  /// Optional schedule kind hint for Attachment default resolution.
+  recommendedScheduleKind     OperationalTemplateScheduleKind?
+  recommendedDaypartLabels    String[]                        @default([])
+  /// Optional fixed HH:mm pairs when Catalog requires clock precision.
+  recommendedFixedWindowsJson Json?
+  /// Discovery hints: { assetTypes, spaceTypes, departmentKeys, keywords }. Suggestion only.
+  suggestionsJson             Json                            @default("{}")
+  publishedAt                 DateTime?
+  retiredAt                   DateTime?
+  fields                      CatalogLogField[]
+  attachments                 LogAttachment[]
+  evidenceRecords             OperationalEvidenceRecord[]
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
+
+  @@unique([stableKey, version])
+  @@index([status])
+  @@index([purposeType, category])
+  @@index([stableKey, status])
+}
+
+model CatalogLogField {
+  id                       String                       @id @default(cuid())
+  definitionId             String
+  definition               CatalogLogDefinition         @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  fieldKey                 String
+  label                    String
+  fieldType                OperationalEvidenceFieldType
+  isRequired               Boolean                      @default(true)
+  displaySequence          Int
+  helpText                 String?
+  unitLabel                String?
+  minNumber                Float?
+  maxNumber                Float?
+  allowedSelections        String[]                     @default([])
+  correctiveActionTrigger  Boolean                      @default(false)
+  correctiveActionRequired Boolean                      @default(false)
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
+
+  @@unique([definitionId, fieldKey])
+  @@unique([definitionId, displaySequence])
+  @@index([definitionId])
+}
+
+/// Facility-owned binding of a published Catalog Log to an operational target.
+model LogAttachment {
+  id                  String                        @id @default(cuid())
+  stableKey           String
+  facilityId          String
+  facility            Facility                      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department                    @relation("LogAttachmentOwningDepartment", fields: [departmentId], references: [id], onDelete: Restrict)
+  catalogDefinitionId String
+  catalogDefinition   CatalogLogDefinition          @relation(fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
+  catalogStableKey    String
+  catalogVersion      Int
+  status              LogAttachmentStatus           @default(ACTIVE)
+  effectiveFrom       DateTime                      @db.Date
+  effectiveTo         DateTime?                     @db.Date
+  retiredAt           DateTime?
+  localDisplayLabel   String?
+  localInstructions   String?
+  targetKind          LogAttachmentTargetKind
+  assetId             String?
+  asset               Asset?                        @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  spaceId             String?
+  space               UnitSpace?                    @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+  unitId              String?
+  unit                Unit?                         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  targetDepartmentId  String?
+  targetDepartment    Department?                   @relation("LogAttachmentTargetDepartment", fields: [targetDepartmentId], references: [id], onDelete: Restrict)
+  timingMode          LogAttachmentTimingMode
+  calendarCadence     LogAttachmentCalendarCadence?
+  calendarDaysOfWeek  Int[]                         @default([])
+  calendarDayOfMonth  Int?
+  calendarDueTimeLocal String?
+  allowAdHoc          Boolean                       @default(false)
+  dailyWindows        LogAttachmentDailyWindow[]
+  cycleSelections     LogAttachmentCycleSelection[]
+  evidenceRecords     OperationalEvidenceRecord[]
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  @@unique([facilityId, stableKey])
+  @@index([facilityId, departmentId, status])
+  @@index([facilityId, catalogStableKey])
+  @@index([catalogDefinitionId])
+  @@index([assetId])
+  @@index([spaceId])
+  @@index([unitId])
+  @@index([targetDepartmentId])
+  @@index([effectiveFrom])
+}
+
+model LogAttachmentDailyWindow {
+  id              String        @id @default(cuid())
+  attachmentId    String
+  attachment      LogAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  label           String
+  startLocal      String
+  endLocal        String
+  displaySequence Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([attachmentId, displaySequence])
+  @@index([attachmentId])
+}
+
+model LogAttachmentCycleSelection {
+  id              String        @id @default(cuid())
+  attachmentId    String
+  attachment      LogAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  cycleStableKey  String
+  displaySequence Int           @default(100)
+  createdAt       DateTime      @default(now())
+
+  @@unique([attachmentId, cycleStableKey])
+  @@index([attachmentId])
+  @@index([cycleStableKey])
 }

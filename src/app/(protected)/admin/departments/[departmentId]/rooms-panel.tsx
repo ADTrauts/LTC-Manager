@@ -47,8 +47,8 @@ export function RoomsPanel({ view }: Props) {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Rooms"
-        description={`Department-assigned rooms from Facility Builder, grouped by ${floorLabel} and ${neighborhoodLabel}. Recommendations are advisory only.`}
+        title="Room mapping"
+        description="Department-assigned rooms from Facility Builder. Prefer the Locations tab for day-to-day classification."
       />
       {!editable ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">

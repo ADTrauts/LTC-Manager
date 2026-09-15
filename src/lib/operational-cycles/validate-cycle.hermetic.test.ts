@@ -68,7 +68,7 @@ test("SERVICE without mealType warns on draft and errors on publish", () => {
 });
 
 test("EXPLICIT_UNITS and UNIT_TYPES require selections", () => {
-  const explicit = validateCycle({
+  const explicitDraft = validateCycle({
     label: "Prep",
     cycleType: "PREPARATION",
     startLocal: "05:00",
@@ -78,7 +78,21 @@ test("EXPLICIT_UNITS and UNIT_TYPES require selections", () => {
     locationMode: "EXPLICIT_UNITS",
     unitIds: [],
   });
-  assert.ok(explicit.errors.some((e) => e.code === "explicit_units_required"));
+  assert.equal(explicitDraft.valid, true);
+  assert.ok(explicitDraft.warnings.some((w) => w.code === "explicit_locations_empty"));
+
+  const explicitPublish = validateCycle({
+    label: "Prep",
+    cycleType: "PREPARATION",
+    startLocal: "05:00",
+    endLocal: "07:00",
+    applicableDaysOfWeek: [1],
+    effectiveFrom: "2026-08-01",
+    locationMode: "EXPLICIT_UNITS",
+    unitIds: [],
+    forPublish: true,
+  });
+  assert.ok(explicitPublish.errors.some((e) => e.code === "explicit_locations_required"));
 
   const types = validateCycle({
     label: "Prep",
@@ -93,37 +107,146 @@ test("EXPLICIT_UNITS and UNIT_TYPES require selections", () => {
   assert.ok(types.errors.some((e) => e.code === "unit_types_required"));
 });
 
-test("overlapping published cycles rejected on publish", () => {
+test("same stableKey peers are ignored for publish overlap", () => {
   const peers = [
     {
-      id: "p1",
-      label: "Breakfast A",
-      startLocal: "07:00",
-      endLocal: "09:00",
+      id: "prior",
+      label: "Dinner v1",
+      startLocal: "17:00",
+      endLocal: "19:00",
       overnight: false,
-      applicableDaysOfWeek: [1, 2, 3, 4, 5],
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
       locationMode: "ALL_DEPARTMENT_UNITS" as const,
       applicableUnitTypes: [],
       unitIds: [],
+      effectiveFrom: "2026-08-01",
+      effectiveTo: null,
+      stableKey: "dinner",
     },
   ];
   const result = validateCycleForPublish(
     {
-      label: "Breakfast B",
+      label: "Dinner",
       cycleType: "SERVICE",
-      startLocal: "08:00",
-      endLocal: "10:00",
-      overnight: false,
-      applicableDaysOfWeek: [3, 4],
-      effectiveFrom: "2026-08-01",
-      mealType: "BREAKFAST",
+      startLocal: "17:15",
+      endLocal: "19:00",
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      effectiveFrom: "2026-08-11",
+      mealType: "DINNER",
       locationMode: "ALL_DEPARTMENT_UNITS",
+      expectedMilestones: ["READY"],
+      stableKey: "dinner",
     },
     peers,
     "UTC",
   );
-  assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.code === "overlap_published"));
+  assert.equal(result.valid, true);
+});
+
+test("distinct published cycles may overlap in clock time", () => {
+  const peers = [
+    {
+      id: "p1",
+      label: "Morning Prep",
+      startLocal: "05:30",
+      endLocal: "07:10",
+      overnight: false,
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      locationMode: "ALL_DEPARTMENT_UNITS" as const,
+      applicableUnitTypes: [],
+      unitIds: [],
+      stableKey: "morning_prep",
+    },
+  ];
+  const result = validateCycleForPublish(
+    {
+      label: "Breakfast Service",
+      cycleType: "SERVICE",
+      startLocal: "07:00",
+      endLocal: "09:00",
+      overnight: false,
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      effectiveFrom: "2026-08-01",
+      mealType: "BREAKFAST",
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      stableKey: "breakfast_service",
+    },
+    peers,
+    "UTC",
+  );
+  assert.equal(result.valid, true);
+  assert.equal(result.errors.some((e) => e.code === "overlap_published"), false);
+  assert.ok(result.warnings.some((w) => w.code === "overlap_published"));
+});
+
+test("Kitchen and Servery scoped cycles can coexist even with overlapping times", () => {
+  const result = validateCycleForPublish(
+    {
+      label: "Breakfast Production",
+      cycleType: "PREPARATION",
+      startLocal: "05:30",
+      endLocal: "08:00",
+      overnight: false,
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      effectiveFrom: "2026-08-01",
+      locationMode: "EXPLICIT_UNITS",
+      unitIds: [],
+      spaceIds: ["main-kitchen"],
+      stableKey: "breakfast_production",
+    },
+    [
+      {
+        id: "servery",
+        label: "Breakfast Service",
+        startLocal: "07:00",
+        endLocal: "09:00",
+        overnight: false,
+        applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+        locationMode: "ROOM_TYPE",
+        applicableUnitTypes: [],
+        unitIds: [],
+        stableKey: "breakfast_service",
+      },
+    ],
+    "UTC",
+  );
+  assert.equal(result.valid, true);
+  assert.equal(result.errors.length, 0);
+});
+
+test("Retail and Servery scoped cycles can coexist", () => {
+  const result = validateCycleForPublish(
+    {
+      label: "Retail Breakfast",
+      cycleType: "SERVICE",
+      startLocal: "07:00",
+      endLocal: "10:00",
+      overnight: false,
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      effectiveFrom: "2026-08-01",
+      mealType: "BREAKFAST",
+      locationMode: "EXPLICIT_UNITS",
+      unitIds: [],
+      spaceIds: ["retail"],
+      stableKey: "retail_breakfast",
+    },
+    [
+      {
+        id: "servery",
+        label: "Breakfast Service",
+        startLocal: "07:00",
+        endLocal: "09:00",
+        overnight: false,
+        applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+        locationMode: "ROOM_TYPE",
+        applicableUnitTypes: [],
+        unitIds: [],
+        stableKey: "breakfast_service",
+      },
+    ],
+    "UTC",
+  );
+  assert.equal(result.valid, true);
 });
 
 test("findOverlappingPublishedCycles ignores overnight peers", () => {
@@ -155,6 +278,71 @@ test("findOverlappingPublishedCycles ignores overnight peers", () => {
     "UTC",
   );
   assert.equal(overlaps.length, 0);
+});
+
+test("ROOM_TYPE scope requires a standard Facility Room Type when legacy key is set", () => {
+  const custom = validateCycle({
+    label: "Breakfast Service",
+    cycleType: "SERVICE",
+    startLocal: "06:45",
+    endLocal: "09:00",
+    applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    effectiveFrom: "2026-08-01",
+    locationMode: "ROOM_TYPE",
+    roomTypeKey: "custom:banquet",
+    mealType: "BREAKFAST",
+  });
+  assert.equal(custom.valid, false);
+  assert.ok(custom.errors.some((e) => e.code === "room_type_required"));
+
+  const ok = validateCycle({
+    label: "Breakfast Service",
+    cycleType: "SERVICE",
+    startLocal: "06:45",
+    endLocal: "09:00",
+    applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    effectiveFrom: "2026-08-01",
+    locationMode: "ROOM_TYPE",
+    roomTypeKey: "servery",
+    mealType: "BREAKFAST",
+  });
+  assert.equal(ok.valid, true);
+});
+
+test("distinct scoped cycles may overlap — publish warning only", () => {
+  const result = validateCycleForPublish(
+    {
+      label: "Breakfast Production",
+      cycleType: "PREPARATION",
+      startLocal: "05:30",
+      endLocal: "08:30",
+      applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      effectiveFrom: "2026-08-01",
+      locationMode: "EXPLICIT_UNITS",
+      spaceIds: ["kitchen"],
+      unitIds: [],
+      stableKey: "breakfast_production",
+    },
+    [
+      {
+        id: "svc",
+        label: "Breakfast Service",
+        startLocal: "06:45",
+        endLocal: "09:00",
+        overnight: false,
+        applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+        locationMode: "ROOM_TYPE",
+        applicableUnitTypes: [],
+        unitIds: [],
+        effectiveFrom: "2026-08-01",
+        effectiveTo: null,
+        stableKey: "breakfast_service",
+      },
+    ],
+    "UTC",
+  );
+  assert.equal(result.valid, true);
+  assert.ok(result.warnings.some((w) => w.code === "overlap_published"));
 });
 
 test("validation never invents Blocked status", () => {

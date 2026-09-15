@@ -1,4 +1,4 @@
-import { EmployeeStatus, type Prisma } from "@prisma/client";
+import { EmployeeStatus, type MealType, type Prisma } from "@prisma/client";
 
 import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { getFacilityServiceDate } from "@/lib/operational-time";
@@ -81,6 +81,7 @@ export async function loadDashboardQueries(
         id: true,
         name: true,
         unitType: true,
+        parentUnitId: true,
         mealTimes: {
           where: { isActive: true },
           orderBy: { mealType: "asc" },
@@ -116,13 +117,17 @@ export async function loadDashboardQueries(
         mealType: true,
       },
     }),
+    // Legacy rows (unit-placed shifts) only. Filtering on `unit` already excludes
+    // canonical Shifts with null unitId (no Unit relation to match).
     prisma.scheduleEntry.findMany({
       where: {
         date: { gte: window.start, lt: window.end },
         unit: unitRelationScope,
       },
       select: { unitId: true, shift: true },
-    }),
+    }).then((rows) =>
+      rows.filter((row): row is typeof row & { unitId: string } => row.unitId != null),
+    ),
     prisma.assignmentOverride.findMany({
       where: {
         date: { gte: window.start, lt: window.end },
@@ -229,8 +234,16 @@ export async function loadDashboardQueries(
     }),
   ]);
 
-  return {
+  const unitsWithTiming = await overlayDashboardMealTimings({
+    facilityId,
+    facilityTimezone: options?.facilityTimezone ?? null,
+    now,
     units,
+    events: serveryMealServiceEventsToday,
+  });
+
+  return {
+    units: unitsWithTiming,
     assignments,
     submissionsToday,
     scheduleEntriesToday,
@@ -244,4 +257,86 @@ export async function loadDashboardQueries(
     managerCount,
     month,
   };
+}
+
+async function overlayDashboardMealTimings<
+  TUnit extends {
+    id: string;
+    parentUnitId: string | null;
+    mealTimes: Array<{ mealType: MealType; scheduledTime: string }>;
+  },
+  TEvent extends {
+    unitId: string;
+    mealType: MealType;
+    mealServiceStartedAt: Date | null;
+  },
+>(input: {
+  facilityId: string;
+  facilityTimezone: string | null;
+  now: Date;
+  units: TUnit[];
+  events: TEvent[];
+}): Promise<TUnit[]> {
+  const dietary = await prisma.department.findFirst({
+    where: { facilityId: input.facilityId, key: "DIETARY", isActive: true },
+    select: { id: true },
+  });
+  if (!dietary) return input.units;
+
+  const { materializeMealServiceDayExpectations, timingsForOwnerUnits } =
+    await import("@/lib/operational-cycles/materialize-day-expectations");
+  const { timingOwnerUnitIds } = await import("@/lib/operational-cycles/plan-day-expectations");
+  const { describeMealServiceTiming, localHhMmFromInstant } = await import(
+    "@/lib/operational-cycles/day-expectation"
+  );
+
+  let materialized;
+  try {
+    materialized = await materializeMealServiceDayExpectations({
+      facilityId: input.facilityId,
+      departmentId: dietary.id,
+      now: input.now,
+    });
+  } catch (error) {
+    // Stale Prisma client / missing table must not take down the whole workspace.
+    console.warn("[dashboard] meal timing overlay skipped:", error);
+    return input.units;
+  }
+  if (materialized.timings.length === 0) return input.units;
+
+  const timezone = input.facilityTimezone ?? "UTC";
+  return input.units.map((unit) => {
+    const ownerIds = timingOwnerUnitIds({
+      id: unit.id,
+      parentUnitId: unit.parentUnitId,
+    });
+    const unitTimings = timingsForOwnerUnits(materialized.timings, ownerIds);
+    if (unitTimings.length === 0) return unit;
+
+    const relatedIds = new Set(ownerIds);
+    return {
+      ...unit,
+      mealTimes: unitTimings.map((timing) => {
+        const event = input.events.find(
+          (row) => relatedIds.has(row.unitId) && row.mealType === timing.mealType,
+        );
+        const actualTime = event?.mealServiceStartedAt
+          ? localHhMmFromInstant(event.mealServiceStartedAt, timezone)
+          : null;
+        const status = describeMealServiceTiming({
+          configuredTime: timing.configuredTime,
+          adjustedTime: timing.adjustedTime,
+          actualLocalHhMm: actualTime,
+        });
+        return {
+          mealType: timing.mealType as TUnit["mealTimes"][number]["mealType"],
+          scheduledTime: timing.expectedToday ?? "",
+          configuredTime: timing.configuredTime,
+          adjustedTime: timing.adjustedTime,
+          actualTime,
+          timingStatusLabel: status.label,
+        };
+      }),
+    } as TUnit;
+  });
 }

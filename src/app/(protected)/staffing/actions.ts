@@ -173,7 +173,8 @@ export async function createScheduleEntryAction(formData: FormData) {
       unitId: parsed.unitId,
       date: scheduleDate,
       shift: parsed.shift,
-      roleType: parsed.roleType ?? employee.roleType,
+      // roleType is demoted from required Shift field (migration 81). Preserve for legacy rows.
+      roleType: parsed.roleType ?? employee.roleType ?? undefined,
       plannedStart: parsed.plannedStart,
       plannedEnd: parsed.plannedEnd,
       createdById: session.authKind === "user" ? session.uid : undefined,

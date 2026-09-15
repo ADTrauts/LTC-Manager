@@ -263,6 +263,8 @@ export async function loadBusinessWorkspace(
           : "Facility Overview",
       operation: oc.operationContext,
       healthy,
+      keyTimeSummaries: oc.keyTimeSummaries ?? [],
+      runPresentation: oc.runPresentation ?? null,
     },
     managerFocus,
     managerFocusHealthy,

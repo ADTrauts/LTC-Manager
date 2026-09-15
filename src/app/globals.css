@@ -1,15 +1,45 @@
 @import "tailwindcss";
 
+/**
+ * LTC Manager design tokens (CSS).
+ * Build blue = mode chrome only — semantic warning badges remain amber.
+ * Semantic status colors live in status-styles.ts (Tailwind) for components.
+ */
 :root {
+  /* Neutral foundation */
   --background: #f4f4f5;
   --foreground: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --divider: #e4e4e7;
+
+  /* Brand (facility override via ShellModeFrame) */
   --brand-accent: #18181b;
   --brand-accent-border: color-mix(in srgb, var(--brand-accent) 24%, #e4e4e7);
   --brand-accent-soft: color-mix(in srgb, var(--brand-accent) 12%, white);
+
+  /* Build mode chrome (cool configuration wash — not a status color) */
+  --build-surface: #eff6ff;
+  --build-border: #bfdbfe;
+  --build-accent-text: #1d4ed8;
+
+  /* Semantic status (prefer status-styles.ts in React; keep vars for rare CSS use) */
   --status-complete: #16a34a;
   --status-progress: #ca8a04;
   --status-alert: #dc2626;
   --status-muted: #71717a;
+
+  /* Shape */
+  --radius-control: 0.375rem;
+  --radius-panel: 0.5rem;
+  --radius-floating: 0.5rem;
+
+  /* Focus */
+  --focus-ring: #18181b;
 }
 
 html {
@@ -32,50 +62,55 @@ body {
 input,
 select,
 textarea {
-  color: #18181b;
-  background: #ffffff;
-  border-color: #d4d4d8;
+  color: var(--foreground);
+  background: var(--surface);
+  border-color: var(--border-strong);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #71717a;
+  color: var(--text-muted);
 }
 
 select option {
-  color: #18181b;
-  background: #ffffff;
+  color: var(--foreground);
+  background: var(--surface);
 }
 
+/**
+ * Legacy utility classes — prefer design-system React primitives for new UI.
+ * Kept for gradual migration; do not introduce new parallel .app-* recipes.
+ */
 .app-card {
-  border: 1px solid #e4e4e7;
-  border-radius: 0.75rem;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   padding: 1rem;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  /* Contained surface: border only — no shadow on ordinary cards */
+  box-shadow: none;
 }
 
 .app-input {
   min-height: 2.5rem;
-  border: 1px solid #d4d4d8;
-  border-radius: 0.375rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  color: #18181b;
-  background: #ffffff;
+  color: var(--foreground);
+  background: var(--surface);
 }
 
 .app-input::placeholder {
-  color: #71717a;
+  color: var(--text-muted);
 }
 
 .app-button {
   min-height: 2.5rem;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-control);
   padding: 0.5rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #18181b;
+  color: var(--foreground);
 }
 
 .app-accent-divider {
@@ -101,6 +136,10 @@ select option {
   background: var(--brand-accent-soft);
 }
 
+/**
+ * Legacy status pills — prefer StatusBadge + status-styles.ts.
+ * Do not add new call sites.
+ */
 .status-pill {
   border-radius: 9999px;
   padding: 0.125rem 0.5rem;
@@ -111,20 +150,22 @@ select option {
 /**
  * BUILD product-mode chrome treatment.
  *
- * A restrained amber wash on the shell header and the mode indicator so BUILD reads as distinct
- * from RUN at a glance, without turning the whole application orange or implying an alarm/error.
- * Driven from a single source: the shell root publishes `data-product-mode` (see ShellModeFrame),
- * so BUILD detection is never duplicated per surface. RUN and ADMIN keep the neutral treatment.
- * Colour is only a reinforcement — the visible "Build" / "Build Home" text remains the primary cue.
+ * Soft blue wash = "you are configuring" — separate from warning/in-progress.
+ * Driven from data-product-mode on ShellModeFrame.
  */
 [data-product-mode="BUILD"] [data-shell-region="header"] {
-  background-color: #fffbeb; /* amber-50 */
-  border-bottom-color: #fde68a; /* amber-200 */
+  background-color: var(--build-surface);
+  border-bottom-color: var(--build-border);
 }
 
 [data-product-mode="BUILD"] [data-shell-region="mode-indicator"] {
-  background-color: #fffbeb; /* amber-50 */
-  border-bottom-color: #fde68a; /* amber-200 */
+  background-color: var(--build-surface);
+  border-bottom-color: var(--build-border);
+}
+
+[data-product-mode="BUILD"] [data-shell-region="build-sidebar"] {
+  background-color: var(--build-surface);
+  border-right-color: var(--build-border);
 }
 
 /** Compact header nav: hide native scrollbar while keeping scroll/keyboard access. */
@@ -135,6 +176,32 @@ select option {
 
 .shell-nav-scroller::-webkit-scrollbar {
   display: none;
+}
+
+/**
+ * Builder tree essential controls: visible on touch / compact widths;
+ * hover-reveal on desktop pointer devices (xl+ with fine pointer).
+ */
+@layer utilities {
+  .builder-essential-touch-visible {
+    opacity: 1;
+  }
+
+  @media (min-width: 1280px) and (hover: hover) and (pointer: fine) {
+    .builder-essential-touch-visible {
+      opacity: 0;
+      transition: opacity 150ms ease;
+    }
+
+    .group\/unit:hover .builder-essential-touch-visible,
+    .group\/unit:focus-within .builder-essential-touch-visible,
+    .group:hover .builder-essential-touch-visible,
+    .group:focus-within .builder-essential-touch-visible,
+    .builder-essential-touch-visible:focus-within,
+    .builder-essential-touch-visible.builder-essential-selected {
+      opacity: 1;
+    }
+  }
 }
 
 .status-pill-complete {

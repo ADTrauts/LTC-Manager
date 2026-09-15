@@ -79,7 +79,7 @@ export function TopNav({ items }: TopNavProps) {
   if (groups.length === 0) return null;
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+    <div className="hidden min-w-0 flex-1 items-center gap-2 xl:flex sm:gap-3">
       <div className="relative min-w-0 flex-1">
         {canScrollLeft ? (
           <div

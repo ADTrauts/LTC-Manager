@@ -12,10 +12,14 @@
 import type { Prisma } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
+import type { AuthMethod } from "@/lib/auth";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
-import { materializeBaselineProfilePlan } from "./baseline";
+import {
+  isBaselineDepartmentKey,
+  materializeBaselineProfilePlan,
+} from "./baseline";
 import {
   validateProfileForCertification,
   type CertificationResult,
@@ -27,7 +31,11 @@ import {
   nextProfileVersion,
   planProfileActivation,
 } from "./lifecycle";
-import { assertProfileWriteAccess } from "./profile-access";
+import {
+  assertPatternAuthoringAccess,
+  assertProfileWriteAccess,
+} from "./profile-access";
+import { uniqueOperationalTypeKey } from "./operational-type";
 import type {
   ExperienceConfiguration,
   ProfileSnapshot,
@@ -41,12 +49,22 @@ export type ProfileActor = {
   userId: string | null;
   role: AppRole;
   facilityId: string;
+  authMethod?: AuthMethod;
 };
 
 function assertWrite(actor: ProfileActor, targetFacilityId: string): void {
   assertProfileWriteAccess({
     flagEnabled: isDepartmentOperationalProfilesEnabled(),
     role: actor.role,
+    sessionFacilityId: actor.facilityId,
+    targetFacilityId,
+  });
+}
+
+function assertPatternWrite(actor: ProfileActor, targetFacilityId: string): void {
+  assertPatternAuthoringAccess({
+    role: actor.role,
+    authMethod: actor.authMethod ?? "PASSWORD",
     sessionFacilityId: actor.facilityId,
     targetFacilityId,
   });
@@ -190,7 +208,7 @@ export async function createBaselineDraft(
   actor: ProfileActor,
   input: { facilityId: string; departmentId: string },
 ): Promise<{ profileId: string; version: number }> {
-  assertWrite(actor, input.facilityId);
+  assertPatternWrite(actor, input.facilityId);
 
   const department = await prisma.department.findUniqueOrThrow({
     where: { id: input.departmentId },
@@ -388,7 +406,7 @@ export async function createNextDraftVersion(
   sourceProfileId: string,
 ): Promise<{ profileId: string; version: number }> {
   const source = await loadProfile(sourceProfileId);
-  assertWrite(actor, source.facilityId);
+  assertPatternWrite(actor, source.facilityId);
 
   const versions = await prisma.departmentOperationalProfile.findMany({
     where: { departmentId: source.departmentId },
@@ -512,7 +530,7 @@ export async function bindRoomToArchetype(
     where: { id: input.profileId },
     select: { id: true, facilityId: true, departmentId: true, status: true },
   });
-  assertWrite(actor, profile.facilityId);
+  assertPatternWrite(actor, profile.facilityId);
   assertProfileEditable(profile.status);
 
   const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
@@ -633,12 +651,97 @@ export async function clearRoomArchetypeBinding(
     where: { id: input.profileId },
     select: { id: true, facilityId: true, status: true },
   });
-  assertWrite(actor, profile.facilityId);
+  assertPatternWrite(actor, profile.facilityId);
   assertProfileEditable(profile.status);
 
   await prisma.departmentRoomArchetypeBinding.deleteMany({
     where: { profileId: profile.id, unitSpaceId: input.unitSpaceId },
   });
+}
+
+export async function bindRoomsToArchetype(
+  actor: ProfileActor,
+  input: { profileId: string; archetypeId: string; unitSpaceIds: readonly string[] },
+): Promise<{ bound: number }> {
+  const uniqueIds = [...new Set(input.unitSpaceIds.filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    throw new Error("Select at least one location.");
+  }
+  let bound = 0;
+  for (const unitSpaceId of uniqueIds) {
+    await bindRoomToArchetype(actor, {
+      profileId: input.profileId,
+      archetypeId: input.archetypeId,
+      unitSpaceId,
+    });
+    bound += 1;
+  }
+  return { bound };
+}
+
+/** From-scratch DRAFT for departments without a system baseline. */
+async function createEmptyPatternDraft(
+  actor: ProfileActor,
+  input: { facilityId: string; departmentId: string; departmentName: string },
+): Promise<{ profileId: string; version: number }> {
+  assertPatternWrite(actor, input.facilityId);
+  const existing = await prisma.departmentOperationalProfile.findMany({
+    where: { departmentId: input.departmentId },
+    select: { version: true },
+  });
+  const version = nextProfileVersion(existing.map((p) => p.version));
+  const profile = await prisma.departmentOperationalProfile.create({
+    data: {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      name: `${input.departmentName} operational types`,
+      version,
+      status: "DRAFT",
+      createdByUserId: actor.userId,
+    },
+  });
+  return { profileId: profile.id, version };
+}
+
+/** Ensure a DRAFT profile exists so Locations can author operational types. */
+export async function ensureWorkingDraftForPatterns(
+  actor: ProfileActor,
+  input: { facilityId: string; departmentId: string },
+): Promise<{ profileId: string; version: number; created: boolean }> {
+  assertPatternWrite(actor, input.facilityId);
+
+  const rows = await prisma.departmentOperationalProfile.findMany({
+    where: { facilityId: input.facilityId, departmentId: input.departmentId },
+    orderBy: [{ version: "desc" }],
+    select: { id: true, version: true, status: true },
+  });
+  const draft = rows.find((r) => r.status === "DRAFT");
+  if (draft) {
+    return { profileId: draft.id, version: draft.version, created: false };
+  }
+
+  if (rows.length === 0) {
+    const department = await prisma.department.findFirst({
+      where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+      select: { key: true, name: true },
+    });
+    if (!department) throw new Error("Department not found.");
+    const created = isBaselineDepartmentKey(department.key)
+      ? await createBaselineDraft(actor, input)
+      : await createEmptyPatternDraft(actor, {
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+          departmentName: department.name,
+        });
+    return { ...created, created: true };
+  }
+
+  const source =
+    rows.find((r) => r.status === "ACTIVE") ??
+    rows.find((r) => r.status === "CERTIFIED") ??
+    rows[0]!;
+  const next = await createNextDraftVersion(actor, source.id);
+  return { ...next, created: true };
 }
 
 export async function removeRoomExperienceException(
@@ -678,6 +781,19 @@ async function loadEditableProfile(
     select: { id: true, facilityId: true, departmentId: true, status: true },
   });
   assertWrite(actor, profile.facilityId);
+  assertProfileEditable(profile.status);
+  return profile as { id: string; facilityId: string; departmentId: string; status: "DRAFT" };
+}
+
+async function loadEditablePatternProfile(
+  actor: ProfileActor,
+  profileId: string,
+): Promise<{ id: string; facilityId: string; departmentId: string; status: "DRAFT" }> {
+  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
+    where: { id: profileId },
+    select: { id: true, facilityId: true, departmentId: true, status: true },
+  });
+  assertPatternWrite(actor, profile.facilityId);
   assertProfileEditable(profile.status);
   return profile as { id: string; facilityId: string; departmentId: string; status: "DRAFT" };
 }
@@ -816,18 +932,38 @@ export async function createRoomArchetype(
   actor: ProfileActor,
   input: {
     profileId: string;
-    key: string;
+    key?: string;
     name: string;
     description?: string | null;
   },
 ): Promise<{ archetypeId: string }> {
-  const profile = await loadEditableProfile(actor, input.profileId);
-  const key = input.key.trim().toLowerCase().replace(/\s+/g, "_");
-  if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
-    throw new Error("Archetype key must be lowercase snake_case.");
-  }
+  const profile = await loadEditablePatternProfile(actor, input.profileId);
   const name = input.name.trim();
-  if (!name) throw new Error("Archetype name is required.");
+  if (!name) throw new Error("Operational type name is required.");
+
+  const existing = await prisma.departmentRoomArchetype.findMany({
+    where: { profileId: profile.id },
+    select: { key: true, name: true },
+  });
+  const nameTaken = existing.some(
+    (row) => row.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (nameTaken) {
+    throw new Error(`An operational type named “${name}” already exists.`);
+  }
+
+  const key = input.key?.trim()
+    ? input.key.trim().toLowerCase().replace(/\s+/g, "_")
+    : uniqueOperationalTypeKey(
+        name,
+        existing.map((row) => row.key),
+      );
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
+    throw new Error("Operational type key must be lowercase snake_case.");
+  }
+  if (existing.some((row) => row.key === key)) {
+    throw new Error("An operational type with that key already exists.");
+  }
 
   const maxSort = await prisma.departmentRoomArchetype.aggregate({
     where: { profileId: profile.id },
@@ -856,7 +992,7 @@ export async function updateRoomArchetype(
     isActive?: boolean;
   },
 ): Promise<void> {
-  const profile = await loadEditableProfile(actor, input.profileId);
+  const profile = await loadEditablePatternProfile(actor, input.profileId);
   const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
     where: { id: input.archetypeId },
     select: { profileId: true },
@@ -872,7 +1008,19 @@ export async function updateRoomArchetype(
   } = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Archetype name is required.");
+    if (!name) throw new Error("Name is required.");
+    const existing = await prisma.departmentRoomArchetype.findMany({
+      where: { profileId: profile.id },
+      select: { id: true, name: true },
+    });
+    const nameTaken = existing.some(
+      (row) =>
+        row.id !== input.archetypeId &&
+        row.name.trim().toLowerCase() === name.toLowerCase(),
+    );
+    if (nameTaken) {
+      throw new Error(`A configuration named “${name}” already exists.`);
+    }
     data.name = name;
   }
   if (input.description !== undefined) {
@@ -904,7 +1052,7 @@ export async function setArchetypeExperiences(
     }[];
   },
 ): Promise<void> {
-  const profile = await loadEditableProfile(actor, input.profileId);
+  const profile = await loadEditablePatternProfile(actor, input.profileId);
   const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
     where: { id: input.archetypeId },
     select: { profileId: true },

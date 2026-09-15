@@ -41,7 +41,8 @@ export type CoverageData = {
 
 export type CoverageScheduleEntry = {
   employeeId: string;
-  unitId: string;
+  /** Nullable on new canonical Shifts; legacy rows always have a value. */
+  unitId: string | null;
   shift: ShiftType;
   employeeFirstName: string;
   employeeLastName: string;
@@ -74,7 +75,7 @@ export function formatCoverageShift(shift: ShiftType): string {
 }
 
 export function buildStaffingHref(dateIso: string, unitId: string): string {
-  return `/staffing?date=${dateIso}#staffing-unit-${unitId}`;
+  return `/staffing/legacy?date=${dateIso}#staffing-unit-${unitId}`;
 }
 
 function countOverridesForUnit(
@@ -94,6 +95,9 @@ function buildEffectiveAssignmentsByUnit(
   >();
 
   for (const entry of schedules) {
+    // Legacy rows always have a unitId; new canonical Shifts may not. Skip unit-less rows
+    // for coverage bucketing — they will appear in presence counts but not unit-specific coverage.
+    if (!entry.unitId) continue;
     effectiveUnitByEmployee.set(entry.employeeId, {
       unitId: entry.unitId,
       shift: entry.shift,

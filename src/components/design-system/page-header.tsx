@@ -57,11 +57,7 @@ export function PageHeader({
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{eyebrow}</p>
             ) : null}
             <div className={`flex flex-wrap items-center gap-2 ${eyebrow ? "mt-1" : ""}`}>
-              <h1
-                className={`font-semibold tracking-tight text-zinc-900 ${
-                  compact ? "text-xl sm:text-2xl" : "text-2xl"
-                }`}
-              >
+              <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
                 {title}
               </h1>
               {status ? <div className="shrink-0">{status}</div> : null}

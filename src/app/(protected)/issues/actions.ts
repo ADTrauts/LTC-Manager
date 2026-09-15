@@ -399,8 +399,8 @@ export async function reopenIssueAction(formData: FormData): Promise<IssueAction
 
   const issue = await loadFacilityIssue(parsed.issueId, session.facilityId);
   if (!issue) return { ok: false, message: "Issue not found." };
-  if (issue.status !== RepairStatus.CLOSED) {
-    return { ok: false, message: "Only resolved issues can be reopened." };
+  if (issue.status !== RepairStatus.CLOSED && issue.status !== RepairStatus.COMPLETED) {
+    return { ok: false, message: "Only completed repairs can be reopened." };
   }
 
   const nextStatus = issue.assignedEmployeeId

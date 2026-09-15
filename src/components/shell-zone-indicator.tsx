@@ -39,7 +39,7 @@ export function ShellZoneIndicator() {
   const onBuildHome = pathname === BUILD_HUB_HOME_HREF;
 
   const modeChipClass = isBuild
-    ? "text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700"
+    ? "text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700"
     : "text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500";
 
   return (
@@ -51,7 +51,7 @@ export function ShellZoneIndicator() {
         {isBuild && !onBuildHome ? (
           <Link
             href={BUILD_HUB_HOME_HREF}
-            className={`${modeChipClass} rounded-sm hover:text-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500`}
+            className={`${modeChipClass} rounded-sm hover:text-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500`}
             title="Back to Build Home"
             data-product-mode={mode}
             data-testid="mode-indicator-build-home"

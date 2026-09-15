@@ -45,10 +45,13 @@ export default async function EvidenceLogBookRecordPage({
     recordId,
   });
   const record = detail.record;
-  const snapshot =
+  const snapshotRaw =
     record.templateSnapshotJson && typeof record.templateSnapshotJson === "object"
-      ? (record.templateSnapshotJson as { name?: string; version?: number; instructions?: string })
+      ? (record.templateSnapshotJson as Record<string, unknown>)
       : {};
+  const isCanonical =
+    snapshotRaw.kind === "CANONICAL_LOG" || snapshotRaw.snapshotSchemaVersion === 2;
+  const snapshot = snapshotRaw as { name?: string; version?: number; instructions?: string };
 
   return (
     <section
@@ -57,13 +60,25 @@ export default async function EvidenceLogBookRecordPage({
     >
       <PageHeader
         title={record.templateName}
-        subtitle={`Version ${record.templateVersion} · ${record.purposeType}`}
+        subtitle={
+          isCanonical
+            ? `Log record · Catalog version ${record.templateVersion}`
+            : `Version ${record.templateVersion} · ${record.purposeType}`
+        }
         compact
         actions={
           <div className="flex gap-3 text-sm print:hidden">
             <Link href="/staffing/log-book" className="underline-offset-2 hover:underline">
               Back to Log Book
             </Link>
+            {isCanonical ? (
+              <Link
+                href={`/staffing/logs/records/${record.id}`}
+                className="underline-offset-2 hover:underline"
+              >
+                Canonical view
+              </Link>
+            ) : null}
             <span className="text-zinc-500">Use browser Print for printable view</span>
           </div>
         }

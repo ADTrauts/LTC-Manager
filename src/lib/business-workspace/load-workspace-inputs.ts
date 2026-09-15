@@ -346,7 +346,7 @@ export async function loadBusinessWorkspaceInputs(input: {
         })
       : readiness;
 
-  const scheduleRows = schedules.map((entry) => ({
+  const scheduleRows: import("@/lib/todays-work").CoverageScheduleEntry[] = schedules.map((entry) => ({
     employeeId: entry.employeeId,
     unitId: entry.unitId,
     shift: entry.shift,

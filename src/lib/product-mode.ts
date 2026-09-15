@@ -55,6 +55,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/employees", mode: "BUILD", label: "Employee Builder" },
     { pathPrefix: "/assets/builder", mode: "BUILD", label: "Asset Builder" },
     { pathPrefix: "/menus", mode: "BUILD", label: "Menu Building" },
+    { pathPrefix: "/build/logs", mode: "BUILD", label: "Logs" },
     { pathPrefix: "/staffing/templates", mode: "BUILD", label: "Operational Templates" },
     { pathPrefix: "/staffing/work-plans", mode: "BUILD", label: "Work Plans" },
 
@@ -75,15 +76,16 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/units", mode: "RUN", label: "Locations" },
     { pathPrefix: "/unit", mode: "RUN", label: "Location Runtime" },
     { pathPrefix: "/staffing/log-book", mode: "RUN", label: "Log Book" },
+    { pathPrefix: "/staffing/logs", mode: "RUN", label: "Logs" },
     { pathPrefix: "/staffing/cycles", mode: "RUN", label: "Operational Cycles" },
     { pathPrefix: "/staffing/operations", mode: "RUN", label: "Supervisor Operations" },
     { pathPrefix: "/staffing/assignments", mode: "RUN", label: "Assignments" },
-    { pathPrefix: "/staffing", mode: "RUN", label: "Employees" },
-    { pathPrefix: "/logs", mode: "RUN", label: "Logs" },
+    { pathPrefix: "/staffing", mode: "RUN", label: "Schedule" },
+    { pathPrefix: "/logs", mode: "RUN", label: "Legacy Logs" },
     { pathPrefix: "/assets", mode: "RUN", label: "Assets" },
     { pathPrefix: "/asset-issues", mode: "RUN", label: "Asset Issues" },
     { pathPrefix: "/repairs", mode: "RUN", label: "Repairs" },
-    { pathPrefix: "/issues", mode: "RUN", label: "Issues" },
+    { pathPrefix: "/issues", mode: "RUN", label: "Repairs" },
     { pathPrefix: "/operational-requests", mode: "RUN", label: "Requests" },
     { pathPrefix: "/reports", mode: "RUN", label: "Review" },
   ] satisfies ModePathRule[]
@@ -129,9 +131,8 @@ export type ModeNavItem = { label: string; href: string };
  * The nav items the *global header* should expose for the active mode.
  *
  * - RUN keeps its full canonical operational navigation.
- * - BUILD is organized by the dedicated Build Home hub, so the header exposes only Build Home; the
- *   individual builders are reached from the hub's cards and the breadcrumb return path (they are
- *   never reintroduced as permanent global header links, even if a stale nav source lists them).
+ * - BUILD: no header destinations — Build Home + builders live in the Build left rail
+ *   (and mode indicator return path). Avoids duplicating Build Home in top nav + rail.
  * - ADMIN is a trailing governance destination rendered separately, so it contributes no items here.
  */
 export function headerNavItemsForMode<T extends ModeNavItem>(
@@ -139,7 +140,7 @@ export function headerNavItemsForMode<T extends ModeNavItem>(
   items: readonly T[],
 ): T[] {
   if (mode === "ADMIN") return [];
-  if (mode === "BUILD") return items.filter((item) => item.href === BUILD_HOME_HREF);
+  if (mode === "BUILD") return [];
   return [...items];
 }
 

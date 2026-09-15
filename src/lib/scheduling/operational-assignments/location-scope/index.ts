@@ -50,6 +50,7 @@ export async function resolveAssignmentLocationWrites(
   client: DbClient,
   input: {
     facilityId: string;
+    departmentId: string;
     unitId?: string | null;
     unitSpaceIds: string[];
   },
@@ -67,6 +68,10 @@ export async function resolveAssignmentLocationWrites(
       isActive: true,
       sortOrder: true,
       unit: { select: { id: true, name: true, isActive: true } },
+      responsibilities: {
+        where: { departmentId: input.departmentId },
+        select: { departmentId: true },
+      },
     },
   });
 
@@ -81,6 +86,11 @@ export async function resolveAssignmentLocationWrites(
     const space = byId.get(id)!;
     if (!space.isActive) {
       throw new Error(`Room / Space "${formatAssignmentLocationLabel(space)}" is inactive.`);
+    }
+    if (space.responsibilities.length === 0) {
+      throw new Error(
+        `Room / Space "${formatAssignmentLocationLabel(space)}" is not assigned to the selected Department.`,
+      );
     }
     if (input.unitId && space.unitId && space.unitId !== input.unitId) {
       throw new Error(

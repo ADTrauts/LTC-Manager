@@ -359,8 +359,11 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <Link href="/staffing/assignments" className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50">
               Today
             </Link>
-            <Link href={`/staffing?date=${selectedDateIso}`} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50">
-              Schedule View
+            <Link href={`/staffing?date=${selectedDateIso}`} className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+              Schedule
+            </Link>
+            <Link href={`/staffing/legacy?date=${selectedDateIso}`} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50">
+              Legacy unit staffing
             </Link>
             {isAnyStaffingOperationalFeatureEnabled("cycles") ? (
               <Link
@@ -412,8 +415,8 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                     <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
                   ))}
                 </select>
-                <select name="roleKey" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Role…</option>
+                <select name="roleKey" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Auto (Job Role)</option>
                   {formOptions.roles.map((r) => (
                     <option key={r.key} value={r.key}>{r.label}</option>
                   ))}
@@ -477,8 +480,8 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                     <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
                   ))}
                 </select>
-                <select name="roleKey" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Role…</option>
+                <select name="roleKey" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                  <option value="">Auto (Job Role)</option>
                   {formOptions.roles.map((r) => (
                     <option key={r.key} value={r.key}>{r.label}</option>
                   ))}
@@ -818,9 +821,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                           {a.scopeKind === "SPACES" ? (
                             <p className="mt-0.5 text-xs text-zinc-600" data-testid="assignment-location-scope">
                               {a.sourceZoneName ? `${a.sourceZoneName} · ` : ""}
-                              {a.locationCount} Room{a.locationCount === 1 ? "" : "s"}:{" "}
-                              {a.locationLabels.slice(0, 6).join(", ")}
-                              {a.locationLabels.length > 6 ? ` +${a.locationLabels.length - 6} more` : ""}
+                              {a.scopeSummaryLabel}
                             </p>
                           ) : a.unitName ? (
                             <p className="mt-0.5 text-xs text-zinc-500">Entire Unit</p>

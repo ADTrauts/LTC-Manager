@@ -6,7 +6,17 @@ import { UnitType } from "@prisma/client";
 import { computeUnitReadiness } from "@/lib/readiness";
 import type { OperationsCenterUnitCard } from "@/lib/operations-center";
 import type { UnitReadiness } from "@/lib/readiness/types";
-import { buildWalkListItems, resolveWalkListReason, summarizeWalkList } from "@/lib/todays-work/walk-list";
+import {
+  applyRoomKeyTimeAttention,
+  buildActionableRoomWalkList,
+  buildWalkListItems,
+  collectActionableWalkRooms,
+  resolveWalkListReason,
+  summarizeWalkList,
+  walkListItemKey,
+  walkListWorkspaceCta,
+} from "@/lib/todays-work/walk-list";
+import type { LocationsTreeNode } from "@/lib/locations";
 
 function card(partial: Partial<OperationsCenterUnitCard> & Pick<OperationsCenterUnitCard, "id" | "name">): OperationsCenterUnitCard {
   return {
@@ -105,4 +115,173 @@ test("summarizeWalkList counts buckets", () => {
   assert.equal(summary.blocked, 1);
   assert.equal(summary.inProgress, 1);
   assert.equal(summary.ready, 1);
+});
+
+test("applyRoomKeyTimeAttention replaces ready Neighborhoods with Room rows and ?space= hrefs", () => {
+  const cards = [
+    card({ id: "unit-1a", name: "1A – Naval Park", unitType: UnitType.OTHER, expected: 1, completed: 1 }),
+    card({ id: "unit-1b", name: "1B – Lighthouse", unitType: UnitType.OTHER, expected: 1, completed: 1 }),
+  ];
+  const items = buildWalkListItems(cards, readinessMapFromCards(cards));
+  const next = applyRoomKeyTimeAttention(items, [
+    {
+      unitId: "unit-1a",
+      spaceId: "naval-park-servery",
+      spaceName: "Naval Park Servery",
+      facilityRoomTypeName: "Servery",
+      unitName: "1A – Naval Park",
+      unitType: UnitType.OTHER,
+    },
+  ]);
+  const naval = next.find((item) => item.spaceId === "naval-park-servery");
+  assert.ok(naval);
+  assert.equal(naval?.unitName, "Naval Park Servery");
+  assert.equal(naval?.typeLabel, "Servery");
+  assert.equal(naval?.parentContext, "1A – Naval Park");
+  assert.equal(naval?.href, "/unit/unit-1a?space=naval-park-servery");
+  assert.equal(naval?.reason, "Key Time overdue");
+  assert.equal(walkListWorkspaceCta(naval!), "Open room workspace");
+  assert.equal(walkListItemKey(naval!), "unit-1a:naval-park-servery");
+  assert.equal(
+    next.some((item) => item.unitId === "unit-1a" && !item.spaceId && item.reason === "Key Time overdue"),
+    false,
+  );
+  const lighthouse = next.find((item) => item.unitId === "unit-1b");
+  assert.equal(lighthouse?.unitName, "1B – Lighthouse");
+  assert.equal(lighthouse?.href, "/unit/unit-1b");
+});
+
+function locationNode(
+  partial: Partial<LocationsTreeNode> & Pick<LocationsTreeNode, "kind" | "label" | "physicalId">,
+): LocationsTreeNode {
+  return {
+    id: partial.id ?? partial.physicalId,
+    secondaryLabel: partial.secondaryLabel ?? null,
+    presentation: partial.presentation ?? "STRUCTURAL",
+    hierarchyLevel: partial.hierarchyLevel ?? "LEVEL_1",
+    parentId: partial.parentId ?? null,
+    unitId: partial.unitId ?? null,
+    href: partial.href ?? null,
+    experienceKeys: partial.experienceKeys ?? [],
+    areas: partial.areas ?? [],
+    children: partial.children ?? [],
+    ...partial,
+  };
+}
+
+test("collectActionableWalkRooms excludes structural Floors and keeps actionable Rooms", () => {
+  const roots: LocationsTreeNode[] = [
+    locationNode({
+      kind: "FLOOR",
+      label: "Floor 1",
+      physicalId: "floor-1",
+      unitId: "floor-1",
+      children: [
+        locationNode({
+          kind: "NEIGHBORHOOD",
+          label: "1A – Naval Park",
+          physicalId: "unit-1a",
+          unitId: "unit-1a",
+          children: [
+            locationNode({
+              kind: "ROOM",
+              label: "Naval Park Servery",
+              physicalId: "naval-park-servery",
+              unitId: "unit-1a",
+              presentation: "ACTIONABLE",
+              href: "/unit/unit-1a?space=naval-park-servery",
+            }),
+          ],
+        }),
+      ],
+    }),
+    locationNode({
+      kind: "FLOOR",
+      label: "Floor 2",
+      physicalId: "floor-2",
+      unitId: "floor-2",
+    }),
+  ];
+  const rooms = collectActionableWalkRooms(roots);
+  assert.equal(rooms.length, 1);
+  assert.equal(rooms[0]?.name, "Naval Park Servery");
+  assert.equal(rooms[0]?.parentContext, "1A – Naval Park · Floor 1");
+  assert.equal(rooms[0]?.href, "/unit/unit-1a?space=naval-park-servery");
+});
+
+test("buildActionableRoomWalkList ranks Room grain with Servery type and Key Time overdue", () => {
+  const rooms = collectActionableWalkRooms([
+    locationNode({
+      kind: "NEIGHBORHOOD",
+      label: "1A – Naval Park",
+      physicalId: "unit-1a",
+      unitId: "unit-1a",
+      children: [
+        locationNode({
+          kind: "ROOM",
+          label: "Naval Park Servery",
+          physicalId: "naval-park-servery",
+          unitId: "unit-1a",
+          presentation: "ACTIONABLE",
+          href: "/unit/unit-1a?space=naval-park-servery",
+        }),
+      ],
+    }),
+  ]);
+  const unitItems = buildWalkListItems(
+    [card({ id: "unit-1a", name: "1A – Naval Park", unitType: UnitType.OTHER, expected: 1, completed: 1 })],
+    readinessMapFromCards([
+      card({ id: "unit-1a", name: "1A – Naval Park", unitType: UnitType.OTHER, expected: 1, completed: 1 }),
+    ]),
+  );
+  const items = buildActionableRoomWalkList({
+    rooms,
+    unitItems,
+    keyTimes: [
+      {
+        spaceId: "naval-park-servery",
+        overdueLabel: "Dinner Due overdue",
+        roomTypeLabel: "Servery",
+      },
+    ],
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.unitName, "Naval Park Servery");
+  assert.equal(items[0]?.typeLabel, "Servery");
+  assert.equal(items[0]?.parentContext, "1A – Naval Park");
+  assert.equal(items[0]?.reason, "Dinner Due overdue");
+  assert.equal(items[0]?.href, "/unit/unit-1a?space=naval-park-servery");
+  assert.equal(items.some((item) => item.unitName === "Floor 1"), false);
+});
+
+test("buildActionableRoomWalkList keeps Room in Needs Attention for open repair after Key Time complete", () => {
+  const rooms = collectActionableWalkRooms([
+    locationNode({
+      kind: "ROOM",
+      label: "Naval Park Servery",
+      physicalId: "naval-park-servery",
+      unitId: "unit-1a",
+      presentation: "ACTIONABLE",
+      href: "/unit/unit-1a?space=naval-park-servery",
+    }),
+  ]);
+  const unitItems = buildWalkListItems(
+    [card({ id: "unit-1a", name: "1A – Naval Park", openRepairCount: 1, expected: 0 })],
+    readinessMapFromCards([
+      card({ id: "unit-1a", name: "1A – Naval Park", openRepairCount: 1, expected: 0 }),
+    ]),
+  );
+  const items = buildActionableRoomWalkList({
+    rooms,
+    unitItems,
+    keyTimes: [
+      {
+        spaceId: "naval-park-servery",
+        overdueLabel: null,
+        roomTypeLabel: "Servery",
+      },
+    ],
+  });
+  assert.equal(items[0]?.status, "in_progress");
+  assert.notEqual(items[0]?.reason, "No immediate exceptions");
 });

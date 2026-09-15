@@ -129,6 +129,7 @@ export type CreateAssetInput = {
   facilityAssetNumber?: string | null;
   description?: string | null;
   vendorId?: string | null;
+  responsibleOrganizationId?: string | null;
   criticality?: AssetCriticality;
   notes?: string | null;
   procedureInstructions?: string | null;
@@ -157,11 +158,12 @@ export async function createAsset(
       where: {
         id: input.spaceId,
         facilityId: input.facilityId,
-        OR: [{ unitId: input.unitId }, { unitId: null }],
+        unitId: input.unitId,
+        isActive: true,
       },
       select: { id: true },
     });
-    if (!space) throw new Error("Space not found.");
+    if (!space) throw new Error("Room not found for the selected location.");
   }
 
   if (input.vendorId) {
@@ -170,6 +172,18 @@ export async function createAsset(
       select: { id: true },
     });
     if (!vendor) throw new Error("Vendor not found.");
+  }
+
+  if (input.responsibleOrganizationId) {
+    const org = await client.facilityOrganization.findFirst({
+      where: {
+        id: input.responsibleOrganizationId,
+        facilityId: input.facilityId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!org) throw new Error("Responsible organization not found.");
   }
 
   const actorUserId = sessionUserIdForFk(session);
@@ -185,6 +199,7 @@ export async function createAsset(
       unitId: input.unitId,
       spaceId: input.spaceId ?? null,
       departmentId: input.departmentId,
+      responsibleOrganizationId: input.responsibleOrganizationId ?? null,
       manufacturer: input.manufacturer?.trim() || null,
       model: input.model?.trim() || null,
       serialNumber: input.serialNumber?.trim() || null,
@@ -228,6 +243,7 @@ export type UpdateAssetIdentityInput = {
   facilityAssetNumber?: string | null;
   description?: string | null;
   vendorId?: string | null;
+  responsibleOrganizationId?: string | null;
   criticality?: AssetCriticality;
   notes?: string | null;
   procedureInstructions?: string | null;
@@ -256,7 +272,8 @@ export async function updateAssetIdentity(
   }
 
   const nextUnitId = input.unitId ?? asset.unitId;
-  if (nextUnitId !== asset.unitId) {
+  const unitChanged = nextUnitId !== asset.unitId;
+  if (unitChanged) {
     await assertFacilityUnit(client, nextUnitId, input.facilityId);
   }
 
@@ -268,16 +285,23 @@ export async function updateAssetIdentity(
     await assertFacilityDepartment(client, nextDepartmentId, input.facilityId);
   }
 
-  if (input.spaceId) {
+  /** When Unit changes, never silently keep a Room from the previous Unit. */
+  let nextSpaceId: string | null | undefined = input.spaceId;
+  if (unitChanged && input.spaceId === undefined) {
+    nextSpaceId = null;
+  }
+
+  if (nextSpaceId) {
     const space = await client.unitSpace.findFirst({
       where: {
-        id: input.spaceId,
+        id: nextSpaceId,
         facilityId: input.facilityId,
-        OR: [{ unitId: nextUnitId }, { unitId: null }],
+        unitId: nextUnitId,
+        isActive: true,
       },
       select: { id: true },
     });
-    if (!space) throw new Error("Space not found.");
+    if (!space) throw new Error("Room not found for the selected location.");
   }
 
   if (input.vendorId) {
@@ -286,6 +310,18 @@ export async function updateAssetIdentity(
       select: { id: true },
     });
     if (!vendor) throw new Error("Vendor not found.");
+  }
+
+  if (input.responsibleOrganizationId) {
+    const org = await client.facilityOrganization.findFirst({
+      where: {
+        id: input.responsibleOrganizationId,
+        facilityId: input.facilityId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!org) throw new Error("Responsible organization not found.");
   }
 
   const actorUserId = sessionUserIdForFk(session);
@@ -297,9 +333,9 @@ export async function updateAssetIdentity(
   if (input.name !== undefined) data.name = input.name.trim();
   if (input.equipmentType !== undefined) data.equipmentType = input.equipmentType.trim();
   if (input.unitId !== undefined) data.unit = { connect: { id: input.unitId } };
-  if (input.spaceId !== undefined) {
-    data.space = input.spaceId
-      ? { connect: { id: input.spaceId } }
+  if (nextSpaceId !== undefined) {
+    data.space = nextSpaceId
+      ? { connect: { id: nextSpaceId } }
       : { disconnect: true };
   }
   if (input.departmentIdNext !== undefined) {
@@ -323,6 +359,11 @@ export async function updateAssetIdentity(
   if (input.vendorId !== undefined) {
     data.vendor = input.vendorId
       ? { connect: { id: input.vendorId } }
+      : { disconnect: true };
+  }
+  if (input.responsibleOrganizationId !== undefined) {
+    data.responsibleOrganization = input.responsibleOrganizationId
+      ? { connect: { id: input.responsibleOrganizationId } }
       : { disconnect: true };
   }
   if (input.criticality !== undefined) data.criticality = input.criticality;
@@ -562,6 +603,9 @@ export async function getAssetProfile(
       unit: { select: { id: true, name: true, facilityId: true } },
       space: { select: { id: true, name: true, spaceType: true } },
       department: { select: { id: true, name: true, key: true } },
+      responsibleOrganization: {
+        select: { id: true, name: true, isActive: true },
+      },
       vendor: authority.canViewVendorDetails
         ? {
             select: {
@@ -658,6 +702,9 @@ export async function getAssetProfile(
           returnToServiceReady: true,
           requestedAt: true,
           vendorId: true,
+          sourceAssetIssue: {
+            select: { id: true, issueCode: true, summary: true },
+          },
         },
       }),
       loadAssetTimeline(asset.id, { limit: historyLimit }),
@@ -693,6 +740,7 @@ export async function getAssetProfile(
       unit: asset.unit,
       space: asset.space,
       department: asset.department,
+      responsibleOrganization: asset.responsibleOrganization,
       vendor: asset.vendor,
     },
     status: {

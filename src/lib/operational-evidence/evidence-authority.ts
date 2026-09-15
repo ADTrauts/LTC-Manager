@@ -2,6 +2,7 @@ import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
 import { isDepartmentOperationalEvidenceEnabled } from "@/lib/department-operations";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 
@@ -158,7 +159,8 @@ export async function resolveEvidenceAuthority(
   }
 
   return decideEvidenceAuthority({
-    flagEnabled: isDepartmentOperationalEvidenceEnabled(department?.key),
+    flagEnabled:
+      isDepartmentOperationalEvidenceEnabled(department?.key) || isCanonicalLogsEnabled(),
     role: session.role as AppRole,
     authMethod: session.authMethod,
     sessionFacilityId: session.facilityId,

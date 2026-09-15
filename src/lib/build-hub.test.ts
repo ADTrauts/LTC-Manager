@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BUILD_HUB_DESCRIPTIONS, buildHubCards } from "@/lib/build-hub";
+import {
+  BUILD_HUB_DESCRIPTIONS,
+  BUILD_HUB_HOME_HREF,
+  buildHubCards,
+  buildPageIntro,
+  buildSidebarNavItems,
+} from "@/lib/build-hub";
 import type { ModeNavItem } from "@/lib/product-mode";
 
 const ITEMS: ModeNavItem[] = [
@@ -57,4 +63,38 @@ test("build-hub — unknown surfaces fall back to a generic description rather t
 
 test("build-hub — an empty BUILD group yields no cards (frontline Run-only)", () => {
   assert.deepEqual(buildHubCards([]), []);
+});
+
+test("build sidebar — keeps Build Home first and mirrors hub builders in registry order", () => {
+  const nav = buildSidebarNavItems(ITEMS);
+  assert.equal(nav[0]?.href, BUILD_HUB_HOME_HREF);
+  assert.deepEqual(
+    nav.map((item) => item.href),
+    [
+      "/build",
+      "/admin/facility/builder",
+      "/admin/departments",
+      "/employees",
+      "/assets/builder",
+      "/staffing/templates",
+    ],
+  );
+  // Sidebar membership is the hub set plus home — not a second catalog.
+  assert.deepEqual(
+    nav.slice(1).map((item) => item.href),
+    buildHubCards(ITEMS).map((card) => card.href),
+  );
+});
+
+test("build sidebar — omits Build Home when the filtered group has no hub link", () => {
+  const withoutHome = buildSidebarNavItems(ITEMS.filter((item) => item.href !== BUILD_HUB_HOME_HREF));
+  assert.equal(withoutHome.some((item) => item.href === BUILD_HUB_HOME_HREF), false);
+  assert.equal(withoutHome[0]?.href, "/admin/facility/builder");
+});
+
+test("build page intros — stay concise for permanent page chrome", () => {
+  const intro = buildPageIntro("/assets/builder");
+  assert.ok(intro.length > 0);
+  assert.ok(intro.length < 120, `intro too long for permanent chrome: ${intro}`);
+  assert.match(intro, /equipment/i);
 });

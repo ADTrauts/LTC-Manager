@@ -10,9 +10,10 @@ import {
   locationIconClassName,
   resolveLocationIcon,
 } from "@/lib/design-system";
+import { useNavSearchParams } from "@/hooks/use-nav-pathname";
 import type { ProjectedSidebarNode, ProjectedSidebarSection } from "@/lib/locations";
 import { NAV_ZONE_LABELS } from "@/lib/nav-zones";
-import { isActiveNavPath } from "@/lib/nav-utils";
+import { isActiveLocationHref, isActiveNavPath } from "@/lib/nav-utils";
 import type { ReadinessState } from "@/lib/readiness";
 import type { SidebarUnit } from "@/lib/units";
 
@@ -24,23 +25,37 @@ type LeftSidebarProps = {
   projectionUnavailable?: boolean;
   lockedUnitId?: string;
   readinessByUnitId?: Record<string, { state: ReadinessState }>;
+  /**
+   * rail — persistent desktop aside (default).
+   * panel — content only for compact shell drawer (no aside chrome).
+   */
+  presentation?: "rail" | "panel";
+  /** Called when an actionable location link is activated (close compact drawer). */
+  onNavigate?: () => void;
 };
 
-function sidebarLinkClass(isActive: boolean, disabled = false) {
+function sidebarLinkClass(isActive: boolean, disabled = false, panel = false) {
   if (disabled) {
-    return "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-400";
+    return `flex min-h-11 items-center gap-2.5 px-3 py-2 text-sm text-zinc-400 ${
+      panel ? "" : "rounded-md"
+    }`;
   }
   return isActive
-    ? "app-accent-active flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-white"
-    : "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900";
+    ? `app-accent-active flex min-h-11 items-center gap-2.5 px-3 py-2 text-sm font-medium text-white ${
+        panel ? "" : "rounded-md"
+      }`
+    : `flex min-h-11 items-center gap-2.5 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 ${
+        panel ? "" : "rounded-md"
+      }`;
 }
 
-function structuralClass() {
-  return "flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 hover:bg-zinc-50";
-}
-
-function hrefPathOnly(href: string): string {
-  return href.split("?")[0] ?? href;
+function structuralClass(panel: boolean, depth: number) {
+  if (panel && depth === 0) {
+    return "flex min-h-11 w-full items-center gap-2 bg-zinc-100/80 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600";
+  }
+  return `flex min-h-9 w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 hover:bg-zinc-50 ${
+    panel ? "" : "rounded-md"
+  }`;
 }
 
 function SidebarProjectedNode({
@@ -49,15 +64,21 @@ function SidebarProjectedNode({
   lockedUnitId,
   readinessByUnitId,
   pathname,
+  search,
+  onNavigate,
+  panel,
 }: {
   node: ProjectedSidebarNode;
   depth: number;
   lockedUnitId?: string;
   readinessByUnitId: Record<string, { state: ReadinessState }>;
   pathname: string;
+  search: string;
+  onNavigate?: () => void;
+  panel: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const pad = depth > 0 ? { paddingLeft: `${12 + depth * 12}px` } : undefined;
+  const pad = !panel && depth > 0 ? { paddingLeft: `${12 + depth * 12}px` } : undefined;
   const unitId = node.unitId;
   const isLockedOut = Boolean(lockedUnitId && unitId && unitId !== lockedUnitId);
   const readiness = unitId ? readinessByUnitId[unitId] : undefined;
@@ -96,15 +117,31 @@ function SidebarProjectedNode({
             lockedUnitId={lockedUnitId}
             readinessByUnitId={readinessByUnitId}
             pathname={pathname}
+            search={search}
+            onNavigate={onNavigate}
+            panel={panel}
           />
         ))
       : null;
+  const nestedChildren = children ? (
+    <div
+      className={
+        panel
+          ? depth === 0
+            ? "border-t border-zinc-200 bg-white py-1"
+            : "ml-7 border-l-2 border-zinc-200 py-0.5 pl-2"
+          : ""
+      }
+    >
+      {children}
+    </div>
+  ) : null;
 
   if (node.presentation === "STRUCTURAL" || !node.href) {
     return (
       <div>
         <div
-          className={structuralClass()}
+          className={structuralClass(panel, depth)}
           style={pad}
           data-presentation="STRUCTURAL"
           data-location-id={node.id}
@@ -118,13 +155,12 @@ function SidebarProjectedNode({
             ) : null}
           </span>
         </div>
-        {children}
+        {nestedChildren}
       </div>
     );
   }
 
-  const pathOnly = hrefPathOnly(node.href);
-  const isActive = isActiveNavPath(pathname, pathOnly);
+  const isActive = isActiveLocationHref(pathname, search, node.href);
 
   const labelBody = (
     <>
@@ -141,7 +177,7 @@ function SidebarProjectedNode({
           ) : null}
         </span>
         {readiness ? (
-          <ReadinessChip state={readiness.state} className="shrink-0" />
+          <ReadinessChip state={readiness.state} prominence="quiet" className="shrink-0" />
         ) : null}
       </span>
     </>
@@ -152,7 +188,7 @@ function SidebarProjectedNode({
       {isLockedOut ? (
         <span
           aria-disabled="true"
-          className={sidebarLinkClass(false, true)}
+          className={sidebarLinkClass(false, true, panel)}
           style={pad}
           title="This tablet is locked to another unit"
           data-presentation="ACTIONABLE"
@@ -164,16 +200,17 @@ function SidebarProjectedNode({
       ) : (
         <Link
           href={node.href}
-          className={sidebarLinkClass(isActive)}
+          className={sidebarLinkClass(isActive, false, panel)}
           style={pad}
           data-presentation="ACTIONABLE"
           data-location-id={node.id}
           data-kind={node.kind}
+          onClick={() => onNavigate?.()}
         >
           {labelBody}
         </Link>
       )}
-      {children}
+      {nestedChildren}
     </div>
   );
 }
@@ -196,38 +233,51 @@ export function LeftSidebar({
   projectionUnavailable = false,
   lockedUnitId,
   readinessByUnitId = {},
+  presentation = "rail",
+  onNavigate,
 }: LeftSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useNavSearchParams();
+  const search = searchParams?.toString() ?? "";
   const useProjection = projectionSections != null;
 
-  return (
-    <aside
-      className="w-full shrink-0 border-r border-zinc-200 bg-white lg:min-h-0 lg:w-72 lg:overflow-y-auto"
-      aria-label="Locations rail"
-    >
-      <div className="flex flex-col gap-6 p-4 lg:px-4 lg:py-5">
-        <section aria-label="Service points">
-          <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+  const body = (
+    <div className={presentation === "panel" ? "flex flex-col gap-4" : "flex flex-col gap-6 p-4 lg:px-4 lg:py-5"}>
+      <section aria-label="Service points">
+        {presentation === "rail" ? (
+          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             {NAV_ZONE_LABELS.LOCATIONS}
           </h2>
-          <div className="space-y-0.5">
-            {useProjection ? (
-              <>
-                {projectionUnavailable ? (
-                  <p className="px-3 py-2 text-sm text-zinc-500" role="status">
-                    Locations temporarily unavailable.
-                  </p>
-                ) : null}
-                {projectionSections.map((section, sectionIndex) => (
-                  <div
-                    key={section.departmentKey ?? `section-${sectionIndex}`}
-                    className="space-y-0.5"
-                  >
-                    {section.label ? (
-                      <h3 className="mb-1 mt-2 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-400">
-                        {section.label}
-                      </h3>
-                    ) : null}
+        ) : null}
+        <div className="space-y-0.5">
+          {useProjection ? (
+            <>
+              {projectionUnavailable ? (
+                <p className="px-3 py-2 text-sm text-zinc-500" role="status">
+                  Locations temporarily unavailable.
+                </p>
+              ) : null}
+              {projectionSections.map((section, sectionIndex) => (
+                <div
+                  key={section.departmentKey ?? `section-${sectionIndex}`}
+                  className={
+                    presentation === "panel"
+                      ? "overflow-hidden rounded-lg border border-zinc-200 bg-white"
+                      : "space-y-0.5"
+                  }
+                >
+                  {section.label ? (
+                    <h3
+                      className={
+                        presentation === "panel"
+                          ? "border-b border-zinc-300 bg-zinc-900 px-3 py-3 text-[11px] font-semibold uppercase tracking-wider text-white"
+                          : "mb-1 mt-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
+                      }
+                    >
+                      {section.label}
+                    </h3>
+                  ) : null}
+                  <div className={presentation === "panel" ? "divide-y divide-zinc-300" : ""}>
                     {section.nodes.map((node) => (
                       <SidebarProjectedNode
                         key={node.id}
@@ -236,61 +286,86 @@ export function LeftSidebar({
                         lockedUnitId={lockedUnitId}
                         readinessByUnitId={readinessByUnitId}
                         pathname={pathname}
+                        search={search}
+                        onNavigate={onNavigate}
+                        panel={presentation === "panel"}
                       />
                     ))}
                   </div>
-                ))}
-                {!projectionUnavailable && countNodes(projectionSections) === 0 ? (
-                  <p className="px-3 py-2 text-sm text-zinc-500">No active locations.</p>
-                ) : null}
-              </>
-            ) : (
-              <>
-                {units.map((unit) => {
-                  const href = `/unit/${unit.id}`;
-                  const isDisabled = Boolean(lockedUnitId && unit.id !== lockedUnitId);
-                  const isActive = isActiveNavPath(pathname, href);
-                  const LocationIcon = resolveLocationIcon(unit);
-                  const label = (
-                    <>
-                      <LocationIcon
-                        className={locationIconClassName(isActive, isDisabled)}
-                        aria-hidden
-                      />
-                      <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                        <span className="truncate">{unit.name}</span>
-                        {readinessByUnitId[unit.id] ? (
-                          <ReadinessChip
-                            state={readinessByUnitId[unit.id]!.state}
-                            className="shrink-0"
-                          />
-                        ) : null}
+                </div>
+              ))}
+              {!projectionUnavailable && countNodes(projectionSections) === 0 ? (
+                <p className="px-3 py-2 text-sm text-zinc-500">No assigned locations.</p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {units.map((unit) => {
+                const href = `/unit/${unit.id}`;
+                const isDisabled = Boolean(lockedUnitId && unit.id !== lockedUnitId);
+                const isActive = isActiveNavPath(pathname, href);
+                const LocationIcon = resolveLocationIcon(unit);
+                const label = (
+                  <>
+                    <LocationIcon
+                      className={locationIconClassName(isActive, isDisabled)}
+                      aria-hidden
+                    />
+                    <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span className="truncate" title={unit.name}>
+                        {unit.name}
                       </span>
-                    </>
-                  );
-                  return isDisabled ? (
-                    <span
-                      key={unit.id}
-                      aria-disabled="true"
-                      className={sidebarLinkClass(false, true)}
-                      title="This tablet is locked to another unit"
-                    >
-                      {label}
+                      {readinessByUnitId[unit.id] ? (
+                        <ReadinessChip
+                          state={readinessByUnitId[unit.id]!.state}
+                          prominence="quiet"
+                          className="shrink-0"
+                        />
+                      ) : null}
                     </span>
-                  ) : (
-                    <Link key={unit.id} href={href} className={sidebarLinkClass(isActive)}>
-                      {label}
-                    </Link>
-                  );
-                })}
-                {units.length === 0 ? (
-                  <p className="px-3 py-2 text-sm text-zinc-500">No active locations.</p>
-                ) : null}
-              </>
-            )}
-          </div>
-        </section>
-      </div>
+                  </>
+                );
+                return isDisabled ? (
+                  <span
+                    key={unit.id}
+                    aria-disabled="true"
+                    className={sidebarLinkClass(false, true)}
+                    title="This tablet is locked to another unit"
+                  >
+                    {label}
+                  </span>
+                ) : (
+                  <Link
+                    key={unit.id}
+                    href={href}
+                    className={sidebarLinkClass(isActive)}
+                    onClick={() => onNavigate?.()}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+              {units.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-zinc-500">No assigned locations.</p>
+              ) : null}
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+
+  if (presentation === "panel") {
+    return <div data-testid="locations-nav-panel">{body}</div>;
+  }
+
+  return (
+    <aside
+      className="hidden w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white xl:block xl:min-h-0"
+      aria-label="Locations rail"
+      data-testid="locations-rail"
+    >
+      {body}
     </aside>
   );
 }

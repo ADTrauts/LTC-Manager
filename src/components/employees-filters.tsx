@@ -1,7 +1,7 @@
-import { ChrcStatus, EmployeeStatus, JobClassification, WorkStation } from "@prisma/client";
+import { EmployeeStatus } from "@prisma/client";
 
 import type { EmployeeDirectoryQuery } from "@/lib/employee-directory-filters";
-import { CHRC_STATUS_LABEL, JOB_CLASSIFICATION_LABEL, WORK_STATION_LABEL } from "@/lib/employee-hr-labels";
+import { EMPLOYEE_STATUS_LABEL } from "@/lib/employee-hr-labels";
 
 const cardFormClass =
   "flex flex-wrap items-end gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm";
@@ -10,11 +10,19 @@ const embeddedFormClass = "flex flex-wrap items-end gap-2";
 export function EmployeesFiltersForm({
   current,
   embedded = false,
+  teams = [],
 }: {
   current: EmployeeDirectoryQuery;
   /** Omit outer card; use inside a collapsible or other container. */
   embedded?: boolean;
+  /** @deprecated Not used — legacy jobTitle catalog is not a primary Employee Builder filter. */
+  jobTitles?: { id: string; name: string }[];
+  teams?: { id: string; displayName: string; departmentId: string; departmentName: string }[];
 }) {
+  const teamOptions = current.dept?.trim()
+    ? teams.filter((team) => team.departmentId === current.dept?.trim())
+    : teams;
+  const groupTeams = !current.dept?.trim();
   return (
     <form method="get" className={embedded ? embeddedFormClass : cardFormClass}>
       {current.dept?.trim() ? <input type="hidden" name="dept" value={current.dept.trim()} /> : null}
@@ -28,6 +36,38 @@ export function EmployeesFiltersForm({
           className="mt-1 block min-w-[10rem] rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
         />
       </label>
+      {teamOptions.length > 0 ? (
+        <div>
+          <span className="block text-xs text-zinc-600">Team</span>
+          <select
+            name="team"
+            defaultValue={current.team ?? "all"}
+            className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          >
+            <option value="all">All</option>
+            {groupTeams
+              ? Object.entries(
+                  teamOptions.reduce<Record<string, typeof teamOptions>>((acc, team) => {
+                    (acc[team.departmentName] ??= []).push(team);
+                    return acc;
+                  }, {}),
+                ).map(([departmentName, deptTeams]) => (
+                  <optgroup key={departmentName} label={departmentName}>
+                    {deptTeams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              : teamOptions.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.displayName}
+                  </option>
+                ))}
+          </select>
+        </div>
+      ) : null}
       <div>
         <span className="block text-xs text-zinc-600">Status</span>
         <select
@@ -38,7 +78,7 @@ export function EmployeesFiltersForm({
           <option value="all">All</option>
           {(Object.values(EmployeeStatus) as EmployeeStatus[]).map((value) => (
             <option key={value} value={value}>
-              {value}
+              {EMPLOYEE_STATUS_LABEL[value]}
             </option>
           ))}
         </select>
@@ -56,51 +96,6 @@ export function EmployeesFiltersForm({
         </select>
       </div>
       <div>
-        <span className="block text-xs text-zinc-600">Classification</span>
-        <select
-          name="classification"
-          defaultValue={current.classification ?? "all"}
-          className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-        >
-          <option value="all">All</option>
-          {(Object.keys(JOB_CLASSIFICATION_LABEL) as JobClassification[]).map((k) => (
-            <option key={k} value={k}>
-              {JOB_CLASSIFICATION_LABEL[k]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <span className="block text-xs text-zinc-600">Station</span>
-        <select
-          name="station"
-          defaultValue={current.station ?? "all"}
-          className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-        >
-          <option value="all">All</option>
-          {(Object.keys(WORK_STATION_LABEL) as WorkStation[]).map((k) => (
-            <option key={k} value={k}>
-              {WORK_STATION_LABEL[k]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <span className="block text-xs text-zinc-600">CHRC</span>
-        <select
-          name="chrc"
-          defaultValue={current.chrc ?? "all"}
-          className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-        >
-          <option value="all">All</option>
-          {(Object.keys(CHRC_STATUS_LABEL) as ChrcStatus[]).map((k) => (
-            <option key={k} value={k}>
-              {CHRC_STATUS_LABEL[k]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
         <span className="block text-xs text-zinc-600">Leave</span>
         <select
           name="leave"
@@ -110,33 +105,6 @@ export function EmployeesFiltersForm({
           <option value="all">All</option>
           <option value="yes">On leave</option>
           <option value="no">Not on leave</option>
-        </select>
-      </div>
-      <div>
-        <span className="block text-xs text-zinc-600">Discipline points</span>
-        <select
-          name="hasPoints"
-          defaultValue={current.hasPoints ?? "all"}
-          className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-        >
-          <option value="all">All</option>
-          <option value="yes">Has points (&gt;0)</option>
-          <option value="no">No points</option>
-        </select>
-      </div>
-      <div>
-        <span className="block text-xs text-zinc-600">Birth month</span>
-        <select
-          name="birthMonth"
-          defaultValue={current.birthMonth ?? "all"}
-          className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-        >
-          <option value="all">All</option>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={String(m)}>
-              {m}
-            </option>
-          ))}
         </select>
       </div>
       <div>

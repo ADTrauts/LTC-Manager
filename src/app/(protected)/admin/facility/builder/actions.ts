@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
 import { requireAtLeastRole } from "@/lib/access";
+import { pruneTeamRoomsAfterResponsibilityRemoved } from "@/lib/department-teams";
 import { prisma } from "@/lib/prisma";
 import { wouldCreateCycle } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
@@ -24,9 +25,13 @@ import {
   normalizeSiblingOrders,
   parseBulkRoomLines,
 } from "@/lib/facility-builder/builder-setup";
+
+import { legacyFieldsForFacilityRoomType } from "@/lib/facility-builder/facility-base-types";
 import {
-  resolveSpaceTypeFromPreset,
-} from "@/lib/facility-builder/space-type-presets";
+  archiveOrDeleteFacilityRoomType,
+  createFacilityRoomType,
+  updateFacilityRoomType,
+} from "@/lib/facility-builder/facility-room-types";
 import {
   buildBuilderCopy,
   resolveFacilityVocabulary,
@@ -36,6 +41,9 @@ import {
   type BuilderCopy,
   type FacilityVocabularyProfileKey,
 } from "@/lib/facility-builder/facility-vocabulary";
+import {
+  planResponsibilitySync,
+} from "@/lib/facility-builder/department-responsibility-sync";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -69,6 +77,33 @@ function revalidateBuilderViews() {
   revalidatePath("/units");
   revalidatePath("/dashboard");
   revalidatePath("/unit/[unitId]", "page");
+}
+
+async function resolveSpaceFieldsFromFacilityRoomType(
+  facilityId: string,
+  facilityRoomTypeId: string,
+) {
+  const roomType = await prisma.facilityRoomType.findFirst({
+    where: {
+      id: facilityRoomTypeId,
+      facilityId,
+      isActive: true,
+      archivedAt: null,
+    },
+    select: { id: true, baseTypeKey: true, displayName: true },
+  });
+  if (!roomType) {
+    throw new Error("Room Type not found.");
+  }
+  const legacy = legacyFieldsForFacilityRoomType({
+    baseTypeKey: roomType.baseTypeKey,
+    displayName: roomType.displayName,
+  });
+  return {
+    facilityRoomTypeId: roomType.id,
+    spaceType: legacy.spaceType,
+    customTypeLabel: legacy.customTypeLabel,
+  };
 }
 
 async function assertUniqueUnitName(
@@ -379,8 +414,7 @@ const createSpaceSchema = z.object({
   /** Omit / empty = create in Undesignated. */
   unitId: z.string().cuid().optional().nullable(),
   name: z.string().trim().min(1).max(120),
-  spaceTypePreset: z.string().trim().min(1),
-  customTypeLabel: z.string().trim().max(80).optional(),
+  facilityRoomTypeId: z.string().cuid(),
   roomNumber: z.string().trim().max(32).optional(),
   code: z.string().trim().max(20).optional(),
   description: z.string().trim().max(500).optional(),
@@ -392,8 +426,7 @@ const updateSpaceSchema = z.object({
   /** Current or next parent; null keeps / sets undesignated. */
   unitId: z.string().cuid().optional().nullable(),
   name: z.string().trim().min(1).max(120),
-  spaceTypePreset: z.string().trim().min(1),
-  customTypeLabel: z.string().trim().max(80).optional(),
+  facilityRoomTypeId: z.string().cuid(),
   roomNumber: z.string().trim().max(32).optional(),
   code: z.string().trim().max(20).optional(),
   description: z.string().trim().max(500).optional(),
@@ -412,8 +445,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
   const parsed = createSpaceSchema.parse({
     unitId: rawUnitId ?? null,
     name: formData.get("name"),
-    spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
-    customTypeLabel: toOptional(formData.get("customTypeLabel")),
+    facilityRoomTypeId: formData.get("facilityRoomTypeId"),
     roomNumber: toOptional(formData.get("roomNumber")),
     code: toOptional(formData.get("code")),
     description: toOptional(formData.get("description")),
@@ -422,10 +454,10 @@ export async function createBuilderSpaceAction(formData: FormData) {
 
   void formData.get("sortOrder");
 
-  const resolved = resolveSpaceTypeFromPreset({
-    presetKey: parsed.spaceTypePreset,
-    customTypeLabel: parsed.customTypeLabel,
-  });
+  const resolved = await resolveSpaceFieldsFromFacilityRoomType(
+    session.facilityId,
+    parsed.facilityRoomTypeId,
+  );
 
   // Toolbar create → Undesignated (unitId null)
   if (!parsed.unitId) {
@@ -450,6 +482,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
         name: parsed.name,
         spaceType: resolved.spaceType,
         customTypeLabel: resolved.customTypeLabel,
+        facilityRoomTypeId: resolved.facilityRoomTypeId,
         roomNumber: parsed.roomNumber || null,
         code: parsed.code || null,
         description: parsed.description || null,
@@ -492,6 +525,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
       name: parsed.name,
       spaceType: resolved.spaceType,
       customTypeLabel: resolved.customTypeLabel,
+      facilityRoomTypeId: resolved.facilityRoomTypeId,
       roomNumber: parsed.roomNumber || null,
       code: parsed.code || null,
       description: parsed.description || null,
@@ -506,8 +540,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
 const bulkCreateSpacesSchema = z.object({
   unitId: z.string().cuid(),
   namesText: z.string().min(1),
-  spaceTypePreset: z.string().trim().min(1),
-  customTypeLabel: z.string().trim().max(80).optional(),
+  facilityRoomTypeId: z.string().cuid(),
   descriptionPrefix: z.string().trim().max(200).optional(),
 });
 
@@ -531,15 +564,14 @@ export async function createBuilderSpacesBulkAction(
   const parsed = bulkCreateSpacesSchema.parse({
     unitId: formData.get("unitId"),
     namesText: formData.get("namesText"),
-    spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
-    customTypeLabel: toOptional(formData.get("customTypeLabel")),
+    facilityRoomTypeId: formData.get("facilityRoomTypeId"),
     descriptionPrefix: toOptional(formData.get("descriptionPrefix")),
   });
 
-  const resolved = resolveSpaceTypeFromPreset({
-    presetKey: parsed.spaceTypePreset,
-    customTypeLabel: parsed.customTypeLabel,
-  });
+  const resolved = await resolveSpaceFieldsFromFacilityRoomType(
+    session.facilityId,
+    parsed.facilityRoomTypeId,
+  );
 
   const unit = await prisma.unit.findFirst({
     where: { id: parsed.unitId, facilityId: session.facilityId },
@@ -607,6 +639,7 @@ export async function createBuilderSpacesBulkAction(
           name,
           spaceType: resolved.spaceType,
           customTypeLabel: resolved.customTypeLabel,
+          facilityRoomTypeId: resolved.facilityRoomTypeId,
           code: null,
           description,
           sortOrder: Math.min(9999, maxSort + (index + 1) * 10),
@@ -634,8 +667,7 @@ export async function updateBuilderSpaceAction(formData: FormData) {
     spaceId: formData.get("spaceId"),
     unitId: formData.get("unitId"),
     name: formData.get("name"),
-    spaceTypePreset: formData.get("spaceTypePreset") || formData.get("spaceType"),
-    customTypeLabel: toOptional(formData.get("customTypeLabel")),
+    facilityRoomTypeId: formData.get("facilityRoomTypeId"),
     roomNumber: toOptional(formData.get("roomNumber")),
     code: toOptional(formData.get("code")),
     description: toOptional(formData.get("description")),
@@ -644,10 +676,10 @@ export async function updateBuilderSpaceAction(formData: FormData) {
 
   void formData.get("sortOrder");
 
-  const resolved = resolveSpaceTypeFromPreset({
-    presetKey: parsed.spaceTypePreset,
-    customTypeLabel: parsed.customTypeLabel,
-  });
+  const resolved = await resolveSpaceFieldsFromFacilityRoomType(
+    session.facilityId,
+    parsed.facilityRoomTypeId,
+  );
 
   const space = await prisma.unitSpace.findFirst({
     where: { id: parsed.spaceId, facilityId: session.facilityId },
@@ -672,6 +704,7 @@ export async function updateBuilderSpaceAction(formData: FormData) {
       name: parsed.name,
       spaceType: resolved.spaceType,
       customTypeLabel: resolved.customTypeLabel,
+      facilityRoomTypeId: resolved.facilityRoomTypeId,
       roomNumber: parsed.roomNumber || null,
       code: parsed.code || null,
       description: parsed.description || null,
@@ -834,12 +867,346 @@ export async function deleteBuilderSpaceResponsibilityAction(formData: FormData)
 
   const row = await prisma.unitSpaceResponsibility.findFirst({
     where: { id: responsibilityId, space: { facilityId: session.facilityId } },
-    select: { id: true },
+    select: { id: true, spaceId: true, departmentId: true },
   });
   if (!row) throw new Error("Space responsibility not found.");
 
-  await prisma.unitSpaceResponsibility.delete({ where: { id: row.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.unitSpaceResponsibility.delete({ where: { id: row.id } });
+    await pruneTeamRoomsAfterResponsibilityRemoved(tx, {
+      spaceId: row.spaceId,
+      departmentId: row.departmentId,
+    });
+  });
   revalidateBuilderViews();
+}
+
+/**
+ * Replace the set of departments responsible for a Floor / Neighborhood (Unit).
+ * Writes UnitDepartmentResponsibility — the canonical unit-scoped store.
+ * Existing rows for still-selected departments keep capabilities / kind.
+ * New rows are created as PRIMARY with empty capabilities.
+ */
+export async function setBuilderUnitDepartmentsAction(input: {
+  unitId: string;
+  departmentIds: string[];
+}) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const unitId = z.string().cuid().parse(input.unitId);
+  const departmentIds = z.array(z.string().cuid()).parse(input.departmentIds);
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: unitId, facilityId: session.facilityId },
+    select: {
+      id: true,
+      hierarchyRole: true,
+      parentUnitId: true,
+      departmentResponsibilities: {
+        select: { id: true, departmentId: true },
+      },
+    },
+  });
+  if (!unit) throw new Error("Unit not found in this facility.");
+
+  const displayKind = resolveBuilderNodeDisplayKind({
+    hierarchyRole: unit.hierarchyRole,
+    parentUnitId: unit.parentUnitId,
+  });
+  if (displayKind === "floor") {
+    throw new Error(
+      "Floors are structural organizers. Assign departments to neighborhoods and rooms, or use Apply departments to locations below.",
+    );
+  }
+
+  await assertFacilityDepartments(session.facilityId, departmentIds);
+
+  const plan = planResponsibilitySync({
+    desiredDepartmentIds: departmentIds,
+    existing: unit.departmentResponsibilities.map((r) => ({
+      id: r.id,
+      department: { id: r.departmentId },
+    })),
+  });
+
+  await prisma.$transaction(async (tx) => {
+    if (plan.toDeleteIds.length > 0) {
+      await tx.unitDepartmentResponsibility.deleteMany({
+        where: { id: { in: plan.toDeleteIds } },
+      });
+    }
+    for (const departmentId of plan.toCreate) {
+      await tx.unitDepartmentResponsibility.create({
+        data: {
+          unitId,
+          departmentId,
+          kind: UnitDepartmentKind.PRIMARY,
+          capabilities: [],
+        },
+      });
+    }
+  });
+
+  revalidateBuilderViews();
+}
+
+/**
+ * Replace the set of departments responsible for a Room (UnitSpace).
+ * Writes UnitSpaceResponsibility — the canonical room-scoped store.
+ */
+export async function setBuilderSpaceDepartmentsAction(input: {
+  spaceId: string;
+  departmentIds: string[];
+}) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const spaceId = z.string().cuid().parse(input.spaceId);
+  const departmentIds = z.array(z.string().cuid()).parse(input.departmentIds);
+
+  const space = await prisma.unitSpace.findFirst({
+    where: { id: spaceId, facilityId: session.facilityId },
+    select: {
+      id: true,
+      responsibilities: { select: { id: true, departmentId: true } },
+    },
+  });
+  if (!space) throw new Error("Space not found in this facility.");
+
+  await assertFacilityDepartments(session.facilityId, departmentIds);
+
+  const plan = planResponsibilitySync({
+    desiredDepartmentIds: departmentIds,
+    existing: space.responsibilities.map((r) => ({
+      id: r.id,
+      department: { id: r.departmentId },
+    })),
+  });
+
+  await prisma.$transaction(async (tx) => {
+    if (plan.toDeleteIds.length > 0) {
+      const removedDepartments = space.responsibilities
+        .filter((row) => plan.toDeleteIds.includes(row.id))
+        .map((row) => row.departmentId);
+      await tx.unitSpaceResponsibility.deleteMany({
+        where: { id: { in: plan.toDeleteIds } },
+      });
+      for (const departmentId of removedDepartments) {
+        await pruneTeamRoomsAfterResponsibilityRemoved(tx, { spaceId, departmentId });
+      }
+    }
+    for (const departmentId of plan.toCreate) {
+      await tx.unitSpaceResponsibility.create({
+        data: {
+          spaceId,
+          departmentId,
+          capabilities: [],
+        },
+      });
+    }
+  });
+
+  revalidateBuilderViews();
+}
+
+/**
+ * Copy the selected unit's department set onto descendant neighborhoods and rooms.
+ * Explicit mutation — not inheritance. Overwrites descendant department membership;
+ * preserves capabilities on departments that remain selected.
+ * Does not modify the source unit's own responsibility rows.
+ */
+export async function applyBuilderUnitResponsibilitiesToDescendantsAction(input: {
+  unitId: string;
+}) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const unitId = z.string().cuid().parse(input.unitId);
+  const facilityId = session.facilityId;
+
+  const unit = await prisma.unit.findFirst({
+    where: { id: unitId, facilityId },
+    select: {
+      id: true,
+      hierarchyRole: true,
+      parentUnitId: true,
+      departmentResponsibilities: { select: { departmentId: true } },
+    },
+  });
+  if (!unit) throw new Error("Unit not found in this facility.");
+
+  const displayKind = resolveBuilderNodeDisplayKind({
+    hierarchyRole: unit.hierarchyRole,
+    parentUnitId: unit.parentUnitId,
+  });
+  if (displayKind === "floor") {
+    throw new Error(
+      "Floors are structural organizers. Use Apply departments to locations below with an explicit department set.",
+    );
+  }
+
+  const departmentIds = [
+    ...new Set(unit.departmentResponsibilities.map((r) => r.departmentId)),
+  ];
+
+  return applyDepartmentsToActionableDescendants({
+    facilityId,
+    scopeUnitId: unitId,
+    departmentIds,
+  });
+}
+
+/**
+ * Bulk-assign departments to actionable descendants of a structural or actionable scope unit.
+ * Never writes UnitDepartmentResponsibility onto the scope unit itself (floors stay structural).
+ */
+export async function applyDepartmentsToActionableDescendantsAction(input: {
+  scopeUnitId: string;
+  departmentIds: string[];
+}) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const scopeUnitId = z.string().cuid().parse(input.scopeUnitId);
+  const departmentIds = z.array(z.string().cuid()).parse(input.departmentIds);
+  const facilityId = session.facilityId;
+
+  const scope = await prisma.unit.findFirst({
+    where: { id: scopeUnitId, facilityId },
+    select: { id: true },
+  });
+  if (!scope) throw new Error("Unit not found in this facility.");
+
+  await assertFacilityDepartments(facilityId, departmentIds);
+
+  return applyDepartmentsToActionableDescendants({
+    facilityId,
+    scopeUnitId,
+    departmentIds,
+  });
+}
+
+async function applyDepartmentsToActionableDescendants(input: {
+  facilityId: string;
+  scopeUnitId: string;
+  departmentIds: string[];
+}) {
+  const { facilityId, scopeUnitId, departmentIds } = input;
+
+  // BFS descendants. Never includes the scope unit. Skip nested FLOOR units as
+  // UnitDepartmentResponsibility targets (structural); still walk under them for rooms.
+  const neighborhoodUnitIds: string[] = [];
+  const unitIdsForRoomLookup: string[] = [scopeUnitId];
+  let frontier = [scopeUnitId];
+  while (frontier.length > 0) {
+    const children = await prisma.unit.findMany({
+      where: { facilityId, parentUnitId: { in: frontier } },
+      select: { id: true, hierarchyRole: true },
+    });
+    frontier = [];
+    for (const child of children) {
+      frontier.push(child.id);
+      unitIdsForRoomLookup.push(child.id);
+      if (child.hierarchyRole !== "FLOOR") {
+        neighborhoodUnitIds.push(child.id);
+      }
+    }
+  }
+
+  const spaces = await prisma.unitSpace.findMany({
+    where: {
+      facilityId,
+      unitId: { in: unitIdsForRoomLookup },
+    },
+    select: { id: true },
+  });
+  const spaceIds = spaces.map((s) => s.id);
+
+  if (neighborhoodUnitIds.length === 0 && spaceIds.length === 0) {
+    return { appliedNeighborhoods: 0, appliedRooms: 0 };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const childUnitId of neighborhoodUnitIds) {
+      const existing = await tx.unitDepartmentResponsibility.findMany({
+        where: { unitId: childUnitId },
+        select: { id: true, departmentId: true },
+      });
+      const plan = planResponsibilitySync({
+        desiredDepartmentIds: departmentIds,
+        existing: existing.map((r) => ({
+          id: r.id,
+          department: { id: r.departmentId },
+        })),
+      });
+      if (plan.toDeleteIds.length > 0) {
+        await tx.unitDepartmentResponsibility.deleteMany({
+          where: { id: { in: plan.toDeleteIds } },
+        });
+      }
+      for (const departmentId of plan.toCreate) {
+        await tx.unitDepartmentResponsibility.create({
+          data: {
+            unitId: childUnitId,
+            departmentId,
+            kind: UnitDepartmentKind.PRIMARY,
+            capabilities: [],
+          },
+        });
+      }
+    }
+
+    for (const spaceId of spaceIds) {
+      const existing = await tx.unitSpaceResponsibility.findMany({
+        where: { spaceId },
+        select: { id: true, departmentId: true },
+      });
+      const plan = planResponsibilitySync({
+        desiredDepartmentIds: departmentIds,
+        existing: existing.map((r) => ({
+          id: r.id,
+          department: { id: r.departmentId },
+        })),
+      });
+      if (plan.toDeleteIds.length > 0) {
+        const removedDepartments = existing
+          .filter((row) => plan.toDeleteIds.includes(row.id))
+          .map((row) => row.departmentId);
+        await tx.unitSpaceResponsibility.deleteMany({
+          where: { id: { in: plan.toDeleteIds } },
+        });
+        for (const departmentId of removedDepartments) {
+          await pruneTeamRoomsAfterResponsibilityRemoved(tx, { spaceId, departmentId });
+        }
+      }
+      for (const departmentId of plan.toCreate) {
+        await tx.unitSpaceResponsibility.create({
+          data: { spaceId, departmentId, capabilities: [] },
+        });
+      }
+    }
+  });
+
+  revalidateBuilderViews();
+  return {
+    appliedNeighborhoods: neighborhoodUnitIds.length,
+    appliedRooms: spaceIds.length,
+  };
+}
+
+async function assertFacilityDepartments(facilityId: string, departmentIds: string[]) {
+  if (departmentIds.length === 0) return;
+  const count = await prisma.department.count({
+    where: {
+      facilityId,
+      isActive: true,
+      id: { in: departmentIds },
+    },
+  });
+  if (count !== new Set(departmentIds).size) {
+    throw new Error("One or more departments are not available in this facility.");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1461,4 +1828,91 @@ export async function updateFacilityVocabularyAction(input: {
 
   revalidateBuilderViews();
   return { vocabulary: draft };
+}
+
+// ---------------------------------------------------------------------------
+// Facility Room Type catalog actions
+// ---------------------------------------------------------------------------
+
+const createFacilityRoomTypeSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  baseTypeKey: z.string().trim().min(1),
+  description: z.string().trim().max(500).optional(),
+});
+
+const updateFacilityRoomTypeSchema = z.object({
+  id: z.string().cuid(),
+  displayName: z.string().trim().min(1).max(80),
+  baseTypeKey: z.string().trim().min(1),
+  description: z.string().trim().max(500).optional(),
+});
+
+export async function createFacilityRoomTypeAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = createFacilityRoomTypeSchema.parse({
+    displayName: formData.get("displayName"),
+    baseTypeKey: formData.get("baseTypeKey"),
+    description: toOptional(formData.get("description")),
+  });
+
+  await createFacilityRoomType(
+    {
+      facilityId: session.facilityId,
+      displayName: parsed.displayName,
+      baseTypeKey: parsed.baseTypeKey,
+      description: parsed.description ?? null,
+    },
+    prisma,
+  );
+
+  revalidateBuilderViews();
+}
+
+export async function updateFacilityRoomTypeAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = updateFacilityRoomTypeSchema.parse({
+    id: formData.get("id"),
+    displayName: formData.get("displayName"),
+    baseTypeKey: formData.get("baseTypeKey"),
+    description: toOptional(formData.get("description")),
+  });
+
+  await updateFacilityRoomType(
+    {
+      facilityId: session.facilityId,
+      id: parsed.id,
+      displayName: parsed.displayName,
+      baseTypeKey: parsed.baseTypeKey,
+      description: parsed.description ?? null,
+    },
+    prisma,
+  );
+
+  revalidateBuilderViews();
+}
+
+export type ArchiveFacilityRoomTypeResult = {
+  action: "deleted" | "archived" | "blocked";
+  roomCount: number;
+};
+
+export async function archiveFacilityRoomTypeAction(
+  formData: FormData,
+): Promise<ArchiveFacilityRoomTypeResult> {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const id = z.string().cuid().parse(formData.get("id"));
+
+  const result = await archiveOrDeleteFacilityRoomType(
+    { facilityId: session.facilityId, id },
+    prisma,
+  );
+
+  revalidateBuilderViews();
+  return result;
 }

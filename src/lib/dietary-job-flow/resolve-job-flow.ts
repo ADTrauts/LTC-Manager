@@ -106,7 +106,7 @@ function toCycleSnapshot(
 ): JobFlowCycleSnapshot {
   return {
     id: occ.id,
-    label: occ.label,
+    label: occ.displayPath && occ.depth > 0 ? occ.displayPath : occ.label,
     cycleType: occ.cycleType,
     description: descriptions?.[occ.id] ?? null,
     startLocal: occ.startLocal,

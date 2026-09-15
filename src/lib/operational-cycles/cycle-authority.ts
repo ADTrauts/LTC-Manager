@@ -35,13 +35,6 @@ export function decideCycleAuthority(input: {
   departmentExists: boolean;
   primaryDepartmentId: string | null | undefined;
 }): CycleAuthorityDecision {
-  if (!input.flagEnabled) {
-    return {
-      ...DENIED,
-      reason: "Operational Cycles are not enabled for this department.",
-    };
-  }
-
   if (input.sessionFacilityId !== input.facilityId) {
     return {
       ...DENIED,
@@ -53,6 +46,25 @@ export function decideCycleAuthority(input: {
     return {
       ...DENIED,
       reason: "Department not found.",
+    };
+  }
+
+  if (!input.flagEnabled) {
+    // Runtime rollout flag is off: Run does not consume cycles.
+    // Build still allows Manager+ / FA password sessions to author Draft and schedule.
+    if (hasAtLeastRole(input.role, "MANAGER") && input.authMethod !== "QUICK_PIN") {
+      return {
+        canViewRuntime: false,
+        canViewDepartment: true,
+        canManage: true,
+        canPublish: true,
+        reason:
+          "Operational Cycles runtime is not enabled for this department; Build drafting remains available.",
+      };
+    }
+    return {
+      ...DENIED,
+      reason: "Operational Cycles are not enabled for this department.",
     };
   }
 
@@ -69,14 +81,26 @@ export function decideCycleAuthority(input: {
     };
   }
 
+  // Facility Administrator may configure Operational Cycles for any department in the
+  // facility from Department Builder (same facility-scoped Build posture as heads/visibility).
+  // Quick PIN still never grants Build.
   if (isFacilityAdministratorRole(role)) {
-    if (input.primaryDepartmentId !== input.departmentId) {
+    if (pinBlocksBuild) {
       return {
-        ...DENIED,
-        reason:
-          "Facility Administrator status alone does not grant Operational Cycle authority.",
+        canViewRuntime: true,
+        canViewDepartment: true,
+        canManage: false,
+        canPublish: false,
+        reason: "Quick PIN does not grant Operational Cycle Build access.",
       };
     }
+    return {
+      canViewRuntime: true,
+      canViewDepartment: true,
+      canManage: true,
+      canPublish: true,
+      reason: null,
+    };
   }
 
   const canViewDepartment = true;
@@ -107,7 +131,7 @@ export function decideCycleAuthority(input: {
 
 /**
  * Canonical Operational Cycle authority (department-keyed — Phase 11B).
- * Facility Administrator role alone does not grant cycle management.
+ * Facility Administrator may manage cycles facility-wide from Department Builder (password).
  */
 export async function resolveCycleAuthority(
   session: AppJwtPayload,

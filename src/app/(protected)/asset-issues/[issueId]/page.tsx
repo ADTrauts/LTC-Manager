@@ -233,24 +233,38 @@ export default async function AssetIssueDetailPage({ params }: Props) {
           ) : null}
 
           {canManageWo ? (
-            <form action={createWorkOrderFromAssetIssueAction} className="mt-4 flex flex-wrap items-end gap-2" data-testid="create-wo-from-issue">
+            <form action={createWorkOrderFromAssetIssueAction} className="mt-4 space-y-2" data-testid="create-wo-from-issue">
               <input type="hidden" name="issueId" value={detail.id} />
               <input type="hidden" name="departmentId" value={detail.departmentId} />
+              <p className="text-xs text-zinc-600" data-testid="repair-responsibility-context">
+                Responsible maintainer:{" "}
+                {detail.asset.responsibleOrganization?.name ?? "Not assigned"}
+                {" · "}
+                Preferred repair vendor: {detail.asset.vendor?.name ?? "No preferred vendor"}
+              </p>
               {authority.canAssignVendor ? (
                 <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">Vendor (optional)</span>
-                  <select name="vendorId" defaultValue="" className="rounded-md border border-zinc-300 px-3 py-2" data-testid="wo-vendor">
-                    <option value="">No vendor</option>
+                  <span className="font-medium">Repair provider (optional)</span>
+                  <select
+                    name="vendorId"
+                    defaultValue={detail.asset.vendorId ?? ""}
+                    className="rounded-md border border-zinc-300 px-3 py-2"
+                    data-testid="wo-vendor"
+                  >
+                    <option value="">No provider</option>
                     {vendors.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name}
                       </option>
                     ))}
                   </select>
+                  <span className="text-xs text-zinc-500">
+                    Defaults to the preferred repair vendor. You can change it.
+                  </span>
                 </label>
               ) : null}
               <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white" data-testid="create-work-order">
-                Create Work Order
+                Create repair
               </button>
             </form>
           ) : null}
@@ -274,14 +288,14 @@ export default async function AssetIssueDetailPage({ params }: Props) {
       ) : null}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900">Work Order</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">Repair</h2>
         {detail.workOrder ? (
-          <Link href={`/issues/${detail.workOrder.id}`} className="mt-2 block text-sm underline underline-offset-2" data-testid="linked-work-order">
+          <Link href={`/repairs/${detail.workOrder.id}`} className="mt-2 block text-sm underline underline-offset-2" data-testid="linked-work-order">
             {detail.workOrder.repairCode} · {detail.workOrder.title} ·{" "}
             {workOrderStatusLabel(detail.workOrder.status)}
           </Link>
         ) : (
-          <p className="mt-2 text-sm text-zinc-500">No Work Order linked. Issue and Work Order remain separate.</p>
+          <p className="mt-2 text-sm text-zinc-500">No repair linked. An issue may exist without a repair.</p>
         )}
       </section>
 

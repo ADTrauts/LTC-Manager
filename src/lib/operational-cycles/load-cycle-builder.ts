@@ -1,4 +1,6 @@
 import type { AppJwtPayload } from "@/lib/auth";
+import { loadDepartmentLocationsView } from "@/lib/department-administration";
+import { listFacilityRoomTypes } from "@/lib/facility-builder/facility-room-types";
 import {
   loadFacilityTimezone,
   toServiceDateKey,
@@ -6,6 +8,10 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { resolveCycleAuthority } from "./cycle-authority";
+import {
+  type CycleScopeLocationOption,
+  type StandardRoomTypeOption,
+} from "./cycle-scope";
 import { mapCycleRow } from "./load-published-cycles";
 import {
   describeOperationalCycleContext,
@@ -27,6 +33,12 @@ export type CycleBuilderDayPreview = {
   cycles: OperationalCycleDefinition[];
 };
 
+export type CycleBuilderCatalog = {
+  locations: CycleScopeLocationOption[];
+  /** Facility Room Types for Build room-picker filters (id + displayName). */
+  roomTypes: StandardRoomTypeOption[];
+};
+
 /**
  * List all cycles for Department Builder (draft / published / retired)
  * plus a day preview for a representative operational date.
@@ -39,6 +51,7 @@ export async function loadCycleBuilder(input: {
 }): Promise<{
   cycles: CycleBuilderRow[];
   preview: CycleBuilderDayPreview;
+  catalog: CycleBuilderCatalog;
   canManage: boolean;
   canPublish: boolean;
 }> {
@@ -56,7 +69,17 @@ export async function loadCycleBuilder(input: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
     },
-    include: { locations: { select: { unitId: true } } },
+    include: {
+      locations: { select: { unitId: true, spaceId: true } },
+      milestoneTimes: { select: { unitId: true, milestone: true, configuredTime: true } },
+      keyTimeGroups: {
+        select: {
+          dueLocal: true,
+          rooms: { select: { spaceId: true } },
+        },
+        orderBy: { displaySequence: "asc" },
+      },
+    },
     orderBy: [{ displaySequence: "asc" }, { stableKey: "asc" }, { version: "desc" }],
   });
 
@@ -85,6 +108,57 @@ export async function loadCycleBuilder(input: {
     operationalDateKey: input.previewDateKey,
   });
 
+  const locationsView = await loadDepartmentLocationsView({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  });
+  const roomIds = (locationsView?.locations ?? [])
+    .filter((location) => location.kind === "room")
+    .map((location) => location.id);
+  const spaceTypeRows =
+    roomIds.length > 0
+      ? await prisma.unitSpace.findMany({
+          where: { id: { in: roomIds }, facilityId: input.facilityId },
+          select: {
+            id: true,
+            facilityRoomTypeId: true,
+            facilityRoomType: { select: { displayName: true } },
+          },
+        })
+      : [];
+  const facilityTypeBySpaceId = new Map(
+    spaceTypeRows.map((row) => [
+      row.id,
+      {
+        facilityRoomTypeId: row.facilityRoomTypeId,
+        roomTypeLabel: row.facilityRoomType?.displayName ?? null,
+      },
+    ]),
+  );
+  const facilityRoomTypes = await listFacilityRoomTypes(input.facilityId, prisma);
+
+  const catalog: CycleBuilderCatalog = {
+    locations: (locationsView?.locations ?? []).map((location) => {
+      const facilityType = facilityTypeBySpaceId.get(location.id);
+      return {
+        id: location.id,
+        kind: location.kind,
+        name: location.displayName || location.name,
+        roomTypeKey: location.roomTypeKey,
+        roomTypeLabel:
+          facilityType?.roomTypeLabel ?? location.roomTypeLabel,
+        facilityRoomTypeId: facilityType?.facilityRoomTypeId ?? null,
+        neighborhoodId: location.parentNeighborhoodId,
+        neighborhoodName: location.parentNeighborhoodName,
+        hierarchyRole: location.hierarchyRole,
+      };
+    }),
+    roomTypes: facilityRoomTypes.map((row) => ({
+      key: row.id,
+      label: row.displayName,
+    })),
+  };
+
   return {
     cycles,
     preview: {
@@ -93,6 +167,7 @@ export async function loadCycleBuilder(input: {
       description: describeOperationalCycleContext(context),
       cycles: publishedForPreview,
     },
+    catalog,
     canManage: authority.canManage,
     canPublish: authority.canPublish,
   };

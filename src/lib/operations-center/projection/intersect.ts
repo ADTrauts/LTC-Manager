@@ -48,7 +48,7 @@ export function intersectDashboardQueriesToProjectedUnits(
     allowed.has(s.unitId),
   );
   const scheduleEntriesToday = queries.scheduleEntriesToday.filter((e) =>
-    allowed.has(e.unitId),
+    e.unitId != null && allowed.has(e.unitId),
   );
   const overridesToday = queries.overridesToday.filter(
     (o) =>

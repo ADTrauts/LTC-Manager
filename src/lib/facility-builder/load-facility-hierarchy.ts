@@ -4,6 +4,11 @@ import {
   resolveFacilityVocabulary,
   type FacilityVocabulary,
 } from "@/lib/facility-builder/facility-vocabulary";
+import {
+  ensureFacilityRoomTypesBackfilled,
+  listFacilityRoomTypes,
+  type FacilityRoomTypeRow,
+} from "@/lib/facility-builder/facility-room-types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,11 +24,23 @@ export type DeptResponsibilityView = {
   department: { id: string; key: string; name: string };
 };
 
+export type FacilityRoomTypeView = Pick<
+  FacilityRoomTypeRow,
+  | "id"
+  | "displayName"
+  | "baseTypeKey"
+  | "baseTypeLabel"
+  | "description"
+  | "isActive"
+  | "roomCount"
+>;
+
 export type SpaceView = {
   id: string;
   name: string;
   spaceType: SpaceType;
   customTypeLabel: string | null;
+  facilityRoomTypeId: string | null;
   roomNumber: string | null;
   code: string | null;
   isActive: boolean;
@@ -66,6 +83,8 @@ export type FacilityHierarchy = {
   /** Builder-only rooms with unitId = null (Undesignated). */
   undesignatedSpaces: SpaceView[];
   departments: { id: string; key: string; name: string }[];
+  /** Active facility Room Types (catalog for Structure editors). */
+  roomTypes: FacilityRoomTypeView[];
 };
 
 // ---------------------------------------------------------------------------
@@ -75,11 +94,14 @@ export type FacilityHierarchy = {
 export async function loadFacilityHierarchy(
   facilityId: string,
 ): Promise<FacilityHierarchy> {
+  await ensureFacilityRoomTypesBackfilled(facilityId, prisma);
+
   const spaceSelect = {
     id: true,
     name: true,
     spaceType: true,
     customTypeLabel: true,
+    facilityRoomTypeId: true,
     roomNumber: true,
     code: true,
     isActive: true,
@@ -96,7 +118,7 @@ export async function loadFacilityHierarchy(
     },
   };
 
-  const [facility, flatUnits, undesignatedSpaces, departments] = await Promise.all([
+  const [facility, flatUnits, undesignatedSpaces, departments, roomTypes] = await Promise.all([
     prisma.facility.findUniqueOrThrow({
       where: { id: facilityId },
       select: {
@@ -149,6 +171,7 @@ export async function loadFacilityHierarchy(
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, key: true, name: true },
     }),
+    listFacilityRoomTypes(facilityId, prisma),
   ]);
 
   const stagedFlat = flatUnits.filter((u) => u.hierarchyRole === "STAGED");
@@ -164,6 +187,7 @@ export async function loadFacilityHierarchy(
     stagedUnits,
     undesignatedSpaces,
     departments,
+    roomTypes,
   };
 }
 
@@ -188,6 +212,13 @@ function buildHierarchy(flatUnits: FlatUnit[]): UnitHierarchyNode[] {
       roots.push(node);
     }
   }
+
+  const byDisplayOrder = (a: UnitHierarchyNode, b: UnitHierarchyNode) =>
+    a.displayOrder - b.displayOrder || a.name.localeCompare(b.name);
+  for (const node of byId.values()) {
+    node.childUnits.sort(byDisplayOrder);
+  }
+  roots.sort(byDisplayOrder);
 
   return roots;
 }

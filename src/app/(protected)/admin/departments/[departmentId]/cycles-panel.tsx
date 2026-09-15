@@ -3,19 +3,48 @@ import {
   duplicateCycleAction,
   generateDietaryDefaultsAction,
   generateEvsDefaultsAction,
-  publishCycleAction,
-  reorderCycleDraftsAction,
-  retireCycleAction,
-  updateCycleDraftAction,
+  scheduleCycleChangesAction,
 } from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import { AppCard, SectionHeader, StatusBadge } from "@/components/design-system";
+import {
+  AddCycleToggle,
+  CycleEditorFields,
+} from "@/app/(protected)/admin/departments/[departmentId]/cycles-builder-controls";
+import { CyclesReviewPublishPanel } from "@/app/(protected)/admin/departments/[departmentId]/cycles-review-publish";
+import { CycleRowActionsMenu } from "@/app/(protected)/admin/departments/[departmentId]/cycle-row-actions-menu";
+import { DiscardAllDraftsButton } from "@/app/(protected)/admin/departments/[departmentId]/discard-all-drafts-button";
+import {
+  CompactCycleReadonlyList,
+  CompactDraftList,
+} from "@/app/(protected)/admin/departments/[departmentId]/cycles-tree-list";
 import type { AppJwtPayload } from "@/lib/auth";
 import {
+  buildDietaryStarterPreview,
+  departmentHasCycleConfiguration,
+  dietaryStarterWouldCreateCount,
+  isImmediatePublishTestingOverrideEnabled,
+  latestDraftEditedAt,
+  latestDraftsByStableKey,
   loadCycleBuilder,
-  validateCycle,
+  minimumPublishEffectiveFrom,
+  nextOperationalDayKey,
+  partitionCyclesForLifecycle,
+  reviewDraftChangesAgainstCurrent,
   type CycleBuilderRow,
 } from "@/lib/operational-cycles";
+import {
+  collectExistingCycleIdentity,
+  formatServiceDateLong,
+} from "@/lib/operational-cycles/cycle-display";
+import {
+  isTrueCycleFirstSetup,
+  shouldShowCycleCurrentSection,
+  shouldShowCycleDraftSection,
+  shouldShowCycleHistorySection,
+  shouldShowCycleScheduledSection,
+} from "@/lib/operational-cycles/cycle-ui";
+import { presentHierarchicalCycleReview } from "@/lib/operational-cycles/present-hierarchical-review";
+import { validateDraftsForReviewPublish } from "@/lib/operational-cycles/review-publish-validation";
 import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -27,397 +56,34 @@ type Props = {
   departmentKey?: string;
 };
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-
-function cycleStatusVariant(
-  status: CycleBuilderRow["status"],
-): "neutral" | "success" | "warning" {
-  switch (status) {
-    case "DRAFT":
-      return "neutral";
-    case "PUBLISHED":
-      return "success";
-    case "RETIRED":
-      return "warning";
-  }
-}
-
-function draftValidationErrors(row: CycleBuilderRow): string[] {
-  const result = validateCycle({
+function toRowData(row: CycleBuilderRow) {
+  return {
+    id: row.id,
     label: row.label,
-    cycleType: row.cycleType,
+    nodeKind: row.nodeKind,
     startLocal: row.startLocal,
     endLocal: row.endLocal,
-    overnight: row.overnight,
-    applicableDaysOfWeek: row.applicableDaysOfWeek,
-    effectiveFrom: toServiceDateKey(row.effectiveFrom),
     mealType: row.mealType,
+    applicableDaysOfWeek: row.applicableDaysOfWeek,
+    description: row.description,
+    cycleType: row.cycleType,
+    displaySequence: row.displaySequence,
+    overnight: row.overnight,
+    effectiveFrom: toServiceDateKey(row.effectiveFrom),
+    effectiveTo: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
     locationMode: row.locationMode,
+    locationInheritFromParent: row.locationInheritFromParent,
     applicableUnitTypes: row.applicableUnitTypes,
-    unitIds: row.unitIds,
     expectedMilestones: row.expectedMilestones,
-    forPublish: true,
-  });
-  return result.errors.map((e) => e.message);
-}
-
-function CycleFieldGrid({
-  defaults,
-  idPrefix,
-}: {
-  defaults?: Partial<{
-    label: string;
-    description: string;
-    cycleType: string;
-    displaySequence: number;
-    startLocal: string;
-    endLocal: string;
-    overnight: boolean;
-    applicableDaysOfWeek: number[];
-    effectiveFrom: string;
-    effectiveTo: string | null;
-    mealType: string | null;
-    locationMode: string;
-    applicableUnitTypes: string[];
-    expectedMilestones: string[];
-  }>;
-  idPrefix: string;
-}) {
-  const days = defaults?.applicableDaysOfWeek ?? [0, 1, 2, 3, 4, 5, 6];
-  const milestones = defaults?.expectedMilestones ?? [];
-  const unitTypes = defaults?.applicableUnitTypes ?? ["SERVERY", "KITCHEN"];
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <label className="block text-xs font-medium text-zinc-700 sm:col-span-2">
-        Label
-        <input
-          id={`${idPrefix}-label`}
-          name="label"
-          required
-          defaultValue={defaults?.label ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700 sm:col-span-2">
-        Description
-        <input
-          name="description"
-          defaultValue={defaults?.description ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Type
-        <select
-          name="cycleType"
-          required
-          defaultValue={defaults?.cycleType ?? "PREPARATION"}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="PREPARATION">Preparation</option>
-          <option value="SERVICE">Service</option>
-          <option value="TRANSITION">Transition</option>
-          <option value="CLOSEOUT">Closeout</option>
-          <option value="CUSTOM">Custom</option>
-        </select>
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Sequence
-        <input
-          name="displaySequence"
-          type="number"
-          min={0}
-          defaultValue={defaults?.displaySequence ?? 100}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Start (HH:mm)
-        <input
-          name="startLocal"
-          required
-          pattern="\d{1,2}:\d{2}"
-          placeholder="05:30"
-          defaultValue={defaults?.startLocal ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        End (HH:mm)
-        <input
-          name="endLocal"
-          required
-          pattern="\d{1,2}:\d{2}"
-          placeholder="07:30"
-          defaultValue={defaults?.endLocal ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="flex items-center gap-2 text-xs font-medium text-zinc-700">
-        <input
-          type="checkbox"
-          name="overnight"
-          value="true"
-          defaultChecked={defaults?.overnight ?? false}
-          className="rounded border-zinc-300"
-        />
-        Overnight window
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Meal type
-        <select
-          name="mealType"
-          defaultValue={defaults?.mealType ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="">None</option>
-          <option value="BREAKFAST">Breakfast</option>
-          <option value="LUNCH">Lunch</option>
-          <option value="DINNER">Dinner</option>
-        </select>
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Effective from
-        <input
-          name="effectiveFrom"
-          type="date"
-          required
-          defaultValue={defaults?.effectiveFrom ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Effective to (optional)
-        <input
-          name="effectiveTo"
-          type="date"
-          defaultValue={defaults?.effectiveTo ?? ""}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Location mode
-        <select
-          name="locationMode"
-          defaultValue={defaults?.locationMode ?? "UNIT_TYPES"}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="ALL_DEPARTMENT_UNITS">All department units</option>
-          <option value="UNIT_TYPES">Unit types</option>
-          <option value="EXPLICIT_UNITS">Explicit units</option>
-        </select>
-      </label>
-      <label className="block text-xs font-medium text-zinc-700">
-        Unit types (comma-separated)
-        <input
-          name="applicableUnitTypes"
-          defaultValue={unitTypes.join(",")}
-          placeholder="SERVERY,KITCHEN"
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-      <label className="block text-xs font-medium text-zinc-700 sm:col-span-2">
-        Days of week (0=Sun … 6=Sat, comma-separated)
-        <input
-          name="applicableDaysOfWeek"
-          defaultValue={days.join(",")}
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-        <span className="mt-1 block text-[11px] font-normal text-zinc-500">
-          {days.map((d) => DAY_LABELS[d] ?? d).join(", ")}
-        </span>
-      </label>
-      <label className="block text-xs font-medium text-zinc-700 sm:col-span-2">
-        Expected milestones (SERVICE cycles)
-        <input
-          name="expectedMilestones"
-          defaultValue={milestones.join(",")}
-          placeholder="READY,SERVICE_STARTED"
-          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-        />
-      </label>
-    </div>
-  );
-}
-
-function CycleRowActions({
-  row,
-  departmentId,
-  canManage,
-  canPublish,
-}: {
-  row: CycleBuilderRow;
-  departmentId: string;
-  canManage: boolean;
-  canPublish: boolean;
-}) {
-  const publishErrors = row.status === "DRAFT" ? draftValidationErrors(row) : [];
-
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {canManage && row.status === "DRAFT" ? (
-        <details className="w-full rounded-md border border-zinc-200 bg-zinc-50 p-3">
-          <summary className="cursor-pointer text-xs font-medium text-zinc-800">
-            Edit draft
-          </summary>
-          <DepartmentAdminActionForm
-            action={updateCycleDraftAction}
-            className="mt-3 space-y-3"
-          >
-            <input type="hidden" name="departmentId" value={departmentId} />
-            <input type="hidden" name="cycleId" value={row.id} />
-            <CycleFieldGrid
-              idPrefix={`edit-${row.id}`}
-              defaults={{
-                label: row.label,
-                description: row.description ?? "",
-                cycleType: row.cycleType,
-                displaySequence: row.displaySequence,
-                startLocal: row.startLocal,
-                endLocal: row.endLocal,
-                overnight: row.overnight,
-                applicableDaysOfWeek: row.applicableDaysOfWeek,
-                effectiveFrom: toServiceDateKey(row.effectiveFrom),
-                effectiveTo: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
-                mealType: row.mealType,
-                locationMode: row.locationMode,
-                applicableUnitTypes: row.applicableUnitTypes,
-                expectedMilestones: row.expectedMilestones,
-              }}
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
-            >
-              Save draft
-            </button>
-          </DepartmentAdminActionForm>
-        </details>
-      ) : null}
-
-      {canManage ? (
-        <DepartmentAdminActionForm action={duplicateCycleAction}>
-          <input type="hidden" name="departmentId" value={departmentId} />
-          <input type="hidden" name="cycleId" value={row.id} />
-          <button
-            type="submit"
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
-          >
-            Duplicate
-          </button>
-        </DepartmentAdminActionForm>
-      ) : null}
-
-      {canPublish && row.status === "DRAFT" ? (
-        <DepartmentAdminActionForm action={publishCycleAction}>
-          <input type="hidden" name="departmentId" value={departmentId} />
-          <input type="hidden" name="cycleId" value={row.id} />
-          <button
-            type="submit"
-            disabled={publishErrors.length > 0}
-            title={
-              publishErrors.length > 0
-                ? publishErrors.join(" ")
-                : "Publish this draft"
-            }
-            className="rounded-md bg-emerald-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Publish
-          </button>
-        </DepartmentAdminActionForm>
-      ) : null}
-
-      {canManage && row.status === "PUBLISHED" ? (
-        <DepartmentAdminActionForm action={retireCycleAction}>
-          <input type="hidden" name="departmentId" value={departmentId} />
-          <input type="hidden" name="cycleId" value={row.id} />
-          <button
-            type="submit"
-            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
-          >
-            Retire
-          </button>
-        </DepartmentAdminActionForm>
-      ) : null}
-
-      {publishErrors.length > 0 ? (
-        <ul
-          className="w-full list-disc space-y-0.5 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800"
-          data-testid="cycle-publish-errors"
-        >
-          {publishErrors.map((error) => (
-            <li key={error}>{error}</li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function CycleListSection({
-  title,
-  rows,
-  departmentId,
-  canManage,
-  canPublish,
-  empty,
-}: {
-  title: string;
-  rows: CycleBuilderRow[];
-  departmentId: string;
-  canManage: boolean;
-  canPublish: boolean;
-  empty: string;
-}) {
-  return (
-    <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-zinc-900">
-        {title}{" "}
-        <span className="font-normal text-zinc-500">({rows.length})</span>
-      </h3>
-      {rows.length === 0 ? (
-        <p className="text-sm text-zinc-500">{empty}</p>
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((row) => (
-            <li key={row.id} data-testid="cycle-row">
-              <AppCard
-                title={row.label}
-                subtitle={`${row.startLocal}–${row.endLocal} · ${row.cycleType}${
-                  row.mealType ? ` · ${row.mealType}` : ""
-                } · seq ${row.displaySequence} · v${row.version}`}
-                actions={
-                  <StatusBadge variant={cycleStatusVariant(row.status)}>
-                    {row.status}
-                  </StatusBadge>
-                }
-              >
-                {row.description ? (
-                  <p className="text-sm text-zinc-600">{row.description}</p>
-                ) : null}
-                <p className="mt-1 text-xs text-zinc-500">
-                  Location: {row.locationMode.replaceAll("_", " ").toLowerCase()}
-                  {row.applicableUnitTypes.length > 0
-                    ? ` · ${row.applicableUnitTypes.join(", ")}`
-                    : ""}
-                  {row.expectedMilestones.length > 0
-                    ? ` · milestones ${row.expectedMilestones.join(", ")}`
-                    : ""}
-                </p>
-                <CycleRowActions
-                  row={row}
-                  departmentId={departmentId}
-                  canManage={canManage}
-                  canPublish={canPublish}
-                />
-              </AppCard>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
+    roomTypeKey: row.roomTypeKey,
+    unitIds: row.unitIds,
+    spaceIds: row.spaceIds,
+    keyTimeGroups: row.keyTimeGroups,
+    milestoneTimes: row.milestoneTimes,
+    status: row.status,
+    stableKey: row.stableKey,
+    parentStableKey: row.parentStableKey,
+  };
 }
 
 export async function CyclesPanel({
@@ -428,161 +94,389 @@ export async function CyclesPanel({
   departmentKey,
 }: Props) {
   const timezone = await loadFacilityTimezone(prisma, facilityId);
-  const previewDateKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
+  const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
+  const nextDay = nextOperationalDayKey(todayKey);
 
   const builder = await loadCycleBuilder({
     session,
     facilityId,
     departmentId,
-    previewDateKey,
+    previewDateKey: todayKey,
   });
 
-  const drafts = builder.cycles.filter((c) => c.status === "DRAFT");
-  const published = builder.cycles.filter((c) => c.status === "PUBLISHED");
-  const retired = builder.cycles.filter((c) => c.status === "RETIRED");
-  const draftOrder = [...drafts]
-    .sort((a, b) => a.displaySequence - b.displaySequence || a.label.localeCompare(b.label))
-    .map((d) => d.id);
+  const { current, drafts, scheduled, history, currentEffectiveSince } =
+    partitionCyclesForLifecycle(builder.cycles, todayKey);
+
+  const presence = {
+    currentCount: current.length,
+    draftCount: drafts.length,
+    scheduledCount: scheduled.length,
+    historyCount: history.length,
+  };
+  const firstSetup = isTrueCycleFirstSetup(presence);
+  const locationNames = Object.fromEntries(
+    builder.catalog.locations.map((location) => [location.id, location.name]),
+  );
+  const reviewChanges = reviewDraftChangesAgainstCurrent({
+    drafts,
+    current,
+    locationNames,
+    unitNames: locationNames,
+  });
+  const hierarchicalReview = presentHierarchicalCycleReview({
+    changes: reviewChanges,
+    drafts,
+    currentCount: current.length,
+    locationNames,
+  });
+  const authorizedSpaceIds = new Set(builder.catalog.locations.map((location) => location.id));
+  const publishedForReview = latestDraftsByStableKey(
+    builder.cycles.filter((cycle) => cycle.status === "PUBLISHED"),
+  );
+  const reviewValidation = validateDraftsForReviewPublish({
+    drafts,
+    locationContext: publishedForReview,
+    locationNames,
+    authorizedSpaceIds,
+  });
+  const draftEditedAt = latestDraftEditedAt(drafts);
   const isEvs = departmentKey === "EVS";
+  const isDietary = departmentKey === "DIETARY";
+  const showMeal = isDietary;
+  const scheduledEffective =
+    scheduled.length > 0 ? toServiceDateKey(scheduled[0]!.effectiveFrom) : null;
+  const minScheduleDate = minimumPublishEffectiveFrom({
+    todayKey,
+    hasCurrentEffectiveConfig: current.length > 0,
+  });
+  // Testing override: visible in development/test only — not production builds.
+  const allowImmediatePublish = isImmediatePublishTestingOverrideEnabled();
+
+  const existingIdentity = collectExistingCycleIdentity(builder.cycles);
+  const hasConfig = departmentHasCycleConfiguration(presence);
+  const dietaryStarterMissing = isDietary
+    ? dietaryStarterWouldCreateCount(existingIdentity.stableKeys)
+    : 0;
+  const dietaryStarterPreview = isDietary ? buildDietaryStarterPreview() : [];
+  const showDietaryStarterPrimary =
+    builder.canManage && isDietary && firstSetup;
+  const showDietaryStarterSecondary =
+    builder.canManage && isDietary && hasConfig && dietaryStarterMissing > 0;
 
   return (
-    <div className="space-y-6" data-testid="operational-cycles-panel">
-      <SectionHeader
-        title="Operational Cycles"
-        description={`Named phases of the ${departmentName} operating day. Published cycles drive runtime context; drafts stay in Builder until reviewed.`}
-      />
+    <div className="space-y-3" data-testid="operational-cycles-panel">
+      <div
+        className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+        data-testid="operational-cycles-header"
+      >
+        <div className="min-w-0 space-y-2">
+          <h2 className="text-base font-semibold text-zinc-900">Operational Cycles</h2>
+          <p className="text-sm text-zinc-600">
+            Define recurring periods, phases, and key times that shape {departmentName}&apos;s
+            operating day.
+          </p>
+        </div>
+      </div>
 
-      <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-        Phase 9A does not implement Job Flow. Overlapping published cycles are not
-        supported — resolve overlaps before publish.
-      </p>
-
-      <AppCard title="Day preview" subtitle={`Facility-local ${previewDateKey}`}>
-        <p className="text-sm text-zinc-600">{builder.preview.description}</p>
-        <ul className="mt-3 space-y-1" data-testid="cycle-day-preview">
-          {builder.preview.cycles.length === 0 ? (
-            <li className="text-sm text-zinc-500">No published cycles for this date.</li>
-          ) : (
-            builder.preview.cycles.map((cycle) => (
-              <li key={cycle.id} className="text-sm text-zinc-800">
-                {cycle.startLocal}–{cycle.endLocal} {cycle.label}
-              </li>
-            ))
-          )}
-        </ul>
-      </AppCard>
+      {firstSetup ? (
+        <div
+          className="rounded-lg border border-zinc-200 bg-white px-4 py-5"
+          data-testid="operational-cycles-empty"
+        >
+          <p className="text-sm text-zinc-700">No operational cycles yet.</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            {isDietary
+              ? "Start with a Dietary example operating day, or create one from scratch."
+              : "Create the recurring operating periods this department uses."}
+          </p>
+          {showDietaryStarterPrimary ? (
+            <div className="mt-4 space-y-3" data-testid="dietary-starter-preview">
+              <p className="text-sm font-medium text-zinc-900">Start with a Dietary example</p>
+              <p className="text-xs text-zinc-500">
+                Creates a basic Breakfast / Lunch / Dinner structure with common phases. You can
+                rename, move, add, or remove anything afterward.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {dietaryStarterPreview.map((root) => (
+                  <div key={root.stableKey} className="text-sm text-zinc-700">
+                    <p className="font-medium text-zinc-900">{root.label}</p>
+                    <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
+                      {root.children.map((child) => (
+                        <li key={child.stableKey}>· {child.label}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <DepartmentAdminActionForm action={generateDietaryDefaultsAction}>
+                <input type="hidden" name="departmentId" value={departmentId} />
+                <input type="hidden" name="effectiveFrom" value={nextDay} />
+                <button
+                  type="submit"
+                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
+                  data-testid="generate-dietary-defaults"
+                >
+                  Add starter cycles
+                </button>
+              </DepartmentAdminActionForm>
+            </div>
+          ) : null}
+          {!builder.canManage ? (
+            <p className="mt-3 text-xs text-zinc-500">
+              Managers with password auth can create operational cycles.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {builder.canManage ? (
-        <div className="flex flex-wrap gap-3">
-          {isEvs ? (
-            <DepartmentAdminActionForm action={generateEvsDefaultsAction}>
-              <input type="hidden" name="departmentId" value={departmentId} />
-              <input type="hidden" name="effectiveFrom" value={previewDateKey} />
-              <button
-                type="submit"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-                data-testid="generate-evs-defaults"
-              >
-                Generate EVS defaults
-              </button>
+        <AddCycleToggle defaultOpen={firstSetup}>
+          <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+            <p className="text-xs text-zinc-500">
+              Create a major operating period. Changes start as Draft.
+            </p>
+            <DepartmentAdminActionForm action={createCycleDraftAction} className="mt-3 space-y-3">
+              <div data-testid="create-cycle-form" className="space-y-3">
+                <input type="hidden" name="departmentId" value={departmentId} />
+                <CycleEditorFields
+                  idPrefix="create"
+                  showMeal={showMeal}
+                  compactCreate
+                  catalog={builder.catalog}
+                  parentOptions={builder.cycles
+                    .filter((c) => c.status === "DRAFT" || c.status === "PUBLISHED")
+                    .map((c) => ({
+                      stableKey: c.stableKey,
+                      label: c.label,
+                      displayPath: c.label,
+                    }))}
+                  defaults={{
+                    effectiveFrom: nextDay,
+                    cycleType: isDietary ? "CUSTOM" : "CUSTOM",
+                    locationMode: "ALL_DEPARTMENT_UNITS",
+                    roomTypeKey: null,
+                    applicableUnitTypes: [],
+                    applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+                    expectedMilestones: [],
+                    parentStableKey: null,
+                    mealType: showMeal ? "BREAKFAST" : null,
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
+                  data-testid="create-cycle-submit"
+                >
+                  Save draft
+                </button>
+              </div>
             </DepartmentAdminActionForm>
+          </div>
+        </AddCycleToggle>
+      ) : null}
+
+      {shouldShowCycleDraftSection(presence) ? (
+        <section
+          className="space-y-3 rounded-lg border border-amber-200/60 bg-amber-50/40 px-3 py-3"
+          data-testid="cycles-draft"
+        >
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900">
+              Draft
+              {hierarchicalReview.mode === "empty" ? (
+                <span className="font-normal text-zinc-500"> · No changes</span>
+              ) : (
+                <span className="font-normal text-zinc-500">
+                  {" "}
+                  · {drafts.length} change{drafts.length === 1 ? "" : "s"}
+                </span>
+              )}
+            </h3>
+            <p className="mt-1 text-xs text-zinc-600">
+              Not active yet. Today’s operation continues to use the current configuration.
+            </p>
+            {draftEditedAt ? (
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Last edited {formatServiceDateLong(toServiceDateKey(draftEditedAt))}.
+              </p>
+            ) : null}
+            {hierarchicalReview.mode === "empty" ? (
+              <p className="mt-1 text-xs text-zinc-600" data-testid="draft-matches-current">
+                This draft matches Current.
+              </p>
+            ) : null}
+          </div>
+          {builder.canManage && hierarchicalReview.mode === "empty" ? (
+            <DiscardAllDraftsButton departmentId={departmentId} hasChanges={false} />
+          ) : null}
+          {builder.canManage ? (
+            <CompactDraftList
+              departmentId={departmentId}
+              rows={drafts.map(toRowData)}
+              parentContext={current.map(toRowData)}
+              showMeal={showMeal}
+              canReorder={drafts.length > 1}
+              catalog={builder.catalog}
+              nextDayKey={nextDay}
+            />
           ) : (
+            <CompactCycleReadonlyList
+              rows={drafts.map(toRowData)}
+              showMeal={showMeal}
+              catalog={builder.catalog}
+            />
+          )}
+
+          {builder.canPublish ? (
+            <CyclesReviewPublishPanel
+              departmentId={departmentId}
+              todayKey={todayKey}
+              nextDayKey={nextDay}
+              minDateKey={minScheduleDate}
+              allowImmediate={allowImmediatePublish}
+              scheduleAction={scheduleCycleChangesAction}
+              blockers={reviewValidation.blockers}
+              warnings={reviewValidation.warnings}
+              hierarchicalReview={hierarchicalReview}
+            />
+          ) : null}
+        </section>
+      ) : null}
+
+      {shouldShowCycleCurrentSection(presence) ? (
+        <section className="space-y-2" data-testid="cycles-current">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold text-zinc-900">Current configuration</h3>
+            {currentEffectiveSince ? (
+              <p className="text-xs text-zinc-500">
+                Effective since {formatServiceDateLong(currentEffectiveSince)}
+              </p>
+            ) : null}
+          </div>
+          <p className="text-xs text-zinc-500">What Run is using today.</p>
+          <CompactCycleReadonlyList
+            rows={current.map(toRowData)}
+            showMeal={showMeal}
+            catalog={builder.catalog}
+            editDraftIdByStableKey={Object.fromEntries(drafts.map((row) => [row.stableKey, row.id]))}
+            actionsById={
+              builder.canManage
+                ? Object.fromEntries(
+                    current.map((row) => [
+                      row.id,
+                      <div key={row.id} className="flex items-center gap-1">
+                        <div className="hidden" data-cycle-edit={row.id}>
+                          <DepartmentAdminActionForm
+                            action={duplicateCycleAction}
+                            openCycleEditorOnSuccess
+                          >
+                            <input type="hidden" name="departmentId" value={departmentId} />
+                            <input type="hidden" name="cycleId" value={row.id} />
+                            <button type="submit" data-testid="duplicate-as-draft">
+                              Edit
+                            </button>
+                          </DepartmentAdminActionForm>
+                        </div>
+                        <CycleRowActionsMenu
+                          departmentId={departmentId}
+                          cycleId={row.id}
+                          objectLabel={row.label}
+                          ariaLabel={`Actions for ${row.label}`}
+                          actions={["edit-current", "retire-current"]}
+                        />
+                      </div>,
+                    ]),
+                  )
+                : undefined
+            }
+          />
+        </section>
+      ) : null}
+
+      {shouldShowCycleScheduledSection(presence) ? (
+        <section className="space-y-2" data-testid="cycles-scheduled">
+          <h3 className="text-sm font-semibold text-zinc-900">Scheduled changes</h3>
+          <p className="text-xs text-zinc-500">
+            Effective{" "}
+            {scheduledEffective ? formatServiceDateLong(scheduledEffective) : "future date"} · not
+            active yet
+          </p>
+          <CompactCycleReadonlyList
+            rows={scheduled.map(toRowData)}
+            showMeal={showMeal}
+            catalog={builder.catalog}
+            groupByScope
+          />
+        </section>
+      ) : null}
+
+      {shouldShowCycleHistorySection(presence) ? (
+        <details className="space-y-2" data-testid="cycles-history">
+          <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
+            History ({history.length})
+          </summary>
+          <CompactCycleReadonlyList
+            rows={history.map(toRowData)}
+            showMeal={showMeal}
+            catalog={builder.catalog}
+            groupByScope
+          />
+        </details>
+      ) : null}
+
+      {showDietaryStarterSecondary ? (
+        <details
+          className="rounded-lg border border-zinc-200 bg-white px-4 py-3"
+          data-testid="dietary-starter-secondary"
+        >
+          <summary className="cursor-pointer text-sm font-medium text-zinc-900">
+            Add from Dietary starter
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-zinc-500">
+              Adds any missing Breakfast / Lunch / Dinner starter phases as Draft. Existing cycles
+              are left unchanged.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {dietaryStarterPreview.map((root) => (
+                <div key={root.stableKey} className="text-sm text-zinc-700">
+                  <p className="font-medium text-zinc-900">{root.label}</p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
+                    {root.children.map((child) => (
+                      <li key={child.stableKey}>· {child.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
             <DepartmentAdminActionForm action={generateDietaryDefaultsAction}>
               <input type="hidden" name="departmentId" value={departmentId} />
-              <input type="hidden" name="effectiveFrom" value={previewDateKey} />
+              <input type="hidden" name="effectiveFrom" value={nextDay} />
               <button
                 type="submit"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
                 data-testid="generate-dietary-defaults"
               >
-                Generate Dietary defaults
+                Add starter cycles
               </button>
             </DepartmentAdminActionForm>
-          )}
-          {drafts.length > 1 ? (
-            <DepartmentAdminActionForm action={reorderCycleDraftsAction} className="space-y-2">
-              <input type="hidden" name="departmentId" value={departmentId} />
-              <label className="block text-xs font-medium text-zinc-700">
-                Reorder drafts (comma-separated ids by desired sequence)
-                <input
-                  name="orderedCycleIds"
-                  defaultValue={draftOrder.join(",")}
-                  className="mt-1 block min-w-[16rem] rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm font-normal"
-                  data-testid="reorder-cycle-ids"
-                />
-              </label>
-              <button
-                type="submit"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
-              >
-                Apply order
-              </button>
-            </DepartmentAdminActionForm>
-          ) : null}
-        </div>
+          </div>
+        </details>
       ) : null}
 
-      {!builder.canManage ? (
-        <p className="text-sm text-zinc-600">
-          View-only. Managers with password auth can create and publish cycles.
-          Quick PIN cannot manage Operational Cycles.
-        </p>
-      ) : null}
-
-      {builder.canManage ? (
-        <AppCard title="Create draft" subtitle="New cycles start as Draft for review.">
-          <DepartmentAdminActionForm
-            action={createCycleDraftAction}
-            className="space-y-3"
+      {builder.canManage && isEvs && (firstSetup || drafts.length < 4) ? (
+        <DepartmentAdminActionForm action={generateEvsDefaultsAction}>
+          <input type="hidden" name="departmentId" value={departmentId} />
+          <input type="hidden" name="effectiveFrom" value={nextDay} />
+          <button
+            type="submit"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+            data-testid="generate-evs-defaults"
           >
-            <div data-testid="create-cycle-form" className="space-y-3">
-              <input type="hidden" name="departmentId" value={departmentId} />
-              <CycleFieldGrid
-                idPrefix="create"
-                defaults={{
-                  effectiveFrom: previewDateKey,
-                  locationMode: "UNIT_TYPES",
-                  applicableUnitTypes: isEvs
-                    ? ["RESIDENT_AREA", "COMMON_AREA", "EVS_ZONE", "RESTROOM_CLUSTER"]
-                    : ["SERVERY", "KITCHEN"],
-                  applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-                }}
-              />
-              <button
-                type="submit"
-                className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
-              >
-                Create draft
-              </button>
-            </div>
-          </DepartmentAdminActionForm>
-        </AppCard>
+            {firstSetup ? "Start with EVS example" : "Add from EVS example"}
+          </button>
+        </DepartmentAdminActionForm>
       ) : null}
-
-      <CycleListSection
-        title="Draft"
-        rows={drafts}
-        departmentId={departmentId}
-        canManage={builder.canManage}
-        canPublish={builder.canPublish}
-        empty="No draft cycles."
-      />
-      <CycleListSection
-        title="Published"
-        rows={published}
-        departmentId={departmentId}
-        canManage={builder.canManage}
-        canPublish={builder.canPublish}
-        empty="No published cycles yet."
-      />
-      <CycleListSection
-        title="Retired"
-        rows={retired}
-        departmentId={departmentId}
-        canManage={builder.canManage}
-        canPublish={builder.canPublish}
-        empty="No retired cycles."
-      />
     </div>
   );
 }

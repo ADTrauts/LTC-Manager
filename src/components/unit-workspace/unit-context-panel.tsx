@@ -93,7 +93,7 @@ export function UnitContextPanel({
 
           <div className="grid gap-4 xl:grid-cols-2">
             <article className="rounded-xl border border-zinc-200 bg-white p-4">
-              <h3 className="text-base font-semibold text-zinc-900">Today&apos;s Meal Schedule</h3>
+              <h3 className="text-base font-semibold text-zinc-900">Expected today</h3>
               <div className="mt-3 space-y-2">
                 {unit.mealTimes.map((mealTime) => (
                   <div
@@ -108,7 +108,7 @@ export function UnitContextPanel({
                   </div>
                 ))}
                 {unit.mealTimes.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No meal times configured for this unit.</p>
+                  <p className="text-sm text-zinc-500">Expected time not configured.</p>
                 ) : null}
               </div>
             </article>
@@ -221,7 +221,7 @@ export function UnitContextPanel({
             <div key={repair.id} className="rounded border border-zinc-200 bg-white p-2">
               <p className="font-medium text-zinc-900">
                 <Link
-                  href={`/issues/${repair.id}`}
+                  href={`/repairs/${repair.id}`}
                   className="underline hover:text-zinc-600"
                 >
                   {repair.repairCode} · {repair.title}
@@ -233,11 +233,11 @@ export function UnitContextPanel({
             </div>
           ))}
           {openRepairs.length === 0 ? (
-            <p className="text-sm text-zinc-500">No open issues for this unit.</p>
+            <p className="text-sm text-zinc-500">No open repairs for this unit.</p>
           ) : null}
           <p className="pt-1">
             <Link href="/repairs" className="text-sm font-medium text-zinc-800 underline hover:text-zinc-600">
-              View all issues
+              View all repairs
             </Link>
           </p>
         </div>

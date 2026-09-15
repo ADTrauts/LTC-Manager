@@ -9,9 +9,10 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { CoverageSummaryCards } from "@/components/todays-work/coverage-list-summary";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
 import { TodaysWorkCoverageList } from "@/components/todays-work/todays-work-coverage-list";
+import { SupervisorDailyCoveragePanel } from "@/components/todays-work/supervisor-daily-coverage-panel";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
-import { getSession } from "@/lib/auth";
+import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import { isOperationalAssignmentsEnabled, isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
 import {
   loadDailyAssignmentBoard,
@@ -21,8 +22,8 @@ import {
   loadAssignmentPlanView,
 } from "@/lib/scheduling/operational-assignments";
 import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
+import { loadSupervisorDailyCoverage } from "@/lib/scheduling/load-supervisor-daily-coverage";
 import { prisma } from "@/lib/prisma";
-import { sessionUserIdForFk } from "@/lib/auth";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import {
   assembleProjectedTodaysWorkCoverage,
@@ -45,6 +46,7 @@ export default async function TodaysWorkCoveragePage() {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  const canManage = hasAtLeastRole(session.role, "SUPERVISOR");
 
   let coverage = await loadCoverageList(session.facilityId);
   let callDowns = await loadCallDownList(session.facilityId);
@@ -74,6 +76,17 @@ export default async function TodaysWorkCoveragePage() {
   const { summary, operationContext, items, priorityGap, dateIso } = coverage;
 
   const assignmentsEnabled = isOperationalAssignmentsEnabled();
+
+  const supervisorCoverage =
+    deptNav.activeDepartmentId != null
+      ? await loadSupervisorDailyCoverage({
+          facilityId: session.facilityId,
+          departmentId: deptNav.activeDepartmentId,
+          serviceDate: dateIso,
+          session,
+        })
+      : null;
+
   let fulfillmentEl: React.ReactNode = null;
   let dietaryCoverageEl: React.ReactNode = null;
 
@@ -133,23 +146,20 @@ export default async function TodaysWorkCoveragePage() {
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-900">Dietary Assignment Coverage</h3>
+            <h3 className="text-sm font-semibold text-zinc-900">Template position coverage</h3>
             <p className="mt-1 text-xs text-zinc-500">
               Plan: {planView?.status ?? "DRAFT"}
               {planView?.confirmedByName ? ` · Confirmed by ${planView.confirmedByName}` : ""}
-              {planView?.lastChangedAt
-                ? ` · Last changed ${new Date(planView.lastChangedAt).toLocaleString()}`
-                : ""}
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              Staffing coverage is separate from meal-service timing.
+              Expected staffing from templates — separate from Floor responsibility above.
             </p>
           </div>
           <Link
             href={`/staffing/assignments?date=${dateIso}`}
             className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
           >
-            Open Assignment Board
+            Open Daily Assignments
           </Link>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -157,16 +167,7 @@ export default async function TodaysWorkCoveragePage() {
           <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-900">At Risk {dietary.atRisk}</span>
           <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-800">Uncovered {dietary.uncovered}</span>
           <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
-            Not Yet Assigned {dietary.notYetAssigned}
-          </span>
-          <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
-            Not Confirmed {dietary.notConfirmed}
-          </span>
-          <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
             Unassigned scheduled {dietary.unassignedScheduledCount}
-          </span>
-          <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
-            Call-offs {dietary.callOffAffectedCount}
           </span>
         </div>
         {dietary.rows.filter((r) => r.state === "UNCOVERED" || r.state === "AT_RISK").length > 0 ? (
@@ -200,17 +201,9 @@ export default async function TodaysWorkCoveragePage() {
       const activeAssignments = board.assignments.filter(
         (a) => a.status === "PLANNED" || a.status === "ACTIVE",
       );
-      const coverageCount = activeAssignments.filter(
-        (a) =>
-          a.source === "COVERAGE" ||
-          a.source === "REASSIGNMENT" ||
-          a.source === "UNSCHEDULED_COVERAGE" ||
-          a.source === "CALL_OFF_REPLACEMENT",
-      ).length;
-
       fulfillmentEl = (
         <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-zinc-900">Operational Assignment Summary</h3>
+          <h3 className="text-sm font-semibold text-zinc-900">Required positions</h3>
           <div className="mt-2 flex flex-wrap gap-3 text-sm">
             <span className="text-zinc-700">
               {board.employees.filter((e) => !e.hasCallDown).length} scheduled
@@ -219,17 +212,8 @@ export default async function TodaysWorkCoveragePage() {
             </span>
             {fulfillment.unfilledPositions > 0 && (
               <span className="text-amber-700">
-                {fulfillment.unfilledPositions} position{fulfillment.unfilledPositions !== 1 ? "s" : ""} unfilled
-              </span>
-            )}
-            {coverageCount > 0 && (
-              <span className="text-blue-700">
-                {coverageCount} coverage assignment{coverageCount !== 1 ? "s" : ""}
-              </span>
-            )}
-            {fulfillment.conflicts > 0 && (
-              <span className="text-red-700">
-                {fulfillment.conflicts} overlapping primary assignment{fulfillment.conflicts !== 1 ? "s" : ""}
+                {fulfillment.unfilledPositions} position{fulfillment.unfilledPositions !== 1 ? "s" : ""}{" "}
+                unfilled
               </span>
             )}
           </div>
@@ -244,50 +228,68 @@ export default async function TodaysWorkCoveragePage() {
         icon="todaysWork"
         eyebrow="Today's Work"
         title="Coverage"
-        subtitle="See where staffing gaps are today and jump into the staffing grid to resolve them."
+        subtitle="Who is working, what they own, and where staffing still needs action."
         actions={
-          <Link
-            href="/today"
-            className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-          >
-            Back to hub
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/today"
+              className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+            >
+              Back to hub
+            </Link>
+            <Link
+              href={`/staffing?date=${dateIso}`}
+              className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+            >
+              Schedule
+            </Link>
+            {assignmentsEnabled ? (
+              <Link
+                href={`/staffing/assignments?date=${dateIso}`}
+                className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
+              >
+                Daily Assignments
+              </Link>
+            ) : null}
+          </div>
         }
         below={<OperationContextBanner context={operationContext} embedded />}
       />
 
-      <CoverageSummaryCards summary={summary} />
+      {!deptNav.activeDepartmentId ? (
+        <AppCard
+          as="section"
+          title="Select a Department"
+          subtitle="Use the shell Department selector to see people and Floor coverage for that operation. Location gap list below remains facility-wide."
+        />
+      ) : null}
+
+      {supervisorCoverage ? (
+        <AppCard as="section">
+          <SupervisorDailyCoveragePanel coverage={supervisorCoverage} canManage={canManage} />
+        </AppCard>
+      ) : null}
 
       {dietaryCoverageEl}
       {fulfillmentEl}
 
-      <AppCard
-        as="section"
-        title="Staffing grid"
-        subtitle={`Assign employees by location for ${dateIso}.`}
-        actions={
-          <div className="flex gap-2">
-            {assignmentsEnabled && hasAtLeastRole(session.role, "SUPERVISOR") && (
-              <Link
-                href={`/staffing/assignments?date=${dateIso}`}
-                className="inline-flex min-h-11 items-center rounded-md border-2 border-indigo-300 bg-indigo-50 px-4 text-sm font-semibold text-indigo-900 touch-manipulation hover:bg-indigo-100"
-              >
-                Assignment Board
-              </Link>
-            )}
-            <Link
-              href={`/staffing?date=${dateIso}`}
-              className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-            >
-              Open staffing
-            </Link>
-          </div>
-        }
-      />
-
       <TodaysWorkCallDownList items={callDowns.items} compact />
 
-      <AppCard as="section">
+      <CoverageSummaryCards summary={summary} />
+
+      <AppCard
+        as="section"
+        title="Location staffing (legacy)"
+        subtitle={`Unit/meal presence gaps for ${dateIso}. Prefer Department staffing above when Daily Assignments are in use.`}
+        actions={
+          <Link
+            href={`/staffing/legacy?date=${dateIso}`}
+            className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
+          >
+            Legacy unit staffing
+          </Link>
+        }
+      >
         <TodaysWorkCoverageList items={items} priorityGap={priorityGap} />
       </AppCard>
     </section>

@@ -16,6 +16,7 @@ export async function loadHandoffs(
   facilityId: string,
   options?: {
     activeDepartmentKey?: OperationalDepartmentKey | null;
+    session?: import("@/lib/auth").AppJwtPayload | null;
   },
 ): Promise<HandoffData> {
   const now = new Date();

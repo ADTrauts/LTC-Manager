@@ -21,11 +21,16 @@ export {
   shellClasses,
   spacing,
   touchTarget,
+  typeClasses,
   zIndex,
   type DesignTokens,
 } from "./design-tokens";
 
+export { FOCUS_RING_CLASS, FOCUS_RING_INPUT_CLASS } from "./focus";
+
 export {
+  isQuietZeroMetricValue,
+  metricQuietZeroClasses,
   statusBadgeClass,
   statusBadgeLabel,
   statusHintClass,
@@ -34,5 +39,27 @@ export {
   statusTitleClass,
   statusValueClass,
   type StatusBadgeVariant,
+  type StatusProminence,
   type StatusTone,
 } from "./status-styles";
+
+export type {
+  TemporalStripModel,
+  TemporalStripNow,
+  TemporalStripPoint,
+  TemporalStripPointKind,
+  TemporalStripProps,
+  TemporalStripSpan,
+  TemporalStripSpanKind,
+  TemporalStripState,
+  TemporalStripTick,
+} from "./temporal-strip-contract";
+
+export {
+  assignOverlapLanes,
+  buildTemporalTicks,
+  minutesFromLocalHhMm,
+  offsetOnTrack,
+  percentOnTrack,
+  selectVisibleTickLabels,
+} from "./temporal-strip-math";

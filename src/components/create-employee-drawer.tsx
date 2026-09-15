@@ -4,8 +4,17 @@ import { EmploymentType, EmployeeStatus, RoleKey } from "@prisma/client";
 import { useState } from "react";
 
 import { createEmployeeAction } from "@/app/(protected)/employees/actions";
-import { EmployeeHrFormFields } from "@/app/(protected)/employees/employee-hr-form-fields";
-import { EmployeeUnitAccessFields } from "@/app/(protected)/employees/employee-unit-access-fields";
+import {
+  EmployeeOrganizationFields,
+  type OrganizationJobRoleOption,
+} from "@/components/employee-organization-fields";
+import { Button } from "@/components/design-system/Button";
+import { Select, TextInput } from "@/components/design-system/Field";
+import {
+  AUTHORITY_LABEL,
+  EMPLOYEE_STATUS_LABEL,
+  EMPLOYMENT_TYPE_LABEL,
+} from "@/lib/employee-hr-labels";
 import {
   defaultAccessMethodForRole,
   type AccessMethod,
@@ -14,14 +23,23 @@ import {
 import { Drawer } from "@/components/drawer";
 
 type UnitOption = { id: string; name: string };
+type TeamOption = { id: string; displayName: string; departmentId: string };
 
 type CreateEmployeeDrawerProps = {
   units: UnitOption[];
   departments: UnitOption[];
   jobTitles: UnitOption[];
+  teams: TeamOption[];
+  jobRoles?: OrganizationJobRoleOption[];
 };
 
-export function CreateEmployeeDrawer({ units, departments, jobTitles }: CreateEmployeeDrawerProps) {
+export function CreateEmployeeDrawer({
+  units: _units,
+  departments,
+  jobTitles: _jobTitles,
+  teams,
+  jobRoles = [],
+}: CreateEmployeeDrawerProps) {
   const [open, setOpen] = useState(false);
   const [roleType, setRoleType] = useState<RoleKey>(RoleKey.STAFF);
   const [accessMethod, setAccessMethod] = useState<AccessMethod>(defaultAccessMethodForRole(RoleKey.STAFF));
@@ -31,180 +49,146 @@ export function CreateEmployeeDrawer({ units, departments, jobTitles }: CreateEm
     setAccessMethod(defaultAccessMethodForRole(nextRole));
   }
 
+  const emailRequired =
+    requiresEmailPasswordAccount(roleType) || accessMethod === "EMAIL_PASSWORD";
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="shrink-0 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-      >
+      <Button type="button" onClick={() => setOpen(true)} className="shrink-0">
         Add employee
-      </button>
+      </Button>
       <Drawer open={open} onClose={() => setOpen(false)} title="Add employee">
         <form
           action={async (formData) => {
             await createEmployeeAction(formData);
             setOpen(false);
           }}
-          className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 [&>input]:min-w-0 [&>select]:min-w-0"
+          className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
         >
-          <input name="firstName" required placeholder="First name" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-          <input name="lastName" required placeholder="Last name" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-          <input
+          <TextInput name="firstName" label="First name" required autoComplete="given-name" />
+          <TextInput name="lastName" label="Last name" required autoComplete="family-name" />
+          <TextInput
             name="email"
             type="email"
-            required={requiresEmailPasswordAccount(roleType) || accessMethod === "EMAIL_PASSWORD"}
-            placeholder={
-              requiresEmailPasswordAccount(roleType) || accessMethod === "EMAIL_PASSWORD"
-                ? "Email (required)"
-                : "Email (optional)"
-            }
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            label="Email"
+            required={emailRequired}
+            helper={emailRequired ? undefined : "Optional"}
+            autoComplete="email"
           />
-          <input name="phone" placeholder="Phone (optional)" className="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-          <select
+          <TextInput name="phone" label="Phone" helper="Optional" autoComplete="tel" />
+          <Select
             name="roleType"
+            label="Platform authority"
+            helper="Controls application-level access. Department work permissions come from Job Roles."
             value={roleType}
             onChange={(event) => onRoleChange(event.currentTarget.value as RoleKey)}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
           >
             {Object.values(RoleKey).map((value) => (
               <option key={value} value={value}>
-                {value}
+                {AUTHORITY_LABEL[value]}
               </option>
             ))}
-          </select>
-          <select name="employmentType" defaultValue={EmploymentType.FULL_TIME} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
+          </Select>
+          <Select name="employmentType" label="Employment type" defaultValue={EmploymentType.FULL_TIME}>
             {Object.values(EmploymentType).map((value) => (
               <option key={value} value={value}>
-                {value}
+                {EMPLOYMENT_TYPE_LABEL[value]}
               </option>
             ))}
-          </select>
-          <select name="status" defaultValue={EmployeeStatus.ACTIVE} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
+          </Select>
+          <Select name="status" label="Status" defaultValue={EmployeeStatus.ACTIVE}>
             {Object.values(EmployeeStatus).map((value) => (
               <option key={value} value={value}>
-                {value}
+                {EMPLOYEE_STATUS_LABEL[value]}
               </option>
             ))}
-          </select>
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm sm:col-span-2">
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Access method
-            </label>
+          </Select>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm sm:col-span-2">
             {requiresEmailPasswordAccount(roleType) ? (
               <>
                 <input type="hidden" name="accessMethod" value="EMAIL_PASSWORD" />
-                <p className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800">
-                  Email + password <span className="text-zinc-500">(required for GM, Manager, and Supervisor)</span>
+                <p className="text-xs font-medium text-zinc-700">Access method</p>
+                <p className="mt-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800">
+                  Email + password{" "}
+                  <span className="text-zinc-500">(required for GM, Manager, and Supervisor)</span>
                 </p>
               </>
             ) : (
-              <select
+              <Select
                 name="accessMethod"
+                label="Access method"
                 value={accessMethod}
                 onChange={(event) => setAccessMethod(event.currentTarget.value as AccessMethod)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm"
               >
                 <option value="PIN_ONLY">PIN only</option>
                 <option value="EMAIL_PASSWORD">Email + password</option>
-              </select>
+              </Select>
             )}
             <p className="mt-2 text-xs text-zinc-600">
-              {requiresEmailPasswordAccount(roleType) || accessMethod === "EMAIL_PASSWORD"
+              {emailRequired
                 ? "Creates an email/password login now; this person can still use a PIN if one is set later."
                 : "PIN can be assigned after creation from the employee card."}
             </p>
           </div>
-          {requiresEmailPasswordAccount(roleType) || accessMethod === "EMAIL_PASSWORD" ? (
+          {emailRequired ? (
             <>
-              <input
+              <TextInput
                 name="initialPassword"
                 type="password"
+                label="Initial password"
+                required
                 minLength={8}
                 maxLength={128}
-                required
-                placeholder="Initial password"
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                autoComplete="new-password"
               />
-              <input
+              <TextInput
                 name="confirmInitialPassword"
                 type="password"
+                label="Confirm initial password"
+                required
                 minLength={8}
                 maxLength={128}
-                required
-                placeholder="Confirm initial password"
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                autoComplete="new-password"
               />
             </>
           ) : null}
           <div className="min-w-0 sm:col-span-2">
-            <EmployeeHrFormFields
-              showTerminationSection={false}
-              defaults={{
-                unionMember: false,
-                onLeave: false,
-                hireDateIso: "",
-                birthMonth: null,
-                birthDay: null,
-                jobClassification: null,
-                chrcStatus: null,
-                chrcClearedAtIso: "",
-                chrcNotes: "",
-                shirtSize: "",
-                hrNotes: "",
-                workStations: [],
-                terminationDateIso: "",
-                chrcOffboardingCompletedAtIso: "",
-                chrcOffboardingNotes: "",
-              }}
+            <EmployeeOrganizationFields
+              departments={departments}
+              teams={teams}
+              jobRoles={jobRoles}
+              primaryDepartmentId={departments[0]?.id ?? null}
+              additionalDepartmentIds={[]}
+              jobTitleId={null}
+              teamMemberships={[]}
+              jobRoleAssignments={[]}
+              requirePrimaryDepartment
             />
           </div>
-          <label className="flex flex-col gap-1 text-xs text-zinc-600 sm:col-span-2">
-            <span>
-              Primary department <span className="font-medium text-red-700">(required)</span>
-            </span>
-            {departments.length === 0 ? (
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                No departments are enabled for the employee app. Open{" "}
-                <span className="font-medium">Admin → Departments</span> and turn on at least one department, then try
-                again.
-              </p>
-            ) : (
-              <select
-                name="primaryDepartmentId"
-                required
-                defaultValue={departments[0]!.id}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              >
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-zinc-600 sm:col-span-2">
-            Job title
-            <select name="jobTitleId" className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
-              <option value="">Not set</option>
-              {jobTitles.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <EmployeeUnitAccessFields units={units} />
+          <div className="min-w-0 space-y-3 sm:col-span-2">
+            <label className="block text-xs text-zinc-600">
+              Hire date
+              <input
+                name="hireDate"
+                type="date"
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="flex flex-wrap gap-4 text-sm text-zinc-700">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="unionMember" />
+                Union member
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="onLeave" />
+                On leave
+              </label>
+            </div>
+          </div>
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={departments.length === 0}
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
-            >
+            <Button type="submit" disabled={departments.length === 0}>
               Add employee
-            </button>
+            </Button>
           </div>
         </form>
       </Drawer>

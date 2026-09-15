@@ -137,15 +137,14 @@ test("headerNavItemsForMode — RUN keeps its full canonical operational navigat
   const runItems = [
     { label: "Dashboard", href: "/workspace" },
     { label: "Locations", href: "/units" },
-    { label: "Employees", href: "/staffing" },
+    { label: "Schedule", href: "/staffing" },
     { label: "Assets", href: "/assets" },
   ];
   assert.deepEqual(headerNavItemsForMode("RUN", runItems), runItems);
 });
 
-test("headerNavItemsForMode — BUILD exposes only Build Home in the global header", () => {
-  // Even if a stale nav source lists individual builders in the BUILD group, the header must only
-  // surface Build Home; the builders are reached from the hub, not permanent header links.
+test("headerNavItemsForMode — BUILD contributes no header nav items (rail owns Build Home)", () => {
+  // Build Home + builders live in the Build left rail; the global header must not duplicate Build Home.
   const buildItems = [
     { label: "Build Home", href: "/build" },
     { label: "Facility Builder", href: "/admin/facility/builder" },
@@ -153,9 +152,7 @@ test("headerNavItemsForMode — BUILD exposes only Build Home in the global head
     { label: "Employee Builder", href: "/employees" },
     { label: "Asset Builder", href: "/assets/builder" },
   ];
-  assert.deepEqual(headerNavItemsForMode("BUILD", buildItems), [
-    { label: "Build Home", href: "/build" },
-  ]);
+  assert.deepEqual(headerNavItemsForMode("BUILD", buildItems), []);
 });
 
 test("headerNavItemsForMode — ADMIN contributes no header nav items (rendered separately)", () => {

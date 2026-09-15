@@ -65,13 +65,29 @@ test("V1 refinement — Change password and individual builders are not permanen
   assert.doesNotMatch(shell, /href="\/admin\/departments"/);
 });
 
-test("V1 refinement — BUILD mode gets a restrained amber treatment on shell chrome", () => {
+test("V1 refinement — BUILD mode gets a restrained blue treatment on shell chrome", () => {
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="header"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="mode-indicator"\]/);
+  assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="build-sidebar"\]/);
 
   const frame = readFileSync(join(process.cwd(), "src/components/shell-mode-frame.tsx"), "utf8");
-  // The amber treatment derives from the single product-mode classifier, not duplicated detection.
+  // The blue treatment derives from the single product-mode classifier, not duplicated detection.
   assert.match(frame, /resolveProductModeForPath/);
   assert.match(frame, /data-product-mode/);
+});
+
+test("V1 refinement — AppShell switches the left rail via ShellSidebar (Build vs Locations)", () => {
+  const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
+  assert.match(shell, /ShellSidebar/);
+  assert.match(shell, /buildSidebarNavItems/);
+  assert.match(shell, /buildNavItems/);
+  // Builders are not hardcoded into the shell; they come from the BUILD nav projection.
+  assert.doesNotMatch(shell, /href="\/admin\/facility\/builder"/);
+});
+
+test("V1 refinement — BuildPageHeader is title chrome only (shell owns Build / area trail)", () => {
+  const header = readFileSync(join(process.cwd(), "src/components/build/build-breadcrumb.tsx"), "utf8");
+  assert.match(header, /export function BuildPageHeader/);
+  assert.doesNotMatch(header, /BuildBreadcrumb|build-breadcrumb|BackToBuildHomeLink/);
 });

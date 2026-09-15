@@ -106,7 +106,6 @@ export function assembleExperienceWalkContributions(
   projection: TodaysWorkProjectionView,
   walkItems: readonly WalkListItem[],
 ): ExperienceWalkContribution[] {
-  const byUnit = new Map(walkItems.map((item) => [item.unitId, item]));
   const contributions: ExperienceWalkContribution[] = [];
 
   for (const section of projection.sections) {
@@ -116,15 +115,8 @@ export function assembleExperienceWalkContributions(
           experience.unitIds.length > 0
             ? experience.unitIds
             : projection.actionableUnitIds;
-        const items = unitPool
-          .map((unitId) => byUnit.get(unitId))
-          .filter((item): item is WalkListItem => item != null);
-        // Preserve walk ranking (already sorted by engine priority).
-        const ranked = [...items].sort((a, b) => {
-          const ai = walkItems.findIndex((w) => w.unitId === a.unitId);
-          const bi = walkItems.findIndex((w) => w.unitId === b.unitId);
-          return ai - bi;
-        });
+        const allowed = new Set(unitPool);
+        const items = walkItems.filter((item) => allowed.has(item.unitId));
         contributions.push({
           experienceKey: experience.experienceKey,
           label: experience.label,
@@ -133,7 +125,7 @@ export function assembleExperienceWalkContributions(
           order: experience.order,
           tools: experience.tools,
           actions: experience.actions,
-          items: ranked,
+          items,
         });
       }
     }

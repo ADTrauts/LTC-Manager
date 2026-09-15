@@ -448,6 +448,7 @@ test(
       const spaceIds = fx.spaces.slice(0, 3).map((s) => s.id);
       const writes = await resolveAssignmentLocationWrites(prisma, {
         facilityId: fx.facility.id,
+        departmentId: fx.evs.id,
         unitId: fx.unit.id,
         unitSpaceIds: spaceIds,
       });
@@ -533,6 +534,7 @@ test(
       });
       const writes = await resolveAssignmentLocationWrites(prisma, {
         facilityId: fx.facility.id,
+        departmentId: fx.evs.id,
         unitId: fx.unit.id,
         unitSpaceIds: fx.spaces.slice(0, 2).map((s) => s.id),
       });
@@ -823,6 +825,7 @@ test(
         () =>
           resolveAssignmentLocationWrites(prisma, {
             facilityId: fx.facility.id,
+            departmentId: fx.evs.id,
             unitId: fx.unit.id,
             unitSpaceIds: [fx.otherSpace.id],
           }),
@@ -833,6 +836,7 @@ test(
         () =>
           resolveAssignmentLocationWrites(prisma, {
             facilityId: fx.facility.id,
+            departmentId: fx.evs.id,
             unitSpaceIds: ["missing_space_id_not_in_facility"],
           }),
         /not found in this Facility/i,
@@ -849,6 +853,7 @@ test(
 
       const originalWrites = await resolveAssignmentLocationWrites(prisma, {
         facilityId: fx.facility.id,
+        departmentId: fx.evs.id,
         unitId: fx.unit.id,
         unitSpaceIds: fx.spaces.slice(0, 2).map((s) => s.id),
       });

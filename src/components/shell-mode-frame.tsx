@@ -8,7 +8,7 @@ import { resolveProductModeForPath } from "@/lib/product-mode";
 /**
  * Outer shell frame that publishes the current product mode as `data-product-mode` on the shell
  * root. This is the single place BUILD-mode detection drives chrome styling: descendant CSS in
- * `globals.css` gives BUILD surfaces their restrained amber treatment (header, mode indicator). RUN
+ * `globals.css` gives BUILD surfaces their restrained blue treatment (header, mode indicator). RUN
  * and ADMIN keep the neutral/brand treatment. Deriving from `resolveProductModeForPath` means no
  * BUILD-detection logic is duplicated across surfaces.
  */

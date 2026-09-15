@@ -52,8 +52,8 @@ test("recovery stages map from RepairStatus and assignment", () => {
   assert.equal(recoveryStageLabel("WAITING"), "Waiting");
 });
 
-test("canonical and alias issue paths", () => {
-  assert.equal(issueDetailPath("clxxxxxxxxxxxxxxxxxxxxxxxx"), "/issues/clxxxxxxxxxxxxxxxxxxxxxxxx");
+test("canonical repair detail paths", () => {
+  assert.equal(issueDetailPath("clxxxxxxxxxxxxxxxxxxxxxxxx"), "/repairs/clxxxxxxxxxxxxxxxxxxxxxxxx");
   assert.equal(repairDetailAliasPath("clxxxxxxxxxxxxxxxxxxxxxxxx"), "/repairs/clxxxxxxxxxxxxxxxxxxxxxxxx");
 });
 

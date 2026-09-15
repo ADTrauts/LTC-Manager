@@ -24,13 +24,22 @@ type IssueDetailActionsProps = {
   employees: EmployeeOption[];
   departments: DepartmentOption[];
   canMutate: boolean;
+  /** When "repair", user-facing copy avoids calling the row an Issue. */
+  terminology?: "issue" | "repair";
 };
 
-const STATUS_OPTIONS: Array<{ value: RepairStatus; label: string }> = [
+const STATUS_OPTIONS_ISSUE: Array<{ value: RepairStatus; label: string }> = [
   { value: "OPEN", label: "Reported / open" },
   { value: "IN_PROGRESS", label: "In progress" },
   { value: "WAITING_PARTS", label: "Waiting" },
   { value: "CLOSED", label: "Resolved" },
+];
+
+const STATUS_OPTIONS_REPAIR: Array<{ value: RepairStatus; label: string }> = [
+  { value: "OPEN", label: "Open" },
+  { value: "IN_PROGRESS", label: "In progress" },
+  { value: "WAITING_PARTS", label: "Waiting" },
+  { value: "CLOSED", label: "Completed" },
 ];
 
 export function IssueDetailActions({
@@ -41,6 +50,7 @@ export function IssueDetailActions({
   employees,
   departments,
   canMutate,
+  terminology = "issue",
 }: IssueDetailActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -50,11 +60,15 @@ export function IssueDetailActions({
   const [statusAfterUpdate, setStatusAfterUpdate] = useState<RepairStatus>(status);
   const [assigneeId, setAssigneeId] = useState(assignedEmployeeId ?? "");
   const [departmentId, setDepartmentId] = useState(responsibleDepartmentId ?? "");
+  const isRepairCopy = terminology === "repair";
+  const statusOptions = isRepairCopy ? STATUS_OPTIONS_REPAIR : STATUS_OPTIONS_ISSUE;
 
   if (!canMutate) {
     return (
       <p className="text-sm text-zinc-600">
-        You can view this issue. Ask a supervisor to assign or update recovery.
+        {isRepairCopy
+          ? "You can view this repair. Ask a supervisor to assign or update work."
+          : "You can view this issue. Ask a supervisor to assign or update recovery."}
       </p>
     );
   }
@@ -137,7 +151,7 @@ export function IssueDetailActions({
         </button>
       </div>
 
-      {status !== "CLOSED" ? (
+      {status !== "CLOSED" && status !== "COMPLETED" ? (
         <div className="flex flex-wrap gap-2">
           {status !== "IN_PROGRESS" ? (
             <button
@@ -153,7 +167,7 @@ export function IssueDetailActions({
               Start work
             </button>
           ) : null}
-          {status !== "WAITING_PARTS" ? (
+          {status !== "WAITING_PARTS" && status !== "WAITING_ON_VENDOR" ? (
             <button
               type="button"
               disabled={pending}
@@ -177,7 +191,7 @@ export function IssueDetailActions({
               run(() => closeIssueAction(formData));
             }}
           >
-            Mark resolved
+            {isRepairCopy ? "Complete repair" : "Mark resolved"}
           </button>
         </div>
       ) : (
@@ -191,7 +205,7 @@ export function IssueDetailActions({
             run(() => reopenIssueAction(formData));
           }}
         >
-          Reopen issue
+          {isRepairCopy ? "Reopen repair" : "Reopen issue"}
         </button>
       )}
 
@@ -205,7 +219,7 @@ export function IssueDetailActions({
             rows={3}
             minLength={2}
             maxLength={1000}
-            placeholder="What changed?"
+            placeholder={isRepairCopy ? "Vendor contacted, part ordered, …" : "What changed?"}
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2.5 text-sm"
           />
         </label>
@@ -216,7 +230,7 @@ export function IssueDetailActions({
             onChange={(e) => setStatusAfterUpdate(e.target.value as RepairStatus)}
             className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm"
           >
-            {STATUS_OPTIONS.map((option) => (
+            {statusOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
