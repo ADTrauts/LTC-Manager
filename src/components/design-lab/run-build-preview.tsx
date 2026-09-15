@@ -19,6 +19,93 @@ import {
 
 type Mode = "run" | "build";
 type Strength = "current" | "bold";
+type Accent = "teal" | "orange" | "purple";
+
+type AccentTheme = {
+  header: string;
+  brandMark: string;
+  brandIcon: string;
+  muted: string;
+  title: string;
+  control: string;
+  pill: string;
+  banner: string;
+  bannerMuted: string;
+  sidebar: string;
+  sidebarBorder: string;
+  sidebarLabel: string;
+  activeNav: string;
+  crumb: string;
+  crumbBar: string;
+  iconWell: string;
+  cardBorder: string;
+};
+
+const ACCENTS: Record<Accent, AccentTheme> = {
+  teal: {
+    header: "border-teal-800/20 bg-teal-950 text-teal-50",
+    headerBorder: "border-teal-800/20",
+    brandMark: "border-teal-700 bg-teal-900",
+    brandIcon: "text-teal-100",
+    muted: "text-teal-200/80",
+    title: "text-white",
+    control: "border-teal-700 bg-teal-900 text-teal-50",
+    pill: "bg-teal-600 text-white shadow-sm",
+    banner: "border-teal-800/30 bg-teal-900 text-teal-50",
+    bannerBorder: "border-teal-800/30",
+    bannerMuted: "text-teal-100",
+    sidebar: "border-teal-200 bg-[#e8f4f2] text-zinc-800",
+    sidebarBorder: "border-teal-200",
+    sidebarLabel: "text-teal-800",
+    activeNav: "bg-teal-800 text-white",
+    crumb: "text-teal-800",
+    crumbBar: "border-teal-100 bg-teal-50/70",
+    iconWell: "border-teal-200 bg-teal-50 text-teal-800",
+    cardBorder: "border-teal-100",
+  },
+  orange: {
+    header: "border-orange-900/20 bg-[#3b1408] text-orange-50",
+    headerBorder: "border-orange-900/20",
+    brandMark: "border-orange-800 bg-orange-950",
+    brandIcon: "text-orange-100",
+    muted: "text-orange-200/80",
+    title: "text-white",
+    control: "border-orange-800 bg-orange-950 text-orange-50",
+    pill: "bg-orange-500 text-white shadow-sm",
+    banner: "border-orange-900/40 bg-[#4a1a0a] text-orange-50",
+    bannerBorder: "border-orange-900/40",
+    bannerMuted: "text-orange-100",
+    sidebar: "border-orange-200 bg-[#fff4eb] text-zinc-800",
+    sidebarBorder: "border-orange-200",
+    sidebarLabel: "text-orange-800",
+    activeNav: "bg-orange-600 text-white",
+    crumb: "text-orange-800",
+    crumbBar: "border-orange-100 bg-orange-50/80",
+    iconWell: "border-orange-200 bg-orange-50 text-orange-800",
+    cardBorder: "border-orange-100",
+  },
+  purple: {
+    header: "border-violet-900/20 bg-[#1e1035] text-violet-50",
+    headerBorder: "border-violet-900/20",
+    brandMark: "border-violet-800 bg-violet-950",
+    brandIcon: "text-violet-100",
+    muted: "text-violet-200/80",
+    title: "text-white",
+    control: "border-violet-800 bg-violet-950 text-violet-50",
+    pill: "bg-violet-600 text-white shadow-sm",
+    banner: "border-violet-900/40 bg-[#2a1548] text-violet-50",
+    bannerBorder: "border-violet-900/40",
+    bannerMuted: "text-violet-100",
+    sidebar: "border-violet-200 bg-[#f4eefc] text-zinc-800",
+    sidebarBorder: "border-violet-200",
+    sidebarLabel: "text-violet-800",
+    activeNav: "bg-violet-700 text-white",
+    crumb: "text-violet-800",
+    crumbBar: "border-violet-100 bg-violet-50/80",
+    iconWell: "border-violet-200 bg-violet-50 text-violet-800",
+    cardBorder: "border-violet-100",
+  },
+};
 
 const RUN_TABS = [
   "Dashboard",
@@ -89,7 +176,23 @@ const LOCATIONS = [
   },
 ];
 
-function PreviewToolbar({ mode, strength }: { mode: Mode; strength: Strength }) {
+function PreviewToolbar({
+  mode,
+  strength,
+  accent,
+}: {
+  mode: Mode;
+  strength: Strength;
+  accent: Accent;
+}) {
+  const links = [
+    { mode: "run" as const, strength: "current" as const, accent: "teal" as const, label: "Run · green" },
+    { mode: "build" as const, strength: "current" as const, accent: "teal" as const, label: "Build · as today" },
+    { mode: "build" as const, strength: "bold" as const, accent: "teal" as const, label: "Build · teal" },
+    { mode: "build" as const, strength: "bold" as const, accent: "orange" as const, label: "Build · orange" },
+    { mode: "build" as const, strength: "bold" as const, accent: "purple" as const, label: "Build · purple" },
+  ];
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2">
       <div className="flex min-w-0 items-center gap-2 text-xs text-zinc-500">
@@ -97,28 +200,25 @@ function PreviewToolbar({ mode, strength }: { mode: Mode; strength: Strength }) 
           ← Design lab
         </Link>
         <span aria-hidden>·</span>
-        <span className="truncate">Faithful to your live Run/Build shell — production unchanged</span>
+        <span className="truncate">Accent tests for Build — production unchanged</span>
       </div>
       <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["run", "current", "Run · as today"],
-            ["build", "current", "Build · as today"],
-            ["build", "bold", "Build · bolder"],
-          ] as const
-        ).map(([m, s, label]) => {
-          const active = mode === m && strength === s;
+        {links.map((item) => {
+          const active =
+            mode === item.mode &&
+            strength === item.strength &&
+            (item.strength === "current" || accent === item.accent);
           return (
             <Link
-              key={label}
-              href={`/design-lab/run-build?mode=${m}&strength=${s}`}
+              key={item.label}
+              href={`/design-lab/run-build?mode=${item.mode}&strength=${item.strength}&accent=${item.accent}`}
               className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${
                 active
                   ? "border-zinc-900 bg-zinc-900 text-white"
                   : "border-zinc-300 bg-white text-zinc-700"
               }`}
             >
-              {label}
+              {item.label}
             </Link>
           );
         })}
@@ -127,12 +227,20 @@ function PreviewToolbar({ mode, strength }: { mode: Mode; strength: Strength }) 
   );
 }
 
-function ModePill({ mode, strength }: { mode: Mode; strength: Strength }) {
+function ModePill({
+  mode,
+  strength,
+  accent,
+}: {
+  mode: Mode;
+  strength: Strength;
+  accent: Accent;
+}) {
   if (mode === "run") {
     return (
       <Link
-        href="/design-lab/run-build?mode=build&strength=current"
-        className="inline-flex min-h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700"
+        href="/design-lab/run-build?mode=build&strength=bold&accent=orange"
+        className="inline-flex min-h-8 items-center rounded-md border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-bold uppercase tracking-[0.08em] text-white"
         title="Switch to Build"
       >
         Run
@@ -143,8 +251,8 @@ function ModePill({ mode, strength }: { mode: Mode; strength: Strength }) {
   if (strength === "bold") {
     return (
       <Link
-        href="/design-lab/run-build?mode=run&strength=current"
-        className="inline-flex min-h-8 items-center rounded-md bg-teal-800 px-2.5 text-xs font-bold uppercase tracking-[0.08em] text-white shadow-sm"
+        href="/design-lab/run-build?mode=run&strength=current&accent=teal"
+        className={`inline-flex min-h-8 items-center rounded-md px-2.5 text-xs font-bold uppercase tracking-[0.08em] ${ACCENTS[accent].pill}`}
         title="Switch to Run"
       >
         Build
@@ -154,7 +262,7 @@ function ModePill({ mode, strength }: { mode: Mode; strength: Strength }) {
 
   return (
     <Link
-      href="/design-lab/run-build?mode=run&strength=current"
+      href="/design-lab/run-build?mode=run&strength=current&accent=teal"
       className="inline-flex min-h-8 items-center rounded-md border border-blue-500 bg-white px-2.5 text-xs font-bold uppercase tracking-[0.08em] text-blue-600"
       title="Switch to Run"
     >
@@ -166,44 +274,50 @@ function ModePill({ mode, strength }: { mode: Mode; strength: Strength }) {
 export function RunBuildPreview({
   mode,
   strength,
+  accent,
 }: {
   mode: Mode;
   strength: Strength;
+  accent: Accent;
 }) {
   const boldBuild = mode === "build" && strength === "bold";
+  const theme = ACCENTS[accent];
 
   return (
     <div className="min-h-dvh bg-[#f7f7f8] text-zinc-900">
-      <PreviewToolbar mode={mode} strength={strength} />
+      <PreviewToolbar mode={mode} strength={strength} accent={accent} />
 
-      {/* Top header — matches live app */}
-      <header
-        className={`border-b ${
-          boldBuild ? "border-teal-800/20 bg-teal-950 text-teal-50" : "border-zinc-200 bg-white"
-        }`}
-      >
+      <header className={`border-b ${boldBuild ? theme.header : "border-zinc-200 bg-white"}`}>
         <div className="flex flex-col gap-1 px-3 py-2 lg:px-4">
           <div className="flex items-center gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-md border ${
-                  boldBuild ? "border-teal-700 bg-teal-900" : "border-zinc-200 bg-zinc-50"
+                  boldBuild ? theme.brandMark : "border-zinc-200 bg-zinc-50"
                 }`}
               >
-                <Building2 className={`h-4 w-4 ${boldBuild ? "text-teal-100" : "text-zinc-600"}`} />
+                <Building2
+                  className={`h-4 w-4 ${boldBuild ? theme.brandIcon : "text-zinc-600"}`}
+                />
               </div>
               <div className="min-w-0">
                 <p
                   className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${
-                    boldBuild ? "text-teal-200/80" : "text-zinc-500"
+                    boldBuild ? theme.muted : "text-zinc-500"
                   }`}
                 >
                   LTC Manager
                 </p>
-                <p className={`truncate text-sm font-semibold ${boldBuild ? "text-white" : "text-zinc-900"}`}>
+                <p
+                  className={`truncate text-sm font-semibold ${
+                    boldBuild ? theme.title : "text-zinc-900"
+                  }`}
+                >
                   Terrace View Long Ter…
                 </p>
-                <p className={`truncate text-[11px] ${boldBuild ? "text-teal-200/70" : "text-zinc-500"}`}>
+                <p
+                  className={`truncate text-[11px] ${boldBuild ? theme.muted : "text-zinc-500"}`}
+                >
                   Signed in as Andrew Traut…
                 </p>
               </div>
@@ -212,7 +326,7 @@ export function RunBuildPreview({
             <div className="hidden items-center gap-1.5 sm:flex">
               <span
                 className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${
-                  boldBuild ? "text-teal-200/70" : "text-zinc-400"
+                  boldBuild ? theme.muted : "text-zinc-400"
                 }`}
               >
                 Department
@@ -220,9 +334,7 @@ export function RunBuildPreview({
               <button
                 type="button"
                 className={`inline-flex min-h-8 items-center gap-1 rounded-md border px-2 text-sm font-medium ${
-                  boldBuild
-                    ? "border-teal-700 bg-teal-900 text-teal-50"
-                    : "border-zinc-300 bg-white text-zinc-800"
+                  boldBuild ? theme.control : "border-zinc-300 bg-white text-zinc-800"
                 }`}
               >
                 Dietary
@@ -237,7 +349,7 @@ export function RunBuildPreview({
                     key={tab}
                     className={
                       index === 0
-                        ? "border-b-2 border-zinc-900 px-2.5 py-1.5 text-sm font-semibold text-zinc-900"
+                        ? "border-b-2 border-emerald-700 px-2.5 py-1.5 text-sm font-semibold text-emerald-900"
                         : "px-2.5 py-1.5 text-sm font-medium text-zinc-600"
                     }
                   >
@@ -250,13 +362,11 @@ export function RunBuildPreview({
             )}
 
             <div className="ml-auto flex items-center gap-2">
-              <ModePill mode={mode} strength={strength} />
+              <ModePill mode={mode} strength={strength} accent={accent} />
               <button
                 type="button"
                 className={`inline-flex min-h-8 items-center gap-1 rounded-md border px-2 text-sm ${
-                  boldBuild
-                    ? "border-teal-700 bg-teal-900 text-teal-50"
-                    : "border-zinc-300 bg-white text-zinc-700"
+                  boldBuild ? theme.control : "border-zinc-300 bg-white text-zinc-700"
                 }`}
               >
                 Andrew Tra…
@@ -268,21 +378,20 @@ export function RunBuildPreview({
       </header>
 
       {boldBuild ? (
-        <div className="border-b border-teal-800/30 bg-teal-900 px-3 py-2 text-sm text-teal-50 lg:px-4">
+        <div className={`border-b px-3 py-2 text-sm lg:px-4 ${theme.banner}`}>
           <span className="font-semibold">Build mode</span>
-          <span className="mx-2 text-teal-300">—</span>
-          <span className="text-teal-100">
+          <span className="mx-2 opacity-60">—</span>
+          <span className={theme.bannerMuted}>
             Configuring how the facility works. Switch to Run when you are ready to operate today.
           </span>
         </div>
       ) : null}
 
       <div className="flex min-h-[calc(100dvh-7rem)]">
-        {/* Left rail */}
         {mode === "run" ? (
-          <aside className="w-[15.5rem] shrink-0 border-r border-zinc-200 bg-white">
-            <div className="border-b border-zinc-100 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+          <aside className="w-[15.5rem] shrink-0 border-r border-emerald-100 bg-[#f3faf6]">
+            <div className="border-b border-emerald-100 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800">
                 Locations
               </p>
             </div>
@@ -314,15 +423,17 @@ export function RunBuildPreview({
         ) : (
           <aside
             className={`w-[15.5rem] shrink-0 border-r ${
-              boldBuild
-                ? "border-teal-200 bg-[#e8f4f2] text-zinc-800"
-                : "border-blue-100 bg-[#eef4fb] text-zinc-800"
+              boldBuild ? theme.sidebar : "border-blue-100 bg-[#eef4fb] text-zinc-800"
             }`}
           >
-            <div className={`border-b px-3 py-2.5 ${boldBuild ? "border-teal-200" : "border-blue-100"}`}>
+            <div
+              className={`border-b px-3 py-2.5 ${
+                boldBuild ? theme.sidebarBorder : "border-blue-100"
+              }`}
+            >
               <p
                 className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
-                  boldBuild ? "text-teal-800" : "text-blue-600"
+                  boldBuild ? theme.sidebarLabel : "text-blue-600"
                 }`}
               >
                 Build
@@ -337,9 +448,9 @@ export function RunBuildPreview({
                     key={item.label}
                     className={
                       active
-                        ? boldBuild
-                          ? "flex items-center gap-2.5 rounded-md bg-teal-800 px-2.5 py-2 text-sm font-semibold text-white"
-                          : "flex items-center gap-2.5 rounded-md bg-blue-600 px-2.5 py-2 text-sm font-semibold text-white"
+                        ? `flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-semibold ${
+                            boldBuild ? theme.activeNav : "bg-blue-600 text-white"
+                          }`
                         : "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-zinc-700"
                     }
                   >
@@ -352,11 +463,10 @@ export function RunBuildPreview({
           </aside>
         )}
 
-        {/* Main */}
         <main className="min-w-0 flex-1 overflow-auto bg-white">
           <div
             className={`border-b px-5 py-2 ${
-              boldBuild ? "border-teal-100 bg-teal-50/70" : "border-zinc-100 bg-white"
+              boldBuild ? theme.crumbBar : mode === "run" ? "border-emerald-100 bg-emerald-50/50" : "border-zinc-100 bg-white"
             }`}
           >
             <p className="text-xs text-zinc-600">
@@ -364,9 +474,9 @@ export function RunBuildPreview({
                 className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${
                   mode === "build"
                     ? boldBuild
-                      ? "text-teal-800"
+                      ? theme.crumb
                       : "text-blue-600"
-                    : "text-zinc-400"
+                    : "text-emerald-800"
                 }`}
               >
                 {mode === "run" ? "Run" : "Build"}
@@ -382,23 +492,21 @@ export function RunBuildPreview({
             {mode === "run" ? (
               <>
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">
-                    <LayoutDashboard className="h-5 w-5 text-zinc-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50">
+                    <LayoutDashboard className="h-5 w-5 text-emerald-800" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
                       Business Workspace
                     </h1>
-                    <p className="mt-1 text-sm text-zinc-500">
-                      Terrace View · Dietary
-                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">Terrace View · Dietary</p>
                   </div>
                 </div>
                 <p className="mt-5 text-lg font-medium text-zinc-900">Good morning Andrew</p>
                 <p className="mt-1 text-sm text-zinc-600">Breakfast service — Preparation.</p>
                 <button
                   type="button"
-                  className="mt-4 inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800"
+                  className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900"
                 >
                   <CalendarDays className="h-4 w-4" />
                   Customize Workspace
@@ -415,7 +523,7 @@ export function RunBuildPreview({
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-semibold text-white"
+                        className="rounded-md bg-emerald-800 px-3 py-2 text-sm font-semibold text-white"
                       >
                         Open Dashboard
                       </button>
@@ -434,9 +542,7 @@ export function RunBuildPreview({
                 <div className="flex items-start gap-3">
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-lg border ${
-                      boldBuild
-                        ? "border-teal-200 bg-teal-50 text-teal-800"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                      boldBuild ? theme.iconWell : "border-zinc-200 bg-zinc-50 text-zinc-600"
                     }`}
                   >
                     <Wrench className="h-5 w-5" />
@@ -457,14 +563,14 @@ export function RunBuildPreview({
                       <article
                         key={card.title}
                         className={`rounded-xl border bg-white p-4 ${
-                          boldBuild ? "border-teal-100 shadow-sm" : "border-zinc-200"
+                          boldBuild ? `${theme.cardBorder} shadow-sm` : "border-zinc-200"
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <div
                             className={`flex h-9 w-9 items-center justify-center rounded-md border ${
                               boldBuild
-                                ? "border-teal-200 bg-teal-50 text-teal-800"
+                                ? theme.iconWell
                                 : "border-zinc-200 bg-zinc-50 text-zinc-600"
                             }`}
                           >
