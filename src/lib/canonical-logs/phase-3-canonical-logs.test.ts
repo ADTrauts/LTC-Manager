@@ -79,6 +79,18 @@ test(
           name: "Dietary",
         },
       });
+      const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: "STAFF" } });
+      const recordingUser = await prisma.user.create({
+        data: {
+          id: cuidLike(),
+          email: `canonical-log-staff-${cuidLike()}@example.com`,
+          displayName: "Canonical Log Staff",
+          passwordHash: "not-a-usable-hash",
+          facilityId: facility.id,
+          roleId: staffRole.id,
+          primaryDepartmentId: department.id,
+        },
+      });
       const unit = await prisma.unit.create({
         data: {
           id: cuidLike(),
@@ -170,6 +182,7 @@ test(
       const sess = session({
         facilityId: facility.id,
         role: "STAFF",
+        uid: recordingUser.id,
         primaryDepartmentId: department.id,
       });
       const record = await submitCanonicalLogSubmission(sess, {

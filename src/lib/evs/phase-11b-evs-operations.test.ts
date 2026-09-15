@@ -417,7 +417,7 @@ test(
           startLocal: "06:00",
           endLocal: "10:00",
           applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-          effectiveFrom: "2026-01-01",
+          effectiveFrom: "2099-01-01",
           mealType: null,
           locationMode: "UNIT_TYPES",
           applicableUnitTypes: ["RESIDENT_AREA", "COMMON_AREA", "EVS_ZONE"],

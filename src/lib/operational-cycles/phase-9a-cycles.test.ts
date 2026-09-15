@@ -296,8 +296,8 @@ test(
       });
       assert.equal(publishedB.status, "PUBLISHED");
 
-      // FA denied without dept relationship
-      const faDenied = decideCycleAuthority({
+      // Facility administrators manage cycle configuration facility-wide.
+      const faFacilityWide = decideCycleAuthority({
         flagEnabled: true,
         role: "FACILITY_ADMINISTRATOR",
         authMethod: "PASSWORD",
@@ -307,7 +307,7 @@ test(
         departmentExists: true,
         primaryDepartmentId: "not-dietary",
       });
-      assert.equal(faDenied.canManage, false);
+      assert.equal(faFacilityWide.canManage, true);
 
       // Cross-facility reject
       const cross = decideCycleAuthority({

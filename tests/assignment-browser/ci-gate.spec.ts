@@ -196,7 +196,7 @@ test("coverage gap @ci-gate: coverage page links to Assignment Board", async () 
     await loginPassword(page, fx.supervisorEmail);
     await page.goto("/today/coverage", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("dietary-assignment-coverage")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("link", { name: /Open Assignment Board/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open Daily Assignments/i })).toBeVisible();
   } finally {
     await context.close();
   }

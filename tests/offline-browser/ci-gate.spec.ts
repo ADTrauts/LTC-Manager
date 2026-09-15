@@ -14,6 +14,7 @@ import {
   waitForBundle,
   waitForOfflineStatus,
   waitForServiceWorker,
+  waitForServiceWorkerControl,
   clickRetrySync,
   prisma,
 } from "./helpers";
@@ -60,6 +61,7 @@ test("scenario-03 @ci-gate: Application shell reloads offline", async () => {
   try {
     await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
     await page.goto("/offline.html", { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await waitForServiceWorkerControl(page);
     await page.evaluate(async () => {
       const cache = await caches.open("ltc-offline-shell-v1");
       for (const url of [

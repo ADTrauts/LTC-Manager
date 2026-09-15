@@ -73,10 +73,12 @@ function getPrismaClient(): PrismaClient {
     void existing.$disconnect().catch(() => undefined);
   }
   prismaSingleton = client;
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client;
-    globalForPrisma.prismaClientEpoch = PRISMA_CLIENT_EPOCH;
-  }
+  // Next production builds can evaluate this wrapper from multiple server
+  // chunks. Keep the client on globalThis in every environment so those
+  // module instances share one connection pool instead of exhausting
+  // Postgres with a pool per chunk.
+  globalForPrisma.prisma = client;
+  globalForPrisma.prismaClientEpoch = PRISMA_CLIENT_EPOCH;
   return client;
 }
 

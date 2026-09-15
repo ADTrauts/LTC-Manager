@@ -259,7 +259,7 @@ test(
           "M1",
           `SN-${prefix}-${i + 1}`,
           "",
-          "OPERATIONAL",
+          "ACTIVE",
           "Dietary",
           "ROUTINE",
           "",

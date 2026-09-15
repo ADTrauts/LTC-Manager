@@ -29,6 +29,8 @@ test(
   async () => {
     assert.ok(databaseUrl);
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    const previousCyclesFlag = process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED;
+    process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED = "true";
     try {
       const facility = await prisma.facility.findFirst({});
       assert.ok(facility, "seed facility required");
@@ -98,7 +100,9 @@ test(
         prisma,
       );
       assert.ok(first.timings.length >= 1);
-      const naval = first.timings.find((row) => row.unitId === neighborhood.id);
+      const naval = first.timings.find(
+        (row) => row.unitId === neighborhood.id && row.cycleId === cycleId,
+      );
       assert.ok(naval);
       assert.equal(naval!.configuredTime, "07:15");
       assert.equal(naval!.cycleVersion, 3);
@@ -121,6 +125,7 @@ test(
         name: "Test",
         email: "test@example.com",
         facilityId: facility.id,
+        primaryDepartmentId: dietary.id,
         sessionVersion: 1,
       };
 
@@ -153,7 +158,9 @@ test(
         },
         prisma,
       );
-      const again = second.timings.find((row) => row.unitId === neighborhood.id);
+      const again = second.timings.find(
+        (row) => row.unitId === neighborhood.id && row.cycleId === cycleId,
+      );
       assert.ok(again);
       assert.equal(again!.configuredTime, "07:15");
       assert.equal(again!.adjustedTime, "07:20");
@@ -176,6 +183,11 @@ test(
       });
       await prisma.departmentOperationalCycle.delete({ where: { id: cycleId } });
     } finally {
+      if (previousCyclesFlag === undefined) {
+        delete process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED;
+      } else {
+        process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED = previousCyclesFlag;
+      }
       await prisma.$disconnect();
     }
   },

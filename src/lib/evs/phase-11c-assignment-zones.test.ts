@@ -197,68 +197,64 @@ async function loadEvs11cFixture(prisma: PrismaClient) {
     });
   }
 
-  const existingSpaces = await prisma.unitSpace.findMany({
-    where: { unitId: unit.id, spaceType: "PATIENT_ROOM", isActive: true },
-    select: { id: true, name: true, roomNumber: true, sortOrder: true, facilityId: true, unitId: true },
-    orderBy: { sortOrder: "asc" },
-  });
-  const spaces = [...existingSpaces];
-  while (spaces.length < 4) {
+  const fixtureSuffix = cuidLike().slice(-8);
+  const spaces = [];
+  for (let index = 0; index < 4; index += 1) {
     const created = await prisma.unitSpace.create({
       data: {
         id: cuidLike(),
         facilityId: facility.id,
         unitId: unit.id,
-        name: `11C Room ${spaces.length + 1}`,
+        name: `11C Room ${fixtureSuffix} ${index + 1}`,
         spaceType: "PATIENT_ROOM",
-        roomNumber: `11C${spaces.length + 1}`,
+        roomNumber: `11C-${fixtureSuffix}-${index + 1}`,
         isActive: true,
-        sortOrder: 20 + spaces.length,
+        sortOrder: 20 + index,
       },
       select: { id: true, name: true, roomNumber: true, sortOrder: true, facilityId: true, unitId: true },
     });
     spaces.push(created);
   }
+  for (const space of spaces) {
+    await prisma.unitSpaceResponsibility.upsert({
+      where: {
+        spaceId_departmentId: { spaceId: space.id, departmentId: evsId },
+      },
+      update: {},
+      create: { spaceId: space.id, departmentId: evsId },
+    });
+  }
 
-  let otherUnit = await prisma.unit.findFirst({
-    where: {
+  const otherUnit = await prisma.unit.create({
+    data: {
+      id: cuidLike(),
       facilityId: facility.id,
+      name: `EVS 11C Other ${fixtureSuffix}`,
+      unitType: "RESIDENT_AREA",
       isActive: true,
-      id: { not: unit.id },
-      unitType: { in: ["RESIDENT_AREA", "COMMON_AREA"] },
+      displayOrder: 511,
     },
   });
-  if (!otherUnit) {
-    otherUnit = await prisma.unit.create({
-      data: {
-        id: cuidLike(),
-        facilityId: facility.id,
-        name: `EVS 11C Other ${cuidLike().slice(-6)}`,
-        unitType: "RESIDENT_AREA",
-        isActive: true,
-        displayOrder: 511,
-      },
-    });
-  }
-  let otherSpace = await prisma.unitSpace.findFirst({
-    where: { unitId: otherUnit.id, isActive: true },
+  const otherSpace = await prisma.unitSpace.create({
+    data: {
+      id: cuidLike(),
+      facilityId: facility.id,
+      unitId: otherUnit.id,
+      name: `11C Other Room ${fixtureSuffix}`,
+      spaceType: "PATIENT_ROOM",
+      roomNumber: `X-${fixtureSuffix}`,
+      isActive: true,
+      sortOrder: 1,
+    },
     select: { id: true, name: true, roomNumber: true, unitId: true },
   });
-  if (!otherSpace) {
-    otherSpace = await prisma.unitSpace.create({
-      data: {
-        id: cuidLike(),
-        facilityId: facility.id,
-        unitId: otherUnit.id,
-        name: "11C Other Room",
-        spaceType: "PATIENT_ROOM",
-        roomNumber: "X99",
-        isActive: true,
-        sortOrder: 1,
-      },
-      select: { id: true, name: true, roomNumber: true, unitId: true },
-    });
-  }
+  await prisma.unitSpaceResponsibility.upsert({
+    where: {
+      spaceId_departmentId: { spaceId: otherSpace.id, departmentId: evsId },
+    },
+    update: {},
+    create: { spaceId: otherSpace.id, departmentId: evsId },
+  });
 
   let manager =
     (await prisma.user.findFirst({

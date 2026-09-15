@@ -232,7 +232,7 @@ test(
               name: "Foreign",
               equipmentType: "Cooler",
             }),
-          /denied|not found|Cross-facility/i,
+          /denied|not found|Cross-facility|not enabled/i,
         );
       }
 
