@@ -2,7 +2,7 @@
 
 /**
  * LTC Manager design tokens (CSS).
- * Build blue = mode chrome only — semantic warning badges remain amber.
+ * Run emerald / Build orange = mode chrome only — semantic status colors stay separate.
  * Semantic status colors live in status-styles.ts (Tailwind) for components.
  */
 :root {
@@ -22,10 +22,14 @@
   --brand-accent-border: color-mix(in srgb, var(--brand-accent) 24%, #e4e4e7);
   --brand-accent-soft: color-mix(in srgb, var(--brand-accent) 12%, white);
 
-  /* Build mode chrome (cool configuration wash — not a status color) */
-  --build-surface: #eff6ff;
-  --build-border: #bfdbfe;
-  --build-accent-text: #1d4ed8;
+  /* Product-mode chrome (not semantic status colors) */
+  --run-surface: #f3faf6;
+  --run-surface-strong: #ecfdf5;
+  --run-border: #a7f3d0;
+  --build-surface: #fff7ed;
+  --build-surface-strong: #ffedd5;
+  --build-border: #fdba74;
+  --build-accent-text: #9a3412;
 
   /* Semantic status (prefer status-styles.ts in React; keep vars for rare CSS use) */
   --status-complete: #16a34a;
@@ -148,22 +152,38 @@ select option {
 }
 
 /**
- * BUILD product-mode chrome treatment.
+ * Locked product-mode chrome accents.
  *
- * Soft blue wash = "you are configuring" — separate from warning/in-progress.
- * Driven from data-product-mode on ShellModeFrame.
+ * RUN = calming emerald (operate today).
+ * BUILD = orange (configure operations).
+ * Driven from data-product-mode on ShellModeFrame; color reinforces visible labels.
  */
+[data-product-mode="RUN"] [data-shell-region="header"] {
+  background-color: var(--run-surface);
+  border-bottom-color: var(--run-border);
+}
+
+[data-product-mode="RUN"] [data-shell-region="mode-indicator"] {
+  background-color: var(--run-surface-strong);
+  border-bottom-color: var(--run-border);
+}
+
+[data-product-mode="RUN"] [data-shell-region="sidebar"] {
+  background-color: var(--run-surface);
+  border-right-color: var(--run-border);
+}
+
 [data-product-mode="BUILD"] [data-shell-region="header"] {
   background-color: var(--build-surface);
   border-bottom-color: var(--build-border);
 }
 
 [data-product-mode="BUILD"] [data-shell-region="mode-indicator"] {
-  background-color: var(--build-surface);
+  background-color: var(--build-surface-strong);
   border-bottom-color: var(--build-border);
 }
 
-[data-product-mode="BUILD"] [data-shell-region="build-sidebar"] {
+[data-product-mode="BUILD"] [data-shell-region="sidebar"] {
   background-color: var(--build-surface);
   border-right-color: var(--build-border);
 }

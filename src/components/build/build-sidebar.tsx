@@ -11,8 +11,8 @@ import { PRODUCT_MODE_LABELS } from "@/lib/product-mode";
 
 function buildSidebarLinkClass(isActive: boolean) {
   return isActive
-    ? "flex min-h-11 items-center gap-2.5 rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white"
-    : "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-blue-50 hover:text-blue-950";
+    ? "flex min-h-11 items-center gap-2.5 rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white"
+    : "flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-orange-100 hover:text-orange-950";
 }
 
 function isBuildNavActive(pathname: string, href: string): boolean {
@@ -87,11 +87,11 @@ export function BuildSidebar({
       className="hidden w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white xl:block xl:min-h-0"
       aria-label="Build navigation"
       data-testid="build-sidebar"
-      data-shell-region="build-sidebar"
+      data-shell-region="sidebar"
     >
       <div className="flex flex-col gap-6 p-4 lg:px-4 lg:py-5">
         <section aria-label="Builders">
-          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-blue-800">
+          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-orange-800">
             {PRODUCT_MODE_LABELS.BUILD}
           </h2>
           {nav}

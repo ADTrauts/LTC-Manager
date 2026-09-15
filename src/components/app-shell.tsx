@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { FacilitySwitcher } from "@/components/facility-switcher";
+import { ProductModeBanner } from "@/components/product-mode-banner";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { ShellModeCue } from "@/components/shell-mode-cue";
 import { ShellModeFrame } from "@/components/shell-mode-frame";
@@ -255,6 +256,8 @@ export async function AppShell({ children }: AppShellProps) {
           </div>
         </div>
       </header>
+
+      <ProductModeBanner />
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 
