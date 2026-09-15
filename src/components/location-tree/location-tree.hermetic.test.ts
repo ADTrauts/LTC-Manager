@@ -28,7 +28,7 @@ test("Department Locations uses shared tree grammar, not prose list", () => {
   );
   assert.match(panel, /DepartmentLocationTree/);
   assert.doesNotMatch(panel, /Rooms on this/);
-  assert.match(panel, /Manage facility responsibility/);
+  assert.match(panel, /Manage responsibility/);
 });
 
 test("DepartmentLocationTree is read-only Facility-style tree", () => {

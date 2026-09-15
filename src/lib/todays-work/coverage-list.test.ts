@@ -196,7 +196,10 @@ test("summarizeCoverage counts coverage buckets", () => {
 });
 
 test("buildStaffingHref includes date and unit anchor", () => {
-  assert.equal(buildStaffingHref("2026-07-08", "unit-123"), "/staffing?date=2026-07-08#staffing-unit-unit-123");
+  assert.equal(
+    buildStaffingHref("2026-07-08", "unit-123"),
+    "/staffing/legacy?date=2026-07-08#staffing-unit-unit-123",
+  );
 });
 
 test("buildCoverageItems evaluates only scoped servery meal when mealScope is set", () => {

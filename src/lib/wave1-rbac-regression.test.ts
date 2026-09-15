@@ -6,7 +6,7 @@ import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { isTodaysWorkPathname, resolveDefaultHomePath } from "@/lib/nav-zones";
 import { PLATFORM_ROUTES, roleMayAccessRoute } from "@/lib/route-registry";
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { todaysWorkEnabled: true, canonicalLogsEnabled: true };
 
 function mayAccess(path: string, role: AppRole): boolean {
   return roleMayAccessRoute(path, role, FLAGS);

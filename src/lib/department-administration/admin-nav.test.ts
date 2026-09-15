@@ -125,7 +125,8 @@ describe("Department Builder local navigation", () => {
       "utf8",
     );
     assert.match(panel, /Room/);
-    assert.match(panel, /roomTypeLabel/);
+    assert.match(panel, /DepartmentLocationTree/);
+    assert.match(panel, /floorLabel/);
     assert.equal(/tab=room-types/.test(panel), false);
     assert.equal(/room-types/.test(panel), false);
     assert.equal(/archetype/.test(panel), false);

@@ -102,13 +102,14 @@ test("previewDietaryDefaultsAgainstExisting marks label matches as already exist
 
 test("previewDietaryDefaultsAgainstExisting marks stableKey matches as existing", () => {
   const plans = buildDietaryDefaultCyclePlans();
+  const existingStableKey = plans[1]!.stableKey;
   const preview = previewDietaryDefaultsAgainstExisting({
     plans,
-    existingStableKeys: new Set(["breakfast_servery_service"]),
+    existingStableKeys: new Set([existingStableKey]),
     existingLabels: new Set(),
   });
   assert.equal(
-    preview.find((r) => r.stableKey === "breakfast_servery_service")?.status,
+    preview.find((r) => r.stableKey === existingStableKey)?.status,
     "exists",
   );
 });

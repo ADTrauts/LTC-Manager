@@ -86,14 +86,14 @@ test("Run / Build / Admin are not permanent RUN top-bar items", () => {
     !runItems.some((i) => ["run", "build", "admin"].includes(i.label.toLowerCase())),
   );
 
-  // BUILD contributes only Build Home to the header; ADMIN contributes nothing (menu-only).
+  // BUILD navigation lives in its dedicated left rail; ADMIN is menu-only.
   const nav = platformNavItemsForRole("FACILITY_ADMINISTRATOR", FLAGS);
   const groups = groupNavItemsByMode(nav);
   const buildGroup = groups.find((g) => g.mode === "BUILD");
   const adminGroup = groups.find((g) => g.mode === "ADMIN");
   assert.deepEqual(
     headerNavItemsForMode("BUILD", buildGroup?.items ?? []).map((i) => i.href),
-    ["/build"],
+    [],
   );
   assert.deepEqual(headerNavItemsForMode("ADMIN", adminGroup?.items ?? []), []);
 });

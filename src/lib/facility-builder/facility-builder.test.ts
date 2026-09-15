@@ -913,11 +913,13 @@ describe("Space type presets", () => {
       join(process.cwd(), "src/app/(protected)/admin/facility/builder/page.tsx"),
       "utf8",
     );
-    const roomTypesTab = page.indexOf('builderTabHref("room-types"');
-    const structureTab = page.indexOf('builderTabHref("structure"');
+    const subNavStart = page.indexOf("<SubNav");
+    const roomTypesTab = page.indexOf('builderTabHref("room-types"', subNavStart);
+    const structureTab = page.indexOf('builderTabHref("structure"', subNavStart);
+    assert.ok(subNavStart >= 0);
     assert.ok(roomTypesTab >= 0 && structureTab >= 0);
     assert.ok(structureTab < roomTypesTab);
-    assert.match(page, /value === "room-types" \? "room-types" : "structure"/);
+    assert.match(page, /return value === "room-types" \? "room-types" : "structure"/);
   });
 
   it("Facility Builder tree starts collapsed", () => {

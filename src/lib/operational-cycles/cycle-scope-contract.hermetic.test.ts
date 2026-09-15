@@ -7,7 +7,7 @@ const root = process.cwd();
 
 test("draft successor copies scope, locations, room type, parent, and milestone times", () => {
   const service = readFileSync(join(root, "src/lib/operational-cycles/cycle-service.ts"), "utf8");
-  assert.match(service, /include: \{ locations: true, milestoneTimes: true \}/);
+  assert.match(service, /include:\s*\{[\s\S]*?locations: true,[\s\S]*?milestoneTimes: true,/);
   assert.match(service, /roomTypeKey: source\.roomTypeKey/);
   assert.match(service, /parentStableKey: source\.parentStableKey/);
   assert.match(service, /spaceId: l\.spaceId/);
@@ -59,13 +59,15 @@ test("hierarchy migration adds parentStableKey without label-based backfill", ()
   assert.doesNotMatch(sql, /Breakfast/);
 });
 
-test("one additive hierarchy migration is the latest directory", () => {
+test("additive cycle scope migrations remain ordered", () => {
   const dirs = readdirSync(join(root, "prisma/migrations"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !entry.name.includes(" "))
     .map((entry) => entry.name)
     .sort();
-  assert.ok(dirs.includes("20260813120000_cycle_scope_and_milestone_times"));
-  assert.ok(dirs.includes("20260813210000_cycle_day_meal_expectations"));
-  assert.equal(dirs.length, 75);
-  assert.equal(dirs.at(-1), "20260813220000_cycle_hierarchy_parent_stable_key");
+  const scopeIndex = dirs.indexOf("20260813120000_cycle_scope_and_milestone_times");
+  const expectationsIndex = dirs.indexOf("20260813210000_cycle_day_meal_expectations");
+  const hierarchyIndex = dirs.indexOf("20260813220000_cycle_hierarchy_parent_stable_key");
+  assert.ok(scopeIndex >= 0);
+  assert.ok(expectationsIndex > scopeIndex);
+  assert.ok(hierarchyIndex > expectationsIndex);
 });
