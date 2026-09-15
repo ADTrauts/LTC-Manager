@@ -33,7 +33,7 @@ export function BuildBreadcrumb({
           <Link
             href={BUILD_HUB_HOME_HREF}
             data-testid="build-breadcrumb-home"
-            className="inline-flex items-center gap-1 font-medium text-amber-800 hover:text-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+            className="inline-flex items-center gap-1 font-medium text-orange-800 hover:text-orange-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
           >
             <AppIcons.operationalMode className="h-3.5 w-3.5" aria-hidden />
             {BUILD_HOME_LABEL}
@@ -58,7 +58,7 @@ export function BackToBuildHomeLink({ className = "" }: { className?: string }) 
     <Link
       href={BUILD_HUB_HOME_HREF}
       data-testid="back-to-build-home"
-      className={`inline-flex min-h-10 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 ${className}`.trim()}
+      className={`inline-flex min-h-10 items-center rounded-md border border-orange-300 bg-orange-50 px-3 text-sm font-semibold text-orange-900 hover:bg-orange-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${className}`.trim()}
     >
       {BACK_TO_BUILD_HOME_LABEL}
     </Link>
