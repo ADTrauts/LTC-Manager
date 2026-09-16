@@ -191,7 +191,7 @@ export function ResponsiveShellNav({
         title="Build"
         side="left"
         size="nav"
-        panelClassName="bg-blue-50/50"
+        panelClassName="bg-orange-50/50"
         data-testid="shell-build-nav-drawer"
       >
         <BuildSidebar presentation="panel" items={buildNavItems} onNavigate={close} />

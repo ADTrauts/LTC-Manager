@@ -15,8 +15,8 @@ import {
  * Persistent mode + area breadcrumb. Tells the user, at a glance, whether they are operating (Run),
  * configuring (Build), or governing (Admin), and which area within that mode they are in.
  *
- * In BUILD it also becomes a return path: the "Build" segment links back to Build Home so a user
- * inside any builder can get back to the configuration toolbox without hunting the global header.
+ * Locked accents: Run = emerald, Build = orange.
+ * In BUILD the mode segment also links back to Build Home.
  */
 export function ShellZoneIndicator() {
   const pathname = useNavPathname();
@@ -36,22 +36,28 @@ export function ShellZoneIndicator() {
   const modeLabel = PRODUCT_MODE_LABELS[mode];
   const areaLabel = resolveProductAreaLabel(pathname);
   const isBuild = mode === "BUILD";
+  const isRun = mode === "RUN";
   const onBuildHome = pathname === BUILD_HUB_HOME_HREF;
 
   const modeChipClass = isBuild
-    ? "text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700"
-    : "text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500";
+    ? "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] bg-orange-500 text-white"
+    : isRun
+      ? "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] bg-emerald-700 text-white"
+      : "text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500";
 
   return (
     <div
       className="shrink-0 border-b border-zinc-200 bg-white px-3 py-1 sm:px-4 lg:px-6"
       data-shell-region="mode-indicator"
     >
-      <p className="text-xs leading-none text-zinc-600" aria-label={`${modeLabel} mode`}>
+      <p
+        className="flex flex-wrap items-center gap-x-0 text-xs leading-none text-zinc-600"
+        aria-label={`${modeLabel} mode`}
+      >
         {isBuild && !onBuildHome ? (
           <Link
             href={BUILD_HUB_HOME_HREF}
-            className={`${modeChipClass} rounded-sm hover:text-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500`}
+            className={`${modeChipClass} hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500`}
             title="Back to Build Home"
             data-product-mode={mode}
             data-testid="mode-indicator-build-home"

@@ -18,6 +18,7 @@ export function ShellModeCue() {
   const pathname = useNavPathname();
   const mode = resolveProductModeForPath(pathname ?? "/");
   const isBuild = mode === "BUILD";
+  const isRun = mode === "RUN";
 
   return (
     <button
@@ -28,8 +29,10 @@ export function ShellModeCue() {
       aria-label={`Current workspace: ${PRODUCT_MODE_LABELS[mode]}. Open workspace and account menu.`}
       className={`inline-flex min-h-10 shrink-0 items-center rounded-md border px-1.5 text-[11px] font-semibold uppercase tracking-wider sm:px-2 ${FOCUS_RING_CLASS} ${
         isBuild
-          ? "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
-          : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"
+          ? "border-orange-500 bg-orange-500 text-white hover:bg-orange-600"
+          : isRun
+            ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+            : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"
       }`}
       onClick={() => {
         window.dispatchEvent(new CustomEvent(OPEN_ACCOUNT_MENU_EVENT));
