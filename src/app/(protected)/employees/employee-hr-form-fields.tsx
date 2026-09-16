@@ -91,7 +91,7 @@ export function EmployeeHrUnionFormSection({
           />
         </label>
         <div className="min-w-0">
-          <span className="block text-xs text-zinc-600">Job classification</span>
+          <span className="block text-xs text-zinc-600">Job classification (union/payroll)</span>
           <select
             name="jobClassification"
             defaultValue={defaults.jobClassification ?? ""}
@@ -159,7 +159,7 @@ export function EmployeeHrUnionFormSection({
       </div>
 
       <div>
-        <p className="text-xs font-medium text-zinc-700">Stations trained</p>
+        <p className="text-xs font-medium text-zinc-700">Trained stations</p>
         <div className="mt-2 flex flex-wrap gap-3">
           {(Object.keys(WORK_STATION_LABEL) as WorkStation[]).map((station) => (
             <label key={station} className="flex items-center gap-2 text-sm text-zinc-700">

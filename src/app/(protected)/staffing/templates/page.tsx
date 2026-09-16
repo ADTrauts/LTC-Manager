@@ -3,15 +3,18 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { PageHeader, StatusBadge } from "@/components/design-system";
+import { BuildPageHeader } from "@/components/build/build-breadcrumb";
+import { StatusBadge } from "@/components/design-system";
 import { OperationalTemplateBuilderPanel } from "@/components/operational-evidence/template-builder-panel";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { buildPageIntro } from "@/lib/build-hub";
 import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   listTemplatePresetSummaries,
   loadBuilderTemplates,
@@ -43,8 +46,8 @@ export default async function OperationalTemplateBuilderPage() {
 
   if (!department) {
     return (
-      <section className="mx-auto max-w-5xl space-y-4">
-        <PageHeader title="Operational Templates" subtitle="No operational department found." compact />
+      <section className="mx-auto max-w-5xl space-y-3">
+        <BuildPageHeader title="Operational Templates" subtitle="No operational department found." />
       </section>
     );
   }
@@ -52,11 +55,10 @@ export default async function OperationalTemplateBuilderPage() {
   const authority = await resolveEvidenceAuthority(session, session.facilityId, department.id);
   if (!authority.canViewDepartment && !authority.canManage) {
     return (
-      <section className="mx-auto max-w-5xl space-y-4" data-testid="operational-template-builder-denied">
-        <PageHeader
+      <section className="mx-auto max-w-5xl space-y-3" data-testid="operational-template-builder-denied">
+        <BuildPageHeader
           title="Operational Templates"
           subtitle={authority.reason ?? "Insufficient authority for Operational Templates."}
-          compact
         />
       </section>
     );
@@ -153,11 +155,10 @@ export default async function OperationalTemplateBuilderPage() {
   }));
 
   return (
-    <section className="mx-auto max-w-5xl space-y-4" data-testid="operational-template-builder">
-      <PageHeader
+    <section className="mx-auto max-w-5xl space-y-3" data-testid="operational-template-builder">
+      <BuildPageHeader
         title="Operational Templates"
-        subtitle={`${department.name} — unified Logs, Checklists, and Inspections.`}
-        compact
+        subtitle={`${department.name} — ${buildPageIntro("/staffing/templates")}`}
         actions={
           <div className="flex flex-wrap gap-2 text-sm">
             <Link href="/staffing/log-book" className="underline-offset-2 hover:underline">
@@ -178,6 +179,22 @@ export default async function OperationalTemplateBuilderPage() {
           </div>
         }
       />
+      {isCanonicalLogsEnabled() ? (
+        <div
+          className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+          data-testid="phase9c-templates-compatibility-note"
+          role="status"
+        >
+          <p className="font-medium">Compatibility surface</p>
+          <p className="text-xs text-zinc-600">
+            Facility Catalog browse and Attachments live under{" "}
+            <Link href="/build/logs" className="font-medium underline underline-offset-2">
+              BUILD · Logs
+            </Link>
+            . This page remains Phase 9C Operational Templates.
+          </p>
+        </div>
+      ) : null}
       {!authority.canManage ? (
         <StatusBadge variant="neutral">View only — Manager password required to edit.</StatusBadge>
       ) : null}

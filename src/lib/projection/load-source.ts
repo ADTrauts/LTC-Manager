@@ -172,6 +172,13 @@ export async function loadProjectionSource(
           parentUnitId: true,
           displayOrder: true,
           updatedAt: true,
+          departmentResponsibilities: {
+            select: {
+              departmentId: true,
+              updatedAt: true,
+              department: { select: { facilityId: true } },
+            },
+          },
         },
         orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
       },
@@ -252,6 +259,7 @@ export async function loadProjectionSource(
     label: facility.displayName,
     isActive: true,
     isPlaced: true,
+    displayOrder: 0,
   });
 
   const unitById = new Map(facility.units.map((unit) => [unit.id, unit]));
@@ -285,7 +293,21 @@ export async function loadProjectionSource(
       label: unit.name,
       isActive: unit.isActive && !staged,
       isPlaced: !staged,
+      displayOrder: unit.displayOrder,
     });
+
+    for (const responsibility of unit.departmentResponsibilities) {
+      assignmentTimestamps.push(asIso(responsibility.updatedAt));
+      if (responsibility.department.facilityId !== facility.id) {
+        diagnostics.push(
+          diagnostic(
+            "SOURCE_INVALID",
+            `Cross-facility department assignment on unit ${unit.id}`,
+            `units.${unit.id}.departmentResponsibilities`,
+          ),
+        );
+      }
+    }
   }
 
   for (const space of facility.unitSpaces) {
@@ -336,6 +358,7 @@ export async function loadProjectionSource(
       label: space.name,
       isActive: space.isActive && !undesignated && !parentStaged,
       isPlaced: !undesignated && !parentStaged && Boolean(space.unitId),
+      displayOrder: space.sortOrder,
     });
 
     rooms.push({
@@ -466,6 +489,16 @@ export async function loadProjectionSource(
       .map((room) => room.context.id)
       .sort((a, b) => a.localeCompare(b));
 
+    const assignedUnitIds = facility.units
+      .filter((unit) =>
+        unit.departmentResponsibilities.some((responsibility) => {
+          if (responsibility.departmentId !== department.id) return false;
+          return responsibility.department.facilityId === facility.id;
+        }),
+      )
+      .map((unit) => unit.id)
+      .sort((a, b) => a.localeCompare(b));
+
     departments.push({
       id: department.id,
       key: department.key,
@@ -473,6 +506,7 @@ export async function loadProjectionSource(
       isActive: department.isActive,
       activeProfile,
       assignedRoomIds,
+      assignedUnitIds,
       archetypeBindings: archetypeBindings.sort((a, b) =>
         a.unitSpaceId.localeCompare(b.unitSpaceId),
       ),

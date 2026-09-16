@@ -66,7 +66,11 @@ export async function loadAssignmentFormOptions(input: {
     }),
     input.departmentKey === "EVS"
       ? prisma.unitSpace.findMany({
-          where: { facilityId: input.facilityId, isActive: true },
+          where: {
+            facilityId: input.facilityId,
+            isActive: true,
+            responsibilities: { some: { departmentId: input.departmentId } },
+          },
           orderBy: [{ sortOrder: "asc" }, { roomNumber: "asc" }, { name: "asc" }],
           select: {
             id: true,

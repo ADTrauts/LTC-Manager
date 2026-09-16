@@ -1,5 +1,20 @@
 import type { ReactNode } from "react";
 
+/**
+ * Contained surface for a meaningful unit of content.
+ *
+ * Use AppCard when:
+ * - the object is independently actionable, or
+ * - information forms one meaningful unit that needs a boundary, or
+ * - sibling comparison benefits from shared chrome
+ *
+ * Do NOT use AppCard when:
+ * - a section heading + spacing already separates content
+ * - the content is merely a list (prefer dividers / OperationalListRow shell)
+ * - you would nest cards inside cards
+ *
+ * Surface level: contained (border, no shadow). Floating layers (drawer/menu) own shadows.
+ */
 export type AppCardProps = {
   title?: string;
   subtitle?: string;
@@ -37,7 +52,7 @@ export function AppCard({
 
   return (
     <Root
-      className={`rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 ${className}`.trim()}
+      className={`rounded-lg border border-zinc-200 bg-white p-4 ${className}`.trim()}
       aria-labelledby={ariaLabelledBy}
       data-testid={dataTestId}
     >
@@ -46,7 +61,7 @@ export function AppCard({
           className={`flex flex-wrap items-start justify-between gap-3 ${children || loading ? "mb-4" : ""}`.trim()}
         >
           <div className="min-w-0">
-            {title ? <h2 className="text-lg font-semibold text-zinc-900">{title}</h2> : null}
+            {title ? <h2 className="text-base font-semibold text-zinc-900 sm:text-lg">{title}</h2> : null}
             {subtitle ? <p className="mt-1 text-sm text-zinc-600">{subtitle}</p> : null}
           </div>
           {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}

@@ -271,6 +271,7 @@ function buildFakeFacility(options?: {
         parentUnitId: null,
         displayOrder: 10,
         updatedAt: new Date("2026-07-01T00:00:00.000Z"),
+        departmentResponsibilities: [],
       },
       {
         id: UNIT_ID,
@@ -280,6 +281,7 @@ function buildFakeFacility(options?: {
         parentUnitId: FLOOR_ID,
         displayOrder: 20,
         updatedAt: new Date("2026-07-01T00:00:00.000Z"),
+        departmentResponsibilities: [],
       },
       {
         id: "unit_staged",
@@ -289,6 +291,7 @@ function buildFakeFacility(options?: {
         parentUnitId: null,
         displayOrder: 90,
         updatedAt: new Date("2026-07-01T00:00:00.000Z"),
+        departmentResponsibilities: [],
       },
     ],
     unitSpaces: [
@@ -550,7 +553,7 @@ describe("Projection Runtime Service", () => {
     assert.deepEqual(validateProjectionSnapshot(result.snapshot), []);
   });
 
-  it("fails closed for missing ACTIVE profile", async () => {
+  it("projects physical locations without an ACTIVE profile", async () => {
     const result = await resolveProjectionRuntime(
       managerRequest("dept_dietary", "DIETARY"),
       {
@@ -563,6 +566,14 @@ describe("Projection Runtime Service", () => {
         (issue) => issue.code === "MISSING_ACTIVE_PROFILE",
       ),
     );
+    assert.ok(
+      result.snapshot.locations.actionableIds.includes(`space:${SERVERY_ID}`),
+      "Facility Builder room responsibility still projects",
+    );
+    const servery = result.snapshot.locations.byId[`space:${SERVERY_ID}`];
+    assert.equal(servery?.presentation, "ACTIONABLE");
+    const neighborhood = result.snapshot.locations.byId[`unit:${UNIT_ID}`];
+    assert.equal(neighborhood?.presentation, "STRUCTURAL");
   });
 
   it("narrows permissions and pinned units", async () => {

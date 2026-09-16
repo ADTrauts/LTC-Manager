@@ -140,7 +140,7 @@ export async function loadAssetTimeline(
             ? "Returned to service"
             : kind === "ASSET_RETIRED"
               ? "Asset retired"
-              : `Status → ${assetStatusLabel(row.toStatus)}`,
+              : `Condition changed to ${assetStatusLabel(row.toStatus)}`,
       detail:
         row.note ??
         (row.fromStatus
@@ -156,8 +156,8 @@ export async function loadAssetTimeline(
       id: `issue:${issue.id}`,
       kind: "ISSUE_REPORTED",
       at: issue.reportedAt,
-      title: `Issue ${issue.issueCode} reported`,
-      detail: issue.summary,
+      title: `Issue reported — ${issue.summary}`,
+      detail: issue.issueCode,
       href: `/asset-issues/${issue.id}`,
       status: issue.status,
     });
@@ -166,8 +166,19 @@ export async function loadAssetTimeline(
         id: `issue-triage:${issue.id}`,
         kind: "ISSUE_TRIAGED",
         at: issue.resolvedAt ?? issue.reportedAt,
-        title: `Issue ${issue.issueCode} triaged`,
+        title: `Issue triaged — ${issue.summary}`,
         detail: issue.triageNote,
+        href: `/asset-issues/${issue.id}`,
+        status: issue.status,
+      });
+    }
+    if (issue.status === "RESOLVED" || issue.status === "CLOSED") {
+      events.push({
+        id: `issue-resolved:${issue.id}`,
+        kind: "ISSUE_TRIAGED",
+        at: issue.resolvedAt ?? issue.closedAt ?? issue.reportedAt,
+        title: `Issue resolved — ${issue.summary}`,
+        detail: issue.issueCode,
         href: `/asset-issues/${issue.id}`,
         status: issue.status,
       });
@@ -179,9 +190,9 @@ export async function loadAssetTimeline(
       id: `wo-open:${repair.id}`,
       kind: "WORK_ORDER_OPENED",
       at: repair.requestedAt,
-      title: `Work Order ${repair.repairCode} opened`,
-      detail: repair.title,
-      href: `/issues/${repair.id}`,
+      title: `Repair opened — ${repair.title}`,
+      detail: repair.repairCode,
+      href: `/repairs/${repair.id}`,
       status: repair.status,
     });
 
@@ -190,9 +201,9 @@ export async function loadAssetTimeline(
         id: `wo-vendor:${repair.id}`,
         kind: "VENDOR_ASSIGNED",
         at: repair.requestedAt,
-        title: `Vendor assigned on ${repair.repairCode}`,
+        title: `Vendor assigned on repair ${repair.repairCode}`,
         detail: null,
-        href: `/issues/${repair.id}`,
+        href: `/repairs/${repair.id}`,
         status: repair.status,
       });
     }
@@ -202,9 +213,9 @@ export async function loadAssetTimeline(
         id: `wo-complete:${repair.id}`,
         kind: "WORK_COMPLETED",
         at: repair.completedAt ?? repair.requestedAt,
-        title: `Work Order ${repair.repairCode} completed`,
-        detail: repair.workPerformed,
-        href: `/issues/${repair.id}`,
+        title: `Repair completed — ${repair.title}`,
+        detail: repair.workPerformed ?? repair.repairCode,
+        href: `/repairs/${repair.id}`,
         status: repair.status,
       });
     }
@@ -216,9 +227,9 @@ export async function loadAssetTimeline(
         id: `wo-update:${update.id}`,
         kind: "WORK_ORDER_STATUS_CHANGED",
         at: update.updatedAt,
-        title: `${repair.repairCode} → ${workOrderStatusLabel(update.statusAfterUpdate)}`,
+        title: `Repair ${repair.repairCode} — ${workOrderStatusLabel(update.statusAfterUpdate)}`,
         detail: update.updateText,
-        href: `/issues/${repair.id}`,
+        href: `/repairs/${repair.id}`,
         status: update.statusAfterUpdate,
       });
     }

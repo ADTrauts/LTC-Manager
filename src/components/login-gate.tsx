@@ -23,12 +23,15 @@ export function LoginGate() {
     let cancelled = false;
     void (async () => {
       const res = await fetch("/api/auth/device-facility", { credentials: "include" });
-      const data = (await res.json()) as { facility: FacilityInfo | null; unit: UnitInfo | null };
+      const data = (await res.json().catch(() => null)) as
+        | { facility: FacilityInfo | null; unit: UnitInfo | null }
+        | null;
       if (cancelled) return;
       startTransition(() => {
-        setFacility(data.facility);
-        setDeviceUnit(data.unit);
-        setMode(data.facility ? "pin" : "email");
+        const facility = res.ok ? (data?.facility ?? null) : null;
+        setFacility(facility);
+        setDeviceUnit(res.ok ? (data?.unit ?? null) : null);
+        setMode(facility ? "pin" : "email");
         setLoading(false);
       });
     })();

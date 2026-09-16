@@ -10,7 +10,7 @@ export function WalkListSignals({ item }: WalkListSignalsProps) {
     item.missed > 0 ? `${item.missed} missed` : null,
     item.pending > 0 ? `${item.pending} due` : null,
     item.openRepairCount > 0 ? `${item.openRepairCount} repair${item.openRepairCount === 1 ? "" : "s"}` : null,
-    item.staffingCount === 0 ? "no staff" : `${item.staffingCount} staffed`,
+    item.staffingCount > 0 ? `${item.staffingCount} assigned` : null,
   ].filter(Boolean);
 
   return (

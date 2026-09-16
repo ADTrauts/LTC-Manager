@@ -95,11 +95,12 @@ export function AdminPageHeader({
   className = "",
 }: AdminPageHeaderProps) {
   return (
-    <header className={`space-y-2 ${className}`.trim()}>
+    <header className={`space-y-2 border-b border-zinc-200 pb-4 ${className}`.trim()}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
+          {/* Trail is page-local; shell mode strip already shows Admin / area — keep trail short. */}
           <AdminBreadcrumbs trail={trail} />
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">{title}</h1>
           {subtitle ? <p className="max-w-3xl text-sm text-zinc-600">{subtitle}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">

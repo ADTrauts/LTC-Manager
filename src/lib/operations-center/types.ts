@@ -1,10 +1,16 @@
 import type { MealType, UnitType } from "@prisma/client";
 
+import type { RunDepartmentOperationPresentation } from "@/lib/operational-cycles";
 import type { CallDownItem, CallDownSummary } from "@/lib/todays-work/call-down";
 
 export type OperationsCenterUnitMealTime = {
   mealType: MealType;
+  /** Expected today (adjusted ?? configured). */
   scheduledTime: string;
+  configuredTime?: string | null;
+  adjustedTime?: string | null;
+  actualTime?: string | null;
+  timingStatusLabel?: string | null;
 };
 
 export type OperationsCenterUnitCard = {
@@ -77,6 +83,16 @@ export type OperationsCenterCallDownData = {
   dateIso: string;
 };
 
+export type OperationsCenterKeyTimeSummary = {
+  cycleLabel: string;
+  parentCycleLabel: string | null;
+  displayPath: string;
+  expectedToday: string;
+  total: number;
+  completed: number;
+  overdue: number;
+};
+
 export type OperationsCenterDashboardData = {
   month: number;
   managerCount: number;
@@ -92,4 +108,8 @@ export type OperationsCenterDashboardData = {
   operationContext: OperationContext;
   sitePulse: SitePulseSummary;
   callDowns?: OperationsCenterCallDownData;
+  /** Generic Key Time progress across departments with published KEY_TIME nodes. */
+  keyTimeSummaries?: OperationsCenterKeyTimeSummary[];
+  /** New-model PERIOD / KEY_TIME presentation when the effective config uses it. */
+  runPresentation?: RunDepartmentOperationPresentation | null;
 };

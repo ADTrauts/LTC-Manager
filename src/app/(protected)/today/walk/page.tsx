@@ -7,14 +7,22 @@ import { OperationContextBanner } from "@/components/operations-center/operation
 import { AppCard } from "@/components/design-system/AppCard";
 import { PageHeader } from "@/components/design-system/page-header";
 import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
-import { TodaysWorkWalkList } from "@/components/todays-work/todays-work-walk-list";
+import { OperatingLocationWalkList } from "@/components/todays-work/operating-location-board";
+import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
+import { TodaysWorkScopeLabel, TodaysWorkTeamUnconfigured } from "@/components/todays-work/todays-work-scope";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
+import { loadDepartmentRunPresentation } from "@/lib/operational-cycles";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
-import { assembleProjectedTodaysWorkWalk, loadWalkList } from "@/lib/todays-work";
+import {
+  assembleProjectedTodaysWorkWalk,
+  isTeamUnconfiguredScope,
+  keyTimeSpaceFilterFromTeamScope,
+  loadOperatingLocationBoard,
+} from "@/lib/todays-work";
 
 export default async function TodaysWorkWalkPage() {
   noStore();
@@ -34,6 +42,7 @@ export default async function TodaysWorkWalkPage() {
     const assembled = await assembleProjectedTodaysWorkWalk(session, {
       memo: createProjectionRuntimeRequestScope(),
       activeDepartmentKey,
+      activeDepartmentId: deptNav.activeDepartmentId,
     });
     if (!assembled.enabled) {
       return (
@@ -43,7 +52,7 @@ export default async function TodaysWorkWalkPage() {
         </section>
       );
     }
-    if ("error" in assembled && assembled.error && !("walk" in assembled)) {
+    if ("error" in assembled && assembled.error && !("board" in assembled)) {
       return (
         <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-walk-page">
           <PageHeader icon="todaysWork" eyebrow="Today's Work" title="Walk list" />
@@ -51,7 +60,7 @@ export default async function TodaysWorkWalkPage() {
         </section>
       );
     }
-    if (!("walk" in assembled) || !assembled.walk) {
+    if (!("board" in assembled) || !assembled.board) {
       return (
         <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-walk-page">
           <PageHeader icon="todaysWork" eyebrow="Today's Work" title="Walk list" />
@@ -60,14 +69,27 @@ export default async function TodaysWorkWalkPage() {
       );
     }
 
-    const { summary, operationContext, items, lookFirst } = assembled.walk;
+    const runPresentation = deptNav.activeDepartmentId
+      ? await loadDepartmentRunPresentation({
+          session,
+          facilityId: session.facilityId,
+          departmentId: deptNav.activeDepartmentId,
+          spaceIdFilter: keyTimeSpaceFilterFromTeamScope(assembled.teamScope),
+        })
+      : null;
+    const operationBanner =
+      runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+        <TodaysWorkRunOperationBanner presentation={runPresentation} />
+      ) : null;
+    const teamUnconfigured = isTeamUnconfiguredScope(assembled.teamScope);
+
     return (
       <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-walk-page">
         <PageHeader
           icon="todaysWork"
           eyebrow="Today's Work"
           title="Walk list"
-          subtitle="Visit projected locations in risk order. Tap a row to open the unit workspace — nothing is edited here."
+          subtitle="If you are making rounds, where should you go first?"
           actions={
             <Link
               href="/today"
@@ -76,18 +98,50 @@ export default async function TodaysWorkWalkPage() {
               Back to hub
             </Link>
           }
-          below={<OperationContextBanner context={operationContext} embedded />}
+          below={
+            <>
+              <TodaysWorkScopeLabel
+                scope={assembled.teamScope}
+                locationCount={assembled.board.locations.length}
+              />
+              {teamUnconfigured ? null : operationBanner}
+            </>
+          }
         />
-        <WalkListSummaryCards summary={summary} />
-        <AppCard as="section">
-          <TodaysWorkWalkList items={items} lookFirst={lookFirst} />
-        </AppCard>
+        {teamUnconfigured && assembled.teamScope ? (
+          <TodaysWorkTeamUnconfigured scope={assembled.teamScope} />
+        ) : (
+          <>
+            <WalkListSummaryCards summary={assembled.board.summary} />
+            <AppCard as="section">
+              <OperatingLocationWalkList locations={assembled.board.locations} />
+            </AppCard>
+          </>
+        )}
       </section>
     );
   }
 
-  const walkList = await loadWalkList(session.facilityId, { activeDepartmentKey });
-  const { summary, operationContext, items, lookFirst } = walkList;
+  const operating = await loadOperatingLocationBoard(session.facilityId, {
+    session,
+    activeDepartmentKey,
+    activeDepartmentId: deptNav.activeDepartmentId,
+  });
+  const runPresentation = deptNav.activeDepartmentId
+    ? await loadDepartmentRunPresentation({
+        session,
+        facilityId: session.facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        spaceIdFilter: keyTimeSpaceFilterFromTeamScope(operating.teamScope),
+      })
+    : null;
+  const operationBanner =
+    runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+      <TodaysWorkRunOperationBanner presentation={runPresentation} />
+    ) : (
+      <OperationContextBanner context={operating.operationContext} embedded />
+    );
+  const teamUnconfigured = isTeamUnconfiguredScope(operating.teamScope);
 
   return (
     <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-walk-page">
@@ -95,7 +149,7 @@ export default async function TodaysWorkWalkPage() {
         icon="todaysWork"
         eyebrow="Today's Work"
         title="Walk list"
-        subtitle="Visit projected locations in risk order. Tap a row to open the unit workspace — nothing is edited here."
+        subtitle="If you are making rounds, where should you go first?"
         actions={
           <Link
             href="/today"
@@ -104,14 +158,28 @@ export default async function TodaysWorkWalkPage() {
             Back to hub
           </Link>
         }
-        below={<OperationContextBanner context={operationContext} embedded />}
+        below={
+          <>
+            <TodaysWorkScopeLabel
+              scope={operating.teamScope}
+              locationCount={operating.walkLocations.length}
+            />
+            {teamUnconfigured ? null : operationBanner}
+          </>
+        }
       />
 
-      <WalkListSummaryCards summary={summary} />
+      {teamUnconfigured && operating.teamScope ? (
+        <TodaysWorkTeamUnconfigured scope={operating.teamScope} />
+      ) : (
+        <>
+          <WalkListSummaryCards summary={operating.board.summary} />
 
-      <AppCard as="section">
-        <TodaysWorkWalkList items={items} lookFirst={lookFirst} />
-      </AppCard>
+          <AppCard as="section">
+            <OperatingLocationWalkList locations={operating.walkLocations} />
+          </AppCard>
+        </>
+      )}
     </section>
   );
 }

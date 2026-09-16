@@ -42,36 +42,38 @@ function customFieldsFromVocabulary(v: FacilityVocabulary): CustomFields {
  */
 export function FacilityTerminologySettings({
   vocabulary,
+  variant = "default",
 }: {
   vocabulary: FacilityVocabulary;
+  variant?: "default" | "compact";
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
+        className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs"
         data-testid="facility-terminology-bar"
       >
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Facility Terminology
-          </p>
-          <p className="mt-0.5 text-sm font-medium text-zinc-900">
-            {vocabulary.profileLabel}
-            <span className="mx-2 text-zinc-300">·</span>
-            <span className="font-normal text-zinc-600">
-              {formatVocabularySummary(vocabulary)}
+        {variant === "compact" ? (
+          <span className="font-medium text-zinc-700">
+            {formatVocabularySummary(vocabulary).replace(/ · /g, " → ")}
+          </span>
+        ) : (
+          <span className="text-zinc-500">
+            Structure:{" "}
+            <span className="font-medium text-zinc-700">
+              {formatVocabularySummary(vocabulary).replace(/ · /g, " → ")}
             </span>
-          </p>
-        </div>
+          </span>
+        )}
         <button
           type="button"
           data-testid="change-terminology"
           onClick={() => setOpen(true)}
-          className="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          className="font-medium text-amber-800 underline-offset-2 hover:underline"
         >
-          Change Terminology
+          {variant === "compact" ? "Change terminology" : "Change"}
         </button>
       </div>
 

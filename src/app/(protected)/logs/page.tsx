@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 
 import { LogsTabsClient, type LogsTabId } from "@/components/logs/logs-tabs-client";
 import { MealType } from "@prisma/client";
+import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   loadContextualKnowledge,
   toContextualKnowledgeClientArticles,
@@ -209,6 +211,27 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
           Build reusable templates, assign them to units, submit entries, and review history.
         </p>
       </header>
+
+      {isCanonicalLogsEnabled() ? (
+        <div
+          className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+          data-testid="legacy-logs-banner"
+          role="status"
+        >
+          <p className="font-medium">Legacy Logs</p>
+          <p className="text-xs text-zinc-600">
+            This surface remains fully writable for compatibility. Today&apos;s Catalog Logs are on{" "}
+            <Link href="/staffing/logs" className="font-medium underline underline-offset-2">
+              Logs
+            </Link>
+            ; Catalog Attachments are configured under{" "}
+            <Link href="/build/logs" className="font-medium underline underline-offset-2">
+              BUILD · Logs
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
 
       <LogsTabsClient
         activeTab={activeTab}

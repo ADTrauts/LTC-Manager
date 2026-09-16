@@ -8,9 +8,11 @@ import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { buildHubCards } from "@/lib/build-hub";
+import { rewriteDepartmentBuilderNavHref } from "@/lib/department-administration";
 import { resolveNavIcon } from "@/lib/design-system";
 import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import {
+  isCanonicalLogsEnabled,
   isDietaryOperationalEvidenceEnabled,
   isDietaryWorkPlansEnabled,
   isTodaysWorkEnabled,
@@ -52,13 +54,17 @@ export default async function BuildHubPage() {
     todaysWorkEnabled: isTodaysWorkEnabled(),
     dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
     dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    canonicalLogsEnabled: isCanonicalLogsEnabled(),
   });
   const navItems = filterNavItemsForDepartmentScope(rawNavItems, {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
     activeOperationalDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
   const buildGroup = groupNavItemsByMode(navItems).find((group) => group.mode === "BUILD");
-  const cards = buildHubCards(buildGroup?.items ?? []);
+  const cards = rewriteDepartmentBuilderNavHref(
+    buildHubCards(buildGroup?.items ?? []),
+    deptNav.activeDepartmentId,
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-8" data-testid="build-hub">

@@ -4,29 +4,29 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
-import { ActionCard } from "@/components/design-system/ActionCard";
 import { AppCard } from "@/components/design-system/AppCard";
-import { EmptyState } from "@/components/design-system/EmptyState";
 import { PageHeader } from "@/components/design-system/page-header";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
-import { resolveLocationIconKey } from "@/lib/design-system";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
-import {
-  TodaysWorkExperienceContributions,
-  TodaysWorkProjectionUnavailable,
-} from "@/components/todays-work/todays-work-experience-contributions";
-import { TodaysWorkWalkPreview } from "@/components/todays-work/todays-work-walk-preview";
+import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
+import { OperatingLocationBoard } from "@/components/todays-work/operating-location-board";
+import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
+import { TodaysWorkScopeLabel, TodaysWorkTeamUnconfigured } from "@/components/todays-work/todays-work-scope";
 import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
+import { loadDepartmentRunPresentation } from "@/lib/operational-cycles";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import {
   assembleProjectedTodaysWorkHub,
+  isTeamUnconfiguredScope,
+  keyTimeSpaceFilterFromTeamScope,
   loadCallDownList,
-  loadWalkList,
+  loadOperatingLocationBoard,
+  TODAYS_WORK_HUB_SUBTITLE,
 } from "@/lib/todays-work";
 
 export default async function TodaysWorkHubPage() {
@@ -54,10 +54,10 @@ export default async function TodaysWorkHubPage() {
     const assembled = await assembleProjectedTodaysWorkHub(session, {
       memo,
       activeDepartmentKey,
+      activeDepartmentId: deptNav.activeDepartmentId,
     });
 
     if ("enabled" in assembled && assembled.enabled === false) {
-      // Flag flipped mid-request — fall through should not happen; show unavailable.
       return (
         <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
           <TodaysWorkProjectionUnavailable message="Today's Work Projection is not available." />
@@ -72,14 +72,14 @@ export default async function TodaysWorkHubPage() {
             icon="todaysWork"
             eyebrow="Today's Work"
             title="Supervisor hub"
-            subtitle="Projection-driven work queue for the active department."
+            subtitle={TODAYS_WORK_HUB_SUBTITLE}
           />
           <TodaysWorkProjectionUnavailable message={assembled.error} />
         </section>
       );
     }
 
-    if (!("walk" in assembled)) {
+    if (!("board" in assembled)) {
       return (
         <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
           <TodaysWorkProjectionUnavailable message="Today's Work Projection is not available." />
@@ -87,8 +87,20 @@ export default async function TodaysWorkHubPage() {
       );
     }
 
-    const { walk, callDowns, experienceContributions, projection } = assembled;
-    const { summary, operationContext, items, lookFirst } = walk;
+    const { board, callDowns, projection, teamScope } = assembled;
+    const runPresentation = deptNav.activeDepartmentId
+      ? await loadDepartmentRunPresentation({
+          session,
+          facilityId: session.facilityId,
+          departmentId: deptNav.activeDepartmentId,
+          spaceIdFilter: keyTimeSpaceFilterFromTeamScope(teamScope),
+        })
+      : null;
+    const operationBanner =
+      runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+        <TodaysWorkRunOperationBanner presentation={runPresentation} />
+      ) : null;
+    const teamUnconfigured = isTeamUnconfiguredScope(teamScope);
 
     return (
       <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
@@ -96,91 +108,78 @@ export default async function TodaysWorkHubPage() {
           icon="todaysWork"
           eyebrow="Today's Work"
           title="Supervisor hub"
-          subtitle="Projected Experiences contribute locations; engines supply outstanding work."
-          below={<OperationContextBanner context={operationContext} embedded />}
+          subtitle={TODAYS_WORK_HUB_SUBTITLE}
+          below={
+            <>
+              <TodaysWorkScopeLabel scope={teamScope} locationCount={board.locations.length} />
+              {teamUnconfigured ? null : operationBanner}
+            </>
+          }
         />
 
         {projection.lensMode === "FACILITY" ? (
-          <p className="text-xs text-zinc-500">
-            Facility Overview — Experience contributors remain department-labeled.
+          <p className="text-sm text-zinc-600">
+            All Departments — choose a department for period and Key Time summaries. Operating
+            locations below are listed by department.
           </p>
         ) : null}
 
-        <WalkListSummaryCards summary={summary} />
-
-        <section>
-          <SectionHeader eyebrow="Projected work sources" className="mb-2" />
-          <TodaysWorkExperienceContributions contributions={experienceContributions} />
-        </section>
-
-        {lookFirst && lookFirst.status !== "ready" ? (
-          <section>
-            <SectionHeader eyebrow="Look here first" className="mb-2" />
-            <ActionCard
-              emphasized
-              icon={resolveLocationIconKey({
-                unitType: lookFirst.unitType,
-                name: lookFirst.unitName,
-              })}
-              title={lookFirst.unitName}
-              description={lookFirst.reason}
-              cta={
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={lookFirst.href}
-                    className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-                  >
-                    Open unit workspace
-                  </Link>
-                  <Link
-                    href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
-                    className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-                  >
-                    Check staffing
-                  </Link>
-                </div>
-              }
-            />
-          </section>
+        {teamUnconfigured && teamScope ? (
+          <TodaysWorkTeamUnconfigured scope={teamScope} />
         ) : (
-          <EmptyState
-            icon="ready"
-            title="No locations need attention right now"
-            description="Walk preview still lists projected locations if you want a routine pass."
-            tone="success"
-            inset
-          />
-        )}
+          <>
+            <WalkListSummaryCards summary={board.summary} />
 
-        <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
-        <TodaysWorkCallDownList items={callDowns.items} />
+            <section>
+              <SectionHeader eyebrow="Operating locations" className="mb-3" />
+              <OperatingLocationBoard locations={board.locations} />
+            </section>
+          </>
+        )}
 
         <AppCard as="section" className="border-dashed bg-zinc-50/80 shadow-none">
           <SectionHeader eyebrow="Related" muted className="mb-2" />
           <div className="flex flex-wrap gap-3 text-sm">
             <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-              Full walk list
+              Open walk list
             </Link>
             <Link href="/today/coverage" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-              Coverage
+              Coverage (who / what / gaps)
             </Link>
             <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
               Handoffs
             </Link>
-            <Link href="/workspace" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-              Dashboard
-            </Link>
           </div>
         </AppCard>
+
+        <TodaysWorkCallDownList items={callDowns.items} />
       </section>
     );
   }
 
-  const [walkList, callDowns] = await Promise.all([
-    loadWalkList(session.facilityId, { activeDepartmentKey }),
+  const [operating, callDowns] = await Promise.all([
+    loadOperatingLocationBoard(session.facilityId, {
+      session,
+      activeDepartmentKey,
+      activeDepartmentId: deptNav.activeDepartmentId,
+    }),
     loadCallDownList(session.facilityId),
   ]);
-  const { summary, operationContext, items, lookFirst } = walkList;
+  const runPresentation = deptNav.activeDepartmentId
+    ? await loadDepartmentRunPresentation({
+        session,
+        facilityId: session.facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        spaceIdFilter: keyTimeSpaceFilterFromTeamScope(operating.teamScope),
+      })
+    : null;
+  const operationBanner =
+    runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+      <TodaysWorkRunOperationBanner presentation={runPresentation} />
+    ) : (
+      <OperationContextBanner context={operating.operationContext} embedded />
+    );
+  const teamUnconfigured = isTeamUnconfiguredScope(operating.teamScope);
 
   return (
     <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
@@ -188,71 +187,57 @@ export default async function TodaysWorkHubPage() {
         icon="todaysWork"
         eyebrow="Today's Work"
         title="Supervisor hub"
-        subtitle="Start with the highest-risk locations for the current meal period, then review handoffs before the next operation."
-        below={<OperationContextBanner context={operationContext} embedded />}
+        subtitle={TODAYS_WORK_HUB_SUBTITLE}
+        below={
+          <>
+            <TodaysWorkScopeLabel
+              scope={operating.teamScope}
+              locationCount={operating.board.locations.length}
+            />
+            {teamUnconfigured ? null : operationBanner}
+          </>
+        }
       />
 
-      <WalkListSummaryCards summary={summary} />
+      {!activeDepartmentKey ? (
+        <p className="text-sm text-zinc-600">
+          All Departments — choose a department for period and Key Time summaries. Operating
+          locations below are listed by department.
+        </p>
+      ) : null}
 
-      {lookFirst && lookFirst.status !== "ready" ? (
-        <section>
-          <SectionHeader eyebrow="Look here first" className="mb-2" />
-          <ActionCard
-            emphasized
-            icon={resolveLocationIconKey({ unitType: lookFirst.unitType, name: lookFirst.unitName })}
-            title={lookFirst.unitName}
-            description={lookFirst.reason}
-            cta={
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={lookFirst.href}
-                  className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white touch-manipulation hover:bg-zinc-700"
-                >
-                  Open unit workspace
-                </Link>
-                <Link
-                  href={`/staffing?unitId=${encodeURIComponent(lookFirst.unitId)}`}
-                  className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-                >
-                  Check staffing
-                </Link>
-              </div>
-            }
-          />
-        </section>
+      {teamUnconfigured && operating.teamScope ? (
+        <TodaysWorkTeamUnconfigured scope={operating.teamScope} />
       ) : (
-        <EmptyState
-          icon="ready"
-          title="No locations need attention right now"
-          description="Walk preview still lists active locations if you want a routine pass."
-          tone="success"
-          inset
-        />
-      )}
+        <>
+          <WalkListSummaryCards summary={operating.board.summary} />
 
-      <TodaysWorkWalkPreview items={items} lookFirst={lookFirst} />
-      <TodaysWorkCallDownList items={callDowns.items} />
+          <section>
+            <SectionHeader eyebrow="Operating locations" className="mb-3" />
+            <OperatingLocationBoard locations={operating.board.locations} />
+          </section>
+        </>
+      )}
 
       <AppCard as="section" className="border-dashed bg-zinc-50/80 shadow-none">
         <SectionHeader eyebrow="Related" muted className="mb-2" />
         <div className="flex flex-wrap gap-3 text-sm">
           <Link href="/today/walk" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-            Full walk list
+            Open walk list
           </Link>
           <Link href="/today/coverage" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-            Coverage
+            Coverage (who / what / gaps)
           </Link>
           <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Handoffs
-          </Link>
-          <Link href="/workspace" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-            Dashboard
           </Link>
           <Link href="/staffing" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Staffing
           </Link>
         </div>
       </AppCard>
+
+      <TodaysWorkCallDownList items={callDowns.items} />
     </section>
   );
 }

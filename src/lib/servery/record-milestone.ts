@@ -113,6 +113,7 @@ export async function evaluateServeryMilestoneAccess(
     select: {
       id: true,
       unitType: true,
+      parentUnitId: true,
       mealTimes: { where: { isActive: true }, select: { mealType: true } },
     },
   });
@@ -149,10 +150,33 @@ export async function evaluateServeryMilestoneAccess(
     return { ok: false, reason: decision.reason };
   }
 
+  let configuredMeals = unit.mealTimes.map((slot) => slot.mealType);
+  if (dietary) {
+    const { configuredMealTypesFromTimings, materializeMealServiceDayExpectations } =
+      await import("@/lib/operational-cycles/materialize-day-expectations");
+    const { timingOwnerUnitIds } = await import(
+      "@/lib/operational-cycles/plan-day-expectations"
+    );
+    const materialized = await materializeMealServiceDayExpectations(
+      {
+        facilityId: input.facilityId,
+        departmentId: dietary.id,
+      },
+      client,
+    );
+    const fromExpectations = configuredMealTypesFromTimings(
+      materialized.timings,
+      timingOwnerUnitIds(unit),
+    );
+    if (fromExpectations.length > 0) {
+      configuredMeals = fromExpectations as MealType[];
+    }
+  }
+
   return {
     ok: true,
     unitId: unit.id,
-    configuredMeals: unit.mealTimes.map((slot) => slot.mealType),
+    configuredMeals,
     employeeId: relationships.employeeId,
   };
 }

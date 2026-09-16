@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import { EmployeesDepartmentTabs } from "@/components/employees-department-tabs";
 import { EmployeesSubNav } from "@/components/employees-sub-nav";
 import { getSession } from "@/lib/auth";
 import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
-import { loadEmployeeAppDepartments } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 type EmployeesLayoutProps = {
@@ -23,15 +21,8 @@ export default async function EmployeesLayout({ children }: EmployeesLayoutProps
     await ensureDefaultDepartments(prisma, facilityId);
   }
 
-  const departments = await loadEmployeeAppDepartments(prisma, facilityId);
-
   return (
-    <div className="space-y-6">
-      {departments.length > 0 ? (
-        <Suspense fallback={<div className="h-10 border-b border-transparent" aria-hidden />}>
-          <EmployeesDepartmentTabs departments={departments} />
-        </Suspense>
-      ) : null}
+    <div className="space-y-3">
       <Suspense fallback={null}>
         <EmployeesSubNav role={session.role} />
       </Suspense>

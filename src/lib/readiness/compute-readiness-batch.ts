@@ -216,7 +216,7 @@ export function computeReadinessBatch(input: ComputeReadinessBatchInput): Readin
   // Staffing presence by unit — used as a soft EVS coverage expectation signal.
   const staffingUnitIds = new Set<string>();
   for (const entry of input.scheduleEntriesToday) {
-    staffingUnitIds.add(entry.unitId);
+    if (entry.unitId) staffingUnitIds.add(entry.unitId);
   }
   for (const override of input.overridesToday) {
     if (override.newUnitId) staffingUnitIds.add(override.newUnitId);

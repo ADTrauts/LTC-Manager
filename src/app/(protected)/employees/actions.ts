@@ -59,8 +59,15 @@ import {
 } from "@/lib/hr-audit";
 import { isValidPinFormat, pinDigestForFacility } from "@/lib/pin";
 import { prisma } from "@/lib/prisma";
+import {
+  formatTeamMembershipAuditValue,
+  parseEmployeeOrganizationForm,
+  resolveDepartmentMembershipIds,
+  syncEmployeeOrganization,
+} from "@/lib/employee-membership";
 
 const roleKeyValues = [
+  RoleKey.FACILITY_ADMINISTRATOR,
   RoleKey.GM,
   RoleKey.MANAGER,
   RoleKey.SUPERVISOR,
@@ -147,31 +154,27 @@ const setDefaultAssignmentSchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 
-const setEmployeePinSchema = z.object({
-  employeeId: z.string().cuid(),
-  pin: z.string().trim().min(6).max(6),
-});
-
-const updateEmployeeProfileSchema = z
+const setEmployeePinSchema = z
   .object({
     employeeId: z.string().cuid(),
-    firstName: z.string().trim().min(2).max(60),
-    lastName: z.string().trim().min(2).max(60),
-    email: z.string().trim().email().max(120).optional(),
-    phone: z.string().trim().max(30).optional(),
-    roleType: z.enum(roleKeyValues),
-    employmentType: z.enum(employmentValues),
-    status: z.enum(statusValues),
+    pin: z.string().trim().min(6).max(6),
+    confirmPin: z.string().trim().min(6).max(6),
   })
-  .superRefine((value, ctx) => {
-    if (requiresEmailPasswordAccount(value.roleType) && !value.email) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["email"],
-        message: "Email is required for GM, Manager, and Supervisor roles.",
-      });
-    }
+  .refine((v) => v.pin === v.confirmPin, {
+    path: ["confirmPin"],
+    message: "PINs do not match.",
   });
+
+const updateEmployeeProfileSchema = z.object({
+  employeeId: z.string().cuid(),
+  firstName: z.string().trim().min(2).max(60),
+  lastName: z.string().trim().min(2).max(60),
+  email: z.string().trim().email().max(120).optional(),
+  phone: z.string().trim().max(30).optional(),
+  roleType: z.enum(roleKeyValues),
+  employmentType: z.enum(employmentValues),
+  status: z.enum(statusValues),
+});
 
 const promoteInitialPasswordSchema = z
   .object({
@@ -274,6 +277,10 @@ async function syncEmployeeWorkStationsTx(
   });
 }
 
+function formIncludesUnitAccessFields(formData: FormData): boolean {
+  return formData.has("unitAccessMode");
+}
+
 function parseUnitAccessMode(formData: FormData): "all" | "restricted" {
   return String(formData.get("unitAccessMode") ?? "all") === "restricted" ? "restricted" : "all";
 }
@@ -340,14 +347,16 @@ function revalidateEmployeeViews() {
   revalidatePath("/employees/terminations");
   revalidatePath("/staffing");
   revalidatePath("/dashboard");
+  revalidatePath("/admin/departments");
 }
 
 export async function createEmployeeAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
-  const mode = parseUnitAccessMode(formData);
-  const allowedUnitIds = parseAllowedUnitIds(formData);
+  const unitAccessSubmitted = formIncludesUnitAccessFields(formData);
+  const mode = unitAccessSubmitted ? parseUnitAccessMode(formData) : "all";
+  const allowedUnitIds = unitAccessSubmitted ? parseAllowedUnitIds(formData) : [];
 
   const parsed = createEmployeeSchema.parse({
     firstName: formData.get("firstName"),
@@ -362,14 +371,20 @@ export async function createEmployeeAction(formData: FormData) {
     confirmInitialPassword: toOptional(formData.get("confirmInitialPassword")),
   });
   const hr = parseHrProfileFields(formData);
+  const organization = parseEmployeeOrganizationForm(formData);
+  if (!organization.primaryDepartmentId) {
+    throw new Error("Primary Department is required.");
+  }
   const normalizedEmail = parsed.email?.toLowerCase();
 
-  const primaryUnitId = await validatePrimaryUnitId(
-    session.facilityId,
-    toOptional(formData.get("primaryUnitId")),
-    mode,
-    allowedUnitIds,
-  );
+  const primaryUnitId = unitAccessSubmitted
+    ? await validatePrimaryUnitId(
+        session.facilityId,
+        toOptional(formData.get("primaryUnitId")),
+        mode,
+        allowedUnitIds,
+      )
+    : null;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -397,8 +412,25 @@ export async function createEmployeeAction(formData: FormData) {
           hrNotes: hr.hrNotes,
         } as Prisma.EmployeeUncheckedCreateInput,
       });
-      await syncEmployeeUnitAccessTx(tx as unknown as UnitAccessTransaction, emp.id, session.facilityId, mode, allowedUnitIds);
+      if (unitAccessSubmitted) {
+        await syncEmployeeUnitAccessTx(
+          tx as unknown as UnitAccessTransaction,
+          emp.id,
+          session.facilityId,
+          mode,
+          allowedUnitIds,
+        );
+      }
       await syncEmployeeWorkStationsTx(tx, emp.id, hr.workStations);
+      await syncEmployeeOrganization(tx, {
+        employeeId: emp.id,
+        facilityId: session.facilityId,
+        primaryDepartmentId: organization.primaryDepartmentId,
+        additionalDepartmentIds: organization.additionalDepartmentIds,
+        jobTitleId: organization.jobTitleId,
+        teamMemberships: organization.teamMemberships,
+        jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
+      });
 
       if (parsed.accessMethod === "EMAIL_PASSWORD") {
         const role = await tx.role.findFirst({
@@ -440,10 +472,11 @@ export async function updateEmployeeProfileAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
-  const mode = parseUnitAccessMode(formData);
-  const allowedUnitIds = parseAllowedUnitIds(formData);
+  const unitAccessSubmitted = formIncludesUnitAccessFields(formData);
+  const mode = unitAccessSubmitted ? parseUnitAccessMode(formData) : "all";
+  const allowedUnitIds = unitAccessSubmitted ? parseAllowedUnitIds(formData) : [];
 
-  const parsed = updateEmployeeProfileSchema.parse({
+  const parsedResult = updateEmployeeProfileSchema.safeParse({
     employeeId: formData.get("employeeId"),
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -453,9 +486,46 @@ export async function updateEmployeeProfileAction(formData: FormData) {
     employmentType: formData.get("employmentType"),
     status: formData.get("status"),
   });
+  if (!parsedResult.success) {
+    throw new Error(parsedResult.error.issues[0]?.message ?? "Invalid employee profile.");
+  }
+  const parsed = parsedResult.data;
   const hr = parseHrProfileFields(formData);
+  const organization = parseEmployeeOrganizationForm(formData);
+  /** Profile editor no longer mounts CHRC / specialty HR controls; preserve those columns. */
+  const profileEssentialsOnly = formData.get("employeeProfileMode") === "essentials";
 
-  const normalizedProfileEmail = parsed.email ? parsed.email.toLowerCase() : undefined;
+  const existing = await prisma.employee.findFirst({
+    where: { id: parsed.employeeId, facilityId: session.facilityId },
+    include: {
+      workStations: { select: { station: true } },
+      employeeDepartments: { select: { departmentId: true } },
+      teamMemberships: {
+        where: { team: { status: "ACTIVE" } },
+        select: { teamId: true, isPrimary: true },
+      },
+    },
+  });
+  if (!existing) {
+    throw new Error("Employee not found.");
+  }
+
+  // Prefer submitted email; otherwise keep the stored address so Job Role / org edits
+  // are not blocked when the email field is blank.
+  const normalizedProfileEmail =
+    (parsed.email ? parsed.email.toLowerCase() : undefined) ??
+    (existing.email?.trim().toLowerCase() || undefined);
+
+  // Platform authority (FACILITY_ADMINISTRATOR / GM / MANAGER / SUPERVISOR) is separate from
+  // Department Job Role. If the form asks to promote platform authority without an email,
+  // keep the current platform role and still save Job Role / organization fields.
+  const requestedPlatformPromotionWithoutEmail =
+    requiresEmailPasswordAccount(parsed.roleType) &&
+    !requiresEmailPasswordAccount(existing.roleType) &&
+    !normalizedProfileEmail;
+  const effectiveRoleType = requestedPlatformPromotionWithoutEmail
+    ? existing.roleType
+    : parsed.roleType;
 
   const existingUserForEmail =
     normalizedProfileEmail ?
@@ -470,7 +540,12 @@ export async function updateEmployeeProfileAction(formData: FormData) {
     : null;
 
   let newAppLoginPasswordHash: string | undefined;
-  if (requiresEmailPasswordAccount(parsed.roleType) && normalizedProfileEmail && !existingUserForEmail) {
+  if (
+    requiresEmailPasswordAccount(effectiveRoleType) &&
+    normalizedProfileEmail &&
+    !existingUserForEmail &&
+    effectiveRoleType !== existing.roleType
+  ) {
     const pwParsed = promoteInitialPasswordSchema.safeParse({
       initialPassword: toOptional(formData.get("initialPassword")),
       confirmInitialPassword: toOptional(formData.get("confirmInitialPassword")),
@@ -484,36 +559,76 @@ export async function updateEmployeeProfileAction(formData: FormData) {
     newAppLoginPasswordHash = await bcrypt.hash(pwParsed.data.initialPassword, 12);
   }
 
-  const primaryUnitId = await validatePrimaryUnitId(
-    session.facilityId,
-    toOptional(formData.get("primaryUnitId")),
-    mode,
-    allowedUnitIds,
-  );
+  const primaryUnitId = unitAccessSubmitted
+    ? await validatePrimaryUnitId(
+        session.facilityId,
+        toOptional(formData.get("primaryUnitId")),
+        mode,
+        allowedUnitIds,
+      )
+    : undefined;
 
   await prisma.$transaction(async (tx) => {
-    const existing = await tx.employee.findFirst({
-      where: { id: parsed.employeeId, facilityId: session.facilityId },
-      include: { workStations: { select: { station: true } } },
-    });
-    if (!existing) {
-      throw new Error("Employee not found.");
-    }
-
     const beforeSnap = snapshotFromEmployeeRow(existing);
     const terminated = parsed.status === EmployeeStatus.TERMINATED;
     const clearsPin = roleChangeInvalidatesPin({
-      nextRoleType: parsed.roleType,
+      nextRoleType: effectiveRoleType,
       currentPinDigest: existing.pinDigest,
     });
+    const hrForAudit = profileEssentialsOnly
+      ? {
+          ...hr,
+          birthMonth: existing.birthMonth,
+          birthDay: existing.birthDay,
+          jobClassification: existing.jobClassification,
+          chrcStatus: existing.chrcStatus,
+          chrcClearedAt: existing.chrcClearedAt,
+          chrcNotes: existing.chrcNotes,
+          shirtSize: existing.shirtSize,
+          hrNotes: existing.hrNotes,
+          workStations: existing.workStations.map((row) => row.station),
+          terminationDate: terminated ? (hr.terminationDate ?? existing.terminationDate) : null,
+          chrcOffboardingCompletedAt: terminated ? existing.chrcOffboardingCompletedAt : null,
+          chrcOffboardingNotes: terminated ? existing.chrcOffboardingNotes : null,
+        }
+      : hr;
     const afterSnap = snapshotFromProfileForm(
-      { ...parsed, email: normalizedProfileEmail },
-      hr,
+      {
+        ...parsed,
+        roleType: effectiveRoleType,
+        email: normalizedProfileEmail,
+        primaryDepartmentId: organization.primaryDepartmentId,
+        jobTitleId: organization.jobTitleId,
+        additionalDepartmentIds: organization.additionalDepartmentIds.filter(
+          (id) => id !== organization.primaryDepartmentId,
+        ),
+        teamMembershipsSorted: formatTeamMembershipAuditValue(organization.teamMemberships)?.split(",") ?? [],
+      },
+      hrForAudit,
       terminated,
     );
 
-    await syncEmployeeUnitAccessTx(tx as unknown as UnitAccessTransaction, parsed.employeeId, session.facilityId, mode, allowedUnitIds);
-    await syncEmployeeWorkStationsTx(tx, parsed.employeeId, hr.workStations);
+    if (unitAccessSubmitted) {
+      await syncEmployeeUnitAccessTx(
+        tx as unknown as UnitAccessTransaction,
+        parsed.employeeId,
+        session.facilityId,
+        mode,
+        allowedUnitIds,
+      );
+    }
+    if (!profileEssentialsOnly) {
+      await syncEmployeeWorkStationsTx(tx, parsed.employeeId, hr.workStations);
+    }
+    await syncEmployeeOrganization(tx, {
+      employeeId: parsed.employeeId,
+      facilityId: session.facilityId,
+      primaryDepartmentId: organization.primaryDepartmentId,
+      additionalDepartmentIds: organization.additionalDepartmentIds,
+      jobTitleId: organization.jobTitleId,
+      teamMemberships: organization.teamMemberships,
+      jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
+    });
 
     await tx.employee.update({
       where: { id: parsed.employeeId },
@@ -522,45 +637,69 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         lastName: parsed.lastName,
         email: normalizedProfileEmail,
         phone: parsed.phone,
-        roleType: parsed.roleType,
+        roleType: effectiveRoleType,
         // Same statement as the role change, so the promotion cannot commit with a usable PIN.
         ...(clearsPin ? { pinDigest: null } : {}),
         employmentType: parsed.employmentType,
         status: parsed.status,
-        primaryUnitId,
+        ...(primaryUnitId !== undefined ? { primaryUnitId } : {}),
         unionMember: hr.unionMember,
         onLeave: hr.onLeave,
         hireDate: hr.hireDate,
-        birthMonth: hr.birthMonth,
-        birthDay: hr.birthDay,
-        jobClassification: hr.jobClassification,
-        chrcStatus: hr.chrcStatus,
-        chrcClearedAt: hr.chrcClearedAt,
-        chrcNotes: hr.chrcNotes,
-        shirtSize: hr.shirtSize,
-        hrNotes: hr.hrNotes,
-        ...(terminated
+        ...(profileEssentialsOnly
           ? {
-              terminationDate: hr.terminationDate,
-              chrcOffboardingCompletedAt: hr.chrcOffboardingCompletedAt,
-              chrcOffboardingNotes: hr.chrcOffboardingNotes,
+              birthMonth: existing.birthMonth,
+              birthDay: existing.birthDay,
+              jobClassification: existing.jobClassification,
+              chrcStatus: existing.chrcStatus,
+              chrcClearedAt: existing.chrcClearedAt,
+              chrcNotes: existing.chrcNotes,
+              shirtSize: existing.shirtSize,
+              hrNotes: existing.hrNotes,
+              ...(terminated
+                ? {
+                    terminationDate: hr.terminationDate ?? existing.terminationDate,
+                    chrcOffboardingCompletedAt: existing.chrcOffboardingCompletedAt,
+                    chrcOffboardingNotes: existing.chrcOffboardingNotes,
+                  }
+                : {
+                    terminationDate: null,
+                    chrcOffboardingCompletedAt: null,
+                    chrcOffboardingNotes: null,
+                  }),
             }
           : {
-              terminationDate: null,
-              chrcOffboardingCompletedAt: null,
-              chrcOffboardingNotes: null,
+              birthMonth: hr.birthMonth,
+              birthDay: hr.birthDay,
+              jobClassification: hr.jobClassification,
+              chrcStatus: hr.chrcStatus,
+              chrcClearedAt: hr.chrcClearedAt,
+              chrcNotes: hr.chrcNotes,
+              shirtSize: hr.shirtSize,
+              hrNotes: hr.hrNotes,
+              ...(terminated
+                ? {
+                    terminationDate: hr.terminationDate,
+                    chrcOffboardingCompletedAt: hr.chrcOffboardingCompletedAt,
+                    chrcOffboardingNotes: hr.chrcOffboardingNotes,
+                  }
+                : {
+                    terminationDate: null,
+                    chrcOffboardingCompletedAt: null,
+                    chrcOffboardingNotes: null,
+                  }),
             }),
       } as Prisma.EmployeeUncheckedUpdateInput,
     });
 
     if (
-      requiresEmailPasswordAccount(parsed.roleType) &&
+      requiresEmailPasswordAccount(effectiveRoleType) &&
       normalizedProfileEmail &&
       !existingUserForEmail &&
       newAppLoginPasswordHash
     ) {
       const roleRow = await tx.role.findFirst({
-        where: { key: parsed.roleType, isActive: true },
+        where: { key: effectiveRoleType, isActive: true },
         select: { id: true },
       });
       if (!roleRow) {
@@ -587,7 +726,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         }
         throw e;
       }
-    } else if (requiresEmailPasswordAccount(parsed.roleType) && existingUserForEmail) {
+    } else if (requiresEmailPasswordAccount(effectiveRoleType) && existingUserForEmail) {
       await tx.user.update({
         where: { id: existingUserForEmail.id },
         data: { displayName: `${parsed.firstName} ${parsed.lastName}` },
@@ -627,7 +766,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         hasPin: existing.pinDigest != null,
       },
       {
-        roleType: parsed.roleType,
+        roleType: effectiveRoleType,
         status: parsed.status,
         hasPin: existing.pinDigest != null && !clearsPin,
       },
@@ -657,7 +796,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
           facilityId: session.facilityId,
           employeeId: parsed.employeeId,
           userId: actorUserId,
-          ...pinInvalidationAuditValues(parsed.roleType),
+          ...pinInvalidationAuditValues(effectiveRoleType),
         },
       });
     }
@@ -684,10 +823,15 @@ export async function setEmployeePinAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "GM");
 
-  const parsed = setEmployeePinSchema.parse({
+  const parsedResult = setEmployeePinSchema.safeParse({
     employeeId: formData.get("employeeId"),
     pin: formData.get("pin"),
+    confirmPin: formData.get("confirmPin"),
   });
+  if (!parsedResult.success) {
+    throw new Error(parsedResult.error.issues[0]?.message ?? "Invalid PIN.");
+  }
+  const parsed = parsedResult.data;
 
   if (!isValidPinFormat(parsed.pin)) {
     throw new Error("PIN must be exactly 6 digits.");
@@ -697,15 +841,16 @@ export async function setEmployeePinAction(formData: FormData) {
 
   const before = await prisma.employee.findFirst({
     where: { id: parsed.employeeId, facilityId: session.facilityId },
-    select: { pinDigest: true, roleType: true },
+    select: { pinDigest: true, roleType: true, status: true },
   });
   if (!before) {
     throw new Error("Employee not found.");
   }
+  if (before.status !== EmployeeStatus.ACTIVE) {
+    throw new Error("Only active employees can set or reset a PIN.");
+  }
   if (!mayAuthenticateWithQuickPin(before.roleType)) {
-    throw new Error(
-      "This role signs in with email and password, so a Quick PIN cannot be issued for it.",
-    );
+    throw new Error("This employee role cannot use PIN sign-in.");
   }
 
   try {
@@ -1142,7 +1287,7 @@ export async function revokeEmployeeSessionsAction(formData: FormData) {
   revalidateEmployeeViews();
 }
 
-/** Departments the actor holds authority in: primary, explicit membership, or headship. */
+/** Departments the actor holds authority in: canonical membership, or headship. */
 async function loadEmployeeDepartmentIds(employeeId: string): Promise<string[]> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -1154,8 +1299,7 @@ async function loadEmployeeDepartmentIds(employeeId: string): Promise<string[]> 
   });
   if (!employee) return [];
   return [
-    ...(employee.primaryDepartmentId ? [employee.primaryDepartmentId] : []),
-    ...employee.employeeDepartments.map((row) => row.departmentId),
+    ...resolveDepartmentMembershipIds(employee),
     ...employee.headedDepartments.map((row) => row.id),
   ];
 }

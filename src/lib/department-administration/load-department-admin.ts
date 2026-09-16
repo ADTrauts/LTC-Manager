@@ -10,6 +10,13 @@ import {
   type CertificationResult,
 } from "@/lib/department-administration/certification";
 import {
+  collectDepartmentActionableLocations,
+  groupLocationsByPhysicalHierarchy,
+  locationCoverageSummary,
+  type DepartmentActionableLocation,
+  type DepartmentLocationFloorGroup,
+} from "@/lib/department-administration/department-locations";
+import {
   loadProfile,
   toProfileSnapshot,
 } from "@/lib/department-administration/profile-service";
@@ -70,7 +77,13 @@ export type DepartmentAdminView = {
   workingProfileMeta: ProfileListItem | null;
   editable: boolean;
   certification: CertificationResult | null;
+  /** @deprecated Prefer `locations` — room-only slice kept for Rooms panel compatibility. */
   rooms: DepartmentRoomRow[];
+  /** Actionable locations from Facility Builder (neighborhoods + rooms; no floors). */
+  locations: DepartmentActionableLocation[];
+  /** Hierarchy-first grouping for the Locations tab. */
+  locationHierarchy: DepartmentLocationFloorGroup[];
+  locationCoverage: ReturnType<typeof locationCoverageSummary>;
   coverage: {
     assignedRooms: number;
     mappedRooms: number;
@@ -385,6 +398,39 @@ export async function loadDepartmentAdminView(input: {
         .flatMap((a) => a.experiences.filter((e) => e.isActive)).length
     : 0;
 
+  const roomPatternBySpaceId = new Map<
+    string,
+    {
+      archetypeKey: string;
+      archetypeName: string;
+      exceptionCount: number;
+      recommendedPatternKey: string | null;
+      spaceTypeLabel: string;
+      spaceTypePresetKey?: string;
+      displayName: string;
+    }
+  >();
+  for (const room of rooms) {
+    roomPatternBySpaceId.set(room.unitSpaceId, {
+      archetypeKey: room.binding?.archetypeKey ?? "",
+      archetypeName: room.binding?.archetypeName ?? "",
+      exceptionCount: room.exceptionCount,
+      recommendedPatternKey: room.recommendedArchetypeKey,
+      spaceTypeLabel: room.spaceTypeLabel,
+      spaceTypePresetKey: room.spaceTypePresetKey,
+      displayName: room.displayName,
+    });
+  }
+
+  const locations = collectDepartmentActionableLocations({
+    departmentId: department.id,
+    units: hierarchy.units,
+    roomPatternBySpaceId,
+  });
+
+  const locationHierarchy = groupLocationsByPhysicalHierarchy(locations);
+  const locationCoverage = locationCoverageSummary(locations);
+
   return {
     department,
     facilityId: input.facilityId,
@@ -395,6 +441,9 @@ export async function loadDepartmentAdminView(input: {
     editable: workingProfileMeta?.status === "DRAFT",
     certification,
     rooms,
+    locations,
+    locationHierarchy,
+    locationCoverage,
     coverage: {
       assignedRooms: rooms.length,
       mappedRooms,
@@ -404,5 +453,46 @@ export async function loadDepartmentAdminView(input: {
       activeArchetypes:
         workingProfile?.archetypes.filter((a) => a.isActive).length ?? 0,
     },
+  };
+}
+
+/**
+ * Lightweight Department Builder view when Operational Profiles are off.
+ * Still consumes Facility Builder responsibility for the Locations tab.
+ */
+export async function loadDepartmentLocationsView(input: {
+  facilityId: string;
+  departmentId: string;
+}): Promise<{
+  department: { id: string; key: string; name: string; isActive: boolean };
+  facilityId: string;
+  vocabulary: FacilityHierarchy["vocabulary"];
+  locations: DepartmentActionableLocation[];
+  locationHierarchy: DepartmentLocationFloorGroup[];
+  locationCoverage: ReturnType<typeof locationCoverageSummary>;
+} | null> {
+  const department = await prisma.department.findFirst({
+    where: {
+      id: input.departmentId,
+      facilityId: input.facilityId,
+      isActive: true,
+    },
+    select: { id: true, key: true, name: true, isActive: true },
+  });
+  if (!department) return null;
+
+  const hierarchy = await loadFacilityHierarchy(input.facilityId);
+  const locations = collectDepartmentActionableLocations({
+    departmentId: department.id,
+    units: hierarchy.units,
+  });
+
+  return {
+    department,
+    facilityId: input.facilityId,
+    vocabulary: hierarchy.vocabulary,
+    locations,
+    locationHierarchy: groupLocationsByPhysicalHierarchy(locations),
+    locationCoverage: locationCoverageSummary(locations),
   };
 }

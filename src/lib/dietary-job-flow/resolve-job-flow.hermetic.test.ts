@@ -23,6 +23,11 @@ function cycleOcc(overrides: Partial<ResolvedCycleOccurrence> & Pick<ResolvedCyc
     expectedMilestones: overrides.expectedMilestones ?? ["READY", "SERVICE_STARTED"],
     startsAt,
     endsAt,
+    parentStableKey: overrides.parentStableKey ?? null,
+    depth: overrides.depth ?? 0,
+    displayPath: overrides.displayPath ?? overrides.label,
+    ancestorLabels: overrides.ancestorLabels ?? [],
+    hasChildren: overrides.hasChildren ?? false,
   };
 }
 

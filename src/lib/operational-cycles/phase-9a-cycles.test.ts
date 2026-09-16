@@ -199,6 +199,7 @@ test(
       });
 
       // After prospective retire, historical date within effectiveTo still resolves.
+      // Retirement keeps the retirement-day operational day covered (certified current-day protection).
       const historical = await loadPublishedCyclesForDate(
         facility.id,
         dietary.id,
@@ -210,23 +211,34 @@ test(
       });
       assert.equal(retired.status, "RETIRED");
       assert.ok(retired.effectiveTo);
-      assert.equal(toServiceDateKey(retired.effectiveTo), "2099-06-19");
+      assert.equal(toServiceDateKey(retired.effectiveTo), "2099-06-20");
       assert.equal(toServiceDateKey(retired.effectiveFrom), effectiveFrom);
       assert.ok(
         historical.some((c) => c.id === draft.id),
         "historical date retains prior effective cycle",
       );
 
-      const afterRetireToday = await loadPublishedCyclesForDate(
+      const stillCoveredOnRetireDay = await loadPublishedCyclesForDate(
         facility.id,
         dietary.id,
         "2099-06-20",
         prisma,
       );
+      assert.ok(
+        stillCoveredOnRetireDay.some((c) => c.id === draft.id),
+        "retirement day remains governed by the retired configuration",
+      );
+
+      const afterRetireNextDay = await loadPublishedCyclesForDate(
+        facility.id,
+        dietary.id,
+        "2099-06-21",
+        prisma,
+      );
       assert.equal(
-        afterRetireToday.some((c) => c.id === draft.id),
+        afterRetireNextDay.some((c) => c.id === draft.id),
         false,
-        "retired cycle must not apply on/after retirement boundary",
+        "retired cycle must not apply after the retirement operational day",
       );
 
       // Overlap reject
@@ -275,20 +287,17 @@ test(
         },
       });
 
-      await assert.rejects(
-        () =>
-          publishCycle(mgrSession, {
-            facilityId: facility.id,
-            departmentId: dietary.id,
-            cycleId: draftB.id,
-            actor,
-            client: prisma,
-          }),
-        /overlap/i,
-      );
+      const publishedB = await publishCycle(mgrSession, {
+        facilityId: facility.id,
+        departmentId: dietary.id,
+        cycleId: draftB.id,
+        actor,
+        client: prisma,
+      });
+      assert.equal(publishedB.status, "PUBLISHED");
 
-      // FA denied without dept relationship
-      const faDenied = decideCycleAuthority({
+      // Facility administrators manage cycle configuration facility-wide.
+      const faFacilityWide = decideCycleAuthority({
         flagEnabled: true,
         role: "FACILITY_ADMINISTRATOR",
         authMethod: "PASSWORD",
@@ -298,7 +307,7 @@ test(
         departmentExists: true,
         primaryDepartmentId: "not-dietary",
       });
-      assert.equal(faDenied.canManage, false);
+      assert.equal(faFacilityWide.canManage, true);
 
       // Cross-facility reject
       const cross = decideCycleAuthority({

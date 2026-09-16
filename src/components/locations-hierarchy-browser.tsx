@@ -78,18 +78,22 @@ function HierarchyNode({
     );
   }
 
+  const rowTone =
+    depth === 0
+      ? "bg-zinc-100/80 px-3 py-3 sm:px-4"
+      : depth === 1
+        ? "px-3 py-2.5 hover:bg-zinc-50 sm:px-4"
+        : "px-3 py-2 hover:bg-zinc-50";
+
   return (
     <li className="list-none" data-location-id={node.id} data-kind={node.kind}>
       <div
-        className={`flex flex-wrap items-start gap-2 rounded-md py-2 ${
-          depth === 0 ? "border-b border-zinc-100" : ""
-        }`}
-        style={{ paddingLeft: `${depth * 16}px` }}
+        className={`flex min-h-11 flex-wrap items-start gap-2 transition-colors ${rowTone}`}
       >
         {hasChildren ? (
           <button
             type="button"
-            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white hover:text-zinc-900"
             aria-expanded={expanded}
             aria-label={expanded ? `Collapse ${node.label}` : `Expand ${node.label}`}
             onClick={() => setExpanded((value) => !value)}
@@ -100,17 +104,17 @@ function HierarchyNode({
             />
           </button>
         ) : (
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center">
             <LocationIcon className="h-4 w-4 text-zinc-400" aria-hidden />
           </span>
         )}
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 py-1.5">
           <div className="flex flex-wrap items-center gap-2">
             {node.href ? (
               <Link
                 href={node.href}
-                className="text-sm font-medium text-zinc-900 hover:underline"
+                className="text-sm font-semibold text-zinc-900 hover:underline"
               >
                 {node.label}
               </Link>
@@ -152,7 +156,13 @@ function HierarchyNode({
       </div>
 
       {hasChildren && expanded ? (
-        <ul className="space-y-0">
+        <ul
+          className={
+            depth === 0
+              ? "border-t border-zinc-200 bg-white py-1"
+              : "ml-7 border-l-2 border-zinc-200 py-0.5 pl-2 sm:ml-9 sm:pl-3"
+          }
+        >
           {node.children.map((child) => (
             <HierarchyNode
               key={child.id}
@@ -177,13 +187,18 @@ function DepartmentTree({
   showLabel: boolean;
 }) {
   return (
-    <section aria-label={snapshot.label} className="space-y-2">
+    <section
+      aria-label={snapshot.label}
+      className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
+    >
       {showLabel ? (
-        <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-zinc-500">
-          {snapshot.label}
-        </h2>
+        <div className="border-b border-zinc-300 bg-zinc-900 px-4 py-3">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-white">
+            {snapshot.label}
+          </h2>
+        </div>
       ) : null}
-      <ul className="space-y-0">
+      <ul className="divide-y divide-zinc-300">
         {snapshot.roots.map((root) => (
           <HierarchyNode
             key={root.id}
@@ -216,22 +231,25 @@ export function LocationsHierarchyBrowser({
   canConfigureFacility,
   lensSummary,
 }: LocationsHierarchyBrowserProps) {
-  const hasMissingProfile = view.diagnostics.some(
-    (d) => d.code === "MISSING_ACTIVE_PROFILE",
-  );
-  const hasConfigGaps = view.diagnostics.some(
-    (d) =>
-      d.code === "ROOM_UNMAPPED" ||
-      d.code === "ORPHAN_BINDING" ||
-      d.code === "INVALID_ARCHETYPE_REFERENCE",
-  );
   const total = nodeCount(view);
+  const departmentLabel =
+    view.departmentSnapshots.length === 1
+      ? view.departmentSnapshots[0]!.label
+      : null;
   const configureLink = canConfigureFacility ? (
     <Link
       href="/admin/facility/builder"
       className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
     >
       Configure facility structure
+    </Link>
+  ) : null;
+  const manageLink = canConfigureFacility ? (
+    <Link
+      href="/admin/facility/builder"
+      className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
+    >
+      Manage locations in Facility Builder
     </Link>
   ) : null;
 
@@ -247,37 +265,23 @@ export function LocationsHierarchyBrowser({
         data-testid="locations-unavailable"
       />
     );
-  } else if (hasMissingProfile && total === 0) {
-    body = (
-      <EmptyState
-        icon="locations"
-        title="This department does not have an active operational profile."
-        description="Ask an administrator to activate a department profile before locations appear here."
-        tone="warning"
-        data-testid="locations-missing-profile"
-      />
-    );
   } else if (total === 0) {
     body = (
       <EmptyState
         icon="locations"
-        title="No operational locations are available for this mode."
-        description="Assign rooms in Facility Builder and ensure department responsibilities cover them."
-        action={configureLink}
+        title="No locations assigned"
+        description={
+          departmentLabel
+            ? `${departmentLabel} does not currently have any locations assigned in Facility Builder.`
+            : "No locations are assigned for this mode in Facility Builder."
+        }
+        action={manageLink}
         data-testid="locations-empty"
       />
     );
   } else {
     body = (
       <div className="space-y-6" data-testid="locations-hierarchy">
-        {hasConfigGaps ? (
-          <p
-            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-            role="status"
-          >
-            Some assigned rooms are not yet mapped to a department room archetype.
-          </p>
-        ) : null}
         {view.departmentSnapshots.map((snapshot) => (
           <DepartmentTree
             key={snapshot.departmentId}

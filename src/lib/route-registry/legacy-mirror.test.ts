@@ -9,7 +9,7 @@ import { buildLegacyRouteMirror, type LegacyRouteMirror } from "@/lib/route-regi
 import { PLATFORM_ROUTES } from "@/lib/route-registry/platform-routes";
 
 const MIRROR_PATH = resolve(process.cwd(), "prisma", "legacy-route-mirror.json");
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { todaysWorkEnabled: true, canonicalLogsEnabled: true };
 
 function committedMirror(): LegacyRouteMirror {
   return JSON.parse(readFileSync(MIRROR_PATH, "utf8")) as LegacyRouteMirror;

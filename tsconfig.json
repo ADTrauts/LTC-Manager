@@ -47,6 +47,8 @@
     ".next-workplans-browser/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/* 2.ts",
+    "**/* 2.tsx"
   ]
 }

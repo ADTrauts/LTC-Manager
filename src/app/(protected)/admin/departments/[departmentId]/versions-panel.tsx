@@ -32,11 +32,7 @@ export function VersionsPanel({ view }: Props) {
         <AppCard title="No versions yet">
           <DepartmentAdminActionForm
             action={createBaselineDraftAction}
-            onSuccessRedirect={(result) =>
-              result.ok && result.profileId
-                ? departmentAdminHref(department.id, "versions", result.profileId)
-                : null
-            }
+            profileRedirect={{ departmentId: department.id, tab: "versions" }}
           >
             <input type="hidden" name="departmentId" value={department.id} />
             <button
@@ -116,15 +112,7 @@ export function VersionsPanel({ view }: Props) {
                     <>
                       <DepartmentAdminActionForm
                         action={createNextDraftAction}
-                        onSuccessRedirect={(result) =>
-                          result.ok && result.profileId
-                            ? departmentAdminHref(
-                                department.id,
-                                "versions",
-                                result.profileId,
-                              )
-                            : null
-                        }
+                        profileRedirect={{ departmentId: department.id, tab: "versions" }}
                       >
                         <input type="hidden" name="profileId" value={profile.id} />
                         <button
@@ -150,15 +138,7 @@ export function VersionsPanel({ view }: Props) {
                   !profiles.some((p) => p.status === "DRAFT") ? (
                     <DepartmentAdminActionForm
                       action={createNextDraftAction}
-                      onSuccessRedirect={(result) =>
-                        result.ok && result.profileId
-                          ? departmentAdminHref(
-                              department.id,
-                              "versions",
-                              result.profileId,
-                            )
-                          : null
-                      }
+                      profileRedirect={{ departmentId: department.id, tab: "versions" }}
                     >
                       <input type="hidden" name="profileId" value={profile.id} />
                       <button

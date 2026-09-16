@@ -9,6 +9,8 @@ import {
 } from "@/lib/department-operations";
 import { completeExplicit } from "@/lib/department-work";
 import type { WorkRequirement } from "@/lib/department-work/types";
+import { submitCanonicalLogSubmission } from "@/lib/canonical-logs";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { recordServeryMilestone, type ServeryMilestone } from "@/lib/servery";
@@ -195,17 +197,87 @@ async function processEvidenceCommand(
 ): Promise<OfflineSyncCommandResult> {
   const { command } = input;
   const departmentKey = await departmentKeyForCommand(client, command.departmentId);
-  if (!isDepartmentOperationalEvidenceEnabled(departmentKey)) {
-    return reject(command.clientCommandId, "EVIDENCE_FLAG_DISABLED");
-  }
   const payload = command.evidence;
-  if (!payload?.templateId || !payload.requirementKey) {
+  if (!payload?.requirementKey) {
     return reject(command.clientCommandId, "EVIDENCE_PAYLOAD_INVALID");
   }
 
   const occurredAt = new Date(command.occurredAt);
   if (Number.isNaN(occurredAt.getTime())) {
     return reject(command.clientCommandId, "OCCURRENCE_TIME_INVALID");
+  }
+
+  const actor = await resolveMilestoneActor(input.session);
+
+  // Canonical Attachment-backed path (Phase 3).
+  if (payload.logAttachmentId) {
+    if (!isCanonicalLogsEnabled()) {
+      return reject(command.clientCommandId, "CANONICAL_LOGS_FLAG_DISABLED");
+    }
+    try {
+      const record = await submitCanonicalLogSubmission(input.session, {
+        facilityId: command.facilityId,
+        departmentId: command.departmentId,
+        logAttachmentId: payload.logAttachmentId,
+        requirementKey: payload.requirementKey,
+        operationalDateKey: command.operationalDate,
+        cycleStableKey: payload.cycleStableKey,
+        cycleLabel: payload.cycleLabel,
+        windowStartLocal: payload.windowStartLocal,
+        windowEndLocal: payload.windowEndLocal,
+        occurredAt,
+        recordedOnline: false,
+        clientCommandId: command.clientCommandId,
+        deviceBoundUnitId: input.deviceBoundUnitId,
+        recordedByEmployeeId: actor.employeeId,
+        recordedByLabel: input.session.name || input.session.email || null,
+        correctiveActionText: payload.correctiveActionText,
+        values: payload.values,
+        now,
+        client,
+      });
+
+      const synchronizedAt = record.synchronizedAt ?? now;
+      if (!record.synchronizedAt) {
+        await client.operationalEvidenceRecord.update({
+          where: { id: record.id },
+          data: { synchronizedAt },
+        });
+      }
+
+      await upsertReceipt(
+        client,
+        input,
+        command,
+        "ACCEPTED",
+        null,
+        synchronizedAt,
+        null,
+        record.id,
+        null,
+      );
+      return {
+        clientCommandId: command.clientCommandId,
+        category: "ACCEPTED",
+        reasonCode: null,
+        authoritativeRecordId: record.id,
+        serverAcceptedAt: synchronizedAt.toISOString(),
+        serverRevision: `evidence:${record.id}`,
+        retryAfterSeconds: null,
+        conflictCategory: null,
+        authoritativeMilestone: null,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "EVIDENCE_SUBMIT_FAILED";
+      return reject(command.clientCommandId, message.slice(0, 80));
+    }
+  }
+
+  if (!isDepartmentOperationalEvidenceEnabled(departmentKey)) {
+    return reject(command.clientCommandId, "EVIDENCE_FLAG_DISABLED");
+  }
+  if (!payload.templateId) {
+    return reject(command.clientCommandId, "EVIDENCE_PAYLOAD_INVALID");
   }
 
   try {
@@ -222,7 +294,10 @@ async function processEvidenceCommand(
     if (template.status !== "PUBLISHED") {
       return reject(command.clientCommandId, "TEMPLATE_NOT_PUBLISHED");
     }
-    if (template.version !== payload.templateVersion) {
+    if (
+      payload.templateVersion != null &&
+      template.version !== payload.templateVersion
+    ) {
       const conflictCategory: OfflineConflictCategory = "AUTHORITATIVE_STATE_CHANGED";
       await upsertConflict(client, input, command, conflictCategory, "TEMPLATE_VERSION_MISMATCH");
       await upsertReceipt(
@@ -248,7 +323,6 @@ async function processEvidenceCommand(
       };
     }
 
-    const actor = await resolveMilestoneActor(input.session);
     const record = await submitEvidenceRecord(input.session, {
       facilityId: command.facilityId,
       departmentId: command.departmentId,

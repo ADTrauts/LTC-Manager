@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 
 import { validateExperienceConfiguration } from "./configuration";
-import { checkProfileWriteAccess } from "./profile-access";
+import { checkPatternAuthoringAccess, checkProfileWriteAccess } from "./profile-access";
 
 const BASE = {
   flagEnabled: true,
@@ -71,6 +71,44 @@ describe("feature flag default", () => {
         process.env.DEPARTMENT_OPERATIONAL_PROFILES_ENABLED = prior;
       }
     }
+  });
+});
+
+describe("pattern authoring access", () => {
+  const patternBase = {
+    role: "MANAGER" as const,
+    authMethod: "PASSWORD" as const,
+    sessionFacilityId: "f1",
+    targetFacilityId: "f1",
+  };
+
+  it("allows Manager+ password sessions without the Profiles flag", () => {
+    assert.equal(checkPatternAuthoringAccess(patternBase), null);
+    assert.equal(
+      checkPatternAuthoringAccess({ ...patternBase, role: "FACILITY_ADMINISTRATOR" }),
+      null,
+    );
+  });
+
+  it("rejects Quick PIN even for Manager+", () => {
+    const denial = checkPatternAuthoringAccess({
+      ...patternBase,
+      authMethod: "QUICK_PIN",
+    });
+    assert.equal(denial?.code, "quick_pin");
+  });
+
+  it("rejects roles below Manager", () => {
+    const denial = checkPatternAuthoringAccess({ ...patternBase, role: "SUPERVISOR" });
+    assert.equal(denial?.code, "insufficient_role");
+  });
+
+  it("rejects cross-facility access", () => {
+    const denial = checkPatternAuthoringAccess({
+      ...patternBase,
+      targetFacilityId: "f2",
+    });
+    assert.equal(denial?.code, "cross_facility");
   });
 });
 

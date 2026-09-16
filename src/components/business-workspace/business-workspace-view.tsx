@@ -22,6 +22,8 @@ import type {
 } from "@/lib/business-workspace";
 import { orderedWorkspaceSections } from "@/lib/business-workspace";
 import type { StatusTone } from "@/lib/design-system/status-styles";
+import { OperationsCenterKeyTimeSummaries } from "@/components/operations-center/operations-center-key-time-summaries";
+import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
 
 function priorityStatusLabel(tone: StatusTone): string {
   if (tone === "blocked") return "Needs attention";
@@ -401,12 +403,21 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
         below={
           <div className="mt-3 space-y-1 text-sm text-zinc-600">
             <p className="text-lg font-medium text-zinc-900">{header.greeting}</p>
-            <p>
-              {header.operation.serviceLabel} — {header.operation.phase}
-              {header.operation.scheduledTimeLabel
-                ? ` · ${header.operation.scheduledTimeLabel}`
-                : ""}
-            </p>
+            {header.runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+              <TodaysWorkRunOperationBanner presentation={header.runPresentation} />
+            ) : (
+              <p>
+                {header.operation.serviceLabel} — {header.operation.phase}
+                {header.operation.scheduledTimeLabel
+                  ? ` · ${header.operation.scheduledTimeLabel}`
+                  : ""}
+              </p>
+            )}
+            {header.runPresentation?.provenance !== "NEW_PERIOD_KEY_TIME" &&
+            header.keyTimeSummaries &&
+            header.keyTimeSummaries.length > 0 ? (
+              <OperationsCenterKeyTimeSummaries summaries={header.keyTimeSummaries} />
+            ) : null}
           </div>
         }
       />

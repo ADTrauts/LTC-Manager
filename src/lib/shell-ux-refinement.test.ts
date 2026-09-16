@@ -68,19 +68,35 @@ test("V1 refinement — Change password and individual builders are not permanen
 test("V1 refinement — RUN uses emerald and BUILD uses orange shell chrome", () => {
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="header"\]/);
+  assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="mode-indicator"\]/);
+  assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="sidebar"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="header"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="mode-indicator"\]/);
-  assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="sidebar"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="sidebar"\]/);
-  assert.match(css, /#fff7ed/); // Build orange-50 header
-  assert.match(css, /#f3faf6/); // Run emerald soft header
+  assert.match(css, /--run-surface:\s*#f3faf6/);
+  assert.match(css, /--build-surface:\s*#fff7ed/);
 
   const frame = readFileSync(join(process.cwd(), "src/components/shell-mode-frame.tsx"), "utf8");
-  // Mode accents derive from the single product-mode classifier, not duplicated detection.
+  // The treatment derives from the single product-mode classifier, not duplicated detection.
   assert.match(frame, /resolveProductModeForPath/);
   assert.match(frame, /data-product-mode/);
 
   const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
-  assert.match(shell, /ProductModePill/);
   assert.match(shell, /ProductModeBanner/);
+  assert.match(shell, /ShellModeCue/);
+});
+
+test("V1 refinement — AppShell switches the left rail via ShellSidebar (Build vs Locations)", () => {
+  const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
+  assert.match(shell, /ShellSidebar/);
+  assert.match(shell, /buildSidebarNavItems/);
+  assert.match(shell, /buildNavItems/);
+  // Builders are not hardcoded into the shell; they come from the BUILD nav projection.
+  assert.doesNotMatch(shell, /href="\/admin\/facility\/builder"/);
+});
+
+test("V1 refinement — BuildPageHeader is title chrome only (shell owns Build / area trail)", () => {
+  const header = readFileSync(join(process.cwd(), "src/components/build/build-breadcrumb.tsx"), "utf8");
+  assert.match(header, /export function BuildPageHeader/);
+  assert.doesNotMatch(header, /BuildBreadcrumb|build-breadcrumb|BackToBuildHomeLink/);
 });

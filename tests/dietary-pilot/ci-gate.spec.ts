@@ -149,7 +149,7 @@ test("gm staffing and timing @ci-gate: coverage page and unit milestones", async
     await loginPassword(page, fx.gmEmail);
     await page.goto("/today/coverage", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("dietary-assignment-coverage")).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole("link", { name: /Open Assignment Board/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open Daily Assignments/i })).toBeVisible();
 
     await page.goto(`/unit/${fx.serveryUnitId}`, { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("unit-workspace")).toBeVisible({ timeout: 25_000 });

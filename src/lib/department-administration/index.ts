@@ -76,8 +76,11 @@ export {
 } from "./plant-policy";
 
 export {
+  assertPatternAuthoringAccess,
   assertProfileWriteAccess,
+  checkPatternAuthoringAccess,
   checkProfileWriteAccess,
+  type PatternAuthoringContext,
   type ProfileAccessDenial,
   type ProfileWriteContext,
 } from "./profile-access";
@@ -85,12 +88,14 @@ export {
 export {
   activateProfile,
   addRoomExperienceException,
+  bindRoomsToArchetype,
   bindRoomToArchetype,
   certifyProfile,
   clearRoomArchetypeBinding,
   createBaselineDraft,
   createNextDraftVersion,
   createRoomArchetype,
+  ensureWorkingDraftForPatterns,
   listProfilesForFacility,
   loadProfile,
   moveAreaExperience,
@@ -106,18 +111,69 @@ export {
 
 export {
   DEPARTMENT_ADMIN_TABS,
+  DEPARTMENT_ADMIN_LEGACY_TABS,
+  DEPARTMENT_ADMIN_ALL_TAB_IDS,
   DEPARTMENT_PROFILE_TAB_IDS,
   departmentAdminHref,
   departmentAdminTabsForFlags,
   isDepartmentAdminTabId,
+  isDepartmentAdminPrimaryTabId,
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
+  type DepartmentAdminLegacyTabId,
+  type DepartmentAdminPrimaryTabId,
   type DepartmentAdminTabId,
 } from "./admin-nav";
 
 export {
+  DEPARTMENT_BUILDER_LIST_HREF,
+  departmentBuilderAllDepartmentsHref,
+  departmentBuilderHrefAfterDepartmentSwitch,
+  departmentBuilderWorkspaceHref,
+  isDepartmentBuilderWorkspacePath,
+  resolveDepartmentBuilderEntryHref,
+  rewriteDepartmentBuilderNavHref,
+  shouldRedirectDepartmentsListToWorkspace,
+} from "./builder-entry";
+
+export {
+  operationalTypeKeyFromName,
+  uniqueOperationalTypeKey,
+} from "./operational-type";
+
+export {
+  buildRoomTypeExperienceGroups,
+  classifyRoomTypeExperienceForUi,
+  customizedAssociatedRoomCount,
+  departmentArchetypeForRoomType,
+  groupAssignedRoomsByRoomType,
+  roomTypeSupportsDepartmentConfiguration,
+  sharedRoomTypeDescription,
+  type DepartmentRoomTypeGroup,
+  type RoomTypeExperienceGroup,
+  type RoomTypeExperienceProductClass,
+  type RoomTypeExperienceRow,
+} from "./room-types";
+
+export {
+  collectDepartmentActionableLocations,
+  groupLocationsByPhysicalHierarchy,
+  isActionableDepartmentUnit,
+  locationCoverageSummary,
+  resolveLocationStatus,
+  roomOperationalPattern,
+  type DepartmentActionableLocation,
+  type DepartmentLocationFloorGroup,
+  type DepartmentLocationKind,
+  type DepartmentLocationNeighborhoodNode,
+  type DepartmentLocationSource,
+  type DepartmentLocationStatus,
+} from "./department-locations";
+
+export {
   experienceDisplayName,
   loadDepartmentAdminView,
+  loadDepartmentLocationsView,
   selectWorkingProfileId,
   type DepartmentAdminView,
   type DepartmentRoomRow,

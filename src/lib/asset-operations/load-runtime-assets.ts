@@ -266,7 +266,7 @@ export async function loadSupervisorAssetExceptions(
       temporal: wo.returnToServiceReady ? "Current" : "NotConfirmed",
       unitId: wo.unitId,
       unitName: wo.unit.name,
-      sourceHref: `/issues/${wo.id}`,
+      sourceHref: `/repairs/${wo.id}`,
       availableActions: ["Open Work Order"],
       sortRank: wo.returnToServiceReady ? 482 : 492,
       assetId: wo.assetId ?? undefined,

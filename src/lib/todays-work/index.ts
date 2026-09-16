@@ -3,14 +3,37 @@ export { loadCoverageList } from "./load-coverage-list";
 export { loadCallDownList } from "./load-call-down-list";
 export { loadHandoffs } from "./load-handoffs";
 export {
+  applyRoomKeyTimeAttention,
+  buildActionableRoomWalkList,
   buildWalkListItems,
+  collectActionableWalkRooms,
   resolveWalkListReason,
   summarizeWalkList,
+  walkListItemKey,
+  walkListWorkspaceCta,
+  type ActionableWalkRoom,
+  type RoomKeyTimeAttention,
+  type RoomKeyTimeWalkSignal,
   type WalkListData,
   type WalkListItem,
   type WalkListStatus,
   type WalkListSummary,
 } from "./walk-list";
+export {
+  collectSupervisorOperatingLocations,
+  loadOperatingLocationBoard,
+  loadedBoardToWalkList,
+  operatingLocationStatusLabel,
+  TODAYS_WORK_HUB_SUBTITLE,
+  type OperatingLocationBoard,
+  type OperatingLocationStatus,
+} from "./operating-locations";
+export {
+  formatViewerTeamScopeLabel,
+  isTeamUnconfiguredScope,
+  keyTimeSpaceFilterFromTeamScope,
+  type ViewerTeamScope,
+} from "./viewer-team-scope";
 export {
   buildCoverageItems,
   buildStaffingHref,

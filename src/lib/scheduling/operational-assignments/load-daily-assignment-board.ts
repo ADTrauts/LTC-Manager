@@ -3,6 +3,7 @@ import { parseCallDownReason } from "@/lib/todays-work/call-down";
 import { prisma } from "@/lib/prisma";
 
 import { detectOverlappingAssignments } from "./detect-assignment-conflicts";
+import { summarizeAssignmentScopeHierarchy } from "@/lib/scheduling/assignment-scope-summary";
 import type {
   AssignmentBoardEmployee,
   AssignmentBoardEntry,
@@ -98,7 +99,19 @@ export async function loadDailyAssignmentBoard(
             unitSpaceId: true,
             labelSnapshot: true,
             sortOrder: true,
-            unitSpace: { select: { name: true, roomNumber: true } },
+            unitSpace: {
+              select: {
+                name: true,
+                roomNumber: true,
+                unit: {
+                  select: {
+                    name: true,
+                    hierarchyRole: true,
+                    parentUnit: { select: { name: true } },
+                  },
+                },
+              },
+            },
           },
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         },
@@ -141,7 +154,7 @@ export async function loadDailyAssignmentBoard(
       scheduledShift: entry.shift,
       plannedStart: entry.plannedStart,
       plannedEnd: entry.plannedEnd,
-      unitName: entry.unit.name,
+      unitName: entry.unit?.name ?? null,
       hasCallDown: !!callDown,
       callDownReason: callDown ? parseCallDownReason(callDown.reason).displayReason : null,
     });
@@ -154,6 +167,15 @@ export async function loadDailyAssignmentBoard(
         [l.unitSpace.roomNumber, l.unitSpace.name].filter(Boolean).join(" • ") ||
         l.unitSpace.name,
     );
+
+    const scopeSummaryLabel = summarizeAssignmentScopeHierarchy({
+      locations: a.locations.map((l) => ({
+        labelSnapshot: l.labelSnapshot,
+        unitSpace: l.unitSpace,
+      })),
+      unitName: a.unit?.name ?? null,
+    });
+
     return {
       id: a.id,
       employeeId: a.employeeId,
@@ -170,6 +192,7 @@ export async function loadDailyAssignmentBoard(
       notes: a.notes,
       scopeKind: a.locations.length > 0 ? "SPACES" : "UNIT",
       locationCount: a.locations.length,
+      scopeSummaryLabel,
       locationLabels,
       sourceZoneId: a.sourceZoneId,
       sourceZoneName: a.sourceZone?.name ?? null,

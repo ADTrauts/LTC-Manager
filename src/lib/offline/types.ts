@@ -135,6 +135,9 @@ export type OfflineRuntimeBundle = {
   cycleContext?: {
     cycleId: string | null;
     label: string | null;
+    /** Hierarchy path when nested, e.g. "Breakfast → Servery Service". */
+    displayPath?: string | null;
+    parentLabel?: string | null;
     cycleType: string | null;
     startLocal: string | null;
     endLocal: string | null;
@@ -146,6 +149,27 @@ export type OfflineRuntimeBundle = {
     bundleRevision: string;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Materialized Key Time Runtime expectations for rooms under this unit today.
+   * Server projection — devices must not resolve Build hierarchy offline.
+   */
+  keyTimeExpectations?: Array<{
+    expectationId: string;
+    spaceId: string;
+    spaceName: string | null;
+    facilityRoomTypeName: string | null;
+    cycleLabel: string;
+    parentCycleLabel: string | null;
+    displayPath: string;
+    configuredDueLocal: string;
+    adjustedDueLocal: string | null;
+    expectedToday: string;
+    actualDueLocal: string | null;
+    statusKey: string;
+    statusLabel: string;
+    canAdjust: boolean;
+    canComplete: boolean;
+  }>;
   /**
    * Read-only Dietary Job Flow context derived from Assignment + Cycle.
    * No new command types. Never authoritative — refresh when online.
@@ -301,8 +325,11 @@ export type OfflineCommandEnvelope = {
   deviceTimezoneOffsetMinutes: number;
   /** Phase 9C evidence payload — present when commandType=SUBMIT_OPERATIONAL_EVIDENCE. */
   evidence?: {
-    templateId: string;
-    templateVersion: number;
+    /** Phase 9C facility template id. Null/omitted when logAttachmentId is set. */
+    templateId?: string | null;
+    templateVersion?: number;
+    /** Canonical Attachment id when CANONICAL_LOGS_ENABLED. */
+    logAttachmentId?: string | null;
     requirementKey: string;
     scheduleKind: string;
     cycleStableKey?: string | null;

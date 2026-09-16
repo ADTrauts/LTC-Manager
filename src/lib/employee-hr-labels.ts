@@ -1,4 +1,48 @@
-import { ChrcStatus, JobClassification, WorkStation } from "@prisma/client";
+import {
+  ChrcStatus,
+  EmployeeStatus,
+  EmploymentType,
+  JobClassification,
+  RoleKey,
+  WorkStation,
+} from "@prisma/client";
+
+export const AUTHORITY_LABEL: Record<RoleKey, string> = {
+  FACILITY_ADMINISTRATOR: "Facility Administrator",
+  GM: "General Manager",
+  MANAGER: "Manager",
+  SUPERVISOR: "Supervisor",
+  LEAD_TEAM_MEMBER: "Lead",
+  STAFF: "Staff",
+};
+
+/** User-facing employment type — never show raw FULL_TIME / PART_TIME / PER_DIEM. */
+export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
+  FULL_TIME: "Full time",
+  PART_TIME: "Part time",
+  PER_DIEM: "Per diem",
+};
+
+/** User-facing employee status — never show raw ACTIVE / OFF / TERMINATED. */
+export const EMPLOYEE_STATUS_LABEL: Record<EmployeeStatus, string> = {
+  ACTIVE: "Active",
+  OFF: "Off",
+  TERMINATED: "Terminated",
+};
+
+export function employmentTypeLabel(value: EmploymentType | string): string {
+  if (value in EMPLOYMENT_TYPE_LABEL) {
+    return EMPLOYMENT_TYPE_LABEL[value as EmploymentType];
+  }
+  return String(value);
+}
+
+export function employeeStatusLabel(value: EmployeeStatus | string): string {
+  if (value in EMPLOYEE_STATUS_LABEL) {
+    return EMPLOYEE_STATUS_LABEL[value as EmployeeStatus];
+  }
+  return String(value);
+}
 
 export const JOB_CLASSIFICATION_LABEL: Record<JobClassification, string> = {
   COOK: "Cook",

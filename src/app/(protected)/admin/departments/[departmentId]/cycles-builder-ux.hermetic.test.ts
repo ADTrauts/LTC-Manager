@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+
+const root = join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]");
+
+test("Operational Cycles UI uses phase language and major/phase hierarchy affordances", () => {
+  const panel = readFileSync(join(root, "cycles-panel.tsx"), "utf8");
+  const controls = readFileSync(join(root, "cycles-builder-controls.tsx"), "utf8");
+  const tree = readFileSync(join(root, "cycles-tree-list.tsx"), "utf8");
+  const combined = `${panel}\n${controls}\n${tree}`;
+
+  assert.ok(!/0=Sun/.test(combined));
+  assert.ok(!/Days \(0=/.test(combined));
+  assert.ok(!/Start \(HH:mm\)/.test(combined));
+  assert.ok(!/End \(HH:mm\)/.test(combined));
+  assert.ok(!/comma-separated ids/i.test(combined));
+  assert.ok(!/Reorder drafts/i.test(combined));
+  assert.ok(!/>\s*BREAKFAST\s*</.test(combined));
+  assert.doesNotMatch(combined, /Add child/);
+  assert.doesNotMatch(combined, /New child under/);
+  assert.doesNotMatch(combined, /Legacy unit types/);
+  assert.doesNotMatch(combined, /Already exists/);
+  assert.match(controls, /Start time/);
+  assert.match(controls, /End time/);
+  assert.match(controls, /Every day/);
+  assert.match(controls, /Part of/);
+  assert.match(controls, /Entire department/);
+  assert.match(controls, /Room Type/);
+  assert.match(controls, /Due times/);
+  assert.match(controls, /service start times/);
+  assert.match(controls, /Set all to/);
+  assert.match(controls, /Publish immediately \(testing override\)/);
+  assert.match(controls, /activation-immediate/);
+  assert.match(controls, /Next operational day/);
+  assert.match(controls, /\+ Add operational cycle/);
+  assert.match(controls, /Drawer/);
+  assert.match(tree, /\+ Add phase/);
+  assert.match(tree, /\+ Add key time/);
+  assert.match(tree, /Drawer/);
+  assert.match(tree, /data-cycle-role="major"/);
+  assert.match(tree, /"key_time" : "phase"/);
+  assert.match(tree, /cycle-drag-handle/);
+  assert.match(tree, /cycle-open-target/);
+  assert.match(tree, /edit-\$\{editingId\}-label/);
+  assert.match(tree, /editDraftIdByStableKey/);
+  assert.match(panel, /openCycleEditorOnSuccess/);
+  assert.match(readFileSync(join(process.cwd(), "src/components/drawer.tsx"), "utf8"), /createPortal/);
+  assert.doesNotMatch(combined, />Unit ID</);
+  assert.doesNotMatch(combined, />unitId</);
+});

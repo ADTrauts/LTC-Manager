@@ -226,6 +226,7 @@ function makeEntry(overrides: Partial<AssignmentBoardEntry>): AssignmentBoardEnt
     notes: null,
     scopeKind: "UNIT",
     locationCount: 0,
+    scopeSummaryLabel: "Entire Unit",
     locationLabels: [],
     sourceZoneId: null,
     sourceZoneName: null,

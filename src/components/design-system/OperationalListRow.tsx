@@ -29,6 +29,7 @@ export type OperationalListRowProps = {
   status?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  testId?: string;
 };
 
 export function OperationalListRow({
@@ -42,6 +43,7 @@ export function OperationalListRow({
   status,
   actions,
   className = "",
+  testId,
 }: OperationalListRowProps) {
   const surfaceClass = `flex flex-wrap items-start gap-3 ${operationalListRowClass(emphasized)} ${className}`.trim();
   const titleClass = `font-semibold text-zinc-900 ${emphasized ? "text-lg" : ""}`;
@@ -73,7 +75,7 @@ export function OperationalListRow({
   );
 
   return (
-    <li>
+    <li data-testid={testId}>
       {href ? (
         <Link href={href} className={`${surfaceClass} touch-manipulation hover:bg-zinc-50`}>
           {body}

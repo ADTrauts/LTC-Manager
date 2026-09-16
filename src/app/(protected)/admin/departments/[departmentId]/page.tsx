@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AreasPanel } from "@/app/(protected)/admin/departments/[departmentId]/areas-panel";
@@ -6,35 +5,38 @@ import { ArchetypesPanel } from "@/app/(protected)/admin/departments/[department
 import { CyclesPanel } from "@/app/(protected)/admin/departments/[departmentId]/cycles-panel";
 import { DiagnosticsPanel } from "@/app/(protected)/admin/departments/[departmentId]/diagnostics-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
-import { OverviewPanel } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
+import { LocationsPanel } from "@/app/(protected)/admin/departments/[departmentId]/locations-panel";
+import {
+  OverviewPanel,
+  type OverviewDepartmentSettings,
+} from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
+import { TeamsPanel } from "@/app/(protected)/admin/departments/[departmentId]/teams-panel";
 import { RoomsPanel } from "@/app/(protected)/admin/departments/[departmentId]/rooms-panel";
 import { SettingsPanel } from "@/app/(protected)/admin/departments/[departmentId]/settings-panel";
 import { VersionsPanel } from "@/app/(protected)/admin/departments/[departmentId]/versions-panel";
-import {
-  BackToBuildHomeLink,
-  BuildBreadcrumb,
-} from "@/components/build/build-breadcrumb";
-import { PageHeader, StatusBadge } from "@/components/design-system";
+import { DepartmentBuildContextBar } from "@/components/build/DepartmentBuildContextBar";
+import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
 import {
   departmentAdminTabsForFlags,
   loadDepartmentAdminView,
-  profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
+  type DepartmentAdminTabId,
 } from "@/lib/department-administration";
+import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { getSession } from "@/lib/auth";
+import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
 import {
-  isAnyStaffingOperationalFeatureEnabled,
-  isDepartmentOperationalCyclesEnabled,
-} from "@/lib/department-operations";
-import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
-import { prisma } from "@/lib/prisma";
+  isCanonicalLogsEnabled,
+  isDepartmentOperationalProfilesEnabled,
+} from "@/lib/feature-flags";
+import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 
 type PageProps = {
   params: Promise<{ departmentId: string }>;
-  searchParams: Promise<{ tab?: string; profile?: string }>;
+  searchParams: Promise<{ tab?: string; profile?: string; roomType?: string; team?: string }>;
 };
 
-export default async function DepartmentAdministrationPage({
+export default async function DepartmentBuilderPage({
   params,
   searchParams,
 }: PageProps) {
@@ -44,106 +46,26 @@ export default async function DepartmentAdministrationPage({
   }
 
   const profilesEnabled = isDepartmentOperationalProfilesEnabled();
-  const cyclesEnabled = isAnyStaffingOperationalFeatureEnabled("cycles");
-
-  if (!profilesEnabled && !cyclesEnabled) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader
-          eyebrow="Build"
-          title="Department Builder"
-          subtitle="Department Operational Profiles and Operational Cycles are not enabled for this environment."
-          icon="operationalMode"
-          actions={<BackToBuildHomeLink />}
-          below={<BuildBreadcrumb current="Department Builder" />}
-        />
-        <p className="text-sm text-zinc-600">
-          Set{" "}
-          <code className="rounded bg-zinc-100 px-1">
-            DEPARTMENT_OPERATIONAL_PROFILES_ENABLED=true
-          </code>{" "}
-          and/or Dietary / EVS operational cycle flags to author department configuration.
-        </p>
-        <Link
-          href="/admin/departments"
-          className="text-sm font-medium text-zinc-900 underline-offset-2 hover:underline"
-        >
-          Back to Departments
-        </Link>
-      </div>
-    );
-  }
-
   const { departmentId } = await params;
   const query = await searchParams;
+
+  // Primary tabs: Overview | Locations | Teams | Operational Cycles.
   const availableTabs = departmentAdminTabsForFlags({
     profilesEnabled,
-    cyclesEnabled,
+    locationsEnabled: true,
   });
   const availableTabIds = availableTabs.map((tab) => tab.id);
-  const tab = resolveDepartmentAdminTab(query.tab, {
-    availableTabIds,
-    fallback: profilesEnabled ? "overview" : "cycles",
+
+  const requestedTab = query.tab;
+  const legacyAllowed: DepartmentAdminTabId[] = profilesEnabled
+    ? ["areas", "archetypes", "rooms", "diagnostics", "versions", "settings"]
+    : [];
+  // Room Types is never a primary tab; always redirect into Locations.
+  const tab = resolveDepartmentAdminTab(requestedTab, {
+    availableTabIds: [...availableTabIds, ...legacyAllowed],
+    fallback: "overview",
+    redirectLegacy: requestedTab === "room-types" || !profilesEnabled,
   });
-
-  // Cycles-only: load department without requiring a profile.
-  if (!profilesEnabled && cyclesEnabled) {
-    const department = await prisma.department.findFirst({
-      where: {
-        id: departmentId,
-        facilityId: session.facilityId,
-        isActive: true,
-      },
-      select: { id: true, name: true, key: true },
-    });
-    if (!department) {
-      notFound();
-    }
-
-    return (
-      <div className="mx-auto max-w-6xl space-y-6">
-        <PageHeader
-          eyebrow="Build"
-          icon="operationalMode"
-          title={department.name}
-          subtitle="Configure Operational Cycles for this department. Job Flow is not part of Phase 9A."
-          status={<StatusBadge variant="neutral">Cycles</StatusBadge>}
-          actions={
-            <>
-              <Link
-                href="/admin/departments"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-              >
-                All departments
-              </Link>
-              <BackToBuildHomeLink />
-            </>
-          }
-          below={<BuildBreadcrumb current={department.name} />}
-        />
-
-        <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-          <DepartmentAdminLocalNav
-            departmentId={department.id}
-            activeTab={tab}
-            profileId={null}
-            tabs={availableTabs}
-          />
-          <div className="min-w-0">
-            {tab === "cycles" ? (
-              <CyclesPanel
-                session={session}
-                facilityId={session.facilityId}
-                departmentId={department.id}
-                departmentName={department.name}
-                departmentKey={department.key}
-              />
-            ) : null}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const view = await loadDepartmentAdminView({
     facilityId: session.facilityId,
@@ -155,70 +77,120 @@ export default async function DepartmentAdministrationPage({
     notFound();
   }
 
+  const contextSummary = await loadDepartmentBuilderContextSummary(session, view.department.id);
+  if (!contextSummary) {
+    notFound();
+  }
+
   const profileId = view.workingProfileMeta?.id ?? null;
+  const settings: OverviewDepartmentSettings = {
+    showInEmployeeApp: contextSummary.showInEmployeeApp,
+    headEmployeeId: contextSummary.headEmployeeId,
+    headLabel: contextSummary.headDisplayName,
+    assignedEmployeeCount: contextSummary.assignedEmployeeCount,
+    canEditHead: contextSummary.canEditHead,
+    canEditVisibility: contextSummary.canEditVisibility,
+    employees: contextSummary.employees,
+    publishedCycleCount: contextSummary.currentCycleCount,
+    activeTeamCount: contextSummary.activeTeamCount,
+    cycleSummary: formatCycleOverviewSummary({
+      currentCount: contextSummary.currentCycleCount,
+      draftCount: contextSummary.draftState === "changes" ? contextSummary.draftCount : 0,
+      scheduledCount: contextSummary.scheduledCount,
+      scheduledEffectiveFrom: contextSummary.scheduledEffectiveFrom,
+    }),
+  };
+
+  const primaryActive =
+    availableTabIds.includes(tab as (typeof availableTabIds)[number])
+      ? (tab as (typeof availableTabIds)[number])
+      : tab === "rooms" || tab === "areas" || tab === "archetypes" || tab === "room-types"
+        ? "locations"
+        : "overview";
+
+  const contentMaxWidth =
+    tab === "overview"
+      ? "max-w-4xl"
+      : tab === "locations" || tab === "teams"
+        ? "max-w-5xl"
+        : tab === "cycles"
+          ? "max-w-6xl"
+          : "max-w-5xl";
+
+  const canonicalLogsEnabled = isCanonicalLogsEnabled();
+  const departmentLogsCtx =
+    canonicalLogsEnabled && tab === "overview"
+      ? await loadTargetLogsBuildContext({
+          facilityId: session.facilityId,
+          targetKind: "DEPARTMENT",
+          targetId: view.department.id,
+          departmentId: view.department.id,
+        })
+      : null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader
-        eyebrow="Build"
-        icon="operationalMode"
-        title={view.department.name}
-        subtitle={
-          cyclesEnabled
-            ? "Configure how this department operates — Operational Profiles and Operational Cycles."
-            : "Configure how this department operates. The Operational Profile is the persisted output — Projection will consume it later."
-        }
-        status={
-          view.workingProfileMeta ? (
-            <StatusBadge
-              variant={profileStatusBadgeVariant(view.workingProfileMeta.status)}
-            >
-              {view.workingProfileMeta.status} · v{view.workingProfileMeta.version}
-            </StatusBadge>
-          ) : (
-            <StatusBadge variant="neutral">No profile</StatusBadge>
-          )
-        }
-        actions={
-          <>
-            <Link
-              href="/admin/departments"
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-            >
-              All departments
-            </Link>
-            <BackToBuildHomeLink />
-          </>
-        }
-        below={<BuildBreadcrumb current={view.department.name} />}
+    <div className="space-y-3" data-testid="department-builder">
+      <DepartmentBuildContextBar
+        departmentId={view.department.id}
+        departmentName={view.department.name}
+        locationCount={view.locationCoverage.total}
+        profileId={profileId}
+        activeTab={primaryActive}
+        context={contextSummary}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <DepartmentAdminLocalNav
-          departmentId={view.department.id}
-          activeTab={tab}
-          profileId={profileId}
-          tabs={availableTabs}
-        />
-        <div className="min-w-0">
-          {tab === "overview" ? <OverviewPanel view={view} /> : null}
-          {tab === "areas" ? <AreasPanel view={view} /> : null}
-          {tab === "archetypes" ? <ArchetypesPanel view={view} /> : null}
-          {tab === "rooms" ? <RoomsPanel view={view} /> : null}
-          {tab === "diagnostics" ? <DiagnosticsPanel view={view} /> : null}
-          {tab === "versions" ? <VersionsPanel view={view} /> : null}
-          {tab === "cycles" &&
-          isDepartmentOperationalCyclesEnabled(view.department.key) ? (
-            <CyclesPanel
-              session={session}
-              facilityId={session.facilityId}
-              departmentId={view.department.id}
-              departmentName={view.department.name}
-              departmentKey={view.department.key}
-            />
-          ) : null}
-          {tab === "settings" ? <SettingsPanel view={view} /> : null}
-        </div>
+      <DepartmentAdminLocalNav
+        departmentId={view.department.id}
+        activeTab={primaryActive}
+        profileId={profileId}
+        tabs={availableTabs}
+      />
+
+      <div className={`min-w-0 ${contentMaxWidth}`.trim()}>
+        {tab === "overview" ? (
+          <OverviewPanel
+            department={view.department}
+            locationCoverage={view.locationCoverage}
+            settings={settings}
+            view={view}
+            profilesEnabled={profilesEnabled}
+            logsSection={
+              departmentLogsCtx ? (
+                <TargetLogsSection
+                  targetTitle={view.department.name}
+                  attachments={departmentLogsCtx.attachments}
+                  addHref={departmentLogsCtx.addHref}
+                  departmentName={view.department.name}
+                />
+              ) : null
+            }
+          />
+        ) : null}
+        {tab === "locations" ? <LocationsPanel view={view} /> : null}
+        {tab === "teams" ? (
+          <TeamsPanel
+            session={session}
+            facilityId={session.facilityId}
+            departmentId={view.department.id}
+            departmentName={view.department.name}
+            selectedTeamId={query.team?.trim() || null}
+          />
+        ) : null}
+        {tab === "areas" ? <AreasPanel view={view} /> : null}
+        {tab === "archetypes" ? <ArchetypesPanel view={view} /> : null}
+        {tab === "rooms" ? <RoomsPanel view={view} /> : null}
+        {tab === "diagnostics" ? <DiagnosticsPanel view={view} /> : null}
+        {tab === "versions" ? <VersionsPanel view={view} /> : null}
+        {tab === "cycles" ? (
+          <CyclesPanel
+            session={session}
+            facilityId={session.facilityId}
+            departmentId={view.department.id}
+            departmentName={view.department.name}
+            departmentKey={view.department.key}
+          />
+        ) : null}
+        {tab === "settings" ? <SettingsPanel view={view} /> : null}
       </div>
     </div>
   );

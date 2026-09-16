@@ -23,7 +23,10 @@ import {
 } from "@/lib/operational-time";
 import { loadSupervisorCycleOverview } from "@/lib/operational-cycles/load-supervisor-cycle-overview";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
-import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operational-cycle";
+import {
+  resolveOperationalCycle,
+  summarizeActiveCycleContext,
+} from "@/lib/operational-cycles/resolve-operational-cycle";
 import type { CycleMilestoneStatusKey } from "@/lib/operational-cycles/milestone-cycle-status";
 import { buildDietaryCoverageSummary } from "@/lib/scheduling/operational-assignments/build-coverage-summary";
 import { loadAssignmentPlanView } from "@/lib/scheduling/operational-assignments/assignment-plan";
@@ -240,12 +243,23 @@ export async function loadSupervisorOperationsBoard(
     operationalDateKey,
   });
 
-  const currentCycleLabel = deptCycle.state === "ACTIVE" ? deptCycle.primary.label : null;
+  const activeSummary =
+    deptCycle.state === "ACTIVE"
+      ? summarizeActiveCycleContext(deptCycle.activeCycles)
+      : { summary: "", phaseLabels: [] as string[] };
+  const currentCycleLabel =
+    deptCycle.state === "ACTIVE"
+      ? activeSummary.summary || deptCycle.primary.label
+      : null;
+  const activePhaseLabels =
+    deptCycle.state === "ACTIVE" ? activeSummary.phaseLabels : [];
   const nextCycleLabel =
     deptCycle.state === "ACTIVE"
-      ? deptCycle.next?.label ?? null
+      ? deptCycle.next
+        ? deptCycle.next.displayPath || deptCycle.next.label
+        : null
       : deptCycle.state === "UPCOMING" || deptCycle.state === "BETWEEN"
-        ? deptCycle.next.label
+        ? deptCycle.next.displayPath || deptCycle.next.label
         : null;
 
   const nextCycleStartsAt =
@@ -825,6 +839,7 @@ export async function loadSupervisorOperationsBoard(
       departmentKey: departmentRow.key,
       operationalDateKey,
       currentCycleLabel,
+      activePhaseLabels,
       nextCycleLabel,
       planStatus: plan?.status ?? null,
       lastUpdated: now.toISOString(),

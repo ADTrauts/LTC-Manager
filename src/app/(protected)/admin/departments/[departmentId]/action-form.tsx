@@ -1,18 +1,41 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
+
+import {
+  departmentAdminHref,
+  type DepartmentAdminTabId,
+} from "@/lib/department-administration/admin-nav";
 
 type ActionResultLike =
-  | { ok: true; message?: string; profileId?: string; cycleId?: string }
+  | { ok: true; message?: string; profileId?: string; cycleId?: string; teamId?: string }
   | { ok: false; message: string; errors?: string[] };
 
 type Props = {
   action: (formData: FormData) => Promise<ActionResultLike>;
   children: ReactNode;
   className?: string;
-  onSuccessRedirect?: (result: ActionResultLike) => string | null;
+  /** Called after a successful save (client parents only). */
+  onSuccess?: () => void;
+  /** After success, open `#edit-cycle-{cycleId}` (used when forking a published cycle to draft). */
+  openCycleEditorOnSuccess?: boolean;
+  profileRedirect?: {
+    departmentId: string;
+    tab: DepartmentAdminTabId;
+    /** Preserve Room Type detail after DRAFT fork. */
+    roomType?: string;
+  };
 };
+
+/** Optional close signal for forms rendered inside a Drawer. */
+export const DepartmentAdminFormCloseContext = createContext<(() => void) | null>(null);
 
 /**
  * Thin client wrapper around server actions that return ActionResult.
@@ -22,9 +45,12 @@ export function DepartmentAdminActionForm({
   action,
   children,
   className,
-  onSuccessRedirect,
+  onSuccess,
+  openCycleEditorOnSuccess = false,
+  profileRedirect,
 }: Props) {
   const router = useRouter();
+  const closeFromContext = useContext(DepartmentAdminFormCloseContext);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +67,23 @@ export function DepartmentAdminActionForm({
           const result = await action(formData);
           if (result.ok) {
             setMessage(result.message ?? "Saved.");
-            const href = onSuccessRedirect?.(result) ?? null;
+            onSuccess?.();
+            closeFromContext?.();
+            if (openCycleEditorOnSuccess && result.cycleId) {
+              window.location.hash = `edit-cycle-${result.cycleId}`;
+            }
+            let href: string | null =
+              result.profileId && profileRedirect
+                ? departmentAdminHref(
+                    profileRedirect.departmentId,
+                    profileRedirect.tab,
+                    result.profileId,
+                  )
+                : null;
+            if (href && profileRedirect?.roomType) {
+              const sep = href.includes("?") ? "&" : "?";
+              href = `${href}${sep}roomType=${encodeURIComponent(profileRedirect.roomType)}`;
+            }
             if (href) {
               router.push(href);
             } else {

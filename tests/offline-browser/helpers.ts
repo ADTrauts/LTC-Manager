@@ -187,6 +187,25 @@ export async function waitForServiceWorker(page: Page) {
   expect(ok, "service worker did not activate").toBeTruthy();
 }
 
+export async function waitForServiceWorkerControl(page: Page) {
+  await waitForServiceWorker(page);
+  const waitForController = () =>
+    page.evaluate(async () => {
+      const started = Date.now();
+      while (!navigator.serviceWorker.controller && Date.now() - started < 8_000) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return Boolean(navigator.serviceWorker.controller);
+    });
+
+  let controlled = await waitForController();
+  if (!controlled) {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    controlled = await waitForController();
+  }
+  expect(controlled, "service worker did not control the page").toBeTruthy();
+}
+
 export async function waitForOfflineStatus(page: Page, text: RegExp | string) {
   const status = page.getByTestId("offline-runtime-status");
   await expect(status).toBeVisible({ timeout: 30_000 });

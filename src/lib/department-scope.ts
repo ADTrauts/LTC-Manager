@@ -1,4 +1,5 @@
 import type { AppJwtPayload } from "@/lib/auth";
+import { resolveDepartmentMembershipIds } from "@/lib/employee-membership";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -23,15 +24,9 @@ export async function departmentFilterIdsForSession(session: AppJwtPayload): Pro
   if (!employee) {
     return null;
   }
-  const ids = new Set<string>();
-  if (employee.primaryDepartmentId) {
-    ids.add(employee.primaryDepartmentId);
-  }
-  for (const row of employee.employeeDepartments) {
-    ids.add(row.departmentId);
-  }
-  if (ids.size === 0) {
+  const ids = resolveDepartmentMembershipIds(employee);
+  if (ids.length === 0) {
     return null;
   }
-  return [...ids];
+  return ids;
 }

@@ -1,4 +1,6 @@
 import { DisciplinePointCategory } from "@prisma/client";
+import { cookies } from "next/headers";
+import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -14,10 +16,12 @@ import {
   type EmployeeDirectoryQuery,
 } from "@/lib/employee-directory-filters";
 import { hasAtLeastRole } from "@/lib/access";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { buildPageIntro } from "@/lib/build-hub";
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
 import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
-import { resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
+import { loadActiveJobRolesForFacilityDepartments } from "@/lib/department-job-roles";
 import { prisma } from "@/lib/prisma";
 
 function toIsoDate(d: Date | null): string | null {
@@ -48,6 +52,9 @@ function toEmployeeCardProps(
     primaryUnitId: string | null;
     primaryDepartmentId: string | null;
     jobTitleId: string | null;
+    employeeDepartments?: { departmentId: string }[];
+    teamMemberships?: { teamId: string; isPrimary: boolean }[];
+    departmentJobRoles?: { departmentId: string; jobRoleId: string }[];
     unionMember: boolean;
     onLeave: boolean;
     hireDate: Date | null;
@@ -96,7 +103,15 @@ function toEmployeeCardProps(
     status: employee.status,
     primaryUnitId: employee.primaryUnitId,
     primaryDepartmentId: employee.primaryDepartmentId,
+    additionalDepartmentIds: (employee.employeeDepartments ?? [])
+      .map((row) => row.departmentId)
+      .filter((id) => id !== employee.primaryDepartmentId),
     jobTitleId: employee.jobTitleId,
+    teamMemberships: employee.teamMemberships ?? [],
+    jobRoleAssignments: (employee.departmentJobRoles ?? []).map((row) => ({
+      departmentId: row.departmentId,
+      jobRoleId: row.jobRoleId,
+    })),
     unitAccesses: employee.unitAccesses,
     defaultAssignments: employee.defaultAssignments,
     unionMember: employee.unionMember,
@@ -132,7 +147,8 @@ function parseDirectoryQuery(sp: { [key: string]: string | string[] | undefined 
     hasPoints: one("hasPoints"),
     birthMonth: one("birthMonth"),
     sort: one("sort"),
-    dept: one("dept"),
+    team: one("team"),
+    jobTitle: one("jobTitle"),
   };
 }
 
@@ -156,14 +172,27 @@ export default async function EmployeesPage({
     await ensureDefaultDepartments(prisma, facilityId);
   }
 
-  const sp = await searchParams;
-  const { deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees", sp);
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  const activeDepartmentId = deptNav.activeDepartmentId;
+  const activeDepartment = activeDepartmentId
+    ? await prisma.department.findFirst({
+        where: { id: activeDepartmentId, facilityId, isActive: true },
+        select: { id: true, name: true },
+      })
+    : null;
+  const deptName = activeDepartment?.name ?? null;
 
+  const sp = await searchParams;
   const directoryQuery = parseDirectoryQuery(sp);
+  // Shell active Department is canonical scope; deep-link `dept` is no longer the primary filter.
+  if (activeDepartmentId) {
+    directoryQuery.dept = activeDepartmentId;
+  }
   const where = buildEmployeeWhere(facilityId, directoryQuery);
   const orderBy = buildEmployeeOrderBy(directoryQuery.sort);
 
-  const [employees, units, jobTitles] = await Promise.all([
+  const [employees, units, jobTitles, activeTeams] = await Promise.all([
     prisma.employee.findMany({
       where,
       orderBy,
@@ -179,6 +208,14 @@ export default async function EmployeesPage({
         primaryUnitId: true,
         primaryDepartmentId: true,
         jobTitleId: true,
+        employeeDepartments: { select: { departmentId: true } },
+        teamMemberships: {
+          where: { team: { status: "ACTIVE" } },
+          select: { teamId: true, isPrimary: true },
+        },
+        departmentJobRoles: {
+          select: { departmentId: true, jobRoleId: true },
+        },
         unionMember: true,
         onLeave: true,
         hireDate: true,
@@ -221,11 +258,24 @@ export default async function EmployeesPage({
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true },
     }),
+    prisma.departmentTeam.findMany({
+      where: { facilityId, status: "ACTIVE" },
+      orderBy: [{ displayName: "asc" }],
+      select: {
+        id: true,
+        displayName: true,
+        departmentId: true,
+        department: { select: { name: true } },
+      },
+    }),
   ]);
 
-  const primaryDeptIdsOnPage = [
+  const assignedDeptIdsOnPage = [
     ...new Set(
-      employees.map((e) => e.primaryDepartmentId).filter((id): id is string => Boolean(id)),
+      employees.flatMap((e) => [
+        ...(e.primaryDepartmentId ? [e.primaryDepartmentId] : []),
+        ...e.employeeDepartments.map((row) => row.departmentId),
+      ]),
     ),
   ];
 
@@ -235,7 +285,7 @@ export default async function EmployeesPage({
       isActive: true,
       OR: [
         { showInEmployeeApp: true },
-        ...(primaryDeptIdsOnPage.length > 0 ? [{ id: { in: primaryDeptIdsOnPage } }] : []),
+        ...(assignedDeptIdsOnPage.length > 0 ? [{ id: { in: assignedDeptIdsOnPage } }] : []),
       ],
     },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -243,6 +293,13 @@ export default async function EmployeesPage({
   });
 
   const departmentsForCreate = departments.filter((d) => d.showInEmployeeApp);
+  const jobRoleDepartmentIds = [
+    ...new Set([...departments.map((d) => d.id), ...assignedDeptIdsOnPage]),
+  ];
+  const jobRoles = await loadActiveJobRolesForFacilityDepartments(prisma, {
+    facilityId,
+    departmentIds: jobRoleDepartmentIds,
+  });
 
   const distinctEmails = [
     ...new Set(
@@ -267,32 +324,60 @@ export default async function EmployeesPage({
   }
 
   return (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Employees</h1>
-          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+    <section className="space-y-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">Employees</h1>
+          <p className="max-w-3xl text-sm text-zinc-600">
             {deptName ? (
               <>
-                Showing <span className="font-medium text-zinc-800">{deptName}</span> only (primary or additional
-                department).{" "}
+                Showing <span className="font-medium text-zinc-800">{deptName}</span> only.{" "}
               </>
-            ) : null}
-            {showPinManagement
-              ? "Create and update people, unit access for PIN sign-in, default assignments, HR fields, and floor PINs."
-              : "Create and update people, unit access for PIN sign-in, default assignments, and HR fields."}
+            ) : (
+              <>Showing all departments. </>
+            )}
+            {buildPageIntro("/employees")}
           </p>
         </div>
-        {showManagerTools ? (
-          <CreateEmployeeDrawer units={units} departments={departmentsForCreate} jobTitles={jobTitles} />
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {showManagerTools ? (
+            <Link
+              href="/employees/import"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Import
+            </Link>
+          ) : null}
+          {showManagerTools ? (
+            <CreateEmployeeDrawer
+              units={units}
+              departments={departmentsForCreate}
+              jobTitles={jobTitles}
+              teams={activeTeams}
+              jobRoles={jobRoles}
+            />
+          ) : null}
+        </div>
       </header>
 
       <EmployeesFiltersCollapsible
         defaultExpanded={hasNonDefaultEmployeeFilters(directoryQuery)}
-        filterCount={countNonDefaultEmployeeFilters(directoryQuery)}
+        filterCount={countNonDefaultEmployeeFilters({
+          ...directoryQuery,
+          // Shell dept scope is not a "filter chip" — omit from count.
+          dept: undefined,
+        })}
       >
-        <EmployeesFiltersForm current={directoryQuery} embedded />
+        <EmployeesFiltersForm
+          current={{ ...directoryQuery, dept: undefined }}
+          embedded
+          teams={activeTeams.map((team) => ({
+            id: team.id,
+            displayName: team.displayName,
+            departmentId: team.departmentId,
+            departmentName: team.department.name,
+          }))}
+        />
       </EmployeesFiltersCollapsible>
 
       <div className="space-y-3">
@@ -309,6 +394,8 @@ export default async function EmployeesPage({
             units={units}
             departments={departments}
             jobTitles={jobTitles}
+            teams={activeTeams}
+            jobRoles={jobRoles}
             showManagerTools={showManagerTools}
             showPinManagement={showPinManagement}
             {...(showPinManagement ? { hasPinSet: Boolean(employee.pinDigest) } : {})}

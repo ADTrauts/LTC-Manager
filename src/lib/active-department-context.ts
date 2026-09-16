@@ -1,6 +1,7 @@
 import type { AppJwtPayload } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
+import { employeeBelongsToDepartment, resolveDepartmentMembershipIds } from "@/lib/employee-membership";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -38,8 +39,7 @@ async function userMaySelectDepartment(
     },
   });
   if (!employee) return false;
-  if (employee.primaryDepartmentId === departmentId) return true;
-  return employee.employeeDepartments.some((r) => r.departmentId === departmentId);
+  return employeeBelongsToDepartment(employee, departmentId);
 }
 
 /** Core resolver; `rawCookie` from `NextRequest` or `cookies().get(...)`. */
@@ -162,9 +162,7 @@ export async function resolveSelectableDepartmentsForSession(
   });
   if (!employee) return [];
 
-  const memberIds = new Set<string>();
-  if (employee.primaryDepartmentId) memberIds.add(employee.primaryDepartmentId);
-  for (const row of employee.employeeDepartments) memberIds.add(row.departmentId);
+  const memberIds = new Set(resolveDepartmentMembershipIds(employee));
 
   return facilityDepartments.filter((dept) => memberIds.has(dept.id));
 }

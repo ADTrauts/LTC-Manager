@@ -2,7 +2,8 @@ import type { AppRole } from "@/lib/access";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import type { AppIconKey } from "@/lib/design-system";
 import type { StatusBadgeVariant, StatusTone } from "@/lib/design-system/status-styles";
-import type { OperationContext } from "@/lib/operations-center/types";
+import type { RunDepartmentOperationPresentation } from "@/lib/operational-cycles";
+import type { OperationContext, OperationsCenterKeyTimeSummary } from "@/lib/operations-center/types";
 
 export type WorkspaceContext =
   | {
@@ -142,6 +143,8 @@ export type BusinessWorkspaceHeader = {
   departmentLabel: string;
   operation: OperationContext;
   healthy: boolean;
+  keyTimeSummaries?: OperationsCenterKeyTimeSummary[];
+  runPresentation?: RunDepartmentOperationPresentation | null;
 };
 
 export type WorkspacePreferenceState = {

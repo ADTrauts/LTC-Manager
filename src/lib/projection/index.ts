@@ -59,6 +59,7 @@ export {
   resolveRegistryContracts,
   resolveRoomEligibility,
   resolveRoomProfiles,
+  resolveUnitEligibility,
   type EligibleProjectionRoom,
   type NormalizedProjectionHierarchy,
   type PermissionedProjectionRoom,

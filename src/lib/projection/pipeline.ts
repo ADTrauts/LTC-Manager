@@ -165,7 +165,21 @@ export function normalizeProjectionHierarchy(
     childrenByParentId[parentKey] = [
       ...(childrenByParentId[parentKey] ?? []),
       location.id,
-    ].sort((a, b) => a.localeCompare(b));
+    ];
+  }
+
+  for (const parentKey of Object.keys(childrenByParentId)) {
+    childrenByParentId[parentKey] = [...(childrenByParentId[parentKey] ?? [])].sort(
+      (a, b) => {
+        const left = locationsById[a]!;
+        const right = locationsById[b]!;
+        return (
+          (left.displayOrder ?? 0) - (right.displayOrder ?? 0) ||
+          left.label.localeCompare(right.label) ||
+          a.localeCompare(b)
+        );
+      },
+    );
   }
 
   for (const location of Object.values(locationsById)) {
@@ -374,6 +388,9 @@ export function resolveActiveProjectionProfile(
           "MISSING_ACTIVE_PROFILE",
           `Department ${department.key} has no ACTIVE Operational Profile`,
           `source.departments.${department.id}.activeProfile`,
+          // Physical Run locations no longer require a profile. Experiences /
+          // archetype resolution still depend on one when present.
+          "WARNING",
         ),
       ],
     };
@@ -394,6 +411,59 @@ export function resolveActiveProjectionProfile(
     };
   }
   return { value: department.activeProfile, diagnostics: [] };
+}
+
+/**
+ * Neighborhood / legacy Unit eligibility from UnitDepartmentResponsibility.
+ * Floors and staged units are never actionable department locations.
+ */
+export function resolveUnitEligibility(
+  source: ProjectionSource,
+  hierarchy: NormalizedProjectionHierarchy,
+  department: ProjectionSourceDepartment,
+): StageResult<readonly ProjectionSourceLocation[]> {
+  const diagnostics: ProjectionDiagnostic[] = [];
+  const eligible: ProjectionSourceLocation[] = [];
+  const assignmentSet = new Set(department.assignedUnitIds);
+  const access = source.request.accessClass;
+
+  for (const location of Object.values(hierarchy.locationsById).sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )) {
+    if (location.reference.kind !== "UNIT") continue;
+    if (!assignmentSet.has(location.reference.unitId)) continue;
+    if (!location.isActive || !location.isPlaced) continue;
+
+    const role = location.reference.hierarchyRole;
+    // Floors stay structural; STAGED is never placed/active in source.
+    if (role === "FLOOR") continue;
+    if (role !== "NEIGHBORHOOD" && role !== "LEGACY") continue;
+
+    const allowedByUnit =
+      access.allowedUnitIds === "ALL" ||
+      access.allowedUnitIds.includes(location.reference.unitId);
+    const allowedByLock =
+      !access.lockedUnitId || access.lockedUnitId === location.reference.unitId;
+    if (!allowedByUnit || !allowedByLock) continue;
+
+    eligible.push(location);
+  }
+
+  for (const assignedUnitId of assignmentSet) {
+    const locationId = `unit:${assignedUnitId}`;
+    const location = hierarchy.locationsById[locationId];
+    if (!location) {
+      diagnostics.push(
+        diagnostic(
+          "INVALID_LOCATION_REFERENCE",
+          `Department ${department.key} assignment references unknown unit ${assignedUnitId}`,
+          `source.departments.${department.id}.assignedUnitIds`,
+        ),
+      );
+    }
+  }
+
+  return { value: eligible, diagnostics };
 }
 
 export function resolveRoomProfiles(
@@ -867,6 +937,11 @@ export function resolveProjectionQueryScopes(
 export function buildAndPruneProjectionLocations(
   hierarchy: NormalizedProjectionHierarchy,
   experiences: readonly ProjectionExperience[],
+  /**
+   * Facility Builder responsibility location ids that must appear as ACTIONABLE
+   * even when no Operational Profile experiences have resolved yet.
+   */
+  responsibleLocationIds: readonly string[] = [],
 ): ProjectionSnapshot["locations"] {
   const experienceKeysByLocation = new Map<string, Set<string>>();
   for (const experience of experiences) {
@@ -876,6 +951,8 @@ export function buildAndPruneProjectionLocations(
       experienceKeysByLocation.set(locationId, keys);
     }
   }
+
+  const responsibleSet = new Set(responsibleLocationIds);
 
   const byId: Record<string, ProjectionLocationNode> = {};
   const buildNode = (
@@ -890,7 +967,8 @@ export function buildAndPruneProjectionLocations(
     const keys = [...(experienceKeysByLocation.get(sourceLocation.id) ?? [])].sort(
       (a, b) => a.localeCompare(b),
     );
-    const actionable = keys.length > 0;
+    const explicitlyResponsible = responsibleSet.has(sourceLocation.id);
+    const actionable = keys.length > 0 || explicitlyResponsible;
     if (!actionable && children.length === 0) return null;
     const node: ProjectionLocationNode = {
       id: sourceLocation.id,
@@ -992,31 +1070,54 @@ function resolveDepartmentProjection(
   priorDiagnostics: readonly ProjectionDiagnostic[],
 ): ProjectionSnapshot {
   const diagnostics = [...priorDiagnostics];
-  const profileStage = resolveActiveProjectionProfile(department);
-  diagnostics.push(...profileStage.diagnostics);
-  if (!profileStage.value) return deepFreeze(emptySnapshot(source, diagnostics));
 
+  // Physical footprint always comes from Facility Builder responsibility.
   const eligibilityStage = resolveRoomEligibility(source, hierarchy, department);
   diagnostics.push(...eligibilityStage.diagnostics);
-  const roomStage = resolveRoomProfiles(
-    eligibilityStage.value,
-    profileStage.value,
-    department,
-    Object.keys(hierarchy.roomsById),
-  );
-  diagnostics.push(...roomStage.diagnostics);
-  const contractsStage = resolveRegistryContracts(roomStage.value);
-  diagnostics.push(...contractsStage.diagnostics);
-  const permissionStage = intersectProjectionPermissions(
+  const unitEligibilityStage = resolveUnitEligibility(
     source,
-    contractsStage.value,
+    hierarchy,
+    department,
   );
-  diagnostics.push(...permissionStage.diagnostics);
+  diagnostics.push(...unitEligibilityStage.diagnostics);
 
-  const experiences = buildProjectionExperiences(permissionStage.value);
+  const responsibleLocationIds = stableUnique([
+    ...eligibilityStage.value.map((room) => room.location.id),
+    ...unitEligibilityStage.value.map((location) => location.id),
+  ]);
+
+  // Operational Profile is optional for Experiences / archetype resolution.
+  // It must NOT gate physical location visibility.
+  const profileStage = resolveActiveProjectionProfile(department);
+  diagnostics.push(...profileStage.diagnostics);
+
+  let permissionStageValue: readonly PermissionedProjectionRoom[] = [];
+  if (profileStage.value) {
+    const roomStage = resolveRoomProfiles(
+      eligibilityStage.value,
+      profileStage.value,
+      department,
+      Object.keys(hierarchy.roomsById),
+    );
+    diagnostics.push(...roomStage.diagnostics);
+    const contractsStage = resolveRegistryContracts(roomStage.value);
+    diagnostics.push(...contractsStage.diagnostics);
+    const permissionStage = intersectProjectionPermissions(
+      source,
+      contractsStage.value,
+    );
+    diagnostics.push(...permissionStage.diagnostics);
+    permissionStageValue = permissionStage.value;
+  }
+
+  const experiences = buildProjectionExperiences(permissionStageValue);
   const areas = buildProjectionAreas(experiences);
   const queryScopes = resolveProjectionQueryScopes(experiences, hierarchy);
-  const locations = buildAndPruneProjectionLocations(hierarchy, experiences);
+  const locations = buildAndPruneProjectionLocations(
+    hierarchy,
+    experiences,
+    responsibleLocationIds,
+  );
   const descriptors = [
     ...areas.flatMap((area) => area.descriptors),
     ...experiences.flatMap((experience) => experience.descriptors),
@@ -1052,14 +1153,14 @@ function resolveDepartmentProjection(
     diagnostics: { issues: diagnostics },
     plantPolicy: matchingPolicy
       ? {
-          applied: permissionStage.value.some((room) =>
+          applied: permissionStageValue.some((room) =>
             Boolean(room.eligible.policy),
           ),
           kind: matchingPolicy.kind,
           createsRoomAssignments: false,
           defaultArchetypeKey: matchingPolicy.defaultArchetypeKey,
           coveredLocationIds: stableUnique(
-            permissionStage.value
+            permissionStageValue
               .filter((room) => room.policyDefaultApplied)
               .map((room) => room.eligible.location.id),
           ),

@@ -17,6 +17,7 @@ import {
   StatusBadge,
   operationalListShellClass,
 } from "@/components/design-system";
+import { buildPageIntro } from "@/lib/build-hub";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import {
   knowledgeCategoryLabel,
@@ -157,10 +158,10 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6" data-testid="admin-knowledge">
+    <div className="mx-auto max-w-4xl space-y-4" data-testid="admin-knowledge">
       <BuildPageHeader
         title="Procedures & Resources"
-        subtitle="Manage SOPs, policies, instructions, job aids, and reference materials. Link articles to departments, locations, assets, logs, and inspections so they surface at the point of work. These resources do not assign departments to rooms."
+        subtitle={buildPageIntro("/admin/knowledge")}
       />
 
       {query?.saved ? (
@@ -169,7 +170,10 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
         </p>
       ) : null}
 
-      <AppCard title="Filter articles" subtitle="Basic search — title, summary, and body">
+      <AppCard
+        title="Filter articles"
+        subtitle="Basic search — title, summary, and body. These resources do not assign departments to rooms."
+      >
         <form method="get" className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <label className="block text-sm text-zinc-700 md:col-span-2 lg:col-span-3">
             Search

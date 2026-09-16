@@ -32,6 +32,11 @@ export type ProjectionSourceLocation = {
   isActive: boolean;
   /** False for staged/undesignated builder-only nodes. */
   isPlaced: boolean;
+  /**
+   * Facility Builder display order (units) / sortOrder (spaces).
+   * Used to preserve physical hierarchy ordering in Run trees.
+   */
+  displayOrder?: number;
 };
 
 export type ProjectionSourceRoom = {
@@ -45,8 +50,17 @@ export type ProjectionSourceDepartment = {
   label: string;
   isActive: boolean;
   activeProfile: ProfileSnapshot | null;
-  /** Explicit Facility Builder room assignments only. */
+  /**
+   * Explicit Facility Builder room assignments (UnitSpaceResponsibility).
+   * Physical Run footprint — independent of Operational Profile.
+   */
   assignedRoomIds: readonly string[];
+  /**
+   * Explicit Facility Builder neighborhood/unit assignments
+   * (UnitDepartmentResponsibility). Floors remain structural and are
+   * filtered out during eligibility even if legacy rows exist.
+   */
+  assignedUnitIds: readonly string[];
   archetypeBindings: readonly RoomArchetypeBindingSnapshot[];
   roomExceptions: readonly RoomExceptionSnapshot[];
 };

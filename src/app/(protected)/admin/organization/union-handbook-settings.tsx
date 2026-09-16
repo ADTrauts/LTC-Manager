@@ -26,10 +26,27 @@ export function UnionHandbookSettings({
     setPending(true);
     setError(null);
     try {
+      const file = formData.get("file");
+      if (file instanceof File && file.size > 0) {
+        if (file.size > 12 * 1024 * 1024) {
+          setError("PDF must be 12 MB or smaller.");
+          return;
+        }
+        const name = file.name.toLowerCase();
+        if (!name.endsWith(".pdf") && file.type !== "application/pdf") {
+          setError("Choose a PDF file.");
+          return;
+        }
+      }
       await uploadUnionHandbookAction(formData);
       router.refresh();
-    } catch {
-      setError("Could not upload PDF. Use a single PDF under 12 MB.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (/body exceeded|413|too large/i.test(message)) {
+        setError("PDF is too large to upload (max 12 MB).");
+      } else {
+        setError("Could not upload PDF. Use a single PDF under 12 MB.");
+      }
     } finally {
       setPending(false);
     }

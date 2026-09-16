@@ -42,6 +42,31 @@ export async function applyAssignmentTemplate(
     `${a.employeeId}:${a.roleKey}:${a.unitId ?? ""}`;
   const existingKeys = new Set(existingAssignments.map(existingKey));
 
+  const employeesToCreate = [
+    ...new Set(
+      input.positions
+        .map((pos) => pos.suggestedEmployeeId ?? pos.assignedEmployeeId ?? null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const jobRoleLabelByEmployeeId = new Map<string, string>();
+  if (employeesToCreate.length > 0) {
+    const jobRoles = await prisma.employeeDepartmentJobRole.findMany({
+      where: {
+        employeeId: { in: employeesToCreate },
+        departmentId: input.departmentId,
+        jobRole: { status: "ACTIVE" },
+      },
+      select: {
+        employeeId: true,
+        jobRole: { select: { displayName: true } },
+      },
+    });
+    for (const row of jobRoles) {
+      jobRoleLabelByEmployeeId.set(row.employeeId, row.jobRole.displayName);
+    }
+  }
+
   for (const pos of input.positions) {
     const employeeId = pos.suggestedEmployeeId ?? pos.assignedEmployeeId;
     if (!employeeId) {
@@ -74,7 +99,7 @@ export async function applyAssignmentTemplate(
         employeeId,
         serviceDate,
         roleKey: pos.roleKey,
-        roleLabel: roleDef.label,
+        roleLabel: jobRoleLabelByEmployeeId.get(employeeId) ?? roleDef.label,
         unitId: pos.unitId ?? null,
         operationInstanceId: input.operationInstanceId,
         templateItemId: pos.itemId ?? null,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { ExperienceWalkContribution } from "@/lib/todays-work";
+import { walkListItemKey } from "@/lib/todays-work";
 
 type TodaysWorkExperienceContributionsProps = {
   contributions: readonly ExperienceWalkContribution[];
@@ -63,7 +64,7 @@ export function TodaysWorkExperienceContributions({
               ) : (
                 <ul className="mt-3 space-y-1.5">
                   {contribution.items.slice(0, 5).map((item) => (
-                    <li key={item.unitId}>
+                    <li key={walkListItemKey(item)}>
                       <Link
                         href={item.href}
                         className="flex min-h-10 items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"

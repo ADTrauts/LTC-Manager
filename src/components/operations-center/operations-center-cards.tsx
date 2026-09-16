@@ -74,15 +74,15 @@ function StaffingGapsCard({ data }: { data: OperationsCenterDashboardData }) {
       title="Staffing Gaps"
       subtitle={`${data.unitsMissingStaffing.length} location${data.unitsMissingStaffing.length === 1 ? "" : "s"} missing coverage today`}
       actions={
-        <Link href="/staffing" className={linkActionClass}>
-          Open staffing
+        <Link href="/staffing/legacy" className={linkActionClass}>
+          Open legacy staffing
         </Link>
       }
     >
       <ul className="space-y-1 text-sm text-zinc-700">
         {data.unitsMissingStaffing.map((unit) => (
           <li key={unit.id}>
-            <Link href={`/staffing?unitId=${unit.id}`} className="text-zinc-900 underline hover:text-zinc-700">
+            <Link href={`/staffing/legacy?unitId=${unit.id}`} className="text-zinc-900 underline hover:text-zinc-700">
               {unit.name}
             </Link>
           </li>

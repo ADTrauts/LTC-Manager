@@ -29,8 +29,8 @@ const bodySchema = z.object({
 });
 
 /**
- * Single message for every authentication failure. A wrong PIN, an inactive Employee, and a
- * correct PIN belonging to a password-required role must be indistinguishable to the caller.
+ * Single message for every authentication failure. A wrong PIN and an inactive Employee
+ * must be indistinguishable to the caller.
  */
 const GENERIC_PIN_FAILURE = "Invalid PIN.";
 
@@ -138,22 +138,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
   }
 
-  // A matching PIN is not sufficient: roles that must hold an email/password account may never
-  // mint a session from a shared-device PIN, however the digest came to exist. This is checked
-  // before any token is created, and the response is identical to a wrong PIN so the caller
-  // cannot learn that the submitted value belongs to a high-authority Employee.
+  // Email/password and PIN are independent. Any known RoleKey may mint a session from PIN;
+  // inactive employees are already excluded by the ACTIVE status filter above.
   if (!mayAuthenticateWithQuickPin(employee.roleType)) {
     await registerAuthFailure(buckets);
-    await prisma.employeeHrAuditLog.create({
-      data: {
-        facilityId: employee.facilityId,
-        employeeId: employee.id,
-        userId: null,
-        fieldKey: "auth.quickPin.rejectedPasswordRequiredRole",
-        oldValue: employee.roleType,
-        newValue: "rejected",
-      },
-    });
     return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
   }
 

@@ -114,6 +114,7 @@ function department(
     isActive: true,
     activeProfile: profile,
     assignedRoomIds: roomIds,
+    assignedUnitIds: [],
     archetypeBindings: roomIds.map((roomId) => ({
       id: `binding:${id}:${roomId}`,
       unitSpaceId: roomId,
@@ -319,12 +320,149 @@ describe("Projection pipeline — focused stages", () => {
     assert.equal(facility.value.facilityMode, true);
   });
 
-  it("fails closed when an ACTIVE profile is absent", () => {
+  it("warns when an ACTIVE profile is absent without failing closed", () => {
     const source = sourceFor();
     const dept = { ...source.departments[0]!, activeProfile: null };
     const result = resolveActiveProjectionProfile(dept);
     assert.equal(result.value, null);
     assert.equal(result.diagnostics[0]?.code, "MISSING_ACTIVE_PROFILE");
+    assert.equal(result.diagnostics[0]?.severity, "WARNING");
+
+    const snapshot = resolveProjection({
+      ...source,
+      departments: [dept],
+    });
+    assert.ok(
+      snapshot.locations.actionableIds.includes("loc:servery"),
+      "room responsibility projects without an ACTIVE profile",
+    );
+    assert.deepEqual(snapshot.experiences, []);
+    assert.ok(
+      snapshot.diagnostics.issues.some(
+        (issue) => issue.code === "MISSING_ACTIVE_PROFILE",
+      ),
+    );
+  });
+
+  it("projects room-only responsibility with structural ancestors", () => {
+    const dept = {
+      ...department("DIETARY", [SERVERY_ID], "servery"),
+      activeProfile: null,
+      archetypeBindings: [],
+    };
+    const snapshot = resolveProjection(
+      sourceFor({ departments: [dept] }),
+    );
+    assert.deepEqual(snapshot.locations.actionableIds, ["loc:servery"]);
+    const servery = snapshot.locations.byId["loc:servery"];
+    assert.equal(servery?.presentation, "ACTIONABLE");
+    const neighborhood = snapshot.locations.byId["loc:kensington"];
+    assert.equal(neighborhood?.presentation, "STRUCTURAL");
+    const floor = snapshot.locations.byId["loc:ground_floor"];
+    assert.equal(floor?.presentation, "STRUCTURAL");
+    assert.ok(floor?.children.some((child) => child.id === "loc:kensington"));
+    assert.ok(
+      neighborhood?.children.some((child) => child.id === "loc:servery"),
+    );
+  });
+
+  it("projects responsible neighborhoods without inheriting child rooms", () => {
+    const dept = {
+      ...department("DIETARY", [], "servery"),
+      assignedRoomIds: [],
+      assignedUnitIds: [UNIT_ID],
+      activeProfile: null,
+      archetypeBindings: [],
+    };
+    const snapshot = resolveProjection(
+      sourceFor({ departments: [dept] }),
+    );
+    assert.deepEqual(snapshot.locations.actionableIds, ["loc:kensington"]);
+    assert.equal(
+      snapshot.locations.byId["loc:kensington"]?.presentation,
+      "ACTIONABLE",
+    );
+    assert.equal(snapshot.locations.byId["loc:servery"], undefined);
+    assert.equal(snapshot.locations.byId["loc:resident_101"], undefined);
+  });
+
+  it("supports room + neighborhood responsibility together", () => {
+    const dept = {
+      ...department("DIETARY", [SERVERY_ID], "servery"),
+      assignedUnitIds: [UNIT_ID],
+      activeProfile: null,
+      archetypeBindings: [],
+    };
+    const snapshot = resolveProjection(
+      sourceFor({ departments: [dept] }),
+    );
+    assert.deepEqual([...snapshot.locations.actionableIds].sort(), [
+      "loc:kensington",
+      "loc:servery",
+    ]);
+  });
+
+  it("excludes unrelated department rooms and floors with legacy unit rows", () => {
+    const dietary = {
+      ...department("DIETARY", [SERVERY_ID], "servery"),
+      assignedUnitIds: [FLOOR_ID],
+      activeProfile: null,
+      archetypeBindings: [],
+    };
+    const snapshot = resolveProjection(
+      sourceFor({ departments: [dietary] }),
+    );
+    assert.deepEqual([...snapshot.locations.actionableIds], ["loc:servery"]);
+    assert.equal(
+      snapshot.locations.byId["loc:ground_floor"]?.presentation,
+      "STRUCTURAL",
+    );
+    assert.equal(snapshot.locations.byId["loc:resident_101"], undefined);
+  });
+
+  it("preserves Facility Builder display order among siblings", () => {
+    const source = sourceFor({
+      departments: [
+        {
+          ...department("DIETARY", [SERVERY_ID], "servery"),
+          activeProfile: null,
+          archetypeBindings: [],
+          assignedRoomIds: [SERVERY_ID, RESIDENT_ID, MECHANICAL_ID],
+        },
+      ],
+    });
+    const ordered: ProjectionSource = {
+      ...source,
+      locations: source.locations.map((location) => {
+        if (location.id === "loc:servery") {
+          return { ...location, displayOrder: 30 };
+        }
+        if (location.id === "loc:resident_101") {
+          return { ...location, displayOrder: 10 };
+        }
+        if (location.id === "loc:mechanical") {
+          return { ...location, displayOrder: 20 };
+        }
+        if (location.id === "loc:kensington") {
+          return { ...location, displayOrder: 5 };
+        }
+        if (location.id === "loc:ground_floor") {
+          return { ...location, displayOrder: 1 };
+        }
+        return location;
+      }),
+    };
+    const snapshot = resolveProjection(ordered);
+    assert.deepEqual([...snapshot.locations.actionableIds].sort(), [
+      "loc:mechanical",
+      "loc:resident_101",
+      "loc:servery",
+    ]);
+    const neighborhood = snapshot.locations.byId["loc:kensington"];
+    assert.deepEqual(
+      neighborhood?.children.map((child) => child.id),
+      ["loc:resident_101", "loc:mechanical", "loc:servery"],
+    );
   });
 
   it("intersects room assignment, placement, and principal unit access", () => {
@@ -568,7 +706,12 @@ describe("Projection pipeline — complete resolution", () => {
     );
     assert.deepEqual(snapshot.areas, []);
     assert.deepEqual(snapshot.experiences, []);
-    assert.deepEqual(snapshot.locations.roots, []);
+    // Physical Facility Builder responsibility still projects; Experiences do not.
+    assert.deepEqual([...snapshot.locations.actionableIds], ["loc:servery"]);
+    assert.deepEqual(
+      snapshot.locations.byId["loc:servery"]?.experienceKeys,
+      [],
+    );
   });
 
   it("preserves labeled Facility Overview department composition", () => {

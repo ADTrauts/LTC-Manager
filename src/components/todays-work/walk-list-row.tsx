@@ -11,7 +11,12 @@ type WalkListRowProps = {
 };
 
 export function WalkListRow({ item, rank, emphasized = false }: WalkListRowProps) {
-  const unitTypeLabel = item.unitType.charAt(0) + item.unitType.slice(1).toLowerCase().replace(/_/g, " ");
+  const typeLabel =
+    item.typeLabel ??
+    item.unitType.charAt(0) + item.unitType.slice(1).toLowerCase().replace(/_/g, " ");
+  const description = item.parentContext
+    ? `${item.parentContext} · ${item.reason}`
+    : item.reason;
 
   return (
     <OperationalListRow
@@ -19,8 +24,8 @@ export function WalkListRow({ item, rank, emphasized = false }: WalkListRowProps
       href={item.href}
       rank={rank}
       title={item.unitName}
-      meta={<span className="text-xs font-medium uppercase tracking-wide text-zinc-400">{unitTypeLabel}</span>}
-      description={item.reason}
+      meta={<span className="text-xs font-medium uppercase tracking-wide text-zinc-400">{typeLabel}</span>}
+      description={description}
       details={<WalkListSignals item={item} />}
       status={<WalkListStatusBadge status={item.status} />}
     />

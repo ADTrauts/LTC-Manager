@@ -134,14 +134,20 @@ export function buildDashboardAggregates(
       })
       .filter((unit) => unit.mealTimes.some((time) => time.mealType === meal))
       .map((unit) => {
-        const mealTime = unit.mealTimes.find((time) => time.mealType === meal)?.scheduledTime ?? "--:--";
+        const slot = unit.mealTimes.find((time) => time.mealType === meal);
+        const mealTime = slot?.scheduledTime || "--:--";
         const submittedForMeal = submissionsToday.filter(
           (submission) => submission.unitId === unit.id && submission.mealType === meal,
         ).length;
         let statusLabel: string;
         let isReadyLive = false;
         let isStartedLive = false;
-        if (unit.unitType === UnitType.SERVERY) {
+        if (slot?.timingStatusLabel) {
+          const ev = serveryEventsByUnitMeal.get(`${unit.id}:${meal}`);
+          isReadyLive = !!ev && isWithinServeryLiveWindow(ev.mealServiceReadyAt, now);
+          isStartedLive = !!ev && isWithinServeryLiveWindow(ev.mealServiceStartedAt, now);
+          statusLabel = slot.timingStatusLabel;
+        } else if (unit.unitType === UnitType.SERVERY) {
           const ev = serveryEventsByUnitMeal.get(`${unit.id}:${meal}`);
           const parts: string[] = [];
           isReadyLive = !!ev && isWithinServeryLiveWindow(ev.mealServiceReadyAt, now);

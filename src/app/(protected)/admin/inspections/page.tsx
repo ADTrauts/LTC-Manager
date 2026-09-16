@@ -5,6 +5,7 @@ import {
 } from "@/app/(protected)/admin/inspections/actions";
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { InspectionDefinitionEditor } from "@/components/inspections/inspection-definition-editor";
+import { buildPageIntro } from "@/lib/build-hub";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import { prisma } from "@/lib/prisma";
 import { buildInspectionScheduleSummary } from "@/lib/work/inspections/inspection-cadence";
@@ -58,10 +59,10 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
     : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4">
       <BuildPageHeader
         title="Inspections"
-        subtitle="Create structured inspections, verification checklists, findings, and follow-up requirements. Separate from recurring operational logs. Recurring due generation is not enabled yet — active definitions appear as available work on matching units."
+        subtitle={buildPageIntro("/admin/inspections")}
       />
 
       {query?.saved ? (

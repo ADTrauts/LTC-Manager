@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useOptimistic, useState, useTransition } from "react";
 
+import { hrefAfterActiveDepartmentChange } from "@/lib/active-department-navigation";
 import { departmentContextPresentation } from "@/lib/department-context";
 import { AppIcons } from "@/lib/design-system";
 
@@ -25,6 +26,11 @@ const CONTEXT_HINT = "The department context your navigation is showing. It is a
  * non-interactive identity chip rather than a dropdown that cannot switch anything. When several
  * department contexts are available it renders the selector. This is presentation only; the server
  * continues to authorize every request regardless of what is shown here.
+ *
+ * Canonical switch path:
+ * 1. POST /api/auth/active-department (HttpOnly cookie)
+ * 2. Navigate department-scoped URLs to match (Department Builder tab preserved)
+ * 3. Always router.refresh() so AppShell re-reads the cookie
  */
 export function DepartmentScopeSwitcher({
   departments,
@@ -32,10 +38,15 @@ export function DepartmentScopeSwitcher({
   isFacilityAdministrator,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const DeptIcon = AppIcons.facility;
   const presentation = departmentContextPresentation(departments.length);
+
+  const selectValue =
+    selectedDepartmentId === null && isFacilityAdministrator ? "" : selectedDepartmentId ?? "";
+  const [value, setOptimisticValue] = useOptimistic(selectValue);
 
   if (presentation === "hidden") {
     return null;
@@ -46,11 +57,11 @@ export function DepartmentScopeSwitcher({
     const only = departments[0];
     return (
       <div
-        className="flex w-[8.75rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[9.5rem] lg:w-[10.5rem]"
+        className="flex w-[6.5rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[8.5rem] lg:w-[10.5rem]"
         data-testid="department-context"
         data-department-context="single"
       >
-        <span className="sr-only lg:not-sr-only lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.12em] lg:text-zinc-500">
+        <span className="sr-only lg:not-sr-only lg:text-[11px] lg:font-semibold lg:uppercase lg:tracking-wider lg:text-zinc-500">
           Department
         </span>
         <div
@@ -64,10 +75,8 @@ export function DepartmentScopeSwitcher({
     );
   }
 
-  const selectValue =
-    selectedDepartmentId === null && isFacilityAdministrator ? "" : selectedDepartmentId ?? "";
-
   async function commit(departmentId: string) {
+    if (departmentId === selectValue) return;
     setError(null);
     const body = { departmentId: departmentId === "" ? "" : departmentId };
     const res = await fetch("/api/auth/active-department", {
@@ -80,23 +89,42 @@ export function DepartmentScopeSwitcher({
       setError(j?.error ?? "Could not update the department context.");
       return;
     }
-    startTransition(() => router.refresh());
+
+    const nextHref = hrefAfterActiveDepartmentChange({
+      nextDepartmentId: departmentId || null,
+      currentPathname: pathname ?? "",
+      currentSearch: typeof window !== "undefined" ? window.location.search : "",
+    });
+
+    startTransition(() => {
+      setOptimisticValue(departmentId);
+      if (nextHref) {
+        const current =
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search}`
+            : pathname ?? "";
+        if (nextHref !== current) {
+          router.push(nextHref);
+        }
+      }
+      router.refresh();
+    });
   }
 
   return (
     <div
-      className="flex w-[8.75rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[10rem] lg:w-[11.5rem]"
+      className="flex w-[6.75rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[9rem] lg:w-[11.5rem]"
       data-testid="department-context"
       data-department-context="multi"
     >
       <label
-        className="sr-only lg:not-sr-only lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.12em] lg:text-zinc-500"
+        className="sr-only lg:not-sr-only lg:text-[11px] lg:font-semibold lg:uppercase lg:tracking-wider lg:text-zinc-500"
         htmlFor="department-context-select"
       >
         Department
       </label>
       <div
-        className="flex min-h-10 items-stretch overflow-hidden rounded-md border border-zinc-300 bg-white shadow-sm focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-200"
+        className="flex min-h-10 items-stretch overflow-hidden rounded-md border border-zinc-300 bg-white focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-200"
         title={CONTEXT_HINT}
       >
         <span
@@ -109,7 +137,7 @@ export function DepartmentScopeSwitcher({
           id="department-context-select"
           className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1.5 py-1.5 text-sm text-zinc-800 focus:outline-none disabled:opacity-60 sm:px-2"
           disabled={pending}
-          value={selectValue}
+          value={value}
           onChange={(e) => void commit(e.target.value)}
           aria-describedby="department-context-hint"
           aria-label="Department"

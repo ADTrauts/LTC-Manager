@@ -16,6 +16,8 @@ import {
   loadFacilityTimezone,
   toServiceDateKey,
 } from "@/lib/operational-time";
+
+import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   describeAssignmentReferenceRejection,
   resolveAssignmentReferences,
@@ -42,7 +44,16 @@ import {
   replaceAssignmentLocations,
   resolveAssignmentLocationWrites,
 } from "@/lib/scheduling/operational-assignments/location-scope";
+
+import {
+  resolveDepartmentRoomUnitSpaceIdsFromFloorSelection,
+  resolveDepartmentRoomUnitSpaceIdsFromNeighborhoodSelection,
+} from "@/lib/scheduling/operational-assignments/location-scope/department-room-selection";
 import { loadZoneSpaceIds } from "@/lib/department-zones";
+import {
+  deriveDefaultRoleKeyForDepartmentJobRole,
+  deriveRoleLabelSnapshot,
+} from "@/lib/scheduling/operational-assignments/department-job-role-derivation";
 
 function parseUnitSpaceIds(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -71,7 +82,7 @@ const sourceValues = [
 const createSchema = z.object({
   employeeId: z.string().min(1),
   departmentId: z.string().min(1),
-  roleKey: z.string().min(1),
+  roleKey: z.string().min(1).optional(),
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   unitId: z.string().min(1).optional(),
   operationInstanceId: z.string().min(1).optional(),
@@ -149,7 +160,7 @@ export async function createAssignmentAction(formData: FormData) {
   const parsed = createSchema.parse({
     employeeId: formData.get("employeeId"),
     departmentId: formData.get("departmentId"),
-    roleKey: formData.get("roleKey"),
+    roleKey: opt(formData.get("roleKey")),
     serviceDate: formData.get("serviceDate"),
     unitId: opt(formData.get("unitId")),
     operationInstanceId: opt(formData.get("operationInstanceId")),
@@ -174,7 +185,7 @@ export async function createAssignmentAction(formData: FormData) {
     throw new Error("Unscheduled coverage and overrides require a reason.");
   }
 
-  const [employee, department, timezone] = await Promise.all([
+  const [employee, department, employeeJobRole, timezone] = await Promise.all([
     prisma.employee.findFirst({
       where: {
         id: parsed.employeeId,
@@ -187,16 +198,55 @@ export async function createAssignmentAction(formData: FormData) {
       where: { id: parsed.departmentId, facilityId: session.facilityId },
       select: { id: true, key: true },
     }),
+    prisma.employeeDepartmentJobRole.findFirst({
+      where: {
+        employeeId: parsed.employeeId,
+        departmentId: parsed.departmentId,
+        jobRole: { status: "ACTIVE" },
+      },
+      select: { jobRole: { select: { displayName: true, tier: true, status: true } } },
+    }),
     loadFacilityTimezone(prisma, session.facilityId),
   ]);
 
   if (!employee) throw new Error("Employee not found or inactive.");
   if (!department) throw new Error("Department not found.");
 
-  const roleDef = getRoleDefinition(parsed.roleKey);
-  if (!roleDef || !isRoleValidForDepartment(parsed.roleKey, department.key)) {
-    throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
+  const formRoleKey = parsed.roleKey;
+  let effectiveRoleKey: string;
+  let roleDef:
+    | ReturnType<typeof getRoleDefinition>
+    | {
+        // Keeps type widening predictable without importing prisma enums.
+        key: string;
+        label: string;
+        departmentKeys: string[];
+      };
+
+  if (formRoleKey) {
+    const found = getRoleDefinition(formRoleKey);
+    if (!found || !isRoleValidForDepartment(formRoleKey, department.key)) {
+      throw new Error(`Role "${formRoleKey}" is not valid for this department.`);
+    }
+    roleDef = found;
+    effectiveRoleKey = formRoleKey;
+  } else {
+    const derivedKey = deriveDefaultRoleKeyForDepartmentJobRole({
+      departmentKey: department.key,
+      tier: employeeJobRole?.jobRole.tier ?? null,
+    });
+    const found = getRoleDefinition(derivedKey);
+    if (!found || !isRoleValidForDepartment(derivedKey, department.key)) {
+      throw new Error(`Derived role "${derivedKey}" is not valid for this department.`);
+    }
+    roleDef = found;
+    effectiveRoleKey = derivedKey;
   }
+
+  const roleLabel = deriveRoleLabelSnapshot({
+    jobRoleDisplayName: employeeJobRole?.jobRole.displayName,
+    roleDefLabel: roleDef.label,
+  });
 
   const references = await resolveAssignmentReferences(prisma, {
     facilityId: session.facilityId,
@@ -210,20 +260,73 @@ export async function createAssignmentAction(formData: FormData) {
   }
 
   let unitSpaceIds = parseUnitSpaceIds(parsed.unitSpaceIds);
+  let unitIdForScope: string | null = parsed.unitId ?? null;
+
   if (unitSpaceIds.length === 0 && parsed.sourceZoneId) {
     unitSpaceIds = await loadZoneSpaceIds(prisma, {
       facilityId: session.facilityId,
       zoneId: parsed.sourceZoneId,
     });
   }
-  // Dietary and unit-wide EVS keep zero location rows.
+
+  // Non-EVS keeps unit-wide scope only (zero location rows).
   if (department.key !== "EVS") {
     unitSpaceIds = [];
   }
 
+  // EVS: if the manager selects a structural Floor / Neighborhood unit AND leaves Room/Space scope empty,
+  // resolve that selection into actual Department-operating Rooms.
+  if (department.key === "EVS" && unitSpaceIds.length === 0 && unitIdForScope && !parsed.sourceZoneId) {
+    const unitRow = await prisma.unit.findFirst({
+      where: { id: unitIdForScope, facilityId: session.facilityId, isActive: true },
+      select: { id: true, hierarchyRole: true },
+    });
+
+    if (unitRow?.hierarchyRole === "FLOOR") {
+      const facilityHierarchy = await loadFacilityHierarchy(session.facilityId);
+      const unitsTree = facilityHierarchy.units as unknown as Parameters<
+        typeof resolveDepartmentRoomUnitSpaceIdsFromFloorSelection
+      >[0]["units"];
+
+      unitSpaceIds = resolveDepartmentRoomUnitSpaceIdsFromFloorSelection({
+        departmentId: parsed.departmentId,
+        units: unitsTree,
+        floorUnitIds: [unitRow.id],
+      });
+      if (unitSpaceIds.length === 0) {
+        throw new Error("Selected Floor has no Department-operating Rooms.");
+      }
+      // Scope is now explicit rooms/spaces — do not persist the Floor as a unit-wide scope id.
+      unitIdForScope = null;
+    } else if (unitRow?.hierarchyRole === "NEIGHBORHOOD") {
+      const facilityHierarchy = await loadFacilityHierarchy(session.facilityId);
+      const unitsTree = facilityHierarchy.units as unknown as Parameters<
+        typeof resolveDepartmentRoomUnitSpaceIdsFromNeighborhoodSelection
+      >[0]["units"];
+
+      const resolved = resolveDepartmentRoomUnitSpaceIdsFromNeighborhoodSelection({
+        departmentId: parsed.departmentId,
+        units: unitsTree,
+        neighborhoodUnitId: unitRow.id,
+      });
+
+      if (resolved.unitWideSemantics) {
+        // Neighborhood is actionable but has no Rooms at all — preserve UNIT-scoped semantics.
+        unitSpaceIds = [];
+      } else {
+        if (resolved.roomUnitSpaceIds.length === 0) {
+          throw new Error("Selected Neighborhood has no Department-operating Rooms.");
+        }
+        unitSpaceIds = resolved.roomUnitSpaceIds;
+        unitIdForScope = null;
+      }
+    }
+  }
+
   const locationWrites = await resolveAssignmentLocationWrites(prisma, {
     facilityId: session.facilityId,
-    unitId: parsed.unitId,
+    departmentId: parsed.departmentId,
+    unitId: unitIdForScope,
     unitSpaceIds,
   });
 
@@ -261,13 +364,13 @@ export async function createAssignmentAction(formData: FormData) {
       endsAt,
     });
 
-    if (department.key === "EVS" && (locationWrites.length > 0 || parsed.unitId)) {
+    if (department.key === "EVS" && (locationWrites.length > 0 || unitIdForScope)) {
       await assertNoLocationResponsibilityOverlaps(tx, {
         facilityId: session.facilityId,
         departmentId: parsed.departmentId,
         serviceDate,
         employeeId: parsed.employeeId,
-        unitId: parsed.unitId ?? null,
+        unitId: unitIdForScope,
         unitSpaceIds: locationWrites.map((l) => l.unitSpaceId),
         startsAt,
         endsAt,
@@ -281,9 +384,9 @@ export async function createAssignmentAction(formData: FormData) {
         planId: plan.id,
         employeeId: parsed.employeeId,
         serviceDate,
-        roleKey: parsed.roleKey,
-        roleLabel: roleDef.label,
-        unitId: parsed.unitId ?? null,
+        roleKey: effectiveRoleKey,
+        roleLabel,
+        unitId: unitIdForScope,
         sourceZoneId: department.key === "EVS" ? parsed.sourceZoneId ?? null : null,
         operationInstanceId: parsed.operationInstanceId ?? null,
         startsAt,
@@ -312,7 +415,7 @@ export async function createAssignmentAction(formData: FormData) {
       facilityId: session.facilityId,
       departmentId: parsed.departmentId,
       employeeId: parsed.employeeId,
-      unitId: parsed.unitId ?? null,
+      unitId: unitIdForScope,
       serviceDate,
       eventType: "CREATED",
       actorUserId,
@@ -321,11 +424,11 @@ export async function createAssignmentAction(formData: FormData) {
       toStatus: "PLANNED",
       summary:
         locationWrites.length > 0
-          ? `Assignment created: ${roleDef.label} · ${locationWrites.length} Rooms/Spaces`
-          : `Assignment created: ${roleDef.label}`,
+          ? `Assignment created: ${roleLabel} · ${locationWrites.length} Rooms/Spaces`
+          : `Assignment created: ${roleLabel}`,
       reason: parsed.changeReason ?? null,
       newValuesJson: JSON.stringify({
-        unitId: parsed.unitId ?? null,
+        unitId: unitIdForScope,
         sourceZoneId: parsed.sourceZoneId ?? null,
         unitSpaceIds: locationWrites.map((l) => l.unitSpaceId),
         locationCount: locationWrites.length,
@@ -400,9 +503,7 @@ export async function editAssignmentAction(formData: FormData) {
     if (!isRoleValidForDepartment(parsed.roleKey, assignment.department.key)) {
       throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
     }
-    const roleDef = getRoleDefinition(parsed.roleKey);
     data.roleKey = parsed.roleKey;
-    data.roleLabel = roleDef?.label ?? parsed.roleKey;
   }
 
   const nextUnitId = parsed.unitId !== undefined ? parsed.unitId || null : assignment.unitId;
@@ -443,6 +544,7 @@ export async function editAssignmentAction(formData: FormData) {
   if (parsed.unitSpaceIds !== undefined && assignment.department.key === "EVS") {
     locationWrites = await resolveAssignmentLocationWrites(prisma, {
       facilityId: session.facilityId,
+      departmentId: assignment.departmentId,
       unitId: nextUnitId,
       unitSpaceIds: parseUnitSpaceIds(parsed.unitSpaceIds),
     });
@@ -587,7 +689,7 @@ export async function reassignAction(formData: FormData) {
   const parsed = createSchema.parse({
     employeeId: formData.get("employeeId"),
     departmentId: formData.get("departmentId"),
-    roleKey: formData.get("roleKey"),
+    roleKey: opt(formData.get("roleKey")),
     serviceDate: formData.get("serviceDate"),
     unitId: opt(formData.get("unitId")),
     operationInstanceId: opt(formData.get("operationInstanceId")),

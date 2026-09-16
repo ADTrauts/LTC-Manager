@@ -4,18 +4,33 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isDepartmentOperationalCyclesEnabled } from "@/lib/department-operations";
 import {
   createDraft,
+  deleteDraft,
+  discardAllDrafts,
   duplicateCycle,
+  formatServiceDateLong,
   generateDietaryDefaultsDrafts,
   generateEvsDefaultsDrafts,
+  nextOperationalDayKey,
   publishCycle,
   reorderDrafts,
+  applyDraftTreeMove,
   retireCycle,
+  scheduleDraftPublications,
   updateDraft,
   type CycleActor,
 } from "@/lib/operational-cycles";
+import {
+  locationModeFromUserScope,
+  parseServiceStartTimesField,
+  type CycleUserScope,
+} from "@/lib/operational-cycles/cycle-scope";
+import {
+  getFacilityServiceDate,
+  loadFacilityTimezone,
+  toServiceDateKey,
+} from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 export type CycleActionResult =
@@ -36,6 +51,7 @@ const locationModeSchema = z.enum([
   "ALL_DEPARTMENT_UNITS",
   "UNIT_TYPES",
   "EXPLICIT_UNITS",
+  "ROOM_TYPE",
 ]);
 
 const milestoneSchema = z.enum(["READY", "SERVICE_STARTED"]);
@@ -66,13 +82,9 @@ function actorFromSession(session: {
 }
 
 async function requireCyclesFeature(departmentId: string): Promise<void> {
-  const dept = await prisma.department.findFirst({
-    where: { id: departmentId, isActive: true },
-    select: { key: true },
-  });
-  if (!isDepartmentOperationalCyclesEnabled(dept?.key)) {
-    throw new Error("Operational Cycles are not enabled for this department.");
-  }
+  // Build authoring/schedule authority is enforced in cycle-service via resolveCycleAuthority.
+  // Runtime rollout flags must not block Draft/Publish safety in Department Builder.
+  void departmentId;
 }
 
 function revalidateCycles(departmentId: string) {
@@ -116,12 +128,60 @@ function parseCsvEnums<T extends string>(
     .filter((part): part is T => set.has(part as T));
 }
 
-function parseDraftFromForm(formData: FormData) {
-  const mealRaw = String(formData.get("mealType") ?? "").trim();
-  const locationMode = locationModeSchema.parse(
+function parseLocationMode(formData: FormData) {
+  const appliesTo = String(formData.get("appliesTo") ?? "").trim();
+  if (appliesTo === "department" || appliesTo === "room_type" || appliesTo === "specific") {
+    return locationModeFromUserScope(appliesTo as CycleUserScope);
+  }
+  return locationModeSchema.parse(
     String(formData.get("locationMode") ?? "ALL_DEPARTMENT_UNITS"),
   );
+}
+
+function parseIdList(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  return raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+function parseKeyTimeGroups(raw: FormDataEntryValue | null): Array<{ dueLocal: string; spaceIds: string[] }> {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const dueLocal = String((item as { dueLocal?: string }).dueLocal ?? "").trim();
+        const spaceIds = Array.isArray((item as { spaceIds?: unknown }).spaceIds)
+          ? (item as { spaceIds: unknown[] }).spaceIds.map((id) => String(id).trim()).filter(Boolean)
+          : [];
+        if (!dueLocal) return null;
+        return { dueLocal, spaceIds };
+      })
+      .filter((item): item is { dueLocal: string; spaceIds: string[] } => Boolean(item));
+  } catch {
+    return [];
+  }
+}
+
+function parseDraftFromForm(formData: FormData) {
+  const mealRaw = String(formData.get("mealType") ?? "").trim();
+  const nodeKind = z.enum(["PERIOD", "KEY_TIME"]).parse(
+    String(formData.get("nodeKind") ?? "PERIOD"),
+  );
+  const locationInheritFromParent = String(formData.get("locationInheritFromParent") ?? "") === "true";
+  const locationMode = parseLocationMode(formData);
   const displaySequenceRaw = String(formData.get("displaySequence") ?? "").trim();
+
+  const parseOptionalTime = (raw: FormDataEntryValue | null): string | null => {
+    const value = String(raw ?? "").trim();
+    if (!value) return null;
+    const normalized = value.replace(/^(\d{1,2}:\d{2})(:\d{2})?$/, "$1");
+    return z.string().regex(/^\d{1,2}:\d{2}$/).parse(normalized);
+  };
 
   return {
     label: z.string().min(1).max(120).parse(String(formData.get("label") ?? "").trim()),
@@ -130,17 +190,12 @@ function parseDraftFromForm(formData: FormData) {
       return value || null;
     })(),
     cycleType: cycleTypeSchema.parse(String(formData.get("cycleType") ?? "")),
+    nodeKind,
     displaySequence: displaySequenceRaw
       ? z.coerce.number().int().min(0).max(10_000).parse(displaySequenceRaw)
       : undefined,
-    startLocal: z
-      .string()
-      .regex(/^\d{1,2}:\d{2}$/)
-      .parse(String(formData.get("startLocal") ?? "").trim()),
-    endLocal: z
-      .string()
-      .regex(/^\d{1,2}:\d{2}$/)
-      .parse(String(formData.get("endLocal") ?? "").trim()),
+    startLocal: nodeKind === "KEY_TIME" ? null : parseOptionalTime(formData.get("startLocal")),
+    endLocal: nodeKind === "KEY_TIME" ? null : parseOptionalTime(formData.get("endLocal")),
     overnight: String(formData.get("overnight") ?? "") === "true",
     applicableDaysOfWeek: parseDaysOfWeek(formData.get("applicableDaysOfWeek")),
     effectiveFrom: z
@@ -153,7 +208,12 @@ function parseDraftFromForm(formData: FormData) {
       return z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(value);
     })(),
     mealType: mealRaw ? mealTypeSchema.parse(mealRaw) : null,
-    locationMode,
+    parentStableKey: (() => {
+      const raw = String(formData.get("parentStableKey") ?? "").trim();
+      return raw || null;
+    })(),
+    locationMode: locationInheritFromParent ? "EXPLICIT_UNITS" : locationMode,
+    locationInheritFromParent,
     applicableUnitTypes:
       locationMode === "UNIT_TYPES"
         ? parseCsvEnums(
@@ -162,15 +222,24 @@ function parseDraftFromForm(formData: FormData) {
           )
         : [],
     unitIds:
-      locationMode === "EXPLICIT_UNITS"
-        ? String(formData.get("unitIds") ?? "")
-            .split(",")
-            .map((id) => id.trim())
-            .filter(Boolean)
+      locationMode === "EXPLICIT_UNITS" && !locationInheritFromParent
+        ? parseIdList(formData.get("unitIds"))
         : [],
+    spaceIds:
+      locationMode === "EXPLICIT_UNITS" && !locationInheritFromParent
+        ? parseIdList(formData.get("spaceIds"))
+        : [],
+    keyTimeGroups: nodeKind === "KEY_TIME" ? parseKeyTimeGroups(formData.get("keyTimeGroups")) : [],
+    roomTypeKey:
+      locationMode === "ROOM_TYPE"
+        ? String(formData.get("roomTypeKey") ?? "").trim() || null
+        : null,
     expectedMilestones: parseCsvEnums(
       formData.get("expectedMilestones"),
       milestoneSchema.options as unknown as readonly z.infer<typeof milestoneSchema>[],
+    ),
+    milestoneTimes: parseServiceStartTimesField(
+      String(formData.get("serviceStartTimes") ?? ""),
     ),
   };
 }
@@ -290,6 +359,32 @@ export async function reorderCycleDraftsAction(formData: FormData): Promise<Cycl
   }
 }
 
+export async function moveCycleTreeAction(formData: FormData): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const activeId = z.string().cuid().parse(formData.get("activeId"));
+    const overId = z.string().cuid().parse(formData.get("overId"));
+    const placement = z.enum(["before", "after", "inside"]).parse(
+      String(formData.get("placement") ?? "after"),
+    );
+    const result = await applyDraftTreeMove(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      activeId,
+      overId,
+      placement,
+      actor: actorFromSession(session),
+    });
+    revalidateCycles(departmentId);
+    return { ok: true, message: result.summary };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+
 export async function publishCycleAction(formData: FormData): Promise<CycleActionResult> {
   try {
     const session = await requireFacilitySession();
@@ -304,7 +399,129 @@ export async function publishCycleAction(formData: FormData): Promise<CycleActio
       actor: actorFromSession(session),
     });
     revalidateCycles(departmentId);
-    return { ok: true, message: `Published “${published.label}”.`, cycleId: published.id };
+    return {
+      ok: true,
+      message: `Scheduled “${published.label}” (effective ${String(formData.get("effectiveFrom") ?? "").trim() || "per draft date"}).`,
+      cycleId: published.id,
+    };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+
+/** Schedules every latest draft. Publish validation loads Key Time groups in cycle-service. */
+export async function scheduleCycleChangesAction(formData: FormData): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+
+    const mode = z.enum(["next_operational_day", "immediate", "choose_date"]).parse(
+      String(formData.get("activationMode") ?? "next_operational_day"),
+    );
+    const timezone = await loadFacilityTimezone(prisma, session.facilityId);
+    const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
+    const nextDay = nextOperationalDayKey(todayKey);
+
+    let effectiveFrom = nextDay;
+    let allowImmediate = false;
+    if (mode === "immediate") {
+      if (process.env.NODE_ENV === "production") {
+        return {
+          ok: false,
+          message: "Immediate publish is only available in development/test environments.",
+        };
+      }
+      if (String(formData.get("confirmImmediate") ?? "") !== "1") {
+        return {
+          ok: false,
+          message: "Confirm that today’s Run should switch immediately before publishing today.",
+        };
+      }
+      effectiveFrom = todayKey;
+      allowImmediate = true;
+    } else if (mode === "choose_date") {
+      effectiveFrom = z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .parse(String(formData.get("effectiveFrom") ?? "").trim());
+      // Choosing today's date explicitly is same-day activation.
+      if (effectiveFrom === todayKey) {
+        allowImmediate = true;
+      }
+    }
+
+    const result = await scheduleDraftPublications(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      effectiveFrom,
+      allowImmediate,
+      actor: actorFromSession(session),
+    });
+    revalidateCycles(departmentId);
+    if (result.publishedIds.length === 0) {
+      return { ok: true, message: "No draft changes to publish." };
+    }
+    return {
+      ok: true,
+      message:
+        allowImmediate && effectiveFrom === todayKey
+          ? `Published ${result.publishedIds.length} cycle change(s) effective today (${formatServiceDateLong(result.effectiveFrom)}). Run is using this configuration now.`
+          : `Scheduled ${result.publishedIds.length} cycle change(s) effective ${formatServiceDateLong(result.effectiveFrom)}.`,
+    };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+
+export async function deleteCycleDraftAction(formData: FormData): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    const cycleId = z.string().cuid().parse(formData.get("cycleId"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const deleted = await deleteDraft(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      cycleId,
+      actor: actorFromSession(session),
+    });
+    revalidateCycles(departmentId);
+    const extra =
+      deleted.deletedCount > 1
+        ? ` Removed ${deleted.deletedCount} draft items including nested phases and key times.`
+        : "";
+    return {
+      ok: true,
+      message: `Deleted “${deleted.label}”.${extra}`,
+      cycleId: deleted.id,
+    };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+
+export async function discardAllCycleDraftsAction(formData: FormData): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const result = await discardAllDrafts(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      actor: actorFromSession(session),
+    });
+    revalidateCycles(departmentId);
+    return {
+      ok: true,
+      message:
+        result.deletedCount === 0
+          ? "No draft changes to discard."
+          : `Discarded ${result.deletedCount} draft change${result.deletedCount === 1 ? "" : "s"}. Current configuration is unchanged.`,
+    };
   } catch (error) {
     return toErrors(error);
   }
@@ -351,7 +568,10 @@ export async function generateDietaryDefaultsAction(
     revalidateCycles(departmentId);
     return {
       ok: true,
-      message: `Created ${created.length} Dietary default drafts for review.`,
+      message:
+        created.length === 0
+          ? "Dietary starter cycles already exist for this department."
+          : `Added Dietary starter (${created.length} draft cycles) for review.`,
     };
   } catch (error) {
     return toErrors(error);
@@ -379,7 +599,10 @@ export async function generateEvsDefaultsAction(
     revalidateCycles(departmentId);
     return {
       ok: true,
-      message: `Created ${created.length} EVS default drafts for review.`,
+      message:
+        created.length === 0
+          ? "All EVS defaults already exist as drafts or published cycles."
+          : `Added ${created.length} EVS default draft(s) for review.`,
     };
   } catch (error) {
     return toErrors(error);

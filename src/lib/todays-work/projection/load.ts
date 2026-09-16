@@ -18,11 +18,16 @@ import type {
 import { loadCallDownList } from "../load-call-down-list";
 import { loadCoverageList } from "../load-coverage-list";
 import { loadHandoffs } from "../load-handoffs";
-import { loadWalkList } from "../load-walk-list";
 import type { CallDownData } from "../call-down";
 import type { CoverageData } from "../coverage-list";
 import type { HandoffData } from "../handoffs";
 import type { WalkListData } from "../walk-list";
+import {
+  loadOperatingLocationBoard,
+  loadedBoardToWalkList,
+  type OperatingLocationBoard,
+} from "../operating-locations";
+import type { ViewerTeamScope } from "../viewer-team-scope";
 
 import { adaptProjectionToTodaysWork } from "./adapt-projection";
 import {
@@ -30,7 +35,6 @@ import {
   filterCallDownsToProjectedUnits,
   filterCoverageToProjectedUnits,
   filterHandoffsToProjectedUnits,
-  filterWalkListToProjectedUnits,
   type ExperienceWalkContribution,
 } from "./assemble";
 import type { TodaysWorkProjectionView } from "./types";
@@ -42,6 +46,7 @@ export type LoadTodaysWorkProjectionOptions = Omit<
   db?: ProjectionSourceLoadDb;
   memo?: ProjectionRuntimeMemo<ProjectionRuntimeResult>;
   activeDepartmentKey?: OperationalDepartmentKey | null;
+  activeDepartmentId?: string | null;
 };
 
 export type LoadTodaysWorkProjectionResult = {
@@ -54,9 +59,11 @@ export type LoadTodaysWorkProjectionResult = {
 export type AssembledTodaysWork = {
   projection: TodaysWorkProjectionView;
   walk: WalkListData;
+  board: OperatingLocationBoard;
   callDowns: CallDownData;
   experienceContributions: ExperienceWalkContribution[];
   error: string | null;
+  teamScope: ViewerTeamScope | null;
 };
 
 export type AssembledTodaysWorkCoverage = {
@@ -147,19 +154,17 @@ export async function assembleProjectedTodaysWorkHub(
   }
 
   const facilityId = session.facilityId;
-  const [walkRaw, callDownsRaw] = await Promise.all([
-    loadWalkList(facilityId, {
-      activeDepartmentKey: options.activeDepartmentKey ?? null,
+  const [operating, callDownsRaw] = await Promise.all([
+    loadOperatingLocationBoard(facilityId, {
+      session,
+      memo: options.memo,
+      activeDepartmentKey: options.activeDepartmentKey,
+      activeDepartmentId: options.activeDepartmentId,
     }),
     loadCallDownList(facilityId),
   ]);
 
-  const walk = filterWalkListToProjectedUnits(
-    walkRaw,
-    loaded.view.actionableUnitIds.length > 0
-      ? loaded.view.actionableUnitIds
-      : loaded.view.projectedUnitIds,
-  );
+  const walk = loadedBoardToWalkList(operating);
   const callDowns = filterCallDownsToProjectedUnits(
     callDownsRaw,
     loaded.view.projectedUnitIds,
@@ -172,9 +177,11 @@ export async function assembleProjectedTodaysWorkHub(
   return {
     projection: loaded.view,
     walk,
+    board: operating.board,
     callDowns,
     experienceContributions,
     error: null,
+    teamScope: operating.teamScope,
   };
 }
 
@@ -184,7 +191,14 @@ export async function assembleProjectedTodaysWorkWalk(
 ): Promise<
   | { enabled: false }
   | { enabled: true; error: string }
-  | { enabled: true; projection: TodaysWorkProjectionView; walk: WalkListData; error: null }
+  | {
+      enabled: true;
+      projection: TodaysWorkProjectionView;
+      walk: WalkListData;
+      board: OperatingLocationBoard;
+      error: null;
+      teamScope: ViewerTeamScope | null;
+    }
 > {
   const loaded = await loadTodaysWorkProjection(session, options);
   if (!loaded.enabled) return { enabled: false };
@@ -192,16 +206,20 @@ export async function assembleProjectedTodaysWorkWalk(
     return { enabled: true, error: loaded.error ?? "Projection unavailable" };
   }
 
-  const walkRaw = await loadWalkList(session.facilityId, {
+  const operating = await loadOperatingLocationBoard(session.facilityId, {
+    session,
+    memo: options.memo,
     activeDepartmentKey: options.activeDepartmentKey,
+    activeDepartmentId: options.activeDepartmentId,
   });
-  const walk = filterWalkListToProjectedUnits(
-    walkRaw,
-    loaded.view.actionableUnitIds.length > 0
-      ? loaded.view.actionableUnitIds
-      : loaded.view.projectedUnitIds,
-  );
-  return { enabled: true, projection: loaded.view, walk, error: null };
+  return {
+    enabled: true,
+    projection: loaded.view,
+    walk: loadedBoardToWalkList(operating),
+    board: { ...operating.board, locations: operating.walkLocations },
+    error: null,
+    teamScope: operating.teamScope,
+  };
 }
 
 export async function assembleProjectedTodaysWorkCoverage(
@@ -247,6 +265,7 @@ export async function assembleProjectedTodaysWorkHandoffs(
 
   const handoffsRaw = await loadHandoffs(session.facilityId, {
     activeDepartmentKey: options.activeDepartmentKey,
+    session,
   });
   const handoffs = filterHandoffsToProjectedUnits(
     handoffsRaw,

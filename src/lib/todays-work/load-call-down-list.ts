@@ -66,7 +66,7 @@ export async function loadCallDownList(facilityId: string): Promise<CallDownData
   });
   const scopedQueries = applyOperationScopedFacilityQueries(queries, activeOperation);
   const dashboard = buildDashboardAggregates({ ...scopedQueries, now, facilityTimezone });
-  const scheduleRows = schedules.map((entry) => ({
+  const scheduleRows: import("./coverage-list").CoverageScheduleEntry[] = schedules.map((entry) => ({
     employeeId: entry.employeeId,
     unitId: entry.unitId,
     shift: entry.shift,

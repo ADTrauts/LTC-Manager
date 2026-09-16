@@ -2,7 +2,7 @@ import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { loadCallDownList } from "@/lib/todays-work/load-call-down-list";
 import { applyOperationScopedFacilityQueries } from "@/lib/operations/apply-operation-scoped-facility-queries";
 import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
-import { getFacilityLocalTodayWindow, loadFacilityTimezone } from "@/lib/operational-time";
+import { getFacilityLocalTodayWindow, getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import {
   buildSitePulseFromReadinessSummary,
   computeReadinessBatch,
@@ -83,10 +83,81 @@ export async function loadOperationsCenterDashboard(
     sitePulse = buildSitePulseFromReadinessSummary(readiness.summary);
   }
 
+  let keyTimeSummaries: OperationsCenterDashboardData["keyTimeSummaries"] = [];
+  let runPresentation: OperationsCenterDashboardData["runPresentation"] = null;
+  try {
+    const departments = await prisma.department.findMany({
+      where: { facilityId, isActive: true },
+      select: { id: true, key: true },
+    });
+    const { materializeKeyTimeDayExpectations } = await import(
+      "@/lib/operational-cycles/materialize-key-time-day-expectations"
+    );
+    const { loadPublishedCyclesWithKeyTimesForDate } = await import(
+      "@/lib/operational-cycles/load-published-cycles"
+    );
+    const { localHhMmFromInstant } = await import(
+      "@/lib/operational-cycles/key-time-day-expectation"
+    );
+    const { presentDepartmentRunOperation } = await import(
+      "@/lib/operational-cycles/present-run-operation"
+    );
+    const nowLocal = localHhMmFromInstant(now, facilityTimezone ?? "UTC");
+    const operationalDateKey = toServiceDateKey(
+      getFacilityServiceDate(facilityTimezone ?? "UTC", now),
+    );
+    for (const department of departments) {
+      const [cycles, materialized] = await Promise.all([
+        loadPublishedCyclesWithKeyTimesForDate(
+          facilityId,
+          department.id,
+          operationalDateKey,
+        ),
+        materializeKeyTimeDayExpectations({
+          facilityId,
+          departmentId: department.id,
+          now,
+        }),
+      ]);
+      const matchesActive =
+        !options?.activeDepartmentKey || department.key === options.activeDepartmentKey;
+      if (matchesActive && !runPresentation) {
+        const presented = presentDepartmentRunOperation({
+          cycles,
+          timings: materialized.timings,
+          now,
+          facilityTimezone: facilityTimezone ?? "UTC",
+          operationalDateKey,
+          nowLocalHhMm: nowLocal,
+        });
+        if (presented.provenance === "NEW_PERIOD_KEY_TIME") {
+          runPresentation = presented;
+        }
+      }
+    }
+    if (runPresentation) {
+      keyTimeSummaries = runPresentation.keyTimeSummaries.map((group) => ({
+        cycleLabel: group.label,
+        parentCycleLabel: null,
+        displayPath: group.label,
+        expectedToday: group.dueLabel,
+        total: group.total,
+        completed: group.completed,
+        overdue: group.overdue,
+      }));
+    }
+  } catch (error) {
+    console.warn("[dashboard] key time summaries skipped:", error);
+    keyTimeSummaries = [];
+    runPresentation = null;
+  }
+
   return {
     ...dashboard,
     operationContext: activeOperation.operationContext,
     sitePulse,
     callDowns,
+    keyTimeSummaries,
+    runPresentation,
   };
 }

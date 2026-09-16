@@ -35,8 +35,8 @@ export function ArchetypesPanel({ view }: Props) {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Room Archetypes"
-        description="Operational templates for categories of room. Physical rooms are mapped on the Rooms tab."
+        title="Operational Patterns"
+        description="Shared operating patterns for location kinds. Assign locations on the Locations tab."
       />
       {!editable ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">

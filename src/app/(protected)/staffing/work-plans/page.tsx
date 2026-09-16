@@ -4,10 +4,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { WorkPlanBuilderPanel } from "@/components/department-work/work-plan-builder-panel";
-import { PageHeader } from "@/components/design-system";
+import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { buildPageIntro } from "@/lib/build-hub";
 import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
@@ -48,8 +49,8 @@ export default async function WorkPlanBuilderPage({
 
   if (!department) {
     return (
-      <section className="mx-auto max-w-5xl space-y-4">
-        <PageHeader title="Work Plans" subtitle="No operational department found." compact />
+      <section className="mx-auto max-w-5xl space-y-3">
+        <BuildPageHeader title="Work Plans" subtitle="No operational department found." />
       </section>
     );
   }
@@ -57,11 +58,10 @@ export default async function WorkPlanBuilderPage({
   const authority = await resolveWorkAuthority(session, session.facilityId, department.id);
   if (!authority.canViewDepartment && !authority.canManage) {
     return (
-      <section className="mx-auto max-w-5xl space-y-4" data-testid="work-plan-builder-denied">
-        <PageHeader
+      <section className="mx-auto max-w-5xl space-y-3" data-testid="work-plan-builder-denied">
+        <BuildPageHeader
           title="Work Plans"
           subtitle={authority.reason ?? "Insufficient authority for Work Plans."}
-          compact
         />
       </section>
     );
@@ -161,22 +161,21 @@ export default async function WorkPlanBuilderPage({
   }));
 
   return (
-    <section className="mx-auto max-w-6xl space-y-4" data-testid="work-plan-builder-page">
-      <PageHeader
+    <section className="mx-auto max-w-6xl space-y-3" data-testid="work-plan-builder-page">
+      <BuildPageHeader
         title="Work Plans"
-        subtitle={`Configure ${department.name} Work Plans. Publish creates an immutable version. Viewing a Procedure never completes Work.`}
-        compact
+        subtitle={`${department.name} — ${buildPageIntro("/staffing/work-plans")}`}
+        actions={
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link href="/staffing/templates" className="underline-offset-2 hover:underline">
+              Operational Templates
+            </Link>
+            <Link href="/staffing/cycles" className="underline-offset-2 hover:underline">
+              Cycles
+            </Link>
+          </div>
+        }
       />
-      <p className="text-sm text-slate-600">
-        Related:{" "}
-        <Link href="/staffing/templates" className="underline">
-          Operational Templates
-        </Link>{" "}
-        ·{" "}
-        <Link href="/staffing/cycles" className="underline">
-          Cycles
-        </Link>
-      </p>
       <WorkPlanBuilderPanel
         key={params.plan ?? "work-plan-builder"}
         facilityId={session.facilityId}

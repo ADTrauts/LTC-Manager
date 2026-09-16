@@ -16,6 +16,7 @@ test("buildDashboardAggregates computes unit log and staffing totals", () => {
         id: "unit-1",
         name: "4A Servery",
         unitType: UnitType.SERVERY,
+        parentUnitId: null,
         mealTimes: [{ mealType: MealType.BREAKFAST, scheduledTime: "07:30" }],
         departmentResponsibilities: [{ department: { key: "DIETARY" } }],
       },

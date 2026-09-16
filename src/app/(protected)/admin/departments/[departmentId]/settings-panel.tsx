@@ -14,7 +14,7 @@ export function SettingsPanel({ view }: Props) {
     <div className="space-y-6">
       <SectionHeader
         title="Settings"
-        description="Profile identity and links. Facility Builder remains the owner of physical rooms."
+        description="Department identity. Facility Builder owns physical structure and responsibility."
       />
 
       <AppCard title="Department">
@@ -71,10 +71,10 @@ export function SettingsPanel({ view }: Props) {
         <ul className="space-y-2 text-sm">
           <li>
             <Link
-              href="/admin/departments"
+              href="/admin/departments?all=1"
               className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
-              Department visibility & heads
+              All departments (visibility & heads)
             </Link>
           </li>
           <li>

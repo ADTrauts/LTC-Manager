@@ -51,7 +51,7 @@ test("normalizePrimaryNavLabel maps module labels to product-facing names", () =
   // `/dashboard` is the retired Operations Center route; it now reads as the canonical Dashboard.
   assert.equal(normalizePrimaryNavLabel("/dashboard", "Dashboard"), "Dashboard");
   assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Dashboard");
-  assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Employees");
+  assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Schedule");
   assert.equal(normalizePrimaryNavLabel("/reports", "Reports"), "Review");
   assert.equal(normalizePrimaryNavLabel("/units", "Units"), "Locations");
   assert.equal(normalizePrimaryNavLabel("/admin", "Admin"), "Admin");

@@ -1,27 +1,25 @@
 import type { RoleKey } from "@prisma/client";
 
-import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
-
-/** Audit field written when a role change removes an Employee's Quick PIN. */
+/** Audit field written when an Employee's Quick PIN digest is cleared. */
 export const PIN_INVALIDATION_FIELD_KEY = "employee.pinDigest";
 
 /**
  * Whether a pending role change must drop the Employee's Quick PIN.
  *
- * A PIN issued while an Employee was PIN-eligible must not survive promotion into a role that
- * signs in with email and password, so the same write that raises the role clears the digest.
- * Returns false when there is nothing to clear, so callers do not emit an empty audit entry.
+ * Email/password and PIN are independent authentication methods. Promoting into a
+ * password-required platform authority must not clear an existing PIN.
+ * Always returns false; retained so call sites compile without behavior change elsewhere.
  */
-export function roleChangeInvalidatesPin(args: {
+export function roleChangeInvalidatesPin(_args: {
   nextRoleType: RoleKey;
   currentPinDigest: string | null;
 }): boolean {
-  return args.currentPinDigest !== null && !mayAuthenticateWithQuickPin(args.nextRoleType);
+  return false;
 }
 
 /**
- * Audit payload recording that credential eligibility changed. Records only that a PIN existed
- * and was removed — never the digest or the PIN itself.
+ * Audit payload recording that a PIN was removed — never the digest or the PIN itself.
+ * Retained for callers that still clear PIN explicitly (e.g. Clear PIN action).
  */
 export function pinInvalidationAuditValues(nextRoleType: RoleKey): {
   fieldKey: string;
@@ -31,6 +29,6 @@ export function pinInvalidationAuditValues(nextRoleType: RoleKey): {
   return {
     fieldKey: PIN_INVALIDATION_FIELD_KEY,
     oldValue: "set",
-    newValue: `unset (role now requires email/password: ${nextRoleType})`,
+    newValue: `unset (role change noted: ${nextRoleType})`,
   };
 }

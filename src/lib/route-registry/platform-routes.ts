@@ -32,14 +32,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Hosts both email/password sign-in and Quick PIN sign-in.",
   },
   {
-    pattern: "/design-lab/locked",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "PUBLIC" },
-    module: "marketing",
-    notes: "Temporary public preview for locked Run/Build accent contract; remove after visual QA.",
-  },
-  {
     pattern: "/signup",
     match: "EXACT",
     surface: "PAGE",
@@ -153,9 +145,18 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
     legacyArea: { key: "staffing", label: "Today's Work", navOrder: 50, navVisible: false, critical: false },
-    // RUN · Employees — today's workforce operations (schedule / attendance / assignments / coverage).
-    // Workforce configuration (person, employment, role) lives in BUILD Employee Builder (/employees).
-    nav: { label: "Employees", order: 40 },
+    // RUN · Schedule — Department-scoped clock-time Shifts (presence).
+    // Daily Assignments live at /staffing/assignments. Legacy Unit/meal grid: /staffing/legacy.
+    // Workforce configuration lives in BUILD Employee Builder (/employees).
+    nav: { label: "Schedule", order: 40 },
+  },
+  {
+    pattern: "/staffing/legacy",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes: "Legacy Unit/meal ScheduleEntry grid. Prefer /staffing Department Scheduler.",
   },
   {
     pattern: "/staffing/assignments",
@@ -189,10 +190,69 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
     featureFlag: "DIETARY_OPERATIONAL_EVIDENCE",
-    // BUILD · Operational Templates — the authoritative unified LOG / CHECKLIST / INSPECTION builder.
-    nav: { label: "Operational Templates", order: 240 },
+    // BUILD · Operational Templates — Phase 9C compatibility surface (not Canonical Catalog UI).
+    nav: { label: "Operational Templates", order: 245 },
     notes:
-      "Unified Operational Template Builder (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
+      "Unified Operational Template Builder (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED. Not the facility Canonical Logs Catalog.",
+  },
+  {
+    pattern: "/build/logs",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
+    // BUILD · Logs — Catalog browse + Attachments index (Phase 4A).
+    nav: { label: "Logs", order: 236 },
+    notes: "Canonical Logs Catalog and Attachments. Page enforces CANONICAL_LOGS_ENABLED.",
+  },
+  {
+    pattern: "/build/logs/catalog/[stableKey]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/build/logs/attach",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/build/logs/attachments/[attachmentId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/build/logs/targets/asset/[assetId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/build/logs/targets/space/[spaceId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/build/logs/targets/unit/[unitId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "build",
+    featureFlag: "CANONICAL_LOGS",
   },
   {
     pattern: "/staffing/work-plans",
@@ -236,6 +296,42 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "staffing",
     notes: "Evidence record detail / printable view (Phase 9C).",
   },
+  {
+    pattern: "/staffing/logs",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+    // RUN · Logs — canonical today's requirements (Phase 4B). Temporary path while legacy /logs remains.
+    nav: { label: "Logs", order: 55 },
+    notes:
+      "Canonical RUN Logs for Attachment-derived requirements. Page enforces CANONICAL_LOGS_ENABLED.",
+  },
+  {
+    pattern: "/staffing/logs/open",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/staffing/logs/adhoc/[attachmentId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/staffing/logs/records/[recordId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+  },
 
   // ── Locations ─────────────────────────────────────────────────────────────
   {
@@ -269,6 +365,13 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // BUILD · Employee Builder — workforce configuration (person, employment, department, job role, HR).
     // Today's staffing/attendance/assignments live in RUN Employees (/staffing).
     nav: { label: "Employee Builder", order: 230 },
+  },
+  {
+    pattern: "/employees/job-roles",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "employees",
   },
   {
     pattern: "/employees/chrc-report",
@@ -321,9 +424,11 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "logs",
     legacyArea: { key: "logs", label: "Logs", navOrder: 40, navVisible: true, critical: false },
-    // RUN · Logs — frontline STAFF logging surface (kept; see Legacy Surface Register for its
-    // relationship to the Operational Evidence Log Book).
+    // RUN · Logs — frontline STAFF logging surface (legacy LogTemplate path).
+    // When CANONICAL_LOGS_ENABLED, shell remaps this nav label to "Legacy Logs".
     nav: { label: "Logs", order: 70 },
+    notes:
+      "Legacy LogTemplate / LogAssignment / LogSubmission surface. Remains fully writable. Canonical RUN Logs live at /staffing/logs when CANONICAL_LOGS_ENABLED.",
   },
   {
     pattern: "/menus",
@@ -342,9 +447,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "assets",
     legacyArea: { key: "assets", label: "Assets", navOrder: 70, navVisible: true, critical: false },
-    // RUN · Assets — operational asset view (status / evidence / issues / requests / work orders).
-    // Asset configuration (identity, type, department, retirement) is composed within this area's
-    // Build tab and the Department Builder; there is one asset registry.
+    // RUN · Assets — operational view (condition, profile, issues, work orders).
+    // Asset configuration (identity, type, location, department, retirement) lives on
+    // `/assets/builder`. One Prisma Asset registry; no second identity.
     nav: { label: "Assets", order: 60 },
   },
   {
@@ -353,10 +458,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "assets",
-    // BUILD · Asset Builder — the canonical asset-configuration surface (identity, equipment type,
-    // responsible department, criticality, status). It shares the single asset registry and the same
-    // server actions the RUN Assets area uses; it introduces no new authority. Same SUPERVISOR floor
-    // and department scoping as /assets, so it appears on Build Home only for authorized users.
+    // BUILD · Asset Builder — canonical configuration surface (identity, equipment type,
+    // location, responsible department, criticality, retirement). Shares the single asset
+    // registry and server actions with RUN Assets; introduces no new authority.
     nav: { label: "Asset Builder", order: 233 },
   },
   {
@@ -404,9 +508,18 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "issues",
-    legacyArea: { key: "issues", label: "Issues", navOrder: 81, navVisible: false, critical: false },
+    legacyArea: { key: "issues", label: "Repairs", navOrder: 81, navVisible: false, critical: false },
     requiresDownstreamAuthorization: true,
-    notes: "The page scopes the issue to the session Facility.",
+    notes:
+      "Legacy Repair detail deep link — redirects to /repairs/[id]. When Asset Ops is enabled, Repair is the product term — not AssetIssue.",
+  },
+  {
+    pattern: "/issues",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "issues",
+    notes: "Legacy list façade — redirects to /repairs. Not a second legacyArea anchor.",
   },
   {
     pattern: "/reports",

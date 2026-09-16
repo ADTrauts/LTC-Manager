@@ -137,7 +137,7 @@ async function main() {
       faEmail: fa.email,
       staffEmail: staffUser.email,
       pinEmployeeEmail: employee.email,
-      facilityBuilderPath: "/admin/facility/builder",
+      facilityBuilderPath: "/admin/facility/builder?tab=structure",
       assetBuilderPath: "/assets/builder",
     };
 

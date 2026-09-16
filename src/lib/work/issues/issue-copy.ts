@@ -192,12 +192,17 @@ export function resolveIssueRecoveryStatePhrase(input: {
   return copy.reportedPhrase;
 }
 
-/** Canonical detail path. Repair id is the issue id (ADL-008). */
-export function issueDetailPath(issueId: string): string {
-  return `/issues/${issueId}`;
+/** Canonical Repair detail path (Repair remains SoT). */
+export function issueDetailPath(repairId: string): string {
+  return `/repairs/${repairId}`;
 }
 
-/** Compatibility alias under legacy repairs namespace. */
-export function repairDetailAliasPath(issueId: string): string {
-  return `/repairs/${issueId}`;
+/** @deprecated Prefer issueDetailPath — same canonical /repairs path. */
+export function repairDetailAliasPath(repairId: string): string {
+  return `/repairs/${repairId}`;
+}
+
+/** Legacy deep-link path kept for redirects only. */
+export function legacyIssueFaçadePath(repairId: string): string {
+  return `/issues/${repairId}`;
 }

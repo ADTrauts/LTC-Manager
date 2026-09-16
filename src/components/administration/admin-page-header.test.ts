@@ -55,17 +55,17 @@ test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
 
 test("BUILD surfaces under /admin use Build chrome, not Back to Administration", () => {
   const pages = [
-    "app/(protected)/admin/facility/builder/page.tsx",
-    "app/(protected)/admin/departments/page.tsx",
-    "app/(protected)/admin/departments/[departmentId]/page.tsx",
-    "app/(protected)/admin/inspections/page.tsx",
-    "app/(protected)/admin/knowledge/page.tsx",
+    ["app/(protected)/admin/facility/builder/page.tsx", "FacilityBuildContextBar"],
+    ["app/(protected)/admin/departments/page.tsx", "BuildPageHeader"],
+    ["app/(protected)/admin/departments/[departmentId]/page.tsx", "DepartmentBuildContextBar"],
+    ["app/(protected)/admin/inspections/page.tsx", "BuildPageHeader"],
+    ["app/(protected)/admin/knowledge/page.tsx", "BuildPageHeader"],
   ];
-  for (const page of pages) {
+  for (const [page, buildChrome] of pages) {
     const source = readSrc(page);
     assert.match(
       source,
-      /BuildPageHeader|BuildBreadcrumb|BackToBuildHomeLink/,
+      new RegExp(buildChrome),
       `${page} should use Build chrome`,
     );
     assert.doesNotMatch(
@@ -77,7 +77,9 @@ test("BUILD surfaces under /admin use Build chrome, not Back to Administration",
 });
 
 test("presentation titles and nesting appear in page sources", () => {
-  assert.match(readSrc("app/(protected)/admin/facility/builder/page.tsx"), /Facility Structure/);
+  const facilityBuilder = readSrc("app/(protected)/admin/facility/builder/page.tsx");
+  assert.match(facilityBuilder, /FacilityBuildContextBar/);
+  assert.match(facilityBuilder, /label: "Structure"/);
   assert.match(readSrc("app/(protected)/admin/permissions/page.tsx"), /Roles & Permissions/);
   assert.match(readSrc("app/(protected)/admin/knowledge/page.tsx"), /Procedures & Resources/);
   assert.match(readSrc("app/(protected)/admin/organization/page.tsx"), /Organization Settings/);

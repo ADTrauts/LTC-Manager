@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { EmployeeStatus } from "@prisma/client";
 
+import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 import { assertFacilityAdministratorAction } from "@/lib/facility-admin-guard";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
@@ -16,8 +17,11 @@ function toOptional(value: FormDataEntryValue | null) {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-function revalidateDepartmentRelatedViews() {
+function revalidateDepartmentRelatedViews(departmentId?: string) {
   revalidatePath("/admin/departments");
+  if (departmentId) {
+    revalidatePath(`/admin/departments/${departmentId}`);
+  }
   revalidatePath("/department/settings");
   revalidatePath("/employees");
   revalidatePath("/employees", "layout");
@@ -42,13 +46,10 @@ export async function setDepartmentHeadAction(formData: FormData) {
   }
   const department = await prisma.department.findFirst({
     where: { id: parsed.departmentId, facilityId: session.facilityId },
-    select: { id: true, showInEmployeeApp: true },
+    select: { id: true },
   });
   if (!department) {
     throw new Error("Department not found.");
-  }
-  if (!department.showInEmployeeApp) {
-    throw new Error("Enable this department for the employee app before assigning a head.");
   }
 
   if (parsed.headEmployeeId) {
@@ -58,10 +59,7 @@ export async function setDepartmentHeadAction(formData: FormData) {
         id: true,
         status: true,
         primaryDepartmentId: true,
-        employeeDepartments: {
-          where: { departmentId: parsed.departmentId },
-          select: { id: true },
-        },
+        employeeDepartments: { select: { departmentId: true } },
       },
     });
     if (!employee) {
@@ -70,29 +68,8 @@ export async function setDepartmentHeadAction(formData: FormData) {
     if (employee.status === EmployeeStatus.TERMINATED) {
       throw new Error("Cannot assign a terminated employee as department head.");
     }
-
-    const onRoster =
-      employee.primaryDepartmentId === parsed.departmentId ||
-      employee.employeeDepartments.length > 0;
-
-    if (!onRoster) {
-      if (!employee.primaryDepartmentId) {
-        await prisma.employee.update({
-          where: { id: employee.id },
-          data: { primaryDepartmentId: parsed.departmentId },
-        });
-      } else {
-        await prisma.employeeDepartment.upsert({
-          where: {
-            employeeId_departmentId: {
-              employeeId: employee.id,
-              departmentId: parsed.departmentId,
-            },
-          },
-          create: { employeeId: employee.id, departmentId: parsed.departmentId },
-          update: {},
-        });
-      }
+    if (!employeeBelongsToDepartment(employee, parsed.departmentId)) {
+      throw new Error("Department Manager must belong to this Department.");
     }
   }
 
@@ -101,7 +78,7 @@ export async function setDepartmentHeadAction(formData: FormData) {
     data: { headEmployeeId: parsed.headEmployeeId ?? null },
   });
 
-  revalidateDepartmentRelatedViews();
+  revalidateDepartmentRelatedViews(parsed.departmentId);
 }
 
 const toggleShowSchema = z.object({
@@ -148,9 +125,8 @@ export async function setDepartmentShowInEmployeeAppAction(formData: FormData) {
     where: { id: parsed.departmentId },
     data: {
       showInEmployeeApp: show,
-      ...(show ? {} : { headEmployeeId: null }),
     },
   });
 
-  revalidateDepartmentRelatedViews();
+  revalidateDepartmentRelatedViews(parsed.departmentId);
 }

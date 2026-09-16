@@ -50,7 +50,10 @@ export function ShellZoneIndicator() {
       className="shrink-0 border-b border-zinc-200 bg-white px-3 py-1 sm:px-4 lg:px-6"
       data-shell-region="mode-indicator"
     >
-      <p className="flex flex-wrap items-center gap-x-0 text-xs leading-none text-zinc-600" aria-label={`${modeLabel} mode`}>
+      <p
+        className="flex flex-wrap items-center gap-x-0 text-xs leading-none text-zinc-600"
+        aria-label={`${modeLabel} mode`}
+      >
         {isBuild && !onBuildHome ? (
           <Link
             href={BUILD_HUB_HOME_HREF}

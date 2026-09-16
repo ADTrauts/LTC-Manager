@@ -12,7 +12,8 @@ type UnitOption = { id: string; name: string };
 type ScheduleOption = {
   id: string;
   employee: { firstName: string; lastName: string };
-  unit: { name: string };
+  /** Nullable on new canonical Shifts; legacy rows always have a unit. */
+  unit: { name: string } | null;
 };
 
 type StaffingToolbarProps = {
@@ -119,7 +120,7 @@ export function StaffingToolbar({ employees, units, schedules, todayIso }: Staff
             <option value="">No linked schedule entry</option>
             {schedules.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.employee.firstName} {entry.employee.lastName} · {entry.unit.name}
+                {entry.employee.firstName} {entry.employee.lastName}{entry.unit ? ` · ${entry.unit.name}` : ""}
               </option>
             ))}
           </select>

@@ -9,8 +9,7 @@ import { resolveProductModeForPath } from "@/lib/product-mode";
  */
 export function ProductModeBanner() {
   const pathname = useNavPathname();
-  if (!pathname) return null;
-  if (resolveProductModeForPath(pathname) !== "BUILD") return null;
+  if (!pathname || resolveProductModeForPath(pathname) !== "BUILD") return null;
 
   return (
     <div

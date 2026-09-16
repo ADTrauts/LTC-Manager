@@ -1,3 +1,4 @@
+import type { AppJwtPayload } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { computeReadinessBatch } from "@/lib/readiness";
 import {
@@ -11,6 +12,10 @@ import { getFacilityLocalTodayWindow, loadFacilityTimezone } from "@/lib/operati
 import { prisma } from "@/lib/prisma";
 
 import {
+  loadOperatingLocationBoard,
+  loadedBoardToWalkList,
+} from "./operating-locations";
+import {
   buildWalkListItems,
   summarizeWalkList,
   type WalkListData,
@@ -22,14 +27,43 @@ export async function loadWalkList(
   facilityId: string,
   options?: {
     activeDepartmentKey?: OperationalDepartmentKey | null;
+    activeDepartmentId?: string | null;
+    projectedUnitIds?: readonly string[];
+    session?: AppJwtPayload | null;
   },
 ): Promise<WalkListData> {
+  if (options?.session?.facilityId === facilityId) {
+    try {
+      let activeDepartmentId = options.activeDepartmentId ?? null;
+      if (!activeDepartmentId && options.activeDepartmentKey) {
+        const department = await prisma.department.findFirst({
+          where: {
+            facilityId,
+            isActive: true,
+            key: options.activeDepartmentKey,
+          },
+          select: { id: true },
+        });
+        activeDepartmentId = department?.id ?? null;
+      }
+      const loaded = await loadOperatingLocationBoard(facilityId, {
+        session: options.session,
+        activeDepartmentKey: options.activeDepartmentKey,
+        activeDepartmentId,
+      });
+      return loadedBoardToWalkList(loaded);
+    } catch (error) {
+      console.warn("[todays-work] operating-location walk list skipped:", error);
+    }
+  }
+
   const now = new Date();
   const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
   const queries = await loadDashboardQueries(facilityId, window, {
     facilityTimezone,
     now,
+    projectedUnitIds: options?.projectedUnitIds,
   });
   const preliminary = buildDashboardAggregates({ ...queries, now, facilityTimezone });
   const activeOperation = await resolveOperationsCenterActiveOperation(prisma, {

@@ -1,6 +1,7 @@
 import { ChrcStatus, EmployeeStatus, JobClassification, Prisma, WorkStation } from "@prisma/client";
 
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
+import { employeeBelongsToTeamWhere } from "@/lib/employee-membership";
 
 export type EmployeeDirectoryQuery = {
   q?: string;
@@ -15,8 +16,11 @@ export type EmployeeDirectoryQuery = {
   /** 1–12 or `all` */
   birthMonth?: string;
   sort?: string;
-  /** Department id (must be an app-visible department); roster shows primary + floater membership. */
+  /** Department id (must be an app-visible department); roster shows primary + additional membership. */
   dept?: string;
+  /** Active Team membership */
+  team?: string;
+  jobTitle?: string;
 };
 
 export function buildEmployeeWhere(
@@ -88,6 +92,16 @@ export function buildEmployeeWhere(
     parts.push(employeeBelongsToDepartmentWhere(deptId));
   }
 
+  const teamId = query.team?.trim();
+  if (teamId && teamId !== "all") {
+    parts.push(employeeBelongsToTeamWhere(teamId));
+  }
+
+  const jobTitleId = query.jobTitle?.trim();
+  if (jobTitleId && jobTitleId !== "all") {
+    parts.push({ jobTitleId });
+  }
+
   return parts.length === 1 ? parts[0]! : { AND: parts };
 }
 
@@ -135,5 +149,7 @@ export function countNonDefaultEmployeeFilters(query: EmployeeDirectoryQuery): n
   if (query.birthMonth && query.birthMonth !== "all") n += 1;
   if (query.sort && query.sort !== "name") n += 1;
   if (query.dept?.trim()) n += 1;
+  if (query.team?.trim() && query.team !== "all") n += 1;
+  if (query.jobTitle?.trim() && query.jobTitle !== "all") n += 1;
   return n;
 }

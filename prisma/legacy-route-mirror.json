@@ -59,7 +59,7 @@
     {
       "key": "issues",
       "pathPrefix": "/issues",
-      "label": "Issues",
+      "label": "Repairs",
       "navVisible": false,
       "navOrder": 81,
       "isCritical": false,

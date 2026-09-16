@@ -32,8 +32,8 @@ test("/issues maps to ADMINISTRATION zone and Dietary/EVS/Plant department visib
   assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "EVS"), true);
 });
 
-test("detail path helpers stay stable for bookmarks", () => {
+test("detail path helpers point at canonical /repairs", () => {
   const id = "clissue000000000000000001";
-  assert.equal(issueDetailPath(id), `/issues/${id}`);
+  assert.equal(issueDetailPath(id), `/repairs/${id}`);
   assert.equal(repairDetailAliasPath(id), `/repairs/${id}`);
 });

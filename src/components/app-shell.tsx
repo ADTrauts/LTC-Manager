@@ -2,16 +2,18 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
-import { LeftSidebar } from "@/components/left-sidebar";
 import { FacilitySwitcher } from "@/components/facility-switcher";
 import { ProductModeBanner } from "@/components/product-mode-banner";
-import { ProductModePill } from "@/components/product-mode-pill";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { ShellModeCue } from "@/components/shell-mode-cue";
 import { ShellModeFrame } from "@/components/shell-mode-frame";
+import { ShellSidebar } from "@/components/shell-sidebar";
 import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
 import { AccountMenu } from "@/components/sign-out-controls";
+import { ActiveDepartmentRouteSync } from "@/components/active-department-route-sync";
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
 import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
+import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
 import { TopNav } from "@/components/top-nav";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
@@ -19,6 +21,8 @@ import {
   resolveActiveDepartmentForShell,
   resolveSelectableDepartmentsForSession,
 } from "@/lib/active-department-context";
+import { buildSidebarNavItems } from "@/lib/build-hub";
+import { rewriteDepartmentBuilderNavHref } from "@/lib/department-administration";
 import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { loadFacilityAccessContext } from "@/lib/facility-access";
@@ -29,12 +33,14 @@ import { roleMayAccessRoute } from "@/lib/route-registry";
 import {
   isDietaryOperationalEvidenceEnabled,
   isDietaryWorkPlansEnabled,
+  isCanonicalLogsEnabled,
   isProjectionSidebarEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
 import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
 import { loadUnitReadinessBatch } from "@/lib/readiness";
 import type { ReadinessState } from "@/lib/readiness";
@@ -58,6 +64,12 @@ function readinessMapForProjectedUnits(
   return out;
 }
 
+/**
+ * Application shell.
+ *
+ * Desktop (lg+): persistent left rail + full top nav.
+ * Compact (&lt;lg): rails off-canvas via ResponsiveShellNav drawers; main owns full width.
+ */
 export async function AppShell({ children }: AppShellProps) {
   const session = await getSession();
   if (!session) {
@@ -127,12 +139,10 @@ export async function AppShell({ children }: AppShellProps) {
     todaysWorkEnabled: isTodaysWorkEnabled(),
     dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
     dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    canonicalLogsEnabled: isCanonicalLogsEnabled(),
   };
   const rawNavItems = platformNavItemsForRole(session.role, navFeatureFlags);
 
-  // Workspace/governance switching lives in the context menu. These are presentation-only
-  // projections of the platform route registry — a menu entry is offered only when the session may
-  // already reach the surface; it never grants authority.
   const menuShowBuild = roleMayAccessRoute("/build", session.role, navFeatureFlags);
   const menuShowAdmin = roleMayAccessRoute("/admin", session.role, navFeatureFlags);
   const menuRunHomeHref = resolveDefaultHomePath({
@@ -142,11 +152,26 @@ export async function AppShell({ children }: AppShellProps) {
     lockedUnitId,
   });
   const scopeDepartments = await resolveSelectableDepartmentsForSession(session);
+  const shellSelectedDepartmentId =
+    deptNav.showAllDepartmentNav && isFacilityAdministratorRole(session.role)
+      ? null
+      : deptNav.activeDepartmentId;
 
-  const navItems = filterNavItemsForDepartmentScope(rawNavItems, {
+  const navItemsRaw = filterNavItemsForDepartmentScope(rawNavItems, {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
     activeOperationalDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
+  // Coexistence: avoid two RUN items both labeled "Logs".
+  const navItems = isCanonicalLogsEnabled()
+    ? navItemsRaw.map((item) =>
+        item.href === "/logs" ? { ...item, label: "Legacy Logs" } : item,
+      )
+    : navItemsRaw;
+  const buildGroup = groupNavItemsByMode(navItems).find((group) => group.mode === "BUILD");
+  const buildNavItems = rewriteDepartmentBuilderNavHref(
+    buildSidebarNavItems(buildGroup?.items ?? []),
+    deptNav.activeDepartmentId,
+  );
 
   const projectedUnitIds = sidebarProjection.projectedUnitIds;
   const readinessByUnitId = readinessResult
@@ -163,6 +188,12 @@ export async function AppShell({ children }: AppShellProps) {
         )
     : {};
 
+  const sidebarUnits = projectionSidebar ? [] : legacyUnits;
+  const projectionSections = projectionSidebar
+    ? (sidebarProjection.view?.sections ?? [])
+    : undefined;
+  const projectionUnavailable = Boolean(projectionSidebar && sidebarProjection.error);
+
   return (
     <ShellModeFrame brandColor={facility?.brandColor ?? "#18181b"}>
       <header
@@ -171,8 +202,17 @@ export async function AppShell({ children }: AppShellProps) {
         data-shell-region="header"
       >
         <div
-          className={`mx-auto flex w-full ${shellClasses.maxWidth} flex-nowrap items-center gap-2 px-3 py-1.5 sm:gap-2.5 sm:px-4 sm:py-2 lg:gap-3 lg:px-6`}
+          className={`mx-auto flex w-full min-w-0 ${shellClasses.maxWidth} flex-nowrap items-center gap-1.5 overflow-x-clip px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2 lg:gap-3 lg:overflow-visible lg:px-6`}
         >
+          <ResponsiveShellNav
+            navItems={navItems}
+            buildNavItems={buildNavItems}
+            units={sidebarUnits}
+            projectionSections={projectionSections}
+            projectionUnavailable={projectionUnavailable}
+            lockedUnitId={lockedUnitId}
+            readinessByUnitId={readinessByUnitId}
+          />
           <ShellBrandBlock
             facilityName={facility?.displayName ?? "Facility"}
             sessionLabel={sessionLabel}
@@ -189,20 +229,22 @@ export async function AppShell({ children }: AppShellProps) {
             />
           ) : null}
           {scopeDepartments.length > 0 ? (
-            <DepartmentScopeSwitcher
-              departments={scopeDepartments}
-              selectedDepartmentId={
-                deptNav.showAllDepartmentNav && isFacilityAdministratorRole(session.role)
-                  ? null
-                  : deptNav.activeDepartmentId
-              }
-              isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
-            />
+            <>
+              <ActiveDepartmentRouteSync
+                selectedDepartmentId={shellSelectedDepartmentId}
+                selectableDepartmentIds={scopeDepartments.map((d) => d.id)}
+              />
+              <DepartmentScopeSwitcher
+                departments={scopeDepartments}
+                selectedDepartmentId={shellSelectedDepartmentId}
+                isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
+              />
+            </>
           ) : null}
           <TopNav items={navItems} />
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <ShellModeCue />
             <ShellOfflineIndicator />
-            <ProductModePill runHomeHref={menuRunHomeHref} showBuild={menuShowBuild} />
             <AccountMenu
               showUnbind={showGmUnbind}
               showChangePassword={authKind === "user"}
@@ -219,22 +261,29 @@ export async function AppShell({ children }: AppShellProps) {
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 
-      <div className={`mx-auto flex min-h-0 w-full ${shellClasses.maxWidth} flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden`}>
-        <LeftSidebar
-          units={projectionSidebar ? [] : legacyUnits}
-          projectionSections={
-            projectionSidebar ? (sidebarProjection.view?.sections ?? []) : undefined
-          }
-          projectionUnavailable={Boolean(projectionSidebar && sidebarProjection.error)}
+      {/*
+        Body: never stack the rail above content on compact widths.
+        Desktop (lg+): row with persistent rail. Compact: content full width; nav is drawers.
+      */}
+      <div
+        className={`mx-auto flex min-h-0 w-full min-w-0 ${shellClasses.maxWidth} flex-1 overflow-hidden`}
+      >
+        <ShellSidebar
+          units={sidebarUnits}
+          projectionSections={projectionSections}
+          projectionUnavailable={projectionUnavailable}
           lockedUnitId={lockedUnitId}
           readinessByUnitId={readinessByUnitId}
+          buildNavItems={buildNavItems}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <ShellZoneIndicator />
-          <main className="min-h-0 flex-1 p-4 lg:overflow-y-auto lg:p-6">{children}</main>
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
+            {children}
+          </main>
         </div>
       </div>
-      <footer className="shrink-0 border-t border-zinc-200 bg-white px-4 py-2.5 text-xs text-zinc-500 lg:px-6">
+      <footer className="hidden shrink-0 border-t border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-500 xl:block xl:px-6">
         {facility?.managementCompanyName
           ? `Operated by ${facility.managementCompanyName}.`
           : "Nutrition operations workspace."}

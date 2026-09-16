@@ -81,7 +81,7 @@ export function UnitQuickIssuePanel({ unitId, unitName, assets }: UnitQuickIssue
               href={issueDetailPath(success.issueId)}
               className="font-semibold underline hover:text-emerald-700"
             >
-              View issue
+              View repair
             </Link>
           </p>
         </div>

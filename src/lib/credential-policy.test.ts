@@ -38,16 +38,11 @@ test("isLeadershipRole identifies only manager and supervisor", () => {
   assert.equal(isLeadershipRole(RoleKey.GM), false);
 });
 
-test("Quick PIN is allowed for STAFF and LEAD_TEAM_MEMBER", () => {
-  assert.equal(mayAuthenticateWithQuickPin(RoleKey.STAFF), true);
-  assert.equal(mayAuthenticateWithQuickPin(RoleKey.LEAD_TEAM_MEMBER), true);
-});
-
-test("Quick PIN is denied for every password-required role", () => {
-  assert.equal(mayAuthenticateWithQuickPin(RoleKey.SUPERVISOR), false);
-  assert.equal(mayAuthenticateWithQuickPin(RoleKey.MANAGER), false);
-  assert.equal(mayAuthenticateWithQuickPin(RoleKey.GM), false);
-  assert.equal(mayAuthenticateWithQuickPin(RoleKey.FACILITY_ADMINISTRATOR), false);
+test("Quick PIN is allowed for every RoleKey including password-required roles", () => {
+  for (const role of Object.values(RoleKey)) {
+    assert.equal(mayAuthenticateWithQuickPin(role), true, `${role} must be PIN-eligible`);
+  }
+  assert.deepEqual([...QUICK_PIN_ELIGIBLE_ROLES].sort(), [...Object.values(RoleKey)].sort());
 });
 
 test("Quick PIN is denied for unknown or malformed role values", () => {
@@ -60,16 +55,12 @@ test("Quick PIN is denied for unknown or malformed role values", () => {
   assert.equal(mayAuthenticateWithQuickPin({ role: RoleKey.STAFF }), false);
 });
 
-test("Quick PIN eligibility is the exact complement of the password requirement", () => {
+test("email/password requirement does not gate Quick PIN eligibility", () => {
   for (const role of Object.values(RoleKey)) {
-    assert.equal(
-      mayAuthenticateWithQuickPin(role),
-      !requiresEmailPasswordAccount(role),
-      `${role} must not disagree between the two credential-policy helpers`,
-    );
+    assert.equal(mayAuthenticateWithQuickPin(role), true);
+    // Password-required roles remain password-required and PIN-eligible simultaneously.
+    if (requiresEmailPasswordAccount(role)) {
+      assert.equal(mayAuthenticateWithQuickPin(role), true);
+    }
   }
-  assert.deepEqual([...QUICK_PIN_ELIGIBLE_ROLES].sort(), [
-    RoleKey.LEAD_TEAM_MEMBER,
-    RoleKey.STAFF,
-  ].sort());
 });

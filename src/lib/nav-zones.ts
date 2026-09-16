@@ -33,7 +33,7 @@ export const PRIMARY_NAV_LABELS: Record<string, string> = {
   // `/dashboard` is the retired Operations Center route (redirects to the canonical RUN home).
   "/dashboard": "Dashboard",
   "/today": NAV_ZONE_LABELS.TODAYS_WORK,
-  "/staffing": "Employees",
+  "/staffing": "Schedule",
   "/reports": NAV_ZONE_LABELS.REVIEW,
   "/units": NAV_ZONE_LABELS.LOCATIONS,
   "/admin": "Admin",
