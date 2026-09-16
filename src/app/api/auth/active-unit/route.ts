@@ -1,8 +1,7 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createSessionToken, getCookieOptions, SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { createSessionToken, getCookieOptions, getSession, SESSION_COOKIE } from "@/lib/auth";
 import { isUnitAllowedForEmployee } from "@/lib/employee-units";
 import { prisma } from "@/lib/prisma";
 import { currentSessionVersionFor } from "@/lib/session-revocation";
@@ -12,16 +11,8 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!raw) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  let session: Awaited<ReturnType<typeof verifySessionToken>>;
-  try {
-    session = await verifySessionToken(raw);
-  } catch {
+  const session = await getSession();
+  if (!session?.facilityId) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -49,9 +40,18 @@ export async function POST(request: Request) {
     }
   }
 
+  const liveVersion = await currentSessionVersionFor(
+    { kind: session.authKind === "employee" ? "employee" : "user", id: session.uid },
+    prisma,
+  );
+  if (typeof session.sessionVersion !== "number" || session.sessionVersion !== liveVersion) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   const token = await createSessionToken({
     uid: session.uid,
     authKind: session.authKind ?? "user",
+    authMethod: session.authMethod,
     role: session.role,
     name: session.name,
     email: session.email,
@@ -59,12 +59,7 @@ export async function POST(request: Request) {
     activeUnitId: unitId ?? undefined,
     primaryDepartmentId: session.primaryDepartmentId ?? undefined,
     kioskUnitAccessWarning: session.kioskUnitAccessWarning === true ? true : undefined,
-    // Re-read rather than carry the claim forward: re-issuing a token must never resurrect a
-    // session that was revoked between this request's validation and this write.
-    sessionVersion: await currentSessionVersionFor(
-      { kind: session.authKind === "employee" ? "employee" : "user", id: session.uid },
-      prisma,
-    ),
+    sessionVersion: liveVersion,
   });
 
   const response = NextResponse.json({ ok: true });

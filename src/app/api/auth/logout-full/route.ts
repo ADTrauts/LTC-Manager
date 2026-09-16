@@ -1,8 +1,8 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import { getCookieOptions, SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { getCookieOptions, getSession, SESSION_COOKIE } from "@/lib/auth";
+import { requirePasswordSession } from "@/lib/credential-policy";
 import {
   DEVICE_FACILITY_COOKIE,
   DEVICE_UNIT_COOKIE,
@@ -12,17 +12,18 @@ import { prisma } from "@/lib/prisma";
 import { revokeOwnSessions } from "@/lib/session-revocation";
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!raw) {
+  const session = await getSession();
+  if (!session?.facilityId) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  let session: Awaited<ReturnType<typeof verifySessionToken>>;
   try {
-    session = await verifySessionToken(raw);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    requirePasswordSession(session);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Forbidden." },
+      { status: 403 },
+    );
   }
 
   if (!hasAtLeastRole(session.role as AppRole, "FACILITY_ADMINISTRATOR")) {

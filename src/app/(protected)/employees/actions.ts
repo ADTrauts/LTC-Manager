@@ -34,6 +34,7 @@ import { requireAtLeastRole } from "@/lib/access";
 import {
   accessMethodValues,
   mayAuthenticateWithQuickPin,
+  requirePasswordSession,
   requiresEmailPasswordAccount,
 } from "@/lib/credential-policy";
 import {
@@ -44,6 +45,7 @@ import { sessionUserIdForFk } from "@/lib/auth";
 import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
 import { requireFacilitySession } from "@/lib/facility-context";
+import { syncLinkedUserAuthority } from "@/lib/linked-user-authority";
 import {
   describeRevocation,
   employeeRevocationReasons,
@@ -352,6 +354,7 @@ function revalidateEmployeeViews() {
 
 export async function createEmployeeAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const unitAccessSubmitted = formIncludesUnitAccessFields(formData);
@@ -470,6 +473,7 @@ export async function createEmployeeAction(formData: FormData) {
 
 export async function updateEmployeeProfileAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const unitAccessSubmitted = formIncludesUnitAccessFields(formData);
@@ -527,17 +531,47 @@ export async function updateEmployeeProfileAction(formData: FormData) {
     ? existing.roleType
     : parsed.roleType;
 
-  const existingUserForEmail =
-    normalizedProfileEmail ?
+  // The current Employee email is the best available link to its password account. Prefer it over
+  // a newly submitted address so a simultaneous email + role edit cannot leave the old account
+  // carrying stale authority. A first-class Employee↔User relation should eventually replace this
+  // compatibility lookup.
+  const currentProfileEmail = existing.email?.trim().toLowerCase() || undefined;
+  const linkedUserForCurrentEmail =
+    currentProfileEmail ?
       await prisma.user.findFirst({
         where: {
-          email: normalizedProfileEmail,
+          email: currentProfileEmail,
           facilityId: session.facilityId,
-          isActive: true,
         },
-        select: { id: true },
+        select: {
+          id: true,
+          isActive: true,
+          role: { select: { key: true } },
+        },
       })
     : null;
+  const requestedUserForEmail =
+    normalizedProfileEmail && normalizedProfileEmail !== currentProfileEmail
+      ? await prisma.user.findFirst({
+          where: {
+            email: normalizedProfileEmail,
+            facilityId: session.facilityId,
+          },
+          select: {
+            id: true,
+            isActive: true,
+            role: { select: { key: true } },
+          },
+        })
+      : null;
+  if (
+    linkedUserForCurrentEmail &&
+    requestedUserForEmail &&
+    linkedUserForCurrentEmail.id !== requestedUserForEmail.id
+  ) {
+    throw new Error("That email is already used by another app account.");
+  }
+  const existingUserForEmail = linkedUserForCurrentEmail ?? requestedUserForEmail;
 
   let newAppLoginPasswordHash: string | undefined;
   if (
@@ -726,10 +760,15 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         }
         throw e;
       }
-    } else if (requiresEmailPasswordAccount(effectiveRoleType) && existingUserForEmail) {
-      await tx.user.update({
-        where: { id: existingUserForEmail.id },
-        data: { displayName: `${parsed.firstName} ${parsed.lastName}` },
+    } else if (existingUserForEmail) {
+      await syncLinkedUserAuthority(tx, {
+        userId: existingUserForEmail.id,
+        currentUserRole: existingUserForEmail.role.key,
+        nextEmployeeRole: effectiveRoleType,
+        previousEmployeeStatus: existing.status,
+        nextEmployeeStatus: parsed.status,
+        displayName: `${parsed.firstName} ${parsed.lastName}`,
+        email: normalizedProfileEmail,
       });
     }
 
@@ -821,6 +860,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
 
 export async function setEmployeePinAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "GM");
 
   const parsedResult = setEmployeePinSchema.safeParse({
@@ -895,6 +935,7 @@ export async function setEmployeePinAction(formData: FormData) {
 
 export async function clearEmployeePinAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "GM");
 
   const employeeId = String(formData.get("employeeId") ?? "");
@@ -943,6 +984,7 @@ export async function clearEmployeePinAction(formData: FormData) {
 
 export async function updateEmployeeStatusAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const employeeId = String(formData.get("employeeId") ?? "");
@@ -1045,6 +1087,7 @@ function utcDateOnlyFromIsoDate(iso: string): Date {
 /** End employment from the Separations log: roster pick + dates + resignation vs termination + rehire flag. */
 export async function recordEmployeeSeparationAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const parsed = recordSeparationSchema.parse({
@@ -1138,6 +1181,7 @@ export async function recordEmployeeSeparationAction(formData: FormData) {
 
 export async function setDefaultAssignmentAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const parsed = setDefaultAssignmentSchema.parse({
@@ -1188,6 +1232,7 @@ const addDisciplinePointSchema = z.object({
 
 export async function addDisciplinePointEntryAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const parsed = addDisciplinePointSchema.parse({
@@ -1225,6 +1270,7 @@ export async function addDisciplinePointEntryAction(formData: FormData) {
 
 export async function deleteDisciplinePointEntryAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   requireAtLeastRole(session.role, "MANAGER");
 
   const entryId = String(formData.get("entryId") ?? "").trim();
@@ -1253,6 +1299,7 @@ export async function deleteDisciplinePointEntryAction(formData: FormData) {
  */
 export async function revokeEmployeeSessionsAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
 
   const employeeId = String(formData.get("employeeId") ?? "");
   if (!employeeId) {

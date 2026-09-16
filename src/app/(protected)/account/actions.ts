@@ -64,7 +64,7 @@ export async function changeOwnPasswordAction(
     });
     await revokeUserSessions(tx, user.id);
   });
-  console.info("password_change_success", { userId: user.id, facilityId: session.facilityId, email: user.email });
+  console.info("password_change_success", { userId: user.id, facilityId: session.facilityId });
 
   return { status: "success", message: "Password updated." };
 }

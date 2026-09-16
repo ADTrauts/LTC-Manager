@@ -16,6 +16,8 @@ export {
   passwordAccountBucketKey,
   pinCandidateBucketKey,
   pinFacilityBucketKey,
+  signupAccountBucketKey,
+  signupIpBucketKey,
 } from "./keys";
 export { AUTH_RATE_LIMIT_POLICIES, resolvePolicy } from "./config";
 

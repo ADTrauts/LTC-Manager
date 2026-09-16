@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { EmployeeStatus, Prisma, SeparationKind, type WorkStation } from "@prisma/client";
 
-import { requireAtLeastRole } from "@/lib/access";
+import { requireBulkImportAuthority } from "@/lib/bulk-import/authority";
 import { parseCsv } from "@/lib/csv-parse";
 import { mapHeaders, parseEmployeeRow, type ParsedCsvEmployeeRow } from "@/lib/employee-csv-import";
 import {
@@ -98,7 +98,7 @@ function resolvePrimaryUnitId(
 
 export async function importEmployeesFromCsvAction(formData: FormData): Promise<CsvImportResult> {
   const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "MANAGER");
+  requireBulkImportAuthority(session, "MANAGER");
 
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {

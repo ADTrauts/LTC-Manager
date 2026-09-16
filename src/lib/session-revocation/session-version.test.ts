@@ -215,6 +215,19 @@ test("a password session fails after a role change", { skip }, async () => {
   assert.equal(result.valid === false && result.reason, "VERSION_STALE");
 });
 
+test("a password session fails closed when role changes without explicit revocation", { skip }, async () => {
+  const f = await getFixture();
+  if (!f) return;
+  const user = await makeUser(f);
+  const session = userSession(f, user.id, user.sessionVersion);
+
+  await f.db.user.update({ where: { id: user.id }, data: { roleId: f.roleGmId } });
+
+  const result = await f.lib.validateSessionAuthority(session, f.db);
+  assert.equal(result.valid, false);
+  assert.equal(result.valid === false && result.reason, "ROLE_STALE");
+});
+
 test("a password session fails once the user is deactivated", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
@@ -315,6 +328,19 @@ test("a PIN session fails after the PIN is removed", { skip }, async () => {
   });
 
   assert.equal((await f.lib.validateSessionAuthority(session, f.db)).valid, false);
+});
+
+test("a PIN session fails closed when role changes without explicit revocation", { skip }, async () => {
+  const f = await getFixture();
+  if (!f) return;
+  const employee = await makeEmployee(f);
+  const session = pinSession(f, employee.id, employee.sessionVersion);
+
+  await f.db.employee.update({ where: { id: employee.id }, data: { roleType: "GM" } });
+
+  const result = await f.lib.validateSessionAuthority(session, f.db);
+  assert.equal(result.valid, false);
+  assert.equal(result.valid === false && result.reason, "ROLE_STALE");
 });
 
 test("a PIN session fails after the employee is terminated", { skip }, async () => {

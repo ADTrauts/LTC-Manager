@@ -40,3 +40,18 @@ export function pinCandidateBucketKey(facilityId: string, pin: string): string {
 export function pinFacilityBucketKey(facilityId: string): string {
   return bucketKey(AuthRateLimitBucketType.PIN_FACILITY, [facilityId]);
 }
+
+/**
+ * Signup throttling reuses existing policy types with a distinct key prefix so it never shares a
+ * bucket with password login or PIN guessing. A dedicated enum can replace this later.
+ */
+export function signupAccountBucketKey(email: string): string {
+  return bucketKey(AuthRateLimitBucketType.PASSWORD_ACCOUNT, [
+    "signup",
+    normalizeAccountIdentifier(email),
+  ]);
+}
+
+export function signupIpBucketKey(ip: string): string {
+  return bucketKey(AuthRateLimitBucketType.PIN_FACILITY, ["signup-ip", ip.trim().slice(0, 64)]);
+}

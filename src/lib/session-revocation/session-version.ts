@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
+import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 
 /**
  * Any Prisma surface that can increment a session version — the client itself or a transaction
@@ -26,6 +27,8 @@ export type SessionRejection =
   | "IDENTITY_INACTIVE"
   | "VERSION_CLAIM_MISSING"
   | "VERSION_STALE"
+  | "ROLE_STALE"
+  | "AUTH_METHOD_NOT_ALLOWED"
   | "FACILITY_ACCESS_REVOKED";
 
 export type SessionValidation =
@@ -78,6 +81,7 @@ async function validateUserSession(
       sessionVersion: true,
       facilityId: true,
       primaryDepartmentId: true,
+      role: { select: { key: true, isActive: true } },
       facilityAccesses: {
         where: { facilityId: session.facilityId, isActive: true, revokedAt: null },
         select: { id: true },
@@ -89,11 +93,14 @@ async function validateUserSession(
   if (!user) {
     return { valid: false, reason: "IDENTITY_NOT_FOUND" };
   }
-  if (!user.isActive) {
+  if (!user.isActive || !user.role.isActive) {
     return { valid: false, reason: "IDENTITY_INACTIVE" };
   }
   if (user.sessionVersion !== session.sessionVersion) {
     return { valid: false, reason: "VERSION_STALE" };
+  }
+  if (user.role.key !== session.role) {
+    return { valid: false, reason: "ROLE_STALE" };
   }
 
   // The session names a facility. Home facility or an active access grant both count; losing both
@@ -118,6 +125,7 @@ async function validateEmployeeSession(
       status: true,
       sessionVersion: true,
       facilityId: true,
+      roleType: true,
       primaryDepartmentId: true,
       employeeDepartments: { select: { departmentId: true } },
     },
@@ -133,6 +141,12 @@ async function validateEmployeeSession(
   }
   if (employee.sessionVersion !== session.sessionVersion) {
     return { valid: false, reason: "VERSION_STALE" };
+  }
+  if (employee.roleType !== session.role) {
+    return { valid: false, reason: "ROLE_STALE" };
+  }
+  if (session.authMethod === "QUICK_PIN" && !mayAuthenticateWithQuickPin(employee.roleType)) {
+    return { valid: false, reason: "AUTH_METHOD_NOT_ALLOWED" };
   }
   if (employee.facilityId !== session.facilityId) {
     return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };

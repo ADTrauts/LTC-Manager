@@ -27,6 +27,8 @@ services:
         value: "true"
       - key: OPERATION_ENGINE_ENABLED
         value: "false"
+      - key: PUBLIC_SIGNUP_ENABLED
+        value: "false"
       - key: AUTH_SECRET
         generateValue: true
       - key: DATABASE_URL
@@ -77,6 +79,7 @@ databases:
     databaseName: ltc_staging_dietary_v1
     diskSizeGB: 1
     storageAutoscalingEnabled: false
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: temporary-stage0-allow-all-tighten-after-bootstrap
+    # App and migration services use Render's internal database connection.
+    # Keep public Postgres access disabled; use a time-bounded operator rule only for an approved
+    # maintenance window, then remove it and rotate credentials if exposure was broader than planned.
+    ipAllowList: []

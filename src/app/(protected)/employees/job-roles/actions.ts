@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requirePasswordSession } from "@/lib/credential-policy";
 import { requireFacilitySession } from "@/lib/facility-context";
 import {
   archiveDepartmentJobRole,
@@ -17,6 +18,7 @@ function revalidateJobRoles() {
 
 export async function createJobRoleAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   const departmentId = String(formData.get("departmentId") ?? "").trim();
   if (!departmentId) {
     throw new Error("Select a Department to manage its Job Roles.");
@@ -42,6 +44,7 @@ export async function createJobRoleAction(formData: FormData) {
 
 export async function updateJobRoleAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   const roleId = String(formData.get("roleId") ?? "").trim();
   if (!roleId) {
     throw new Error("Job Role not found.");
@@ -67,6 +70,7 @@ export async function updateJobRoleAction(formData: FormData) {
 
 export async function archiveJobRoleAction(formData: FormData) {
   const session = await requireFacilitySession();
+  requirePasswordSession(session);
   const roleId = String(formData.get("roleId") ?? "").trim();
   if (!roleId) {
     throw new Error("Job Role not found.");

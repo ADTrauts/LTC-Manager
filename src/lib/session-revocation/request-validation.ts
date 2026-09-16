@@ -26,16 +26,20 @@ const validateForRequest = cache(
   async (
     uid: string,
     authKind: string,
+    authMethod: AppJwtPayload["authMethod"],
     facilityId: string,
     claimedVersion: number | undefined,
+    claimedRole: AppJwtPayload["role"],
     claimedDepartmentId: string | null,
   ): Promise<SessionValidation> =>
     validateSessionAuthority(
       {
         uid,
         authKind,
+        authMethod,
         facilityId,
         sessionVersion: claimedVersion,
+        role: claimedRole,
         primaryDepartmentId: claimedDepartmentId,
       } as AppJwtPayload,
       prisma,
@@ -49,8 +53,10 @@ export async function validateSessionForRequest(
   return validateForRequest(
     session.uid,
     session.authKind ?? "user",
+    session.authMethod,
     session.facilityId,
     session.sessionVersion,
+    session.role,
     session.primaryDepartmentId ?? null,
   );
 }

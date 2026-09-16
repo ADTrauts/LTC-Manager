@@ -262,7 +262,7 @@ describe("Employee Builder contracts", () => {
     assert.equal(/roleType:/.test(department), false);
   });
 
-  it("PIN set action requires confirmation and allows any RoleKey via credential policy", () => {
+  it("PIN set action requires confirmation and limits eligibility through credential policy", () => {
     const actions = readFileSync(
       join(process.cwd(), "src/app/(protected)/employees/actions.ts"),
       "utf8",
@@ -270,7 +270,8 @@ describe("Employee Builder contracts", () => {
     const policy = readFileSync(join(process.cwd(), "src/lib/credential-policy.ts"), "utf8");
     assert.match(actions, /confirmPin/);
     assert.match(actions, /Only active employees can set or reset a PIN/);
-    assert.match(policy, /QUICK_PIN_ELIGIBLE_ROLES: readonly RoleKey\[] = Object\.values\(RoleKey\)/);
-    assert.equal(/password-required role/.test(actions), false);
+    assert.match(policy, /RoleKey\.LEAD_TEAM_MEMBER/);
+    assert.match(policy, /RoleKey\.STAFF/);
+    assert.doesNotMatch(policy, /QUICK_PIN_ELIGIBLE_ROLES: readonly RoleKey\[] = Object\.values\(RoleKey\)/);
   });
 });

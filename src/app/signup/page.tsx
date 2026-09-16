@@ -1,10 +1,15 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { SignupForm } from "@/components/signup-form";
 import { getSession } from "@/lib/auth";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { isPublicSignupEnabled } from "@/lib/signup-policy";
 
 export default async function SignupPage() {
+  if (!isPublicSignupEnabled()) {
+    notFound();
+  }
+
   const session = await getSession();
   if (session?.facilityId) {
     redirect(

@@ -26,10 +26,13 @@ export function defaultAccessMethodForRole(role: RoleKey): AccessMethod {
 }
 
 /**
- * Every RoleKey may authenticate with Quick PIN.
- * Email/password and PIN are independent; platform authority does not gate PIN eligibility.
+ * Quick PIN is a lower-assurance credential for frontline shared-device workflows only.
+ * Privileged roles must use email/password (and can adopt MFA without preserving a PIN bypass).
  */
-export const QUICK_PIN_ELIGIBLE_ROLES: readonly RoleKey[] = Object.values(RoleKey);
+export const QUICK_PIN_ELIGIBLE_ROLES: readonly RoleKey[] = [
+  RoleKey.LEAD_TEAM_MEMBER,
+  RoleKey.STAFF,
+];
 
 /**
  * Canonical server-side answer to "may this Employee role authenticate using Quick PIN?".
@@ -39,4 +42,14 @@ export const QUICK_PIN_ELIGIBLE_ROLES: readonly RoleKey[] = Object.values(RoleKe
  */
 export function mayAuthenticateWithQuickPin(role: unknown): role is RoleKey {
   return typeof role === "string" && (QUICK_PIN_ELIGIBLE_ROLES as readonly string[]).includes(role);
+}
+
+const PASSWORD_REQUIRED_MESSAGE =
+  "This action requires email and password sign-in. Quick PIN is limited to frontline work.";
+
+/** BUILD / HR / device-administration mutations must not accept a Quick PIN session. */
+export function requirePasswordSession(session: { authMethod?: string | null }): void {
+  if (session.authMethod === "QUICK_PIN") {
+    throw new Error(PASSWORD_REQUIRED_MESSAGE);
+  }
 }

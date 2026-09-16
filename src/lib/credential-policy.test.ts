@@ -8,6 +8,7 @@ import {
   isLeadershipRole,
   mayAuthenticateWithQuickPin,
   QUICK_PIN_ELIGIBLE_ROLES,
+  requirePasswordSession,
   requiresEmailPasswordAccount,
 } from "@/lib/credential-policy";
 
@@ -38,11 +39,13 @@ test("isLeadershipRole identifies only manager and supervisor", () => {
   assert.equal(isLeadershipRole(RoleKey.GM), false);
 });
 
-test("Quick PIN is allowed for every RoleKey including password-required roles", () => {
-  for (const role of Object.values(RoleKey)) {
-    assert.equal(mayAuthenticateWithQuickPin(role), true, `${role} must be PIN-eligible`);
-  }
-  assert.deepEqual([...QUICK_PIN_ELIGIBLE_ROLES].sort(), [...Object.values(RoleKey)].sort());
+test("Quick PIN is limited to frontline roles", () => {
+  assert.equal(mayAuthenticateWithQuickPin(RoleKey.LEAD_TEAM_MEMBER), true);
+  assert.equal(mayAuthenticateWithQuickPin(RoleKey.STAFF), true);
+  assert.deepEqual(
+    [...QUICK_PIN_ELIGIBLE_ROLES].sort(),
+    [RoleKey.LEAD_TEAM_MEMBER, RoleKey.STAFF].sort(),
+  );
 });
 
 test("Quick PIN is denied for unknown or malformed role values", () => {
@@ -55,12 +58,17 @@ test("Quick PIN is denied for unknown or malformed role values", () => {
   assert.equal(mayAuthenticateWithQuickPin({ role: RoleKey.STAFF }), false);
 });
 
-test("email/password requirement does not gate Quick PIN eligibility", () => {
-  for (const role of Object.values(RoleKey)) {
-    assert.equal(mayAuthenticateWithQuickPin(role), true);
-    // Password-required roles remain password-required and PIN-eligible simultaneously.
-    if (requiresEmailPasswordAccount(role)) {
-      assert.equal(mayAuthenticateWithQuickPin(role), true);
-    }
+test("password-required roles cannot use Quick PIN", () => {
+  for (const role of Object.values(RoleKey).filter(requiresEmailPasswordAccount)) {
+    assert.equal(mayAuthenticateWithQuickPin(role), false);
   }
+});
+
+test("requirePasswordSession rejects Quick PIN and allows password sessions", () => {
+  assert.doesNotThrow(() => requirePasswordSession({ authMethod: "PASSWORD" }));
+  assert.doesNotThrow(() => requirePasswordSession({}));
+  assert.throws(
+    () => requirePasswordSession({ authMethod: "QUICK_PIN" }),
+    /email and password/,
+  );
 });
