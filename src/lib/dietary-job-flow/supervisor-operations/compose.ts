@@ -283,7 +283,7 @@ export function composeSupervisorOperations(
     hasCallOff: row.hasCallOff,
   }));
 
-  const assignments: SupervisorAssignmentFact[] = facts.oaEnabled ? facts.assignments : [];
+  const assignments: SupervisorAssignmentFact[] = facts.oaEnabled ? [...facts.assignments] : [];
   const assignedEmployeeIds = new Set(
     assignments.map((row) => row.employeeId).filter((id): id is string => Boolean(id)),
   );
@@ -313,7 +313,7 @@ export function composeSupervisorOperations(
     }
   }
 
-  const coverageGaps: SupervisorCoverageGap[] = facts.oaEnabled ? facts.coverageGaps : [];
+  const coverageGaps: SupervisorCoverageGap[] = facts.oaEnabled ? [...facts.coverageGaps] : [];
   const coverageAttention: SupervisorAttentionItem[] = [];
   if (!facts.oaEnabled) {
     coverageAttention.push({

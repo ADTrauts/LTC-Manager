@@ -23,38 +23,36 @@ export function buildPresenceCallOffItems(args: {
   overrides: CallDownOverrideRecord[];
   dateIso: string;
 }): CallDownItem[] {
-  return args.overrides
-    .map((override) => {
-      const parsed = parseCallDownReason(override.reason);
-      if (!parsed.isCallDown) {
-        return null;
-      }
+  const items: CallDownItem[] = [];
+  for (const override of args.overrides) {
+    const parsed = parseCallDownReason(override.reason);
+    if (!parsed.isCallDown) {
+      continue;
+    }
 
-      const affectedUnitId = override.oldUnitId ?? override.newUnitId;
-
-      return {
-        id: override.id,
-        employeeName: `${override.employeeFirstName} ${override.employeeLastName}`,
-        templateKey: parsed.templateKey,
-        templateLabel: parsed.templateLabel,
-        reason: parsed.displayReason,
-        reasonDetails: parsed.details,
-        oldUnitId: override.oldUnitId,
-        oldUnitName: override.oldUnitName,
-        newUnitId: override.newUnitId,
-        newUnitName: override.newUnitName,
-        mealType: override.mealType,
-        status: "open" as const,
-        statusLabel: parsed.templateLabel ?? "Call-off",
-        changedAt: override.changedAt,
-        staffingHref: `/staffing?date=${args.dateIso}`,
-        coverageHref: `/staffing/assignments?date=${args.dateIso}${
-          affectedUnitId ? `&unit=${affectedUnitId}` : ""
-        }`,
-      };
-    })
-    .filter((item): item is CallDownItem => item !== null)
-    .sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
+    const affectedUnitId = override.oldUnitId ?? override.newUnitId;
+    items.push({
+      id: override.id,
+      employeeName: `${override.employeeFirstName} ${override.employeeLastName}`,
+      templateKey: parsed.templateKey,
+      templateLabel: parsed.templateLabel,
+      reason: parsed.displayReason,
+      reasonDetails: parsed.details,
+      oldUnitId: override.oldUnitId,
+      oldUnitName: override.oldUnitName,
+      newUnitId: override.newUnitId,
+      newUnitName: override.newUnitName,
+      mealType: override.mealType,
+      status: "open",
+      statusLabel: parsed.templateLabel ?? "Call-off",
+      changedAt: override.changedAt,
+      staffingHref: `/staffing?date=${args.dateIso}`,
+      coverageHref: `/staffing/assignments?date=${args.dateIso}${
+        affectedUnitId ? `&unit=${affectedUnitId}` : ""
+      }`,
+    });
+  }
+  return items.sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
 }
 
 export async function loadPresenceCallOffs(facilityId: string): Promise<CallDownData> {

@@ -25,7 +25,7 @@ export const REVIEW_ATTACHMENT_INCLUDE = {
 function asCatalogPurpose(
   purposeType: string,
 ): LogAttachmentForResolve["catalogDefinition"]["purposeType"] {
-  if (purposeType === "LOG" || purposeType === "CHECKLIST" || purposeType === "ROUNDS") {
+  if (purposeType === "CHECKLIST") {
     return purposeType;
   }
   return "LOG";

@@ -77,7 +77,7 @@ function state(partial: {
       coverageExpectationRefs: [],
       logAttachmentRefs: [],
     },
-    operation: { state: "NONE", current: null, upcoming: null, provenance: "NONE" },
+    operation: { state: "NONE", current: null, upcoming: null, provenance: "NEW_PERIOD_KEY_TIME" },
     coverage: { availability: "evaluated", planLifecycle: "RUNTIME_VISIBLE", slots: [] },
     evidence: {
       requiredToday: items.length,

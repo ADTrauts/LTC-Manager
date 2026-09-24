@@ -76,7 +76,7 @@ function cycle(overrides?: Partial<OperationalCycleDefinition>): OperationalCycl
     version: 1,
     label: "Breakfast",
     description: null,
-    cycleType: "MEAL",
+    cycleType: "SERVICE",
     displaySequence: 10,
     startLocal: "07:00",
     endLocal: "09:00",

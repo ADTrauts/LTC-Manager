@@ -282,7 +282,7 @@ export function presentSupervisorOperationsBoardUi(
 
   const syncRows: PresentedSyncRow[] = view.needsAttention.sync.map((item) => ({
     title: item.status,
-    detail: item.unitName,
+    detail: item.unitName ?? null,
     href: item.sourceHref,
     actionLabel: item.availableActions[0] ?? "Open",
   }));

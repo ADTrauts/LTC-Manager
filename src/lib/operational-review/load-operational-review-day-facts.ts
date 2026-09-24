@@ -38,7 +38,7 @@ const ATTACHMENT_INCLUDE = {
 function asCatalogPurpose(
   purposeType: string,
 ): LogAttachmentForResolve["catalogDefinition"]["purposeType"] {
-  if (purposeType === "CHECKLIST" || purposeType === "ROUNDS" || purposeType === "INSPECTION") {
+  if (purposeType === "CHECKLIST") {
     return purposeType;
   }
   return "LOG";

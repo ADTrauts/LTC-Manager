@@ -391,7 +391,7 @@ test("Needs Attention groups coverage, evidence, milestones, timing, work, and a
     (section) => section.category === "Service Milestones",
   );
   assert.match(milestones?.items[0]?.detail ?? "", /Servery Ready overdue/);
-  assert.equal(names.includes("Readiness"), false);
+  assert.equal(names.some((name) => String(name) === "Readiness"), false);
 
   const timing = presented.needsAttention.sections.find((section) => section.category === "Service Timing");
   assert.equal(timing?.items.some((item) => item.detail.includes("Meal Service Started late")), true);
