@@ -6,8 +6,6 @@ export {
   type ActiveOperationSource,
   type OperationDefinitionKeyParts,
   type OperationInstanceLookup,
-  type ResolveActiveOperationHeuristicHints,
-  type ResolveActiveOperationInput,
   type ResolvedActiveOperation,
 } from "./types";
 export { findActiveOperationInstance } from "./find-active-operation-instance";
@@ -18,8 +16,6 @@ export {
   resolveScheduledTimeLabel,
 } from "./map-operation-instance";
 export { pickActiveOperationInstance } from "./pick-active-operation-instance";
-export { resolveHeuristicActiveOperation } from "./resolve-heuristic-active-operation";
-export { resolveActiveOperation, type ResolveActiveOperationDeps } from "./resolve-active-operation";
 export {
   buildOperationInstanceCreatePlans,
   hasOperationInstanceForDefinition,
@@ -34,9 +30,8 @@ export {
 } from "./sync-operation-instances";
 export {
   legacyOperationsCenterDepartmentId,
-  resolveOperationsCenterActiveOperation,
   resolveOperationsCenterDepartmentId,
-} from "./resolve-operations-center-active-operation";
+} from "./resolve-operations-center-department-id";
 export {
   resolveServeryEventOperationInstanceId,
   type ResolveServeryEventOperationInstanceDeps,
@@ -50,7 +45,6 @@ export {
   type LogDueAssignmentRow,
   type LogDueSubmissionRow,
 } from "./scope-log-due-queries";
-export { applyOperationScopedFacilityQueries } from "./apply-operation-scoped-facility-queries";
 export {
   isStaffingOverrideInScope,
   isStaffingScheduleInScope,

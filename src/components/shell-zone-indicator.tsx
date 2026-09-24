@@ -15,7 +15,7 @@ import {
  * Persistent mode + area breadcrumb. Tells the user, at a glance, whether they are operating (Run),
  * configuring (Build), or governing (Admin), and which area within that mode they are in.
  *
- * Locked accents: Run = emerald, Build = orange.
+ * Locked accents: Run = Harbor teal, Build = orange.
  * In BUILD the mode segment also links back to Build Home.
  */
 export function ShellZoneIndicator() {
@@ -42,7 +42,7 @@ export function ShellZoneIndicator() {
   const modeChipClass = isBuild
     ? "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] bg-orange-500 text-white"
     : isRun
-      ? "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] bg-emerald-700 text-white"
+      ? "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] bg-teal-700 text-white"
       : "text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500";
 
   return (

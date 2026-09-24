@@ -32,12 +32,32 @@ export function resolveDefaultAttachmentEffectiveFromKey(input: {
   const startsTomorrow = effectiveFromKey === tomorrowKey;
   const label = startsTomorrow
     ? "Starts tomorrow"
-    : `Effective ${formatShortDate(effectiveFromKey)}`;
+    : `Effective ${formatShortServiceDate(effectiveFromKey)}`;
 
   return { effectiveFromKey, startsTomorrow, label };
 }
 
-function formatShortDate(key: string): string {
+/** Product copy for an Attachment that is live, or not yet in force. */
+export function describeAttachmentStart(input: {
+  effectiveFromKey: string;
+  todayKey: string;
+}): { isUpcoming: boolean; startsOnLabel: string | null; effectiveLabel: string } {
+  if (input.effectiveFromKey > input.todayKey) {
+    const tomorrowKey = nextOperationalDayKey(input.todayKey);
+    const startsOnLabel =
+      input.effectiveFromKey === tomorrowKey
+        ? "Starts tomorrow"
+        : `Starts ${formatShortServiceDate(input.effectiveFromKey)}`;
+    return { isUpcoming: true, startsOnLabel, effectiveLabel: startsOnLabel };
+  }
+  return {
+    isUpcoming: false,
+    startsOnLabel: null,
+    effectiveLabel: `Effective ${formatShortServiceDate(input.effectiveFromKey)}`,
+  };
+}
+
+export function formatShortServiceDate(key: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
   if (!match) return key;
   const months = [

@@ -164,10 +164,6 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Schedule</h1>
-          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-            Plan who is working across the week. Daily coverage responsibility stays under
-            Assignments.
-          </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2" role="tablist" aria-label="Schedule view">
             <Link

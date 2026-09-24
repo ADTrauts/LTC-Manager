@@ -435,8 +435,8 @@ export function resolveUnitEligibility(
     if (!location.isActive || !location.isPlaced) continue;
 
     const role = location.reference.hierarchyRole;
-    // Floors stay structural; STAGED is never placed/active in source.
-    if (role === "FLOOR") continue;
+    // Buildings and Floors stay structural; STAGED is never placed/active in source.
+    if (role === "BUILDING" || role === "FLOOR") continue;
     if (role !== "NEIGHBORHOOD" && role !== "LEGACY") continue;
 
     const allowedByUnit =

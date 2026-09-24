@@ -15,6 +15,9 @@ export async function POST(request: Request) {
   if (!session?.facilityId) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
+  if (session.authKind === "harbor_staff") {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);

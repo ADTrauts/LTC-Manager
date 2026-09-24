@@ -31,7 +31,7 @@ export default async function AssetLogsTargetPage({ params }: Props) {
     <section className="space-y-4" data-testid="asset-logs-target-page">
       <BuildContextBar
         title={ctx.label.title}
-        subtitle={ctx.label.subtitle ?? "Asset Logs"}
+        subtitle={ctx.label.subtitle ?? "Assigned Logs for this asset"}
         facts={[
           { value: String(ctx.attachments.length), suffix: "Logs" },
           ...(ctx.departmentName
@@ -44,6 +44,7 @@ export default async function AssetLogsTargetPage({ params }: Props) {
         targetSubtitle={ctx.label.subtitle}
         attachments={ctx.attachments}
         addHref={ctx.addHref}
+        runHref={`/assets/${assetId}`}
         departmentName={ctx.departmentName}
       />
     </section>

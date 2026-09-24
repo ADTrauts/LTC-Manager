@@ -3,17 +3,16 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 
-import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { AppCard } from "@/components/design-system/AppCard";
 import { PageHeader } from "@/components/design-system/page-header";
-import { CoverageSummaryCards } from "@/components/todays-work/coverage-list-summary";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
-import { TodaysWorkCoverageList } from "@/components/todays-work/todays-work-coverage-list";
 import { SupervisorDailyCoveragePanel } from "@/components/todays-work/supervisor-daily-coverage-panel";
+import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import { isOperationalAssignmentsEnabled, isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
+import { buildOperationalTimeContext, loadFacilityTimezone } from "@/lib/operational-time";
 import {
   loadDailyAssignmentBoard,
   buildAssignmentFulfillmentSummary,
@@ -26,12 +25,10 @@ import { loadSupervisorDailyCoverage } from "@/lib/scheduling/load-supervisor-da
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import {
-  assembleProjectedTodaysWorkCoverage,
   filterCallDownsToProjectedUnits,
-  loadCallDownList,
-  loadCoverageList,
+  loadPresenceCallOffs,
+  loadTodaysWorkProjection,
 } from "@/lib/todays-work";
-import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
 
 export default async function TodaysWorkCoveragePage() {
   noStore();
@@ -48,32 +45,31 @@ export default async function TodaysWorkCoveragePage() {
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const canManage = hasAtLeastRole(session.role, "SUPERVISOR");
 
-  let coverage = await loadCoverageList(session.facilityId);
-  let callDowns = await loadCallDownList(session.facilityId);
+  const facilityTimezone = await loadFacilityTimezone(prisma, session.facilityId);
+  const dateIso = buildOperationalTimeContext({
+    now: new Date(),
+    facilityTimezone,
+  }).facilityLocalDate;
+
+  let callDowns = await loadPresenceCallOffs(session.facilityId);
 
   if (isProjectionTodaysWorkEnabled()) {
-    const assembled = await assembleProjectedTodaysWorkCoverage(session, {
+    const loaded = await loadTodaysWorkProjection(session, {
       memo: createProjectionRuntimeRequestScope(),
       activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
     });
-    if (assembled.enabled && "error" in assembled && assembled.error && !("coverage" in assembled)) {
+    if (loaded.enabled && loaded.error && !loaded.view) {
       return (
         <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-coverage-page">
           <PageHeader icon="todaysWork" eyebrow="Today's Work" title="Coverage" />
-          <TodaysWorkProjectionUnavailable message={assembled.error} />
+          <TodaysWorkProjectionUnavailable message={loaded.error} />
         </section>
       );
     }
-    if (assembled.enabled && "coverage" in assembled && assembled.coverage) {
-      coverage = assembled.coverage;
-      callDowns = filterCallDownsToProjectedUnits(
-        callDowns,
-        assembled.projection.projectedUnitIds,
-      );
+    if (loaded.enabled && loaded.view) {
+      callDowns = filterCallDownsToProjectedUnits(callDowns, loaded.view.projectedUnitIds);
     }
   }
-
-  const { summary, operationContext, items, priorityGap, dateIso } = coverage;
 
   const assignmentsEnabled = isOperationalAssignmentsEnabled();
 
@@ -228,7 +224,7 @@ export default async function TodaysWorkCoveragePage() {
         icon="todaysWork"
         eyebrow="Today's Work"
         title="Coverage"
-        subtitle="Who is working, what they own, and where staffing still needs action."
+        subtitle="Department coverage from assignments. Call-offs are presence facts — not a leftover schedule score."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -241,7 +237,7 @@ export default async function TodaysWorkCoveragePage() {
               href={`/staffing?date=${dateIso}`}
               className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
             >
-              Schedule
+              Staffing
             </Link>
             {assignmentsEnabled ? (
               <Link
@@ -253,14 +249,13 @@ export default async function TodaysWorkCoveragePage() {
             ) : null}
           </div>
         }
-        below={<OperationContextBanner context={operationContext} embedded />}
       />
 
       {!deptNav.activeDepartmentId ? (
         <AppCard
           as="section"
           title="Select a Department"
-          subtitle="Use the shell Department selector to see people and Floor coverage for that operation. Location gap list below remains facility-wide."
+          subtitle="Use the shell Department selector to see people and Floor coverage for that operation."
         />
       ) : null}
 
@@ -274,24 +269,6 @@ export default async function TodaysWorkCoveragePage() {
       {fulfillmentEl}
 
       <TodaysWorkCallDownList items={callDowns.items} compact />
-
-      <CoverageSummaryCards summary={summary} />
-
-      <AppCard
-        as="section"
-        title="Location staffing (legacy)"
-        subtitle={`Unit/meal presence gaps for ${dateIso}. Prefer Department staffing above when Daily Assignments are in use.`}
-        actions={
-          <Link
-            href={`/staffing/legacy?date=${dateIso}`}
-            className="inline-flex min-h-11 items-center rounded-md border-2 border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 touch-manipulation hover:bg-zinc-100"
-          >
-            Legacy unit staffing
-          </Link>
-        }
-      >
-        <TodaysWorkCoverageList items={items} priorityGap={priorityGap} />
-      </AppCard>
     </section>
   );
 }

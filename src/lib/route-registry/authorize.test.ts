@@ -59,6 +59,9 @@ test("authentication — public routes need no session", () => {
     "/api/auth/pin-login",
     "/api/health/live",
     "/api/health/ready",
+    "/console/login",
+    "/api/console/auth/login",
+    "/api/console/auth/logout",
   ]) {
     assert.equal(outcome(path, null), "ALLOW", path);
   }
@@ -84,6 +87,24 @@ test("authentication — a protected API without a session is refused, not redir
   }
 });
 
+test("harbor console — facility roles never enter /console", () => {
+  for (const path of [
+    "/console",
+    "/console/customers",
+    "/console/catalog",
+    "/console/catalog/new",
+    "/api/console/work-session",
+    "/api/console/work-session/end",
+  ]) {
+    assert.equal(outcome(path, null), "REQUIRE_AUTHENTICATION", path);
+    for (const role of APP_ROLES) {
+      const decision = decide(path, role);
+      assert.equal(decision.outcome, "DENY", `${role} at ${path}`);
+      assert.equal(roleMayAccessRoute(path, role, FLAGS), false, `${role} at ${path}`);
+    }
+  }
+});
+
 // ── Role policy ────────────────────────────────────────────────────────────────
 
 test("role policy — /admin permits only FACILITY_ADMINISTRATOR", () => {
@@ -95,6 +116,7 @@ test("role policy — /admin permits only FACILITY_ADMINISTRATOR", () => {
     "/admin/knowledge",
     "/admin/inspections",
     "/admin/facility/builder",
+    "/admin/billing",
   ]) {
     assert.equal(roleMayAccessRoute(path, "FACILITY_ADMINISTRATOR", FLAGS), true, path);
     for (const role of APP_ROLES.filter((r) => r !== "FACILITY_ADMINISTRATOR")) {

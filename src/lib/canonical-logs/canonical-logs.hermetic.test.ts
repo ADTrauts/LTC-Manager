@@ -10,18 +10,30 @@ import { buildCanonicalLogSubmissionSnapshot } from "./snapshot";
 import { normalizeAttachmentTarget } from "./attachment-validate";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 
-test("seed includes cooler, high-temp DW, low-temp DW, opening checklist", () => {
-  const keys = CATALOG_SEED_DEFINITIONS.map((d) => d.stableKey).sort();
+test("seed includes cooler, dishwashers, opening checklist, food temp, ice machine, receiving, freezer, sanitizer", () => {
+  const keys = [...new Set(CATALOG_SEED_DEFINITIONS.map((d) => d.stableKey))].sort();
   assert.deepEqual(keys, [
     "cooler_temperature_log",
+    "food_temperature_log",
+    "freezer_temperature_log",
     "high_temp_dishwasher_log",
+    "ice_machine_cleaning_log",
     "low_temp_chemical_dishwasher_log",
     "opening_checklist",
+    "receiving_temperature_log",
+    "three_bay_sink_sanitizer_log",
   ]);
   assert.equal(
     CATALOG_SEED_DEFINITIONS.find((d) => d.stableKey === "cooler_temperature_log")?.recommendedCadence,
     "TWICE_DAILY",
   );
+  const iceV2 = CATALOG_SEED_DEFINITIONS.find(
+    (d) => d.stableKey === "ice_machine_cleaning_log" && d.version === 2,
+  );
+  assert.equal(iceV2?.recommendedCadence, "WEEKLY");
+  assert.deepEqual(iceV2?.recommendedDaypartLabels, ["Tuesday"]);
+  assert.match(iceV2?.description ?? "", /operational default/i);
+  assert.doesNotMatch(iceV2?.description ?? "", /regulat/i);
   assert.equal(
     CATALOG_SEED_DEFINITIONS.find((d) => d.stableKey === "opening_checklist")?.purposeType,
     "CHECKLIST",
@@ -71,6 +83,7 @@ function coolerAttachment(overrides?: Partial<Parameters<typeof resolveLogRequir
     spaceId: null,
     unitId: null,
     targetDepartmentId: null,
+    operationalTypeKey: null,
     dailyWindows: windows.map((w, i) => ({
       label: w.label,
       startLocal: w.startLocal,

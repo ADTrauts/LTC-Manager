@@ -15,7 +15,12 @@ import {
   loadPublishedCatalogByStableKey,
   setLogAttachmentStatus,
   updateLogAttachment,
+  adoptLogAttachmentCatalogVersion,
 } from "@/lib/canonical-logs";
+import {
+  applyCatalogAssignSelection,
+  CATALOG_UNASSIGN_NOTICE,
+} from "@/lib/canonical-logs/catalog-assign";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
@@ -182,6 +187,35 @@ export async function updateCanonicalLogAttachmentAction(input: {
   }
 }
 
+export async function adoptCanonicalLogAttachmentAction(input: {
+  attachmentId: string;
+}): Promise<ActionResult> {
+  if (!isCanonicalLogsEnabled()) {
+    return { ok: false, error: "Canonical Logs are not enabled." };
+  }
+  const session = await getSession();
+  if (!session?.facilityId) return { ok: false, error: "Not signed in." };
+  if (!hasAtLeastRole(session.role, "MANAGER")) {
+    return { ok: false, error: "Manager access required." };
+  }
+
+  try {
+    const row = await adoptLogAttachmentCatalogVersion(prisma, {
+      facilityId: session.facilityId,
+      attachmentId: input.attachmentId,
+    });
+    const targetId =
+      row.assetId ?? row.spaceId ?? row.unitId ?? row.targetDepartmentId ?? "";
+    const redirectTo = targetReturnPath(row.targetKind, targetId || row.id);
+    revalidatePath(redirectTo);
+    revalidatePath(`/build/logs/attachments/${row.id}`);
+    return { ok: true, redirectTo, attachmentId: row.id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not adopt Catalog version.";
+    return { ok: false, error: message };
+  }
+}
+
 export async function setCanonicalLogAttachmentStatusAction(input: {
   attachmentId: string;
   status: LogAttachmentStatus;
@@ -208,6 +242,62 @@ export async function setCanonicalLogAttachmentStatusAction(input: {
     return { ok: true, redirectTo, attachmentId: row.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not update status.";
+    return { ok: false, error: message };
+  }
+}
+
+export type AssignCatalogResult =
+  | {
+      ok: true;
+      added: number;
+      removed: number;
+      message: string;
+    }
+  | { ok: false; error: string };
+
+export async function assignCanonicalLogToTargetsAction(input: {
+  catalogStableKey: string;
+  selectedKeys: string[];
+}): Promise<AssignCatalogResult> {
+  if (!isCanonicalLogsEnabled()) {
+    return { ok: false, error: "Canonical Logs are not enabled." };
+  }
+  const session = await getSession();
+  if (!session?.facilityId) return { ok: false, error: "Not signed in." };
+  if (!hasAtLeastRole(session.role, "MANAGER") || session.authMethod === "QUICK_PIN") {
+    return { ok: false, error: "Manager password access is required to assign Logs." };
+  }
+
+  try {
+    const result = await applyCatalogAssignSelection({
+      client: prisma,
+      facilityId: session.facilityId,
+      catalogStableKey: input.catalogStableKey,
+      selectedKeys: input.selectedKeys,
+    });
+    revalidatePath("/build/logs", "layout");
+    revalidatePath("/staffing/logs", "layout");
+    revalidatePath(`/build/logs/catalog/${input.catalogStableKey}`);
+    const parts: string[] = [];
+    if (result.added > 0) {
+      parts.push(`Assigned to ${result.added} target${result.added === 1 ? "" : "s"}.`);
+    }
+    if (result.removed > 0) {
+      parts.push(
+        `Removed from ${result.removed} target${result.removed === 1 ? "" : "s"}. ${CATALOG_UNASSIGN_NOTICE}`,
+      );
+    }
+    if (parts.length === 0) {
+      parts.push("No assignment changes.");
+    }
+    return {
+      ok: true,
+      added: result.added,
+      removed: result.removed,
+      message: parts.join(" "),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not assign this Log.";
     return { ok: false, error: message };
   }
 }

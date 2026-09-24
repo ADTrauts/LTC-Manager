@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { IssueType, RepairPriority, RepairStatus, RepairTrade, WorkOrderKind } from "@prisma/client";
 import { z } from "zod";
 
@@ -12,7 +13,13 @@ import {
   suggestRepairDepartmentIds,
 } from "@/lib/repair-routing";
 import { resolvePreferredRepairProviderForAsset } from "@/lib/asset-operations";
+import { listAttachmentsForRepair } from "@/lib/attachments";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
+import {
+  deleteFacilityPhotoAttachment,
+  MAX_REPAIR_PHOTOS_PER_SUBMIT,
+  savePhotosFromFormData,
+} from "@/lib/photo-attachments";
 
 const priorityValues = [
   RepairPriority.LOW,
@@ -189,7 +196,17 @@ export async function createRepairAction(formData: FormData) {
     facilityId: repair.unit.facilityId,
   });
 
+  await savePhotosFromFormData({
+    formData,
+    facilityId: session.facilityId,
+    parentKind: "REPAIR",
+    repairId: repair.id,
+    session,
+    maxCount: MAX_REPAIR_PHOTOS_PER_SUBMIT,
+  });
+
   revalidateRepairViews({ issueId: repair.id, unitId: repair.unitId });
+  redirect("/repairs");
 }
 
 export async function addRepairUpdateAction(formData: FormData) {
@@ -258,4 +275,59 @@ export async function addRepairUpdateAction(formData: FormData) {
   });
 
   revalidateRepairViews({ issueId: updated.id, unitId: updated.unitId });
+}
+
+export async function addRepairPhotosAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "STAFF");
+
+  const repairId = String(formData.get("repairId") ?? "");
+  if (!repairId) {
+    throw new Error("Repair not found.");
+  }
+
+  const repair = await prisma.repair.findFirst({
+    where: { id: repairId, unit: { facilityId: session.facilityId } },
+    select: { id: true, unitId: true },
+  });
+  if (!repair) {
+    throw new Error("Repair not found.");
+  }
+
+  const existing = await listAttachmentsForRepair(session.facilityId, repairId);
+  await savePhotosFromFormData({
+    formData,
+    facilityId: session.facilityId,
+    parentKind: "REPAIR",
+    repairId,
+    session,
+    maxCount: MAX_REPAIR_PHOTOS_PER_SUBMIT,
+    existingCount: existing.length,
+  });
+
+  revalidateRepairViews({ issueId: repair.id, unitId: repair.unitId });
+}
+
+export async function removeRepairPhotoAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "STAFF");
+
+  const repairId = String(formData.get("repairId") ?? "");
+  const attachmentId = String(formData.get("attachmentId") ?? "");
+  if (!repairId || !attachmentId) {
+    throw new Error("Invalid photo removal.");
+  }
+
+  await deleteFacilityPhotoAttachment({
+    facilityId: session.facilityId,
+    attachmentId,
+    expectedKind: "REPAIR",
+    expectedParentId: repairId,
+  });
+
+  const repair = await prisma.repair.findFirst({
+    where: { id: repairId, unit: { facilityId: session.facilityId } },
+    select: { id: true, unitId: true },
+  });
+  revalidateRepairViews({ issueId: repairId, unitId: repair?.unitId ?? null });
 }

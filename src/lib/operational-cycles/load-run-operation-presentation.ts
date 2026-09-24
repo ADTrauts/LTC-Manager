@@ -13,6 +13,7 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { localHhMmFromInstant } from "./key-time-day-expectation";
+import { loadSpaceOperationalTypeAssignments } from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import {
@@ -213,88 +214,6 @@ export async function resolveSelectedRoomForUnit(input: {
   return { ok: true, identity };
 }
 
-export type UnitWorkspaceRunContext = {
-  selectedRoom: RunLocationIdentity | null;
-  redirectTo: string | null;
-  notFound: boolean;
-  runPresentation: RunLocationOperationPresentation | null;
-  departmentPresentation: RunDepartmentOperationPresentation | null;
-};
-
-/**
- * Canonical Unit/Room workspace Run context. Room identity is independent of
- * provenance. New PERIOD/KEY_TIME presentation wins when published; otherwise
- * callers keep the legacy meal banner.
- */
-export async function resolveUnitWorkspaceRunContext(input: {
-  session: AppJwtPayload;
-  facilityId: string;
-  unitId: string;
-  spaceId: string | null;
-  activeDepartmentId: string | null;
-  now?: Date;
-}): Promise<UnitWorkspaceRunContext> {
-  const empty: UnitWorkspaceRunContext = {
-    selectedRoom: null,
-    redirectTo: null,
-    notFound: false,
-    runPresentation: null,
-    departmentPresentation: null,
-  };
-
-  if (input.session.facilityId !== input.facilityId) {
-    return { ...empty, notFound: Boolean(input.spaceId) };
-  }
-
-  let selectedRoom: RunLocationIdentity | null = null;
-  if (input.spaceId) {
-    const resolved = await resolveSelectedRoomForUnit({
-      facilityId: input.facilityId,
-      unitId: input.unitId,
-      spaceId: input.spaceId,
-    });
-    if (!resolved.ok && resolved.reason === "not_found") {
-      return { ...empty, notFound: true };
-    }
-    if (!resolved.ok && resolved.reason === "wrong_unit") {
-      return {
-        ...empty,
-        redirectTo: `/unit/${resolved.identity.unitId}?space=${encodeURIComponent(input.spaceId)}`,
-      };
-    }
-    if (resolved.ok) selectedRoom = resolved.identity;
-  }
-
-  const department = await resolveRunPresentationDepartment({
-    facilityId: input.facilityId,
-    activeDepartmentId: input.activeDepartmentId,
-    unitId: input.unitId,
-  });
-  if (!department) {
-    return { ...empty, selectedRoom };
-  }
-
-  if (selectedRoom?.spaceId) {
-    const runPresentation = await loadLocationRunPresentation({
-      session: input.session,
-      facilityId: input.facilityId,
-      departmentId: department.id,
-      spaceId: selectedRoom.spaceId,
-      location: selectedRoom,
-      now: input.now,
-    });
-    return { ...empty, selectedRoom, runPresentation };
-  }
-
-  const departmentPresentation = await loadDepartmentRunPresentation({
-    session: input.session,
-    facilityId: input.facilityId,
-    departmentId: department.id,
-    now: input.now,
-  });
-  return { ...empty, selectedRoom, departmentPresentation };
-}
-
 export async function loadLocationRunPresentation(input: {
   session: AppJwtPayload;
   facilityId: string;
@@ -305,7 +224,7 @@ export async function loadLocationRunPresentation(input: {
 }): Promise<RunLocationOperationPresentation | null> {
   if (input.session.facilityId !== input.facilityId) return null;
 
-  const [model, location] = await Promise.all([
+  const [model, location, assignments] = await Promise.all([
     loadPublishedRunModel({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -314,6 +233,12 @@ export async function loadLocationRunPresentation(input: {
     input.location
       ? Promise.resolve(input.location)
       : loadRoomRunIdentity({ facilityId: input.facilityId, spaceId: input.spaceId }),
+    loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      spaceIds: [input.spaceId],
+      perspective: "runtime",
+    }),
   ]);
   if (!location) return null;
 
@@ -325,6 +250,7 @@ export async function loadLocationRunPresentation(input: {
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: input.spaceId,
+    operationalTypeKey: assignments.get(input.spaceId)?.key ?? null,
     location,
     nowLocalHhMm: model.nowLocalHhMm,
     canAdjust: hasAtLeastRole(role, "SUPERVISOR"),

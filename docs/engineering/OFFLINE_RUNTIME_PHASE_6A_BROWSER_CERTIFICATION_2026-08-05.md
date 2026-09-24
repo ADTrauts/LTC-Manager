@@ -14,7 +14,7 @@ This record does **not** rewrite the original Phase 6A report as though browser 
 | Primary browser | Chromium (service workers, IndexedDB, Cache Storage, `context.setOffline`) |
 | Secondary browsers | Not required for Phase 6A pilot certification |
 | Command | `npm run test:offline-browser` → `scripts/verify/run-offline-browser.mjs` |
-| Config | `playwright.offline.config.ts` |
+| Config | `tests/playwright.offline.config.ts` |
 | Specs | `tests/offline-browser/*.spec.ts` |
 | Fixtures | `scripts/verify/offline-browser-fixtures.mjs` |
 

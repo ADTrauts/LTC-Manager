@@ -4,6 +4,7 @@ import {
   effectiveMealType,
   projectCycleHierarchy,
 } from "./cycle-hierarchy";
+import { effectiveOperationalTypeKeys } from "./cycle-applicability";
 import {
   buildCyclesByStableKey,
   effectiveCycleSpaceIds,
@@ -62,6 +63,7 @@ export function cycleAppliesToUnit(
     OperationalCycleDefinition,
     | "locationMode"
     | "applicableUnitTypes"
+    | "applicableOperationalTypeKeys"
     | "unitIds"
     | "spaceIds"
     | "roomTypeKey"
@@ -108,21 +110,46 @@ export function cycleAppliesToUnit(
       if (!cycle.roomTypeKey) return false;
       if (!unit.childRoomTypeKeys) return true;
       return unit.childRoomTypeKeys.includes(cycle.roomTypeKey);
+    case "OPERATIONAL_TYPES": {
+      const otKeys = allCyclesByStableKey
+        ? effectiveOperationalTypeKeys(cycle, allCyclesByStableKey)
+        : cycle.applicableOperationalTypeKeys ?? [];
+      if (otKeys.length === 0) return false;
+      const childKeys = unit.childOperationalTypeKeys ?? [];
+      return childKeys.some((key) => otKeys.includes(key));
+    }
     default:
       return false;
   }
 }
+
+export type CycleSpaceApplicabilityContext = {
+  /** Current Operational Type key for this room. Unassigned rooms do not match OT cycles. */
+  operationalTypeKey?: string | null;
+};
 
 /** Room-level applicability using the canonical PERIOD/KEY_TIME effective Room set. */
 export function cycleAppliesToSpace(
   cycle: OperationalCycleDefinition,
   spaceId: string,
   allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
+  context?: CycleSpaceApplicabilityContext,
 ): boolean {
   const spaces = effectiveCycleSpaceIds(cycle, allCyclesByStableKey);
   if (spaces.length > 0) return spaces.includes(spaceId);
   if (cycle.nodeKind === "KEY_TIME") return false;
+  const otKeys = effectiveOperationalTypeKeys(cycle, allCyclesByStableKey);
+  if (otKeys.length > 0) {
+    const key = context?.operationalTypeKey?.trim() ?? "";
+    return Boolean(key && otKeys.includes(key));
+  }
   if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  if (cycle.locationInheritFromParent) {
+    const parent = cycle.parentStableKey
+      ? allCyclesByStableKey.get(cycle.parentStableKey)
+      : undefined;
+    if (parent?.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  }
   return false;
 }
 
@@ -242,6 +269,8 @@ export function resolveOperationalCycle(input: {
   unit?: CycleUnitScope | null;
   /** When set, Room grain is authoritative — parents do not expand the set. */
   spaceId?: string | null;
+  /** Current Operational Type for spaceId — required for OPERATIONAL_TYPES targeting. */
+  operationalTypeKey?: string | null;
   /** When false, department has no cycle applicability (e.g. wrong department). */
   departmentApplicable?: boolean;
   /** UnitMealTime targets — never copied from cycle rows. */
@@ -268,7 +297,11 @@ export function resolveOperationalCycle(input: {
   );
 
   if (input.spaceId) {
-    scoped = scoped.filter((c) => cycleAppliesToSpace(c, input.spaceId!, defsByKey));
+    scoped = scoped.filter((c) =>
+      cycleAppliesToSpace(c, input.spaceId!, defsByKey, {
+        operationalTypeKey: input.operationalTypeKey,
+      }),
+    );
     if (scoped.length === 0) {
       return { state: "NOT_APPLICABLE" };
     }

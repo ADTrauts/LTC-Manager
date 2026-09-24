@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
  * Operational employee id for the signed-in actor (PIN = employee id; User = roster row match by email).
  */
 export async function getOperationalEmployeeIdForSession(session: AppJwtPayload): Promise<string | null> {
+  if (session.authKind === "harbor_staff") {
+    return null;
+  }
   if (session.authKind === "employee") {
     return session.uid ?? null;
   }

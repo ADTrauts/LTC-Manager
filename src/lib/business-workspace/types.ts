@@ -1,4 +1,5 @@
 import type { AppRole } from "@/lib/access";
+import type { DashboardWorkspaceViewModel } from "./dashboard/types";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import type { AppIconKey } from "@/lib/design-system";
 import type { StatusBadgeVariant, StatusTone } from "@/lib/design-system/status-styles";
@@ -167,6 +168,7 @@ export type BusinessWorkspaceData = {
   operationsLinks: WorkspaceLinkCard[];
   performance: WorkspaceMetric[];
   recentActivity: WorkspaceActivityItem[];
+  dashboardRuntime: DashboardWorkspaceViewModel | null;
 };
 
 export type BusinessWorkspaceView = {

@@ -20,6 +20,10 @@ import type {
   ManagementAgendaBucket,
   WorkspaceSectionId,
 } from "@/lib/business-workspace";
+import {
+  DASHBOARD_COVERAGE_UNAVAILABLE_LABEL,
+  type DashboardWorkspaceViewModel,
+} from "@/lib/business-workspace/dashboard/types";
 import { orderedWorkspaceSections } from "@/lib/business-workspace";
 import type { StatusTone } from "@/lib/design-system/status-styles";
 import { OperationsCenterKeyTimeSummaries } from "@/components/operations-center/operations-center-key-time-summaries";
@@ -33,7 +37,135 @@ function priorityStatusLabel(tone: StatusTone): string {
   return "Info";
 }
 
+function DashboardOverview({ runtime }: { runtime: DashboardWorkspaceViewModel }) {
+  return (
+    <section className="space-y-3" data-testid="dashboard-runtime-overview">
+      <p className="text-lg font-semibold text-zinc-900" data-testid="dashboard-runtime-operation">
+        {runtime.operation.label}
+      </p>
+      <ul className="space-y-1 text-sm text-zinc-600">
+        <li>
+          {runtime.operatingCount === 1
+            ? "1 location operating"
+            : `${runtime.operatingCount} locations operating`}
+          {runtime.spaceCount > 0
+            ? ` · ${runtime.spaceCount} operational ${runtime.spaceCount === 1 ? "space" : "spaces"}`
+            : null}
+        </li>
+        <li data-testid="dashboard-runtime-attention">
+          {runtime.attentionCount === 0
+            ? "No locations currently need attention"
+            : runtime.attentionCount === 1
+              ? "1 location needs attention"
+              : `${runtime.attentionCount} locations need attention`}
+        </li>
+        {runtime.overdueEvidenceCount > 0 ? (
+          <li>
+            {runtime.overdueEvidenceCount === 1
+              ? "1 overdue evidence item"
+              : `${runtime.overdueEvidenceCount} overdue evidence items`}
+          </li>
+        ) : null}
+        {runtime.assetImpactCount > 0 ? (
+          <li>
+            {runtime.assetImpactCount === 1
+              ? "1 operational asset issue"
+              : `${runtime.assetImpactCount} operational asset issues`}
+          </li>
+        ) : null}
+        {runtime.configurationCount > 0 ? (
+          <li className="text-zinc-500">
+            {runtime.configurationCount === 1
+              ? "1 location needs configuration"
+              : `${runtime.configurationCount} locations need configuration`}
+          </li>
+        ) : null}
+      </ul>
+      <p className="text-sm text-zinc-600" data-testid="dashboard-runtime-coverage">
+        Coverage: {runtime.coverage.unavailable ? DASHBOARD_COVERAGE_UNAVAILABLE_LABEL : runtime.coverage.summary}
+      </p>
+      {runtime.next ? (
+        <p className="text-sm text-zinc-700" data-testid="dashboard-runtime-next">
+          Next: {runtime.next.label} — {runtime.next.spaceName} — {runtime.next.timeLabel}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function DashboardInterventions({ runtime }: { runtime: DashboardWorkspaceViewModel }) {
+  if (runtime.interventions.length === 0) {
+    return (
+      <EmptyState
+        title="No locations currently need attention"
+        description="Open Today's Work when you want the detailed walk, or view locations."
+        action={
+          <div className="flex flex-wrap gap-3">
+            <Link href="/today" className="text-sm font-medium text-zinc-800 underline">
+              Today&apos;s Work
+            </Link>
+            <Link href="/units" className="text-sm font-medium text-zinc-800 underline">
+              View locations
+            </Link>
+          </div>
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="dashboard-runtime-interventions">
+      <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
+        {runtime.interventions.map((row) => (
+          <li key={row.id}>
+            <Link
+              href={row.href}
+              className="block min-h-11 px-3 py-3 hover:bg-zinc-50"
+              data-testid="dashboard-runtime-intervention"
+            >
+              <p className="text-sm font-semibold text-zinc-900">{row.spaceName}</p>
+              <p className="text-sm text-zinc-700">{row.label}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link href="/today" className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-2">
+        Open Today&apos;s Work
+      </Link>
+    </div>
+  );
+}
+
+function DashboardUpcoming({ runtime }: { runtime: DashboardWorkspaceViewModel }) {
+  if (runtime.upcoming.length === 0) {
+    return <p className="text-sm text-zinc-600">No upcoming location events in scope.</p>;
+  }
+  return (
+    <ul className="space-y-2" data-testid="dashboard-runtime-upcoming">
+      {runtime.upcoming.map((row) => (
+        <li key={`${row.spaceId}:${row.label}:${row.timeLabel}`}>
+          <Link href={row.href} className="block min-h-11 rounded-md px-2 py-2 hover:bg-zinc-50">
+            <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
+            <p className="text-sm text-zinc-600">
+              {row.spaceName} · {row.timeLabel}
+            </p>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ManagerFocusSection({ view }: { view: WorkspaceViewModel }) {
+  if (view.data.dashboardRuntime) {
+    return (
+      <div className="space-y-6">
+        <DashboardOverview runtime={view.data.dashboardRuntime} />
+        <DashboardInterventions runtime={view.data.dashboardRuntime} />
+      </div>
+    );
+  }
+
   const cards = view.data.managerFocus;
   const healthy = view.data.managerFocusHealthy;
 
@@ -118,6 +250,10 @@ function agendaBucketClass(bucket: ManagementAgendaBucket): string {
 }
 
 function ManagementAgendaSection({ view }: { view: WorkspaceViewModel }) {
+  if (view.data.dashboardRuntime) {
+    return <DashboardUpcoming runtime={view.data.dashboardRuntime} />;
+  }
+
   const buckets = view.data.managementAgenda;
   const current = buckets.find((bucket) => bucket.isCurrent);
   const others = buckets.filter((bucket) => !bucket.isCurrent);
@@ -403,7 +539,11 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
         below={
           <div className="mt-3 space-y-1 text-sm text-zinc-600">
             <p className="text-lg font-medium text-zinc-900">{header.greeting}</p>
-            {header.runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+            {view.data.dashboardRuntime ? (
+              <p data-testid="dashboard-runtime-header-operation">
+                {view.data.dashboardRuntime.operation.label}
+              </p>
+            ) : header.runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
               <TodaysWorkRunOperationBanner presentation={header.runPresentation} />
             ) : (
               <p>
@@ -413,7 +553,8 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
                   : ""}
               </p>
             )}
-            {header.runPresentation?.provenance !== "NEW_PERIOD_KEY_TIME" &&
+            {!view.data.dashboardRuntime &&
+            header.runPresentation?.provenance !== "NEW_PERIOD_KEY_TIME" &&
             header.keyTimeSummaries &&
             header.keyTimeSummaries.length > 0 ? (
               <OperationsCenterKeyTimeSummaries summaries={header.keyTimeSummaries} />
@@ -436,17 +577,36 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
         />
       ) : null}
 
-      {sections.map((section) => (
-        <WorkspaceCollapsibleSection
-          key={section.id}
-          sectionId={section.id}
-          title={section.title}
-          description={section.description}
-          collapsed={collapsed.has(section.id)}
-        >
-          {renderSection(section.id, view)}
-        </WorkspaceCollapsibleSection>
-      ))}
+      {sections.map((section) => {
+        const runtime = view.data.dashboardRuntime;
+        const title =
+          runtime && section.id === "manager_focus"
+            ? "Needs Attention"
+            : runtime && section.id === "management_agenda"
+              ? "Upcoming"
+              : runtime && section.id === "performance"
+                ? "Operation snapshot"
+                : section.title;
+        const description =
+          runtime && section.id === "manager_focus"
+            ? "Where you should intervene — canonical exceptions only."
+            : runtime && section.id === "management_agenda"
+              ? "Earliest upcoming events across visible spaces."
+              : runtime && section.id === "performance"
+                ? "Factual counts from current location state."
+                : section.description;
+        return (
+          <WorkspaceCollapsibleSection
+            key={section.id}
+            sectionId={section.id}
+            title={title}
+            description={description}
+            collapsed={collapsed.has(section.id)}
+          >
+            {renderSection(section.id, view)}
+          </WorkspaceCollapsibleSection>
+        );
+      })}
     </div>
   );
 }

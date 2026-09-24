@@ -20,6 +20,11 @@ export {
   objectLinkCompatibilityError,
 } from "./object-links";
 export { buildKnowledgeAdminListWhere } from "./search";
+export {
+  PROCEDURES_RESOURCES_HREF,
+  PROCEDURES_RESOURCES_HUB_ID,
+  PROCEDURES_RESOURCES_VISIBLE,
+} from "./surface";
 export { articleVisibleToViewer, buildPublishedKnowledgeWhere } from "./visibility";
 export {
   loadContextualKnowledge,

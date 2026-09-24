@@ -19,6 +19,7 @@ export type {
   DepartmentTeamView,
   TeamCatalog,
   TeamEmployeeOption,
+  TeamOperationalTypeOption,
   TeamRoomView,
 } from "./types";
 export {
@@ -28,3 +29,11 @@ export {
   teamNamesConflict,
   validateTeamRoomSubmission,
 } from "./validation";
+export {
+  configuredTeamSpaceIds,
+  describeTeamApplicability,
+  matchTeamToLocation,
+  dedupeTeamLocationMatches,
+  overlaySourceFromTeamMatch,
+  validateTeamOperationalTypeKeys,
+} from "./team-operational-type-applicability";

@@ -5,7 +5,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isExperienceShellEnabled } from "@/lib/feature-flags";
 import {
   clearComponentOverrides,
   isKnownComponentKind,
@@ -14,27 +13,6 @@ import {
   resolveComponentRendererWithOverrides,
   resolveExperienceShellModel,
 } from "@/lib/experience-shell";
-
-function withEnv(name: string, value: string | undefined, fn: () => void) {
-  const previous = process.env[name];
-  if (value === undefined) delete process.env[name];
-  else process.env[name] = value;
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) delete process.env[name];
-    else process.env[name] = previous;
-  }
-}
-
-test("EXPERIENCE_SHELL_ENABLED defaults to false", () => {
-  withEnv("EXPERIENCE_SHELL_ENABLED", undefined, () => {
-    assert.equal(isExperienceShellEnabled(), false);
-  });
-  withEnv("EXPERIENCE_SHELL_ENABLED", "true", () => {
-    assert.equal(isExperienceShellEnabled(), true);
-  });
-});
 
 test("resolveExperienceShellModel — Meal Service sections and cards", () => {
   const model = resolveExperienceShellModel({

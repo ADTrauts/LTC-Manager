@@ -29,11 +29,7 @@ import {
   adaptProjectionToBusinessWorkspace,
   emptyBusinessWorkspaceScope,
 } from "./adapt-projection";
-import {
-  countWorkspaceInputRows,
-  intersectInputsToProjectedScope,
-  resolveProjectedCompositionConfig,
-} from "./intersect";
+import { resolveProjectedCompositionConfig } from "./intersect";
 import type { ProjectedBusinessWorkspaceScope } from "./types";
 
 export type LoadBusinessWorkspaceProjectionOptions = Omit<
@@ -164,7 +160,6 @@ export async function assembleProjectedBusinessWorkspace(
       ...workspaceInput,
       projectedScope: scope,
       projectedCompositionConfig: config,
-      // Do not fall through to legacy scopeInputsForContext.
       skipLegacyScope: true,
     });
   } catch (err) {
@@ -220,9 +215,4 @@ export async function assembleProjectedBusinessWorkspace(
   };
 }
 
-/** Re-export intersect helpers for tests / advanced callers. */
-export {
-  countWorkspaceInputRows,
-  intersectInputsToProjectedScope,
-  resolveProjectedCompositionConfig,
-};
+export { resolveProjectedCompositionConfig };

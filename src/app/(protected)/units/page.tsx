@@ -10,10 +10,13 @@ import {
 } from "@/lib/facility-builder/facility-vocabulary";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import {
+  buildLocationsLandingPresentation,
+  collectActionableLandingSpaces,
   loadLocationsView,
   loadUnitsPageData,
 } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
+import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 
 function lensSummaryLabel(view: {
   lensMode: "DEPARTMENT" | "FACILITY";
@@ -83,6 +86,23 @@ export default async function UnitsPage() {
   ]);
 
   const vocabulary = resolveFacilityVocabulary(facility);
+  const collected =
+    loaded.view && !loaded.error
+      ? collectActionableLandingSpaces(loaded.view)
+      : { refs: [], ancestry: [] };
+  const runtime =
+    collected.refs.length > 0
+      ? await loadRuntimeLocationStates({
+          facilityId: session.facilityId,
+          spaceRefs: collected.refs,
+        })
+      : { states: [] };
+  const landing = buildLocationsLandingPresentation({
+    ancestry: collected.ancestry,
+    states: runtime.states,
+    canConfigureLocations: canConfigureFacility,
+  });
+
   const view = loaded.view ?? {
     facilityId: session.facilityId,
     purpose: "LOCATIONS" as const,
@@ -110,6 +130,7 @@ export default async function UnitsPage() {
       projectionError={loaded.error}
       canConfigureFacility={canConfigureFacility}
       lensSummary={lensSummaryLabel(view)}
+      landingByNodeId={landing.byNodeId}
     />
   );
 }

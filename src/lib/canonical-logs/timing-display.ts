@@ -9,6 +9,8 @@ import type {
   LogAttachmentTimingMode,
 } from "@prisma/client";
 
+import { parseRecommendedWeekdays } from "@/lib/logs-architecture/recommended-weekdays";
+
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 /** Convert HH:mm (24h) to 12-hour display, e.g. "5:00 AM". */
@@ -43,6 +45,19 @@ export function catalogCadenceLabel(cadence: CatalogRecommendedCadence | null | 
     default:
       return "As configured";
   }
+}
+
+/** Cadence plus a non-authoritative suggested weekday when Catalog supplies one. */
+export function catalogRecommendedScheduleLabel(
+  cadence: CatalogRecommendedCadence | null | undefined,
+  recommendedDaypartLabels: readonly string[] = [],
+): string {
+  const base = catalogCadenceLabel(cadence);
+  if (cadence !== "WEEKLY") return base;
+  const { labels } = parseRecommendedWeekdays(recommendedDaypartLabels);
+  if (labels.length === 1) return `${base} · Suggested ${labels[0]}`;
+  if (labels.length > 1) return `${base} · Suggested ${labels.join(", ")}`;
+  return base;
 }
 
 export function formatWindowSummary(

@@ -119,6 +119,14 @@ describe("system department baselines", () => {
     }
   });
 
+  it("Dietary baseline includes Servery, Retail, and Main Kitchen Operational Types", () => {
+    const plan = materializeBaselineProfilePlan("DIETARY");
+    const keys = plan.archetypes.map((archetype) => archetype.key);
+    assert.ok(keys.includes("servery"));
+    assert.ok(keys.includes("retail"));
+    assert.ok(keys.includes("main_kitchen"));
+  });
+
   it("rejects unknown baseline departments", () => {
     assert.equal(isBaselineDepartmentKey("LAUNDRY"), false);
     assert.throws(() => materializeBaselineProfilePlan("LAUNDRY"));

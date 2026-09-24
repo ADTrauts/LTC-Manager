@@ -9,7 +9,7 @@
 export const RAW_ENUM_CLEANUP_TARGETS = [
   {
     domain: "Employee / Job Flow",
-    examples: ["ACTIVE (jobFlow.state shown in employee-job-flow-panel)"],
+    examples: ["ACTIVE (JobFlowContext.state leftover compatibility)"],
     notes: "Job flow state may use different vocabulary than EmployeeStatus.",
   },
   {

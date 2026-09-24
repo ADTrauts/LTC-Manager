@@ -5,8 +5,10 @@ import { cookies } from "next/headers";
 
 import {
   retireAssetAction,
+  removeAssetPhotoAction,
   updateAssetIdentityAction,
   updateAssetStatusAction,
+  uploadAssetPhotosAction,
 } from "@/app/(protected)/assets/actions";
 import { createWorkOrderFromAssetIssueAction } from "@/app/(protected)/asset-issues/actions";
 import { AssetIssueReportPanel } from "@/components/asset-operations/asset-issue-report-panel";
@@ -36,8 +38,13 @@ import { isCanonicalLogsEnabled, isDietaryAssetOperationsEnabled } from "@/lib/f
 import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
+import { RunAssetLogsSection } from "@/components/canonical-logs/run-asset-logs-section";
+import { PhotoFileField } from "@/components/photos/photo-file-field";
+import { PhotoGallery, PhotoThumb } from "@/components/photos/photo-gallery";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
+import { loadAssetRunLogs } from "@/lib/canonical-logs/load-asset-run-logs";
 import { hasAtLeastRole } from "@/lib/access";
+import { MAX_ASSET_PHOTOS } from "@/lib/photo-attachments";
 
 type Props = {
   params: Promise<{ assetId: string }>;
@@ -153,16 +160,27 @@ export default async function AssetProfilePage({ params }: Props) {
     preferredRepairProvider: identity.vendor,
   });
 
-  const showCanonicalLogs =
-    isCanonicalLogsEnabled() && hasAtLeastRole(session.role, "MANAGER");
-  const logsCtx = showCanonicalLogs
-    ? await loadTargetLogsBuildContext({
-        facilityId: session.facilityId,
-        targetKind: "ASSET",
-        targetId: assetId,
-        departmentId,
-      })
-    : null;
+  const showCanonicalLogs = isCanonicalLogsEnabled();
+  const isManager = hasAtLeastRole(session.role, "MANAGER");
+  const canConfigureLogs = isManager && session.authMethod !== "QUICK_PIN";
+  const runLogs =
+    showCanonicalLogs && hasAtLeastRole(session.role, "STAFF")
+      ? await loadAssetRunLogs({
+          client: prisma,
+          session,
+          facilityId: session.facilityId,
+          assetId,
+        })
+      : null;
+  const logsCtx =
+    showCanonicalLogs && canConfigureLogs
+      ? await loadTargetLogsBuildContext({
+          facilityId: session.facilityId,
+          targetKind: "ASSET",
+          targetId: assetId,
+          departmentId,
+        })
+      : null;
 
   return (
     <section className="space-y-6" data-testid="asset-profile-page">
@@ -173,7 +191,15 @@ export default async function AssetProfilePage({ params }: Props) {
           </Link>
         </p>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="flex min-w-0 items-start gap-3">
+            {profile.photos[0] ? (
+              <PhotoThumb
+                attachmentId={profile.photos[0].id}
+                alt={`${identity.name} photo`}
+                className="h-20 w-20 shrink-0 rounded-md border border-zinc-200 object-cover bg-zinc-100"
+              />
+            ) : null}
+            <div>
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
               {identity.name}
             </h1>
@@ -190,6 +216,7 @@ export default async function AssetProfilePage({ params }: Props) {
                 <span className="text-amber-700">No responsible department</span>
               )}
             </p>
+            </div>
           </div>
           <div className="text-right" data-testid="asset-condition">
             {presentation.lifecycle === "RETIRED" ? (
@@ -214,7 +241,52 @@ export default async function AssetProfilePage({ params }: Props) {
         </div>
       </header>
 
-      {logsCtx ? (
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-photos">
+        <h2 className="text-lg font-semibold text-zinc-900">Photos</h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          A picture of the equipment helps staff recognize it on the floor.
+        </p>
+        <div className="mt-3">
+          <PhotoGallery
+            photos={profile.photos}
+            emptyLabel="No photos yet."
+            canRemove={authority.canManageAssets && presentation.lifecycle !== "RETIRED"}
+            removeAction={removeAssetPhotoAction}
+            removeHiddenFields={{
+              assetId: identity.id,
+              departmentId,
+            }}
+          />
+        </div>
+        {authority.canManageAssets && presentation.lifecycle !== "RETIRED" ? (
+          <form
+            action={uploadAssetPhotosAction}
+            className="mt-4 space-y-3"
+            data-testid="asset-photo-upload"
+          >
+            <input type="hidden" name="assetId" value={identity.id} />
+            <input type="hidden" name="departmentId" value={departmentId} />
+            <PhotoFileField
+              multiple
+              maxCount={MAX_ASSET_PHOTOS}
+              label="Add photos"
+              testId="asset-photo-input"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+            >
+              Upload photos
+            </button>
+          </form>
+        ) : null}
+      </section>
+
+      {runLogs ? (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <RunAssetLogsSection view={runLogs} isManager={canConfigureLogs} />
+        </div>
+      ) : logsCtx ? (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <TargetLogsSection
             targetTitle={logsCtx.label.title}

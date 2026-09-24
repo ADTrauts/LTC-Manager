@@ -1,23 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-function readCompact(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(max-width: 1279px)").matches;
+const COMPACT_QUERY = "(max-width: 1279px)";
+
+function subscribe(onStoreChange: () => void): () => void {
+  const mq = window.matchMedia(COMPACT_QUERY);
+  mq.addEventListener("change", onStoreChange);
+  return () => mq.removeEventListener("change", onStoreChange);
+}
+
+function getSnapshot(): boolean {
+  return window.matchMedia(COMPACT_QUERY).matches;
+}
+
+/** Desktop layout during SSR/hydration so markup matches; the store corrects after paint. */
+function getServerSnapshot(): boolean {
+  return false;
 }
 
 /** True when Facility Builder should use hierarchy → detail drawer (below xl / 1280px). */
 export function useFacilityBuilderCompact(): boolean {
-  const [compact, setCompact] = useState(readCompact);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1279px)");
-    const apply = () => setCompact(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-
-  return compact;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

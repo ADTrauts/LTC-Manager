@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 let prismaSingleton: PrismaClient | undefined;
 
 /** Bump when schema relations must force a fresh client after `prisma generate`. */
-const PRISMA_CLIENT_EPOCH = "canonical-logs-catalog-v1";
+const PRISMA_CLIENT_EPOCH = "harbor-work-session-v1";
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -31,18 +31,28 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "catalogLogDefinition",
     "catalogLogField",
     "logAttachment",
+    "platformStaff",
+    "harborAuditEvent",
   ] as const;
   return required.filter((key) => typeof c[key]?.findMany !== "function");
 }
 
-function employeeModelMissingJobRoles(client: PrismaClient): boolean {
+function modelMissingFields(
+  client: PrismaClient,
+  modelName: string,
+  required: readonly string[],
+): boolean {
   const runtime = client as unknown as {
     _runtimeDataModel?: { models?: Record<string, { fields?: Array<{ name: string }> }> };
   };
-  const employeeFields = runtime._runtimeDataModel?.models?.Employee?.fields;
-  if (!Array.isArray(employeeFields)) return false;
-  const names = new Set(employeeFields.map((f) => f.name));
-  return !names.has("departmentJobRoles") || !names.has("teamMemberships");
+  const fields = runtime._runtimeDataModel?.models?.[modelName]?.fields;
+  if (!Array.isArray(fields)) return false;
+  const names = new Set(fields.map((f) => f.name));
+  return required.some((field) => !names.has(field));
+}
+
+function employeeModelMissingJobRoles(client: PrismaClient): boolean {
+  return modelMissingFields(client, "Employee", ["departmentJobRoles", "teamMemberships"]);
 }
 
 /** True when this client instance cannot serve the current schema. */

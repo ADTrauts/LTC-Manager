@@ -133,7 +133,6 @@ async function main() {
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
     DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
-    PROJECTION_UNIT_WORKSPACE_ENABLED: "",
   };
 
   try {
@@ -202,7 +201,7 @@ async function main() {
         "playwright",
         "test",
         "-c",
-        "playwright.operational-evidence.config.ts",
+        "tests/playwright.operational-evidence.config.ts",
         "--grep",
         "@ci-gate",
       ],

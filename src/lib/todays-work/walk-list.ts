@@ -2,13 +2,16 @@ import type { UnitType } from "@prisma/client";
 
 import type { LocationsTreeNode } from "@/lib/locations";
 import {
-  type LocationPulseBucket,
   type OperationContext,
   type OperationsCenterUnitCard,
 } from "@/lib/operations-center";
-import type { UnitReadiness } from "@/lib/readiness/types";
 
-export type WalkListStatus = LocationPulseBucket;
+export type WalkListStatus = "ready" | "in_progress" | "blocked";
+
+export type WalkListItemStatus = {
+  state: WalkListStatus;
+  reason?: string;
+};
 
 export type WalkListItem = {
   unitId: string;
@@ -106,7 +109,7 @@ function attentionScore(unit: OperationsCenterUnitCard): number {
 
 export function buildWalkListItems(
   unitCards: OperationsCenterUnitCard[],
-  readinessByUnitId: Map<string, UnitReadiness>,
+  readinessByUnitId: Map<string, WalkListItemStatus>,
 ): WalkListItem[] {
   return unitCards
     .map((unit) => {
@@ -231,7 +234,8 @@ function parentContextFromAncestors(
     .reverse()
     .find((node) => node.kind === "NEIGHBORHOOD" || node.kind === "LEGACY");
   const floor = [...ancestors].reverse().find((node) => node.kind === "FLOOR");
-  const parts = [neighborhood?.label, floor?.label].filter(Boolean);
+  const building = [...ancestors].reverse().find((node) => node.kind === "BUILDING");
+  const parts = [neighborhood?.label, floor?.label, building?.label].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 

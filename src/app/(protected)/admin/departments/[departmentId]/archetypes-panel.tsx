@@ -5,10 +5,8 @@ import {
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
 import { ArchetypeExperiencePicker } from "@/app/(protected)/admin/departments/[departmentId]/archetype-experience-picker";
 import { AppCard, SectionHeader, StatusBadge } from "@/components/design-system";
-import {
-  experienceDisplayName,
-  type DepartmentAdminView,
-} from "@/lib/department-administration";
+import type { DepartmentAdminView } from "@/lib/department-administration";
+import { experienceDisplayName } from "@/lib/department-administration/load-department-admin";
 
 type Props = {
   view: DepartmentAdminView;

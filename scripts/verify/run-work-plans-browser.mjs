@@ -153,7 +153,6 @@ async function main() {
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
     DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
-    PROJECTION_UNIT_WORKSPACE_ENABLED: "",
   };
 
   try {
@@ -235,7 +234,7 @@ async function main() {
         "playwright",
         "test",
         "-c",
-        "playwright.work-plans.config.ts",
+        "tests/playwright.work-plans.config.ts",
         "--grep",
         "@ci-gate",
       ],

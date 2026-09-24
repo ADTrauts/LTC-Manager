@@ -85,29 +85,8 @@ export {
   type ProfileWriteContext,
 } from "./profile-access";
 
-export {
-  activateProfile,
-  addRoomExperienceException,
-  bindRoomsToArchetype,
-  bindRoomToArchetype,
-  certifyProfile,
-  clearRoomArchetypeBinding,
-  createBaselineDraft,
-  createNextDraftVersion,
-  createRoomArchetype,
-  ensureWorkingDraftForPatterns,
-  listProfilesForFacility,
-  loadProfile,
-  moveAreaExperience,
-  removeRoomExperienceException,
-  reorderAreaExperiences,
-  retireActiveProfile,
-  setAreaExperienceActive,
-  setArchetypeExperiences,
-  toProfileSnapshot,
-  updateRoomArchetype,
-  type ProfileActor,
-} from "./profile-service";
+// profile-service is server-only (Prisma). Import it from
+// `@/lib/department-administration/profile-service`, never this barrel.
 
 export {
   DEPARTMENT_ADMIN_TABS,
@@ -137,9 +116,28 @@ export {
 } from "./builder-entry";
 
 export {
+  groupRoomsByOperationalType,
+  locationConfigurationLabel,
   operationalTypeKeyFromName,
   uniqueOperationalTypeKey,
+  type OperationalTypeGroup,
 } from "./operational-type";
+
+export {
+  emptyLocationOverlays,
+  resolveEffectiveLocationProgram,
+  type EffectiveLocationExperience,
+  type EffectiveLocationKind,
+  type EffectiveCoverageExpectationItem,
+  type EffectiveLocationOverlays,
+  type EffectiveLocationProgram,
+  type EffectiveOperationalType,
+  type OverlayProvenance,
+  type ResolveEffectiveLocationProgramInput,
+} from "./effective-location-program";
+
+// load-effective-location-program is server-only (Prisma + coverage). Import it
+// from `@/lib/department-administration/load-effective-location-program`.
 
 export {
   buildRoomTypeExperienceGroups,
@@ -170,12 +168,12 @@ export {
   type DepartmentLocationStatus,
 } from "./department-locations";
 
-export {
-  experienceDisplayName,
-  loadDepartmentAdminView,
-  loadDepartmentLocationsView,
-  selectWorkingProfileId,
-  type DepartmentAdminView,
-  type DepartmentRoomRow,
-  type ProfileListItem,
+export type {
+  DepartmentAdminView,
+  DepartmentRoomRow,
+  ProfileListItem,
 } from "./load-department-admin";
+
+// loadDepartmentAdminView / loadDepartmentLocationsView / experienceDisplayName
+// are server-only. Import them from
+// `@/lib/department-administration/load-department-admin`.

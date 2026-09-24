@@ -353,24 +353,31 @@ test("supervisor board @ci-gate: Operations Board shows cycles, serverys, except
     const board = page.getByTestId("supervisor-operations-board");
     await expect(board).toBeVisible({ timeout: 25_000 });
 
-    await expect(board).toContainText(/Current:|No active cycle/i);
-    await expect(board).toContainText(/Next:|No active cycle|Current:/i);
+    await expect(board).toContainText(/Current operation/i);
+    await expect(board).toContainText(/Assignment & Coverage/i);
+    await expect(board).toContainText(/Needs Attention/i);
 
-    // Summary chips include staffing + readiness language (Not Confirmed ≠ failure).
-    await expect(board).toContainText(/Ready not confirmed|Call-offs|Unassigned/i);
+    // Presence and OA/coverage language — not schedule-derived Unassigned or Ready/Started chips.
+    await expect(board).toContainText(/Scheduled|Assignment unavailable|Call-offs/i);
+    await expect(board.getByText(/Unassigned:/)).toHaveCount(0);
 
-    const unitsSummary = page.getByText(/View all Units/i);
-    await expect(unitsSummary).toBeVisible();
-    await unitsSummary.click();
-    const unitRows = page.getByTestId("supervisor-operations-unit");
-    await expect(unitRows.first()).toBeVisible({ timeout: 15_000 });
-    expect(await unitRows.count()).toBeGreaterThanOrEqual(Math.min(12, fx.serveryCount));
+    const locationsLink = page.getByTestId("supervisor-ops-view-locations");
+    await expect(locationsLink).toBeVisible();
+    await expect(locationsLink).toHaveAttribute("href", "/units");
 
     const exceptions = page.getByTestId("supervisor-operations-exception");
-    // Unassigned / call-off / uncovered / Ready Not Confirmed as available from fixtures.
-    const exceptionText = (await exceptions.allInnerTexts()).join("\n");
-    expect(exceptionText.length).toBeGreaterThan(0);
-    expect(/Unassigned|Call-off|Uncovered|Ready Not Confirmed|At Risk|Started Late/i.test(exceptionText)).toBeTruthy();
+    const quiet = page.getByTestId("supervisor-ops-attention-quiet");
+    const exceptionCount = await exceptions.count();
+    const quietVisible = await quiet.count();
+    expect(exceptionCount + quietVisible).toBeGreaterThan(0);
+    if (exceptionCount > 0) {
+      const exceptionText = (await exceptions.allInnerTexts()).join("\n");
+      expect(
+        /uncovered|at risk|overdue|late|needs review|unavailable|past due|call-off/i.test(
+          exceptionText,
+        ),
+      ).toBeTruthy();
+    }
 
     // Source navigation from an exception.
     const firstLink = exceptions.first().getByRole("link").first();

@@ -18,7 +18,7 @@ import {
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
-import { groupNavItemsByMode, PRODUCT_MODE_TAGLINES } from "@/lib/product-mode";
+import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
 
 /**
@@ -68,12 +68,7 @@ export default async function BuildHubPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8" data-testid="build-hub">
-      <PageHeader
-        icon="operationalMode"
-        title="Build"
-        subtitle={`${PRODUCT_MODE_TAGLINES.BUILD} — set up how your operation works, then switch to Run to operate it.`}
-        compact
-      />
+      <PageHeader icon="operationalMode" title="Build" compact />
 
       {cards.length === 0 ? (
         <section

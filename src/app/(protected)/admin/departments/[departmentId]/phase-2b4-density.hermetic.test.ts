@@ -26,7 +26,10 @@ test("Department Locations header stacks title, helper, and manage action compac
     "utf8",
   );
   assert.match(panel, /flex flex-col gap-2 sm:flex-row/);
-  assert.match(panel, /Where \{view\.department\.name\} operates/);
+  assert.match(
+    panel,
+    /Physical places \{view\.department\.name\} is responsible for, and the Operational Type/,
+  );
   assert.match(panel, /Manage responsibility/);
   assert.match(panel, /space-y-3/);
 });
@@ -74,14 +77,16 @@ test("Department Location tree projection remains unchanged in this pass", () =>
     join(process.cwd(), "src/components/location-tree/DepartmentLocationTree.tsx"),
     "utf8",
   );
-  const panel = readFileSync(
+  const programming = readFileSync(
     join(
       process.cwd(),
-      "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx",
+      "src/app/(protected)/admin/departments/[departmentId]/locations-programming-client.tsx",
     ),
     "utf8",
   );
-  assert.match(panel, /DepartmentLocationTree/);
+  assert.match(programming, /import \{ DepartmentLocationTree \} from "@\/components\/location-tree"/);
+  assert.match(programming, /<DepartmentLocationTree/);
+  assert.match(programming, /floors=\{view\.locationHierarchy\}/);
   assert.match(tree, /role="tree"/);
   assert.match(tree, /LocationTreeRow/);
   assert.doesNotMatch(tree, /builder-essential-touch-visible/);

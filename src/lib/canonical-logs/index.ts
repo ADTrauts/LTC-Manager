@@ -9,10 +9,18 @@ export {
   publishCatalogDefinition,
   retireCatalogDefinition,
   createCatalogDraftSuccessor,
+  createCatalogDefinition,
+  updateCatalogDraft,
+  deleteCatalogDraft,
   loadPublishedCatalogByStableKey,
   loadCatalogDefinitionById,
   assertCatalogPublishedImmutable,
+  slugCatalogToken,
+  HARBOR_CATALOG_WRITE,
   type CatalogActor,
+  type CatalogDefinitionInput,
+  type CatalogFieldInput,
+  type CatalogWriteOptions,
 } from "./catalog-service";
 
 export {
@@ -24,10 +32,35 @@ export {
   createLogAttachment,
   setLogAttachmentStatus,
   updateLogAttachment,
+  adoptLogAttachmentCatalogVersion,
   loadLogAttachmentForFacility,
   type CreateLogAttachmentInput,
   type UpdateLogAttachmentInput,
 } from "./attachment-service";
+
+export {
+  classifyAttachmentUpdate,
+  attachmentLineageKey,
+  attachmentHasBecomeEffective,
+  DISPLAY_ONLY_ATTACHMENT_FIELDS,
+} from "./attachment-update-policy";
+
+export {
+  groupLogicalLogAttachments,
+  logicalAttachmentsForBuildList,
+  type LogicalLogAttachmentProjection,
+} from "./logical-attachment";
+
+export { loadAssetRunLogs } from "./load-asset-run-logs";
+export {
+  loadTargetRunLogs,
+  targetRunAttachmentWhere,
+  targetRunBuildHref,
+} from "./load-target-run-logs";
+export {
+  presentHistoryTable,
+  accessibleHistoryCellLabel,
+} from "./history-presentation";
 
 export {
   listPublishedCatalogBrowseCards,
@@ -35,8 +68,11 @@ export {
   filterCatalogCards,
   catalogCategoryLabel,
   catalogPurposeLabel,
+  catalogBrowseFilterGroupLabel,
+  categoryMatchesBrowseGroup,
   type CatalogBrowseCard,
   type CatalogDetailView,
+  type CatalogBrowseFilterGroup,
 } from "./catalog-browse";
 
 export {
@@ -50,15 +86,17 @@ export {
   formatTimingSummary,
   formatLocalTime12h,
   catalogCadenceLabel,
+  catalogRecommendedScheduleLabel,
   scheduleSourceLabel,
 } from "./timing-display";
 
-export { resolveDefaultAttachmentEffectiveFromKey } from "./effective-from";
+export { resolveDefaultAttachmentEffectiveFromKey, describeAttachmentStart } from "./effective-from";
 
 export {
   presentLogAttachment,
   listAttachmentsForTarget,
   listFacilityAttachments,
+  attachmentTargetBuildHref,
   type AttachmentListItem,
 } from "./attachment-presentation";
 
@@ -73,6 +111,19 @@ export {
 export { resolveAttachTimingProposal } from "./attach-timing";
 
 export {
+  loadCatalogAssignView,
+  applyCatalogAssignSelection,
+  computeCatalogAssignDiff,
+  includeUnitInCatalogAssign,
+  targetAssignKey,
+  parseTargetAssignKey,
+  CATALOG_UNASSIGN_NOTICE,
+  type CatalogAssignView,
+  type CatalogAssignKind,
+  type CatalogAssignTargetRow,
+} from "./catalog-assign";
+
+export {
   loadFacilityRunLogRequirements,
   loadRunLogRequirementByKey,
 } from "./load-run-requirements";
@@ -82,6 +133,7 @@ export {
   groupRunLogRequirements,
   formatRunTimingContext,
   type RunLogRequirementView,
+  type UpcomingRunLogView,
 } from "./run-presentation";
 
 export { loadRunLogRecordView } from "./load-run-log-record";
@@ -96,7 +148,29 @@ export {
   resolveLogRequirementsForAttachment,
   type PublishedCycleForLogs,
   type ExistingLogEvidenceForResolve,
+  type LogAttachmentForResolve,
 } from "./resolve-log-requirements";
+
+export {
+  matchLogAttachmentToLocation,
+  dedupeLocationLogMatches,
+  dedupeLocationLogRequirements,
+  bindOperationalTypeRequirementToSpace,
+  expandOperationalTypeSpaces,
+  operationalTypeAssignId,
+  type LocationLogApplicabilitySource,
+} from "./log-operational-type-applicability";
+
+export {
+  projectLogExpectationHistory,
+  enumerateServiceDateKeys,
+  selectSegmentForDate,
+  segmentCoversDate,
+  type LogExpectationHistorySegment,
+  type LogExpectationHistoryDay,
+  type LogExpectationHistorySlot,
+  type LogHistorySubmission,
+} from "./expectation-history";
 
 export {
   buildCanonicalLogSubmissionSnapshot,

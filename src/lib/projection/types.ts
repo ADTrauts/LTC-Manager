@@ -59,7 +59,7 @@ export type ProjectionLocationReference =
       kind: "UNIT";
       facilityId: string;
       unitId: string;
-      hierarchyRole: "FLOOR" | "NEIGHBORHOOD" | "LEGACY";
+      hierarchyRole: "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY";
     }
   | {
       kind: "SPACE";

@@ -27,6 +27,9 @@ test("Operational Cycles UI uses phase language and major/phase hierarchy afford
   assert.match(controls, /Every day/);
   assert.match(controls, /Part of/);
   assert.match(controls, /Entire department/);
+  assert.match(controls, /Operational Types/);
+  assert.match(controls, /This is not Physical Room Type/);
+  assert.match(controls, /Physical Room Type/);
   assert.match(controls, /Room Type/);
   assert.match(controls, /Due times/);
   assert.match(controls, /service start times/);

@@ -15,8 +15,6 @@ import {
   resolveServeryMealServiceContext,
 } from "@/lib/servery";
 
-import { resolveJobFlow } from "@/lib/dietary-job-flow";
-import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow";
 import {
   isDepartmentAssetOperationsEnabled,
   isDepartmentJobFlowEnabled,
@@ -25,17 +23,29 @@ import {
   isDepartmentWorkPlansEnabled,
   resolveUnitOperationalDepartment,
 } from "@/lib/department-operations";
-import { isOperationalAssignmentsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import {
+  adaptEmployeeRuntimeFlowToJobFlow,
+  composeEmployeeRuntimeFlow,
+  loadAssignedEmployeeSpaceRefs,
+  loadFrontlineEmployeeAssignments,
+  serializeEmployeeRuntimeEvidenceContext,
+  serializeEmployeeRuntimeJobFlowContext,
+  serializeEmployeeRuntimeWorkContext,
+} from "@/lib/employee-runtime-flow";
+import {
+  isCanonicalLogsEnabled,
+  isOperationalAssignmentsEnabled,
+  isPlantOperationsEnabled,
+} from "@/lib/feature-flags";
+import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
+import { loadPublishedCyclesForDate, loadSpaceOperationalTypeAssignments, resolveOperationalCycle } from "@/lib/operational-cycles";
 import { roomTypeKeyForStoredSpace } from "@/lib/operational-cycles/cycle-scope";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
-import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { loadEmployeeAssignmentOfflineContext } from "@/lib/scheduling/operational-assignments/load-employee-assignments";
-import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import { actorRefForSession, resolveMilestoneActor } from "./resolve-milestone-actor";
 import {
   OFFLINE_BUNDLE_LEASE_HOURS,
@@ -377,6 +387,12 @@ export async function buildRuntimeBundle(
     const roomTypeKeys = [
       ...new Set(unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
     ];
+    const assignments = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.session.facilityId,
+      departmentId: dietary.id,
+      spaceIds: unit.childSpaces.map((space) => space.id),
+      perspective: "runtime",
+    });
     resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
@@ -387,6 +403,9 @@ export async function buildRuntimeBundle(
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
+        childOperationalTypeKeys: [
+          ...new Set([...assignments.values()].map((assignment) => assignment.key)),
+        ],
       },
       mealTargets: includeMealMilestones
         ? runtimeMealTimes.map((m) => ({
@@ -477,196 +496,160 @@ export async function buildRuntimeBundle(
   }
 
   let jobFlowContext: OfflineRuntimeBundle["jobFlowContext"] = null;
-  if (isDepartmentJobFlowEnabled(dietary.key) && actor.employeeId && resolvedCycle) {
-    const assignmentRows = await client.operationalAssignment.findMany({
-      where: {
-        employeeId: actor.employeeId,
-        facilityId: input.session.facilityId,
-        departmentId: dietary.id,
-        serviceDate,
-        status: { in: ["PLANNED", "ACTIVE", "COMPLETED"] },
-      },
-      select: {
-        id: true,
-        roleKey: true,
-        roleLabel: true,
-        unitId: true,
-        unit: { select: { name: true } },
-        startsAt: true,
-        endsAt: true,
-        status: true,
-        plan: { select: { status: true } },
-        sourceZone: { select: { name: true } },
-        locations: {
-          select: {
-            unitSpaceId: true,
-            labelSnapshot: true,
-            unitSpace: { select: { name: true, roomNumber: true } },
-          },
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        },
-      },
-      orderBy: { startsAt: "asc" },
-    });
+  let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
+  let workContext: OfflineRuntimeBundle["workContext"] = null;
+  const jobFlowEnabled = isDepartmentJobFlowEnabled(dietary.key);
+  const oaEnabled = isOperationalAssignmentsEnabled();
+  const canonicalLogsEnabled = isCanonicalLogsEnabled();
 
-    const visible = assignmentRows.filter((r) =>
-      isPlanFrontlineVisible(r.plan?.status ?? null),
-    );
-    const snapshots: JobFlowAssignmentSnapshot[] = visible.map((r) => {
-      const locationLabels = r.locations.map(
-        (l) =>
-          l.labelSnapshot?.trim() ||
-          [l.unitSpace.roomNumber, l.unitSpace.name].filter(Boolean).join(" • ") ||
-          l.unitSpace.name,
-      );
-      return {
-        id: r.id,
-        roleKey: r.roleKey,
-        roleLabel: r.roleLabel,
-        unitId: r.unitId,
-        unitName: r.unit?.name ?? null,
-        startsAt: r.startsAt,
-        endsAt: r.endsAt,
-        status: r.status,
-        scopeKind: r.locations.length > 0 ? "SPACES" : "UNIT",
-        locationCount: r.locations.length,
-        locationLabels,
-        sourceZoneName: r.sourceZone?.name ?? null,
-      };
-    });
-
-    const activeOrPlanned = snapshots.filter(
-      (a) => a.status === "ACTIVE" || a.status === "PLANNED",
-    );
-    const resolved = resolveCurrentEmployeeAssignment(
-      activeOrPlanned.map((a) => ({
-        id: a.id,
-        roleKey: a.roleKey,
-        roleLabel: a.roleLabel,
-        unitName: a.unitName,
-        operationLabel: null,
-        startsAt: a.startsAt,
-        endsAt: a.endsAt,
-        status: a.status as "PLANNED" | "ACTIVE",
-        source: "MANUAL" as const,
-        notes: null,
-      })),
-      now,
-    );
-    const byId = new Map(snapshots.map((s) => [s.id, s]));
-    const currentAssignment = resolved.current ? byId.get(resolved.current.id) ?? null : null;
-    const upcomingAssignment = resolved.upcoming ? byId.get(resolved.upcoming.id) ?? null : null;
-    const previousAssignment =
-      snapshots
-        .filter(
-          (a) =>
-            a.id !== currentAssignment?.id &&
-            a.id !== upcomingAssignment?.id &&
-            a.endsAt != null &&
-            a.endsAt.getTime() <= now.getTime(),
-        )
-        .sort((a, b) => (b.endsAt?.getTime() ?? 0) - (a.endsAt?.getTime() ?? 0))[0] ?? null;
-
-    const mealTypeForEvent =
-      resolvedCycle.state === "ACTIVE"
-        ? resolvedCycle.primary.mealType
-        : resolvedCycle.state === "UPCOMING" || resolvedCycle.state === "BETWEEN"
-          ? resolvedCycle.next.mealType
-          : resolvedCycle.state === "DAY_COMPLETE"
-            ? resolvedCycle.last.mealType
-            : null;
-
-    const milestoneEventRow =
-      includeMealMilestones && mealTypeForEvent
-        ? events.find((e) => e.mealType === mealTypeForEvent)
-        : null;
-    const milestoneEvent = milestoneEventRow
-      ? {
-          mealType: milestoneEventRow.mealType,
-          mealServiceReadyAt: milestoneEventRow.mealServiceReadyAt,
-          mealServiceStartedAt: milestoneEventRow.mealServiceStartedAt,
-          hasCorrection: milestoneEventRow.entries.some((x) => x.kind === "CORRECTION"),
-        }
-      : null;
-
-    const mealTargetTime =
-      resolvedCycle.state === "NOT_APPLICABLE" || resolvedCycle.state === "NOT_CONFIGURED"
-        ? null
-        : resolvedCycle.mealTargetTime;
-
-    const plan = await client.operationalAssignmentPlan.findUnique({
-      where: {
-        facilityId_departmentId_serviceDate: {
+  if (jobFlowEnabled && actor.employeeId) {
+    const assignments = oaEnabled
+      ? await loadFrontlineEmployeeAssignments({
+          employeeId: actor.employeeId,
           facilityId: input.session.facilityId,
           departmentId: dietary.id,
           serviceDate,
-        },
+          now,
+          client,
+        })
+      : {
+          current: null,
+          upcoming: null,
+          previous: null,
+          day: [],
+          locationsByAssignmentId: new Map(),
+        };
+    const activeAssignment = assignments.current ?? assignments.upcoming;
+    const assignmentLocations = activeAssignment
+      ? (assignments.locationsByAssignmentId.get(activeAssignment.id) ?? [])
+      : [];
+    const spaceRefs =
+      oaEnabled && activeAssignment
+        ? await loadAssignedEmployeeSpaceRefs({
+            session: input.session,
+            facilityId: input.session.facilityId,
+            departmentId: dietary.id,
+            departmentLabel: dietary.name,
+            assignment: activeAssignment,
+            locations: assignmentLocations,
+            client,
+          })
+        : [];
+    const loadedStates =
+      oaEnabled && spaceRefs.length > 0
+        ? await loadRuntimeLocationStates({
+            facilityId: input.session.facilityId,
+            spaceRefs,
+            now,
+          })
+        : { states: [] };
+
+    let templateEvidence: Awaited<ReturnType<typeof resolveUnitEvidenceRequirements>> = [];
+    if (oaEnabled && !canonicalLogsEnabled && isDepartmentOperationalEvidenceEnabled(dietary.key) && activeAssignment) {
+      try {
+        const publishedCycles = await loadPublishedCyclesForDate(
+          input.session.facilityId,
+          dietary.id,
+          serviceDateKey,
+          client,
+        );
+        const cycleWindows = publishedCycles.flatMap((cycle) => {
+          if (!cycle.startLocal || !cycle.endLocal) return [];
+          const window = resolveCycleWindowInstants({
+            startLocal: cycle.startLocal,
+            endLocal: cycle.endLocal,
+            overnight: cycle.overnight,
+            operationalDateKey: serviceDateKey,
+            facilityTimezone,
+          });
+          if (!window) return [];
+          return [
+            {
+              stableKey: cycle.stableKey,
+              label: cycle.label,
+              startLocal: cycle.startLocal,
+              endLocal: cycle.endLocal,
+              overnight: cycle.overnight,
+              startsAt: window.startsAt,
+              endsAt: window.endsAt,
+            },
+          ];
+        });
+        templateEvidence = await resolveUnitEvidenceRequirements({
+          facilityId: input.session.facilityId,
+          departmentId: dietary.id,
+          operationalDateKey: serviceDateKey,
+          operationalDate: serviceDate,
+          now,
+          facilityTimezone,
+          unitId: activeAssignment.unitId ?? unit.id,
+          publishedCycles: cycleWindows,
+        });
+      } catch {
+        templateEvidence = [];
+      }
+    }
+
+    const workRequirementsRaw =
+      oaEnabled && isDepartmentWorkPlansEnabled(dietary.key) && (activeAssignment?.unitId || unit.id)
+        ? await resolveUnitWorkRequirements({
+            facilityId: input.session.facilityId,
+            departmentId: dietary.id,
+            operationalDate: serviceDate,
+            operationalDateKey: serviceDateKey,
+            now: issuedAt,
+            facilityTimezone,
+            unitId: activeAssignment?.unitId ?? unit.id,
+          })
+        : [];
+
+    const flow = composeEmployeeRuntimeFlow({
+      operationalAssignmentsEnabled: oaEnabled,
+      canonicalLogsEnabled,
+      currentAssignment: assignments.current,
+      upcomingAssignment: assignments.upcoming,
+      previousAssignment: assignments.previous,
+      dayAssignments: assignments.day,
+      assignmentLocations,
+      spaceRefs,
+      states: loadedStates.states,
+      templateEvidence,
+      workRequirements: workRequirementsRaw,
+      deviceBoundUnitId: input.deviceBoundUnitId,
+      offline: {
+        bundleRevision: serverRevision,
+        lastSyncedAt: issuedAt.toISOString(),
+        stale: false,
       },
-      select: { status: true },
     });
 
-    const jobFlow = resolveJobFlow({
+    const adapted = adaptEmployeeRuntimeFlowToJobFlow({
+      flow,
       now,
       facilityTimezone,
       operationalDateKey: serviceDateKey,
-      currentAssignment,
-      upcomingAssignment,
-      previousAssignment,
-      dayAssignments: snapshots,
-      cycleContext: resolvedCycle,
-      mealTargetTime,
-      milestoneEvent,
-      offlineQueue: null,
-      planStatus: plan?.status ?? null,
-      unit: { id: unit.id, name: unit.name },
+      states: loadedStates.states,
     });
 
-    const assignment =
-      ("assignment" in jobFlow ? jobFlow.assignment : null) ??
-      jobFlow.current.assignment ??
-      null;
-    const cycle =
-      ("cycle" in jobFlow ? jobFlow.cycle : null) ?? jobFlow.current.cycle ?? null;
-    const startsIso = assignment?.startsAt?.toISOString() ?? null;
-    const syncedAt = issuedAt.toISOString();
-
-    jobFlowContext = {
-      state: jobFlow.state,
-      assignmentId: assignment?.id ?? null,
-      assignmentRevision:
-        assignment?.id != null
-          ? `${assignment.id}:${startsIso ?? ""}`
-          : null,
-      unitId: jobFlow.current.unit?.id ?? assignment?.unitId ?? unit.id,
-      unitName: jobFlow.current.unit?.name ?? assignment?.unitName ?? unit.name,
-      duty: assignment?.roleLabel ?? null,
-      windowStart: startsIso,
-      windowEnd: assignment?.endsAt?.toISOString() ?? null,
-      cycleId: cycle?.id ?? null,
-      cycleLabel: cycle?.label ?? null,
-      cycleType: cycle?.cycleType ?? null,
-      expectation: jobFlow.current.expectation,
-      mealTargetTime: jobFlow.current.targetTime ?? mealTargetTime,
-      nextCycleLabel: jobFlow.next.cycle?.label ?? null,
-      expectedMilestones: cycle ? [...cycle.expectedMilestones] : [],
-      milestoneStates: jobFlow.current.milestoneState
-        ? [{ key: jobFlow.current.milestoneState.key, label: jobFlow.current.milestoneState.label }]
-        : [],
-      progressPhases: jobFlow.progress.phases.map((p) => ({
-        key: p.id,
-        label: p.label,
-        status: p.status,
-      })),
-      attentionKinds: jobFlow.attention.map((a) => a.kind),
-      evidenceRequirementKeys: [],
+    jobFlowContext = serializeEmployeeRuntimeJobFlowContext(flow, {
+      state: adapted.state,
+      unitId: unit.id,
+      unitName: unit.name,
       bundleRevision: serverRevision,
-      lastSyncedAt: syncedAt,
-      stale: false,
-    };
+      lastSyncedAt: issuedAt.toISOString(),
+    });
+    evidenceContext = serializeEmployeeRuntimeEvidenceContext(flow, issuedAt.toISOString());
+    workContext = serializeEmployeeRuntimeWorkContext(flow, issuedAt.toISOString());
   }
 
-  let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
-  if (isDepartmentOperationalEvidenceEnabled(dietary.key)) {
+  // Leftover evidence-only producer: template compatibility when Job Flow is off
+  // and Harbor is not canonical. Harbor-on omits this context — do not invent a
+  // second Harbor resolver outside EmployeeRuntimeFlow.
+  if (
+    !jobFlowEnabled &&
+    !canonicalLogsEnabled &&
+    isDepartmentOperationalEvidenceEnabled(dietary.key)
+  ) {
     try {
       const publishedCycles = await loadPublishedCyclesForDate(
         input.session.facilityId,
@@ -783,8 +766,7 @@ export async function buildRuntimeBundle(
     }
   }
 
-  let workContext: OfflineRuntimeBundle["workContext"] = null;
-  if (isDepartmentWorkPlansEnabled(dietary.key)) {
+  if (!jobFlowEnabled && isDepartmentWorkPlansEnabled(dietary.key)) {
     try {
       const workRequirements = await resolveUnitWorkRequirements({
         facilityId: input.session.facilityId,
@@ -905,7 +887,7 @@ export async function buildRuntimeBundle(
       displayName: input.session.name,
       role: input.session.role,
       authMethod: input.session.authMethod === "QUICK_PIN" ? "QUICK_PIN" : "PASSWORD",
-      authKind: input.session.authKind ?? "user",
+      authKind: input.session.authKind === "employee" ? "employee" : "user",
       actorRef: actorRefForSession(input.session),
       sessionVersion: input.session.sessionVersion ?? 0,
     },

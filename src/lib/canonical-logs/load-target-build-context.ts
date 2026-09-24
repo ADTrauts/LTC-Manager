@@ -14,12 +14,12 @@ import {
   resolveAttachmentTargetLabel,
   resolveDefaultAttachmentEffectiveFromKey,
 } from "@/lib/canonical-logs";
-import { loadFacilityTimezone } from "@/lib/operational-time";
+import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 export async function loadTargetLogsBuildContext(input: {
   facilityId: string;
-  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY">;
+  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY" | "OPERATIONAL_TYPE">;
   targetId: string;
   /** Override owning department when target resolution is ambiguous. */
   departmentId?: string | null;
@@ -78,6 +78,9 @@ export async function loadTargetLogsBuildContext(input: {
   const cycleLabelByKey = cycleLabelMap(cycleOptions);
   const publishedCycleKeys = cycleOptions.map((c) => c.stableKey);
 
+  const timezone = await loadFacilityTimezone(prisma, input.facilityId);
+  const effective = resolveDefaultAttachmentEffectiveFromKey({ facilityTimezone: timezone });
+
   const attachments = await listAttachmentsForTarget(prisma, {
     facilityId: input.facilityId,
     targetKind: input.targetKind,
@@ -87,6 +90,7 @@ export async function loadTargetLogsBuildContext(input: {
     targetDepartmentId: input.targetKind === "DEPARTMENT" ? input.targetId : null,
     cycleLabelByKey,
     publishedCycleStableKeys: publishedCycleKeys,
+    todayKey: toServiceDateKey(getFacilityServiceDate(timezone)),
   });
 
   const catalogCards = await listPublishedCatalogBrowseCards(prisma);
@@ -124,9 +128,6 @@ export async function loadTargetLogsBuildContext(input: {
     });
   }
 
-  const timezone = await loadFacilityTimezone(prisma, input.facilityId);
-  const effective = resolveDefaultAttachmentEffectiveFromKey({ facilityTimezone: timezone });
-
   return {
     label,
     departmentId: department?.id ?? departmentId,
@@ -144,7 +145,7 @@ export async function loadTargetLogsBuildContext(input: {
 }
 
 export function buildAddHref(
-  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY">,
+  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY" | "OPERATIONAL_TYPE">,
   targetId: string,
   catalogStableKey?: string,
 ): string {

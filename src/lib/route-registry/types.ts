@@ -19,6 +19,8 @@ export const ROUTE_ACCESS_KINDS = [
   "REDIRECT_ONLY",
   /** Framework or static asset path that the proxy passes through untouched. */
   "INTERNAL",
+  /** LTC Corp Harbor Console. Facility RoleKey sessions cannot enter. */
+  "HARBOR_STAFF",
 ] as const;
 
 export type RouteAccessKind = (typeof ROUTE_ACCESS_KINDS)[number];
@@ -34,7 +36,8 @@ export type RouteAccess =
       /** Roles sent to `destination`; any other authenticated role goes to its default home. */
       allowedRoles: readonly AppRole[];
     }
-  | { kind: "INTERNAL" };
+  | { kind: "INTERNAL" }
+  | { kind: "HARBOR_STAFF" };
 
 /**
  * Feature flags that can withdraw a whole route, independent of role.

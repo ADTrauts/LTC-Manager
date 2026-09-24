@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), geolocation=(), microphone=(), usb=()",
+            value: "camera=(self), geolocation=(), microphone=(), usb=()",
           },
           ...(process.env.NODE_ENV === "production"
             ? [

@@ -109,6 +109,9 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
         route,
         destination: route.access.allowedRoles.includes(input.role) ? route.access.destination : null,
       };
+
+    case "HARBOR_STAFF":
+      return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
   }
 }
 

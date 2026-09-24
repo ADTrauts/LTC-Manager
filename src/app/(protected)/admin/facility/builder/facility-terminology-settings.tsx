@@ -17,6 +17,8 @@ import {
 import { updateFacilityVocabularyAction } from "./actions";
 
 type CustomFields = {
+  level0Singular: string;
+  level0Plural: string;
   level1Singular: string;
   level1Plural: string;
   level2Singular: string;
@@ -27,6 +29,8 @@ type CustomFields = {
 
 function customFieldsFromVocabulary(v: FacilityVocabulary): CustomFields {
   return {
+    level0Singular: v.level0.singular,
+    level0Plural: v.level0.plural,
     level1Singular: v.level1.singular,
     level1Plural: v.level1.plural,
     level2Singular: v.level2.singular,
@@ -113,6 +117,7 @@ function TerminologyEditor({
   const [error, setError] = useState<string | null>(null);
   /** Tracks which plural fields the user edited manually (don't auto-overwrite). */
   const [pluralTouched, setPluralTouched] = useState({
+    level0: false,
     level1: false,
     level2: false,
     level3: false,
@@ -131,7 +136,7 @@ function TerminologyEditor({
           : draftFacilityVocabulary({ profileKey: "custom" }),
       ),
     );
-    setPluralTouched({ level1: false, level2: false, level3: false });
+    setPluralTouched({ level0: false, level1: false, level2: false, level3: false });
     setError(null);
   }, [initial]);
 
@@ -150,7 +155,7 @@ function TerminologyEditor({
   );
 
   function updateSingular(
-    level: "level1" | "level2" | "level3",
+    level: "level0" | "level1" | "level2" | "level3",
     singular: string,
   ) {
     const singularKey = `${level}Singular` as keyof CustomFields;
@@ -257,6 +262,7 @@ function TerminologyEditor({
           <p className="text-xs font-medium text-zinc-600">Custom labels</p>
           {(
             [
+              { level: "level0" as const, title: "Building" },
               { level: "level1" as const, title: "Level 1" },
               { level: "level2" as const, title: "Level 2" },
               { level: "level3" as const, title: "Level 3" },
@@ -309,8 +315,12 @@ function TerminologyEditor({
           <div>{preview.lines[0]}</div>
           <div className="pl-4">└── {preview.lines[1]}</div>
           <div className="pl-10">└── {preview.lines[2]}</div>
+          <div className="pl-16">└── {preview.lines[3]}</div>
         </div>
         <div className="mt-4 flex flex-wrap gap-1.5 border-t border-zinc-100 pt-3">
+          <span className="rounded-md border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
+            + {preview.toolbar.addLevel0}
+          </span>
           <span className="rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white">
             + {preview.toolbar.addLevel1}
           </span>

@@ -19,7 +19,6 @@ export type {
   ProjectedSidebarNode,
   ProjectedSidebarSection,
   SidebarProjectionView,
-  SidebarReadinessByUnitId,
 } from "./sidebar-types";
 
 export type {
@@ -66,3 +65,18 @@ export {
   type UnitsPageData,
   type UnitsPageUnitRow,
 } from "./load-units-page";
+
+export {
+  buildLocationsLandingPresentation,
+  collectActionableLandingSpaces,
+  departmentLocationsConfigureHref,
+  presentLandingFloor,
+  presentLandingNeighborhood,
+  presentLandingSpace,
+  LANDING_COVERAGE_UNAVAILABLE_LABEL,
+  LANDING_NO_ACTIVE_OPERATION_LABEL,
+  LANDING_UNTYPED_LABEL,
+  type CollectedLandingSpaces,
+  type LocationLandingRowState,
+  type LocationsLandingPresentation,
+} from "./landing";

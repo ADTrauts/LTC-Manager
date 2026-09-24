@@ -9,7 +9,7 @@ This document certifies the Department Administration architecture and answers t
 **Yes, for the operational-model layer.** With Operational Areas introduced, the conceptual stack is complete end to end:
 
 ```text
-WHERE   Facility Builder          Facility → Floor → Neighborhood → Room
+WHERE   Facility Builder          Facility → Building? → Floor → Neighborhood → Room
 WHO     Facility Builder          Room ↔ Department assignment
 HOW     Department Administration  Department → Operational Area → Experiences → Room Archetypes
 WHICH   Projection                 the right Areas/Experiences here, now, for this person
@@ -31,7 +31,7 @@ No missing layer remains. Future work is implementation and catalog growth, not 
 
 Five constitutional layers, each with a single owner and a hard boundary:
 
-1. **Physical Structure** — Facility Builder. Owns Facility/Floor/Neighborhood/Room and department assignment. Knows nothing operational.
+1. **Physical Structure** — Facility Builder. Owns Facility/optional Building/Floor/Neighborhood/Room and department assignment. Knows nothing operational.
 2. **Operational Model** — Department Administration. Owns Operational Areas, Experience selection, Room Archetypes, and the Operational Profile. Knows nothing about specific rooms or users.
 3. **Derivation** — Projection. Owns which Areas and Experiences appear for a given room, department, user, and time. Persists nothing operational.
 4. **Live Truth** — Operational Engines. Own readiness, operations, assignments, and records inside a projected Experience.

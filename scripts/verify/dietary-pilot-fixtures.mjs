@@ -286,6 +286,9 @@ async function main() {
         data: {
           facilityId: facility.id,
           departmentId: dietary.id,
+          stableKey: "dietary_pilot_coverage",
+          version: 1,
+          status: "PUBLISHED",
           name: "Dietary Pilot Coverage",
           isActive: true,
           items: {

@@ -18,6 +18,8 @@ import {
   isFloorAllowedAsLogTarget,
   mapEvidenceStateToProductState,
   productStateLabel,
+  historySlotStateLabel,
+  toHistorySlotState,
   resolveDefaultAttachmentTiming,
   wouldDuplicateActiveAttachment,
 } from "./index";
@@ -118,6 +120,33 @@ test("Catalog TWICE_DAILY defaults to Morning+Afternoon windows without Needs se
     daypartWindowsForCadence("TWICE_DAILY").map((w) => w.label),
     ["Morning", "Afternoon"],
   );
+});
+
+test("Catalog WEEKLY with a suggested weekday is ready — empty weekdays still need setup", () => {
+  const withTuesday = resolveDefaultAttachmentTiming({
+    catalog: {
+      recommendedCadence: "WEEKLY",
+      recommendedScheduleKind: null,
+      recommendedDaypartLabels: ["Tuesday"],
+      recommendedFixedWindows: [],
+    },
+    publishedCycleStableKeys: [],
+  });
+  assert.equal(withTuesday.needsSetup, false);
+  assert.equal(withTuesday.timing.source, "CALENDAR");
+  assert.deepEqual(withTuesday.timing.calendar?.daysOfWeek, [2]);
+
+  const noDay = resolveDefaultAttachmentTiming({
+    catalog: {
+      recommendedCadence: "WEEKLY",
+      recommendedScheduleKind: null,
+      recommendedDaypartLabels: [],
+      recommendedFixedWindows: [],
+    },
+    publishedCycleStableKeys: [],
+  });
+  assert.equal(noDay.needsSetup, true);
+  assert.match(noDay.reason ?? "", /weekday/i);
 });
 
 test("Operational Cycle Catalog ONCE_PER_OPERATIONAL_CYCLE preselects all published cycles — never MealType", () => {
@@ -233,4 +262,38 @@ test("cutover has four phases; Phase 3 ships migration 83", () => {
   assert.equal(SCHEMA_CHANGE_RECOMMENDATION.phase2Migration, null);
   assert.equal(SCHEMA_CHANGE_RECOMMENDATION.migrationCountExpected, 83);
   assert.equal(SCHEMA_CHANGE_RECOMMENDATION.phase3RequiresMigration83, false);
+});
+
+test("history maps past unsubmitted slots to Not complete, not Missed or Overdue", () => {
+  assert.equal(
+    toHistorySlotState({
+      liveState: "OVERDUE",
+      operationalDateKey: "2026-09-13",
+      todayKey: "2026-09-15",
+      hasSubmission: false,
+      submissionHasCorrectiveAction: false,
+    }),
+    "NOT_COMPLETE",
+  );
+  assert.equal(
+    toHistorySlotState({
+      liveState: "OVERDUE",
+      operationalDateKey: "2026-09-15",
+      todayKey: "2026-09-15",
+      hasSubmission: false,
+      submissionHasCorrectiveAction: false,
+    }),
+    "OVERDUE",
+  );
+  assert.equal(
+    toHistorySlotState({
+      liveState: "DUE",
+      operationalDateKey: "2026-09-15",
+      todayKey: "2026-09-15",
+      hasSubmission: true,
+      submissionHasCorrectiveAction: true,
+    }),
+    "COMPLETE_WITH_CORRECTIVE_ACTION",
+  );
+  assert.equal(historySlotStateLabel("NOT_COMPLETE"), "Not complete");
 });

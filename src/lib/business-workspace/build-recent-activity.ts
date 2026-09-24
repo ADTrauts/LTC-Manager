@@ -1,7 +1,7 @@
 import { getFacilityLocalParts } from "@/lib/operational-time";
 import { issueDetailPath } from "@/lib/work/issues/issue-copy";
 
-import type { BusinessWorkspaceInputs } from "./load-workspace-inputs";
+import type { WorkspaceActivityRaw } from "./load-workspace-extras";
 import type { WorkspaceActivityItem, WorkspaceContext } from "./types";
 
 function formatFacilityLocalStamp(at: Date, timeZone: string): string {
@@ -24,10 +24,9 @@ type RawItem = WorkspaceActivityItem & { at: Date };
  * Concise meaningful activity only — excludes ordinary log noise and logins.
  * Timestamps are facility-local.
  * In facility mode, items show department labels when a department is known.
- * Activity is already department-scoped by scopeInputsForContext upstream.
  */
 export function buildRecentActivity(
-  inputs: BusinessWorkspaceInputs,
+  inputs: { activity: WorkspaceActivityRaw; facilityTimezone: string },
   context?: WorkspaceContext,
 ): WorkspaceActivityItem[] {
   const { activity, facilityTimezone } = inputs;

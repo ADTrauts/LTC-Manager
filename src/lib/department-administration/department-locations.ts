@@ -6,8 +6,8 @@
  * - Neighborhood / legacy Units via UnitDepartmentResponsibility
  * - Rooms (UnitSpace) via UnitSpaceResponsibility
  *
- * Floors are STRUCTURAL — never ordinary operational department locations,
- * even when legacy UnitDepartmentResponsibility rows exist on a floor.
+ * Buildings and Floors are STRUCTURAL — never ordinary operational department
+ * locations, even when legacy UnitDepartmentResponsibility rows exist on them.
  * STAGED / undesignated locations are builder-only and excluded.
  *
  * Operational patterns are department-scoped and optional.
@@ -88,8 +88,8 @@ export type DepartmentLocationNeighborhoodNode = {
 };
 
 /**
- * Floors are structural organizers — never Department Builder operational locations.
- * STAGED units are Facility Builder staging only.
+ * Buildings and Floors are structural organizers — never Department Builder
+ * operational locations. STAGED units are Facility Builder staging only.
  */
 export function isActionableDepartmentUnit(input: {
   hierarchyRole: UnitHierarchyRole | null;
@@ -273,7 +273,7 @@ export function collectDepartmentActionableLocations(
         (r) => r.department.id === input.departmentId,
       );
 
-      // Structural floors never appear as operational locations — even with legacy rows.
+      // Structural buildings/floors never appear as operational locations — even with legacy rows.
       // STAGED never appears on operational surfaces.
       if (
         assignedToDepartment &&

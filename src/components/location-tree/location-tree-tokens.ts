@@ -3,7 +3,7 @@
  * Matches Facility Builder Structure pane indent / density.
  */
 
-export type LocationTreeKind = "floor" | "neighborhood" | "room";
+export type LocationTreeKind = "building" | "floor" | "neighborhood" | "room";
 
 /** Row left padding — same formula as Facility Builder TreeUnitNode / TreeSpaceNode. */
 export function locationTreePaddingLeft(depth: number): number {

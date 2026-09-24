@@ -85,7 +85,7 @@ type HierarchyUnitLike = {
 };
 
 function isStructuralFloorUnit(node: HierarchyUnitLike): boolean {
-  return node.hierarchyRole === "FLOOR";
+  return node.hierarchyRole === "FLOOR" || node.hierarchyRole === "BUILDING";
 }
 
 /**

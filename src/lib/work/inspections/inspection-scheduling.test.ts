@@ -12,9 +12,6 @@ import {
   generateDueInspectionWork,
 } from "@/lib/work/inspections/generate-due-inspection-work";
 import { facilityLocalDateToServiceDate, toServiceDateKey } from "@/lib/operational-time";
-import { buildUnitWorkQueue } from "@/lib/unit-workspace/build-unit-work-queue";
-import { UNIT_WORK_QUEUE_PRIORITY } from "@/lib/unit-workspace/work-queue-priority";
-import { UnitType } from "@prisma/client";
 import { buildHandoffSections } from "@/lib/todays-work/handoffs";
 import { MealType } from "@prisma/client";
 
@@ -257,51 +254,6 @@ test("generator creates one occurrence+Task and is idempotent", async () => {
     assert.equal(occurrenceCreates, 1);
     assert.equal(taskCreates, 1);
   });
-});
-
-test("unit work queue surfaces overdue before due-now and hides far-future", () => {
-  const now = new Date("2026-07-12T14:00:00Z");
-  const queue = buildUnitWorkQueue({
-    unit: {
-      id: "unit-1",
-      name: "Prep",
-      unitType: UnitType.KITCHEN,
-      isActive: true,
-      mealTimes: [],
-    },
-    activeLogTab: null,
-    mealServiceEventByMeal: new Map(),
-    scheduledInspections: [
-      {
-        id: "occ-overdue",
-        definitionId: "def-1",
-        definitionName: "Sanitizer station",
-        dueAt: new Date("2026-07-12T12:00:00Z"),
-        dueTimeLocal: "08:00",
-      },
-      {
-        id: "occ-due",
-        definitionId: "def-2",
-        definitionName: "Dish machine",
-        dueAt: new Date("2026-07-12T14:10:00Z"),
-        dueTimeLocal: "10:10",
-      },
-      {
-        id: "occ-far",
-        definitionId: "def-3",
-        definitionName: "Evening walk",
-        dueAt: new Date("2026-07-12T20:00:00Z"),
-        dueTimeLocal: "16:00",
-      },
-    ],
-    queries: { assignments: [], submissions: [], openRepairs: [] },
-    now,
-  });
-
-  assert.equal(queue.primaryItem?.kind, "inspection-overdue");
-  assert.ok(queue.items.some((item) => item.kind === "inspection-due"));
-  assert.ok(!queue.items.some((item) => item.id.includes("occ-far")));
-  assert.ok(UNIT_WORK_QUEUE_PRIORITY.INSPECTION_OVERDUE < UNIT_WORK_QUEUE_PRIORITY.INSPECTION_DUE_NOW);
 });
 
 test("today handoffs include overdue scheduled inspections in immediate", () => {

@@ -15,8 +15,10 @@ import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher"
 import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
 import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
 import { TopNav } from "@/components/top-nav";
+import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
+import { getHarborSession } from "@/lib/harbor-console/auth";
 import {
   resolveActiveDepartmentForShell,
   resolveSelectableDepartmentsForSession,
@@ -37,32 +39,19 @@ import {
   isProjectionSidebarEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
+import { applyMaintenanceNavRewrite } from "@/lib/asset-operations/maintenance-nav";
+import { applyCanonicalLogsNavRewrite } from "@/lib/canonical-logs/run-nav";
 import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
-import { loadUnitReadinessBatch } from "@/lib/readiness";
-import type { ReadinessState } from "@/lib/readiness";
 import { getSidebarUnitsForSession } from "@/lib/units";
 import { shellClasses } from "@/lib/design-system";
 
 type AppShellProps = {
   children: React.ReactNode;
 };
-
-function readinessMapForProjectedUnits(
-  byUnitId: Map<string, { state: ReadinessState }>,
-  projectedUnitIds: readonly string[],
-): Record<string, { state: ReadinessState }> {
-  const allowed = new Set(projectedUnitIds);
-  const out: Record<string, { state: ReadinessState }> = {};
-  for (const unitId of allowed) {
-    const item = byUnitId.get(unitId);
-    if (item) out[unitId] = { state: item.state };
-  }
-  return out;
-}
 
 /**
  * Application shell.
@@ -73,7 +62,31 @@ function readinessMapForProjectedUnits(
 export async function AppShell({ children }: AppShellProps) {
   const session = await getSession();
   if (!session) {
+    const harbor = await getHarborSession();
+    if (harbor) {
+      redirect("/console");
+    }
     redirect("/login");
+  }
+
+  if (session.authKind === "harbor_staff") {
+    const cookieStore = await cookies();
+    const [facility, deptNav, departments] = await Promise.all([
+      getFacilityForSession(),
+      resolveActiveDepartmentForShell(session, cookieStore),
+      resolveSelectableDepartmentsForSession(session),
+    ]);
+    return (
+      <HarborWorkSessionShell
+        facilityId={session.facilityId}
+        facilityName={facility?.displayName ?? "Facility"}
+        staffName={session.name}
+        departments={departments}
+        selectedDepartmentId={deptNav.activeDepartmentId}
+      >
+        {children}
+      </HarborWorkSessionShell>
+    );
   }
 
   const cookieStore = await cookies();
@@ -82,7 +95,7 @@ export async function AppShell({ children }: AppShellProps) {
   const projectionSidebar = isProjectionSidebarEnabled();
   const memo = projectionSidebar ? createProjectionRuntimeRequestScope() : undefined;
 
-  const [legacyUnits, sidebarProjection, facility, readinessResult, facilityAccess] =
+  const [legacyUnits, sidebarProjection, facility, facilityAccess] =
     await Promise.all([
       projectionSidebar
         ? Promise.resolve([])
@@ -98,9 +111,6 @@ export async function AppShell({ children }: AppShellProps) {
             metrics: null,
           }),
       getFacilityForSession(),
-      loadUnitReadinessBatch(session.facilityId, {
-        activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
-      }).catch(() => null),
       emailUserId && session.authKind === "user"
         ? loadFacilityAccessContext({
             userId: emailUserId,
@@ -129,10 +139,6 @@ export async function AppShell({ children }: AppShellProps) {
   }
 
   const authKind = session.authKind ?? "user";
-  const sessionLabel =
-    authKind === "employee"
-      ? `Staff PIN session · ${session.name} (${session.role})`
-      : `Signed in as ${session.name} (${session.role})`;
   const showGmUnbind =
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   const navFeatureFlags = {
@@ -161,32 +167,17 @@ export async function AppShell({ children }: AppShellProps) {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
     activeOperationalDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
-  // Coexistence: avoid two RUN items both labeled "Logs".
-  const navItems = isCanonicalLogsEnabled()
-    ? navItemsRaw.map((item) =>
-        item.href === "/logs" ? { ...item, label: "Legacy Logs" } : item,
-      )
-    : navItemsRaw;
+  const navItems = applyMaintenanceNavRewrite(
+    applyCanonicalLogsNavRewrite(navItemsRaw, isCanonicalLogsEnabled(), {
+      canViewLogBook: hasAtLeastRole(session.role, "SUPERVISOR"),
+    }),
+    { canViewAssets: hasAtLeastRole(session.role, "SUPERVISOR") },
+  );
   const buildGroup = groupNavItemsByMode(navItems).find((group) => group.mode === "BUILD");
   const buildNavItems = rewriteDepartmentBuilderNavHref(
     buildSidebarNavItems(buildGroup?.items ?? []),
     deptNav.activeDepartmentId,
   );
-
-  const projectedUnitIds = sidebarProjection.projectedUnitIds;
-  const readinessByUnitId = readinessResult
-    ? projectionSidebar
-      ? readinessMapForProjectedUnits(
-          readinessResult.byUnitId as Map<string, { state: ReadinessState }>,
-          projectedUnitIds,
-        )
-      : Object.fromEntries(
-          [...readinessResult.byUnitId.entries()].map(([unitId, item]) => [
-            unitId,
-            { state: item.state as ReadinessState },
-          ]),
-        )
-    : {};
 
   const sidebarUnits = projectionSidebar ? [] : legacyUnits;
   const projectionSections = projectionSidebar
@@ -195,7 +186,7 @@ export async function AppShell({ children }: AppShellProps) {
   const projectionUnavailable = Boolean(projectionSidebar && sidebarProjection.error);
 
   return (
-    <ShellModeFrame brandColor={facility?.brandColor ?? "#18181b"}>
+    <ShellModeFrame brandColor={facility?.brandColor ?? "#0f766e"}>
       <header
         className="shell-header shrink-0 border-b border-zinc-200 bg-white"
         role="banner"
@@ -211,12 +202,8 @@ export async function AppShell({ children }: AppShellProps) {
             projectionSections={projectionSections}
             projectionUnavailable={projectionUnavailable}
             lockedUnitId={lockedUnitId}
-            readinessByUnitId={readinessByUnitId}
           />
-          <ShellBrandBlock
-            facilityName={facility?.displayName ?? "Facility"}
-            sessionLabel={sessionLabel}
-          />
+          <ShellBrandBlock facilityName={facility?.displayName ?? "Facility"} />
           {authKind === "user" &&
           facilityAccess &&
           facilityAccess.accessibleFacilities.length > 1 ? (
@@ -273,7 +260,6 @@ export async function AppShell({ children }: AppShellProps) {
           projectionSections={projectionSections}
           projectionUnavailable={projectionUnavailable}
           lockedUnitId={lockedUnitId}
-          readinessByUnitId={readinessByUnitId}
           buildNavItems={buildNavItems}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

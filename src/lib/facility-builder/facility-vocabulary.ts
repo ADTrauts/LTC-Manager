@@ -2,11 +2,12 @@
  * Facility Vocabulary — canonical hierarchy terminology registry.
  *
  * The internal architecture never changes: Unit, UnitSpace, and
- * UnitHierarchyRole (FLOOR / NEIGHBORHOOD / LEGACY_LOCATION / STAGED)
+ * UnitHierarchyRole (BUILDING / FLOOR / NEIGHBORHOOD / LEGACY_LOCATION / STAGED)
  * remain the source of truth. This module only controls the words the
- * product shows for the three physical levels:
+ * product shows for the physical levels:
  *
- *   Level 1 — hierarchyRole FLOOR         (e.g. Floor, Building)
+ *   Level 0 — hierarchyRole BUILDING      (optional; e.g. Building)
+ *   Level 1 — hierarchyRole FLOOR         (e.g. Floor)
  *   Level 2 — hierarchyRole NEIGHBORHOOD  (e.g. Neighborhood, Unit, Wing)
  *   Level 3 — UnitSpace                   (e.g. Room, Space)
  *
@@ -30,6 +31,8 @@ export type VocabularyTerm = {
 export type FacilityVocabulary = {
   profileKey: FacilityVocabularyProfileKey;
   profileLabel: string;
+  /** Optional Building level — present in every profile; unused until a Building exists. */
+  level0: VocabularyTerm;
   level1: VocabularyTerm;
   level2: VocabularyTerm;
   level3: VocabularyTerm;
@@ -55,6 +58,7 @@ export const FACILITY_VOCABULARY_PROFILES: Record<
   ltc: {
     profileKey: "ltc",
     profileLabel: "Long-Term Care",
+    level0: term("Building"),
     level1: term("Floor"),
     level2: term("Neighborhood"),
     level3: term("Room"),
@@ -62,6 +66,7 @@ export const FACILITY_VOCABULARY_PROFILES: Record<
   hospital: {
     profileKey: "hospital",
     profileLabel: "Hospital",
+    level0: term("Building"),
     level1: term("Floor"),
     level2: term("Unit"),
     level3: term("Patient Room"),
@@ -69,6 +74,7 @@ export const FACILITY_VOCABULARY_PROFILES: Record<
   hotel: {
     profileKey: "hotel",
     profileLabel: "Hotel",
+    level0: term("Building"),
     level1: term("Floor"),
     level2: term("Wing"),
     level3: term("Guest Room"),
@@ -76,14 +82,16 @@ export const FACILITY_VOCABULARY_PROFILES: Record<
   campus: {
     profileKey: "campus",
     profileLabel: "Campus",
-    level1: term("Building"),
+    level0: term("Building"),
+    level1: term("Floor"),
     level2: term("Area"),
     level3: term("Space"),
   },
   corporate: {
     profileKey: "corporate",
     profileLabel: "Corporate",
-    level1: term("Building"),
+    level0: term("Building"),
+    level1: term("Floor"),
     level2: term("Department"),
     level3: term("Workspace"),
   },
@@ -140,6 +148,7 @@ export const DEFAULT_FACILITY_VOCABULARY: FacilityVocabulary =
 
 export type FacilityVocabularySettings = {
   vocabularyProfile?: string | null;
+  vocabularyLevel0Label?: string | null;
   vocabularyLevel1Label?: string | null;
   vocabularyLevel2Label?: string | null;
   vocabularyLevel3Label?: string | null;
@@ -160,6 +169,10 @@ export function resolveFacilityVocabulary(
     return {
       profileKey: "custom",
       profileLabel: "Custom",
+      level0: parseCustomVocabularyTerm(
+        settings?.vocabularyLevel0Label,
+        DEFAULT_FACILITY_VOCABULARY.level0,
+      ),
       level1: parseCustomVocabularyTerm(
         settings?.vocabularyLevel1Label,
         DEFAULT_FACILITY_VOCABULARY.level1,
@@ -188,6 +201,8 @@ export function resolveFacilityVocabulary(
  */
 export function draftFacilityVocabulary(input: {
   profileKey: FacilityVocabularyProfileKey;
+  level0Singular?: string;
+  level0Plural?: string;
   level1Singular?: string;
   level1Plural?: string;
   level2Singular?: string;
@@ -201,12 +216,17 @@ export function draftFacilityVocabulary(input: {
     );
   }
 
+  const l0s = input.level0Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level0.singular;
   const l1s = input.level1Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level1.singular;
   const l2s = input.level2Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level2.singular;
   const l3s = input.level3Singular?.trim() || DEFAULT_FACILITY_VOCABULARY.level3.singular;
   return {
     profileKey: "custom",
     profileLabel: "Custom",
+    level0: {
+      singular: l0s,
+      plural: input.level0Plural?.trim() || pluralizeLabel(l0s),
+    },
     level1: {
       singular: l1s,
       plural: input.level1Plural?.trim() || pluralizeLabel(l1s),
@@ -224,6 +244,8 @@ export function draftFacilityVocabulary(input: {
 
 export type VocabularyLabelValidationError = {
   field:
+    | "level0Singular"
+    | "level0Plural"
     | "level1Singular"
     | "level1Plural"
     | "level2Singular"
@@ -235,6 +257,8 @@ export type VocabularyLabelValidationError = {
 
 /** Validate custom labels before save. Preset profiles skip custom fields. */
 export function validateCustomVocabularyLabels(input: {
+  level0Singular: string;
+  level0Plural: string;
   level1Singular: string;
   level1Plural: string;
   level2Singular: string;
@@ -248,6 +272,8 @@ export function validateCustomVocabularyLabels(input: {
     value: string;
     label: string;
   }> = [
+    { field: "level0Singular", value: input.level0Singular, label: "Building singular" },
+    { field: "level0Plural", value: input.level0Plural, label: "Building plural" },
     { field: "level1Singular", value: input.level1Singular, label: "Level 1 singular" },
     { field: "level1Plural", value: input.level1Plural, label: "Level 1 plural" },
     { field: "level2Singular", value: input.level2Singular, label: "Level 2 singular" },
@@ -280,6 +306,8 @@ const lower = (s: string) => s.toLowerCase();
  * UI components must consume this object instead of hardcoding level names.
  */
 export function buildBuilderCopy(v: FacilityVocabulary) {
+  const l0 = v.level0.singular;
+  const l0s = v.level0.plural;
   const l1 = v.level1.singular;
   const l1s = v.level1.plural;
   const l2 = v.level2.singular;
@@ -291,10 +319,12 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
     vocabulary: v,
 
     page: {
-      subtitle: `Define the physical structure of your facility — ${lower(l1s)}, ${lower(l2s)}, and ${lower(l3s)} — and assign departmental responsibility.`,
+      subtitle: `Define the physical structure of your facility — optional ${lower(l0s)}, ${lower(l1s)}, ${lower(l2s)}, and ${lower(l3s)} — and assign departmental responsibility.`,
     },
 
     labels: {
+      level0: l0,
+      level0Plural: l0s,
       level1: l1,
       level1Plural: l1s,
       level2: l2,
@@ -306,6 +336,7 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
     },
 
     toolbar: {
+      addLevel0: l0,
       addLevel1: l1,
       addLevel2: l2,
       addLevel3: l3,
@@ -313,22 +344,25 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
     },
 
     drawers: {
+      addLevel0: `Add ${l0}`,
       addLevel1: `Add ${l1}`,
       addLevel2: `Add ${l2}`,
       addLevel3: `Add ${l3}`,
       addLevel3Bulk: `Bulk add ${lower(l3s)}`,
+      moveToLevel0: `Move to ${l0}`,
       moveToLevel1: `Move to ${l1}`,
       moveToLevel2: `Move to ${l2}`,
     },
 
     tree: {
       emptyTitle: `No ${lower(l1s)} have been added yet.`,
-      emptyBody: `${l1s} organize ${lower(l2s)} and ${lower(l3s)}. Existing top-level locations can be moved into a ${lower(l1)} later.`,
+      emptyBody: `${l1s} organize ${lower(l2s)} and ${lower(l3s)}. Add a ${lower(l0)} first when this site has more than one building.`,
       emptyAction: `Add ${l1}`,
+      emptyActionBuilding: `Add ${l0}`,
       noSearchResults: "No locations found",
-      noSearchResultsHint: `Try a different ${lower(l1)}, ${lower(l2)}, ${lower(l3)}, or code.`,
+      noSearchResultsHint: `Try a different ${lower(l0)}, ${lower(l1)}, ${lower(l2)}, ${lower(l3)}, or code.`,
       legacyTopLevelHint: `Top-level locations below are not assigned to a ${lower(l1)}. Add a ${l1}, then drag them into it.`,
-      selectPrompt: `Select a ${lower(l1)}, ${lower(l2)}, or ${lower(l3)} from the tree to view and edit its details.`,
+      selectPrompt: `Select a ${lower(l0)}, ${lower(l1)}, ${lower(l2)}, or ${lower(l3)} from the tree to view and edit its details.`,
       unassignedBadge: "Unassigned",
       unassignedTitle: `Unassigned to a ${lower(l1)}`,
       stagedBadge: "Staged",
@@ -345,8 +379,11 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
 
     contextMenu: {
       convertToLevel1: `Convert to ${l1}`,
+      moveToLevel0: `Move to ${l0}…`,
+      moveToAnotherLevel0: `Move to another ${l0}…`,
       moveToLevel1: `Move to ${l1}…`,
       moveToAnotherLevel1: `Move to another ${l1}…`,
+      addLevel1: `Add ${l1}`,
       addLevel2: `Add ${l2}`,
       addLevel3: `Add ${l3}`,
       addLevel3Bulk: `Bulk add ${lower(l3s)}`,
@@ -356,7 +393,9 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
     editor: {
       level3Count: (n: number) => `${n} ${lower(n === 1 ? l3 : l3s)}`,
       level2Count: (n: number) => `${n} ${lower(n === 1 ? l2 : l2s)}`,
+      level1Count: (n: number) => `${n} ${lower(n === 1 ? l1 : l1s)}`,
       level3ListTitle: (n: number) => `${l3s} (${n})`,
+      addLevel1: `Add ${l1}`,
       addLevel2: `Add ${l2}`,
       addLevel3: `Add ${l3}`,
       addLevel3Bulk: `Bulk add ${lower(l3s)}`,
@@ -369,10 +408,13 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
       deleteConfirm: (name: string) =>
         `Delete "${name}"?\n\n` +
         "Related schedules, logs, repairs, and assets for this location will also be permanently removed. " +
-        `Nested ${lower(l2s)}/${lower(l3s)} must be removed first. This cannot be undone.`,
+        `Nested ${lower(l1s)}/${lower(l2s)}/${lower(l3s)} must be removed first. This cannot be undone.`,
     },
 
     forms: {
+      level0NameLabel: `${l0} name`,
+      level0NamePlaceholder: `e.g. Science Hall, Dining ${l0}`,
+      createLevel0: `Create ${lower(l0)}`,
       level1NameLabel: `${l1} name`,
       level1NamePlaceholder: `e.g. First ${l1}, Basement`,
       createLevel1: `Create ${lower(l1)}`,
@@ -388,18 +430,24 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
         `Blank lines are ignored. Max ${max} ${lower(l3s)} per batch. Optional ranges use the same letter suffix (e.g. 32A–40A).`,
       bulkCreated: (n: number) => `Created ${n} ${lower(n === 1 ? l3 : l3s)}.`,
       bulkSubmit: `Create ${lower(l3s)}`,
+      noOtherLevel0: (name: string) =>
+        `No other ${l0s} available. Create a ${l0} first, then move "${name}" into it.`,
       noOtherLevel1: (name: string) =>
         `No other ${l1s} available. Create a ${l1} first, then move "${name}" into it.`,
       moveUnitIntro: (allowUndesignated: boolean) =>
         `onto a ${l1}${allowUndesignated ? " or Undesignated" : ""}. It will become a ${l2} when placed on a ${l1}.`,
+      moveFloorIntro: (allowRoot: boolean) =>
+        `onto a ${l0}${allowRoot ? " or back to the facility root" : ""}.`,
       moveSpaceIntro: `to a ${l1}, ${l2}, or Undesignated.`,
     },
 
     validation: {
+      parentLevel0NotFound: `Parent ${lower(l0)} not found in this facility.`,
       parentLevel1NotFound: `Parent ${lower(l1)} not found in this facility.`,
+      level1RequiresLevel0OrRoot: `${l1s} must sit at the facility root or under a ${l0}.`,
       level2RequiresLevel1: `${l2s} must be created under a ${l1}.`,
       level2MustSitUnderLevel1: `${l2s} must sit under a ${l1}.`,
-      deleteHasChildUnits: `Cannot delete a ${lower(l1)}/${lower(l2)} that has nested ${lower(l2s)}. Remove or move them first.`,
+      deleteHasChildUnits: `Cannot delete a ${lower(l0)}/${lower(l1)}/${lower(l2)} that has nested locations. Remove or move them first.`,
       deleteHasChildSpaces: `Cannot delete a ${lower(l1)}/${lower(l2)} that has ${lower(l3s)}. Remove ${lower(l3s)} first.`,
       level3NotAllowedHere: `${l3s} cannot be added under this location type.`,
       level3BulkNotAllowedHere: `${l3s} cannot be bulk-created under this location type.`,
@@ -408,12 +456,14 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
         `Batch limited to ${max} ${lower(l3s)}. Split into smaller batches.`,
       bulkAllExist: `All entered names already exist in this ${lower(l2)}.`,
       bulkNothing: `No ${lower(l3s)} to create.`,
-      level1CannotMove: `${l1s} cannot be moved under another location.`,
+      level0CannotMove: `${l0s} cannot be moved under another location.`,
+      level1CannotMove: `${l1s} can only be moved onto a ${l0} or back to the facility root.`,
       unitsMoveOntoLevel1Only: `Locations can only be moved onto a ${l1}.`,
       level3MoveTargets: `${l3s} can only be moved into a ${l1}, ${l2}, or Undesignated.`,
       level2NoTopLevelReorder: `${l2s} cannot be reordered at the top level.`,
       parentLevel1NotFoundShort: `Parent ${lower(l1)} not found.`,
       reorderNonLevel1Parent: `Unit reordering under a non-${l1} parent is not supported.`,
+      reorderNonBuildingParent: `${l1} reordering under a non-${l0} parent is not supported.`,
       level3ReorderNotAllowed: `${l3s} cannot be ordered under this location type.`,
       reorderLevel3NotInUndesignated: `Reorder list includes a ${lower(l3)} that is not in Undesignated.`,
       reorderLevel3NotInLocation: `Reorder list includes a ${lower(l3)} that is not in this location.`,
@@ -422,6 +472,8 @@ export function buildBuilderCopy(v: FacilityVocabulary) {
       level3NotFound: `${l3} not found.`,
       level3DuplicateInLevel2: (name: string) =>
         `"${name}" already exists in this ${lower(l2)}.`,
+      siblingNameTaken: (name: string) =>
+        `"${name}" already exists at this level.`,
     },
   };
 }
@@ -442,7 +494,7 @@ export function buildVocabularyHierarchyPreview(
   v: FacilityVocabulary,
 ): {
   profileLabel: string;
-  lines: [string, string, string];
+  lines: [string, string, string, string];
   toolbar: BuilderCopy["toolbar"];
 } {
   const copy = buildBuilderCopy(v);
@@ -450,6 +502,7 @@ export function buildVocabularyHierarchyPreview(
   return {
     profileLabel: v.profileLabel,
     lines: [
+      samples.level0(v),
       samples.level1(v),
       samples.level2(v),
       samples.level3(v),
@@ -459,6 +512,7 @@ export function buildVocabularyHierarchyPreview(
 }
 
 type PreviewNameFns = {
+  level0: (v: FacilityVocabulary) => string;
   level1: (v: FacilityVocabulary) => string;
   level2: (v: FacilityVocabulary) => string;
   level3: (v: FacilityVocabulary) => string;
@@ -466,31 +520,37 @@ type PreviewNameFns = {
 
 const PREVIEW_NAME_SAMPLES: Record<FacilityVocabularyProfileKey, PreviewNameFns> = {
   ltc: {
+    level0: (v) => `Main ${v.level0.singular}`,
     level1: (v) => `First ${v.level1.singular}`,
     level2: () => "1A Naval Park",
     level3: (v) => `${v.level3.singular} 32A`,
   },
   hospital: {
+    level0: () => "East Tower",
     level1: (v) => `First ${v.level1.singular}`,
     level2: (v) => `ICU ${v.level2.singular}`,
     level3: (v) => `${v.level3.singular} 32A`,
   },
   hotel: {
+    level0: () => "Annex",
     level1: (v) => `Third ${v.level1.singular}`,
     level2: (v) => `West ${v.level2.singular}`,
     level3: (v) => `${v.level3.singular} 214`,
   },
   campus: {
-    level1: () => "Science Building",
+    level0: () => "Science Hall",
+    level1: (v) => `${v.level1.singular} 1`,
     level2: (v) => `Chemistry ${v.level2.singular}`,
     level3: (v) => `Lab ${v.level3.singular} A`,
   },
   corporate: {
-    level1: (v) => `${v.level1.singular} A`,
+    level0: (v) => `${v.level0.singular} A`,
+    level1: (v) => `${v.level1.singular} 2`,
     level2: (v) => `Accounting ${v.level2.singular}`,
     level3: (v) => `${v.level3.singular} 14`,
   },
   custom: {
+    level0: (v) => `Main ${v.level0.singular}`,
     level1: (v) => `First ${v.level1.singular}`,
     level2: (v) => `Example ${v.level2.singular}`,
     level3: (v) => `${v.level3.singular} 101`,
@@ -499,5 +559,5 @@ const PREVIEW_NAME_SAMPLES: Record<FacilityVocabularyProfileKey, PreviewNameFns>
 
 /** Human-readable summary of current vocabulary for the settings bar. */
 export function formatVocabularySummary(v: FacilityVocabulary): string {
-  return `${v.level1.singular} · ${v.level2.singular} · ${v.level3.singular}`;
+  return `${v.level0.singular} · ${v.level1.singular} · ${v.level2.singular} · ${v.level3.singular}`;
 }

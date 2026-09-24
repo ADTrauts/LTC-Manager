@@ -164,7 +164,13 @@ export type SearchableUnit = {
   parentUnitId: string | null;
   hierarchyRole?: HierarchyRoleValue;
   childUnits: SearchableUnit[];
-  childSpaces: { id: string; name: string; roomNumber?: string | null; code: string | null }[];
+  childSpaces: {
+    id: string;
+    name: string;
+    roomNumber?: string | null;
+    code?: string | null;
+    parentSpaceId?: string | null;
+  }[];
 };
 
 export type HierarchySearchResult<T extends SearchableUnit> = {
@@ -205,12 +211,20 @@ export function filterHierarchyForSearch<T extends SearchableUnit>(
 
   function visit(unit: T): T | null {
     const nameMatch = matchesQuery(unit.name, q);
-    const spaces = unit.childSpaces.filter(
-      (s) =>
+    const matchingSpaceIds = new Set<string>();
+    for (const s of unit.childSpaces) {
+      const spaceMatch =
         matchesQuery(s.name, q) ||
         matchesQuery(s.roomNumber, q) ||
-        matchesQuery(s.code, q),
-    );
+        matchesQuery(s.code, q);
+      if (!spaceMatch) continue;
+      matchingSpaceIds.add(s.id);
+      if (s.parentSpaceId) {
+        matchingSpaceIds.add(s.parentSpaceId);
+        expandedIds.add(s.parentSpaceId);
+      }
+    }
+    const spaces = unit.childSpaces.filter((s) => matchingSpaceIds.has(s.id));
     const children: T[] = [];
     for (const child of unit.childUnits) {
       const kept = visit(child as T);
@@ -218,7 +232,13 @@ export function filterHierarchyForSearch<T extends SearchableUnit>(
     }
 
     if (nameMatch) matchCount += 1;
-    matchCount += spaces.length;
+    matchCount += spaces.filter((s) => {
+      const spaceMatch =
+        matchesQuery(s.name, q) ||
+        matchesQuery(s.roomNumber, q) ||
+        matchesQuery(s.code, q);
+      return spaceMatch;
+    }).length;
 
     if (!nameMatch && spaces.length === 0 && children.length === 0) {
       return null;
@@ -300,14 +320,37 @@ export function listFloorMoveDestinations(
   units: DestUnit[],
   options?: { excludeUnitId?: string; excludeParentId?: string | null },
 ): MoveDestination[] {
-  return flattenDestUnits(units)
+  const flat = flattenDestUnits(units);
+  const byId = new Map(flat.map((u) => [u.id, u]));
+  return flat
     .filter((u) => resolveBuilderNodeDisplayKind(u) === "floor")
+    .filter((u) => u.id !== options?.excludeUnitId)
+    .filter((u) => u.id !== options?.excludeParentId)
+    .map((u) => {
+      const parent = u.parentUnitId ? byId.get(u.parentUnitId) : null;
+      const parentKind = parent ? resolveBuilderNodeDisplayKind(parent) : null;
+      return {
+        id: u.id,
+        name: u.name,
+        kind: "floor" as const,
+        groupLabel: parentKind === "building" ? parent?.name : undefined,
+      };
+    });
+}
+
+/** Buildings that can receive Floors. */
+export function listBuildingMoveDestinations(
+  units: DestUnit[],
+  options?: { excludeUnitId?: string; excludeParentId?: string | null },
+): MoveDestination[] {
+  return flattenDestUnits(units)
+    .filter((u) => resolveBuilderNodeDisplayKind(u) === "building")
     .filter((u) => u.id !== options?.excludeUnitId)
     .filter((u) => u.id !== options?.excludeParentId)
     .map((u) => ({
       id: u.id,
       name: u.name,
-      kind: "floor" as const,
+      kind: "building" as const,
     }));
 }
 
@@ -381,7 +424,8 @@ export function areUnitSiblings(
 
 /**
  * Whether dropping active onto over should reorder siblings (not reparent).
- * Floors reorder among floors; legacy among top-level legacy; neighborhoods among same floor.
+ * Buildings reorder among buildings; floors among sibling floors;
+ * legacy among top-level legacy; neighborhoods among same floor.
  */
 export function shouldReorderUnitsAsSiblings(
   active: {
@@ -398,6 +442,7 @@ export function shouldReorderUnitsAsSiblings(
   if (!areUnitSiblings(active, over)) return false;
   const activeKind = resolveBuilderNodeDisplayKind(active);
   const overKind = resolveBuilderNodeDisplayKind(over);
+  if (activeKind === "building" && overKind === "building") return true;
   if (activeKind === "floor" && overKind === "floor") return true;
   if (activeKind === "neighborhood" && overKind === "neighborhood") return true;
   if (activeKind === "legacy_location" && overKind === "legacy_location") {

@@ -6,7 +6,6 @@
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import type { ProjectionLocationPresentation } from "@/lib/projection";
-import type { ReadinessState } from "@/lib/readiness";
 
 export type ProjectedSidebarNode = {
   id: string;
@@ -16,7 +15,7 @@ export type ProjectedSidebarNode = {
   /** Facility vocabulary level label (Floor / Neighborhood / Room / …). */
   levelLabel: string | null;
   presentation: ProjectionLocationPresentation;
-  kind: "FACILITY" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY" | "ROOM";
+  kind: "FACILITY" | "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY" | "ROOM";
   /** Owning Unit id for lock checks and readiness attachment. */
   unitId: string | null;
   /**
@@ -43,5 +42,3 @@ export type SidebarProjectionView = {
   projectedUnitIds: readonly string[];
   error: string | null;
 };
-
-export type SidebarReadinessByUnitId = Record<string, { state: ReadinessState }>;

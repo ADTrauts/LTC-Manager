@@ -30,9 +30,16 @@ export type DepartmentTeamView = {
   roomCount: number;
   activeMemberCount: number;
   rooms: TeamRoomView[];
+  applicableOperationalTypeKeys: string[];
+};
+
+export type TeamOperationalTypeOption = {
+  key: string;
+  name: string;
 };
 
 export type TeamCatalog = {
   locations: CycleScopeLocationOption[];
   roomTypes: Array<{ key: string; label: string }>;
+  operationalTypes: TeamOperationalTypeOption[];
 };

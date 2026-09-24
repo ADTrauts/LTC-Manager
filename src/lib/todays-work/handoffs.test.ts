@@ -4,9 +4,8 @@ import test from "node:test";
 import { MealType, UnitType } from "@prisma/client";
 
 import type { OperationsCenterMealBoard } from "@/lib/operations-center";
-import { computeUnitReadiness } from "@/lib/readiness";
 import { buildHandoffData, buildHandoffSections, summarizeHandoffs } from "@/lib/todays-work/handoffs";
-import { buildWalkListItems } from "@/lib/todays-work/walk-list";
+import { buildWalkListItems, type WalkListItemStatus } from "@/lib/todays-work/walk-list";
 
 function walkItems() {
   const cards = [
@@ -40,25 +39,15 @@ function walkItems() {
     },
   ];
 
-  const readinessByUnitId = new Map(
+  const readinessByUnitId = new Map<string, WalkListItemStatus>(
     cards.map((unit) => {
-      const readiness = computeUnitReadiness({
-        unitId: unit.id,
-        unitName: unit.name,
-        unitType: unit.unitType,
-        failed: unit.failed,
-        missed: unit.missed,
-        pending: unit.pending,
-        expected: unit.expected,
-        completed: unit.completed,
-        staffingCount: unit.staffingCount,
-        openRepairCount: unit.openRepairCount,
-        urgentRepairCount: 0,
-        highRepairCount: 0,
-        serveryMealNotLive: false,
-        operationPhase: "Preparation",
-      });
-      return [unit.id, readiness] as const;
+      const state: WalkListItemStatus["state"] =
+        unit.failed > 0 || unit.missed > 0 || unit.staffingCount === 0
+          ? "blocked"
+          : unit.pending > 0 || (unit.expected > 0 && unit.completed < unit.expected)
+            ? "in_progress"
+            : "ready";
+      return [unit.id, { state, reason: state === "ready" ? undefined : "Needs a closer look" }];
     }),
   );
 

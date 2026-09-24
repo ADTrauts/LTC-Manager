@@ -5,8 +5,6 @@ import {
   loadFacilityTimezone,
 } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
-import { loadUnitReadinessBatch } from "@/lib/readiness";
-import { readinessStateDisplayLabel } from "@/lib/readiness";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import {
   issueDetailPath,
@@ -38,10 +36,13 @@ export type BuildRecoverySnapshotInput = {
   maxSnapshotChars?: number;
 };
 
-function toSnapshotState(state: string): SnapshotReadinessState {
-  if (state === "blocked") return "needs_attention";
-  if (state === "in_progress") return "in_progress";
-  return "ready";
+function issueLocalSnapshotState(input: {
+  priority: string;
+  resolved: boolean;
+}): SnapshotReadinessState {
+  if (input.resolved) return "ready";
+  if (input.priority === "URGENT" || input.priority === "HIGH") return "needs_attention";
+  return "in_progress";
 }
 
 function knowledgePath(issueId: string, articleId: string): string {
@@ -72,7 +73,7 @@ function buildAvailableActions(input: {
     },
     {
       key: "coverage",
-      label: "Coverage list",
+      label: "Coverage",
       sourcePath: todaysWorkCoveragePath(),
     },
     {
@@ -149,12 +150,7 @@ export async function buildRecoverySnapshot(
   const facilityTimezone = await loadFacilityTimezone(prisma, input.facilityId);
   const timeCtx = buildOperationalTimeContext({ now, facilityTimezone });
 
-  const [readinessBatch, knowledge, relatedOpen, relatedSupply] = await Promise.all([
-    loadUnitReadinessBatch(input.facilityId, {
-      activeDepartmentKey: department,
-      facilityTimezone,
-      now,
-    }),
+  const [knowledge, relatedOpen, relatedSupply] = await Promise.all([
     loadContextualKnowledge({
       facilityId: input.facilityId,
       viewerDepartmentIds: input.viewerDepartmentIds,
@@ -181,8 +177,6 @@ export async function buildRecoverySnapshot(
     }),
   ]);
 
-  const unitReadiness = readinessBatch.byUnitId.get(issue.unitId);
-  const readinessState = toSnapshotState(unitReadiness?.state ?? "ready");
   const stage = mapRepairStatusToRecoveryStage({
     status: issue.status,
     assignedEmployeeId: issue.assignedEmployeeId,
@@ -194,15 +188,17 @@ export async function buildRecoverySnapshot(
     status: issue.status,
   });
 
+  const readinessState = issueLocalSnapshotState({
+    priority: issue.priority,
+    resolved: stage === "RESOLVED",
+  });
+
   const affectedSignals: string[] = [impactSummary];
   if (issue.priority === "URGENT" || issue.priority === "HIGH") {
     affectedSignals.push(`${issue.priority.toLowerCase()} priority`);
   }
   if (!issue.assignedEmployeeId && stage !== "RESOLVED") {
     affectedSignals.push("unassigned");
-  }
-  if (readinessState === "needs_attention") {
-    affectedSignals.push("location Needs Attention");
   }
 
   const availableActions = buildAvailableActions({
@@ -226,9 +222,9 @@ export async function buildRecoverySnapshot(
     serviceDate: timeCtx.facilityLocalDate,
     department,
     activeOperation: {
-      label: readinessBatch.operationContext.serviceLabel,
-      phase: readinessBatch.operationContext.phase,
-      scheduledTime: readinessBatch.operationContext.scheduledTimeLabel,
+      label: "Current operation",
+      phase: "Preparation",
+      scheduledTime: null,
     },
     issue: {
       id: issue.id,
@@ -252,17 +248,7 @@ export async function buildRecoverySnapshot(
         id: issue.unit.id,
         name: issue.unit.name,
         readinessState,
-        readinessReason:
-          unitReadiness?.reason ??
-          (readinessState === "ready"
-            ? `Ready for ${readinessBatch.operationContext.mealLabel.toLowerCase()}`
-            : readinessStateDisplayLabel(
-                unitReadiness?.state === "blocked"
-                  ? "blocked"
-                  : unitReadiness?.state === "in_progress"
-                    ? "in_progress"
-                    : "ready",
-              )),
+        readinessReason: impactSummary,
       },
       recentUpdates: [...issue.updates]
         .reverse()
@@ -273,16 +259,10 @@ export async function buildRecoverySnapshot(
         })),
     },
     operationalImpact: {
-      currentServiceAtRisk:
-        issue.priority === "URGENT" ||
-        issue.priority === "HIGH" ||
-        readinessState === "needs_attention",
-      currentOperationLabel: readinessBatch.operationContext.serviceLabel,
+      currentServiceAtRisk: issue.priority === "URGENT" || issue.priority === "HIGH",
+      currentOperationLabel: "Current operation",
       affectedSignals,
-      staffingState:
-        readinessState === "needs_attention" && /staff|server|coverage/i.test(unitReadiness?.reason ?? "")
-          ? "coverage concern at location"
-          : "no staffing signal from readiness",
+      staffingState: "not evaluated from leftover readiness",
       relatedSupplyShorts: relatedSupply,
       relatedOpenIssues: relatedOpen,
     },

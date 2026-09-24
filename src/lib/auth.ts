@@ -5,7 +5,7 @@ import type { AppRole } from "@/lib/access";
 
 export const SESSION_COOKIE = "ltc_session";
 
-export type AuthKind = "user" | "employee";
+export type AuthKind = "user" | "employee" | "harbor_staff";
 
 /** How the session was established. Records provenance only; it never grants authority. */
 export const authMethodValues = ["PASSWORD", "QUICK_PIN"] as const;
@@ -60,7 +60,7 @@ function getJwtSecret() {
 
 export async function createSessionToken(payload: {
   uid: string;
-  authKind?: AuthKind;
+  authKind?: Exclude<AuthKind, "harbor_staff">;
   authMethod?: AuthMethod;
   role: AppRole;
   name: string;
@@ -104,6 +104,9 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
   const { payload } = await jwtVerify(token, getJwtSecret());
   const p = payload as Record<string, unknown>;
   const authKind = (p.authKind as AuthKind | undefined) ?? "user";
+  if (authKind === "harbor_staff") {
+    throw new Error("Not a facility session.");
+  }
   return {
     ...payload,
     uid: String(p.uid ?? ""),
@@ -135,6 +138,25 @@ export function sessionUserIdForFk(session: AppJwtPayload): string | null {
 
 export async function getSession(): Promise<AppJwtPayload | null> {
   const jar = await cookies();
+
+  try {
+    const { tryResolveHarborWorkAppSession } = await import("@/lib/harbor-console/work-session");
+    const workSession = await tryResolveHarborWorkAppSession((name) => jar.get(name)?.value);
+    if (workSession) {
+      const { validateSessionForRequest } = await import("@/lib/session-revocation");
+      const authority = await validateSessionForRequest(workSession);
+      if (authority.valid) {
+        return {
+          ...workSession,
+          authKind: "harbor_staff",
+          primaryDepartmentId: undefined,
+        };
+      }
+    }
+  } catch {
+    // Work cookies that cannot be read must not block a facility session on the same browser.
+  }
+
   const raw = jar.get(SESSION_COOKIE)?.value;
 
   if (!raw) {

@@ -30,9 +30,10 @@ export default async function CanonicalRunLogsPage() {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
 
-  // Prefer active department; fall back to Dietary operational department helper when available.
-  let departmentId = deptNav.activeDepartmentId;
-  if (!departmentId) {
+  let departmentId: string | null = deptNav.activeDepartmentId;
+  const facilityWide = deptNav.showAllDepartmentNav && !deptNav.activeDepartmentId;
+
+  if (!facilityWide && !departmentId) {
     const dept = await resolveStaffingOperationalDepartment({
       facilityId: session.facilityId,
       activeDepartmentId: null,
@@ -40,7 +41,7 @@ export default async function CanonicalRunLogsPage() {
     }).catch(() => null);
     departmentId = dept?.id ?? null;
   }
-  if (!departmentId) {
+  if (!facilityWide && !departmentId) {
     const fallback = await prisma.department.findFirst({
       where: { facilityId: session.facilityId, isActive: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -49,7 +50,7 @@ export default async function CanonicalRunLogsPage() {
     departmentId = fallback?.id ?? null;
   }
 
-  if (!departmentId) {
+  if (!facilityWide && !departmentId) {
     return (
       <section className="mx-auto max-w-3xl space-y-3">
         <PageHeader title="Logs" subtitle="No department available for Logs." compact />
@@ -57,10 +58,12 @@ export default async function CanonicalRunLogsPage() {
     );
   }
 
-  const department = await prisma.department.findFirst({
-    where: { id: departmentId, facilityId: session.facilityId },
-    select: { id: true, name: true },
-  });
+  const department = departmentId
+    ? await prisma.department.findFirst({
+        where: { id: departmentId, facilityId: session.facilityId },
+        select: { id: true, name: true },
+      })
+    : null;
 
   const bundle = await loadFacilityRunLogRequirements({
     client: prisma,
@@ -75,7 +78,7 @@ export default async function CanonicalRunLogsPage() {
     <section className="mx-auto max-w-3xl space-y-4" data-testid="canonical-run-logs-page">
       <PageHeader
         title="Logs"
-        subtitle={`${department?.name ?? "Department"} · ${bundle.operationalDateKey}`}
+        subtitle={`${department?.name ?? (facilityWide ? "All Departments" : "Department")} · ${bundle.operationalDateKey}`}
         compact
         actions={
           <div className="flex flex-wrap gap-3 text-sm">
@@ -97,6 +100,9 @@ export default async function CanonicalRunLogsPage() {
         adHocAttachments={bundle.adHocAttachments}
         includeNeedsSetup={isManager}
         isManager={isManager}
+        upcoming={bundle.upcoming}
+        otherDepartmentNames={bundle.otherDepartmentNames}
+        departmentName={department?.name ?? null}
       />
     </section>
   );

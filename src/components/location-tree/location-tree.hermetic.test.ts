@@ -26,12 +26,13 @@ test("Department Locations uses shared tree grammar, not prose list", () => {
     ),
     "utf8",
   );
-  assert.match(panel, /DepartmentLocationTree/);
+  assert.match(panel, /LocationsProgrammingClient/);
   assert.doesNotMatch(panel, /Rooms on this/);
   assert.match(panel, /Manage responsibility/);
+  assert.match(panel, /Operational Type/);
 });
 
-test("DepartmentLocationTree is read-only Facility-style tree", () => {
+test("DepartmentLocationTree keeps Facility-style hierarchy and does not edit structure", () => {
   const tree = readFileSync(
     join(process.cwd(), "src/components/location-tree/DepartmentLocationTree.tsx"),
     "utf8",
@@ -45,6 +46,8 @@ test("DepartmentLocationTree is read-only Facility-style tree", () => {
   assert.match(tree, /department-location-floor/);
   assert.match(tree, /department-location-neighborhood/);
   assert.match(tree, /department-location-room/);
+  assert.match(tree, /Physical Type/);
+  assert.match(tree, /Operational Type/);
   assert.doesNotMatch(tree, /GripVertical|Bulk import|Add Floor/);
   assert.match(row, /Collapse \$\{label\}/);
   assert.match(row, /Expand \$\{label\}/);

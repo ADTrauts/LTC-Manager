@@ -27,6 +27,7 @@ describe("facility vocabulary — profile resolution", () => {
   it("defaults to LTC (Floor / Neighborhood / Room) when no settings exist", () => {
     const v = resolveFacilityVocabulary(null);
     assert.equal(v.profileKey, "ltc");
+    assert.equal(v.level0.singular, "Building");
     assert.equal(v.level1.singular, "Floor");
     assert.equal(v.level2.singular, "Neighborhood");
     assert.equal(v.level3.singular, "Room");
@@ -55,16 +56,18 @@ describe("facility vocabulary — profile resolution", () => {
     assert.equal(v.level3.singular, "Guest Room");
   });
 
-  it("resolves the Campus profile (Building / Area / Space)", () => {
+  it("resolves the Campus profile (Building / Floor / Area / Space)", () => {
     const v = resolveFacilityVocabulary({ vocabularyProfile: "campus" });
-    assert.equal(v.level1.singular, "Building");
+    assert.equal(v.level0.singular, "Building");
+    assert.equal(v.level1.singular, "Floor");
     assert.equal(v.level2.singular, "Area");
     assert.equal(v.level3.singular, "Space");
   });
 
-  it("resolves the Corporate profile (Building / Department / Workspace)", () => {
+  it("resolves the Corporate profile (Building / Floor / Department / Workspace)", () => {
     const v = resolveFacilityVocabulary({ vocabularyProfile: "corporate" });
-    assert.equal(v.level1.singular, "Building");
+    assert.equal(v.level0.singular, "Building");
+    assert.equal(v.level1.singular, "Floor");
     assert.equal(v.level2.singular, "Department");
     assert.equal(v.level3.singular, "Workspace");
   });
@@ -130,6 +133,7 @@ describe("facility vocabulary — pluralization", () => {
 
   it("all built-in profiles carry explicit plural terms", () => {
     for (const profile of Object.values(FACILITY_VOCABULARY_PROFILES)) {
+      assert.ok(profile.level0.plural.length > 0);
       assert.ok(profile.level1.plural.length > 0);
       assert.ok(profile.level2.plural.length > 0);
       assert.ok(profile.level3.plural.length > 0);
@@ -146,7 +150,8 @@ describe("facility vocabulary — pluralization", () => {
 describe("builder copy — default LTC vocabulary", () => {
   const copy = DEFAULT_BUILDER_COPY;
 
-  it("toolbar labels use Floor / Neighborhood / Room", () => {
+  it("toolbar labels use Building / Floor / Neighborhood / Room", () => {
+    assert.equal(copy.toolbar.addLevel0, "Building");
     assert.equal(copy.toolbar.addLevel1, "Floor");
     assert.equal(copy.toolbar.addLevel2, "Neighborhood");
     assert.equal(copy.toolbar.addLevel3, "Room");
@@ -169,7 +174,7 @@ describe("builder copy — default LTC vocabulary", () => {
     assert.equal(copy.tree.emptyAction, "Add Floor");
     assert.equal(
       copy.tree.selectPrompt,
-      "Select a floor, neighborhood, or room from the tree to view and edit its details.",
+      "Select a building, floor, neighborhood, or room from the tree to view and edit its details.",
     );
   });
 
@@ -180,7 +185,10 @@ describe("builder copy — default LTC vocabulary", () => {
 
   it("validation copy uses LTC terms", () => {
     assert.equal(copy.validation.level2RequiresLevel1, "Neighborhoods must be created under a Floor.");
-    assert.equal(copy.validation.level1CannotMove, "Floors cannot be moved under another location.");
+    assert.equal(
+      copy.validation.level1CannotMove,
+      "Floors can only be moved onto a Building or back to the facility root.",
+    );
     assert.equal(
       copy.validation.level3MoveTargets,
       "Rooms can only be moved into a Floor, Neighborhood, or Undesignated.",
@@ -224,7 +232,7 @@ describe("builder copy — Hospital vocabulary", () => {
   it("tree and validation copy use Unit", () => {
     assert.equal(
       copy.tree.selectPrompt,
-      "Select a floor, unit, or patient room from the tree to view and edit its details.",
+      "Select a building, floor, unit, or patient room from the tree to view and edit its details.",
     );
     assert.equal(copy.validation.level2RequiresLevel1, "Units must be created under a Floor.");
     assert.ok(copy.undesignatedSection.warningBody.includes("Floor or Unit"));
@@ -299,7 +307,8 @@ describe("displayKindLabel with vocabulary", () => {
     const hospital = buildBuilderCopy(FACILITY_VOCABULARY_PROFILES.hospital);
     assert.equal(displayKindLabel("neighborhood", hospital), "Unit");
     const corporate = buildBuilderCopy(FACILITY_VOCABULARY_PROFILES.corporate);
-    assert.equal(displayKindLabel("floor", corporate), "Building");
+    assert.equal(displayKindLabel("building", corporate), "Building");
+    assert.equal(displayKindLabel("floor", corporate), "Floor");
     assert.equal(displayKindLabel("neighborhood", corporate), "Department");
     // Internal builder-only concepts stay stable across vocabularies.
     assert.equal(displayKindLabel("staged", corporate), "Undesignated");
@@ -311,6 +320,7 @@ describe("displayKindLabel with vocabulary", () => {
     assert.equal(DEFAULT_FACILITY_VOCABULARY.profileKey, "ltc");
     const v = resolveFacilityVocabulary({ vocabularyProfile: "corporate" });
     assert.deepEqual(Object.keys(v).sort(), [
+      "level0",
       "level1",
       "level2",
       "level3",
@@ -372,6 +382,8 @@ describe("facility vocabulary — configuration helpers", () => {
 
   it("validateCustomVocabularyLabels rejects empty and overlong labels", () => {
     const empty = validateCustomVocabularyLabels({
+      level0Singular: "Building",
+      level0Plural: "Buildings",
       level1Singular: "  ",
       level1Plural: "Floors",
       level2Singular: "Unit",
@@ -383,6 +395,8 @@ describe("facility vocabulary — configuration helpers", () => {
 
     const tooLong = "X".repeat(VOCABULARY_LABEL_MAX_LENGTH + 1);
     const over = validateCustomVocabularyLabels({
+      level0Singular: "Building",
+      level0Plural: "Buildings",
       level1Singular: "Floor",
       level1Plural: "Floors",
       level2Singular: tooLong,
@@ -396,6 +410,8 @@ describe("facility vocabulary — configuration helpers", () => {
   it("validateCustomVocabularyLabels accepts valid custom labels", () => {
     assert.deepEqual(
       validateCustomVocabularyLabels({
+        level0Singular: "Building",
+        level0Plural: "Buildings",
         level1Singular: "Floor",
         level1Plural: "Floors",
         level2Singular: "Wing",
@@ -409,39 +425,44 @@ describe("facility vocabulary — configuration helpers", () => {
 
   it("live preview lines use vocabulary labels (LTC / Hospital / Hotel)", () => {
     const ltc = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.ltc);
-    assert.equal(ltc.lines[0], "First Floor");
-    assert.equal(ltc.lines[1], "1A Naval Park");
-    assert.equal(ltc.lines[2], "Room 32A");
+    assert.equal(ltc.lines[0], "Main Building");
+    assert.equal(ltc.lines[1], "First Floor");
+    assert.equal(ltc.lines[2], "1A Naval Park");
+    assert.equal(ltc.lines[3], "Room 32A");
     assert.equal(ltc.toolbar.addLevel2, "Neighborhood");
 
     const hospital = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.hospital);
-    assert.equal(hospital.lines[0], "First Floor");
-    assert.equal(hospital.lines[1], "ICU Unit");
-    assert.equal(hospital.lines[2], "Patient Room 32A");
+    assert.equal(hospital.lines[0], "East Tower");
+    assert.equal(hospital.lines[1], "First Floor");
+    assert.equal(hospital.lines[2], "ICU Unit");
+    assert.equal(hospital.lines[3], "Patient Room 32A");
     assert.equal(hospital.toolbar.addLevel2, "Unit");
 
     const hotel = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.hotel);
-    assert.equal(hotel.lines[0], "Third Floor");
-    assert.equal(hotel.lines[1], "West Wing");
-    assert.equal(hotel.lines[2], "Guest Room 214");
+    assert.equal(hotel.lines[0], "Annex");
+    assert.equal(hotel.lines[1], "Third Floor");
+    assert.equal(hotel.lines[2], "West Wing");
+    assert.equal(hotel.lines[3], "Guest Room 214");
   });
 
-  it("live preview for Campus and Corporate matches Stage 2F examples", () => {
+  it("live preview for Campus and Corporate uses Building above Floor", () => {
     const campus = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.campus);
-    assert.equal(campus.lines[0], "Science Building");
-    assert.equal(campus.lines[1], "Chemistry Area");
-    assert.equal(campus.lines[2], "Lab Space A");
+    assert.equal(campus.lines[0], "Science Hall");
+    assert.equal(campus.lines[1], "Floor 1");
+    assert.equal(campus.lines[2], "Chemistry Area");
+    assert.equal(campus.lines[3], "Lab Space A");
 
     const corporate = buildVocabularyHierarchyPreview(FACILITY_VOCABULARY_PROFILES.corporate);
     assert.equal(corporate.lines[0], "Building A");
-    assert.equal(corporate.lines[1], "Accounting Department");
-    assert.equal(corporate.lines[2], "Workspace 14");
+    assert.equal(corporate.lines[1], "Floor 2");
+    assert.equal(corporate.lines[2], "Accounting Department");
+    assert.equal(corporate.lines[3], "Workspace 14");
   });
 
-  it("formatVocabularySummary joins the three singular labels", () => {
+  it("formatVocabularySummary joins optional Building plus the three physical labels", () => {
     assert.equal(
       formatVocabularySummary(FACILITY_VOCABULARY_PROFILES.ltc),
-      "Floor · Neighborhood · Room",
+      "Building · Floor · Neighborhood · Room",
     );
   });
 

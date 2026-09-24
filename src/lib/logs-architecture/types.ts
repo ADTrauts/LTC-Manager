@@ -129,7 +129,8 @@ export type LogAttachmentTargetKind =
   | "SPACE"
   | "UNIT"
   | "DEPARTMENT"
-  | "FACILITY";
+  | "FACILITY"
+  | "OPERATIONAL_TYPE";
 
 /**
  * Discriminated target columns — Prisma-safe FK style (preferred).
@@ -144,6 +145,20 @@ export type LogAttachmentTarget =
   | {
       kind: "FACILITY";
       /** Facility is implied by Attachment.facilityId; no extra target id. */
+      assetId?: null;
+      spaceId?: null;
+      unitId?: null;
+      departmentId?: null;
+    }
+  | {
+      kind: "OPERATIONAL_TYPE";
+      /** Stable DepartmentRoomArchetype.key. Never a display name. */
+      operationalTypeKey: string;
+      /**
+       * Set only when an OT attachment is expanded onto a concrete room for
+       * due-state. The stored Attachment row does not copy onto the room.
+       */
+      resolvedSpaceId?: string | null;
       assetId?: null;
       spaceId?: null;
       unitId?: null;

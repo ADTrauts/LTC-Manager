@@ -17,6 +17,10 @@ import {
 } from "@/lib/asset-operations";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import {
+  MAX_REPAIR_PHOTOS_PER_SUBMIT,
+  savePhotosFromFormData,
+} from "@/lib/photo-attachments";
 import { prisma } from "@/lib/prisma";
 
 function toOptional(value: FormDataEntryValue | null) {
@@ -266,8 +270,18 @@ export async function createWorkOrderFromAssetIssueAction(formData: FormData) {
     description,
   });
 
+  await savePhotosFromFormData({
+    formData,
+    facilityId: session.facilityId,
+    parentKind: "REPAIR",
+    repairId: wo.id,
+    session,
+    maxCount: MAX_REPAIR_PHOTOS_PER_SUBMIT,
+  });
+
   revalidateIssueViews(issueId);
   revalidatePath(`/issues/${wo.id}`);
+  revalidatePath(`/repairs/${wo.id}`);
 }
 
 export async function updateWorkOrderStatusAction(formData: FormData) {

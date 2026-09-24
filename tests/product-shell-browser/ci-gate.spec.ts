@@ -28,7 +28,7 @@ import { test, expect, chromium, type BrowserContext, type Page } from "@playwri
  * 17 RUN Assets opens operational Asset view.       — scenario-03
  * 18 Asset Builder is in BUILD (composition).       — DOCS
  * 19 Department Builder opens.                       — scenario-04
- * 25 Procedures & Resources opens from BUILD.       — scenario-07 (FA)
+ * 25 Procedures & Resources is parked from BUILD.   — scenario-07 (FA)
  * 27 Department switch works for multi-dept mgr.    — scenario-08
  * 30 Quick PIN STAFF lands in RUN.                  — scenario-09
  * 31 Quick PIN STAFF cannot see BUILD.              — scenario-09
@@ -148,7 +148,8 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(banner(page).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
       await expect(banner(page).getByRole("link", { name: "Locations", exact: true })).toBeVisible();
       await expect(banner(page).getByRole("link", { name: "Schedule", exact: true })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: "Assets", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Maintenance", exact: true })).toBeVisible();
+      await expect(banner(page).getByRole("link", { name: "Repairs", exact: true })).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -184,7 +185,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
         ["/units", "Locations"],
         ["/staffing", "Schedule"],
         ["/staffing/log-book", "Log Book"],
-        ["/assets", "Assets"],
+        ["/assets", "Maintenance"],
       ] as const) {
         await page.goto(path, { waitUntil: "domcontentloaded" });
         await expect(page).toHaveURL(new RegExp(`${path.replace("/", "\\/")}(\\?|$)`));
@@ -265,11 +266,11 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     const { context, page } = await openPersistent("fa-build");
     try {
       await loginPassword(page, fx.users.fa.email, fx.users.fa.password);
-      // FA Build Home lists Facility Builder + Procedures & Resources as cards.
+      // FA Build Home lists Facility Builder; Procedures & Resources is parked.
       await page.goto("/build", { waitUntil: "domcontentloaded" });
       const hub = page.getByTestId("build-hub");
       await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/facility/builder"]')).toBeVisible({ timeout: 30_000 });
-      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/knowledge"]')).toBeVisible();
+      await expect(hub.locator('[data-testid="build-hub-card"][data-href="/admin/knowledge"]')).toHaveCount(0);
       // BUILD replaces the Locations rail with Build navigation (Build Home + builders).
       const buildRail = page.getByTestId("build-sidebar");
       await expect(buildRail).toBeVisible({ timeout: 30_000 });
@@ -585,9 +586,10 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(card).toBeVisible({ timeout: 30_000 });
       await card.click();
       await page.waitForURL((u) => u.pathname === "/assets/builder", { timeout: 30_000 });
-      // The Asset Builder surface is BUILD-classified and hosts the asset configuration form.
+      // The Asset Builder surface is BUILD-classified and hosts the asset registry.
       await expect(page.locator('[data-product-mode="BUILD"]').first()).toBeVisible();
-      await expect(page.getByTestId("asset-builder")).toBeVisible();
+      await expect(page.getByTestId("asset-builder-page")).toBeVisible();
+      await expect(page.getByTestId("asset-builder-shell")).toBeVisible();
     } finally {
       await context.close();
     }

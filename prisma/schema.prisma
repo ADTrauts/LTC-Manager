@@ -128,6 +128,8 @@ model Facility {
   timezone                       String                          @default("America/New_York")
   /// Hierarchy vocabulary profile key: ltc (default when null) | hospital | hotel | campus | corporate | custom.
   vocabularyProfile              String?
+  /// Custom optional Building label; only used when vocabularyProfile = "custom".
+  vocabularyLevel0Label          String?
   /// Custom hierarchy level labels; only used when vocabularyProfile = "custom".
   vocabularyLevel1Label          String?
   vocabularyLevel2Label          String?
@@ -185,6 +187,8 @@ model Facility {
   departmentJobRoles             DepartmentJobRole[]
   departmentRequestRoutes        DepartmentRequestRoute[]
   operationalRequests            OperationalRequest[]
+  billing                        FacilityBilling?
+  departmentEntitlements         FacilityDepartmentEntitlement[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -243,6 +247,7 @@ model Department {
   operationalRequestsRequesting  OperationalRequest[]            @relation("OperationalRequestRequesting")
   operationalRequestsResponsible OperationalRequest[]            @relation("OperationalRequestResponsible")
   operationalRequestsAffected    OperationalRequest[]            @relation("OperationalRequestAffected")
+  departmentEntitlements         FacilityDepartmentEntitlement[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -250,6 +255,69 @@ model Department {
   @@index([facilityId])
   @@index([facilityId, showInEmployeeApp])
   @@index([headEmployeeId])
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+}
+
+enum BillingSetupPath {
+  SELF_SERVE
+  ASSISTED
+}
+
+/// UNMANAGED = grandfathered / not sold yet. Enforcement ignores this status.
+enum FacilityBillingStatus {
+  UNMANAGED
+  INCOMPLETE
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum DepartmentEntitlementStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// One commercial record per facility. Does not gate product until BILLING_ENTITLEMENTS_ENABLED.
+model FacilityBilling {
+  id                      String                         @id @default(cuid())
+  facilityId              String                         @unique
+  facility                Facility                       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  status                  FacilityBillingStatus          @default(UNMANAGED)
+  interval                BillingInterval                @default(ANNUAL)
+  setupPath               BillingSetupPath               @default(SELF_SERVE)
+  stripeSubscriptionId    String?
+  licensedDepartmentCount Int?
+  entitlements            FacilityDepartmentEntitlement[]
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+
+  @@index([status])
+}
+
+/// Licensed operational department for a facility. Independent of showInEmployeeApp.
+model FacilityDepartmentEntitlement {
+  id                       String                       @id @default(cuid())
+  facilityBillingId        String
+  facilityBilling          FacilityBilling              @relation(fields: [facilityBillingId], references: [id], onDelete: Cascade)
+  facilityId               String
+  facility                 Facility                     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentKey            String
+  departmentId             String?
+  department               Department?                  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  status                   DepartmentEntitlementStatus  @default(ACTIVE)
+  activatedAt              DateTime                     @default(now())
+  revokedAt                DateTime?
+  stripeSubscriptionItemId String?
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
+
+  @@unique([facilityBillingId, departmentKey])
+  @@index([facilityId, status])
+  @@index([departmentId])
 }
 
 /// Facility-scoped job title catalog for HR / employee directory.
@@ -542,6 +610,8 @@ enum UnitType {
 /// Facility Builder hierarchy placement. Independent of operational UnitType.
 /// Null = pre-existing record; Builder resolves via parentUnitId compatibility fallback.
 enum UnitHierarchyRole {
+  /// Optional campus/tower parent of Floor. Top-level only.
+  BUILDING
   FLOOR
   NEIGHBORHOOD
   LEGACY_LOCATION
@@ -882,6 +952,7 @@ enum InspectionOccurrenceStatus {
 enum AttachmentParentKind {
   LOG_SUBMISSION
   REPAIR
+  ASSET
 }
 
 model Unit {
@@ -932,7 +1003,10 @@ model Unit {
   createdAt                  DateTime                             @default(now())
   updatedAt                  DateTime                             @updatedAt
 
-  @@unique([facilityId, name])
+  /// Sibling-scoped uniqueness is enforced by partial unique indexes in
+  /// prisma/migrations/20260916120000_optional_facility_buildings:
+  /// Unit_facility_root_name_key (parentUnitId IS NULL)
+  /// Unit_facility_parent_name_key (parentUnitId IS NOT NULL)
   @@index([parentUnitId])
   @@index([isActive, displayOrder])
   @@index([facilityId])
@@ -999,6 +1073,10 @@ model UnitSpace {
   /// Canonical Facility Room Type. Nullable until backfill / for undesignated staging.
   facilityRoomTypeId                 String?
   facilityRoomType                   FacilityRoomType?                   @relation(fields: [facilityRoomTypeId], references: [id], onDelete: Restrict)
+  /// Optional containing room (e.g. bathroom inside a resident room). Same unitId as parent.
+  parentSpaceId                      String?
+  parentSpace                        UnitSpace?                          @relation("SpaceHierarchy", fields: [parentSpaceId], references: [id], onDelete: SetNull)
+  childSpaces                        UnitSpace[]                         @relation("SpaceHierarchy")
   roomNumber                         String?
   code                               String?
   isActive                           Boolean                             @default(true)
@@ -1026,6 +1104,7 @@ model UnitSpace {
   @@index([facilityId])
   @@index([unitId, isActive, sortOrder])
   @@index([facilityRoomTypeId])
+  @@index([parentSpaceId])
 }
 
 /// Lifecycle for an enduring Department Team (organizational subgroup).
@@ -1051,6 +1130,8 @@ model DepartmentTeam {
   /// Explicit accountable manager. Does not grant RoleKey authority.
   managerEmployeeId String?
   managerEmployee   Employee?                     @relation("DepartmentTeamManager", fields: [managerEmployeeId], references: [id], onDelete: SetNull)
+  /// Stable DepartmentRoomArchetype.key values. Not display names. Department-scoped via departmentId.
+  applicableOperationalTypeKeys String[]          @default([])
   roomMemberships   DepartmentTeamRoomMembership[]
   employeeMemberships EmployeeTeamMembership[]
   createdAt         DateTime                      @default(now())
@@ -1061,8 +1142,10 @@ model DepartmentTeam {
   @@index([managerEmployeeId])
 }
 
-/// Team normal operating Rooms. Identity is UnitSpace.id — never Room Type / Floor / Neighborhood.
+/// Team explicit normal operating Rooms. Identity is UnitSpace.id — never Room Type / Floor / Neighborhood.
 /// Overlapping membership across Teams in the same Department is allowed.
+/// Operational Type applicability is stored on DepartmentTeam.applicableOperationalTypeKeys
+/// and is not copied onto these rows.
 model DepartmentTeamRoomMembership {
   id        String         @id @default(cuid())
   teamId    String
@@ -1794,6 +1877,7 @@ model Asset {
   operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   logAttachments                     LogAttachment[]
+  attachments                        Attachment[]
   statusHistory                      AssetStatusHistory[]
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
@@ -2295,6 +2379,8 @@ model Attachment {
   logSubmission       LogSubmission?       @relation(fields: [logSubmissionId], references: [id], onDelete: Cascade)
   repairId            String?
   repair              Repair?              @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  assetId             String?
+  asset               Asset?               @relation(fields: [assetId], references: [id], onDelete: Cascade)
   fileRelativePath    String
   originalFilename    String
   mimeType            String
@@ -2307,6 +2393,7 @@ model Attachment {
   @@index([facilityId])
   @@index([logSubmissionId])
   @@index([repairId])
+  @@index([assetId])
   @@index([createdByUserId])
   @@index([createdByEmployeeId])
 }
@@ -2872,13 +2959,27 @@ model OperationalAssignmentEvent {
   @@index([departmentId, createdAt])
 }
 
+/// Build lifecycle for a reusable coverage expectation (assignment template).
+/// Working edits use DRAFT. Runtime uses PUBLISHED rows effective on the service date.
+enum OperationalAssignmentTemplateStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
 /// Reusable operating pattern describing required operational positions.
+/// Phase 5B: this is the coverage expectation model (WHAT/HOW MANY/WHERE/WHEN).
+/// Versions are immutable once PUBLISHED. Do not persist derived coverage state.
 model OperationalAssignmentTemplate {
   id                    String                              @id @default(cuid())
   facilityId            String
   facility              Facility                            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId          String
   department            Department                          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// Enduring identity across draft/published versions of the same expectation set.
+  stableKey             String
+  version               Int                                 @default(1)
+  status                OperationalAssignmentTemplateStatus @default(DRAFT)
   name                  String
   description           String?
   isActive              Boolean                             @default(true)
@@ -2886,6 +2987,7 @@ model OperationalAssignmentTemplate {
   effectiveFrom         DateTime?                           @db.Date
   /// Inclusive end of effectiveness. Null = not retired. Retired templates do not apply prospectively.
   effectiveTo           DateTime?                           @db.Date
+  publishedAt           DateTime?
   operationDefinitionId String?
   operationDefinition   OperationDefinition?                @relation(fields: [operationDefinitionId], references: [id], onDelete: SetNull)
   workShiftId           String?
@@ -2896,27 +2998,33 @@ model OperationalAssignmentTemplate {
   createdAt             DateTime                            @default(now())
   updatedAt             DateTime                            @updatedAt
 
+  @@unique([facilityId, departmentId, stableKey, version], map: "OATemplate_stable_version_key")
   @@index([facilityId, departmentId])
   @@index([facilityId, isActive])
+  @@index([facilityId, departmentId, stableKey, status], map: "OATemplate_stable_status_idx")
   @@index([facilityId, departmentId, effectiveFrom, effectiveTo])
 }
 
 model OperationalAssignmentTemplateItem {
-  id            String                        @id @default(cuid())
-  templateId    String
-  template      OperationalAssignmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  roleKey       String
-  roleLabel     String
-  unitId        String?
-  unit          Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  startsAtLocal String?
-  endsAtLocal   String?
-  requiredCount Int                           @default(1)
-  sortOrder     Int                           @default(100)
-  notes         String?
-  assignments   OperationalAssignment[]
-  createdAt     DateTime                      @default(now())
-  updatedAt     DateTime                      @updatedAt
+  id                                   String                        @id @default(cuid())
+  templateId                           String
+  template                             OperationalAssignmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  roleKey                              String
+  roleLabel                            String
+  unitId                               String?
+  unit                                 Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  /// DepartmentRoomArchetype.key targets. Empty = no OT inheritance (legacy unit/direct only).
+  applicableOperationalTypeKeys        String[]                      @default([])
+  /// DepartmentOperationalCycle.stableKey targets. Empty = no cycle constraint (legacy).
+  applicableOperationalCycleStableKeys String[]                      @default([])
+  startsAtLocal                        String?
+  endsAtLocal                          String?
+  requiredCount                        Int                           @default(1)
+  sortOrder                            Int                           @default(100)
+  notes                                String?
+  assignments                          OperationalAssignment[]
+  createdAt                            DateTime                      @default(now())
+  updatedAt                            DateTime                      @updatedAt
 
   @@index([templateId, sortOrder])
 }
@@ -3060,8 +3168,11 @@ enum OperationalCycleLocationMode {
   UNIT_TYPES
   /// Explicit Unit and/or UnitSpace targets (user-facing: Specific locations).
   EXPLICIT_UNITS
-  /// Canonical Facility Builder Room Type preset key (e.g. servery).
+  /// Physical Facility Room Type preset key (e.g. kitchen). Compatibility only.
+  /// Not the department Operational Type.
   ROOM_TYPE
+  /// Canonical department Operational Type keys (DepartmentRoomArchetype.key).
+  OPERATIONAL_TYPES
 }
 
 /// Department-owned Operational Cycle definition.
@@ -3103,8 +3214,11 @@ model DepartmentOperationalCycle {
   locationInheritFromParent Boolean                         @default(false)
   applicableUnitTypes  UnitType[]
   /// Facility Room Type preset key when locationMode = ROOM_TYPE (e.g. "servery").
-  /// Legacy Build/Run compatibility — new Build authoring uses explicit Rooms.
+  /// Legacy Build/Run compatibility — physical type, not Operational Type.
   roomTypeKey          String?
+  /// Department Operational Type keys when locationMode = OPERATIONAL_TYPES.
+  /// Keys match DepartmentRoomArchetype.key and stay stable across profile versions.
+  applicableOperationalTypeKeys String[] @default([])
   /// Expected confirmations for SERVICE cycles (READY / SERVICE_STARTED). Absence ≠ failure.
   /// Legacy Run compatibility — not the primary new Build UX.
   expectedMilestones   ServeryMilestone[]
@@ -3952,6 +4066,8 @@ enum LogAttachmentTargetKind {
   UNIT
   DEPARTMENT
   FACILITY
+  /// Department-scoped Operational Type (DepartmentRoomArchetype.key).
+  OPERATIONAL_TYPE
 }
 
 enum LogAttachmentTimingMode {
@@ -4052,6 +4168,8 @@ model LogAttachment {
   unit                Unit?                         @relation(fields: [unitId], references: [id], onDelete: Restrict)
   targetDepartmentId  String?
   targetDepartment    Department?                   @relation("LogAttachmentTargetDepartment", fields: [targetDepartmentId], references: [id], onDelete: Restrict)
+  /// Stable Operational Type identity (DepartmentRoomArchetype.key). Not a display name.
+  operationalTypeKey  String?
   timingMode          LogAttachmentTimingMode
   calendarCadence     LogAttachmentCalendarCadence?
   calendarDaysOfWeek  Int[]                         @default([])
@@ -4072,6 +4190,7 @@ model LogAttachment {
   @@index([spaceId])
   @@index([unitId])
   @@index([targetDepartmentId])
+  @@index([operationalTypeKey])
   @@index([effectiveFrom])
 }
 
@@ -4101,4 +4220,47 @@ model LogAttachmentCycleSelection {
   @@unique([attachmentId, cycleStableKey])
   @@index([attachmentId])
   @@index([cycleStableKey])
+}
+
+/// LTC Corp staff — Harbor Console only. Never a facility User / RoleKey.
+enum PlatformStaffRole {
+  OWNER
+  MEMBER
+}
+
+enum HarborAuditAction {
+  LOGIN
+  VIEW_CUSTOMER
+  WORK_SESSION_START
+  WORK_SESSION_END
+  CATALOG_CREATE
+  CATALOG_PUBLISH
+  CATALOG_RETIRE
+  CATALOG_DRAFT_SUCCESSOR
+}
+
+model PlatformStaff {
+  id             String            @id @default(cuid())
+  email          String            @unique
+  displayName    String
+  passwordHash   String
+  role           PlatformStaffRole @default(MEMBER)
+  isActive       Boolean           @default(true)
+  sessionVersion Int               @default(0)
+  lastLoginAt    DateTime?
+  auditEvents    HarborAuditEvent[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model HarborAuditEvent {
+  id         String            @id @default(cuid())
+  staffId    String
+  staff      PlatformStaff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  action     HarborAuditAction
+  facilityId String?
+  createdAt  DateTime          @default(now())
+
+  @@index([staffId, createdAt])
+  @@index([facilityId, createdAt])
 }

@@ -11,11 +11,11 @@ import {
 import { AppIcons } from "@/lib/design-system";
 import type { FacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import type {
+  LocationLandingRowState,
   LocationsDepartmentSnapshot,
   LocationsTreeNode,
   LocationsViewModel,
 } from "@/lib/locations";
-import { NAV_ZONE_LABELS } from "@/lib/nav-zones";
 
 export type LocationsHierarchyBrowserProps = {
   view: LocationsViewModel;
@@ -23,6 +23,7 @@ export type LocationsHierarchyBrowserProps = {
   projectionError: string | null;
   canConfigureFacility: boolean;
   lensSummary: string | null;
+  landingByNodeId?: Readonly<Record<string, LocationLandingRowState>>;
 };
 
 function kindLabel(
@@ -30,6 +31,8 @@ function kindLabel(
   vocabulary: FacilityVocabulary,
 ): string | null {
   switch (kind) {
+    case "BUILDING":
+      return vocabulary.level0.singular;
     case "FLOOR":
       return vocabulary.level1.singular;
     case "NEIGHBORHOOD":
@@ -43,23 +46,21 @@ function kindLabel(
   }
 }
 
-function countExperiences(node: LocationsTreeNode): number {
-  return node.areas.reduce((sum, area) => sum + area.experiences.length, 0);
-}
-
 function HierarchyNode({
   node,
   vocabulary,
   depth,
+  landingByNodeId,
 }: {
   node: LocationsTreeNode;
   vocabulary: FacilityVocabulary;
   depth: number;
+  landingByNodeId: Readonly<Record<string, LocationLandingRowState>>;
 }) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children.length > 0;
   const level = kindLabel(node.kind, vocabulary);
-  const experienceCount = countExperiences(node);
+  const landing = landingByNodeId[node.id];
   const ChevronIcon = AppIcons.chevronDown;
   const LocationIcon = AppIcons.locations;
 
@@ -72,28 +73,49 @@ function HierarchyNode({
             node={child}
             vocabulary={vocabulary}
             depth={depth}
+            landingByNodeId={landingByNodeId}
           />
         ))}
       </>
     );
   }
 
-  const rowTone =
-    depth === 0
+  const isRoot = depth === 0;
+  const needsAttention = Boolean(landing?.needsAttention);
+  const rowTone = needsAttention
+    ? isRoot
+      ? "bg-amber-50/70 px-3 py-3 sm:px-4"
+      : "border-l-2 border-amber-400 bg-amber-50/50 px-3 py-2.5 sm:px-4"
+    : isRoot
       ? "bg-zinc-100/80 px-3 py-3 sm:px-4"
       : depth === 1
         ? "px-3 py-2.5 hover:bg-zinc-50 sm:px-4"
         : "px-3 py-2 hover:bg-zinc-50";
 
   return (
-    <li className="list-none" data-location-id={node.id} data-kind={node.kind}>
-      <div
-        className={`flex min-h-11 flex-wrap items-start gap-2 transition-colors ${rowTone}`}
-      >
+    <li
+      className="list-none"
+      data-location-id={node.id}
+      data-kind={node.kind}
+      data-landing-grain={landing?.grain}
+      data-needs-attention={needsAttention ? "true" : "false"}
+      data-testid="location-landing-row"
+      style={
+        isRoot
+          ? {
+              overflow: "hidden",
+              borderRadius: "1rem",
+              border: "1px solid #e4e4e7",
+              backgroundColor: "#ffffff",
+            }
+          : undefined
+      }
+    >
+      <div className={`flex min-h-11 flex-wrap items-start gap-2 transition-colors ${rowTone}`}>
         {hasChildren ? (
           <button
             type="button"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white hover:text-zinc-900"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white hover:text-zinc-900"
             aria-expanded={expanded}
             aria-label={expanded ? `Collapse ${node.label}` : `Expand ${node.label}`}
             onClick={() => setExpanded((value) => !value)}
@@ -104,7 +126,7 @@ function HierarchyNode({
             />
           </button>
         ) : (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center">
             <LocationIcon className="h-4 w-4 text-zinc-400" aria-hidden />
           </span>
         )}
@@ -114,7 +136,7 @@ function HierarchyNode({
             {node.href ? (
               <Link
                 href={node.href}
-                className="text-sm font-semibold text-zinc-900 hover:underline"
+                className="min-h-11 inline-flex items-center text-sm font-semibold text-zinc-900 hover:underline"
               >
                 {node.label}
               </Link>
@@ -122,8 +144,8 @@ function HierarchyNode({
               <span
                 className={
                   node.presentation === "STRUCTURAL"
-                    ? "text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500"
-                    : "text-sm font-medium text-zinc-900"
+                    ? "inline-flex min-h-11 items-center text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500"
+                    : "inline-flex min-h-11 items-center text-sm font-medium text-zinc-900"
                 }
               >
                 {node.label}
@@ -135,22 +157,53 @@ function HierarchyNode({
             {node.presentation === "STRUCTURAL" ? (
               <StatusBadge variant="neutral">Structural</StatusBadge>
             ) : null}
-            {experienceCount > 0 ? (
-              <StatusBadge variant="in_progress">
-                {experienceCount} Experience{experienceCount === 1 ? "" : "s"}
-              </StatusBadge>
-            ) : null}
           </div>
-          {node.areas.length > 0 ? (
-            <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
-              {node.areas.map((area) => (
-                <li key={area.areaKey}>
-                  <span className="font-medium text-zinc-700">{area.label}</span>
-                  {": "}
-                  {area.experiences.map((exp) => exp.label).join(", ")}
-                </li>
+
+          {landing ? (
+            <div className="mt-1 space-y-0.5 text-sm text-zinc-600" data-testid="location-landing-state">
+              {landing.configurationLabel ? (
+                <p className="text-zinc-700" data-testid="location-landing-configuration">
+                  {landing.configurationLabel}
+                </p>
+              ) : null}
+              {landing.operationLabel ? (
+                <p data-testid="location-landing-operation">{landing.operationLabel}</p>
+              ) : null}
+              {landing.summaryFacts.map((fact) => (
+                <p key={fact} data-testid="location-landing-summary">
+                  {fact}
+                </p>
               ))}
-            </ul>
+              {landing.coverageLabel ? (
+                <p className="text-zinc-500" data-testid="location-landing-coverage">
+                  {landing.coverageLabel}
+                </p>
+              ) : null}
+              {landing.exceptionLabels.map((label) => (
+                <p key={label} className="text-zinc-800" data-testid="location-landing-exception">
+                  {label}
+                </p>
+              ))}
+              {landing.moreExceptionCount > 0 ? (
+                <p className="text-zinc-500" data-testid="location-landing-more">
+                  +{landing.moreExceptionCount} more
+                </p>
+              ) : null}
+              {landing.nextLabel ? (
+                <p data-testid="location-landing-next">{landing.nextLabel}</p>
+              ) : null}
+              {landing.configureHref ? (
+                <p>
+                  <Link
+                    href={landing.configureHref}
+                    className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
+                    data-testid="location-landing-configure"
+                  >
+                    Configure this location
+                  </Link>
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -169,6 +222,7 @@ function HierarchyNode({
               node={child}
               vocabulary={vocabulary}
               depth={depth + 1}
+              landingByNodeId={landingByNodeId}
             />
           ))}
         </ul>
@@ -181,30 +235,33 @@ function DepartmentTree({
   snapshot,
   vocabulary,
   showLabel,
+  landingByNodeId,
 }: {
   snapshot: LocationsDepartmentSnapshot;
   vocabulary: FacilityVocabulary;
   showLabel: boolean;
+  landingByNodeId: Readonly<Record<string, LocationLandingRowState>>;
 }) {
   return (
-    <section
-      aria-label={snapshot.label}
-      className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
-    >
+    <section aria-label={snapshot.label} className="space-y-2">
       {showLabel ? (
-        <div className="border-b border-zinc-300 bg-zinc-900 px-4 py-3">
+        <div
+          className="border border-zinc-200 bg-zinc-900 px-4 py-3"
+          style={{ borderRadius: "1rem" }}
+        >
           <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-white">
             {snapshot.label}
           </h2>
         </div>
       ) : null}
-      <ul className="divide-y divide-zinc-300">
+      <ul className="flex flex-col gap-2">
         {snapshot.roots.map((root) => (
           <HierarchyNode
             key={root.id}
             node={root}
             vocabulary={vocabulary}
             depth={0}
+            landingByNodeId={landingByNodeId}
           />
         ))}
       </ul>
@@ -230,6 +287,7 @@ export function LocationsHierarchyBrowser({
   projectionError,
   canConfigureFacility,
   lensSummary,
+  landingByNodeId = {},
 }: LocationsHierarchyBrowserProps) {
   const total = nodeCount(view);
   const departmentLabel =
@@ -288,6 +346,7 @@ export function LocationsHierarchyBrowser({
             snapshot={snapshot}
             vocabulary={vocabulary}
             showLabel={view.lensMode === "FACILITY"}
+            landingByNodeId={landingByNodeId}
           />
         ))}
       </div>
@@ -298,9 +357,7 @@ export function LocationsHierarchyBrowser({
     <section className="space-y-4">
       <PageHeader
         icon="locations"
-        eyebrow={NAV_ZONE_LABELS.LOCATIONS}
         title="Locations"
-        subtitle="Browse the locations available in the current operational mode."
         status={
           lensSummary ? (
             <StatusBadge variant="neutral">{lensSummary}</StatusBadge>

@@ -116,7 +116,6 @@ async function main() {
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
     DIETARY_JOB_FLOW_ENABLED: "",
-    PROJECTION_UNIT_WORKSPACE_ENABLED: "",
   };
 
   try {
@@ -174,7 +173,7 @@ async function main() {
 
     const pw = spawnSync(
       "npx",
-      ["playwright", "test", "-c", "playwright.assignment.config.ts", "--grep", "@ci-gate"],
+      ["playwright", "test", "-c", "tests/playwright.assignment.config.ts", "--grep", "@ci-gate"],
       {
         cwd: ROOT,
         env: {

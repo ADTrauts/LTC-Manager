@@ -279,6 +279,7 @@ export type CycleRowData = {
   locationMode: string;
   locationInheritFromParent: boolean;
   applicableUnitTypes: string[];
+  applicableOperationalTypeKeys: string[];
   expectedMilestones: string[];
   roomTypeKey: string | null;
   unitIds: string[];
@@ -293,6 +294,7 @@ export type CycleRowData = {
 export type CycleEditorCatalog = {
   locations: CycleScopeLocationOption[];
   roomTypes: StandardRoomTypeOption[];
+  operationalTypes?: Array<{ key: string; name: string }>;
 };
 
 function normalizeTimeInput(value: string | null | undefined): string {
@@ -328,6 +330,7 @@ export function CycleEditorFields({
   defaults: Partial<CycleRowData> & {
     applicableDaysOfWeek?: number[];
     applicableUnitTypes?: string[];
+    applicableOperationalTypeKeys?: string[];
     expectedMilestones?: string[];
     roomTypeKey?: string | null;
     unitIds?: string[];
@@ -388,12 +391,16 @@ export function CycleEditorFields({
         | "ALL_DEPARTMENT_UNITS"
         | "UNIT_TYPES"
         | "EXPLICIT_UNITS"
-        | "ROOM_TYPE") ?? "ALL_DEPARTMENT_UNITS",
+        | "ROOM_TYPE"
+        | "OPERATIONAL_TYPES") ?? "OPERATIONAL_TYPES",
     ),
   );
   const [roomTypeKey, setRoomTypeKey] = useState(defaults.roomTypeKey ?? "servery");
   const [unitIds, setUnitIds] = useState<string[]>(defaults.unitIds ?? []);
   const [spaceIds, setSpaceIds] = useState<string[]>(defaults.spaceIds ?? []);
+  const [operationalTypeKeys, setOperationalTypeKeys] = useState<string[]>(
+    defaults.applicableOperationalTypeKeys ?? [],
+  );
   const [cycleType, setCycleType] = useState(defaults.cycleType ?? "SERVICE");
   const [mealType, setMealType] = useState(
     defaults.mealType ?? (showMeal && !inheritedMealType ? "BREAKFAST" : defaults.mealType ?? ""),
@@ -412,11 +419,10 @@ export function CycleEditorFields({
 
   const locationMode = locationInheritFromParent
     ? "EXPLICIT_UNITS"
-    : spaceIds.length > 0
-      ? "EXPLICIT_UNITS"
-      : locationModeFromUserScope(appliesTo);
+    : locationModeFromUserScope(appliesTo);
   const locations = catalog?.locations ?? [];
   const roomTypes = catalog?.roomTypes ?? [];
+  const operationalTypes = catalog?.operationalTypes ?? [];
   const [roomTypeFilterId, setRoomTypeFilterId] = useState("");
   const neighborhoods = locations.filter((row) => row.kind === "neighborhood");
   const rooms = locations.filter((row) => row.kind === "room");
@@ -648,48 +654,117 @@ export function CycleEditorFields({
                       checked={!locationInheritFromParent}
                       onChange={() => setLocationInheritFromParent(false)}
                     />
-                    Choose different Rooms
+                    Choose different rooms
                   </label>
                 </div>
               ) : null}
               {!locationInheritFromParent ? (
                 <>
-                  <p className="text-[11px] text-zinc-500">
-                    Select the rooms where this operation applies. Room Type filters help select many
-                    rooms at once — membership stays explicit.
-                  </p>
-                  {roomTypes.length > 0 ? (
-                    <label className="block text-xs font-medium text-zinc-700">
-                      Filter by Room Type
-                      <select
-                        value={roomTypeFilterId}
-                        onChange={(event) => setRoomTypeFilterId(event.target.value)}
-                        className={inputClass}
-                        data-testid="cycle-room-type-filter"
-                      >
-                        <option value="">All rooms</option>
-                        {roomTypes.map((option) => (
-                          <option key={option.key} value={option.key}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 text-sm text-zinc-800">
+                      <input
+                        type="radio"
+                        name="appliesTo"
+                        value="operational_types"
+                        checked={appliesTo === "operational_types"}
+                        onChange={() => setAppliesTo("operational_types")}
+                        data-testid="cycle-applies-operational-types"
+                      />
+                      Operational Types
                     </label>
+                    <label className="flex items-center gap-2 text-sm text-zinc-800">
+                      <input
+                        type="radio"
+                        name="appliesTo"
+                        value="specific"
+                        checked={appliesTo === "specific"}
+                        onChange={() => setAppliesTo("specific")}
+                        data-testid="cycle-applies-specific"
+                      />
+                      Specific rooms
+                    </label>
+                  </div>
+                  {appliesTo === "operational_types" ? (
+                    <div className="space-y-2" data-testid="cycle-operational-types">
+                      <p className="text-[11px] text-zinc-500">
+                        Apply this cycle to every room currently assigned these Operational Types.
+                        This is not Physical Room Type.
+                      </p>
+                      {operationalTypes.length === 0 ? (
+                        <p className="text-xs text-zinc-500" data-testid="cycle-operational-types-empty">
+                          No Operational Types yet. Create them in Department Locations, then return
+                          here.
+                        </p>
+                      ) : (
+                        <div className="space-y-1 rounded-md border border-zinc-200 bg-white p-2">
+                          {operationalTypes.map((type) => (
+                            <label
+                              key={type.key}
+                              className="flex items-center gap-2 text-sm text-zinc-800"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={operationalTypeKeys.includes(type.key)}
+                                onChange={(event) => {
+                                  setOperationalTypeKeys((prev) =>
+                                    event.target.checked
+                                      ? [...prev, type.key]
+                                      : prev.filter((key) => key !== type.key),
+                                  );
+                                }}
+                                data-testid={`cycle-operational-type-${type.key}`}
+                              />
+                              {type.name}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <input
+                        type="hidden"
+                        name="applicableOperationalTypeKeys"
+                        value={operationalTypeKeys.join(",")}
+                      />
+                    </div>
+                  ) : (
+                    <input type="hidden" name="applicableOperationalTypeKeys" value="" />
+                  )}
+                  {appliesTo === "specific" ? (
+                    <>
+                      <p className="text-[11px] text-zinc-500">
+                        Assign this cycle to specific rooms. Physical Room Type filters help select
+                        many rooms at once — membership stays explicit.
+                      </p>
+                      {roomTypes.length > 0 ? (
+                        <label className="block text-xs font-medium text-zinc-700">
+                          Filter by Physical Room Type
+                          <select
+                            value={roomTypeFilterId}
+                            onChange={(event) => setRoomTypeFilterId(event.target.value)}
+                            className={inputClass}
+                            data-testid="cycle-room-type-filter"
+                          >
+                            <option value="">All rooms</option>
+                            {roomTypes.map((option) => (
+                              <option key={option.key} value={option.key}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      <RoomPicker
+                        locations={locations}
+                        selectedIds={spaceIds}
+                        onChange={setSpaceIds}
+                        name="spaceIds"
+                        filter={
+                          roomTypeFilterId
+                            ? { facilityRoomTypeId: roomTypeFilterId }
+                            : undefined
+                        }
+                      />
+                    </>
                   ) : null}
-                  <RoomPicker
-                    locations={locations}
-                    selectedIds={spaceIds}
-                    onChange={(next) => {
-                      setSpaceIds(next);
-                      if (next.length > 0) setAppliesTo("specific");
-                    }}
-                    name="spaceIds"
-                    filter={
-                      roomTypeFilterId
-                        ? { facilityRoomTypeId: roomTypeFilterId }
-                        : undefined
-                    }
-                  />
                   <details className="rounded-md border border-zinc-200 bg-zinc-50 p-2">
                     <summary className="cursor-pointer text-xs font-medium text-zinc-700">
                       Legacy location scope
@@ -698,7 +773,7 @@ export function CycleEditorFields({
                       {(
                         [
                           ["department", "Entire department"],
-                          ["room_type", "Room Type"],
+                          ["room_type", "Physical Room Type"],
                           ["specific", "Specific neighborhoods"],
                         ] as const
                       ).map(([value, label]) => (
@@ -718,7 +793,7 @@ export function CycleEditorFields({
                       ))}
                       {appliesTo === "room_type" ? (
                         <label className="block text-xs font-medium text-zinc-700">
-                          Room Type
+                          Physical Room Type
                           <select
                             name="roomTypeKey"
                             value={roomTypeKey}

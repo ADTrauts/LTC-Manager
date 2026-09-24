@@ -10,6 +10,7 @@ import {
   OverviewPanel,
   type OverviewDepartmentSettings,
 } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
+import { CoveragePanel } from "@/app/(protected)/admin/departments/[departmentId]/coverage-panel";
 import { TeamsPanel } from "@/app/(protected)/admin/departments/[departmentId]/teams-panel";
 import { RoomsPanel } from "@/app/(protected)/admin/departments/[departmentId]/rooms-panel";
 import { SettingsPanel } from "@/app/(protected)/admin/departments/[departmentId]/settings-panel";
@@ -17,11 +18,13 @@ import { VersionsPanel } from "@/app/(protected)/admin/departments/[departmentId
 import { DepartmentBuildContextBar } from "@/components/build/DepartmentBuildContextBar";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
 import {
+  checkPatternAuthoringAccess,
   departmentAdminTabsForFlags,
-  loadDepartmentAdminView,
   resolveDepartmentAdminTab,
   type DepartmentAdminTabId,
 } from "@/lib/department-administration";
+import { loadDepartmentAdminView } from "@/lib/department-administration/load-department-admin";
+import { loadDepartmentLocationPrograms } from "@/lib/department-administration/load-effective-location-program";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { getSession } from "@/lib/auth";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
@@ -33,7 +36,13 @@ import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 
 type PageProps = {
   params: Promise<{ departmentId: string }>;
-  searchParams: Promise<{ tab?: string; profile?: string; roomType?: string; team?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    profile?: string;
+    roomType?: string;
+    team?: string;
+    expectation?: string;
+  }>;
 };
 
 export default async function DepartmentBuilderPage({
@@ -49,7 +58,7 @@ export default async function DepartmentBuilderPage({
   const { departmentId } = await params;
   const query = await searchParams;
 
-  // Primary tabs: Overview | Locations | Teams | Operational Cycles.
+  // Primary tabs: Overview | Locations | Teams | Coverage | Operational Cycles.
   const availableTabs = departmentAdminTabsForFlags({
     profilesEnabled,
     locationsEnabled: true,
@@ -111,7 +120,7 @@ export default async function DepartmentBuilderPage({
   const contentMaxWidth =
     tab === "overview"
       ? "max-w-4xl"
-      : tab === "locations" || tab === "teams"
+      : tab === "locations" || tab === "teams" || tab === "coverage"
         ? "max-w-5xl"
         : tab === "cycles"
           ? "max-w-6xl"
@@ -127,6 +136,26 @@ export default async function DepartmentBuilderPage({
           departmentId: view.department.id,
         })
       : null;
+
+  const canAuthorPatterns =
+    checkPatternAuthoringAccess({
+      role: session.role,
+      authMethod: session.authMethod ?? "PASSWORD",
+      sessionFacilityId: session.facilityId,
+      targetFacilityId: view.facilityId,
+    }) === null;
+
+  const locationPrograms =
+    tab === "locations"
+      ? await loadDepartmentLocationPrograms({
+          facilityId: view.facilityId,
+          department: view.department,
+          locations: view.locations,
+          profile: view.workingProfile,
+          bindings: view.roomBindings,
+          exceptions: view.roomExceptions,
+        })
+      : {};
 
   return (
     <div className="space-y-3" data-testid="department-builder">
@@ -160,13 +189,20 @@ export default async function DepartmentBuilderPage({
                   targetTitle={view.department.name}
                   attachments={departmentLogsCtx.attachments}
                   addHref={departmentLogsCtx.addHref}
+                  runHref={`/staffing/logs/targets/department/${view.department.id}`}
                   departmentName={view.department.name}
                 />
               ) : null
             }
           />
         ) : null}
-        {tab === "locations" ? <LocationsPanel view={view} /> : null}
+        {tab === "locations" ? (
+          <LocationsPanel
+            view={view}
+            canAuthorPatterns={canAuthorPatterns}
+            programs={locationPrograms}
+          />
+        ) : null}
         {tab === "teams" ? (
           <TeamsPanel
             session={session}
@@ -174,6 +210,16 @@ export default async function DepartmentBuilderPage({
             departmentId={view.department.id}
             departmentName={view.department.name}
             selectedTeamId={query.team?.trim() || null}
+          />
+        ) : null}
+        {tab === "coverage" ? (
+          <CoveragePanel
+            session={session}
+            facilityId={session.facilityId}
+            departmentId={view.department.id}
+            departmentName={view.department.name}
+            departmentKey={view.department.key}
+            selectedExpectationId={query.expectation?.trim() || null}
           />
         ) : null}
         {tab === "areas" ? <AreasPanel view={view} /> : null}

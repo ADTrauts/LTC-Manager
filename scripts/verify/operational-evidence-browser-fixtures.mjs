@@ -615,6 +615,9 @@ async function main() {
         data: {
           facilityId: facility.id,
           departmentId: dietary.id,
+          stableKey: "phase9b_job_flow_coverage",
+          version: 1,
+          status: "PUBLISHED",
           name: "Phase 9B Job Flow Coverage",
           description: "Synthetic coverage for Operations Board exceptions",
           isActive: true,

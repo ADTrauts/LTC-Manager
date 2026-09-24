@@ -1,15 +1,17 @@
 /**
  * Department Teams — enduring organizational subgroups inside one Department.
  *
- * Build configuration only. Does not filter Run, write Zones, Cycles, WorkStations,
- * Department responsibility, or Employee membership.
+ * Build configuration only. Does not write Zones, Cycles, WorkStations,
+ * Department responsibility, Employee membership, or OperationalAssignment.
+ * Team → Operational Type keys persist immediately (same as room membership).
+ * Run consumers must resolve those keys through ACTIVE Operational Types only.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import type { AppJwtPayload } from "@/lib/auth";
-import { loadDepartmentLocationsView } from "@/lib/department-administration";
+import { loadDepartmentLocationsView } from "@/lib/department-administration/load-department-admin";
 import { listFacilityRoomTypes } from "@/lib/facility-builder/facility-room-types";
 import { prisma } from "@/lib/prisma";
 
@@ -19,6 +21,8 @@ import {
   type TeamAuthorityDecision,
 } from "./authority";
 import type { DepartmentTeamView, TeamCatalog, TeamEmployeeOption, TeamRoomView } from "./types";
+import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
+import { validateTeamOperationalTypeKeys } from "./team-operational-type-applicability";
 import {
   evaluateTeamManagerCandidate,
   normalizeTeamDescription,
@@ -143,6 +147,37 @@ async function resolveTeamRoomWrites(
   });
 }
 
+async function resolveTeamOperationalTypeWrites(
+  client: DbClient,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    operationalTypeKeys: readonly string[];
+  },
+): Promise<string[]> {
+  const options = await loadDepartmentOperationalTypeOptions({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    perspective: "working",
+  });
+  const existing = await client.departmentRoomArchetype.findMany({
+    where: {
+      key: { in: [...input.operationalTypeKeys] },
+      profile: {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        status: { in: ["DRAFT", "CERTIFIED", "ACTIVE"] },
+      },
+    },
+    select: { key: true },
+  });
+  const allowed = new Set([...options.map((row) => row.key), ...existing.map((row) => row.key)]);
+  return validateTeamOperationalTypeKeys({
+    submittedKeys: input.operationalTypeKeys,
+    allowedKeys: allowed,
+  });
+}
+
 function mapTeamView(
   row: {
     id: string;
@@ -155,6 +190,7 @@ function mapTeamView(
     archivedAt: Date | null;
     managerEmployeeId: string | null;
     managerEmployee: { firstName: string; lastName: string } | null;
+    applicableOperationalTypeKeys?: string[];
     roomMemberships: Array<{
       spaceId: string;
       space: {
@@ -203,6 +239,7 @@ function mapTeamView(
     roomCount: rooms.length,
     activeMemberCount,
     rooms,
+    applicableOperationalTypeKeys: [...(row.applicableOperationalTypeKeys ?? [])],
   };
 }
 
@@ -338,7 +375,14 @@ export async function loadTeamCatalog(input: {
     ]),
   );
 
+  const operationalTypes = await loadDepartmentOperationalTypeOptions({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    perspective: "working",
+  });
+
   return {
+    operationalTypes,
     locations: locations.map((location) => {
       const type = typeBySpace.get(location.id);
       return {
@@ -419,6 +463,7 @@ export async function createDepartmentTeam(
     description?: string | null;
     managerEmployeeId?: string | null;
     spaceIds: readonly string[];
+    operationalTypeKeys?: readonly string[];
   },
 ): Promise<DepartmentTeamView> {
   const authority = await resolveTeamAuthority(session, input.facilityId, input.departmentId);
@@ -442,6 +487,11 @@ export async function createDepartmentTeam(
       departmentId: input.departmentId,
       spaceIds: input.spaceIds,
     });
+    const operationalTypeKeys = await resolveTeamOperationalTypeWrites(tx, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      operationalTypeKeys: input.operationalTypeKeys ?? [],
+    });
     const displayOrder = await nextDisplayOrder(tx, input.departmentId);
     const created = await tx.departmentTeam.create({
       data: {
@@ -451,6 +501,7 @@ export async function createDepartmentTeam(
         description,
         displayOrder,
         managerEmployeeId,
+        applicableOperationalTypeKeys: operationalTypeKeys,
         roomMemberships: {
           create: spaceIds.map((spaceId) => ({ spaceId })),
         },
@@ -472,6 +523,7 @@ export async function updateDepartmentTeam(
     description?: string | null;
     managerEmployeeId?: string | null;
     spaceIds?: readonly string[];
+    operationalTypeKeys?: readonly string[];
   },
 ): Promise<DepartmentTeamView> {
   const existing = await prisma.departmentTeam.findFirst({
@@ -507,6 +559,13 @@ export async function updateDepartmentTeam(
       data.managerEmployee = managerEmployeeId
         ? { connect: { id: managerEmployeeId } }
         : { disconnect: true };
+    }
+    if (input.operationalTypeKeys !== undefined) {
+      data.applicableOperationalTypeKeys = await resolveTeamOperationalTypeWrites(tx, {
+        facilityId: existing.facilityId,
+        departmentId: existing.departmentId,
+        operationalTypeKeys: input.operationalTypeKeys,
+      });
     }
     if (Object.keys(data).length > 0) {
       await tx.departmentTeam.update({ where: { id: existing.id }, data });

@@ -34,6 +34,7 @@ import {
   ChevronRight,
   ChevronDown,
   Building2,
+  Layers,
   LayoutGrid,
   DoorOpen,
   MapPin,
@@ -54,6 +55,8 @@ import {
 
 import { Button } from "@/components/design-system/Button";
 import { Drawer } from "@/components/drawer";
+import { GuardedModal } from "@/components/guarded-modal";
+import { FACILITY_BASE_TYPES } from "@/lib/facility-builder/facility-base-types";
 import type {
   FacilityHierarchy,
   FacilityRoomTypeView,
@@ -62,20 +65,26 @@ import type {
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   formatRoomDisplayName,
+  siblingSpacesOf,
+  nestedSpacesOf,
+  nestParentCandidates,
 } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   resolveBuilderNodeDisplayKind,
   displayKindLabel,
+  canAddFloor,
   canAddNeighborhood,
   canAddRoom,
   canMoveUnitOnto,
   canMoveRoomOnto,
+  isStructuralBuilderKind,
   UNDESIGNATED_DROP_ID,
   type BuilderNodeDisplayKind,
 } from "@/lib/facility-builder/builder-display";
 import {
   BULK_ROOM_MAX,
   filterHierarchyForSearch,
+  listBuildingMoveDestinations,
   listFloorMoveDestinations,
   listRoomMoveDestinations,
   reorderSiblingIds,
@@ -91,6 +100,7 @@ import {
 } from "@/lib/facility-builder/facility-vocabulary";
 import { locationTreePaddingLeft } from "@/components/location-tree/location-tree-tokens";
 import {
+  createBuilderBuildingAction,
   createBuilderFloorAction,
   createBuilderNeighborhoodAction,
   updateBuilderUnitAction,
@@ -107,6 +117,7 @@ import {
   renameBuilderSpaceAction,
   toggleBuilderUnitActiveAction,
   convertBuilderLegacyToFloorAction,
+  createFacilityRoomTypeAction,
 } from "./actions";
 import {
   DepartmentResponsibilityCheckboxes,
@@ -130,6 +141,13 @@ const BuilderCopyContext = createContext<BuilderCopy>(DEFAULT_BUILDER_COPY);
 
 function useBuilderCopy(): BuilderCopy {
   return useContext(BuilderCopyContext);
+}
+
+function builderKindIcon(kind: BuilderNodeDisplayKind) {
+  if (kind === "building") return Building2;
+  if (kind === "floor") return Layers;
+  if (kind === "neighborhood") return LayoutGrid;
+  return MapPin;
 }
 
 const FacilityRoomTypesContext = createContext<FacilityRoomTypeView[]>([]);
@@ -169,10 +187,12 @@ type Selection =
   | { type: "space"; spaceId: string; unitId: string | null }
   | null;
 
+type CreateSpaceHandler = (unitId: string | null, parentSpaceId?: string | null) => void;
+
 type CreateUnitDrawerState = {
   parentId: string | null;
   depth: number;
-  intent?: "floor" | "neighborhood";
+  intent?: "building" | "floor" | "neighborhood";
 };
 
 // ---------------------------------------------------------------------------
@@ -196,10 +216,14 @@ export function FacilityBuilderClient({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [createUnitDrawer, setCreateUnitDrawer] = useState<CreateUnitDrawerState | null>(null);
-  const [createSpaceDrawer, setCreateSpaceDrawer] = useState<{ unitId?: string | null } | null>(null);
+  const [createSpaceDrawer, setCreateSpaceDrawer] = useState<{
+    unitId?: string | null;
+    parentSpaceId?: string | null;
+  } | null>(null);
   const [bulkSpaceDrawer, setBulkSpaceDrawer] = useState<{ unitId: string } | null>(null);
   const [moveDrawer, setMoveDrawer] = useState<
     | { type: "unit-to-floor"; unitId: string; unitName: string; currentParentId: string | null }
+    | { type: "floor-to-building"; unitId: string; unitName: string; currentParentId: string | null }
     | { type: "space-to-neighborhood"; spaceId: string; spaceName: string; currentUnitId: string | null }
     | null
   >(null);
@@ -297,7 +321,12 @@ export function FacilityBuilderClient({
       ? formatRoomDisplayName(selectedSpace)
       : "Place details";
 
-  const createSpaceParentName = createSpaceDrawer?.unitId
+  const createSpaceParentName = createSpaceDrawer?.parentSpaceId
+    ? (() => {
+        const parentRoom = findSpaceInHierarchy(hierarchy, createSpaceDrawer.parentSpaceId);
+        return parentRoom ? formatRoomDisplayName(parentRoom) : null;
+      })()
+    : createSpaceDrawer?.unitId
     ? findUnitInHierarchy(hierarchy, createSpaceDrawer.unitId)?.name
     : null;
   const createNeighborhoodParentName = createUnitDrawer?.parentId
@@ -324,7 +353,9 @@ export function FacilityBuilderClient({
 
     // Drop onto Undesignated staging zone
     if (overId === UNDESIGNATED_DROP_ID) {
-      if (activeUnit && resolveBuilderNodeDisplayKind(activeUnit) !== "floor") {
+      if (activeUnit) {
+        const kind = resolveBuilderNodeDisplayKind(activeUnit);
+        if (kind === "building") return;
         startTransition(() => {
           moveBuilderUnitAction({
             unitId: activeUnit.id,
@@ -411,14 +442,19 @@ export function FacilityBuilderClient({
 
     // --- Space (room) drag ---
     if (activeSpaceInfo) {
-      // Reorder among undesignated rooms
+      // Reorder among undesignated rooms in the same nest group
       if (
         overSpaceInfo &&
         activeSpaceInfo.parentUnitId === null &&
-        overSpaceInfo.parentUnitId === null
+        overSpaceInfo.parentUnitId === null &&
+        (activeSpaceInfo.space.parentSpaceId ?? null) ===
+          (overSpaceInfo.space.parentSpaceId ?? null)
       ) {
         const ordered = reorderSiblingIds(
-          hierarchy.undesignatedSpaces.map((s) => s.id),
+          siblingSpacesOf(
+            hierarchy.undesignatedSpaces,
+            activeSpaceInfo.space.parentSpaceId,
+          ).map((s) => s.id),
           activeSpaceInfo.space.id,
           overSpaceInfo.space.id,
         );
@@ -426,22 +462,27 @@ export function FacilityBuilderClient({
         startTransition(() => {
           reorderBuilderSpacesAction({
             unitId: null,
+            parentSpaceId: activeSpaceInfo.space.parentSpaceId,
             orderedIds: ordered,
           });
         });
         return;
       }
 
-      // Reorder among rooms in the same neighborhood / unit
+      // Reorder among rooms in the same neighborhood / nest group
       if (
         overSpaceInfo &&
         overSpaceInfo.parentUnitId === activeSpaceInfo.parentUnitId &&
-        activeSpaceInfo.parentUnitId !== null
+        activeSpaceInfo.parentUnitId !== null &&
+        (activeSpaceInfo.space.parentSpaceId ?? null) ===
+          (overSpaceInfo.space.parentSpaceId ?? null)
       ) {
         const parent = findUnitInHierarchy(hierarchy, activeSpaceInfo.parentUnitId);
         if (!parent) return;
         const ordered = reorderSiblingIds(
-          parent.childSpaces.map((s) => s.id),
+          siblingSpacesOf(parent.childSpaces, activeSpaceInfo.space.parentSpaceId).map(
+            (s) => s.id,
+          ),
           activeSpaceInfo.space.id,
           overSpaceInfo.space.id,
         );
@@ -449,6 +490,7 @@ export function FacilityBuilderClient({
         startTransition(() => {
           reorderBuilderSpacesAction({
             unitId: activeSpaceInfo.parentUnitId,
+            parentSpaceId: activeSpaceInfo.space.parentSpaceId,
             orderedIds: ordered,
           });
         });
@@ -476,20 +518,21 @@ export function FacilityBuilderClient({
   }
 
   const hasAnyUnits = hierarchy.units.length > 0;
-  const hasFloors = hierarchy.units.some((u) => resolveBuilderNodeDisplayKind(u) === "floor");
   const isEmptyFacility =
     hierarchy.units.length === 0 &&
     hierarchy.stagedUnits.length === 0 &&
     hierarchy.undesignatedSpaces.length === 0;
 
   const structureSummary = (() => {
+    let buildings = 0;
     let floors = 0;
     let neighborhoods = 0;
     let rooms = hierarchy.undesignatedSpaces.length;
     function walk(nodes: UnitHierarchyNode[]) {
       for (const u of nodes) {
         const kind = resolveBuilderNodeDisplayKind(u);
-        if (kind === "floor") floors += 1;
+        if (kind === "building") buildings += 1;
+        else if (kind === "floor") floors += 1;
         else if (kind === "neighborhood" || kind === "legacy_location") neighborhoods += 1;
         rooms += u.childSpaces.length;
         walk(u.childUnits);
@@ -497,11 +540,16 @@ export function FacilityBuilderClient({
     }
     walk(hierarchy.units);
     walk(hierarchy.stagedUnits);
-    return { floors, neighborhoods, rooms };
+    return { buildings, floors, neighborhoods, rooms };
   })();
+  const hasFloors = structureSummary.floors > 0;
 
   function openAddFloor() {
     setCreateUnitDrawer({ parentId: null, depth: 0, intent: "floor" });
+  }
+
+  function openAddBuilding() {
+    setCreateUnitDrawer({ parentId: null, depth: 0, intent: "building" });
   }
 
   useEffect(() => {
@@ -532,7 +580,7 @@ export function FacilityBuilderClient({
                 Build your facility structure
               </h3>
               <p className="mt-2 text-sm text-zinc-600">
-                Start by adding the first {copy.labels.level1.toLowerCase()}.
+                Start by adding the first {copy.labels.level1.toLowerCase()}, or a {copy.labels.level0.toLowerCase()} for a multi-building campus.
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 <Button
@@ -542,6 +590,15 @@ export function FacilityBuilderClient({
                   icon={<Plus className="h-4 w-4" />}
                 >
                   {copy.tree.emptyAction}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid="add-building-editor-empty"
+                  onClick={openAddBuilding}
+                  icon={<Building2 className="h-4 w-4" />}
+                >
+                  {copy.tree.emptyActionBuilding}
                 </Button>
                 <Button
                   type="button"
@@ -560,6 +617,14 @@ export function FacilityBuilderClient({
                 {hierarchy.facilityName}
               </h3>
               <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                {structureSummary.buildings > 0 ? (
+                  <div>
+                    <dt className="text-zinc-500">{copy.labels.level0Plural}</dt>
+                    <dd className="text-lg font-semibold tabular-nums text-zinc-900">
+                      {structureSummary.buildings}
+                    </dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt className="text-zinc-500">{copy.labels.level1Plural}</dt>
                   <dd className="text-lg font-semibold tabular-nums text-zinc-900">
@@ -600,10 +665,15 @@ export function FacilityBuilderClient({
           }
           departments={hierarchy.departments}
           canonicalLogsEnabled={canonicalLogsEnabled}
-          onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+          onCreateSpace={(unitId, parentSpaceId) =>
+            setCreateSpaceDrawer({ unitId, parentSpaceId: parentSpaceId ?? null })
+          }
           onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
           onCreateNeighborhood={(unitId) =>
             setCreateUnitDrawer({ parentId: unitId, depth: 1, intent: "neighborhood" })
+          }
+          onCreateFloor={(unitId) =>
+            setCreateUnitDrawer({ parentId: unitId, depth: 1, intent: "floor" })
           }
           onSelectSpace={(spaceId, unitId) => selectPlace({ type: "space", spaceId, unitId })}
           onSelectUnit={(unitId) => selectPlace({ type: "unit", unitId })}
@@ -614,10 +684,25 @@ export function FacilityBuilderClient({
         <SpaceEditor
           space={selectedSpace}
           parentUnit={parentUnitOfSpace}
+          siblingSpaces={
+            parentUnitOfSpace?.childSpaces ??
+            (selection?.type === "space" && !selection.unitId
+              ? hierarchy.undesignatedSpaces
+              : [])
+          }
           parentFloorName={grandparentOfSpace?.name ?? null}
           departments={hierarchy.departments}
           isUndesignated={selection?.type === "space" && !selection.unitId}
           canonicalLogsEnabled={canonicalLogsEnabled}
+          onCreateNestedSpace={
+            selectedSpace.parentSpaceId
+              ? undefined
+              : () =>
+                  setCreateSpaceDrawer({
+                    unitId: selection?.type === "space" ? selection.unitId : null,
+                    parentSpaceId: selectedSpace.id,
+                  })
+          }
         />
       )}
     </>
@@ -652,23 +737,6 @@ export function FacilityBuilderClient({
           className="flex w-full shrink-0 flex-col border-zinc-200 xl:w-80 xl:border-r"
           data-testid="facility-hierarchy-pane"
         >
-          <div className="border-b border-zinc-100 px-4 py-3">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-900">Structure</h2>
-                {!isEmptyFacility ? (
-                  <p className="mt-0.5 text-[11px] tabular-nums text-zinc-500">
-                    {structureSummary.floors} {copy.labels.level1Plural}
-                    {" · "}
-                    {structureSummary.neighborhoods} {copy.labels.level2Plural}
-                    {" · "}
-                    {structureSummary.rooms} {copy.labels.level3Plural}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-2 border-b border-zinc-100 px-3 py-2.5">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
@@ -683,16 +751,29 @@ export function FacilityBuilderClient({
             </label>
             <div className="flex flex-wrap gap-1.5">
               {hasAnyUnits ? (
-                <Button
-                  type="button"
-                  size="compact"
-                  data-testid="add-floor-root"
-                  onClick={openAddFloor}
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                  className="flex-1"
-                >
-                  {copy.tree.emptyAction}
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    size="compact"
+                    data-testid="add-floor-root"
+                    onClick={openAddFloor}
+                    icon={<Plus className="h-3.5 w-3.5" />}
+                    className="flex-1"
+                  >
+                    {copy.tree.emptyAction}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="compact"
+                    data-testid="add-building-root"
+                    onClick={openAddBuilding}
+                    icon={<Building2 className="h-3.5 w-3.5" />}
+                    className="flex-1"
+                  >
+                    {copy.toolbar.addLevel0}
+                  </Button>
+                </>
               ) : null}
               <Button
                 type="button"
@@ -733,10 +814,12 @@ export function FacilityBuilderClient({
                   e.stopPropagation();
                   setContextMenu({ x: e.clientX, y: e.clientY, target });
                 }}
-                onCreateUnit={(parentId, depth) =>
-                  setCreateUnitDrawer({ parentId, depth, intent: "neighborhood" })
+            onCreateUnit={(parentId, depth, intent = "neighborhood") =>
+                  setCreateUnitDrawer({ parentId, depth, intent })
                 }
-                onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+                onCreateSpace={(unitId, parentSpaceId) =>
+                  setCreateSpaceDrawer({ unitId, parentSpaceId: parentSpaceId ?? null })
+                }
                 onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
                 onRename={setRenaming}
                 onRenameComplete={() => setRenaming(null)}
@@ -759,6 +842,15 @@ export function FacilityBuilderClient({
                     icon={<Plus className="h-4 w-4" />}
                   >
                     {copy.tree.emptyAction}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    data-testid="add-building-empty"
+                    onClick={openAddBuilding}
+                    icon={<Building2 className="h-4 w-4" />}
+                  >
+                    {copy.tree.emptyActionBuilding}
                   </Button>
                   <Button
                     type="button"
@@ -807,10 +899,12 @@ export function FacilityBuilderClient({
                           e.stopPropagation();
                           setContextMenu({ x: e.clientX, y: e.clientY, target });
                         }}
-                        onCreateUnit={(parentId, depth) =>
-                          setCreateUnitDrawer({ parentId, depth, intent: "neighborhood" })
+                        onCreateUnit={(parentId, depth, intent = "neighborhood") =>
+                          setCreateUnitDrawer({ parentId, depth, intent })
                         }
-                        onCreateSpace={(unitId) => setCreateSpaceDrawer({ unitId })}
+                        onCreateSpace={(unitId, parentSpaceId) =>
+                  setCreateSpaceDrawer({ unitId, parentSpaceId: parentSpaceId ?? null })
+                }
                         onBulkCreateSpace={(unitId) => setBulkSpaceDrawer({ unitId })}
                         onRename={setRenaming}
                         onRenameComplete={() => setRenaming(null)}
@@ -861,10 +955,11 @@ export function FacilityBuilderClient({
             }}
             onAddChild={(target) => {
               if (target.type === "unit") {
+                const kind = resolveBuilderNodeDisplayKind(target.unit);
                 setCreateUnitDrawer({
                   parentId: target.unit.id,
                   depth: target.depth + 1,
-                  intent: "neighborhood",
+                  intent: kind === "building" ? "floor" : "neighborhood",
                 });
               }
               setContextMenu(null);
@@ -872,6 +967,11 @@ export function FacilityBuilderClient({
             onAddRoom={(target) => {
               if (target.type === "unit") {
                 setCreateSpaceDrawer({ unitId: target.unit.id });
+              } else if (!target.space.parentSpaceId) {
+                setCreateSpaceDrawer({
+                  unitId: target.unitId,
+                  parentSpaceId: target.space.id,
+                });
               }
               setContextMenu(null);
             }}
@@ -884,7 +984,14 @@ export function FacilityBuilderClient({
             onMove={(target) => {
               if (target.type === "unit") {
                 const kind = resolveBuilderNodeDisplayKind(target.unit);
-                if (kind === "legacy_location" || kind === "neighborhood" || kind === "staged") {
+                if (kind === "floor") {
+                  setMoveDrawer({
+                    type: "floor-to-building",
+                    unitId: target.unit.id,
+                    unitName: target.unit.name,
+                    currentParentId: target.unit.parentUnitId,
+                  });
+                } else if (kind === "legacy_location" || kind === "neighborhood" || kind === "staged") {
                   setMoveDrawer({
                     type: "unit-to-floor",
                     unitId: target.unit.id,
@@ -959,15 +1066,20 @@ export function FacilityBuilderClient({
             open
             onClose={() => setCreateUnitDrawer(null)}
             title={
-              createUnitDrawer.intent === "floor"
+              createUnitDrawer.intent === "building"
+                ? copy.drawers.addLevel0
+                : createUnitDrawer.intent === "floor"
                 ? copy.drawers.addLevel1
                 : createNeighborhoodParentName
                   ? `Add ${copy.labels.level2} to ${createNeighborhoodParentName}`
                   : copy.drawers.addLevel2
             }
           >
-            {createUnitDrawer.intent === "floor" ? (
+            {createUnitDrawer.intent === "building" ? (
+              <CreateBuildingForm onDone={() => setCreateUnitDrawer(null)} />
+            ) : createUnitDrawer.intent === "floor" ? (
               <CreateFloorForm
+                parentId={createUnitDrawer.parentId}
                 onDone={() => setCreateUnitDrawer(null)}
               />
             ) : (
@@ -992,6 +1104,7 @@ export function FacilityBuilderClient({
           >
             <CreateSpaceForm
               unitId={createSpaceDrawer.unitId ?? null}
+              parentSpaceId={createSpaceDrawer.parentSpaceId ?? null}
               onDone={() => setCreateSpaceDrawer(null)}
             />
           </Drawer>
@@ -1017,12 +1130,26 @@ export function FacilityBuilderClient({
             open
             onClose={() => setMoveDrawer(null)}
             title={
-              moveDrawer.type === "unit-to-floor"
+              moveDrawer.type === "floor-to-building"
+                ? copy.drawers.moveToLevel0
+                : moveDrawer.type === "unit-to-floor"
                 ? copy.drawers.moveToLevel1
                 : copy.drawers.moveToLevel2
             }
           >
-            {moveDrawer.type === "unit-to-floor" ? (
+            {moveDrawer.type === "floor-to-building" ? (
+              <MoveFloorToBuildingForm
+                unitId={moveDrawer.unitId}
+                unitName={moveDrawer.unitName}
+                currentParentId={moveDrawer.currentParentId}
+                buildings={listBuildingMoveDestinations(hierarchy.units, {
+                  excludeUnitId: moveDrawer.unitId,
+                  excludeParentId: moveDrawer.currentParentId,
+                })}
+                allowRoot={moveDrawer.currentParentId != null}
+                onDone={() => setMoveDrawer(null)}
+              />
+            ) : moveDrawer.type === "unit-to-floor" ? (
               <MoveUnitToFloorForm
                 unitId={moveDrawer.unitId}
                 unitName={moveDrawer.unitName}
@@ -1104,8 +1231,8 @@ function UndesignatedSection({
   onToggle: (id: string) => void;
   onSelect: (s: Selection) => void;
   onContextMenu: (e: React.MouseEvent, target: ContextTarget) => void;
-  onCreateUnit: (parentId: string, depth: number) => void;
-  onCreateSpace: (unitId: string) => void;
+  onCreateUnit: (parentId: string, depth: number, intent?: "floor" | "neighborhood") => void;
+  onCreateSpace: CreateSpaceHandler;
   onBulkCreateSpace: (unitId: string) => void;
   onRename: (r: { type: "unit" | "space"; id: string }) => void;
   onRenameComplete: () => void;
@@ -1179,16 +1306,17 @@ function UndesignatedSection({
         </SortableContext>
       )}
 
-      {undesignatedSpaces.length > 0 && (
+      {siblingSpacesOf(undesignatedSpaces, null).length > 0 && (
         <SortableContext
-          items={undesignatedSpaces.map((s) => s.id)}
+          items={siblingSpacesOf(undesignatedSpaces, null).map((s) => s.id)}
           strategy={verticalListSortingStrategy}
         >
           <ul className="space-y-0.5">
-            {undesignatedSpaces.map((space) => (
+            {siblingSpacesOf(undesignatedSpaces, null).map((space) => (
               <TreeSpaceNode
                 key={space.id}
                 space={space}
+                allSpaces={undesignatedSpaces}
                 unitId={null}
                 depth={0}
                 selection={selection}
@@ -1314,6 +1442,18 @@ function ContextMenuOverlay({
             </>
           )}
 
+          {displayKind === "floor" && (
+            <>
+              <div className="my-1 border-t border-zinc-100" />
+              <ContextMenuItem
+                icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
+                onClick={() => onMove(target)}
+              >
+                {copy.contextMenu.moveToLevel0}
+              </ContextMenuItem>
+            </>
+          )}
+
           {displayKind === "neighborhood" && (
             <>
               <div className="my-1 border-t border-zinc-100" />
@@ -1338,9 +1478,15 @@ function ContextMenuOverlay({
             </>
           )}
 
-          {(canAddNeighborhood(displayKind!) || canAddRoom(displayKind!)) && (
+          {(canAddFloor(displayKind!) || canAddNeighborhood(displayKind!) || canAddRoom(displayKind!)) && (
             <>
               <div className="my-1 border-t border-zinc-100" />
+
+              {canAddFloor(displayKind!) && (
+                <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddChild(target)}>
+                  {copy.contextMenu.addLevel1}
+                </ContextMenuItem>
+              )}
 
               {canAddNeighborhood(displayKind!) && (
                 <ContextMenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onAddChild(target)}>
@@ -1374,6 +1520,17 @@ function ContextMenuOverlay({
 
       {!isUnit && (
         <>
+          {!target.space.parentSpaceId && (
+            <>
+              <div className="my-1 border-t border-zinc-100" />
+              <ContextMenuItem
+                icon={<Plus className="h-3.5 w-3.5" />}
+                onClick={() => onAddRoom(target)}
+              >
+                Add room inside
+              </ContextMenuItem>
+            </>
+          )}
           <div className="my-1 border-t border-zinc-100" />
           <ContextMenuItem
             icon={<ArrowRightLeft className="h-3.5 w-3.5" />}
@@ -1425,7 +1582,7 @@ function ContextMenuItem({
 }
 
 // ---------------------------------------------------------------------------
-// Tree node — Unit (Floor / Neighborhood)
+// Tree node — Unit (Building / Floor / Neighborhood)
 // ---------------------------------------------------------------------------
 
 function TreeUnitNode({
@@ -1455,8 +1612,8 @@ function TreeUnitNode({
   onToggle: (id: string) => void;
   onSelect: (s: Selection) => void;
   onContextMenu: (e: React.MouseEvent, target: ContextTarget) => void;
-  onCreateUnit: (parentId: string, depth: number) => void;
-  onCreateSpace: (unitId: string) => void;
+  onCreateUnit: (parentId: string, depth: number, intent?: "floor" | "neighborhood") => void;
+  onCreateSpace: CreateSpaceHandler;
   onBulkCreateSpace: (unitId: string) => void;
   onRename: (r: { type: "unit" | "space"; id: string }) => void;
   onRenameComplete: () => void;
@@ -1465,7 +1622,11 @@ function TreeUnitNode({
   const isExpanded = expanded.has(unit.id);
   const displayKind = resolveBuilderNodeDisplayKind(unit);
   const hasChildren = unit.childUnits.length > 0 || unit.childSpaces.length > 0;
-  const canExpand = hasChildren || canAddNeighborhood(displayKind) || canAddRoom(displayKind);
+  const canExpand =
+    hasChildren ||
+    canAddFloor(displayKind) ||
+    canAddNeighborhood(displayKind) ||
+    canAddRoom(displayKind);
   const isSelected = selection?.type === "unit" && selection.unitId === unit.id;
   const isRenaming = renaming?.type === "unit" && renaming.id === unit.id;
   const [isPending, startTransition] = useTransition();
@@ -1486,17 +1647,12 @@ function TreeUnitNode({
   };
 
   const totalRooms = countSpaces(unit);
+  const topLevelSpaces = siblingSpacesOf(unit.childSpaces, null);
+  const showAddFloor = canAddFloor(displayKind);
   const showAddNeighborhood = canAddNeighborhood(displayKind);
   const showAddRoom = canAddRoom(displayKind);
 
-  const KindIcon =
-    displayKind === "floor"
-      ? Building2
-      : displayKind === "neighborhood"
-        ? LayoutGrid
-        : displayKind === "staged"
-          ? MapPin
-          : MapPin;
+  const KindIcon = builderKindIcon(displayKind);
 
   void isPending;
 
@@ -1506,10 +1662,10 @@ function TreeUnitNode({
         className={`group flex items-center rounded-md cursor-pointer transition-colors ${
           isSelected
             ? "border-l-2 border-l-amber-700 bg-amber-50 text-amber-950"
-            : displayKind === "floor"
+            : displayKind === "building" || displayKind === "floor"
               ? "border-l-2 border-l-transparent text-zinc-900 hover:bg-zinc-50 font-medium"
               : "border-l-2 border-l-transparent text-zinc-800 hover:bg-zinc-50"
-        } ${displayKind === "floor" && !isSelected ? "mt-1" : ""}`}
+        } ${(displayKind === "building" || displayKind === "floor") && !isSelected ? "mt-1" : ""}`}
         style={{ paddingLeft: `${locationTreePaddingLeft(depth)}px` }}
         aria-selected={isSelected}
       >
@@ -1557,7 +1713,7 @@ function TreeUnitNode({
               onCancel={onRenameComplete}
             />
           ) : (
-            <span className={`text-sm ${displayKind === "floor" ? "font-semibold" : displayKind === "neighborhood" ? "font-medium" : "font-medium"} ${!unit.isActive ? "opacity-40 line-through" : ""}`}>
+            <span className={`text-sm ${displayKind === "building" || displayKind === "floor" ? "font-semibold" : "font-medium"} ${!unit.isActive ? "opacity-40 line-through" : ""}`}>
               <HighlightedText text={unit.name} query={searchQuery} selected={isSelected} />
             </span>
           )}
@@ -1585,17 +1741,21 @@ function TreeUnitNode({
           </span>
         )}
 
-        {!isRenaming && displayKind === "floor" && unit.childUnits.length > 0 && (
+        {!isRenaming && (displayKind === "building" || displayKind === "floor") && unit.childUnits.length > 0 && (
           <span
             className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
               isSelected ? "bg-amber-100 text-amber-900" : "bg-zinc-100 text-zinc-500"
             }`}
-            title={`${unit.childUnits.length} ${copy.labels.level2Plural.toLowerCase()}`}
+            title={`${unit.childUnits.length} ${
+              displayKind === "building"
+                ? copy.labels.level1Plural.toLowerCase()
+                : copy.labels.level2Plural.toLowerCase()
+            }`}
           >
             {unit.childUnits.length}
           </span>
         )}
-        {!isRenaming && displayKind !== "floor" && totalRooms > 0 && (
+        {!isRenaming && displayKind !== "floor" && displayKind !== "building" && totalRooms > 0 && (
           <span
             className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
               isSelected ? "bg-amber-100 text-amber-900" : "bg-zinc-100 text-zinc-500"
@@ -1654,15 +1814,16 @@ function TreeUnitNode({
               ))}
             </SortableContext>
           )}
-          {unit.childSpaces.length > 0 && (
+          {topLevelSpaces.length > 0 && (
             <SortableContext
-              items={unit.childSpaces.map((s) => s.id)}
+              items={topLevelSpaces.map((s) => s.id)}
               strategy={verticalListSortingStrategy}
             >
-              {unit.childSpaces.map((space) => (
+              {topLevelSpaces.map((space) => (
                 <TreeSpaceNode
                   key={space.id}
                   space={space}
+                  allSpaces={unit.childSpaces}
                   unitId={unit.id}
                   depth={depth + 1}
                   selection={selection}
@@ -1677,7 +1838,7 @@ function TreeUnitNode({
             </SortableContext>
           )}
 
-          {(showAddNeighborhood || showAddRoom) && (
+          {(showAddFloor || showAddNeighborhood || showAddRoom) && (
             <li>
               <div
                 className={`builder-essential-touch-visible flex flex-wrap items-center gap-1 py-0.5 transition-opacity ${
@@ -1685,6 +1846,17 @@ function TreeUnitNode({
                 }`}
                 style={{ paddingLeft: `${(depth + 1) * 16 + 28}px` }}
               >
+                {showAddFloor && (
+                  <button
+                    type="button"
+                    data-testid={`add-floor-${unit.id}`}
+                    onClick={() => onCreateUnit(unit.id, depth + 1, "floor")}
+                    className="flex min-h-10 items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {copy.labels.level1}
+                  </button>
+                )}
                 {showAddNeighborhood && (
                   <button
                     type="button"
@@ -1733,6 +1905,7 @@ function TreeUnitNode({
 
 function TreeSpaceNode({
   space,
+  allSpaces,
   unitId,
   depth,
   selection,
@@ -1744,6 +1917,7 @@ function TreeSpaceNode({
   onRenameComplete,
 }: {
   space: SpaceView;
+  allSpaces: SpaceView[];
   unitId: string | null;
   depth: number;
   selection: Selection;
@@ -1756,6 +1930,7 @@ function TreeSpaceNode({
 }) {
   const isSelected = selection?.type === "space" && selection.spaceId === space.id;
   const isRenaming = renaming?.type === "space" && renaming.id === space.id;
+  const nested = nestedSpacesOf(allSpaces, space.id);
   const [, startTransition] = useTransition();
 
   const {
@@ -1826,6 +2001,16 @@ function TreeSpaceNode({
           )}
         </button>
 
+        {!isRenaming && nested.length > 0 && (
+          <span
+            className={`shrink-0 mr-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
+              isSelected ? "bg-amber-100 text-amber-900" : "bg-zinc-100 text-zinc-500"
+            }`}
+          >
+            {nested.length}
+          </span>
+        )}
+
         {!isRenaming && (
           <button
             type="button"
@@ -1844,6 +2029,31 @@ function TreeSpaceNode({
           </button>
         )}
       </div>
+      {nested.length > 0 && (
+        <ul className="space-y-0.5">
+          <SortableContext
+            items={nested.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {nested.map((child) => (
+              <TreeSpaceNode
+                key={child.id}
+                space={child}
+                allSpaces={allSpaces}
+                unitId={unitId}
+                depth={depth + 1}
+                selection={selection}
+                renaming={renaming}
+                searchQuery={searchQuery}
+                dndEnabled={dndEnabled}
+                onSelect={onSelect}
+                onContextMenu={onContextMenu}
+                onRenameComplete={onRenameComplete}
+              />
+            ))}
+          </SortableContext>
+        </ul>
+      )}
     </li>
   );
 }
@@ -1906,6 +2116,7 @@ function UnitEditor({
   onCreateSpace,
   onBulkCreateSpace,
   onCreateNeighborhood,
+  onCreateFloor,
   onSelectSpace,
   onSelectUnit,
 }: {
@@ -1915,9 +2126,10 @@ function UnitEditor({
   parentFloorName: string | null;
   departments: { id: string; key: string; name: string }[];
   canonicalLogsEnabled?: boolean;
-  onCreateSpace: (unitId: string) => void;
+  onCreateSpace: CreateSpaceHandler;
   onBulkCreateSpace: (unitId: string) => void;
   onCreateNeighborhood: (unitId: string) => void;
+  onCreateFloor: (unitId: string) => void;
   onSelectSpace: (spaceId: string, unitId: string) => void;
   onSelectUnit: (unitId: string) => void;
 }) {
@@ -1926,17 +2138,13 @@ function UnitEditor({
   const label = displayKindLabel(displayKind, copy);
   const totalRooms = countSpaces(unit);
   void allUnits;
-  const KindIcon =
-    displayKind === "floor"
-      ? Building2
-      : displayKind === "neighborhood"
-        ? LayoutGrid
-        : displayKind === "staged"
-          ? MapPin
-          : MapPin;
+  const KindIcon = builderKindIcon(displayKind);
 
   const summaryParts: string[] = [];
-  if (displayKind === "floor") {
+  if (displayKind === "building") {
+    if (unit.childUnits.length > 0) summaryParts.push(copy.editor.level1Count(unit.childUnits.length));
+  } else if (displayKind === "floor") {
+    if (parentFloorName) summaryParts.push(parentFloorName);
     if (unit.childUnits.length > 0) summaryParts.push(copy.editor.level2Count(unit.childUnits.length));
     if (totalRooms > 0) summaryParts.push(copy.editor.level3Count(totalRooms));
   } else if (displayKind === "neighborhood") {
@@ -1978,6 +2186,17 @@ function UnitEditor({
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
+            {canAddFloor(displayKind) && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="compact"
+                onClick={() => onCreateFloor(unit.id)}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                {`Add ${copy.labels.level1.toLowerCase()} to ${unit.name}`}
+              </Button>
+            )}
             {canAddNeighborhood(displayKind) && (
               <Button
                 type="button"
@@ -2016,7 +2235,7 @@ function UnitEditor({
         </div>
       </header>
 
-      {canonicalLogsEnabled && displayKind !== "floor" ? (
+      {canonicalLogsEnabled && !isStructuralBuilderKind(displayKind) ? (
         <section className="max-w-xl space-y-1" data-testid="facility-unit-logs-link">
           <h3 className="text-sm font-semibold text-zinc-900">Logs</h3>
           <p className="text-xs text-zinc-500">Attach Catalog Logs to this unit.</p>
@@ -2035,8 +2254,8 @@ function UnitEditor({
         </h3>
         <form action={updateBuilderUnitAction} className="grid gap-3">
           <input type="hidden" name="unitId" value={unit.id} />
-          {displayKind === "floor" && <input type="hidden" name="parentUnitId" value="" />}
-          {displayKind !== "floor" && unit.parentUnitId && (
+          {isStructuralBuilderKind(displayKind) && <input type="hidden" name="parentUnitId" value="" />}
+          {!isStructuralBuilderKind(displayKind) && unit.parentUnitId && (
             <input type="hidden" name="parentUnitId" value={unit.parentUnitId} />
           )}
           <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
@@ -2062,7 +2281,7 @@ function UnitEditor({
             Active
           </label>
 
-          {displayKind !== "floor" && (
+          {!isStructuralBuilderKind(displayKind) && (
             <details className="rounded-md border border-zinc-100 bg-zinc-50/60 px-3 py-2">
               <summary className="cursor-pointer text-xs font-medium text-zinc-600">
                 Advanced operational settings
@@ -2093,7 +2312,7 @@ function UnitEditor({
         </form>
       </section>
 
-      {displayKind !== "floor" && (
+      {!isStructuralBuilderKind(displayKind) && (
         <section className="border-t border-zinc-100 pt-5">
           <DepartmentResponsibilityCheckboxes
             mode="unit"
@@ -2107,6 +2326,52 @@ function UnitEditor({
             level3Singular={copy.labels.level3}
             level3Plural={copy.labels.level3Plural}
           />
+        </section>
+      )}
+
+      {displayKind === "building" && (
+        <section className="space-y-4 border-t border-zinc-100 pt-5">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {copy.labels.level1Plural}
+              </h3>
+              {canAddFloor(displayKind) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="compact"
+                  onClick={() => onCreateFloor(unit.id)}
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                >
+                  Add {copy.labels.level1.toLowerCase()}
+                </Button>
+              ) : null}
+            </div>
+            {unit.childUnits.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500">
+                No {copy.labels.level1Plural.toLowerCase()} in this {copy.labels.level0.toLowerCase()} yet.
+              </p>
+            ) : (
+              <ul className="mt-2 divide-y divide-zinc-100">
+                {unit.childUnits.map((child) => (
+                  <li key={child.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectUnit(child.id)}
+                      className="flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+                      <span className={!child.isActive ? "opacity-50" : undefined}>{child.name}</span>
+                      <span className="ml-auto text-xs text-zinc-400 tabular-nums">
+                        {child.childUnits.length} {copy.labels.level2Plural.toLowerCase()}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       )}
 
@@ -2188,22 +2453,15 @@ function UnitEditor({
               </p>
             ) : (
               <ul className="mt-2 divide-y divide-zinc-100">
-                {unit.childSpaces.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectSpace(s.id, unit.id)}
-                      className="flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950"
-                    >
-                      <DoorOpen className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-                      <span className={!s.isActive ? "opacity-50" : undefined}>
-                        {formatRoomDisplayName(s)}
-                      </span>
-                      <span className="text-xs text-zinc-400">
-                        {roomTypeDisplayLabel(s, roomTypes)}
-                      </span>
-                    </button>
-                  </li>
+                {siblingSpacesOf(unit.childSpaces, null).map((s) => (
+                  <EditorRoomRows
+                    key={s.id}
+                    space={s}
+                    allSpaces={unit.childSpaces}
+                    unitId={unit.id}
+                    roomTypes={roomTypes}
+                    onSelectSpace={onSelectSpace}
+                  />
                 ))}
               </ul>
             )}
@@ -2243,29 +2501,22 @@ function UnitEditor({
             </p>
           ) : (
             <ul className="mt-2 divide-y divide-zinc-100">
-              {unit.childSpaces.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelectSpace(s.id, unit.id)}
-                    className="flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950"
-                  >
-                    <DoorOpen className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-                    <span className={!s.isActive ? "opacity-50" : undefined}>
-                      {formatRoomDisplayName(s)}
-                    </span>
-                    <span className="text-xs text-zinc-400">
-                      {roomTypeDisplayLabel(s, roomTypes)}
-                    </span>
-                  </button>
-                </li>
+              {siblingSpacesOf(unit.childSpaces, null).map((s) => (
+                <EditorRoomRows
+                  key={s.id}
+                  space={s}
+                  allSpaces={unit.childSpaces}
+                  unitId={unit.id}
+                  roomTypes={roomTypes}
+                  onSelectSpace={onSelectSpace}
+                />
               ))}
             </ul>
           )}
         </section>
       )}
 
-      {displayKind === "floor" && (
+      {isStructuralBuilderKind(displayKind) && (
         <section className="border-t border-zinc-100 pt-5">
           <FloorBulkDepartmentApply
             floor={unit}
@@ -2309,6 +2560,56 @@ function UnitEditor({
   );
 }
 
+function EditorRoomRows({
+  space,
+  allSpaces,
+  unitId,
+  roomTypes,
+  onSelectSpace,
+  nested = false,
+}: {
+  space: SpaceView;
+  allSpaces: SpaceView[];
+  unitId: string;
+  roomTypes: FacilityRoomTypeView[];
+  onSelectSpace: (spaceId: string, unitId: string) => void;
+  nested?: boolean;
+}) {
+  const children = nestedSpacesOf(allSpaces, space.id);
+  return (
+    <>
+      <li>
+        <button
+          type="button"
+          onClick={() => onSelectSpace(space.id, unitId)}
+          className={`flex w-full items-center gap-2 py-2.5 text-left text-sm text-zinc-800 hover:text-zinc-950 ${
+            nested ? "pl-6" : ""
+          }`}
+        >
+          <DoorOpen className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+          <span className={!space.isActive ? "opacity-50" : undefined}>
+            {formatRoomDisplayName(space)}
+          </span>
+          <span className="text-xs text-zinc-400">
+            {roomTypeDisplayLabel(space, roomTypes)}
+          </span>
+        </button>
+      </li>
+      {children.map((child) => (
+        <EditorRoomRows
+          key={child.id}
+          space={child}
+          allSpaces={allSpaces}
+          unitId={unitId}
+          roomTypes={roomTypes}
+          onSelectSpace={onSelectSpace}
+          nested
+        />
+      ))}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Space editor (right panel — Room)
 // ---------------------------------------------------------------------------
@@ -2316,17 +2617,21 @@ function UnitEditor({
 function SpaceEditor({
   space,
   parentUnit,
+  siblingSpaces,
   parentFloorName,
   departments,
   isUndesignated = false,
   canonicalLogsEnabled = false,
+  onCreateNestedSpace,
 }: {
   space: SpaceView;
   parentUnit: UnitHierarchyNode | null;
+  siblingSpaces: SpaceView[];
   parentFloorName: string | null;
   departments: { id: string; key: string; name: string }[];
   isUndesignated?: boolean;
   canonicalLogsEnabled?: boolean;
+  onCreateNestedSpace?: () => void;
 }) {
   const copy = useBuilderCopy();
   const roomTypes = useFacilityRoomTypes();
@@ -2335,11 +2640,20 @@ function SpaceEditor({
     : null;
   const roomTypeLabel = matchedType?.displayName ?? "Not assigned";
   const baseTypeLabel = matchedType?.baseTypeLabel ?? null;
-  const parentPath = parentUnit
+  const locationPath = parentUnit
     ? parentFloorName && resolveBuilderNodeDisplayKind(parentUnit) !== "floor"
       ? `${parentUnit.name} · ${parentFloorName}`
       : parentUnit.name
     : copy.labels.undesignated;
+  const containingRoom = space.parentSpaceId
+    ? siblingSpaces.find((row) => row.id === space.parentSpaceId)
+    : null;
+  const parentPath = containingRoom
+    ? `Inside ${formatRoomDisplayName(containingRoom)} · ${locationPath}`
+    : locationPath;
+  const nestCandidates = nestParentCandidates(space, siblingSpaces);
+  const nestedRooms = nestedSpacesOf(siblingSpaces, space.id);
+  const canNestInside = nestCandidates.length > 0 || Boolean(space.parentSpaceId);
 
   return (
     <div className="space-y-6" data-testid="facility-space-editor">
@@ -2393,6 +2707,34 @@ function SpaceEditor({
               className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
             />
           </label>
+          {canNestInside ? (
+            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+              Located inside
+              <select
+                name="parentSpaceId"
+                defaultValue={space.parentSpaceId ?? "__none__"}
+                data-testid="room-located-inside"
+                className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+              >
+                <option value="__none__">
+                  Directly in {parentUnit?.name ?? copy.labels.undesignated}
+                </option>
+                {nestCandidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {formatRoomDisplayName(candidate)}
+                  </option>
+                ))}
+              </select>
+              <span className="font-normal text-zinc-400">
+                Use this when a bathroom or closet is physically inside another room.
+              </span>
+            </label>
+          ) : nestedRooms.length > 0 ? (
+            <p className="text-xs text-zinc-500">
+              This room contains other rooms, so it stays directly in{" "}
+              {parentUnit?.name ?? copy.labels.undesignated}.
+            </p>
+          ) : null}
           <FacilityRoomTypeSelect
             defaultRoomTypeId={space.facilityRoomTypeId ?? defaultFacilityRoomTypeId(roomTypes)}
           />
@@ -2442,6 +2784,39 @@ function SpaceEditor({
         </form>
       </section>
 
+      {!space.parentSpaceId ? (
+        <section className="max-w-xl space-y-3 border-t border-zinc-100 pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-zinc-900">Rooms inside</h3>
+            {onCreateNestedSpace ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                data-testid="add-nested-room"
+                onClick={onCreateNestedSpace}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Add room
+              </Button>
+            ) : null}
+          </div>
+          {nestedRooms.length === 0 ? (
+            <p className="text-sm text-zinc-500">
+              Nest a bathroom or closet here when it is physically inside this room.
+            </p>
+          ) : (
+            <ul className="divide-y divide-zinc-100">
+              {nestedRooms.map((nested) => (
+                <li key={nested.id} className="py-2 text-sm text-zinc-800">
+                  {formatRoomDisplayName(nested)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
       <section className="border-t border-zinc-100 pt-5">
         <DepartmentResponsibilityCheckboxes
           mode="space"
@@ -2487,30 +2862,67 @@ function SpaceEditor({
 // Facility Room Type picker
 // ---------------------------------------------------------------------------
 
+const CREATE_ROOM_TYPE_VALUE = "__create_room_type__";
+
 function FacilityRoomTypeSelect({
   defaultRoomTypeId,
 }: {
   defaultRoomTypeId?: string;
 }) {
-  const roomTypes = useFacilityRoomTypes();
+  const router = useRouter();
+  const catalog = useFacilityRoomTypes();
+  const [createdTypes, setCreatedTypes] = useState<FacilityRoomTypeView[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const roomTypes = useMemo(() => {
+    const seen = new Set(catalog.map((row) => row.id));
+    return [...catalog, ...createdTypes.filter((row) => !seen.has(row.id))];
+  }, [catalog, createdTypes]);
   const active = activeRoomTypes(roomTypes);
   const fallbackId = defaultFacilityRoomTypeId(roomTypes);
-  const selectedId = defaultRoomTypeId && active.some((row) => row.id === defaultRoomTypeId)
-    ? defaultRoomTypeId
-    : fallbackId;
+  const initialId =
+    defaultRoomTypeId && active.some((row) => row.id === defaultRoomTypeId)
+      ? defaultRoomTypeId
+      : fallbackId;
+  const [selectedId, setSelectedId] = useState(initialId);
+
+  function openCreate() {
+    setCreateOpen(true);
+  }
+
+  function handleSelectChange(value: string) {
+    if (value === CREATE_ROOM_TYPE_VALUE) {
+      openCreate();
+      return;
+    }
+    setSelectedId(value);
+  }
+
+  function handleCreated(row: FacilityRoomTypeView) {
+    setCreatedTypes((prev) => [row, ...prev.filter((item) => item.id !== row.id)]);
+    setSelectedId(row.id);
+    setCreateOpen(false);
+    router.refresh();
+  }
 
   if (active.length === 0) {
     return (
-      <p className="text-sm text-amber-800">
-        No Room Types are available.{" "}
-        <a
-          href="/admin/facility/builder?tab=room-types"
-          className="font-medium underline underline-offset-2"
+      <div className="space-y-2">
+        <p className="text-sm text-amber-800">No Room Types yet. Add one to assign this room.</p>
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          onClick={openCreate}
+          data-testid="facility-room-type-add"
         >
-          Add Room Types
-        </a>{" "}
-        before assigning rooms.
-      </p>
+          Add Room Type
+        </Button>
+        <QuickCreateRoomTypeModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={handleCreated}
+        />
+      </div>
     );
   }
 
@@ -2520,8 +2932,9 @@ function FacilityRoomTypeSelect({
         Room Type
         <select
           name="facilityRoomTypeId"
-          defaultValue={selectedId}
+          value={selectedId}
           required
+          onChange={(event) => handleSelectChange(event.target.value)}
           data-testid="facility-room-type-select"
           className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
         >
@@ -2530,11 +2943,21 @@ function FacilityRoomTypeSelect({
               {row.displayName}
             </option>
           ))}
+          <option value={CREATE_ROOM_TYPE_VALUE}>+ Add Room Type…</option>
         </select>
       </label>
       <p className="text-xs text-zinc-500">
         Changes this room&apos;s facility classification. Does not change Departments, Teams, or
         Operational Cycles.{" "}
+        <button
+          type="button"
+          onClick={openCreate}
+          className="font-medium text-zinc-700 underline underline-offset-2"
+          data-testid="facility-room-type-add"
+        >
+          Add Room Type
+        </button>
+        {" · "}
         <a
           href="/admin/facility/builder?tab=room-types"
           className="font-medium text-zinc-700 underline underline-offset-2"
@@ -2542,13 +2965,176 @@ function FacilityRoomTypeSelect({
           Manage Room Types
         </a>
       </p>
+      <QuickCreateRoomTypeModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+      />
     </div>
   );
 }
 
-function CreateFloorForm({
+function QuickCreateRoomTypeModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (row: FacilityRoomTypeView) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [name, setName] = useState("");
+  const [baseTypeKey, setBaseTypeKey] = useState("guest_room");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    setPending(false);
+    setName("");
+    setBaseTypeKey("guest_room");
+    setDescription("");
+  }, [open]);
+
+  const dirty =
+    name.trim().length > 0 || description.trim().length > 0 || baseTypeKey !== "guest_room";
+
+  return (
+    <GuardedModal
+      open={open}
+      title="Add Room Type"
+      dirty={dirty}
+      onClose={onClose}
+      data-testid="quick-create-room-type-modal"
+    >
+      <form
+        className="space-y-3"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setError(null);
+          setPending(true);
+          try {
+            const created = await createFacilityRoomTypeAction(new FormData(event.currentTarget));
+            onCreated(created);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not add Room Type.");
+          } finally {
+            setPending(false);
+          }
+        }}
+      >
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+          Name
+          <input
+            name="displayName"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            maxLength={80}
+            placeholder="e.g. Servery, Kitchen, Office"
+            data-testid="quick-create-room-type-name"
+            data-modal-initial-focus
+            className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+          Base type
+          <select
+            name="baseTypeKey"
+            value={baseTypeKey}
+            onChange={(event) => setBaseTypeKey(event.target.value)}
+            required
+            data-testid="quick-create-room-type-base"
+            className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          >
+            {FACILITY_BASE_TYPES.map((base) => (
+              <option key={base.key} value={base.key}>
+                {base.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+          Description
+          <input
+            name="description"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            maxLength={500}
+            placeholder="Optional"
+            className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          />
+        </label>
+        {error ? (
+          <p className="text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <Button type="submit" disabled={pending} data-testid="quick-create-room-type-submit">
+          {pending ? "Adding…" : "Add Room Type"}
+        </Button>
+      </form>
+    </GuardedModal>
+  );
+}
+
+function CreateBuildingForm({
   onDone,
 }: {
+  onDone: () => void;
+}) {
+  const copy = useBuilderCopy();
+  return (
+    <form
+      action={async (formData) => {
+        await createBuilderBuildingAction(formData);
+        onDone();
+      }}
+      className="grid gap-3"
+      data-testid="create-building-form"
+    >
+      <input type="hidden" name="hierarchyIntent" value="building" />
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        {copy.forms.level0NameLabel}
+        <input
+          name="name"
+          required
+          placeholder={copy.forms.level0NamePlaceholder}
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Description
+        <input
+          name="description"
+          placeholder="Optional"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-zinc-700">
+        <input type="checkbox" name="isActive" defaultChecked className="rounded" />
+        Active
+      </label>
+      <div>
+        <button
+          type="submit"
+          data-testid="create-building-submit"
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+        >
+          {copy.forms.createLevel0}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function CreateFloorForm({
+  parentId,
+  onDone,
+}: {
+  parentId?: string | null;
   onDone: () => void;
 }) {
   const copy = useBuilderCopy();
@@ -2562,6 +3148,7 @@ function CreateFloorForm({
       data-testid="create-floor-form"
     >
       <input type="hidden" name="hierarchyIntent" value="floor" />
+      {parentId ? <input type="hidden" name="parentUnitId" value={parentId} /> : null}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         {copy.forms.level1NameLabel}
         <input
@@ -2653,9 +3240,11 @@ function CreateNeighborhoodForm({
 
 function CreateSpaceForm({
   unitId,
+  parentSpaceId = null,
   onDone,
 }: {
   unitId: string | null;
+  parentSpaceId?: string | null;
   onDone: () => void;
 }) {
   const copy = useBuilderCopy();
@@ -2670,6 +3259,9 @@ function CreateSpaceForm({
     >
       {unitId && (
         <input type="hidden" name="unitId" value={unitId} />
+      )}
+      {parentSpaceId && (
+        <input type="hidden" name="parentSpaceId" value={parentSpaceId} />
       )}
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
         {copy.forms.level3NameLabel}
@@ -2812,6 +3404,98 @@ function BulkCreateSpacesForm({
         className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
       >
         {copy.forms.bulkSubmit}
+      </button>
+    </form>
+  );
+}
+
+function MoveFloorToBuildingForm({
+  unitId,
+  unitName,
+  currentParentId,
+  buildings,
+  allowRoot = false,
+  onDone,
+}: {
+  unitId: string;
+  unitName: string;
+  currentParentId: string | null;
+  buildings: { id: string; name: string }[];
+  allowRoot?: boolean;
+  onDone: () => void;
+}) {
+  const copy = useBuilderCopy();
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  void currentParentId;
+
+  if (buildings.length === 0 && !allowRoot) {
+    return (
+      <p className="text-sm text-zinc-600">
+        {copy.forms.noOtherLevel0(unitName)}
+      </p>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        const raw = String(fd.get("newParentUnitId") || "");
+        if (!raw) return;
+        const newParentUnitId = raw === UNDESIGNATED_DROP_ID ? null : raw;
+        setError(null);
+        startTransition(async () => {
+          try {
+            await moveBuilderUnitAction({
+              unitId,
+              newParentUnitId,
+              newDisplayOrder: 100,
+            });
+            onDone();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Move failed.");
+          }
+        });
+      }}
+      className="grid gap-3"
+    >
+      <p className="text-sm text-zinc-600">
+        Move <span className="font-medium text-zinc-900">{unitName}</span>{" "}
+        {copy.forms.moveFloorIntro(allowRoot)}
+      </p>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+        Destination
+        <select
+          name="newParentUnitId"
+          required
+          defaultValue=""
+          data-testid="move-to-building-select"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+        >
+          <option value="" disabled>
+            Select a destination…
+          </option>
+          {allowRoot && (
+            <option value={UNDESIGNATED_DROP_ID}>Facility root</option>
+          )}
+          {buildings.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      <button
+        type="submit"
+        data-testid="move-to-building-submit"
+        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      >
+        Move
       </button>
     </form>
   );
@@ -3039,12 +3723,17 @@ function filterUndesignatedSpaces(spaces: SpaceView[], query: string): SpaceView
   const trimmed = query.trim();
   if (!trimmed) return spaces;
   const q = trimmed.toLowerCase();
-  return spaces.filter(
-    (s) =>
+  const matchingIds = new Set<string>();
+  for (const s of spaces) {
+    const matches =
       s.name.toLowerCase().includes(q) ||
       (s.roomNumber?.toLowerCase().includes(q) ?? false) ||
-      (s.code?.toLowerCase().includes(q) ?? false),
-  );
+      (s.code?.toLowerCase().includes(q) ?? false);
+    if (!matches) continue;
+    matchingIds.add(s.id);
+    if (s.parentSpaceId) matchingIds.add(s.parentSpaceId);
+  }
+  return spaces.filter((s) => matchingIds.has(s.id));
 }
 
 function findUnitInHierarchy(

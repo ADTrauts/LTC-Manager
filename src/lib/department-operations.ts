@@ -120,9 +120,12 @@ export async function resolveStaffingOperationalDepartment(input: {
   activeDepartmentId: string | null;
   feature?: StaffingOperationalFeature;
   preferKeys?: readonly StaffingOperationalKey[];
+  /** When true, DIETARY/EVS/PLANT resolve even if that department's feature flag is off. */
+  skipFeatureGate?: boolean;
 }): Promise<{ id: string; name: string; key: StaffingOperationalKey } | null> {
   const feature = input.feature ?? "workPlans";
   const preferKeys = input.preferKeys ?? (["DIETARY", "EVS", "PLANT"] as const);
+  const gated = !input.skipFeatureGate;
 
   if (input.activeDepartmentId) {
     const active = await prisma.department.findFirst({
@@ -136,14 +139,14 @@ export async function resolveStaffingOperationalDepartment(input: {
     if (
       active &&
       isStaffingKey(active.key) &&
-      isFeatureEnabledForKey(feature, active.key)
+      (!gated || isFeatureEnabledForKey(feature, active.key))
     ) {
       return { id: active.id, name: active.name, key: active.key };
     }
   }
 
   for (const key of preferKeys) {
-    if (!isFeatureEnabledForKey(feature, key)) continue;
+    if (gated && !isFeatureEnabledForKey(feature, key)) continue;
     const dept = await prisma.department.findFirst({
       where: { facilityId: input.facilityId, key, isActive: true },
       select: { id: true, name: true, key: true },

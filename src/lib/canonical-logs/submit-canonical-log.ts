@@ -10,7 +10,7 @@ import {
 } from "@/lib/operational-evidence/evidence-authority";
 import { validateEvidenceSubmission } from "@/lib/operational-evidence/validate-evidence-submission";
 import type { EvidenceFieldValueInput, TemplateFieldSnapshot } from "@/lib/operational-evidence/types";
-import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
+import { facilityLocalDateToServiceDate, toServiceDateKey } from "@/lib/operational-time";
 
 import { loadLogAttachmentForFacility } from "./attachment-service";
 import { mapTimingModeToScheduleKind } from "./schedule-kind";
@@ -183,8 +183,10 @@ export async function submitCanonicalLogSubmission(
   if (attachment.departmentId !== input.departmentId) {
     throw new Error("Attachment department does not match submission department.");
   }
-  if (attachment.status !== "ACTIVE") {
-    throw new Error("Log Attachment is not active.");
+  const fromKey = toServiceDateKey(attachment.effectiveFrom);
+  const toKey = attachment.effectiveTo ? toServiceDateKey(attachment.effectiveTo) : null;
+  if (input.operationalDateKey < fromKey || (toKey && input.operationalDateKey > toKey)) {
+    throw new Error("This Log is not required on the selected service date.");
   }
 
   const catalog = attachment.catalogDefinition;

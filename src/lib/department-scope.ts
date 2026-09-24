@@ -7,6 +7,9 @@ import { prisma } from "@/lib/prisma";
  * `null` means no filter — show all departments (typical for GM / unset home department).
  */
 export async function departmentFilterIdsForSession(session: AppJwtPayload): Promise<string[] | null> {
+  if (session.authKind === "harbor_staff") {
+    return null;
+  }
   if (session.authKind === "user") {
     if (!session.primaryDepartmentId) {
       return null;

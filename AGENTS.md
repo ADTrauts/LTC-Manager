@@ -1,7 +1,11 @@
 <!-- BEGIN:nextjs-agent-rules -->
+
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
 <!-- END:nextjs-agent-rules -->
 
 ## Prisma migrations (guardrails)
@@ -16,9 +20,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - After schema changes, run **`prisma generate`** and **restart the Next dev server** so `prisma.menuSettings` / new models are not undefined on the server bundle.
 
-## Assets page (sub-tabs and styling)
+## Maintenance (RUN Assets + Repairs)
 
-- The **Assets** top-level area (`src/app/(protected)/assets/page.tsx`) uses **two sub-tabs**: **Assets** and **Vendors**, driven by the query param **`subtab`**: `assets` (default) or `vendors` (e.g. `/assets?subtab=vendors`).
-- **Assets** sub-tab: add-asset form and asset registry (status updates).
-- **Vendors** sub-tab: add-vendor form and a simple vendor list (registry).
-- **Sub-tab control styling** should follow the same **square / lightly rounded** look as **Menu Building** (e.g. `rounded-md`, bordered inactive state, solid dark active state)—**not** pill / `rounded-full` chips.
+- RUN top nav shows one **Maintenance** item. Assets (`/assets`) and Repairs (`/repairs`) stay separate screens; they are not peer header links.
+- SUPERVISOR+ land on `/assets`. STAFF land on `/repairs` (Assets is supervisor-gated).
+- Maintenance local nav uses **three square / lightly rounded sub-tabs** (not pills): **Assets**, **Repairs**, **Vendors**. Vendors is still `?subtab=vendors` on `/assets`.
+- **Assets** tab: operational registry (condition, open issues/repairs). Asset identity configuration lives on BUILD **Asset Builder** (`/assets/builder`).
+- **Repairs** tab: work-order queue.
+- **Vendors** tab: add-vendor form and vendor list.

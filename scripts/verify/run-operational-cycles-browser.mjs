@@ -118,7 +118,6 @@ async function main() {
     OPERATION_ENGINE_ENABLED: "",
     DIETARY_JOB_FLOW_ENABLED: "",
     DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
-    PROJECTION_UNIT_WORKSPACE_ENABLED: "",
   };
 
   try {
@@ -184,7 +183,7 @@ async function main() {
         "playwright",
         "test",
         "-c",
-        "playwright.operational-cycles.config.ts",
+        "tests/playwright.operational-cycles.config.ts",
         "--grep",
         "@ci-gate",
       ],

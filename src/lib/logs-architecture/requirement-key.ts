@@ -25,18 +25,57 @@ function targetSegments(target: LogAttachmentTarget): {
   spaceId: string | null;
   assetId: string | null;
   departmentId: string | null;
+  operationalTypeKey: string | null;
 } {
   switch (target.kind) {
     case "ASSET":
-      return { unitId: null, spaceId: null, assetId: target.assetId, departmentId: null };
+      return {
+        unitId: null,
+        spaceId: null,
+        assetId: target.assetId,
+        departmentId: null,
+        operationalTypeKey: null,
+      };
     case "SPACE":
-      return { unitId: null, spaceId: target.spaceId, assetId: null, departmentId: null };
+      return {
+        unitId: null,
+        spaceId: target.spaceId,
+        assetId: null,
+        departmentId: null,
+        operationalTypeKey: null,
+      };
     case "UNIT":
-      return { unitId: target.unitId, spaceId: null, assetId: null, departmentId: null };
+      return {
+        unitId: target.unitId,
+        spaceId: null,
+        assetId: null,
+        departmentId: null,
+        operationalTypeKey: null,
+      };
     case "DEPARTMENT":
-      return { unitId: null, spaceId: null, assetId: null, departmentId: target.departmentId };
+      return {
+        unitId: null,
+        spaceId: null,
+        assetId: null,
+        departmentId: target.departmentId,
+        operationalTypeKey: null,
+      };
     case "FACILITY":
-      return { unitId: null, spaceId: null, assetId: null, departmentId: null };
+      return {
+        unitId: null,
+        spaceId: null,
+        assetId: null,
+        departmentId: null,
+        operationalTypeKey: null,
+      };
+    case "OPERATIONAL_TYPE":
+      return {
+        unitId: null,
+        spaceId: target.resolvedSpaceId?.trim() || null,
+        assetId: null,
+        departmentId: null,
+        operationalTypeKey: target.operationalTypeKey,
+      };
   }
 }
 
@@ -59,7 +98,9 @@ export function buildLogRequirementKey(parts: LogRequirementKeyParts): string {
     operationalDateKey: parts.operationalDateKey,
   });
   const dept = target.departmentId?.trim() || "-";
-  return `${parts.attachmentStableKey}|${base}|dept:${dept}|kind:${parts.target.kind}`;
+  const ot = target.operationalTypeKey?.trim() || "";
+  const suffix = ot ? `|ot:${ot}` : "";
+  return `${parts.attachmentStableKey}|${base}|dept:${dept}|kind:${parts.target.kind}${suffix}`;
 }
 
 /**

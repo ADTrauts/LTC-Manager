@@ -36,10 +36,12 @@ test("standard Room Type keys include servery and exclude custom", () => {
 
 test("user-facing scope maps to persistence modes without Unit.unitType", () => {
   assert.equal(userFacingScopeFromMode("ALL_DEPARTMENT_UNITS"), "department");
+  assert.equal(userFacingScopeFromMode("OPERATIONAL_TYPES"), "operational_types");
   assert.equal(userFacingScopeFromMode("ROOM_TYPE"), "room_type");
   assert.equal(userFacingScopeFromMode("EXPLICIT_UNITS"), "specific");
   assert.equal(userFacingScopeFromMode("UNIT_TYPES"), "department");
   assert.equal(locationModeFromUserScope("department"), "ALL_DEPARTMENT_UNITS");
+  assert.equal(locationModeFromUserScope("operational_types"), "OPERATIONAL_TYPES");
   assert.equal(locationModeFromUserScope("room_type"), "ROOM_TYPE");
   assert.equal(locationModeFromUserScope("specific"), "EXPLICIT_UNITS");
 });
@@ -50,6 +52,7 @@ test("configured times normalize and floors cannot own meal times", () => {
   assert.equal(isValidConfiguredTime("25:00"), false);
   assert.equal(unitMayOwnConfiguredMealTime({ hierarchyRole: "NEIGHBORHOOD" }), true);
   assert.equal(unitMayOwnConfiguredMealTime({ hierarchyRole: "FLOOR" }), false);
+  assert.equal(unitMayOwnConfiguredMealTime({ hierarchyRole: "BUILDING" }), false);
 });
 
 test("Room Type Servery resolves unique parent Neighborhoods and skips orphans", () => {

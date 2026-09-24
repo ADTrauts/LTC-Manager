@@ -9,8 +9,8 @@ import {
   updateWorkspaceHiddenSectionsAction,
 } from "@/app/(protected)/workspace/actions";
 import { SectionHeader } from "@/components/design-system";
-import type { WorkspaceSectionId } from "@/lib/business-workspace";
-import { WORKSPACE_SECTION_DEFS } from "@/lib/business-workspace";
+import type { WorkspaceSectionId } from "@/lib/business-workspace/types";
+import { WORKSPACE_SECTION_DEFS } from "@/lib/business-workspace/workspace-layout";
 
 export function WorkspaceCollapsibleSection({
   sectionId,

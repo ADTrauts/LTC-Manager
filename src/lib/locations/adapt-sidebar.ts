@@ -21,6 +21,8 @@ function levelLabelFor(
   vocabulary: FacilityVocabulary,
 ): string | null {
   switch (kind) {
+    case "BUILDING":
+      return vocabulary.level0.singular;
     case "FLOOR":
       return vocabulary.level1.singular;
     case "NEIGHBORHOOD":
@@ -52,7 +54,8 @@ function adaptTreeNode(
   const unitId =
     node.kind === "ROOM"
       ? node.unitId
-      : node.kind === "FLOOR" ||
+      : node.kind === "BUILDING" ||
+          node.kind === "FLOOR" ||
           node.kind === "NEIGHBORHOOD" ||
           node.kind === "LEGACY"
         ? node.physicalId

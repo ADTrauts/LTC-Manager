@@ -197,7 +197,7 @@ async function main() {
 
     const pw = spawnSync(
       "npx",
-      ["playwright", "test", "-c", "playwright.bulk-import.config.ts", "--grep", "@ci-gate"],
+      ["playwright", "test", "-c", "tests/playwright.bulk-import.config.ts", "--grep", "@ci-gate"],
       {
         cwd: ROOT,
         env: {

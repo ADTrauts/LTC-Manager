@@ -24,8 +24,4 @@ export {
   resolveAllowedQuickActionIds,
 } from "./adapt-projection";
 
-export {
-  countWorkspaceInputRows,
-  intersectInputsToProjectedScope,
-  resolveProjectedCompositionConfig,
-} from "./intersect";
+export { resolveProjectedCompositionConfig } from "./intersect";

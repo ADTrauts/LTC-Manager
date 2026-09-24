@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAtLeastRole } from "@/lib/access";
+import { ensureFacilityStripeCustomer } from "@/lib/billing/stripe-customer";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
 import { getStripeServerClient } from "@/lib/stripe";
@@ -24,24 +25,17 @@ export async function POST() {
     return NextResponse.json({ error: "Facility not found." }, { status: 404 });
   }
 
-  const stripe = getStripeServerClient();
-  let customerId = facility.stripeCustomerId;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      name: facility.displayName,
-      email: facility.billingEmail ?? session.email,
-      metadata: { facilityId: facility.id },
-    });
-    customerId = customer.id;
-    await prisma.facility.update({
-      where: { id: facility.id },
-      data: { stripeCustomerId: customer.id },
-    });
-  }
+  const customerId = await ensureFacilityStripeCustomer({
+    facilityId: facility.id,
+    displayName: facility.displayName,
+    billingEmail: facility.billingEmail,
+    stripeCustomerId: facility.stripeCustomerId,
+    fallbackEmail: session.email,
+  });
 
+  const stripe = getStripeServerClient();
   const intent = await stripe.setupIntents.create({
     customer: customerId,
-    payment_method_types: ["card"],
     usage: "off_session",
     metadata: { facilityId: facility.id },
   });

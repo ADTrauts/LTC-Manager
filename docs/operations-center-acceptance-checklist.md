@@ -7,7 +7,7 @@
 
 Answer each question in **under 60 seconds total** without leaving LTC Manager. Mark pass/fail.
 
-Reference: [FIRST_PRODUCT_SLICE.md](../../docs/platform-vision/FIRST_PRODUCT_SLICE.md), [02_OPERATIONS_CENTER_REFERENCE.md](../../docs/product-reference/02_OPERATIONS_CENTER_REFERENCE.md)
+Reference: [FIRST_PRODUCT_SLICE.md](./platform-vision/FIRST_PRODUCT_SLICE.md), [02_OPERATIONS_CENTER_REFERENCE.md](./product-reference/02_OPERATIONS_CENTER_REFERENCE.md)
 
 ---
 

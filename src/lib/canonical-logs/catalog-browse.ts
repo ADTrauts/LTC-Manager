@@ -12,7 +12,7 @@ import type {
 
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 
-import { catalogCadenceLabel } from "./timing-display";
+import { catalogRecommendedScheduleLabel } from "./timing-display";
 import { parseCatalogSuggestions, type CatalogSuggestions } from "./suggestions";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -63,6 +63,7 @@ export type CatalogBrowseCard = {
   purposeLabel: string;
   recommendedCadence: CatalogRecommendedCadence;
   recommendedCadenceLabel: string;
+  fieldSummary: string;
   suggestedForLabels: string[];
   suggestions: CatalogSuggestions;
   maintainedByLtcCorp: true;
@@ -114,6 +115,20 @@ function fieldRangeLabel(field: {
   return `≤ ${field.maxNumber}${unit}`;
 }
 
+function fieldSummaryFromFields(
+  fields: ReadonlyArray<{ label: string; fieldType: string; unitLabel: string | null }>,
+): string {
+  const parts = fields
+    .filter((f) => f.fieldType !== "OPTIONAL_COMMENT")
+    .slice(0, 3)
+    .map((f) => {
+      if (f.fieldType === "TEMPERATURE") return f.unitLabel?.trim() ? `${f.label} (${f.unitLabel})` : f.label;
+      if (f.fieldType === "NUMBER" && f.unitLabel?.trim()) return `${f.label} (${f.unitLabel.trim()})`;
+      return f.label;
+    });
+  return parts.join(" · ");
+}
+
 function toBrowseCard(row: {
   id: string;
   stableKey: string;
@@ -123,7 +138,9 @@ function toBrowseCard(row: {
   category: CatalogLogCategory;
   purposeType: CatalogLogPurposeType;
   recommendedCadence: CatalogRecommendedCadence | null;
+  recommendedDaypartLabels?: string[];
   suggestionsJson: unknown;
+  fields?: Array<{ label: string; fieldType: string; unitLabel: string | null }>;
 }): CatalogBrowseCard {
   const suggestions = parseCatalogSuggestions(row.suggestionsJson);
   return {
@@ -137,7 +154,11 @@ function toBrowseCard(row: {
     purposeType: row.purposeType,
     purposeLabel: catalogPurposeLabel(row.purposeType),
     recommendedCadence: row.recommendedCadence ?? "AD_HOC",
-    recommendedCadenceLabel: catalogCadenceLabel(row.recommendedCadence),
+    recommendedCadenceLabel: catalogRecommendedScheduleLabel(
+      row.recommendedCadence,
+      row.recommendedDaypartLabels ?? [],
+    ),
+    fieldSummary: fieldSummaryFromFields(row.fields ?? []),
     suggestedForLabels: suggestedForLabels(suggestions),
     suggestions,
     maintainedByLtcCorp: true,
@@ -160,7 +181,12 @@ export async function listPublishedCatalogBrowseCards(client: Db): Promise<Catal
       category: true,
       purposeType: true,
       recommendedCadence: true,
+      recommendedDaypartLabels: true,
       suggestionsJson: true,
+      fields: {
+        select: { label: true, fieldType: true, unitLabel: true, displaySequence: true },
+        orderBy: { displaySequence: "asc" },
+      },
     },
   });
 
@@ -207,16 +233,55 @@ export async function loadPublishedCatalogDetail(
   };
 }
 
+export type CatalogBrowseFilterGroup =
+  | "ALL"
+  | "EQUIPMENT"
+  | "FOOD_SAFETY"
+  | "CLEANING_SANITATION"
+  | "GENERAL_OPERATIONS";
+
+export function catalogBrowseFilterGroupLabel(group: CatalogBrowseFilterGroup): string {
+  switch (group) {
+    case "ALL":
+      return "All categories";
+    case "EQUIPMENT":
+      return "Equipment";
+    case "FOOD_SAFETY":
+      return "Food Safety";
+    case "CLEANING_SANITATION":
+      return "Cleaning / Sanitation";
+    case "GENERAL_OPERATIONS":
+      return "General Operations";
+  }
+}
+
+export function categoryMatchesBrowseGroup(
+  category: CatalogLogCategory,
+  group: CatalogBrowseFilterGroup,
+): boolean {
+  if (group === "ALL") return true;
+  if (group === "EQUIPMENT") return category === "EQUIPMENT";
+  if (group === "FOOD_SAFETY") return category === "FOOD_SAFETY" || category === "TEMPERATURE";
+  if (group === "CLEANING_SANITATION") return category === "CLEANING" || category === "SANITATION";
+  return (
+    category === "OPENING_CLOSING" || category === "COMPLIANCE" || category === "OTHER"
+  );
+}
+
 export function filterCatalogCards(
   cards: readonly CatalogBrowseCard[],
   filters: {
     search?: string;
     category?: CatalogLogCategory | "ALL";
+    browseGroup?: CatalogBrowseFilterGroup;
     purpose?: CatalogLogPurposeType | "ALL";
   },
 ): CatalogBrowseCard[] {
   const q = filters.search?.trim().toLowerCase() ?? "";
   return cards.filter((c) => {
+    if (filters.browseGroup && !categoryMatchesBrowseGroup(c.category, filters.browseGroup)) {
+      return false;
+    }
     if (filters.category && filters.category !== "ALL" && c.category !== filters.category) {
       return false;
     }
@@ -224,7 +289,8 @@ export function filterCatalogCards(
       return false;
     }
     if (!q) return true;
-    const hay = `${c.name} ${c.description} ${c.categoryLabel} ${c.suggestedForLabels.join(" ")}`.toLowerCase();
+    const hay =
+      `${c.name} ${c.description} ${c.categoryLabel} ${c.fieldSummary} ${c.suggestedForLabels.join(" ")}`.toLowerCase();
     return hay.includes(q);
   });
 }

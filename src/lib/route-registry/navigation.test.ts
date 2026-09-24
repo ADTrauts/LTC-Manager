@@ -59,7 +59,12 @@ test("navigation — labels come from the registry, not from database rows", () 
   assert.equal(byHref.get("/employees"), "Employee Builder");
   assert.equal(byHref.get("/admin/departments"), "Department Builder");
   assert.equal(byHref.get("/admin/facility/builder"), "Facility Builder");
-  assert.equal(byHref.get("/admin/knowledge"), "Procedures & Resources");
+  assert.equal(byHref.has("/admin/knowledge"), false);
+});
+
+test("navigation — Procedures & Resources is parked from nav but stays reachable", () => {
+  assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/admin/knowledge"), false);
+  assert.equal(roleMayAccessRoute("/admin/knowledge", "FACILITY_ADMINISTRATOR", FLAGS), true);
 });
 
 test("navigation — absence from navigation does not deny access", () => {

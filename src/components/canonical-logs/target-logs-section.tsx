@@ -7,6 +7,8 @@ type Props = {
   targetSubtitle?: string | null;
   attachments: AttachmentListItem[];
   addHref: string;
+  /** Optional RUN context for this target. */
+  runHref?: string | null;
   /** Optional compact context facts. */
   departmentName?: string | null;
 };
@@ -19,6 +21,7 @@ export function TargetLogsSection({
   targetSubtitle,
   attachments,
   addHref,
+  runHref,
   departmentName,
 }: Props) {
   const needsSetupCount = attachments.filter((a) => a.needsSetup).length;
@@ -31,7 +34,17 @@ export function TargetLogsSection({
             Logs
           </h2>
           <p className="text-xs text-zinc-500">
-            {targetSubtitle ? `${targetTitle} · ${targetSubtitle}` : targetTitle}
+            <Link href="/build/logs" className="underline-offset-2 hover:underline">
+              Catalog
+            </Link>
+            {" · "}
+            <Link href="/build/logs?tab=attachments" className="underline-offset-2 hover:underline">
+              Attached Logs
+            </Link>
+            {" · "}
+            <span className="text-zinc-700">
+              {targetSubtitle ? `${targetTitle} · ${targetSubtitle}` : targetTitle}
+            </span>
             {departmentName ? ` · ${departmentName}` : ""}
           </p>
           {needsSetupCount > 0 ? (
@@ -40,13 +53,24 @@ export function TargetLogsSection({
             </p>
           ) : null}
         </div>
-        <Link
-          href={addHref}
-          className="inline-flex min-h-9 items-center rounded-md border border-zinc-900 bg-zinc-900 px-2.5 text-sm font-medium text-white hover:bg-zinc-800"
-          data-testid="add-log-button"
-        >
-          + Add log
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {runHref ? (
+            <Link
+              href={runHref}
+              className="inline-flex min-h-9 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+              data-testid="view-run-logs-link"
+            >
+              View in RUN
+            </Link>
+          ) : null}
+          <Link
+            href={addHref}
+            className="inline-flex min-h-9 items-center rounded-md border border-zinc-900 bg-zinc-900 px-2.5 text-sm font-medium text-white hover:bg-zinc-800"
+            data-testid="add-log-button"
+          >
+            + Add log
+          </Link>
+        </div>
       </div>
 
       {attachments.length === 0 ? (
@@ -75,14 +99,21 @@ export function TargetLogsSection({
             >
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-semibold text-zinc-900">{row.displayName}</p>
-                {row.localDisplayLabel ? (
-                  <p className="text-[11px] text-zinc-500">Catalog: {row.catalogName}</p>
-                ) : null}
                 <p className="text-xs text-zinc-600">{row.timingSummary}</p>
+                {row.startsOnLabel ? (
+                  <p className="text-xs font-medium text-zinc-800" data-testid="attachment-starts-on">
+                    {row.startsOnLabel}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                  <span className="font-medium text-zinc-800">{row.primaryStateLabel}</span>
                   {row.scheduleSourceLabel ? (
-                    <span className="text-zinc-500">{row.scheduleSourceLabel}</span>
+                    <span className="text-zinc-600">{row.scheduleSourceLabel}</span>
+                  ) : null}
+                  <span className="font-medium text-zinc-800">{row.primaryStateLabel}</span>
+                  {row.updateAvailable ? (
+                    <span className="font-medium text-amber-900" data-testid="update-available">
+                      Update available
+                    </span>
                   ) : null}
                 </div>
                 {row.needsSetup && row.needsSetupReason ? (
@@ -96,7 +127,7 @@ export function TargetLogsSection({
                   href={row.editHref}
                   className="inline-flex min-h-9 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
                 >
-                  {row.needsSetup ? "Update schedule" : "Edit"}
+                  {row.needsSetup ? "Fix setup" : row.updateAvailable ? "Review update" : "Customize"}
                 </Link>
               </div>
             </li>

@@ -1,17 +1,15 @@
-import { AssetCriticality } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import {
-  createAssetAction,
   createFacilityOrganizationAction,
   retireAssetAction,
   updateAssetCriticalityAction,
   updateAssetDepartmentAction,
 } from "@/app/(protected)/assets/actions";
-import { AssetUnitSpaceFields } from "@/components/asset-operations/asset-unit-space-fields";
-import { BuildPageHeader } from "@/components/build/build-breadcrumb";
+import { AutoSubmitSelect } from "@/components/auto-submit-select";
+import { PhotoThumb } from "@/components/photos/photo-gallery";
 import { ASSET_CRITICALITY_OPTIONS, assetCriticalityLabel } from "@/lib/asset-criticality";
 import {
   ensureAndListResponsibleOrganizations,
@@ -20,11 +18,13 @@ import {
   responsibleOrganizationDisplayLabel,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
-import { buildPageIntro } from "@/lib/build-hub";
+import { AppIcons } from "@/lib/design-system";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import { isDietaryAssetOperationsEnabled, isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
+import { listPrimaryAssetPhotoIds } from "@/lib/attachments";
 
+import { AssetAddForm } from "./asset-add-form";
 import { AssetBuilderClient } from "./asset-builder-client";
 
 /**
@@ -89,223 +89,38 @@ export default async function AssetBuilderPage() {
   ]);
 
   const roomTerm = resolveFacilityVocabulary(facility).level3.singular;
+  const photoByAssetId = await listPrimaryAssetPhotoIds(
+    facilityId,
+    assets.map((asset) => asset.id),
+  );
   const spaceOptions = spaces.map((s) => ({
     id: s.id,
     name: s.name,
     unitId: s.unitId,
   }));
 
+  const PhotoPlaceholder = AppIcons.assets;
+
   return (
     <section className="space-y-4" data-testid="asset-builder-page">
-      <BuildPageHeader title="Asset Builder" subtitle={buildPageIntro("/assets/builder")} />
-
-      <p className="text-xs text-zinc-500" data-testid="asset-builder-ownership-note">
-        Configure what each asset is, where it belongs, and who is responsible for it. Day-to-day
-        condition, reported issues, and repairs belong on operational Assets.
-      </p>
-
       <AssetBuilderClient
         isEmpty={assets.length === 0}
         addForm={
-          <section
-            id="asset-builder-add"
-            className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
-            data-testid="asset-builder"
-          >
-            <h2 className="text-lg font-semibold text-zinc-900">Add Asset</h2>
-            <form action={createAssetAction} className="mt-3 space-y-5">
-              <fieldset className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <legend className="mb-1 text-sm font-semibold text-zinc-900">Identity</legend>
-                <input
-                  name="assetCode"
-                  required
-                  placeholder="Asset code"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  data-testid="create-asset-code"
-                />
-                <input
-                  name="name"
-                  required
-                  placeholder="Asset name"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  data-testid="create-asset-name"
-                />
-                <input
-                  name="equipmentType"
-                  required
-                  placeholder="Equipment type"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  data-testid="create-asset-type"
-                />
-                <input
-                  name="manufacturer"
-                  placeholder="Manufacturer"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                />
-                <input
-                  name="model"
-                  placeholder="Model"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                />
-                <input
-                  name="serialNumber"
-                  placeholder="Serial number"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                />
-              </fieldset>
-
-              <fieldset className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <legend className="mb-1 text-sm font-semibold text-zinc-900">Location</legend>
-                <AssetUnitSpaceFields
-                  units={units}
-                  spaces={spaceOptions}
-                  roomTerm={roomTerm}
-                  className="contents"
-                />
-              </fieldset>
-
-              <fieldset
-                className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
-                data-testid="asset-responsibility-fields"
-              >
-                <legend className="mb-1 text-sm font-semibold text-zinc-900">Responsibility</legend>
-                <label className="flex flex-col gap-1 text-sm text-zinc-700">
-                  <span className="font-medium text-zinc-900">Department user</span>
-                  <select
-                    name="departmentId"
-                    defaultValue=""
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    data-testid="create-asset-department"
-                  >
-                    <option value="">Defaults from location if possible</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-xs text-zinc-500">
-                    Department that uses this equipment day to day — even if it sits in a shared
-                    location.
-                  </span>
-                </label>
-                <label className="flex flex-col gap-1 text-sm text-zinc-700">
-                  <span className="font-medium text-zinc-900">Responsible maintainer</span>
-                  <select
-                    name="responsibleOrganizationId"
-                    defaultValue=""
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    data-testid="create-asset-responsible-org"
-                  >
-                    <option value="">Not assigned</option>
-                    {organizations.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-xs text-zinc-500">
-                    Facility or operating partner obligated to maintain or repair this asset. May
-                    differ from the department user.
-                  </span>
-                </label>
-                <label className="flex flex-col gap-1 text-sm text-zinc-700">
-                  <span className="font-medium text-zinc-900">Preferred repair vendor</span>
-                  <select
-                    name="vendorId"
-                    defaultValue=""
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    data-testid="create-asset-preferred-provider"
-                  >
-                    <option value="">No preferred vendor</option>
-                    {vendors.map((vendor) => (
-                      <option key={vendor.id} value={vendor.id}>
-                        {vendor.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-xs text-zinc-500">
-                    Approved service vendor normally contacted for repair work.
-                  </span>
-                  {vendors.length === 0 ? (
-                    <span className="text-xs text-amber-700">
-                      No repair vendors configured.{" "}
-                      <Link href="/assets?subtab=vendors" className="underline underline-offset-2">
-                        Manage vendors
-                      </Link>
-                      .
-                    </span>
-                  ) : null}
-                </label>
-              </fieldset>
-
-              <fieldset className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <legend className="mb-1 text-sm font-semibold text-zinc-900">
-                  Operational importance &amp; lifecycle
-                </legend>
-                {assetOpsEnabled ? (
-                  <label
-                    className="flex flex-col gap-1 text-sm text-zinc-700"
-                    data-testid="create-asset-lifecycle"
-                  >
-                    <span className="font-medium text-zinc-900">Lifecycle</span>
-                    <select
-                      name="lifecycle"
-                      defaultValue="ACTIVE"
-                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                      data-testid="create-asset-status"
-                    >
-                      <option value="ACTIVE">Active</option>
-                      <option value="RETIRED">Retired</option>
-                    </select>
-                  </label>
-                ) : (
-                  <select
-                    name="status"
-                    defaultValue="ACTIVE"
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    data-testid="create-asset-status"
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="OUT_OF_SERVICE">OUT_OF_SERVICE</option>
-                    <option value="RETIRED">RETIRED</option>
-                  </select>
-                )}
-                <label className="flex flex-col gap-1 text-sm text-zinc-700 md:col-span-2 xl:col-span-3">
-                  <span className="font-medium text-zinc-900">Operational criticality</span>
-                  <select
-                    name="criticality"
-                    defaultValue={AssetCriticality.ROUTINE}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  >
-                    {ASSET_CRITICALITY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label} — {option.description}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <input
-                  name="notes"
-                  placeholder="Notes"
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-4"
-                />
-              </fieldset>
-
-              <button
-                type="submit"
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-                data-testid="create-asset-submit"
-              >
-                Add asset
-              </button>
-            </form>
-          </section>
+          <AssetAddForm
+            units={units}
+            spaces={spaceOptions}
+            departments={departments}
+            organizations={organizations}
+            vendors={vendors}
+            roomTerm={roomTerm}
+            assetOpsEnabled={assetOpsEnabled}
+          />
         }
       >
-        <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-900">Configuration registry</h2>
-          <div className="mt-3 space-y-2" data-testid="asset-registry">
+        {assets.length > 0 ? (
+        <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <h2 className="sr-only">Assets</h2>
+          <div data-testid="asset-registry">
             {assets.map((asset) => {
               const presentation = presentAssetLifecycleAndCondition(asset.status);
               const locationLabel = formatAssetLocationLabel({
@@ -322,14 +137,30 @@ export default async function AssetBuilderPage() {
                     }
                   : null,
               );
+              const photoId = photoByAssetId.get(asset.id);
               return (
                 <div
                   key={asset.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 p-2"
+                  className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-3 py-3 last:border-b-0"
                   data-testid={`asset-row-${asset.id}`}
                   data-asset-lifecycle={presentation.lifecycle}
                 >
-                  <div className="text-sm text-zinc-700">
+                  <div className="flex min-w-0 flex-1 items-start gap-3 text-sm text-zinc-700">
+                    {photoId ? (
+                      <PhotoThumb
+                        attachmentId={photoId}
+                        alt=""
+                        className="h-16 w-16 shrink-0 rounded-md border border-zinc-200 object-cover bg-zinc-100"
+                      />
+                    ) : (
+                      <span
+                        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-zinc-400"
+                        aria-hidden
+                      >
+                        <PhotoPlaceholder className="h-6 w-6" />
+                      </span>
+                    )}
+                    <div className="min-w-0">
                     <p className="font-medium text-zinc-900">
                       {assetOpsEnabled ? (
                         <Link
@@ -345,7 +176,7 @@ export default async function AssetBuilderPage() {
                         </>
                       )}
                     </p>
-                    <p className="text-xs">
+                    <p className="mt-1 text-xs leading-5">
                       {asset.equipmentType} · {locationLabel}
                       {" · "}
                       {asset.department?.name ? (
@@ -362,6 +193,7 @@ export default async function AssetBuilderPage() {
                       {" · "}
                       {assetCriticalityLabel(asset.criticality)}
                     </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {canonicalLogsEnabled ? (
@@ -373,31 +205,27 @@ export default async function AssetBuilderPage() {
                         Logs
                       </Link>
                     ) : null}
-                    <form action={updateAssetDepartmentAction} className="flex items-center gap-1">
+                    <form action={updateAssetDepartmentAction}>
                       <input type="hidden" name="assetId" value={asset.id} />
-                      <select
+                      <AutoSubmitSelect
                         name="departmentId"
+                        aria-label="Department"
                         defaultValue={asset.departmentId ?? ""}
                         className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
                       >
-                        <option value="">Unset</option>
+                        <option value="">Unset department</option>
                         {departments.map((d) => (
                           <option key={d.id} value={d.id}>
                             {d.name}
                           </option>
                         ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
-                      >
-                        Dept
-                      </button>
+                      </AutoSubmitSelect>
                     </form>
-                    <form action={updateAssetCriticalityAction} className="flex items-center gap-1">
+                    <form action={updateAssetCriticalityAction}>
                       <input type="hidden" name="assetId" value={asset.id} />
-                      <select
+                      <AutoSubmitSelect
                         name="criticality"
+                        aria-label="Criticality"
                         defaultValue={asset.criticality}
                         className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
                       >
@@ -406,13 +234,7 @@ export default async function AssetBuilderPage() {
                             {option.label}
                           </option>
                         ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
-                      >
-                        Criticality
-                      </button>
+                      </AutoSubmitSelect>
                     </form>
                     {assetOpsEnabled &&
                     presentation.lifecycle !== "RETIRED" &&
@@ -438,19 +260,15 @@ export default async function AssetBuilderPage() {
                 </div>
               );
             })}
-            {assets.length === 0 ? <p className="text-sm text-zinc-500">No assets yet.</p> : null}
           </div>
         </section>
+        ) : null}
 
         <section
           className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
           data-testid="facility-organizations-panel"
         >
           <h2 className="text-lg font-semibold text-zinc-900">Facility &amp; operating partners</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            The facility is always available. Add contracted operating partners here (not repair
-            vendors).
-          </p>
           <form action={createFacilityOrganizationAction} className="mt-3 flex flex-wrap gap-2">
             <input
               name="name"

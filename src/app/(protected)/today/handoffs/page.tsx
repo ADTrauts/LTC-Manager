@@ -3,18 +3,23 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
-import { OperationContextBanner } from "@/components/operations-center/operation-context-banner";
 import { PageHeader } from "@/components/design-system/page-header";
 import { HandoffSummaryCards, TodaysWorkHandoffList } from "@/components/todays-work/todays-work-handoff-list";
 import { ShiftTransitionSummaryCard } from "@/components/todays-work/shift-transition-summary-card";
+import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
 import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateShiftTransition } from "@/lib/ai/shift-transition";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { isAiShiftSummaryEnabled, isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
-import { assembleProjectedTodaysWorkHandoffs, loadHandoffs } from "@/lib/todays-work";
-import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
+import {
+  assembleProjectedTodaysWorkHandoffs,
+  filterCallDownsToProjectedUnits,
+  loadOperatingLocationBoard,
+  loadPresenceCallOffs,
+  presentHandoffsFromBoard,
+} from "@/lib/todays-work";
 
 export default async function TodaysWorkHandoffsPage() {
   noStore();
@@ -29,15 +34,13 @@ export default async function TodaysWorkHandoffsPage() {
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
 
-  let handoffs = await loadHandoffs(session.facilityId, {
-    activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
-    session,
-  });
+  let handoffs;
 
   if (isProjectionTodaysWorkEnabled()) {
     const assembled = await assembleProjectedTodaysWorkHandoffs(session, {
       memo: createProjectionRuntimeRequestScope(),
       activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+      activeDepartmentId: deptNav.activeDepartmentId,
     });
     if (assembled.enabled && "error" in assembled && assembled.error && !("handoffs" in assembled)) {
       return (
@@ -52,7 +55,27 @@ export default async function TodaysWorkHandoffsPage() {
     }
   }
 
-  const { sections, summary, operationContext, isClear } = handoffs;
+  if (!handoffs) {
+    const [operating, callOffs] = await Promise.all([
+      loadOperatingLocationBoard(session.facilityId, {
+        session,
+        activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
+        activeDepartmentId: deptNav.activeDepartmentId,
+      }),
+      loadPresenceCallOffs(session.facilityId),
+    ]);
+    const scopedCallOffs = filterCallDownsToProjectedUnits(
+      callOffs,
+      operating.board.locations.map((location) => location.location.unitId),
+    );
+    handoffs = presentHandoffsFromBoard({
+      board: operating.board,
+      callOffs: scopedCallOffs,
+      operationContext: operating.operationContext,
+    });
+  }
+
+  const { sections, summary, isClear } = handoffs;
 
   const aiEnabled = isAiShiftSummaryEnabled();
   const shiftSummary = aiEnabled
@@ -70,7 +93,7 @@ export default async function TodaysWorkHandoffsPage() {
         icon="todaysWork"
         eyebrow="Today's Work"
         title="Handoffs"
-        subtitle="Read-only rollup of what may carry between teams — failed checks, repairs, call-downs, and coverage gaps. Nothing is edited here."
+        subtitle="What the next supervisor should know from current location state and today's call-offs."
         actions={
           <Link
             href="/today"
@@ -79,7 +102,6 @@ export default async function TodaysWorkHandoffsPage() {
             Back to hub
           </Link>
         }
-        below={<OperationContextBanner context={operationContext} embedded />}
       />
 
       {shiftSummary ? (

@@ -6,6 +6,7 @@ import {
   ADMIN_HUB_SECTIONS,
   adminHubPrimaryHrefs,
   flattenAdminHubLinks,
+  visibleAdminHubSections,
 } from "@/lib/administration/admin-hub";
 
 test("admin hub has three grouped sections in Option A order", () => {
@@ -27,6 +28,9 @@ test("admin hub labels and routes match presentation rename", () => {
 
   assert.equal(byId.get("organization_settings")?.label, "Organization Settings");
   assert.equal(byId.get("organization_settings")?.href, "/admin/organization");
+
+  assert.equal(byId.get("billing")?.label, "Billing");
+  assert.equal(byId.get("billing")?.href, "/admin/billing");
 
   assert.equal(byId.get("departments")?.label, "Departments");
   assert.equal(byId.get("departments")?.href, "/admin/departments");
@@ -60,10 +64,27 @@ test("Logs and Inspections appear together under Operational Configuration", () 
     ["logs", "inspections", "procedures_resources"],
   );
   assert.notEqual(operational.links[0]?.href, operational.links[1]?.href);
+
+  const visibleOperational = visibleAdminHubSections().find((s) => s.id === "operational_configuration");
+  assert.ok(visibleOperational);
+  assert.deepEqual(
+    visibleOperational.links.map((l) => l.id),
+    ["logs", "inspections"],
+  );
+});
+
+test("Procedures & Resources stays in the catalog but is parked from the hub", () => {
+  const hrefs = adminHubPrimaryHrefs();
+  assert.equal(hrefs.includes("/admin/knowledge"), false);
+  assert.equal(
+    flattenAdminHubLinks().some((link) => link.id === "procedures_resources"),
+    true,
+  );
 });
 
 test("department and permissions hub copy does not imply licensing", () => {
   const text = flattenAdminHubLinks()
+    .filter((link) => link.id === "departments" || link.id === "roles_permissions")
     .map((l) => `${l.label} ${l.description}`)
     .join("\n")
     .toLowerCase();
@@ -71,6 +92,15 @@ test("department and permissions hub copy does not imply licensing", () => {
     assert.equal(text.includes(banned), false, `hub copy must not include "${banned}"`);
   }
   assert.equal(text.includes("turn departments on or off"), false);
+});
+
+test("admin hub includes Billing under Facility & Organization", () => {
+  const facility = ADMIN_HUB_SECTIONS.find((section) => section.id === "facility_organization");
+  assert.ok(facility);
+  assert.deepEqual(
+    facility.links.map((link) => link.id),
+    ["facility_structure", "organization_settings", "billing"],
+  );
 });
 
 test("facility structure copy does not claim workflow creation", () => {

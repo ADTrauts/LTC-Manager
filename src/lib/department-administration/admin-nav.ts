@@ -1,6 +1,6 @@
 /**
  * Department Builder — local navigation.
- * Primary IA: Overview | Locations | Teams | Operational Cycles
+ * Primary IA: Overview | Locations | Teams | Coverage | Operational Cycles
  *
  * Legacy profile-authoring tab ids remain resolvable for deep links.
  * Room Types is deferred (internal profile/archetype architecture preserved).
@@ -21,6 +21,11 @@ export const DEPARTMENT_ADMIN_TABS = [
     id: "teams",
     label: "Teams",
     description: "Enduring groups within this department",
+  },
+  {
+    id: "coverage",
+    label: "Coverage",
+    description: "Expected operational responsibilities",
   },
   {
     id: "cycles",

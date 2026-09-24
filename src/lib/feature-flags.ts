@@ -75,31 +75,12 @@ export function isProjectionSidebarEnabled(): boolean {
 }
 
 /**
- * Defaults to disabled — Wave 15H Unit Workspace Experience cutover.
- * Set `PROJECTION_UNIT_WORKSPACE_ENABLED=true` to render Area → Experience panels from Projection.
- * When off, the legacy module-based Unit Workspace remains exclusive (no mix).
- */
-export function isProjectionUnitWorkspaceEnabled(): boolean {
-  return parseEnvFlag(process.env.PROJECTION_UNIT_WORKSPACE_ENABLED, false);
-}
-
-/**
  * Defaults to disabled — Wave 15I Today's Work Projection cutover.
  * Set `PROJECTION_TODAYS_WORK_ENABLED=true` to assemble walk/coverage/handoffs
  * within Projection eligibility only. When off, legacy Today's Work remains exclusive.
  */
 export function isProjectionTodaysWorkEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_TODAYS_WORK_ENABLED, false);
-}
-
-/**
- * Defaults to disabled — Wave 15J Operations Center Projection cutover.
- * Set `PROJECTION_OPERATIONS_CENTER_ENABLED=true` to aggregate OC within
- * Projection eligibility only. When off, legacy OC remains exclusive (no mix).
- * Do not reuse the Today's Work flag.
- */
-export function isProjectionOperationsCenterEnabled(): boolean {
-  return parseEnvFlag(process.env.PROJECTION_OPERATIONS_CENTER_ENABLED, false);
 }
 
 /**
@@ -110,17 +91,6 @@ export function isProjectionOperationsCenterEnabled(): boolean {
  */
 export function isProjectionBusinessWorkspaceEnabled(): boolean {
   return parseEnvFlag(process.env.PROJECTION_BUSINESS_WORKSPACE_ENABLED, false);
-}
-
-/**
- * Defaults to disabled — Wave 16A Experience Shell & Tool Host foundation.
- * Set `EXPERIENCE_SHELL_ENABLED=true` to render projected Experiences through
- * the reusable Experience Shell (sections/cards/widgets/tool host).
- * When off, Unit Workspace Projection keeps legacy placeholder panels.
- * No mixed rendering within a request.
- */
-export function isExperienceShellEnabled(): boolean {
-  return parseEnvFlag(process.env.EXPERIENCE_SHELL_ENABLED, false);
 }
 
 /**
@@ -223,9 +193,10 @@ export function isPlantOperationsEnabled(): boolean {
 }
 
 /**
- * Defaults to disabled — Phase 3 Canonical Logs (platform Catalog + facility Attachment).
- * Set `CANONICAL_LOGS_ENABLED=true` for Catalog/Attachment services and Attachment-backed
- * Evidence submissions. Legacy `/logs` and Phase 9C OperationalTemplate remain independent.
+ * Defaults to disabled — Canonical Logs (platform Catalog + facility Attachment).
+ * Enable only in a controlled local/dev or named test facility context:
+ *   CANONICAL_LOGS_ENABLED=true
+ * Do not default-on for production. Legacy `/logs` remains independent.
  * Typical local activation:
  *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
  *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
@@ -234,5 +205,15 @@ export function isPlantOperationsEnabled(): boolean {
  */
 export function isCanonicalLogsEnabled(): boolean {
   return parseEnvFlag(process.env.CANONICAL_LOGS_ENABLED, false);
+}
+
+/**
+ * Defaults to disabled — department purchase licenses are stored but not enforced.
+ * Set `BILLING_ENTITLEMENTS_ENABLED=true` only after Stripe subscriptions and
+ * grandfathering for existing facilities are certified. Visibility flags are
+ * not licenses (ADL-013).
+ */
+export function isBillingEntitlementsEnabled(): boolean {
+  return parseEnvFlag(process.env.BILLING_ENTITLEMENTS_ENABLED, false);
 }
 

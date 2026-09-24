@@ -14,6 +14,7 @@ import { randomBytes } from "node:crypto";
 import type { AppJwtPayload } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { listAttachmentsForAsset } from "@/lib/attachments";
 
 import {
   requireAssetManage,
@@ -624,7 +625,7 @@ export async function getAssetProfile(
   const evidenceLimit = input.evidenceLimit ?? 10;
   const historyLimit = input.historyLimit ?? 40;
 
-  const [templates, recentEvidence, openIssues, activeWorkOrders, history] =
+  const [templates, recentEvidence, openIssues, activeWorkOrders, history, photos] =
     await Promise.all([
       prisma.operationalTemplateApplicability.findMany({
         where: {
@@ -708,6 +709,7 @@ export async function getAssetProfile(
         },
       }),
       loadAssetTimeline(asset.id, { limit: historyLimit }),
+      listAttachmentsForAsset(input.facilityId, asset.id),
     ]);
 
   const retired = normalizeAssetStatus(asset.status) === "RETIRED";
@@ -757,6 +759,7 @@ export async function getAssetProfile(
       vendorId: authority.canViewVendorDetails ? wo.vendorId : null,
     })),
     history,
+    photos,
     prospectiveTemplateBindingNote,
     availableForProspectiveUse: isAssetAvailableForProspectiveUse(asset.status),
   };

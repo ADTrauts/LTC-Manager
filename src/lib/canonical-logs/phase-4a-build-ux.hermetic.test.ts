@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveDefaultAttachmentEffectiveFromKey } from "./effective-from";
+import { resolveDefaultAttachmentEffectiveFromKey, describeAttachmentStart } from "./effective-from";
 import {
   catalogMatchesTarget,
   parseCatalogSuggestions,
@@ -124,6 +124,23 @@ test("cooler attach timing resolves twice daily without Needs setup", () => {
   assert.match(timing.timingSummary, /Twice daily/);
 });
 
+test("ice machine weekly suggested Tuesday attaches ready without extra setup", () => {
+  const timing = resolveAttachTimingProposal({
+    recommendedCadence: "WEEKLY",
+    recommendedScheduleKind: null,
+    recommendedDaypartLabels: ["Tuesday"],
+    publishedCycleStableKeys: [],
+    cycleLabelByKey: new Map(),
+  });
+  assert.equal(timing.needsSetup, false);
+  assert.equal(timing.timingMode, "CALENDAR");
+  assert.equal(timing.calendarCadence, "WEEKLY");
+  assert.deepEqual(timing.calendarDaysOfWeek, [2]);
+  assert.equal(timing.usingRecommendedSchedule, true);
+  assert.match(timing.recommendedCadenceLabel, /Weekly/);
+  assert.match(timing.recommendedCadenceLabel, /Suggested Tuesday/);
+});
+
 test("dishwasher attach timing preselects published Operational Cycles", () => {
   const timing = resolveAttachTimingProposal({
     recommendedCadence: "ONCE_PER_OPERATIONAL_CYCLE",
@@ -152,6 +169,21 @@ test("prospective effective date starts tomorrow — not current service day", (
   assert.match(resolved.label, /tomorrow|Sep 14/i);
 });
 
+test("describeAttachmentStart tells RUN that a next-day assignment is not due yet", () => {
+  const upcoming = describeAttachmentStart({
+    effectiveFromKey: "2026-09-17",
+    todayKey: "2026-09-16",
+  });
+  assert.equal(upcoming.isUpcoming, true);
+  assert.equal(upcoming.startsOnLabel, "Starts tomorrow");
+  const live = describeAttachmentStart({
+    effectiveFromKey: "2026-09-16",
+    todayKey: "2026-09-16",
+  });
+  assert.equal(live.isUpcoming, false);
+  assert.match(live.effectiveLabel, /Effective/);
+});
+
 test("catalog filter search and category — no facility edit fields in card model", () => {
   const cards: CatalogBrowseCard[] = [
     {
@@ -166,6 +198,7 @@ test("catalog filter search and category — no facility edit fields in card mod
       purposeLabel: catalogPurposeLabel("LOG"),
       recommendedCadence: "TWICE_DAILY",
       recommendedCadenceLabel: "Twice daily",
+      fieldSummary: "Cooler temperature (°F)",
       suggestedForLabels: ["Cooler"],
       suggestions: { assetTypes: ["COOLER"], spaceTypes: [], departmentKeys: [], keywords: [] },
       maintainedByLtcCorp: true,
@@ -182,6 +215,7 @@ test("catalog filter search and category — no facility edit fields in card mod
       purposeLabel: catalogPurposeLabel("CHECKLIST"),
       recommendedCadence: "ONCE_DAILY",
       recommendedCadenceLabel: "Once daily",
+      fieldSummary: "Service area clean and ready",
       suggestedForLabels: ["Servery"],
       suggestions: { assetTypes: [], spaceTypes: ["SERVERY"], departmentKeys: [], keywords: [] },
       maintainedByLtcCorp: true,

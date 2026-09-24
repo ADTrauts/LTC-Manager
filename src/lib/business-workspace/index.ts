@@ -48,43 +48,28 @@ export {
   upsertWorkspacePreferenceState,
 } from "./workspace-preferences";
 
-export { loadBusinessWorkspace, resolveWorkspaceContext, type LoadBusinessWorkspaceInput } from "./load-business-workspace";
-export { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
-export { loadCachedMorningBriefPreview } from "./load-cached-morning-brief";
-export { buildWorkspacePriorities, workspaceIsHealthy } from "./build-workspace-priorities";
-export {
-  buildManagerFocus,
-  buildManagerFocusHealthyGuidance,
-  inspectionFocusHref,
-} from "./build-manager-focus";
-export {
-  AGENDA_BUCKET_ORDER,
-  buildManagementAgenda,
-  classifyAgendaTemporal,
-  currentAgendaBucketId,
-  resolveAgendaBucketId,
-} from "./build-management-agenda";
 export { buildQuickActions } from "./build-quick-actions";
-export { buildDepartmentHealth } from "./build-department-health";
-export { buildPerformanceSnapshot } from "./build-performance-snapshot";
 export { buildRecentActivity } from "./build-recent-activity";
 export {
   resolveCompositionConfig,
-  scopeInputsForContext,
   isLinkAllowedForContext,
   type WorkspaceCompositionConfig,
 } from "./workspace-composition";
 
 /**
- * Pure Projection adapters only — never re-export `./projection/load` here.
- * That module uses session Projection (`next/headers`) and must stay off the
- * client graph (workspace-customize imports this barrel).
+ * Client-safe barrel. workspace-customize (`"use client"`) may import layout
+ * helpers from here. Do not re-export Prisma / session loaders:
+ * - `./load-business-workspace` (`loadBusinessWorkspace`, `resolveWorkspaceContext`)
+ * - `./load-cached-morning-brief` (`loadCachedMorningBriefPreview`)
+ * - `./projection/load` (session Projection + `next/headers`)
+ *
+ * Those pull `@/lib/auth` → `next/headers` (and Harbor work-session) into the
+ * client graph and poison every route, including `/login`.
  */
 export {
   adaptProjectionToBusinessWorkspace,
   contributionKindsFromContracts,
   emptyBusinessWorkspaceScope,
-  intersectInputsToProjectedScope,
   resolveAllowedQuickActionIds,
   resolveProjectedCompositionConfig,
   type BwContributionKind,

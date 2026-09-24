@@ -1,8 +1,5 @@
-import { summarizeReadiness } from "@/lib/readiness";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
-import { summarizeCallDowns } from "@/lib/todays-work/call-down";
 
-import type { BusinessWorkspaceInputs, WorkspaceActivityRaw } from "./load-workspace-inputs";
 import type { WorkspaceContext, WorkspaceSectionId } from "./types";
 
 export type WorkspaceCompositionConfig = {
@@ -81,97 +78,6 @@ const COMPOSITIONS: Record<string, WorkspaceCompositionConfig> = {
 export function resolveCompositionConfig(ctx: WorkspaceContext): WorkspaceCompositionConfig {
   const key = ctx.mode === "department" ? ctx.departmentKey : "FACILITY";
   return COMPOSITIONS[key] ?? COMPOSITIONS["FACILITY"]!;
-}
-
-function filterActivityByDepartment(
-  activity: WorkspaceActivityRaw,
-  departmentKey: string,
-): WorkspaceActivityRaw {
-  return {
-    repairsOpened: activity.repairsOpened.filter(
-      (r) => !r.departmentKey || r.departmentKey === departmentKey,
-    ),
-    repairsResolved: activity.repairsResolved.filter(
-      (r) => !r.departmentKey || r.departmentKey === departmentKey,
-    ),
-    inspectionsCompleted: activity.inspectionsCompleted.filter(
-      (r) => !r.departmentKey || r.departmentKey === departmentKey,
-    ),
-    knowledgePublished: activity.knowledgePublished.filter(
-      (r) => !r.departmentKey || r.departmentKey === departmentKey,
-    ),
-  };
-}
-
-/**
- * Produce a department-scoped view of facility-wide workspace inputs.
- * Facility mode returns inputs unchanged.
- * Department mode filters readiness, repairs, inspections, staffing, and activity
- * using existing department metadata — no new queries.
- */
-export function scopeInputsForContext(
-  inputs: BusinessWorkspaceInputs,
-  ctx: WorkspaceContext,
-): BusinessWorkspaceInputs {
-  if (ctx.mode === "facility") return inputs;
-
-  const deptKey = ctx.departmentKey;
-
-  const scopedReadinessItems = inputs.readiness.items.filter(
-    (item) => item.profileKey === deptKey,
-  );
-  const scopedSummary = summarizeReadiness(scopedReadinessItems);
-
-  const deptUnitIds = new Set(scopedReadinessItems.map((item) => item.unitId));
-
-  const scopedRepairs = inputs.openRepairs.filter(
-    (r) => r.departmentKey === deptKey,
-  );
-
-  const scopedInspections = inputs.inspectionsDue.filter(
-    (i) => !i.departmentKey || i.departmentKey === deptKey,
-  );
-
-  const scopedUnitsMissing = inputs.dashboard.unitsMissingStaffing.filter(
-    (u) => deptUnitIds.has(u.id),
-  );
-  const scopedExceptions = inputs.dashboard.unitsWithExceptions.filter(
-    (u) => deptUnitIds.has(u.id),
-  );
-
-  const scopedCallDownItems = inputs.dashboard.callDowns
-    ? inputs.dashboard.callDowns.items.filter(
-        (item) =>
-          (item.oldUnitId != null && deptUnitIds.has(item.oldUnitId)) ||
-          deptUnitIds.has(item.newUnitId),
-      )
-    : [];
-  const scopedCallDownSummary = summarizeCallDowns(scopedCallDownItems);
-
-  return {
-    ...inputs,
-    readiness: {
-      ...inputs.readiness,
-      items: scopedReadinessItems,
-      summary: scopedSummary,
-    },
-    openRepairs: scopedRepairs,
-    inspectionsDue: scopedInspections,
-    callDownSummary: scopedCallDownSummary,
-    dashboard: {
-      ...inputs.dashboard,
-      unitsMissingStaffing: scopedUnitsMissing,
-      unitsWithExceptions: scopedExceptions,
-      callDowns: inputs.dashboard.callDowns
-        ? {
-            ...inputs.dashboard.callDowns,
-            items: scopedCallDownItems,
-            summary: scopedCallDownSummary,
-          }
-        : undefined,
-    },
-    activity: filterActivityByDepartment(inputs.activity, deptKey),
-  };
 }
 
 /**

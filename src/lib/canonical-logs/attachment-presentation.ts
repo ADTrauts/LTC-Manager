@@ -15,10 +15,15 @@ import { evaluateAttachmentNeedsSetup } from "@/lib/logs-architecture/timing";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 import type { LogAttachmentTarget } from "@/lib/logs-architecture/types";
 
+import { describeAttachmentStart } from "./effective-from";
 import {
   formatTimingSummary,
   scheduleSourceLabel,
 } from "./timing-display";
+import {
+  groupLogicalLogAttachments,
+  logicalAttachmentsForBuildList,
+} from "./logical-attachment";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -42,10 +47,20 @@ export type AttachmentListItem = {
   departmentId: string;
   departmentName: string | null;
   effectiveFromKey: string;
+  isUpcoming: boolean;
+  startsOnLabel: string | null;
+  effectiveLabel: string;
+  targetLabel: string | null;
+  targetHref: string | null;
+  runHref: string | null;
   localDisplayLabel: string | null;
   localInstructions: string | null;
   timingMode: LogAttachmentTimingMode;
   editHref: string;
+  usingRecommendedSchedule: boolean;
+  updateAvailable: boolean;
+  latestCatalogVersion: number | null;
+  priorSegmentCount: number;
 };
 
 function targetFromRow(row: {
@@ -54,6 +69,7 @@ function targetFromRow(row: {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
+  operationalTypeKey?: string | null;
 }): LogAttachmentTarget {
   switch (row.targetKind) {
     case "ASSET":
@@ -66,6 +82,8 @@ function targetFromRow(row: {
       return { kind: "DEPARTMENT", departmentId: row.targetDepartmentId! };
     case "FACILITY":
       return { kind: "FACILITY" };
+    case "OPERATIONAL_TYPE":
+      return { kind: "OPERATIONAL_TYPE", operationalTypeKey: row.operationalTypeKey! };
   }
 }
 
@@ -92,6 +110,57 @@ function usingRecommendedWindows(input: {
       d.label === w.label && d.startLocal === w.startLocal && d.endLocal === w.endLocal
     );
   });
+}
+
+export function attachmentTargetBuildHref(input: {
+  targetKind: LogAttachment["targetKind"];
+  assetId?: string | null;
+  spaceId?: string | null;
+  unitId?: string | null;
+  targetDepartmentId?: string | null;
+  departmentId?: string | null;
+}): string | null {
+  switch (input.targetKind) {
+    case "ASSET":
+      return input.assetId ? `/build/logs/targets/asset/${input.assetId}` : null;
+    case "SPACE":
+      return input.spaceId ? `/build/logs/targets/space/${input.spaceId}` : null;
+    case "UNIT":
+      return input.unitId ? `/build/logs/targets/unit/${input.unitId}` : null;
+    case "DEPARTMENT":
+      return input.targetDepartmentId ? `/admin/departments/${input.targetDepartmentId}` : null;
+    case "OPERATIONAL_TYPE":
+      return input.departmentId
+        ? `/admin/departments/${input.departmentId}?tab=locations`
+        : "/build/logs";
+    default:
+      return null;
+  }
+}
+
+export function attachmentTargetRunHref(input: {
+  targetKind: LogAttachment["targetKind"];
+  assetId?: string | null;
+  spaceId?: string | null;
+  unitId?: string | null;
+  targetDepartmentId?: string | null;
+}): string | null {
+  switch (input.targetKind) {
+    case "ASSET":
+      return input.assetId ? `/assets/${input.assetId}` : null;
+    case "SPACE":
+      return input.spaceId ? `/staffing/logs/targets/space/${input.spaceId}` : null;
+    case "UNIT":
+      return input.unitId ? `/staffing/logs/targets/unit/${input.unitId}` : null;
+    case "DEPARTMENT":
+      return input.targetDepartmentId
+        ? `/staffing/logs/targets/department/${input.targetDepartmentId}`
+        : null;
+    case "OPERATIONAL_TYPE":
+      return "/staffing/logs";
+    default:
+      return null;
+  }
 }
 
 export function presentLogAttachment(input: {
@@ -126,6 +195,11 @@ export function presentLogAttachment(input: {
   };
   cycleLabelByKey: ReadonlyMap<string, string>;
   publishedCycleStableKeys: readonly string[];
+  latestPublishedVersion?: number | null;
+  priorSegmentCount?: number;
+  todayKey?: string | null;
+  targetLabel?: string | null;
+  targetHref?: string | null;
 }): AttachmentListItem {
   const { row } = input;
   const cycleKeys = row.cycleSelections.map((c) => c.cycleStableKey);
@@ -191,6 +265,9 @@ export function presentLogAttachment(input: {
   const displayName = row.localDisplayLabel?.trim() || catalogName;
 
   const effectiveFromKey = `${row.effectiveFrom.getUTCFullYear()}-${String(row.effectiveFrom.getUTCMonth() + 1).padStart(2, "0")}-${String(row.effectiveFrom.getUTCDate()).padStart(2, "0")}`;
+  const start = input.todayKey
+    ? describeAttachmentStart({ effectiveFromKey, todayKey: input.todayKey })
+    : { isUpcoming: false, startsOnLabel: null, effectiveLabel: effectiveFromKey };
 
   return {
     id: row.id,
@@ -204,20 +281,35 @@ export function presentLogAttachment(input: {
     primaryStateLabel,
     timingSummary,
     scheduleSourceLabel:
-      row.timingMode === "DAILY_WINDOWS" || row.timingMode === "OPERATIONAL_CYCLE"
-        ? scheduleSourceLabel(usingRecommended || (row.timingMode === "OPERATIONAL_CYCLE" && !needsSetup))
-        : row.timingMode === "AD_HOC"
-          ? null
-          : null,
+      row.timingMode === "DAILY_WINDOWS"
+        ? scheduleSourceLabel(usingRecommended)
+        : row.timingMode === "OPERATIONAL_CYCLE" && !needsSetup
+          ? "Using Operational Cycles"
+          : row.timingMode === "AD_HOC"
+            ? null
+            : usingRecommended
+              ? scheduleSourceLabel(true)
+              : "Custom schedule",
     needsSetup,
     needsSetupReason: readiness.reason,
     departmentId: row.departmentId,
     departmentName: row.department?.name ?? null,
     effectiveFromKey,
+    isUpcoming: start.isUpcoming,
+    startsOnLabel: start.startsOnLabel,
+    effectiveLabel: start.effectiveLabel,
+    targetLabel: input.targetLabel ?? null,
+    targetHref: input.targetHref ?? attachmentTargetBuildHref(row),
+    runHref: attachmentTargetRunHref(row),
     localDisplayLabel: row.localDisplayLabel,
     localInstructions: row.localInstructions,
     timingMode: row.timingMode,
     editHref: `/build/logs/attachments/${row.id}`,
+    usingRecommendedSchedule: usingRecommended,
+    updateAvailable:
+      input.latestPublishedVersion != null && input.latestPublishedVersion > row.catalogVersion,
+    latestCatalogVersion: input.latestPublishedVersion ?? null,
+    priorSegmentCount: input.priorSegmentCount ?? 0,
   };
 }
 
@@ -239,6 +331,7 @@ export async function listAttachmentsForTarget(
     targetDepartmentId?: string | null;
     cycleLabelByKey: ReadonlyMap<string, string>;
     publishedCycleStableKeys: readonly string[];
+    todayKey?: string | null;
   },
 ): Promise<AttachmentListItem[]> {
   const rows = await client.logAttachment.findMany({
@@ -249,19 +342,33 @@ export async function listAttachmentsForTarget(
       spaceId: input.spaceId ?? undefined,
       unitId: input.unitId ?? undefined,
       targetDepartmentId: input.targetDepartmentId ?? undefined,
-      status: { in: ["ACTIVE", "INACTIVE"] },
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: listInclude,
   });
 
-  return rows.map((row) =>
-    presentLogAttachment({
+  const latestByKey = await loadLatestPublishedVersions(
+    client,
+    rows.map((r) => r.catalogStableKey),
+  );
+  const groups = logicalAttachmentsForBuildList(
+    groupLogicalLogAttachments(rows, latestByKey),
+  );
+
+  return groups.map((group) => {
+    const row = rows.find((r) => r.id === group.current.id);
+    if (!row) {
+      throw new Error("Logical Attachment current segment missing from query.");
+    }
+    return presentLogAttachment({
       row,
       cycleLabelByKey: input.cycleLabelByKey,
       publishedCycleStableKeys: input.publishedCycleStableKeys,
-    }),
-  );
+      latestPublishedVersion: group.latestPublishedCatalogVersion,
+      priorSegmentCount: group.prior.length,
+      todayKey: input.todayKey,
+    });
+  });
 }
 
 export async function listFacilityAttachments(
@@ -271,31 +378,103 @@ export async function listFacilityAttachments(
     departmentId?: string | null;
     cycleLabelByKey: ReadonlyMap<string, string>;
     publishedCycleStableKeysByDepartment: ReadonlyMap<string, readonly string[]>;
+    todayKey?: string | null;
   },
 ): Promise<AttachmentListItem[]> {
   const rows = await client.logAttachment.findMany({
     where: {
       facilityId: input.facilityId,
       ...(input.departmentId ? { departmentId: input.departmentId } : {}),
-      status: { in: ["ACTIVE", "INACTIVE", "RETIRED"] },
     },
     orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     include: {
       ...listInclude,
-      asset: { select: { name: true } },
-      space: { select: { name: true } },
+      asset: {
+        select: {
+          name: true,
+          unit: { select: { name: true } },
+          space: { select: { name: true } },
+        },
+      },
+      space: { select: { name: true, unit: { select: { name: true } } } },
       unit: { select: { name: true } },
       targetDepartment: { select: { name: true } },
     },
   });
 
-  return rows.map((row) => {
+  const latestByKey = await loadLatestPublishedVersions(
+    client,
+    rows.map((r) => r.catalogStableKey),
+  );
+  const groups = logicalAttachmentsForBuildList(
+    groupLogicalLogAttachments(rows, latestByKey),
+  );
+
+  return groups.map((group) => {
+    const row = rows.find((r) => r.id === group.current.id);
+    if (!row) {
+      throw new Error("Logical Attachment current segment missing from query.");
+    }
     const published =
       input.publishedCycleStableKeysByDepartment.get(row.departmentId) ?? [];
     return presentLogAttachment({
       row,
       cycleLabelByKey: input.cycleLabelByKey,
       publishedCycleStableKeys: published,
+      latestPublishedVersion: group.latestPublishedCatalogVersion,
+      priorSegmentCount: group.prior.length,
+      todayKey: input.todayKey,
+      targetLabel: facilityAttachmentWhereLabel(row),
+      targetHref: attachmentTargetBuildHref(row),
     });
   });
+}
+
+function facilityAttachmentWhereLabel(row: {
+  targetKind: LogAttachment["targetKind"];
+  asset: {
+    name: string;
+    unit: { name: string } | null;
+    space: { name: string } | null;
+  } | null;
+  space: { name: string; unit: { name: string } | null } | null;
+  unit: { name: string } | null;
+  targetDepartment: { name: string } | null;
+}): string {
+  switch (row.targetKind) {
+    case "ASSET": {
+      const asset = row.asset;
+      if (!asset) return "Asset";
+      const loc = [asset.unit?.name, asset.space?.name].filter(Boolean).join(" → ");
+      return loc ? `${loc} → ${asset.name}` : asset.name;
+    }
+    case "SPACE": {
+      if (!row.space) return "Room";
+      return row.space.unit?.name ? `${row.space.unit.name} → ${row.space.name}` : row.space.name;
+    }
+    case "UNIT":
+      return row.unit?.name ?? "Unit";
+    case "DEPARTMENT":
+      return row.targetDepartment?.name ?? "Department";
+    default:
+      return "Facility";
+  }
+}
+
+async function loadLatestPublishedVersions(
+  client: Db,
+  stableKeys: readonly string[],
+): Promise<Map<string, number>> {
+  const keys = [...new Set(stableKeys.filter(Boolean))];
+  if (keys.length === 0) return new Map();
+  const published = await client.catalogLogDefinition.findMany({
+    where: { stableKey: { in: keys }, status: "PUBLISHED" },
+    select: { stableKey: true, version: true },
+    orderBy: { version: "desc" },
+  });
+  const map = new Map<string, number>();
+  for (const row of published) {
+    if (!map.has(row.stableKey)) map.set(row.stableKey, row.version);
+  }
+  return map;
 }

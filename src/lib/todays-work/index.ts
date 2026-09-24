@@ -1,7 +1,5 @@
-export { loadWalkList } from "./load-walk-list";
-export { loadCoverageList } from "./load-coverage-list";
-export { loadCallDownList } from "./load-call-down-list";
-export { loadHandoffs } from "./load-handoffs";
+export { loadPresenceCallOffs, buildPresenceCallOffItems } from "./load-presence-call-offs";
+export { presentHandoffsFromBoard } from "./present-handoffs-from-board";
 export {
   applyRoomKeyTimeAttention,
   buildActionableRoomWalkList,
@@ -80,7 +78,6 @@ export {
 export {
   adaptProjectionToTodaysWork,
   assembleExperienceWalkContributions,
-  assembleProjectedTodaysWorkCoverage,
   assembleProjectedTodaysWorkHandoffs,
   assembleProjectedTodaysWorkHub,
   assembleProjectedTodaysWorkWalk,

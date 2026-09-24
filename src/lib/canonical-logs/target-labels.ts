@@ -30,6 +30,8 @@ export async function resolveAttachmentTargetLabel(
     spaceId?: string | null;
     unitId?: string | null;
     targetDepartmentId?: string | null;
+    operationalTypeKey?: string | null;
+    departmentId?: string | null;
   },
 ): Promise<ResolvedTargetLabel | null> {
   switch (input.targetKind) {
@@ -150,5 +152,35 @@ export async function resolveAttachmentTargetLabel(
         departmentName: null,
         suggestionContext: { kind: "FACILITY" },
       };
+    case "OPERATIONAL_TYPE": {
+      const key = input.operationalTypeKey?.trim();
+      if (!key) return null;
+      const archetype = await client.departmentRoomArchetype.findFirst({
+        where: {
+          key,
+          profile: {
+            facilityId: input.facilityId,
+            ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+            status: { in: ["DRAFT", "CERTIFIED", "ACTIVE"] },
+          },
+        },
+        orderBy: { profile: { version: "desc" } },
+        select: {
+          name: true,
+          profile: { select: { departmentId: true, department: { select: { name: true } } } },
+        },
+      });
+      const typeName = archetype?.name ?? key;
+      return {
+        title: `Operational Type: ${typeName}`,
+        subtitle: archetype?.profile.department.name ?? null,
+        departmentId: archetype?.profile.departmentId ?? input.departmentId ?? null,
+        departmentName: archetype?.profile.department.name ?? null,
+        suggestionContext: {
+          kind: "DEPARTMENT",
+          departmentKey: null,
+        },
+      };
+    }
   }
 }

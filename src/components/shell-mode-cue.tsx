@@ -31,7 +31,7 @@ export function ShellModeCue() {
         isBuild
           ? "border-orange-500 bg-orange-500 text-white hover:bg-orange-600"
           : isRun
-            ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+            ? "border-teal-700 bg-teal-700 text-white hover:bg-teal-800"
             : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"
       }`}
       onClick={() => {

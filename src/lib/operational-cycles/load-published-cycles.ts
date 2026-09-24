@@ -31,6 +31,7 @@ type CycleRowInput = {
   locationMode: OperationalCycleDefinition["locationMode"];
   locationInheritFromParent?: boolean;
   applicableUnitTypes: OperationalCycleDefinition["applicableUnitTypes"];
+  applicableOperationalTypeKeys?: string[];
   expectedMilestones: OperationalCycleDefinition["expectedMilestones"];
   status: OperationalCycleDefinition["status"];
   parentStableKey?: string | null;
@@ -81,6 +82,7 @@ function mapCycleRow(row: CycleRowInput): OperationalCycleDefinition {
     locationMode: row.locationMode,
     locationInheritFromParent: row.locationInheritFromParent ?? false,
     applicableUnitTypes: row.applicableUnitTypes,
+    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys ?? [],
     roomTypeKey: row.roomTypeKey ?? null,
     expectedMilestones: row.expectedMilestones,
     status: row.status,

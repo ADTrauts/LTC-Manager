@@ -43,6 +43,7 @@ import {
   validateDraftsForReviewPublish,
 } from "./review-publish-validation";
 import { mapCycleRow } from "./load-published-cycles";
+import { loadDepartmentOperationalTypeOptions } from "./load-operational-type-targets";
 import type { CycleDraftInput, KeyTimeGroupDefinition } from "./types";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -233,6 +234,14 @@ function resolvedRoomTypeKey(
   return isStandardRoomTypeKey(key) ? key : null;
 }
 
+function resolvedOperationalTypeKeys(
+  locationMode: CycleDraftInput["locationMode"],
+  keys: readonly string[] | undefined,
+): string[] {
+  if (locationMode !== "OPERATIONAL_TYPES") return [];
+  return [...new Set((keys ?? []).map((key) => key.trim()).filter(Boolean))];
+}
+
 export async function loadScopeLocations(
   client: DbClient,
   facilityId: string,
@@ -282,7 +291,7 @@ export async function loadScopeLocations(
   for (const row of unitRows) {
     const unit = row.unit;
     if (!unit) continue;
-    if (unit.hierarchyRole === "FLOOR") continue;
+    if (unit.hierarchyRole === "FLOOR" || unit.hierarchyRole === "BUILDING") continue;
     locations.push({
       id: unit.id,
       kind: "neighborhood",
@@ -326,10 +335,19 @@ async function assertDraftScope(
     locationMode: NonNullable<CycleDraftInput["locationMode"]>;
   },
 ) {
-  const locations = await loadScopeLocations(client, input.facilityId, input.departmentId);
+  const [locations, operationalTypes] = await Promise.all([
+    loadScopeLocations(client, input.facilityId, input.departmentId),
+    loadDepartmentOperationalTypeOptions({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      perspective: "working",
+    }),
+  ]);
   const errors = validateCycleScopeAgainstCatalog({
     locationMode: input.locationMode,
     roomTypeKey: input.draft.roomTypeKey,
+    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
+    allowedOperationalTypeKeys: operationalTypes.map((type) => type.key),
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     milestoneTimes: input.draft.milestoneTimes,
@@ -465,6 +483,7 @@ export async function createDraft(
     locationMode,
     locationInheritFromParent: locationInherit,
     applicableUnitTypes: input.draft.applicableUnitTypes,
+    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
@@ -526,6 +545,10 @@ export async function createDraft(
       locationInheritFromParent: locationInherit,
       applicableUnitTypes:
         locationMode === "UNIT_TYPES" ? (input.draft.applicableUnitTypes ?? []) : [],
+      applicableOperationalTypeKeys: resolvedOperationalTypeKeys(
+        locationMode,
+        input.draft.applicableOperationalTypeKeys,
+      ),
       roomTypeKey: resolvedRoomTypeKey(locationMode, input.draft.roomTypeKey),
       expectedMilestones:
         input.draft.cycleType === "SERVICE" ? (input.draft.expectedMilestones ?? []) : [],
@@ -604,6 +627,7 @@ export async function updateDraft(
     locationMode,
     locationInheritFromParent: locationInherit,
     applicableUnitTypes: input.draft.applicableUnitTypes,
+    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
@@ -670,6 +694,10 @@ export async function updateDraft(
       locationInheritFromParent: locationInherit,
       applicableUnitTypes:
         locationMode === "UNIT_TYPES" ? (input.draft.applicableUnitTypes ?? []) : [],
+      applicableOperationalTypeKeys: resolvedOperationalTypeKeys(
+        locationMode,
+        input.draft.applicableOperationalTypeKeys,
+      ),
       roomTypeKey: resolvedRoomTypeKey(locationMode, input.draft.roomTypeKey),
       expectedMilestones:
         input.draft.cycleType === "SERVICE" ? (input.draft.expectedMilestones ?? []) : [],
@@ -748,6 +776,7 @@ export async function duplicateCycle(
       locationMode: source.locationMode,
       locationInheritFromParent: source.locationInheritFromParent,
       applicableUnitTypes: source.applicableUnitTypes,
+      applicableOperationalTypeKeys: source.applicableOperationalTypeKeys,
       roomTypeKey: source.roomTypeKey,
       expectedMilestones: source.expectedMilestones,
       status: "DRAFT",
@@ -1031,6 +1060,7 @@ export async function publishCycle(
       locationMode: mapped.locationMode,
       locationInheritFromParent: mapped.locationInheritFromParent,
       applicableUnitTypes: mapped.applicableUnitTypes,
+      applicableOperationalTypeKeys: mapped.applicableOperationalTypeKeys,
       unitIds: mapped.unitIds,
       spaceIds: mapped.spaceIds,
       roomTypeKey: mapped.roomTypeKey,

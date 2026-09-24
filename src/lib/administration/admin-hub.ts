@@ -3,6 +3,11 @@
  * Routes are preserved; this module does not change domain behavior.
  */
 
+import {
+  PROCEDURES_RESOURCES_HUB_ID,
+  PROCEDURES_RESOURCES_VISIBLE,
+} from "@/lib/knowledge/surface";
+
 export type AdminHubLink = {
   label: string;
   description: string;
@@ -36,6 +41,13 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
         description:
           "Manage facility details, organization information, operating company details, device settings, and multi-site access.",
         href: "/admin/organization",
+      },
+      {
+        id: "billing",
+        label: "Billing",
+        description:
+          "Choose departments included in this facility's plan, review pricing, and manage payment.",
+        href: "/admin/billing",
       },
     ],
   },
@@ -96,8 +108,27 @@ export function flattenAdminHubLinks(
   return sections.flatMap((section) => section.links);
 }
 
+function isDisplayedAdminHubLink(link: AdminHubLink): boolean {
+  if (link.id === PROCEDURES_RESOURCES_HUB_ID && !PROCEDURES_RESOURCES_VISIBLE) {
+    return false;
+  }
+  return !ADMIN_HUB_EXCLUDED_PRIMARY_HREFS.includes(link.href as (typeof ADMIN_HUB_EXCLUDED_PRIMARY_HREFS)[number]);
+}
+
+/** Administration hub sections with parked / excluded cards omitted. */
+export function visibleAdminHubSections(
+  sections: readonly AdminHubSection[] = ADMIN_HUB_SECTIONS,
+): readonly AdminHubSection[] {
+  return sections
+    .map((section) => ({
+      ...section,
+      links: section.links.filter(isDisplayedAdminHubLink),
+    }))
+    .filter((section) => section.links.length > 0);
+}
+
 export function adminHubPrimaryHrefs(
   sections: readonly AdminHubSection[] = ADMIN_HUB_SECTIONS,
 ): readonly string[] {
-  return flattenAdminHubLinks(sections).map((link) => link.href);
+  return flattenAdminHubLinks(visibleAdminHubSections(sections)).map((link) => link.href);
 }

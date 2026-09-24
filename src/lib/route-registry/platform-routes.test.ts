@@ -155,7 +155,9 @@ test("registry integrity — every API route is explicitly classified", () => {
 
   for (const route of apiRoutes) {
     assert.ok(
-      ["PUBLIC", "HANDLER_AUTHORIZED_API", "ROLE_RESTRICTED"].includes(route.access.kind),
+      ["PUBLIC", "HANDLER_AUTHORIZED_API", "ROLE_RESTRICTED", "HARBOR_STAFF"].includes(
+        route.access.kind,
+      ),
       `${route.pattern} uses ${route.access.kind}, which is not a valid API classification`,
     );
     if (route.access.kind !== "PUBLIC") {

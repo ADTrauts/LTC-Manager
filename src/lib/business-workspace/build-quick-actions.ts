@@ -2,6 +2,7 @@ import {
   isDietaryOperationalCyclesEnabled,
   isOperationalAssignmentsEnabled,
 } from "@/lib/feature-flags";
+import { PROCEDURES_RESOURCES_VISIBLE } from "@/lib/knowledge/surface";
 
 import type { WorkspaceContext, WorkspaceQuickAction } from "./types";
 import { isLinkAllowedForContext, type WorkspaceCompositionConfig } from "./workspace-composition";
@@ -69,13 +70,17 @@ export function buildQuickActions(options?: {
       href: "/logs",
       icon: "logs",
     },
-    {
-      id: "knowledge",
-      title: "Knowledge",
-      description: "SOPs and published reference",
-      href: "/admin/knowledge",
-      icon: "administration",
-    },
+    ...(PROCEDURES_RESOURCES_VISIBLE
+      ? [
+          {
+            id: "knowledge",
+            title: "Knowledge",
+            description: "SOPs and published reference",
+            href: "/admin/knowledge",
+            icon: "administration",
+          } satisfies WorkspaceQuickAction,
+        ]
+      : []),
   ];
 
   if (isOperationalAssignmentsEnabled()) {

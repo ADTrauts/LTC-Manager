@@ -31,7 +31,7 @@ Department Administration owns the department's operational model:
 
 Department Administration must never reach across a boundary it does not own:
 
-- **It does not own physical structure.** It never creates, edits, moves, or deletes a Facility, Floor, Neighborhood, or Room. That is Facility Builder.
+- **It does not own physical structure.** It never creates, edits, moves, or deletes a Facility, Building, Floor, Neighborhood, or Room. That is Facility Builder.
 - **It does not own room-to-department assignment.** Whether a room belongs to Dietary is Facility Builder's decision. Department Administration only describes how Dietary behaves *in the rooms it was given*.
 - **It does not own derivation.** It never decides that an Experience appears in a specific room for a specific user. That is Projection.
 - **It does not own live operational truth.** It never stores whether today's trays were accurate or whether a work order is open. Those are Operational Engines.
@@ -42,7 +42,7 @@ Department Administration must never reach across a boundary it does not own:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │ FACILITY BUILDER            owns physical truth               │
-│   Facility → Floor → Neighborhood → Room                      │
+│   Facility → Building? → Floor → Neighborhood → Room          │
 │   Room ↔ Department assignment                                │
 │   Knows nothing about Experiences, Areas, or modules.         │
 ├─────────────────────────────────────────────────────────────┤

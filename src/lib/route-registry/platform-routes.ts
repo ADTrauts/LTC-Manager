@@ -1,3 +1,4 @@
+import { PROCEDURES_RESOURCES_VISIBLE } from "@/lib/knowledge/surface";
 import { rolesAtLeast, type PlatformRoute } from "@/lib/route-registry/types";
 
 /**
@@ -37,6 +38,97 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "PUBLIC" },
     module: "auth",
+  },
+  {
+    pattern: "/console/login",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+    notes: "Unlisted LTC Corp staff login. Not linked from marketing or facility /login.",
+  },
+  {
+    pattern: "/console",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor Today. Proxy requires harbor_session; page re-checks PlatformStaff.",
+  },
+  {
+    pattern: "/console/customers",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+  },
+  {
+    pattern: "/console/customers/[facilityId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+  },
+  {
+    pattern: "/api/console/auth/login",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+  },
+  {
+    pattern: "/api/console/auth/logout",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+    notes: "Clears harbor_session even when the token is already invalid.",
+  },
+  {
+    pattern: "/api/console/work-session",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Opens a bannered work session on a customer facility. Does not impersonate a facility user.",
+  },
+  {
+    pattern: "/api/console/work-session/end",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Ends the Harbor work session and returns to the customer record.",
+  },
+  {
+    pattern: "/console/catalog",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor Catalog list. Platform-scoped; facilities never author these rows.",
+  },
+  {
+    pattern: "/console/catalog/new",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+  },
+  {
+    pattern: "/console/catalog/[stableKey]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
   },
 
   // ── Authenticated, guarded downstream ─────────────────────────────────────
@@ -282,11 +374,11 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
     featureFlag: "DIETARY_OPERATIONAL_EVIDENCE",
-    // RUN · Log Book — historical operational evidence and records. Nav hidden when the capability is
-    // off (the page keeps its own DIETARY_OPERATIONAL_EVIDENCE_ENABLED guard downstream).
+    // RUN · Log Book — historical operational evidence and records. Registry nav is evidence-flagged;
+    // app-shell injects this item when CANONICAL_LOGS_ENABLED even if evidence is off.
     nav: { label: "Log Book", order: 50 },
     notes:
-      "Dietary Operational Evidence Log Book (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED.",
+      "Dietary Operational Evidence Log Book (Phase 9C). Also the Canonical Logs history destination. Page allows DIETARY_OPERATIONAL_EVIDENCE_ENABLED or CANONICAL_LOGS_ENABLED.",
   },
   {
     pattern: "/staffing/log-book/[recordId]",
@@ -303,10 +395,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "staffing",
     featureFlag: "CANONICAL_LOGS",
-    // RUN · Logs — canonical today's requirements (Phase 4B). Temporary path while legacy /logs remains.
-    nav: { label: "Logs", order: 55 },
     notes:
-      "Canonical RUN Logs for Attachment-derived requirements. Page enforces CANONICAL_LOGS_ENABLED.",
+      "Canonical RUN Logs for Attachment-derived requirements. Page enforces CANONICAL_LOGS_ENABLED. Not a top-nav item — due work lives on the room; Log Book is the history destination.",
   },
   {
     pattern: "/staffing/logs/open",
@@ -331,6 +421,33 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "staffing",
     featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/staffing/logs/targets/space/[spaceId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+    notes: "Canonical RUN Logs for a Room/Space target. Direct Room attachments only.",
+  },
+  {
+    pattern: "/staffing/logs/targets/department/[departmentId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+    notes: "Canonical RUN Logs for Department-target Attachments (no fake Room).",
+  },
+  {
+    pattern: "/staffing/logs/targets/unit/[unitId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+    notes: "Canonical RUN Logs for Unit/Neighborhood-target Attachments. Does not redesign unit workspace.",
   },
 
   // ── Locations ─────────────────────────────────────────────────────────────
@@ -424,8 +541,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "logs",
     legacyArea: { key: "logs", label: "Logs", navOrder: 40, navVisible: true, critical: false },
-    // RUN · Logs — frontline STAFF logging surface (legacy LogTemplate path).
-    // When CANONICAL_LOGS_ENABLED, shell remaps this nav label to "Legacy Logs".
+    // RUN · legacy Logs. Hidden from nav when CANONICAL_LOGS_ENABLED (app-shell rewrite).
     nav: { label: "Logs", order: 70 },
     notes:
       "Legacy LogTemplate / LogAssignment / LogSubmission surface. Remains fully writable. Canonical RUN Logs live at /staffing/logs when CANONICAL_LOGS_ENABLED.",
@@ -447,9 +563,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "assets",
     legacyArea: { key: "assets", label: "Assets", navOrder: 70, navVisible: true, critical: false },
-    // RUN · Assets — operational view (condition, profile, issues, work orders).
-    // Asset configuration (identity, type, location, department, retirement) lives on
-    // `/assets/builder`. One Prisma Asset registry; no second identity.
+    // RUN · Maintenance (Assets tab) — operational view (condition, profile, issues, WO).
+    // Shell rewrite labels this "Maintenance" and hides the sibling Repairs nav item.
+    // Asset configuration lives on `/assets/builder`. One Prisma Asset registry.
     nav: { label: "Assets", order: 60 },
   },
   {
@@ -490,7 +606,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "repairs",
     legacyArea: { key: "repairs", label: "Repairs", navOrder: 80, navVisible: true, critical: false },
-    // RUN · Repairs / Work Orders — operational repair runtime.
+    // RUN · Maintenance (Repairs tab) — work-order queue. Hidden from header when
+    // Assets is also offered; STAFF keep this as their Maintenance landing.
     nav: { label: "Repairs", order: 90 },
   },
   {
@@ -603,9 +720,13 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
-    // BUILD · Procedures & Resources — the operational knowledge/procedure library, presented in
-    // operational language rather than "Operational Knowledge".
-    nav: { label: "Procedures & Resources", order: 260 },
+    // BUILD · Procedures & Resources — parked from nav/hubs; page stays reachable by URL.
+    // Restore with PROCEDURES_RESOURCES_VISIBLE in src/lib/knowledge/surface.ts.
+    notes:
+      "Operational knowledge/procedure library. Temporarily hidden from navigation and hubs; FACILITY_ADMINISTRATOR access and the page remain.",
+    ...(PROCEDURES_RESOURCES_VISIBLE
+      ? { nav: { label: "Procedures & Resources", order: 260 } }
+      : {}),
   },
   {
     pattern: "/admin/organization",
@@ -628,6 +749,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
     notes: "Read-only Access Matrix. It renders this registry and cannot change it.",
+  },
+  {
+    pattern: "/admin/billing",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    notes: "Facility plan selection and Stripe Checkout. Does not gate departments until BILLING_ENTITLEMENTS_ENABLED.",
   },
 
   // ── Registered redirect ───────────────────────────────────────────────────
@@ -767,6 +896,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "offline",
     requiresDownstreamAuthorization: true,
     notes: "Synchronizes bounded offline Milestone command batches with authority revalidation.",
+  },
+  {
+    pattern: "/api/attachments/[id]",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HANDLER_AUTHORIZED_API" },
+    module: "assets",
+    requiresDownstreamAuthorization: true,
+    notes: "Serves a facility-scoped attachment file; handler checks session and facilityId.",
   },
 
   // ── Role-restricted APIs (proxy floor plus handler authorization) ─────────
@@ -918,6 +1056,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "INTERNAL",
     access: { kind: "INTERNAL" },
     module: "framework",
+  },
+  {
+    pattern: "/marketing",
+    match: "PREFIX",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "marketing",
+    notes: "Public landing-page photographs. Files live under public/marketing/.",
   },
   {
     pattern: "/window.svg",

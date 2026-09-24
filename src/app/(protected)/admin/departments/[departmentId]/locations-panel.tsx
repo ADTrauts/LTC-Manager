@@ -1,22 +1,22 @@
 import Link from "next/link";
 
+import { LocationsProgrammingClient } from "@/app/(protected)/admin/departments/[departmentId]/locations-programming-client";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { Button } from "@/components/design-system/Button";
-import { DepartmentLocationTree } from "@/components/location-tree";
 import type { DepartmentAdminView } from "@/lib/department-administration";
+import type { EffectiveLocationProgram } from "@/lib/department-administration/effective-location-program";
 
 type Props = {
   view: DepartmentAdminView;
+  canAuthorPatterns: boolean;
+  programs: Record<string, EffectiveLocationProgram>;
 };
 
 /**
- * Department Locations — read-only, Department-filtered Facility Structure tree.
- * Visual grammar matches Facility Builder Structure; edits stay in Facility Builder.
+ * Department Locations — programming surface for Operational Type on rooms
+ * Facility Builder already assigned to this department.
  */
-export function LocationsPanel({ view }: Props) {
-  const floorLabel = view.vocabulary.level1.singular;
-  const neighborhoodLabel = view.vocabulary.level2.singular;
-
+export function LocationsPanel({ view, canAuthorPatterns, programs }: Props) {
   return (
     <div className="max-w-5xl space-y-3" data-testid="department-locations-panel">
       <div
@@ -25,7 +25,10 @@ export function LocationsPanel({ view }: Props) {
       >
         <div className="min-w-0 space-y-2">
           <h2 className="text-base font-semibold text-zinc-900">Locations</h2>
-          <p className="text-sm text-zinc-600">Where {view.department.name} operates.</p>
+          <p className="text-sm text-zinc-600">
+            Physical places {view.department.name} is responsible for, and the Operational Type
+            assigned to each room.
+          </p>
         </div>
         <Link
           href="/admin/facility/builder"
@@ -50,10 +53,13 @@ export function LocationsPanel({ view }: Props) {
           data-testid="department-locations-empty"
         />
       ) : (
-        <DepartmentLocationTree
-          floors={view.locationHierarchy}
-          floorLabel={floorLabel}
-          neighborhoodLabel={neighborhoodLabel}
+        <LocationsProgrammingClient
+          view={view}
+          canAuthorPatterns={canAuthorPatterns}
+          operationalTypes={(view.workingProfile?.archetypes ?? [])
+            .filter((type) => type.isActive)
+            .map((type) => ({ id: type.id, key: type.key, name: type.name }))}
+          programs={programs}
         />
       )}
     </div>

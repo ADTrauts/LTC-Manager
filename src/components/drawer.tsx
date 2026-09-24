@@ -81,6 +81,9 @@ export function Drawer({
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     const onKey = (e: KeyboardEvent) => {
+      const focusInsidePanel =
+        panelRef.current?.contains(document.activeElement) === true;
+      if (!focusInsidePanel) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();

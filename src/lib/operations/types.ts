@@ -32,28 +32,6 @@ export type ActiveOperationInstanceRow = {
   scheduledEndLocal: string | null;
 };
 
-export type ResolveActiveOperationHeuristicHints = {
-  unitCards: import("@/lib/operations-center").OperationsCenterUnitCard[];
-  mealBoards: import("@/lib/operations-center").OperationsCenterMealBoard[];
-};
-
-export type ResolveActiveOperationUnitHeuristicHints = {
-  unit: import("@/lib/unit-workspace/types").UnitWorkspaceUnit;
-  mealServiceEventByMeal: Map<
-    MealType,
-    import("@/lib/unit-workspace/types").UnitWorkspaceMealServiceEventToday
-  >;
-};
-
-export type ResolveActiveOperationInput = {
-  facilityId: string;
-  departmentId: string;
-  now?: Date;
-  facilityTimezone?: string | null;
-  heuristicHints?: ResolveActiveOperationHeuristicHints;
-  unitHeuristicHints?: ResolveActiveOperationUnitHeuristicHints;
-};
-
 export type ResolvedActiveOperation = {
   source: ActiveOperationSource;
   facilityId: string;

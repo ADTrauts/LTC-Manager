@@ -12,19 +12,22 @@ import {
   loadFacilityTimezone,
   toServiceDateKey,
 } from "@/lib/operational-time";
-import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 
-import { loadCycleOptionsForDepartment } from "./cycle-options";
+import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
-  resolveLogRequirementsForAttachment,
-  type PublishedCycleForLogs,
-} from "./resolve-log-requirements";
+  dedupeLocationLogRequirements,
+  expandOperationalTypeSpaces,
+} from "./log-operational-type-applicability";
+import { loadPublishedCyclesForLogsOnDate } from "./load-published-cycles-for-logs";
+import { resolveLogRequirementsForAttachment } from "./resolve-log-requirements";
 import { resolveAttachmentTargetLabel } from "./target-labels";
 import {
   presentRunLogRequirement,
   type RunAdHocAttachmentView,
   type RunLogRequirementView,
+  type UpcomingRunLogView,
 } from "./run-presentation";
+import { describeAttachmentStart } from "./effective-from";
 
 type Db = PrismaClient;
 
@@ -32,12 +35,15 @@ export async function loadFacilityRunLogRequirements(input: {
   client: Db;
   session: AppJwtPayload;
   facilityId: string;
-  departmentId: string;
+  /** Null = facility-wide (All Departments). */
+  departmentId: string | null;
   now?: Date;
 }): Promise<{
   operationalDateKey: string;
   requirements: RunLogRequirementView[];
   adHocAttachments: RunAdHocAttachmentView[];
+  upcoming: UpcomingRunLogView[];
+  otherDepartmentNames: string[];
   timezone: string;
 }> {
   if (!isCanonicalLogsEnabled()) {
@@ -45,6 +51,8 @@ export async function loadFacilityRunLogRequirements(input: {
       operationalDateKey: toServiceDateKey(new Date()),
       requirements: [],
       adHocAttachments: [],
+      upcoming: [],
+      otherDepartmentNames: [],
       timezone: "UTC",
     };
   }
@@ -53,12 +61,14 @@ export async function loadFacilityRunLogRequirements(input: {
   const timezone = await loadFacilityTimezone(input.client, input.facilityId);
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const isManager = hasAtLeastRole(input.session.role, "MANAGER");
+  const todayDate = new Date(`${operationalDateKey}T00:00:00.000Z`);
 
   const attachments = await input.client.logAttachment.findMany({
     where: {
       facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      status: "ACTIVE",
+      ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+      effectiveFrom: { lte: todayDate },
+      OR: [{ effectiveTo: null }, { effectiveTo: { gte: todayDate } }],
     },
     include: {
       dailyWindows: { orderBy: { displaySequence: "asc" } },
@@ -69,55 +79,27 @@ export async function loadFacilityRunLogRequirements(input: {
     },
   });
 
-  const cycleOptions = await loadCycleOptionsForDepartment(
-    input.client,
-    input.facilityId,
-    input.departmentId,
-    now,
-  );
+  const departmentIds = [
+    ...new Set(
+      [
+        input.departmentId,
+        ...attachments.map((a) => a.departmentId),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  ];
 
-  // Load published cycle windows for the operational date.
-  const cycleRows = await input.client.departmentOperationalCycle.findMany({
-    where: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      status: "PUBLISHED",
-      nodeKind: "PERIOD",
-      effectiveFrom: { lte: new Date(`${operationalDateKey}T00:00:00.000Z`) },
-      OR: [
-        { effectiveTo: null },
-        { effectiveTo: { gte: new Date(`${operationalDateKey}T00:00:00.000Z`) } },
-      ],
-    },
-    select: {
-      stableKey: true,
-      label: true,
-      startLocal: true,
-      endLocal: true,
-      overnight: true,
-    },
-  });
-
-  const publishedCycles: PublishedCycleForLogs[] = [];
-  for (const row of cycleRows) {
-    if (!row.startLocal || !row.endLocal) continue;
-    const instants = resolveCycleWindowInstants({
-      operationalDateKey,
-      startLocal: row.startLocal,
-      endLocal: row.endLocal,
-      overnight: row.overnight,
-      facilityTimezone: timezone,
-    });
-    if (!instants) continue;
-    publishedCycles.push({
-      stableKey: row.stableKey,
-      label: row.label,
-      startLocal: row.startLocal,
-      endLocal: row.endLocal,
-      overnight: row.overnight,
-      startsAt: instants.startsAt,
-      endsAt: instants.endsAt,
-    });
+  const publishedCyclesByDepartment = new Map<string, Awaited<ReturnType<typeof loadPublishedCyclesForLogsOnDate>>>();
+  for (const departmentId of departmentIds) {
+    publishedCyclesByDepartment.set(
+      departmentId,
+      await loadPublishedCyclesForLogsOnDate({
+        client: input.client,
+        facilityId: input.facilityId,
+        departmentId,
+        operationalDateKey,
+        timezone,
+      }),
+    );
   }
 
   const attachmentIds = attachments.map((a) => a.id);
@@ -127,8 +109,8 @@ export async function loadFacilityRunLogRequirements(input: {
       : await input.client.operationalEvidenceRecord.findMany({
           where: {
             facilityId: input.facilityId,
-            departmentId: input.departmentId,
-            operationalDate: new Date(`${operationalDateKey}T00:00:00.000Z`),
+            ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+            operationalDate: todayDate,
             logAttachmentId: { in: attachmentIds },
           },
           select: {
@@ -141,6 +123,44 @@ export async function loadFacilityRunLogRequirements(input: {
 
   const requirements: RunLogRequirementView[] = [];
   const adHocAttachments: RunAdHocAttachmentView[] = [];
+  const collected: ReturnType<typeof resolveLogRequirementsForAttachment> = [];
+  const presented: Array<{
+    requirement: (typeof collected)[number];
+    catalogDefinitionName: string;
+    localDisplayLabel: string | null;
+    localInstructions: string | null;
+    catalogInstructions: string | null;
+    targetLabel: string;
+  }> = [];
+  const runtimeAssignments = new Map<
+    string,
+    Awaited<ReturnType<typeof loadSpaceOperationalTypeAssignments>>
+  >();
+  const spaceLabels = new Map<string, string>();
+
+  function catalogForResolve(attachment: (typeof attachments)[number]) {
+    return {
+      id: attachment.catalogDefinition.id,
+      name: attachment.catalogDefinition.name,
+      purposeType: attachment.catalogDefinition.purposeType,
+      instructions: attachment.catalogDefinition.instructions,
+      status: attachment.catalogDefinition.status,
+      fields: attachment.catalogDefinition.fields.map((f) => ({
+        fieldKey: f.fieldKey,
+        label: f.label,
+        fieldType: f.fieldType,
+        isRequired: f.isRequired,
+        displaySequence: f.displaySequence,
+        helpText: f.helpText,
+        unitLabel: f.unitLabel,
+        minNumber: f.minNumber,
+        maxNumber: f.maxNumber,
+        allowedSelections: f.allowedSelections,
+        correctiveActionTrigger: f.correctiveActionTrigger,
+        correctiveActionRequired: f.correctiveActionRequired,
+      })),
+    };
+  }
 
   for (const attachment of attachments) {
     const targetLabel =
@@ -152,6 +172,8 @@ export async function loadFacilityRunLogRequirements(input: {
           spaceId: attachment.spaceId,
           unitId: attachment.unitId,
           targetDepartmentId: attachment.targetDepartmentId,
+          operationalTypeKey: attachment.operationalTypeKey,
+          departmentId: attachment.departmentId,
         })
       )?.title ?? "Target";
 
@@ -168,59 +190,160 @@ export async function loadFacilityRunLogRequirements(input: {
       continue;
     }
 
-    const resolved = resolveLogRequirementsForAttachment({
-      attachment: {
-        ...attachment,
-        catalogDefinition: {
-          id: attachment.catalogDefinition.id,
-          name: attachment.catalogDefinition.name,
-          purposeType: attachment.catalogDefinition.purposeType,
-          instructions: attachment.catalogDefinition.instructions,
-          status: attachment.catalogDefinition.status,
-          fields: attachment.catalogDefinition.fields.map((f) => ({
-            fieldKey: f.fieldKey,
-            label: f.label,
-            fieldType: f.fieldType,
-            isRequired: f.isRequired,
-            displaySequence: f.displaySequence,
-            helpText: f.helpText,
-            unitLabel: f.unitLabel,
-            minNumber: f.minNumber,
-            maxNumber: f.maxNumber,
-            allowedSelections: f.allowedSelections,
-            correctiveActionTrigger: f.correctiveActionTrigger,
-            correctiveActionRequired: f.correctiveActionRequired,
-          })),
+    const spaceIds =
+      attachment.targetKind === "OPERATIONAL_TYPE"
+        ? await (async () => {
+            let assignments = runtimeAssignments.get(attachment.departmentId);
+            if (!assignments) {
+              assignments = await loadSpaceOperationalTypeAssignments({
+                facilityId: input.facilityId,
+                departmentId: attachment.departmentId,
+                perspective: "runtime",
+              });
+              runtimeAssignments.set(attachment.departmentId, assignments);
+            }
+            return expandOperationalTypeSpaces(assignments, attachment.operationalTypeKey);
+          })()
+        : [null];
+
+    if (attachment.targetKind === "OPERATIONAL_TYPE") {
+      const missing = spaceIds.filter((id): id is string => typeof id === "string" && !spaceLabels.has(id));
+      if (missing.length > 0) {
+        const spaces = await input.client.unitSpace.findMany({
+          where: { id: { in: missing }, facilityId: input.facilityId },
+          select: { id: true, name: true, unit: { select: { name: true } } },
+        });
+        for (const space of spaces) {
+          spaceLabels.set(
+            space.id,
+            space.unit?.name ? `${space.unit.name} → ${space.name}` : space.name,
+          );
+        }
+      }
+    }
+
+    for (const spaceId of spaceIds) {
+      const resolved = resolveLogRequirementsForAttachment({
+        attachment: {
+          ...attachment,
+          resolvedSpaceId: spaceId,
+          catalogDefinition: catalogForResolve(attachment),
         },
-      },
-      operationalDateKey,
-      now,
-      facilityTimezone: timezone,
-      publishedCycles,
-      existingRecords,
-    });
+        operationalDateKey,
+        now,
+        facilityTimezone: timezone,
+        publishedCycles: publishedCyclesByDepartment.get(attachment.departmentId) ?? [],
+        existingRecords,
+      });
 
-    for (const req of resolved) {
-      // Hide Needs setup from non-managers (frontline shouldn't repair BUILD).
-      if (req.productState === "NEEDS_SETUP" && !isManager) continue;
-
-      requirements.push(
-        presentRunLogRequirement({
+      for (const req of resolved) {
+        if (req.productState === "NEEDS_SETUP" && !isManager) continue;
+        collected.push(req);
+        presented.push({
           requirement: req,
           catalogDefinitionName: attachment.catalogDefinition.name,
           localDisplayLabel: attachment.localDisplayLabel,
           localInstructions: attachment.localInstructions,
           catalogInstructions: attachment.catalogDefinition.instructions,
-          targetLabel,
-          isManager,
-        }),
-      );
+          targetLabel: spaceId ? (spaceLabels.get(spaceId) ?? targetLabel) : targetLabel,
+        });
+      }
     }
   }
 
-  void cycleOptions;
+  const kept = new Set(dedupeLocationLogRequirements(collected).map((row) => row.requirementKey));
+  for (const item of presented) {
+    if (!kept.has(item.requirement.requirementKey)) continue;
+    requirements.push(
+      presentRunLogRequirement({
+        requirement: item.requirement,
+        catalogDefinitionName: item.catalogDefinitionName,
+        localDisplayLabel: item.localDisplayLabel,
+        localInstructions: item.localInstructions,
+        catalogInstructions: item.catalogInstructions,
+        targetLabel: item.targetLabel,
+        isManager,
+      }),
+    );
+  }
 
-  return { operationalDateKey, requirements, adHocAttachments, timezone };
+  const upcomingRows = await input.client.logAttachment.findMany({
+    where: {
+      facilityId: input.facilityId,
+      ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+      status: { not: "RETIRED" },
+      effectiveFrom: { gt: todayDate },
+    },
+    orderBy: { effectiveFrom: "asc" },
+    take: 24,
+    select: {
+      localDisplayLabel: true,
+      effectiveFrom: true,
+      targetKind: true,
+      assetId: true,
+      spaceId: true,
+      unitId: true,
+      targetDepartmentId: true,
+      operationalTypeKey: true,
+      catalogDefinition: { select: { name: true } },
+    },
+  });
+
+  const upcoming: UpcomingRunLogView[] = [];
+  for (const row of upcomingRows) {
+    const fromKey = toServiceDateKey(row.effectiveFrom);
+    const start = describeAttachmentStart({ effectiveFromKey: fromKey, todayKey: operationalDateKey });
+    const targetLabel =
+      (
+        await resolveAttachmentTargetLabel(input.client, {
+          facilityId: input.facilityId,
+          targetKind: row.targetKind,
+          assetId: row.assetId,
+          spaceId: row.spaceId,
+          unitId: row.unitId,
+          targetDepartmentId: row.targetDepartmentId,
+          operationalTypeKey: row.operationalTypeKey,
+          departmentId: undefined,
+        })
+      )?.title ?? null;
+    upcoming.push({
+      displayName: row.localDisplayLabel?.trim() || row.catalogDefinition.name,
+      startsOnLabel: start.startsOnLabel ?? start.effectiveLabel,
+      targetLabel,
+    });
+  }
+
+  let otherDepartmentNames: string[] = [];
+  if (
+    input.departmentId &&
+    requirements.length === 0 &&
+    adHocAttachments.length === 0 &&
+    upcoming.length === 0
+  ) {
+    const others = await input.client.logAttachment.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: { not: input.departmentId },
+        status: { not: "RETIRED" },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: todayDate } }],
+      },
+      distinct: ["departmentId"],
+      select: { departmentId: true, department: { select: { name: true } } },
+      take: 8,
+    });
+    otherDepartmentNames = [
+      ...new Set(others.map((row) => row.department?.name).filter((name): name is string => Boolean(name))),
+    ];
+  }
+
+  return {
+    operationalDateKey,
+    requirements,
+    adHocAttachments,
+    upcoming,
+    otherDepartmentNames,
+    timezone,
+  };
 }
 
 export async function loadRunLogRequirementByKey(input: {

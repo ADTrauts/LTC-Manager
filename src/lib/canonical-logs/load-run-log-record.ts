@@ -31,6 +31,7 @@ export type RunLogRecordView = {
   catalogInstructions: string | null;
   localInstructions: string | null;
   correctiveActionText: string | null;
+  amendments: Array<{ id: string; reason: string; atLabel: string; byLabel: string | null }>;
   fields: Array<{
     label: string;
     displayValue: string;
@@ -218,6 +219,12 @@ export async function loadRunLogRecordView(input: {
     catalogInstructions: snapshot?.catalog.instructions ?? null,
     localInstructions: snapshot?.attachment.localInstructions ?? null,
     correctiveActionText: stub.correctiveActionText,
+    amendments: detail.record.corrections.map((c) => ({
+      id: c.id,
+      reason: c.reason,
+      atLabel: c.createdAt.toLocaleString(),
+      byLabel: c.correctedByLabel,
+    })),
     fields,
   };
 }

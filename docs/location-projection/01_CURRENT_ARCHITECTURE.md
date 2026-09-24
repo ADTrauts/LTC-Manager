@@ -15,18 +15,24 @@ The Facility Builder owns the physical structure:
 
 ```text
 Facility
-  └── Unit(hierarchyRole = FLOOR)
+  ├── Unit(hierarchyRole = BUILDING)     ← optional
+  │     └── Unit(hierarchyRole = FLOOR)
+  │           └── Unit(hierarchyRole = NEIGHBORHOOD)
+  │                 └── UnitSpace (Room)
+  └── Unit(hierarchyRole = FLOOR)        ← typical LTC (no buildings)
         └── Unit(hierarchyRole = NEIGHBORHOOD)
               └── UnitSpace (Room)
 ```
+
+Building is optional. Typical long-term care sites stay Facility → Floor → Neighborhood → Room. Campus, hospital towers, and hotel annexes add Buildings above Floors. Do not auto-convert existing campus-profile Floor rows that were only *labeled* “Building.”
 
 Compatibility records may use `LEGACY_LOCATION`. `STAGED` Units and rooms with `unitId = null` are builder-only and must not enter operational projections.
 
 The implementation is intentionally split across:
 
-- `Unit`: floor, neighborhood, legacy operational location, and hierarchy links.
+- `Unit`: optional building, floor, neighborhood, legacy operational location, and hierarchy links.
 - `UnitSpace`: room/space identity and placement.
-- `Facility` vocabulary fields: presentation labels for the three physical levels.
+- `Facility` vocabulary fields: presentation labels for the optional Building level plus Floor / Neighborhood / Room.
 - `UnitSpaceResponsibility`: explicit room-to-department capabilities.
 - `UnitDepartmentResponsibility`: existing Unit-level compatibility responsibilities.
 - Facility-wide Plant maintenance policy: broad maintenance scope without copied room rows.

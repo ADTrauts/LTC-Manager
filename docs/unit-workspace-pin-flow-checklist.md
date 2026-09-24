@@ -8,7 +8,7 @@
 
 Goal: Confirm log submit and servery ready/started remain reachable in **≤3 taps** from Unit Workspace without layout clutter.
 
-Reference: [03_UNIT_WORKSPACE_REFERENCE.md](../../docs/product-reference/03_UNIT_WORKSPACE_REFERENCE.md), [02_UNIT_WORKSPACE.md](../../docs/reference-ux/02_UNIT_WORKSPACE.md)
+Reference: [03_UNIT_WORKSPACE_REFERENCE.md](./product-reference/03_UNIT_WORKSPACE_REFERENCE.md), [02_UNIT_WORKSPACE.md](./reference-ux/02_UNIT_WORKSPACE.md)
 
 ---
 

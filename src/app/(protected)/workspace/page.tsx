@@ -7,10 +7,9 @@ import { BusinessWorkspaceScreen } from "@/components/business-workspace/busines
 import { PageHeader } from "@/components/design-system/page-header";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import {
-  canAccessBusinessWorkspace,
-  loadBusinessWorkspace,
-} from "@/lib/business-workspace";
+import { canAccessBusinessWorkspace } from "@/lib/business-workspace";
+import { loadBusinessWorkspace } from "@/lib/business-workspace/load-business-workspace";
+import { loadDashboardRuntime } from "@/lib/business-workspace/dashboard";
 import { assembleProjectedBusinessWorkspace } from "@/lib/business-workspace/projection/load";
 import { isProjectionBusinessWorkspaceEnabled } from "@/lib/feature-flags";
 import { getFacilityForSession } from "@/lib/facility-context";
@@ -106,6 +105,8 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
     departmentName = "All departments";
   }
 
+  const dashboardRuntime = await loadDashboardRuntime(session);
+
   const workspaceInput = {
     facilityId: session.facilityId,
     facilityName: facility?.displayName ?? "Facility",
@@ -115,6 +116,7 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
     activeDepartmentKey: deptNav.activeOperationalDepartmentKey,
     activeDepartmentId: deptNav.activeDepartmentId,
     activeDepartmentName: departmentName,
+    dashboardRuntime,
   };
 
   if (isProjectionBusinessWorkspaceEnabled()) {

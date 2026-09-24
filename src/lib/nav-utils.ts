@@ -1,8 +1,13 @@
+import { isRunMaintenancePath } from "@/lib/asset-operations/maintenance-nav";
+
 /**
  * Shared active-state matching for top nav and sidebar links.
  */
 export function isActiveNavPath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
+  if (href === "/assets" || href === "/repairs") {
+    return isRunMaintenancePath(pathname);
+  }
   if (href === "/employees") {
     return (
       pathname === "/employees" ||

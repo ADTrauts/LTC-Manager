@@ -14,20 +14,29 @@ type Props = {
   floors: readonly FloorGroup[];
   floorLabel: string;
   neighborhoodLabel: string;
+  selectedRoomId?: string | null;
+  onSelectRoom?: (room: Room) => void;
 };
 
 function floorKey(floor: FloorGroup): string {
   return `floor:${floor.floorName ?? "__none__"}`;
 }
 
+function operationalTypeLabel(room: Room): string {
+  if (room.hasPattern && room.patternLabel) return room.patternLabel;
+  return "No Operational Type";
+}
+
 /**
- * Read-only Department Locations tree using Facility Builder Structure grammar.
- * Expansion is local UI state only.
+ * Department Locations tree using Facility Builder Structure grammar.
+ * Expansion is local UI state only. Does not claim physical locations.
  */
 export function DepartmentLocationTree({
   floors,
   floorLabel,
   neighborhoodLabel,
+  selectedRoomId = null,
+  onSelectRoom,
 }: Props) {
   const defaultExpanded = useMemo(() => {
     const next = new Set<string>();
@@ -92,7 +101,13 @@ export function DepartmentLocationTree({
               {isExpanded ? (
                 <ul className={LOCATION_TREE_ROW_GAP_CLASS} role="group">
                   {floor.orphanRooms.map((room) => (
-                    <RoomItem key={room.id} room={room} depth={1} />
+                    <RoomItem
+                      key={room.id}
+                      room={room}
+                      depth={1}
+                      selected={selectedRoomId === room.id}
+                      onSelect={onSelectRoom}
+                    />
                   ))}
                   {floor.neighborhoods.map(({ location, rooms }) => {
                     const nId = `neighborhood:${location.id}`;
@@ -120,7 +135,13 @@ export function DepartmentLocationTree({
                         {nExpanded && rooms.length > 0 ? (
                           <ul className={LOCATION_TREE_ROW_GAP_CLASS} role="group">
                             {rooms.map((room) => (
-                              <RoomItem key={room.id} room={room} depth={2} />
+                              <RoomItem
+                                key={room.id}
+                                room={room}
+                                depth={2}
+                                selected={selectedRoomId === room.id}
+                                onSelect={onSelectRoom}
+                              />
                             ))}
                           </ul>
                         ) : null}
@@ -137,14 +158,39 @@ export function DepartmentLocationTree({
   );
 }
 
-function RoomItem({ room, depth }: { room: Room; depth: number }) {
+function RoomItem({
+  room,
+  depth,
+  selected,
+  onSelect,
+}: {
+  room: Room;
+  depth: number;
+  selected: boolean;
+  onSelect?: (room: Room) => void;
+}) {
+  const physical = room.roomTypeLabel ?? "Physical Type not assigned";
+  const operational = operationalTypeLabel(room);
   return (
     <li role="treeitem" data-testid="department-location-room">
       <LocationTreeRow
         kind="room"
         depth={depth}
         label={room.displayName}
-        meta={room.roomTypeLabel ?? "Room Type not assigned"}
+        meta={`Physical Type: ${physical}`}
+        selected={selected}
+        onSelect={onSelect ? () => onSelect(room) : undefined}
+        trailing={
+          <span
+            className={`mr-2 hidden max-w-[11rem] shrink-0 truncate text-xs sm:inline ${
+              room.hasPattern ? "font-medium text-zinc-800" : "text-zinc-400"
+            }`}
+            data-testid="department-location-operational-type"
+            title={`Operational Type: ${operational}`}
+          >
+            {operational}
+          </span>
+        }
         data-testid="department-location-room-row"
       />
     </li>

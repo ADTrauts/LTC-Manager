@@ -13,24 +13,36 @@ import {
   ROOM_RESPONSIBILITY_EMPTY_MESSAGE,
   ROOM_RESPONSIBILITY_HELP_TEXT,
   formatRoomDisplayName,
+  spaceNestError,
+  collectDescendantSpaceIds,
+  siblingSpacesOf,
+  nestedSpacesOf,
+  nestParentCandidates,
 } from "./load-facility-hierarchy";
 import {
   resolveBuilderNodeDisplayKind,
   displayKindLabel,
+  canAddFloor,
   canAddNeighborhood,
   canAddRoom,
   canMoveUnitOnto,
   canMoveRoomOnto,
   nextTopLevelDisplayOrder,
   floorCreateParentUnitId,
+  BUILDING_INTERNAL_UNIT_TYPE,
   FLOOR_INTERNAL_UNIT_TYPE,
   NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
+  isStructuralBuilderKind,
   hierarchyRoleForCreateIntent,
   hierarchyRoleAfterMoveOntoFloor,
   hierarchyRoleAfterMoveToUndesignated,
   UNDESIGNATED_DROP_ID,
   classifyBuilderUnit,
 } from "./builder-display";
+import {
+  FACILITY_VOCABULARY_PROFILES,
+  buildBuilderCopy,
+} from "./facility-vocabulary";
 import {
   operationalUnitWhere,
   isStagedUnit,
@@ -117,6 +129,61 @@ describe("wouldCreateCycle", () => {
       { id: "q", parentUnitId: "p" },
     ];
     assert.ok(wouldCreateCycle("p", "q", circular));
+  });
+});
+
+describe("space nesting", () => {
+  const rooms = [
+    { id: "resident", unitId: "nbh", parentSpaceId: null },
+    { id: "bath", unitId: "nbh", parentSpaceId: "resident" },
+    { id: "closet", unitId: "nbh", parentSpaceId: "resident" },
+    { id: "servery", unitId: "nbh", parentSpaceId: null },
+  ];
+
+  it("allows a bathroom inside a resident room", () => {
+    assert.equal(spaceNestError(rooms[1]!, rooms[0]!, rooms), null);
+  });
+
+  it("rejects nesting under a room that is already nested", () => {
+    const err = spaceNestError(rooms[3]!, rooms[1]!, rooms);
+    assert.ok(err && err.includes("one level"));
+  });
+
+  it("rejects placing a room that already contains rooms inside another room", () => {
+    const err = spaceNestError(rooms[0]!, rooms[3]!, rooms);
+    assert.ok(err && err.includes("inside this room"));
+  });
+
+  it("rejects a room inside itself", () => {
+    const err = spaceNestError(rooms[0]!, rooms[0]!, rooms);
+    assert.ok(err && err.includes("itself"));
+  });
+
+  it("allows un-nesting", () => {
+    assert.equal(spaceNestError(rooms[1]!, null, rooms), null);
+  });
+
+  it("collects nested rooms under a parent", () => {
+    assert.deepEqual(collectDescendantSpaceIds(rooms, "resident").sort(), ["bath", "closet"]);
+  });
+
+  it("lists sibling rooms at a nest level", () => {
+    assert.deepEqual(
+      siblingSpacesOf(rooms, null).map((r) => r.id),
+      ["resident", "servery"],
+    );
+    assert.deepEqual(
+      nestedSpacesOf(rooms, "resident").map((r) => r.id),
+      ["bath", "closet"],
+    );
+  });
+
+  it("offers other top-level rooms as nest parents for a bathroom", () => {
+    const candidates = nestParentCandidates(rooms[1]!, rooms);
+    assert.deepEqual(
+      candidates.map((r) => r.id).sort(),
+      ["resident", "servery"],
+    );
   });
 });
 
@@ -502,7 +569,10 @@ describe("Delete protection rules", () => {
 
 describe("Facility Builder validation rules", () => {
   it("prevents duplicate sibling unit names", () => {
-    assert.ok(true, "Enforced by @@unique([facilityId, name])");
+    assert.ok(
+      true,
+      "Enforced by sibling-scoped partial unique indexes (root vs parent)",
+    );
   });
 
   it("prevents cross-facility hierarchy", () => {
@@ -678,6 +748,26 @@ describe("hierarchy search — Terrace View fixture", () => {
     assert.equal(result.units[0]!.childUnits[0]!.childSpaces[0]!.name, "Patient Room 32A");
     assert.ok(result.expandedIds.has("floor-first"));
     assert.ok(result.expandedIds.has("nbh-naval"));
+  });
+
+  it("keeps the containing room when a nested room matches", () => {
+    const nestedTree = [
+      {
+        id: "nbh-naval",
+        name: "1A – Naval Park",
+        parentUnitId: null,
+        childUnits: [],
+        childSpaces: [
+          { id: "resident", name: "1A Resident Room", parentSpaceId: null },
+          { id: "bath", name: "1A Bathroom", parentSpaceId: "resident" },
+        ],
+      },
+    ];
+    const result = filterHierarchyForSearch(nestedTree, "Bathroom");
+    assert.equal(result.matchCount, 1);
+    assert.ok(result.units[0]!.childSpaces.some((s) => s.id === "resident"));
+    assert.ok(result.units[0]!.childSpaces.some((s) => s.id === "bath"));
+    assert.ok(result.expandedIds.has("resident"));
   });
 
   it("matches room codes case-insensitively", () => {
@@ -1125,5 +1215,56 @@ describe("Facility Builder department responsibility — structural vs actionabl
     assert.ok(canAddRoom("floor"));
     assert.ok(!canAddNeighborhood("neighborhood"));
     assert.ok(canAddRoom("neighborhood"));
+  });
+});
+
+describe("optional Buildings", () => {
+  it("classifies BUILDING as building and keeps FLOOR as floor", () => {
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: null,
+        hierarchyRole: "BUILDING",
+      }),
+      "building",
+    );
+    assert.equal(
+      resolveBuilderNodeDisplayKind({
+        parentUnitId: "building-1",
+        hierarchyRole: "FLOOR",
+      }),
+      "floor",
+    );
+    assert.equal(displayKindLabel("building"), "Building");
+    assert.equal(isStructuralBuilderKind("building"), true);
+    assert.equal(isStructuralBuilderKind("floor"), true);
+    assert.equal(isStructuralBuilderKind("neighborhood"), false);
+  });
+
+  it("floors attach to buildings; neighborhoods and rooms do not", () => {
+    assert.ok(canAddFloor("building"));
+    assert.ok(!canAddFloor("floor"));
+    assert.ok(!canAddNeighborhood("building"));
+    assert.ok(!canAddRoom("building"));
+    assert.ok(!canMoveRoomOnto("building"));
+    assert.equal(floorCreateParentUnitId("building-1"), "building-1");
+    assert.equal(floorCreateParentUnitId(null), null);
+    assert.equal(BUILDING_INTERNAL_UNIT_TYPE, "OTHER");
+  });
+
+  it("DnD: floors move onto buildings; buildings stay root; rooms stay off buildings", () => {
+    assert.ok(canMoveUnitOnto("floor", "building"));
+    assert.ok(!canMoveUnitOnto("building", "floor"));
+    assert.ok(!canMoveUnitOnto("building", "building"));
+    assert.ok(!canMoveUnitOnto("neighborhood", "building"));
+    assert.ok(canMoveUnitOnto("neighborhood", "floor"));
+    assert.equal(hierarchyRoleForCreateIntent("building"), "BUILDING");
+  });
+
+  it("campus vocabulary labels Building as a real extra level above Floor", () => {
+    const campus = buildBuilderCopy(FACILITY_VOCABULARY_PROFILES.campus);
+    assert.equal(displayKindLabel("building", campus), "Building");
+    assert.equal(displayKindLabel("floor", campus), "Floor");
+    assert.equal(displayKindLabel("neighborhood", campus), "Area");
+    assert.equal(displayKindLabel("legacy_location", campus), "Location");
   });
 });

@@ -11,6 +11,7 @@ export function BuildPageHeader({
   title,
   subtitle,
   description,
+  leading,
   actions,
   /** When "below", actions stack under title copy (full width). Use on Facility Builder for compact readability. */
   actionsPlacement = "aside",
@@ -19,6 +20,8 @@ export function BuildPageHeader({
   title: string;
   subtitle?: string;
   description?: string;
+  /** Controls that sit on the title row, immediately after the heading. */
+  leading?: ReactNode;
   actions?: ReactNode;
   actionsPlacement?: "aside" | "below";
   className?: string;
@@ -31,11 +34,14 @@ export function BuildPageHeader({
         className={
           stackActions
             ? "border-b border-zinc-200 pb-3"
-            : "flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-zinc-200 pb-4"
+            : "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-200 pb-3"
         }
       >
-        <div className="min-w-0 w-full space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">{title}</h1>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">{title}</h1>
+            {leading}
+          </div>
           {subtitle ? (
             <p
               className={

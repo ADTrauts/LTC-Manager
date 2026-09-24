@@ -50,12 +50,13 @@ Limits: **2,000 rows / 2 MB**. Format: **CSV only**.
 Headers (downloadable template — new terminology only):
 
 ```
-floor,neighborhood,locationName,locationType,roomNumber,code,description,department,customTypeLabel
+building,floor,neighborhood,locationName,locationType,roomNumber,code,description,department,customTypeLabel
 ```
 
 | Column | Required | Notes |
 |--------|----------|-------|
-| floor | yes | Creates/reuses `Unit` with `hierarchyRole=FLOOR` |
+| building | no | Optional `Unit` with `hierarchyRole=BUILDING`. Empty = Floor sits at the facility root (typical LTC). |
+| floor | yes | Creates/reuses `Unit` with `hierarchyRole=FLOOR` (under the Building when present) |
 | neighborhood | when creating Neighborhood or Location | Creates/reuses Neighborhood under Floor (`NEIGHBORHOOD`) |
 | locationName | when creating a lowest-level location | Human-readable name → `UnitSpace.name` (e.g. Room 101, Servery) |
 | locationType | when creating a location | Facility Builder preset labels (e.g. Resident Room, Servery) |
@@ -67,12 +68,13 @@ floor,neighborhood,locationName,locationType,roomNumber,code,description,departm
 
 ### Facility Import Terminology
 
-- Internal canonical model is unchanged: **Floor → Neighborhood/Unit → UnitSpace**.
+- Internal canonical model: optional **Building → Floor → Neighborhood/Unit → UnitSpace**.
 - User-facing import language uses **Location Name** / **Location Type** / **Room Number**.
 - Do not expose “UnitSpace”, “space”, or “spaceType” in templates, UI, or validation errors.
-- Parser aliases (compatibility only): `space` → `locationName`, `spaceType` → `locationType`.
-- Downloaded templates use **new headers only**.
+- Parser aliases (compatibility only): `space` → `locationName`, `spaceType` → `locationType`, `level0` → `building`.
+- Downloaded templates use **new headers only** (including optional `building`).
 - `roomNumber` is never required by import validation (including legacy-header files).
+- The same Floor name may exist in two buildings; names are unique among siblings.
 
 ### Hierarchy-only rows
 
@@ -80,9 +82,10 @@ Supported when the Facility Builder model already allows them:
 
 | Row intent | Example | Creates |
 |------------|---------|---------|
-| Floor only | `Floor 1,,,,,,,,` | Floor |
-| Floor + Neighborhood | `Floor 1,1A - Naval Park,,,,,,,` | Floor + Neighborhood |
-| + Location | `Floor 1,1A - Naval Park,Servery,Servery,,,,,` | + UnitSpace |
+| Floor only | `,Floor 1,,,,,,,,` | Floor at facility root |
+| Building + Floor | `Science Hall,Floor 1,,,,,,,` | Building + nested Floor |
+| Floor + Neighborhood | `,Floor 1,1A - Naval Park,,,,,,,` | Floor + Neighborhood |
+| + Location | `,Floor 1,1A - Naval Park,Servery,Servery,,,,,` | + UnitSpace |
 
 No empty/placeholder UnitSpace records are invented to satisfy validation.
 

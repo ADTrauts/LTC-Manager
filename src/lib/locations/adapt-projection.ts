@@ -105,17 +105,21 @@ function adaptNode(
   if (node.reference.kind === "UNIT") {
     const role = node.reference.hierarchyRole;
     const kind =
-      role === "FLOOR"
-        ? "FLOOR"
-        : role === "NEIGHBORHOOD"
-          ? "NEIGHBORHOOD"
-          : "LEGACY";
+      role === "BUILDING"
+        ? "BUILDING"
+        : role === "FLOOR"
+          ? "FLOOR"
+          : role === "NEIGHBORHOOD"
+            ? "NEIGHBORHOOD"
+            : "LEGACY";
     const hierarchyLevel =
-      role === "FLOOR"
-        ? "LEVEL_1"
-        : role === "NEIGHBORHOOD"
-          ? "LEVEL_2"
-          : "LEGACY";
+      role === "BUILDING"
+        ? "LEVEL_0"
+        : role === "FLOOR"
+          ? "LEVEL_1"
+          : role === "NEIGHBORHOOD"
+            ? "LEVEL_2"
+            : "LEGACY";
     const href =
       node.presentation === "ACTIONABLE"
         ? `/unit/${node.reference.unitId}`
@@ -164,6 +168,7 @@ function collectUnitIds(nodes: readonly LocationsTreeNode[]): string[] {
   const ids = new Set<string>();
   const visit = (node: LocationsTreeNode) => {
     if (
+      node.kind === "BUILDING" ||
       node.kind === "FLOOR" ||
       node.kind === "NEIGHBORHOOD" ||
       node.kind === "LEGACY"

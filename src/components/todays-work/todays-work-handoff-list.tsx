@@ -65,7 +65,7 @@ export function TodaysWorkHandoffList({ sections, isClear }: TodaysWorkHandoffLi
       <EmptyState
         icon="success"
         title="Nothing pending between teams right now"
-        description="Failed checks, open repairs, call-downs, and coverage gaps will appear here when they need follow-up before the next operation."
+        description="Locations that need follow-up and today's call-offs will appear here."
         tone="success"
         data-testid="todays-work-handoff-list"
       />

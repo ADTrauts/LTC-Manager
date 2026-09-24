@@ -62,6 +62,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     // ── ADMIN — governance surfaces ────────────────────────────────────────
     { pathPrefix: "/admin/organization", mode: "ADMIN", label: "Organization" },
     { pathPrefix: "/admin/permissions", mode: "ADMIN", label: "Access Matrix" },
+    { pathPrefix: "/admin/billing", mode: "ADMIN", label: "Billing" },
     { pathPrefix: "/admin", mode: "ADMIN", label: "Admin" },
     { pathPrefix: "/account", mode: "ADMIN", label: "Account & Security" },
 
@@ -82,10 +83,10 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/staffing/assignments", mode: "RUN", label: "Assignments" },
     { pathPrefix: "/staffing", mode: "RUN", label: "Schedule" },
     { pathPrefix: "/logs", mode: "RUN", label: "Legacy Logs" },
-    { pathPrefix: "/assets", mode: "RUN", label: "Assets" },
-    { pathPrefix: "/asset-issues", mode: "RUN", label: "Asset Issues" },
-    { pathPrefix: "/repairs", mode: "RUN", label: "Repairs" },
-    { pathPrefix: "/issues", mode: "RUN", label: "Repairs" },
+    { pathPrefix: "/assets", mode: "RUN", label: "Maintenance" },
+    { pathPrefix: "/asset-issues", mode: "RUN", label: "Maintenance" },
+    { pathPrefix: "/repairs", mode: "RUN", label: "Maintenance" },
+    { pathPrefix: "/issues", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/operational-requests", mode: "RUN", label: "Requests" },
     { pathPrefix: "/reports", mode: "RUN", label: "Review" },
   ] satisfies ModePathRule[]

@@ -12,7 +12,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AppRole } from "@/lib/access";
+import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import { applyMaintenanceNavRewrite } from "@/lib/asset-operations/maintenance-nav";
 import {
   groupNavItemsByMode,
   headerNavItemsForMode,
@@ -27,7 +28,9 @@ const FLAGS = {
 };
 
 function runHeaderItemsForRole(role: AppRole) {
-  const nav = platformNavItemsForRole(role, FLAGS);
+  const nav = applyMaintenanceNavRewrite(platformNavItemsForRole(role, FLAGS), {
+    canViewAssets: hasAtLeastRole(role, "SUPERVISOR"),
+  });
   const groups = groupNavItemsByMode(nav);
   const runGroup = groups.find((group) => group.mode === "RUN");
   return headerNavItemsForMode("RUN", runGroup?.items ?? []);
@@ -70,6 +73,16 @@ test("canonical RUN destinations are present and unclipped for a manager", () =>
   for (const item of items) {
     assert.ok(item.label.trim().length > 0, `nav item ${item.href} must have a visible label`);
   }
+});
+
+test("Assets and Repairs compose under one RUN Maintenance destination", () => {
+  const items = runHeaderItemsForRole("MANAGER");
+  assert.equal(items.find((i) => i.href === "/assets")?.label, "Maintenance");
+  assert.equal(
+    items.some((i) => i.href === "/repairs"),
+    false,
+    "Repairs must not be a peer RUN nav item",
+  );
 });
 
 test("Log Book remains an explicit canonical RUN destination (not a clipped orphan)", () => {

@@ -11,6 +11,7 @@ import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
+import { authorizeHarborRequest, authorizeHarborWorkFacilityRequest } from "@/lib/harbor-console/proxy-gate";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
 import { validateSessionAuthority } from "@/lib/session-revocation";
 
@@ -106,6 +107,19 @@ export async function proxy(request: NextRequest) {
     return notFoundResponse(anonymousDecision.surface);
   }
 
+  if (anonymousDecision.route.access.kind === "HARBOR_STAFF") {
+    const harborDenial = await authorizeHarborRequest(request);
+    if (harborDenial) {
+      return harborDenial;
+    }
+    return NextResponse.next();
+  }
+
+  const workDecision = await authorizeHarborWorkFacilityRequest(request);
+  if (workDecision !== "fallthrough") {
+    return workDecision;
+  }
+
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
     return unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
@@ -148,7 +162,7 @@ export async function proxy(request: NextRequest) {
     const deviceUnitId = request.cookies.get(DEVICE_UNIT_COOKIE)?.value;
     const lockedUnitId = resolveLockedUnitId(session, deviceUnitId);
 
-    if (!onboardingComplete && isFa && !onSetupRoute) {
+    if (!onboardingComplete && isFa && session.authKind !== "harbor_staff" && !onSetupRoute) {
       return NextResponse.redirect(new URL(ONBOARDING_ENTRY_PATH, request.url));
     }
     if (onboardingComplete && pathname === ONBOARDING_ENTRY_PATH) {

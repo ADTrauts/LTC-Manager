@@ -9,7 +9,7 @@ import {
   resolveDefaultAttachmentTiming,
 } from "@/lib/logs-architecture/timing";
 
-import { catalogCadenceLabel, formatTimingSummary, scheduleSourceLabel } from "./timing-display";
+import { catalogRecommendedScheduleLabel, formatTimingSummary, scheduleSourceLabel } from "./timing-display";
 
 export type ResolvedAttachTiming = {
   timingMode: LogAttachmentTimingMode;
@@ -162,6 +162,9 @@ export function resolveAttachTimingProposal(input: {
     timingSummary,
     scheduleSourceLabel:
       timingMode === "AD_HOC" ? null : scheduleSourceLabel(usingRecommended && !needsSetup),
-    recommendedCadenceLabel: catalogCadenceLabel(input.recommendedCadence),
+    recommendedCadenceLabel: catalogRecommendedScheduleLabel(
+      input.recommendedCadence,
+      input.recommendedDaypartLabels,
+    ),
   };
 }

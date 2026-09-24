@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildManagerFocus } from "@/lib/business-workspace/build-manager-focus";
-import type { BusinessWorkspaceInputs } from "@/lib/business-workspace/load-workspace-inputs";
 import {
   getRoleDefinition,
   getRolesForDepartment,
@@ -1286,8 +1284,17 @@ test("M4: lifecycle events have from/to status", () => {
 // M4: Workspace integration types
 // ---------------------------------------------------------------------------
 
+type WorkspaceAssignmentSummary = {
+  available: boolean;
+  requiredPositions: number;
+  filledPositions: number;
+  unfilledPositions: number;
+  conflicts: number;
+  activeCoverageAssignments: number;
+};
+
 test("M4: workspace assignment summary shape", () => {
-  const summary: import("@/lib/business-workspace/load-workspace-inputs").WorkspaceAssignmentSummary = {
+  const summary: WorkspaceAssignmentSummary = {
     available: true,
     requiredPositions: 8,
     filledPositions: 6,
@@ -1301,7 +1308,7 @@ test("M4: workspace assignment summary shape", () => {
 });
 
 test("M4: workspace assignment summary unavailable when no templates", () => {
-  const summary: import("@/lib/business-workspace/load-workspace-inputs").WorkspaceAssignmentSummary = {
+  const summary: WorkspaceAssignmentSummary = {
     available: false,
     requiredPositions: 0,
     filledPositions: 0,
@@ -1310,112 +1317,4 @@ test("M4: workspace assignment summary unavailable when no templates", () => {
     activeCoverageAssignments: 0,
   };
   assert.ok(!summary.available);
-});
-
-// ---------------------------------------------------------------------------
-// M4: Manager Focus with assignment gaps
-// ---------------------------------------------------------------------------
-
-test("M4: buildManagerFocus surfaces unfilled positions", () => {
-  const inputs = {
-    facilityId: "fac1",
-    facilityName: "Test",
-    facilityTimezone: "America/New_York",
-    now: new Date(),
-    operationalTime: { facilityLocalDate: "2026-07-15", facilityTimezone: "America/New_York" },
-    dashboard: {
-      unitCards: [],
-      mealBoards: [],
-      totals: { expected: 0, completed: 0, failed: 0, missed: 0 },
-      unitsMissingStaffing: [],
-      unitsWithExceptions: [],
-      operationContext: { serviceLabel: "Breakfast", phase: "Execution", scheduledTimeLabel: "6:00 AM" },
-      sitePulse: { tone: "ready", label: "Ready", badge: "Ready" },
-      callDowns: { items: [], summary: { total: 0, open: 0 }, dateIso: "2026-07-15" },
-    },
-    readiness: { items: [], summary: { total: 0, ready: 0, inProgress: 0, blocked: 0 } },
-    callDownSummary: { total: 0, open: 0 },
-    openRepairs: [],
-    inspectionsDue: [],
-    activeDepartmentKeys: ["DIETARY" as const],
-    activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
-    assignmentSummary: {
-      available: true,
-      requiredPositions: 5,
-      filledPositions: 3,
-      unfilledPositions: 2,
-      conflicts: 0,
-      activeCoverageAssignments: 0,
-    },
-  };
-  const cards = buildManagerFocus(inputs as unknown as BusinessWorkspaceInputs);
-  const assignmentCard = cards.find((c) => c.id === "focus-assignment-gaps");
-  assert.ok(assignmentCard, "should have assignment gap focus card");
-  assert.ok(assignmentCard!.explanation.includes("2"), "should mention unfilled count");
-});
-
-test("M4: no assignment gap focus when all positions filled", () => {
-  const inputs = {
-    facilityId: "fac1",
-    facilityName: "Test",
-    facilityTimezone: "America/New_York",
-    now: new Date(),
-    operationalTime: { facilityLocalDate: "2026-07-15", facilityTimezone: "America/New_York" },
-    dashboard: {
-      unitCards: [],
-      mealBoards: [],
-      totals: { expected: 0, completed: 0, failed: 0, missed: 0 },
-      unitsMissingStaffing: [],
-      unitsWithExceptions: [],
-      operationContext: { serviceLabel: "Breakfast", phase: "Execution", scheduledTimeLabel: "6:00 AM" },
-      sitePulse: { tone: "ready", label: "Ready", badge: "Ready" },
-      callDowns: { items: [], summary: { total: 0, open: 0 }, dateIso: "2026-07-15" },
-    },
-    readiness: { items: [], summary: { total: 0, ready: 0, inProgress: 0, blocked: 0 } },
-    callDownSummary: { total: 0, open: 0 },
-    openRepairs: [],
-    inspectionsDue: [],
-    activeDepartmentKeys: ["DIETARY" as const],
-    activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
-    assignmentSummary: {
-      available: true,
-      requiredPositions: 5,
-      filledPositions: 5,
-      unfilledPositions: 0,
-      conflicts: 0,
-      activeCoverageAssignments: 0,
-    },
-  };
-  const cards = buildManagerFocus(inputs as unknown as BusinessWorkspaceInputs);
-  const assignmentCard = cards.find((c) => c.id === "focus-assignment-gaps");
-  assert.ok(!assignmentCard, "should not have assignment gap card when all filled");
-});
-
-test("M4: no assignment focus when feature unavailable", () => {
-  const inputs = {
-    facilityId: "fac1",
-    facilityName: "Test",
-    facilityTimezone: "America/New_York",
-    now: new Date(),
-    operationalTime: { facilityLocalDate: "2026-07-15", facilityTimezone: "America/New_York" },
-    dashboard: {
-      unitCards: [],
-      mealBoards: [],
-      totals: { expected: 0, completed: 0, failed: 0, missed: 0 },
-      unitsMissingStaffing: [],
-      unitsWithExceptions: [],
-      operationContext: { serviceLabel: "Breakfast", phase: "Execution", scheduledTimeLabel: "6:00 AM" },
-      sitePulse: { tone: "ready", label: "Ready", badge: "Ready" },
-      callDowns: { items: [], summary: { total: 0, open: 0 }, dateIso: "2026-07-15" },
-    },
-    readiness: { items: [], summary: { total: 0, ready: 0, inProgress: 0, blocked: 0 } },
-    callDownSummary: { total: 0, open: 0 },
-    openRepairs: [],
-    inspectionsDue: [],
-    activeDepartmentKeys: ["DIETARY" as const],
-    activity: { repairsOpened: [], repairsResolved: [], inspectionsCompleted: [], knowledgePublished: [] },
-  };
-  const cards = buildManagerFocus(inputs as unknown as BusinessWorkspaceInputs);
-  const assignmentCard = cards.find((c) => c.id === "focus-assignment-gaps");
-  assert.ok(!assignmentCard, "should not have assignment card without assignmentSummary");
 });

@@ -3,7 +3,7 @@
 **Status:** Governing product document (post–Wave 12)  
 **Mode:** Architecture / product definition — not implementation  
 **Supersedes for “what we are now”:** earlier planning notes that treat Organization, Task, Business Workspace, or AI Moments as absent  
-**Companion vision (pre-implementation intent):** `docs/platform-vision/` at the monorepo root  
+**Companion vision (pre-implementation intent):** [`docs/platform-vision/`](../platform-vision/)  
 
 ---
 
@@ -96,6 +96,7 @@ Operations Engine, Work Engine, and Readiness are **substrate**. Business Worksp
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  
 - Knowledge bound to work  
 - Organization parent + explicit multi-facility access  
+- Commercial licensing of **operational departments** (not seats)  
 - Design system and navigation zones that enforce the above  
 
 ---
@@ -163,6 +164,14 @@ Floor staff begin in **Unit Workspace** (or logs if no unit locked).
 3. Grow **adjacent departments** through readiness profiles and mode lenses — not forked apps.  
 4. Keep **AI** as moments on OC / Today / Issues / cached Workspace peek.  
 5. Add **supply / communications / inventory** only as **operational signals**, never as accounting systems of record.
+
+---
+
+## Commercial model
+
+LTC Manager is sold as **one product**. Price scales with the operational footprint we support, not with how many people the facility allows to log in.
+
+Binding numbers, setup-fee rules, and Stripe catalog shape: [11_COMMERCIAL_MODEL.md](./11_COMMERCIAL_MODEL.md) (ADL-013).
 
 ---
 

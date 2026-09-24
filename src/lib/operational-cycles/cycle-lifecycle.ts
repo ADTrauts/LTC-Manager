@@ -330,6 +330,10 @@ export function reviewDraftChangesAgainstCurrent(input: {
       !draft.locationInheritFromParent &&
       (draft.locationMode !== prior.locationMode ||
         !listEqual(draft.applicableUnitTypes, prior.applicableUnitTypes) ||
+        !listEqual(
+          draft.applicableOperationalTypeKeys ?? [],
+          prior.applicableOperationalTypeKeys ?? [],
+        ) ||
         !listEqual(draft.unitIds, prior.unitIds) ||
         !listEqual(draft.spaceIds, prior.spaceIds) ||
         (draft.roomTypeKey ?? "") !== (prior.roomTypeKey ?? ""))
@@ -362,12 +366,14 @@ export function reviewDraftChangesAgainstCurrent(input: {
             from: {
               locationMode: prior.locationMode,
               roomTypeKey: prior.roomTypeKey,
+              applicableOperationalTypeKeys: prior.applicableOperationalTypeKeys,
               unitIds: prior.unitIds,
               spaceIds: prior.spaceIds,
             },
             to: {
               locationMode: draft.locationMode,
               roomTypeKey: draft.roomTypeKey,
+              applicableOperationalTypeKeys: draft.applicableOperationalTypeKeys,
               unitIds: draft.unitIds,
               spaceIds: draft.spaceIds,
             },

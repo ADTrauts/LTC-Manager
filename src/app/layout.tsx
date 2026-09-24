@@ -35,7 +35,7 @@ export default function RootLayout({
     >
       <body
         suppressHydrationWarning
-        className="min-h-full bg-zinc-50 font-sans text-zinc-900"
+        className="min-h-full bg-[var(--background)] font-sans text-[var(--foreground)]"
       >
         <PwaRegister />
         {children}

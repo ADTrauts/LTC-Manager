@@ -29,13 +29,14 @@ export default async function SpaceLogsTargetPage({ params }: Props) {
     <section className="space-y-4" data-testid="space-logs-target-page">
       <BuildContextBar
         title={ctx.label.title}
-        subtitle="Room / Space Logs"
+        subtitle="Assigned Logs for this room"
         facts={[{ value: String(ctx.attachments.length), suffix: "Logs" }]}
       />
       <TargetLogsSection
         targetTitle={ctx.label.title}
         attachments={ctx.attachments}
         addHref={ctx.addHref}
+        runHref={`/staffing/logs/targets/space/${spaceId}`}
         departmentName={ctx.departmentName}
       />
     </section>

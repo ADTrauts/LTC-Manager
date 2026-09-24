@@ -75,7 +75,14 @@ import {
 } from "@/lib/operational-cycles/cycle-scope";
 
 function rowScopeLabel(
-  row: Pick<CycleRowData, "locationMode" | "roomTypeKey" | "unitIds" | "spaceIds">,
+  row: Pick<
+    CycleRowData,
+    | "locationMode"
+    | "roomTypeKey"
+    | "unitIds"
+    | "spaceIds"
+    | "applicableOperationalTypeKeys"
+  >,
   catalog?: CycleEditorCatalog,
   opts?: { includeLegacy?: boolean },
 ): string | null {
@@ -84,13 +91,20 @@ function rowScopeLabel(
   }
   const names: Record<string, string> = {};
   for (const location of catalog?.locations ?? []) names[location.id] = location.name;
+  const operationalTypeNames: Record<string, string> = {};
+  for (const type of catalog?.operationalTypes ?? []) {
+    operationalTypeNames[type.key] = type.name;
+  }
   return scopeGroupLabel({
     locationMode: row.locationMode as
       | "ALL_DEPARTMENT_UNITS"
       | "UNIT_TYPES"
       | "EXPLICIT_UNITS"
-      | "ROOM_TYPE",
+      | "ROOM_TYPE"
+      | "OPERATIONAL_TYPES",
     roomTypeKey: row.roomTypeKey,
+    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys,
+    operationalTypeNames,
     unitIds: row.unitIds,
     spaceIds: row.spaceIds,
     locationNames: names,

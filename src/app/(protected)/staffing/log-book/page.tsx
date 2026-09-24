@@ -13,7 +13,12 @@ import {
 } from "@/lib/department-operations";
 import { searchEvidenceRecords, resolveEvidenceAuthority } from "@/lib/operational-evidence";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
-import { toServiceDateKey } from "@/lib/operational-time";
+import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
+import {
+  getFacilityServiceDate,
+  loadFacilityTimezone,
+  toServiceDateKey,
+} from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -30,7 +35,7 @@ export default async function EvidenceLogBookPage({
 }) {
   noStore();
 
-  if (!isAnyStaffingOperationalFeatureEnabled("evidence")) {
+  if (!isAnyStaffingOperationalFeatureEnabled("evidence") && !isCanonicalLogsEnabled()) {
     redirect("/staffing");
   }
 
@@ -55,6 +60,7 @@ export default async function EvidenceLogBookPage({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,
     feature: "evidence",
+    skipFeatureGate: isCanonicalLogsEnabled(),
   });
 
   if (!department) {
@@ -69,11 +75,7 @@ export default async function EvidenceLogBookPage({
   if (!authority.canViewLogBook) {
     return (
       <section className="mx-auto max-w-5xl" data-testid="evidence-log-book-denied">
-        <PageHeader
-          title="Log Book"
-          subtitle={authority.reason ?? "Insufficient Log Book authority."}
-          compact
-        />
+        <PageHeader title="Log Book" compact />
       </section>
     );
   }
@@ -82,9 +84,22 @@ export default async function EvidenceLogBookPage({
   const unitId = one(params.unitId);
   const assetId = one(params.assetId);
   const templateStableKey = one(params.template);
-  const dateFromKey = one(params.from);
-  const dateToKey = one(params.to);
+  const purposeRaw = one(params.purpose);
+  const purposeType =
+    purposeRaw === "LOG" || purposeRaw === "CHECKLIST" ? purposeRaw : null;
+  const rangeParam = one(params.range);
+  const dateFromKeyRaw = one(params.from);
+  const dateToKeyRaw = one(params.to);
   const correctiveOnly = one(params.corrective) === "1";
+
+  const timezone = await loadFacilityTimezone(prisma, session.facilityId);
+  const todayKey = toServiceDateKey(getFacilityServiceDate(timezone));
+  const range = resolveLogBookRange({
+    range: rangeParam,
+    from: dateFromKeyRaw,
+    to: dateToKeyRaw,
+    todayKey,
+  });
 
   const result = await searchEvidenceRecords(session, {
     facilityId: session.facilityId,
@@ -92,8 +107,9 @@ export default async function EvidenceLogBookPage({
     unitId,
     assetId,
     templateStableKey,
-    dateFromKey,
-    dateToKey,
+    purposeType,
+    dateFromKey: range.from,
+    dateToKey: range.to,
     correctiveOnly: correctiveOnly || undefined,
     page: 1,
     pageSize: 50,
@@ -134,21 +150,48 @@ export default async function EvidenceLogBookPage({
     <section className="mx-auto max-w-5xl space-y-4" data-testid="evidence-log-book">
       <PageHeader
         title="Log Book"
-        subtitle={`${department.name} Log history.`}
+        subtitle={`${department.name} completed records. Search by day, week, month, location, or type.`}
         compact
         actions={
-          <div className="flex flex-wrap gap-3 text-sm">
-            {isCanonicalLogsEnabled() ? (
-              <Link href="/staffing/logs" className="underline-offset-2 hover:underline">
-                Today&apos;s Logs
-              </Link>
-            ) : null}
-            <Link href="/staffing/templates" className="underline-offset-2 hover:underline">
+          isCanonicalLogsEnabled() ? (
+            <Link href="/staffing/logs" className="text-sm underline-offset-2 hover:underline">
+              Today&apos;s due Logs
+            </Link>
+          ) : (
+            <Link href="/staffing/templates" className="text-sm underline-offset-2 hover:underline">
               Template Builder
             </Link>
-          </div>
+          )
         }
       />
+
+      {isCanonicalLogsEnabled() ? (
+        <p className="text-xs text-zinc-600" data-testid="canonical-log-book-note" role="status">
+          Due work lives on each room. This Log Book is completed records.
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Date range">
+        {(
+          [
+            ["today", "Today"],
+            ["week", "This week"],
+            ["month", "This month"],
+          ] as const
+        ).map(([value, label]) => (
+          <Link
+            key={value}
+            href={`/staffing/log-book?range=${value}`}
+            className={`inline-flex min-h-9 items-center rounded-md px-3 text-xs font-medium ${
+              range.range === value
+                ? "bg-zinc-900 text-white"
+                : "border border-zinc-300 text-zinc-800"
+            }`}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
 
       <form
         className="grid gap-3 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4"
@@ -160,7 +203,7 @@ export default async function EvidenceLogBookPage({
           <input
             name="from"
             type="date"
-            defaultValue={dateFromKey ?? ""}
+            defaultValue={range.from ?? ""}
             className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
           />
         </label>
@@ -169,24 +212,36 @@ export default async function EvidenceLogBookPage({
           <input
             name="to"
             type="date"
-            defaultValue={dateToKey ?? ""}
+            defaultValue={range.to ?? ""}
             className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
           />
         </label>
         <label className="text-xs text-zinc-600">
-          Unit
+          Location
           <select
             name="unitId"
             defaultValue={unitId ?? ""}
             className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
             data-testid="log-book-filter-unit"
           >
-            <option value="">All units</option>
+            <option value="">All locations</option>
             {units.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="text-xs text-zinc-600">
+          Type
+          <select
+            name="purpose"
+            defaultValue={purposeType ?? ""}
+            className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          >
+            <option value="">All types</option>
+            <option value="LOG">Log</option>
+            <option value="CHECKLIST">Checklist</option>
           </select>
         </label>
         <label className="text-xs text-zinc-600">
@@ -196,14 +251,6 @@ export default async function EvidenceLogBookPage({
             defaultValue={assetId ?? ""}
             className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
             data-testid="log-book-filter-asset"
-          />
-        </label>
-        <label className="text-xs text-zinc-600">
-          Template key
-          <input
-            name="template"
-            defaultValue={templateStableKey ?? ""}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
           />
         </label>
         <label className="flex items-end gap-2 text-xs text-zinc-700">
@@ -288,4 +335,25 @@ export default async function EvidenceLogBookPage({
       </div>
     </section>
   );
+}
+
+function resolveLogBookRange(input: {
+  range: string | null;
+  from: string | null;
+  to: string | null;
+  todayKey: string;
+}): { from: string | null; to: string | null; range: "today" | "week" | "month" | "custom" } {
+  if (input.from || input.to) {
+    return { from: input.from, to: input.to, range: "custom" };
+  }
+  if (input.range === "week") {
+    let from = input.todayKey;
+    for (let i = 0; i < 6; i += 1) from = dayBefore(from);
+    return { from, to: input.todayKey, range: "week" };
+  }
+  if (input.range === "month") {
+    const from = `${input.todayKey.slice(0, 8)}01`;
+    return { from, to: input.todayKey, range: "month" };
+  }
+  return { from: input.todayKey, to: input.todayKey, range: "today" };
 }

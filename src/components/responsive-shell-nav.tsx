@@ -18,7 +18,6 @@ import {
   headerNavItemsForMode,
   resolveProductModeForPath,
 } from "@/lib/product-mode";
-import type { ReadinessState } from "@/lib/readiness";
 import type { SidebarUnit } from "@/lib/units";
 
 type CompactDrawer = "run" | "locations" | "build" | null;
@@ -30,7 +29,6 @@ type ResponsiveShellNavProps = {
   projectionSections?: readonly ProjectedSidebarSection[];
   projectionUnavailable?: boolean;
   lockedUnitId?: string;
-  readinessByUnitId?: Record<string, { state: ReadinessState }>;
 };
 
 function ShellNavTrigger({
@@ -74,7 +72,6 @@ export function ResponsiveShellNav({
   projectionSections,
   projectionUnavailable,
   lockedUnitId,
-  readinessByUnitId,
 }: ResponsiveShellNavProps) {
   const pathname = useNavPathname() ?? "/";
   const mode = resolveProductModeForPath(pathname);
@@ -181,7 +178,6 @@ export function ResponsiveShellNav({
           projectionSections={projectionSections}
           projectionUnavailable={projectionUnavailable}
           lockedUnitId={lockedUnitId}
-          readinessByUnitId={readinessByUnitId}
         />
       </Drawer>
 

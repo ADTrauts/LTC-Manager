@@ -1,35 +1,22 @@
 /**
- * Load the canonical supervisor operating-location projection for Today's Work + Walk List.
+ * Load the supervisor operating-location projection for Today's Work + Walk List.
+ *
+ * Visibility: Projection → collected operating locations.
+ * Operational facts: Runtime Location State (SPACE grain), aggregated for cards.
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import {
   loadProjectedLocationView,
   type LoadProjectedLocationOptions,
 } from "@/lib/locations";
-import {
-  loadDashboardQueries,
-  buildDashboardAggregates,
-  type OperationContext,
-} from "@/lib/operations-center";
-import { resolveOperationsCenterActiveOperation } from "@/lib/operations/resolve-operations-center-active-operation";
-import {
-  loadPublishedRunModel,
-  presentLocationRunOperation,
-  type RunLocationOperationPresentation,
-} from "@/lib/operational-cycles";
-import {
-  getFacilityLocalTodayWindow,
-  getFacilityServiceDate,
-  loadFacilityTimezone,
-} from "@/lib/operational-time";
-import { prisma } from "@/lib/prisma";
+import type { OperationContext } from "@/lib/operations-center";
 import type {
   ProjectionRuntimeMemo,
   ProjectionRuntimeResult,
 } from "@/lib/projection";
+import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import {
   narrowTeamScopeToCollectedRooms,
   resolveViewerTeamScopes,
@@ -37,20 +24,13 @@ import {
 } from "@/lib/todays-work/viewer-team-scope";
 
 import { applyViewerTeamScopeToLocations } from "./apply-team-scope";
-import {
-  buildOperatingLocationBoard,
-  operatingBoardToWalkList,
-  sortOperatingLocationsForWalk,
-  type OperatingLocationStaffingInput,
-} from "./build";
+import { operatingBoardToWalkList, sortOperatingLocationsForWalk } from "./build";
 import { collectSupervisorOperatingLocations } from "./collect";
-import type {
-  OperatingLocationBoard,
-  OperatingLocationIssueFacts,
-  OperatingLocationStatus,
-} from "./types";
-
-import { deriveAssignedCountsWithOaPreference } from "./oa-staffing-preference";
+import {
+  operationContextFromRuntimeStates,
+  projectOperatingLocationBoardFromRuntime,
+} from "./from-runtime-state";
+import type { OperatingLocationBoard, OperatingLocationStatus } from "./types";
 
 export type LoadOperatingLocationBoardOptions = {
   session: AppJwtPayload;
@@ -76,96 +56,10 @@ const FALLBACK_OPERATION_CONTEXT: OperationContext = {
   minutesUntilService: null,
 };
 
-function emptyFacts(): OperatingLocationIssueFacts {
-  return {
-    failedLogs: 0,
-    missedLogs: 0,
-    pendingLogs: 0,
-    openRepairCount: 0,
-    urgentRepairCount: 0,
-  };
-}
-
-async function loadOperationalStaffing(input: {
-  facilityId: string;
-  departmentIds: string[];
-  serviceDate: Date;
-}): Promise<{
-  assignedByUnitId: Map<string, number>;
-  assignedBySpaceId: Map<string, number>;
-  expectedByUnitId: Map<string, number>;
-}> {
-  const assignedByUnitId = new Map<string, number>();
-  const assignedBySpaceId = new Map<string, number>();
-  const expectedByUnitId = new Map<string, number>();
-  if (!isOperationalAssignmentsEnabled() || input.departmentIds.length === 0) {
-    return { assignedByUnitId, assignedBySpaceId, expectedByUnitId };
-  }
-
-  const [assignments, templates] = await Promise.all([
-    prisma.operationalAssignment.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: { in: input.departmentIds },
-        serviceDate: input.serviceDate,
-        status: { in: ["PLANNED", "ACTIVE"] },
-      },
-      select: {
-        employeeId: true,
-        unitId: true,
-        locations: { select: { unitSpaceId: true } },
-      },
-    }),
-    prisma.operationalAssignmentTemplate.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: { in: input.departmentIds },
-        isActive: true,
-      },
-      select: {
-        items: { select: { unitId: true, requiredCount: true } },
-      },
-    }),
-  ]);
-
-  const employeesByUnit = new Map<string, Set<string>>();
-  const employeesBySpace = new Map<string, Set<string>>();
-  for (const assignment of assignments) {
-    if (assignment.unitId) {
-      const set = employeesByUnit.get(assignment.unitId) ?? new Set();
-      set.add(assignment.employeeId);
-      employeesByUnit.set(assignment.unitId, set);
-    }
-    for (const location of assignment.locations) {
-      const set = employeesBySpace.get(location.unitSpaceId) ?? new Set();
-      set.add(assignment.employeeId);
-      employeesBySpace.set(location.unitSpaceId, set);
-    }
-  }
-  for (const [unitId, employees] of employeesByUnit) {
-    assignedByUnitId.set(unitId, employees.size);
-  }
-  for (const [spaceId, employees] of employeesBySpace) {
-    assignedBySpaceId.set(spaceId, employees.size);
-  }
-  for (const template of templates) {
-    for (const item of template.items) {
-      if (!item.unitId) continue;
-      expectedByUnitId.set(
-        item.unitId,
-        (expectedByUnitId.get(item.unitId) ?? 0) + item.requiredCount,
-      );
-    }
-  }
-
-  return { assignedByUnitId, assignedBySpaceId, expectedByUnitId };
-}
-
 export async function loadOperatingLocationBoard(
   facilityId: string,
   options: LoadOperatingLocationBoardOptions,
 ): Promise<LoadedOperatingLocationBoard> {
-  const now = new Date();
   const lensOverride: LoadProjectedLocationOptions["lensOverride"] =
     options.activeDepartmentId && options.activeDepartmentKey
       ? {
@@ -224,120 +118,41 @@ export async function loadOperatingLocationBoard(
     : null;
   const lensMode = locationsView.view?.lensMode === "FACILITY" ? "FACILITY" : "DEPARTMENT";
 
-  const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
-  const window = getFacilityLocalTodayWindow(facilityTimezone, now);
-  const serviceDate = getFacilityServiceDate(facilityTimezone, now);
-  const unitIds = [...new Set(collected.map((location) => location.unitId))];
-
-  const [queries, operationalStaffing] = await Promise.all([
-    loadDashboardQueries(facilityId, window, {
-      facilityTimezone,
-      now,
-      projectedUnitIds: unitIds,
-    }),
-    loadOperationalStaffing({
-      facilityId,
-      departmentIds: snapshots.map((snapshot) => snapshot.departmentId),
-      serviceDate,
-    }),
-  ]);
-
-  const preliminary = buildDashboardAggregates({ ...queries, now, facilityTimezone });
-  const activeOperation = await resolveOperationsCenterActiveOperation(prisma, {
-    facilityId,
-    now,
-    unitCards: preliminary.unitCards,
-    mealBoards: preliminary.mealBoards,
-    facilityTimezone,
+  const spaceRefs = collected.flatMap((location) => {
+    const departmentId = location.departmentKey
+      ? departmentIdByKey.get(location.departmentKey)
+      : undefined;
+    if (!departmentId) return [];
+    return location.rooms.map((room) => ({
+      spaceId: room.spaceId,
+      departmentId,
+      departmentLabel: location.departmentLabel,
+      unitId: room.unitId,
+      displayName: room.name,
+      floorName: location.floorLabel,
+      neighborhoodName: location.kind === "NEIGHBORHOOD" ? location.displayName : null,
+    }));
   });
 
-  const viewsBySpaceId = new Map<string, RunLocationOperationPresentation>();
-  for (const snapshot of snapshots) {
-    const model = await loadPublishedRunModel({
-      facilityId,
-      departmentId: snapshot.departmentId,
-      now,
-    });
-    const snapshotLocations = collected.filter(
-      (location) => location.departmentKey === snapshot.departmentKey,
-    );
-    for (const location of snapshotLocations) {
-      for (const room of location.rooms) {
-        const timing = model.timings.find((row) => row.spaceId === room.spaceId);
-        viewsBySpaceId.set(
-          room.spaceId,
-          presentLocationRunOperation({
-            cycles: model.cycles,
-            timings: model.timings,
-            now: model.now,
-            facilityTimezone: model.timezone,
-            operationalDateKey: model.operationalDateKey,
-            spaceId: room.spaceId,
-            nowLocalHhMm: model.nowLocalHhMm,
-            location: {
-              title: room.name,
-              roomTypeLabel: timing?.facilityRoomTypeName ?? room.roomTypeLabel,
-              contextLabel: location.displayName,
-              spaceId: room.spaceId,
-              unitId: room.unitId,
-            },
-          }),
-        );
-      }
-    }
-  }
+  const loaded = await loadRuntimeLocationStates({
+    facilityId,
+    spaceRefs,
+  });
 
-  const factsByUnitId = new Map<string, OperatingLocationIssueFacts>();
-  for (const unit of preliminary.unitCards) {
-    const repairs = queries.openRepairs.filter((repair) => repair.unitId === unit.id);
-    factsByUnitId.set(unit.id, {
-      failedLogs: unit.failed,
-      missedLogs: unit.missed,
-      pendingLogs: unit.pending,
-      openRepairCount: repairs.length,
-      urgentRepairCount: repairs.filter(
-        (repair) => repair.priority === "URGENT" || repair.priority === "HIGH",
-      ).length,
-    });
-  }
-  if (factsByUnitId.size === 0) {
-    for (const unitId of unitIds) factsByUnitId.set(unitId, emptyFacts());
-  }
-
-  const staffingByUnitId = new Map<string, OperatingLocationStaffingInput>();
-  const operationalEnabled = isOperationalAssignmentsEnabled();
-  for (const location of collected) {
-    const spaceAssigned = location.rooms.reduce(
-      (sum, room) => sum + (operationalStaffing.assignedBySpaceId.get(room.spaceId) ?? 0),
-      0,
-    );
-    const scheduleCount =
-      preliminary.unitCards.find((unit) => unit.id === location.unitId)?.staffingCount ?? 0;
-
-    staffingByUnitId.set(location.unitId, {
-      ...deriveAssignedCountsWithOaPreference({
-        operationalEnabled,
-        spaceAssigned,
-        unitAssigned: operationalStaffing.assignedByUnitId.get(location.unitId) ?? 0,
-        expectedByUnitId: operationalStaffing.expectedByUnitId.get(location.unitId) ?? null,
-        scheduleCount,
-      }),
-    });
-  }
-
-  const board = buildOperatingLocationBoard({
+  const board = projectOperatingLocationBoardFromRuntime({
     locations: collected,
-    viewsBySpaceId,
-    staffingByUnitId,
-    factsByUnitId,
-    sort: "board",
+    states: loaded.states,
     lensMode,
+    sort: "board",
   });
 
   return {
     board,
     walkLocations: sortOperatingLocationsForWalk(board.locations),
-    operationContext: activeOperation.operationContext ?? FALLBACK_OPERATION_CONTEXT,
+    operationContext: operationContextFromRuntimeStates(
+      loaded.states,
+      FALLBACK_OPERATION_CONTEXT,
+    ),
     teamScope: activeTeamScope,
   };
 }

@@ -40,7 +40,7 @@ export function SignupForm() {
   }
 
   return (
-    <form action={onSubmit} className="w-full max-w-xl space-y-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <form action={onSubmit} className="w-full max-w-xl space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 shadow-sm">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">Create your LTC Manager account</h1>
         <p className="mt-1 text-sm text-zinc-600">Set up your facility and start onboarding in a few minutes.</p>
@@ -83,7 +83,7 @@ export function SignupForm() {
       <button
         type="submit"
         disabled={state.loading}
-        className="app-button app-accent-button w-full font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+        className="w-full rounded-lg bg-teal-700 px-3 py-2.5 font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {state.loading ? "Creating account..." : "Create account and start setup"}
       </button>

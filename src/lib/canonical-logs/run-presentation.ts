@@ -6,7 +6,14 @@
 import type { LogRequirement, LogRequirementProductState } from "@/lib/logs-architecture/types";
 import { formatLocalTime12h } from "./timing-display";
 
-export type RunLogGroupId = "due" | "overdue" | "upcoming" | "completed" | "needs_setup" | "adhoc";
+export type RunLogGroupId =
+  | "due"
+  | "overdue"
+  | "upcoming"
+  | "completed"
+  | "needs_review"
+  | "needs_setup"
+  | "adhoc";
 
 export type RunLogRequirementView = {
   requirementKey: string;
@@ -49,10 +56,17 @@ export type RunAdHocAttachmentView = {
   startHref: string;
 };
 
+/** Assigned in BUILD, not required until a later service day. */
+export type UpcomingRunLogView = {
+  displayName: string;
+  startsOnLabel: string;
+  targetLabel: string | null;
+};
+
 function stateLabelFor(state: LogRequirementProductState): string {
   switch (state) {
     case "DUE":
-      return "Due now";
+      return "Due";
     case "UPCOMING":
       return "Upcoming";
     case "OVERDUE":
@@ -154,7 +168,7 @@ export function presentRunLogRequirement(input: {
     req.productState === "OVERDUE" ||
     req.productState === "UPCOMING"
   ) {
-    primaryActionLabel = "Open Log";
+    primaryActionLabel = "Open log";
     const params = new URLSearchParams({
       attachmentId: req.attachmentId,
       requirementKey: req.requirementKey,
@@ -199,6 +213,7 @@ const GROUP_ORDER: RunLogGroupId[] = [
   "overdue",
   "due",
   "upcoming",
+  "needs_review",
   "completed",
   "needs_setup",
   "adhoc",
@@ -213,7 +228,9 @@ export function groupLabel(id: RunLogGroupId): string {
     case "upcoming":
       return "Upcoming";
     case "completed":
-      return "Completed today";
+      return "Recent completion";
+    case "needs_review":
+      return "Needs review";
     case "needs_setup":
       return "Needs setup";
     case "adhoc":
@@ -231,6 +248,7 @@ export function groupRunLogRequirements(
     overdue: [],
     upcoming: [],
     completed: [],
+    needs_review: [],
     needs_setup: [],
     adhoc: [],
   };
@@ -247,8 +265,10 @@ export function groupRunLogRequirements(
         buckets.upcoming.push(item);
         break;
       case "COMPLETED":
-      case "COMPLETED_WITH_EXCEPTION":
         buckets.completed.push(item);
+        break;
+      case "COMPLETED_WITH_EXCEPTION":
+        buckets.needs_review.push(item);
         break;
       case "NEEDS_SETUP":
         if (opts?.includeNeedsSetup !== false) buckets.needs_setup.push(item);

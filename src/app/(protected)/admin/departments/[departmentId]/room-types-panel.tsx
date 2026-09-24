@@ -8,10 +8,8 @@ import {
   updateRoomTypeDepartmentUseAction,
 } from "@/app/(protected)/admin/departments/[departmentId]/actions";
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import {
-  departmentAdminHref,
-  type DepartmentAdminView,
-} from "@/lib/department-administration";
+import type { DepartmentAdminView } from "@/lib/department-administration/load-department-admin";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import {
   customizedAssociatedRoomCount,
   departmentArchetypeForRoomType,

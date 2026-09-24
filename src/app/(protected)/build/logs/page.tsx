@@ -14,6 +14,7 @@ import {
 } from "@/lib/canonical-logs";
 import { hasAtLeastRole } from "@/lib/access";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 type SearchParams = Promise<{ tab?: string; departmentId?: string }>;
@@ -57,6 +58,9 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
       departmentId: query.departmentId || null,
       cycleLabelByKey,
       publishedCycleStableKeysByDepartment: publishedByDept,
+      todayKey: toServiceDateKey(
+        getFacilityServiceDate(await loadFacilityTimezone(prisma, facilityId)),
+      ),
     });
   }
 
@@ -81,7 +85,7 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
             tab === "attachments" ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-800"
           }`}
         >
-          Attachments
+          Attached Logs
           {needsSetupCount > 0 ? (
             <span className="ml-1 text-xs opacity-80">· {needsSetupCount} needs setup</span>
           ) : null}
@@ -91,7 +95,7 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
       {tab === "catalog" ? (
         <div className="space-y-2">
           <p className="text-xs text-zinc-500">
-            Browse LTC Corp Catalog Logs. Attach them from an Asset, Room, Unit, or Department.
+          Browse LTC Corp Catalog Logs. Attach from an Asset, Room, Unit, or Department, or use Add to… on a Catalog item.
           </p>
           <CatalogBrowseClient
             cards={catalogCards}
@@ -111,10 +115,11 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
                 <thead className="bg-zinc-50 text-xs text-zinc-600">
                   <tr>
                     <th className="px-3 py-2 font-medium">Log</th>
+                    <th className="px-3 py-2 font-medium">Where</th>
                     <th className="px-3 py-2 font-medium">Schedule</th>
                     <th className="px-3 py-2 font-medium">Department</th>
                     <th className="px-3 py-2 font-medium">State</th>
-                    <th className="px-3 py-2 font-medium">Effective</th>
+                    <th className="px-3 py-2 font-medium">Starts</th>
                     <th className="px-3 py-2 font-medium"> </th>
                   </tr>
                 </thead>
@@ -122,12 +127,23 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
                   {attachments.map((row) => (
                     <tr key={row.id}>
                       <td className="px-3 py-2 font-medium text-zinc-900">{row.displayName}</td>
+                      <td className="px-3 py-2 text-xs text-zinc-600">
+                        {row.targetHref && row.targetLabel ? (
+                          <Link href={row.targetHref} className="underline-offset-2 hover:underline">
+                            {row.targetLabel}
+                          </Link>
+                        ) : (
+                          (row.targetLabel ?? "—")
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">{row.timingSummary}</td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
                         {row.departmentName ?? "—"}
                       </td>
                       <td className="px-3 py-2 text-xs font-medium">{row.primaryStateLabel}</td>
-                      <td className="px-3 py-2 text-xs text-zinc-600">{row.effectiveFromKey}</td>
+                      <td className="px-3 py-2 text-xs text-zinc-600">
+                        {row.startsOnLabel ?? row.effectiveLabel}
+                      </td>
                       <td className="px-3 py-2">
                         <Link
                           href={row.editHref}

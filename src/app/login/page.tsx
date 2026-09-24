@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LoginGate } from "@/components/login-gate";
 import { getSession } from "@/lib/auth";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { isPublicSignupEnabled } from "@/lib/signup-policy";
 
 export default async function LoginPage() {
   const session = await getSession();
@@ -16,5 +17,5 @@ export default async function LoginPage() {
     );
   }
 
-  return <LoginGate />;
+  return <LoginGate signupEnabled={isPublicSignupEnabled()} />;
 }

@@ -67,11 +67,20 @@ export default async function CanonicalLogRecordPage({ params, searchParams }: P
         >
           {view.isException ? (
             <>
-              <p className="font-medium">Log completed with exception</p>
-              <p className="text-xs">Your corrective action was recorded.</p>
+              <p className="font-medium">Complete with corrective action</p>
+              {view.fields[0]?.displayValue ? (
+                <p className="text-xs">{view.fields[0].displayValue} recorded</p>
+              ) : (
+                <p className="text-xs">Your corrective action was recorded.</p>
+              )}
             </>
           ) : (
-            <p className="font-medium">Log completed</p>
+            <>
+              <p className="font-medium">Complete</p>
+              {view.fields[0]?.displayValue ? (
+                <p className="text-xs">{view.fields[0].displayValue} recorded</p>
+              ) : null}
+            </>
           )}
         </div>
       ) : null}
@@ -108,6 +117,20 @@ export default async function CanonicalLogRecordPage({ params, searchParams }: P
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
             <p className="font-medium">Corrective action</p>
             <p className="mt-1">{view.correctiveActionText}</p>
+          </div>
+        ) : null}
+
+        {view.amendments.length > 0 ? (
+          <div className="space-y-1 text-sm">
+            <p className="font-medium text-zinc-900">Amendments</p>
+            <ul className="space-y-1 text-xs text-zinc-600">
+              {view.amendments.map((row) => (
+                <li key={row.id}>
+                  {row.atLabel}
+                  {row.byLabel ? ` · ${row.byLabel}` : ""} — {row.reason}
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
 

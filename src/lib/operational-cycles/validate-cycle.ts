@@ -32,6 +32,7 @@ export type ValidateCycleInput = {
   locationMode: OperationalCycleLocationMode;
   locationInheritFromParent?: boolean;
   applicableUnitTypes?: UnitType[];
+  applicableOperationalTypeKeys?: string[];
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
@@ -398,6 +399,18 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
       errors.push(
         issue("unit_types_required", "Unit-type location mode requires at least one unit type.", "error"),
       );
+    }
+  }
+
+  if (input.locationMode === "OPERATIONAL_TYPES") {
+    const keys = (input.applicableOperationalTypeKeys ?? []).map((key) => key.trim()).filter(Boolean);
+    if (keys.length === 0) {
+      const msg = "Choose at least one Operational Type for this cycle.";
+      if (forPublish) {
+        errors.push(issue("operational_types_required", msg, "error"));
+      } else {
+        warnings.push(issue("operational_types_empty", msg, "warning"));
+      }
     }
   }
 

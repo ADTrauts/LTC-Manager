@@ -1,6 +1,6 @@
 /**
  * Facility Structure bulk import — parse, validate, and plan create-only hierarchy writes.
- * Writes go through canonical Unit (FLOOR / NEIGHBORHOOD) + UnitSpace models.
+ * Writes go through canonical Unit (optional BUILDING / FLOOR / NEIGHBORHOOD) + UnitSpace models.
  */
 
 import { SpaceType, UnitHierarchyRole, type UnitType } from "@prisma/client";
@@ -33,13 +33,15 @@ import {
   type BulkImportRowStatus,
 } from "./types";
 
-export const FACILITY_STRUCTURE_TEMPLATE_VERSION = "2026-08-09-b";
+export const FACILITY_STRUCTURE_TEMPLATE_VERSION = "2026-09-16-a";
 
 /**
  * User-facing Facility Structure CSV headers.
  * Internal UnitSpace domain remains unchanged; `locationName` / `locationType` are import UX terms.
+ * `building` is optional — empty means Floor sits at the facility root (typical LTC).
  */
 export const FACILITY_STRUCTURE_CSV_HEADERS = [
+  "building",
   "floor",
   "neighborhood",
   "locationName",
@@ -59,6 +61,9 @@ export const FACILITY_LOCATION_TYPE_LABELS = SPACE_TYPE_PRESETS.filter(
 ).map((p) => p.label);
 
 const HEADER_ALIASES: Record<string, FacilityStructureField> = {
+  building: "building",
+  level0: "building",
+  level_0: "building",
   floor: "floor",
   level1: "floor",
   level_1: "floor",
@@ -96,11 +101,11 @@ const HEADER_ALIASES: Record<string, FacilityStructureField> = {
 export const FACILITY_STRUCTURE_CSV_TEMPLATE = rowsToCsv(
   [...FACILITY_STRUCTURE_CSV_HEADERS],
   [
-    ["Floor 1", "1A - Naval Park", "Room 101", "Resident Room", "101", "", "", "", ""],
-    ["Floor 1", "1A - Naval Park", "Room 102", "Resident Room", "102", "", "", "", ""],
-    ["Floor 1", "1A - Naval Park", "Servery", "Servery", "", "", "", "Dietary", ""],
-    ["Floor 1", "1A - Naval Park", "Dining Room", "Dining Room", "", "", "", "", ""],
-    ["Floor 1", "1A - Naval Park", "Clean Utility", "Utility Room", "", "", "", "", ""],
+    ["", "Floor 1", "1A - Naval Park", "Room 101", "Resident Room", "101", "", "", "", ""],
+    ["", "Floor 1", "1A - Naval Park", "Room 102", "Resident Room", "102", "", "", "", ""],
+    ["", "Floor 1", "1A - Naval Park", "Servery", "Servery", "", "", "", "Dietary", ""],
+    ["", "Floor 1", "1A - Naval Park", "Dining Room", "Dining Room", "", "", "", "", ""],
+    ["", "Floor 1", "1A - Naval Park", "Clean Utility", "Utility Room", "", "", "", "", ""],
   ],
 );
 
@@ -145,6 +150,7 @@ export type FacilityStructureCatalog = {
 
 export type ParsedFacilityStructureRow = {
   rowNumber: number;
+  building: string;
   floor: string;
   neighborhood: string;
   /** User-facing Location Name; maps to UnitSpace.name internally. */
@@ -163,9 +169,11 @@ export type FacilityStructureRowPlan = {
   rowNumber: number;
   status: BulkImportRowStatus;
   intent: FacilityStructureRowIntent;
+  buildingKey: string;
   floorKey: string;
   neighborhoodKey: string;
   spaceKey: string;
+  buildingName: string;
   floorName: string;
   neighborhoodName: string;
   /** UnitSpace.name (user-facing Location Name). */
@@ -176,9 +184,11 @@ export type FacilityStructureRowPlan = {
   description: string | null;
   departmentId: string | null;
   departmentName: string | null;
+  buildingAction: "create" | "reuse" | "none";
   floorAction: "create" | "reuse" | "none";
   neighborhoodAction: "create" | "reuse" | "none";
   spaceAction: "create" | "reuse" | "skip" | "none";
+  existingBuildingId: string | null;
   existingFloorId: string | null;
   existingNeighborhoodId: string | null;
   existingSpaceId: string | null;
@@ -227,9 +237,11 @@ export type FacilityStructureImportPlan = {
   rows: FacilityStructureRowPlan[];
   issues: BulkImportRowIssue[];
   hierarchyPreview: FacilityHierarchyPreviewNode[];
+  buildingsToCreate: number;
   floorsToCreate: number;
   neighborhoodsToCreate: number;
   spacesToCreate: number;
+  buildingsReused: number;
   floorsReused: number;
   neighborhoodsReused: number;
   spacesReused: number;
@@ -238,7 +250,8 @@ export type FacilityStructureImportPlan = {
 };
 
 export type FacilityStructureCreateOps = {
-  floors: Array<{ key: string; name: string }>;
+  buildings: Array<{ key: string; name: string }>;
+  floors: Array<{ key: string; name: string; buildingKey: string }>;
   neighborhoods: Array<{ key: string; name: string; floorKey: string }>;
   spaces: Array<{
     key: string;
@@ -375,6 +388,7 @@ export function parseFacilityStructureCsv(text: string, fileName?: string | null
 
   const rows: ParsedFacilityStructureRow[] = read.rows.map((cells, idx) => ({
     rowNumber: idx + 2,
+    building: cellAt(cells, colMap, "building"),
     floor: cellAt(cells, colMap, "floor"),
     neighborhood: cellAt(cells, colMap, "neighborhood"),
     locationName: cellAt(cells, colMap, "locationName"),
@@ -405,6 +419,26 @@ function findUnitsByName(
 ): ExistingUnitSnapshot[] {
   const key = normKey(name);
   return catalog.units.filter((u) => normKey(u.name) === key);
+}
+
+function findBuildingMatches(
+  catalog: FacilityStructureCatalog,
+  name: string,
+): ExistingUnitSnapshot[] {
+  return findUnitsByName(catalog, name).filter(
+    (u) => resolveBuilderNodeDisplayKind(u) === "building",
+  );
+}
+
+function findFloorMatches(
+  catalog: FacilityStructureCatalog,
+  floorName: string,
+  buildingId: string | null,
+): ExistingUnitSnapshot[] {
+  return findUnitsByName(catalog, floorName).filter((u) => {
+    if (resolveBuilderNodeDisplayKind(u) !== "floor") return false;
+    return (u.parentUnitId ?? null) === buildingId;
+  });
 }
 
 function findDepartment(
@@ -447,7 +481,7 @@ function spaceTypeConflicts(
 
 /**
  * Validate CSV rows against a preloaded facility catalog (batch-loaded; no N+1).
- * Supports Floor-only, Floor+Neighborhood, and Floor+Neighborhood+Location rows.
+ * Supports optional Building, Floor-only, Floor+Neighborhood, and location rows.
  */
 export function planFacilityStructureImport(
   parsedRows: ParsedFacilityStructureRow[],
@@ -458,7 +492,11 @@ export function planFacilityStructureImport(
   const rows: FacilityStructureRowPlan[] = [];
   const issues: BulkImportRowIssue[] = [];
 
-  const plannedFloors = new Map<string, { name: string; action: "create" | "reuse"; id: string | null }>();
+  const plannedBuildings = new Map<string, { name: string; action: "create" | "reuse"; id: string | null }>();
+  const plannedFloors = new Map<
+    string,
+    { name: string; buildingKey: string; action: "create" | "reuse"; id: string | null }
+  >();
   const plannedNeighborhoods = new Map<
     string,
     { name: string; floorKey: string; action: "create" | "reuse"; id: string | null }
@@ -483,9 +521,11 @@ export function planFacilityStructureImport(
     let resolvedType: ResolvedSpaceTypeInput | null = null;
     let departmentId: string | null = null;
     let departmentName: string | null = null;
+    let buildingAction: FacilityStructureRowPlan["buildingAction"] = "none";
     let floorAction: FacilityStructureRowPlan["floorAction"] = "none";
     let neighborhoodAction: FacilityStructureRowPlan["neighborhoodAction"] = "none";
     let spaceAction: FacilityStructureRowPlan["spaceAction"] = "none";
+    let existingBuildingId: string | null = null;
     let existingFloorId: string | null = null;
     let existingNeighborhoodId: string | null = null;
     let existingSpaceId: string | null = null;
@@ -499,6 +539,14 @@ export function planFacilityStructureImport(
     const hasCode = Boolean(raw.code.trim());
     const hasDescription = Boolean(raw.description.trim());
 
+    if (raw.building.length > 120) {
+      errors.push({
+        row: raw.rowNumber,
+        field: "building",
+        value: raw.building,
+        reason: "Building name must be 120 characters or fewer.",
+      });
+    }
     if (!raw.floor.trim()) {
       errors.push({
         row: raw.rowNumber,
@@ -656,15 +704,76 @@ export function planFacilityStructureImport(
       });
     }
 
-    const floorKey = normKey(raw.floor);
-    const neighborhoodKey = raw.neighborhood.trim() ? normKey(raw.neighborhood) : "";
+    const buildingKey = raw.building.trim() ? normKey(raw.building) : "";
+    const floorKey = `${buildingKey}::${normKey(raw.floor)}`;
+    const neighborhoodKey = raw.neighborhood.trim()
+      ? `${floorKey}::${normKey(raw.neighborhood)}`
+      : "";
     const spaceKey =
       intent === "location" && neighborhoodKey
         ? `${neighborhoodKey}::${normKey(raw.locationName)}`
         : "";
 
     if (errors.length === 0) {
-      // Floor resolution
+      // Optional Building resolution
+      if (buildingKey) {
+        const plannedBuilding = plannedBuildings.get(buildingKey);
+        if (plannedBuilding) {
+          buildingAction = plannedBuilding.action;
+          existingBuildingId = plannedBuilding.id;
+        } else {
+          const matches = findBuildingMatches(catalog, raw.building);
+          if (matches.length > 1) {
+            errors.push({
+              row: raw.rowNumber,
+              field: "building",
+              value: raw.building,
+              reason: `Ambiguous building name "${raw.building}" matches ${matches.length} units.`,
+            });
+          } else if (matches.length === 1) {
+            const match = matches[0]!;
+            if (!match.isActive) {
+              errors.push({
+                row: raw.rowNumber,
+                field: "building",
+                value: raw.building,
+                reason: `Building "${match.name}" is inactive and cannot be used for import.`,
+              });
+            } else {
+              buildingAction = "reuse";
+              existingBuildingId = match.id;
+              plannedBuildings.set(buildingKey, {
+                name: match.name,
+                action: "reuse",
+                id: match.id,
+              });
+            }
+          } else {
+            const nameCollisions = findUnitsByName(catalog, raw.building).filter(
+              (u) => resolveBuilderNodeDisplayKind(u) !== "building",
+            );
+            if (nameCollisions.length > 0) {
+              errors.push({
+                row: raw.rowNumber,
+                field: "building",
+                value: raw.building,
+                reason: `Existing unit "${raw.building.trim()}" is not a Building.`,
+                suggestion: "Use a distinct Building name.",
+              });
+            } else {
+              buildingAction = "create";
+              plannedBuildings.set(buildingKey, {
+                name: raw.building.trim(),
+                action: "create",
+                id: null,
+              });
+            }
+          }
+        }
+      }
+
+      // Floor resolution (scoped to optional Building)
+      if (errors.length === 0) {
       const plannedFloor = plannedFloors.get(floorKey);
       if (plannedFloor) {
         floorAction = plannedFloor.action;
@@ -676,8 +785,20 @@ export function planFacilityStructureImport(
           status = "reuse";
           messages.push(`Floor "${plannedFloor.name}" already planned earlier in this file.`);
         }
+      } else if (buildingKey && !existingBuildingId) {
+        floorAction = "create";
+        plannedFloors.set(floorKey, {
+          name: raw.floor.trim(),
+          buildingKey,
+          action: "create",
+          id: null,
+        });
+        if (intent === "floor") {
+          status = "create";
+          messages.push(`Will create Floor "${raw.floor.trim()}".`);
+        }
       } else {
-        const matches = findUnitsByName(catalog, raw.floor);
+        const matches = findFloorMatches(catalog, raw.floor, existingBuildingId);
         if (matches.length > 1) {
           errors.push({
             row: raw.rowNumber,
@@ -709,6 +830,7 @@ export function planFacilityStructureImport(
             existingFloorId = match.id;
             plannedFloors.set(floorKey, {
               name: match.name,
+              buildingKey,
               action: "reuse",
               id: match.id,
             });
@@ -719,6 +841,7 @@ export function planFacilityStructureImport(
           floorAction = "create";
           plannedFloors.set(floorKey, {
             name: raw.floor.trim(),
+            buildingKey,
             action: "create",
             id: null,
           });
@@ -727,6 +850,7 @@ export function planFacilityStructureImport(
             messages.push(`Will create Floor "${raw.floor.trim()}".`);
           }
         }
+      }
       }
 
       // Neighborhood resolution (when present)
@@ -753,7 +877,11 @@ export function planFacilityStructureImport(
             }
           }
         } else {
-          const matches = findUnitsByName(catalog, raw.neighborhood);
+          const matches = findUnitsByName(catalog, raw.neighborhood).filter((u) => {
+            if (resolveBuilderNodeDisplayKind(u) === "staged") return true;
+            if (existingFloorId) return u.parentUnitId === existingFloorId;
+            return u.parentUnitId == null;
+          });
           if (matches.length > 1) {
             errors.push({
               row: raw.rowNumber,
@@ -962,7 +1090,7 @@ export function planFacilityStructureImport(
       // already set
     } else if (status === "warning" || status === "reuse") {
       // ok
-    } else if (spaceAction === "create" || floorAction === "create" || neighborhoodAction === "create") {
+    } else if (spaceAction === "create" || floorAction === "create" || neighborhoodAction === "create" || buildingAction === "create") {
       status = "create";
     }
 
@@ -970,9 +1098,11 @@ export function planFacilityStructureImport(
       rowNumber: raw.rowNumber,
       status,
       intent,
+      buildingKey,
       floorKey,
       neighborhoodKey,
       spaceKey,
+      buildingName: raw.building.trim(),
       floorName: raw.floor.trim(),
       neighborhoodName: raw.neighborhood.trim(),
       spaceName: raw.locationName.trim(),
@@ -982,9 +1112,11 @@ export function planFacilityStructureImport(
       description: raw.description || null,
       departmentId,
       departmentName,
+      buildingAction,
       floorAction,
       neighborhoodAction,
       spaceAction,
+      existingBuildingId,
       existingFloorId,
       existingNeighborhoodId,
       existingSpaceId,
@@ -1013,9 +1145,12 @@ export function planFacilityStructureImport(
   }
 
   const createOps: FacilityStructureCreateOps = {
-    floors: [...plannedFloors.entries()]
+    buildings: [...plannedBuildings.entries()]
       .filter(([, v]) => v.action === "create")
       .map(([key, v]) => ({ key, name: v.name })),
+    floors: [...plannedFloors.entries()]
+      .filter(([, v]) => v.action === "create")
+      .map(([key, v]) => ({ key, name: v.name, buildingKey: v.buildingKey })),
     neighborhoods: [...plannedNeighborhoods.entries()]
       .filter(([, v]) => v.action === "create")
       .map(([key, v]) => ({ key, name: v.name, floorKey: v.floorKey })),
@@ -1046,9 +1181,11 @@ export function planFacilityStructureImport(
 
   const hierarchyPreview = buildHierarchyPreview(rows, plannedFloors, plannedNeighborhoods);
 
+  const buildingsToCreate = createOps.buildings.length;
   const floorsToCreate = createOps.floors.length;
   const neighborhoodsToCreate = createOps.neighborhoods.length;
   const spacesToCreate = createOps.spaces.length;
+  const buildingsReused = [...plannedBuildings.values()].filter((v) => v.action === "reuse").length;
   const floorsReused = [...plannedFloors.values()].filter((v) => v.action === "reuse").length;
   const neighborhoodsReused = [...plannedNeighborhoods.values()].filter(
     (v) => v.action === "reuse",
@@ -1061,9 +1198,11 @@ export function planFacilityStructureImport(
     rows,
     issues,
     hierarchyPreview,
+    buildingsToCreate,
     floorsToCreate,
     neighborhoodsToCreate,
     spacesToCreate,
+    buildingsReused,
     floorsReused,
     neighborhoodsReused,
     spacesReused,
@@ -1082,7 +1221,10 @@ function locationTypeLabel(row: FacilityStructureRowPlan): string {
 
 function buildHierarchyPreview(
   rows: FacilityStructureRowPlan[],
-  plannedFloors: Map<string, { name: string; action: "create" | "reuse"; id: string | null }>,
+  plannedFloors: Map<
+    string,
+    { name: string; buildingKey: string; action: "create" | "reuse"; id: string | null }
+  >,
   plannedNeighborhoods: Map<
     string,
     { name: string; floorKey: string; action: "create" | "reuse"; id: string | null }
@@ -1091,8 +1233,10 @@ function buildHierarchyPreview(
   const floorNodes = new Map<string, FacilityHierarchyPreviewNode>();
 
   for (const [floorKey, floor] of plannedFloors.entries()) {
+    const sample = rows.find((r) => r.floorKey === floorKey);
+    const buildingName = sample?.buildingName.trim();
     floorNodes.set(floorKey, {
-      name: floor.name,
+      name: buildingName ? `${buildingName} / ${floor.name}` : floor.name,
       action: floor.action,
       neighborhoods: [],
     });
@@ -1157,7 +1301,10 @@ export function finalizeFacilityPlanConfirmability(
   plan: FacilityStructureImportPlan,
 ): FacilityStructureImportPlan {
   const work =
-    plan.floorsToCreate + plan.neighborhoodsToCreate + plan.spacesToCreate;
+    plan.buildingsToCreate +
+    plan.floorsToCreate +
+      plan.neighborhoodsToCreate +
+      plan.spacesToCreate;
   const canConfirm =
     plan.counts.invalidRows === 0 &&
     plan.counts.totalRows > 0 &&
@@ -1176,7 +1323,11 @@ export type FacilityStructureExecuteContext = {
  */
 export function orderedFacilityCreatePlan(plan: FacilityStructureImportPlan): FacilityStructureCreateOps {
   return {
-    floors: [...plan.createOps.floors].sort((a, b) => a.name.localeCompare(b.name)),
+    buildings: [...plan.createOps.buildings].sort((a, b) => a.name.localeCompare(b.name)),
+    floors: [...plan.createOps.floors].sort((a, b) => {
+      const bcmp = a.buildingKey.localeCompare(b.buildingKey);
+      return bcmp !== 0 ? bcmp : a.name.localeCompare(b.name);
+    }),
     neighborhoods: [...plan.createOps.neighborhoods].sort((a, b) => {
       const floorCmp = a.floorKey.localeCompare(b.floorKey);
       return floorCmp !== 0 ? floorCmp : a.name.localeCompare(b.name);

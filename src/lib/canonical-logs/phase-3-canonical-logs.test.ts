@@ -11,7 +11,7 @@ import { PrismaClient } from "@prisma/client";
 import type { AppJwtPayload } from "@/lib/auth";
 
 import { upsertPublishedCatalogSeeds } from "./catalog-seed";
-import { createLogAttachment, setLogAttachmentStatus } from "./attachment-service";
+import { createLogAttachment, setLogAttachmentStatus, updateLogAttachment } from "./attachment-service";
 import { createCatalogDraftSuccessor, publishCatalogDefinition } from "./catalog-service";
 import { resolveLogRequirementsForAttachment } from "./resolve-log-requirements";
 import { submitCanonicalLogSubmission } from "./submit-canonical-log";
@@ -210,7 +210,11 @@ test(
         facilityId: facility.id,
         attachmentId: attachment.id,
         status: "RETIRED",
+        todayKey: "2026-09-13",
       });
+      const retired = await prisma.logAttachment.findUnique({ where: { id: attachment.id } });
+      assert.equal(retired?.status, "RETIRED");
+      assert.ok(retired?.effectiveTo);
     } finally {
       if (prev === undefined) delete process.env.CANONICAL_LOGS_ENABLED;
       else process.env.CANONICAL_LOGS_ENABLED = prev;
@@ -341,3 +345,97 @@ test(
     }
   },
 );
+
+test(
+  "phase3 sql: prospective timing successor does not rewrite historical windows",
+  { skip: skipReason },
+  async () => {
+    assert.ok(databaseUrl);
+    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    const prev = process.env.CANONICAL_LOGS_ENABLED;
+    process.env.CANONICAL_LOGS_ENABLED = "true";
+
+    try {
+      await upsertPublishedCatalogSeeds(prisma);
+      const org = await prisma.organization.create({
+        data: { id: cuidLike(), name: `Org ${cuidLike()}`, isActive: true },
+      });
+      const facility = await prisma.facility.create({
+        data: {
+          id: cuidLike(),
+          organizationId: org.id,
+          displayName: `Facility ${cuidLike()}`,
+          timezone: "America/New_York",
+        },
+      });
+      const department = await prisma.department.create({
+        data: {
+          id: cuidLike(),
+          facilityId: facility.id,
+          key: "DIETARY",
+          name: "Dietary",
+        },
+      });
+      const unit = await prisma.unit.create({
+        data: {
+          id: cuidLike(),
+          facilityId: facility.id,
+          name: "Naval Park",
+          unitType: "SERVERY",
+          hierarchyRole: "NEIGHBORHOOD",
+        },
+      });
+      const asset = await prisma.asset.create({
+        data: {
+          id: cuidLike(),
+          unitId: unit.id,
+          departmentId: department.id,
+          name: "Reach-In Cooler",
+          assetCode: `CL-${cuidLike().slice(0, 8)}`,
+          equipmentType: "COOLER",
+          status: "OPERATIONAL",
+        },
+      });
+      const catalog = await prisma.catalogLogDefinition.findUnique({
+        where: { stableKey_version: { stableKey: "cooler_temperature_log", version: 1 } },
+      });
+      assert.ok(catalog);
+
+      const original = await createLogAttachment(prisma, {
+        facilityId: facility.id,
+        departmentId: department.id,
+        catalogDefinitionId: catalog!.id,
+        target: { kind: "ASSET", assetId: asset.id },
+        effectiveFromKey: "2026-09-01",
+      });
+      assert.equal(original.dailyWindows.length, 2);
+
+      const successor = await updateLogAttachment(prisma, {
+        facilityId: facility.id,
+        attachmentId: original.id,
+        dailyWindows: [
+          { label: "Morning", startLocal: "05:00", endLocal: "11:00" },
+          { label: "Afternoon", startLocal: "11:00", endLocal: "16:00" },
+          { label: "Evening", startLocal: "16:00", endLocal: "21:00" },
+        ],
+        todayKey: "2026-09-10",
+      });
+      assert.notEqual(successor.id, original.id);
+      assert.equal(successor.dailyWindows.length, 3);
+
+      const closed = await prisma.logAttachment.findUnique({
+        where: { id: original.id },
+        include: { dailyWindows: true },
+      });
+      assert.equal(closed?.status, "INACTIVE");
+      assert.equal(closed?.dailyWindows.length, 2);
+      assert.equal(closed?.effectiveTo?.toISOString().slice(0, 10), "2026-09-10");
+      assert.equal(successor.effectiveFrom.toISOString().slice(0, 10), "2026-09-11");
+    } finally {
+      if (prev === undefined) delete process.env.CANONICAL_LOGS_ENABLED;
+      else process.env.CANONICAL_LOGS_ENABLED = prev;
+      await prisma.$disconnect();
+    }
+  },
+);
+

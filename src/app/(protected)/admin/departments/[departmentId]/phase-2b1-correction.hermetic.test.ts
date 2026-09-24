@@ -18,18 +18,28 @@ test("Overview identity appears once — panel does not repeat department name h
 });
 
 test("Locations hierarchy presents Floor → Neighborhood → Room", () => {
-  const locations = readFileSync(
+  const panel = readFileSync(
     join(
       process.cwd(),
       "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx",
     ),
     "utf8",
   );
-  assert.match(locations, /DepartmentLocationTree/);
-  assert.match(locations, /Manage responsibility/);
-  assert.match(locations, /department-locations-header/);
-  assert.doesNotMatch(locations, /locationCoverage\.total/);
-  assert.doesNotMatch(locations, /Room · /);
+  const programming = readFileSync(
+    join(
+      process.cwd(),
+      "src/app/(protected)/admin/departments/[departmentId]/locations-programming-client.tsx",
+    ),
+    "utf8",
+  );
+  assert.match(panel, /LocationsProgrammingClient/);
+  assert.match(panel, /Manage responsibility/);
+  assert.match(panel, /department-locations-header/);
+  assert.doesNotMatch(panel, /locationCoverage\.total/);
+  assert.doesNotMatch(panel, /Room · /);
+  assert.match(programming, /import \{ DepartmentLocationTree \} from "@\/components\/location-tree"/);
+  assert.match(programming, /<DepartmentLocationTree/);
+  assert.match(programming, /floors=\{view\.locationHierarchy\}/);
 });
 
 test("Teams rows are catalog objects with chevron navigation", () => {

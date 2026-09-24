@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { AssetCriticality, AssetStatus } from "@prisma/client";
 import { z } from "zod";
 
@@ -13,12 +14,20 @@ import {
 import {
   changeAssetStatus,
   createAsset,
+  requireAssetManage,
+  resolveAssetOperationsAuthority,
   retireAsset,
   updateAssetIdentity,
   type AssetOperationalStatus,
 } from "@/lib/asset-operations";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { listAttachmentsForAsset } from "@/lib/attachments";
+import {
+  deleteFacilityPhotoAttachment,
+  MAX_ASSET_PHOTOS,
+  savePhotosFromFormData,
+} from "@/lib/photo-attachments";
 import { prisma } from "@/lib/prisma";
 
 async function resolveDefaultResponsibleDepartmentForUnit(unitId: string, facilityId: string) {
@@ -125,6 +134,7 @@ export async function createAssetAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
 
+  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
   const criticalityRaw = String(formData.get("criticality") ?? "ROUTINE");
   const lifecycleOrStatus = String(formData.get("lifecycle") ?? formData.get("status") ?? "ACTIVE");
   const parsed = createAssetSchema.parse({
@@ -138,7 +148,7 @@ export async function createAssetAction(formData: FormData) {
     vendorId: toOptional(formData.get("vendorId")),
     departmentId: toOptional(formData.get("departmentId")),
     responsibleOrganizationId: toOptional(formData.get("responsibleOrganizationId")),
-    status: lifecycleOrStatus === "ACTIVE" ? "OPERATIONAL" : lifecycleOrStatus,
+    status: assetOpsEnabled && lifecycleOrStatus === "ACTIVE" ? "OPERATIONAL" : lifecycleOrStatus,
     criticality: isAssetCriticality(criticalityRaw) ? criticalityRaw : "ROUTINE",
     notes: toOptional(formData.get("notes")),
     manufacturer: toOptional(formData.get("manufacturer")),
@@ -206,7 +216,7 @@ export async function createAssetAction(formData: FormData) {
     }
   }
 
-  if (isDietaryAssetOperationsEnabled()) {
+  if (assetOpsEnabled) {
     const status = parseOperationalStatus(parsed.status);
     const created = await createAsset(session, {
       facilityId: session.facilityId,
@@ -227,15 +237,23 @@ export async function createAssetAction(formData: FormData) {
       notes: parsed.notes,
       status,
     });
+    await savePhotosFromFormData({
+      formData,
+      facilityId: session.facilityId,
+      parentKind: "ASSET",
+      assetId: created.id,
+      session,
+      maxCount: MAX_ASSET_PHOTOS,
+    });
     revalidateAssetViews(created.id);
-    return;
+    redirect("/assets/builder");
   }
 
   if (!(legacyAssetStatusValues as readonly string[]).includes(parsed.status)) {
     throw new Error("Invalid asset status.");
   }
 
-  await prisma.asset.create({
+  const created = await prisma.asset.create({
     data: {
       assetCode: parsed.assetCode,
       name: parsed.name,
@@ -251,9 +269,20 @@ export async function createAssetAction(formData: FormData) {
       criticality: parsed.criticality as AssetCriticality,
       notes: parsed.notes,
     },
+    select: { id: true },
   });
 
-  revalidateAssetViews();
+  await savePhotosFromFormData({
+    formData,
+    facilityId: session.facilityId,
+    parentKind: "ASSET",
+    assetId: created.id,
+    session,
+    maxCount: MAX_ASSET_PHOTOS,
+  });
+
+  revalidateAssetViews(created.id);
+  redirect("/assets/builder");
 }
 
 export async function updateAssetStatusAction(formData: FormData) {
@@ -304,13 +333,16 @@ export async function updateAssetStatusAction(formData: FormData) {
     return;
   }
 
-  if (!(legacyAssetStatusValues as readonly string[]).includes(statusRaw)) {
+  let nextStatus: AssetStatus;
+  try {
+    nextStatus = parseOperationalStatus(statusRaw) as AssetStatus;
+  } catch {
     throw new Error("Invalid asset status update.");
   }
 
   await prisma.asset.update({
     where: { id: assetId },
-    data: { status: statusRaw as AssetStatus },
+    data: { status: nextStatus },
   });
 
   revalidateAssetViews(assetId);
@@ -513,6 +545,75 @@ export async function updateAssetDepartmentAction(formData: FormData) {
   });
 
   revalidateAssetViews(assetId);
+}
+
+export async function uploadAssetPhotosAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const assetId = String(formData.get("assetId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!assetId || !departmentId) {
+    throw new Error("Invalid photo upload.");
+  }
+
+  const asset = await prisma.asset.findFirst({
+    where: { id: assetId, unit: { facilityId: session.facilityId } },
+    select: { id: true },
+  });
+  if (!asset) {
+    throw new Error("Asset not found.");
+  }
+
+  if (isDietaryAssetOperationsEnabled()) {
+    const authority = await resolveAssetOperationsAuthority(
+      session,
+      session.facilityId,
+      departmentId,
+    );
+    requireAssetManage(authority);
+  } else {
+    requireAtLeastRole(session.role, "SUPERVISOR");
+  }
+
+  const existing = await listAttachmentsForAsset(session.facilityId, assetId);
+  await savePhotosFromFormData({
+    formData,
+    facilityId: session.facilityId,
+    parentKind: "ASSET",
+    assetId,
+    session,
+    maxCount: MAX_ASSET_PHOTOS,
+    existingCount: existing.length,
+  });
+  revalidateAssetViews(assetId);
+}
+
+export async function removeAssetPhotoAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const assetId = String(formData.get("assetId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const attachmentId = String(formData.get("attachmentId") ?? "");
+  if (!assetId || !departmentId || !attachmentId) {
+    throw new Error("Invalid photo removal.");
+  }
+
+  if (isDietaryAssetOperationsEnabled()) {
+    const authority = await resolveAssetOperationsAuthority(
+      session,
+      session.facilityId,
+      departmentId,
+    );
+    requireAssetManage(authority);
+  } else {
+    requireAtLeastRole(session.role, "SUPERVISOR");
+  }
+
+  const removed = await deleteFacilityPhotoAttachment({
+    facilityId: session.facilityId,
+    attachmentId,
+    expectedKind: "ASSET",
+    expectedParentId: assetId,
+  });
+  revalidateAssetViews(removed.parentId);
 }
 
 const createFacilityOrganizationSchema = z.object({

@@ -324,7 +324,7 @@ export function CanonicalLogEntryForm(props: Props) {
       {outOfStandard ? (
         <div className="space-y-1.5" data-testid="corrective-action-field">
           <label htmlFor="corrective-action" className="block text-sm font-medium text-zinc-900">
-            Corrective action
+            Corrective action required
             {correctiveRequired ? <span className="text-zinc-500"> *</span> : null}
           </label>
           <p className="text-xs text-zinc-500">
@@ -350,7 +350,7 @@ export function CanonicalLogEntryForm(props: Props) {
           className="inline-flex min-h-12 min-w-[8rem] items-center justify-center rounded-md border border-zinc-900 bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-60"
           data-testid="submit-log"
         >
-          {pending ? "Submitting…" : "Submit Log"}
+          {pending ? "Submitting…" : "Submit"}
         </button>
         <Link
           href={props.cancelHref}

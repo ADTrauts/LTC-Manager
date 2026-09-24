@@ -5,7 +5,6 @@ import { LeftSidebar } from "@/components/left-sidebar";
 import type { BuildSidebarNavItem } from "@/lib/build-hub";
 import type { ProjectedSidebarSection } from "@/lib/locations";
 import { resolveProductModeForPath } from "@/lib/product-mode";
-import type { ReadinessState } from "@/lib/readiness";
 import type { SidebarUnit } from "@/lib/units";
 import { useNavPathname } from "@/hooks/use-nav-pathname";
 
@@ -14,7 +13,6 @@ type ShellSidebarProps = {
   projectionSections?: readonly ProjectedSidebarSection[];
   projectionUnavailable?: boolean;
   lockedUnitId?: string;
-  readinessByUnitId?: Record<string, { state: ReadinessState }>;
   /** Role/department-filtered BUILD nav items (includes Build Home when reachable). */
   buildNavItems: readonly BuildSidebarNavItem[];
 };
@@ -30,7 +28,6 @@ export function ShellSidebar({
   projectionSections,
   projectionUnavailable,
   lockedUnitId,
-  readinessByUnitId,
   buildNavItems,
 }: ShellSidebarProps) {
   const pathname = useNavPathname();
@@ -50,7 +47,6 @@ export function ShellSidebar({
       projectionSections={projectionSections}
       projectionUnavailable={projectionUnavailable}
       lockedUnitId={lockedUnitId}
-      readinessByUnitId={readinessByUnitId}
     />
   );
 }

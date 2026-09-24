@@ -5,6 +5,7 @@ import Link from "next/link";
 import type {
   RunAdHocAttachmentView,
   RunLogRequirementView,
+  UpcomingRunLogView,
 } from "@/lib/canonical-logs/run-presentation";
 import { groupRunLogRequirements } from "@/lib/canonical-logs/run-presentation";
 
@@ -13,6 +14,9 @@ type Props = {
   adHocAttachments: RunAdHocAttachmentView[];
   includeNeedsSetup: boolean;
   isManager: boolean;
+  upcoming?: UpcomingRunLogView[];
+  otherDepartmentNames?: string[];
+  departmentName?: string | null;
 };
 
 function stateClass(emphasis: RunLogRequirementView["emphasis"]): string {
@@ -33,6 +37,9 @@ export function RunLogRequirementList({
   adHocAttachments,
   includeNeedsSetup,
   isManager,
+  upcoming = [],
+  otherDepartmentNames = [],
+  departmentName = null,
 }: Props) {
   const groups = groupRunLogRequirements(requirements, adHocAttachments, {
     includeNeedsSetup,
@@ -41,14 +48,27 @@ export function RunLogRequirementList({
   if (groups.length === 0) {
     return (
       <div
-        className="rounded-md border border-dashed border-zinc-300 px-3 py-6 text-center text-sm text-zinc-600"
+        className="rounded-md border border-dashed border-zinc-300 px-3 py-5 text-sm text-zinc-600"
         data-testid="run-logs-empty"
         role="status"
       >
-        <p className="font-medium text-zinc-800">No Logs for today</p>
-        <p className="mt-1 text-xs">
-          Attach a Log from the Catalog in Build, or check back when windows open.
+        <p className="font-medium text-zinc-800">
+          {departmentName ? `No Logs for ${departmentName} today` : "No Logs for today"}
         </p>
+        {upcoming.length > 0 ? (
+          <UpcomingLogsList upcoming={upcoming} />
+        ) : otherDepartmentNames.length > 0 ? (
+          <p className="mt-1 text-xs" data-testid="run-logs-other-department">
+            {otherDepartmentNames.join(", ")}{" "}
+            {otherDepartmentNames.length === 1 ? "has" : "have"} Logs. Switch department in the
+            header to see them.
+          </p>
+        ) : (
+          <p className="mt-1 text-xs">
+            Assigned Logs start the next service day. Open a room to see what is due here, or check
+            back tomorrow.
+          </p>
+        )}
       </div>
     );
   }
@@ -138,13 +158,30 @@ export function RunLogRequirementList({
                   href={item.startHref}
                   className="inline-flex min-h-11 min-w-[7rem] items-center justify-center rounded-md border border-zinc-900 bg-zinc-900 px-3 text-sm font-medium text-white"
                 >
-                  Start Log
+                  Start log
                 </Link>
               </li>
             ))}
           </ul>
         </section>
       ))}
+      {upcoming.length > 0 ? <UpcomingLogsList upcoming={upcoming} /> : null}
+    </div>
+  );
+}
+
+function UpcomingLogsList({ upcoming }: { upcoming: UpcomingRunLogView[] }) {
+  return (
+    <div className="mt-3 space-y-1" data-testid="run-logs-upcoming">
+      <p className="text-xs font-medium text-zinc-700">Assigned, not due yet</p>
+      <ul className="space-y-1 text-xs text-zinc-600">
+        {upcoming.map((row) => (
+          <li key={`${row.displayName}-${row.startsOnLabel}-${row.targetLabel ?? ""}`}>
+            <span className="font-medium text-zinc-800">{row.displayName}</span>
+            {row.targetLabel ? ` · ${row.targetLabel}` : ""} — {row.startsOnLabel}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

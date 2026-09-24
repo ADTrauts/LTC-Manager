@@ -35,6 +35,10 @@ function unit(
 describe("Department Builder actionable location projection", () => {
   it("treats floors as structural and neighborhoods/legacy as actionable", () => {
     assert.equal(
+      isActionableDepartmentUnit({ hierarchyRole: "BUILDING", parentUnitId: null }),
+      false,
+    );
+    assert.equal(
       isActionableDepartmentUnit({ hierarchyRole: "FLOOR", parentUnitId: null }),
       false,
     );
@@ -649,11 +653,11 @@ describe("Department Builder Locations source contracts", () => {
     assert.equal(/spaceType\s*:/.test(actions), false);
     assert.equal(/unitType\s*:/.test(actions), false);
     assert.equal(/prisma\.unitSpace\.update/.test(panel), false);
-    assert.equal(/Operational [Tt]ype/.test(panel), false);
-    assert.equal(/Physical type/.test(panel), false);
-    assert.equal(/Add operational type/.test(panel), false);
-    assert.match(panel, /DepartmentLocationTree/);
-    assert.match(tree, /Room Type/);
+    assert.equal(/prisma\.unit\.update/.test(actions), false);
+    assert.match(panel, /LocationsProgrammingClient/);
+    assert.match(panel, /Operational Type/);
+    assert.match(tree, /Physical Type/);
+    assert.match(tree, /Operational Type/);
     assert.match(typesPanel, /Room Types/);
     assert.equal(/archetypeId/.test(panel), false);
     assert.equal(/archetypeId/.test(typesPanel), false);

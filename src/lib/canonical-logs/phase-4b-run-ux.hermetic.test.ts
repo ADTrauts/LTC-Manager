@@ -40,6 +40,7 @@ function coolerAttachment() {
     spaceId: null,
     unitId: null,
     targetDepartmentId: null,
+    operationalTypeKey: null,
     dailyWindows: windows.map((w, i) => ({
       label: w.label,
       startLocal: w.startLocal,
@@ -204,7 +205,7 @@ test("missing published cycle yields Needs setup — no silent remap", () => {
   assert.equal(reqs[0]!.productState, "NEEDS_SETUP");
 });
 
-test("RUN card presentation prefers local label and Due now copy", () => {
+test("RUN card presentation prefers local label and Due copy", () => {
   const reqs = resolveLogRequirementsForAttachment({
     attachment: coolerAttachment(),
     operationalDateKey: "2026-09-13",
@@ -231,13 +232,13 @@ test("RUN card presentation prefers local label and Due now copy", () => {
   });
   assert.equal(view.displayName, "Walk-In #2 Temperature");
   assert.equal(view.catalogDefinitionName, "Cooler Temperature Log");
-  assert.equal(view.stateLabel, "Due now");
-  assert.equal(view.primaryActionLabel, "Open Log");
+  assert.equal(view.stateLabel, "Due");
+  assert.equal(view.primaryActionLabel, "Open log");
   assert.match(view.timingContextLabel, /Morning/);
   assert.doesNotMatch(view.timingContextLabel, /DAILY_WINDOWS|MealType/);
 });
 
-test("grouping orders Overdue / Due / Upcoming / Completed", () => {
+test("grouping orders Overdue / Due now / Upcoming / Needs review / Recent completion", () => {
   const base: Omit<RunLogRequirementView, "productState" | "stateLabel" | "requirementKey"> = {
     attachmentId: "a",
     departmentId: "d",
@@ -269,13 +270,22 @@ test("grouping orders Overdue / Due / Upcoming / Completed", () => {
     { ...base, requirementKey: "u", productState: "UPCOMING", stateLabel: "Upcoming" },
     { ...base, requirementKey: "c", productState: "COMPLETED", stateLabel: "Completed" },
     { ...base, requirementKey: "o", productState: "OVERDUE", stateLabel: "Overdue", emphasis: "strong" },
-    { ...base, requirementKey: "d", productState: "DUE", stateLabel: "Due now", emphasis: "strong" },
+    { ...base, requirementKey: "d", productState: "DUE", stateLabel: "Due", emphasis: "strong" },
+    {
+      ...base,
+      requirementKey: "r",
+      productState: "COMPLETED_WITH_EXCEPTION",
+      stateLabel: "Completed with exception",
+      emphasis: "exception",
+    },
   ];
   const groups = groupRunLogRequirements(items, []);
   assert.deepEqual(
     groups.map((g) => g.id),
-    ["overdue", "due", "upcoming", "completed"],
+    ["overdue", "due", "upcoming", "needs_review", "completed"],
   );
+  assert.equal(groups.find((g) => g.id === "completed")?.label, "Recent completion");
+  assert.equal(groups.find((g) => g.id === "needs_review")?.label, "Needs review");
 });
 
 test("window progression Upcoming → Due → Overdue", () => {

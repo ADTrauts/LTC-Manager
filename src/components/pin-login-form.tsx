@@ -56,10 +56,10 @@ export function PinLoginForm({ facilityName, lockedUnitName, onUseEmail }: PinLo
   }
 
   return (
-    <div className="w-full max-w-sm space-y-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <div className="w-full max-w-sm space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 shadow-sm">
       <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">LTC Manager</p>
-        <h1 className="mt-1 text-lg font-semibold text-zinc-900">{facilityName}</h1>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">LTC Manager</p>
+        <h1 className="mt-1 text-lg font-semibold text-[var(--foreground)]">{facilityName}</h1>
         {lockedUnitName ? (
           <p className="mt-1 text-sm font-medium text-zinc-800">Unit: {lockedUnitName}</p>
         ) : null}
@@ -103,7 +103,7 @@ export function PinLoginForm({ facilityName, lockedUnitName, onUseEmail }: PinLo
           type="button"
           onClick={() => void submit()}
           disabled={loading || pin.length !== 6}
-          className="rounded-lg bg-zinc-900 py-3 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="rounded-lg bg-teal-700 py-3 text-sm font-medium text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "…" : "Go"}
         </button>

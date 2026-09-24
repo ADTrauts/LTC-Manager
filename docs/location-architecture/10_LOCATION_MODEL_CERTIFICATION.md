@@ -1,5 +1,7 @@
 # 10 — Location Model Certification
 
+**Later additive change:** Facility Builder may insert an optional `UnitHierarchyRole.BUILDING` above Floor so a campus can have many buildings, each with floors and rooms. Typical LTC remains Facility → Floor → Neighborhood → Room. Buildings are structure-only (not department, log, or PIN targets). Existing campus-profile Floor rows that were only *labeled* “Building” are not auto-converted.
+
 ## 1. What is the canonical physical-location entity?
 
 **Unit** remains the canonical physical-location entity for sections, wings, and operational zones. **UnitSpace** is the new entity for rooms, service areas, storage, and utility spaces within a unit.

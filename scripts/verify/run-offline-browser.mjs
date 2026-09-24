@@ -131,8 +131,6 @@ async function main() {
     AUTH_SECRET: process.env.AUTH_SECRET,
     SEED_DEMO_PASSWORD: process.env.SEED_DEMO_PASSWORD,
     ALLOW_DEMO_SEED_PASSWORD: "1",
-    // Pilot path: legacy Unit Workspace with offline controls.
-    PROJECTION_UNIT_WORKSPACE_ENABLED: "",
     DIETARY_JOB_FLOW_ENABLED: "",
     OPERATION_ENGINE_ENABLED: "",
   };
@@ -199,7 +197,7 @@ async function main() {
       "playwright",
       "test",
       "-c",
-      "playwright.offline.config.ts",
+      "tests/playwright.offline.config.ts",
       ...(grep ? ["--grep", grep] : []),
     ];
 

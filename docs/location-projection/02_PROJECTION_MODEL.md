@@ -6,7 +6,7 @@
 
 The architecture uses three distinct terms:
 
-1. **Physical location node** — a canonical Facility, Floor, Neighborhood, or Room from the Facility Builder.
+1. **Physical location node** — a canonical Facility, optional Building, Floor, Neighborhood, or Room from the Facility Builder.
 2. **Operational location projection** — a physical node viewed through one department, its effective capabilities, policy, and user access.
 3. **Location experience** — the modules and actions enabled by that operational projection.
 
@@ -28,7 +28,7 @@ type PhysicalLocationRef =
     };
 ```
 
-`UNIT` covers Floor, Neighborhood, and legacy compatibility records. `SPACE` covers Room. Existing `unitId` links and routes remain valid.
+`UNIT` covers Building, Floor, Neighborhood, and legacy compatibility records. `SPACE` covers Room. Existing `unitId` links and routes remain valid. Buildings are structural aggregate/filter nodes only — not department, log, or PIN targets.
 
 A projection key is ephemeral and deterministic:
 

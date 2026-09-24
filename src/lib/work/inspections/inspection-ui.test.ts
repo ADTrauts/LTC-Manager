@@ -6,9 +6,6 @@ import { upsertInspectionDefinitionSchema } from "@/lib/work/inspections/definit
 import { filterInspectionsForUnit } from "@/lib/work/inspections/list-unit-inspections";
 import { inspectionResultOperatorCopy } from "@/lib/work/inspections/result-copy";
 import { roleMayAccessRoute } from "@/lib/route-registry";
-import { UNIT_WORK_QUEUE_PRIORITY } from "@/lib/unit-workspace/work-queue-priority";
-import { buildUnitWorkQueue } from "@/lib/unit-workspace/build-unit-work-queue";
-import { UnitType } from "@prisma/client";
 
 test("upsertInspectionDefinitionSchema requires ordered items and name", () => {
   const parsed = upsertInspectionDefinitionSchema.parse({
@@ -115,37 +112,6 @@ test("inspection result copy is calm and does not imply save failure", () => {
   assert.match(inspectionResultOperatorCopy("PASSED_WITH_FINDINGS").body, /findings for supervisor/i);
   assert.match(inspectionResultOperatorCopy("FAILED").body, /need attention/i);
   assert.doesNotMatch(inspectionResultOperatorCopy("FAILED").body, /failed to save/i);
-});
-
-test("available inspections sit behind genuine operational work in the queue", () => {
-  assert.ok(UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION > UNIT_WORK_QUEUE_PRIORITY.OTHER_REPAIR);
-  assert.ok(UNIT_WORK_QUEUE_PRIORITY.INSPECTION_FOLLOW_UP < UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION);
-  assert.ok(UNIT_WORK_QUEUE_PRIORITY.AVAILABLE_INSPECTION < UNIT_WORK_QUEUE_PRIORITY.SECONDARY);
-
-  const queue = buildUnitWorkQueue({
-    unit: {
-      id: "unit-1",
-      name: "Prep",
-      unitType: UnitType.KITCHEN,
-      isActive: true,
-      mealTimes: [],
-    },
-    activeLogTab: null,
-    mealServiceEventByMeal: new Map(),
-    availableInspections: [{ id: "d1", name: "Walk", itemCount: 2, frequency: "Daily" }],
-    openInspectionFollowUps: [
-      { id: "t1", title: "Correct failed dishwasher rinse", status: "OPEN" },
-    ],
-    queries: {
-      assignments: [],
-      submissions: [],
-      openRepairs: [],
-    },
-  });
-
-  assert.equal(queue.primaryItem?.kind, "inspection-follow-up");
-  assert.ok(queue.items.some((item) => item.kind === "available-inspection"));
-  assert.equal(queue.operationalCount, 2);
 });
 
 test("inspection builder remains behind Administration (/admin) FA gate", () => {

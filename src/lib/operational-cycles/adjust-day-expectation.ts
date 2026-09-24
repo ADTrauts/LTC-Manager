@@ -5,7 +5,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, AuthKind } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -27,10 +27,13 @@ export function decideAdjustDayExpectationAuthority(input: {
   sessionFacilityId: string;
   expectationFacilityId: string;
   role: AppRole;
-  authKind: "user" | "employee";
+  authKind: AuthKind;
 }): { allowed: true } | { allowed: false; reason: AdjustDayExpectationDenial } {
   if (input.sessionFacilityId !== input.expectationFacilityId) {
     return { allowed: false, reason: "CROSS_FACILITY" };
+  }
+  if (input.authKind === "harbor_staff") {
+    return { allowed: false, reason: "ROLE_REQUIRED" };
   }
   if (input.authKind === "employee" && !hasAtLeastRole(input.role, "SUPERVISOR")) {
     return { allowed: false, reason: "EMPLOYEE_FORBIDDEN" };

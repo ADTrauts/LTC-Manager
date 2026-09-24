@@ -29,7 +29,7 @@ export default async function UnitLogsTargetPage({ params }: Props) {
     <section className="space-y-4" data-testid="unit-logs-target-page">
       <BuildContextBar
         title={ctx.label.title}
-        subtitle="Unit / Neighborhood Logs"
+        subtitle="Assigned Logs for this unit"
         facts={[{ value: String(ctx.attachments.length), suffix: "Logs" }]}
       />
       <TargetLogsSection
@@ -37,6 +37,7 @@ export default async function UnitLogsTargetPage({ params }: Props) {
         targetSubtitle={ctx.label.subtitle}
         attachments={ctx.attachments}
         addHref={ctx.addHref}
+        runHref={`/staffing/logs/targets/unit/${unitId}`}
         departmentName={ctx.departmentName}
       />
     </section>

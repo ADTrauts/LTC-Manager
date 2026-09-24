@@ -46,6 +46,8 @@ describe("facility structure CSV parse", () => {
       (parsed.headers as string[]).includes("spaceType"),
       false,
     );
+    assert.ok(parsed.headers.includes("building"));
+    assert.equal(parsed.rows[0]!.building, "");
     assert.equal(parsed.rows[0]!.floor, "Floor 1");
     assert.equal(parsed.rows[0]!.neighborhood, "1A - Naval Park");
     assert.equal(parsed.rows[0]!.locationName, "Room 101");
@@ -379,7 +381,7 @@ Floor 1,1A,Room 101,Resident Room,NotADept
     assert.ok(plan.issues.some((i) => i.field === "department"));
   });
 
-  it("rejects neighborhood under wrong floor (no move)", () => {
+  it("allows the same Neighborhood name under a different Floor (sibling uniqueness)", () => {
     const catalog = emptyCatalog({
       units: [
         {
@@ -418,7 +420,10 @@ Floor 2,1A - Naval Park,Room 201,Resident Room
     assert.ok(parsed.ok);
     if (!parsed.ok) return;
     const plan = planFacilityStructureImport(parsed.rows, catalog);
-    assert.ok(plan.issues.some((i) => /different Floor/i.test(i.message)));
+    assert.equal(plan.counts.invalidRows, 0);
+    assert.equal(plan.neighborhoodsToCreate, 1);
+    assert.equal(plan.rows[0]!.existingNeighborhoodId, null);
+    assert.notEqual(plan.rows[0]!.existingFloorId, "f1");
   });
 
   it("preview meta uses Location Type and optional Room Number without UnitSpace jargon", () => {
@@ -495,5 +500,79 @@ describe("bulk import authority", () => {
         "MANAGER",
       ),
     );
+  });
+});
+
+describe("optional Building column", () => {
+  it("nests Floor 1 under each building so sibling names do not collide", () => {
+    const csv = `building,floor,neighborhood,locationName,locationType
+Science Hall,Floor 1,Labs,Lab A,Office
+Dining Hall,Floor 1,Kitchen,Servery,Servery
+`;
+    const parsed = parseFacilityStructureCsv(csv);
+    assert.ok(parsed.ok);
+    if (!parsed.ok) return;
+    const plan = finalizeFacilityPlanConfirmability(
+      planFacilityStructureImport(parsed.rows, emptyCatalog()),
+    );
+    assert.equal(plan.counts.invalidRows, 0);
+    assert.equal(plan.buildingsToCreate, 2);
+    assert.equal(plan.floorsToCreate, 2);
+    assert.equal(plan.neighborhoodsToCreate, 2);
+    assert.equal(plan.spacesToCreate, 2);
+    const ordered = orderedFacilityCreatePlan(plan);
+    assert.deepEqual(
+      ordered.buildings.map((b) => b.name).sort(),
+      ["Dining Hall", "Science Hall"],
+    );
+    assert.equal(ordered.floors.filter((f) => f.name === "Floor 1").length, 2);
+    assert.notEqual(ordered.floors[0]!.key, ordered.floors[1]!.key);
+    assert.equal(plan.canConfirm, true);
+  });
+
+  it("omitting building still creates floors at the facility root", () => {
+    const csv = `building,floor,neighborhood,locationName,locationType
+,Floor 1,1A,Room 101,Resident Room
+`;
+    const parsed = parseFacilityStructureCsv(csv);
+    assert.ok(parsed.ok);
+    if (!parsed.ok) return;
+    const plan = finalizeFacilityPlanConfirmability(
+      planFacilityStructureImport(parsed.rows, emptyCatalog()),
+    );
+    assert.equal(plan.buildingsToCreate, 0);
+    assert.equal(plan.floorsToCreate, 1);
+    assert.equal(plan.createOps.floors[0]!.buildingKey, "");
+    assert.equal(plan.hierarchyPreview[0]!.name, "Floor 1");
+  });
+
+  it("does not reuse a root Floor when the same name is created under a new Building", () => {
+    const csv = `building,floor,neighborhood,locationName,locationType
+Science Hall,Floor 1,Labs,Lab A,Office
+`;
+    const parsed = parseFacilityStructureCsv(csv);
+    assert.ok(parsed.ok);
+    if (!parsed.ok) return;
+    const plan = finalizeFacilityPlanConfirmability(
+      planFacilityStructureImport(
+        parsed.rows,
+        emptyCatalog({
+          units: [
+            {
+              id: "floor-root-1",
+              name: "Floor 1",
+              hierarchyRole: UnitHierarchyRole.FLOOR,
+              parentUnitId: null,
+              isActive: true,
+              displayOrder: 100,
+              description: null,
+            },
+          ],
+        }),
+      ),
+    );
+    assert.equal(plan.buildingsToCreate, 1);
+    assert.equal(plan.floorsToCreate, 1);
+    assert.equal(plan.floorsReused, 0);
   });
 });

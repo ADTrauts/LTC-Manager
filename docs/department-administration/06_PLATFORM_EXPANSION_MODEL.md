@@ -10,7 +10,7 @@ If this holds, the architecture is genuinely extensible: growth is *configuratio
 
 The layers are designed so that departments are **data**, not **code**:
 
-- Facility Builder knows only Facility → Floor → Neighborhood → Room and which department a room is assigned to. It has no concept of any specific department's operations. Adding Security teaches Facility Builder nothing new.
+- Facility Builder knows only Facility → Building? → Floor → Neighborhood → Room and which department a room is assigned to. It has no concept of any specific department's operations. Adding Security teaches Facility Builder nothing new.
 - The Experience Catalog is a shared library. New departments reuse existing Experiences (Assignments, Scheduling, Rounding, Audits, Forms, Logs, Knowledge, Repairs, Assets) and add only the genuinely novel ones.
 - Operational Areas are just named groupings of Experiences. A new department declares its areas and drops Experiences into them.
 - Projection resolves Department → Area → Experience → Room generically. It does not contain per-department logic.

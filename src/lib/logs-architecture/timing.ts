@@ -2,6 +2,7 @@
  * Needs-setup and default timing resolution rules (Phase 2 pure contract).
  */
 
+import { parseRecommendedWeekdays } from "./recommended-weekdays";
 import type {
   CatalogLogDefinition,
   CatalogRecommendedCadence,
@@ -135,6 +136,48 @@ export function resolveDefaultAttachmentTiming(input: {
       },
       needsSetup: false,
       reason: null,
+    };
+  }
+
+  if (catalog.recommendedCadence === "WEEKLY") {
+    const weekdays = parseRecommendedWeekdays(catalog.recommendedDaypartLabels);
+    const hasSuggestedDay = weekdays.daysOfWeek.length > 0;
+    return {
+      timing: {
+        source: "CALENDAR",
+        cycleStableKeys: [],
+        dailyWindows: [],
+        calendar: {
+          cadenceType: "WEEKLY",
+          daysOfWeek: weekdays.daysOfWeek,
+          dayOfMonth: null,
+          dueTimeLocal: null,
+        },
+        allowAdHoc: false,
+      },
+      needsSetup: !hasSuggestedDay,
+      reason: hasSuggestedDay
+        ? null
+        : "Weekly calendar timing requires at least one weekday.",
+    };
+  }
+
+  if (catalog.recommendedCadence === "MONTHLY") {
+    return {
+      timing: {
+        source: "CALENDAR",
+        cycleStableKeys: [],
+        dailyWindows: [],
+        calendar: {
+          cadenceType: "MONTHLY",
+          daysOfWeek: [],
+          dayOfMonth: null,
+          dueTimeLocal: null,
+        },
+        allowAdHoc: false,
+      },
+      needsSetup: true,
+      reason: "Monthly calendar timing requires a day of month.",
     };
   }
 

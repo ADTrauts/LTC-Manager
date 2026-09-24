@@ -3,9 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
+import { CatalogAddToTarget } from "@/components/canonical-logs/catalog-add-to-target";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { loadPublishedCatalogDetail } from "@/lib/canonical-logs";
+import { loadCatalogAssignView } from "@/lib/canonical-logs/catalog-assign";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
@@ -22,6 +24,13 @@ export default async function CatalogDetailPage({ params }: Props) {
   const { stableKey } = await params;
   const detail = await loadPublishedCatalogDetail(prisma, stableKey);
   if (!detail) notFound();
+
+  const assignView = await loadCatalogAssignView({
+    client: prisma,
+    facilityId: session.facilityId,
+    catalogStableKey: stableKey,
+  });
+  if (!assignView) notFound();
 
   return (
     <section className="space-y-4" data-testid="catalog-detail-page">
@@ -67,17 +76,14 @@ export default async function CatalogDetailPage({ params }: Props) {
         </p>
       </section>
 
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/build/logs"
-          className="inline-flex min-h-9 items-center rounded-md border border-zinc-300 px-2.5 text-sm"
-        >
-          Back to Catalog
-        </Link>
-        <p className="self-center text-xs text-zinc-500">
-          To attach, open an Asset, Room, Unit, or Department and choose + Add log.
-        </p>
-      </div>
+      <CatalogAddToTarget view={assignView} />
+
+      <Link
+        href="/build/logs"
+        className="inline-flex min-h-9 items-center rounded-md border border-zinc-300 px-2.5 text-sm"
+      >
+        Back to Catalog
+      </Link>
     </section>
   );
 }

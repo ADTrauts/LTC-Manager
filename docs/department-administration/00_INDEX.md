@@ -28,7 +28,7 @@ This package introduces the **Operational Area** as the manager's mental model a
 
 ```text
 Facility Builder            WHERE + WHO
-  Facility → Floor → Neighborhood → Room
+  Facility → Building? → Floor → Neighborhood → Room
   Room ↔ Department assignment
 
 Department Administration   HOW a department organizes itself

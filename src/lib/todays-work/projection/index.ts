@@ -23,13 +23,11 @@ export {
 } from "./assemble";
 
 export {
-  assembleProjectedTodaysWorkCoverage,
   assembleProjectedTodaysWorkHandoffs,
   assembleProjectedTodaysWorkHub,
   assembleProjectedTodaysWorkWalk,
   loadTodaysWorkProjection,
   type AssembledTodaysWork,
-  type AssembledTodaysWorkCoverage,
   type AssembledTodaysWorkHandoffs,
   type LoadTodaysWorkProjectionOptions,
   type LoadTodaysWorkProjectionResult,

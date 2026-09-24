@@ -10,11 +10,14 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
+import { randomBytes } from "node:crypto";
+
 import {
   loadAssignmentTemplatePreview,
   loadDailyAssignmentBoard,
   applyAssignmentTemplate,
 } from "@/lib/scheduling/operational-assignments";
+import { ensureWorkingCoverageDraft } from "@/lib/scheduling/coverage-expectations/service";
 
 function requireFlag() {
   if (!isOperationalAssignmentsEnabled()) {
@@ -67,6 +70,9 @@ export async function createTemplateAction(formData: FormData) {
     data: {
       facilityId: session.facilityId,
       departmentId: parsed.departmentId,
+      stableKey: `cov_c${randomBytes(12).toString("hex")}`,
+      version: 1,
+      status: "DRAFT",
       name: parsed.name,
       description: parsed.description ?? null,
       operationDefinitionId: parsed.operationDefinitionId ?? null,
@@ -102,6 +108,10 @@ export async function editTemplateAction(formData: FormData) {
     select: { id: true },
   });
   if (!template) throw new Error("Template not found.");
+  const draft = await ensureWorkingCoverageDraft(prisma, {
+    templateId: template.id,
+    facilityId: session.facilityId,
+  });
 
   const data: Record<string, unknown> = {};
   if (parsed.name) data.name = parsed.name;
@@ -109,7 +119,7 @@ export async function editTemplateAction(formData: FormData) {
   if (parsed.isActive !== undefined) data.isActive = parsed.isActive === "true";
 
   await prisma.operationalAssignmentTemplate.update({
-    where: { id: template.id },
+    where: { id: draft.id },
     data,
   });
 
@@ -148,6 +158,10 @@ export async function addTemplateItemAction(formData: FormData) {
     select: { id: true, department: { select: { key: true } } },
   });
   if (!template) throw new Error("Template not found.");
+  const draft = await ensureWorkingCoverageDraft(prisma, {
+    templateId: template.id,
+    facilityId: session.facilityId,
+  });
 
   const roleDef = getRoleDefinition(parsed.roleKey);
   if (!roleDef || !isRoleValidForDepartment(parsed.roleKey, template.department.key)) {
@@ -164,7 +178,7 @@ export async function addTemplateItemAction(formData: FormData) {
 
   await prisma.operationalAssignmentTemplateItem.create({
     data: {
-      templateId: parsed.templateId,
+      templateId: draft.id,
       roleKey: parsed.roleKey,
       roleLabel: roleDef.label,
       unitId: parsed.unitId ?? null,
@@ -188,12 +202,25 @@ export async function removeTemplateItemAction(formData: FormData) {
 
   const item = await prisma.operationalAssignmentTemplateItem.findFirst({
     where: { id: itemId, template: { facilityId: session.facilityId } },
-    select: { id: true },
+    select: { id: true, templateId: true, roleKey: true, requiredCount: true, sortOrder: true },
   });
   if (!item) throw new Error("Template item not found.");
+  const draft = await ensureWorkingCoverageDraft(prisma, {
+    templateId: item.templateId,
+    facilityId: session.facilityId,
+  });
+  const draftItem =
+    draft.items.find((row) => row.id === item.id) ??
+    draft.items.find(
+      (row) =>
+        row.roleKey === item.roleKey &&
+        row.requiredCount === item.requiredCount &&
+        row.sortOrder === item.sortOrder,
+    );
+  if (!draftItem) throw new Error("Template item not found on the working draft.");
 
   await prisma.operationalAssignmentTemplateItem.delete({
-    where: { id: item.id },
+    where: { id: draftItem.id },
   });
 
   revalidateViews();
@@ -209,14 +236,33 @@ export async function moveTemplateItemAction(formData: FormData) {
 
   const item = await prisma.operationalAssignmentTemplateItem.findFirst({
     where: { id: itemId, template: { facilityId: session.facilityId } },
-    select: { id: true, sortOrder: true },
+    select: {
+      id: true,
+      templateId: true,
+      sortOrder: true,
+      roleKey: true,
+      requiredCount: true,
+    },
   });
   if (!item) throw new Error("Template item not found.");
+  const draft = await ensureWorkingCoverageDraft(prisma, {
+    templateId: item.templateId,
+    facilityId: session.facilityId,
+  });
+  const draftItem =
+    draft.items.find((row) => row.id === item.id) ??
+    draft.items.find(
+      (row) =>
+        row.roleKey === item.roleKey &&
+        row.requiredCount === item.requiredCount &&
+        row.sortOrder === item.sortOrder,
+    );
+  if (!draftItem) throw new Error("Template item not found on the working draft.");
 
   const delta = direction === "up" ? -15 : 15;
   await prisma.operationalAssignmentTemplateItem.update({
-    where: { id: item.id },
-    data: { sortOrder: Math.max(0, item.sortOrder + delta) },
+    where: { id: draftItem.id },
+    data: { sortOrder: Math.max(0, draftItem.sortOrder + delta) },
   });
 
   revalidateViews();

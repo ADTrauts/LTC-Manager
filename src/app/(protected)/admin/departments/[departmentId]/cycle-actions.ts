@@ -52,6 +52,7 @@ const locationModeSchema = z.enum([
   "UNIT_TYPES",
   "EXPLICIT_UNITS",
   "ROOM_TYPE",
+  "OPERATIONAL_TYPES",
 ]);
 
 const milestoneSchema = z.enum(["READY", "SERVICE_STARTED"]);
@@ -130,7 +131,12 @@ function parseCsvEnums<T extends string>(
 
 function parseLocationMode(formData: FormData) {
   const appliesTo = String(formData.get("appliesTo") ?? "").trim();
-  if (appliesTo === "department" || appliesTo === "room_type" || appliesTo === "specific") {
+  if (
+    appliesTo === "department" ||
+    appliesTo === "room_type" ||
+    appliesTo === "specific" ||
+    appliesTo === "operational_types"
+  ) {
     return locationModeFromUserScope(appliesTo as CycleUserScope);
   }
   return locationModeSchema.parse(
@@ -220,6 +226,10 @@ function parseDraftFromForm(formData: FormData) {
             formData.get("applicableUnitTypes"),
             unitTypeSchema.options as unknown as readonly z.infer<typeof unitTypeSchema>[],
           )
+        : [],
+    applicableOperationalTypeKeys:
+      locationMode === "OPERATIONAL_TYPES"
+        ? parseIdList(formData.get("applicableOperationalTypeKeys"))
         : [],
     unitIds:
       locationMode === "EXPLICIT_UNITS" && !locationInheritFromParent

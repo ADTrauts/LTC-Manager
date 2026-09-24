@@ -3,7 +3,7 @@
  *
  * Neighborhoods with actionable Department Rooms → one supervisor row.
  * Standalone actionable Rooms (no Neighborhood parent) → their own row.
- * Floors are structural grouping only — never operating rows.
+ * Buildings and Floors are structural grouping only — never operating rows.
  */
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
@@ -70,7 +70,7 @@ export function collectSupervisorOperatingLocations(
     for (const node of nodes) {
       const nextFloor = node.kind === "FLOOR" ? node.label : floorLabel;
 
-      if (node.kind === "FACILITY" || node.kind === "FLOOR") {
+      if (node.kind === "FACILITY" || node.kind === "BUILDING" || node.kind === "FLOOR") {
         visit(node.children, departmentKey, departmentLabel, nextFloor);
         continue;
       }

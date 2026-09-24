@@ -24,7 +24,12 @@ async function userMaySelectDepartment(
   isFacilityAdmin: boolean,
 ): Promise<boolean> {
   const dept = await prisma.department.findFirst({
-    where: { id: departmentId, facilityId, isActive: true, showInEmployeeApp: true },
+    where: {
+      id: departmentId,
+      facilityId,
+      isActive: true,
+      ...(session.authKind === "harbor_staff" ? {} : { showInEmployeeApp: true }),
+    },
     select: { id: true },
   });
   if (!dept) return false;
@@ -141,6 +146,14 @@ export async function resolveSelectableDepartmentsForSession(
   session: AppJwtPayload,
 ): Promise<SelectableDepartment[]> {
   const facilityId = session.facilityId;
+  if (session.authKind === "harbor_staff") {
+    return prisma.department.findMany({
+      where: { facilityId, isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    });
+  }
+
   const facilityDepartments = await prisma.department.findMany({
     where: { facilityId, isActive: true, showInEmployeeApp: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],

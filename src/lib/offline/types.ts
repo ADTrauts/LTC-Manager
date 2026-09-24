@@ -217,6 +217,8 @@ export type OfflineRuntimeBundle = {
       windowEndLocal: string | null;
       assetId: string | null;
       spaceId: string | null;
+      /** Harbor Attachment id when canonical evidence is serialized. */
+      logAttachmentId?: string | null;
       instructions: string | null;
       fields: Array<{
         fieldKey: string;

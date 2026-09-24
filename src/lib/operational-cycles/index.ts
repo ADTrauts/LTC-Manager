@@ -79,6 +79,22 @@ export {
 export { loadPublishedCyclesForDate, loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 
 export {
+  describeCycleApplicability,
+  matchCycleApplicability,
+  primaryCycleApplicabilitySource,
+  type CycleApplicabilityMatch,
+  type CycleApplicabilitySource,
+} from "./cycle-applicability";
+
+export {
+  assignmentsFromBindings,
+  loadDepartmentOperationalTypeOptions,
+  loadSpaceOperationalTypeAssignments,
+  selectProfileIdForOperationalTypes,
+  type OperationalTypePerspective,
+} from "./load-operational-type-targets";
+
+export {
   detectRunModelProvenance,
   presentDepartmentRunOperation,
   presentLocationRunOperation,
@@ -101,9 +117,7 @@ export {
   refreshTodayKeyTimesAfterImmediatePublish,
   resolveRunPresentationDepartment,
   resolveSelectedRoomForUnit,
-  resolveUnitWorkspaceRunContext,
   type SelectedRoomResolution,
-  type UnitWorkspaceRunContext,
 } from "./load-run-operation-presentation";
 
 

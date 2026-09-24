@@ -25,7 +25,7 @@ import {
   setArchetypeExperiences,
   updateRoomArchetype,
   type ProfileActor,
-} from "@/lib/department-administration";
+} from "@/lib/department-administration/profile-service";
 import { departmentArchetypeForRoomType } from "@/lib/department-administration/room-types";
 import type { AuthMethod } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
@@ -648,5 +648,131 @@ export async function removeRoomExceptionAction(formData: FormData): Promise<Act
     return { ok: true, message: "Exception removed." };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Remove failed." };
+  }
+}
+
+/**
+ * Locations programming — Operational Type assign/clear/create.
+ * Uses pattern authoring access (password Manager+). Does not require the
+ * full Operational Profiles flag.
+ */
+export async function ensureLocationOperationalTypesAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: "Operational Types are ready to assign.",
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not prepare Operational Types.",
+    };
+  }
+}
+
+export async function assignLocationOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
+    const archetypeKey = z.string().min(1).max(64).parse(formData.get("archetypeKey"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    const archetype = await prisma.departmentRoomArchetype.findFirst({
+      where: { profileId: draft.profileId, key: archetypeKey, isActive: true },
+      select: { id: true },
+    });
+    if (!archetype) {
+      throw new Error("Operational Type is not available on the working draft.");
+    }
+    await bindRoomToArchetype(actor, {
+      profileId: draft.profileId,
+      archetypeId: archetype.id,
+      unitSpaceId,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return { ok: true, message: "Operational Type assigned.", profileId: draft.profileId };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not assign Operational Type.",
+    };
+  }
+}
+
+export async function clearLocationOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    await clearRoomArchetypeBinding(actor, {
+      profileId: draft.profileId,
+      unitSpaceId,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return { ok: true, message: "Operational Type cleared.", profileId: draft.profileId };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not clear Operational Type.",
+    };
+  }
+}
+
+export async function createLocationOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const name = z.string().min(1).max(120).parse(formData.get("name"));
+    const description = z.string().max(500).optional().parse(formData.get("description") || undefined);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    const draft = await ensureWorkingDraftForPatterns(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    await createRoomArchetype(actor, {
+      profileId: draft.profileId,
+      name,
+      description: description ?? null,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: "Operational Type created.",
+      profileId: draft.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not create Operational Type.",
+    };
   }
 }

@@ -36,12 +36,23 @@ export {
 } from "./due-state";
 
 export {
+  historySlotStateLabel,
+  toHistorySlotState,
+  type LogHistorySlotState,
+} from "./history-slot-state";
+
+export {
   DEFAULT_DAYPART_WINDOWS,
   daypartWindowsForCadence,
   resolveDefaultAttachmentTiming,
   evaluateAttachmentNeedsSetup,
   isValidTimingSource,
 } from "./timing";
+
+export {
+  parseRecommendedWeekdays,
+  type ParsedRecommendedWeekdays,
+} from "./recommended-weekdays";
 
 export {
   dispositionForApplicabilityKind,

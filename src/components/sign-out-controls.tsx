@@ -85,7 +85,7 @@ function WorkspaceLink({
     mode === "BUILD"
       ? "bg-orange-500 text-white hover:bg-orange-500"
       : mode === "RUN"
-        ? "bg-emerald-700 text-white hover:bg-emerald-700"
+        ? "bg-teal-700 text-white hover:bg-teal-700"
         : "bg-zinc-100 text-zinc-900";
   return (
     <Link

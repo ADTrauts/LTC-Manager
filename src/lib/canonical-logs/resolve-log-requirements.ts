@@ -43,7 +43,7 @@ export type ExistingLogEvidenceForResolve = {
   status: OperationalEvidenceRecordStatus;
 };
 
-type AttachmentForResolve = {
+export type LogAttachmentForResolve = {
   id: string;
   stableKey: string;
   facilityId: string;
@@ -61,11 +61,14 @@ type AttachmentForResolve = {
   calendarDueTimeLocal: string | null;
   localDisplayLabel: string | null;
   localInstructions: string | null;
-  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY";
+  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY" | "OPERATIONAL_TYPE";
   assetId: string | null;
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
+  operationalTypeKey: string | null;
+  /** Runtime expansion only — never persisted on the Attachment row. */
+  resolvedSpaceId?: string | null;
   dailyWindows: Array<{
     label: string;
     startLocal: string;
@@ -83,7 +86,7 @@ type AttachmentForResolve = {
   };
 };
 
-function targetFromAttachment(row: AttachmentForResolve): LogAttachmentTarget {
+function targetFromAttachment(row: LogAttachmentForResolve): LogAttachmentTarget {
   switch (row.targetKind) {
     case "ASSET":
       return { kind: "ASSET", assetId: row.assetId! };
@@ -95,6 +98,12 @@ function targetFromAttachment(row: AttachmentForResolve): LogAttachmentTarget {
       return { kind: "DEPARTMENT", departmentId: row.targetDepartmentId! };
     case "FACILITY":
       return { kind: "FACILITY" };
+    case "OPERATIONAL_TYPE":
+      return {
+        kind: "OPERATIONAL_TYPE",
+        operationalTypeKey: row.operationalTypeKey!,
+        resolvedSpaceId: row.resolvedSpaceId ?? null,
+      };
   }
 }
 
@@ -166,7 +175,7 @@ function applyRecordState(
 }
 
 export function resolveLogRequirementsForAttachment(input: {
-  attachment: AttachmentForResolve;
+  attachment: LogAttachmentForResolve;
   operationalDateKey: string;
   now: Date;
   facilityTimezone?: string | null;
@@ -202,7 +211,8 @@ export function resolveLogRequirementsForAttachment(input: {
     instructions,
   };
 
-  if (row.status !== "ACTIVE") return [];
+  // Effective range is the live/historical authority. Closed/retired segments still
+  // resolve on dates they cover so successor + retirement do not erase today or history.
   if (!serviceDateInRange(serviceDate, row.effectiveFrom, row.effectiveTo)) return [];
   if (row.catalogDefinition.status !== "PUBLISHED") {
     const key = buildLogRequirementKey({

@@ -65,11 +65,14 @@ export {
 } from "./assignment-revision";
 
 export {
-  loadEmployeeJobFlow,
-  type LoadEmployeeJobFlowInput,
-} from "./load-employee-job-flow";
-
-export {
   loadSupervisorOperationsBoard,
+  loadSupervisorOperationsViewModel,
   type LoadSupervisorOperationsBoardInput,
 } from "./load-supervisor-operations-board";
+
+export {
+  composeSupervisorOperations,
+  presentSupervisorOperationsBoard,
+  presentSupervisorOperationsBoardUi,
+  type SupervisorOperationsViewModel,
+} from "./supervisor-operations";

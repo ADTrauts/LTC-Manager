@@ -10,15 +10,17 @@ import {
   isDepartmentAdminTabId,
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
+} from "@/lib/department-administration";
+import {
   selectWorkingProfileId,
   type ProfileListItem,
-} from "@/lib/department-administration";
+} from "@/lib/department-administration/load-department-admin";
 
 describe("Department Builder local navigation", () => {
-  it("exposes primary tabs Overview | Locations | Teams | Operational Cycles", () => {
+  it("exposes primary tabs Overview | Locations | Teams | Coverage | Operational Cycles", () => {
     assert.deepEqual(
       DEPARTMENT_ADMIN_TABS.map((tab) => tab.id),
-      ["overview", "locations", "teams", "cycles"],
+      ["overview", "locations", "teams", "coverage", "cycles"],
     );
     assert.equal(
       DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("room-types" as string)),
@@ -30,10 +32,12 @@ describe("Department Builder local navigation", () => {
     assert.equal(resolveDepartmentAdminTab(undefined), "overview");
     assert.equal(resolveDepartmentAdminTab("locations"), "locations");
     assert.equal(resolveDepartmentAdminTab("teams"), "teams");
+    assert.equal(resolveDepartmentAdminTab("coverage"), "coverage");
     assert.equal(resolveDepartmentAdminTab("cycles"), "cycles");
     assert.equal(resolveDepartmentAdminTab("not-a-tab"), "overview");
     assert.equal(isDepartmentAdminTabId("locations"), true);
     assert.equal(isDepartmentAdminTabId("teams"), true);
+    assert.equal(isDepartmentAdminTabId("coverage"), true);
     assert.equal(isDepartmentAdminTabId("cycles"), true);
     assert.equal(isDepartmentAdminTabId("projection"), false);
   });
@@ -58,21 +62,21 @@ describe("Department Builder local navigation", () => {
       departmentAdminTabsForFlags({ profilesEnabled: false, cyclesEnabled: true }).map(
         (t) => t.id,
       ),
-      ["overview", "locations", "teams", "cycles"],
+      ["overview", "locations", "teams", "coverage", "cycles"],
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
         profilesEnabled: false,
         cyclesEnabled: false,
       }).map((t) => t.id),
-      ["overview", "locations", "teams", "cycles"],
+      ["overview", "locations", "teams", "coverage", "cycles"],
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
         profilesEnabled: true,
         cyclesEnabled: false,
       }).map((t) => t.id),
-      ["overview", "locations", "teams", "cycles"],
+      ["overview", "locations", "teams", "coverage", "cycles"],
     );
   });
 
@@ -125,12 +129,10 @@ describe("Department Builder local navigation", () => {
       "utf8",
     );
     assert.match(panel, /Room/);
-    assert.match(panel, /DepartmentLocationTree/);
-    assert.match(panel, /floorLabel/);
+    assert.match(panel, /LocationsProgrammingClient/);
+    assert.match(panel, /\/admin\/facility\/builder/);
     assert.equal(/tab=room-types/.test(panel), false);
     assert.equal(/room-types/.test(panel), false);
-    assert.equal(/archetype/.test(panel), false);
-    assert.equal(/Operational [Tt]ype/.test(panel), false);
   });
 });
 
@@ -176,5 +178,35 @@ describe("working profile selection", () => {
       "c",
     );
     assert.equal(selectWorkingProfileId([], null), null);
+  });
+});
+
+describe("Department Administration barrel stays client-safe", () => {
+  it("does not re-export server loaders or profile writes", () => {
+    const barrel = readFileSync(
+      join(process.cwd(), "src/lib/department-administration/index.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(barrel, /from \"\.\/load-effective-location-program\"/);
+    assert.doesNotMatch(barrel, /from \"\.\/profile-service\"/);
+    assert.doesNotMatch(barrel, /loadDepartmentAdminView,/);
+    assert.doesNotMatch(barrel, /next\/headers/);
+    assert.doesNotMatch(barrel, /harbor-console/);
+  });
+
+  it("client Department Builder workspaces do not value-import the barrel", () => {
+    const files = [
+      "src/app/(protected)/admin/departments/[departmentId]/teams-workspace.tsx",
+      "src/app/(protected)/admin/departments/[departmentId]/coverage-workspace.tsx",
+      "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx",
+    ];
+    for (const file of files) {
+      const source = readFileSync(join(process.cwd(), file), "utf8");
+      assert.equal(
+        /from \"@\/lib\/department-administration\"/.test(source),
+        false,
+        `${file} must not value-import the department-administration barrel`,
+      );
+    }
   });
 });

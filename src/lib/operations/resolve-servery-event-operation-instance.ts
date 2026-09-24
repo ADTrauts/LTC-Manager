@@ -4,7 +4,7 @@ import { isOperationEngineEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 import { hasOperationEnginePrisma } from "./operation-prisma";
-import { resolveOperationsCenterDepartmentId } from "./resolve-operations-center-active-operation";
+import { resolveOperationsCenterDepartmentId } from "./resolve-operations-center-department-id";
 import { ACTIVE_OPERATION_INSTANCE_STATUSES } from "./types";
 
 export type ResolveServeryEventOperationInstanceInput = {

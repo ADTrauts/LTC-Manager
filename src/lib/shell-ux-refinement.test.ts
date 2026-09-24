@@ -40,12 +40,13 @@ test("V1 refinement — the canonical Build Home card set is present for a Facil
     "/assets/builder",
     "/staffing/templates",
     "/staffing/work-plans",
-    "/admin/knowledge",
   ]) {
     assert.equal(hrefs.includes(href), true, `expected Build Home card for ${href}`);
   }
   // The hub never lists its own home link as a card.
   assert.equal(hrefs.includes("/build"), false);
+  // Procedures & Resources is parked; the page remains, the card does not.
+  assert.equal(hrefs.includes("/admin/knowledge"), false);
 });
 
 test("V1 refinement — the account menu contains Change password and Sign out", () => {
@@ -65,7 +66,7 @@ test("V1 refinement — Change password and individual builders are not permanen
   assert.doesNotMatch(shell, /href="\/admin\/departments"/);
 });
 
-test("V1 refinement — RUN uses emerald and BUILD uses orange shell chrome", () => {
+test("V1 refinement — RUN uses Harbor teal and BUILD uses orange shell chrome", () => {
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="header"\]/);
   assert.match(css, /\[data-product-mode="RUN"\] \[data-shell-region="mode-indicator"\]/);
@@ -73,8 +74,9 @@ test("V1 refinement — RUN uses emerald and BUILD uses orange shell chrome", ()
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="header"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="mode-indicator"\]/);
   assert.match(css, /\[data-product-mode="BUILD"\] \[data-shell-region="sidebar"\]/);
-  assert.match(css, /--run-surface:\s*#f3faf6/);
-  assert.match(css, /--build-surface:\s*#fff7ed/);
+  assert.match(css, /--run-surface:\s*#e8f4f2/);
+  assert.match(css, /--run-aside:\s*#0b3d3a/);
+  assert.match(css, /--build-surface:\s*#fff4eb/);
 
   const frame = readFileSync(join(process.cwd(), "src/components/shell-mode-frame.tsx"), "utf8");
   // The treatment derives from the single product-mode classifier, not duplicated detection.

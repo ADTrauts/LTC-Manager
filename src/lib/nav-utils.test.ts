@@ -24,6 +24,15 @@ test("isActiveNavPath limits employees highlight to known HR subpaths", () => {
   assert.equal(isActiveNavPath("/employees/unknown-tab", "/employees"), false);
 });
 
+test("isActiveNavPath treats Assets and Repairs as one Maintenance category", () => {
+  assert.equal(isActiveNavPath("/assets", "/assets"), true);
+  assert.equal(isActiveNavPath("/repairs", "/assets"), true);
+  assert.equal(isActiveNavPath("/repairs/r1", "/assets"), true);
+  assert.equal(isActiveNavPath("/assets", "/repairs"), true);
+  assert.equal(isActiveNavPath("/assets/builder", "/assets"), false);
+  assert.equal(isActiveNavPath("/staffing", "/assets"), false);
+});
+
 test("isActiveNavPath returns false when pathname is null", () => {
   assert.equal(isActiveNavPath(null, "/dashboard"), false);
 });

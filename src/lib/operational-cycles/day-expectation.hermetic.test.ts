@@ -116,6 +116,14 @@ test("adjust authority: supervisor and manager yes; employee staff no; cross-fac
   });
   assert.equal(userStaff.allowed, false);
   if (!userStaff.allowed) assert.equal(userStaff.reason, "ROLE_REQUIRED");
+  const harbor = decideAdjustDayExpectationAuthority({
+    sessionFacilityId: "f1",
+    expectationFacilityId: "f1",
+    role: "FACILITY_ADMINISTRATOR",
+    authKind: "harbor_staff",
+  });
+  assert.equal(harbor.allowed, false);
+  if (!harbor.allowed) assert.equal(harbor.reason, "ROLE_REQUIRED");
 
   const cross = decideAdjustDayExpectationAuthority({
     sessionFacilityId: "f1",

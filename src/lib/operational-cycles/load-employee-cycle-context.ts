@@ -17,6 +17,7 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeStatus,
 } from "./key-time-day-expectation";
+import { loadSpaceOperationalTypeAssignments } from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -113,7 +114,9 @@ export async function loadEmployeeCycleContext(input: {
     parentUnitId: string | null;
     childRoomTypeKeys?: string[];
     spaceIds?: string[];
+    childOperationalTypeKeys?: string[];
   } | null = null;
+  let operationalTypeKey: string | null = null;
   let mealTargets: UnitMealTarget[] = [];
   let keyTimes: EmployeeKeyTimeCard[] = [];
 
@@ -152,6 +155,15 @@ export async function loadEmployeeCycleContext(input: {
       ],
       spaceIds: row.childSpaces.map((space) => space.id),
     };
+    const unitAssignments = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      spaceIds: unit.spaceIds,
+      perspective: "runtime",
+    });
+    unit.childOperationalTypeKeys = [
+      ...new Set([...unitAssignments.values()].map((assignment) => assignment.key)),
+    ];
     const ownerIds = timingOwnerUnitIds(unit);
     const unitTimings = timingsForOwnerUnits(mealMaterialized.timings, ownerIds);
     if (unitTimings.length > 0) {
@@ -208,6 +220,16 @@ export async function loadEmployeeCycleContext(input: {
     mealTargets = [];
   }
 
+  if (input.spaceId) {
+    const spaceAssignments = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      spaceIds: [input.spaceId],
+      perspective: "runtime",
+    });
+    operationalTypeKey = spaceAssignments.get(input.spaceId)?.key ?? null;
+  }
+
   const context = resolveOperationalCycle({
     cycles,
     now,
@@ -215,6 +237,7 @@ export async function loadEmployeeCycleContext(input: {
     operationalDateKey,
     unit,
     spaceId: input.spaceId,
+    operationalTypeKey,
     mealTargets,
   });
 

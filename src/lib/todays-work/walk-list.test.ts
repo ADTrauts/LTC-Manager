@@ -3,9 +3,7 @@ import test from "node:test";
 
 import { UnitType } from "@prisma/client";
 
-import { computeUnitReadiness } from "@/lib/readiness";
 import type { OperationsCenterUnitCard } from "@/lib/operations-center";
-import type { UnitReadiness } from "@/lib/readiness/types";
 import {
   applyRoomKeyTimeAttention,
   buildActionableRoomWalkList,
@@ -15,6 +13,7 @@ import {
   summarizeWalkList,
   walkListItemKey,
   walkListWorkspaceCta,
+  type WalkListItemStatus,
 } from "@/lib/todays-work/walk-list";
 import type { LocationsTreeNode } from "@/lib/locations";
 
@@ -36,30 +35,16 @@ function card(partial: Partial<OperationsCenterUnitCard> & Pick<OperationsCenter
 
 function readinessMapFromCards(
   cards: OperationsCenterUnitCard[],
-  operationPhase: "Preparation" | "Execution" = "Execution",
-): Map<string, UnitReadiness> {
+): Map<string, WalkListItemStatus> {
   return new Map(
     cards.map((unit) => {
-      const readiness = computeUnitReadiness(
-        {
-          unitId: unit.id,
-          unitName: unit.name,
-          unitType: unit.unitType,
-          failed: unit.failed,
-          missed: unit.missed,
-          pending: unit.pending,
-          expected: unit.expected,
-          completed: unit.completed,
-          staffingCount: unit.staffingCount,
-          openRepairCount: unit.openRepairCount,
-          urgentRepairCount: 0,
-          highRepairCount: 0,
-          serveryMealNotLive: false,
-          operationPhase,
-        },
-        { minutesUntilService: -15, now: new Date("2026-07-08T08:00:00") },
-      );
-      return [unit.id, readiness] as const;
+      const state: WalkListItemStatus["state"] =
+        unit.failed > 0 || unit.missed > 0
+          ? "blocked"
+          : unit.pending > 0 || (unit.expected > 0 && unit.completed < unit.expected)
+            ? "in_progress"
+            : "ready";
+      return [unit.id, { state, reason: state === "ready" ? undefined : "Needs a closer look" }] as const;
     }),
   );
 }
@@ -267,9 +252,7 @@ test("buildActionableRoomWalkList keeps Room in Needs Attention for open repair 
   ]);
   const unitItems = buildWalkListItems(
     [card({ id: "unit-1a", name: "1A – Naval Park", openRepairCount: 1, expected: 0 })],
-    readinessMapFromCards([
-      card({ id: "unit-1a", name: "1A – Naval Park", openRepairCount: 1, expected: 0 }),
-    ]),
+    new Map([["unit-1a", { state: "in_progress", reason: "Open repair" }]]),
   );
   const items = buildActionableRoomWalkList({
     rooms,

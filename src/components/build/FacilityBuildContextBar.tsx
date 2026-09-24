@@ -27,11 +27,19 @@ export function FacilityBuildContextBar({
   roomTypesTabHref,
   terminologyFooter,
 }: Props) {
+  const level0 = vocabulary.level0;
   const level1 = vocabulary.level1;
   const level2 = vocabulary.level2;
   const level3 = vocabulary.level3;
 
   const facts: BuildContextBarFact[] = [
+    ...(counts.buildings > 0
+      ? [
+          {
+            ...formatBuildCountFact(counts.buildings, level0.singular, level0.plural),
+          },
+        ]
+      : []),
     {
       ...formatBuildCountFact(counts.floors, level1.singular, level1.plural),
     },
@@ -50,11 +58,6 @@ export function FacilityBuildContextBar({
   ];
 
   return (
-    <BuildContextBar
-      title={facilityName}
-      subtitle="Configure floors, neighborhoods, rooms, Room Types, and Department responsibility."
-      facts={facts}
-      footer={terminologyFooter}
-    />
+    <BuildContextBar title={facilityName} facts={facts} footer={terminologyFooter} />
   );
 }

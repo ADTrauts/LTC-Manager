@@ -28,7 +28,7 @@ Experiences replace configurable capabilities in the target architecture. Curren
 ONE PHYSICAL TRUTH
 
 Facility Builder
-  Facility → Floor → Neighborhood → Room
+  Facility → Building? → Floor → Neighborhood → Room
   Room ↔ Department assignment
 
 ONE OPERATIONAL TRUTH PER FACILITY DEPARTMENT

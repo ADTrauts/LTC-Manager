@@ -107,6 +107,21 @@ export {
 } from "./ownership";
 
 export {
+  MAINTENANCE_ASSETS_HREF,
+  MAINTENANCE_NAV_LABEL,
+  MAINTENANCE_REPAIRS_HREF,
+  MAINTENANCE_SUBNAV_ITEMS,
+  MAINTENANCE_VENDORS_HREF,
+  applyMaintenanceNavRewrite,
+  isRunMaintenancePath,
+  maintenanceSubNavItems,
+  resolveMaintenanceSubNavActiveId,
+  type MaintenanceNavRewriteOptions,
+  type MaintenanceSubNavId,
+  type MaintenanceSubNavItem,
+} from "./maintenance-nav";
+
+export {
   formatAssetLocationAriaLabel,
   formatAssetLocationLabel,
   resolveSpaceIdForUnitChange,

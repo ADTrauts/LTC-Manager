@@ -1,25 +1,4 @@
-export { buildUnitWorkQueue, type UnitWorkQueue, type UnitWorkQueueItem, type UnitWorkQueueKind } from "./build-unit-work-queue";
-export { buildUnitWorkspaceView } from "./build-unit-workspace-view";
-export { loadUnitQueries, type UnitQueryResult } from "./load-unit-queries";
-export { loadUnitRecord } from "./load-unit-record";
-export { loadUnitWorkspace } from "./load-unit-workspace";
-export { normalizeLogTab } from "./normalize-log-tab";
-export { resolveUnitOperationContext } from "./resolve-unit-operation-context";
-export { UNIT_WORK_QUEUE_PRIORITY } from "./work-queue-priority";
-export type {
-  UnitWorkspaceLogTab,
-  UnitWorkspaceMealServiceEventToday,
-  UnitWorkspaceSearchParams,
-  UnitWorkspaceUnit,
-  UnitWorkspaceViewModel,
-} from "./types";
-
-export {
-  adaptProjectionToUnitWorkspace,
-  loadUnitWorkspaceProjection,
-  type LoadUnitWorkspaceProjectionOptions,
-  type LoadUnitWorkspaceProjectionResult,
-  type UnitWorkspaceAreaPanel,
-  type UnitWorkspaceExperiencePanel,
-  type UnitWorkspaceProjectionView,
-} from "./projection";
+/**
+ * Leftover Unit Workspace loaders and operation heuristics are gone.
+ * Live surfaces live in `./neighborhood`, `./space`, and EmployeeRuntime.
+ */

@@ -391,6 +391,8 @@ export function presentLocationRunOperation(input: {
   nowLocalHhMm: string;
   canAdjust?: boolean;
   canComplete?: boolean;
+  /** Current Operational Type key — required for OPERATIONAL_TYPES targeting. */
+  operationalTypeKey?: string | null;
 }): RunLocationOperationPresentation {
   const scopedTimings = timingsForPublishedKeyTimeCycles(input.timings, input.cycles).filter(
     (row) => row.spaceId === input.spaceId,
@@ -402,6 +404,7 @@ export function presentLocationRunOperation(input: {
     facilityTimezone: input.facilityTimezone,
     operationalDateKey: input.operationalDateKey,
     spaceId: input.spaceId,
+    operationalTypeKey: input.operationalTypeKey,
   });
 
   let currentOperation: RunLocationCurrentOperation = {

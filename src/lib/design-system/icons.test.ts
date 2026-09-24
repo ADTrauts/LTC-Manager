@@ -18,7 +18,8 @@ test("resolveNavIconKey maps primary shell routes", () => {
   assert.equal(resolveNavIconKey("/employees"), "employees");
   assert.equal(resolveNavIconKey("/logs"), "logs");
   assert.equal(resolveNavIconKey("/menus"), "menus");
-  assert.equal(resolveNavIconKey("/assets"), "assets");
+  assert.equal(resolveNavIconKey("/assets"), "repairs");
+  assert.equal(resolveNavIconKey("/assets/builder"), "assets");
   assert.equal(resolveNavIconKey("/repairs"), "repairs");
   assert.equal(resolveNavIconKey("/issues"), "repairs");
   assert.equal(resolveNavIconKey("/issues/abc"), "repairs");

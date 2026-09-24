@@ -3,14 +3,57 @@
  *
  * Team is normal operational view scope inside a Department — not a hard
  * security boundary, not today's assignment, and not EmployeeUnitAccess.
+ *
+ * Configured rooms = explicit DepartmentTeamRoomMembership ∪ rooms whose
+ * ACTIVE Operational Type is targeted by the Team. Draft Operational Type
+ * assignments never expand this scope.
  */
 
 import type { PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
+import { configuredTeamSpaceIds } from "@/lib/department-teams/team-operational-type-applicability";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
+import {
+  assignmentsFromBindings,
+  selectProfileIdForOperationalTypes,
+} from "@/lib/operational-cycles/load-operational-type-targets";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+
+type ViewerTeamScopeDb = Pick<
+  PrismaClient,
+  | "department"
+  | "employeeTeamMembership"
+  | "departmentOperationalProfile"
+  | "departmentRoomArchetypeBinding"
+>;
+
+async function loadRuntimeTeamAssignments(
+  db: ViewerTeamScopeDb,
+  input: { facilityId: string; departmentId: string },
+): Promise<Map<string, { key: string }>> {
+  const profiles = await db.departmentOperationalProfile.findMany({
+    where: {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      status: { in: ["DRAFT", "CERTIFIED", "ACTIVE"] },
+    },
+    select: { id: true, status: true },
+    orderBy: { version: "desc" },
+  });
+  const profileId = selectProfileIdForOperationalTypes(profiles, "runtime");
+  if (!profileId) return new Map();
+
+  const bindings = await db.departmentRoomArchetypeBinding.findMany({
+    where: { profileId },
+    select: {
+      unitSpaceId: true,
+      archetype: { select: { key: true, name: true, isActive: true } },
+    },
+  });
+  return assignmentsFromBindings(bindings);
+}
 
 export type ViewerTeamScopeMode =
   | "DEPARTMENT_WIDE"
@@ -184,7 +227,7 @@ export async function resolveViewerTeamScopes(input: {
   session: AppJwtPayload;
   facilityId: string;
   departments: readonly { id: string; label: string }[];
-  db?: Pick<PrismaClient, "department" | "employeeTeamMembership">;
+  db?: ViewerTeamScopeDb;
   resolveEmployeeId?: (session: AppJwtPayload) => Promise<string | null>;
 }): Promise<Map<string, ViewerTeamScope>> {
   const scopes = new Map<string, ViewerTeamScope>();
@@ -221,11 +264,30 @@ export async function resolveViewerTeamScopes(input: {
                 id: true,
                 displayName: true,
                 departmentId: true,
+                applicableOperationalTypeKeys: true,
                 roomMemberships: { select: { spaceId: true } },
               },
             },
           },
         });
+
+  const departmentIdsNeedingOt = [
+    ...new Set(
+      memberships
+        .filter((row) => row.team.applicableOperationalTypeKeys.length > 0)
+        .map((row) => row.team.departmentId),
+    ),
+  ];
+  const assignmentsByDepartmentId = new Map<string, Map<string, { key: string }>>();
+  for (const departmentId of departmentIdsNeedingOt) {
+    assignmentsByDepartmentId.set(
+      departmentId,
+      await loadRuntimeTeamAssignments(db, {
+        facilityId: input.facilityId,
+        departmentId,
+      }),
+    );
+  }
 
   const teamsByDepartmentId = new Map<string, TeamMembershipScopeRow[]>();
   for (const row of memberships) {
@@ -233,7 +295,11 @@ export async function resolveViewerTeamScopes(input: {
     list.push({
       id: row.team.id,
       name: row.team.displayName,
-      roomIds: row.team.roomMemberships.map((membership) => membership.spaceId),
+      roomIds: configuredTeamSpaceIds({
+        explicitSpaceIds: row.team.roomMemberships.map((membership) => membership.spaceId),
+        applicableOperationalTypeKeys: row.team.applicableOperationalTypeKeys,
+        runtimeAssignments: assignmentsByDepartmentId.get(row.team.departmentId) ?? new Map(),
+      }),
     });
     teamsByDepartmentId.set(row.team.departmentId, list);
   }

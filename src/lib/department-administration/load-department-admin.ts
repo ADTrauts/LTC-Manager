@@ -84,6 +84,9 @@ export type DepartmentAdminView = {
   /** Hierarchy-first grouping for the Locations tab. */
   locationHierarchy: DepartmentLocationFloorGroup[];
   locationCoverage: ReturnType<typeof locationCoverageSummary>;
+  /** Working-profile bindings — used by Effective Location Program. */
+  roomBindings: RoomArchetypeBindingSnapshot[];
+  roomExceptions: RoomExceptionSnapshot[];
   coverage: {
     assignedRooms: number;
     mappedRooms: number;
@@ -106,7 +109,7 @@ function walkAssignedRooms(
   }>,
 ): void {
   for (const node of nodes) {
-    const isFloor = node.hierarchyRole === "FLOOR" || (!node.parentUnitId && node.hierarchyRole !== "NEIGHBORHOOD");
+    const isFloor = node.hierarchyRole === "FLOOR";
     const nextFloor = isFloor ? node.name : floorName;
     const nextNeighborhood =
       node.hierarchyRole === "NEIGHBORHOOD" ? node.name : neighborhoodName;
@@ -249,7 +252,12 @@ export async function loadDepartmentAdminView(input: {
       unitSpaceId: e.unitSpaceId,
       areaExperienceId: e.areaExperienceId,
       mode: e.mode,
-      configuration: null,
+      configuration:
+        e.configurationJson &&
+        typeof e.configurationJson === "object" &&
+        !Array.isArray(e.configurationJson)
+          ? (e.configurationJson as RoomExceptionSnapshot["configuration"])
+          : null,
       reason: e.reason,
     }));
   }
@@ -444,6 +452,8 @@ export async function loadDepartmentAdminView(input: {
     locations,
     locationHierarchy,
     locationCoverage,
+    roomBindings: bindings,
+    roomExceptions: exceptions,
     coverage: {
       assignedRooms: rooms.length,
       mappedRooms,

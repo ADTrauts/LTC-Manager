@@ -83,24 +83,27 @@ export function WeekEmployeeScheduleGrid({
   });
   const oaEnabled = isOperationalAssignmentsEnabled();
   const manage = canManage && !readOnly;
+  const weekSummary = (
+    <p className="text-xs text-zinc-500" data-testid="week-summary">
+      {projection.summary.scheduledEmployeeCount} scheduled
+      {projection.summary.needAssignmentDayCount > 0
+        ? ` · ${projection.summary.needAssignmentDayCount} need assignment`
+        : ""}
+      {projection.summary.assignedUnscheduledDayCount > 0
+        ? ` · ${projection.summary.assignedUnscheduledDayCount} assigned but not scheduled`
+        : ""}
+      {` · ${projection.summary.employeeCount} employees`}
+    </p>
+  );
 
   return (
     <div className="space-y-4" data-testid="week-employee-grid">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">{projection.departmentName}</h2>
-          <p className="text-sm text-zinc-600" data-testid="week-summary">
-            {projection.summary.scheduledEmployeeCount} scheduled
-            {projection.summary.needAssignmentDayCount > 0
-              ? ` · ${projection.summary.needAssignmentDayCount} need assignment`
-              : ""}
-            {projection.summary.assignedUnscheduledDayCount > 0
-              ? ` · ${projection.summary.assignedUnscheduledDayCount} assigned but not scheduled`
-              : ""}
-            {` · ${projection.summary.employeeCount} employees`}
-          </p>
+      {readOnly ? (
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <h2 className="text-sm font-semibold text-zinc-900">{projection.departmentName}</h2>
+          {weekSummary}
         </div>
-      </div>
+      ) : null}
 
       <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
         <input type="hidden" name="date" value={anchorDate} />
@@ -164,6 +167,7 @@ export function WeekEmployeeScheduleGrid({
         >
           Apply
         </button>
+        {!readOnly ? <div className="ml-auto self-center">{weekSummary}</div> : null}
       </form>
 
       {projection.summary.employeeCount === 0 ? (

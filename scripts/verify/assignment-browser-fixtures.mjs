@@ -236,6 +236,9 @@ async function main() {
         data: {
           facilityId: facility.id,
           departmentId: dietary.id,
+          stableKey: "phase7a_dietary_coverage",
+          version: 1,
+          status: "PUBLISHED",
           name: "Phase 7A Dietary Coverage",
           description: "Pilot coverage requirement",
           isActive: true,

@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { RepairPriority } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { createRepairAction } from "@/app/(protected)/repairs/actions";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import {
   compareRepairsForQueue,
@@ -25,6 +23,9 @@ import {
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { issueDetailPath } from "@/lib/work/issues/issue-copy";
+
+import { RepairCreateForm } from "./repair-create-form";
+import { RepairsPageClient } from "./repairs-page-client";
 
 type RepairsPageProps = {
   searchParams: Promise<{ status?: string; q?: string }>;
@@ -63,15 +64,6 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const departmentWhere = repairDepartmentWhere(deptNav.activeDepartmentId);
-
-  const activeDepartmentName = deptNav.activeDepartmentId
-    ? (
-        await prisma.department.findFirst({
-          where: { id: deptNav.activeDepartmentId, facilityId },
-          select: { name: true },
-        })
-      )?.name ?? null
-    : null;
 
   const [units, assets, vendors, repairs] = await Promise.all([
     prisma.unit.findMany({
@@ -151,31 +143,20 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
 
   const emptyMessage =
     repairs.length === 0 && !q
-      ? statusFilter === "OPEN" || statusFilter === "IN_PROGRESS" || statusFilter === "WAITING"
-        ? "No open repairs."
-        : "No repairs yet."
+      ? null
       : filtered.length === 0
         ? "No repairs match these filters."
         : null;
-
-  const deptLabel = deptNav.activeDepartmentId
-    ? activeDepartmentName ?? "Selected department"
-    : "All departments";
+  const isEmpty = repairs.length === 0 && !q;
 
   return (
     <section className="space-y-6" data-testid="repairs-page">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Repairs</h1>
-        <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          Work being done to fix a problem or perform maintenance. Reported equipment problems stay
-          on Asset Issues until you open a repair.
-        </p>
-        <p className="mt-1 text-xs text-zinc-500" data-testid="repairs-department-context">
-          Showing: {deptLabel}
-        </p>
-      </header>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <RepairsPageClient
+        role={session.role}
+        isEmpty={isEmpty}
+        createForm={<RepairCreateForm units={units} assets={assets} vendors={vendors} />}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <nav
           className="flex flex-wrap gap-2"
           aria-label="Repair status filters"
@@ -222,110 +203,10 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         </form>
       </div>
 
+      {!isEmpty ? (
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900">New repair</h2>
-        <p className="mt-1 text-sm text-zinc-600">
-          Direct repair — no Asset Issue required. If you pick an asset and leave provider blank,
-          the preferred provider is used when one exists.
-        </p>
-        <form
-          action={createRepairAction}
-          className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
-          data-testid="repairs-create-form"
-        >
-          <label className="block text-sm text-zinc-700">
-            Unit
-            <select
-              name="unitId"
-              required
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            >
-              <option value="">Select unit</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm text-zinc-700">
-            Asset (optional)
-            <select
-              name="assetId"
-              defaultValue=""
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            >
-              <option value="">No asset linked</option>
-              {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.assetCode} · {asset.name}
-                  {asset.vendor ? ` · preferred: ${asset.vendor.name}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm text-zinc-700">
-            Actual repair provider
-            <select
-              name="vendorId"
-              defaultValue=""
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            >
-              <option value="">Use preferred / none</option>
-              {vendors.map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm text-zinc-700">
-            Priority
-            <select
-              name="priority"
-              defaultValue={RepairPriority.MEDIUM}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            >
-              {Object.values(RepairPriority).map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm text-zinc-700 md:col-span-2">
-            Work title
-            <input
-              name="title"
-              required
-              placeholder="e.g. Compressor service"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block text-sm text-zinc-700 md:col-span-2 xl:col-span-4">
-            Description
-            <textarea
-              name="description"
-              required
-              placeholder="Describe the work needed"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              rows={3}
-            />
-          </label>
-          <div className="md:col-span-2 xl:col-span-4">
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
-            >
-              Create repair
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900">Repair queue</h2>
-        <div className="mt-3 space-y-3" data-testid="repairs-queue">
+        <h2 className="sr-only">Repair queue</h2>
+        <div className="space-y-3" data-testid="repairs-queue">
           {filtered.map((repair) => {
             const sourceKind = repairSourceKind({
               workOrderKind: repair.workOrderKind,
@@ -433,6 +314,8 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
           ) : null}
         </div>
       </section>
+      ) : null}
+      </RepairsPageClient>
     </section>
   );
 }

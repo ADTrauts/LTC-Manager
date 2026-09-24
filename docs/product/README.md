@@ -14,5 +14,6 @@ Post–Wave 12 **Product Constitution Phase 1** — definition only; no producti
 | 08 | [Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md) | Canonical vocabulary |
 | 09 | [Decision Model](./09_PRODUCT_DECISION_MODEL.md) | Where features live |
 | 10 | [Product Roadmap](./10_PRODUCT_ROADMAP.md) | Waves 1–12 done; 13+ planned |
+| 11 | [Commercial Model](./11_COMMERCIAL_MODEL.md) | Facility-plus-departments pricing (ADL-013) |
 
-**Related older trees (monorepo root):** `docs/platform-vision/`, `docs/product-reference/`, `docs/implementation/` — still useful historically; **this folder is the post–Wave 12 constitutional source for “what LTC Manager is now.”**
+**Related older trees:** [`docs/platform-vision/`](../platform-vision/), [`docs/product-reference/`](../product-reference/), [`docs/implementation/`](../implementation/) — still useful historically; **this folder is the post–Wave 12 constitutional source for “what LTC Manager is now.”**

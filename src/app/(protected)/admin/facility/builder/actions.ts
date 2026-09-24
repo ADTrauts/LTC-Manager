@@ -8,14 +8,16 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import { requireAtLeastRole } from "@/lib/access";
 import { pruneTeamRoomsAfterResponsibilityRemoved } from "@/lib/department-teams";
 import { prisma } from "@/lib/prisma";
-import { wouldCreateCycle } from "@/lib/facility-builder/load-facility-hierarchy";
+import { wouldCreateCycle, spaceNestError, collectDescendantSpaceIds } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
+  BUILDING_INTERNAL_UNIT_TYPE,
   FLOOR_INTERNAL_UNIT_TYPE,
   NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
   resolveBuilderNodeDisplayKind,
   canAddRoom,
   canMoveUnitOnto,
   canMoveRoomOnto,
+  isStructuralBuilderKind,
 } from "@/lib/facility-builder/builder-display";
 import {
   BULK_ROOM_MAX,
@@ -55,6 +57,15 @@ function toOptional(value: FormDataEntryValue | null) {
   return trimmed === "" ? undefined : trimmed;
 }
 
+/** Empty / "__none__" → null (directly in the neighborhood). Missing → undefined. */
+function toNullableCuid(value: FormDataEntryValue | null): string | null | undefined {
+  if (value === null) return undefined;
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed === "" || trimmed === "__none__") return null;
+  return trimmed;
+}
+
 /**
  * Facility-aware validation copy (hierarchy vocabulary).
  * Fetched lazily — only on validation-failure paths.
@@ -64,6 +75,7 @@ async function validationCopy(facilityId: string): Promise<BuilderCopy["validati
     where: { id: facilityId },
     select: {
       vocabularyProfile: true,
+      vocabularyLevel0Label: true,
       vocabularyLevel1Label: true,
       vocabularyLevel2Label: true,
       vocabularyLevel3Label: true,
@@ -109,17 +121,23 @@ async function resolveSpaceFieldsFromFacilityRoomType(
 async function assertUniqueUnitName(
   facilityId: string,
   name: string,
+  parentUnitId: string | null,
   excludeId?: string,
 ) {
   const existing = await prisma.unit.findFirst({
     where: {
       facilityId,
       name,
+      parentUnitId,
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
     select: { id: true },
   });
-  if (existing) throw new Error(`A unit named "${name}" already exists.`);
+  if (existing) {
+    throw new Error(
+      (await validationCopy(facilityId)).siblingNameTaken(name),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -129,8 +147,16 @@ async function assertUniqueUnitName(
 const UNIT_TYPES = Object.values(UnitType) as [UnitType, ...UnitType[]];
 const DEPT_KINDS = Object.values(UnitDepartmentKind) as [UnitDepartmentKind, ...UnitDepartmentKind[]];
 
+const createBuildingSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional(),
+  isActive: z.coerce.boolean().default(true),
+});
+
 const createFloorSchema = z.object({
   name: z.string().trim().min(1).max(120),
+  /** Omit / empty = facility root. Otherwise must be a Building. */
+  parentUnitId: z.string().cuid().optional().nullable(),
   description: z.string().trim().max(500).optional(),
   isActive: z.coerce.boolean().default(true),
 });
@@ -160,27 +186,30 @@ const updateUnitSchema = z.object({
 /** @deprecated Prefer createBuilderFloorAction / createBuilderNeighborhoodAction */
 export async function createBuilderUnitAction(formData: FormData) {
   const intent = formData.get("hierarchyIntent");
+  if (intent === "building") {
+    return createBuilderBuildingAction(formData);
+  }
   if (intent === "floor" || !toOptional(formData.get("parentUnitId"))) {
     return createBuilderFloorAction(formData);
   }
   return createBuilderNeighborhoodAction(formData);
 }
 
-export async function createBuilderFloorAction(formData: FormData) {
+export async function createBuilderBuildingAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
-  const parsed = createFloorSchema.parse({
+  const parsed = createBuildingSchema.parse({
     name: formData.get("name"),
     description: toOptional(formData.get("description")),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
 
-  // Ignore any client-supplied type / displayOrder.
   void formData.get("displayOrder");
   void formData.get("unitType");
+  void formData.get("parentUnitId");
 
-  await assertUniqueUnitName(session.facilityId, parsed.name);
+  await assertUniqueUnitName(session.facilityId, parsed.name, null);
 
   const topLevel = await prisma.unit.findMany({
     where: { facilityId: session.facilityId, parentUnitId: null },
@@ -192,9 +221,64 @@ export async function createBuilderFloorAction(formData: FormData) {
     data: {
       facilityId: session.facilityId,
       name: parsed.name,
+      unitType: BUILDING_INTERNAL_UNIT_TYPE,
+      hierarchyRole: UnitHierarchyRole.BUILDING,
+      parentUnitId: null,
+      description: parsed.description || null,
+      displayOrder,
+      isActive: parsed.isActive,
+    },
+  });
+
+  revalidateBuilderViews();
+}
+
+export async function createBuilderFloorAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const rawParent = toOptional(formData.get("parentUnitId"));
+  const parsed = createFloorSchema.parse({
+    name: formData.get("name"),
+    parentUnitId: rawParent ?? null,
+    description: toOptional(formData.get("description")),
+    isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
+  });
+
+  // Ignore any client-supplied type / displayOrder.
+  void formData.get("displayOrder");
+  void formData.get("unitType");
+
+  let parentUnitId: string | null = null;
+  if (parsed.parentUnitId) {
+    const parent = await prisma.unit.findFirst({
+      where: { id: parsed.parentUnitId, facilityId: session.facilityId },
+      select: { id: true, parentUnitId: true, hierarchyRole: true },
+    });
+    if (!parent) {
+      throw new Error((await validationCopy(session.facilityId)).parentLevel0NotFound);
+    }
+    if (resolveBuilderNodeDisplayKind(parent) !== "building") {
+      throw new Error((await validationCopy(session.facilityId)).level1RequiresLevel0OrRoot);
+    }
+    parentUnitId = parent.id;
+  }
+
+  await assertUniqueUnitName(session.facilityId, parsed.name, parentUnitId);
+
+  const siblings = await prisma.unit.findMany({
+    where: { facilityId: session.facilityId, parentUnitId },
+    select: { displayOrder: true },
+  });
+  const displayOrder = nextAppendDisplayOrder(siblings);
+
+  await prisma.unit.create({
+    data: {
+      facilityId: session.facilityId,
+      name: parsed.name,
       unitType: FLOOR_INTERNAL_UNIT_TYPE,
       hierarchyRole: UnitHierarchyRole.FLOOR,
-      parentUnitId: null,
+      parentUnitId,
       description: parsed.description || null,
       displayOrder,
       isActive: parsed.isActive,
@@ -219,7 +303,7 @@ export async function createBuilderNeighborhoodAction(formData: FormData) {
   void formData.get("displayOrder");
   void formData.get("unitType");
 
-  await assertUniqueUnitName(session.facilityId, parsed.name);
+  await assertUniqueUnitName(session.facilityId, parsed.name, parsed.parentUnitId ?? null);
 
   // Toolbar create → Undesignated (STAGED)
   if (!parsed.parentUnitId) {
@@ -315,8 +399,11 @@ export async function updateBuilderUnitAction(formData: FormData) {
   let nextParentId = parsed.parentUnitId ?? null;
   let nextRole = existingUnit.hierarchyRole;
 
-  if (kind === "floor") {
+  if (kind === "building") {
     nextParentId = null;
+    nextRole = UnitHierarchyRole.BUILDING;
+  } else if (kind === "floor") {
+    nextParentId = existingUnit.parentUnitId;
     nextRole = UnitHierarchyRole.FLOOR;
   } else if (nextParentId) {
     const allUnits = await prisma.unit.findMany({
@@ -341,14 +428,16 @@ export async function updateBuilderUnitAction(formData: FormData) {
     nextRole = UnitHierarchyRole.STAGED;
   }
 
-  await assertUniqueUnitName(session.facilityId, parsed.name, parsed.unitId);
+  await assertUniqueUnitName(session.facilityId, parsed.name, nextParentId, parsed.unitId);
 
   await prisma.unit.update({
     where: { id: parsed.unitId, facilityId: session.facilityId },
     data: {
       name: parsed.name,
-      // Floors never change unitType; neighborhoods may update via Advanced settings only.
-      unitType: kind === "floor" ? existingUnit.unitType : (parsed.unitType ?? existingUnit.unitType),
+      // Buildings and Floors never change unitType; neighborhoods may update via Advanced settings only.
+      unitType: isStructuralBuilderKind(kind)
+        ? existingUnit.unitType
+        : (parsed.unitType ?? existingUnit.unitType),
       hierarchyRole: nextRole,
       parentUnitId: nextParentId,
       description: parsed.description || null,
@@ -413,6 +502,8 @@ export async function deleteBuilderUnitAction(formData: FormData) {
 const createSpaceSchema = z.object({
   /** Omit / empty = create in Undesignated. */
   unitId: z.string().cuid().optional().nullable(),
+  /** Containing room (bathroom inside a resident room). */
+  parentSpaceId: z.string().cuid().optional().nullable(),
   name: z.string().trim().min(1).max(120),
   facilityRoomTypeId: z.string().cuid(),
   roomNumber: z.string().trim().max(32).optional(),
@@ -425,6 +516,7 @@ const updateSpaceSchema = z.object({
   spaceId: z.string().cuid(),
   /** Current or next parent; null keeps / sets undesignated. */
   unitId: z.string().cuid().optional().nullable(),
+  parentSpaceId: z.string().cuid().optional().nullable(),
   name: z.string().trim().min(1).max(120),
   facilityRoomTypeId: z.string().cuid(),
   roomNumber: z.string().trim().max(32).optional(),
@@ -444,6 +536,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
   const rawUnitId = toOptional(formData.get("unitId"));
   const parsed = createSpaceSchema.parse({
     unitId: rawUnitId ?? null,
+    parentSpaceId: toNullableCuid(formData.get("parentSpaceId")) ?? null,
     name: formData.get("name"),
     facilityRoomTypeId: formData.get("facilityRoomTypeId"),
     roomNumber: toOptional(formData.get("roomNumber")),
@@ -459,18 +552,48 @@ export async function createBuilderSpaceAction(formData: FormData) {
     parsed.facilityRoomTypeId,
   );
 
+  let unitId = parsed.unitId ?? null;
+  let parentSpaceId: string | null = parsed.parentSpaceId ?? null;
+
+  if (parentSpaceId) {
+    const parent = await prisma.unitSpace.findFirst({
+      where: { id: parentSpaceId, facilityId: session.facilityId },
+      select: { id: true, unitId: true, parentSpaceId: true },
+    });
+    if (!parent) throw new Error("Containing room not found.");
+    if (parent.parentSpaceId) {
+      throw new Error(
+        "Rooms can only be nested one level (for example a bathroom inside a resident room).",
+      );
+    }
+    if (unitId && parent.unitId && unitId !== parent.unitId) {
+      throw new Error("Nested rooms must stay in the same location as the room they belong to.");
+    }
+    unitId = parent.unitId;
+    parentSpaceId = parent.id;
+  }
+
   // Toolbar create → Undesignated (unitId null)
-  if (!parsed.unitId) {
+  if (!unitId) {
     const existing = await prisma.unitSpace.findFirst({
-      where: { facilityId: session.facilityId, unitId: null, name: parsed.name },
+      where: {
+        facilityId: session.facilityId,
+        unitId: null,
+        parentSpaceId,
+        name: parsed.name,
+      },
       select: { id: true },
     });
     if (existing) {
-      throw new Error(`A space named "${parsed.name}" already exists in Undesignated.`);
+      throw new Error(
+        parentSpaceId
+          ? `A space named "${parsed.name}" already exists inside that room.`
+          : `A space named "${parsed.name}" already exists in Undesignated.`,
+      );
     }
 
     const siblings = await prisma.unitSpace.findMany({
-      where: { facilityId: session.facilityId, unitId: null },
+      where: { facilityId: session.facilityId, unitId: null, parentSpaceId },
       select: { sortOrder: true },
     });
     const sortOrder = nextAppendSortOrder(siblings);
@@ -478,6 +601,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
     await prisma.unitSpace.create({
       data: {
         unitId: null,
+        parentSpaceId,
         facilityId: session.facilityId,
         name: parsed.name,
         spaceType: resolved.spaceType,
@@ -496,7 +620,7 @@ export async function createBuilderSpaceAction(formData: FormData) {
   }
 
   const unit = await prisma.unit.findFirst({
-    where: { id: parsed.unitId, facilityId: session.facilityId },
+    where: { id: unitId, facilityId: session.facilityId },
     select: { id: true, facilityId: true, parentUnitId: true, hierarchyRole: true },
   });
   if (!unit) throw new Error("Parent unit not found in this facility.");
@@ -507,20 +631,27 @@ export async function createBuilderSpaceAction(formData: FormData) {
   }
 
   const existing = await prisma.unitSpace.findFirst({
-    where: { unitId: parsed.unitId, name: parsed.name },
+    where: { unitId, parentSpaceId, name: parsed.name },
     select: { id: true },
   });
-  if (existing) throw new Error(`A space named "${parsed.name}" already exists in this unit.`);
+  if (existing) {
+    throw new Error(
+      parentSpaceId
+        ? `A space named "${parsed.name}" already exists inside that room.`
+        : `A space named "${parsed.name}" already exists in this unit.`,
+    );
+  }
 
   const siblings = await prisma.unitSpace.findMany({
-    where: { unitId: parsed.unitId },
+    where: { unitId, parentSpaceId },
     select: { sortOrder: true },
   });
   const sortOrder = nextAppendSortOrder(siblings);
 
   await prisma.unitSpace.create({
     data: {
-      unitId: parsed.unitId,
+      unitId,
+      parentSpaceId,
       facilityId: unit.facilityId,
       name: parsed.name,
       spaceType: resolved.spaceType,
@@ -593,7 +724,7 @@ export async function createBuilderSpacesBulkAction(
   }
 
   const existingSpaces = await prisma.unitSpace.findMany({
-    where: { unitId: parsed.unitId },
+    where: { unitId: parsed.unitId, parentSpaceId: null },
     select: { name: true, sortOrder: true },
     orderBy: { sortOrder: "asc" },
   });
@@ -666,6 +797,7 @@ export async function updateBuilderSpaceAction(formData: FormData) {
   const parsed = updateSpaceSchema.parse({
     spaceId: formData.get("spaceId"),
     unitId: formData.get("unitId"),
+    parentSpaceId: toNullableCuid(formData.get("parentSpaceId")),
     name: formData.get("name"),
     facilityRoomTypeId: formData.get("facilityRoomTypeId"),
     roomNumber: toOptional(formData.get("roomNumber")),
@@ -683,20 +815,61 @@ export async function updateBuilderSpaceAction(formData: FormData) {
 
   const space = await prisma.unitSpace.findFirst({
     where: { id: parsed.spaceId, facilityId: session.facilityId },
-    select: { id: true, unitId: true },
+    select: { id: true, unitId: true, parentSpaceId: true },
   });
   if (!space) throw new Error("Space not found.");
+
+  const nextParentSpaceId =
+    parsed.parentSpaceId === undefined ? space.parentSpaceId : parsed.parentSpaceId;
+
+  if (nextParentSpaceId !== space.parentSpaceId) {
+    const scopeSpaces = await prisma.unitSpace.findMany({
+      where:
+        space.unitId == null
+          ? { facilityId: session.facilityId, unitId: null }
+          : { unitId: space.unitId },
+      select: { id: true, unitId: true, parentSpaceId: true },
+    });
+    const parent = nextParentSpaceId
+      ? scopeSpaces.find((row) => row.id === nextParentSpaceId) ?? null
+      : null;
+    if (nextParentSpaceId && !parent) {
+      throw new Error("Containing room not found in this location.");
+    }
+    const nestError = spaceNestError(space, parent, scopeSpaces);
+    if (nestError) throw new Error(nestError);
+  }
 
   const duplicate = await prisma.unitSpace.findFirst({
     where: {
       facilityId: session.facilityId,
       unitId: space.unitId,
+      parentSpaceId: nextParentSpaceId,
       name: parsed.name,
       id: { not: parsed.spaceId },
     },
     select: { id: true },
   });
-  if (duplicate) throw new Error(`A space named "${parsed.name}" already exists in this unit.`);
+  if (duplicate) {
+    throw new Error(
+      nextParentSpaceId
+        ? `A space named "${parsed.name}" already exists inside that room.`
+        : `A space named "${parsed.name}" already exists in this unit.`,
+    );
+  }
+
+  const parentChanged = nextParentSpaceId !== space.parentSpaceId;
+  let nextSortOrder: number | undefined;
+  if (parentChanged) {
+    const siblings = await prisma.unitSpace.findMany({
+      where:
+        space.unitId == null
+          ? { facilityId: session.facilityId, unitId: null, parentSpaceId: nextParentSpaceId }
+          : { unitId: space.unitId, parentSpaceId: nextParentSpaceId },
+      select: { sortOrder: true },
+    });
+    nextSortOrder = nextAppendSortOrder(siblings);
+  }
 
   await prisma.unitSpace.update({
     where: { id: parsed.spaceId },
@@ -705,10 +878,12 @@ export async function updateBuilderSpaceAction(formData: FormData) {
       spaceType: resolved.spaceType,
       customTypeLabel: resolved.customTypeLabel,
       facilityRoomTypeId: resolved.facilityRoomTypeId,
+      parentSpaceId: nextParentSpaceId,
       roomNumber: parsed.roomNumber || null,
       code: parsed.code || null,
       description: parsed.description || null,
       isActive: parsed.isActive,
+      ...(nextSortOrder != null ? { sortOrder: nextSortOrder } : {}),
     },
   });
 
@@ -914,9 +1089,11 @@ export async function setBuilderUnitDepartmentsAction(input: {
     hierarchyRole: unit.hierarchyRole,
     parentUnitId: unit.parentUnitId,
   });
-  if (displayKind === "floor") {
+  if (displayKind === "floor" || displayKind === "building") {
     throw new Error(
-      "Floors are structural organizers. Assign departments to neighborhoods and rooms, or use Apply departments to locations below.",
+      displayKind === "building"
+        ? "Buildings are structural organizers. Assign departments to neighborhoods and rooms, or use Apply departments to locations below."
+        : "Floors are structural organizers. Assign departments to neighborhoods and rooms, or use Apply departments to locations below.",
     );
   }
 
@@ -1040,9 +1217,11 @@ export async function applyBuilderUnitResponsibilitiesToDescendantsAction(input:
     hierarchyRole: unit.hierarchyRole,
     parentUnitId: unit.parentUnitId,
   });
-  if (displayKind === "floor") {
+  if (displayKind === "floor" || displayKind === "building") {
     throw new Error(
-      "Floors are structural organizers. Use Apply departments to locations below with an explicit department set.",
+      displayKind === "building"
+        ? "Buildings are structural organizers. Use Apply departments to locations below with an explicit department set."
+        : "Floors are structural organizers. Use Apply departments to locations below with an explicit department set.",
     );
   }
 
@@ -1094,21 +1273,22 @@ async function applyDepartmentsToActionableDescendants(input: {
 }) {
   const { facilityId, scopeUnitId, departmentIds } = input;
 
-  // BFS descendants. Never includes the scope unit. Skip nested FLOOR units as
-  // UnitDepartmentResponsibility targets (structural); still walk under them for rooms.
+  // BFS descendants. Never includes the scope unit. Skip nested BUILDING / FLOOR
+  // units as UnitDepartmentResponsibility targets (structural); still walk under them for rooms.
   const neighborhoodUnitIds: string[] = [];
   const unitIdsForRoomLookup: string[] = [scopeUnitId];
   let frontier = [scopeUnitId];
   while (frontier.length > 0) {
     const children = await prisma.unit.findMany({
       where: { facilityId, parentUnitId: { in: frontier } },
-      select: { id: true, hierarchyRole: true },
+      select: { id: true, hierarchyRole: true, parentUnitId: true },
     });
     frontier = [];
     for (const child of children) {
       frontier.push(child.id);
       unitIdsForRoomLookup.push(child.id);
-      if (child.hierarchyRole !== "FLOOR") {
+      const childKind = resolveBuilderNodeDisplayKind(child);
+      if (!isStructuralBuilderKind(childKind)) {
         neighborhoodUnitIds.push(child.id);
       }
     }
@@ -1249,13 +1429,15 @@ async function normalizeUnitSiblingOrders(
   );
 }
 
-/** Normalize sortOrder for rooms under a unit, or undesignated (unitId null) within a facility. */
+/** Normalize sortOrder for rooms under a unit (or undesignated) in one sibling group. */
 async function normalizeSpaceSiblingOrders(args: {
   unitId: string | null;
   facilityId?: string;
+  parentSpaceId?: string | null;
   orderedIds?: string[];
 }) {
   const { unitId, orderedIds } = args;
+  const parentSpaceId = args.parentSpaceId ?? null;
   if (unitId == null && !args.facilityId) {
     throw new Error("facilityId is required when normalizing undesignated rooms.");
   }
@@ -1263,8 +1445,8 @@ async function normalizeSpaceSiblingOrders(args: {
   const siblings = await prisma.unitSpace.findMany({
     where:
       unitId == null
-        ? { facilityId: args.facilityId!, unitId: null }
-        : { unitId },
+        ? { facilityId: args.facilityId!, unitId: null, parentSpaceId }
+        : { unitId, parentSpaceId },
     select: { id: true, sortOrder: true },
     orderBy: { sortOrder: "asc" },
   });
@@ -1296,20 +1478,48 @@ export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>
 
   const unit = await prisma.unit.findFirst({
     where: { id: parsed.unitId, facilityId: session.facilityId },
-    select: { id: true, parentUnitId: true, hierarchyRole: true },
+    select: { id: true, parentUnitId: true, hierarchyRole: true, name: true },
   });
   if (!unit) throw new Error("Unit not found.");
 
   const dragKind = resolveBuilderNodeDisplayKind(unit);
-  if (dragKind === "floor") {
-    throw new Error((await validationCopy(session.facilityId)).level1CannotMove);
+  if (dragKind === "building") {
+    throw new Error((await validationCopy(session.facilityId)).level0CannotMove);
   }
 
   const previousParentId = unit.parentUnitId;
   void parsed.newDisplayOrder;
 
-  // Move into Undesignated staging
+  // Move into Undesignated staging (neighborhoods) or facility root (floors).
   if (!parsed.newParentUnitId) {
+    if (dragKind === "floor") {
+      await assertUniqueUnitName(session.facilityId, unit.name, null, parsed.unitId);
+      const rootSiblings = await prisma.unit.findMany({
+        where: {
+          facilityId: session.facilityId,
+          parentUnitId: null,
+          id: { not: parsed.unitId },
+        },
+        select: { displayOrder: true },
+      });
+      const nextOrder = nextAppendDisplayOrder(rootSiblings);
+
+      await prisma.unit.update({
+        where: { id: parsed.unitId },
+        data: {
+          parentUnitId: null,
+          displayOrder: nextOrder,
+          hierarchyRole: UnitHierarchyRole.FLOOR,
+        },
+      });
+
+      if (previousParentId != null) {
+        await normalizeUnitSiblingOrders(session.facilityId, previousParentId);
+      }
+      revalidateBuilderViews();
+      return;
+    }
+
     const stagedSiblings = await prisma.unit.findMany({
       where: {
         facilityId: session.facilityId,
@@ -1353,8 +1563,19 @@ export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>
 
   const dropKind = resolveBuilderNodeDisplayKind(parent);
   if (!canMoveUnitOnto(dragKind, dropKind)) {
-    throw new Error((await validationCopy(session.facilityId)).unitsMoveOntoLevel1Only);
+    throw new Error(
+      dragKind === "floor"
+        ? (await validationCopy(session.facilityId)).level1CannotMove
+        : (await validationCopy(session.facilityId)).unitsMoveOntoLevel1Only,
+    );
   }
+
+  await assertUniqueUnitName(
+    session.facilityId,
+    unit.name,
+    parsed.newParentUnitId,
+    parsed.unitId,
+  );
 
   const siblings = await prisma.unit.findMany({
     where: { facilityId: session.facilityId, parentUnitId: parsed.newParentUnitId },
@@ -1362,12 +1583,17 @@ export async function moveBuilderUnitAction(data: z.infer<typeof moveUnitSchema>
   });
   const nextOrder = nextAppendDisplayOrder(siblings);
 
+  const nextRole =
+    dragKind === "floor"
+      ? UnitHierarchyRole.FLOOR
+      : UnitHierarchyRole.NEIGHBORHOOD;
+
   await prisma.unit.update({
     where: { id: parsed.unitId },
     data: {
       parentUnitId: parsed.newParentUnitId,
       displayOrder: nextOrder,
-      hierarchyRole: UnitHierarchyRole.NEIGHBORHOOD,
+      hierarchyRole: nextRole,
     },
   });
 
@@ -1394,18 +1620,32 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
 
   const space = await prisma.unitSpace.findFirst({
     where: { id: parsed.spaceId, facilityId: session.facilityId },
-    select: { id: true, unitId: true, name: true },
+    select: { id: true, unitId: true, name: true, parentSpaceId: true },
   });
   if (!space) throw new Error("Space not found.");
 
   const previousUnitId = space.unitId;
+  const previousParentSpaceId = space.parentSpaceId;
   void parsed.newSortOrder;
+
+  const originSpaces = await prisma.unitSpace.findMany({
+    where:
+      space.unitId == null
+        ? { facilityId: session.facilityId, unitId: null }
+        : { unitId: space.unitId },
+    select: { id: true, unitId: true, parentSpaceId: true },
+  });
+  const descendantIds = collectDescendantSpaceIds(originSpaces, space.id);
+
+  const movingToDifferentUnit = previousUnitId !== parsed.newUnitId;
+  const nextParentSpaceId = movingToDifferentUnit ? null : previousParentSpaceId;
 
   if (!parsed.newUnitId) {
     const dup = await prisma.unitSpace.findFirst({
       where: {
         facilityId: session.facilityId,
         unitId: null,
+        parentSpaceId: nextParentSpaceId,
         name: space.name,
         id: { not: space.id },
       },
@@ -1416,19 +1656,38 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
     }
 
     const siblings = await prisma.unitSpace.findMany({
-      where: { facilityId: session.facilityId, unitId: null },
+      where: { facilityId: session.facilityId, unitId: null, parentSpaceId: nextParentSpaceId },
       select: { sortOrder: true },
     });
     const nextSort = nextAppendSortOrder(siblings);
 
     await prisma.unitSpace.update({
       where: { id: parsed.spaceId },
-      data: { unitId: null, sortOrder: nextSort },
+      data: { unitId: null, parentSpaceId: nextParentSpaceId, sortOrder: nextSort },
     });
+    if (descendantIds.length > 0) {
+      await prisma.unitSpace.updateMany({
+        where: { id: { in: descendantIds } },
+        data: { unitId: null },
+      });
+    }
 
-    await normalizeSpaceSiblingOrders({ unitId: null, facilityId: session.facilityId });
+    await normalizeSpaceSiblingOrders({
+      unitId: null,
+      facilityId: session.facilityId,
+      parentSpaceId: nextParentSpaceId,
+    });
     if (previousUnitId != null) {
-      await normalizeSpaceSiblingOrders({ unitId: previousUnitId });
+      await normalizeSpaceSiblingOrders({
+        unitId: previousUnitId,
+        parentSpaceId: previousParentSpaceId,
+      });
+    } else if (previousParentSpaceId !== nextParentSpaceId) {
+      await normalizeSpaceSiblingOrders({
+        unitId: null,
+        facilityId: session.facilityId,
+        parentSpaceId: previousParentSpaceId,
+      });
     }
     revalidateBuilderViews();
     return;
@@ -1448,6 +1707,7 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
   const dup = await prisma.unitSpace.findFirst({
     where: {
       unitId: parsed.newUnitId,
+      parentSpaceId: nextParentSpaceId,
       name: space.name,
       id: { not: space.id },
     },
@@ -1458,7 +1718,7 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
   }
 
   const siblings = await prisma.unitSpace.findMany({
-    where: { unitId: parsed.newUnitId },
+    where: { unitId: parsed.newUnitId, parentSpaceId: nextParentSpaceId },
     select: { sortOrder: true },
   });
   const nextSort = nextAppendSortOrder(siblings);
@@ -1467,16 +1727,33 @@ export async function moveBuilderSpaceAction(data: z.infer<typeof moveSpaceSchem
     where: { id: parsed.spaceId },
     data: {
       unitId: parsed.newUnitId,
+      parentSpaceId: nextParentSpaceId,
       sortOrder: nextSort,
     },
   });
+  if (descendantIds.length > 0) {
+    await prisma.unitSpace.updateMany({
+      where: { id: { in: descendantIds } },
+      data: { unitId: parsed.newUnitId },
+    });
+  }
 
-  await normalizeSpaceSiblingOrders({ unitId: parsed.newUnitId });
+  await normalizeSpaceSiblingOrders({
+    unitId: parsed.newUnitId,
+    parentSpaceId: nextParentSpaceId,
+  });
   if (previousUnitId !== parsed.newUnitId) {
     if (previousUnitId == null) {
-      await normalizeSpaceSiblingOrders({ unitId: null, facilityId: session.facilityId });
+      await normalizeSpaceSiblingOrders({
+        unitId: null,
+        facilityId: session.facilityId,
+        parentSpaceId: previousParentSpaceId,
+      });
     } else {
-      await normalizeSpaceSiblingOrders({ unitId: previousUnitId });
+      await normalizeSpaceSiblingOrders({
+        unitId: previousUnitId,
+        parentSpaceId: previousParentSpaceId,
+      });
     }
   }
 
@@ -1552,7 +1829,8 @@ export async function reorderBuilderUnitsAction(data: z.infer<typeof reorderUnit
     if (!parent) {
       throw new Error((await validationCopy(session.facilityId)).parentLevel1NotFoundShort);
     }
-    if (resolveBuilderNodeDisplayKind(parent) !== "floor") {
+    const parentKind = resolveBuilderNodeDisplayKind(parent);
+    if (parentKind !== "floor" && parentKind !== "building") {
       throw new Error((await validationCopy(session.facilityId)).reorderNonLevel1Parent);
     }
   }
@@ -1572,6 +1850,8 @@ export async function reorderBuilderUnitsAction(data: z.infer<typeof reorderUnit
 const reorderSpacesSchema = z.object({
   /** null = reorder Undesignated rooms. */
   unitId: z.string().cuid().nullable(),
+  /** Sibling group: null = top-level rooms in the location. */
+  parentSpaceId: z.string().cuid().nullable().optional(),
   orderedIds: z.array(z.string().cuid()).min(1).max(500),
 });
 
@@ -1583,10 +1863,11 @@ export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpa
   requireAtLeastRole(session.role, "MANAGER");
 
   const parsed = reorderSpacesSchema.parse(data);
+  const parentSpaceId = parsed.parentSpaceId ?? null;
 
   if (parsed.unitId == null) {
     const spaces = await prisma.unitSpace.findMany({
-      where: { facilityId: session.facilityId, unitId: null },
+      where: { facilityId: session.facilityId, unitId: null, parentSpaceId },
       select: { id: true },
     });
     const spaceIds = new Set(spaces.map((s) => s.id));
@@ -1600,6 +1881,7 @@ export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpa
     await normalizeSpaceSiblingOrders({
       unitId: null,
       facilityId: session.facilityId,
+      parentSpaceId,
       orderedIds: parsed.orderedIds,
     });
     revalidateBuilderViews();
@@ -1618,7 +1900,7 @@ export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpa
   }
 
   const spaces = await prisma.unitSpace.findMany({
-    where: { unitId: parsed.unitId },
+    where: { unitId: parsed.unitId, parentSpaceId },
     select: { id: true },
   });
   const spaceIds = new Set(spaces.map((s) => s.id));
@@ -1632,6 +1914,7 @@ export async function reorderBuilderSpacesAction(data: z.infer<typeof reorderSpa
 
   await normalizeSpaceSiblingOrders({
     unitId: parsed.unitId,
+    parentSpaceId,
     orderedIds: parsed.orderedIds,
   });
   revalidateBuilderViews();
@@ -1678,11 +1961,18 @@ export async function renameBuilderUnitAction(data: z.infer<typeof renameUnitSch
 
   const parsed = renameUnitSchema.parse(data);
 
-  const duplicate = await prisma.unit.findFirst({
-    where: { facilityId: session.facilityId, name: parsed.name, id: { not: parsed.unitId } },
-    select: { id: true },
+  const unit = await prisma.unit.findFirst({
+    where: { id: parsed.unitId, facilityId: session.facilityId },
+    select: { id: true, parentUnitId: true },
   });
-  if (duplicate) throw new Error(`"${parsed.name}" already exists.`);
+  if (!unit) throw new Error("Unit not found.");
+
+  await assertUniqueUnitName(
+    session.facilityId,
+    parsed.name,
+    unit.parentUnitId,
+    parsed.unitId,
+  );
 
   await prisma.unit.update({
     where: { id: parsed.unitId, facilityId: session.facilityId },
@@ -1768,6 +2058,8 @@ const vocabularyProfileSchema = z.enum([
 
 export async function updateFacilityVocabularyAction(input: {
   profileKey: FacilityVocabularyProfileKey;
+  level0Singular?: string;
+  level0Plural?: string;
   level1Singular?: string;
   level1Plural?: string;
   level2Singular?: string;
@@ -1782,6 +2074,8 @@ export async function updateFacilityVocabularyAction(input: {
 
   if (profileKey === "custom") {
     const errors = validateCustomVocabularyLabels({
+      level0Singular: input.level0Singular ?? "",
+      level0Plural: input.level0Plural ?? "",
       level1Singular: input.level1Singular ?? "",
       level1Plural: input.level1Plural ?? "",
       level2Singular: input.level2Singular ?? "",
@@ -1796,6 +2090,8 @@ export async function updateFacilityVocabularyAction(input: {
 
   const draft = draftFacilityVocabulary({
     profileKey,
+    level0Singular: input.level0Singular,
+    level0Plural: input.level0Plural,
     level1Singular: input.level1Singular,
     level1Plural: input.level1Plural,
     level2Singular: input.level2Singular,
@@ -1809,6 +2105,7 @@ export async function updateFacilityVocabularyAction(input: {
       where: { id: session.facilityId },
       data: {
         vocabularyProfile: "custom",
+        vocabularyLevel0Label: encodeCustomVocabularyTerm(draft.level0),
         vocabularyLevel1Label: encodeCustomVocabularyTerm(draft.level1),
         vocabularyLevel2Label: encodeCustomVocabularyTerm(draft.level2),
         vocabularyLevel3Label: encodeCustomVocabularyTerm(draft.level3),
@@ -1819,6 +2116,7 @@ export async function updateFacilityVocabularyAction(input: {
       where: { id: session.facilityId },
       data: {
         vocabularyProfile: profileKey === "ltc" ? null : profileKey,
+        vocabularyLevel0Label: null,
         vocabularyLevel1Label: null,
         vocabularyLevel2Label: null,
         vocabularyLevel3Label: null,
@@ -1857,7 +2155,7 @@ export async function createFacilityRoomTypeAction(formData: FormData) {
     description: toOptional(formData.get("description")),
   });
 
-  await createFacilityRoomType(
+  const created = await createFacilityRoomType(
     {
       facilityId: session.facilityId,
       displayName: parsed.displayName,
@@ -1868,6 +2166,15 @@ export async function createFacilityRoomTypeAction(formData: FormData) {
   );
 
   revalidateBuilderViews();
+  return {
+    id: created.id,
+    displayName: created.displayName,
+    baseTypeKey: created.baseTypeKey,
+    baseTypeLabel: created.baseTypeLabel,
+    description: created.description,
+    isActive: created.isActive,
+    roomCount: created.roomCount,
+  };
 }
 
 export async function updateFacilityRoomTypeAction(formData: FormData) {

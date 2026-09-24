@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ADMIN_HUB_SECTIONS } from "@/lib/administration/admin-hub";
+import { visibleAdminHubSections } from "@/lib/administration/admin-hub";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 
 export default async function AdminPage() {
@@ -15,7 +15,7 @@ export default async function AdminPage() {
         </p>
       </header>
 
-      {ADMIN_HUB_SECTIONS.map((section) => (
+      {visibleAdminHubSections().map((section) => (
         <section
           key={section.id}
           aria-labelledby={`admin-section-${section.id}`}

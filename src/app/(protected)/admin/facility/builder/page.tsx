@@ -57,11 +57,16 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
         <section className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
           <h2 className="text-base font-semibold text-emerald-900">Setup complete — build your facility</h2>
           <p className="mt-1 text-sm text-emerald-800">
-            Start with Structure to map floors and rooms. Define Room Types when you need shared
-            classifications.{" "}
-            <Link href="/build" className="font-medium underline">
-              Open Build Home
-            </Link>
+            Start with Structure to map buildings, floors, and rooms. Define Room Types when you need shared
+            classifications.
+            {session.authKind === "harbor_staff" ? null : (
+              <>
+                {" "}
+                <Link href="/build" className="font-medium underline">
+                  Open Build Home
+                </Link>
+              </>
+            )}
           </p>
         </section>
       ) : null}

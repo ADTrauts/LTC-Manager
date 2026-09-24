@@ -24,7 +24,7 @@ import {
   assembleProjectedTodaysWorkHub,
   isTeamUnconfiguredScope,
   keyTimeSpaceFilterFromTeamScope,
-  loadCallDownList,
+  loadPresenceCallOffs,
   loadOperatingLocationBoard,
   TODAYS_WORK_HUB_SUBTITLE,
 } from "@/lib/todays-work";
@@ -144,7 +144,7 @@ export default async function TodaysWorkHubPage() {
               Open walk list
             </Link>
             <Link href="/today/coverage" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-              Coverage (who / what / gaps)
+              Coverage
             </Link>
             <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
               Handoffs
@@ -163,7 +163,7 @@ export default async function TodaysWorkHubPage() {
       activeDepartmentKey,
       activeDepartmentId: deptNav.activeDepartmentId,
     }),
-    loadCallDownList(session.facilityId),
+    loadPresenceCallOffs(session.facilityId),
   ]);
   const runPresentation = deptNav.activeDepartmentId
     ? await loadDepartmentRunPresentation({
@@ -226,7 +226,7 @@ export default async function TodaysWorkHubPage() {
             Open walk list
           </Link>
           <Link href="/today/coverage" className="font-medium text-zinc-800 underline hover:text-zinc-600">
-            Coverage (who / what / gaps)
+            Coverage
           </Link>
           <Link href="/today/handoffs" className="font-medium text-zinc-800 underline hover:text-zinc-600">
             Handoffs

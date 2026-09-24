@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { ReadinessChip } from "@/components/readiness-chip";
 import {
   AppIcons,
   locationIconClassName,
@@ -14,7 +13,6 @@ import { useNavSearchParams } from "@/hooks/use-nav-pathname";
 import type { ProjectedSidebarNode, ProjectedSidebarSection } from "@/lib/locations";
 import { NAV_ZONE_LABELS } from "@/lib/nav-zones";
 import { isActiveLocationHref, isActiveNavPath } from "@/lib/nav-utils";
-import type { ReadinessState } from "@/lib/readiness";
 import type { SidebarUnit } from "@/lib/units";
 
 type LeftSidebarProps = {
@@ -24,7 +22,6 @@ type LeftSidebarProps = {
   projectionSections?: readonly ProjectedSidebarSection[];
   projectionUnavailable?: boolean;
   lockedUnitId?: string;
-  readinessByUnitId?: Record<string, { state: ReadinessState }>;
   /**
    * rail — persistent desktop aside (default).
    * panel — content only for compact shell drawer (no aside chrome).
@@ -62,7 +59,6 @@ function SidebarProjectedNode({
   node,
   depth,
   lockedUnitId,
-  readinessByUnitId,
   pathname,
   search,
   onNavigate,
@@ -71,7 +67,6 @@ function SidebarProjectedNode({
   node: ProjectedSidebarNode;
   depth: number;
   lockedUnitId?: string;
-  readinessByUnitId: Record<string, { state: ReadinessState }>;
   pathname: string;
   search: string;
   onNavigate?: () => void;
@@ -81,7 +76,6 @@ function SidebarProjectedNode({
   const pad = !panel && depth > 0 ? { paddingLeft: `${12 + depth * 12}px` } : undefined;
   const unitId = node.unitId;
   const isLockedOut = Boolean(lockedUnitId && unitId && unitId !== lockedUnitId);
-  const readiness = unitId ? readinessByUnitId[unitId] : undefined;
   const LocationIcon = AppIcons.locations;
   const ChevronIcon = AppIcons.chevronDown;
   const hasChildren = node.children.length > 0;
@@ -115,7 +109,6 @@ function SidebarProjectedNode({
             node={child}
             depth={depth + 1}
             lockedUnitId={lockedUnitId}
-            readinessByUnitId={readinessByUnitId}
             pathname={pathname}
             search={search}
             onNavigate={onNavigate}
@@ -169,15 +162,10 @@ function SidebarProjectedNode({
         className={locationIconClassName(isActive, isLockedOut)}
         aria-hidden
       />
-      <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-        <span className="truncate">
-          {node.label}
-          {node.levelLabel ? (
-            <span className="sr-only"> ({node.levelLabel})</span>
-          ) : null}
-        </span>
-        {readiness ? (
-          <ReadinessChip state={readiness.state} prominence="quiet" className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate">
+        {node.label}
+        {node.levelLabel ? (
+          <span className="sr-only"> ({node.levelLabel})</span>
         ) : null}
       </span>
     </>
@@ -232,7 +220,6 @@ export function LeftSidebar({
   projectionSections,
   projectionUnavailable = false,
   lockedUnitId,
-  readinessByUnitId = {},
   presentation = "rail",
   onNavigate,
 }: LeftSidebarProps) {
@@ -284,7 +271,6 @@ export function LeftSidebar({
                         node={node}
                         depth={0}
                         lockedUnitId={lockedUnitId}
-                        readinessByUnitId={readinessByUnitId}
                         pathname={pathname}
                         search={search}
                         onNavigate={onNavigate}
@@ -311,17 +297,8 @@ export function LeftSidebar({
                       className={locationIconClassName(isActive, isDisabled)}
                       aria-hidden
                     />
-                    <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className="truncate" title={unit.name}>
-                        {unit.name}
-                      </span>
-                      {readinessByUnitId[unit.id] ? (
-                        <ReadinessChip
-                          state={readinessByUnitId[unit.id]!.state}
-                          prominence="quiet"
-                          className="shrink-0"
-                        />
-                      ) : null}
+                    <span className="min-w-0 flex-1 truncate" title={unit.name}>
+                      {unit.name}
                     </span>
                   </>
                 );

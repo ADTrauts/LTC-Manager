@@ -21,6 +21,8 @@ export type LocationTreeRowProps = {
   expanded?: boolean;
   onToggle?: () => void;
   trailing?: ReactNode;
+  selected?: boolean;
+  onSelect?: () => void;
   "data-testid"?: string;
   inactive?: boolean;
 };
@@ -41,6 +43,8 @@ export function LocationTreeRow({
   expanded = false,
   onToggle,
   trailing,
+  selected = false,
+  onSelect,
   "data-testid": dataTestId,
   inactive = false,
 }: LocationTreeRowProps) {
@@ -49,9 +53,9 @@ export function LocationTreeRow({
 
   return (
     <div
-      className={`group flex min-w-0 items-center rounded-md border-l-2 border-l-transparent transition-colors hover:bg-zinc-50 ${
-        isFloor ? "mt-1 font-medium text-zinc-900" : isRoom ? "text-zinc-700" : "text-zinc-800"
-      }`}
+      className={`group flex min-w-0 items-center rounded-md border-l-2 transition-colors hover:bg-zinc-50 ${
+        selected ? "border-l-zinc-800 bg-zinc-50" : "border-l-transparent"
+      } ${isFloor ? "mt-1 font-medium text-zinc-900" : isRoom ? "text-zinc-700" : "text-zinc-800"}`}
       style={{ paddingLeft: locationTreePaddingLeft(depth) }}
       data-testid={dataTestId}
       data-tree-kind={kind}
@@ -85,13 +89,25 @@ export function LocationTreeRow({
       </span>
 
       <div className="min-w-0 flex-1 py-2">
-        <p
-          className={`truncate text-sm ${
-            isFloor ? "font-semibold" : "font-medium"
-          } ${inactive ? "opacity-40 line-through" : ""}`}
-        >
-          {label}
-        </p>
+        {onSelect ? (
+          <button
+            type="button"
+            onClick={onSelect}
+            className={`block w-full truncate text-left text-sm ${
+              isFloor ? "font-semibold" : "font-medium"
+            } ${inactive ? "opacity-40 line-through" : ""}`}
+          >
+            {label}
+          </button>
+        ) : (
+          <p
+            className={`truncate text-sm ${
+              isFloor ? "font-semibold" : "font-medium"
+            } ${inactive ? "opacity-40 line-through" : ""}`}
+          >
+            {label}
+          </p>
+        )}
         {meta ? (
           <p className="truncate text-xs text-zinc-500 sm:hidden">{meta}</p>
         ) : null}

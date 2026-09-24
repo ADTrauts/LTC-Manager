@@ -98,7 +98,7 @@ export type RoomContext = {
   /** null = builder-only Undesignated staging. */
   unitId: string | null;
   /** Parent unit hierarchy role; STAGED = builder-only staging. */
-  parentHierarchyRole: "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | "STAGED" | null;
+  parentHierarchyRole: "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | "STAGED" | null;
   /** Department IDs explicitly assigned via UnitSpaceResponsibility. */
   assignedDepartmentIds: readonly string[];
 };

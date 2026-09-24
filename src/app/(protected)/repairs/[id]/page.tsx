@@ -7,6 +7,9 @@ import { IssueDetailActions } from "@/components/issues/issue-detail-actions";
 import { RecoveryAssistantCard } from "@/components/issues/recovery-assistant-card";
 import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
 import { AppCard, PageHeader, StatusBadge } from "@/components/design-system";
+import { PhotoFileField } from "@/components/photos/photo-file-field";
+import { PhotoGallery } from "@/components/photos/photo-gallery";
+import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected)/repairs/actions";
 import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateRecoveryAssistant } from "@/lib/ai/recovery-assistant";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -29,6 +32,7 @@ import { isAiRecoveryAssistantEnabled, isDietaryAssetOperationsEnabled } from "@
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 import { formatIssueTimestamp } from "@/lib/work/issues/format-issue-time";
+import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
 import {
   getIssueCopy,
   issueTypeIconKey,
@@ -100,7 +104,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       attachments: {
         orderBy: { createdAt: "desc" },
         take: 20,
-        select: { id: true, originalFilename: true, createdAt: true },
+        select: { id: true, originalFilename: true, mimeType: true, createdAt: true },
       },
       updates: {
         orderBy: { updatedAt: "asc" },
@@ -510,21 +514,41 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
         />
       </AppCard>
 
-      {repair.attachments.length > 0 ? (
-        <AppCard title="Attachments">
-          <ul className="space-y-1 text-sm">
-            {repair.attachments.map((file) => (
-              <li key={file.id} className="text-zinc-800">
-                {file.originalFilename}
-                <span className="text-xs text-zinc-500">
-                  {" "}
-                  · {formatIssueTimestamp(file.createdAt, tz)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </AppCard>
-      ) : null}
+      <AppCard
+        title="Photos"
+        subtitle="Pictures attached when this repair was opened, or added later for context"
+      >
+        <div className="space-y-4" data-testid="repair-photos">
+          <PhotoGallery
+            photos={repair.attachments}
+            emptyLabel="No photos attached."
+            canRemove={canMutate}
+            removeAction={removeRepairPhotoAction}
+            removeHiddenFields={{ repairId: repair.id }}
+          />
+          {canMutate ? (
+            <form
+              action={addRepairPhotosAction}
+              className="space-y-3"
+              data-testid="repair-photo-upload"
+            >
+              <input type="hidden" name="repairId" value={repair.id} />
+              <PhotoFileField
+                multiple
+                maxCount={MAX_REPAIR_PHOTOS_PER_SUBMIT}
+                label="Add photos"
+                testId="repair-detail-photo-input"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
+              >
+                Upload photos
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </AppCard>
 
       {issueKnowledge.count > 0 ? (
         <AppCard title="Guidance" subtitle="Published help linked to this location or equipment">

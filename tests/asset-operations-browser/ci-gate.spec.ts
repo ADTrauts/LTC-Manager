@@ -91,6 +91,8 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
       await loginPassword(manager.page, fx.managerEmail);
       // BUILD owns create; RUN owns operational profile / condition.
       await manager.page.goto("/assets/builder", { waitUntil: "domcontentloaded" });
+      await expect(manager.page.getByTestId("asset-builder-page")).toBeVisible();
+      await manager.page.getByTestId("asset-builder-add-open").click();
       await expect(manager.page.getByTestId("asset-builder")).toBeVisible();
 
       const code = `BR-${Date.now().toString().slice(-6)}`;

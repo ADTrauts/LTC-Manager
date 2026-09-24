@@ -1,12 +1,13 @@
 /**
  * Transactional Facility Structure import executor.
- * Creates FLOOR → NEIGHBORHOOD → UnitSpace in parent-before-child order.
+ * Creates optional BUILDING → FLOOR → NEIGHBORHOOD → UnitSpace in parent-before-child order.
  */
 
 import { UnitHierarchyRole } from "@prisma/client";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
+  BUILDING_INTERNAL_UNIT_TYPE,
   FLOOR_INTERNAL_UNIT_TYPE,
   NEIGHBORHOOD_INTERNAL_UNIT_TYPE,
 } from "@/lib/facility-builder/builder-display";
@@ -80,6 +81,7 @@ export function buildFacilityStructurePlanFromCsv(
 }
 
 export type FacilityStructureExecuteResult = {
+  buildingsCreated: number;
   floorsCreated: number;
   neighborhoodsCreated: number;
   spacesCreated: number;
@@ -107,52 +109,92 @@ export async function executeFacilityStructurePlan(
   return client.$transaction(
     async (tx) => {
     const catalog = await loadFacilityStructureCatalog(tx, facilityId);
+    const buildingIdByKey = new Map<string, string>();
     const floorIdByKey = new Map<string, string>();
     const neighborhoodIdByKey = new Map<string, string>();
 
     // Seed maps with existing (reuse) ids from plan rows
     for (const row of plan.rows) {
+      if (row.existingBuildingId && row.buildingKey) {
+        buildingIdByKey.set(row.buildingKey, row.existingBuildingId);
+      }
       if (row.existingFloorId) floorIdByKey.set(row.floorKey, row.existingFloorId);
       if (row.existingNeighborhoodId) {
         neighborhoodIdByKey.set(row.neighborhoodKey, row.existingNeighborhoodId);
       }
     }
 
+    let buildingsCreated = 0;
     let floorsCreated = 0;
     let neighborhoodsCreated = 0;
     let spacesCreated = 0;
     let responsibilitiesCreated = 0;
 
     const topLevel = catalog.units.filter((u) => u.parentUnitId === null);
-    let nextFloorOrder = nextAppendDisplayOrder(
+    let nextRootOrder = nextAppendDisplayOrder(
       topLevel.map((u) => ({ displayOrder: u.displayOrder })),
     );
 
+    for (const building of ops.buildings) {
+      const existing = catalog.units.find(
+        (u) =>
+          u.name.toLowerCase() === building.name.toLowerCase() &&
+          u.hierarchyRole === UnitHierarchyRole.BUILDING,
+      );
+      if (existing) {
+        buildingIdByKey.set(building.key, existing.id);
+        continue;
+      }
+      const created = await tx.unit.create({
+        data: {
+          facilityId,
+          name: building.name,
+          unitType: BUILDING_INTERNAL_UNIT_TYPE,
+          hierarchyRole: UnitHierarchyRole.BUILDING,
+          parentUnitId: null,
+          displayOrder: nextRootOrder,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      buildingIdByKey.set(building.key, created.id);
+      buildingsCreated += 1;
+      nextRootOrder = Math.min(9999, nextRootOrder + 10);
+    }
+
     for (const floor of ops.floors) {
+      const parentBuildingId = floor.buildingKey
+        ? (buildingIdByKey.get(floor.buildingKey) ?? null)
+        : null;
       const existing = catalog.units.find(
         (u) =>
           u.name.toLowerCase() === floor.name.toLowerCase() &&
-          u.hierarchyRole === UnitHierarchyRole.FLOOR,
+          u.hierarchyRole === UnitHierarchyRole.FLOOR &&
+          (u.parentUnitId ?? null) === parentBuildingId,
       );
       if (existing) {
         floorIdByKey.set(floor.key, existing.id);
         continue;
       }
+      const siblings = await tx.unit.findMany({
+        where: { facilityId, parentUnitId: parentBuildingId },
+        select: { displayOrder: true },
+      });
+      const displayOrder = nextAppendDisplayOrder(siblings);
       const created = await tx.unit.create({
         data: {
           facilityId,
           name: floor.name,
           unitType: FLOOR_INTERNAL_UNIT_TYPE,
           hierarchyRole: UnitHierarchyRole.FLOOR,
-          parentUnitId: null,
-          displayOrder: nextFloorOrder,
+          parentUnitId: parentBuildingId,
+          displayOrder,
           isActive: true,
         },
         select: { id: true },
       });
       floorIdByKey.set(floor.key, created.id);
       floorsCreated += 1;
-      nextFloorOrder = Math.min(9999, nextFloorOrder + 10);
     }
 
     for (const nbh of ops.neighborhoods) {
@@ -161,7 +203,9 @@ export async function executeFacilityStructurePlan(
         throw new Error(`Missing Floor for neighborhood "${nbh.name}".`);
       }
       const existing = catalog.units.find(
-        (u) => u.name.toLowerCase() === nbh.name.toLowerCase(),
+        (u) =>
+          u.name.toLowerCase() === nbh.name.toLowerCase() &&
+          u.parentUnitId === floorId,
       );
       if (existing) {
         neighborhoodIdByKey.set(nbh.key, existing.id);
@@ -240,6 +284,7 @@ export async function executeFacilityStructurePlan(
     }
 
     return {
+      buildingsCreated,
       floorsCreated,
       neighborhoodsCreated,
       spacesCreated,

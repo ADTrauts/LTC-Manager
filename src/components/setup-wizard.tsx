@@ -507,7 +507,7 @@ export function SetupWizard() {
         {step === "billing" ? (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-zinc-900">Billing card</h2>
-            <p className="text-sm text-zinc-600">Add your payment method now so billing is ready when plans are enabled.</p>
+            <p className="text-sm text-zinc-600">Add a payment method now, or choose a plan later in Administration → Billing.</p>
             {!stripeBillingReady ? (
               <div className="space-y-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900">
                 <p>

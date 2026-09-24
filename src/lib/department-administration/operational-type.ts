@@ -64,7 +64,7 @@ export function groupRoomsByOperationalType(
       order.push(key);
       byKey.set(key, {
         patternKey: room.patternKey,
-        label: room.patternLabel ?? "No operational type",
+        label: room.patternLabel ?? "No Operational Type",
         rooms: [],
       });
     }

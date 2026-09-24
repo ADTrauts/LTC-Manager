@@ -15,7 +15,7 @@ test("departmentAdminHref preserves tab deep-links for SubNav items", () => {
   assert.match(cycles, /profile=prof-1/);
 });
 
-test("Department Builder primary tabs remain Overview Locations Teams Cycles", () => {
+test("Department Builder primary tabs remain Overview Locations Teams Coverage Cycles", () => {
   const ids = DEPARTMENT_ADMIN_TABS.map((t) => t.id);
-  assert.deepEqual(ids.slice(0, 4), ["overview", "locations", "teams", "cycles"]);
+  assert.deepEqual(ids.slice(0, 5), ["overview", "locations", "teams", "coverage", "cycles"]);
 });

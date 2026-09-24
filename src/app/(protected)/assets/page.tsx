@@ -7,7 +7,10 @@ import {
   createVendorAction,
   updateAssetStatusAction,
 } from "@/app/(protected)/assets/actions";
+import { EmptyState } from "@/components/design-system";
+import { MaintenanceSubNav } from "@/components/maintenance-sub-nav";
 import { AssetKnowledgeTrigger } from "@/components/knowledge/asset-knowledge-trigger";
+import { PhotoThumb } from "@/components/photos/photo-gallery";
 import { assetCriticalityLabel } from "@/lib/asset-criticality";
 import {
   ASSET_BUILD_PATH,
@@ -30,6 +33,7 @@ import {
   toContextualKnowledgeClientArticles,
 } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
+import { listPrimaryAssetPhotoIds } from "@/lib/attachments";
 
 type AssetsPageProps = {
   searchParams: Promise<{ subtab?: string }>;
@@ -39,14 +43,8 @@ function parseSubtab(raw: string | undefined): "vendors" | "assets" {
   return raw === "vendors" || raw === "assets" ? raw : "assets";
 }
 
-function subtabHref(subtab: "vendors" | "assets") {
-  const params = new URLSearchParams();
-  params.set("subtab", subtab);
-  return `/assets?${params.toString()}`;
-}
-
 /**
- * RUN · Assets — operational registry and condition.
+ * RUN · Maintenance (Assets tab) — operational registry and condition.
  *
  * Asset creation / identity / responsible-department configuration lives on
  * BUILD · Asset Builder (`/assets/builder`). This page does not duplicate that form.
@@ -95,6 +93,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
 
   const roomTerm = resolveFacilityVocabulary(facility).level3.singular;
   const assetIds = assets.map((a) => a.id);
+  const photoByAssetId = await listPrimaryAssetPhotoIds(facilityId, assetIds);
 
   const [openIssueGroups, openRepairGroups] =
     assetOpsEnabled && assetIds.length > 0
@@ -135,54 +134,24 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     limitPerAsset: 5,
   });
 
-  const scopeNote = deptNav.activeDepartmentId
-    ? "Showing equipment for the active department (plus any without a responsible department)."
-    : "Showing facility-wide equipment (All Departments).";
-
   return (
     <section className="space-y-6" data-testid="run-assets-page">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Assets</h1>
-          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-            See what is happening with equipment right now — condition, open issues, and repairs.
-            Register and configure assets in Asset Builder.
-          </p>
-          <p className="mt-1 text-xs text-zinc-500" data-testid="run-assets-scope-note">
-            {scopeNote}
-          </p>
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Maintenance</h1>
+          <Link
+            href={ASSET_BUILD_PATH}
+            className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            data-testid="open-asset-builder"
+          >
+            Open Asset Builder
+          </Link>
         </div>
-        <Link
-          href={ASSET_BUILD_PATH}
-          className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          data-testid="open-asset-builder"
-        >
-          Open Asset Builder
-        </Link>
+        <MaintenanceSubNav
+          role={session.role}
+          activeId={activeSubtab === "vendors" ? "vendors" : "assets"}
+        />
       </header>
-
-      <nav className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3" aria-label="Asset subtabs">
-        {[
-          { id: "assets" as const, label: "Assets" },
-          { id: "vendors" as const, label: "Vendors" },
-        ].map(({ id, label }) => {
-          const isActive = activeSubtab === id;
-          return (
-            <Link
-              key={id}
-              href={subtabHref(id)}
-              className={
-                isActive
-                  ? "rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-                  : "rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-              }
-              aria-current={isActive ? "page" : undefined}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
 
       {activeSubtab === "vendors" ? (
         <>
@@ -217,10 +186,25 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       ) : (
         <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-semibold text-zinc-900">Equipment</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Update operational condition here. Identity, type, location, and responsible department
-            are configured in Asset Builder.
-          </p>
+          {assets.length === 0 ? (
+            <div className="mt-3" data-testid="asset-registry">
+              <EmptyState
+                icon="assets"
+                inset
+                title="No equipment registered"
+                description="This list will show condition, open issues, and repairs once equipment is registered."
+                action={
+                  <Link
+                    href={ASSET_BUILD_PATH}
+                    className="inline-flex min-h-10 items-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-700"
+                    data-testid="empty-open-asset-builder"
+                  >
+                    Register equipment
+                  </Link>
+                }
+              />
+            </div>
+          ) : (
           <div className="mt-3 space-y-2" data-testid="asset-registry">
             {assets.map((asset) => {
               const presentation = presentAssetLifecycleAndCondition(asset.status);
@@ -237,6 +221,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               const issueCount = openIssueCount.get(asset.id) ?? 0;
               const repairCount = openRepairCount.get(asset.id) ?? 0;
               const conditionOptions = runConditionSelectValues(asset.status);
+              const photoId = photoByAssetId.get(asset.id);
               return (
                 <div
                   key={asset.id}
@@ -245,7 +230,15 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   data-asset-lifecycle={presentation.lifecycle}
                   data-asset-condition={presentation.condition ?? "RETIRED"}
                 >
-                  <div className="text-sm text-zinc-700">
+                  <div className="flex min-w-0 items-start gap-3 text-sm text-zinc-700">
+                    {photoId ? (
+                      <PhotoThumb
+                        attachmentId={photoId}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover bg-zinc-100"
+                      />
+                    ) : null}
+                    <div>
                     <p className="font-medium text-zinc-900">
                       {assetOpsEnabled ? (
                         <Link
@@ -287,6 +280,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                       {" · "}
                       {assetCriticalityLabel(asset.criticality)}
                     </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <AssetKnowledgeTrigger
@@ -334,16 +328,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 </div>
               );
             })}
-            {assets.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                No assets in this view yet.{" "}
-                <Link href={ASSET_BUILD_PATH} className="underline underline-offset-2">
-                  Register equipment in Asset Builder
-                </Link>
-                .
-              </p>
-            ) : null}
           </div>
+          )}
         </section>
       )}
     </section>

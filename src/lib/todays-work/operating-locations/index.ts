@@ -42,3 +42,11 @@ export {
   type LoadOperatingLocationBoardOptions,
   type LoadedOperatingLocationBoard,
 } from "./load";
+
+export {
+  COVERAGE_UNAVAILABLE_LABEL,
+  aggregateOperationFromRuntime,
+  presentCoverageFromRuntime,
+  projectOperatingLocationBoardFromRuntime,
+  projectOperatingLocationFromRuntime,
+} from "./from-runtime-state";

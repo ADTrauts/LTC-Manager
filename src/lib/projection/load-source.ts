@@ -9,12 +9,12 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
   PLANT_FACILITY_WIDE_POLICY,
-  toProfileSnapshot,
   type ExperienceConfiguration,
   type ProfileSnapshot,
   type RoomArchetypeBindingSnapshot,
   type RoomExceptionSnapshot,
 } from "@/lib/department-administration";
+import { toProfileSnapshot } from "@/lib/department-administration/profile-service";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import { isStagedUnit, isUndesignatedSpace } from "@/lib/facility-builder/operational-visibility";
@@ -106,7 +106,8 @@ function isOperationalDepartmentKey(
 
 function mapHierarchyRole(
   role: string | null | undefined,
-): "FLOOR" | "NEIGHBORHOOD" | "LEGACY" {
+): "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY" {
+  if (role === "BUILDING") return "BUILDING";
   if (role === "FLOOR") return "FLOOR";
   if (role === "NEIGHBORHOOD") return "NEIGHBORHOOD";
   return "LEGACY";
@@ -114,7 +115,8 @@ function mapHierarchyRole(
 
 function mapParentHierarchyRole(
   role: string | null | undefined,
-): "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | "STAGED" | null {
+): "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | "STAGED" | null {
+  if (role === "BUILDING") return "BUILDING";
   if (role === "FLOOR") return "FLOOR";
   if (role === "NEIGHBORHOOD") return "NEIGHBORHOOD";
   if (role === "LEGACY_LOCATION") return "LEGACY_LOCATION";
@@ -190,6 +192,7 @@ export async function loadProjectionSource(
           customTypeLabel: true,
           isActive: true,
           unitId: true,
+          parentSpaceId: true,
           sortOrder: true,
           updatedAt: true,
           unit: { select: { id: true, hierarchyRole: true } },
@@ -315,9 +318,24 @@ export async function loadProjectionSource(
     const undesignated = isUndesignatedSpace(space);
     const parentUnit = space.unitId ? unitById.get(space.unitId) : null;
     const parentStaged = parentUnit ? isStagedUnit(parentUnit) : false;
-    const parentId = space.unitId
-      ? unitLocationId(space.unitId)
-      : facilityLocationId(facility.id);
+    const parentId = space.parentSpaceId
+      ? spaceLocationId(space.parentSpaceId)
+      : space.unitId
+        ? unitLocationId(space.unitId)
+        : facilityLocationId(facility.id);
+
+    if (space.parentSpaceId) {
+      const parentSpace = facility.unitSpaces.find((row) => row.id === space.parentSpaceId);
+      if (!parentSpace) {
+        diagnostics.push(
+          diagnostic(
+            "INVALID_LOCATION_REFERENCE",
+            `Room ${space.id} references missing parent room ${space.parentSpaceId}`,
+            `unitSpaces.${space.id}.parentSpaceId`,
+          ),
+        );
+      }
+    }
 
     if (space.unitId && !parentUnit) {
       diagnostics.push(

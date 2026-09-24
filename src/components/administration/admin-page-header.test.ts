@@ -28,7 +28,7 @@ test("admin hub page uses Administration title and Facility Administrators wordi
   assert.match(source, /Facility Administrators only/);
   assert.doesNotMatch(source, /General Managers only/);
   assert.doesNotMatch(source, /admin-hub-link-organization.facilities|organization\/facilities/);
-  assert.match(source, /ADMIN_HUB_SECTIONS/);
+  assert.match(source, /visibleAdminHubSections/);
 });
 
 test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
@@ -36,6 +36,7 @@ test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
     "app/(protected)/admin/permissions/page.tsx",
     "app/(protected)/admin/organization/page.tsx",
     "app/(protected)/admin/organization/facilities/page.tsx",
+    "app/(protected)/admin/billing/page.tsx",
   ];
   for (const page of pages) {
     const source = readSrc(page);

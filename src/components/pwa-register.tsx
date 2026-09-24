@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 
 /**
- * Registers the Phase 6A service worker. Safe no-op when unsupported.
- * Does not cache authenticated HTML; the SW itself enforces the allowlist.
+ * Registers the Phase 6A service worker in production only.
+ * In development, a leftover worker cache-firsts `/_next/static/` chunks and
+ * serves a stale client bundle against fresh SSR HTML — hydration mismatches.
  */
 export function PwaRegister() {
   useEffect(() => {
@@ -14,6 +15,12 @@ export function PwaRegister() {
     let cancelled = false;
     (async () => {
       try {
+        if (process.env.NODE_ENV !== "production") {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((reg) => reg.unregister()));
+          return;
+        }
+
         const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
         if (cancelled) return;
         reg.addEventListener("updatefound", () => {

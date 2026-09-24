@@ -4,10 +4,7 @@ import {
   loadFacilityTimezone,
 } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
-import { loadCallDownList } from "@/lib/todays-work/load-call-down-list";
-import { loadCoverageList } from "@/lib/todays-work/load-coverage-list";
-import { loadHandoffs } from "@/lib/todays-work/load-handoffs";
-import { loadWalkList } from "@/lib/todays-work/load-walk-list";
+import { loadPresenceCallOffs } from "@/lib/todays-work/load-presence-call-offs";
 
 import {
   enforceSnapshotSize,
@@ -19,35 +16,11 @@ import {
   todaysWorkCoveragePath,
   todaysWorkHandoffsPath,
   todaysWorkWalkPath,
-  unitWorkspacePath,
 } from "./source-paths";
 import type {
   BuildOperationalSnapshotInput,
   OperationalSnapshot,
-  SnapshotReadinessState,
 } from "./types";
-
-function toSnapshotState(status: string): SnapshotReadinessState {
-  if (status === "blocked") return "needs_attention";
-  if (status === "in_progress") return "in_progress";
-  return "ready";
-}
-
-function buildSignals(item: {
-  failed: number;
-  missed: number;
-  pending: number;
-  openRepairCount: number;
-  staffingCount: number;
-}): string[] {
-  const signals: string[] = [];
-  if (item.failed > 0) signals.push(`${item.failed} failed logs`);
-  if (item.missed > 0) signals.push(`${item.missed} missed logs`);
-  if (item.pending > 0) signals.push(`${item.pending} pending logs`);
-  if (item.openRepairCount > 0) signals.push(`${item.openRepairCount} open issues`);
-  if (item.staffingCount === 0) signals.push("no staffing assigned");
-  return signals;
-}
 
 async function loadIssueSignals(facilityId: string) {
   const open = await prisma.repair.findMany({
@@ -101,8 +74,9 @@ async function loadInspectionSignals(facilityId: string, now: Date) {
 }
 
 /**
- * Builds a compact operational snapshot from authoritative loaders.
- * Callers must sanitize before sending to a model.
+ * Compact operational snapshot from facts that do not require a session.
+ * Leftover dashboard / walk / coverage / computed-readiness loaders are gated off
+ * (Phase 6Q). Presence call-offs, open issues, and inspections remain.
  */
 export async function buildOperationalSnapshot(
   input: BuildOperationalSnapshotInput,
@@ -113,46 +87,21 @@ export async function buildOperationalSnapshot(
   const facilityTimezone = await loadFacilityTimezone(prisma, input.facilityId);
   const timeCtx = buildOperationalTimeContext({ now, facilityTimezone });
 
-  const [walk, coverage, callDowns, handoffs, issues, inspections] = await Promise.all([
-    loadWalkList(input.facilityId, { activeDepartmentKey: department }),
-    loadCoverageList(input.facilityId),
-    loadCallDownList(input.facilityId),
-    loadHandoffs(input.facilityId, { activeDepartmentKey: department }),
+  const [callOffs, issues, inspections] = await Promise.all([
+    loadPresenceCallOffs(input.facilityId),
     loadIssueSignals(input.facilityId),
     loadInspectionSignals(input.facilityId, now),
   ]);
 
-  const priorityLocations = walk.items
-    .filter((item) => item.status !== "ready")
-    .slice(0, 8)
-    .map((item) => ({
-      unitId: item.unitId,
-      name: item.unitName,
-      state: toSnapshotState(item.status),
-      primaryReason: item.reason,
-      signals: buildSignals(item),
-      sourcePath: unitWorkspacePath(item.unitId),
-    }));
-
-  const handoffRows = handoffs.sections
-    .flatMap((section) =>
-      section.items.slice(0, 3).map((item) => {
-        const isCallDown = item.category === "call_down";
-        return {
-          type: item.category,
-          location: item.unitName ?? "Facility",
-          summary: isCallDown
-            ? `Open call-down affecting ${item.unitName ?? "a location"}`
-            : item.detail || item.title,
-          sourcePath: item.primaryHref.startsWith("/") ? item.primaryHref : todaysWorkHandoffsPath(),
-        };
-      }),
-    )
-    .slice(0, 6);
+  const handoffRows = callOffs.items.slice(0, 6).map((item) => ({
+    type: "call_down",
+    location: item.oldUnitName ?? item.newUnitName ?? "Facility",
+    summary: `${item.employeeName}: ${item.reason}`,
+    sourcePath: staffingPath(),
+  }));
 
   const allowedSourcePaths = Array.from(
     new Set([
-      ...priorityLocations.map((l) => l.sourcePath),
       ...handoffRows.map((h) => h.sourcePath),
       todaysWorkWalkPath(),
       todaysWorkCoveragePath(),
@@ -169,21 +118,21 @@ export async function buildOperationalSnapshot(
     serviceDate: timeCtx.facilityLocalDate,
     activeDepartment: department,
     activeOperation: {
-      label: walk.operationContext.serviceLabel,
-      phase: walk.operationContext.phase,
-      scheduledTime: walk.operationContext.scheduledTimeLabel,
+      label: "Current operation",
+      phase: "Preparation",
+      scheduledTime: null,
       source: "operations_center",
     },
     readiness: {
-      ready: walk.summary.ready,
-      inProgress: walk.summary.inProgress,
-      needsAttention: walk.summary.blocked,
+      ready: 0,
+      inProgress: 0,
+      needsAttention: 0,
     },
-    priorityLocations,
+    priorityLocations: [],
     staffing: {
-      gaps: coverage.summary.gaps,
-      thinCoverage: coverage.summary.thin,
-      openCallDowns: callDowns.summary.open,
+      gaps: 0,
+      thinCoverage: 0,
+      openCallDowns: callOffs.summary.total,
     },
     issues,
     inspections,

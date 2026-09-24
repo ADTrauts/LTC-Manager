@@ -982,6 +982,7 @@ export async function createRoomArchetype(
   return { archetypeId: archetype.id };
 }
 
+/** Display-name / active-flag edit. `key` is immutable identity and is never written. */
 export async function updateRoomArchetype(
   actor: ProfileActor,
   input: {

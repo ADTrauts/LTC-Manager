@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/design-system/EmptyState";
 import { Select, TextArea, TextInput } from "@/components/design-system/Field";
 import { Drawer } from "@/components/drawer";
 import { RoomPicker } from "@/components/operational-cycles/room-picker";
-import { departmentAdminHref } from "@/lib/department-administration";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import type {
   DepartmentTeamView,
   TeamCatalog,
@@ -117,12 +117,16 @@ function TeamFormFields({
     managerEmployeeId: string | null;
     managerLabel: string | null;
     spaceIds: string[];
+    operationalTypeKeys: string[];
   };
   editingLocations: boolean;
   onToggleLocations: () => void;
   alwaysShowLocations?: boolean;
 }) {
   const [spaceIds, setSpaceIds] = useState<string[]>(defaults?.spaceIds ?? []);
+  const [operationalTypeKeys, setOperationalTypeKeys] = useState<string[]>(
+    defaults?.operationalTypeKeys ?? [],
+  );
   const showPicker = alwaysShowLocations || editingLocations;
   return (
     <div className="space-y-5">
@@ -155,8 +159,46 @@ function TeamFormFields({
           Accountability for this Team. Does not automatically grant membership.
         </p>
       </section>
+      <section className="space-y-2" data-testid="team-operational-types">
+        <h3 className="text-xs font-medium text-zinc-500">Applies to Operational Types</h3>
+        <p className="text-xs text-zinc-500">
+          Configured Teams for this kind of location. This is not Physical Room Type, and it is
+          not today’s assignment.
+        </p>
+        {catalog.operationalTypes.length === 0 ? (
+          <p className="text-xs text-zinc-500">
+            No Operational Types are configured for this Department yet.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {catalog.operationalTypes.map((type) => {
+              const checked = operationalTypeKeys.includes(type.key);
+              return (
+                <li key={type.key}>
+                  <label className="flex items-center gap-2 text-sm text-zinc-800">
+                    <input
+                      type="checkbox"
+                      name="operationalTypeKeys"
+                      value={type.key}
+                      checked={checked}
+                      onChange={() => {
+                        setOperationalTypeKeys((current) =>
+                          current.includes(type.key)
+                            ? current.filter((key) => key !== type.key)
+                            : [...current, type.key],
+                        );
+                      }}
+                    />
+                    {type.name}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
       <section className="space-y-2">
-        <h3 className="text-xs font-medium text-zinc-500">Locations</h3>
+        <h3 className="text-xs font-medium text-zinc-500">Specific Locations</h3>
         <p className="text-sm text-zinc-700">
           {spaceIds.length} {spaceIds.length === 1 ? "Room" : "Rooms"} selected
         </p>
@@ -259,7 +301,12 @@ export function TeamsWorkspace({
                     {team.displayName}
                   </span>
                   <span className="block text-xs text-zinc-600">
-                    {team.roomCount} {team.roomCount === 1 ? "location" : "locations"}
+                    {team.applicableOperationalTypeKeys.length}{" "}
+                    {team.applicableOperationalTypeKeys.length === 1
+                      ? "Operational Type"
+                      : "Operational Types"}
+                    {" · "}
+                    {team.roomCount} {team.roomCount === 1 ? "specific location" : "specific locations"}
                     {" · "}
                     {team.activeMemberCount}{" "}
                     {team.activeMemberCount === 1 ? "person" : "people"}
@@ -332,6 +379,7 @@ export function TeamsWorkspace({
                       managerEmployeeId: selected.managerEmployeeId,
                       managerLabel: selected.managerLabel,
                       spaceIds: selected.rooms.map((room) => room.spaceId),
+                      operationalTypeKeys: selected.applicableOperationalTypeKeys,
                     }}
                   />
                   <div className="mt-4">

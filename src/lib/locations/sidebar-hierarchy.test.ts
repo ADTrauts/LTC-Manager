@@ -155,6 +155,87 @@ test("sidebar hierarchy — structural Floor/Neighborhood orient (no href); the 
   assert.equal(room?.unitId, "unit-neighborhood-1a");
 });
 
+test("sidebar hierarchy — optional Building nests above Floor", () => {
+  const room = node({
+    id: "space-lab-a",
+    label: "Lab A",
+    kind: "ROOM",
+    hierarchyLevel: "LEVEL_3",
+    presentation: "ACTIONABLE",
+    physicalId: "space-lab-a",
+    parentId: "unit-neighborhood-labs",
+    unitId: "unit-neighborhood-labs",
+    href: "/unit/unit-neighborhood-labs?space=space-lab-a",
+  });
+  const neighborhood = node({
+    id: "unit-neighborhood-labs",
+    label: "Labs",
+    kind: "NEIGHBORHOOD",
+    hierarchyLevel: "LEVEL_2",
+    physicalId: "unit-neighborhood-labs",
+    unitId: "unit-neighborhood-labs",
+    parentId: "unit-floor-1",
+    children: [room],
+  });
+  const floor = node({
+    id: "unit-floor-1",
+    label: "Floor 1",
+    kind: "FLOOR",
+    hierarchyLevel: "LEVEL_1",
+    physicalId: "unit-floor-1",
+    unitId: "unit-floor-1",
+    parentId: "unit-building-science",
+    children: [neighborhood],
+  });
+  const building = node({
+    id: "unit-building-science",
+    label: "Science Hall",
+    kind: "BUILDING",
+    hierarchyLevel: "LEVEL_0",
+    physicalId: "unit-building-science",
+    unitId: "unit-building-science",
+    parentId: "facility-root",
+    children: [floor],
+  });
+  const campusTree = node({
+    id: "facility-root",
+    label: "North Campus",
+    kind: "FACILITY",
+    hierarchyLevel: "FACILITY",
+    children: [building],
+  });
+  const view = adaptLocationsViewToSidebar({
+    facilityId: "fac-1",
+    purpose: "SIDEBAR",
+    lensMode: "DEPARTMENT",
+    lensKey: "DIETARY",
+    departmentKey: "DIETARY",
+    revision: REVISION,
+    departmentSnapshots: [
+      {
+        departmentId: "dept-dietary",
+        departmentKey: "DIETARY",
+        label: "Dietary",
+        roots: [campusTree],
+        actionableLocationIds: ["space-lab-a"],
+        unitIds: ["unit-building-science", "unit-floor-1", "unit-neighborhood-labs"],
+        plantPolicy: null,
+      },
+    ],
+    projectedUnitIds: ["unit-building-science", "unit-floor-1", "unit-neighborhood-labs"],
+    diagnostics: [],
+  });
+  const buildingNode = view.sections[0]?.nodes[0];
+  assert.equal(buildingNode?.kind, "BUILDING");
+  assert.equal(buildingNode?.label, "Science Hall");
+  assert.equal(buildingNode?.levelLabel, "Building");
+  assert.equal(buildingNode?.presentation, "STRUCTURAL");
+  assert.equal(buildingNode?.href, null);
+  assert.equal(buildingNode?.children[0]?.kind, "FLOOR");
+  assert.equal(buildingNode?.children[0]?.children[0]?.kind, "NEIGHBORHOOD");
+  assert.equal(buildingNode?.children[0]?.children[0]?.children[0]?.kind, "ROOM");
+});
+
 test("sidebar hierarchy — facility vocabulary supplies the level labels (Floor / Neighborhood / Room)", () => {
   const view = adaptLocationsViewToSidebar(viewModel());
   const floor = view.sections[0]?.nodes[0];

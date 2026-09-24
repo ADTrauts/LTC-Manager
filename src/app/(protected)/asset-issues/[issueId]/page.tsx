@@ -13,6 +13,7 @@ import {
   triageAssetIssueAction,
 } from "@/app/(protected)/asset-issues/actions";
 import { updateAssetStatusAction } from "@/app/(protected)/assets/actions";
+import { PhotoFileField } from "@/components/photos/photo-file-field";
 import {
   assetIssueStatusLabel,
   assetStatusLabel,
@@ -25,6 +26,7 @@ import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { prisma } from "@/lib/prisma";
+import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
 
 type Props = {
   params: Promise<{ issueId: string }>;
@@ -233,7 +235,11 @@ export default async function AssetIssueDetailPage({ params }: Props) {
           ) : null}
 
           {canManageWo ? (
-            <form action={createWorkOrderFromAssetIssueAction} className="mt-4 space-y-2" data-testid="create-wo-from-issue">
+            <form
+              action={createWorkOrderFromAssetIssueAction}
+              className="mt-4 space-y-2"
+              data-testid="create-wo-from-issue"
+            >
               <input type="hidden" name="issueId" value={detail.id} />
               <input type="hidden" name="departmentId" value={detail.departmentId} />
               <p className="text-xs text-zinc-600" data-testid="repair-responsibility-context">
@@ -263,6 +269,13 @@ export default async function AssetIssueDetailPage({ params }: Props) {
                   </span>
                 </label>
               ) : null}
+              <PhotoFileField
+                multiple
+                maxCount={MAX_REPAIR_PHOTOS_PER_SUBMIT}
+                label="Photos (optional)"
+                helper="Pictures of the problem go on the repair for context."
+                testId="issue-wo-photo-input"
+              />
               <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white" data-testid="create-work-order">
                 Create repair
               </button>

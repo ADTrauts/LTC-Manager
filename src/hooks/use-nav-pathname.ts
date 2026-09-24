@@ -18,19 +18,19 @@ function useHasHydrated(): boolean {
 }
 
 /**
- * Pathname safe for nav active-state styling after hydration.
- * Returns null on SSR and the first client paint so server HTML matches the client;
- * then the real pathname so active tabs update without hydration mismatches.
- * (Also avoids brief HMR drift where SSR HTML predates the latest client bundle.)
+ * Current pathname for nav active-state and product-mode chrome.
+ *
+ * `usePathname()` is consistent across SSR and hydration in the App Router, so
+ * Build pages render as BUILD on the server instead of a default RUN shell that
+ * later swaps icons and mode attributes on the client.
  */
 export function useNavPathname(): string | null {
-  const pathname = usePathname();
-  return useHasHydrated() ? pathname : null;
+  return usePathname();
 }
 
 /**
  * Search params safe for hrefs / active state after hydration.
- * Same mount gate as `useNavPathname` — avoids mismatches when `dept` (or other
+ * Gated until mount — avoids mismatches when `dept` (or other
  * query values) differ between SSR HTML and the client router URL.
  */
 export function useNavSearchParams(): ReadonlyURLSearchParams | null {

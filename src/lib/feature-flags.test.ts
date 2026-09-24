@@ -13,7 +13,6 @@ import {
   isProjectionShadowEnabled,
   isProjectionSidebarEnabled,
   isProjectionTodaysWorkEnabled,
-  isProjectionUnitWorkspaceEnabled,
   isTaskSyncEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
@@ -181,18 +180,6 @@ test("isProjectionSidebarEnabled defaults to true when unset", () => {
 test("isProjectionSidebarEnabled can be disabled for rollback", () => {
   withEnv("PROJECTION_SIDEBAR_ENABLED", "false", () => {
     assert.equal(isProjectionSidebarEnabled(), false);
-  });
-});
-
-test("isProjectionUnitWorkspaceEnabled defaults to false when unset", () => {
-  withEnv("PROJECTION_UNIT_WORKSPACE_ENABLED", undefined, () => {
-    assert.equal(isProjectionUnitWorkspaceEnabled(), false);
-  });
-});
-
-test("isProjectionUnitWorkspaceEnabled can be enabled for cutover", () => {
-  withEnv("PROJECTION_UNIT_WORKSPACE_ENABLED", "true", () => {
-    assert.equal(isProjectionUnitWorkspaceEnabled(), true);
   });
 });
 

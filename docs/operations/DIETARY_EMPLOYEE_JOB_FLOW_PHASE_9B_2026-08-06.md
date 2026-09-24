@@ -133,7 +133,7 @@ Supervisor Board targets ~12–17 SERVERY Units without inventing pagination. Pr
 ## Browser scenarios
 
 Harness: `npm run test:job-flow-browser`  
-Config: `playwright.job-flow.config.ts` → `tests/job-flow-browser`  
+Config: `tests/playwright.job-flow.config.ts` → `tests/job-flow-browser`  
 Fixtures: `scripts/verify/job-flow-browser-fixtures.mjs` (disposable DB only; fixtures.json emails only; password from `SEED_DEMO_PASSWORD`; PIN in `pins.env`).
 
 `tests/job-flow-browser/ci-gate.spec.ts` (`@ci-gate`) covers as many of the 38 certification scenarios as practical in-process, including Phase 9C regression coverage for scenarios **16, 17, 26, 27, 32, 33**. Scenarios **35–38** (existing assignment / offline / dietary-pilot / operational-cycles browsers remain green) are **out-of-band** — run those npm scripts separately.

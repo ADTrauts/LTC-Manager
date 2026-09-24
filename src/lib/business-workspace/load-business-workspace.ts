@@ -1,37 +1,26 @@
 import type { AppRole } from "@/lib/access";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { PROCEDURES_RESOURCES_VISIBLE } from "@/lib/knowledge/surface";
 
-import { buildDepartmentHealth } from "./build-department-health";
-import { buildManagementAgenda } from "./build-management-agenda";
-import {
-  buildManagerFocus,
-  buildManagerFocusHealthyGuidance,
-} from "./build-manager-focus";
-import { buildPerformanceSnapshot } from "./build-performance-snapshot";
+import type { DashboardWorkspaceViewModel } from "./dashboard/types";
 import { buildQuickActions } from "./build-quick-actions";
 import { buildRecentActivity } from "./build-recent-activity";
-import {
-  buildWorkspacePriorities,
-  workspaceIsHealthy,
-} from "./build-workspace-priorities";
 import { loadCachedMorningBriefPreview } from "./load-cached-morning-brief";
-import { loadBusinessWorkspaceInputs } from "./load-workspace-inputs";
-import {
-  intersectInputsToProjectedScope,
-  type ProjectedBusinessWorkspaceScope,
-} from "./projection";
+import { loadWorkspaceNonOperationalExtras } from "./load-workspace-extras";
+import type { ProjectedBusinessWorkspaceScope } from "./projection";
 import type {
   BusinessWorkspaceData,
   BusinessWorkspaceView,
   WorkspaceCachedMorningBrief,
   WorkspaceContext,
   WorkspaceLinkCard,
+  WorkspaceMetric,
   WorkspacePreferenceState,
+  WorkspaceSectionId,
 } from "./types";
 import {
   isLinkAllowedForContext,
   resolveCompositionConfig,
-  scopeInputsForContext,
   type WorkspaceCompositionConfig,
 } from "./workspace-composition";
 import { greetingForLocalHour } from "./workspace-layout";
@@ -61,11 +50,14 @@ export type LoadBusinessWorkspaceInput = {
   workspaceContext?: WorkspaceContext;
   /**
    * Wave 15K — when set with skipLegacyScope, Projection owns eligibility.
-   * Do not mix with scopeInputsForContext.
    */
   projectedScope?: ProjectedBusinessWorkspaceScope | null;
   projectedCompositionConfig?: WorkspaceCompositionConfig | null;
   skipLegacyScope?: boolean;
+  /**
+   * Required. Operational truth comes from RLS Dashboard Runtime.
+   */
+  dashboardRuntime?: DashboardWorkspaceViewModel;
 };
 
 export function resolveWorkspaceContext(input: {
@@ -84,107 +76,72 @@ export function resolveWorkspaceContext(input: {
   return { mode: "facility", departmentId: null, departmentKey: null, departmentName: null };
 }
 
-/**
- * Compose Business Workspace from one coordinated facility input pipeline,
- * then pure section builders. Department context scopes signals before
- * builders run — builders see only their department's data.
- *
- * When `projectedScope` + `skipLegacyScope` are set (Wave 15K flag on),
- * Projection eligibility replaces `scopeInputsForContext`.
- */
-export async function loadBusinessWorkspace(
-  input: LoadBusinessWorkspaceInput,
-): Promise<BusinessWorkspaceView | null> {
-  if (!canAccessBusinessWorkspace(input.role)) {
-    return null;
+function runtimeMetrics(runtime: DashboardWorkspaceViewModel): WorkspaceMetric[] {
+  const metrics: WorkspaceMetric[] = [
+    {
+      id: "operating",
+      label: "Locations operating",
+      value: runtime.operatingCount,
+      hint: `${runtime.spaceCount} operational ${runtime.spaceCount === 1 ? "space" : "spaces"}`,
+      href: "/units",
+    },
+    {
+      id: "attention",
+      label: "Need attention",
+      value: runtime.attentionCount,
+      hint:
+        runtime.attentionCount === 0
+          ? "No locations currently need attention"
+          : `${runtime.attentionCount} ${runtime.attentionCount === 1 ? "location has" : "locations have"} canonical exceptions`,
+      href: "/today",
+    },
+  ];
+  if (runtime.overdueEvidenceCount > 0) {
+    metrics.push({
+      id: "overdue-evidence",
+      label: "Overdue evidence",
+      value: runtime.overdueEvidenceCount,
+      href: "/staffing/log-book",
+    });
   }
-
-  const context = input.workspaceContext ?? resolveWorkspaceContext(input);
-  const useProjection =
-    Boolean(input.skipLegacyScope && input.projectedScope) &&
-    input.projectedCompositionConfig != null;
-  const config = useProjection
-    ? input.projectedCompositionConfig!
-    : resolveCompositionConfig(context);
-  const projectedScope = useProjection ? input.projectedScope! : null;
-
-  const [facilityInputs, preferences] = await Promise.all([
-    loadBusinessWorkspaceInputs({
-      facilityId: input.facilityId,
-      facilityName: input.facilityName,
-      activeDepartmentKey: input.activeDepartmentKey,
-      activeDepartmentName: input.activeDepartmentName,
-      projectedUnitIds: projectedScope?.projectedUnitIds,
-    }),
-    input.preferences
-      ? Promise.resolve(input.preferences)
-      : input.userId
-        ? loadWorkspacePreferenceState({
-            userId: input.userId,
-            facilityId: input.facilityId,
-          })
-        : Promise.resolve(emptyWorkspacePreferenceState()),
-  ]);
-
-  const inputs = useProjection
-    ? intersectInputsToProjectedScope(facilityInputs, projectedScope!)
-    : scopeInputsForContext(facilityInputs, context);
-
-  const priorities = buildWorkspacePriorities(inputs);
-  const managerFocus = buildManagerFocus(inputs, context);
-  const healthy = workspaceIsHealthy(priorities) && managerFocus.length === 0;
-  const managerFocusHealthy =
-    managerFocus.length === 0 ? buildManagerFocusHealthyGuidance(inputs, context) : null;
-  const oc = inputs.dashboard;
-  const staffingGaps = oc.unitsMissingStaffing.length;
-  const callDownOpen = inputs.callDownSummary.open;
-  const composed = applyWorkspacePreferences({
-    role: input.role,
-    preferences,
+  metrics.push({
+    id: "coverage",
+    label: "Coverage",
+    value: runtime.coverage.unavailable
+      ? "Unavailable"
+      : runtime.coverage.uncoveredSlotCount + runtime.coverage.atRiskSlotCount,
+    hint: runtime.coverage.summary,
+    href: "/units",
   });
+  if (runtime.assetImpactCount > 0) {
+    metrics.push({
+      id: "assets",
+      label: "Operational asset issues",
+      value: runtime.assetImpactCount,
+      href: "/assets",
+    });
+  }
+  return metrics;
+}
 
-  // Morning Brief: cache-peek only. Facility Overview suppressed.
-  // When Projection on, department must match projected lens.
-  const briefDepartmentKey = useProjection
-    ? projectedScope!.lensMode === "FACILITY"
-      ? null
-      : projectedScope!.departmentKey
-    : input.activeDepartmentKey;
-
-  const cachedMorningBrief =
-    input.cachedMorningBrief !== undefined
-      ? input.cachedMorningBrief
-      : context.mode === "facility" ||
-          (useProjection && projectedScope!.lensMode === "FACILITY") ||
-          briefDepartmentKey == null
-        ? null
-        : await loadCachedMorningBriefPreview({
-            facilityId: input.facilityId,
-            facilityLocalDate: facilityInputs.operationalTime.facilityLocalDate,
-            activeDepartmentKey: briefDepartmentKey,
-          });
-
-  const allTodaysWorkLinks: WorkspaceLinkCard[] = [
+function runtimeTodaysWorkLinks(runtime: DashboardWorkspaceViewModel): WorkspaceLinkCard[] {
+  return [
     {
       id: "walk",
-      title: "Walk",
-      description: `${oc.sitePulse.blocked} need attention · ${oc.sitePulse.ready} ready`,
-      href: "/today/walk",
+      title: "Today's Work",
+      description:
+        runtime.attentionCount === 0
+          ? "No locations currently need attention"
+          : `${runtime.attentionCount} ${runtime.attentionCount === 1 ? "location needs" : "locations need"} attention`,
+      href: "/today",
+      icon: "todaysWork",
+    },
+    {
+      id: "locations",
+      title: "View locations",
+      description: `${runtime.spaceCount} operational ${runtime.spaceCount === 1 ? "space" : "spaces"}`,
+      href: "/units",
       icon: "locations",
-    },
-    {
-      id: "coverage",
-      title: "Coverage",
-      description: `${staffingGaps} staffing gap${staffingGaps === 1 ? "" : "s"}`,
-      href: "/today/coverage",
-      icon: "todaysWork",
-    },
-    {
-      id: "calldowns",
-      title: "Call-downs",
-      description: `${callDownOpen} open`,
-      href: "/today/coverage",
-      icon: "todaysWork",
     },
     {
       id: "handoffs",
@@ -194,15 +151,10 @@ export async function loadBusinessWorkspace(
       icon: "todaysWork",
     },
   ];
+}
 
-  const allOperationsLinks: WorkspaceLinkCard[] = [
-    {
-      id: "oc",
-      title: "Dashboard",
-      description: "Manager overview of what is happening right now",
-      href: "/dashboard",
-      icon: "operationsCenter",
-    },
+function runtimeOperationsLinks(): WorkspaceLinkCard[] {
+  return [
     {
       id: "issues",
       title: "Issues",
@@ -217,13 +169,17 @@ export async function loadBusinessWorkspace(
       href: "/admin/inspections",
       icon: "logs",
     },
-    {
-      id: "knowledge",
-      title: "Knowledge",
-      description: "SOPs and reference",
-      href: "/admin/knowledge",
-      icon: "administration",
-    },
+    ...(PROCEDURES_RESOURCES_VISIBLE
+      ? [
+          {
+            id: "knowledge",
+            title: "Knowledge",
+            description: "SOPs and reference",
+            href: "/admin/knowledge",
+            icon: "administration",
+          } satisfies WorkspaceLinkCard,
+        ]
+      : []),
     {
       id: "assets",
       title: "Assets",
@@ -246,55 +202,132 @@ export async function loadBusinessWorkspace(
       icon: "logs",
     },
   ];
+}
 
+/**
+ * Compose Business Workspace from canonical Dashboard Runtime plus
+ * non-operational extras. Callers must supply `dashboardRuntime`.
+ */
+export async function loadBusinessWorkspace(
+  input: LoadBusinessWorkspaceInput,
+): Promise<BusinessWorkspaceView | null> {
+  if (!canAccessBusinessWorkspace(input.role)) {
+    return null;
+  }
+
+  if (!input.dashboardRuntime) {
+    throw new Error("Business Workspace requires canonical dashboardRuntime.");
+  }
+
+  const context = input.workspaceContext ?? resolveWorkspaceContext(input);
+  const runtime = input.dashboardRuntime;
+  const useProjection =
+    Boolean(input.skipLegacyScope && input.projectedScope) &&
+    input.projectedCompositionConfig != null;
+  const config = useProjection
+    ? input.projectedCompositionConfig!
+    : resolveCompositionConfig(context);
+
+  const [extras, preferences] = await Promise.all([
+    loadWorkspaceNonOperationalExtras({ facilityId: input.facilityId }),
+    input.preferences
+      ? Promise.resolve(input.preferences)
+      : input.userId
+        ? loadWorkspacePreferenceState({
+            userId: input.userId,
+            facilityId: input.facilityId,
+          })
+        : Promise.resolve(emptyWorkspacePreferenceState()),
+  ]);
+
+  const briefDepartmentKey = useProjection
+    ? input.projectedScope!.lensMode === "FACILITY"
+      ? null
+      : input.projectedScope!.departmentKey
+    : input.activeDepartmentKey;
+
+  const cachedMorningBrief =
+    input.cachedMorningBrief !== undefined
+      ? input.cachedMorningBrief
+      : context.mode === "facility" ||
+          (useProjection && input.projectedScope!.lensMode === "FACILITY") ||
+          briefDepartmentKey == null
+        ? null
+        : await loadCachedMorningBriefPreview({
+            facilityId: input.facilityId,
+            facilityLocalDate: extras.operationalTime.facilityLocalDate,
+            activeDepartmentKey: briefDepartmentKey,
+          });
+
+  const composed = applyWorkspacePreferences({
+    role: input.role,
+    preferences,
+  });
+  const hiddenWhenRuntime = new Set<WorkspaceSectionId>(["department_health", "priorities"]);
+  const visibleSections = composed.visibleSections.filter((id) => !hiddenWhenRuntime.has(id));
   const todaysWorkLinkIds = new Set(config.todaysWorkLinkIds);
   const opsLinkIds = new Set(config.operationsLinkIds);
 
   const data: BusinessWorkspaceData = {
     header: {
       greeting: greetingForLocalHour(
-        facilityInputs.operationalTime.facilityLocal.hour,
+        extras.operationalTime.facilityLocal.hour,
         firstName(input.userDisplayName),
       ),
       facilityName: input.facilityName,
       departmentLabel:
-        context.mode === "department"
-          ? context.departmentName
-          : "Facility Overview",
-      operation: oc.operationContext,
-      healthy,
-      keyTimeSummaries: oc.keyTimeSummaries ?? [],
-      runPresentation: oc.runPresentation ?? null,
+        context.mode === "department" ? context.departmentName : "Facility Overview",
+      operation: {
+        mealType: "BREAKFAST",
+        mealLabel: runtime.operation.label,
+        serviceLabel: runtime.operation.label,
+        phase: "Preparation",
+        scheduledTimeLabel: runtime.next?.timeLabel ?? null,
+        minutesUntilService: null,
+      },
+      healthy: runtime.attentionCount === 0,
+      keyTimeSummaries: [],
+      runPresentation: null,
     },
-    managerFocus,
-    managerFocusHealthy,
-    managementAgenda: buildManagementAgenda(inputs, context),
+    managerFocus: [],
+    managerFocusHealthy: null,
+    managementAgenda: [],
     quickActions: buildQuickActions({
       supervisor: input.role === "SUPERVISOR",
-      promotedHrefs: managerFocus.map((card) => card.href),
+      promotedHrefs: ["/today", "/units"],
       context,
       config,
-    }),
+    }).filter((action) => action.href !== "/dashboard"),
     cachedMorningBrief,
-    priorities,
-    departmentHealth: buildDepartmentHealth(inputs, context),
-    todaysWorkLinks: allTodaysWorkLinks
-      .filter((link) => todaysWorkLinkIds.has(link.id))
-      .filter((link) => isLinkAllowedForContext(link.href, context)),
-    operationsLinks: allOperationsLinks
+    priorities: [],
+    departmentHealth: [],
+    todaysWorkLinks: runtimeTodaysWorkLinks(runtime).filter(
+      (link) => todaysWorkLinkIds.has(link.id) || link.id === "locations" || link.id === "walk",
+    ),
+    operationsLinks: runtimeOperationsLinks()
       .filter((link) => opsLinkIds.has(link.id))
       .filter((link) => isLinkAllowedForContext(link.href, context)),
-    performance: buildPerformanceSnapshot(inputs, config),
-    recentActivity: buildRecentActivity(inputs, context),
+    performance: runtimeMetrics(runtime),
+    recentActivity: buildRecentActivity(
+      {
+        activity: extras.activity,
+        facilityTimezone: extras.facilityTimezone,
+      },
+      context,
+    ),
+    dashboardRuntime: runtime,
   };
 
   return {
     role: input.role,
-    visibleSections: composed.visibleSections,
-    customizableSections: composed.customizableSections,
+    visibleSections,
+    customizableSections: composed.customizableSections.filter((id) => !hiddenWhenRuntime.has(id)),
     collapsedSections: composed.collapsedSections,
-    preferredLandingSectionId: composed.preferredLandingSectionId,
-    sectionOrder: composed.sectionOrder,
+    preferredLandingSectionId:
+      composed.preferredLandingSectionId && hiddenWhenRuntime.has(composed.preferredLandingSectionId)
+        ? "manager_focus"
+        : composed.preferredLandingSectionId,
+    sectionOrder: composed.sectionOrder.filter((id) => !hiddenWhenRuntime.has(id)),
     canCustomize: composed.canCustomize,
     data,
   };
