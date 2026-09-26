@@ -6,7 +6,6 @@
 import type { LogAttachmentTargetKind, PrismaClient, UnitHierarchyRole } from "@prisma/client";
 
 import { isActionableDepartmentUnit } from "@/lib/department-administration/department-locations";
-import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
 import { loadFacilityTimezone } from "@/lib/operational-time";
 import {
   operationalTypeAssignId,
@@ -524,65 +523,27 @@ export async function loadCatalogAssignView(input: {
     };
   });
 
-  const operationalTypeRows: CatalogAssignTargetRow[] = [];
-  for (const department of departments) {
-    const types = await loadDepartmentOperationalTypeOptions({
-      facilityId: input.facilityId,
-      departmentId: department.id,
-      perspective: "working",
+  const leftoverOperationalTypeRows: CatalogAssignTargetRow[] = [];
+  for (const [key, attachmentId] of assigned) {
+    const parsed = parseTargetAssignKey(key);
+    if (parsed?.kind !== "OPERATIONAL_TYPE") continue;
+    const operationalType = parseOperationalTypeAssignId(parsed.id);
+    if (!operationalType) continue;
+    const department = departments.find((row) => row.id === operationalType.departmentId);
+    leftoverOperationalTypeRows.push({
+      key,
+      kind: "OPERATIONAL_TYPE",
+      id: parsed.id,
+      label: operationalType.operationalTypeKey,
+      groupLabel: department?.name ?? null,
+      departmentId: operationalType.departmentId,
+      departmentName: department?.name ?? null,
+      suggested: false,
+      assigned: true,
+      attachmentId,
+      disabled: false,
+      disabledReason: null,
     });
-    const assignedKeys = new Set(
-      [...assigned.keys()]
-        .map((key) => parseTargetAssignKey(key))
-        .filter((parsed): parsed is { kind: CatalogAssignKind; id: string } =>
-          Boolean(parsed && parsed.kind === "OPERATIONAL_TYPE"),
-        )
-        .map((parsed) => parseOperationalTypeAssignId(parsed.id))
-        .filter((parsed): parsed is NonNullable<typeof parsed> =>
-          Boolean(parsed && parsed.departmentId === department.id),
-        )
-        .map((parsed) => parsed.operationalTypeKey),
-    );
-    const keys = new Map(types.map((type) => [type.key, type]));
-    for (const key of assignedKeys) {
-      if (!keys.has(key)) keys.set(key, { key, name: key });
-    }
-    const timing = timingForDepartment(department.id);
-    for (const type of keys.values()) {
-      const assignId = operationalTypeAssignId(department.id, type.key);
-      const key = targetAssignKey("OPERATIONAL_TYPE", assignId);
-      const isAssigned = assigned.has(key);
-      let disabled = false;
-      let disabledReason: string | null = null;
-      if (catalogBlocked) {
-        disabled = true;
-        disabledReason = catalogBlocked;
-      } else if (timing.needsSetup) {
-        disabled = true;
-        disabledReason = timing.needsSetupReason;
-      }
-      if (isAssigned) {
-        disabled = false;
-        disabledReason = null;
-      }
-      operationalTypeRows.push({
-        key,
-        kind: "OPERATIONAL_TYPE",
-        id: assignId,
-        label: type.name,
-        groupLabel: department.name,
-        departmentId: department.id,
-        departmentName: department.name,
-        suggested: catalogMatchesTarget(suggestions, {
-          kind: "DEPARTMENT",
-          departmentKey: department.key,
-        }),
-        assigned: isAssigned,
-        attachmentId: assigned.get(key) ?? null,
-        disabled,
-        disabledReason,
-      });
-    }
   }
 
   return {
@@ -597,7 +558,15 @@ export async function loadCatalogAssignView(input: {
     effectiveFromKey: effective.effectiveFromKey,
     effectiveLabel: effective.label,
     categories: [
-      { kind: "OPERATIONAL_TYPE", label: "Operational Types", targets: operationalTypeRows },
+      ...(leftoverOperationalTypeRows.length > 0
+        ? [
+            {
+              kind: "OPERATIONAL_TYPE" as const,
+              label: "Leftover Operational Types",
+              targets: leftoverOperationalTypeRows,
+            },
+          ]
+        : []),
       { kind: "SPACE", label: "Rooms", targets: spaceRows },
       { kind: "ASSET", label: "Assets", targets: assetRows },
       { kind: "UNIT", label: "Units", targets: unitRows },
@@ -677,10 +646,9 @@ export async function applyCatalogAssignSelection(input: {
     for (const key of diff.addKeys) {
       const row = byKey.get(key);
       if (!row?.departmentId) continue;
+      if (row.kind === "OPERATIONAL_TYPE") continue;
       const timing = await timingFor(row.departmentId);
       if (timing.needsSetup) continue;
-      const operationalType =
-        row.kind === "OPERATIONAL_TYPE" ? parseOperationalTypeAssignId(row.id) : null;
       const target =
         row.kind === "ASSET"
           ? { kind: "ASSET" as const, assetId: row.id }
@@ -688,12 +656,7 @@ export async function applyCatalogAssignSelection(input: {
             ? { kind: "SPACE" as const, spaceId: row.id }
             : row.kind === "UNIT"
               ? { kind: "UNIT" as const, unitId: row.id }
-              : row.kind === "OPERATIONAL_TYPE" && operationalType
-                ? {
-                    kind: "OPERATIONAL_TYPE" as const,
-                    operationalTypeKey: operationalType.operationalTypeKey,
-                  }
-                : { kind: "DEPARTMENT" as const, targetDepartmentId: row.id };
+              : { kind: "DEPARTMENT" as const, targetDepartmentId: row.id };
       await createLogAttachment(db, {
         facilityId: input.facilityId,
         departmentId: row.departmentId,

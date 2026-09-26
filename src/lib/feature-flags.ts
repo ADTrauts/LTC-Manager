@@ -12,11 +12,6 @@ function parseEnvFlag(value: string | undefined, defaultValue: boolean): boolean
   return defaultValue;
 }
 
-/** Defaults to disabled — Wave 5 schema ships behind flag until sync/backfill verified. */
-export function isOperationEngineEnabled(): boolean {
-  return parseEnvFlag(process.env.OPERATION_ENGINE_ENABLED, false);
-}
-
 /** Defaults to enabled — Wave 4 ships with Today's Work on. Set `TODAYS_WORK_ENABLED=false` to roll back routes. */
 export function isTodaysWorkEnabled(): boolean {
   return parseEnvFlag(process.env.TODAYS_WORK_ENABLED, true);
@@ -96,7 +91,7 @@ export function isProjectionBusinessWorkspaceEnabled(): boolean {
 /**
  * Defaults to disabled — Phase 9A Dietary Operational Cycles.
  * Set `DIETARY_OPERATIONAL_CYCLES_ENABLED=true` for Department Builder / runtime cycle context.
- * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Operations Engine is deleted. Do not add it back.
  */
 export function isDietaryOperationalCyclesEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED, false);
@@ -105,12 +100,11 @@ export function isDietaryOperationalCyclesEnabled(): boolean {
 /**
  * Defaults to disabled — Phase 9B Dietary Employee Job Flow & Supervisor Operations Board.
  * Set `DIETARY_JOB_FLOW_ENABLED=true` for derived Job Flow / Operations Board projections.
- * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Operations Engine is deleted. Do not add it back.
  * Job Flow is a derived Runtime projection (no JobFlowRecord / no migration).
  * Typical local activation:
  *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
  *   DIETARY_JOB_FLOW_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  */
 export function isDietaryJobFlowEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_JOB_FLOW_ENABLED, false);
@@ -119,12 +113,11 @@ export function isDietaryJobFlowEnabled(): boolean {
 /**
  * Defaults to disabled — Phase 9C Dietary Operational Evidence (Templates / Runtime / Log Book).
  * Set `DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true` for Builder, derived requirements, and records.
- * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Operations Engine is deleted. Do not add it back.
  * Typical local activation:
  *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
  *   DIETARY_JOB_FLOW_ENABLED=true
  *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  */
 export function isDietaryOperationalEvidenceEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED, false);
@@ -134,13 +127,12 @@ export function isDietaryOperationalEvidenceEnabled(): boolean {
  * Defaults to disabled — Phase 10A Dietary Asset Operations (Assets / Issues / Work Orders).
  * Set `DIETARY_ASSET_OPERATIONS_ENABLED=true` for Asset Builder, Issue reporting, Work Orders,
  * Supervisor Asset exceptions, and offline Issue commands.
- * Does not enable `OPERATION_ENGINE_ENABLED` — Operations Engine stays off.
+ * Operations Engine is deleted. Do not add it back.
  * Typical local activation:
  *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
  *   DIETARY_JOB_FLOW_ENABLED=true
  *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
  *   DIETARY_ASSET_OPERATIONS_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  */
 export function isDietaryAssetOperationsEnabled(): boolean {
   return parseEnvFlag(process.env.DIETARY_ASSET_OPERATIONS_ENABLED, false);
@@ -150,14 +142,13 @@ export function isDietaryAssetOperationsEnabled(): boolean {
  * Defaults to disabled — Phase 11A Dietary Department Work Plans.
  * Set `DIETARY_WORK_PLANS_ENABLED=true` for Work Plan Builder, Job Flow Work,
  * Supervisor Work exceptions, one-off Work, and offline Work completion.
- * Does not enable `OPERATION_ENGINE_ENABLED` or `TASK_SYNC_ENABLED`.
+ * Operations Engine is deleted. Does not enable `TASK_SYNC_ENABLED`.
  * Typical local activation:
  *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
  *   DIETARY_JOB_FLOW_ENABLED=true
  *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
  *   DIETARY_ASSET_OPERATIONS_ENABLED=true
  *   DIETARY_WORK_PLANS_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  *   TASK_SYNC_ENABLED=false
  */
 export function isDietaryWorkPlansEnabled(): boolean {
@@ -167,11 +158,10 @@ export function isDietaryWorkPlansEnabled(): boolean {
 /**
  * Defaults to disabled — Phase 11B EVS Operations (Cycles / Job Flow / Evidence / Work / thin Assets).
  * Set `EVS_OPERATIONS_ENABLED=true` for local / test EVS Department operational surfaces.
- * Does not enable `OPERATION_ENGINE_ENABLED` or `TASK_SYNC_ENABLED`.
+ * Operations Engine is deleted. Does not enable `TASK_SYNC_ENABLED`.
  * Dietary remains gated by existing `DIETARY_*` flags independently.
  * Typical local activation:
  *   EVS_OPERATIONS_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  *   TASK_SYNC_ENABLED=false
  */
 export function isEvsOperationsEnabled(): boolean {
@@ -181,11 +171,10 @@ export function isEvsOperationsEnabled(): boolean {
 /**
  * Defaults to disabled — Phase 12A Plant Operations (Request routing / triage / WO Runtime).
  * Set `PLANT_OPERATIONS_ENABLED=true` for local / test Plant Department operational surfaces.
- * Does not enable `OPERATION_ENGINE_ENABLED` or `TASK_SYNC_ENABLED`.
+ * Operations Engine is deleted. Does not enable `TASK_SYNC_ENABLED`.
  * Dietary and EVS remain gated by their own flags independently.
  * Typical local activation:
  *   PLANT_OPERATIONS_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  *   TASK_SYNC_ENABLED=false
  */
 export function isPlantOperationsEnabled(): boolean {
@@ -201,7 +190,6 @@ export function isPlantOperationsEnabled(): boolean {
  *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
  *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
  *   CANONICAL_LOGS_ENABLED=true
- *   OPERATION_ENGINE_ENABLED=false
  */
 export function isCanonicalLogsEnabled(): boolean {
   return parseEnvFlag(process.env.CANONICAL_LOGS_ENABLED, false);

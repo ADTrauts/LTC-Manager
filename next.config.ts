@@ -33,6 +33,46 @@ const nextConfig: NextConfig = {
     },
     proxyClientMaxBodySize: SERVER_ACTION_UPLOAD_LIMIT,
   },
+  async redirects() {
+    return [
+      {
+        source: "/admin/departments",
+        destination: "/build/departments",
+        permanent: false,
+      },
+      {
+        source: "/admin/departments/:departmentId",
+        destination: "/build/departments/:departmentId",
+        permanent: false,
+      },
+      {
+        source: "/admin/knowledge",
+        destination: "/build/knowledge",
+        permanent: false,
+      },
+      {
+        source: "/admin/inspections",
+        destination: "/build/logs",
+        permanent: false,
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/build/departments",
+        destination: "/admin/departments",
+      },
+      {
+        source: "/build/departments/:departmentId",
+        destination: "/admin/departments/:departmentId",
+      },
+      {
+        source: "/build/knowledge",
+        destination: "/admin/knowledge",
+      },
+    ];
+  },
   async headers() {
     return [
       {

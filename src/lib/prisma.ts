@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 let prismaSingleton: PrismaClient | undefined;
 
 /** Bump when schema relations must force a fresh client after `prisma generate`. */
-const PRISMA_CLIENT_EPOCH = "harbor-work-session-v1";
+const PRISMA_CLIENT_EPOCH = "facility-catalog-install-v1";
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -23,6 +23,10 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "operationalCycleDayExpectation",
     "departmentOperationalCycleMilestoneTime",
     "departmentTeam",
+    "departmentTeamCycle",
+    "departmentFacilityTypeLogDefault",
+    "facilityCatalogInstall",
+    "departmentLocationLogSuppression",
     "departmentTeamRoomMembership",
     "employeeTeamMembership",
     "departmentJobRole",

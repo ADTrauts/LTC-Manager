@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { PageHeader } from "@/components/design-system/page-header";
+import { PageHeader, StatusBadge } from "@/components/design-system";
 import { SpaceWorkspaceFocus } from "@/components/unit-workspace/space-workspace-focus";
 import {
   NEIGHBORHOOD_COVERAGE_UNAVAILABLE_LABEL,
@@ -81,6 +81,13 @@ function Overview({ view }: { view: NeighborhoodWorkspaceViewModel }) {
             ? "1 operational space"
             : `${view.spaceCount} operational spaces`}
         </li>
+        {view.atRiskCount > 0 ? (
+          <li data-testid="neighborhood-workspace-at-risk">
+            {view.atRiskCount === 1
+              ? "1 at risk"
+              : `${view.atRiskCount} at risk`}
+          </li>
+        ) : null}
         {view.attentionCount > 0 ? (
           <li>
             {view.attentionCount === 1
@@ -135,36 +142,45 @@ function Spaces({ view }: { view: NeighborhoodWorkspaceViewModel }) {
         </div>
       ) : (
         <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
-          {view.spaces.map((space) => (
+          {view.spaces.map((space) => {
+            const card = space.card;
+            const happeningLine = [card.happeningLabel, card.cycleLabel]
+              .filter((line): line is string => Boolean(line) && line !== card.badge.label)
+              .join(" · ");
+            return (
             <li key={space.spaceId} data-testid="neighborhood-workspace-space-row">
               <Link
                 href={space.href}
                 className="block min-h-11 px-3 py-3 hover:bg-zinc-50"
               >
-                <p className="text-sm font-semibold text-zinc-900">{space.name}</p>
-                {space.landing.configurationLabel ? (
-                  <p className="text-sm text-zinc-600">{space.landing.configurationLabel}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-zinc-900">{card.name}</p>
+                  <StatusBadge variant={card.badge.variant} prominence={card.badge.prominence}>
+                    {card.badge.label}
+                  </StatusBadge>
+                </div>
+                {happeningLine ? (
+                  <p className="mt-1 text-sm text-zinc-600">{happeningLine}</p>
                 ) : null}
-                {space.landing.operationLabel ? (
-                  <p className="text-sm text-zinc-600">{space.landing.operationLabel}</p>
+                {card.responsibleLabel ? (
+                  <p className="text-sm text-zinc-600">{card.responsibleLabel}</p>
                 ) : null}
-                {space.landing.coverageLabel ? (
-                  <p className="text-sm text-zinc-500">{space.landing.coverageLabel}</p>
-                ) : null}
-                {space.landing.exceptionLabels.map((label) => (
-                  <p key={label} className="text-sm text-zinc-800">
-                    {label}
+                {card.wrongLabels.length > 0 ? (
+                  <p className="text-sm font-medium text-zinc-800">
+                    {card.wrongLabels.join(" · ")}
+                    {card.moreWrongCount > 0 ? ` · +${card.moreWrongCount} more` : ""}
                   </p>
-                ))}
-                {space.landing.moreExceptionCount > 0 ? (
-                  <p className="text-sm text-zinc-500">+{space.landing.moreExceptionCount} more</p>
                 ) : null}
-                {space.landing.nextLabel ? (
-                  <p className="text-sm text-zinc-600">{space.landing.nextLabel}</p>
+                {card.evidenceLabel ? (
+                  <p className="text-sm text-zinc-600">{card.evidenceLabel}</p>
+                ) : null}
+                {card.nextLabel ? (
+                  <p className="text-sm text-zinc-600">{card.nextLabel}</p>
                 ) : null}
               </Link>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </Card>
@@ -177,7 +193,7 @@ function Coverage({ view }: { view: NeighborhoodWorkspaceViewModel }) {
       <p className="text-sm text-zinc-600" data-testid="neighborhood-workspace-coverage">
         {view.coverage.unavailable
           ? NEIGHBORHOOD_COVERAGE_UNAVAILABLE_LABEL
-          : view.coverage.summary}
+          : view.coverage.summary ?? "No coverage evaluation across these spaces."}
       </p>
     </Card>
   );
@@ -254,6 +270,9 @@ function Evidence({ view }: { view: NeighborhoodWorkspaceViewModel }) {
 function Assets({ view }: { view: NeighborhoodWorkspaceViewModel }) {
   return (
     <Card id={neighborhoodWorkspaceAnchorId("assets")} title="Assets & Issues">
+      {view.assets.length === 0 ? (
+        <p className="text-sm text-zinc-600">No local assets across these spaces.</p>
+      ) : (
       <ul className="space-y-3">
         {view.assets.map((asset) => (
           <li
@@ -275,6 +294,7 @@ function Assets({ view }: { view: NeighborhoodWorkspaceViewModel }) {
           </li>
         ))}
       </ul>
+      )}
       {view.managerLinks.maintenanceHref ? (
         <Link
           href={view.managerLinks.maintenanceHref}
@@ -290,6 +310,9 @@ function Assets({ view }: { view: NeighborhoodWorkspaceViewModel }) {
 function Milestones({ view }: { view: NeighborhoodWorkspaceViewModel }) {
   return (
     <Card id={neighborhoodWorkspaceAnchorId("milestones")} title="Operations & Milestones">
+      {view.milestones.length === 0 ? (
+        <p className="text-sm text-zinc-600">No milestones across these spaces.</p>
+      ) : (
       <ul className="space-y-3">
         {view.milestones.map((item) => (
           <li key={`${item.spaceId}:${item.kind}:${item.label}`}>
@@ -301,6 +324,7 @@ function Milestones({ view }: { view: NeighborhoodWorkspaceViewModel }) {
           </li>
         ))}
       </ul>
+      )}
     </Card>
   );
 }

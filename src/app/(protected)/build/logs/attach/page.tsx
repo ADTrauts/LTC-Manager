@@ -12,6 +12,7 @@ type SearchParams = Promise<{
   targetId?: string;
   catalog?: string;
   departmentId?: string;
+  returnTo?: string;
 }>;
 
 export default async function AttachLogPage({ searchParams }: { searchParams: SearchParams }) {
@@ -40,6 +41,7 @@ export default async function AttachLogPage({ searchParams }: { searchParams: Se
     targetKind,
     targetId,
     departmentId: query.departmentId ?? null,
+    includeCatalogStableKey: query.catalog ?? null,
   });
   if (!ctx || !ctx.departmentId || !ctx.departmentName) {
     notFound();
@@ -62,10 +64,13 @@ export default async function AttachLogPage({ searchParams }: { searchParams: Se
       effectiveFromKey={ctx.effective.effectiveFromKey}
       effectiveLabel={ctx.effective.label}
       cancelHref={
-        targetKind === "DEPARTMENT"
-          ? `/admin/departments/${targetId}`
-          : `/build/logs/targets/${targetKind.toLowerCase()}/${targetId}`
+        query.returnTo?.startsWith("/admin/departments/")
+          ? query.returnTo
+          : targetKind === "DEPARTMENT"
+            ? `/admin/departments/${targetId}`
+            : `/build/logs/targets/${targetKind.toLowerCase()}/${targetId}`
       }
+      returnTo={query.returnTo ?? null}
     />
   );
 }

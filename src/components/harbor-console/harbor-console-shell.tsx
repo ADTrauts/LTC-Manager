@@ -7,7 +7,7 @@ const NAV = [
   { href: "/console", label: "Today", enabled: true },
   { href: "/console/customers", label: "Customers", enabled: true },
   { href: "/console/tickets", label: "Tickets", enabled: false },
-  { href: "/console/catalog", label: "Catalog", enabled: true },
+  { href: "/console/catalog", label: "Marketplace", enabled: true },
 ] as const;
 
 function navActive(pathname: string, href: string) {

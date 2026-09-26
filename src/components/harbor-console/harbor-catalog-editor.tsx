@@ -225,6 +225,8 @@ export function HarborCatalogEditor({
           <select name="purposeType" defaultValue={initialPurposeType ?? "LOG"} className={inputClass}>
             <option value="LOG">Log</option>
             <option value="CHECKLIST">Checklist</option>
+            <option value="INSPECTION">Inspection</option>
+            <option value="PROCEDURE">Procedure</option>
           </select>
         </label>
         <label className="block space-y-1">

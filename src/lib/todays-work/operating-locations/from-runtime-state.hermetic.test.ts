@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { emptyLocationProgram } from "@/lib/department-administration/location-program";
 import type { RuntimeCoverageState, RuntimeLocationState } from "@/lib/runtime-location-state";
-import { DEFERRED_READINESS } from "@/lib/runtime-location-state";
+import { DEFERRED_READINESS, withRuntimeLocationAnswers } from "@/lib/runtime-location-state";
 
 import {
   COVERAGE_UNAVAILABLE_LABEL,
@@ -93,7 +94,7 @@ function state(partial: {
       : []),
   ];
 
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location,
       displayName: partial.spaceId,
@@ -108,6 +109,12 @@ function state(partial: {
       physical: { roomTypeKey: "servery", roomTypeLabel: "Servery" },
     },
     program: {
+      locationProgram: emptyLocationProgram({
+        departmentId: "dept-1",
+        departmentName: "Dietary",
+        spaceId: partial.spaceId,
+        name: partial.spaceId,
+      }),
       operationalType: {
         state: "assigned",
         key: "SERVERY",
@@ -170,7 +177,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 const neighborhood: SupervisorOperatingLocation = {

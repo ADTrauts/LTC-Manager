@@ -12,6 +12,7 @@ import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import {
   createLogAttachment,
+  installPublishedCatalog,
   loadPublishedCatalogByStableKey,
   setLogAttachmentStatus,
   updateLogAttachment,
@@ -28,10 +29,24 @@ export type ActionResult =
   | { ok: true; redirectTo: string; attachmentId: string }
   | { ok: false; error: string };
 
+function safeDepartmentReturn(returnTo?: string | null): string | null {
+  if (
+    !returnTo?.startsWith("/admin/departments/") &&
+    !returnTo?.startsWith("/build/departments/")
+  ) {
+    return null;
+  }
+  if (returnTo.includes("//") || returnTo.includes("\\")) return null;
+  return returnTo;
+}
+
 function targetReturnPath(
   targetKind: LogAttachmentTargetKind,
   targetId: string,
+  returnTo?: string | null,
 ): string {
+  const departmentReturn = safeDepartmentReturn(returnTo);
+  if (departmentReturn) return departmentReturn;
   switch (targetKind) {
     case "ASSET":
       return `/build/logs/targets/asset/${targetId}`;
@@ -40,7 +55,7 @@ function targetReturnPath(
     case "UNIT":
       return `/build/logs/targets/unit/${targetId}`;
     case "DEPARTMENT":
-      return `/admin/departments/${targetId}?tab=overview`;
+      return `/build/departments/${targetId}?tab=overview`;
     default:
       return "/build/logs";
   }
@@ -54,6 +69,33 @@ function mapCreateError(message: string): string {
     return message;
   }
   return message;
+}
+
+export async function installCatalogAction(
+  catalogStableKey: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isCanonicalLogsEnabled()) {
+    return { ok: false, error: "Canonical Logs are not enabled." };
+  }
+  const session = await getSession();
+  if (!session?.facilityId) return { ok: false, error: "Not signed in." };
+  if (!hasAtLeastRole(session.role, "MANAGER")) {
+    return { ok: false, error: "Manager access required to install logs." };
+  }
+  try {
+    await installPublishedCatalog(prisma, {
+      facilityId: session.facilityId,
+      catalogStableKey,
+    });
+    revalidatePath("/build/logs");
+    revalidatePath(`/build/logs/catalog/${catalogStableKey}`);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not install this log.",
+    };
+  }
 }
 
 export async function createCanonicalLogAttachmentAction(input: {
@@ -72,6 +114,7 @@ export async function createCanonicalLogAttachmentAction(input: {
   localDisplayLabel: string | null;
   localInstructions: string | null;
   effectiveFromKey: string;
+  returnTo?: string | null;
 }): Promise<ActionResult> {
   if (!isCanonicalLogsEnabled()) {
     return { ok: false, error: "Canonical Logs are not enabled." };
@@ -123,7 +166,7 @@ export async function createCanonicalLogAttachmentAction(input: {
       effectiveFromKey: input.effectiveFromKey,
     });
 
-    const redirectTo = targetReturnPath(input.targetKind, input.targetId);
+    const redirectTo = targetReturnPath(input.targetKind, input.targetId, input.returnTo);
     revalidatePath("/build/logs");
     revalidatePath(redirectTo);
     return { ok: true, redirectTo, attachmentId: row.id };

@@ -46,6 +46,10 @@ export function catalogPurposeLabel(purpose: CatalogLogPurposeType): string {
       return "Log";
     case "CHECKLIST":
       return "Checklist";
+    case "INSPECTION":
+      return "Inspection";
+    case "PROCEDURE":
+      return "Procedure";
     default:
       return purpose;
   }

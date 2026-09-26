@@ -1,6 +1,9 @@
 /**
  * Administration hub IA — presentation labels and grouping only.
  * Routes are preserved; this module does not change domain behavior.
+ *
+ * Wave C: Admin is governance. Builders (Facility, Departments, Logs, Inspections,
+ * Procedures) are not primary cards here.
  */
 
 import {
@@ -17,29 +20,22 @@ export type AdminHubLink = {
 };
 
 export type AdminHubSection = {
-  id: "facility_organization" | "departments_access" | "operational_configuration";
+  id: "organization" | "access";
   title: string;
   links: readonly AdminHubLink[];
 };
 
-/** Grouped Administration hub entries (Option A navigation regroup). */
+/** Grouped Administration hub entries. Governance only. */
 export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
   {
-    id: "facility_organization",
-    title: "Facility & Organization",
+    id: "organization",
+    title: "Organization",
     links: [
       {
-        id: "facility_structure",
-        label: "Facility Structure",
-        description:
-          "Create floors, neighborhoods, units, rooms, and operational spaces. Assign responsible departments to each room.",
-        href: "/admin/facility/builder",
-      },
-      {
         id: "organization_settings",
-        label: "Organization Settings",
+        label: "Organization",
         description:
-          "Manage facility details, organization information, operating company details, device settings, and multi-site access.",
+          "Facility details, organization information, operating company, devices, and multi-site access.",
         href: "/admin/organization",
       },
       {
@@ -52,55 +48,37 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
     ],
   },
   {
-    id: "departments_access",
-    title: "Departments & Access",
+    id: "access",
+    title: "Access",
     links: [
       {
-        id: "departments",
-        label: "Departments",
-        description:
-          "Manage department visibility, department leadership, and department-specific operational settings.",
-        href: "/admin/departments",
-      },
-      {
         id: "roles_permissions",
-        label: "Roles & Permissions",
+        label: "Access",
         description: "Configure application roles and control which areas each role may access.",
         href: "/admin/permissions",
       },
-    ],
-  },
-  {
-    id: "operational_configuration",
-    title: "Operational Configuration",
-    links: [
       {
-        id: "logs",
-        label: "Logs",
-        description:
-          "Build recurring operational records such as temperature, sanitizer, cleaning, and completion logs.",
-        href: "/logs",
-      },
-      {
-        id: "inspections",
-        label: "Inspections",
-        description:
-          "Create structured inspections, verification checklists, findings, and follow-up requirements.",
-        href: "/admin/inspections",
-      },
-      {
-        id: "procedures_resources",
-        label: "Procedures & Resources",
-        description:
-          "Manage SOPs, policies, instructions, and reference materials linked to operational work.",
-        href: "/admin/knowledge",
+        id: "account",
+        label: "Account",
+        description: "Your sign-in, password, and device security for this facility.",
+        href: "/account",
       },
     ],
   },
 ] as const;
 
 /** Hub links that must not appear as primary Administration cards. */
-export const ADMIN_HUB_EXCLUDED_PRIMARY_HREFS = ["/admin/organization/facilities"] as const;
+export const ADMIN_HUB_EXCLUDED_PRIMARY_HREFS = [
+  "/admin/organization/facilities",
+  "/admin/facility/builder",
+  "/admin/departments",
+  "/build/departments",
+  "/logs",
+  "/build/logs",
+  "/admin/inspections",
+  "/admin/knowledge",
+  "/build/knowledge",
+] as const;
 
 export function flattenAdminHubLinks(
   sections: readonly AdminHubSection[] = ADMIN_HUB_SECTIONS,
@@ -112,7 +90,9 @@ function isDisplayedAdminHubLink(link: AdminHubLink): boolean {
   if (link.id === PROCEDURES_RESOURCES_HUB_ID && !PROCEDURES_RESOURCES_VISIBLE) {
     return false;
   }
-  return !ADMIN_HUB_EXCLUDED_PRIMARY_HREFS.includes(link.href as (typeof ADMIN_HUB_EXCLUDED_PRIMARY_HREFS)[number]);
+  return !ADMIN_HUB_EXCLUDED_PRIMARY_HREFS.includes(
+    link.href as (typeof ADMIN_HUB_EXCLUDED_PRIMARY_HREFS)[number],
+  );
 }
 
 /** Administration hub sections with parked / excluded cards omitted. */

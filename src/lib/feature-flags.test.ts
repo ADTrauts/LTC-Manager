@@ -7,7 +7,6 @@ import {
   isAiShiftSummaryEnabled,
   isDietaryWorkPlansEnabled,
   isEvsOperationsEnabled,
-  isOperationEngineEnabled,
   isOperationalAssignmentsEnabled,
   isProjectionLocationsEnabled,
   isProjectionShadowEnabled,
@@ -40,20 +39,6 @@ test("isTodaysWorkEnabled defaults to true when unset", () => {
   withEnv("TODAYS_WORK_ENABLED", undefined, () => {
     assert.equal(isTodaysWorkEnabled(), true);
   });
-});
-
-test("isOperationEngineEnabled defaults to false when unset", () => {
-  withEnv("OPERATION_ENGINE_ENABLED", undefined, () => {
-    assert.equal(isOperationEngineEnabled(), false);
-  });
-});
-
-test("isOperationEngineEnabled parses falsey env values", () => {
-  for (const value of ["false", "0", "off", "no"]) {
-    withEnv("OPERATION_ENGINE_ENABLED", value, () => {
-      assert.equal(isOperationEngineEnabled(), false, value);
-    });
-  }
 });
 
 test("isTaskSyncEnabled defaults to false when unset", () => {
@@ -214,12 +199,9 @@ test("isDietaryWorkPlansEnabled parses truthy and falsey env values", () => {
   }
 });
 
-test("Phase 11A keeps Operation Engine and Task sync disabled by default", () => {
-  withEnv("OPERATION_ENGINE_ENABLED", undefined, () => {
-    withEnv("TASK_SYNC_ENABLED", undefined, () => {
-      assert.equal(isOperationEngineEnabled(), false);
-      assert.equal(isTaskSyncEnabled(), false);
-    });
+test("Phase 11A keeps Task sync disabled by default", () => {
+  withEnv("TASK_SYNC_ENABLED", undefined, () => {
+    assert.equal(isTaskSyncEnabled(), false);
   });
 });
 
@@ -242,14 +224,11 @@ test("isEvsOperationsEnabled parses truthy and falsey env values", () => {
   }
 });
 
-test("Phase 11B EVS flag does not enable Operation Engine or Task sync", () => {
+test("Phase 11B EVS flag does not enable Task sync", () => {
   withEnv("EVS_OPERATIONS_ENABLED", "true", () => {
-    withEnv("OPERATION_ENGINE_ENABLED", undefined, () => {
-      withEnv("TASK_SYNC_ENABLED", undefined, () => {
-        assert.equal(isEvsOperationsEnabled(), true);
-        assert.equal(isOperationEngineEnabled(), false);
-        assert.equal(isTaskSyncEnabled(), false);
-      });
+    withEnv("TASK_SYNC_ENABLED", undefined, () => {
+      assert.equal(isEvsOperationsEnabled(), true);
+      assert.equal(isTaskSyncEnabled(), false);
     });
   });
 });

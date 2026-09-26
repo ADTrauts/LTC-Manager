@@ -8,7 +8,6 @@
 
 import {
   getExperienceTool,
-  requireExperience,
   type ExperienceToolKey,
 } from "@/lib/experiences";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
@@ -231,14 +230,17 @@ function adaptExperience(
   snapshot: ProjectionSnapshot,
   departmentKey: BwDepartmentSection["departmentKey"],
 ): BwManagerSignalContributor {
-  const catalog = requireExperience(experience.reference.experienceKey);
   const scope = snapshot.queryScopes.byExperience[experience.id];
-  const domains = scope?.domains ?? catalog.contracts.queryScope.domains;
+  const domains =
+    scope?.domains ?? experience.contracts.contracts.queryScope.domains;
   const readinessSignalKeys =
-    catalog.contracts.statusContracts.readinessSignalKeys ?? [];
+    experience.contracts.contracts.statusContracts.readinessSignalKeys ?? [];
+  const contractTools = experience.contracts.contracts.toolHosts.map(
+    (host) => host.toolKind,
+  );
   const contributionKinds = contributionKindsFromContracts({
     domains,
-    tools: catalog.tools,
+    tools: contractTools,
     readinessSignalKeys,
     experienceKey: experience.reference.experienceKey,
     hasNavigation: experience.navigation.entries.length > 0,
@@ -254,7 +256,7 @@ function adaptExperience(
     unitIds: scope?.unitIds ?? [],
     spaceIds: scope?.spaceIds ?? [],
     domains,
-    tools: toolEntries(catalog.tools),
+    tools: toolEntries(contractTools),
     actions: actionEntries(experience),
     allowedActionKeys: experience.permissions.allowedActionKeys,
     readinessSignalKeys,

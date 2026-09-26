@@ -11,7 +11,8 @@ import {
 
 import {
   departmentAdminHref,
-  type DepartmentAdminTabId,
+  type DepartmentAdminPrimaryTabId,
+  type DepartmentAdminRetiredTabId,
 } from "@/lib/department-administration/admin-nav";
 
 type ActionResultLike =
@@ -28,7 +29,7 @@ type Props = {
   openCycleEditorOnSuccess?: boolean;
   profileRedirect?: {
     departmentId: string;
-    tab: DepartmentAdminTabId;
+    tab: DepartmentAdminPrimaryTabId | DepartmentAdminRetiredTabId;
     /** Preserve Room Type detail after DRAFT fork. */
     roomType?: string;
   };

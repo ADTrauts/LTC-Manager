@@ -8,7 +8,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import { emptyLocationProgram } from "@/lib/department-administration/location-program";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
+
+import { presentExceptionFirstLocationCard } from "@/lib/locations/exception-first";
 
 import {
   departmentLocationsConfigureHref,
@@ -16,6 +23,7 @@ import {
   presentSpaceWorkspace,
   resolveSpaceWorkspaceViewer,
   spaceWorkspaceEvidenceAnchorId,
+  spaceWorkspaceHashSection,
 } from "./from-runtime-state";
 import {
   SPACE_COVERAGE_UNAVAILABLE_LABEL,
@@ -120,7 +128,7 @@ function state(partial: {
   const loc = location(partial.spaceId ?? "servery-a");
   const assigned = (partial.ot ?? "assigned") === "assigned";
   const items = partial.evidenceItems ?? [];
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: loc,
       displayName: partial.name ?? "Naval Park Servery",
@@ -135,6 +143,28 @@ function state(partial: {
       physical: { roomTypeKey: "servery", roomTypeLabel: "Servery" },
     },
     program: {
+      locationProgram: assigned
+        ? {
+            ...emptyLocationProgram({
+              departmentId: loc.departmentId,
+              departmentName: "Dietary",
+              spaceId: loc.spaceId,
+              name: partial.name ?? "Naval Park Servery",
+            }),
+            teams: [
+              {
+                id: "t1",
+                name: "Servery AM",
+                provenance: { source: "TEAM_ROOM_MEMBERSHIP", detail: "Works this room" },
+              },
+            ],
+          }
+        : emptyLocationProgram({
+            departmentId: loc.departmentId,
+            departmentName: "Dietary",
+            spaceId: loc.spaceId,
+            name: partial.name ?? "Naval Park Servery",
+          }),
       operationalType: {
         state: assigned ? "assigned" : "unassigned",
         key: assigned ? "SERVERY" : null,
@@ -218,7 +248,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 const supervisor = resolveSpaceWorkspaceViewer({
@@ -725,4 +755,55 @@ test("formatLocalHhMm does not collapse adjusted over configured", () => {
   assert.equal(formatLocalHhMm("07:35"), "7:35 AM");
   assert.equal(formatLocalHhMm("07:40"), "7:40 AM");
   assert.notEqual(formatLocalHhMm("07:35"), formatLocalHhMm("07:40"));
+});
+
+test("workspace answers are the Locations card sentences", () => {
+  const rls = state({
+    cycle: "breakfast",
+    cycleLabel: "Breakfast",
+    slots: [slot({ filled: 0, state: "UNCOVERED", roleLabel: "Server" })],
+    overdue: ["food-temp"],
+    evidenceItems: [
+      evidenceItem({ key: "food-temp", name: "Food Temperature", state: "OVERDUE" }),
+    ],
+    exceptions: [
+      {
+        source: "coverage",
+        state: "UNCOVERED",
+        location: location("servery-a"),
+        operationalContext: { cycleStableKey: "breakfast", operationalTypeKey: "SERVERY" },
+        label: "SERVER uncovered",
+        href: null,
+      },
+    ],
+  });
+  const view = presentSpaceWorkspace(rls, { viewer: supervisor });
+  const card = presentExceptionFirstLocationCard(rls);
+  assert.deepEqual(view.card, card);
+  assert.equal(view.card.happeningLabel, card.happeningLabel);
+  assert.equal(view.card.cycleLabel, card.cycleLabel);
+  assert.equal(view.card.responsibleLabel, card.responsibleLabel);
+  assert.equal(view.card.evidenceLabel, card.evidenceLabel);
+  assert.equal(view.card.nextLabel, card.nextLabel);
+  assert.deepEqual(view.card.wrongLabels, card.wrongLabels);
+  assert.equal(view.identity.place, card.place);
+  assert.equal("operationalTypeName" in view.identity, false);
+});
+
+test("hash deep links land on the matching section without a second reconstruction", () => {
+  assert.equal(spaceWorkspaceHashSection("#coverage"), "coverage");
+  assert.equal(spaceWorkspaceHashSection("#evidence"), "evidence");
+  assert.equal(spaceWorkspaceHashSection("#assets"), "assets");
+  assert.equal(spaceWorkspaceHashSection("#milestones"), "milestones");
+  assert.equal(spaceWorkspaceHashSection("#overview"), null);
+
+  const view = presentSpaceWorkspace(state({ cycle: null }), {
+    viewer: supervisor,
+    hash: "#assets",
+  });
+  assert.equal(view.focusSectionId, "assets");
+  assert.equal(view.sections.find((row) => row.id === "coverage")?.present, true);
+  assert.equal(view.sections.find((row) => row.id === "evidence")?.present, true);
+  assert.equal(view.sections.find((row) => row.id === "assets")?.present, true);
+  assert.equal(view.sections.find((row) => row.id === "milestones")?.present, true);
 });

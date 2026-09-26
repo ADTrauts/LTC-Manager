@@ -82,7 +82,7 @@ test("presentation titles and nesting appear in page sources", () => {
   assert.match(facilityBuilder, /FacilityBuildContextBar/);
   assert.match(facilityBuilder, /label: "Structure"/);
   assert.match(readSrc("app/(protected)/admin/permissions/page.tsx"), /Roles & Permissions/);
-  assert.match(readSrc("app/(protected)/admin/knowledge/page.tsx"), /Procedures & Resources/);
+  assert.match(readSrc("app/(protected)/admin/knowledge/page.tsx"), /Procedures/);
   assert.match(readSrc("app/(protected)/admin/organization/page.tsx"), /Organization Settings/);
   assert.match(
     readSrc("app/(protected)/admin/organization/page.tsx"),

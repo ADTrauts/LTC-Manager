@@ -17,17 +17,17 @@ type Props = {
 };
 
 const KIND_ORDER: CatalogAssignKind[] = [
-  "OPERATIONAL_TYPE",
   "SPACE",
   "ASSET",
   "UNIT",
   "DEPARTMENT",
+  "OPERATIONAL_TYPE",
 ];
 
 export function CatalogAddToTarget({ view }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<CatalogAssignKind>("OPERATIONAL_TYPE");
+  const [kind, setKind] = useState<CatalogAssignKind>("SPACE");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(() => initialSelected(view));
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -144,7 +144,9 @@ export function CatalogAddToTarget({ view }: Props) {
         </p>
       ) : null}
       <div className="rounded-md border border-zinc-200 bg-white p-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Assign to targets</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">
+          Place on rooms, assets, units, or departments
+        </h2>
         <p className="text-xs text-zinc-500">
           {view.recommendedCadenceLabel}
           {view.timingSummary ? ` · ${view.timingSummary}` : ""}

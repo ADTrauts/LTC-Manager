@@ -13,11 +13,7 @@ import {
   toServiceDateKey,
 } from "@/lib/operational-time";
 
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
-import {
-  dedupeLocationLogRequirements,
-  expandOperationalTypeSpaces,
-} from "./log-operational-type-applicability";
+import { dedupeLocationLogRequirements } from "./log-operational-type-applicability";
 import { loadPublishedCyclesForLogsOnDate } from "./load-published-cycles-for-logs";
 import { resolveLogRequirementsForAttachment } from "./resolve-log-requirements";
 import { resolveAttachmentTargetLabel } from "./target-labels";
@@ -132,10 +128,6 @@ export async function loadFacilityRunLogRequirements(input: {
     catalogInstructions: string | null;
     targetLabel: string;
   }> = [];
-  const runtimeAssignments = new Map<
-    string,
-    Awaited<ReturnType<typeof loadSpaceOperationalTypeAssignments>>
-  >();
   const spaceLabels = new Map<string, string>();
 
   function catalogForResolve(attachment: (typeof attachments)[number]) {
@@ -190,37 +182,11 @@ export async function loadFacilityRunLogRequirements(input: {
       continue;
     }
 
-    const spaceIds =
-      attachment.targetKind === "OPERATIONAL_TYPE"
-        ? await (async () => {
-            let assignments = runtimeAssignments.get(attachment.departmentId);
-            if (!assignments) {
-              assignments = await loadSpaceOperationalTypeAssignments({
-                facilityId: input.facilityId,
-                departmentId: attachment.departmentId,
-                perspective: "runtime",
-              });
-              runtimeAssignments.set(attachment.departmentId, assignments);
-            }
-            return expandOperationalTypeSpaces(assignments, attachment.operationalTypeKey);
-          })()
-        : [null];
-
     if (attachment.targetKind === "OPERATIONAL_TYPE") {
-      const missing = spaceIds.filter((id): id is string => typeof id === "string" && !spaceLabels.has(id));
-      if (missing.length > 0) {
-        const spaces = await input.client.unitSpace.findMany({
-          where: { id: { in: missing }, facilityId: input.facilityId },
-          select: { id: true, name: true, unit: { select: { name: true } } },
-        });
-        for (const space of spaces) {
-          spaceLabels.set(
-            space.id,
-            space.unit?.name ? `${space.unit.name} → ${space.name}` : space.name,
-          );
-        }
-      }
+      continue;
     }
+
+    const spaceIds = [null];
 
     for (const spaceId of spaceIds) {
       const resolved = resolveLogRequirementsForAttachment({

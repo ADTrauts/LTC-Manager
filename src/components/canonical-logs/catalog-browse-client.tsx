@@ -7,10 +7,14 @@ import type { CatalogBrowseCard, CatalogBrowseFilterGroup } from "@/lib/canonica
 import { catalogBrowseFilterGroupLabel } from "@/lib/canonical-logs/catalog-browse";
 import type { CatalogLogPurposeType } from "@prisma/client";
 
+import { CatalogInstallButton } from "./catalog-install-button";
+
 type Props = {
   cards: CatalogBrowseCard[];
   /** When set, cards marked suggested float first and show a gentle badge. */
   suggestedStableKeys?: readonly string[];
+  /** Facility-wide installs. Primary verb is Install; Place is local. */
+  installedStableKeys?: readonly string[];
   /**
    * Prefix for detail links; stableKey is appended (e.g. `/build/logs/catalog/`).
    * Must be a string — functions cannot cross the Server → Client Component boundary.
@@ -33,11 +37,18 @@ const BROWSE_GROUPS: CatalogBrowseFilterGroup[] = [
   "GENERAL_OPERATIONS",
 ];
 
-const PURPOSES: Array<CatalogLogPurposeType | "ALL"> = ["ALL", "LOG", "CHECKLIST"];
+const PURPOSES: Array<CatalogLogPurposeType | "ALL"> = [
+  "ALL",
+  "LOG",
+  "CHECKLIST",
+  "INSPECTION",
+  "PROCEDURE",
+];
 
 export function CatalogBrowseClient({
   cards,
   suggestedStableKeys = [],
+  installedStableKeys = [],
   detailHrefPrefix,
   attachHrefPrefix,
   emptyMessage = "No Catalog Logs are published yet. Apply Catalog seeds or publish definitions.",
@@ -47,6 +58,7 @@ export function CatalogBrowseClient({
   const [purpose, setPurpose] = useState<CatalogLogPurposeType | "ALL">("ALL");
   const [view, setView] = useState<"cards" | "list">("cards");
   const suggested = useMemo(() => new Set(suggestedStableKeys), [suggestedStableKeys]);
+  const installed = useMemo(() => new Set(installedStableKeys), [installedStableKeys]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -142,7 +154,15 @@ export function CatalogBrowseClient({
           >
             {PURPOSES.map((p) => (
               <option key={p} value={p}>
-                {p === "ALL" ? "All purposes" : p === "CHECKLIST" ? "Checklist" : "Log"}
+                {p === "ALL"
+                  ? "All purposes"
+                  : p === "CHECKLIST"
+                    ? "Checklist"
+                    : p === "INSPECTION"
+                      ? "Inspection"
+                      : p === "PROCEDURE"
+                        ? "Procedure"
+                        : "Log"}
               </option>
             ))}
           </select>
@@ -181,6 +201,7 @@ export function CatalogBrowseClient({
       >
         {filtered.map((card) => {
           const isSuggested = suggested.has(card.stableKey);
+          const isInstalled = installed.has(card.stableKey);
           return (
             <li
               key={card.id}
@@ -192,6 +213,7 @@ export function CatalogBrowseClient({
               data-testid="catalog-card"
               data-stable-key={card.stableKey}
               data-suggested={isSuggested ? "true" : "false"}
+              data-installed={isInstalled ? "true" : "false"}
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -215,6 +237,11 @@ export function CatalogBrowseClient({
                     Suggested for this asset
                   </p>
                 ) : null}
+                {isInstalled ? (
+                  <p className="text-xs font-medium text-zinc-800" data-testid="catalog-installed-badge">
+                    Installed on this facility
+                  </p>
+                ) : null}
                 <p className="text-[11px] text-zinc-400">
                   Version {card.version} · LTC Corp maintained
                 </p>
@@ -232,16 +259,18 @@ export function CatalogBrowseClient({
                     className="inline-flex min-h-9 items-center rounded-md border border-zinc-900 bg-zinc-900 px-2.5 text-xs font-medium text-white hover:bg-zinc-800"
                     data-testid="catalog-add-to-target"
                   >
-                    Add to this target
+                    Place on this target
                   </Link>
-                ) : (
+                ) : isInstalled ? (
                   <Link
                     href={`/build/logs/catalog/${card.stableKey}#add-to`}
                     className="inline-flex min-h-9 items-center rounded-md border border-zinc-900 bg-zinc-900 px-2.5 text-xs font-medium text-white hover:bg-zinc-800"
                     data-testid="catalog-add-to"
                   >
-                    Add to…
+                    Place…
                   </Link>
+                ) : (
+                  <CatalogInstallButton catalogStableKey={card.stableKey} />
                 )}
               </div>
             </li>

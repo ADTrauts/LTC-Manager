@@ -153,14 +153,16 @@ test("redirect routes remain and leftover OC flag is gone", () => {
   assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_TODAYS_WORK_ENABLED, false\)/);
   assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_BUSINESS_WORKSPACE_ENABLED, false\)/);
   assert.match(flags, /parseEnvFlag\(process.env.TODAYS_WORK_ENABLED, true\)/);
-  assert.match(flags, /parseEnvFlag\(process.env.OPERATION_ENGINE_ENABLED, false\)/);
+  assert.equal(flags.includes("OPERATION_ENGINE_ENABLED"), false);
+  assert.equal(flags.includes("isOperationEngineEnabled"), false);
 });
 
-test("runtime publication scan targets RLS prefetch, not leftover TW load.ts", () => {
+test("runtime publication scan targets leftover OT loaders, not RLS prefetch", () => {
   const scan = source("src/lib/operational-cycles/operational-type-publication.hermetic.test.ts");
-  assert.match(scan, /src\/lib\/runtime-location-state\/prefetch\.ts/);
   assert.doesNotMatch(scan, /todays-work\/operating-locations\/load\.ts/);
-  assert.match(source("src/lib/runtime-location-state/prefetch.ts"), /perspective:\s*"runtime"/);
+  const prefetch = source("src/lib/runtime-location-state/prefetch.ts");
+  assert.equal(prefetch.includes("loadSpaceOperationalTypeAssignments"), false);
+  assert.doesNotMatch(prefetch, /perspective:\s*"runtime"/);
 });
 
 test("presence call-offs keep parsed reasons and do not score coverage", () => {

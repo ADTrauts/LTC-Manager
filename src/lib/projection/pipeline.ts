@@ -5,12 +5,8 @@
  * homes, AI, tool rendering, or runtime engine data exists here.
  */
 
-import {
-  EXPERIENCE_REGISTRY_VERSION,
-  getExperience,
-  getOperationalArea,
-  requireOperationalArea,
-} from "@/lib/experiences";
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
+import { buildExperienceContracts } from "@/lib/experiences/contracts";
 import {
   resolveDepartmentRoomProfile,
   type ProfileSnapshot,
@@ -94,6 +90,24 @@ function hasPermission(
 ): boolean {
   if (granted.includes("*")) return true;
   return required.every((permission) => granted.includes(permission));
+}
+
+function leftoverLabel(key: string): string {
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function leftoverExperienceContracts(experienceKey: string) {
+  return buildExperienceContracts({
+    experienceKey,
+    experienceName: leftoverLabel(experienceKey),
+    tools: [],
+    domains: ["location"],
+    grain: "ROOM",
+  });
 }
 
 function locationReferenceKey(location: ProjectionSourceLocation): string {
@@ -609,52 +623,9 @@ export function resolveRegistryContracts(
 
   for (const room of rooms) {
     const areas = room.resolved.areas
-      .filter((area) => {
-        const definition = getOperationalArea(area.areaKey);
-        if (
-          definition &&
-          definition.departmentKey === room.eligible.department.key
-        ) {
-          return true;
-        }
-        diagnostics.push(
-          diagnostic(
-            "INVALID_EXPERIENCE_CONTRACT",
-            `Profile references unknown or mismatched Area ${area.areaKey}`,
-            `rooms.${room.eligible.room.context.id}`,
-          ),
-        );
-        return false;
-      })
       .map((area) => ({
         ...area,
-        experiences: area.experiences.filter((experience) => {
-          const definition = getExperience(experience.experienceKey);
-          if (!definition) {
-            diagnostics.push(
-              diagnostic(
-                "UNKNOWN_EXPERIENCE_KEY",
-                `Profile references unknown Experience ${experience.experienceKey}`,
-                `rooms.${room.eligible.room.context.id}`,
-              ),
-            );
-            return false;
-          }
-          if (
-            !definition.departments.includes(room.eligible.department.key) ||
-            definition.status !== "active"
-          ) {
-            diagnostics.push(
-              diagnostic(
-                "INVALID_EXPERIENCE_CONTRACT",
-                `Experience ${experience.experienceKey} is unavailable for ${room.eligible.department.key}`,
-                `rooms.${room.eligible.room.context.id}`,
-              ),
-            );
-            return false;
-          }
-          return true;
-        }),
+        experiences: [...area.experiences],
       }))
       .filter((area) => area.experiences.length > 0);
     resolved.push({
@@ -678,11 +649,13 @@ export function intersectProjectionPermissions(
       .map((area) => ({
         ...area,
         experiences: area.experiences.filter((resolvedExperience) => {
-          const definition = getExperience(resolvedExperience.experienceKey)!;
+          const contracts = leftoverExperienceContracts(
+            resolvedExperience.experienceKey,
+          );
           if (
             !hasPermission(
               source.request.accessClass.permissionKeys,
-              definition.contracts.permissions.readKeys,
+              contracts.permissions.readKeys,
             )
           ) {
             diagnostics.push(
@@ -696,7 +669,7 @@ export function intersectProjectionPermissions(
             return false;
           }
           allowedActionKeysByExperience[resolvedExperience.experienceKey] =
-            definition.contracts.actions
+            contracts.actions
               .filter((action) =>
                 hasPermission(
                   source.request.accessClass.permissionKeys,
@@ -744,8 +717,11 @@ export function buildProjectionExperiences(
   for (const room of rooms) {
     for (const area of room.resolved.areas) {
       for (const resolvedExperience of area.experiences) {
-        const definition = getExperience(resolvedExperience.experienceKey)!;
-        const id = `${room.eligible.department.id}:${definition.key}`;
+        const definition = leftoverExperienceContracts(
+          resolvedExperience.experienceKey,
+        );
+        const experienceKey = resolvedExperience.experienceKey;
+        const id = `${room.eligible.department.id}:${experienceKey}`;
         const locationId = room.eligible.location.id;
         const source: ProjectionExperienceProvenance =
           room.policyDefaultApplied
@@ -765,23 +741,23 @@ export function buildProjectionExperiences(
         }
         const queryScopeId = `${id}:scope`;
         const allowedActionKeys =
-          room.allowedActionKeysByExperience[definition.key] ?? [];
-        const allowedActions = definition.contracts.actions.filter((action) =>
+          room.allowedActionKeysByExperience[experienceKey] ?? [];
+        const allowedActions = definition.actions.filter((action) =>
           allowedActionKeys.includes(action.key),
         );
+        const label = leftoverLabel(experienceKey);
         const projected: ProjectionExperience = {
           id,
           reference: {
-            experienceKey: definition.key,
+            experienceKey,
             areaKey: area.areaKey,
             departmentId: room.eligible.department.id,
             departmentKey: room.eligible.department.key,
             locationIds: [],
-            relatedExperienceKeys:
-              definition.contracts.relationships.relatedExperienceKeys,
+            relatedExperienceKeys: definition.relationships.relatedExperienceKeys,
             dependencyExperienceKeys: [],
           },
-          label: definition.name,
+          label,
           order: resolvedExperience.sortOrder,
           configurationByLocation: {
             [locationId]: resolvedExperience.effectiveConfiguration,
@@ -790,29 +766,26 @@ export function buildProjectionExperiences(
             [locationId]: room.resolved.archetype,
           },
           contracts: {
-            experienceKey: definition.key,
+            experienceKey,
             source: "EXPERIENCE_REGISTRY",
             registryVersion: EXPERIENCE_REGISTRY_VERSION,
-            contracts: definition.contracts,
+            contracts: definition,
           },
           queryScopeId,
           workspace: {
-            default: definition.contracts.workspaceContribution,
-            unitWorkspace: definition.contracts.unitWorkspaceContribution,
-            businessWorkspace:
-              definition.contracts.businessWorkspaceContribution,
-            operationsCenter:
-              definition.contracts.operationsCenterContribution,
+            default: definition.workspaceContribution,
+            unitWorkspace: definition.unitWorkspaceContribution,
+            businessWorkspace: definition.businessWorkspaceContribution,
+            operationsCenter: definition.operationsCenterContribution,
           },
-          navigation: definition.contracts.navigationContribution,
+          navigation: definition.navigationContribution,
           permissions: {
-            readKeys: definition.contracts.permissions.readKeys,
-            actionPermissionKeys:
-              definition.contracts.permissions.actionPermissionKeys,
+            readKeys: definition.permissions.readKeys,
+            actionPermissionKeys: definition.permissions.actionPermissionKeys,
             allowedActionKeys,
           },
           actions: allowedActions,
-          descriptors: [makeDescriptor("EXPERIENCE", id, definition.name)],
+          descriptors: [makeDescriptor("EXPERIENCE", id, label)],
           provenance: [],
         };
         byId.set(id, {
@@ -844,8 +817,7 @@ export function buildProjectionExperiences(
     }))
     .sort(
       (a, b) =>
-        (getOperationalArea(a.reference.areaKey)?.order ?? 0) -
-          (getOperationalArea(b.reference.areaKey)?.order ?? 0) ||
+        a.reference.areaKey.localeCompare(b.reference.areaKey) ||
         a.order - b.order ||
         a.reference.experienceKey.localeCompare(b.reference.experienceKey),
     );
@@ -863,15 +835,15 @@ export function buildProjectionAreas(
   return [...grouped.entries()]
     .map(([areaKey, entries]) => {
       const first = entries[0]!;
-      const area = requireOperationalArea(areaKey);
       const id = `${first.reference.departmentId}:area:${areaKey}`;
+      const label = leftoverLabel(areaKey);
       return {
         id,
         areaKey,
         departmentId: first.reference.departmentId,
         departmentKey: first.reference.departmentKey,
-        label: area.name,
-        order: area.order,
+        label,
+        order: 100,
         experienceIds: entries
           .sort(
             (a, b) =>
@@ -881,7 +853,7 @@ export function buildProjectionAreas(
               ),
           )
           .map((experience) => experience.id),
-        descriptors: [makeDescriptor("AREA", id, area.name)],
+        descriptors: [makeDescriptor("AREA", id, label)],
       };
     })
     .sort((a, b) => a.order - b.order || a.areaKey.localeCompare(b.areaKey));
@@ -968,7 +940,7 @@ export function buildAndPruneProjectionLocations(
       (a, b) => a.localeCompare(b),
     );
     const explicitlyResponsible = responsibleSet.has(sourceLocation.id);
-    const actionable = keys.length > 0 || explicitlyResponsible;
+    const actionable = explicitlyResponsible;
     if (!actionable && children.length === 0) return null;
     const node: ProjectionLocationNode = {
       id: sourceLocation.id,

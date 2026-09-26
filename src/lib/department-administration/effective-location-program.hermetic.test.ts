@@ -5,7 +5,7 @@ import {
   emptyLocationOverlays,
   resolveEffectiveLocationProgram,
 } from "./effective-location-program";
-import { groupRoomsByOperationalType } from "./operational-type";
+import { groupRoomsByFacilityRoomType, groupRoomsByOperationalType } from "./operational-type";
 import {
   areaExperienceId,
   archetypeByKey,
@@ -339,7 +339,37 @@ describe("groupRoomsByOperationalType", () => {
     ]);
     assert.deepEqual(
       groups.map((g) => g.label),
-      ["Servery", "Retail", "No Operational Type"],
+      ["Servery", "Retail", "No role"],
+    );
+    assert.equal(groups[2]!.rooms[0]!.id, "u1");
+  });
+});
+
+describe("groupRoomsByFacilityRoomType", () => {
+  it("groups rooms by Facility type and parks untyped rooms last", () => {
+    const groups = groupRoomsByFacilityRoomType([
+      roomLocation({
+        id: "s1",
+        name: "3A Servery",
+        roomTypeKey: "servery",
+        roomTypeLabel: "Servery",
+      }),
+      roomLocation({
+        id: "r1",
+        name: "Retail",
+        roomTypeKey: "retail",
+        roomTypeLabel: "Retail",
+      }),
+      roomLocation({
+        id: "u1",
+        name: "Unmapped",
+        roomTypeKey: null,
+        roomTypeLabel: null,
+      }),
+    ]);
+    assert.deepEqual(
+      groups.map((g) => g.label),
+      ["Servery", "Retail", "No physical type"],
     );
     assert.equal(groups[2]!.rooms[0]!.id, "u1");
   });

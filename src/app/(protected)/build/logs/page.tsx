@@ -7,7 +7,9 @@ import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { getSession } from "@/lib/auth";
 import { buildPageIntro } from "@/lib/build-hub";
 import {
+  filterCatalogCardsToInstalled,
   listFacilityAttachments,
+  listInstalledCatalogStableKeys,
   listPublishedCatalogBrowseCards,
   loadCycleOptionsForDepartment,
   cycleLabelMap,
@@ -30,7 +32,8 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
   if (!hasAtLeastRole(session.role, "MANAGER")) redirect("/build");
 
   const query = await searchParams;
-  const tab = query.tab === "attachments" ? "attachments" : "catalog";
+  const tab =
+    query.tab === "attachments" ? "attachments" : query.tab === "library" ? "library" : "catalog";
   const facilityId = session.facilityId;
 
   const departments = await prisma.department.findMany({
@@ -39,7 +42,11 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
     select: { id: true, name: true },
   });
 
-  const catalogCards = await listPublishedCatalogBrowseCards(prisma);
+  const [catalogCards, installedStableKeys] = await Promise.all([
+    listPublishedCatalogBrowseCards(prisma),
+    listInstalledCatalogStableKeys(prisma, facilityId),
+  ]);
+  const libraryCards = filterCatalogCardsToInstalled(catalogCards, installedStableKeys);
 
   let attachments: Awaited<ReturnType<typeof listFacilityAttachments>> = [];
   if (tab === "attachments") {
@@ -80,6 +87,17 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
           Catalog
         </Link>
         <Link
+          href="/build/logs?tab=library"
+          className={`min-h-9 rounded-md px-3 py-2 font-medium ${
+            tab === "library" ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-800"
+          }`}
+        >
+          Library
+          {installedStableKeys.length > 0 ? (
+            <span className="ml-1 text-xs opacity-80">· {installedStableKeys.length}</span>
+          ) : null}
+        </Link>
+        <Link
           href="/build/logs?tab=attachments"
           className={`min-h-9 rounded-md px-3 py-2 font-medium ${
             tab === "attachments" ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-800"
@@ -95,17 +113,31 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
       {tab === "catalog" ? (
         <div className="space-y-2">
           <p className="text-xs text-zinc-500">
-          Browse LTC Corp Catalog Logs. Attach from an Asset, Room, Unit, or Department, or use Add to… on a Catalog item.
+            Install a log onto this facility, then place it on a room, asset, unit, or department.
           </p>
           <CatalogBrowseClient
             cards={catalogCards}
+            installedStableKeys={installedStableKeys}
             detailHrefPrefix="/build/logs/catalog/"
+          />
+        </div>
+      ) : tab === "library" ? (
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-500">
+            Logs this facility has installed. Place them on rooms, assets, units, or departments.
+          </p>
+          <CatalogBrowseClient
+            cards={libraryCards}
+            installedStableKeys={installedStableKeys}
+            detailHrefPrefix="/build/logs/catalog/"
+            emptyMessage="No logs installed yet. Install from Catalog."
           />
         </div>
       ) : (
         <div className="space-y-3" data-testid="attachments-index">
           <p className="text-xs text-zinc-500">
-            Facility-wide Attachment index for setup audit. Prefer attaching from the target.
+            Placed logs for setup audit. Install from Catalog, then place on a room, asset, unit, or
+            department.
           </p>
           {attachments.length === 0 ? (
             <p className="text-sm text-zinc-500">No Attachments yet.</p>

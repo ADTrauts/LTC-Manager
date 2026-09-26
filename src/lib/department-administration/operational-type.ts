@@ -50,6 +50,12 @@ export type OperationalTypeGroup = {
   rooms: DepartmentActionableLocation[];
 };
 
+export type FacilityRoomTypeGroup = {
+  roomTypeKey: string | null;
+  label: string;
+  rooms: DepartmentActionableLocation[];
+};
+
 /** Secondary projection — rooms only. Neighborhoods stay in the By location hierarchy. */
 export function groupRoomsByOperationalType(
   locations: readonly DepartmentActionableLocation[],
@@ -64,7 +70,33 @@ export function groupRoomsByOperationalType(
       order.push(key);
       byKey.set(key, {
         patternKey: room.patternKey,
-        label: room.patternLabel ?? "No Operational Type",
+        label: room.patternLabel ?? "No role",
+        rooms: [],
+      });
+    }
+    byKey.get(key)!.rooms.push(room);
+  }
+
+  const named = order.filter((key) => key !== "__none__");
+  const none = order.includes("__none__") ? ["__none__"] : [];
+  return [...named, ...none].map((key) => byKey.get(key)!);
+}
+
+/** Director-facing grouping — Facility room type, not department Role. */
+export function groupRoomsByFacilityRoomType(
+  locations: readonly DepartmentActionableLocation[],
+): FacilityRoomTypeGroup[] {
+  const rooms = locations.filter((l) => l.kind === "room");
+  const order: string[] = [];
+  const byKey = new Map<string, FacilityRoomTypeGroup>();
+
+  for (const room of rooms) {
+    const key = room.roomTypeKey ?? "__none__";
+    if (!byKey.has(key)) {
+      order.push(key);
+      byKey.set(key, {
+        roomTypeKey: room.roomTypeKey,
+        label: room.roomTypeLabel ?? "No physical type",
         rooms: [],
       });
     }

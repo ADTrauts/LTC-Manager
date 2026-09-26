@@ -1,6 +1,8 @@
 # Current State vs Target State
 
-**Status:** Planning document  
+> **Retired (2026-09-25):** Target rows for Operation entity, industry packs, and Experience-style expansion are historical. See [RETIRED.md](./RETIRED.md).
+
+**Status:** Planning document — historical  
 **Source of truth (current):** [docs/architecture-review/](../architecture-review/)  
 **Target vision:** [PRODUCT_CONSTITUTION.md](./PRODUCT_CONSTITUTION.md), [DOMAIN_MODEL_TARGET.md](./DOMAIN_MODEL_TARGET.md)  
 **Date:** 2026-07-07

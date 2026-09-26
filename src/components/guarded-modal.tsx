@@ -14,13 +14,23 @@ import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+export type GuardedModalSize = "sm" | "md" | "lg";
+
 type GuardedModalProps = {
   open: boolean;
   title: string;
   dirty: boolean;
   onClose: () => void;
   children: ReactNode;
+  closeLabel?: string;
+  size?: GuardedModalSize;
   "data-testid"?: string;
+};
+
+const SIZE_CLASS: Record<GuardedModalSize, string> = {
+  sm: "max-w-md",
+  md: "max-w-xl",
+  lg: "max-w-3xl",
 };
 
 /**
@@ -33,6 +43,8 @@ export function GuardedModal({
   dirty,
   onClose,
   children,
+  closeLabel = "Cancel",
+  size = "lg",
   "data-testid": dataTestId,
 }: GuardedModalProps) {
   const titleId = useId();
@@ -129,7 +141,7 @@ export function GuardedModal({
       />
       <div
         ref={panelRef}
-        className="relative flex max-h-[min(52rem,100dvh)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
+        className={`relative flex max-h-[min(52rem,100dvh)] w-full ${SIZE_CLASS[size]} flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl`}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 sm:px-5">
           <h2 id={titleId} className="min-w-0 truncate text-base font-semibold text-zinc-900 sm:text-lg">
@@ -141,7 +153,7 @@ export function GuardedModal({
             className={`min-h-10 shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 ${FOCUS_RING_CLASS}`}
             data-testid="guarded-modal-cancel"
           >
-            Cancel
+            {closeLabel}
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">{children}</div>

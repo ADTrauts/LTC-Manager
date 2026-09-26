@@ -154,8 +154,8 @@ export function OverviewPanel({
             title="Operational Cycles"
             status={settings.cycleSummary}
             description="Recurring operating rhythm."
-            href={departmentAdminHref(department.id, "cycles")}
-            actionLabel="View cycles →"
+            href={departmentAdminHref(department.id, "teams")}
+            actionLabel="Manage on Teams →"
           />
         </div>
       </section>

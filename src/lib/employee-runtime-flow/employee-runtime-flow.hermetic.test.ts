@@ -11,7 +11,12 @@ import test from "node:test";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
 import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import { emptyLocationProgram } from "@/lib/department-administration/location-program";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 
 import { composeEmployeeRuntimeFlow } from "./compose";
@@ -92,7 +97,7 @@ function state(partial: {
   exceptions?: RuntimeLocationState["exceptions"];
 }): RuntimeLocationState {
   const items = partial.evidenceItems ?? [];
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: {
         kind: "SPACE",
@@ -113,6 +118,12 @@ function state(partial: {
       physical: { roomTypeKey: null, roomTypeLabel: null },
     },
     program: {
+      locationProgram: emptyLocationProgram({
+        departmentId: "dept-1",
+        departmentName: "Dietary",
+        spaceId: partial.spaceId,
+        name: partial.name ?? partial.spaceId,
+      }),
       operationalType: {
         state: "assigned",
         key: "SERVERY",
@@ -185,7 +196,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 function work(partial: Partial<WorkRequirement> & { occurrenceKey: string; label: string; state: WorkRequirement["state"] }): WorkRequirement {

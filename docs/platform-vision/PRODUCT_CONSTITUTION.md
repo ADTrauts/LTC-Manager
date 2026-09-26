@@ -1,6 +1,8 @@
 # Product Constitution
 
-**Status:** Planning document  
+> **Retired (2026-09-25):** Operation entity, Experience catalogs, and industry packs are not current product direction. Principles below still hold. Live contract: [RETIRED.md](./RETIRED.md) and [../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md](../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md).
+
+**Status:** Planning document — historical principles  
 **Source of truth for current state:** [docs/architecture-review/](../architecture-review/)  
 **Date:** 2026-07-07
 

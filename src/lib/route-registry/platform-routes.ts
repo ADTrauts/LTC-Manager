@@ -112,7 +112,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
-    notes: "Harbor Catalog list. Platform-scoped; facilities never author these rows.",
+    notes: "Harbor Marketplace (catalog list). Platform-scoped; facilities never author these rows.",
   },
   {
     pattern: "/console/catalog/new",
@@ -674,19 +674,18 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     nav: { label: "Admin", order: 300 },
   },
   {
-    pattern: "/admin/departments",
+    pattern: "/build/departments",
     match: "EXACT",
     surface: "PAGE",
     // Phase 9A: Manager+ may reach Department Builder for Operational Cycles.
     // Cycle mutations still enforce Dietary operational authority (FA alone is denied).
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "administration",
-    // BUILD · Department Builder — the operational-programming center (capability-aware per department:
-    // Locations, Zones, Operational Cycles, Work Plans, Request/Routing behavior).
+    // BUILD · Department Builder — Overview · Locations · Teams.
     nav: { label: "Department Builder", order: 220 },
   },
   {
-    pattern: "/admin/departments/[departmentId]",
+    pattern: "/build/departments/[departmentId]",
     match: "EXACT",
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
@@ -709,10 +708,20 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
-    // LEGACY (hidden from nav): superseded by the unified Operational Template Builder. Reachable by
-    // URL for FACILITY_ADMINISTRATOR; see docs/product/LEGACY_SURFACE_REGISTER.md.
     notes:
-      "Legacy inspections configuration. Superseded by the unified Operational Template Builder (BUILD). Hidden from navigation; kept reachable and read-authoritative for FA until dependencies retire.",
+      "Redirects to BUILD Logs. Harbor publishes inspections; install then place.",
+  },
+  {
+    pattern: "/build/knowledge",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    notes:
+      "Local procedure notes. Harbor publishes procedures; install then place. Rooms can add a local note here.",
+    ...(PROCEDURES_RESOURCES_VISIBLE
+      ? { nav: { label: "Procedures", order: 260 } }
+      : {}),
   },
   {
     pattern: "/admin/knowledge",
@@ -720,13 +729,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
-    // BUILD · Procedures & Resources — parked from nav/hubs; page stays reachable by URL.
-    // Restore with PROCEDURES_RESOURCES_VISIBLE in src/lib/knowledge/surface.ts.
-    notes:
-      "Operational knowledge/procedure library. Temporarily hidden from navigation and hubs; FACILITY_ADMINISTRATOR access and the page remain.",
-    ...(PROCEDURES_RESOURCES_VISIBLE
-      ? { nav: { label: "Procedures & Resources", order: 260 } }
-      : {}),
+    notes: "Leftover URL. Redirects to /build/knowledge.",
   },
   {
     pattern: "/admin/organization",

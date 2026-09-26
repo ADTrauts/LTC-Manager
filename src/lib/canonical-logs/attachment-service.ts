@@ -22,6 +22,7 @@ import {
   validateAttachmentTarget,
   type AttachmentTargetInput,
 } from "./attachment-validate";
+import { ensureFacilityCatalogInstall } from "./facility-catalog-install";
 import {
   attachmentRangesOverlap,
   classifyAttachmentUpdate,
@@ -93,6 +94,13 @@ export async function createLogAttachment(client: Db, input: CreateLogAttachment
   if (catalog.status !== "PUBLISHED") {
     throw new Error("Attachments may only reference a published Catalog version.");
   }
+
+  await ensureFacilityCatalogInstall(client, {
+    facilityId: input.facilityId,
+    catalogDefinitionId: catalog.id,
+    catalogStableKey: catalog.stableKey,
+    catalogVersion: catalog.version,
+  });
 
   const target = await validateAttachmentTarget({
     client,

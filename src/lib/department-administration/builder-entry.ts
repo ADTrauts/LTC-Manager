@@ -5,7 +5,9 @@
  * Build → Department Builder should open that department's workspace when a selection exists.
  */
 
-export const DEPARTMENT_BUILDER_LIST_HREF = "/admin/departments";
+import { resolveDepartmentAdminTab } from "./admin-nav";
+
+export const DEPARTMENT_BUILDER_LIST_HREF = "/build/departments";
 export const DEPARTMENT_BUILDER_ALL_QUERY = "all=1";
 
 /** Facility-management list (bypass selected-department redirect). */
@@ -52,7 +54,7 @@ export function rewriteDepartmentBuilderNavHref<T extends { href: string }>(
 /** True when pathname is a Department Builder workspace (not the facility list). */
 export function isDepartmentBuilderWorkspacePath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  return /^\/admin\/departments\/[^/]+/.test(pathname);
+  return /^\/(?:admin|build)\/departments\/[^/]+/.test(pathname);
 }
 
 /**
@@ -73,9 +75,10 @@ export function departmentBuilderHrefAfterDepartmentSwitch(input: {
       : (input.currentSearch ?? ""),
   );
   params.delete("profile");
-  const tab = params.get("tab");
+  const requestedTab = params.get("tab");
+  const tab = requestedTab ? resolveDepartmentAdminTab(requestedTab) : "overview";
   const query = new URLSearchParams();
-  if (tab && tab !== "overview") query.set("tab", tab);
+  if (tab !== "overview") query.set("tab", tab);
   const qs = query.toString();
   const base = departmentBuilderWorkspaceHref(input.nextDepartmentId);
   return qs ? `${base}?${qs}` : base;

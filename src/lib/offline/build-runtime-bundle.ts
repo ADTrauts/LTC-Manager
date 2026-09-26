@@ -41,7 +41,7 @@ import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import { loadPublishedCyclesForDate, loadSpaceOperationalTypeAssignments, resolveOperationalCycle } from "@/lib/operational-cycles";
+import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
 import { roomTypeKeyForStoredSpace } from "@/lib/operational-cycles/cycle-scope";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
@@ -387,12 +387,6 @@ export async function buildRuntimeBundle(
     const roomTypeKeys = [
       ...new Set(unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
     ];
-    const assignments = await loadSpaceOperationalTypeAssignments({
-      facilityId: input.session.facilityId,
-      departmentId: dietary.id,
-      spaceIds: unit.childSpaces.map((space) => space.id),
-      perspective: "runtime",
-    });
     resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
@@ -403,9 +397,7 @@ export async function buildRuntimeBundle(
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        childOperationalTypeKeys: [
-          ...new Set([...assignments.values()].map((assignment) => assignment.key)),
-        ],
+        childOperationalTypeKeys: [],
       },
       mealTargets: includeMealMilestones
         ? runtimeMealTimes.map((m) => ({

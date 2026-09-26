@@ -1,5 +1,7 @@
 # First Product Slice: Dietary Operational Mode
 
+> **Retired (2026-09-25):** Industry packs as the path to new verticals are retired. See [RETIRED.md](./RETIRED.md).
+
 **Status:** Planning document — **no implementation authorized here**  
 **Date:** 2026-07-07  
 **Principles:** [PRODUCT_CONSTITUTION.md](./PRODUCT_CONSTITUTION.md)  

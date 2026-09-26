@@ -11,7 +11,15 @@ import test from "node:test";
 import { adaptProjectionToLocationsView } from "@/lib/locations/adapt-projection";
 import type { LocationsTreeNode, LocationsViewModel } from "@/lib/locations/types";
 import { DIETARY_GOLDEN_PROJECTION } from "@/lib/projection";
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import {
+  emptyLocationProgram,
+  type LocationProgram,
+} from "@/lib/department-administration/location-program";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
 
 import { collectActionableLandingSpaces } from "./collect-spaces";
 import {
@@ -39,6 +47,26 @@ function location(spaceId: string) {
   };
 }
 
+function fixtureProgram(spaceId: string, name: string, attached: boolean): LocationProgram {
+  const base = emptyLocationProgram({
+    departmentId: "dept-1",
+    departmentName: "Dietary",
+    spaceId,
+    name,
+  });
+  if (!attached) return base;
+  return {
+    ...base,
+    teams: [
+      {
+        id: "t1",
+        name: "Servery AM",
+        provenance: { source: "TEAM_ROOM_MEMBERSHIP", detail: "Works this room" },
+      },
+    ],
+  };
+}
+
 function state(partial: {
   spaceId: string;
   name?: string;
@@ -55,7 +83,7 @@ function state(partial: {
 }): RuntimeLocationState {
   const loc = location(partial.spaceId);
   const assigned = (partial.ot ?? "assigned") === "assigned";
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: loc,
       displayName: partial.name ?? partial.spaceId,
@@ -70,6 +98,11 @@ function state(partial: {
       physical: { roomTypeKey: "servery", roomTypeLabel: "Servery" },
     },
     program: {
+      locationProgram: fixtureProgram(
+        loc.spaceId,
+        partial.name ?? partial.spaceId,
+        assigned,
+      ),
       operationalType: {
         state: assigned ? "assigned" : "unassigned",
         key: assigned ? (partial.otKey ?? "SERVERY") : null,
@@ -145,7 +178,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 function coveredSlot(): RuntimeLocationState["coverage"]["slots"][number] {
@@ -429,10 +462,25 @@ test("untyped space is configuration state with Department Locations path", () =
     { canConfigureLocations: true },
   );
   assert.equal(row.configurationLabel, LANDING_UNTYPED_LABEL);
-  assert.equal(row.operationLabel, null);
+  assert.equal(row.operationLabel, LANDING_NO_ACTIVE_OPERATION_LABEL);
   assert.equal(row.needsAttention, false);
   assert.equal(row.configureHref, departmentLocationsConfigureHref("dept-1"));
   assert.equal(row.configureHref, "/admin/departments/dept-1?tab=locations");
+});
+
+test("Location Program without Operational Type is not a configuration gap", () => {
+  const programmed = state({
+    spaceId: "kitchen",
+    name: "Main Kitchen",
+    ot: "unassigned",
+    cycle: "breakfast",
+    cycleLabel: "Breakfast",
+  });
+  programmed.program.locationProgram = fixtureProgram("kitchen", "Main Kitchen", true);
+  const row = presentLandingSpace(programmed, { canConfigureLocations: true });
+  assert.equal(row.configurationLabel, null);
+  assert.equal(row.configureHref, null);
+  assert.equal(row.operationLabel, "Breakfast · Active");
 });
 
 test("untyped space hides configure link for non-managers", () => {
@@ -715,7 +763,9 @@ test("adapter and landing page do not query domain services or persist RLS", () 
   assert.doesNotMatch(collect, /prisma|loadRuntimeLocationStates/);
   assert.match(page, /collectActionableLandingSpaces/);
   assert.equal(page.split("loadRuntimeLocationStates").length - 1, 2);
-  assert.match(page, /buildLocationsLandingPresentation/);
+  assert.match(page, /presentExceptionFirstLocationBoard/);
+  assert.doesNotMatch(page, /buildLocationsLandingPresentation/);
+  assert.doesNotMatch(page, /LocationsHierarchyBrowser/);
   assert.doesNotMatch(page, /from \"@\/lib\/scheduling/);
   assert.doesNotMatch(browser, /Experience\{|countExperiences|ReadinessChip|needs_attention/);
   assert.match(browser, /Configure facility structure/);

@@ -19,7 +19,7 @@ test("/reports defaults to canonical Review and keeps Legacy Report secondary", 
   assert.doesNotMatch(page, /timesPerDay/);
   assert.doesNotMatch(page, /logAssignment/);
   assert.doesNotMatch(page, /OperationalReviewDayViewModel/);
-  assert.doesNotMatch(page, /loadRuntimeLocationStates/);
+  assert.match(page, /loadRuntimeLocationStates/);
   assert.doesNotMatch(page, /loadDashboardRuntime/);
 });
 

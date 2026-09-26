@@ -21,6 +21,7 @@ import {
   type TeamAuthorityDecision,
 } from "./authority";
 import type { DepartmentTeamView, TeamCatalog, TeamEmployeeOption, TeamRoomView } from "./types";
+import { loadTeamCyclesForDepartment } from "./team-cycles";
 import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
 import { validateTeamOperationalTypeKeys } from "./team-operational-type-applicability";
 import {
@@ -240,6 +241,7 @@ function mapTeamView(
     activeMemberCount,
     rooms,
     applicableOperationalTypeKeys: [...(row.applicableOperationalTypeKeys ?? [])],
+    cycles: [],
   };
 }
 
@@ -305,7 +307,14 @@ export async function loadTeamsForDepartment(
     client,
     rows.map((row) => row.id),
   );
-  return rows.map((row) => mapTeamView(row, allowed, memberCounts.get(row.id) ?? 0));
+  const cyclesByTeam = await loadTeamCyclesForDepartment(client, {
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  });
+  return rows.map((row) => {
+    const view = mapTeamView(row, allowed, memberCounts.get(row.id) ?? 0);
+    return { ...view, cycles: cyclesByTeam.get(row.id) ?? [] };
+  });
 }
 
 export async function loadTeamById(
@@ -324,7 +333,12 @@ export async function loadTeamById(
     }),
     loadActiveMemberCounts(client, [row.id]),
   ]);
-  return mapTeamView(row, allowed, memberCounts.get(row.id) ?? 0);
+  const view = mapTeamView(row, allowed, memberCounts.get(row.id) ?? 0);
+  const cyclesByTeam = await loadTeamCyclesForDepartment(client, {
+    facilityId: row.facilityId,
+    departmentId: row.departmentId,
+  });
+  return { ...view, cycles: cyclesByTeam.get(row.id) ?? [] };
 }
 
 export async function loadTeamCatalog(input: {

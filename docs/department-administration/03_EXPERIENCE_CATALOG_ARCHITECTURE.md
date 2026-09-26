@@ -1,5 +1,7 @@
 # 03 — Experience Catalog Architecture
 
+> **Retired (2026-09-25).** Do not implement from this document. Experiences are not a director catalog and not how the platform expands. See [../platform-vision/RETIRED.md](../platform-vision/RETIRED.md) and [13_LOCATION_PROGRAMMING_REALIGNMENT.md](13_LOCATION_PROGRAMMING_REALIGNMENT.md).
+
 ## What an Experience is
 
 > An **Experience** is a stable, user-recognizable operational product area that a department can turn on, place, and work inside.

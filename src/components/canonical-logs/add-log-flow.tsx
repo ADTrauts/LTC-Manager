@@ -30,6 +30,7 @@ type Props = {
   effectiveFromKey: string;
   effectiveLabel: string;
   cancelHref: string;
+  returnTo?: string | null;
 };
 
 type Step = "choose" | "confirm" | "customize";
@@ -118,6 +119,7 @@ export function AddLogFlowClient(props: Props) {
         localDisplayLabel: localLabel.trim() || null,
         localInstructions: localInstructions.trim() || null,
         effectiveFromKey: props.effectiveFromKey,
+        returnTo: props.returnTo,
       });
       if (!result.ok) {
         setError(result.error);
@@ -167,6 +169,15 @@ export function AddLogFlowClient(props: Props) {
               className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
             />
           </label>
+          {props.catalogCards.length === 0 ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              No logs installed yet.{" "}
+              <Link href="/build/logs" className="font-medium underline underline-offset-2">
+                Install from Build → Logs
+              </Link>
+              , then place one here.
+            </p>
+          ) : null}
           <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white">
             {filtered.map((card) => (
               <li key={card.id} className="flex items-start justify-between gap-3 px-3 py-3">

@@ -1,5 +1,7 @@
 # 06 — Platform Expansion Model
 
+> **Retired (2026-09-25).** Expansion is not “compose Experiences from a catalog.” It is a licensed department plus Harbor items placed on rooms. See [../platform-vision/RETIRED.md](../platform-vision/RETIRED.md).
+
 ## The claim to prove
 
 > A new department plugs into the platform by composing existing Operational Areas and Experiences from the catalog. It never requires a change to Facility Builder, Projection, or the platform itself.

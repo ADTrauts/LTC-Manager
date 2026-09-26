@@ -153,6 +153,28 @@ test("SPACE Servery/offline chrome remains; Neighborhood does not reimplement it
   assert.equal(neighborhood.includes("OfflineServeryControls"), false);
 });
 
+test("Experience shell does not host or decide the location workspace", () => {
+  for (const [name, src] of [
+    ["page", page],
+    ["neighborhood", neighborhood],
+    ["space", space],
+    ["employee", employee],
+    ["view", view],
+  ] as const) {
+    assert.equal(src.includes("ExperienceShell"), false, name);
+    assert.equal(src.includes("resolveExperienceShellModel"), false, name);
+    assert.equal(src.includes("isExperienceShellEnabled"), false, name);
+  }
+  const spaceAdapter = source("src/lib/unit-workspace/space/from-runtime-state.ts");
+  const neighborhoodAdapter = source("src/lib/unit-workspace/neighborhood/from-runtime-state.ts");
+  const spaceView = source("src/components/unit-workspace/space-workspace-view.tsx");
+  assert.equal(spaceAdapter.includes("experience-shell"), false);
+  assert.equal(neighborhoodAdapter.includes("experience-shell"), false);
+  assert.equal(spaceView.includes("operationalTypeName"), false);
+  assert.match(spaceAdapter, /presentExceptionFirstLocationCard/);
+  assert.match(neighborhoodAdapter, /presentExceptionFirstLocationCard/);
+});
+
 test("leftover Unit Workspace flags are gone; live location flags stay unchanged", () => {
   assert.equal(flags.includes("isProjectionUnitWorkspaceEnabled"), false);
   assert.equal(flags.includes("PROJECTION_UNIT_WORKSPACE_ENABLED"), false);

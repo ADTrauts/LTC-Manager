@@ -78,6 +78,12 @@ export type PresentedLocationRow = {
   exceptionCount: number;
   exceptionSummary: string;
   availabilityNotes: string[];
+  paceLabel?: string | null;
+  happeningLabel?: string | null;
+  plannedLabel?: string | null;
+  assignedLabel?: string | null;
+  actualLabel?: string | null;
+  evidenceLabel?: string | null;
 };
 
 export type PresentedAssetRow = {

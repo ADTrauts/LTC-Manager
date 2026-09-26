@@ -7,6 +7,7 @@ import {
   parseFacilityLocalScheduledStart,
   toServiceDateKey,
 } from "@/lib/operational-time";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { prisma } from "@/lib/prisma";
 
 import { resolveCycleAuthority } from "./cycle-authority";
@@ -21,7 +22,6 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeGroupSummary,
 } from "./key-time-day-expectation";
-import { loadSpaceOperationalTypeAssignments } from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -211,13 +211,6 @@ export async function loadSupervisorCycleOverview(input: {
     orderBy: { name: "asc" },
   });
 
-  const spaceOperationalTypes = await loadSpaceOperationalTypeAssignments({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    spaceIds: units.flatMap((unit) => unit.childSpaces.map((space) => space.id)),
-    perspective: "runtime",
-  });
-
   const includeMealMilestones = departmentKey === "DIETARY";
   const childUnits = includeMealMilestones
     ? await prisma.unit.findMany({
@@ -301,13 +294,7 @@ export async function loadSupervisorCycleOverview(input: {
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        childOperationalTypeKeys: [
-          ...new Set(
-            unit.childSpaces
-              .map((space) => spaceOperationalTypes.get(space.id)?.key)
-              .filter((key): key is string => Boolean(key)),
-          ),
-        ],
+        childOperationalTypeKeys: [],
       },
       mealTargets,
     });
@@ -454,7 +441,7 @@ export async function loadSupervisorCycleOverview(input: {
       exceptionRank: EXCEPTION_RANK[exceptionKey] ?? 100,
       workspaceHref: `/unit/${unit.id}`,
       assignmentBoardHref: `/staffing/assignments?departmentId=${input.departmentId}`,
-      builderHref: `/admin/departments/${input.departmentId}?tab=cycles`,
+      builderHref: departmentAdminHref(input.departmentId, "teams"),
     });
   }
   }

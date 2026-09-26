@@ -11,17 +11,19 @@ import {
 import type { ExistingLogEvidenceForResolve, LogAttachmentForResolve } from "@/lib/canonical-logs/resolve-log-requirements";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { loadPublishedRunModel } from "@/lib/operational-cycles/load-run-operation-presentation";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import type { PublishedCycleForLogs } from "@/lib/canonical-logs/resolve-log-requirements";
 import { prisma } from "@/lib/prisma";
 import type { CoverageAssignmentActual, CoverageTemplateVersionRow } from "@/lib/scheduling/coverage-expectations";
 import { isCanonicalLogsEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import {
+  facilityLocalDateToServiceDate,
   getFacilityServiceDate,
   loadFacilityTimezone,
   toServiceDateKey,
 } from "@/lib/operational-time";
 import { localHhMmFromInstant } from "@/lib/operational-cycles/key-time-day-expectation";
+
+import { loadLocationProgramsForRuntimeSpaces } from "@/lib/department-administration/load-location-program";
 
 import type { RuntimeLocationComposeInput, RuntimePublishedRunModel } from "./compose";
 import { resolveEvidenceRequirementsForSpaces } from "./evidence";
@@ -101,9 +103,10 @@ export async function prefetchRuntimeLocationInputs(
   const spaceIds = uniqueIds(spaceRefs.map((row) => row.spaceId));
   const departmentIds = uniqueIds(spaceRefs.map((row) => row.departmentId));
   const timezone = await loadFacilityTimezone(prisma, input.facilityId);
-  const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
+  const operationalDateKey =
+    input.operationalDateKey ?? toServiceDateKey(getFacilityServiceDate(timezone, now));
   const nowLocalHhMm = localHhMmFromInstant(now, timezone);
-  const serviceDate = getFacilityServiceDate(timezone, now);
+  const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
   const oaEnabled = input.operationalAssignmentsEnabled ?? isOperationalAssignmentsEnabled();
   const logsEnabled = input.canonicalLogsEnabled ?? isCanonicalLogsEnabled();
 
@@ -128,6 +131,7 @@ export async function prefetchRuntimeLocationInputs(
       assetsBySpaceId: new Map(),
       issuesBySpaceId: new Map(),
       serveryEventsByUnitId: new Map(),
+      programsBySpaceId: new Map(),
       stats,
     };
   }
@@ -145,7 +149,8 @@ export async function prefetchRuntimeLocationInputs(
         name: true,
         unitId: true,
         customTypeLabel: true,
-        facilityRoomType: { select: { baseTypeKey: true, displayName: true } },
+        facilityRoomTypeId: true,
+        facilityRoomType: { select: { id: true, baseTypeKey: true, displayName: true } },
         unit: {
           select: {
             id: true,
@@ -195,6 +200,7 @@ export async function prefetchRuntimeLocationInputs(
       neighborhoodName,
       roomTypeKey: space.facilityRoomType?.baseTypeKey ?? null,
       roomTypeLabel: space.facilityRoomType?.displayName ?? space.customTypeLabel ?? null,
+      facilityRoomTypeId: space.facilityRoomTypeId ?? space.facilityRoomType?.id ?? null,
     };
   });
 
@@ -216,31 +222,8 @@ export async function prefetchRuntimeLocationInputs(
     string,
     { key: string; name: string; id: string | null } | null
   >();
-  const otByDepartment = await Promise.all(
-    departmentIds.map(async (departmentId) => {
-      const scopedIds = spaceRows
-        .filter((space) => space.departmentId === departmentId)
-        .map((space) => space.spaceId);
-      const assignments = await loadSpaceOperationalTypeAssignments({
-        facilityId: input.facilityId,
-        departmentId,
-        spaceIds: scopedIds,
-        perspective: "runtime",
-      });
-      return { departmentId, assignments };
-    }),
-  );
   for (const space of spaceRows) {
     operationalTypesBySpaceId.set(space.spaceId, null);
-  }
-  for (const { assignments } of otByDepartment) {
-    for (const [spaceId, assignment] of assignments) {
-      operationalTypesBySpaceId.set(spaceId, {
-        key: assignment.key,
-        name: assignment.name,
-        id: null,
-      });
-    }
   }
 
   const runModelsByDepartmentId = new Map<string, RuntimePublishedRunModel>();
@@ -585,8 +568,8 @@ export async function prefetchRuntimeLocationInputs(
         spaceId: space.spaceId,
         departmentId: space.departmentId,
         unitId: space.unitId,
-        operationalTypeKey: operationalTypesBySpaceId.get(space.spaceId)?.key ?? null,
-        operationalTypeName: operationalTypesBySpaceId.get(space.spaceId)?.name ?? null,
+        operationalTypeKey: null,
+        operationalTypeName: null,
         facilityId: input.facilityId,
       })),
       operationalDateKey,
@@ -599,6 +582,20 @@ export async function prefetchRuntimeLocationInputs(
       evidenceBySpaceId.set(spaceId, requirements);
     }
   }
+
+  const programsBySpaceId = await loadLocationProgramsForRuntimeSpaces({
+    facilityId: input.facilityId,
+    spaces: spaceRows.map((space) => ({
+      spaceId: space.spaceId,
+      name: space.name,
+      departmentId: space.departmentId,
+      departmentLabel: space.departmentLabel,
+      neighborhoodName: space.neighborhoodName,
+      floorName: space.floorName,
+      facilityTypeLabel: space.roomTypeLabel,
+      facilityRoomTypeId: space.facilityRoomTypeId,
+    })),
+  });
 
   return {
     facilityId: input.facilityId,
@@ -620,6 +617,7 @@ export async function prefetchRuntimeLocationInputs(
     assetsBySpaceId,
     issuesBySpaceId,
     serveryEventsByUnitId,
+    programsBySpaceId,
     stats,
   };
 }

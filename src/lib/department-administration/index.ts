@@ -1,9 +1,9 @@
 /**
- * Department Administration — public barrel (Wave 14B).
+ * Department Administration — public barrel.
  *
- * Operational Profiles bind the Wave 14A Experience Registry to a facility
- * department. Nothing consumes profiles at runtime in this wave; Projection
- * will consume ACTIVE profiles in a later wave.
+ * Current programming: Location Program on Overview · Locations · Teams.
+ * Experience-catalog profiles / Areas / Archetypes are retired compatibility.
+ * Do not import this barrel from client components that would pull server code.
  */
 
 export type {
@@ -41,6 +41,9 @@ export {
 
 export {
   BASELINE_DEPARTMENT_KEYS,
+  EXPERIENCE_CATALOG_BASELINE_RETIRED,
+  EXPERIENCE_CATALOG_BASELINE_RETIRED_MESSAGE,
+  assertExperienceCatalogBaselinesNotWritable,
   isBaselineDepartmentKey,
   materializeBaselineProfilePlan,
   type BaselineAreaPlan,
@@ -90,17 +93,23 @@ export {
 
 export {
   DEPARTMENT_ADMIN_TABS,
+  DEPARTMENT_ADMIN_DEFERRED_TABS,
   DEPARTMENT_ADMIN_LEGACY_TABS,
+  DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT,
   DEPARTMENT_ADMIN_ALL_TAB_IDS,
   DEPARTMENT_PROFILE_TAB_IDS,
   departmentAdminHref,
   departmentAdminTabsForFlags,
   isDepartmentAdminTabId,
   isDepartmentAdminPrimaryTabId,
+  isDepartmentAdminDeferredTabId,
+  isDepartmentAdminRetiredTabId,
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
+  type DepartmentAdminDeferredTabId,
   type DepartmentAdminLegacyTabId,
   type DepartmentAdminPrimaryTabId,
+  type DepartmentAdminRetiredTabId,
   type DepartmentAdminTabId,
 } from "./admin-nav";
 
@@ -116,12 +125,30 @@ export {
 } from "./builder-entry";
 
 export {
+  groupRoomsByFacilityRoomType,
   groupRoomsByOperationalType,
   locationConfigurationLabel,
   operationalTypeKeyFromName,
   uniqueOperationalTypeKey,
+  type FacilityRoomTypeGroup,
   type OperationalTypeGroup,
 } from "./operational-type";
+
+export {
+  composeLocationProgram,
+  emptyLocationProgram,
+  formatNeedSummary,
+  locationProgramIsAttached,
+  type ComposeLocationProgramInput,
+  type LocationProgram,
+  type LocationProgramAsset,
+  type LocationProgramCycle,
+  type LocationProgramCycleTeam,
+  type LocationProgramLog,
+  type LocationProgramNeedGrain,
+  type LocationProgramProvenance,
+  type LocationProgramTeam,
+} from "./location-program";
 
 export {
   emptyLocationOverlays,
@@ -136,8 +163,8 @@ export {
   type ResolveEffectiveLocationProgramInput,
 } from "./effective-location-program";
 
-// load-effective-location-program is server-only (Prisma + coverage). Import it
-// from `@/lib/department-administration/load-effective-location-program`.
+// load-effective-location-program and load-location-program are server-only.
+// Import them from their files, not this barrel.
 
 export {
   buildRoomTypeExperienceGroups,

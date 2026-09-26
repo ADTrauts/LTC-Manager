@@ -189,9 +189,13 @@ describe("Team product contracts", () => {
     );
     assert.match(workspace, /Teams are optional/);
     assert.match(workspace, /Employee Builder/);
-    assert.match(workspace, /Applies to Operational Types/);
-    assert.match(workspace, /Specific Locations/);
+    assert.match(workspace, /Rooms this team works/);
+    assert.match(workspace, /Filter by Room Type/);
     assert.match(workspace, /not today’s assignment/);
+    assert.match(workspace, /department-teams-split/);
+    assert.match(workspace, /team-detail-panel/);
+    assert.match(workspace, /TeamCyclesPanel/);
+    assert.doesNotMatch(workspace, /Applies to Operational Types/);
     assert.doesNotMatch(workspace, /Physical Room Type as/);
     assert.equal(/servery|kitchen|retail|culinary|dietary/i.test(workspace), false);
     assert.equal(/TeamType|CULINARY_TEAM/.test(workspace), false);

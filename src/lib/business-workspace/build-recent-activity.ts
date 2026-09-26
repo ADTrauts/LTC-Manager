@@ -80,7 +80,7 @@ export function buildRecentActivity(
       id: `know-${row.id}`,
       title: row.title,
       meta: `${prefix}${row.category} · published · ${formatFacilityLocalStamp(row.at, facilityTimezone)}`,
-      href: "/admin/knowledge",
+      href: "/build/knowledge",
       kind: "knowledge",
       at: row.at,
     });

@@ -660,7 +660,7 @@ describe("canonical coverage states", () => {
 });
 
 describe("coverage source contracts", () => {
-  it("keeps Locations as an inspector and Coverage as the editor", () => {
+  it("keeps Locations as an inspector and team × cycle as the need editor", () => {
     const client = readFileSync(
       join(
         process.cwd(),
@@ -668,11 +668,8 @@ describe("coverage source contracts", () => {
       ),
       "utf8",
     );
-    const workspace = readFileSync(
-      join(
-        process.cwd(),
-        "src/app/(protected)/admin/departments/[departmentId]/coverage-workspace.tsx",
-      ),
+    const page = readFileSync(
+      join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/page.tsx"),
       "utf8",
     );
     const summary = readFileSync(
@@ -682,12 +679,10 @@ describe("coverage source contracts", () => {
       ),
       "utf8",
     );
-    assert.match(client, /Manage Coverage/);
-    assert.match(client, /Staffing \/ Coverage Expectations/);
+    assert.match(client, /Staffing need/);
+    assert.doesNotMatch(client, /Manage Coverage/);
     assert.doesNotMatch(client, /Mary assigned/);
-    assert.match(workspace, /Draft edits do not change/);
-    assert.match(workspace, /Operational Types/);
-    assert.match(workspace, /Operational Cycles/);
+    assert.match(page, /requestedTab === "coverage" \|\| requestedTab === "cycles"/);
     assert.match(summary, /Never falls back to/);
     assert.match(summary, /engine: "canonical-oa"/);
     assert.doesNotMatch(summary, /from ["']@\/lib\/scheduling\/schedule/);

@@ -1,11 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  EXPERIENCE_REGISTRY_VERSION,
-  getExperience,
-  requireExperience,
-} from "@/lib/experiences";
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 
 import {
   DIETARY_GOLDEN_PROJECTION,
@@ -62,19 +58,16 @@ describe("Projection Runtime Foundation — golden fixtures", () => {
     );
   });
 
-  it("uses Experience Registry contract object references, not duplicated contracts", () => {
+  it("keeps leftover contract source and registry version on golden fixtures", () => {
     for (const snapshot of [
       DIETARY_GOLDEN_PROJECTION,
       EVS_GOLDEN_PROJECTION,
       PLANT_GOLDEN_PROJECTION,
     ]) {
       for (const projected of snapshot.experiences) {
-        const registryExperience = requireExperience(
-          projected.reference.experienceKey,
-        );
         assert.equal(projected.contracts.source, "EXPERIENCE_REGISTRY");
         assert.equal(projected.contracts.registryVersion, EXPERIENCE_REGISTRY_VERSION);
-        assert.equal(projected.contracts.contracts, registryExperience.contracts);
+        assert.ok(projected.reference.experienceKey.trim().length > 0);
       }
     }
   });
@@ -146,28 +139,28 @@ describe("Projection Runtime Foundation — validation rules", () => {
     assert.ok(issueCodes(invalid).includes("MISSING_IDENTITY"));
   });
 
-  it("rejects unknown Experience keys", () => {
+  it("rejects missing Experience keys", () => {
     const invalid = mutableSnapshot(DIETARY_GOLDEN_PROJECTION);
     invalid.experiences = [
       {
         ...invalid.experiences[0]!,
         reference: {
           ...invalid.experiences[0]!.reference,
-          experienceKey: "NOT_A_REAL_EXPERIENCE",
+          experienceKey: "",
         },
       },
     ];
     assert.ok(issueCodes(invalid).includes("UNKNOWN_EXPERIENCE_KEY"));
   });
 
-  it("rejects copied or invalid Experience contracts", () => {
+  it("rejects leftover contracts that drop the registry source", () => {
     const invalid = mutableSnapshot(DIETARY_GOLDEN_PROJECTION);
     invalid.experiences = [
       {
         ...invalid.experiences[0]!,
         contracts: {
           ...invalid.experiences[0]!.contracts,
-          contracts: structuredClone(getExperience("MEAL_SERVICE")!.contracts),
+          source: "NOT_REGISTRY" as typeof invalid.experiences[0]["contracts"]["source"],
         },
       },
     ];

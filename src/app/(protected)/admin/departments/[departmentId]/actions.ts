@@ -7,8 +7,6 @@ import type { AppRole } from "@/lib/access";
 import {
   activateProfile,
   addRoomExperienceException,
-  bindRoomsToArchetype,
-  bindRoomToArchetype,
   certifyProfile,
   clearRoomArchetypeBinding,
   createBaselineDraft,
@@ -98,7 +96,7 @@ export async function createBaselineDraftAction(formData: FormData): Promise<Act
     revalidateDepartmentAdmin(departmentId);
     return {
       ok: true,
-      message: `Draft version ${result.version} created from baseline.`,
+      message: `Draft version ${result.version} created.`,
       profileId: result.profileId,
     };
   } catch (error) {
@@ -297,53 +295,13 @@ export async function ensurePatternDraftAction(formData: FormData): Promise<Acti
   }
 }
 
+const ROLE_BINDING_RETIRED =
+  "Role bindings are retired. Program the room from Teams (membership + cycle need).";
+
 export async function bindRoomsToOperationalTypeAction(
-  formData: FormData,
+  _formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const archetypeKey = z
-      .string()
-      .min(1)
-      .max(64)
-      .parse(String(formData.get("archetypeKey") ?? formData.get("archetypeId") ?? "").trim());
-    const rawIds = String(formData.get("unitSpaceIds") ?? "");
-    const unitSpaceIds = rawIds
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
-    z.array(z.string().cuid()).min(1).parse(unitSpaceIds);
-    await assertDepartmentInFacility(departmentId, session.facilityId);
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    const loaded = await loadProfile(draft.profileId);
-    const archetype =
-      loaded.archetypes.find((row) => row.key === archetypeKey) ??
-      loaded.archetypes.find((row) => row.id === archetypeKey);
-    if (!archetype) {
-      throw new Error("That operational type was not found on the draft.");
-    }
-    const result = await bindRoomsToArchetype(actor, {
-      profileId: draft.profileId,
-      archetypeId: archetype.id,
-      unitSpaceIds,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: `Applied operational type to ${result.bound} location${result.bound === 1 ? "" : "s"}.`,
-      profileId: draft.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not assign operational type.",
-    };
-  }
+  return { ok: false, message: ROLE_BINDING_RETIRED };
 }
 
 export async function clearRoomOperationalTypeAction(formData: FormData): Promise<ActionResult> {
@@ -573,23 +531,8 @@ export async function setArchetypeExperiencesAction(formData: FormData): Promise
   }
 }
 
-export async function bindRoomAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const archetypeId = z.string().cuid().parse(formData.get("archetypeId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
-    await bindRoomToArchetype(actorFromSession(session), {
-      profileId,
-      archetypeId,
-      unitSpaceId,
-    });
-    revalidateDepartmentAdmin(profile.departmentId);
-    return { ok: true, message: "Room mapped." };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Mapping failed." };
-  }
+export async function bindRoomAction(_formData: FormData): Promise<ActionResult> {
+  return { ok: false, message: ROLE_BINDING_RETIRED };
 }
 
 export async function clearRoomBindingAction(formData: FormData): Promise<ActionResult> {
@@ -682,39 +625,9 @@ export async function ensureLocationOperationalTypesAction(
 }
 
 export async function assignLocationOperationalTypeAction(
-  formData: FormData,
+  _formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    const archetypeKey = z.string().min(1).max(64).parse(formData.get("archetypeKey"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    const archetype = await prisma.departmentRoomArchetype.findFirst({
-      where: { profileId: draft.profileId, key: archetypeKey, isActive: true },
-      select: { id: true },
-    });
-    if (!archetype) {
-      throw new Error("Operational Type is not available on the working draft.");
-    }
-    await bindRoomToArchetype(actor, {
-      profileId: draft.profileId,
-      archetypeId: archetype.id,
-      unitSpaceId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return { ok: true, message: "Operational Type assigned.", profileId: draft.profileId };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not assign Operational Type.",
-    };
-  }
+  return { ok: false, message: ROLE_BINDING_RETIRED };
 }
 
 export async function clearLocationOperationalTypeAction(
@@ -745,34 +658,7 @@ export async function clearLocationOperationalTypeAction(
 }
 
 export async function createLocationOperationalTypeAction(
-  formData: FormData,
+  _formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const name = z.string().min(1).max(120).parse(formData.get("name"));
-    const description = z.string().max(500).optional().parse(formData.get("description") || undefined);
-    await assertDepartmentInFacility(departmentId, session.facilityId);
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    await createRoomArchetype(actor, {
-      profileId: draft.profileId,
-      name,
-      description: description ?? null,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "Operational Type created.",
-      profileId: draft.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not create Operational Type.",
-    };
-  }
+  return { ok: false, message: ROLE_BINDING_RETIRED };
 }

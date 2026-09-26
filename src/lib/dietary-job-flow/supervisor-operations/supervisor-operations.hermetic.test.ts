@@ -7,7 +7,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import { emptyLocationProgram } from "@/lib/department-administration/location-program";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
 
 import {
   SUPERVISOR_ASSIGNMENT_UNAVAILABLE,
@@ -53,7 +58,7 @@ function state(partial: {
   issues?: RuntimeLocationState["assets"]["issuesAffectingOperation"];
 }): RuntimeLocationState {
   const items = partial.evidenceItems ?? [];
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: {
         kind: "SPACE",
@@ -74,6 +79,12 @@ function state(partial: {
       physical: { roomTypeKey: null, roomTypeLabel: null },
     },
     program: {
+      locationProgram: emptyLocationProgram({
+        departmentId: "dept-1",
+        departmentName: "Dietary",
+        spaceId: partial.spaceId,
+        name: partial.name ?? partial.spaceId,
+      }),
       operationalType: {
         state: "assigned",
         key: "SERVERY",
@@ -141,7 +152,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 function facts(partial: Partial<SupervisorOperationsFacts> = {}): SupervisorOperationsFacts {

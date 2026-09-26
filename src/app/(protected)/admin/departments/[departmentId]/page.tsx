@@ -1,30 +1,24 @@
 import { notFound, redirect } from "next/navigation";
 
-import { AreasPanel } from "@/app/(protected)/admin/departments/[departmentId]/areas-panel";
-import { ArchetypesPanel } from "@/app/(protected)/admin/departments/[departmentId]/archetypes-panel";
-import { CyclesPanel } from "@/app/(protected)/admin/departments/[departmentId]/cycles-panel";
-import { DiagnosticsPanel } from "@/app/(protected)/admin/departments/[departmentId]/diagnostics-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
 import { LocationsPanel } from "@/app/(protected)/admin/departments/[departmentId]/locations-panel";
 import {
   OverviewPanel,
   type OverviewDepartmentSettings,
 } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
-import { CoveragePanel } from "@/app/(protected)/admin/departments/[departmentId]/coverage-panel";
 import { TeamsPanel } from "@/app/(protected)/admin/departments/[departmentId]/teams-panel";
-import { RoomsPanel } from "@/app/(protected)/admin/departments/[departmentId]/rooms-panel";
-import { SettingsPanel } from "@/app/(protected)/admin/departments/[departmentId]/settings-panel";
-import { VersionsPanel } from "@/app/(protected)/admin/departments/[departmentId]/versions-panel";
 import { DepartmentBuildContextBar } from "@/components/build/DepartmentBuildContextBar";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
 import {
-  checkPatternAuthoringAccess,
+  DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT,
+  departmentAdminHref,
   departmentAdminTabsForFlags,
+  isDepartmentAdminRetiredTabId,
   resolveDepartmentAdminTab,
-  type DepartmentAdminTabId,
 } from "@/lib/department-administration";
 import { loadDepartmentAdminView } from "@/lib/department-administration/load-department-admin";
-import { loadDepartmentLocationPrograms } from "@/lib/department-administration/load-effective-location-program";
+import { loadDepartmentLocationRoomInspects } from "@/lib/department-administration/load-location-room-inspect";
+import { resolveTeamAuthority } from "@/lib/department-teams";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { getSession } from "@/lib/auth";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
@@ -58,22 +52,25 @@ export default async function DepartmentBuilderPage({
   const { departmentId } = await params;
   const query = await searchParams;
 
-  // Primary tabs: Overview | Locations | Teams | Coverage | Operational Cycles.
+  // Primary tabs: Overview | Locations | Teams. Coverage / Cycles author on Teams.
   const availableTabs = departmentAdminTabsForFlags({
     profilesEnabled,
     locationsEnabled: true,
   });
-  const availableTabIds = availableTabs.map((tab) => tab.id);
+  const primaryTabIds = availableTabs.map((tab) => tab.id);
 
   const requestedTab = query.tab;
-  const legacyAllowed: DepartmentAdminTabId[] = profilesEnabled
-    ? ["areas", "archetypes", "rooms", "diagnostics", "versions", "settings"]
-    : [];
-  // Room Types is never a primary tab; always redirect into Locations.
+  if (requestedTab && isDepartmentAdminRetiredTabId(requestedTab)) {
+    const dest = DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[requestedTab];
+    const href = departmentAdminHref(departmentId, dest);
+    const team = query.team?.trim();
+    redirect(
+      team && dest === "teams" ? `${href}&team=${encodeURIComponent(team)}` : href,
+    );
+  }
   const tab = resolveDepartmentAdminTab(requestedTab, {
-    availableTabIds: [...availableTabIds, ...legacyAllowed],
+    availableTabIds: primaryTabIds,
     fallback: "overview",
-    redirectLegacy: requestedTab === "room-types" || !profilesEnabled,
   });
 
   const view = await loadDepartmentAdminView({
@@ -110,20 +107,13 @@ export default async function DepartmentBuilderPage({
     }),
   };
 
-  const primaryActive =
-    availableTabIds.includes(tab as (typeof availableTabIds)[number])
-      ? (tab as (typeof availableTabIds)[number])
-      : tab === "rooms" || tab === "areas" || tab === "archetypes" || tab === "room-types"
-        ? "locations"
-        : "overview";
-
   const contentMaxWidth =
     tab === "overview"
       ? "max-w-4xl"
-      : tab === "locations" || tab === "teams" || tab === "coverage"
-        ? "max-w-5xl"
-        : tab === "cycles"
-          ? "max-w-6xl"
+      : tab === "teams"
+        ? "max-w-6xl"
+        : tab === "locations"
+          ? "max-w-5xl"
           : "max-w-5xl";
 
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
@@ -137,25 +127,18 @@ export default async function DepartmentBuilderPage({
         })
       : null;
 
-  const canAuthorPatterns =
-    checkPatternAuthoringAccess({
-      role: session.role,
-      authMethod: session.authMethod ?? "PASSWORD",
-      sessionFacilityId: session.facilityId,
-      targetFacilityId: view.facilityId,
-    }) === null;
-
-  const locationPrograms =
+  const locationInspects =
     tab === "locations"
-      ? await loadDepartmentLocationPrograms({
+      ? await loadDepartmentLocationRoomInspects({
           facilityId: view.facilityId,
           department: view.department,
           locations: view.locations,
-          profile: view.workingProfile,
-          bindings: view.roomBindings,
-          exceptions: view.roomExceptions,
         })
       : {};
+  const locationAuthority =
+    tab === "locations"
+      ? await resolveTeamAuthority(session, session.facilityId, view.department.id)
+      : null;
 
   return (
     <div className="space-y-3" data-testid="department-builder">
@@ -164,13 +147,13 @@ export default async function DepartmentBuilderPage({
         departmentName={view.department.name}
         locationCount={view.locationCoverage.total}
         profileId={profileId}
-        activeTab={primaryActive}
+        activeTab={tab}
         context={contextSummary}
       />
 
       <DepartmentAdminLocalNav
         departmentId={view.department.id}
-        activeTab={primaryActive}
+        activeTab={tab}
         profileId={profileId}
         tabs={availableTabs}
       />
@@ -199,8 +182,8 @@ export default async function DepartmentBuilderPage({
         {tab === "locations" ? (
           <LocationsPanel
             view={view}
-            canAuthorPatterns={canAuthorPatterns}
-            programs={locationPrograms}
+            inspects={locationInspects}
+            canManage={Boolean(locationAuthority?.canManage)}
           />
         ) : null}
         {tab === "teams" ? (
@@ -209,34 +192,10 @@ export default async function DepartmentBuilderPage({
             facilityId={session.facilityId}
             departmentId={view.department.id}
             departmentName={view.department.name}
+            departmentKey={view.department.key}
             selectedTeamId={query.team?.trim() || null}
           />
         ) : null}
-        {tab === "coverage" ? (
-          <CoveragePanel
-            session={session}
-            facilityId={session.facilityId}
-            departmentId={view.department.id}
-            departmentName={view.department.name}
-            departmentKey={view.department.key}
-            selectedExpectationId={query.expectation?.trim() || null}
-          />
-        ) : null}
-        {tab === "areas" ? <AreasPanel view={view} /> : null}
-        {tab === "archetypes" ? <ArchetypesPanel view={view} /> : null}
-        {tab === "rooms" ? <RoomsPanel view={view} /> : null}
-        {tab === "diagnostics" ? <DiagnosticsPanel view={view} /> : null}
-        {tab === "versions" ? <VersionsPanel view={view} /> : null}
-        {tab === "cycles" ? (
-          <CyclesPanel
-            session={session}
-            facilityId={session.facilityId}
-            departmentId={view.department.id}
-            departmentName={view.department.name}
-            departmentKey={view.department.key}
-          />
-        ) : null}
-        {tab === "settings" ? <SettingsPanel view={view} /> : null}
       </div>
     </div>
   );

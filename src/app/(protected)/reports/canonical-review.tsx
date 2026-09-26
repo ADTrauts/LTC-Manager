@@ -157,15 +157,15 @@ export function CanonicalReview({
 
           <ReviewCard
             title="Locations"
-            subtitle="Operational spaces for this service day."
+            subtitle="What happened in each space on this service date."
             testId="review-locations"
           >
             {presentation.locations.length === 0 ? (
               <ReviewMuted>No operational spaces matched this filter.</ReviewMuted>
             ) : (
               <ReviewTable
-                caption="Operational spaces for this service day"
-                columns={["Location", "Neighborhood", "Exceptions"]}
+                caption="What happened for this service day"
+                columns={["Location", "Happened", "Planned vs actual", "Issues"]}
               >
                 {presentation.locations.map((location) => (
                   <ReviewTableRow key={location.spaceId}>
@@ -183,10 +183,23 @@ export function CanonicalReview({
                         </span>
                       ) : null}
                     </ReviewCell>
-                    <ReviewCell>{location.parentUnitLabel ?? "—"}</ReviewCell>
+                    <ReviewCell>
+                      {location.happeningLabel ?? location.paceLabel ?? "—"}
+                      {location.paceLabel && location.happeningLabel !== location.paceLabel ? (
+                        <span className="mt-0.5 block text-xs text-zinc-500">{location.paceLabel}</span>
+                      ) : null}
+                    </ReviewCell>
+                    <ReviewCell>
+                      {location.plannedLabel || location.actualLabel
+                        ? [location.plannedLabel, location.actualLabel].filter(Boolean).join(" → ")
+                        : (location.parentUnitLabel ?? "—")}
+                      {location.assignedLabel ? (
+                        <span className="mt-0.5 block text-xs text-zinc-500">{location.assignedLabel}</span>
+                      ) : null}
+                    </ReviewCell>
                     <ReviewCell>
                       <ReviewStatus kind={location.exceptionCount > 0 ? "alert" : "ok"}>
-                        {location.exceptionSummary}
+                        {location.evidenceLabel ?? location.exceptionSummary}
                       </ReviewStatus>
                     </ReviewCell>
                   </ReviewTableRow>

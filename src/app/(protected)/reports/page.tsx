@@ -1,3 +1,8 @@
+/**
+ * Run Review. Day Locations replay Runtime Location State answers (step 22).
+ * Historical evidence / coverage / service tables stay the day record. See
+ * docs/department-administration/14_RUN_SURFACE_REFERENCE_FREEZE.md
+ */
 import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,7 +16,10 @@ import {
   presentOperationalReviewDay,
   presentOperationalReviewRange,
 } from "@/lib/operational-review";
+import { presentReviewLocationsFromRuntime } from "@/lib/operational-review/present-review-locations-from-runtime";
+import { parseFacilityLocalScheduledStart } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
+import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 
 import { CanonicalRangeReview } from "./canonical-range-review";
 import { CanonicalReview } from "./canonical-review";
@@ -104,10 +112,43 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     spaceId,
     todayKey: facts.todayKey,
   });
+  const departmentId = facts.departmentId ?? facts.departmentIds[0] ?? "";
+  const reviewNow =
+    facts.serviceDate === facts.todayKey
+      ? facts.now
+      : (parseFacilityLocalScheduledStart(
+          "12:00",
+          new Date(`${facts.serviceDate}T12:00:00.000Z`),
+          facts.timezone,
+        ) ?? facts.now);
+  const runtime =
+    facts.spaces.length > 0
+      ? await loadRuntimeLocationStates({
+          facilityId,
+          spaceRefs: facts.spaces.map((space) => ({
+            spaceId: space.spaceId,
+            departmentId,
+            unitId: space.parentUnitId,
+            displayName: space.displayLabel,
+          })),
+          now: reviewNow,
+          operationalDateKey: facts.serviceDate,
+        })
+      : { states: [] };
+
+  const replayStates = spaceId
+    ? runtime.states.filter((state) => state.identity.location.spaceId === spaceId)
+    : runtime.states;
 
   return (
     <CanonicalReview
-      presentation={presentation}
+      presentation={{
+        ...presentation,
+        locations:
+          replayStates.length > 0
+            ? presentReviewLocationsFromRuntime(replayStates)
+            : presentation.locations,
+      }}
       spaceId={spaceId}
       todayKey={facts.todayKey}
     />

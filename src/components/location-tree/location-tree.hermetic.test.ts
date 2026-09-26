@@ -18,7 +18,7 @@ test("location tree kind icons map Floor / Neighborhood / Room", () => {
   assert.notEqual(locationTreeKindIcon("floor"), locationTreeKindIcon("neighborhood"));
 });
 
-test("Department Locations uses shared tree grammar, not prose list", () => {
+test("Department Locations lists rooms with place as secondary text", () => {
   const panel = readFileSync(
     join(
       process.cwd(),
@@ -29,10 +29,10 @@ test("Department Locations uses shared tree grammar, not prose list", () => {
   assert.match(panel, /LocationsProgrammingClient/);
   assert.doesNotMatch(panel, /Rooms on this/);
   assert.match(panel, /Manage responsibility/);
-  assert.match(panel, /Operational Type/);
+  assert.match(panel, /Physical places \{view\.department\.name\} is responsible for/);
 });
 
-test("DepartmentLocationTree keeps Facility-style hierarchy and does not edit structure", () => {
+test("DepartmentLocationTree lists rooms without editable floor or neighborhood rows", () => {
   const tree = readFileSync(
     join(process.cwd(), "src/components/location-tree/DepartmentLocationTree.tsx"),
     "utf8",
@@ -41,13 +41,13 @@ test("DepartmentLocationTree keeps Facility-style hierarchy and does not edit st
     join(process.cwd(), "src/components/location-tree/LocationTreeRow.tsx"),
     "utf8",
   );
-  assert.match(tree, /role="tree"/);
-  assert.match(tree, /LocationTreeRow/);
-  assert.match(tree, /department-location-floor/);
-  assert.match(tree, /department-location-neighborhood/);
   assert.match(tree, /department-location-room/);
-  assert.match(tree, /Physical Type/);
-  assert.match(tree, /Operational Type/);
+  assert.match(tree, /parentNeighborhoodName/);
+  assert.match(tree, /floorName/);
+  assert.match(tree, /No physical type/);
+  assert.doesNotMatch(tree, /department-location-floor/);
+  assert.doesNotMatch(tree, /department-location-neighborhood/);
+  assert.doesNotMatch(tree, /role="tree"/);
   assert.doesNotMatch(tree, /GripVertical|Bulk import|Add Floor/);
   assert.match(row, /Collapse \$\{label\}/);
   assert.match(row, /Expand \$\{label\}/);

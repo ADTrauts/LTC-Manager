@@ -7,6 +7,7 @@ import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { StatusBadge } from "@/components/design-system";
 import { OperationalTemplateBuilderPanel } from "@/components/operational-evidence/template-builder-panel";
 import { hasAtLeastRole } from "@/lib/access";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { buildPageIntro } from "@/lib/build-hub";
@@ -171,10 +172,10 @@ export default async function OperationalTemplateBuilderPage() {
               Operations Board
             </Link>
             <Link
-              href={`/admin/departments/${department.id}?tab=cycles`}
+              href={departmentAdminHref(department.id, "teams")}
               className="underline-offset-2 hover:underline"
             >
-              Cycles
+              Teams
             </Link>
           </div>
         }

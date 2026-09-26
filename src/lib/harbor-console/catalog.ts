@@ -10,6 +10,7 @@ import {
   catalogCategoryLabel,
   catalogPurposeLabel,
 } from "@/lib/canonical-logs/catalog-browse";
+import { listFacilityCatalogInstallCounts } from "@/lib/canonical-logs/facility-catalog-install";
 import { catalogCadenceLabel } from "@/lib/canonical-logs/timing-display";
 import {
   catalogLineStatusLabel,
@@ -58,6 +59,7 @@ export type HarborCatalogLine = {
   purposeLabel: string;
   statusLabel: string;
   latestVersion: number;
+  installCount: number;
 };
 
 export type HarborCatalogField = {
@@ -147,17 +149,20 @@ function toVersion(
 }
 
 export async function listHarborCatalogLines(client: Db): Promise<HarborCatalogLine[]> {
-  const rows = await client.catalogLogDefinition.findMany({
-    select: {
-      stableKey: true,
-      version: true,
-      status: true,
-      name: true,
-      category: true,
-      purposeType: true,
-    },
-    orderBy: [{ name: "asc" }, { version: "desc" }],
-  });
+  const [rows, installCounts] = await Promise.all([
+    client.catalogLogDefinition.findMany({
+      select: {
+        stableKey: true,
+        version: true,
+        status: true,
+        name: true,
+        category: true,
+        purposeType: true,
+      },
+      orderBy: [{ name: "asc" }, { version: "desc" }],
+    }),
+    listFacilityCatalogInstallCounts(client),
+  ]);
 
   const byKey = new Map<string, typeof rows>();
   for (const row of rows) {
@@ -176,6 +181,7 @@ export async function listHarborCatalogLines(client: Db): Promise<HarborCatalogL
         purposeLabel: catalogPurposeLabel(headline.purposeType),
         statusLabel: catalogLineStatusLabel(versions),
         latestVersion: Math.max(...versions.map((row) => row.version)),
+        installCount: installCounts.get(stableKey) ?? 0,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

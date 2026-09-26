@@ -56,11 +56,14 @@ describe("certification — structural validity", () => {
     assert.ok(result.errors.some((e) => e.code === "experience_multiple_areas"));
   });
 
-  it("unknown Experience keys are rejected", () => {
+  it("leftover Experience keys are not a catalog membership error", () => {
     const profile = buildBaselineSnapshot("DIETARY");
     profile.areas[0]!.experiences[0]!.experienceKey = "NOT_A_REAL_EXPERIENCE";
     const result = certify({ profile });
-    assert.ok(result.errors.some((e) => e.code === "unknown_experience"));
+    assert.equal(
+      result.errors.some((e) => e.code === "unknown_experience"),
+      false,
+    );
   });
 
   it("duplicate archetype keys are rejected", () => {

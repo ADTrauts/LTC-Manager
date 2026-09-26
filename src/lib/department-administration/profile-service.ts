@@ -16,10 +16,7 @@ import type { AuthMethod } from "@/lib/auth";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
-import {
-  isBaselineDepartmentKey,
-  materializeBaselineProfilePlan,
-} from "./baseline";
+import { assertExperienceCatalogBaselinesNotWritable } from "./baseline";
 import {
   validateProfileForCertification,
   type CertificationResult,
@@ -208,92 +205,9 @@ export async function createBaselineDraft(
   actor: ProfileActor,
   input: { facilityId: string; departmentId: string },
 ): Promise<{ profileId: string; version: number }> {
-  assertPatternWrite(actor, input.facilityId);
-
-  const department = await prisma.department.findUniqueOrThrow({
-    where: { id: input.departmentId },
-    select: { id: true, key: true, facilityId: true, isActive: true },
-  });
-  if (department.facilityId !== input.facilityId) {
-    throw new Error("Department does not belong to the facility.");
-  }
-
-  const plan = materializeBaselineProfilePlan(department.key);
-
-  const existing = await prisma.departmentOperationalProfile.findMany({
-    where: { departmentId: department.id },
-    select: { version: true },
-  });
-  const version = nextProfileVersion(existing.map((p) => p.version));
-
-  // One transaction: profile + areas + experiences + archetypes + selections.
-  const profileId = await prisma.$transaction(async (tx) => {
-    const profile = await tx.departmentOperationalProfile.create({
-      data: {
-        facilityId: input.facilityId,
-        departmentId: department.id,
-        name: plan.name,
-        version,
-        status: "DRAFT",
-        baselineKey: plan.baselineKey,
-        createdByUserId: actor.userId,
-      },
-    });
-
-    const areaExperienceIdByKey = new Map<string, string>();
-    for (const areaPlan of plan.areas) {
-      const area = await tx.departmentOperationalArea.create({
-        data: {
-          profileId: profile.id,
-          key: areaPlan.key,
-          name: areaPlan.name,
-          description: areaPlan.description,
-          sortOrder: areaPlan.sortOrder,
-        },
-      });
-      let sortOrder = 10;
-      for (const experienceKey of areaPlan.experienceKeys) {
-        const areaExperience = await tx.departmentAreaExperience.create({
-          data: {
-            areaId: area.id,
-            experienceKey,
-            sortOrder,
-          },
-        });
-        areaExperienceIdByKey.set(experienceKey, areaExperience.id);
-        sortOrder += 10;
-      }
-    }
-
-    for (const archetypePlan of plan.archetypes) {
-      const archetype = await tx.departmentRoomArchetype.create({
-        data: {
-          profileId: profile.id,
-          key: archetypePlan.key,
-          name: archetypePlan.name,
-          description: archetypePlan.description,
-          sortOrder: archetypePlan.sortOrder,
-        },
-      });
-      let sortOrder = 10;
-      for (const experienceKey of archetypePlan.experienceKeys) {
-        const areaExperienceId = areaExperienceIdByKey.get(experienceKey);
-        if (!areaExperienceId) {
-          throw new Error(
-            `Baseline archetype ${archetypePlan.key} references missing Experience ${experienceKey}`,
-          );
-        }
-        await tx.departmentArchetypeExperience.create({
-          data: { archetypeId: archetype.id, areaExperienceId, sortOrder },
-        });
-        sortOrder += 10;
-      }
-    }
-
-    return profile.id;
-  });
-
-  return { profileId, version };
+  void actor;
+  void input;
+  assertExperienceCatalogBaselinesNotWritable();
 }
 
 // ---------------------------------------------------------------------------
@@ -726,13 +640,11 @@ export async function ensureWorkingDraftForPatterns(
       select: { key: true, name: true },
     });
     if (!department) throw new Error("Department not found.");
-    const created = isBaselineDepartmentKey(department.key)
-      ? await createBaselineDraft(actor, input)
-      : await createEmptyPatternDraft(actor, {
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          departmentName: department.name,
-        });
+    const created = await createEmptyPatternDraft(actor, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      departmentName: department.name,
+    });
     return { ...created, created: true };
   }
 

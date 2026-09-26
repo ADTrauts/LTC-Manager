@@ -1,6 +1,8 @@
 # Implementation Program — Index
 
-**Status:** Active — guides all production development  
+> **Superseded as current direction (2026-09-25):** Operation Model, Experience catalogs, and industry packs in the July stack below are retired. Live contract: [../platform-vision/RETIRED.md](../platform-vision/RETIRED.md) and [../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md](../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md). Do not implement Wave 12 “Industry Configuration” from this program.
+
+**Status:** Historical execution package — July 2026  
 **Date:** 2026-07-07  
 **Planning phase:** CLOSED  
 **Application code:** Not modified by this program

@@ -74,9 +74,9 @@ export function buildQuickActions(options?: {
       ? [
           {
             id: "knowledge",
-            title: "Knowledge",
-            description: "SOPs and published reference",
-            href: "/admin/knowledge",
+            title: "Procedures",
+            description: "Local notes beside Harbor procedures",
+            href: "/build/knowledge",
             icon: "administration",
           } satisfies WorkspaceQuickAction,
         ]

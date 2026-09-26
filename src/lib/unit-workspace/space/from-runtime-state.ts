@@ -7,6 +7,8 @@
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { hasAtLeastRole } from "@/lib/access";
+import { locationProgramIsAttached } from "@/lib/department-administration/location-program";
+import { presentExceptionFirstLocationCard } from "@/lib/locations/exception-first";
 import type { CanonicalCoverageState } from "@/lib/scheduling/coverage-expectations";
 import type {
   RuntimeAdjustment,
@@ -28,6 +30,7 @@ import type { AssetOperationalStatus } from "@/lib/asset-operations/types";
 import {
   SPACE_NO_ACTIVE_OPERATION_LABEL,
   SPACE_UNTYPED_LABEL,
+  SPACE_WORKSPACE_HASH_SECTIONS,
   type SpaceWorkspaceAssetIssueView,
   type SpaceWorkspaceAssetView,
   type SpaceWorkspaceBreadcrumb,
@@ -35,6 +38,7 @@ import {
   type SpaceWorkspaceCoverageSlotView,
   type SpaceWorkspaceEvidenceGroupView,
   type SpaceWorkspaceEvidenceItemView,
+  type SpaceWorkspaceHashSectionId,
   type SpaceWorkspaceMilestoneView,
   type SpaceWorkspaceSectionId,
   type SpaceWorkspaceViewer,
@@ -67,7 +71,7 @@ const IMPACT_LABEL: Record<AssetOperationalImpact, string> = {
 };
 
 export function departmentLocationsConfigureHref(departmentId: string): string {
-  return `/admin/departments/${departmentId}?tab=locations`;
+  return `/build/departments/${departmentId}?tab=locations`;
 }
 
 export function resolveSpaceWorkspaceViewer(
@@ -416,15 +420,23 @@ function sectionOrder(viewer: SpaceWorkspaceViewer): SpaceWorkspaceSectionId[] {
   return ["overview", "coverage", "evidence", "assets", "milestones", "today"];
 }
 
+export function spaceWorkspaceHashSection(
+  hash: string | null | undefined,
+): SpaceWorkspaceHashSectionId | null {
+  const id = hash?.replace(/^#/, "").trim();
+  return SPACE_WORKSPACE_HASH_SECTIONS.find((section) => section === id) ?? null;
+}
+
 function resolveFocusSection(input: {
   unitTab?: string | null;
   evidenceKey?: string | null;
   reportAsset?: string | null;
+  hash?: string | null;
 }): SpaceWorkspaceSectionId | null {
   if (input.evidenceKey) return "evidence";
   if (input.reportAsset) return "assets";
   if (input.unitTab?.trim().toLowerCase() === "logs") return "evidence";
-  return null;
+  return spaceWorkspaceHashSection(input.hash);
 }
 
 export function presentSpaceWorkspace(
@@ -434,14 +446,16 @@ export function presentSpaceWorkspace(
     evidenceFocusKey?: string | null;
     unitTab?: string | null;
     reportAsset?: string | null;
+    hash?: string | null;
   },
 ): SpaceWorkspaceViewModel {
   const viewer = options.viewer;
-  const untyped = state.program.operationalType.state === "unassigned";
+  const untyped = !locationProgramIsAttached(state.program.locationProgram);
   const spaceId = state.identity.location.spaceId;
   const unitId = state.identity.location.unitId ?? "";
   const departmentId = state.identity.location.departmentId;
   const focusRequirementKey = options.evidenceFocusKey?.trim() || null;
+  const card = presentExceptionFirstLocationCard(state);
   const coverage = presentCoverage(state.coverage, viewer);
   const todayItems = presentChanges(state.changes, state.asOf.timezone);
   const evidenceGroups = presentEvidence(state.evidence, viewer, focusRequirementKey);
@@ -454,14 +468,12 @@ export function presentSpaceWorkspace(
     viewer.kind === "employee" ? null : `/staffing/logs/targets/space/${spaceId}`;
   const retiredLogsTab = options.unitTab?.trim().toLowerCase() === "logs";
   const order = sectionOrder(viewer);
-  const showCoverageSection =
-    coverage.unavailable || coverage.showSlotDetail || coverage.noExpectation;
   const presentById: Record<SpaceWorkspaceSectionId, boolean> = {
     overview: true,
-    coverage: showCoverageSection,
+    coverage: true,
     evidence: true,
-    assets: state.assets.assets.length > 0 || state.assets.openIssues.length > 0,
-    milestones: milestones.length > 0,
+    assets: true,
+    milestones: true,
     today: todayItems.length > 0,
   };
 
@@ -469,9 +481,10 @@ export function presentSpaceWorkspace(
     identity: {
       displayName: state.identity.displayName,
       breadcrumbs: breadcrumbs(state.identity),
-      operationalTypeName: untyped ? null : state.program.operationalType.name,
+      place: card.place,
       untyped,
     },
+    card,
     operation: untyped
       ? {
           state: "NONE",
@@ -535,6 +548,7 @@ export function presentSpaceWorkspace(
       unitTab: options.unitTab,
       evidenceKey: focusRequirementKey,
       reportAsset: options.reportAsset,
+      hash: options.hash,
     }),
   };
 }

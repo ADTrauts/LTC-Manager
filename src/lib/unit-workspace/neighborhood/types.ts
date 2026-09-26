@@ -3,6 +3,7 @@
  * Not a Runtime Location State. Not an Operational Type.
  */
 
+import type { ExceptionFirstLocationCardView } from "@/lib/locations/exception-first";
 import type { LocationLandingRowState } from "@/lib/locations/landing";
 import type { AssetOperationalImpact } from "@prisma/client";
 import type { AssetOperationalStatus } from "@/lib/asset-operations/types";
@@ -34,6 +35,7 @@ export type NeighborhoodSpaceRowView = {
   name: string;
   href: string;
   landing: LocationLandingRowState;
+  card: ExceptionFirstLocationCardView;
 };
 
 export type NeighborhoodExceptionView = {
@@ -117,6 +119,7 @@ export type NeighborhoodWorkspaceViewModel = {
   };
   spaceCount: number;
   attentionCount: number;
+  atRiskCount: number;
   overdueEvidenceCount: number;
   operation: {
     kind: "shared" | "mixed" | "none";

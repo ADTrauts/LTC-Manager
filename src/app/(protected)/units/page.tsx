@@ -1,21 +1,22 @@
+/**
+ * Run Locations — exception-first cards from Runtime Location State answers.
+ * Do not copy the frozen hierarchy / OT / dump. See
+ * docs/department-administration/14_RUN_SURFACE_REFERENCE_FREEZE.md
+ */
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { LocationsHierarchyBrowser } from "@/components/locations-hierarchy-browser";
+import { ExceptionFirstLocationsBoard } from "@/components/exception-first-locations-board";
 import { UnitsManager } from "@/components/units-manager";
 import { getSession } from "@/lib/auth";
 import { hasAtLeastRole } from "@/lib/access";
-import {
-  resolveFacilityVocabulary,
-} from "@/lib/facility-builder/facility-vocabulary";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import {
-  buildLocationsLandingPresentation,
   collectActionableLandingSpaces,
   loadLocationsView,
   loadUnitsPageData,
+  presentExceptionFirstLocationBoard,
 } from "@/lib/locations";
-import { prisma } from "@/lib/prisma";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 
 function lensSummaryLabel(view: {
@@ -72,20 +73,7 @@ export default async function UnitsPage() {
     );
   }
 
-  const [loaded, facility] = await Promise.all([
-    loadLocationsView(session),
-    prisma.facility.findUnique({
-      where: { id: session.facilityId },
-      select: {
-        vocabularyProfile: true,
-        vocabularyLevel1Label: true,
-        vocabularyLevel2Label: true,
-        vocabularyLevel3Label: true,
-      },
-    }),
-  ]);
-
-  const vocabulary = resolveFacilityVocabulary(facility);
+  const loaded = await loadLocationsView(session);
   const collected =
     loaded.view && !loaded.error
       ? collectActionableLandingSpaces(loaded.view)
@@ -97,10 +85,8 @@ export default async function UnitsPage() {
           spaceRefs: collected.refs,
         })
       : { states: [] };
-  const landing = buildLocationsLandingPresentation({
-    ancestry: collected.ancestry,
+  const board = presentExceptionFirstLocationBoard({
     states: runtime.states,
-    canConfigureLocations: canConfigureFacility,
   });
 
   const view = loaded.view ?? {
@@ -124,13 +110,16 @@ export default async function UnitsPage() {
   };
 
   return (
-    <LocationsHierarchyBrowser
-      view={view}
-      vocabulary={vocabulary}
+    <ExceptionFirstLocationsBoard
+      board={board}
       projectionError={loaded.error}
       canConfigureFacility={canConfigureFacility}
       lensSummary={lensSummaryLabel(view)}
-      landingByNodeId={landing.byNodeId}
+      departmentLabel={
+        view.departmentSnapshots.length === 1
+          ? view.departmentSnapshots[0]!.label
+          : null
+      }
     />
   );
 }

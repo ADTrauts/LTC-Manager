@@ -2,12 +2,16 @@
  * Runtime Location State — derived operational interpretation for one SPACE.
  *
  * Projection answers: which places may this viewer see?
- * This object answers: what is happening at this operational location?
+ * This object answers: what is happening, who is responsible, which cycle
+ * is open, ready / on time / at risk, what evidence is due, what is wrong,
+ * what is next. See `answers`.
  *
  * Not persisted. Not authorization. Not a Builder dump. Not a health score.
  */
 
+import type { LocationProgram } from "@/lib/department-administration/location-program";
 import type { CanonicalCoverageState, CoveragePlanLifecycle } from "@/lib/scheduling/coverage-expectations";
+import type { RuntimeLocationAnswers } from "./answers";
 import type { LogRequirementProductState } from "@/lib/logs-architecture/types";
 import type { RunModelProvenance } from "@/lib/operational-cycles/present-run-operation";
 import type { KeyTimeStatusKey } from "@/lib/operational-cycles/key-time-day-expectation";
@@ -50,6 +54,8 @@ export type RuntimeLocationIdentity = {
 };
 
 export type RuntimeEffectiveProgramRef = {
+  /** Composed Location Program. Operational Type below is a legacy sidecar for cycle engines. */
+  locationProgram: LocationProgram;
   operationalType: {
     state: "assigned" | "unassigned";
     key: string | null;
@@ -268,6 +274,7 @@ export type RuntimeLocationState = {
   changes: RuntimeAdjustment[];
   exceptions: RuntimeException[];
   next: RuntimeNextEvent | null;
+  answers: RuntimeLocationAnswers;
   asOf: RuntimeLocationAsOf;
 };
 
@@ -285,6 +292,8 @@ export type LoadRuntimeLocationStatesInput = {
   facilityId: string;
   spaceRefs: readonly RuntimeLocationSpaceRef[];
   now?: Date;
+  /** Pin the service date (Review replay). Defaults to the facility-local day of `now`. */
+  operationalDateKey?: string;
   /** Injected for tests. Defaults to isOperationalAssignmentsEnabled(). */
   operationalAssignmentsEnabled?: boolean;
   /** Injected for tests. Defaults to isCanonicalLogsEnabled(). */

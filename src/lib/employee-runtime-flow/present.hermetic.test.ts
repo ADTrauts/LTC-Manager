@@ -18,7 +18,12 @@ import {
 import { EMPLOYEE_ASSIGNMENT_UNAVAILABLE_LABEL } from "./types";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
 import type { WorkRequirement } from "@/lib/department-work/types";
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import { emptyLocationProgram } from "@/lib/department-administration/location-program";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 
 const NEXT_AT = new Date("2026-08-17T15:30:00.000Z");
@@ -82,7 +87,7 @@ function state(partial: {
   milestones?: RuntimeLocationState["milestones"]["items"];
 }): RuntimeLocationState {
   const items = partial.evidenceItems ?? [];
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: {
         kind: "SPACE",
@@ -103,6 +108,12 @@ function state(partial: {
       physical: { roomTypeKey: null, roomTypeLabel: null },
     },
     program: {
+      locationProgram: emptyLocationProgram({
+        departmentId: "dept-1",
+        departmentName: "Dietary",
+        spaceId: partial.spaceId,
+        name: partial.name ?? partial.spaceId,
+      }),
       operationalType: {
         state: "assigned",
         key: "SERVERY",
@@ -165,7 +176,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 function work(

@@ -31,13 +31,13 @@ test("workspace department id is parsed from the Builder route only", () => {
   assert.equal(departmentIdFromBuilderWorkspacePath("/employees"), null);
 });
 
-test("Dietary → EVS on Operational Cycles preserves tab and rewrites the route", () => {
+test("Dietary → EVS on a retired Cycles tab lands on Teams", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: evsId,
     currentPathname: `/admin/departments/${dietaryId}`,
     currentSearch: "?tab=cycles",
   });
-  assert.equal(href, `/admin/departments/${evsId}?tab=cycles`);
+  assert.equal(href, `/build/departments/${evsId}?tab=teams`);
 });
 
 test("EVS → Dietary on Locations preserves tab", () => {
@@ -46,7 +46,7 @@ test("EVS → Dietary on Locations preserves tab", () => {
     currentPathname: `/admin/departments/${evsId}`,
     currentSearch: "?tab=locations",
   });
-  assert.equal(href, `/admin/departments/${dietaryId}?tab=locations`);
+  assert.equal(href, `/build/departments/${dietaryId}?tab=locations`);
 });
 
 test("specific department → All departments uses the facility list with all=1", () => {
@@ -64,7 +64,7 @@ test("All departments list → specific department opens that workspace", () => 
     currentPathname: "/admin/departments",
     currentSearch: "?all=1",
   });
-  assert.equal(href, `/admin/departments/${dietaryId}`);
+  assert.equal(href, `/build/departments/${dietaryId}`);
 });
 
 test("facility-wide builders do not rewrite the route (refresh-only)", () => {

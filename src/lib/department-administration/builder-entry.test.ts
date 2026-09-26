@@ -16,7 +16,7 @@ describe("Department Builder entry routing", () => {
   it("resolves selected department to its workspace Overview", () => {
     assert.equal(
       resolveDepartmentBuilderEntryHref("cldept123"),
-      "/admin/departments/cldept123",
+      "/build/departments/cldept123",
     );
     assert.equal(resolveDepartmentBuilderEntryHref(null), DEPARTMENT_BUILDER_LIST_HREF);
     assert.equal(resolveDepartmentBuilderEntryHref(""), DEPARTMENT_BUILDER_LIST_HREF);
@@ -25,12 +25,12 @@ describe("Department Builder entry routing", () => {
   it("rewrites only the Department Builder list href in nav/hub items", () => {
     const items = [
       { label: "Build Home", href: "/build" },
-      { label: "Department Builder", href: "/admin/departments" },
+      { label: "Department Builder", href: "/build/departments" },
       { label: "Facility Builder", href: "/admin/facility/builder" },
     ];
     const rewritten = rewriteDepartmentBuilderNavHref(items, "cldept999");
     assert.equal(rewritten[0]!.href, "/build");
-    assert.equal(rewritten[1]!.href, "/admin/departments/cldept999");
+    assert.equal(rewritten[1]!.href, "/build/departments/cldept999");
     assert.equal(rewritten[2]!.href, "/admin/facility/builder");
     assert.deepEqual(
       rewriteDepartmentBuilderNavHref(items, null).map((i) => i.href),
@@ -72,7 +72,7 @@ describe("Department Builder entry routing", () => {
         currentPathname: "/admin/departments/cldiet",
         currentSearch: "?tab=locations&profile=old",
       }),
-      "/admin/departments/clevs?tab=locations",
+      "/build/departments/clevs?tab=locations",
     );
     assert.equal(
       departmentBuilderHrefAfterDepartmentSwitch({
@@ -87,11 +87,11 @@ describe("Department Builder entry routing", () => {
         currentPathname: "/admin/departments/cldiet",
         currentSearch: "?tab=cycles",
       }),
-      "/admin/departments/clevs?tab=cycles",
+      "/build/departments/clevs?tab=teams",
     );
     assert.equal(
       departmentBuilderWorkspaceHref("abc"),
-      "/admin/departments/abc",
+      "/build/departments/abc",
     );
   });
 });

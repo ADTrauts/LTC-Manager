@@ -1,13 +1,19 @@
 /**
- * System Department Baseline adapter.
+ * Compatibility read of the retired Experience-catalog department baseline.
  *
- * Materializes a DRAFT profile plan from the Wave 14A registries
- * (Experience catalog + Operational Area catalog). The registries remain the
- * single canonical definition — nothing here duplicates them; this adapter
- * reads them and emits a per-facility draft plan for persistence.
- *
- * Baseline creation never assigns physical rooms and never activates.
+ * `materializeBaselineProfilePlan` still describes the old Area / Experience /
+ * Archetype plan for tests and leftover profile rows. Do not persist a new
+ * draft from this plan. Department programming is Overview · Locations · Teams.
  */
+
+export const EXPERIENCE_CATALOG_BASELINE_RETIRED = true;
+
+export const EXPERIENCE_CATALOG_BASELINE_RETIRED_MESSAGE =
+  "Experience-catalog baselines are retired. Program the department on Overview, Locations, and Teams.";
+
+export function assertExperienceCatalogBaselinesNotWritable(): never {
+  throw new Error(EXPERIENCE_CATALOG_BASELINE_RETIRED_MESSAGE);
+}
 
 import {
   listOperationalAreasForDepartment,
@@ -243,8 +249,9 @@ const BASELINE_PROFILE_NAMES: Record<BaselineDepartmentKey, string> = {
 };
 
 /**
- * Materialize a baseline DRAFT plan from the Wave 14A registries.
- * Pure: emits a plan; persistence happens in the profile service.
+ * Compatibility read of the retired Experience-catalog plan.
+ * Pure. Do not persist new drafts from this — call
+ * `assertExperienceCatalogBaselinesNotWritable` on write paths.
  */
 export function materializeBaselineProfilePlan(
   departmentKey: string,

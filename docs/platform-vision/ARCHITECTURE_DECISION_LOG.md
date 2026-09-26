@@ -3,6 +3,8 @@
 **Status:** Planning document  
 **Date:** 2026-07-07
 
+> **ADL-014 (2026-09-25):** Operation entity, Experience catalogs, and industry packs are **retired**. Live contract is Location Program + Runtime Location State + Harbor items. See [RETIRED.md](./RETIRED.md). ADL-005/006 consequences that name industry packs are historical.
+
 Major architectural and product decisions for the platform evolution. Entries are **decided** unless marked *Proposed*.
 
 Format: **Decision** → **Context** → **Consequences**
@@ -139,6 +141,16 @@ Format: **Decision** → **Context** → **Consequences**
 
 ---
 
+## ADL-014: Retire Operation entity, Experience catalogs, industry packs
+
+| | |
+|---|---|
+| **Decision** | **Operation entity**, **Experience catalogs** (Areas / Archetypes / Experience keys as programming), and **industry packs** are retired. The live contract is Facility room → Location Program → Runtime Location State → Run surfaces. Harbor items install facility-wide, then place onto rooms or Facility types. A new department is a licensed lane, not a pack. |
+| **Context** | September 2026 Location Programming realignment replaced director-facing Experiences. July vision docs and roadmap Wave 13 still taught the old expansion model. |
+| **Consequences** | Operation engine package and `OPERATION_ENGINE_ENABLED` are gone. Do not persist new Experience-catalog baselines. `applyIndustryPack()` is will-not-do. Location workspace and RLS engines read Location Program + Runtime Location State. See [RETIRED.md](./RETIRED.md). |
+
+---
+
 ## Decision index
 
 | ID | Title | Status |
@@ -156,6 +168,7 @@ Format: **Decision** → **Context** → **Consequences**
 | ADL-011 | DB route permissions preserved | Decided |
 | ADL-012 | No migrations in planning | Decided |
 | ADL-013 | Facility-plus-departments billing | Decided |
+| ADL-014 | Retire Operation entity, Experience catalogs, industry packs | Decided |
 
 ---
 

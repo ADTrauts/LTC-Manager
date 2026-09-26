@@ -54,7 +54,7 @@ const definitionSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().max(500).optional(),
   instructions: z.string().max(2000).optional(),
-  purposeType: z.enum(["LOG", "CHECKLIST"]),
+  purposeType: z.enum(["LOG", "CHECKLIST", "INSPECTION", "PROCEDURE"]),
   category: z.enum([
     "TEMPERATURE",
     "SANITATION",

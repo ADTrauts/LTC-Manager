@@ -358,7 +358,6 @@ export function CycleEditorFields({
   const requireParent =
     nodeKind === "KEY_TIME" ||
     Boolean(defaults.parentStableKey) ||
-    compactCreate ||
     // Detached after accidental clear while still marked as inheriting — force re-attach.
     (Boolean(defaults.locationInheritFromParent) && !defaults.parentStableKey);
   const [locationInheritFromParent, setLocationInheritFromParent] = useState(

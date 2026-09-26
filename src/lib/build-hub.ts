@@ -20,21 +20,25 @@ export type BuildSidebarNavItem = ModeNavItem;
 export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
   "/admin/facility/builder":
     "Physical structure and identity — floors, neighborhoods, rooms, spaces, and the location hierarchy.",
+  "/build/departments":
+    "Configure how each department operates — Overview, Locations, and Teams. Cycles and need live on the team.",
   "/admin/departments":
-    "Configure how each department operates — locations, zones, operational cycles, work plans, and request routing.",
+    "Configure how each department operates — Overview, Locations, and Teams. Cycles and need live on the team.",
   "/employees":
     "Workforce configuration — people, employment, department, job role, and HR records.",
   "/assets/builder":
     "Equipment configuration — register assets and set identity, location, responsible department, criticality, and retirement. Operational condition and repairs live under RUN Assets.",
   "/menus": "Dietary menu building — cycles, periods, and menu items.",
   "/build/logs":
-    "Browse the LTC Corp Log Catalog and review facility Attachments. Attach Logs from Assets, Rooms, Units, or Departments.",
+    "Install published logs, checklists, inspections, and procedures onto this facility, then place them on rooms, assets, units, or departments.",
+  "/build/knowledge":
+    "Local procedure notes for this facility. Harbor-published procedures install under Logs.",
   "/staffing/templates":
     "Phase 9C operational templates (compatibility). Prefer BUILD · Logs for Catalog Attachments when Canonical Logs are enabled.",
   "/staffing/work-plans":
     "Author department work plans that schedule recurring operational work.",
   "/admin/knowledge":
-    "The operational knowledge and procedure library — procedures and resources.",
+    "Local procedure notes. Prefer /build/knowledge.",
 };
 
 /**
@@ -44,6 +48,8 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
 export const BUILD_PAGE_INTROS: Record<string, string> = {
   "/admin/facility/builder":
     "Define the physical structure of your facility and assign departmental responsibility.",
+  "/build/departments":
+    "Facility-level department visibility and heads. Selected-department configuration opens in Department Builder.",
   "/admin/departments":
     "Facility-level department visibility and heads. Selected-department configuration opens in Department Builder.",
   "/employees":
@@ -55,13 +61,15 @@ export const BUILD_PAGE_INTROS: Record<string, string> = {
   "/staffing/templates":
     "Phase 9C template builder (compatibility). Canonical Catalog Attachments live under Logs.",
   "/build/logs":
-    "Browse published Catalog Logs and audit Attachments. Prefer attaching from the target.",
+    "Install a published log, checklist, inspection, or procedure onto this facility, then place it.",
+  "/build/knowledge":
+    "Add a local note beside a Harbor procedure.",
   "/staffing/work-plans":
     "Author department work plans that schedule recurring operational work.",
   "/admin/knowledge":
     "Manage SOPs, instructions, policies, job aids, and reference materials.",
   "/admin/inspections":
-    "Create structured inspections and verification checklists for unit work.",
+    "Redirects to Logs. Harbor publishes inspections; install then place.",
 };
 
 const FALLBACK_DESCRIPTION =

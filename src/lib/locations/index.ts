@@ -2,7 +2,7 @@
  * Wave 15F/15G — Locations + Sidebar Projection consumers.
  *
  * Shared eligibility: ProjectionSnapshot → LocationsViewModel
- * Locations: purpose LOCATIONS → read-only hierarchy browser
+ * Locations: purpose LOCATIONS → exception-first cards (hierarchy browser is freeze reference)
  * Sidebar: purpose SIDEBAR → LeftSidebar tree
  */
 
@@ -80,3 +80,12 @@ export {
   type LocationLandingRowState,
   type LocationsLandingPresentation,
 } from "./landing";
+
+export {
+  presentExceptionFirstLocationBoard,
+  presentExceptionFirstLocationCard,
+  EXCEPTION_FIRST_WRONG_LIMIT,
+  type ExceptionFirstLocationBoardView,
+  type ExceptionFirstLocationCardView,
+  type ExceptionFirstPaceBadge,
+} from "./exception-first";

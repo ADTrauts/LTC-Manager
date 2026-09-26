@@ -5,6 +5,7 @@
  * evaluate coverage, or infer asset impact.
  */
 
+import { locationProgramIsAttached } from "@/lib/department-administration/location-program";
 import type {
   RuntimeCoverageState,
   RuntimeCurrentOperation,
@@ -69,17 +70,17 @@ export function presentLandingSpace(
   state: RuntimeLocationState,
   options: { canConfigureLocations?: boolean } = {},
 ): LocationLandingRowState {
-  const untyped = state.program.operationalType.state === "unassigned";
+  const unprogrammed = !locationProgramIsAttached(state.program.locationProgram);
   const preview = exceptionPreview(state.exceptions);
   const configureHref =
-    untyped && options.canConfigureLocations
+    unprogrammed && options.canConfigureLocations
       ? departmentLocationsConfigureHref(state.identity.location.departmentId)
       : null;
 
   return {
     grain: "SPACE",
-    operationLabel: untyped ? null : operationLine(state.operation),
-    configurationLabel: untyped ? LANDING_UNTYPED_LABEL : null,
+    operationLabel: operationLine(state.operation),
+    configurationLabel: unprogrammed ? LANDING_UNTYPED_LABEL : null,
     exceptionLabels: preview.labels,
     moreExceptionCount: preview.moreCount,
     nextLabel: state.next ? formatNext(state.next, state.asOf.timezone) : null,

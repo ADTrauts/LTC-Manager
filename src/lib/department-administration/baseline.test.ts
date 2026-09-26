@@ -6,11 +6,26 @@ import { isExperienceKey, listOperationalAreasForDepartment } from "@/lib/experi
 import { recommendArchetypeKey } from "./archetype-recommendation";
 import {
   BASELINE_DEPARTMENT_KEYS,
+  EXPERIENCE_CATALOG_BASELINE_RETIRED,
+  EXPERIENCE_CATALOG_BASELINE_RETIRED_MESSAGE,
+  assertExperienceCatalogBaselinesNotWritable,
   isBaselineDepartmentKey,
   materializeBaselineProfilePlan,
 } from "./baseline";
 
-describe("system department baselines", () => {
+describe("retired Experience-catalog baselines", () => {
+  it("refuses new writes from the Experience catalog", () => {
+    assert.equal(EXPERIENCE_CATALOG_BASELINE_RETIRED, true);
+    assert.throws(
+      () => assertExperienceCatalogBaselinesNotWritable(),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message === EXPERIENCE_CATALOG_BASELINE_RETIRED_MESSAGE,
+    );
+  });
+});
+
+describe("system department baselines (compatibility read)", () => {
   it("Dietary baseline creates expected ordered Areas", () => {
     const plan = materializeBaselineProfilePlan("DIETARY");
     assert.deepEqual(

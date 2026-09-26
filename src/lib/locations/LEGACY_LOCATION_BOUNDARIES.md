@@ -8,7 +8,7 @@
  * CERTIFIED (this wave)
  * ---------------------
  * - One shared LocationsViewModel tree from Projection (purpose LOCATIONS / SIDEBAR)
- * - `/units` renders read-only LocationsHierarchyBrowser when PROJECTION_LOCATIONS_ENABLED
+ * - `/units` renders exception-first Location cards when PROJECTION_LOCATIONS_ENABLED (hierarchy browser is freeze reference)
  * - LeftSidebar renders recursive Floor → Neighborhood → Room when PROJECTION_SIDEBAR_ENABLED
  * - Both consume adaptProjectionToLocationsView; Sidebar only maps presentation
  * - Room href: `/unit/[unitId]?space=[spaceId]` (no dedicated room route)
@@ -19,7 +19,7 @@
  * | When | What renders | Route |
  * |------|--------------|-------|
  * | `PROJECTION_LOCATIONS_ENABLED=false` | UnitsManager (Add unit, display order, log assignment) | `/units` |
- * | `PROJECTION_LOCATIONS_ENABLED=true` | LocationsHierarchyBrowser (read-only) | `/units` |
+ * | `PROJECTION_LOCATIONS_ENABLED=true` | Exception-first Location cards | `/units` |
  *
  * UnitsManager remains for flag-off rollback only. It is not the projected Locations UI.
  * Physical configuration belongs in Administration → Facility Builder.
@@ -32,7 +32,7 @@
  * | Locations | Sidebar | Behavior |
  * |-----------|---------|----------|
  * | off | off | Legacy Units page + flat Unit Sidebar |
- * | on | off | Hierarchy Locations + flat Unit Sidebar |
+ * | on | off | Exception-first Locations + flat Unit Sidebar |
  * | off | on | Legacy Units page + nested Projection Sidebar |
  * | on | on | Shared tree; hierarchy + eligibility match |
  *
@@ -41,7 +41,7 @@
  * ProjectionSnapshot
  *   → adaptProjectionToLocationsView
  *   → enrichLocationsRoomDisplay (presentation only)
- *   → Locations: LocationsHierarchyBrowser
+ *   → Locations: exception-first cards (hierarchy browser is freeze reference)
  *   → Sidebar: adaptLocationsViewToSidebar → LeftSidebar
  *
  * RETAINED LEGACY

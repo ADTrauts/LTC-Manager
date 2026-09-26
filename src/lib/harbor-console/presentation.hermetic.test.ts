@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -43,4 +45,17 @@ test("department and billing labels stay readable", () => {
   assert.equal(departmentKeyLabel("DIETARY"), "Dietary");
   assert.equal(billingStatusLabel("PAST_DUE"), "Past due");
   assert.equal(billingStatusLabel(null), "No billing record");
+});
+
+test("Harbor shell nav is Today, Customers, Marketplace — not Operations Center", () => {
+  const shell = readFileSync(
+    join(process.cwd(), "src/components/harbor-console/harbor-console-shell.tsx"),
+    "utf8",
+  );
+  assert.match(shell, /Harbor Console/);
+  assert.match(shell, /label: "Today"/);
+  assert.match(shell, /label: "Customers"/);
+  assert.match(shell, /label: "Marketplace"/);
+  assert.doesNotMatch(shell, /label: "Catalog"/);
+  assert.doesNotMatch(shell, /Operations Center/);
 });

@@ -5,7 +5,8 @@
  * evaluate coverage, or infer asset/staffing truth.
  */
 
-import { presentLandingNeighborhood, presentLandingSpace } from "@/lib/locations/landing";
+import { presentExceptionFirstLocationCard } from "@/lib/locations/exception-first";
+import { presentLandingSpace } from "@/lib/locations/landing";
 import type { RuntimeException, RuntimeLocationState } from "@/lib/runtime-location-state";
 import { formatClock, formatLocalHhMm } from "@/lib/unit-workspace/space";
 import type { SpaceWorkspaceViewer } from "@/lib/unit-workspace/space";
@@ -294,6 +295,26 @@ function presentChanges(
     .map(({ spaceId, spaceName, atLabel, detail }) => ({ spaceId, spaceName, atLabel, detail }));
 }
 
+function presentHappening(
+  states: readonly RuntimeLocationState[],
+): NeighborhoodWorkspaceViewModel["operation"] {
+  if (states.length === 0) {
+    return { kind: "none", label: NEIGHBORHOOD_NO_ACTIVE_OPERATION_LABEL };
+  }
+  const labels = [
+    ...new Set(
+      states
+        .filter((state) => state.answers.happening.state === "active")
+        .map((state) => state.answers.happening.label),
+    ),
+  ];
+  if (labels.length === 1) return { kind: "shared", label: labels[0]! };
+  if (labels.length > 1) {
+    return { kind: "mixed", label: `${labels.length} active operations` };
+  }
+  return { kind: "none", label: NEIGHBORHOOD_NO_ACTIVE_OPERATION_LABEL };
+}
+
 function earliestNext(
   states: readonly RuntimeLocationState[],
 ): NeighborhoodWorkspaceViewModel["next"] {
@@ -359,7 +380,6 @@ export function presentNeighborhoodWorkspace(
   },
 ): NeighborhoodWorkspaceViewModel {
   const employee = options.viewer.kind === "employee";
-  const landing = presentLandingNeighborhood(states);
   const timezone = states[0]?.asOf.timezone ?? "UTC";
   const first = states[0];
   const breadcrumbs: NeighborhoodWorkspaceViewModel["identity"]["breadcrumbs"] = [];
@@ -368,13 +388,17 @@ export function presentNeighborhoodWorkspace(
   }
   breadcrumbs.push({ label: options.unitName, grain: "neighborhood" });
 
-  const spaces: NeighborhoodSpaceRowView[] = states.map((state) => ({
-    spaceId: state.identity.location.spaceId,
-    unitId: state.identity.location.unitId ?? options.unitId,
-    name: state.identity.displayName,
-    href: spaceHref(state.identity.location.unitId ?? options.unitId, state.identity.location.spaceId),
-    landing: presentLandingSpace(state),
-  }));
+  const spaces: NeighborhoodSpaceRowView[] = states.map((state) => {
+    const card = presentExceptionFirstLocationCard(state);
+    return {
+      spaceId: state.identity.location.spaceId,
+      unitId: state.identity.location.unitId ?? options.unitId,
+      name: state.identity.displayName,
+      href: card.href ?? spaceHref(state.identity.location.unitId ?? options.unitId, state.identity.location.spaceId),
+      landing: presentLandingSpace(state),
+      card,
+    };
+  });
 
   const coverage = presentCoverage(states);
   const evidenceGroups = presentEvidence(states, options.unitId, employee);
@@ -384,16 +408,15 @@ export function presentNeighborhoodWorkspace(
   const order = sectionOrder(employee);
   const overdueEvidenceCount = states.reduce((sum, state) => sum + state.evidence.overdue.length, 0);
   const attentionCount = states.filter((state) => state.exceptions.length > 0).length;
+  const atRiskCount = states.filter((state) => state.answers.pace === "at_risk").length;
   const retiredLogsTab = options.unitTab?.trim().toLowerCase() === "logs";
   const presentById: Record<NeighborhoodWorkspaceSectionId, boolean> = {
     overview: true,
     spaces: true,
-    coverage: employee
-      ? coverage.unavailable
-      : coverage.unavailable || coverage.summary != null,
+    coverage: true,
     evidence: true,
-    assets: assets.length > 0,
-    milestones: milestones.length > 0,
+    assets: true,
+    milestones: true,
     today: today.length > 0,
   };
 
@@ -405,18 +428,9 @@ export function presentNeighborhoodWorkspace(
     },
     spaceCount: states.length,
     attentionCount,
+    atRiskCount,
     overdueEvidenceCount,
-    operation: {
-      kind:
-        landing.operationLabel === NEIGHBORHOOD_NO_ACTIVE_OPERATION_LABEL
-          ? "none"
-          : landing.operationLabel?.includes("active operations")
-            ? "mixed"
-            : landing.operationLabel
-              ? "shared"
-              : "none",
-      label: landing.operationLabel ?? NEIGHBORHOOD_NO_ACTIVE_OPERATION_LABEL,
-    },
+    operation: presentHappening(states),
     next: earliestNext(states),
     exceptions: presentExceptions(states),
     spaces,

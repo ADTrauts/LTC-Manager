@@ -1,9 +1,9 @@
 # 10 — Product Roadmap
 
-**Status:** Post–Wave 12 roadmap rewrite  
+**Status:** Post–Wave 12 roadmap rewrite; Wave 13 Industry Configuration **retired** 2026-09-25  
 **Application:** `ltc-manager/`  
 
-> **Clarification:** Implementation treated **Wave 12 as Business Workspace**. The earlier modernization roadmap reserved Wave 12 for **Industry Configuration**. This rewrite makes that explicit and places Industry next.
+> **Clarification:** Implementation treated **Wave 12 as Business Workspace**. The earlier modernization roadmap reserved Wave 12 for **Industry Configuration**. That program is **retired** — industry packs are not how the platform expands. See [../platform-vision/RETIRED.md](../platform-vision/RETIRED.md).
 
 ---
 
@@ -30,22 +30,27 @@ Legacy planning docs that mark Wave 7–12 “not started” are **stale** relat
 
 ## Planned
 
-### Wave 13 — Industry Configuration & Language Cleanup
+### Current program — Location Program platform (2026-09-25)
 
-**Purpose:** Finish the platform language layer that the old roadmap called “Wave 12.”
+**Purpose:** One spine. Stop teaching retired models. Install Harbor items onto places.
 
-**Candidates (capability — not build list):**
+**Waves (in order):**
 
-- Neutral terminology and industry packs where dietary-first copy still leaks  
-- Data-driven department / mode configuration consolidation  
-- Align product-reference homes with Workspace as Manager default  
-- Reduce Issue/Repair dual language in UI where safe  
+- **A — Stop teaching** (this change): retire Operation entity / Experience catalog / industry packs in docs and IA. No leftover Department Builder tabs. No new Experience-catalog baselines.  
+- **B — Install:** facility library of published Harbor logs/checklists, then place on a room or Facility type.  
+- **C — Hubs:** Admin is org / billing / access / account. Build is the only builder door.  
+- **D — Location workspace from Runtime Location State.**  
+- **E — Unwire, then delete** Experience keys, Operation engine, leftover catalogs. **Done** (2026-09-25): RLS cycles/evidence key off Location Program; Projection scope is responsibility; Operation engine + Experience shell deleted; IND-* will-not-do.
+- **F — Leftover readers.** Supervisor, employee, offline, log-book, and coverage loaders no longer read Operational Type. Today's Work and Projection do not require the Experience catalog.
+- **G — Leftover doors.** Department Builder lives at `/build/departments`. Leftover `/logs` assign redirects to BUILD Logs. New OPERATIONAL_TYPE placements are refused. Operation* tables stay until an explicit drop.
+- **H — Inspections.** Harbor catalog purpose `INSPECTION`. Install then place. `/admin/inspections` redirects to `/build/logs`.
+- **I — Procedures.** Harbor catalog purpose `PROCEDURE`. Local notes at `/build/knowledge`.
 
-**Not in Wave 13:** Scheduling product, inventory ERP, messaging platform, OC redesign.
+Neutral copy can happen without industry packs. `applyIndustryPack()` is will-not-do.
 
 ---
 
-### Wave 14 — Multi-Facility Depth
+### Later — Multi-Facility Depth
 
 **Purpose:** Grow Organization safely beyond access grants.
 
@@ -99,22 +104,19 @@ Legacy planning docs that mark Wave 7–12 “not started” are **stale** relat
 - Dining and multi-department ops across healthcare/education/corporate settings  
 - Engines stay thin; homes stay few  
 - AI remains moment-based and grounded  
-- LTC remains beachhead branding until industry packs prove a rename  
+- LTC remains beachhead branding; a rename does not wait on industry packs  
 
 ---
 
 ## Dependency sketch
 
 ```text
-Wave 13 Language/Industry
-   └── Wave 14 Multi-facility depth
-         ├── Wave 15 Supply signals
-         ├── Wave 16 Operational alerts
-         └── Wave 17 Enterprise foundations
+Location Program platform (A → E)
+   └── Later: Multi-facility / supply signals / alerts / enterprise
 ```
 
 ---
 
 ## Near-term recommendation
 
-**Start Wave 13 with Industry Configuration & Language Cleanup** — it unlocks clear naming for everything built in Waves 1–12 and reduces conceptual overlap without expanding product surface area.
+**Finish the Location Program program (A then B).** Do not start Industry Configuration. Industry packs are retired.

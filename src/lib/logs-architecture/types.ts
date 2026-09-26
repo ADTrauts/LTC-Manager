@@ -31,10 +31,9 @@ export type CatalogLogStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
  * Product umbrella for Catalog entries that produce Log Submissions.
  * Work Engine InspectionDefinition remains a separate domain.
  */
-export type CatalogLogPurposeType = Extract<
-  OperationalTemplatePurposeType,
-  "LOG" | "CHECKLIST"
->;
+export type CatalogLogPurposeType =
+  | Extract<OperationalTemplatePurposeType, "LOG" | "CHECKLIST" | "INSPECTION">
+  | "PROCEDURE";
 
 export type CatalogLogCategory =
   | "TEMPERATURE"

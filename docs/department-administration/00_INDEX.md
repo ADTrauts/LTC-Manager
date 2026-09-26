@@ -1,85 +1,56 @@
 # Department Administration — Architecture Index
 
-**Wave:** Department Administration architecture  
-**Status:** Final architecture package before Department Operational Profile implementation  
-**Scope:** Product architecture, ownership boundaries, and information architecture only
+**Current programming plan:** [`13_LOCATION_PROGRAMMING_REALIGNMENT.md`](13_LOCATION_PROGRAMMING_REALIGNMENT.md) (locked 2026-09-24; step 25 retired 2026-09-25).  
+**Run freeze:** [`14_RUN_SURFACE_REFERENCE_FREEZE.md`](14_RUN_SURFACE_REFERENCE_FREEZE.md).  
+**Retired philosophy:** [`../platform-vision/RETIRED.md`](../platform-vision/RETIRED.md).
 
-## Implementation hold
-
-No production code, Prisma, migration, route, UI, feature flag, Facility Builder change, or Projection change is authorized by this package.
-
-This is the last architecture wave before implementation planning begins.
-
-## Why this package exists
-
-Prior waves established three answers:
-
-- **Where** something exists — Facility Builder physical hierarchy.
-- **Who** owns a room — Facility Builder department assignment.
-- **What** operational behavior can exist — Department Operational Profiles and Experiences.
-
-One layer is still missing: **how a department organizes itself.**
-
-The system still thinks in software modules — Logs, Knowledge, Equipment, Repairs, Assignments. Directors do not think that way. A Director of Food Service thinks in Service, Food Safety, Equipment, People, Documentation, Production, and Quality.
-
-This package introduces the **Operational Area** as the manager's mental model and the organizing layer between a Department and its Experiences.
-
-## The completed conceptual stack
+## Current contract
 
 ```text
-Facility Builder            WHERE + WHO
-  Facility → Building? → Floor → Neighborhood → Room
-  Room ↔ Department assignment
-
-Department Administration   HOW a department organizes itself
-  Department → Operational Area → Experiences → Room Archetypes → Operational Profile
-
-Projection Engine           WHICH of that appears here, now, for this person
-
-Operational Engines         WHAT is actually true right now
-  readiness, operations, work, assignments, domain records
+Facility room
+  → Location Program (teams, cycles, need, logs, assets)
+  → Runtime Location State (today)
+  → Locations / Dashboard / Review / location workspace
 ```
+
+Department Builder is **Overview · Locations · Teams**. Cycles and staffing need live on the team. Named employees are Run. Harbor catalog items **install** facility-wide, then **place** on a room, Facility type, asset, unit, or department.
+
+Do **not** implement Department → Operational Area → Experiences → Room Archetypes. That model is retired.
+
+| Retired idea | Replacement |
+|---|---|
+| Operation entity / Operations Engine | Department cycle + Runtime Location State answers |
+| Experience catalog / Areas / Archetypes | Harbor items placed on a location |
+| Industry packs | Licensed department + installable catalog |
+
+The location workspace and RLS engines read Location Program. Projection scope is responsibility, not Experience keys. The Operation engine and Experience shell are deleted. The leftover Experience catalog file is not a product registry. Do not seed new departments from it.
+
+## Implementation hold (historical package)
+
+Documents `01`–`12` below are **historical**. They do not authorize production code, Prisma, routes, UI, or Projection work.
+
+## Why this package existed
+
+Prior waves asked how a department organizes itself. The answer they gave — Operational Areas and Experiences — is no longer the director-facing or expansion model. The answer now is Location Program.
 
 ## Documents
 
-1. `01_DEPARTMENT_ADMINISTRATION_CONSTITUTION.md` — what Department Administration is, owns, and must never own.
-2. `02_OPERATIONAL_AREA_MODEL.md` — the Operational Area concept and why modules disappear.
-3. `03_EXPERIENCE_CATALOG_ARCHITECTURE.md` — Experiences as reusable building blocks organized by Operational Areas.
-4. `04_ROOM_ARCHETYPE_MODEL.md` — department-owned operational room archetypes.
-5. `05_DEPARTMENT_CONFIGURATION_MODEL.md` — the configuration layers of a department.
-6. `06_PLATFORM_EXPANSION_MODEL.md` — proof the architecture scales to any department.
-7. `07_ADMIN_INFORMATION_ARCHITECTURE.md` — the future Administration information architecture.
-8. `08_PROJECTION_RECERTIFICATION.md` — Operational Area-aware projection resolution.
-9. `09_IMPLEMENTATION_ROADMAP.md` — non-code implementation order.
-10. `10_CERTIFICATION.md` — final operational architecture, constitutional layers, and expansion rule.
+**Current**
 
-## Executive recommendation
+11. `13_LOCATION_PROGRAMMING_REALIGNMENT.md` — locked programming plan.
+12. `14_RUN_SURFACE_REFERENCE_FREEZE.md` — Run Locations / Dashboard / Review as reference only.
 
-Adopt a four-layer department model:
+**Retired (do not implement from these)**
 
-```text
-Department → Operational Area → Experiences → Room Archetypes
-```
-
-bound into one active **Operational Profile** per Facility Department.
-
-Make the **Operational Area** the primary manager-facing organizing concept. Make **Experiences** the reusable building blocks. Retire software module names — Logs, Knowledge, Forms — as top-level navigation. They become tools that appear inside the operational work they support.
-
-A new department, including Laundry, Security, or Biomedical, is added by composing existing Operational Areas and Experiences from the catalog. It never requires a Facility Builder change.
-
-## Opinionated answers to the framing questions
-
-- **Should "Logs" be a visible concept?** No. Logs are a tool. A manager opens Food Safety and finds temperature logs inside it. "Logs" is not a destination.
-- **Should "Knowledge" be a module?** No. Knowledge appears wherever work happens — inside Food Safety, inside Preventive Maintenance, inside Cleaning. A department-wide reference library may still exist, but Knowledge is not a peer of Service.
-- **Should managers see modules or operations?** Operations. The IA is organized by what a department does, not by which database table backs it.
-
-## Non-goals
-
-- No production code.
-- No Prisma or migrations.
-- No routes.
-- No UI.
-- No feature flags.
-- No Facility Builder changes.
-- No Projection implementation.
-- No implementation of Department Administration.
+1. `01_DEPARTMENT_ADMINISTRATION_CONSTITUTION.md`
+2. `02_OPERATIONAL_AREA_MODEL.md`
+3. `03_EXPERIENCE_CATALOG_ARCHITECTURE.md` — Experience catalog. Retired.
+4. `04_ROOM_ARCHETYPE_MODEL.md`
+5. `05_DEPARTMENT_CONFIGURATION_MODEL.md`
+6. `06_PLATFORM_EXPANSION_MODEL.md` — expansion via Experience composition. Retired. Expansion is licensed department + Harbor items on places.
+7. `07_ADMIN_INFORMATION_ARCHITECTURE.md`
+8. `08_PROJECTION_RECERTIFICATION.md`
+9. `09_IMPLEMENTATION_ROADMAP.md`
+10. `10_CERTIFICATION.md`
+11. `11_WAVE_14B_IMPLEMENTATION.md`
+12. `12_WAVE_14C_IMPLEMENTATION.md`

@@ -3,13 +3,14 @@
  * Does not query or recalculate Runtime Location State.
  */
 
+import type { ExceptionFirstLocationCardView } from "@/lib/locations/exception-first";
 import type { CanonicalCoverageState } from "@/lib/scheduling/coverage-expectations";
 import type { AssetOperationalImpact } from "@prisma/client";
 import type { AssetOperationalStatus } from "@/lib/asset-operations/types";
 import type { LogRequirementProductState } from "@/lib/logs-architecture/types";
 
 export const SPACE_NO_ACTIVE_OPERATION_LABEL = "No active operation";
-export const SPACE_UNTYPED_LABEL = "Operational Type not assigned";
+export const SPACE_UNTYPED_LABEL = "Location Program not attached";
 export const SPACE_COVERAGE_UNAVAILABLE_LABEL = "Coverage unavailable";
 export const SPACE_NO_COVERAGE_EXPECTATION_LABEL = "No coverage expectation";
 
@@ -22,7 +23,15 @@ export const SPACE_SECTION_IDS = [
   "today",
 ] as const;
 
+export const SPACE_WORKSPACE_HASH_SECTIONS = [
+  "coverage",
+  "evidence",
+  "assets",
+  "milestones",
+] as const;
+
 export type SpaceWorkspaceSectionId = (typeof SPACE_SECTION_IDS)[number];
+export type SpaceWorkspaceHashSectionId = (typeof SPACE_WORKSPACE_HASH_SECTIONS)[number];
 
 export type SpaceWorkspaceViewerKind = "employee" | "supervisor" | "manager";
 
@@ -127,9 +136,10 @@ export type SpaceWorkspaceViewModel = {
   identity: {
     displayName: string;
     breadcrumbs: SpaceWorkspaceBreadcrumb[];
-    operationalTypeName: string | null;
+    place: string | null;
     untyped: boolean;
   };
+  card: ExceptionFirstLocationCardView;
   operation: {
     state: "ACTIVE" | "NONE";
     label: string;

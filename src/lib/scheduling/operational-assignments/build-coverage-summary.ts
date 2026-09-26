@@ -18,7 +18,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import {
   evaluateCoverageSlotState,
@@ -161,13 +160,6 @@ export async function buildDietaryCoverageSummary(
   const otItems = items.filter((item) => item.applicableOperationalTypeKeys.length > 0);
   const legacyItems = items.filter((item) => item.applicableOperationalTypeKeys.length === 0);
 
-  const runtimeOt = await loadSpaceOperationalTypeAssignments({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    spaceIds: spaces.map((space) => space.id),
-    perspective: "runtime",
-  });
-
   const cycleRefs: CoverageCycleRef[] = cycles
     .filter((cycle) => cycle.nodeKind === "PERIOD")
     .map((cycle) => ({ stableKey: cycle.stableKey, label: cycle.label }));
@@ -234,7 +226,6 @@ export async function buildDietaryCoverageSummary(
   }
 
   for (const space of spaces) {
-    const ot = runtimeOt.get(space.id) ?? null;
     const locationCycles = asOf
       ? cycleRefs.filter((cycle) => activeCycleKeysAtAsOf.has(cycle.stableKey))
       : cycleRefs;
@@ -244,8 +235,8 @@ export async function buildDietaryCoverageSummary(
         departmentId: input.departmentId,
         spaceId: space.id,
         unitId: space.unitId,
-        operationalTypeKey: ot?.key ?? null,
-        operationalTypeName: ot?.name ?? null,
+        operationalTypeKey: null,
+        operationalTypeName: null,
       },
       cycles: locationCycles,
     });
@@ -257,8 +248,8 @@ export async function buildDietaryCoverageSummary(
           departmentId: input.departmentId,
           spaceId: space.id,
           unitId: space.unitId,
-          operationalTypeKey: ot?.key ?? null,
-          operationalTypeName: ot?.name ?? null,
+          operationalTypeKey: null,
+          operationalTypeName: null,
         },
         cycles: cycleRefs,
       });

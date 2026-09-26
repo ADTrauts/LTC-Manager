@@ -7,9 +7,6 @@
 
 import {
   EXPERIENCE_REGISTRY_VERSION,
-  getExperience,
-  isExperienceKey,
-  listExperiences,
   validateExperienceContracts,
 } from "@/lib/experiences";
 
@@ -251,9 +248,6 @@ export function validateProjectionSnapshot(
   issues.push(...collectDuplicateIds("descriptors", snapshot.descriptors));
 
   const areaIds = new Set(snapshot.areas.map((area) => area.id));
-  const allRegistryExperienceKeys = new Set(
-    listExperiences().map((experience) => experience.key),
-  );
   const experienceIds = new Set(
     snapshot.experiences.map((experience) => experience.id),
   );
@@ -262,6 +256,12 @@ export function validateProjectionSnapshot(
       (experience) => experience.reference.experienceKey,
     ),
   );
+  const knownExperienceKeys = new Set(projectedExperienceKeys);
+  for (const experience of snapshot.experiences) {
+    for (const key of experience.contracts.contracts.relationships.relatedExperienceKeys) {
+      if (key) knownExperienceKeys.add(key);
+    }
+  }
   const locationIds = new Set(Object.keys(snapshot.locations.byId));
   const queryScopeIds = new Set(
     Object.values(snapshot.queryScopes.byExperience).map((scope) => scope.id),
@@ -294,13 +294,12 @@ export function validateProjectionSnapshot(
   for (const [index, experience] of snapshot.experiences.entries()) {
     const path = `experiences[${index}]`;
     const experienceKey = experience.reference.experienceKey;
-    const registryExperience = getExperience(experienceKey);
 
-    if (!isExperienceKey(experienceKey) || !registryExperience) {
+    if (!nonEmpty(experienceKey)) {
       issues.push(
         issue(
           "UNKNOWN_EXPERIENCE_KEY",
-          `${experience.id}: unknown Experience key ${experienceKey}`,
+          `${experience.id}: missing Experience key`,
           `${path}.reference.experienceKey`,
         ),
       );
@@ -312,15 +311,6 @@ export function validateProjectionSnapshot(
           "MISSING_CONTRACT_REFERENCE",
           `${experience.id}: Projection must reference Experience Registry contracts`,
           `${path}.contracts.source`,
-        ),
-      );
-    }
-    if (experience.contracts.contracts !== registryExperience.contracts) {
-      issues.push(
-        issue(
-          "MISSING_CONTRACT_REFERENCE",
-          `${experience.id}: contracts must reference the registry contract object`,
-          `${path}.contracts.contracts`,
         ),
       );
     }
@@ -366,9 +356,9 @@ export function validateProjectionSnapshot(
     }
     for (const contractIssue of validateExperienceContracts(
       experienceKey,
-      registryExperience.tools,
+      experience.contracts.contracts.toolHosts.map((host) => host.toolKind),
       experience.contracts.contracts,
-      allRegistryExperienceKeys,
+      knownExperienceKeys,
     )) {
       issues.push(
         issue(
@@ -425,11 +415,11 @@ export function validateProjectionSnapshot(
         ),
       );
     }
-    if (!getExperience(scope.experienceKey)) {
+    if (!nonEmpty(scope.experienceKey)) {
       issues.push(
         issue(
           "UNKNOWN_EXPERIENCE_KEY",
-          `Query scope references unknown Experience ${scope.experienceKey}`,
+          `Query scope is missing an Experience key`,
           `queryScopes.byExperience.${id}.experienceKey`,
         ),
       );
@@ -477,11 +467,11 @@ export function validateProjectionSnapshot(
       ...validateLocationReference(node.reference, facilityId, `${path}.reference`),
     );
     for (const experienceKey of node.experienceKeys) {
-      if (!getExperience(experienceKey)) {
+      if (!nonEmpty(experienceKey)) {
         issues.push(
           issue(
             "UNKNOWN_EXPERIENCE_KEY",
-            `${node.id}: unknown Experience key ${experienceKey}`,
+            `${node.id}: missing Experience key`,
             `${path}.experienceKeys`,
           ),
         );

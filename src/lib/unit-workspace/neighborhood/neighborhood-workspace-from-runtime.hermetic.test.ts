@@ -9,7 +9,13 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { LocationsTreeNode, LocationsViewModel } from "@/lib/locations/types";
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import { emptyLocationProgram } from "@/lib/department-administration/location-program";
+import { presentExceptionFirstLocationCard } from "@/lib/locations/exception-first";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
 import { resolveSpaceWorkspaceViewer } from "@/lib/unit-workspace/space";
 
 import { collectNeighborhoodActionableSpaces, isStructuralNeighborhoodUnit } from "./collect-spaces";
@@ -58,7 +64,7 @@ function state(partial: {
   const loc = location(partial.spaceId, partial.unitId);
   const assigned = (partial.ot ?? "assigned") === "assigned";
   const items = partial.evidenceItems ?? [];
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: loc,
       displayName: partial.name ?? partial.spaceId,
@@ -73,6 +79,28 @@ function state(partial: {
       physical: { roomTypeKey: null, roomTypeLabel: null },
     },
     program: {
+      locationProgram: assigned
+        ? {
+            ...emptyLocationProgram({
+              departmentId: loc.departmentId,
+              departmentName: "Dietary",
+              spaceId: loc.spaceId,
+              name: partial.name ?? partial.spaceId,
+            }),
+            teams: [
+              {
+                id: "t1",
+                name: "Servery AM",
+                provenance: { source: "TEAM_ROOM_MEMBERSHIP", detail: "Works this room" },
+              },
+            ],
+          }
+        : emptyLocationProgram({
+            departmentId: loc.departmentId,
+            departmentName: "Dietary",
+            spaceId: loc.spaceId,
+            name: partial.name ?? partial.spaceId,
+          }),
       operationalType: {
         state: assigned ? "assigned" : "unassigned",
         key: assigned ? "SERVERY" : null,
@@ -148,7 +176,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 function slot(state: "COVERED" | "UNCOVERED" | "AT_RISK") {
@@ -207,13 +235,13 @@ function present(states: RuntimeLocationState[]) {
 }
 
 test("one child SPACE still renders the aggregate shell", () => {
-  const view = present([
-    state({ spaceId: "kitchen", name: "Main Kitchen", cycle: "breakfast", cycleLabel: "Breakfast" }),
-  ]);
+  const child = state({ spaceId: "kitchen", name: "Main Kitchen", cycle: "breakfast", cycleLabel: "Breakfast" });
+  const view = present([child]);
   assert.equal(view.spaceCount, 1);
   assert.equal(view.spaces[0]?.name, "Main Kitchen");
   assert.equal(view.spaces[0]?.href, "/unit/unit-ct?space=kitchen");
   assert.equal(view.operation.label, "Breakfast · Active");
+  assert.deepEqual(view.spaces[0]?.card, presentExceptionFirstLocationCard(child));
 });
 
 test("Central Terminal: 3 children, mixed operations, one needs attention", () => {
@@ -261,6 +289,9 @@ test("Central Terminal: 3 children, mixed operations, one needs attention", () =
     ["Servery", "Dining Room", "Utility Room"],
   );
   assert.equal(view.spaces[1]?.landing.operationLabel, "No active operation");
+  assert.equal(view.spaces[0]?.card.happeningLabel, "Breakfast · Active");
+  assert.match(view.spaces[0]?.href ?? "", /#coverage/);
+  assert.equal(view.atRiskCount, 1);
   assert.ok(!JSON.stringify(view).toLowerCase().includes("unhealthy"));
   assert.ok(!("health" in view));
 });
@@ -490,7 +521,7 @@ test("untyped child is configuration, not neighborhood attention", () => {
   const view = present([
     state({ spaceId: "kitchen", name: "Main Kitchen", ot: "unassigned" }),
   ]);
-  assert.equal(view.spaces[0]?.landing.configurationLabel, "Operational Type not assigned");
+  assert.equal(view.spaces[0]?.landing.configurationLabel, "Location Program not attached");
   assert.equal(view.attentionCount, 0);
 });
 

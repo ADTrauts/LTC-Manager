@@ -7,7 +7,9 @@ import type { LogAttachmentTargetKind } from "@prisma/client";
 import {
   catalogMatchesTarget,
   cycleLabelMap,
+  filterCatalogCardsToInstalled,
   listAttachmentsForTarget,
+  listInstalledCatalogStableKeys,
   listPublishedCatalogBrowseCards,
   loadCycleOptionsForDepartment,
   resolveAttachTimingProposal,
@@ -23,6 +25,8 @@ export async function loadTargetLogsBuildContext(input: {
   targetId: string;
   /** Override owning department when target resolution is ambiguous. */
   departmentId?: string | null;
+  /** Deep-link from an old attach URL: include this published card even if not installed yet. */
+  includeCatalogStableKey?: string | null;
 }) {
   const target =
     input.targetKind === "ASSET"
@@ -43,13 +47,22 @@ export async function loadTargetLogsBuildContext(input: {
   if (!label) return null;
 
   const departmentId = input.departmentId ?? label.departmentId;
+  const [publishedCards, installedStableKeys] = await Promise.all([
+    listPublishedCatalogBrowseCards(prisma),
+    listInstalledCatalogStableKeys(prisma, input.facilityId),
+  ]);
+  const includeKey = input.includeCatalogStableKey?.trim() || null;
+  const catalogCards = filterCatalogCardsToInstalled(publishedCards, [
+    ...installedStableKeys,
+    ...(includeKey ? [includeKey] : []),
+  ]);
   if (!departmentId) {
     return {
       label,
       departmentId: null as string | null,
       departmentName: null as string | null,
       attachments: [],
-      catalogCards: await listPublishedCatalogBrowseCards(prisma),
+      catalogCards,
       suggestedStableKeys: [] as string[],
       cycleOptions: [],
       cycleLabelByKey: new Map<string, string>(),
@@ -93,7 +106,6 @@ export async function loadTargetLogsBuildContext(input: {
     todayKey: toServiceDateKey(getFacilityServiceDate(timezone)),
   });
 
-  const catalogCards = await listPublishedCatalogBrowseCards(prisma);
   const suggestedStableKeys = catalogCards
     .filter((c) => catalogMatchesTarget(c.suggestions, label.suggestionContext))
     .map((c) => c.stableKey);

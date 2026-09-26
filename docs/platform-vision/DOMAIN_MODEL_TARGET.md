@@ -1,6 +1,8 @@
 # Domain Model Target
 
-**Status:** Planning document — **conceptual only, no migrations**  
+> **Retired (2026-09-25):** Operation, Task-as-unifier, and industry packs in this draft are not current direction. Location Program + Runtime Location State + Harbor items are. See [RETIRED.md](./RETIRED.md).
+
+**Status:** Planning document — **conceptual only, historical**  
 **Date:** 2026-07-07  
 **Principles:** [PRODUCT_CONSTITUTION.md](./PRODUCT_CONSTITUTION.md)  
 **Current mapping:** [CURRENT_STATE_VS_TARGET_STATE.md](./CURRENT_STATE_VS_TARGET_STATE.md)

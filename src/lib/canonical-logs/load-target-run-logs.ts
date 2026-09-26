@@ -23,7 +23,6 @@ import {
 import { presentHistoryTable, type TargetRunLogHistoryTable } from "./history-presentation";
 import { loadPublishedCyclesForLogsDateRange } from "./load-published-cycles-for-logs";
 import { groupLogicalLogAttachments } from "./logical-attachment";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import { dedupeLocationLogRequirements } from "./log-operational-type-applicability";
 import {
   resolveLogRequirementsForAttachment,
@@ -463,39 +462,10 @@ export async function loadTargetRunLogs(input: {
   };
 }
 
-async function loadRuntimeOperationalTypeAttachmentsForTarget(input: {
+async function loadRuntimeOperationalTypeAttachmentsForTarget(_input: {
   client: PrismaClient;
   facilityId: string;
   target: RunTargetRef;
 }) {
-  if (input.target.kind !== "SPACE") return [];
-  const space = await input.client.unitSpace.findFirst({
-    where: { id: input.target.id, facilityId: input.facilityId },
-    select: {
-      responsibilities: { select: { departmentId: true } },
-    },
-  });
-  const departmentIds = [...new Set(space?.responsibilities.map((row) => row.departmentId) ?? [])];
-  const rows = [];
-  for (const departmentId of departmentIds) {
-    const assignments = await loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId,
-      spaceIds: [input.target.id],
-      perspective: "runtime",
-    });
-    const operationalTypeKey = assignments.get(input.target.id)?.key ?? null;
-    if (!operationalTypeKey) continue;
-    const found = await input.client.logAttachment.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId,
-        targetKind: "OPERATIONAL_TYPE",
-        operationalTypeKey,
-      },
-      include: attachmentInclude,
-    });
-    rows.push(...found);
-  }
-  return rows;
+  return [];
 }

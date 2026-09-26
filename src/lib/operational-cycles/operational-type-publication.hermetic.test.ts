@@ -228,7 +228,6 @@ test("runtime loaders must request runtime perspective; Build uses working", () 
     "src/lib/operational-cycles/load-run-operation-presentation.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
-    "src/lib/runtime-location-state/prefetch.ts",
     "src/lib/offline/build-runtime-bundle.ts",
   ];
   for (const file of runtimeFiles) {

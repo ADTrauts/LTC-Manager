@@ -160,8 +160,8 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
   return (
     <div className="mx-auto max-w-4xl space-y-4" data-testid="admin-knowledge">
       <BuildPageHeader
-        title="Procedures & Resources"
-        subtitle={buildPageIntro("/admin/knowledge")}
+        title="Procedures"
+        subtitle={buildPageIntro("/build/knowledge")}
       />
 
       {query?.saved ? (

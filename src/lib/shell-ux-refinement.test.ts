@@ -35,17 +35,17 @@ test("V1 refinement — the canonical Build Home card set is present for a Facil
   const hrefs = buildHubHrefsForRole("FACILITY_ADMINISTRATOR");
   for (const href of [
     "/admin/facility/builder",
-    "/admin/departments",
+    "/build/departments",
     "/employees",
     "/assets/builder",
     "/staffing/templates",
     "/staffing/work-plans",
+    "/build/knowledge",
   ]) {
     assert.equal(hrefs.includes(href), true, `expected Build Home card for ${href}`);
   }
   // The hub never lists its own home link as a card.
   assert.equal(hrefs.includes("/build"), false);
-  // Procedures & Resources is parked; the page remains, the card does not.
   assert.equal(hrefs.includes("/admin/knowledge"), false);
 });
 

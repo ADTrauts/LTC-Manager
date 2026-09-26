@@ -1,10 +1,6 @@
 /**
- * Experience Registry — public barrel.
- *
- * Wave 14A foundation + Wave 15AC Experience Contracts.
- * Canonical operational vocabulary for future Projection, Shell, and homes.
- *
- * Do not import catalog arrays from outside this package except via helpers.
+ * Leftover Experience registry barrel.
+ * Not how capabilities enter a place. Do not add catalog entries.
  */
 
 export type {

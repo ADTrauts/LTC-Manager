@@ -1588,16 +1588,16 @@ Professional engineering backlog decomposed from twelve waves. **Total estimated
 | ORG-009 | Update provision-facility script for org | 11 | High | Medium | 6 | ORG-001 | Not Started |
 | ORG-010 | Feature flag ORG_MULTISITE_ENABLED | 11 | Critical | Tiny | 1 | ORG-005 | Not Started |
 | ORG-011 | Org-level log template library stub | 11 | Low | Large | 12 | ORG-001 | Not Started |
-| IND-001 | IndustryProfile schema + LTC pack JSON (parity export) | 12 | Critical | Large | 12 | Wave 11 | Not Started |
-| IND-002 | Replace OperationalDepartmentKey union with runtime config | 12 | Critical | Large | 16 | IND-001, NAV-001 | Not Started |
-| IND-003 | Generalize ensure-default-departments to applyIndustryPack | 12 | Critical | Medium | 8 | IND-001 | Not Started |
-| IND-004 | Pack-driven unit-type-config | 12 | High | Medium | 8 | IND-001 | Not Started |
-| IND-005 | Pack-driven log template presets | 12 | High | Medium | 8 | IND-001 | Not Started |
-| IND-006 | Terminology helper `t()` for neutral UI copy | 12 | High | Medium | 8 | IND-001 | Not Started |
-| IND-007 | Grep pass: eliminate hardcoded DIETARY/EVS/PLANT in TS | 12 | Critical | Very Large | 20 | IND-002 | Not Started |
-| IND-008 | Second industry pack seed (K-12 dev demo) | 12 | Medium | Large | 12 | IND-003 | Not Started |
-| IND-009 | provision-facility `--industry` flag | 12 | High | Small | 4 | IND-001 | Not Started |
-| IND-010 | LTC parity full smoke test under IndustryProfile | 12 | Critical | Large | 8 | IND-007 | Not Started |
+| IND-001 | IndustryProfile schema + LTC pack JSON (parity export) | 12 | — | — | — | — | **Will-not-do** — industry packs retired |
+| IND-002 | Replace OperationalDepartmentKey union with runtime config | 12 | — | — | — | — | **Will-not-do** — industry packs retired |
+| IND-003 | Generalize ensure-default-departments to applyIndustryPack | 12 | — | — | — | — | **Will-not-do** — `applyIndustryPack()` will not be implemented |
+| IND-004 | Pack-driven unit-type-config | 12 | — | — | — | — | **Will-not-do** — industry packs retired |
+| IND-005 | Pack-driven log template presets | 12 | — | — | — | — | **Will-not-do** — Harbor install + place |
+| IND-006 | Terminology helper `t()` for neutral UI copy | 12 | — | — | — | — | **Will-not-do** — not a pack program |
+| IND-007 | Grep pass: eliminate hardcoded DIETARY/EVS/PLANT in TS | 12 | — | — | — | — | **Will-not-do** as a pack ticket |
+| IND-008 | Second industry pack seed (K-12 dev demo) | 12 | — | — | — | — | **Will-not-do** — industry packs retired |
+| IND-009 | provision-facility `--industry` flag | 12 | — | — | — | — | **Will-not-do** — industry packs retired |
+| IND-010 | LTC parity full smoke test under IndustryProfile | 12 | — | — | — | — | **Will-not-do** — industry packs retired |
 
 ---
 

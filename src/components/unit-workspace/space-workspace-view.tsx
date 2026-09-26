@@ -1,11 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { PageHeader } from "@/components/design-system/page-header";
+import { PageHeader, StatusBadge } from "@/components/design-system";
 import {
   SPACE_COVERAGE_UNAVAILABLE_LABEL,
   SPACE_NO_COVERAGE_EXPECTATION_LABEL,
-  SPACE_UNTYPED_LABEL,
   spaceWorkspaceAnchorId,
   spaceWorkspaceEvidenceAnchorId,
   type SpaceWorkspaceSectionId,
@@ -63,7 +62,11 @@ function sectionOrderClass(
 }
 
 function Overview({ view }: { view: SpaceWorkspaceViewModel }) {
+  const card = view.card;
   const hierarchy = view.identity.breadcrumbs.map((row) => row.label).join(" → ");
+  const happeningLine = [card.happeningLabel, card.cycleLabel]
+    .filter((line): line is string => Boolean(line) && line !== card.badge.label)
+    .join(" · ");
   return (
     <section
       id={spaceWorkspaceAnchorId("overview")}
@@ -72,8 +75,8 @@ function Overview({ view }: { view: SpaceWorkspaceViewModel }) {
     >
       <PageHeader
         icon="locations"
-        title={view.identity.displayName}
-        subtitle={[hierarchy, view.identity.operationalTypeName].filter(Boolean).join(" · ")}
+        title={card.name}
+        subtitle={[hierarchy, card.place].filter(Boolean).join(" · ")}
         compact
         actions={
           view.configureHref ? (
@@ -87,43 +90,37 @@ function Overview({ view }: { view: SpaceWorkspaceViewModel }) {
         }
       />
 
-      {view.identity.untyped ? (
-        <p className="text-sm text-zinc-600" data-testid="space-workspace-untyped">
-          {SPACE_UNTYPED_LABEL}
-        </p>
-      ) : (
-        <div data-testid="space-workspace-operation">
-          <p className="text-sm font-semibold text-zinc-900">{view.operation.label}</p>
-          {view.operation.windowLabel ? (
-            <p className="text-sm text-zinc-600">{view.operation.windowLabel}</p>
-          ) : null}
-          {view.operation.upcomingLabel ? (
-            <p className="text-sm text-zinc-600">Next operation: {view.operation.upcomingLabel}</p>
-          ) : null}
-        </div>
-      )}
-
-      {view.exceptions.length > 0 ? (
-        <ul className="space-y-1" data-testid="space-workspace-exceptions">
-          {view.exceptions.map((row) => (
-            <li key={`${row.source}-${row.label}`} className="text-sm text-zinc-800">
-              {row.href ? (
-                <Link href={row.href} className="underline underline-offset-2">
-                  {row.label}
-                </Link>
-              ) : (
-                row.label
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {view.next ? (
-        <p className="text-sm text-zinc-700" data-testid="space-workspace-next">
-          Next: {view.next.label} · {view.next.timeLabel}
-        </p>
-      ) : null}
+      <div className="space-y-2" data-testid="space-workspace-answers">
+        <StatusBadge variant={card.badge.variant} prominence={card.badge.prominence}>
+          {card.badge.label}
+        </StatusBadge>
+        {happeningLine ? (
+          <p className="text-sm font-semibold text-zinc-900" data-testid="space-workspace-happening">
+            {happeningLine}
+          </p>
+        ) : null}
+        {card.responsibleLabel ? (
+          <p className="text-sm text-zinc-600" data-testid="space-workspace-responsible">
+            {card.responsibleLabel}
+          </p>
+        ) : null}
+        {card.wrongLabels.length > 0 ? (
+          <p className="text-sm font-medium text-zinc-900" data-testid="space-workspace-exceptions">
+            {card.wrongLabels.join(" · ")}
+            {card.moreWrongCount > 0 ? ` · +${card.moreWrongCount} more` : ""}
+          </p>
+        ) : null}
+        {card.evidenceLabel ? (
+          <p className="text-sm text-zinc-600" data-testid="space-workspace-evidence-due">
+            {card.evidenceLabel}
+          </p>
+        ) : null}
+        {card.nextLabel ? (
+          <p className="text-sm text-zinc-700" data-testid="space-workspace-next">
+            {card.nextLabel}
+          </p>
+        ) : null}
+      </div>
 
       {view.recentChanges.length > 0 ? (
         <ul className="space-y-1 text-sm text-zinc-600" data-testid="space-workspace-recent-changes">
@@ -298,6 +295,9 @@ function Milestones({
 }) {
   return (
     <Card id={spaceWorkspaceAnchorId("milestones")} title="Operations & Milestones">
+      {view.milestones.items.length === 0 ? (
+        <p className="text-sm text-zinc-600">No milestones for this location today.</p>
+      ) : (
       <ul className="space-y-3">
         {view.milestones.items.map((item) => (
           <li key={`${item.kind}-${item.label}`} data-testid="space-workspace-milestone">
@@ -331,6 +331,7 @@ function Milestones({
           </li>
         ))}
       </ul>
+      )}
       {extra}
     </Card>
   );

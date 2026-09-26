@@ -6,8 +6,6 @@
  * in this milestone).
  */
 
-import { isExperienceKey } from "@/lib/experiences";
-
 import { validateExperienceConfiguration } from "./configuration";
 import {
   isRoomStagedOrUndesignated,
@@ -93,13 +91,6 @@ export function validateProfileForCertification(
         experienceKey: experience.experienceKey,
         isActive: experience.isActive && area.isActive,
       });
-
-      if (!isExperienceKey(experience.experienceKey)) {
-        errors.push({
-          code: "unknown_experience",
-          message: `Unknown Experience key: ${experience.experienceKey} (area ${area.key})`,
-        });
-      }
 
       if (experience.isActive && area.isActive) {
         const owner = experienceOwnership.get(experience.experienceKey);

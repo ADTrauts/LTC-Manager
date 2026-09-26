@@ -1,6 +1,8 @@
 # Operation Model
 
-**Status:** Primary conceptual reference  
+> **Retired (2026-09-25):** The Operation entity and this document as a build spec are retired. Department cycles + Runtime Location State replace a persisted Operation. See [RETIRED.md](./RETIRED.md).
+
+**Status:** Historical conceptual reference  
 **Date:** 2026-07-07  
 **Governed by:** [PRODUCT_CONSTITUTION.md](./PRODUCT_CONSTITUTION.md)
 

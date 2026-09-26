@@ -11,7 +11,8 @@ export default async function AdminPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Administration</h1>
         <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-          Facility configuration and system settings. Facility Administrators only.
+          Govern the organization, billing, and access. Builders live under Build.
+          Facility Administrators only.
         </p>
       </header>
 

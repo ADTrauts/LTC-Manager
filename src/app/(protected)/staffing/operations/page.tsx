@@ -8,6 +8,7 @@ import { PlantTriagePanel } from "@/components/operational-requests/plant-triage
 import { PageHeader } from "@/components/design-system";
 import { SupervisorOperationsBoardView } from "@/components/supervisor-operations/supervisor-operations-board-view";
 import { hasAtLeastRole } from "@/lib/access";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import {
@@ -128,7 +129,7 @@ export default async function SupervisorOperationsBoardPage({
   }
 
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
-  const builderHref = `/admin/departments/${department.id}?tab=cycles`;
+  const builderHref = departmentAdminHref(department.id, "teams");
 
   const workPlansEnabled = isDepartmentWorkPlansEnabled(department.key);
   const oneOffUnits = workPlansEnabled

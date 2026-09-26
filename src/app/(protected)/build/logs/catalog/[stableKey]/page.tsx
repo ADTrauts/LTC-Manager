@@ -4,9 +4,10 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { CatalogAddToTarget } from "@/components/canonical-logs/catalog-add-to-target";
+import { CatalogInstallButton } from "@/components/canonical-logs/catalog-install-button";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import { loadPublishedCatalogDetail } from "@/lib/canonical-logs";
+import { isCatalogInstalled, loadPublishedCatalogDetail } from "@/lib/canonical-logs";
 import { loadCatalogAssignView } from "@/lib/canonical-logs/catalog-assign";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
@@ -25,11 +26,14 @@ export default async function CatalogDetailPage({ params }: Props) {
   const detail = await loadPublishedCatalogDetail(prisma, stableKey);
   if (!detail) notFound();
 
-  const assignView = await loadCatalogAssignView({
-    client: prisma,
-    facilityId: session.facilityId,
-    catalogStableKey: stableKey,
-  });
+  const [assignView, installed] = await Promise.all([
+    loadCatalogAssignView({
+      client: prisma,
+      facilityId: session.facilityId,
+      catalogStableKey: stableKey,
+    }),
+    isCatalogInstalled(prisma, session.facilityId, stableKey),
+  ]);
   if (!assignView) notFound();
 
   return (
@@ -76,7 +80,18 @@ export default async function CatalogDetailPage({ params }: Props) {
         </p>
       </section>
 
-      <CatalogAddToTarget view={assignView} />
+      {installed ? (
+        <CatalogAddToTarget view={assignView} />
+      ) : (
+        <section className="space-y-2 rounded-md border border-zinc-200 bg-white p-3">
+          <h2 className="text-sm font-semibold text-zinc-900">Install on this facility</h2>
+          <p className="text-xs text-zinc-600">
+            Install this log onto the facility, then place it on rooms, assets, units, or
+            departments.
+          </p>
+          <CatalogInstallButton catalogStableKey={stableKey} size="default" />
+        </section>
+      )}
 
       <Link
         href="/build/logs"

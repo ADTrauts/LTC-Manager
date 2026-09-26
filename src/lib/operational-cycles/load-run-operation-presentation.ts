@@ -13,7 +13,6 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { localHhMmFromInstant } from "./key-time-day-expectation";
-import { loadSpaceOperationalTypeAssignments } from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import {
@@ -224,7 +223,7 @@ export async function loadLocationRunPresentation(input: {
 }): Promise<RunLocationOperationPresentation | null> {
   if (input.session.facilityId !== input.facilityId) return null;
 
-  const [model, location, assignments] = await Promise.all([
+  const [model, location] = await Promise.all([
     loadPublishedRunModel({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -233,12 +232,6 @@ export async function loadLocationRunPresentation(input: {
     input.location
       ? Promise.resolve(input.location)
       : loadRoomRunIdentity({ facilityId: input.facilityId, spaceId: input.spaceId }),
-    loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      spaceIds: [input.spaceId],
-      perspective: "runtime",
-    }),
   ]);
   if (!location) return null;
 
@@ -250,7 +243,7 @@ export async function loadLocationRunPresentation(input: {
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: input.spaceId,
-    operationalTypeKey: assignments.get(input.spaceId)?.key ?? null,
+    operationalTypeKey: null,
     location,
     nowLocalHhMm: model.nowLocalHhMm,
     canAdjust: hasAtLeastRole(role, "SUPERVISOR"),

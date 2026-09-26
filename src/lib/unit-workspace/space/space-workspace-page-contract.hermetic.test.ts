@@ -55,3 +55,13 @@ test("wrong-unit redirect and evidence query compatibility remain", () => {
   assert.match(spacePageSrc, /evidenceFocusKey/);
   assert.match(spacePageSrc, /unitTab/);
 });
+
+test("SPACE workspace presents Locations card answers and does not host Experience shell", () => {
+  assert.match(adapterSrc, /presentExceptionFirstLocationCard/);
+  assert.equal(adapterSrc.includes("operationalTypeName"), false);
+  assert.equal(adapterSrc.includes("experienceKeys"), false);
+  assert.equal(adapterSrc.includes("experience-shell"), false);
+  assert.equal(spacePageSrc.includes("ExperienceShell"), false);
+  assert.equal(spacePageSrc.includes("resolveExperienceShellModel"), false);
+  assert.equal(spacePageSrc.includes("isExperienceShellEnabled"), false);
+});

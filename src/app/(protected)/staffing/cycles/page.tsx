@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import {
@@ -104,7 +105,7 @@ export default async function SupervisorCycleOverviewPage() {
   }
 
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
-  const builderHref = `/admin/departments/${department.id}?tab=cycles`;
+  const builderHref = departmentAdminHref(department.id, "teams");
   const isEvs = department.key === "EVS";
 
   const groupedRows = (() => {

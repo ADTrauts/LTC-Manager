@@ -8,5 +8,6 @@ export {
   type DashboardCoverageView,
   type DashboardInterventionView,
   type DashboardNextView,
+  type DashboardPaceCounts,
   type DashboardWorkspaceViewModel,
 } from "./types";

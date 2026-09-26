@@ -37,6 +37,34 @@ function priorityStatusLabel(tone: StatusTone): string {
   return "Info";
 }
 
+function paceSummary(runtime: DashboardWorkspaceViewModel): string {
+  const parts: string[] = [];
+  if (runtime.pace.at_risk > 0) {
+    parts.push(
+      runtime.pace.at_risk === 1 ? "1 at risk" : `${runtime.pace.at_risk} at risk`,
+    );
+  }
+  if (runtime.pace.on_time > 0) {
+    parts.push(
+      runtime.pace.on_time === 1 ? "1 on time" : `${runtime.pace.on_time} on time`,
+    );
+  }
+  if (runtime.pace.ready > 0) {
+    parts.push(runtime.pace.ready === 1 ? "1 ready" : `${runtime.pace.ready} ready`);
+  }
+  if (runtime.pace.idle > 0) {
+    parts.push(runtime.pace.idle === 1 ? "1 idle" : `${runtime.pace.idle} idle`);
+  }
+  if (runtime.pace.unprogrammed > 0) {
+    parts.push(
+      runtime.pace.unprogrammed === 1
+        ? "1 not programmed"
+        : `${runtime.pace.unprogrammed} not programmed`,
+    );
+  }
+  return parts.length > 0 ? parts.join(" · ") : "No operational spaces in scope.";
+}
+
 function DashboardOverview({ runtime }: { runtime: DashboardWorkspaceViewModel }) {
   return (
     <section className="space-y-3" data-testid="dashboard-runtime-overview">
@@ -52,6 +80,7 @@ function DashboardOverview({ runtime }: { runtime: DashboardWorkspaceViewModel }
             ? ` · ${runtime.spaceCount} operational ${runtime.spaceCount === 1 ? "space" : "spaces"}`
             : null}
         </li>
+        <li data-testid="dashboard-runtime-pace">{paceSummary(runtime)}</li>
         <li data-testid="dashboard-runtime-attention">
           {runtime.attentionCount === 0
             ? "No locations currently need attention"

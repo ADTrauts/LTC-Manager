@@ -27,7 +27,6 @@ import type {
   RoomExceptionSnapshot,
 } from "@/lib/department-administration/profile-types";
 import { isRoomStagedOrUndesignated } from "@/lib/department-administration/profile-types";
-import { getExperience } from "@/lib/experiences";
 import {
   formatRoomDisplayName,
   loadFacilityHierarchy,
@@ -179,7 +178,7 @@ export function selectWorkingProfileId(
 }
 
 export function experienceDisplayName(experienceKey: string): string {
-  return getExperience(experienceKey)?.name ?? experienceKey;
+  return experienceKey.replaceAll("_", " ");
 }
 
 export async function loadDepartmentAdminView(input: {

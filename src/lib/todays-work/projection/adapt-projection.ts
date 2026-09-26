@@ -7,7 +7,6 @@
 
 import {
   getExperienceTool,
-  requireExperience,
   type ExperienceToolKey,
 } from "@/lib/experiences";
 import type {
@@ -72,19 +71,21 @@ function adaptExperience(
   experience: ProjectionExperience,
   snapshot: ProjectionSnapshot,
 ): TodaysWorkExperienceContributor {
-  const catalog = requireExperience(experience.reference.experienceKey);
   const scope = snapshot.queryScopes.byExperience[experience.id];
+  const contractTools = experience.contracts.contracts.toolHosts.map(
+    (host) => host.toolKind,
+  );
   return {
     id: experience.id,
     experienceKey: experience.reference.experienceKey,
     label: experience.label,
-    description: catalog.description,
+    description: experience.label,
     order: experience.order,
     areaKey: experience.reference.areaKey,
     unitIds: scope?.unitIds ?? [],
     spaceIds: scope?.spaceIds ?? [],
-    domains: scope?.domains ?? catalog.contracts.queryScope.domains,
-    tools: toolEntries(catalog.tools),
+    domains: scope?.domains ?? experience.contracts.contracts.queryScope.domains,
+    tools: toolEntries(contractTools),
     actions: actionEntries(experience),
     allowedActionKeys: experience.permissions.allowedActionKeys,
   };

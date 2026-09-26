@@ -1,11 +1,8 @@
 /**
- * Procedures & Resources (`/admin/knowledge`) is parked.
- *
- * The page, actions, and knowledge domain stay intact. When this is false, the section is omitted
- * from navigation, Build Home, the Administration hub, and workspace launchers. Flip to `true` to
- * restore those entry points without remaking the surface.
+ * Local procedure notes (`/build/knowledge`). Harbor publishes procedures;
+ * the facility installs them, then a room can add a local note here.
  */
-export const PROCEDURES_RESOURCES_VISIBLE = false;
+export const PROCEDURES_RESOURCES_VISIBLE = true;
 
-export const PROCEDURES_RESOURCES_HREF = "/admin/knowledge";
+export const PROCEDURES_RESOURCES_HREF = "/build/knowledge";
 export const PROCEDURES_RESOURCES_HUB_ID = "procedures_resources";

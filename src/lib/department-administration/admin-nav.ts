@@ -1,9 +1,9 @@
 /**
  * Department Builder — local navigation.
- * Primary IA: Overview | Locations | Teams | Coverage | Operational Cycles
+ * Primary IA: Overview | Locations | Teams
  *
- * Legacy profile-authoring tab ids remain resolvable for deep links.
- * Room Types is deferred (internal profile/archetype architecture preserved).
+ * Retired tabs (Coverage, Cycles, Areas, Archetypes, Room Types, …) are not
+ * a product surface. Deep links resolve to a primary tab. Do not add them back.
  */
 
 export const DEPARTMENT_ADMIN_TABS = [
@@ -22,83 +22,18 @@ export const DEPARTMENT_ADMIN_TABS = [
     label: "Teams",
     description: "Enduring groups within this department",
   },
-  {
-    id: "coverage",
-    label: "Coverage",
-    description: "Expected operational responsibilities",
-  },
-  {
-    id: "cycles",
-    label: "Operational Cycles",
-    description: "Repeating operating periods",
-  },
-] as const;
-
-/** Legacy / advanced tabs still reachable via ?tab= for compatibility. */
-export const DEPARTMENT_ADMIN_LEGACY_TABS = [
-  {
-    id: "room-types",
-    label: "Room Types",
-    description: "Deferred department Room Type configuration",
-  },
-  {
-    id: "areas",
-    label: "Operational Areas",
-    description: "How the department organizes its Experiences",
-  },
-  {
-    id: "archetypes",
-    label: "Operational Patterns",
-    description: "Shared operating patterns for location kinds",
-  },
-  {
-    id: "rooms",
-    label: "Room mapping",
-    description: "Map assigned rooms to operational patterns",
-  },
-  {
-    id: "diagnostics",
-    label: "Diagnostics",
-    description: "Certification readiness and coverage gaps",
-  },
-  {
-    id: "versions",
-    label: "Versions",
-    description: "Draft, certified, active, and retired history",
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    description: "Baseline and profile identity",
-  },
 ] as const;
 
 export type DepartmentAdminPrimaryTabId = (typeof DEPARTMENT_ADMIN_TABS)[number]["id"];
-export type DepartmentAdminLegacyTabId = (typeof DEPARTMENT_ADMIN_LEGACY_TABS)[number]["id"];
-export type DepartmentAdminTabId =
-  | DepartmentAdminPrimaryTabId
-  | DepartmentAdminLegacyTabId;
 
-const ALL_TABS = [...DEPARTMENT_ADMIN_TABS, ...DEPARTMENT_ADMIN_LEGACY_TABS] as const;
-
-/** @deprecated Prefer DEPARTMENT_ADMIN_TABS; kept for tests that list primary + legacy. */
-export const DEPARTMENT_ADMIN_ALL_TAB_IDS: readonly DepartmentAdminTabId[] = ALL_TABS.map(
-  (t) => t.id,
-);
-
-/** Profile-authoring tabs — secondary to Locations / Overview. */
-export const DEPARTMENT_PROFILE_TAB_IDS: readonly DepartmentAdminTabId[] = [
-  "overview",
-  "locations",
-  "areas",
-  "archetypes",
-  "rooms",
-  "diagnostics",
-  "versions",
-  "settings",
-];
-
-const LEGACY_TAB_REDIRECT: Record<DepartmentAdminLegacyTabId, DepartmentAdminPrimaryTabId> = {
+/**
+ * Retired `?tab=` ids. Always redirect. Not listed in the bar.
+ * Coverage / Cycles author on Teams. Areas / Archetypes / Room Types are
+ * the retired Experience-catalog programming model.
+ */
+export const DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT = {
+  coverage: "teams",
+  cycles: "teams",
   "room-types": "locations",
   areas: "locations",
   archetypes: "locations",
@@ -106,10 +41,37 @@ const LEGACY_TAB_REDIRECT: Record<DepartmentAdminLegacyTabId, DepartmentAdminPri
   diagnostics: "overview",
   versions: "overview",
   settings: "overview",
-};
+} as const satisfies Record<string, DepartmentAdminPrimaryTabId>;
+
+export type DepartmentAdminRetiredTabId = keyof typeof DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT;
+
+/** @deprecated Empty. Retired tabs are not a product surface. */
+export const DEPARTMENT_ADMIN_DEFERRED_TABS = [] as const;
+
+/** @deprecated Empty. Retired tabs are not a product surface. */
+export const DEPARTMENT_ADMIN_LEGACY_TABS = [] as const;
+
+export type DepartmentAdminDeferredTabId = never;
+export type DepartmentAdminLegacyTabId = never;
+export type DepartmentAdminTabId = DepartmentAdminPrimaryTabId;
+
+export const DEPARTMENT_ADMIN_ALL_TAB_IDS: readonly DepartmentAdminTabId[] =
+  DEPARTMENT_ADMIN_TABS.map((t) => t.id);
+
+/** Primary tabs only. Profile-authoring leftover ids are retired. */
+export const DEPARTMENT_PROFILE_TAB_IDS: readonly DepartmentAdminTabId[] = [
+  "overview",
+  "locations",
+];
+
+export function isDepartmentAdminRetiredTabId(
+  value: string,
+): value is DepartmentAdminRetiredTabId {
+  return Object.prototype.hasOwnProperty.call(DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT, value);
+}
 
 export function isDepartmentAdminTabId(value: string): value is DepartmentAdminTabId {
-  return ALL_TABS.some((tab) => tab.id === value);
+  return DEPARTMENT_ADMIN_TABS.some((tab) => tab.id === value);
 }
 
 export function isDepartmentAdminPrimaryTabId(
@@ -118,11 +80,16 @@ export function isDepartmentAdminPrimaryTabId(
   return DEPARTMENT_ADMIN_TABS.some((tab) => tab.id === value);
 }
 
+export function isDepartmentAdminDeferredTabId(
+  _value: string,
+): _value is DepartmentAdminDeferredTabId {
+  return false;
+}
+
 export function departmentAdminTabsForFlags(input: {
   profilesEnabled: boolean;
   /**
-   * @deprecated Cycles is a primary Department Builder tab and is always shown.
-   * Retained for call-site compatibility; ignored for nav visibility.
+   * @deprecated Cycles is not a tab. Ignored.
    */
   cyclesEnabled?: boolean;
   /** Locations always available when the department detail page is reachable. */
@@ -142,19 +109,19 @@ export function resolveDepartmentAdminTab(
   options?: {
     availableTabIds?: readonly DepartmentAdminTabId[];
     fallback?: DepartmentAdminTabId;
-    /** When true (default), legacy ids resolve to primary IA tabs. */
-    redirectLegacy?: boolean;
   },
 ): DepartmentAdminTabId {
   const fallback = options?.fallback ?? "overview";
-  const redirectLegacy = options?.redirectLegacy ?? true;
 
-  if (value && isDepartmentAdminTabId(value)) {
-    const resolved: DepartmentAdminTabId =
-      redirectLegacy && value in LEGACY_TAB_REDIRECT
-        ? LEGACY_TAB_REDIRECT[value as DepartmentAdminLegacyTabId]
-        : value;
+  const resolved: DepartmentAdminTabId | null = value
+    ? isDepartmentAdminRetiredTabId(value)
+      ? DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[value]
+      : isDepartmentAdminTabId(value)
+        ? value
+        : null
+    : null;
 
+  if (resolved) {
     if (!options?.availableTabIds || options.availableTabIds.includes(resolved)) {
       return resolved;
     }
@@ -167,16 +134,19 @@ export function resolveDepartmentAdminTab(
 
 export function departmentAdminHref(
   departmentId: string,
-  tab: DepartmentAdminTabId,
+  tab: DepartmentAdminPrimaryTabId | DepartmentAdminRetiredTabId,
   profileId?: string | null,
 ): string {
+  const resolved = isDepartmentAdminRetiredTabId(tab)
+    ? DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[tab]
+    : tab;
   const params = new URLSearchParams();
-  if (tab !== "overview") params.set("tab", tab);
+  if (resolved !== "overview") params.set("tab", resolved);
   if (profileId) params.set("profile", profileId);
   const query = params.toString();
   return query
-    ? `/admin/departments/${departmentId}?${query}`
-    : `/admin/departments/${departmentId}`;
+    ? `/build/departments/${departmentId}?${query}`
+    : `/build/departments/${departmentId}`;
 }
 
 export function profileStatusBadgeVariant(

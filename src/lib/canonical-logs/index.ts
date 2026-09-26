@@ -1,6 +1,6 @@
 /**
  * Canonical Logs foundation (Phase 3).
- * Catalog (platform) → Attachment (facility) → LogRequirement (derived) → Evidence submission.
+ * Catalog (platform) → Facility install → Attachment (place) → LogRequirement (derived) → Evidence.
  */
 
 export { isCanonicalLogsEnabled } from "@/lib/feature-flags";
@@ -37,6 +37,16 @@ export {
   type CreateLogAttachmentInput,
   type UpdateLogAttachmentInput,
 } from "./attachment-service";
+
+export {
+  filterCatalogCardsToInstalled,
+  listInstalledCatalogStableKeys,
+  isCatalogInstalled,
+  listFacilityCatalogInstallCounts,
+  ensureFacilityCatalogInstall,
+  installPublishedCatalog,
+  type FacilityCatalogInstallRow,
+} from "./facility-catalog-install";
 
 export {
   classifyAttachmentUpdate,

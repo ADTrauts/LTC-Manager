@@ -92,7 +92,7 @@ function runtimeMetrics(runtime: DashboardWorkspaceViewModel): WorkspaceMetric[]
       hint:
         runtime.attentionCount === 0
           ? "No locations currently need attention"
-          : `${runtime.attentionCount} ${runtime.attentionCount === 1 ? "location has" : "locations have"} canonical exceptions`,
+          : `${runtime.attentionCount} ${runtime.attentionCount === 1 ? "location is" : "locations are"} at risk`,
       href: "/today",
     },
   ];
@@ -175,7 +175,7 @@ function runtimeOperationsLinks(): WorkspaceLinkCard[] {
             id: "knowledge",
             title: "Knowledge",
             description: "SOPs and reference",
-            href: "/admin/knowledge",
+            href: "/build/knowledge",
             icon: "administration",
           } satisfies WorkspaceLinkCard,
         ]

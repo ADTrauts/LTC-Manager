@@ -42,6 +42,14 @@ export type DashboardNextView = {
   href: string;
 };
 
+export type DashboardPaceCounts = {
+  at_risk: number;
+  on_time: number;
+  ready: number;
+  idle: number;
+  unprogrammed: number;
+};
+
 export type DashboardWorkspaceViewModel = {
   spaceCount: number;
   operatingCount: number;
@@ -52,6 +60,7 @@ export type DashboardWorkspaceViewModel = {
   assetImpactCount: number;
   lateMilestoneCount: number;
   configurationCount: number;
+  pace: DashboardPaceCounts;
   operation: {
     kind: DashboardOperationKind;
     label: string;

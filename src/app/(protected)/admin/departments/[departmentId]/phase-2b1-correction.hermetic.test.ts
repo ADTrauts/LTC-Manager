@@ -17,7 +17,7 @@ test("Overview identity appears once — panel does not repeat department name h
   assert.match(overview, /View locations →/);
 });
 
-test("Locations hierarchy presents Floor → Neighborhood → Room", () => {
+test("Locations list is sourced from the floor hierarchy without editing it", () => {
   const panel = readFileSync(
     join(
       process.cwd(),

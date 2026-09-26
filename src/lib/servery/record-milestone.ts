@@ -12,7 +12,6 @@ import {
   loadFacilityTimezone,
   toServiceDateKey,
 } from "@/lib/operational-time";
-import { resolveServeryEventOperationInstanceId } from "@/lib/operations/resolve-servery-event-operation-instance";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
 import {
@@ -224,10 +223,7 @@ export async function recordServeryMilestone(
     return { ok: false, reason: "OCCURRENCE_TIME_INVALID" };
   }
 
-  const operationInstanceId = await resolveServeryEventOperationInstanceId(
-    { facilityId: input.facilityId, serviceDate, mealType: input.mealType },
-    client,
-  );
+  const operationInstanceId = null;
 
   try {
     return await applyMilestone(client, {

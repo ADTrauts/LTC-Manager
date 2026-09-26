@@ -8,23 +8,27 @@
 
 import { departmentBuilderHrefAfterDepartmentSwitch } from "@/lib/department-administration/builder-entry";
 
-export const DEPARTMENT_BUILDER_AREA_PREFIX = "/admin/departments";
+export const DEPARTMENT_BUILDER_AREA_PREFIX = "/build/departments";
+
+function isBuilderPath(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 /** Department Builder list or a specific workspace. */
 export function isDepartmentBuilderAreaPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   return (
-    pathname === DEPARTMENT_BUILDER_AREA_PREFIX ||
-    pathname.startsWith(`${DEPARTMENT_BUILDER_AREA_PREFIX}/`)
+    isBuilderPath(pathname, DEPARTMENT_BUILDER_AREA_PREFIX) ||
+    isBuilderPath(pathname, "/admin/departments")
   );
 }
 
-/** Workspace department id from `/admin/departments/{id}` (not the facility list). */
+/** Workspace department id from `/build/departments/{id}` (or leftover /admin). */
 export function departmentIdFromBuilderWorkspacePath(
   pathname: string | null | undefined,
 ): string | null {
   if (!pathname) return null;
-  const match = /^\/admin\/departments\/([^/]+)\/?$/.exec(pathname);
+  const match = /^\/(?:admin|build)\/departments\/([^/]+)\/?$/.exec(pathname);
   const id = match?.[1]?.trim();
   return id ? id : null;
 }

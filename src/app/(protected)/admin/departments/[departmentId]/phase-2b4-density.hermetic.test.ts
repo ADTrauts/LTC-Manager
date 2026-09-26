@@ -28,7 +28,7 @@ test("Department Locations header stacks title, helper, and manage action compac
   assert.match(panel, /flex flex-col gap-2 sm:flex-row/);
   assert.match(
     panel,
-    /Physical places \{view\.department\.name\} is responsible for, and the Operational Type/,
+    /Physical places \{view\.department\.name\} is responsible for\./,
   );
   assert.match(panel, /Manage responsibility/);
   assert.match(panel, /space-y-3/);
@@ -72,7 +72,7 @@ test("Facility Builder essential tree actions use touch-visible utility", () => 
   assert.match(css, /hover: hover/);
 });
 
-test("Department Location tree projection remains unchanged in this pass", () => {
+test("Department Locations list still consumes the hierarchy projection as a room list", () => {
   const tree = readFileSync(
     join(process.cwd(), "src/components/location-tree/DepartmentLocationTree.tsx"),
     "utf8",
@@ -87,8 +87,8 @@ test("Department Location tree projection remains unchanged in this pass", () =>
   assert.match(programming, /import \{ DepartmentLocationTree \} from "@\/components\/location-tree"/);
   assert.match(programming, /<DepartmentLocationTree/);
   assert.match(programming, /floors=\{view\.locationHierarchy\}/);
-  assert.match(tree, /role="tree"/);
-  assert.match(tree, /LocationTreeRow/);
+  assert.match(tree, /flattenRooms/);
+  assert.match(tree, /parentNeighborhoodName/);
   assert.doesNotMatch(tree, /builder-essential-touch-visible/);
 });
 

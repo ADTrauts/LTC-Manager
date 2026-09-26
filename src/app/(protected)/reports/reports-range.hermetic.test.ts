@@ -34,4 +34,5 @@ test("canonical Range is explicit and does not replace Day default", () => {
   assert.doesNotMatch(range, /timesPerDay/);
   assert.doesNotMatch(range, /loadRuntimeLocationStates/);
   assert.doesNotMatch(range, /compliance %/);
+  assert.match(page, /loadRuntimeLocationStates/);
 });

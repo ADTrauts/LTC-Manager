@@ -51,7 +51,7 @@ test("Department context facts link to primary tabs", () => {
   );
   assert.match(bar, /departmentAdminHref\(departmentId, "locations"/);
   assert.match(bar, /departmentAdminHref\(departmentId, "teams"/);
-  assert.match(bar, /departmentAdminHref\(departmentId, "cycles"/);
+  assert.match(bar, /departmentAdminHref\(departmentId, "teams"/);
   assert.match(bar, /Draft changes/);
 });
 
@@ -87,11 +87,11 @@ test("Facility essential touch actions remain after context bar", () => {
   assert.match(client, /builder-essential-touch-visible/);
 });
 
-test("Department Location tree unchanged", () => {
+test("Department Locations list stays outside Facility Builder chrome", () => {
   const tree = readFileSync(
     join(process.cwd(), "src/components/location-tree/DepartmentLocationTree.tsx"),
     "utf8",
   );
-  assert.match(tree, /role="tree"/);
+  assert.match(tree, /department-location-room/);
   assert.doesNotMatch(tree, /BuildContextBar/);
 });

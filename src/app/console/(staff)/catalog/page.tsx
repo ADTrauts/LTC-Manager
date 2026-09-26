@@ -12,9 +12,9 @@ export default async function HarborCatalogPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Catalog</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            LTC Corp logs and checklists. Facilities attach them; they do not author them.
+            LTC Corp logs, checklists, inspections, and procedures. Facilities install them, then place them. They do not author them.
           </p>
         </div>
         <Link
@@ -33,12 +33,13 @@ export default async function HarborCatalogPage() {
               <th className="px-4 py-2 font-medium">Category</th>
               <th className="px-4 py-2 font-medium">Purpose</th>
               <th className="px-4 py-2 font-medium">Status</th>
+              <th className="px-4 py-2 font-medium">Facilities</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-[var(--text-secondary)]">
+                <td colSpan={5} className="px-4 py-6 text-[var(--text-secondary)]">
                   No catalog logs yet.
                 </td>
               </tr>
@@ -57,6 +58,11 @@ export default async function HarborCatalogPage() {
                   <td className="px-4 py-3 text-[var(--text-secondary)]">{row.categoryLabel}</td>
                   <td className="px-4 py-3 text-[var(--text-secondary)]">{row.purposeLabel}</td>
                   <td className="px-4 py-3">{row.statusLabel}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                    {row.installCount === 0
+                      ? "None yet"
+                      : `${row.installCount} installed`}
+                  </td>
                 </tr>
               ))
             )}

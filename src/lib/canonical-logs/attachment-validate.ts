@@ -127,6 +127,9 @@ export async function validateAttachmentTarget(input: {
   target: AttachmentTargetInput;
 }): Promise<ReturnType<typeof normalizeAttachmentTarget>> {
   const normalized = normalizeAttachmentTarget(input.target);
+  if (normalized.targetKind === "OPERATIONAL_TYPE") {
+    throw new Error("Place on a room, department, or Facility type.");
+  }
   const { client, facilityId } = input;
 
   if (normalized.targetKind === "ASSET" && normalized.assetId) {
@@ -159,23 +162,6 @@ export async function validateAttachmentTarget(input: {
       select: { id: true },
     });
     if (!dept) throw new Error("Target department not found in this facility.");
-  }
-
-  if (normalized.targetKind === "OPERATIONAL_TYPE" && normalized.operationalTypeKey) {
-    const archetype = await client.departmentRoomArchetype.findFirst({
-      where: {
-        key: normalized.operationalTypeKey,
-        profile: {
-          facilityId,
-          departmentId: input.departmentId,
-          status: { in: ["DRAFT", "CERTIFIED", "ACTIVE"] },
-        },
-      },
-      select: { id: true },
-    });
-    if (!archetype) {
-      throw new Error("Operational Type is not defined for this department.");
-    }
   }
 
   const owning = await client.department.findFirst({

@@ -9,7 +9,7 @@ import type { RuntimeLocationSpaceRef } from "@/lib/runtime-location-state";
 
 export const LANDING_COVERAGE_UNAVAILABLE_LABEL = "Coverage unavailable";
 export const LANDING_NO_ACTIVE_OPERATION_LABEL = "No active operation";
-export const LANDING_UNTYPED_LABEL = "Operational Type not assigned";
+export const LANDING_UNTYPED_LABEL = "Location Program not attached";
 
 export type LocationLandingGrain = "SPACE" | "NEIGHBORHOOD" | "FLOOR";
 

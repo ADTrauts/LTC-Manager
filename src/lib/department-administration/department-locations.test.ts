@@ -655,9 +655,9 @@ describe("Department Builder Locations source contracts", () => {
     assert.equal(/prisma\.unitSpace\.update/.test(panel), false);
     assert.equal(/prisma\.unit\.update/.test(actions), false);
     assert.match(panel, /LocationsProgrammingClient/);
-    assert.match(panel, /Operational Type/);
-    assert.match(tree, /Physical Type/);
-    assert.match(tree, /Operational Type/);
+    assert.match(panel, /Physical places \{view\.department\.name\} is responsible for/);
+    assert.match(tree, /parentNeighborhoodName/);
+    assert.match(tree, /No physical type/);
     assert.match(typesPanel, /Room Types/);
     assert.equal(/archetypeId/.test(panel), false);
     assert.equal(/archetypeId/.test(typesPanel), false);

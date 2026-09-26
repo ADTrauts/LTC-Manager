@@ -42,9 +42,9 @@ export function DepartmentBuildContextBar({
     },
     {
       ...formatBuildCountFact(context.currentCycleCount, "Cycle", "Cycles"),
-      href: departmentAdminHref(departmentId, "cycles", profileId),
+      href: departmentAdminHref(departmentId, "teams", profileId),
       ariaLabel: `View ${context.currentCycleCount} operational cycles for ${departmentName}`,
-      active: activeTab === "cycles",
+      active: activeTab === "teams",
     },
     context.headDisplayName
       ? {

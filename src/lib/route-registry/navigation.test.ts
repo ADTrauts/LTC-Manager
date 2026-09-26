@@ -57,14 +57,14 @@ test("navigation — labels come from the registry, not from database rows", () 
   // Phase 13 product-mode surfaces.
   assert.equal(byHref.get("/staffing"), "Schedule");
   assert.equal(byHref.get("/employees"), "Employee Builder");
-  assert.equal(byHref.get("/admin/departments"), "Department Builder");
+  assert.equal(byHref.get("/build/departments"), "Department Builder");
   assert.equal(byHref.get("/admin/facility/builder"), "Facility Builder");
-  assert.equal(byHref.has("/admin/knowledge"), false);
+  assert.equal(byHref.get("/build/knowledge"), "Procedures");
 });
 
-test("navigation — Procedures & Resources is parked from nav but stays reachable", () => {
-  assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/admin/knowledge"), false);
-  assert.equal(roleMayAccessRoute("/admin/knowledge", "FACILITY_ADMINISTRATOR", FLAGS), true);
+test("navigation — Procedures is a Build door and leftover /admin/knowledge stays reachable", () => {
+  assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/build/knowledge"), true);
+  assert.equal(roleMayAccessRoute("/build/knowledge", "FACILITY_ADMINISTRATOR", FLAGS), true);
 });
 
 test("navigation — absence from navigation does not deny access", () => {

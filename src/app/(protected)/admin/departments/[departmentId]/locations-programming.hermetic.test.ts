@@ -14,13 +14,17 @@ describe("Department Locations programming contracts", () => {
       "export async function clearLocationOperationalTypeAction",
     );
     const assignBlock = actions.slice(assignStart, assignEnd);
-    assert.match(assignBlock, /ensureWorkingDraftForPatterns/);
-    assert.match(assignBlock, /bindRoomToArchetype/);
-    assert.match(assignBlock, /archetypeKey/);
+    assert.match(assignBlock, /ROLE_BINDING_RETIRED/);
+    assert.doesNotMatch(assignBlock, /bindRoomToArchetype/);
     assert.doesNotMatch(assignBlock, /requireFeature\(/);
+
+    const createStart = actions.indexOf("export async function createLocationOperationalTypeAction");
+    const createBlock = actions.slice(createStart);
+    assert.match(createBlock, /ROLE_BINDING_RETIRED/);
+    assert.doesNotMatch(createBlock, /bindRoomToArchetype/);
   });
 
-  it("inspector distinguishes Physical Type from Operational Type and identifies cycle source", () => {
+  it("inspector shows Facility type and overlays without Role or Experiences", () => {
     const client = readFileSync(
       join(
         process.cwd(),
@@ -28,26 +32,25 @@ describe("Department Locations programming contracts", () => {
       ),
       "utf8",
     );
-    assert.match(client, /Physical Type/);
-    assert.match(client, /Operational Type/);
-    assert.match(client, /No Operational Type/);
-    assert.match(client, /inherit from this room/);
-    assert.match(client, /OPERATIONAL_TYPE_DEFAULT/);
-    assert.match(client, /Manage Operational Cycles/);
-    assert.match(client, /Manage Logs/);
-    assert.match(client, /Manage Teams/);
-    assert.match(client, /Manage Coverage/);
-    assert.match(client, /Configured Teams/);
-    assert.match(client, /Coverage Expectations/);
-    assert.match(client, /Staffing \/ Coverage Expectations/);
+    assert.match(client, /Facility type/);
+    assert.match(client, /is responsible/);
+    assert.match(client, /GuardedModal/);
+    assert.match(client, /Teams that work here/);
+    assert.match(client, /Cycles that landed here/);
+    assert.match(client, /Staffing need/);
+    assert.match(client, /Add log/);
+    assert.doesNotMatch(client, /Coverage Expectations/);
+    assert.doesNotMatch(client, /groupRoomsByFacilityRoomType/);
+    assert.doesNotMatch(client, /How we use this room/);
+    assert.doesNotMatch(client, /Create new/);
+    assert.doesNotMatch(client, /location-role-create/);
+    assert.doesNotMatch(client, /assignLocationOperationalTypeAction/);
+    assert.doesNotMatch(client, /clearLocationOperationalTypeAction/);
+    assert.doesNotMatch(client, /location-program-experiences/);
+    assert.doesNotMatch(client, /Prepare roles/);
+    assert.doesNotMatch(client, /By role/);
     assert.doesNotMatch(client, /Covered/);
     assert.doesNotMatch(client, /Mary assigned/);
-    assert.match(client, /Logs & Evidence/);
-    assert.match(client, /groupRoomsByOperationalType/);
-    assert.match(client, /assignLocationOperationalTypeAction/);
-    assert.match(client, /clearLocationOperationalTypeAction/);
-    assert.match(client, /locations-draft-boundary/);
-    assert.match(client, /Run keeps the active Operational Types/);
   });
 
   it("Locations panel still sends responsibility edits to Facility Builder", () => {

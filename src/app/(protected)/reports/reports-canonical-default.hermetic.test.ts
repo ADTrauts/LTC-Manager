@@ -27,10 +27,11 @@ test("canonical Review uses one facility service date and SPACE filter", () => {
   assert.match(nav, /id: "review"/);
 });
 
-test("canonical Review page does not switch current day to RLS", () => {
+test("canonical Review day page reads the same Runtime Location State object", () => {
   const page = read("src/app/(protected)/reports/page.tsx");
   assert.match(page, /todayKey: facts\.todayKey/);
-  assert.doesNotMatch(page, /loadRuntimeLocationStates/);
+  assert.match(page, /loadRuntimeLocationStates/);
+  assert.match(page, /presentReviewLocationsFromRuntime/);
   assert.doesNotMatch(page, /loadOperatingLocationBoard/);
   assert.doesNotMatch(page, /loadDashboardRuntime/);
 });

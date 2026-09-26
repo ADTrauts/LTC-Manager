@@ -1,5 +1,8 @@
 /**
- * Effective Location Program — composition.
+ * Effective Location Program — legacy Role / Experience composition.
+ *
+ * Director Locations now read Location Program (`location-program.ts`).
+ * Keep this resolver until Run no longer keys off archetype bindings.
  *
  * Pure / read-oriented. Does not persist or publish.
  * Operational Type remains DepartmentRoomArchetype.

@@ -4,6 +4,11 @@
  */
 
 import { normalizeAssetStatus } from "@/lib/asset-operations/types";
+import {
+  emptyLocationProgram,
+  type LocationProgram,
+  type LocationProgramCycle,
+} from "@/lib/department-administration/location-program";
 import type { LogRequirement } from "@/lib/logs-architecture/types";
 import {
   describeKeyTimeStatus,
@@ -21,6 +26,9 @@ import {
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 import {
+  assignmentCoversLocation,
+  assignmentOverlapsCycle,
+  evaluateCoverageSlotState,
   evaluateCoverageSlots,
   flattenCoverageTemplateItems,
   planLifecycleFromStatus,
@@ -31,6 +39,7 @@ import {
   type CoverageTemplateVersionRow,
 } from "@/lib/scheduling/coverage-expectations";
 
+import { deriveRuntimeLocationAnswers } from "./answers";
 import { summarizeRuntimeEvidence } from "./evidence";
 import { deriveRuntimeExceptions } from "./exceptions";
 import { deriveRuntimeNextEvent } from "./next-event";
@@ -58,6 +67,7 @@ export type RuntimeSpaceIdentityRow = {
   neighborhoodName: string | null;
   roomTypeKey: string | null;
   roomTypeLabel: string | null;
+  facilityRoomTypeId: string | null;
 };
 
 export type RuntimeActiveProfileRef = {
@@ -112,6 +122,7 @@ export type RuntimeLocationComposeInput = {
   assetsBySpaceId: ReadonlyMap<string, readonly RuntimeAssetFact[]>;
   issuesBySpaceId: ReadonlyMap<string, readonly RuntimeAssetIssueFact[]>;
   serveryEventsByUnitId: ReadonlyMap<string, readonly RuntimeServeryEventRow[]>;
+  programsBySpaceId: ReadonlyMap<string, LocationProgram>;
 };
 
 function emptyCoverage(availability: RuntimeCoverageState["availability"]): RuntimeCoverageState {
@@ -144,12 +155,32 @@ function cycleWindows(
   return windows;
 }
 
+function applyProgramCycleApplicability(
+  cycles: readonly OperationalCycleDefinition[],
+  spaceId: string,
+  program: LocationProgram | null,
+): OperationalCycleDefinition[] {
+  if (!program) return [...cycles];
+  const keys = new Set(program.cycles.map((cycle) => cycle.cycleStableKey));
+  return cycles.map((cycle) => {
+    if (!keys.has(cycle.stableKey)) return cycle;
+    const spaceIds = cycle.spaceIds.includes(spaceId)
+      ? cycle.spaceIds
+      : [...cycle.spaceIds, spaceId];
+    return {
+      ...cycle,
+      spaceIds,
+      locationMode: "EXPLICIT_UNITS",
+    };
+  });
+}
+
 function composeOperation(
   model: RuntimePublishedRunModel | undefined,
   space: RuntimeSpaceIdentityRow,
-  operationalTypeKey: string | null,
+  program: LocationProgram | null,
 ): RuntimeCurrentOperation {
-  const cycles = model?.cycles ?? [];
+  const cycles = applyProgramCycleApplicability(model?.cycles ?? [], space.spaceId, program);
   const provenance = model?.provenance ?? "NEW_PERIOD_KEY_TIME";
   if (!model || cycles.length === 0) {
     return {
@@ -166,7 +197,7 @@ function composeOperation(
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: space.spaceId,
-    operationalTypeKey,
+    operationalTypeKey: null,
   });
 
   const presented = presentLocationRunOperation({
@@ -176,7 +207,7 @@ function composeOperation(
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: space.spaceId,
-    operationalTypeKey,
+    operationalTypeKey: null,
     nowLocalHhMm: model.nowLocalHhMm,
     location: {
       title: space.name,
@@ -237,8 +268,141 @@ function composeOperation(
   };
 }
 
-function composeCoverage(input: {
-  enabled: boolean;
+function programCycleWindows(
+  program: LocationProgram,
+  cycles: readonly OperationalCycleDefinition[],
+  operationalDateKey: string,
+  timezone: string,
+): Map<string, { startsAt: Date | null; endsAt: Date | null }> {
+  const windows = cycleWindows(cycles, operationalDateKey, timezone);
+  for (const cycle of program.cycles) {
+    if (windows.has(cycle.cycleStableKey) || !cycle.startLocal || !cycle.endLocal) continue;
+    const window = resolveCycleWindowInstants({
+      operationalDateKey,
+      startLocal: cycle.startLocal,
+      endLocal: cycle.endLocal,
+      overnight: false,
+      facilityTimezone: timezone,
+    });
+    windows.set(cycle.cycleStableKey, window ?? { startsAt: null, endsAt: null });
+  }
+  return windows;
+}
+
+function matchingAssignmentsForTeamNeed(input: {
+  assignments: readonly CoverageAssignmentActual[];
+  spaceId: string;
+  unitId: string | null;
+  cycleStartsAt: Date | null;
+  cycleEndsAt: Date | null;
+}): CoverageAssignmentActual[] {
+  const seen = new Set<string>();
+  const matches: CoverageAssignmentActual[] = [];
+  for (const assignment of input.assignments) {
+    if (seen.has(assignment.id)) continue;
+    if (assignment.status !== "PLANNED" && assignment.status !== "ACTIVE") continue;
+    if (!assignmentCoversLocation(assignment, input.spaceId, input.unitId)) continue;
+    if (
+      !assignmentOverlapsCycle({
+        assignment,
+        cycleStartsAt: input.cycleStartsAt,
+        cycleEndsAt: input.cycleEndsAt,
+      })
+    ) {
+      continue;
+    }
+    seen.add(assignment.id);
+    matches.push(assignment);
+  }
+  return matches;
+}
+
+function composeProgramNeedCoverage(input: {
+  program: LocationProgram;
+  space: RuntimeSpaceIdentityRow;
+  operation: RuntimeCurrentOperation;
+  assignments: readonly CoverageAssignmentActual[];
+  cycles: readonly OperationalCycleDefinition[];
+  planStatus: string | null;
+  operationalDateKey: string;
+  timezone: string;
+  now: Date;
+}): RuntimeCoverageState | null {
+  const needs: Array<{ cycle: LocationProgramCycle; teamId: string; teamName: string; requiredCount: number }> =
+    [];
+  for (const cycle of input.program.cycles) {
+    for (const team of cycle.teams) {
+      if (team.requiredCount == null) continue;
+      needs.push({
+        cycle,
+        teamId: team.teamId,
+        teamName: team.teamName,
+        requiredCount: team.requiredCount,
+      });
+    }
+  }
+  if (needs.length === 0) return null;
+
+  const plan = planLifecycleFromStatus(input.planStatus);
+  const windows = programCycleWindows(
+    input.program,
+    input.cycles,
+    input.operationalDateKey,
+    input.timezone,
+  );
+  const activeKey = input.operation.current?.cycleStableKey ?? null;
+  const relevant = activeKey
+    ? needs.filter((need) => need.cycle.cycleStableKey === activeKey)
+    : needs.filter((need) => {
+        const window = windows.get(need.cycle.cycleStableKey);
+        if (!window?.startsAt || !window.endsAt) return false;
+        return input.now >= window.startsAt && input.now < window.endsAt;
+      });
+
+  const assignmentById = new Map(input.assignments.map((row) => [row.id, row]));
+  return {
+    availability: "evaluated",
+    planLifecycle: plan,
+    slots: relevant.map((need) => {
+      const window = windows.get(need.cycle.cycleStableKey);
+      const matches = matchingAssignmentsForTeamNeed({
+        assignments: input.assignments,
+        spaceId: input.space.spaceId,
+        unitId: input.space.unitId,
+        cycleStartsAt: window?.startsAt ?? null,
+        cycleEndsAt: window?.endsAt ?? null,
+      });
+      const filledCount = matches.length;
+      return {
+        expectationId: `team-need:${need.teamId}:${need.cycle.cycleStableKey}`,
+        templateStableKey: `location-program:${need.teamId}`,
+        templateVersion: 1,
+        roleKey: `TEAM:${need.teamId}`,
+        roleLabel: need.teamName,
+        requiredCount: need.requiredCount,
+        filledCount,
+        state: evaluateCoverageSlotState({
+          plan,
+          requiredCount: need.requiredCount,
+          filledCount,
+          hasCallDownRisk: matches.some((row) => row.hasCallDown === true),
+        }),
+        cycleStableKey: need.cycle.cycleStableKey,
+        assignmentIds: matches.map((row) => row.id),
+        assignmentRefs: matches.map((assignment) => ({
+          assignmentId: assignment.id,
+          employeeId: assignmentById.get(assignment.id)?.employeeId ?? assignment.employeeId ?? null,
+          employeeDisplayName:
+            assignmentById.get(assignment.id)?.employeeDisplayName ??
+            assignment.employeeDisplayName ??
+            null,
+        })),
+      };
+    }),
+  };
+}
+
+function composeTemplateCoverage(input: {
   space: RuntimeSpaceIdentityRow;
   operationalType: RuntimeOperationalTypeRow | null;
   operation: RuntimeCurrentOperation;
@@ -249,8 +413,6 @@ function composeCoverage(input: {
   operationalDateKey: string;
   timezone: string;
 }): RuntimeCoverageState {
-  if (!input.enabled) return emptyCoverage("feature_disabled");
-
   const runtimeTemplates = selectRuntimeCoverageTemplates(
     input.templates,
     input.operationalDateKey,
@@ -327,10 +489,54 @@ function composeCoverage(input: {
   };
 }
 
+function composeCoverage(input: {
+  enabled: boolean;
+  space: RuntimeSpaceIdentityRow;
+  operationalType: RuntimeOperationalTypeRow | null;
+  operation: RuntimeCurrentOperation;
+  program: LocationProgram;
+  templates: readonly CoverageTemplateVersionRow[];
+  planStatus: string | null;
+  assignments: readonly CoverageAssignmentActual[];
+  cycles: readonly OperationalCycleDefinition[];
+  operationalDateKey: string;
+  timezone: string;
+  now: Date;
+}): RuntimeCoverageState {
+  if (!input.enabled) return emptyCoverage("feature_disabled");
+
+  const fromProgram = composeProgramNeedCoverage({
+    program: input.program,
+    space: input.space,
+    operation: input.operation,
+    assignments: input.assignments,
+    cycles: input.cycles,
+    planStatus: input.planStatus,
+    operationalDateKey: input.operationalDateKey,
+    timezone: input.timezone,
+    now: input.now,
+  });
+  if (fromProgram) return fromProgram;
+
+  return composeTemplateCoverage(input);
+}
+
+function isServeryPlace(space: RuntimeSpaceIdentityRow, program: LocationProgram): boolean {
+  const haystack = [
+    space.roomTypeKey,
+    space.roomTypeLabel,
+    program.location.facilityTypeLabel,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes("servery");
+}
+
 function composeMilestones(input: {
   model: RuntimePublishedRunModel | undefined;
   spaceId: string;
-  operationalTypeKey: string | null;
+  includeServeryMilestones: boolean;
     unitId: string | null;
   serveryEvents: readonly RuntimeServeryEventRow[];
 }): RuntimeMilestoneItem[] {
@@ -361,7 +567,7 @@ function composeMilestones(input: {
     });
   }
 
-  if ((input.operationalTypeKey ?? "").toUpperCase() !== "SERVERY") {
+  if (!input.includeServeryMilestones) {
     return items;
   }
 
@@ -483,13 +689,14 @@ function composeChanges(input: {
 
 function programRefs(input: {
   space: RuntimeSpaceIdentityRow;
+  program: LocationProgram;
   operationalType: RuntimeOperationalTypeRow | null;
   profile: RuntimeActiveProfileRef | null;
   model: RuntimePublishedRunModel | undefined;
   coverage: RuntimeCoverageState;
   evidence: RuntimeLocationState["evidence"];
 }): RuntimeEffectiveProgramRef {
-  const cycleRefs =
+  const publishedCycleRefs =
     input.model?.cycles
       .filter((cycle) => cycle.status === "PUBLISHED")
       .map((cycle) => ({
@@ -497,6 +704,12 @@ function programRefs(input: {
         version: cycle.version,
         label: cycle.label,
       })) ?? [];
+  const programCycleRefs = input.program.cycles.map((cycle) => ({
+    stableKey: cycle.cycleStableKey,
+    version: publishedCycleRefs.find((row) => row.stableKey === cycle.cycleStableKey)?.version ?? 1,
+    label: cycle.label,
+  }));
+  const cycleRefs = programCycleRefs.length > 0 ? programCycleRefs : publishedCycleRefs;
 
   const coverageExpectationRefs = [
     ...new Map(
@@ -512,14 +725,23 @@ function programRefs(input: {
 
   const logAttachmentRefs = [
     ...new Map(
-      input.evidence.items.map((item) => [
-        item.attachmentId,
-        { attachmentId: item.attachmentId, stableKey: item.attachmentId },
-      ]),
+      [
+        ...input.evidence.items.map((item) => ({
+          attachmentId: item.attachmentId,
+          stableKey: item.catalogStableKey || item.attachmentId,
+        })),
+        ...input.program.logs
+          .filter((log) => log.attachmentId)
+          .map((log) => ({
+            attachmentId: log.attachmentId!,
+            stableKey: log.attachmentId!,
+          })),
+      ].map((row) => [row.attachmentId, row]),
     ).values(),
   ];
 
   return {
+    locationProgram: input.program,
     operationalType: {
       state: input.operationalType ? "assigned" : "unassigned",
       key: input.operationalType?.key ?? null,
@@ -557,18 +779,32 @@ export function composeRuntimeLocationStates(
     const operationalType = input.operationalTypesBySpaceId.get(space.spaceId) ?? null;
     const profile = input.profilesByDepartmentId.get(space.departmentId) ?? null;
     const model = input.runModelsByDepartmentId.get(space.departmentId);
-    const operation = composeOperation(model, space, operationalType?.key ?? null);
+    const program =
+      input.programsBySpaceId.get(space.spaceId) ??
+      emptyLocationProgram({
+        departmentId: space.departmentId,
+        departmentName: space.departmentLabel ?? "",
+        spaceId: space.spaceId,
+        name: space.name,
+        neighborhoodName: space.neighborhoodName,
+        floorName: space.floorName,
+        facilityTypeLabel: space.roomTypeLabel,
+        facilityRoomTypeId: space.facilityRoomTypeId,
+      });
+    const operation = composeOperation(model, space, program);
     const coverage = composeCoverage({
       enabled: input.operationalAssignmentsEnabled,
       space,
       operationalType,
       operation,
+      program,
       templates: input.coverageTemplatesByDepartmentId.get(space.departmentId) ?? [],
       planStatus: input.coveragePlanByDepartmentId.get(space.departmentId) ?? null,
       assignments: input.assignmentsByDepartmentId.get(space.departmentId) ?? [],
-      cycles: model?.cycles ?? [],
+      cycles: applyProgramCycleApplicability(model?.cycles ?? [], space.spaceId, program),
       operationalDateKey: input.operationalDateKey,
       timezone: input.timezone,
+      now: input.now,
     });
     const evidence = summarizeRuntimeEvidence(
       input.evidenceBySpaceId.get(space.spaceId) ?? [],
@@ -587,15 +823,16 @@ export function composeRuntimeLocationStates(
       items: composeMilestones({
         model,
         spaceId: space.spaceId,
-        operationalTypeKey: operationalType?.key ?? null,
+        includeServeryMilestones: isServeryPlace(space, program),
         unitId: space.unitId,
         serveryEvents: space.unitId
           ? (input.serveryEventsByUnitId.get(space.unitId) ?? [])
           : [],
       }),
     };
-    const program = programRefs({
+    const programRef = programRefs({
       space,
+      program,
       operationalType,
       profile,
       model,
@@ -627,7 +864,7 @@ export function composeRuntimeLocationStates(
 
     const partial = {
       identity,
-      program,
+      program: programRef,
       operation,
       coverage,
       evidence,
@@ -674,13 +911,17 @@ export function composeRuntimeLocationStates(
       evidence,
     });
 
-    return {
+    const composed = {
       ...partial,
       readiness: DEFERRED_READINESS,
       changes,
       exceptions,
       next,
       asOf,
+    };
+    return {
+      ...composed,
+      answers: deriveRuntimeLocationAnswers(composed),
     };
   });
 }

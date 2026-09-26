@@ -7,8 +7,10 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import {
   archiveDepartmentTeam,
   createDepartmentTeam,
+  loadTeamById,
   updateDepartmentTeam,
 } from "@/lib/department-teams";
+import { prisma } from "@/lib/prisma";
 
 export type TeamActionResult =
   | { ok: true; message?: string; teamId?: string }
@@ -114,6 +116,44 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
     });
     revalidateTeams(team.departmentId);
     return { ok: true, message: "Team saved.", teamId: team.id };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function addRemainingRoomsOfTypeToTeamAction(
+  formData: FormData,
+): Promise<TeamActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const teamId = z.string().cuid().parse(formData.get("teamId"));
+    const spaceIds = parseSpaceIds(formData.get("spaceIds"));
+    if (spaceIds.length === 0) {
+      return { ok: false, message: "No remaining rooms to add." };
+    }
+    const existing = await loadTeamById(prisma, {
+      facilityId: session.facilityId,
+      teamId,
+    });
+    if (!existing || existing.departmentId !== departmentId) {
+      return { ok: false, message: "Team not found." };
+    }
+    const nextSpaceIds = [...new Set([...existing.rooms.map((room) => room.spaceId), ...spaceIds])];
+    await updateDepartmentTeam(session, {
+      facilityId: session.facilityId,
+      teamId,
+      spaceIds: nextSpaceIds,
+    });
+    revalidateTeams(departmentId);
+    return {
+      ok: true,
+      message:
+        spaceIds.length === 1
+          ? "Added 1 remaining room to the team."
+          : `Added ${spaceIds.length} remaining rooms to the team.`,
+      teamId,
+    };
   } catch (error) {
     return fail(error);
   }

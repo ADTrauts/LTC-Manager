@@ -92,6 +92,18 @@ test("build sidebar — omits Build Home when the filtered group has no hub link
   assert.equal(withoutHome[0]?.href, "/admin/facility/builder");
 });
 
+test("build-hub — Logs card is install then place, not an Admin door", () => {
+  const cards = buildHubCards([
+    ...ITEMS,
+    { label: "Logs", href: "/build/logs" },
+  ]);
+  const logs = cards.find((card) => card.href === "/build/logs");
+  assert.ok(logs);
+  assert.match(logs.description, /Install published logs/);
+  assert.match(logs.description, /place them/);
+  assert.doesNotMatch(logs.description, /Attach Logs from/);
+});
+
 test("build page intros — stay concise for permanent page chrome", () => {
   const intro = buildPageIntro("/assets/builder");
   assert.ok(intro.length > 0);

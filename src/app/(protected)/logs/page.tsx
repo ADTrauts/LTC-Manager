@@ -50,6 +50,9 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   if (!session?.facilityId) {
     redirect("/login");
   }
+  if (isCanonicalLogsEnabled() && activeTab === "assignments") {
+    redirect("/build/logs");
+  }
   const facilityId = session.facilityId;
   const deptFilter = await departmentFilterIdsForSession(session);
   const templateDeptFilter =

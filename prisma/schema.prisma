@@ -179,11 +179,14 @@ model Facility {
   operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
   logAttachments                 LogAttachment[]
+  catalogInstalls                FacilityCatalogInstall[]
   assetIssues                    AssetIssue[]
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
   departmentTeams                DepartmentTeam[]
+  departmentTeamCycles           DepartmentTeamCycle[]
+  facilityTypeLogDefaults        DepartmentFacilityTypeLogDefault[]
   departmentJobRoles             DepartmentJobRole[]
   departmentRequestRoutes        DepartmentRequestRoute[]
   operationalRequests            OperationalRequest[]
@@ -240,6 +243,8 @@ model Department {
   departmentOperationalZones     DepartmentOperationalZone[]
   scheduleEntries                ScheduleEntry[]
   teams                          DepartmentTeam[]
+  teamCycles                     DepartmentTeamCycle[]
+  facilityTypeLogDefaults        DepartmentFacilityTypeLogDefault[]
   jobRoles                       DepartmentJobRole[]
   employeeJobRoleAssignments     EmployeeDepartmentJobRole[]
   requestRoutesAsRequesting      DepartmentRequestRoute[]        @relation("RequestRouteRequesting")
@@ -1047,10 +1052,11 @@ model FacilityRoomType {
   description  String?
   displayOrder Int         @default(100)
   isActive     Boolean     @default(true)
-  archivedAt   DateTime?
-  spaces       UnitSpace[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  archivedAt              DateTime?
+  spaces                  UnitSpace[]
+  departmentLogDefaults   DepartmentFacilityTypeLogDefault[]
+  createdAt               DateTime                           @default(now())
+  updatedAt               DateTime                           @updatedAt
 
   @@unique([facilityId, displayName])
   @@index([facilityId, isActive, displayOrder])
@@ -1094,6 +1100,7 @@ model UnitSpace {
   departmentWorkOccurrences          DepartmentWorkOccurrence[]
   zoneMemberships                    DepartmentOperationalZoneLocation[]
   teamMemberships                    DepartmentTeamRoomMembership[]
+  logSuppressions                    DepartmentLocationLogSuppression[]
   assignmentLocations                OperationalAssignmentLocation[]
   operationalCycleLocations          DepartmentOperationalCycleLocation[]
   keyTimeGroupRooms                  DepartmentOperationalCycleKeyTimeGroupRoom[]
@@ -1134,12 +1141,78 @@ model DepartmentTeam {
   applicableOperationalTypeKeys String[]          @default([])
   roomMemberships   DepartmentTeamRoomMembership[]
   employeeMemberships EmployeeTeamMembership[]
+  cycleNeeds        DepartmentTeamCycle[]
   createdAt         DateTime                      @default(now())
   updatedAt         DateTime                      @updatedAt
 
   @@index([facilityId, departmentId, status, displayOrder])
   @@index([departmentId, status])
   @@index([managerEmployeeId])
+}
+
+enum DepartmentTeamCycleNeedGrain {
+  TOTAL
+  PER_ROOM
+}
+
+/// Team × department cycle. The cycle is department-owned (Breakfast is one Dietary cycle).
+/// Need is this team's staffing for that cycle — not a Coverage document.
+model DepartmentTeamCycle {
+  id             String                       @id @default(cuid())
+  teamId         String
+  team           DepartmentTeam               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  facilityId     String
+  facility       Facility                     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId   String
+  department     Department                   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// DepartmentOperationalCycle.stableKey — identity across draft/published versions.
+  cycleStableKey String
+  /// Null = no staffing need (valid for Plant).
+  requiredCount  Int?
+  grain          DepartmentTeamCycleNeedGrain @default(TOTAL)
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  @@unique([teamId, cycleStableKey])
+  @@index([departmentId, cycleStableKey])
+  @@index([facilityId, departmentId])
+}
+
+/// Department-scoped log default on a Facility Room Type (Dietary Servery, not Role).
+/// Rooms of that type inherit the log; one room can suppress it.
+model DepartmentFacilityTypeLogDefault {
+  id                  String              @id @default(cuid())
+  facilityId          String
+  facility            Facility            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  facilityRoomTypeId  String
+  facilityRoomType    FacilityRoomType    @relation(fields: [facilityRoomTypeId], references: [id], onDelete: Cascade)
+  catalogDefinitionId String
+  catalogDefinition   CatalogLogDefinition @relation(fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
+  catalogStableKey    String
+  catalogVersion      Int
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  suppressions        DepartmentLocationLogSuppression[]
+
+  @@unique([departmentId, facilityRoomTypeId, catalogStableKey])
+  @@index([facilityId, departmentId])
+  @@index([facilityRoomTypeId])
+}
+
+/// One room opts out of a Facility type log default. Does not delete the type default.
+model DepartmentLocationLogSuppression {
+  id           String                           @id @default(cuid())
+  departmentId String
+  spaceId      String
+  space        UnitSpace                        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  defaultId    String
+  default      DepartmentFacilityTypeLogDefault @relation(fields: [defaultId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                         @default(now())
+
+  @@unique([spaceId, defaultId])
+  @@index([departmentId])
 }
 
 /// Team explicit normal operating Rooms. Identity is UnitSpace.id — never Room Type / Floor / Neighborhood.
@@ -4031,6 +4104,8 @@ enum CatalogLogStatus {
 enum CatalogLogPurposeType {
   LOG
   CHECKLIST
+  INSPECTION
+  PROCEDURE
 }
 
 enum CatalogLogCategory {
@@ -4107,6 +4182,8 @@ model CatalogLogDefinition {
   retiredAt                   DateTime?
   fields                      CatalogLogField[]
   attachments                 LogAttachment[]
+  facilityTypeLogDefaults     DepartmentFacilityTypeLogDefault[]
+  facilityInstalls            FacilityCatalogInstall[]
   evidenceRecords             OperationalEvidenceRecord[]
   createdAt                   DateTime                        @default(now())
   updatedAt                   DateTime                        @updatedAt
@@ -4139,6 +4216,24 @@ model CatalogLogField {
   @@unique([definitionId, fieldKey])
   @@unique([definitionId, displaySequence])
   @@index([definitionId])
+}
+
+/// Facility adopted a published Harbor Catalog LOG/CHECKLIST. Place (attach) is local.
+model FacilityCatalogInstall {
+  id                  String               @id @default(cuid())
+  facilityId          String
+  facility            Facility             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  catalogDefinitionId String
+  catalogDefinition   CatalogLogDefinition @relation(fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
+  catalogStableKey    String
+  catalogVersion      Int
+  installedAt         DateTime             @default(now())
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([facilityId, catalogStableKey])
+  @@index([catalogStableKey])
+  @@index([catalogDefinitionId])
 }
 
 /// Facility-owned binding of a published Catalog Log to an operational target.

@@ -16,6 +16,39 @@ export type TeamRoomView = {
   roomTypeLabel: string | null;
 };
 
+export type TeamCycleNeedGrain = "TOTAL" | "PER_ROOM";
+
+export type TeamCycleChildView = {
+  id: string;
+  stableKey: string;
+  label: string;
+  nodeKind: "PERIOD" | "KEY_TIME";
+  startLocal: string | null;
+  endLocal: string | null;
+};
+
+export type TeamCycleView = {
+  id: string;
+  cycleStableKey: string;
+  cycleId: string | null;
+  label: string;
+  startLocal: string | null;
+  endLocal: string | null;
+  applicableDaysOfWeek: number[];
+  status: "DRAFT" | "PUBLISHED" | "RETIRED" | "MISSING";
+  requiredCount: number | null;
+  grain: TeamCycleNeedGrain;
+  children: TeamCycleChildView[];
+};
+
+export type DepartmentCycleOption = {
+  stableKey: string;
+  label: string;
+  startLocal: string | null;
+  endLocal: string | null;
+  status: "DRAFT" | "PUBLISHED";
+};
+
 export type DepartmentTeamView = {
   id: string;
   facilityId: string;
@@ -31,6 +64,7 @@ export type DepartmentTeamView = {
   activeMemberCount: number;
   rooms: TeamRoomView[];
   applicableOperationalTypeKeys: string[];
+  cycles: TeamCycleView[];
 };
 
 export type TeamOperationalTypeOption = {

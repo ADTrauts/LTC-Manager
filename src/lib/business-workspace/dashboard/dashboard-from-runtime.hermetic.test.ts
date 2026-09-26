@@ -8,7 +8,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEFERRED_READINESS, type RuntimeLocationState } from "@/lib/runtime-location-state";
+import {
+  emptyLocationProgram,
+  type LocationProgram,
+} from "@/lib/department-administration/location-program";
+import {
+  DEFERRED_READINESS,
+  withRuntimeLocationAnswers,
+  type RuntimeLocationState,
+} from "@/lib/runtime-location-state";
 
 import { presentDashboardWorkspace } from "./from-runtime-state";
 import {
@@ -27,6 +35,26 @@ function location(spaceId: string, unitId = "unit-1") {
     unitId,
     departmentId: "dept-1",
     facilityId: "fac-1",
+  };
+}
+
+function fixtureProgram(spaceId: string, name: string, attached: boolean): LocationProgram {
+  const base = emptyLocationProgram({
+    departmentId: "dept-1",
+    departmentName: "Dietary",
+    spaceId,
+    name,
+  });
+  if (!attached) return base;
+  return {
+    ...base,
+    teams: [
+      {
+        id: "t1",
+        name: "Servery AM",
+        provenance: { source: "TEAM_ROOM_MEMBERSHIP", detail: "Works this room" },
+      },
+    ],
   };
 }
 
@@ -52,7 +80,7 @@ function state(partial: {
   const assigned = (partial.ot ?? "assigned") === "assigned";
   const items = partial.evidenceItems ?? [];
   const issues = partial.issues ?? [];
-  return {
+  return withRuntimeLocationAnswers({
     identity: {
       location: loc,
       displayName: partial.name ?? partial.spaceId,
@@ -67,6 +95,11 @@ function state(partial: {
       physical: { roomTypeKey: null, roomTypeLabel: null },
     },
     program: {
+      locationProgram: fixtureProgram(
+        loc.spaceId,
+        partial.name ?? partial.spaceId,
+        assigned,
+      ),
       operationalType: {
         state: assigned ? "assigned" : "unassigned",
         key: assigned ? "SERVERY" : null,
@@ -142,7 +175,7 @@ function state(partial: {
       operationalDateKey: "2026-08-17",
       timezone: "UTC",
     },
-  };
+  });
 }
 
 function slot(slotState: "COVERED" | "UNCOVERED" | "AT_RISK") {
@@ -185,6 +218,8 @@ test("healthy department stays calm with shared operation and earliest next", ()
   ]);
   assert.equal(view.operatingCount, 2);
   assert.equal(view.attentionCount, 0);
+  assert.equal(view.pace.ready, 2);
+  assert.equal(view.pace.at_risk, 0);
   assert.equal(view.operation.label, "Breakfast · Active");
   assert.equal(view.next?.label, "Food Temperature");
   assert.equal(view.next?.spaceName, "Retail");
@@ -233,7 +268,9 @@ test("coverage gap becomes an intervention with SPACE identity and #coverage", (
     state({ spaceId: "dining", name: "Dining Room", slots: [slot("COVERED")] }),
   ]);
   assert.equal(view.attentionCount, 1);
+  assert.equal(view.pace.at_risk, 1);
   assert.equal(view.coverage.uncoveredSlotCount, 1);
+  assert.equal(view.interventions.length, 1);
   assert.equal(view.interventions[0]?.spaceName, "3A Servery");
   assert.match(view.interventions[0]?.href ?? "", /space=servery/);
   assert.match(view.interventions[0]?.href ?? "", /#coverage/);
@@ -344,4 +381,6 @@ test("adapter does not query or recalculate domain truth", () => {
   assert.equal(src.includes("computeReadinessBatch"), false);
   assert.equal(src.includes("evaluateCoverageSlots"), false);
   assert.equal(src.includes("loadRuntimeLocationState"), false);
+  assert.match(src, /state\.answers/);
+  assert.doesNotMatch(src, /presentLandingNeighborhood/);
 });

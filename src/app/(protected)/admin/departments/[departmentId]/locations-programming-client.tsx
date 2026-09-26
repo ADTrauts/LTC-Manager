@@ -1,604 +1,288 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 
-import {
-  assignLocationOperationalTypeAction,
-  clearLocationOperationalTypeAction,
-  createLocationOperationalTypeAction,
-  ensureLocationOperationalTypesAction,
-} from "@/app/(protected)/admin/departments/[departmentId]/actions";
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import { Drawer } from "@/components/drawer";
+import {
+  addFacilityTypeLogDefaultAction,
+  removeFacilityTypeLogDefaultAction,
+  removeRoomLogAction,
+  restoreFacilityTypeLogDefaultAction,
+  suppressFacilityTypeLogDefaultAction,
+} from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
 import { DepartmentLocationTree } from "@/components/location-tree";
-import { StatusBadge } from "@/components/design-system";
+import { GuardedModal } from "@/components/guarded-modal";
+import { Button } from "@/components/design-system/Button";
 import type { DepartmentAdminView } from "@/lib/department-administration";
-import { groupRoomsByOperationalType } from "@/lib/department-administration/operational-type";
-import type { EffectiveLocationProgram } from "@/lib/department-administration/effective-location-program";
-
-type LocationView = "location" | "type";
-
-type OperationalTypeOption = {
-  id: string;
-  key: string;
-  name: string;
-};
+import {
+  formatNeedSummary,
+  type LocationRoomInspectView,
+} from "@/lib/department-administration/location-room-inspect";
+import { formatCycleWindow } from "@/lib/operational-cycles/cycle-display";
 
 type Props = {
   view: DepartmentAdminView;
-  canAuthorPatterns: boolean;
-  operationalTypes: readonly OperationalTypeOption[];
-  programs: Record<string, EffectiveLocationProgram>;
+  inspects: Record<string, LocationRoomInspectView>;
+  canManage: boolean;
 };
 
-export function LocationsProgrammingClient({
-  view,
-  canAuthorPatterns,
-  operationalTypes,
-  programs,
-}: Props) {
-  const [lens, setLens] = useState<LocationView>("location");
+export function LocationsProgrammingClient({ view, inspects, canManage }: Props) {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-
-  const rooms = useMemo(
-    () => view.locations.filter((location) => location.kind === "room"),
-    [view.locations],
-  );
-  const typeGroups = useMemo(() => groupRoomsByOperationalType(view.locations), [view.locations]);
-  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
-  const program = selectedRoomId ? programs[selectedRoomId] ?? null : null;
-
-  const floorLabel = view.vocabulary.level1.singular;
-  const neighborhoodLabel = view.vocabulary.level2.singular;
+  const selectedRoom = view.locations.find((location) => location.id === selectedRoomId) ?? null;
+  const inspect = selectedRoomId ? inspects[selectedRoomId] ?? null : null;
 
   return (
     <div className="space-y-3" data-testid="department-locations-programming">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-50 p-0.5 text-xs font-medium">
-          <button
-            type="button"
-            className={`rounded px-2.5 py-1 ${lens === "location" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"}`}
-            onClick={() => setLens("location")}
-            data-testid="locations-view-by-location"
-          >
-            By location
-          </button>
-          <button
-            type="button"
-            className={`rounded px-2.5 py-1 ${lens === "type" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"}`}
-            onClick={() => setLens("type")}
-            data-testid="locations-view-by-type"
-          >
-            By Operational Type
-          </button>
-        </div>
-        <p className="text-xs text-zinc-500">
-          {view.locationCoverage.roomCount} rooms · {view.locationCoverage.withPattern} with
-          Operational Type
-        </p>
-        {view.workingProfileMeta?.status === "DRAFT" ? (
-          <p className="text-xs text-zinc-500" data-testid="locations-draft-boundary">
-            {view.profiles.some((profile) => profile.status === "ACTIVE")
-              ? "You are editing a Draft. Today’s Run keeps the active Operational Types until this configuration is activated."
-              : "These Operational Type assignments are Draft. Run uses them only after this configuration is activated."}
-          </p>
-        ) : null}
-      </div>
+      <p className="text-xs text-zinc-500">
+        {view.locationCoverage.roomCount}{" "}
+        {view.locationCoverage.roomCount === 1 ? "room" : "rooms"}
+      </p>
 
-      {canAuthorPatterns && operationalTypes.length === 0 ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          <p className="font-medium">No Operational Types yet</p>
-          <p className="mt-1 text-xs">
-            Prepare department Operational Types, then assign them to rooms. Dietary includes
-            Servery, Retail, and Main Kitchen by default.
-          </p>
-          <DepartmentAdminActionForm
-            action={ensureLocationOperationalTypesAction}
-            className="mt-2"
-          >
-            <input type="hidden" name="departmentId" value={view.department.id} />
-            <button type="submit" className="text-xs font-medium underline">
-              Prepare Operational Types
-            </button>
-          </DepartmentAdminActionForm>
-        </div>
-      ) : null}
+      <DepartmentLocationTree
+        floors={view.locationHierarchy}
+        floorLabel={view.vocabulary.level1.singular}
+        neighborhoodLabel={view.vocabulary.level2.singular}
+        selectedRoomId={selectedRoomId}
+        onSelectRoom={(room) => setSelectedRoomId(room.id)}
+      />
 
-      {lens === "location" ? (
-        <DepartmentLocationTree
-          floors={view.locationHierarchy}
-          floorLabel={floorLabel}
-          neighborhoodLabel={neighborhoodLabel}
-          selectedRoomId={selectedRoomId}
-          onSelectRoom={(room) => setSelectedRoomId(room.id)}
-        />
-      ) : (
-        <div className="space-y-3" data-testid="department-locations-by-type">
-          {typeGroups.map((group) => (
-            <section
-              key={group.patternKey ?? "__none__"}
-              className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
-            >
-              <header className="flex items-center justify-between gap-3 border-b border-zinc-100 px-3 py-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-zinc-900">{group.label}</h3>
-                  <p className="text-xs text-zinc-500">
-                    {group.rooms.length} location{group.rooms.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <a
-                    href={`/admin/departments/${view.department.id}?tab=cycles`}
-                    className="text-xs font-medium text-zinc-700 underline"
-                  >
-                    Manage Operational Cycles
-                  </a>
-                  <a href="/build/logs" className="text-xs font-medium text-zinc-700 underline">
-                    Manage Logs
-                  </a>
-                  <a
-                    href={`/admin/departments/${view.department.id}?tab=teams`}
-                    className="text-xs font-medium text-zinc-700 underline"
-                  >
-                    Manage Teams
-                  </a>
-                  <a
-                    href={`/admin/departments/${view.department.id}?tab=coverage`}
-                    className="text-xs font-medium text-zinc-700 underline"
-                  >
-                    Manage Coverage
-                  </a>
-                </div>
-              </header>
-              <div className="border-b border-zinc-100 px-3 py-2" data-testid="type-group-cycles">
-                <p className="text-xs font-medium text-zinc-700">Operational Cycles</p>
-                {cyclesForOperationalTypeGroup(group.rooms, programs).length === 0 ? (
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {group.patternKey
-                      ? "No published cycles target this Operational Type."
-                      : "Unassigned rooms do not inherit Operational Type cycles."}
-                  </p>
-                ) : (
-                  <ul className="mt-1 space-y-0.5">
-                    {cyclesForOperationalTypeGroup(group.rooms, programs).map((cycle) => (
-                      <li key={cycle.id} className="text-xs text-zinc-700">
-                        {cycle.label}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="border-b border-zinc-100 px-3 py-2" data-testid="type-group-logs">
-                <p className="text-xs font-medium text-zinc-700">Required Logs</p>
-                {logsForOperationalTypeGroup(group.rooms, programs).length === 0 ? (
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {group.patternKey
-                      ? "No canonical logs target this Operational Type."
-                      : "Unassigned rooms do not inherit Operational Type logs."}
-                  </p>
-                ) : (
-                  <ul className="mt-1 space-y-0.5">
-                    {logsForOperationalTypeGroup(group.rooms, programs).map((log) => (
-                      <li key={log.id} className="text-xs text-zinc-700">
-                        {log.label}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="border-b border-zinc-100 px-3 py-2" data-testid="type-group-teams">
-                <p className="text-xs font-medium text-zinc-700">Configured Teams</p>
-                {teamsForOperationalTypeGroup(group.rooms, programs).length === 0 ? (
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {group.patternKey
-                      ? "No Teams target this Operational Type."
-                      : "Unassigned rooms do not inherit Operational Type teams."}
-                  </p>
-                ) : (
-                  <ul className="mt-1 space-y-0.5">
-                    {teamsForOperationalTypeGroup(group.rooms, programs).map((team) => (
-                      <li key={team.id} className="text-xs text-zinc-700">
-                        {team.label}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="border-b border-zinc-100 px-3 py-2" data-testid="type-group-coverage">
-                <p className="text-xs font-medium text-zinc-700">Coverage Expectations</p>
-                {coverageForOperationalTypeGroup(group.rooms, programs).length === 0 ? (
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {group.patternKey
-                      ? "No Coverage Expectations target this Operational Type."
-                      : "Unassigned rooms do not inherit Operational Type coverage."}
-                  </p>
-                ) : (
-                  <ul className="mt-1 space-y-0.5">
-                    {coverageForOperationalTypeGroup(group.rooms, programs).map((row) => (
-                      <li key={row.id} className="text-xs text-zinc-700">
-                        {row.label}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <ul>
-                {group.rooms.map((room) => (
-                  <li key={room.id}>
-                    <button
-                      type="button"
-                      className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-zinc-50 ${
-                        selectedRoomId === room.id ? "bg-zinc-50" : ""
-                      }`}
-                      onClick={() => setSelectedRoomId(room.id)}
-                    >
-                      <span>
-                        <span className="font-medium text-zinc-900">{room.displayName}</span>
-                        <span className="mt-0.5 block text-xs text-zinc-500">
-                          {[room.parentNeighborhoodName, room.floorName].filter(Boolean).join(" · ")}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-xs text-zinc-500">
-                        Physical Type: {room.roomTypeLabel ?? "not assigned"}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
-
-      <Drawer
+      <GuardedModal
         open={Boolean(selectedRoom)}
         onClose={() => setSelectedRoomId(null)}
         title={selectedRoom?.displayName ?? "Location"}
+        dirty={false}
+        closeLabel="Close"
         size="md"
         data-testid="location-program-inspector"
       >
-        {selectedRoom && program ? (
-          <LocationProgramInspector
-            departmentId={view.department.id}
-            departmentName={view.department.name}
-            canAuthorPatterns={canAuthorPatterns}
-            operationalTypes={operationalTypes}
-            program={program}
-          />
+        {selectedRoom && inspect ? (
+          <LocationRoomInspector inspect={inspect} canManage={canManage} />
         ) : selectedRoom ? (
           <p className="text-sm text-zinc-600">
-            This room is assigned to {view.department.name}. Open it again after the page
-            refreshes to inspect configuration.
+            This room is assigned to {view.department.name}.
           </p>
         ) : null}
-      </Drawer>
+      </GuardedModal>
     </div>
   );
 }
 
-function LocationProgramInspector({
-  departmentId,
-  departmentName,
-  canAuthorPatterns,
-  operationalTypes,
-  program,
+function LocationRoomInspector({
+  inspect,
+  canManage,
 }: {
-  departmentId: string;
-  departmentName: string;
-  canAuthorPatterns: boolean;
-  operationalTypes: readonly OperationalTypeOption[];
-  program: EffectiveLocationProgram;
+  inspect: LocationRoomInspectView;
+  canManage: boolean;
 }) {
-  const ot = program.operationalType;
-  const assignedKey = ot.key ?? "";
+  const [addingTypeDefault, setAddingTypeDefault] = useState(false);
+  const place = [inspect.place, inspect.facilityTypeLabel ? `Facility type: ${inspect.facilityTypeLabel}` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="space-y-5 text-sm" data-testid="location-program-inspector-body">
-      <section className="space-y-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Location</h3>
-        <p className="font-medium text-zinc-900">{program.location.displayName}</p>
-        <p className="text-xs text-zinc-500">
-          {[program.location.neighborhoodName, program.location.floorName]
-            .filter(Boolean)
-            .join(" · ") || "Facility hierarchy"}
+      <section className="space-y-1" data-testid="location-program-place">
+        <p className="text-xs text-zinc-500" data-testid="location-program-physical-type">
+          {place || "Facility hierarchy"}
         </p>
-        <p className="text-xs text-zinc-600">
-          {departmentName} is responsible for this room via Facility Builder.
+        <p className="text-xs text-zinc-600" data-testid="location-program-responsibility">
+          {inspect.responsible
+            ? `${inspect.departmentName} is responsible.`
+            : `${inspect.departmentName} is not marked responsible for this room.`}
         </p>
       </section>
 
-      <section className="space-y-2" data-testid="location-program-physical-type">
+      <section className="space-y-2" data-testid="location-program-teams">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Physical Type
+          Teams that work here
         </h3>
-        <p className="text-zinc-800">{program.physical.roomTypeLabel ?? "Not assigned"}</p>
-        <p className="text-xs text-zinc-500">
-          Owned by Facility Builder. This is not the Operational Type.
-        </p>
-      </section>
-
-      <section className="space-y-2" data-testid="location-program-operational-type">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Operational Type
-        </h3>
-        <p className="font-medium text-zinc-900">
-          {ot.state === "assigned" && ot.name ? ot.name : "No Operational Type"}
-        </p>
-        <p className="text-xs text-zinc-500">
-          {ot.provenance === "EXPLICIT_ASSIGNMENT"
-            ? "Explicitly assigned to this room."
-            : "Not assigned. Physical Type does not imply an Operational Type."}
-        </p>
-
-        {canAuthorPatterns ? (
-          <div className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <DepartmentAdminActionForm
-              action={assignLocationOperationalTypeAction}
-              className="space-y-2"
-            >
-              <input type="hidden" name="departmentId" value={departmentId} />
-              <input type="hidden" name="unitSpaceId" value={program.location.id} />
-              <label className="block text-xs font-medium text-zinc-700">
-                Assign Operational Type
-                <select
-                  name="archetypeKey"
-                  required
-                  defaultValue={assignedKey}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-                >
-                  <option value="" disabled>
-                    Select a type
-                  </option>
-                  {operationalTypes.map((type) => (
-                    <option key={type.key} value={type.key}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="submit"
-                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                {ot.state === "assigned" ? "Change Operational Type" : "Assign Operational Type"}
-              </button>
-            </DepartmentAdminActionForm>
-
-            {ot.state === "assigned" ? (
-              <DepartmentAdminActionForm action={clearLocationOperationalTypeAction}>
-                <input type="hidden" name="departmentId" value={departmentId} />
-                <input type="hidden" name="unitSpaceId" value={program.location.id} />
-                <button type="submit" className="text-xs font-medium text-zinc-700 underline">
-                  Clear Operational Type
-                </button>
-              </DepartmentAdminActionForm>
-            ) : null}
-
-            <DepartmentAdminActionForm
-              action={createLocationOperationalTypeAction}
-              className="space-y-2 border-t border-zinc-200 pt-2"
-            >
-              <input type="hidden" name="departmentId" value={departmentId} />
-              <label className="block text-xs font-medium text-zinc-700">
-                Create Operational Type
-                <input
-                  name="name"
-                  required
-                  placeholder="Diet Office"
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-                />
-              </label>
-              <button type="submit" className="text-xs font-medium text-zinc-800 underline">
-                Add type
-              </button>
-            </DepartmentAdminActionForm>
-          </div>
+        {inspect.teams.length === 0 ? (
+          <p className="text-xs text-zinc-400">No teams include this room.</p>
         ) : (
-          <p className="text-xs text-zinc-500">
-            Password authentication as Manager or above is required to assign Operational Types.
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-2" data-testid="location-program-experiences">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Experiences
-        </h3>
-        {program.experiences.length === 0 ? (
-          <p className="text-xs text-zinc-500">
-            No Experiences resolved for this room yet. Assign an Operational Type or activate
-            department Experiences.
-          </p>
-        ) : (
-          <ul className="divide-y divide-zinc-100 rounded-md border border-zinc-200">
-            {program.experiences.map((experience) => (
-              <li
-                key={`${experience.areaKey}:${experience.experienceKey}`}
-                className="flex items-start justify-between gap-2 px-3 py-2"
-              >
-                <span>
-                  <span className="block font-medium text-zinc-900">{experience.label}</span>
-                  <span className="text-xs text-zinc-500">{experience.areaName}</span>
-                </span>
-                <StatusBadge
-                  variant={
-                    experience.source === "ROOM_EXCEPTION"
-                      ? "in_progress"
-                      : experience.source === "ARCHETYPE"
-                        ? "success"
-                        : "neutral"
-                  }
-                >
-                  {experience.source}
-                </StatusBadge>
+          <ul className="space-y-1">
+            {inspect.teams.map((team) => (
+              <li key={team.id} className="text-xs text-zinc-800">
+                <span className="font-medium">{team.name}</span>
+                <span className="block text-zinc-400">{team.provenance.detail}</span>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <section className="space-y-2" data-testid="location-program-overlays">
+      <section className="space-y-2" data-testid="location-program-cycles">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Current overlays
+          Cycles that landed here
         </h3>
-        <p className="text-xs text-zinc-500">
-          Operational Cycles, canonical logs, configured Teams, and Coverage Expectations may
-          inherit from this room’s Operational Type. Work plans and assets still apply only
-          through their own Builders.
-        </p>
-        <OverlayList title="Operational Cycles" items={program.overlays.cycles} />
-        <OverlayList title="Configured Teams" items={program.overlays.teams} />
-        <CoverageExpectationInspector items={program.overlays.coverageExpectations} />
-        <OverlayList title="Logs & Evidence" items={program.overlays.logAttachments} />
-        <OverlayList title="Assets" items={program.overlays.assets} />
-        <OverlayList title="Work plans" items={program.overlays.workPlans} />
-        <a
-          href={`/admin/departments/${departmentId}?tab=coverage`}
-          className="inline-block text-xs font-medium text-zinc-700 underline"
-        >
-          Manage Coverage
-        </a>
+        {inspect.cycles.length === 0 ? (
+          <p className="text-xs text-zinc-400">No cycles land on this room yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {inspect.cycles.map((cycle) => (
+              <li key={cycle.cycleStableKey}>
+                <p className="text-xs font-medium text-zinc-800">{cycle.label}</p>
+                <p className="text-xs text-zinc-500">
+                  {formatCycleWindow(cycle.startLocal, cycle.endLocal)}
+                  {" · "}
+                  {cycle.provenance.detail}
+                </p>
+                {cycle.teams.length > 0 ? (
+                  <ul className="mt-1 space-y-0.5">
+                    {cycle.teams.map((team) => (
+                      <li key={team.teamId} className="text-xs text-zinc-600">
+                        Staffing need · {team.teamName}:{" "}
+                        {formatNeedSummary(team.requiredCount, team.grain)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-    </div>
-  );
-}
 
-function cyclesForOperationalTypeGroup(
-  rooms: readonly { id: string }[],
-  programs: Record<string, EffectiveLocationProgram>,
-): Array<{ id: string; label: string }> {
-  const seen = new Map<string, string>();
-  for (const room of rooms) {
-    const program = programs[room.id];
-    if (!program) continue;
-    for (const cycle of program.overlays.cycles) {
-      if (cycle.provenance.source !== "OPERATIONAL_TYPE_DEFAULT") continue;
-      if (!seen.has(cycle.id)) seen.set(cycle.id, cycle.label);
-    }
-  }
-  return [...seen.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
+      <section className="space-y-2" data-testid="location-program-logs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Logs</h3>
+          {canManage && inspect.addLogHref ? (
+            <Link
+              href={inspect.addLogHref}
+              className="text-xs font-medium text-zinc-800 underline-offset-2 hover:underline"
+              data-testid="location-add-room-log"
+            >
+              + Add log
+            </Link>
+          ) : null}
+        </div>
+        {inspect.logs.length === 0 ? (
+          <p className="text-xs text-zinc-400">No logs on this room or its assets.</p>
+        ) : (
+          <ul className="space-y-2">
+            {inspect.logs.map((log) => (
+              <li key={log.id} className="text-xs text-zinc-800">
+                <p className="font-medium">{log.label}</p>
+                <p className="text-zinc-400">{log.provenance.detail}</p>
+                {canManage && log.canRemove && log.attachmentId ? (
+                  <DepartmentAdminActionForm action={removeRoomLogAction} className="mt-1">
+                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
+                    <input type="hidden" name="attachmentId" value={log.attachmentId} />
+                    <Button type="submit" variant="secondary" size="compact">
+                      Remove
+                    </Button>
+                  </DepartmentAdminActionForm>
+                ) : null}
+                {canManage && log.canSuppress && log.defaultId ? (
+                  <DepartmentAdminActionForm
+                    action={suppressFacilityTypeLogDefaultAction}
+                    className="mt-1"
+                  >
+                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
+                    <input type="hidden" name="spaceId" value={inspect.spaceId} />
+                    <input type="hidden" name="defaultId" value={log.defaultId} />
+                    <Button type="submit" variant="secondary" size="compact">
+                      Don’t use on this room
+                    </Button>
+                  </DepartmentAdminActionForm>
+                ) : null}
+                {canManage && log.canRestore && log.defaultId ? (
+                  <DepartmentAdminActionForm
+                    action={restoreFacilityTypeLogDefaultAction}
+                    className="mt-1"
+                  >
+                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
+                    <input type="hidden" name="spaceId" value={inspect.spaceId} />
+                    <input type="hidden" name="defaultId" value={log.defaultId} />
+                    <Button type="submit" variant="secondary" size="compact">
+                      Inherit again
+                    </Button>
+                  </DepartmentAdminActionForm>
+                ) : null}
+                {canManage && log.kind === "TYPE_DEFAULT" && log.defaultId && !log.canRestore ? (
+                  <DepartmentAdminActionForm
+                    action={removeFacilityTypeLogDefaultAction}
+                    className="mt-1"
+                  >
+                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
+                    <input type="hidden" name="defaultId" value={log.defaultId} />
+                    <Button type="submit" variant="secondary" size="compact">
+                      Remove from all {inspect.facilityTypeLabel ?? "type"} rooms
+                    </Button>
+                  </DepartmentAdminActionForm>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
 
-function logsForOperationalTypeGroup(
-  rooms: readonly { id: string }[],
-  programs: Record<string, EffectiveLocationProgram>,
-): Array<{ id: string; label: string }> {
-  const seen = new Map<string, string>();
-  for (const room of rooms) {
-    const program = programs[room.id];
-    if (!program) continue;
-    for (const log of program.overlays.logAttachments) {
-      if (log.provenance.source !== "OPERATIONAL_TYPE_DEFAULT") continue;
-      if (!seen.has(log.id)) seen.set(log.id, log.label);
-    }
-  }
-  return [...seen.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
+        {canManage && inspect.facilityRoomTypeId && inspect.catalogOptions.length > 0 ? (
+          <div className="pt-1">
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              onClick={() => setAddingTypeDefault((current) => !current)}
+              data-testid="location-add-type-default"
+            >
+              {addingTypeDefault
+                ? "Cancel"
+                : `+ Add log to all ${inspect.facilityTypeLabel ?? "type"} rooms`}
+            </Button>
+            {addingTypeDefault ? (
+              <DepartmentAdminActionForm
+                action={addFacilityTypeLogDefaultAction}
+                className="mt-2 space-y-2"
+                onSuccess={() => setAddingTypeDefault(false)}
+              >
+                <input type="hidden" name="departmentId" value={inspect.departmentId} />
+                <input type="hidden" name="facilityRoomTypeId" value={inspect.facilityRoomTypeId} />
+                <label className="block text-xs font-medium text-zinc-700">
+                  Catalog log
+                  <select
+                    name="catalogStableKey"
+                    required
+                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Select a log…</option>
+                    {inspect.catalogOptions.map((option) => (
+                      <option key={option.stableKey} value={option.stableKey}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-[11px] text-zinc-500">
+                  Inherited from Facility type. One room can turn it off without deleting the
+                  default.
+                </p>
+                <Button type="submit" size="compact">
+                  Add type default
+                </Button>
+              </DepartmentAdminActionForm>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
 
-function coverageForOperationalTypeGroup(
-  rooms: readonly { id: string }[],
-  programs: Record<string, EffectiveLocationProgram>,
-): Array<{ id: string; label: string }> {
-  const seen = new Map<string, string>();
-  for (const room of rooms) {
-    const program = programs[room.id];
-    if (!program) continue;
-    for (const row of program.overlays.coverageExpectations) {
-      if (row.provenance.source !== "OPERATIONAL_TYPE_DEFAULT") continue;
-      const key = `${row.roleKey}:${row.requiredCount}:${row.cycleStableKey ?? ""}`;
-      if (!seen.has(key)) seen.set(key, row.label);
-    }
-  }
-  return [...seen.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function teamsForOperationalTypeGroup(
-  rooms: readonly { id: string }[],
-  programs: Record<string, EffectiveLocationProgram>,
-): Array<{ id: string; label: string }> {
-  const seen = new Map<string, string>();
-  for (const room of rooms) {
-    const program = programs[room.id];
-    if (!program) continue;
-    for (const team of program.overlays.teams) {
-      if (team.provenance.source !== "OPERATIONAL_TYPE_DEFAULT") continue;
-      if (!seen.has(team.id)) seen.set(team.id, team.label);
-    }
-  }
-  return [...seen.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function CoverageExpectationInspector({
-  items,
-}: {
-  items: EffectiveLocationProgram["overlays"]["coverageExpectations"];
-}) {
-  const byCycle = new Map<string, EffectiveLocationProgram["overlays"]["coverageExpectations"][number][]>();
-  for (const item of items) {
-    const key = item.cycleLabel ?? "Anytime";
-    const list = byCycle.get(key) ?? [];
-    list.push(item);
-    byCycle.set(key, list);
-  }
-  const groups = [...byCycle.entries()].sort(([a], [b]) => a.localeCompare(b));
-
-  return (
-    <div data-testid="location-program-coverage-expectations">
-      <p className="text-xs font-medium text-zinc-700">Staffing / Coverage Expectations</p>
-      {groups.length === 0 ? (
-        <p className="text-xs text-zinc-400">None currently applied to this location.</p>
-      ) : (
-        <ul className="mt-1 space-y-2">
-          {groups.map(([cycleLabel, rows]) => (
-            <li key={cycleLabel}>
-              <p className="text-xs font-medium text-zinc-800">{cycleLabel}</p>
-              <ul className="mt-0.5 space-y-1">
-                {rows.map((row) => (
-                  <li key={row.id} className="text-xs text-zinc-700">
-                    <span className="font-medium">{row.roleLabel}</span>
-                    <span className="block text-zinc-500">Required: {row.requiredCount}</span>
-                    <span className="block text-zinc-400">{row.provenance.detail}</span>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function OverlayList({
-  title,
-  items,
-}: {
-  title: string;
-  items: EffectiveLocationProgram["overlays"]["cycles"];
-}) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-zinc-700">{title}</p>
-      {items.length === 0 ? (
-        <p className="text-xs text-zinc-400">None currently applied to this location.</p>
-      ) : (
-        <ul className="mt-1 space-y-1">
-          {items.map((item) => (
-            <li key={item.id} className="text-xs text-zinc-700">
-              {item.label}
-              <span className="block text-zinc-400">{item.provenance.detail}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="space-y-2" data-testid="location-program-assets">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Assets</h3>
+        {inspect.assets.length === 0 ? (
+          <p className="text-xs text-zinc-400">No assets placed in this room.</p>
+        ) : (
+          <ul className="space-y-1">
+            {inspect.assets.map((asset) => (
+              <li key={asset.id} className="text-xs text-zinc-800">
+                <Link href={asset.href} className="font-medium underline-offset-2 hover:underline">
+                  {asset.name}
+                  {asset.code ? ` (${asset.code})` : ""}
+                </Link>
+                <span className="block text-zinc-400">From Asset Builder</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

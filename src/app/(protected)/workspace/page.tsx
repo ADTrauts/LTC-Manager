@@ -1,3 +1,8 @@
+/**
+ * Run Dashboard. Operational strip is an answers aggregation (step 21).
+ * Do not restack location cards here. See
+ * docs/department-administration/14_RUN_SURFACE_REFERENCE_FREEZE.md
+ */
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";

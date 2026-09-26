@@ -16,12 +16,25 @@ export {
   updateDepartmentTeam,
 } from "./service";
 export type {
+  DepartmentCycleOption,
   DepartmentTeamView,
   TeamCatalog,
+  TeamCycleChildView,
+  TeamCycleNeedGrain,
+  TeamCycleView,
   TeamEmployeeOption,
   TeamOperationalTypeOption,
   TeamRoomView,
 } from "./types";
+export {
+  assertUniqueRootCycleLabel,
+  linkTeamToCycle,
+  loadDepartmentRootCycleOptions,
+  loadTeamCyclesForDepartment,
+  rootCycleLabelConflicts,
+  unlinkTeamFromCycle,
+  updateTeamCycleNeed,
+} from "./team-cycles";
 export {
   evaluateTeamManagerCandidate,
   normalizeTeamDescription,

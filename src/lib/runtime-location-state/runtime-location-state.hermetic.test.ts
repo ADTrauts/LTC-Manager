@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { composeLocationProgram } from "@/lib/department-administration/location-program";
 import type { LogRequirement } from "@/lib/logs-architecture/types";
 import type { KeyTimeDayTiming } from "@/lib/operational-cycles/key-time-day-expectation";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
@@ -85,6 +86,7 @@ function space(
     neighborhoodName: partial.neighborhoodName ?? null,
     roomTypeKey: partial.roomTypeKey ?? null,
     roomTypeLabel: partial.roomTypeLabel ?? null,
+    facilityRoomTypeId: partial.facilityRoomTypeId ?? null,
     ...partial,
   };
 }
@@ -223,6 +225,7 @@ function composeInput(
     assetsBySpaceId: new Map(),
     issuesBySpaceId: new Map(),
     serveryEventsByUnitId: new Map(),
+    programsBySpaceId: new Map(),
     ...overrides,
   };
 }
@@ -316,6 +319,10 @@ test("healthy Servery: Breakfast active, covered, no exceptions, no readiness ex
   assert.equal(state.evidence.overdue.length, 0);
   assert.equal(state.exceptions.length, 0);
   assert.equal(state.readiness.availability, "deferred_legacy_engine");
+  assert.equal(state.answers.happening.state, "active");
+  assert.equal(state.answers.cycle.open?.cycleStableKey, "breakfast");
+  assert.equal(state.answers.pace, "ready");
+  assert.equal(state.answers.responsible.assigned.length, 1);
   assert.equal(
     state.exceptions.some((row) => row.source === "coverage" && row.state === "readiness"),
     false,
@@ -847,7 +854,7 @@ test("assets: factual status; only SERVICE_AT_RISK / EQUIPMENT_UNAVAILABLE becom
 test("milestones: Key Time statuses stay canonical; Servery events are legacy", () => {
   const state = composeRuntimeLocationStates(
     composeInput({
-      spaces: [space({ spaceId: "servery-a", departmentId: "dept-1" })],
+      spaces: [space({ spaceId: "servery-a", departmentId: "dept-1", roomTypeKey: "servery", roomTypeLabel: "Servery" })],
       operationalTypesBySpaceId: new Map([
         ["servery-a", { key: "SERVERY", name: "Servery", id: "ot-servery" }],
       ]),
@@ -1104,4 +1111,132 @@ test("evidence OT applicability expands to matching spaces only; SPACE attachmen
   assert.equal(servery.some((row) => row.attachmentId === "att-space"), false);
   assert.ok(retail.some((row) => row.attachmentId === "att-space"));
   assert.equal(retail.some((row) => row.attachmentId === "att-ot"), false);
+});
+
+test("Location Program feeds program, cycle applicability, and team-need coverage without Operational Type", () => {
+  const program = composeLocationProgram({
+    departmentId: "dept-1",
+    departmentName: "Dietary",
+    location: {
+      spaceId: "kitchen-1",
+      name: "Main Kitchen",
+      neighborhoodName: null,
+      floorName: "1",
+      facilityTypeLabel: "Production Space",
+      facilityRoomTypeId: "type-prod",
+      responsible: true,
+    },
+    teams: [{ id: "culinary", name: "Culinary", spaceIds: ["kitchen-1"] }],
+    teamCycles: [
+      {
+        teamId: "culinary",
+        cycleStableKey: "breakfast",
+        label: "Breakfast",
+        startLocal: "06:00",
+        endLocal: "10:00",
+        requiredCount: 5,
+        grain: "TOTAL",
+      },
+    ],
+    cyclePlacements: [],
+    spaceLogs: [{ id: "att-open", label: "Opening Checklist" }],
+    assetLogs: [],
+    typeDefaults: [],
+    suppressions: [],
+    assets: [],
+  });
+
+  const states = composeRuntimeLocationStates(
+    composeInput({
+      spaces: [
+        space({
+          spaceId: "kitchen-1",
+          departmentId: "dept-1",
+          name: "Main Kitchen",
+          roomTypeLabel: "Production Space",
+          facilityRoomTypeId: "type-prod",
+        }),
+      ],
+      programsBySpaceId: new Map([["kitchen-1", program]]),
+      runModelsByDepartmentId: new Map([
+        [
+          "dept-1",
+          runModel({
+            cycles: [
+              cycle({
+                stableKey: "breakfast",
+                label: "Breakfast",
+                startLocal: "06:00",
+                endLocal: "10:00",
+                spaceIds: [],
+                applicableOperationalTypeKeys: ["SERVERY"],
+              }),
+            ],
+          }),
+        ],
+      ]),
+      assignmentsByDepartmentId: new Map([
+        [
+          "dept-1",
+          [
+            assignment({ id: "oa-1", roleKey: "COOK", coveredSpaceIds: ["kitchen-1"] }),
+            assignment({ id: "oa-2", roleKey: "PREP", coveredSpaceIds: ["kitchen-1"] }),
+            assignment({ id: "oa-3", roleKey: "DISH", coveredSpaceIds: ["kitchen-1"] }),
+          ],
+        ],
+      ]),
+    }),
+  );
+
+  const state = states[0]!;
+  assert.equal(state.program.operationalType.state, "unassigned");
+  assert.equal(state.program.locationProgram.teams[0]?.name, "Culinary");
+  assert.equal(state.program.locationProgram.cycles[0]?.teams[0]?.requiredCount, 5);
+  assert.equal(state.operation.state, "ACTIVE");
+  assert.equal(state.operation.current?.cycleStableKey, "breakfast");
+  assert.equal(state.coverage.availability, "evaluated");
+  assert.equal(state.coverage.slots.length, 1);
+  assert.equal(state.coverage.slots[0]?.roleLabel, "Culinary");
+  assert.equal(state.coverage.slots[0]?.requiredCount, 5);
+  assert.equal(state.coverage.slots[0]?.filledCount, 3);
+  assert.equal(state.coverage.slots[0]?.state, "AT_RISK");
+  assert.equal(state.answers.happening.state, "active");
+  assert.equal(state.answers.cycle.open?.cycleStableKey, "breakfast");
+  assert.equal(state.answers.pace, "at_risk");
+  assert.equal(state.answers.responsible.teams[0]?.name, "Culinary");
+  assert.equal(state.answers.responsible.need[0]?.requiredCount, 5);
+  assert.equal(state.answers.responsible.assigned.length, 3);
+});
+
+test("coverage falls back to templates when Location Program has no team need", () => {
+  const states = composeRuntimeLocationStates(
+    composeInput({
+      spaces: [space({ spaceId: "servery-a", departmentId: "dept-1" })],
+      operationalTypesBySpaceId: new Map([
+        ["servery-a", { key: "SERVERY", name: "Servery", id: "ot-servery" }],
+      ]),
+      runModelsByDepartmentId: new Map([
+        ["dept-1", runModel({ cycles: breakfastCycles("servery-a") })],
+      ]),
+      coverageTemplatesByDepartmentId: new Map([
+        [
+          "dept-1",
+          [
+            template({
+              ot: "SERVERY",
+              cycle: "breakfast",
+              items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
+            }),
+          ],
+        ],
+      ]),
+      assignmentsByDepartmentId: new Map([
+        ["dept-1", [assignment({ id: "oa-1", roleKey: "SERVER" })]],
+      ]),
+    }),
+  );
+
+  const state = states[0]!;
+  assert.equal(state.coverage.slots[0]?.roleKey, "SERVER");
+  assert.equal(state.coverage.slots[0]?.state, "COVERED");
 });

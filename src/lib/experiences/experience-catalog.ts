@@ -1,9 +1,9 @@
 /**
- * Canonical Experience catalog — single source of truth.
+ * Leftover Experience catalog. Not a product registry.
  *
- * Wave 14A foundation + Wave 15AC Experience Contracts on every entry.
- * Departments select from this catalog; they do not invent executable IDs.
- * No UI, Projection, Shell, or runtime consumers in this wave.
+ * Do not add keys for new capabilities. Harbor items install, then place.
+ * Locations / Dashboard / Review / location workspace do not read this file
+ * for scope. Today's Work leftover query scopes still import it.
  */
 
 import { defineExperience } from "./define-experience";
