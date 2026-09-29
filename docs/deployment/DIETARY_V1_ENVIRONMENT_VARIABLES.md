@@ -22,6 +22,10 @@
 | `STRIPE_SECRET_KEY` | empty | empty | empty unless testing billing | empty unless billing in scope | No | Yes | Stripe dashboard | empty = billing skipped |
 | `STRIPE_WEBHOOK_SECRET` | empty | empty | empty | empty unless Stripe | No | Yes | Stripe | empty |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | empty | empty | empty | empty unless Stripe | No | Public | Stripe | empty |
+| `POSTMARK_SERVER_TOKEN` | empty | empty | empty unless testing email | set when outbound email in scope | No | Yes | Postmark server token | empty = outbound email off |
+| `POSTMARK_FROM_EMAIL` | `noreply@vssyl.com` | same | verified sender | verified sender on Postmark domain | No | No | With sender change | defaults to `noreply@vssyl.com` |
+| `POSTMARK_MESSAGE_STREAM` | unset/`outbound` | unset | unset/`outbound` | unset/`outbound` | No | No | Stream rename in Postmark | `outbound` |
+
 | `SEED_DEMO_PASSWORD` | local seed only | CI seed | **unset** | **unset** | No | Yes | — | Never on pilot prod |
 | `ALLOW_DEMO_SEED_PASSWORD` | local only | CI `1` | **unset** | **unset** | No | No | — | Never on pilot prod |
 | `BOOTSTRAP_DATABASE_URL` | disposable / staging | N/A | staging | pilot | Bootstrap only | Yes | — | Must not be `ltc_manager` |
@@ -51,7 +55,7 @@ OPERATIONAL_ASSIGNMENTS_ENABLED=true
 OPERATION_ENGINE_ENABLED=false
 ```
 
-Omit Stripe and AI keys unless explicitly approved.
+Omit Stripe, Postmark, and AI keys unless explicitly approved. Empty `POSTMARK_SERVER_TOKEN` leaves onboarding invite persistence working without sending mail.
 
 ---
 
