@@ -14,6 +14,8 @@ import {
 export {
   normalizeAccountIdentifier,
   passwordAccountBucketKey,
+  passwordResetAccountBucketKey,
+  passwordResetIpBucketKey,
   pinCandidateBucketKey,
   pinFacilityBucketKey,
   signupAccountBucketKey,

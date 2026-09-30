@@ -66,9 +66,14 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
         />
       </div>
       <div className="space-y-2">
-        <label htmlFor="password" className="block text-sm font-medium text-[var(--text-secondary)]">
-          Password
-        </label>
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="password" className="block text-sm font-medium text-[var(--text-secondary)]">
+            Password
+          </label>
+          <Link href="/forgot-password" className="text-xs font-medium text-[var(--brand-accent)] underline">
+            Forgot password?
+          </Link>
+        </div>
         <input
           id="password"
           name="password"

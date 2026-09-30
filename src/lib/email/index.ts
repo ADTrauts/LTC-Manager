@@ -10,6 +10,11 @@ export {
   sendManagerInviteEmail,
 } from "@/lib/email/manager-invite";
 export {
+  buildPasswordResetTemplateModel,
+  PASSWORD_RESET_TEMPLATE_ALIAS,
+  sendPasswordResetEmail,
+} from "@/lib/email/password-reset";
+export {
   resetPostmarkClientForTests,
   sendTemplatedEmail,
   sendTransactionalEmail,

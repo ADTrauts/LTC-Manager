@@ -542,6 +542,7 @@ model User {
   cycleDayExpectationAdjustments OperationalCycleDayExpectation[] @relation("CycleDayExpectationAdjustedByUser")
   keyTimeDayExpectationAdjustments OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByUser")
   keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByUser")
+  passwordResetTokens            PasswordResetToken[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -549,6 +550,19 @@ model User {
   @@index([isActive])
   @@index([facilityId])
   @@index([primaryDepartmentId])
+}
+
+/// One-time password reset token for facility User accounts. Store only the hash of the secret.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt, expiresAt])
 }
 
 /// Per-user, per-facility Business Workspace layout preferences (Wave 12 M3).
@@ -3844,6 +3858,8 @@ enum DepartmentWorkApplicabilityKind {
   SPACE_TYPE
   SPECIFIC_ASSET
   ASSET_TYPE
+  /// Department operational type — DepartmentRoomArchetype.key (not physical SpaceType).
+  OPERATIONAL_TYPE
 }
 
 enum DepartmentWorkOccurrenceSourceKind {
@@ -3925,11 +3941,14 @@ model DepartmentWorkPlanApplicability {
   spaceType  SpaceType?
   assetId    String?
   assetType  String?
+  /// When kind=OPERATIONAL_TYPE — DepartmentRoomArchetype.key (stable, not display name).
+  operationalTypeKey String?
   createdAt  DateTime                       @default(now())
 
   @@index([workPlanId])
   @@index([unitId])
   @@index([assetId])
+  @@index([operationalTypeKey])
 }
 
 model DepartmentWorkItem {

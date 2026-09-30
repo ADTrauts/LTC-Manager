@@ -55,3 +55,18 @@ export function signupAccountBucketKey(email: string): string {
 export function signupIpBucketKey(ip: string): string {
   return bucketKey(AuthRateLimitBucketType.PIN_FACILITY, ["signup-ip", ip.trim().slice(0, 64)]);
 }
+
+/** Password-reset request throttling; distinct key prefix from login failures. */
+export function passwordResetAccountBucketKey(email: string): string {
+  return bucketKey(AuthRateLimitBucketType.PASSWORD_ACCOUNT, [
+    "password-reset",
+    normalizeAccountIdentifier(email),
+  ]);
+}
+
+export function passwordResetIpBucketKey(ip: string): string {
+  return bucketKey(AuthRateLimitBucketType.PIN_FACILITY, [
+    "password-reset-ip",
+    ip.trim().slice(0, 64),
+  ]);
+}
