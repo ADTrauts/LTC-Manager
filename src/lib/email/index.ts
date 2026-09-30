@@ -20,6 +20,11 @@ export {
   sendSignupEmailVerification,
 } from "@/lib/email/signup-email-verification";
 export {
+  ACCOUNT_INVITE_TEMPLATE_ALIAS,
+  buildAccountInviteTemplateModel,
+  sendAccountInviteEmail,
+} from "@/lib/email/account-invite";
+export {
   resetPostmarkClientForTests,
   sendTemplatedEmail,
   sendTransactionalEmail,

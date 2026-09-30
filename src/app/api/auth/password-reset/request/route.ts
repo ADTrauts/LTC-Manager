@@ -68,10 +68,10 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
-    select: { id: true, email: true, displayName: true, isActive: true },
+    select: { id: true, email: true, displayName: true, isActive: true, passwordHash: true },
   });
 
-  if (user?.isActive) {
+  if (user?.isActive && user.passwordHash) {
     const issued = await issuePasswordResetToken(prisma, user.id);
     const resetUrl = buildPasswordResetUrl(new URL(request.url).origin, issued.rawToken);
     const sendResult = await sendPasswordResetEmail({

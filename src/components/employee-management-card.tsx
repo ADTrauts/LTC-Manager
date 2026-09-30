@@ -116,8 +116,6 @@ function EmployeeProfileForm({
     requiresEmailPasswordAccount(roleDraft) &&
     Boolean(emailDraftNormalized) &&
     (!employee.hasAppLogin || emailChanged);
-  const passwordFieldsRequired =
-    needsAppPasswordSetup && !emailChanged && !employee.hasAppLogin;
 
   return (
     <form action={updateEmployeeProfileAction} className="space-y-6">
@@ -161,34 +159,10 @@ function EmployeeProfileForm({
             <p className="text-xs text-zinc-600 md:col-span-2 xl:col-span-4">
               {emailDraft.trim()
                 ? needsAppPasswordSetup
-                  ? "Set an initial app password below when promoting to this role or using a new email, unless this email already has an account."
+                  ? "Saving will email an invite so they can set their own password (7-day link)."
                   : "This email already has an app login for this facility."
                 : "Email should be set for this platform authority. You can still save Job Roles and organization; add an email before relying on app login."}
             </p>
-          ) : null}
-          {needsAppPasswordSetup ? (
-            <>
-              <input
-                name="initialPassword"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                maxLength={128}
-                required={passwordFieldsRequired}
-                placeholder="Initial app password"
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              />
-              <input
-                name="confirmInitialPassword"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                maxLength={128}
-                required={passwordFieldsRequired}
-                placeholder="Confirm initial password"
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              />
-            </>
           ) : null}
           <label className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2">
             Platform authority

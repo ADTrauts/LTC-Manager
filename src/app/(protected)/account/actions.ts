@@ -44,7 +44,7 @@ export async function changeOwnPasswordAction(
     where: { id: session.uid, facilityId: session.facilityId, isActive: true },
     select: { id: true, passwordHash: true, email: true },
   });
-  if (!user) {
+  if (!user?.passwordHash) {
     return { status: "error", message: "User account not found." };
   }
 

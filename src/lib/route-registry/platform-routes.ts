@@ -72,6 +72,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Consume a signup email verification token and start a session.",
   },
   {
+    pattern: "/accept-invite",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "auth",
+    notes: "Accept an admin-created account invite and set a password.",
+  },
+  {
     pattern: "/console/login",
     match: "EXACT",
     surface: "PAGE",
@@ -880,6 +888,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "PUBLIC" },
     module: "auth",
     notes: "Resends signup verification; response does not reveal account existence.",
+  },
+  {
+    pattern: "/api/auth/account-invite/confirm",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "auth",
+    notes: "Consumes an account invite token, sets password, and starts a session.",
   },
   {
     pattern: "/api/auth/logout",

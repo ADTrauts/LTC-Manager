@@ -126,31 +126,14 @@ export function CreateEmployeeDrawer({
             )}
             <p className="mt-2 text-xs text-zinc-600">
               {emailRequired
-                ? "Creates an email/password login now; this person can still use a PIN if one is set later."
+                ? "Creates an email/password login invite; this person can still use a PIN if one is set later."
                 : "PIN can be assigned after creation from the employee card."}
             </p>
           </div>
           {emailRequired ? (
-            <>
-              <TextInput
-                name="initialPassword"
-                type="password"
-                label="Initial password"
-                required
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-              />
-              <TextInput
-                name="confirmInitialPassword"
-                type="password"
-                label="Confirm initial password"
-                required
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-              />
-            </>
+            <p className="sm:col-span-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
+              We&apos;ll email an invite so they can set their own password. The link expires in 7 days.
+            </p>
           ) : null}
           <div className="min-w-0 sm:col-span-2">
             <EmployeeOrganizationFields

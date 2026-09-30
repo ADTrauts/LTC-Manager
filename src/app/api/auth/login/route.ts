@@ -85,6 +85,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
+  if (!user.passwordHash) {
+    await bcrypt.compare(password, ABSENT_ACCOUNT_HASH);
+    return NextResponse.json(
+      {
+        error: "Accept the invite email we sent to set your password before signing in.",
+        code: "INVITE_PENDING",
+      },
+      { status: 403 },
+    );
+  }
+
   const isValid = await bcrypt.compare(password, user.passwordHash);
   if (!isValid) {
     await registerAuthFailure(buckets);

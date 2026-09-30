@@ -473,7 +473,8 @@ model User {
   id                             String                          @id @default(cuid())
   email                          String                          @unique
   displayName                    String
-  passwordHash                   String
+  /// Null until the user sets a password (account invite accept) or signup/admin path hashes one.
+  passwordHash                   String?
   /// All app users belong to one facility in this deployment; session JWT carries facilityId for query scope.
   facilityId                     String
   facility                       Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
@@ -547,6 +548,7 @@ model User {
   keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByUser")
   passwordResetTokens            PasswordResetToken[]
   emailVerificationTokens        EmailVerificationToken[]
+  accountInviteTokens            AccountInviteToken[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -571,6 +573,19 @@ model PasswordResetToken {
 
 /// One-time email verification token for public signup. Store only the hash of the secret.
 model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt, expiresAt])
+}
+
+/// One-time account invite for admin-created EMAIL_PASSWORD users. Store only the hash of the secret.
+model AccountInviteToken {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)

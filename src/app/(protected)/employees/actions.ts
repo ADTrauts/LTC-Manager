@@ -1,6 +1,5 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -30,7 +29,9 @@ type UnitAccessTransaction = {
 };
 import { z } from "zod";
 
+import { issueAndSendAccountInvite } from "@/lib/account-invite/send";
 import { requireAtLeastRole } from "@/lib/access";
+import { resolveRequestOrigin } from "@/lib/billing/request-origin";
 import {
   accessMethodValues,
   mayAuthenticateWithQuickPin,
@@ -106,8 +107,6 @@ const createEmployeeSchema = z.object({
   employmentType: z.enum(employmentValues),
   status: z.enum(statusValues),
   accessMethod: z.enum(accessMethodValues),
-  initialPassword: z.string().min(8).max(128).optional(),
-  confirmInitialPassword: z.string().min(8).max(128).optional(),
 }).superRefine((value, ctx) => {
   if (requiresEmailPasswordAccount(value.roleType) && value.accessMethod !== "EMAIL_PASSWORD") {
     ctx.addIssue({
@@ -124,27 +123,6 @@ const createEmployeeSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["email"],
       message: "Email is required when creating an email/password sign-in.",
-    });
-  }
-  if (!value.initialPassword) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["initialPassword"],
-      message: "Initial password is required.",
-    });
-  }
-  if (!value.confirmInitialPassword) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["confirmInitialPassword"],
-      message: "Confirm password is required.",
-    });
-  }
-  if (value.initialPassword && value.confirmInitialPassword && value.initialPassword !== value.confirmInitialPassword) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["confirmInitialPassword"],
-      message: "Passwords do not match.",
     });
   }
 });
@@ -177,16 +155,6 @@ const updateEmployeeProfileSchema = z.object({
   employmentType: z.enum(employmentValues),
   status: z.enum(statusValues),
 });
-
-const promoteInitialPasswordSchema = z
-  .object({
-    initialPassword: z.string().min(8).max(128),
-    confirmInitialPassword: z.string().min(8).max(128),
-  })
-  .refine((v) => v.initialPassword === v.confirmInitialPassword, {
-    path: ["confirmInitialPassword"],
-    message: "Passwords do not match.",
-  });
 
 function parseOptionalMonthDay(value: FormDataEntryValue | null): number | null {
   if (value === null || value === "") return null;
@@ -370,8 +338,6 @@ export async function createEmployeeAction(formData: FormData) {
     employmentType: formData.get("employmentType"),
     status: formData.get("status"),
     accessMethod: formData.get("accessMethod"),
-    initialPassword: toOptional(formData.get("initialPassword")),
-    confirmInitialPassword: toOptional(formData.get("confirmInitialPassword")),
   });
   const hr = parseHrProfileFields(formData);
   const organization = parseEmployeeOrganizationForm(formData);
@@ -389,6 +355,7 @@ export async function createEmployeeAction(formData: FormData) {
       )
     : null;
 
+  let invitedUserId: string | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       const emp = await tx.employee.create({
@@ -440,25 +407,25 @@ export async function createEmployeeAction(formData: FormData) {
           where: { key: parsed.roleType, isActive: true },
           select: { id: true },
         });
-        if (!role || !normalizedEmail || !parsed.initialPassword) {
+        if (!role || !normalizedEmail) {
           throw new Error("Unable to create email/password sign-in for this employee.");
         }
-        const passwordHash = await bcrypt.hash(parsed.initialPassword, 12);
         const createdUser = await tx.user.create({
           data: {
             email: normalizedEmail,
             displayName: `${parsed.firstName} ${parsed.lastName}`,
-            passwordHash,
+            passwordHash: null,
             facilityId: session.facilityId,
             roleId: role.id,
             isActive: true,
-            emailVerifiedAt: new Date(),
+            emailVerifiedAt: null,
           },
         });
         await ensureUserFacilityAccessGrant(tx, {
           userId: createdUser.id,
           facilityId: session.facilityId,
         });
+        invitedUserId = createdUser.id;
       }
     });
   } catch (e) {
@@ -466,6 +433,11 @@ export async function createEmployeeAction(formData: FormData) {
       throw new Error("Email is already in use by another account.");
     }
     throw e;
+  }
+
+  if (invitedUserId) {
+    const origin = await resolveRequestOrigin();
+    await issueAndSendAccountInvite({ userId: invitedUserId, origin });
   }
 
   revalidateEmployeeViews();
@@ -574,25 +546,11 @@ export async function updateEmployeeProfileAction(formData: FormData) {
   }
   const existingUserForEmail = linkedUserForCurrentEmail ?? requestedUserForEmail;
 
-  let newAppLoginPasswordHash: string | undefined;
-  if (
+  const shouldCreateAppLogin =
     requiresEmailPasswordAccount(effectiveRoleType) &&
-    normalizedProfileEmail &&
+    Boolean(normalizedProfileEmail) &&
     !existingUserForEmail &&
-    effectiveRoleType !== existing.roleType
-  ) {
-    const pwParsed = promoteInitialPasswordSchema.safeParse({
-      initialPassword: toOptional(formData.get("initialPassword")),
-      confirmInitialPassword: toOptional(formData.get("confirmInitialPassword")),
-    });
-    if (!pwParsed.success) {
-      throw new Error(
-        pwParsed.error.issues[0]?.message ??
-          "Set an initial app password (and confirmation) to create the login for this role.",
-      );
-    }
-    newAppLoginPasswordHash = await bcrypt.hash(pwParsed.data.initialPassword, 12);
-  }
+    effectiveRoleType !== existing.roleType;
 
   const primaryUnitId = unitAccessSubmitted
     ? await validatePrimaryUnitId(
@@ -603,7 +561,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       )
     : undefined;
 
-  await prisma.$transaction(async (tx) => {
+  const invitedFromProfile = await prisma.$transaction(async (tx) => {
     const beforeSnap = snapshotFromEmployeeRow(existing);
     const terminated = parsed.status === EmployeeStatus.TERMINATED;
     const clearsPin = roleChangeInvalidatesPin({
@@ -727,11 +685,12 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       } as Prisma.EmployeeUncheckedUpdateInput,
     });
 
+    let invitedUserId: string | null = null;
     if (
       requiresEmailPasswordAccount(effectiveRoleType) &&
       normalizedProfileEmail &&
       !existingUserForEmail &&
-      newAppLoginPasswordHash
+      shouldCreateAppLogin
     ) {
       const roleRow = await tx.role.findFirst({
         where: { key: effectiveRoleType, isActive: true },
@@ -745,17 +704,18 @@ export async function updateEmployeeProfileAction(formData: FormData) {
           data: {
             email: normalizedProfileEmail,
             displayName: `${parsed.firstName} ${parsed.lastName}`,
-            passwordHash: newAppLoginPasswordHash,
+            passwordHash: null,
             facilityId: session.facilityId,
             roleId: roleRow.id,
             isActive: true,
-            emailVerifiedAt: new Date(),
+            emailVerifiedAt: null,
           },
         });
         await ensureUserFacilityAccessGrant(tx, {
           userId: createdUser.id,
           facilityId: session.facilityId,
         });
+        invitedUserId = createdUser.id;
       } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
           throw new Error("That email is already used by another app account.");
@@ -855,7 +815,14 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         })),
       });
     }
+
+    return invitedUserId;
   });
+
+  if (invitedFromProfile) {
+    const origin = await resolveRequestOrigin();
+    await issueAndSendAccountInvite({ userId: invitedFromProfile, origin });
+  }
 
   revalidateEmployeeViews();
 }
