@@ -13,7 +13,7 @@ export default async function HarborTodayPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Stuck setups and payment problems. Tickets wait until Postmark is on this product.
+          Stuck setups and payment problems. Tickets come next once the ticket model ships.
         </p>
       </header>
 

@@ -47,15 +47,18 @@ test("department and billing labels stay readable", () => {
   assert.equal(billingStatusLabel(null), "No billing record");
 });
 
-test("Harbor shell nav is Today, Customers, Marketplace — not Operations Center", () => {
+test("Vssyl Console shell nav is Today, Customers, Marketplace — not Operations Center", () => {
   const shell = readFileSync(
     join(process.cwd(), "src/components/harbor-console/harbor-console-shell.tsx"),
     "utf8",
   );
-  assert.match(shell, /Harbor Console/);
+  assert.match(shell, /VssylLockup/);
+  assert.match(shell, /tone="inverse"/);
+  assert.match(shell, /Vssyl Console/);
   assert.match(shell, /label: "Today"/);
   assert.match(shell, /label: "Customers"/);
   assert.match(shell, /label: "Marketplace"/);
   assert.doesNotMatch(shell, /label: "Catalog"/);
   assert.doesNotMatch(shell, /Operations Center/);
+  assert.doesNotMatch(shell, />Harbor</);
 });

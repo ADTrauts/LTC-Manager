@@ -5,6 +5,18 @@
 
 ---
 
+## Product name
+
+| Use this | Do not use as the product name |
+|----------|-------------------------------|
+| **Vssyl** | LTC Manager, Harbor, LTC Corp |
+| **Vssyl Console** | Harbor Console, Staff desk *(as product name)*, LTC Corp console |
+| **Business Operations Platform** (descriptor) | Long-term care nutrition software *(as the product identity)* |
+
+Departments (Dietary, EVS, Plant Operations, and others) are operational domains **inside** Vssyl. They are not synonyms for the product.
+
+---
+
 ## Homes and zones
 
 | Use this | Do not use as synonym |

@@ -19,7 +19,7 @@ export const ROUTE_ACCESS_KINDS = [
   "REDIRECT_ONLY",
   /** Framework or static asset path that the proxy passes through untouched. */
   "INTERNAL",
-  /** LTC Corp Harbor Console. Facility RoleKey sessions cannot enter. */
+  /** Vssyl Console platform staff. Facility RoleKey sessions cannot enter. */
   "HARBOR_STAFF",
 ] as const;
 

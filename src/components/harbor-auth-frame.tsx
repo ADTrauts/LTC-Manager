@@ -1,8 +1,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 
+import { VssylLockup } from "@/components/brand/vssyl-lockup";
+
 type HarborAuthFrameProps = {
-  kicker?: string;
+  descriptor?: string | null;
   title: string;
   description: string;
   points?: readonly string[];
@@ -10,7 +12,7 @@ type HarborAuthFrameProps = {
   children: ReactNode;
 };
 
-/** Real product capabilities shown on public Harbor pages. */
+/** Real product capabilities shown on public auth pages. */
 export const HARBOR_PRODUCT_POINTS = [
   "Facility Builder — floors, rooms, departments, and how the building actually works",
   "Employee Manager — roster, job roles, and who covers each location",
@@ -61,11 +63,11 @@ const SECONDARY_BUTTON_STYLE: CSSProperties = {
 };
 
 /**
- * Public-page chrome from the Harbor design-lab: deep teal aside + cool canvas.
+ * Public-page chrome: deep teal aside + cool canvas.
  * Used on landing, login, and signup so intro/Run surfaces share one look.
  */
 export function HarborAuthFrame({
-  kicker = "LTC Manager",
+  descriptor = "Business Operations Platform",
   title,
   description,
   points,
@@ -88,9 +90,14 @@ export function HarborAuthFrame({
       `}</style>
       <aside className="harbor-auth-aside" style={ASIDE_STYLE}>
         <div className="space-y-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={MUTED}>
-            {kicker}
-          </p>
+          <div className="space-y-2">
+            <VssylLockup tone="inverse" size="auth" />
+            {descriptor ? (
+              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={MUTED}>
+                {descriptor}
+              </p>
+            ) : null}
+          </div>
           <h1 className="max-w-lg text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{title}</h1>
           <p className="max-w-md text-base leading-relaxed" style={MUTED}>
             {description}

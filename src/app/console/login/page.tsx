@@ -12,9 +12,8 @@ export default async function HarborLoginPage() {
 
   return (
     <HarborAuthFrame
-      kicker="LTC Corp"
-      title="Harbor Console"
-      description="Staff desk for customers, setup, and platform content. Not a facility workspace."
+      title="Vssyl Console"
+      description="Platform staff desk for customers, setup, and marketplace content. Not a facility workspace."
     >
       <HarborLoginForm />
     </HarborAuthFrame>

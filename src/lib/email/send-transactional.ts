@@ -15,6 +15,15 @@ export type SendTransactionalEmailInput = {
   tag?: string;
 };
 
+export type SendTemplatedEmailInput = {
+  to: string;
+  templateAlias: string;
+  templateModel: Record<string, string | number | boolean | null | undefined>;
+  tag?: string;
+  /** Optional override; Postmark templates usually own the subject. */
+  subject?: string;
+};
+
 export type SendTransactionalEmailResult =
   | { sent: true; messageId: string }
   | { sent: false; reason: "not_configured" }
@@ -23,7 +32,7 @@ export type SendTransactionalEmailResult =
 type EnvLike = Record<string, string | undefined>;
 
 type PostmarkLikeClient = {
-  sendEmail: (message: {
+  sendEmail?: (message: {
     From: string;
     To: string;
     Subject: string;
@@ -31,6 +40,15 @@ type PostmarkLikeClient = {
     TextBody?: string;
     Tag?: string;
     MessageStream?: string;
+  }) => Promise<{ MessageID?: string }>;
+  sendEmailWithTemplate?: (message: {
+    From: string;
+    To: string;
+    TemplateAlias: string;
+    TemplateModel: Record<string, unknown>;
+    Tag?: string;
+    MessageStream?: string;
+    InlineCss?: boolean;
   }) => Promise<{ MessageID?: string }>;
 };
 
@@ -48,6 +66,19 @@ export function resetPostmarkClientForTests(): void {
   sharedClient = null;
 }
 
+function requireConfiguredToken(
+  env: EnvLike,
+): { ok: true; token: string } | { ok: false; result: SendTransactionalEmailResult } {
+  if (!isEmailConfigured(env)) {
+    return { ok: false, result: { sent: false, reason: "not_configured" } };
+  }
+  const token = getPostmarkServerToken(env);
+  if (!token) {
+    return { ok: false, result: { sent: false, reason: "not_configured" } };
+  }
+  return { ok: true, token };
+}
+
 export async function sendTransactionalEmail(
   input: SendTransactionalEmailInput,
   options?: {
@@ -56,14 +87,8 @@ export async function sendTransactionalEmail(
   },
 ): Promise<SendTransactionalEmailResult> {
   const env = options?.env ?? process.env;
-  if (!isEmailConfigured(env)) {
-    return { sent: false, reason: "not_configured" };
-  }
-
-  const token = getPostmarkServerToken(env);
-  if (!token) {
-    return { sent: false, reason: "not_configured" };
-  }
+  const configured = requireConfiguredToken(env);
+  if (!configured.ok) return configured.result;
 
   const to = input.to.trim();
   const subject = input.subject.trim();
@@ -74,7 +99,10 @@ export async function sendTransactionalEmail(
     return { sent: false, reason: "send_failed", error: "Missing html or text body." };
   }
 
-  const client = options?.client ?? getSharedClient(token);
+  const client = options?.client ?? getSharedClient(configured.token);
+  if (!client.sendEmail) {
+    return { sent: false, reason: "send_failed", error: "Postmark sendEmail unavailable." };
+  }
 
   try {
     const response = await client.sendEmail({
@@ -92,6 +120,58 @@ export async function sendTransactionalEmail(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Postmark send failed.";
+    return { sent: false, reason: "send_failed", error: message };
+  }
+}
+
+export async function sendTemplatedEmail(
+  input: SendTemplatedEmailInput,
+  options?: {
+    env?: EnvLike;
+    client?: PostmarkLikeClient;
+  },
+): Promise<SendTransactionalEmailResult> {
+  const env = options?.env ?? process.env;
+  const configured = requireConfiguredToken(env);
+  if (!configured.ok) return configured.result;
+
+  const to = input.to.trim();
+  const templateAlias = input.templateAlias.trim();
+  if (!to || !templateAlias) {
+    return { sent: false, reason: "send_failed", error: "Missing to or template alias." };
+  }
+
+  const client = options?.client ?? getSharedClient(configured.token);
+  if (!client.sendEmailWithTemplate) {
+    return {
+      sent: false,
+      reason: "send_failed",
+      error: "Postmark sendEmailWithTemplate unavailable.",
+    };
+  }
+
+  const templateModel: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input.templateModel)) {
+    if (value === undefined) continue;
+    templateModel[key] = value;
+  }
+
+  try {
+    const response = await client.sendEmailWithTemplate({
+      From: getEmailFromAddress(env),
+      To: to,
+      TemplateAlias: templateAlias,
+      TemplateModel: templateModel,
+      Tag: input.tag?.trim() || undefined,
+      MessageStream: getEmailMessageStream(env),
+      InlineCss: true,
+    });
+    return {
+      sent: true,
+      messageId: response.MessageID?.trim() || "unknown",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Postmark template send failed.";
     return { sent: false, reason: "send_failed", error: message };
   }
 }

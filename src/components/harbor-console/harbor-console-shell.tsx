@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { VssylLockup } from "@/components/brand/vssyl-lockup";
+
 const NAV = [
   { href: "/console", label: "Today", enabled: true },
   { href: "/console/customers", label: "Customers", enabled: true },
@@ -32,11 +34,9 @@ export function HarborConsoleShell({
     <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <aside className="flex w-56 shrink-0 flex-col justify-between bg-[var(--run-aside)] px-4 py-6 text-[var(--run-aside-fg)]">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--run-aside-muted)]">
-            LTC Corp
-          </p>
-          <p className="mt-2 text-base font-semibold tracking-tight">Harbor Console</p>
-          <nav className="mt-8 flex flex-col gap-1" aria-label="Harbor">
+          <VssylLockup tone="inverse" size="console" />
+          <p className="mt-2 text-sm text-[var(--run-aside-muted)]">Vssyl Console</p>
+          <nav className="mt-8 flex flex-col gap-1" aria-label="Vssyl Console">
             {NAV.map((item) => {
               const active = navActive(pathname, item.href);
               if (!item.enabled) {

@@ -5,12 +5,15 @@ export {
   isEmailConfigured,
 } from "@/lib/email/config";
 export {
-  buildManagerInviteEmail,
+  buildManagerInviteTemplateModel,
+  MANAGER_INVITE_TEMPLATE_ALIAS,
   sendManagerInviteEmail,
 } from "@/lib/email/manager-invite";
 export {
   resetPostmarkClientForTests,
+  sendTemplatedEmail,
   sendTransactionalEmail,
+  type SendTemplatedEmailInput,
   type SendTransactionalEmailInput,
   type SendTransactionalEmailResult,
 } from "@/lib/email/send-transactional";
