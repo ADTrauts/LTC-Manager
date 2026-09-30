@@ -140,6 +140,7 @@ model Facility {
   unionHandbookUploadedAt        DateTime?
   unionHandbookEffectiveDate     DateTime?                       @db.Date
   users                          User[]
+  consoleTickets                 ConsoleTicket[]
   userFacilityAccesses           UserFacilityAccess[]
   units                          Unit[]
   unitSpaces                     UnitSpace[]
@@ -4383,6 +4384,14 @@ enum HarborAuditAction {
   CATALOG_PUBLISH
   CATALOG_RETIRE
   CATALOG_DRAFT_SUCCESSOR
+  TICKET_OPEN
+  TICKET_REPLY
+}
+
+enum ConsoleTicketStatus {
+  OPEN
+  WAITING_ON_CUSTOMER
+  RESOLVED
 }
 
 model PlatformStaff {
@@ -4395,6 +4404,8 @@ model PlatformStaff {
   sessionVersion Int               @default(0)
   lastLoginAt    DateTime?
   auditEvents    HarborAuditEvent[]
+  openedConsoleTickets ConsoleTicket[] @relation("ConsoleTicketOpenedBy")
+  consoleTicketMessages ConsoleTicketMessage[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -4409,4 +4420,37 @@ model HarborAuditEvent {
 
   @@index([staffId, createdAt])
   @@index([facilityId, createdAt])
+}
+
+/// Platform support ticket. Facility operations issues stay on Repair / OperationalRequest.
+model ConsoleTicket {
+  id              String              @id @default(cuid())
+  facilityId      String
+  facility        Facility            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  subject         String
+  status          ConsoleTicketStatus @default(OPEN)
+  requesterEmail  String
+  requesterName   String?
+  openedByStaffId String
+  openedByStaff   PlatformStaff       @relation("ConsoleTicketOpenedBy", fields: [openedByStaffId], references: [id], onDelete: Restrict)
+  messages        ConsoleTicketMessage[]
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([facilityId, status, updatedAt])
+  @@index([status, updatedAt])
+}
+
+model ConsoleTicketMessage {
+  id            String        @id @default(cuid())
+  ticketId      String
+  ticket        ConsoleTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  body          String
+  authorStaffId String
+  authorStaff   PlatformStaff @relation(fields: [authorStaffId], references: [id], onDelete: Restrict)
+  emailedAt     DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
 }

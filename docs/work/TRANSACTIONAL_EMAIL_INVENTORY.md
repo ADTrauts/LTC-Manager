@@ -15,6 +15,7 @@
 | Password reset | `/forgot-password` for facility `User` accounts | `password-reset` | Live (Postmark template + app) |
 | Signup email verification | Public `/signup` when Postmark is configured | `signup-email-verification` | Live (Postmark template + app) |
 | Account invite | Admin creates EMAIL_PASSWORD employee / promotion | `account-invite` | Live (Postmark template + app) |
+| Console ticket reply | Staff replies on a Vssyl Console ticket | `console-ticket-reply` | Live (Postmark template + app) |
 
 ---
 
@@ -22,7 +23,7 @@
 
 | Email | Trigger | Needs before send | Notes |
 |-------|---------|-------------------|-------|
-| Vssyl Console ticket reply | Console tickets | Ticket models + routes | Nav exists but disabled |
+| — | Inventory is current | — | Add a row here before the next mailer |
 
 ---
 

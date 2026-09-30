@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
@@ -67,6 +68,12 @@ export default async function HarborCustomerPage({
               </button>
             </form>
           )}
+          <Link
+            href={`/console/tickets/new?facilityId=${facility.id}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--border-strong)] bg-white px-4 text-sm font-semibold"
+          >
+            Open ticket
+          </Link>
         </div>
       </header>
 

@@ -8,7 +8,7 @@ import { VssylLockup } from "@/components/brand/vssyl-lockup";
 const NAV = [
   { href: "/console", label: "Today", enabled: true },
   { href: "/console/customers", label: "Customers", enabled: true },
-  { href: "/console/tickets", label: "Tickets", enabled: false },
+  { href: "/console/tickets", label: "Tickets", enabled: true },
   { href: "/console/catalog", label: "Marketplace", enabled: true },
 ] as const;
 

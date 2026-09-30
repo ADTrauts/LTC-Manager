@@ -6,20 +6,25 @@ import { prisma } from "@/lib/prisma";
 
 export default async function HarborTodayPage() {
   await requireHarborStaff();
-  const { stuckSetups, paymentProblems } = await loadHarborToday(prisma);
+  const [{ stuckSetups, paymentProblems }, openTickets] = await Promise.all([
+    loadHarborToday(prisma),
+    prisma.consoleTicket.count({
+      where: { status: { in: ["OPEN", "WAITING_ON_CUSTOMER"] } },
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Stuck setups and payment problems. Tickets come next once the ticket model ships.
+          Stuck setups, open tickets, and payment problems.
         </p>
       </header>
 
       <section className="grid grid-cols-3 gap-3">
         <Stat value={String(stuckSetups.length)} label="Stuck setups" />
-        <Stat value="0" label="Open tickets" muted />
+        <Stat value={String(openTickets)} label="Open tickets" />
         <Stat value={String(paymentProblems.length)} label="Payment problems" />
       </section>
 

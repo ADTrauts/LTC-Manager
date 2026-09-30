@@ -25,6 +25,11 @@ export {
   sendAccountInviteEmail,
 } from "@/lib/email/account-invite";
 export {
+  buildConsoleTicketReplyTemplateModel,
+  CONSOLE_TICKET_REPLY_TEMPLATE_ALIAS,
+  sendConsoleTicketReplyEmail,
+} from "@/lib/email/console-ticket-reply";
+export {
   resetPostmarkClientForTests,
   sendTemplatedEmail,
   sendTransactionalEmail,
