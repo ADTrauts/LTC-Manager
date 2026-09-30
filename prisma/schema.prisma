@@ -480,6 +480,9 @@ model User {
   roleId                         String
   role                           Role                            @relation(fields: [roleId], references: [id], onDelete: Restrict)
   isActive                       Boolean                         @default(true)
+  /// Set when the account email is confirmed (public signup verify link, or admin-created users at create time).
+  /// Null means verification is still outstanding; login and sessions require a non-null value.
+  emailVerifiedAt                DateTime?
   lastLoginAt                    DateTime?
   /// Monotonic counter carried in the session token and compared on every protected request.
   /// Incrementing it invalidates every session issued before the change. See
@@ -543,6 +546,7 @@ model User {
   keyTimeDayExpectationAdjustments OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByUser")
   keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByUser")
   passwordResetTokens            PasswordResetToken[]
+  emailVerificationTokens        EmailVerificationToken[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -554,6 +558,19 @@ model User {
 
 /// One-time password reset token for facility User accounts. Store only the hash of the secret.
 model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt, expiresAt])
+}
+
+/// One-time email verification token for public signup. Store only the hash of the secret.
+model EmailVerificationToken {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)

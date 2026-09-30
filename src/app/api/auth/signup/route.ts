@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { EmployeeStatus, EmploymentType, RoleKey } from "@prisma/client";
+import { EmployeeStatus, EmploymentType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -13,9 +13,16 @@ import {
 } from "@/lib/auth-rate-limit";
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
+import { isEmailConfigured, sendSignupEmailVerification } from "@/lib/email";
+import {
+  buildEmailVerificationUrl,
+  EMAIL_VERIFICATION_EXPIRES_HOURS,
+  issueEmailVerificationToken,
+} from "@/lib/email-verification/tokens";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
 import { createOrganizationForNewFacility } from "@/lib/organization";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
+import { initialFacilityCreatorRoles } from "@/lib/signup-facility-creator";
 import { prisma } from "@/lib/prisma";
 import { rosterNameFromSignupDisplayName } from "@/lib/roster-name";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
@@ -31,6 +38,7 @@ const signupSchema = z.object({
 
 const GENERIC_SIGNUP_FAILURE = "Unable to create this account.";
 const ABSENT_ACCOUNT_HASH = "$2b$12$rCdyNVV46Cv/BVCvwO7yr.HodwJjXsOHTs.p50w/FDaA5JjG./Vli";
+const CHECK_EMAIL_PATH = "/check-email";
 
 function clientIpLabel(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
@@ -59,7 +67,9 @@ export async function POST(request: Request) {
 
   const data = parsed.data;
   const email = data.adminEmail.toLowerCase();
-  const managementCompanyName = data.managementCompanyName?.trim() ? data.managementCompanyName.trim() : null;
+  const managementCompanyName = data.managementCompanyName?.trim()
+    ? data.managementCompanyName.trim()
+    : null;
 
   let accountBucketKey: string;
   let ipBucketKey: string;
@@ -86,14 +96,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
   }
 
-  const gmRole = await prisma.role.findUnique({ where: { key: "GM" }, select: { id: true, key: true } });
-  if (!gmRole) {
+  const creatorRoles = initialFacilityCreatorRoles();
+  const creatorUserRole = await prisma.role.findUnique({
+    where: { key: creatorRoles.userRoleKey },
+    select: { id: true, key: true },
+  });
+  if (!creatorUserRole) {
     return NextResponse.json({ error: "System roles are not initialized yet." }, { status: 500 });
   }
 
   const passwordHash = await bcrypt.hash(data.password, 12);
-
   const { firstName, lastName } = rosterNameFromSignupDisplayName(data.adminName);
+  const mailConfigured = isEmailConfigured();
 
   const created = await prisma.$transaction(async (tx) => {
     const organization = await createOrganizationForNewFacility(tx, {
@@ -115,11 +129,13 @@ export async function POST(request: Request) {
     const user = await tx.user.create({
       data: {
         facilityId: facility.id,
-        roleId: gmRole.id,
+        roleId: creatorUserRole.id,
         displayName: data.adminName,
         email,
         passwordHash,
         isActive: true,
+        // When outbound mail is off (local/dev), skip the verify gate so signup stays usable.
+        emailVerifiedAt: mailConfigured ? null : new Date(),
       },
       include: { role: true },
     });
@@ -135,7 +151,7 @@ export async function POST(request: Request) {
         firstName,
         lastName,
         email,
-        roleType: RoleKey.GM,
+        roleType: creatorRoles.employeeRoleType,
         status: EmployeeStatus.ACTIVE,
         employmentType: EmploymentType.FULL_TIME,
       },
@@ -146,23 +162,56 @@ export async function POST(request: Request) {
 
   await resetAuthRateLimitBucket(accountBucketKey);
 
-  const token = await createSessionToken({
-    uid: created.user.id,
-    authKind: "user",
-    role: created.user.role.key,
-    name: created.user.displayName,
-    email: created.user.email,
-    facilityId: created.user.facilityId,
-    sessionVersion: created.user.sessionVersion,
-  });
+  if (!mailConfigured || created.user.emailVerifiedAt) {
+    const token = await createSessionToken({
+      uid: created.user.id,
+      authKind: "user",
+      role: created.user.role.key,
+      name: created.user.displayName,
+      email: created.user.email,
+      facilityId: created.user.facilityId,
+      sessionVersion: created.user.sessionVersion,
+    });
 
-  await trackEvent("signup.completed", {
+    await trackEvent("signup.completed", {
+      facilityId: created.facility.id,
+      userId: created.user.id,
+    });
+
+    const response = NextResponse.json({ ok: true, nextPath: ONBOARDING_ENTRY_PATH });
+    response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
+    response.cookies.set(DEVICE_FACILITY_COOKIE, created.facility.id, getDeviceCookieOptions());
+    return response;
+  }
+
+  const issued = await issueEmailVerificationToken(prisma, created.user.id);
+  const verifyUrl = buildEmailVerificationUrl(new URL(request.url).origin, issued.rawToken);
+  const sendResult = await sendSignupEmailVerification({
+    to: created.user.email,
+    displayName: created.user.displayName,
+    verifyUrl,
+    expiresInHours: EMAIL_VERIFICATION_EXPIRES_HOURS,
+  });
+  if (!sendResult.sent && sendResult.reason === "send_failed") {
+    console.info("signup_verification_email_failed", {
+      userId: created.user.id,
+      error: sendResult.error,
+    });
+  } else if (sendResult.sent) {
+    console.info("signup_verification_email_sent", {
+      userId: created.user.id,
+      messageId: sendResult.messageId,
+    });
+  }
+
+  await trackEvent("signup.pending_verification", {
     facilityId: created.facility.id,
     userId: created.user.id,
   });
 
-  const response = NextResponse.json({ ok: true, nextPath: ONBOARDING_ENTRY_PATH });
-  response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
-  response.cookies.set(DEVICE_FACILITY_COOKIE, created.facility.id, getDeviceCookieOptions());
-  return response;
+  return NextResponse.json({
+    ok: true,
+    nextPath: `${CHECK_EMAIL_PATH}?email=${encodeURIComponent(created.user.email)}`,
+    pendingVerification: true,
+  });
 }

@@ -70,3 +70,18 @@ export function passwordResetIpBucketKey(ip: string): string {
     ip.trim().slice(0, 64),
   ]);
 }
+
+/** Email-verification resend throttling; distinct key prefix from signup/login. */
+export function emailVerificationAccountBucketKey(email: string): string {
+  return bucketKey(AuthRateLimitBucketType.PASSWORD_ACCOUNT, [
+    "email-verify",
+    normalizeAccountIdentifier(email),
+  ]);
+}
+
+export function emailVerificationIpBucketKey(ip: string): string {
+  return bucketKey(AuthRateLimitBucketType.PIN_FACILITY, [
+    "email-verify-ip",
+    ip.trim().slice(0, 64),
+  ]);
+}

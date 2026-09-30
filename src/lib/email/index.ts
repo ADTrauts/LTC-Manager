@@ -15,6 +15,11 @@ export {
   sendPasswordResetEmail,
 } from "@/lib/email/password-reset";
 export {
+  buildSignupEmailVerificationTemplateModel,
+  SIGNUP_EMAIL_VERIFICATION_TEMPLATE_ALIAS,
+  sendSignupEmailVerification,
+} from "@/lib/email/signup-email-verification";
+export {
   resetPostmarkClientForTests,
   sendTemplatedEmail,
   sendTransactionalEmail,

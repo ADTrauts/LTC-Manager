@@ -7,6 +7,7 @@ import Link from "next/link";
 type LoginState = {
   error: string | null;
   loading: boolean;
+  emailNotVerified?: boolean;
 };
 
 type LoginFormProps = {
@@ -34,8 +35,12 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
     });
 
     if (!res.ok) {
-      const payload = (await res.json()) as { error?: string };
-      setState({ loading: false, error: payload.error ?? "Sign-in failed." });
+      const payload = (await res.json()) as { error?: string; code?: string };
+      setState({
+        loading: false,
+        error: payload.error ?? "Sign-in failed.",
+        emailNotVerified: payload.code === "EMAIL_NOT_VERIFIED",
+      });
       return;
     }
 
@@ -84,7 +89,14 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
         />
       </div>
       {state.error ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+        <div className="space-y-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          <p>{state.error}</p>
+          {state.emailNotVerified ? (
+            <Link href="/check-email" className="font-medium underline">
+              Resend verification email
+            </Link>
+          ) : null}
+        </div>
       ) : null}
       <button
         type="submit"

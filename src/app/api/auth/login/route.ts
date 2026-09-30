@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       displayName: true,
       passwordHash: true,
       isActive: true,
+      emailVerifiedAt: true,
       facilityId: true,
       primaryDepartmentId: true,
       role: { select: { key: true, isActive: true } },
@@ -88,6 +89,16 @@ export async function POST(request: Request) {
   if (!isValid) {
     await registerAuthFailure(buckets);
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+  }
+
+  if (!user.emailVerifiedAt) {
+    return NextResponse.json(
+      {
+        error: "Verify your email before signing in. Check your inbox for the link we sent.",
+        code: "EMAIL_NOT_VERIFIED",
+      },
+      { status: 403 },
+    );
   }
 
   await resetAuthRateLimitBucket(accountBucketKey);

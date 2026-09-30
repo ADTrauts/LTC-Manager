@@ -13,6 +13,7 @@
 |-------|---------|----------------|--------|
 | Onboarding manager invite | Setup wizard saves new manager emails | `onboarding-manager-invite` | Live (Postmark template + app) |
 | Password reset | `/forgot-password` for facility `User` accounts | `password-reset` | Live (Postmark template + app) |
+| Signup email verification | Public `/signup` when Postmark is configured | `signup-email-verification` | Live (Postmark template + app) |
 
 ---
 
@@ -20,7 +21,6 @@
 
 | Email | Trigger | Needs before send | Notes |
 |-------|---------|-------------------|-------|
-| Signup email verification | Public `/signup` when enabled | Token model + verify route | Gate for `PUBLIC_SIGNUP_ENABLED` |
 | Employee / manager account invite | Admin creates EMAIL_PASSWORD user | Invite token + accept flow | Today admin sets initial password in UI |
 | Vssyl Console ticket reply | Console tickets | Ticket models + routes | Nav exists but disabled |
 

@@ -452,6 +452,8 @@ export async function createEmployeeAction(formData: FormData) {
             facilityId: session.facilityId,
             roleId: role.id,
             isActive: true,
+            emailVerifiedAt: new Date(),
+            primaryDepartmentId: organization.primaryDepartmentId,
           },
         });
         await ensureUserFacilityAccessGrant(tx, {
@@ -748,6 +750,8 @@ export async function updateEmployeeProfileAction(formData: FormData) {
             facilityId: session.facilityId,
             roleId: roleRow.id,
             isActive: true,
+            emailVerifiedAt: new Date(),
+            primaryDepartmentId: organization.primaryDepartmentId,
           },
         });
         await ensureUserFacilityAccessGrant(tx, {
@@ -769,6 +773,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         nextEmployeeStatus: parsed.status,
         displayName: `${parsed.firstName} ${parsed.lastName}`,
         email: normalizedProfileEmail,
+        primaryDepartmentId: organization.primaryDepartmentId,
       });
     }
 

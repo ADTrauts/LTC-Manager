@@ -12,6 +12,8 @@ import {
 } from "./config";
 
 export {
+  emailVerificationAccountBucketKey,
+  emailVerificationIpBucketKey,
   normalizeAccountIdentifier,
   passwordAccountBucketKey,
   passwordResetAccountBucketKey,
