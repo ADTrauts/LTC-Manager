@@ -17,6 +17,10 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeStatus,
 } from "./key-time-day-expectation";
+import {
+  loadSpaceOperationalTypeAssignments,
+  operationalTypeKeysForSpaces,
+} from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -154,7 +158,16 @@ export async function loadEmployeeCycleContext(input: {
       ],
       spaceIds: row.childSpaces.map((space) => space.id),
     };
-    unit.childOperationalTypeKeys = [];
+    const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      spaceIds: unit.spaceIds,
+      perspective: "runtime",
+    });
+    unit.childOperationalTypeKeys = operationalTypeKeysForSpaces(
+      runtimeFunctions,
+      unit.spaceIds ?? [],
+    );
     const ownerIds = timingOwnerUnitIds(unit);
     const unitTimings = timingsForOwnerUnits(mealMaterialized.timings, ownerIds);
     if (unitTimings.length > 0) {

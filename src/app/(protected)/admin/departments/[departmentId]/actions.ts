@@ -10,6 +10,9 @@ import {
   certifyProfile,
   clearRoomArchetypeBinding,
   adoptProductLocationFunction,
+  bindLocationFunction,
+  clearLocationFunction,
+  publishLocationFunctionDraft,
   createBaselineDraft,
   createNextDraftVersion,
   createRoomArchetype,
@@ -283,6 +286,70 @@ export async function createOperationalTypeAction(formData: FormData): Promise<A
   }
 }
 
+export async function bindLocationFunctionAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
+    const functionKey = String(formData.get("functionKey") ?? "").trim();
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const actor = actorFromSession(session);
+    if (!functionKey) {
+      const cleared = await clearLocationFunction(actor, {
+        facilityId: session.facilityId,
+        departmentId,
+        unitSpaceId,
+      });
+      revalidateDepartmentAdmin(departmentId);
+      return {
+        ok: true,
+        message: "Location Function cleared. Publish before Run uses this change.",
+        profileId: cleared.profileId,
+      };
+    }
+    const bound = await bindLocationFunction(actor, {
+      facilityId: session.facilityId,
+      departmentId,
+      unitSpaceId,
+      functionKey,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: "Location Function saved on the draft. Publish before Run uses it.",
+      profileId: bound.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not save Location Function.",
+    };
+  }
+}
+
+export async function publishLocationFunctionsAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const published = await publishLocationFunctionDraft(actorFromSession(session), {
+      facilityId: session.facilityId,
+      departmentId,
+    });
+    revalidateDepartmentAdmin(departmentId);
+    return {
+      ok: true,
+      message: "Location Functions are published. Run uses this configuration.",
+      profileId: published.profileId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not publish Location Functions.",
+    };
+  }
+}
+
 export async function ensurePatternDraftAction(formData: FormData): Promise<ActionResult> {
   try {
     const session = await requireFacilitySession();
@@ -312,8 +379,9 @@ const ROLE_BINDING_RETIRED =
   "Role bindings are retired. Program the room from Teams (membership + cycle need).";
 
 export async function bindRoomsToOperationalTypeAction(
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionResult> {
+  void formData;
   return { ok: false, message: ROLE_BINDING_RETIRED };
 }
 
@@ -564,7 +632,8 @@ export async function setArchetypeExperiencesAction(formData: FormData): Promise
   }
 }
 
-export async function bindRoomAction(_formData: FormData): Promise<ActionResult> {
+export async function bindRoomAction(formData: FormData): Promise<ActionResult> {
+  void formData;
   return { ok: false, message: ROLE_BINDING_RETIRED };
 }
 
@@ -658,8 +727,9 @@ export async function ensureLocationOperationalTypesAction(
 }
 
 export async function assignLocationOperationalTypeAction(
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionResult> {
+  void formData;
   return { ok: false, message: ROLE_BINDING_RETIRED };
 }
 
@@ -691,7 +761,8 @@ export async function clearLocationOperationalTypeAction(
 }
 
 export async function createLocationOperationalTypeAction(
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionResult> {
+  void formData;
   return { ok: false, message: ROLE_BINDING_RETIRED };
 }

@@ -44,6 +44,10 @@ import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import {
+  loadSpaceOperationalTypeAssignments,
+  operationalTypeKeysForSpaces,
+} from "@/lib/operational-cycles/load-operational-type-targets";
+import {
   loadPublishedCyclesForDate,
   resolveOperationalCycle,
 } from "@/lib/operational-cycles";
@@ -412,6 +416,12 @@ export async function buildRuntimeBundle(
     const roomTypeKeys = [
       ...new Set(unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
     ];
+    const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.session.facilityId,
+      departmentId: dietary.id,
+      spaceIds: unit.childSpaces.map((space) => space.id),
+      perspective: "runtime",
+    });
     resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
@@ -422,7 +432,10 @@ export async function buildRuntimeBundle(
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        childOperationalTypeKeys: [],
+        childOperationalTypeKeys: operationalTypeKeysForSpaces(
+          runtimeFunctions,
+          unit.childSpaces.map((space) => space.id),
+        ),
       },
       mealTargets: includeMealMilestones
         ? runtimeMealTimes.map((m) => ({

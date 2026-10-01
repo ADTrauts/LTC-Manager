@@ -74,6 +74,19 @@ export function assignmentsFromBindings(
   return assignments;
 }
 
+/** Published or working function keys for a set of physical rooms. */
+export function operationalTypeKeysForSpaces(
+  assignments: ReadonlyMap<string, { key: string }>,
+  spaceIds: readonly string[],
+): string[] {
+  const keys = new Set<string>();
+  for (const spaceId of spaceIds) {
+    const key = assignments.get(spaceId)?.key;
+    if (key) keys.add(key);
+  }
+  return [...keys];
+}
+
 export async function loadDepartmentOperationalTypeOptions(input: {
   facilityId: string;
   departmentId: string;

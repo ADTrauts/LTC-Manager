@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import { createOperationalTypeAction } from "@/app/(protected)/admin/departments/[departmentId]/actions";
+import {
+  bindLocationFunctionAction,
+  publishLocationFunctionsAction,
+} from "@/app/(protected)/admin/departments/[departmentId]/actions";
 import { LocationsProgrammingClient } from "@/app/(protected)/admin/departments/[departmentId]/locations-programming-client";
 import { addRemainingRoomsOfTypeToTeamAction } from "@/app/(protected)/admin/departments/[departmentId]/team-actions";
 import { EmptyState } from "@/components/design-system/EmptyState";
@@ -124,30 +127,78 @@ function LocationFunctionsSection({
 }) {
   const productKey = isDepartmentProductKey(view.department.key) ? view.department.key : null;
   const functions = listLocationFunctionsForProduct(productKey);
-  const adoptedKeys = new Set(
-    (view.workingProfile?.archetypes ?? []).filter((row) => row.isActive).map((row) => row.key),
-  );
+  const rooms = view.locations.filter((location) => location.kind === "room");
+  const draft = view.workingProfileMeta?.status === "DRAFT";
 
   return (
     <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="location-functions">
-      <div>
-        <h3 className="text-sm font-semibold text-zinc-900">Location Functions</h3>
-        <p className="mt-1 text-xs text-zinc-600">
-          The Department Product owns the function. Typing a label does not create one.
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900">Location Functions</h3>
+          <p className="mt-1 text-xs text-zinc-600">
+            Choose a function the Department Product already defines. The room name does not create one.
+          </p>
+          {draft ? (
+            <p className="mt-1 text-xs text-zinc-600" data-testid="location-function-draft-note">
+              This is the working draft. Run keeps the published functions until you publish.
+            </p>
+          ) : null}
+        </div>
+        {canManage && draft ? (
+          <DepartmentAdminActionForm action={publishLocationFunctionsAction}>
+            <input type="hidden" name="departmentId" value={view.department.id} />
+            <Button type="submit" size="compact" data-testid="location-function-publish">
+              Publish
+            </Button>
+          </DepartmentAdminActionForm>
+        ) : null}
       </div>
-      {view.locations.length > 0 ? (
-        <ul className="space-y-1 text-sm text-zinc-800">
-          {view.locations.map((location) => {
+      {rooms.length > 0 ? (
+        <ul className="divide-y divide-zinc-100">
+          {rooms.map((location) => {
             const key = location.patternKey?.startsWith("archetype:")
               ? location.patternKey.slice("archetype:".length)
               : null;
             const known = getLocationFunction(productKey, key);
-            const label = known?.label ?? (location.hasPattern ? location.patternLabel : null) ?? "Not bound";
+            const label = known?.label ?? "Not bound";
             return (
-              <li key={location.id}>
-                <span className="font-medium">{location.displayName}</span>
-                <span className="text-zinc-600"> · Function: {label}</span>
+              <li key={location.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-zinc-900">{location.displayName}</p>
+                  <p className="text-xs text-zinc-500">
+                    {view.department.name} is responsible
+                    {location.roomTypeLabel ? ` · ${location.roomTypeLabel}` : ""}
+                  </p>
+                </div>
+                {canManage && productKey && functions.length > 0 ? (
+                  <DepartmentAdminActionForm
+                    action={bindLocationFunctionAction}
+                    className="flex flex-wrap items-end gap-2"
+                  >
+                    <input type="hidden" name="departmentId" value={view.department.id} />
+                    <input type="hidden" name="unitSpaceId" value={location.id} />
+                    <label className="text-xs font-medium text-zinc-700">
+                      Location Function
+                      <select
+                        name="functionKey"
+                        className="mt-1 block min-h-10 min-w-44 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+                        defaultValue={known?.functionKey ?? ""}
+                      >
+                        <option value="">Not bound</option>
+                        {functions.map((fn) => (
+                          <option key={fn.functionKey} value={fn.functionKey}>
+                            {fn.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Button type="submit" size="compact">
+                      Save
+                    </Button>
+                  </DepartmentAdminActionForm>
+                ) : (
+                  <p className="text-sm text-zinc-700">Location Function: {label}</p>
+                )}
               </li>
             );
           })}
@@ -155,29 +206,6 @@ function LocationFunctionsSection({
       ) : (
         <p className="text-sm text-zinc-600">Assign rooms in Facility Builder before binding a function.</p>
       )}
-      {canManage && productKey && functions.length > 0 ? (
-        <DepartmentAdminActionForm action={createOperationalTypeAction} className="flex flex-wrap items-end gap-2">
-          <input type="hidden" name="departmentId" value={view.department.id} />
-          <label className="text-xs font-medium text-zinc-700">
-            Adopt
-            <select
-              name="functionKey"
-              className="mt-1 block min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm"
-              defaultValue={functions.find((fn) => !adoptedKeys.has(fn.functionKey))?.functionKey ?? functions[0]!.functionKey}
-            >
-              {functions.map((fn) => (
-                <option key={fn.functionKey} value={fn.functionKey}>
-                  {fn.label}
-                  {adoptedKeys.has(fn.functionKey) ? " (adopted)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button type="submit" size="compact">
-            Adopt Location Function
-          </Button>
-        </DepartmentAdminActionForm>
-      ) : null}
     </section>
   );
 }

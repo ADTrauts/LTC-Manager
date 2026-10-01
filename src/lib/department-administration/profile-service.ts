@@ -879,6 +879,107 @@ export async function adoptProductLocationFunction(
   return { archetypeId: created.archetypeId, alreadyAdopted: false };
 }
 
+/**
+ * Bind one Product Location Function to one physical room on the working draft.
+ * Forks a draft from the published profile when needed. Does not publish.
+ * One room has one function on a profile; a later bind replaces it.
+ */
+export async function bindLocationFunction(
+  actor: ProfileActor,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    unitSpaceId: string;
+    functionKey: string;
+  },
+): Promise<{ profileId: string; bindingId: string; functionKey: string }> {
+  const department = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { id: true, key: true },
+  });
+  if (!department) throw new Error("Department not found.");
+  const adoption = resolveLocationFunctionAdoption({
+    productKey: department.key,
+    functionKey: input.functionKey,
+  });
+  if (!adoption) {
+    throw new Error("That Location Function is not part of this Department Product.");
+  }
+  const draft = await ensureWorkingDraftForPatterns(actor, {
+    facilityId: input.facilityId,
+    departmentId: department.id,
+  });
+  const adopted = await adoptProductLocationFunction(actor, {
+    profileId: draft.profileId,
+    productKey: department.key,
+    functionKey: adoption.key,
+  });
+  const bound = await bindRoomToArchetype(actor, {
+    profileId: draft.profileId,
+    archetypeId: adopted.archetypeId,
+    unitSpaceId: input.unitSpaceId,
+  });
+  return {
+    profileId: draft.profileId,
+    bindingId: bound.bindingId,
+    functionKey: adoption.key,
+  };
+}
+
+/** Remove this department's current function from a room on the working draft. */
+export async function clearLocationFunction(
+  actor: ProfileActor,
+  input: { facilityId: string; departmentId: string; unitSpaceId: string },
+): Promise<{ profileId: string }> {
+  const department = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { id: true },
+  });
+  if (!department) throw new Error("Department not found.");
+  const room = await prisma.unitSpace.findFirst({
+    where: { id: input.unitSpaceId, facilityId: input.facilityId },
+    select: { id: true },
+  });
+  if (!room) throw new Error("Room not found.");
+  const draft = await ensureWorkingDraftForPatterns(actor, {
+    facilityId: input.facilityId,
+    departmentId: department.id,
+  });
+  await clearRoomArchetypeBinding(actor, {
+    profileId: draft.profileId,
+    unitSpaceId: room.id,
+  });
+  return { profileId: draft.profileId };
+}
+
+/**
+ * Certify and activate the working Location Function draft.
+ * The previous ACTIVE profile is retired in the same activation and stays readable.
+ */
+export async function publishLocationFunctionDraft(
+  actor: ProfileActor,
+  input: { facilityId: string; departmentId: string },
+): Promise<{ profileId: string }> {
+  const draft = await prisma.departmentOperationalProfile.findFirst({
+    where: {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      status: "DRAFT",
+    },
+    select: { id: true },
+  });
+  if (!draft) throw new Error("There is no Location Function draft to publish.");
+  const certified = await certifyProfile(actor, draft.id);
+  if (!certified.certifiable) {
+    throw new Error(
+      certified.errors.map((error) => error.message).join("; ") ||
+        "Location Functions could not be published.",
+    );
+  }
+  await activateProfile(actor, draft.id);
+  return { profileId: draft.id };
+}
+
 export async function createRoomArchetype(
   actor: ProfileActor,
   input: {
