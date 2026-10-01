@@ -7,6 +7,7 @@ import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { InspectionDefinitionEditor } from "@/components/inspections/inspection-definition-editor";
 import { buildPageIntro } from "@/lib/build-hub";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { buildInspectionScheduleSummary } from "@/lib/work/inspections/inspection-cadence";
 
@@ -16,6 +17,7 @@ type AdminInspectionsPageProps = {
 
 export default async function AdminInspectionsPage({ searchParams }: AdminInspectionsPageProps) {
   const session = await assertFacilityAdministratorPage();
+  const canonicalRecords = isCanonicalLogsEnabled();
   const query = searchParams ? await searchParams : undefined;
 
   const [definitions, departments, units, recentSubmissions] = await Promise.all([
@@ -71,6 +73,12 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
         </p>
       ) : null}
 
+      {canonicalRecords ? (
+        <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700" role="status">
+          Inspections are Records. Configure them in Department Builder → Records. This page keeps
+          historical inspection definitions and submissions readable.
+        </p>
+      ) : (
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-zinc-900">
           {editing ? `Edit · ${editing.name}` : "Create inspection"}
@@ -109,12 +117,15 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
           units={units}
         />
       </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-zinc-900">Definitions</h2>
         {definitions.length === 0 ? (
           <p className="rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-600 shadow-sm">
-            No inspection definitions yet. Create one above to make it available on Unit Workspace.
+            {canonicalRecords
+              ? "No historical inspection definitions."
+              : "No inspection definitions yet. Create one above to make it available on Unit Workspace."}
           </p>
         ) : (
           <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -146,6 +157,7 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
                         .join(" · ") || "Facility-wide"}
                     </p>
                   </div>
+                  {canonicalRecords ? null : (
                   <div className="flex flex-wrap gap-2">
                     <Link
                       href={`/admin/inspections?edit=${definition.id}`}
@@ -168,6 +180,7 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
                       </button>
                     </form>
                   </div>
+                  )}
                 </div>
               </li>
             ))}

@@ -463,7 +463,7 @@ export async function loadSupervisorCycleOverview(input: {
       exceptionRank: EXCEPTION_RANK[exceptionKey] ?? 100,
       workspaceHref: `/unit/${unit.id}`,
       assignmentBoardHref: `/staffing/assignments?departmentId=${input.departmentId}`,
-      builderHref: departmentAdminHref(input.departmentId, "teams"),
+      builderHref: departmentAdminHref(input.departmentId, "operating-rhythm"),
     });
   }
   }

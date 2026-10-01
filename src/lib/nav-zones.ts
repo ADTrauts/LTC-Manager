@@ -18,7 +18,7 @@ export const NAV_ZONE_LABELS: Record<NavZone, string> = {
   OPERATIONS_CENTER: "Operations Center",
   LOCATIONS: "Locations",
   TODAYS_WORK: "Today's Work",
-  REVIEW: "Review",
+  REVIEW: "Audit / Reports",
   ADMINISTRATION: "Administration",
 };
 

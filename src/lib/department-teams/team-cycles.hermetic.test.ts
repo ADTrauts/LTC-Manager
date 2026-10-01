@@ -33,7 +33,7 @@ describe("Team cycle authoring contracts", () => {
     assert.match(panel, /per room/);
     assert.match(panel, /requiredCount/);
     assert.match(panel, /Add phase/);
-    assert.match(panel, /Add key time/);
+    assert.match(panel, /Add Key Point/);
     assert.doesNotMatch(panel, /Add expectation/);
   });
 

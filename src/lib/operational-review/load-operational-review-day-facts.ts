@@ -5,7 +5,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import type { LogAttachmentForResolve } from "@/lib/canonical-logs/resolve-log-requirements";
+import { catalogPurposeForResolve } from "@/lib/operational-review/review-fact-maps";
 import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-canonical";
 import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
@@ -36,15 +36,6 @@ const ATTACHMENT_INCLUDE = {
     include: { fields: { orderBy: { displaySequence: "asc" as const } } },
   },
 } as const;
-
-function asCatalogPurpose(
-  purposeType: string,
-): LogAttachmentForResolve["catalogDefinition"]["purposeType"] {
-  if (purposeType === "CHECKLIST") {
-    return purposeType;
-  }
-  return "LOG";
-}
 
 export async function loadOperationalReviewDayFacts(input: {
   client: Db;
@@ -412,7 +403,7 @@ export async function loadOperationalReviewDayFacts(input: {
     catalogDefinition: {
       id: row.catalogDefinition.id,
       name: row.catalogDefinition.name,
-      purposeType: asCatalogPurpose(row.catalogDefinition.purposeType),
+      purposeType: catalogPurposeForResolve(row.catalogDefinition.purposeType),
       instructions: row.catalogDefinition.instructions,
       status: row.catalogDefinition.status,
       fields: row.catalogDefinition.fields.map((field) => ({

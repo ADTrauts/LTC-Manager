@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
+import { createOperationalTypeAction } from "@/app/(protected)/admin/departments/[departmentId]/actions";
 import { LocationsProgrammingClient } from "@/app/(protected)/admin/departments/[departmentId]/locations-programming-client";
 import { addRemainingRoomsOfTypeToTeamAction } from "@/app/(protected)/admin/departments/[departmentId]/team-actions";
 import { EmptyState } from "@/components/design-system/EmptyState";
@@ -7,6 +9,8 @@ import { Button } from "@/components/design-system/Button";
 import type { DepartmentAdminView } from "@/lib/department-administration";
 import { presentLocationProgramExpansion } from "@/lib/department-administration/location-program-expansion";
 import type { LocationRoomInspectView } from "@/lib/department-administration/location-room-inspect";
+import { getLocationFunction, listLocationFunctionsForProduct } from "@/lib/department-products/location-functions";
+import { isDepartmentProductKey } from "@/lib/department-products/registry";
 
 type Props = {
   view: DepartmentAdminView;
@@ -30,7 +34,8 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
         <div className="min-w-0 space-y-2">
           <h2 className="text-base font-semibold text-zinc-900">Locations</h2>
           <p className="text-sm text-zinc-600">
-            Physical places {view.department.name} is responsible for.
+            Physical places stay in Facility Builder. {view.department.name} binds each place to a
+            Location Function from the Department Product.
           </p>
         </div>
         <Link
@@ -41,6 +46,8 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
           Manage responsibility →
         </Link>
       </div>
+
+      <LocationFunctionsSection view={view} canManage={canManage} />
 
       {view.locations.length === 0 ? (
         <EmptyState
@@ -93,7 +100,7 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
                       </form>
                     ) : (
                       <p className="mt-1 text-xs text-zinc-500">
-                        Open Teams to put these rooms on a team, then set cycle need.
+                        Open People & Coverage to put these rooms on a team.
                       </p>
                     )}
                   </li>
@@ -105,5 +112,72 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
         </>
       )}
     </div>
+  );
+}
+
+function LocationFunctionsSection({
+  view,
+  canManage,
+}: {
+  view: DepartmentAdminView;
+  canManage: boolean;
+}) {
+  const productKey = isDepartmentProductKey(view.department.key) ? view.department.key : null;
+  const functions = listLocationFunctionsForProduct(productKey);
+  const adoptedKeys = new Set(
+    (view.workingProfile?.archetypes ?? []).filter((row) => row.isActive).map((row) => row.key),
+  );
+
+  return (
+    <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="location-functions">
+      <div>
+        <h3 className="text-sm font-semibold text-zinc-900">Location Functions</h3>
+        <p className="mt-1 text-xs text-zinc-600">
+          The Department Product owns the function. Typing a label does not create one.
+        </p>
+      </div>
+      {view.locations.length > 0 ? (
+        <ul className="space-y-1 text-sm text-zinc-800">
+          {view.locations.map((location) => {
+            const key = location.patternKey?.startsWith("archetype:")
+              ? location.patternKey.slice("archetype:".length)
+              : null;
+            const known = getLocationFunction(productKey, key);
+            const label = known?.label ?? (location.hasPattern ? location.patternLabel : null) ?? "Not bound";
+            return (
+              <li key={location.id}>
+                <span className="font-medium">{location.displayName}</span>
+                <span className="text-zinc-600"> · Function: {label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm text-zinc-600">Assign rooms in Facility Builder before binding a function.</p>
+      )}
+      {canManage && productKey && functions.length > 0 ? (
+        <DepartmentAdminActionForm action={createOperationalTypeAction} className="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="departmentId" value={view.department.id} />
+          <label className="text-xs font-medium text-zinc-700">
+            Adopt
+            <select
+              name="functionKey"
+              className="mt-1 block min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+              defaultValue={functions.find((fn) => !adoptedKeys.has(fn.functionKey))?.functionKey ?? functions[0]!.functionKey}
+            >
+              {functions.map((fn) => (
+                <option key={fn.functionKey} value={fn.functionKey}>
+                  {fn.label}
+                  {adoptedKeys.has(fn.functionKey) ? " (adopted)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="submit" size="compact">
+            Adopt Location Function
+          </Button>
+        </DepartmentAdminActionForm>
+      ) : null}
+    </section>
   );
 }

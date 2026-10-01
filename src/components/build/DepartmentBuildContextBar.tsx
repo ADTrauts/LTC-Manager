@@ -36,15 +36,15 @@ export function DepartmentBuildContextBar({
     },
     {
       ...formatBuildCountFact(context.activeTeamCount, "Team", "Teams"),
-      href: departmentAdminHref(departmentId, "teams", profileId),
+      href: departmentAdminHref(departmentId, "people", profileId),
       ariaLabel: `View ${context.activeTeamCount} teams for ${departmentName}`,
-      active: activeTab === "teams",
+      active: activeTab === "people",
     },
     {
       ...formatBuildCountFact(context.currentCycleCount, "Cycle", "Cycles"),
-      href: departmentAdminHref(departmentId, "teams", profileId),
+      href: departmentAdminHref(departmentId, "operating-rhythm", profileId),
       ariaLabel: `View ${context.currentCycleCount} operational cycles for ${departmentName}`,
-      active: activeTab === "teams",
+      active: activeTab === "operating-rhythm",
     },
     context.headDisplayName
       ? {

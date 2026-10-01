@@ -31,13 +31,13 @@ test("workspace department id is parsed from the Builder route only", () => {
   assert.equal(departmentIdFromBuilderWorkspacePath("/employees"), null);
 });
 
-test("Dietary → EVS on a retired Cycles tab lands on Teams", () => {
+test("Dietary → EVS on a retired Cycles tab lands on Operating Rhythm", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: evsId,
     currentPathname: `/admin/departments/${dietaryId}`,
     currentSearch: "?tab=cycles",
   });
-  assert.equal(href, `/build/departments/${evsId}?tab=teams`);
+  assert.equal(href, `/build/departments/${evsId}?tab=operating-rhythm`);
 });
 
 test("EVS → Dietary on Locations preserves tab", () => {

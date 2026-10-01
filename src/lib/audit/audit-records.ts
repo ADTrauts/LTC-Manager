@@ -6,6 +6,7 @@
  */
 
 import { bindOperationalTypeRequirementToSpace } from "@/lib/canonical-logs/log-operational-type-applicability";
+import { presentRecordForm } from "@/lib/canonical-logs/record-engine";
 import { attachmentLineageKey } from "@/lib/canonical-logs/attachment-update-policy";
 import { selectSegmentForDate, type LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
 import {
@@ -68,6 +69,7 @@ export type AuditRecordSlot = {
   catalogStableKey: string;
   catalogVersion: number;
   definitionLabel: string;
+  recordForm: string;
   requirementSegmentId: string;
   attachmentStableKey: string;
   locationFunctionKey: string | null;
@@ -252,6 +254,7 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             catalogStableKey: segment.catalogStableKey,
             catalogVersion: segment.catalogVersion,
             definitionLabel: segment.localDisplayLabel?.trim() || segment.catalogDefinition.name,
+            recordForm: auditRecordFormLabel(segment),
             requirementSegmentId: segment.id,
             attachmentStableKey: segment.stableKey,
             locationFunctionKey: segment.operationalTypeKey,
@@ -366,11 +369,40 @@ function slotStateFor(input: {
   });
 }
 
+function auditRecordFormLabel(segment: {
+  timingMode: string;
+  catalogDefinition: { purposeType: string; fields: Array<{ fieldType: string }> };
+}): string {
+  const purpose = segment.catalogDefinition.purposeType;
+  if (purpose !== "LOG" && purpose !== "CHECKLIST" && purpose !== "INSPECTION" && purpose !== "PROCEDURE") {
+    return "Record";
+  }
+  const timingMode =
+    segment.timingMode === "AD_HOC" ||
+    segment.timingMode === "DAILY_WINDOWS" ||
+    segment.timingMode === "OPERATIONAL_CYCLE" ||
+    segment.timingMode === "CALENDAR"
+      ? segment.timingMode
+      : null;
+  const form = presentRecordForm({
+    purposeType: purpose,
+    timingMode,
+    fieldTypes: segment.catalogDefinition.fields.map((field) => field.fieldType),
+  });
+  if (form === "INSPECTION") return "Inspection";
+  if (form === "CHECKLIST") return "Checklist";
+  if (form === "ACKNOWLEDGEMENT") return "Acknowledgement";
+  if (form === "ON_DEMAND") return "On demand";
+  if (form === "READING") return "Reading";
+  return "Record";
+}
+
 export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
   const header = [
     "serviceDate",
     "departmentId",
     "definition",
+    "recordForm",
     "definitionVersion",
     "requirementSegmentId",
     "location",
@@ -398,6 +430,7 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
         slot.serviceDate,
         slot.departmentId,
         csv(slot.definitionLabel),
+        slot.recordForm,
         String(slot.catalogVersion),
         slot.requirementSegmentId,
         csv(slot.placeLabel ?? ""),

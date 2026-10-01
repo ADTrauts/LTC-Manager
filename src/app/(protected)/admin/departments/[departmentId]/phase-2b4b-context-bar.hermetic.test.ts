@@ -50,8 +50,8 @@ test("Department context facts link to primary tabs", () => {
     "utf8",
   );
   assert.match(bar, /departmentAdminHref\(departmentId, "locations"/);
-  assert.match(bar, /departmentAdminHref\(departmentId, "teams"/);
-  assert.match(bar, /departmentAdminHref\(departmentId, "teams"/);
+  assert.match(bar, /departmentAdminHref\(departmentId, "people"/);
+  assert.match(bar, /departmentAdminHref\(departmentId, "operating-rhythm"/);
   assert.match(bar, /Draft changes/);
 });
 

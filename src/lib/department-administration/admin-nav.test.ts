@@ -19,10 +19,10 @@ import {
 } from "@/lib/department-administration/load-department-admin";
 
 describe("Department Builder local navigation", () => {
-  it("exposes primary tabs Overview | Locations | Teams", () => {
+  it("exposes Department Builder sections for the installed product", () => {
     assert.deepEqual(
       DEPARTMENT_ADMIN_TABS.map((tab) => tab.id),
-      ["overview", "locations", "teams"],
+      ["overview", "locations", "operating-rhythm", "work", "people", "records", "menus"],
     );
     assert.equal(
       DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("room-types" as string)),
@@ -41,18 +41,21 @@ describe("Department Builder local navigation", () => {
   it("resolves tab query params with overview default", () => {
     assert.equal(resolveDepartmentAdminTab(undefined), "overview");
     assert.equal(resolveDepartmentAdminTab("locations"), "locations");
-    assert.equal(resolveDepartmentAdminTab("teams"), "teams");
+    assert.equal(resolveDepartmentAdminTab("people"), "people");
+    assert.equal(resolveDepartmentAdminTab("teams"), "people");
     assert.equal(resolveDepartmentAdminTab("not-a-tab"), "overview");
     assert.equal(isDepartmentAdminTabId("locations"), true);
-    assert.equal(isDepartmentAdminTabId("teams"), true);
+    assert.equal(isDepartmentAdminTabId("people"), true);
+    assert.equal(isDepartmentAdminTabId("teams"), false);
     assert.equal(isDepartmentAdminTabId("coverage"), false);
     assert.equal(isDepartmentAdminTabId("cycles"), false);
     assert.equal(isDepartmentAdminTabId("projection"), false);
   });
 
   it("redirects every retired tab into primary IA", () => {
-    assert.equal(resolveDepartmentAdminTab("coverage"), "teams");
-    assert.equal(resolveDepartmentAdminTab("cycles"), "teams");
+    assert.equal(resolveDepartmentAdminTab("coverage"), "people");
+    assert.equal(resolveDepartmentAdminTab("cycles"), "operating-rhythm");
+    assert.equal(resolveDepartmentAdminTab("teams"), "people");
     assert.equal(resolveDepartmentAdminTab("room-types"), "locations");
     assert.equal(resolveDepartmentAdminTab("areas"), "locations");
     assert.equal(resolveDepartmentAdminTab("archetypes"), "locations");
@@ -64,26 +67,20 @@ describe("Department Builder local navigation", () => {
     assert.deepEqual([...DEPARTMENT_ADMIN_DEFERRED_TABS], []);
   });
 
-  it("keeps Coverage and Cycles off the primary bar regardless of cycle feature flags", () => {
+  it("keeps Operating Rhythm on the bar and omits Records and Menus until the product needs them", () => {
+    const base = ["overview", "locations", "operating-rhythm", "work", "people"];
     assert.deepEqual(
-      departmentAdminTabsForFlags({ profilesEnabled: false, cyclesEnabled: true }).map(
-        (t) => t.id,
-      ),
-      ["overview", "locations", "teams"],
-    );
-    assert.deepEqual(
-      departmentAdminTabsForFlags({
-        profilesEnabled: false,
-        cyclesEnabled: false,
-      }).map((t) => t.id),
-      ["overview", "locations", "teams"],
+      departmentAdminTabsForFlags({ profilesEnabled: false, cyclesEnabled: true }).map((t) => t.id),
+      base,
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
         profilesEnabled: true,
-        cyclesEnabled: false,
+        workEnabled: false,
+        recordsEnabled: true,
+        menusEnabled: true,
       }).map((t) => t.id),
-      ["overview", "locations", "teams"],
+      ["overview", "locations", "operating-rhythm", "people", "records", "menus"],
     );
   });
 
@@ -97,12 +94,12 @@ describe("Department Builder local navigation", () => {
       "/build/departments/dept1?tab=locations&profile=prof1",
     );
     assert.equal(
-      departmentAdminHref("dept1", "teams"),
-      "/build/departments/dept1?tab=teams",
+      departmentAdminHref("dept1", "people"),
+      "/build/departments/dept1?tab=people",
     );
     assert.equal(
       departmentAdminHref("dept1", "cycles"),
-      "/build/departments/dept1?tab=teams",
+      "/build/departments/dept1?tab=operating-rhythm",
     );
     assert.ok(!departmentAdminHref("dept1", "overview").includes("/sidebar"));
     assert.ok(!departmentAdminHref("dept1", "locations").includes("/units"));

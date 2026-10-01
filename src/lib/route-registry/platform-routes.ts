@@ -418,8 +418,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "staffing",
     featureFlag: "DIETARY_WORK_PLANS",
-    // BUILD · Work Plans — Department Work Plan builder.
-    nav: { label: "Work Plans", order: 250 },
+    // BUILD · Work — Department Work Plan builder. Owned by Department Builder, not Staffing.
+    nav: { label: "Work", order: 250 },
     notes:
       "Dietary Department Work Plan Builder (Phase 11A). Page enforces DIETARY_WORK_PLANS_ENABLED.",
   },
@@ -709,9 +709,18 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "reports",
-    legacyArea: { key: "reports", label: "Review", navOrder: 90, navVisible: true, critical: false },
-    // RUN · Review — reporting / review surfaces.
-    nav: { label: "Review", order: 100 },
+    legacyArea: { key: "reports", label: "Audit / Reports", navOrder: 90, navVisible: true, critical: false },
+    // RUN · Audit / Reports — historical operational truth.
+    nav: { label: "Audit / Reports", order: 100 },
+  },
+  {
+    pattern: "/reports/export",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "reports",
+    requiresDownstreamAuthorization: true,
+    notes: "CSV of the canonical Record audit result. Same selector as the Audit / Reports screen.",
   },
 
   // ── Build hub ─────────────────────────────────────────────────────────────
@@ -746,7 +755,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // Cycle mutations still enforce Dietary operational authority (FA alone is denied).
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "administration",
-    // BUILD · Department Builder — Overview · Locations · Teams.
+    // BUILD · Department Builder — Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
     nav: { label: "Department Builder", order: 220 },
   },
   {

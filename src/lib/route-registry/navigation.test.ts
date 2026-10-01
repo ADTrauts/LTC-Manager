@@ -51,7 +51,7 @@ test("navigation — labels come from the registry, not from database rows", () 
   );
   assert.equal(byHref.get("/workspace"), "Dashboard");
   assert.equal(byHref.get("/units"), "Locations");
-  assert.equal(byHref.get("/reports"), "Review");
+  assert.equal(byHref.get("/reports"), "Audit / Reports");
   assert.equal(byHref.get("/admin"), "Admin");
   assert.equal(byHref.get("/today"), "Today's Work");
   // Phase 13 product-mode surfaces.

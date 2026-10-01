@@ -52,7 +52,7 @@ test("normalizePrimaryNavLabel maps module labels to product-facing names", () =
   assert.equal(normalizePrimaryNavLabel("/dashboard", "Dashboard"), "Dashboard");
   assert.equal(normalizePrimaryNavLabel("/workspace", "Workspace"), "Dashboard");
   assert.equal(normalizePrimaryNavLabel("/staffing", "Staffing"), "Schedule");
-  assert.equal(normalizePrimaryNavLabel("/reports", "Reports"), "Review");
+  assert.equal(normalizePrimaryNavLabel("/reports", "Reports"), "Audit / Reports");
   assert.equal(normalizePrimaryNavLabel("/units", "Units"), "Locations");
   assert.equal(normalizePrimaryNavLabel("/admin", "Admin"), "Admin");
   // Routes without an explicit product label fall back to their registry label.

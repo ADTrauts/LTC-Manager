@@ -1,5 +1,5 @@
 /**
- * Run Review. Day Locations replay Runtime Location State answers (step 22).
+ * Audit / Reports. Day Locations replay Runtime Location State answers (step 22).
  * Historical evidence / coverage / service tables stay the day record. See
  * docs/department-administration/14_RUN_SURFACE_REFERENCE_FREEZE.md
  */

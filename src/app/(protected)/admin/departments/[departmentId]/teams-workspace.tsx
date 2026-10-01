@@ -13,12 +13,9 @@ import {
 import { Button } from "@/components/design-system/Button";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { Select, TextArea, TextInput } from "@/components/design-system/Field";
-import { OperatingRhythmPanel } from "@/app/(protected)/admin/departments/[departmentId]/operating-rhythm-panel";
 import { TeamCyclesPanel } from "@/app/(protected)/admin/departments/[departmentId]/team-cycles-panel";
 import { RoomPicker } from "@/components/operational-cycles/room-picker";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
-import type { OperatingRhythmRootView } from "@/lib/department-administration/operating-rhythm";
-import type { ResolvedCycleStarter } from "@/lib/department-products/cycle-starter";
 import type {
   DepartmentCycleOption,
   DepartmentTeamView,
@@ -33,16 +30,10 @@ type Props = {
   catalog: TeamCatalog;
   employees: TeamEmployeeOption[];
   canManage: boolean;
-  canManageCycles: boolean;
-  canPublishCycles: boolean;
   selectedTeamId: string | null;
   cycleOptions: DepartmentCycleOption[];
   showMeal: boolean;
   nextDayKey: string;
-  cycleStarter: ResolvedCycleStarter | null;
-  starterWouldCreate: number;
-  rhythmRoots: OperatingRhythmRootView[];
-  allowImmediateTesting: boolean;
 };
 
 function managerSelect(
@@ -184,16 +175,10 @@ export function TeamsWorkspace({
   catalog,
   employees,
   canManage,
-  canManageCycles,
-  canPublishCycles,
   selectedTeamId,
   cycleOptions,
   showMeal,
   nextDayKey,
-  cycleStarter,
-  starterWouldCreate,
-  rhythmRoots,
-  allowImmediateTesting,
 }: Props) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -202,40 +187,30 @@ export function TeamsWorkspace({
   function openTeam(teamId: string | null) {
     setAdding(false);
     const href = teamId
-      ? `${departmentAdminHref(departmentId, "teams")}&team=${encodeURIComponent(teamId)}`
-      : departmentAdminHref(departmentId, "teams");
+      ? `${departmentAdminHref(departmentId, "people")}&team=${encodeURIComponent(teamId)}`
+      : departmentAdminHref(departmentId, "people");
     router.push(href);
   }
 
   function startAdd() {
     setAdding(true);
-    router.push(departmentAdminHref(departmentId, "teams"));
+    router.push(departmentAdminHref(departmentId, "people"));
   }
 
   const showSplit = teams.length > 0 || adding;
 
   return (
     <div className="space-y-3" data-testid="department-teams-panel">
-      <OperatingRhythmPanel
-        departmentId={departmentId}
-        starter={cycleStarter}
-        starterWouldCreate={starterWouldCreate}
-        roots={rhythmRoots}
-        catalog={catalog}
-        canManage={canManageCycles}
-        canPublish={canPublishCycles}
-        showMeal={showMeal}
-        nextDayKey={nextDayKey}
-        allowImmediateTesting={allowImmediateTesting}
-      />
-
       <div
         className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
         data-testid="department-teams-header"
       >
         <div className="min-w-0 space-y-2">
-          <h2 className="text-base font-semibold text-zinc-900">Teams</h2>
-          <p className="text-sm text-zinc-600">How {departmentName} is organizationally divided.</p>
+          <h2 className="text-base font-semibold text-zinc-900">People & Coverage</h2>
+          <p className="text-sm text-zinc-600">
+            Teams and coverage for {departmentName}. Employee records and permissions stay in People.
+            Work plans and Operating Rhythm are configured in their own sections.
+          </p>
         </div>
         {canManage && showSplit ? (
           <Button

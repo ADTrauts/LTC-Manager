@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import {
   parseDaysOfWeekJson,
@@ -54,6 +55,9 @@ async function assertScopedUnit(facilityId: string, unitId: string | null | unde
 }
 
 export async function upsertInspectionDefinitionAction(formData: FormData) {
+  if (isCanonicalLogsEnabled()) {
+    redirect("/admin/inspections");
+  }
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -196,6 +200,9 @@ export async function upsertInspectionDefinitionAction(formData: FormData) {
 }
 
 export async function setInspectionDefinitionActiveAction(formData: FormData) {
+  if (isCanonicalLogsEnabled()) {
+    redirect("/admin/inspections");
+  }
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 

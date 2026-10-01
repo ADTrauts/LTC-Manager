@@ -49,9 +49,10 @@ export function OperatingRhythmPanel({
       data-testid="operating-rhythm-panel"
     >
       <div>
-        <h2 className="text-base font-semibold text-zinc-900">Operating rhythm</h2>
+        <h2 className="text-base font-semibold text-zinc-900">Operating Rhythm</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Recurring periods this department runs. Teams are optional and can share these periods.
+          Operational Cycles, one level of Phases, and Key Points. Planned times stay on the Cycle.
+          Adjusting today happens in Run.
         </p>
       </div>
 

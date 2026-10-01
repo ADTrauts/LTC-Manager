@@ -1,7 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 
+import { DepartmentMenusPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-menus-panel";
+import { DepartmentWorkPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-work-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
 import { LocationsPanel } from "@/app/(protected)/admin/departments/[departmentId]/locations-panel";
+import { OperatingRhythmSection } from "@/app/(protected)/admin/departments/[departmentId]/operating-rhythm-section";
 import {
   OverviewPanel,
   type OverviewDepartmentSettings,
@@ -30,7 +33,8 @@ import {
   presentOverviewGuidance,
   resolveOverviewProductIdentity,
 } from "@/lib/department-administration/overview-guidance";
-import { loadFacilityDepartmentCatalog } from "@/lib/department-products";
+import { loadFacilityDepartmentCatalog, getDepartmentProduct } from "@/lib/department-products";
+import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 import { prisma } from "@/lib/prisma";
 
@@ -58,26 +62,15 @@ export default async function DepartmentBuilderPage({
   const { departmentId } = await params;
   const query = await searchParams;
 
-  // Primary tabs: Overview | Locations | Teams. Coverage / Cycles author on Teams.
-  const availableTabs = departmentAdminTabsForFlags({
-    profilesEnabled,
-    locationsEnabled: true,
-  });
-  const primaryTabIds = availableTabs.map((tab) => tab.id);
-
   const requestedTab = query.tab;
   if (requestedTab && isDepartmentAdminRetiredTabId(requestedTab)) {
     const dest = DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[requestedTab];
     const href = departmentAdminHref(departmentId, dest);
     const team = query.team?.trim();
     redirect(
-      team && dest === "teams" ? `${href}&team=${encodeURIComponent(team)}` : href,
+      team && dest === "people" ? `${href}&team=${encodeURIComponent(team)}` : href,
     );
   }
-  const tab = resolveDepartmentAdminTab(requestedTab, {
-    availableTabIds: primaryTabIds,
-    fallback: "overview",
-  });
 
   const view = await loadDepartmentAdminView({
     facilityId: session.facilityId,
@@ -95,6 +88,23 @@ export default async function DepartmentBuilderPage({
   }
 
   const profileId = view.workingProfileMeta?.id ?? null;
+  const product = getDepartmentProduct(view.department.key);
+  const workEnabled =
+    Boolean(product?.starters.workPresets) ||
+    contextSummary.publishedWorkPlanCount > 0 ||
+    contextSummary.draftWorkPlanCount > 0;
+  const canonicalLogsEnabled = isCanonicalLogsEnabled();
+  const availableTabs = departmentAdminTabsForFlags({
+    profilesEnabled,
+    locationsEnabled: true,
+    workEnabled,
+    recordsEnabled: canonicalLogsEnabled,
+    menusEnabled: hasDietaryDomainCapabilities(view.department.key),
+  });
+  const tab = resolveDepartmentAdminTab(query.tab, {
+    availableTabIds: availableTabs.map((item) => item.id),
+    fallback: "overview",
+  });
   const productIdentity = resolveOverviewProductIdentity(view.department.key);
   const catalog =
     tab === "overview"
@@ -139,18 +149,10 @@ export default async function DepartmentBuilderPage({
     }),
   };
 
-  const contentMaxWidth =
-    tab === "overview"
-      ? "max-w-4xl"
-      : tab === "teams"
-        ? "max-w-6xl"
-        : tab === "locations"
-          ? "max-w-5xl"
-          : "max-w-5xl";
+  const contentMaxWidth = tab === "overview" ? "max-w-4xl" : tab === "people" ? "max-w-6xl" : "max-w-5xl";
 
-  const canonicalLogsEnabled = isCanonicalLogsEnabled();
   const departmentLogsCtx =
-    canonicalLogsEnabled && tab === "overview"
+    canonicalLogsEnabled && tab === "records"
       ? await loadTargetLogsBuildContext({
           facilityId: session.facilityId,
           targetKind: "DEPARTMENT",
@@ -196,17 +198,6 @@ export default async function DepartmentBuilderPage({
             department={view.department}
             locationCoverage={view.locationCoverage}
             settings={settings}
-            logsSection={
-              departmentLogsCtx ? (
-                <TargetLogsSection
-                  targetTitle={view.department.name}
-                  attachments={departmentLogsCtx.attachments}
-                  addHref={departmentLogsCtx.addHref}
-                  runHref={`/staffing/logs/targets/department/${view.department.id}`}
-                  departmentName={view.department.name}
-                />
-              ) : null
-            }
           />
         ) : null}
         {tab === "locations" ? (
@@ -216,7 +207,26 @@ export default async function DepartmentBuilderPage({
             canManage={Boolean(locationAuthority?.canManage)}
           />
         ) : null}
-        {tab === "teams" ? (
+        {tab === "operating-rhythm" ? (
+          <OperatingRhythmSection
+            session={session}
+            facilityId={session.facilityId}
+            departmentId={view.department.id}
+            departmentKey={view.department.key}
+          />
+        ) : null}
+        {tab === "work" ? (
+          <DepartmentWorkPanel
+            departmentName={view.department.name}
+            publishedCount={contextSummary.publishedWorkPlanCount}
+            draftCount={contextSummary.draftWorkPlanCount}
+            unmatchedLocationFunctions={settings.guidanceRows.some(
+              (row) => row.id === "work" && row.description.includes("no bound room"),
+            )}
+            locationsHref={departmentAdminHref(view.department.id, "locations", profileId)}
+          />
+        ) : null}
+        {tab === "people" ? (
           <TeamsPanel
             session={session}
             facilityId={session.facilityId}
@@ -226,6 +236,23 @@ export default async function DepartmentBuilderPage({
             selectedTeamId={query.team?.trim() || null}
           />
         ) : null}
+        {tab === "records" && departmentLogsCtx ? (
+          <section className="space-y-2" data-testid="department-records-panel">
+            <h2 className="text-base font-semibold text-zinc-900">Records</h2>
+            <p className="text-sm text-zinc-600">
+              Readings, checklists, inspections, and acknowledgements required for this department.
+              Recording a value happens in Run.
+            </p>
+            <TargetLogsSection
+              targetTitle={view.department.name}
+              attachments={departmentLogsCtx.attachments}
+              addHref={departmentLogsCtx.addHref}
+              runHref={`/staffing/logs/targets/department/${view.department.id}`}
+              departmentName={view.department.name}
+            />
+          </section>
+        ) : null}
+        {tab === "menus" ? <DepartmentMenusPanel /> : null}
       </div>
     </div>
   );

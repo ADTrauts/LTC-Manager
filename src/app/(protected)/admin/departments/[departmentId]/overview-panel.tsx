@@ -88,7 +88,7 @@ const ROW_ICONS: Record<OverviewGuidanceRow["id"], typeof AppIcons.locations> = 
   rhythm: AppIcons.todaysWork,
   people: AppIcons.employees,
   work: AppIcons.todaysWork,
-  evidence: AppIcons.logs,
+  records: AppIcons.logs,
 };
 
 export function OverviewPanel({
@@ -170,19 +170,6 @@ export function OverviewPanel({
               </div>
             );
           })}
-          <ConfigRow
-            icon={<AppIcons.employees className="h-4 w-4" aria-hidden />}
-            title="Teams"
-            status={
-              settings.activeTeamCount === 0
-                ? "None configured — Teams are optional"
-                : `${settings.activeTeamCount} active team${settings.activeTeamCount === 1 ? "" : "s"}`
-            }
-            description={`How ${department.name} is organizationally divided.`}
-            href={`/build/departments/${department.id}?tab=teams`}
-            actionLabel="Manage teams →"
-            testId="overview-teams-summary"
-          />
         </div>
       </section>
 

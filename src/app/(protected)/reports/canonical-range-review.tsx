@@ -73,7 +73,21 @@ export function CanonicalRangeReview({
       />
 
       {auditSlots && departmentId ? (
-        <AuditRecordsPanel slots={auditSlots} departmentId={departmentId} />
+        <AuditRecordsPanel
+          slots={auditSlots}
+          departmentId={departmentId}
+          exportHref={
+            definition
+              ? `/reports/export?${new URLSearchParams({
+                  departmentId,
+                  definition,
+                  from: start,
+                  to: end,
+                  ...(locationFunction ? { locationFunction } : {}),
+                }).toString()}`
+              : null
+          }
+        />
       ) : null}
 
       {timingRows && timingRows.length > 0 ? <TimingAuditPanel rows={timingRows} /> : null}
@@ -115,11 +129,11 @@ export function CanonicalRangeReview({
             </ReviewCard>
 
             <ReviewCard
-              title="Daily Review"
+              title="Service days"
               subtitle="Each service day uses its own date-effective configuration."
               testId="review-range-days"
             >
-              <ReviewTable caption="Daily Review" columns={["Service date", "Exceptions"]}>
+              <ReviewTable caption="Service days" columns={["Service date", "Exceptions"]}>
                 {presentation.days.map((day) => (
                   <ReviewTableRow key={day.serviceDate}>
                     <ReviewCell>
@@ -153,12 +167,12 @@ export function CanonicalRangeReview({
 
           <section className="grid gap-4 lg:grid-cols-2">
             <ReviewCard
-              title="Evidence"
+              title="Records"
               subtitle="Repeated factual exceptions across the range."
               testId="review-range-evidence"
             >
               {presentation.repeatedEvidence.length > 0 ? (
-                <ReviewTable caption="Repeated evidence exceptions" columns={["Requirement", "Missed days"]}>
+                <ReviewTable caption="Repeated record exceptions" columns={["Requirement", "Missed days"]}>
                   {presentation.repeatedEvidence.map((row) => (
                     <ReviewTableRow key={row.id}>
                       <ReviewCell>
@@ -174,7 +188,7 @@ export function CanonicalRangeReview({
                 </ReviewTable>
               ) : (
                 <ReviewMuted>
-                  No repeated evidence exceptions in this range. Open a service day for detail.
+                  No repeated record exceptions in this range. Open a service day for detail.
                 </ReviewMuted>
               )}
             </ReviewCard>

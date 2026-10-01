@@ -87,7 +87,7 @@ describe("Department Builder entry routing", () => {
         currentPathname: "/admin/departments/cldiet",
         currentSearch: "?tab=cycles",
       }),
-      "/build/departments/clevs?tab=teams",
+      "/build/departments/clevs?tab=operating-rhythm",
     );
     assert.equal(
       departmentBuilderWorkspaceHref("abc"),

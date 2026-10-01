@@ -34,7 +34,7 @@ const MODULE_LABELS: Record<string, string> = {
   onboarding: "Setup",
   "operations-center": "Dashboard (retired route)",
   repairs: "Repairs",
-  reports: "Review",
+  reports: "Audit / Reports",
   staffing: "Staffing",
   "todays-work": "Today's Work",
   workspace: "Workspace",

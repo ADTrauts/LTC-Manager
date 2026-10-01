@@ -66,14 +66,19 @@ describe("Department Product cycle starters", () => {
     assert.equal(cycleStarterWouldCreateCount("evs", new Set()), buildEvsDefaultCyclePlans().length);
   });
 
-  it("keeps starter application on the mounted Teams path and does not remount CyclesPanel", () => {
+  it("keeps starter application on Operating Rhythm and does not remount CyclesPanel", () => {
     const page = source("src/app/(protected)/admin/departments/[departmentId]/page.tsx");
+    const section = source(
+      "src/app/(protected)/admin/departments/[departmentId]/operating-rhythm-section.tsx",
+    );
     const workspace = source("src/app/(protected)/admin/departments/[departmentId]/teams-workspace.tsx");
     const panel = source("src/app/(protected)/admin/departments/[departmentId]/operating-rhythm-panel.tsx");
     const resolver = source("src/lib/department-products/cycle-starter.ts");
     const actions = source("src/app/(protected)/admin/departments/[departmentId]/cycle-actions.ts");
     assert.doesNotMatch(page, /CyclesPanel/);
-    assert.match(workspace, /OperatingRhythmPanel/);
+    assert.match(page, /OperatingRhythmSection/);
+    assert.match(section, /OperatingRhythmPanel/);
+    assert.doesNotMatch(workspace, /OperatingRhythmPanel/);
     assert.doesNotMatch(workspace, /Dietary|EVS|Plant/);
     assert.match(panel, /applyProductCycleStarterAction/);
     assert.match(panel, /makeOperatingRhythmLiveAction/);

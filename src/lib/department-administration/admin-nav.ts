@@ -1,26 +1,46 @@
 /**
  * Department Builder — local navigation.
- * Primary IA: Overview | Locations | Teams
+ * Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
+ * Menus appear only for a Dietary product.
  *
- * Retired tabs (Coverage, Cycles, Areas, Archetypes, Room Types, …) are not
- * a product surface. Deep links resolve to a primary tab. Do not add them back.
+ * Retired tab ids still resolve so old links land on the owning section.
  */
 
 export const DEPARTMENT_ADMIN_TABS = [
   {
     id: "overview",
     label: "Overview",
-    description: "Identity and department-wide status",
+    description: "Installed product and configuration gaps",
   },
   {
     id: "locations",
     label: "Locations",
-    description: "Where this department operates",
+    description: "Physical places and Location Functions",
   },
   {
-    id: "teams",
-    label: "Teams",
-    description: "Enduring groups within this department",
+    id: "operating-rhythm",
+    label: "Operating Rhythm",
+    description: "Operational Cycles, phases, and key points",
+  },
+  {
+    id: "work",
+    label: "Work",
+    description: "Work plans for this department",
+  },
+  {
+    id: "people",
+    label: "People & Coverage",
+    description: "Teams and coverage. Employee identity stays in People.",
+  },
+  {
+    id: "records",
+    label: "Records",
+    description: "Record requirements for this department",
+  },
+  {
+    id: "menus",
+    label: "Menus",
+    description: "Dietary menus",
   },
 ] as const;
 
@@ -28,12 +48,12 @@ export type DepartmentAdminPrimaryTabId = (typeof DEPARTMENT_ADMIN_TABS)[number]
 
 /**
  * Retired `?tab=` ids. Always redirect. Not listed in the bar.
- * Coverage / Cycles author on Teams. Areas / Archetypes / Room Types are
- * the retired Experience-catalog programming model.
+ * Cycles configure under Operating Rhythm. Teams configure under People & Coverage.
  */
 export const DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT = {
-  coverage: "teams",
-  cycles: "teams",
+  coverage: "people",
+  cycles: "operating-rhythm",
+  teams: "people",
   "room-types": "locations",
   areas: "locations",
   archetypes: "locations",
@@ -62,6 +82,7 @@ export const DEPARTMENT_ADMIN_ALL_TAB_IDS: readonly DepartmentAdminTabId[] =
 export const DEPARTMENT_PROFILE_TAB_IDS: readonly DepartmentAdminTabId[] = [
   "overview",
   "locations",
+  "operating-rhythm",
 ];
 
 export function isDepartmentAdminRetiredTabId(
@@ -89,17 +110,29 @@ export function isDepartmentAdminDeferredTabId(
 export function departmentAdminTabsForFlags(input: {
   profilesEnabled: boolean;
   /**
-   * @deprecated Cycles is not a tab. Ignored.
+   * @deprecated The Operating Rhythm tab is always present. Ignored.
    */
   cyclesEnabled?: boolean;
   /** Locations always available when the department detail page is reachable. */
   locationsEnabled?: boolean;
+  /** Omit Work when this Product has no work plans and no work presets. */
+  workEnabled?: boolean;
+  /** Canonical Record requirements. Omit when the record engine is off. */
+  recordsEnabled?: boolean;
+  /** Dietary menus. Omit for other products. */
+  menusEnabled?: boolean;
 }): (typeof DEPARTMENT_ADMIN_TABS)[number][] {
   void input.profilesEnabled;
   void input.cyclesEnabled;
   const locationsEnabled = input.locationsEnabled ?? true;
+  const workEnabled = input.workEnabled ?? true;
+  const recordsEnabled = input.recordsEnabled ?? false;
+  const menusEnabled = input.menusEnabled ?? false;
   return DEPARTMENT_ADMIN_TABS.filter((tab) => {
     if (tab.id === "locations") return locationsEnabled;
+    if (tab.id === "work") return workEnabled;
+    if (tab.id === "records") return recordsEnabled;
+    if (tab.id === "menus") return menusEnabled;
     return true;
   });
 }

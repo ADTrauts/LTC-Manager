@@ -22,10 +22,15 @@ export const REVIEW_ATTACHMENT_INCLUDE = {
   },
 } as const;
 
-function asCatalogPurpose(
+export function catalogPurposeForResolve(
   purposeType: string,
 ): LogAttachmentForResolve["catalogDefinition"]["purposeType"] {
-  if (purposeType === "CHECKLIST") {
+  if (
+    purposeType === "LOG" ||
+    purposeType === "CHECKLIST" ||
+    purposeType === "INSPECTION" ||
+    purposeType === "PROCEDURE"
+  ) {
     return purposeType;
   }
   return "LOG";
@@ -99,7 +104,7 @@ export function mapReviewAttachmentSegments(
     catalogDefinition: {
       id: row.catalogDefinition.id,
       name: row.catalogDefinition.name,
-      purposeType: asCatalogPurpose(row.catalogDefinition.purposeType),
+      purposeType: catalogPurposeForResolve(row.catalogDefinition.purposeType),
       instructions: row.catalogDefinition.instructions,
       status: row.catalogDefinition.status,
       fields: row.catalogDefinition.fields,

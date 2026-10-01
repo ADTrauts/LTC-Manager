@@ -128,7 +128,7 @@ export default async function SupervisorOperationsBoardPage({
   }
 
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
-  const builderHref = departmentAdminHref(department.id, "teams");
+  const builderHref = departmentAdminHref(department.id, "operating-rhythm");
 
   const workPlansEnabled = isDepartmentWorkPlansEnabled(department.key);
   const oneOffUnits = workPlansEnabled

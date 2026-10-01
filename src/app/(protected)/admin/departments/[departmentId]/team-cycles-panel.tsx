@@ -167,7 +167,7 @@ export function TeamCyclesPanel({
                 <ul className="mt-2 space-y-0.5 border-t border-zinc-100 pt-2">
                   {row.children.map((child) => (
                     <li key={child.id} className="text-xs text-zinc-600">
-                      {child.nodeKind === "KEY_TIME" ? "Key time" : "Phase"} · {child.label}
+                      {child.nodeKind === "KEY_TIME" ? "Key Point" : "Phase"} · {child.label}
                       {child.startLocal && child.endLocal
                         ? ` · ${formatCycleWindow(child.startLocal, child.endLocal)}`
                         : null}
@@ -360,7 +360,7 @@ export function TeamCyclesPanel({
             }}
           />
           <div className="flex flex-wrap gap-2">
-            <Button type="submit">{mode === "keytime" ? "Add key time" : "Add phase"}</Button>
+            <Button type="submit">{mode === "keytime" ? "Add Key Point" : "Add phase"}</Button>
             <Button type="button" variant="secondary" onClick={() => setMode("none")}>
               Cancel
             </Button>

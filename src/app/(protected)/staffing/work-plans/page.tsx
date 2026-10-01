@@ -50,7 +50,7 @@ export default async function WorkPlanBuilderPage({
   if (!department) {
     return (
       <section className="mx-auto max-w-5xl space-y-3">
-        <BuildPageHeader title="Work Plans" subtitle="No operational department found." />
+        <BuildPageHeader title="Work" subtitle="No operational department found." />
       </section>
     );
   }
@@ -60,8 +60,8 @@ export default async function WorkPlanBuilderPage({
     return (
       <section className="mx-auto max-w-5xl space-y-3" data-testid="work-plan-builder-denied">
         <BuildPageHeader
-          title="Work Plans"
-          subtitle={authority.reason ?? "Insufficient authority for Work Plans."}
+          title="Work"
+          subtitle={authority.reason ?? "Insufficient authority for Work."}
         />
       </section>
     );
@@ -170,7 +170,7 @@ export default async function WorkPlanBuilderPage({
   return (
     <section className="mx-auto max-w-6xl space-y-3" data-testid="work-plan-builder-page">
       <BuildPageHeader
-        title="Work Plans"
+        title="Work"
         subtitle={`${department.name} — ${buildPageIntro("/staffing/work-plans")}`}
         actions={
           <div className="flex flex-wrap gap-2 text-sm">

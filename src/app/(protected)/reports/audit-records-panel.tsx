@@ -15,9 +15,11 @@ function statusKind(state: AuditRecordSlot["slotState"]) {
 export function AuditRecordsPanel({
   slots,
   departmentId,
+  exportHref,
 }: {
   slots: readonly AuditRecordSlot[];
   departmentId: string;
+  exportHref?: string | null;
 }) {
   const waiveable = slots.filter((slot) => slot.slotState === "NOT_COMPLETE" && slot.waiverAllowed);
   return (
@@ -26,12 +28,19 @@ export function AuditRecordsPanel({
       subtitle="Expected slots for the selected definition, using the configuration effective each service date."
       testId="record-audit"
     >
+      {exportHref ? (
+        <p className="mb-3 text-sm">
+          <a href={exportHref} className="font-medium text-zinc-900 underline underline-offset-2">
+            Export CSV
+          </a>
+        </p>
+      ) : null}
       {slots.length === 0 ? (
         <p className="text-sm text-zinc-600">No expected Record slots for this range.</p>
       ) : (
         <ReviewTable
           caption="Record audit"
-          columns={["Date", "Location", "Window", "Status", "Value", "Recorded", "Follow-up"]}
+          columns={["Date", "Location", "Form", "Window", "Status", "Value", "Recorded", "Follow-up"]}
         >
           {slots.map((slot) => (
             <ReviewTableRow key={slot.requirementKey}>
@@ -42,6 +51,7 @@ export function AuditRecordsPanel({
                   <span className="mt-1 block text-xs text-zinc-500">Current label. Earlier name was not tracked.</span>
                 ) : null}
               </ReviewCell>
+              <ReviewCell>{slot.recordForm}</ReviewCell>
               <ReviewCell>{slot.windowStartLocal ?? slot.cycleStableKey ?? "—"}</ReviewCell>
               <ReviewCell>
                 <ReviewStatus kind={statusKind(slot.slotState)}>{slot.slotState.replaceAll("_", " ")}</ReviewStatus>

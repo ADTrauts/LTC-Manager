@@ -59,7 +59,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/menus", mode: "BUILD", label: "Menu Building" },
     { pathPrefix: "/build/logs", mode: "BUILD", label: "Logs" },
     { pathPrefix: "/staffing/templates", mode: "BUILD", label: "Operational Templates" },
-    { pathPrefix: "/staffing/work-plans", mode: "BUILD", label: "Work Plans" },
+    { pathPrefix: "/staffing/work-plans", mode: "BUILD", label: "Work" },
 
     // ── ADMIN — governance surfaces ────────────────────────────────────────
     { pathPrefix: "/admin/organization", mode: "ADMIN", label: "Organization" },
@@ -90,7 +90,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/repairs", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/issues", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/operational-requests", mode: "RUN", label: "Requests" },
-    { pathPrefix: "/reports", mode: "RUN", label: "Review" },
+    { pathPrefix: "/reports", mode: "RUN", label: "Audit / Reports" },
   ] satisfies ModePathRule[]
 ).sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
 

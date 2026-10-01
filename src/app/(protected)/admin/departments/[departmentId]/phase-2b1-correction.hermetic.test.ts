@@ -12,9 +12,14 @@ test("Overview identity appears once — panel does not repeat department name h
     "utf8",
   );
   assert.match(overview, /Department Manager/);
-  assert.match(overview, /Configuration/);
+  assert.match(overview, /This department/);
   assert.doesNotMatch(overview, /<h2[^>]*>\{department\.name\}<\/h2>/);
-  assert.match(overview, /View locations →/);
+  assert.match(overview, /actionLabel=\{row\.actionLabel\}/);
+  const guidance = readFileSync(
+    join(process.cwd(), "src/lib/department-administration/overview-guidance.ts"),
+    "utf8",
+  );
+  assert.match(guidance, /View locations →/);
 });
 
 test("Locations list is sourced from the floor hierarchy without editing it", () => {

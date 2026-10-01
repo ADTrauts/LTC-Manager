@@ -149,7 +149,21 @@ export function CanonicalReview({
       />
 
       {auditSlots && departmentId ? (
-        <AuditRecordsPanel slots={auditSlots} departmentId={departmentId} />
+        <AuditRecordsPanel
+          slots={auditSlots}
+          departmentId={departmentId}
+          exportHref={
+            definition
+              ? `/reports/export?${new URLSearchParams({
+                  departmentId,
+                  definition,
+                  from: presentation.serviceDate,
+                  to: presentation.serviceDate,
+                  ...(locationFunction ? { locationFunction } : {}),
+                }).toString()}`
+              : null
+          }
+        />
       ) : null}
 
       {presentation.empty ? (
@@ -175,9 +189,10 @@ export function CanonicalReview({
             )}
           </ReviewCard>
 
+          {presentation.isToday ? (
           <ReviewCard
             title="Locations"
-            subtitle="What happened in each space on this service date."
+            subtitle="What is happening in each space today."
             testId="review-locations"
           >
             {presentation.locations.length === 0 ? (
@@ -227,11 +242,22 @@ export function CanonicalReview({
               </ReviewTable>
             )}
           </ReviewCard>
+          ) : (
+            <ReviewCard
+              title="Locations"
+              subtitle="Past location names come from Record audit, using the snapshot or place-name history."
+              testId="review-locations-historical"
+            >
+              <ReviewMuted>
+                This day does not replay today’s room labels. Record audit shows the historical place name.
+              </ReviewMuted>
+            </ReviewCard>
+          )}
         </section>
       )}
 
       <ReviewCard
-        title="Evidence"
+        title="Records"
         subtitle="Expected slots and submitted Records for this service day."
         testId="review-evidence"
       >
@@ -239,18 +265,18 @@ export function CanonicalReview({
           <UnavailableBanner message={presentation.evidence.unavailableMessage} />
         ) : null}
         {presentation.evidence.attention.length > 0 ? (
-          <EvidenceTable rows={presentation.evidence.attention} caption="Evidence requiring attention" />
+          <EvidenceTable rows={presentation.evidence.attention} caption="Records requiring attention" />
         ) : presentation.evidence.availability.status === "evaluated" &&
           presentation.evidence.completed.length === 0 ? (
-          <ReviewMuted>No evidence expectations for this service day.</ReviewMuted>
+          <ReviewMuted>No record expectations for this service day.</ReviewMuted>
         ) : null}
         {presentation.evidence.completed.length > 0 ? (
           <details className={presentation.evidence.attention.length > 0 ? "mt-4" : undefined}>
             <summary className="cursor-pointer text-sm font-medium text-zinc-700">
-              Completed evidence ({presentation.evidence.completed.length})
+              Completed records ({presentation.evidence.completed.length})
             </summary>
             <div className="mt-3">
-              <EvidenceTable rows={presentation.evidence.completed} caption="Completed evidence" />
+              <EvidenceTable rows={presentation.evidence.completed} caption="Completed records" />
             </div>
           </details>
         ) : null}
@@ -353,7 +379,7 @@ export function CanonicalReview({
         ) : (
           <ReviewTable
             caption="Service milestones"
-            columns={["Cycle", "Milestone", "Expected", "Actual", "Status"]}
+            columns={["Cycle", "Key Point", "Expected", "Actual", "Status"]}
           >
             {serviceRows.map((row) => (
               <ReviewTableRow key={row.key}>

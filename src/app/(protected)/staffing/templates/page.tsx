@@ -171,10 +171,10 @@ export default async function OperationalTemplateBuilderPage() {
               Operations Board
             </Link>
             <Link
-              href={departmentAdminHref(department.id, "teams")}
+              href={departmentAdminHref(department.id, "records")}
               className="underline-offset-2 hover:underline"
             >
-              Teams
+              Records
             </Link>
           </div>
         }
@@ -185,13 +185,10 @@ export default async function OperationalTemplateBuilderPage() {
           data-testid="phase9c-templates-compatibility-note"
           role="status"
         >
-          <p className="font-medium">Compatibility surface</p>
+          <p className="font-medium">Legacy templates</p>
           <p className="text-xs text-zinc-600">
-            Facility Catalog browse and Attachments live under{" "}
-            <Link href="/build/logs" className="font-medium underline underline-offset-2">
-              BUILD · Logs
-            </Link>
-            . This page remains Phase 9C Operational Templates.
+            New requirements are Records in Department Builder. This page keeps historical
+            Operational Templates readable. It does not start a second record system.
           </p>
         </div>
       ) : null}
@@ -201,8 +198,8 @@ export default async function OperationalTemplateBuilderPage() {
       <OperationalTemplateBuilderPanel
         facilityId={session.facilityId}
         departmentId={department.id}
-        canManage={authority.canManage}
-        canPublish={authority.canPublish}
+        canManage={isCanonicalLogsEnabled() ? false : authority.canManage}
+        canPublish={isCanonicalLogsEnabled() ? false : authority.canPublish}
         templates={templatesForPanel}
         presets={listTemplatePresetSummaries()}
         assets={assets}

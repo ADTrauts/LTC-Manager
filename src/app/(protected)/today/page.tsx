@@ -112,7 +112,7 @@ export default async function TodaysWorkHubPage() {
       : null;
     const builderHref =
       deptNav.activeDepartmentId && hasAtLeastRole(session.role, "MANAGER")
-        ? departmentAdminHref(deptNav.activeDepartmentId, "teams")
+        ? departmentAdminHref(deptNav.activeDepartmentId, "people")
         : null;
     const operationBanner =
       runPresentation && isCurrentPeriodModel(runPresentation.provenance) ? (
@@ -205,7 +205,7 @@ export default async function TodaysWorkHubPage() {
     : null;
   const builderHref =
     deptNav.activeDepartmentId && hasAtLeastRole(session.role, "MANAGER")
-      ? departmentAdminHref(deptNav.activeDepartmentId, "teams")
+      ? departmentAdminHref(deptNav.activeDepartmentId, "people")
       : null;
   const operationBanner =
     runPresentation && isCurrentPeriodModel(runPresentation.provenance) ? (

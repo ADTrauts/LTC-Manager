@@ -487,7 +487,7 @@ export function CycleEditorFields({
       />
       <div className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-          {nodeKind === "KEY_TIME" ? "Key Time" : isNested ? "Phase" : "Operational cycle"} basics
+          {nodeKind === "KEY_TIME" ? "Key Point" : isNested ? "Phase" : "Operational Cycle"} basics
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-xs font-medium text-zinc-700 sm:col-span-2">
@@ -513,7 +513,7 @@ export function CycleEditorFields({
                   "its Operational Cycle"}
               </p>
               <p className="text-[11px] text-zinc-500">
-                A Key Time is a due-time checkpoint inside an Operational Cycle. It does not have its
+                A Key Point is a due-time checkpoint on an Operational Cycle. It does not have its
                 own start and end window, so it has to stay under Lunch, Breakfast, or another
                 cycle.
               </p>
@@ -546,7 +546,7 @@ export function CycleEditorFields({
               {requireParent ? (
                 <span className="mt-1 block text-[11px] font-normal text-zinc-500">
                   {nodeKind === "KEY_TIME"
-                    ? "Key Points must stay under an Operational Cycle."
+                    ? "Key Points stay on the Operational Cycle. They are not nested Phases."
                     : "Phases belong under an Operational Cycle. Drag in the tree to move between cycles."}
                 </span>
               ) : null}
@@ -594,7 +594,7 @@ export function CycleEditorFields({
               Due times
             </p>
             <p className="text-xs text-zinc-600">
-              Set when this key time is due for each group of rooms. Each room can appear in only one
+              Set when this Key Point is due for each group of rooms. Each room can appear in only one
               group.
             </p>
             <input type="hidden" name="mealType" value="" />
@@ -669,7 +669,7 @@ export function CycleEditorFields({
                         onChange={() => setAppliesTo("operational_types")}
                         data-testid="cycle-applies-operational-types"
                       />
-                      Operational Types
+                      Location Functions
                     </label>
                     <label className="flex items-center gap-2 text-sm text-zinc-800">
                       <input
@@ -686,12 +686,12 @@ export function CycleEditorFields({
                   {appliesTo === "operational_types" ? (
                     <div className="space-y-2" data-testid="cycle-operational-types">
                       <p className="text-[11px] text-zinc-500">
-                        Apply this cycle to every room currently assigned these Operational Types.
+                        Apply this Cycle to every room bound to these Location Functions.
                         This is not Physical Room Type.
                       </p>
                       {operationalTypes.length === 0 ? (
                         <p className="text-xs text-zinc-500" data-testid="cycle-operational-types-empty">
-                          No Operational Types yet. Create them in Department Locations, then return
+                          No Location Functions yet. Adopt them under Locations, then return
                           here.
                         </p>
                       ) : (
@@ -879,7 +879,7 @@ export function CycleEditorFields({
                     {mealTitle} service start times
                   </p>
                   <p className="text-xs text-zinc-500">
-                    Legacy Run compatibility — prefer Key Time groups for new Build work.
+                    Legacy Run compatibility. New Build work uses Key Points.
                   </p>
                 </div>
                 {candidates.length === 0 ? (

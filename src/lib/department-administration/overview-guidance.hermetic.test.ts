@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { presentOperatingRhythmRoots } from "./operating-rhythm";
 import {
-  formatEvidenceGuidance,
+  formatRecordsGuidance,
   formatLocationGuidance,
   formatOperatingRhythmGuidance,
   formatPeopleGuidance,
@@ -116,7 +116,7 @@ describe("Overview guidance derivation", () => {
     );
   });
 
-  it("derives locations, people, work, and evidence facts", () => {
+  it("derives locations, people, work, and record facts", () => {
     assert.equal(formatLocationGuidance(0).status, "No locations assigned");
     assert.equal(formatLocationGuidance(0).href, "/admin/facility/builder");
     assert.equal(formatLocationGuidance(12).status, "12 assigned");
@@ -125,8 +125,8 @@ describe("Overview guidance derivation", () => {
     assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
     assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, false);
     assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).status, "3 live work plans · 2 drafts not live");
-    assert.equal(formatEvidenceGuidance(0).status, "No logs placed");
-    assert.equal(formatEvidenceGuidance(8).status, "8 logs placed");
+    assert.equal(formatRecordsGuidance(0).status, "No records required yet");
+    assert.equal(formatRecordsGuidance(8).status, "8 record requirements");
   });
 
   it("presents a mature Dietary department as complete facts", () => {
@@ -151,7 +151,7 @@ describe("Overview guidance derivation", () => {
         ["rhythm", "Breakfast, Lunch, and Dinner live"],
         ["people", "92 assigned"],
         ["work", "3 live work plans"],
-        ["evidence", "8 logs placed"],
+        ["records", "8 record requirements"],
       ],
     );
     assert.doesNotMatch(JSON.stringify(rows), /67%|setup complete|configurationStatus/i);
@@ -175,7 +175,7 @@ describe("Overview guidance derivation", () => {
       classifiedOperationalTypeKeys: ["main_kitchen", "retail"],
     });
     const work = rows.find((row) => row.id === "work")!;
-    assert.match(work.description, /no matching rooms/);
+    assert.match(work.description, /no bound room/);
     assert.match(work.href, /locations/);
     assert.equal(work.actionLabel, "Configure locations →");
   });

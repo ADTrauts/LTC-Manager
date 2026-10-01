@@ -33,6 +33,9 @@ export function applyCanonicalLogsNavRewrite<T extends { href: string }>(
   let placed = items.some((item) => item.href === canonicalHref);
 
   for (const item of items) {
+    if (item.href === "/staffing/templates") {
+      continue;
+    }
     if (item.href === LEGACY_LOGS_HREF || item.href === DUE_LOGS_HREF) {
       if (!placed) {
         result.push(withHrefLabel(item, canonicalHref, canonicalLabel));

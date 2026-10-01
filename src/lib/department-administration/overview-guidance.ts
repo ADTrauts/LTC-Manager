@@ -11,7 +11,7 @@ export type OverviewGuidanceRowId =
   | "rhythm"
   | "people"
   | "work"
-  | "evidence";
+  | "records";
 
 export type OverviewGuidanceRow = {
   id: OverviewGuidanceRowId;
@@ -74,7 +74,7 @@ export function formatOperatingRhythmGuidance(input: {
       return {
         status: "Not required for this Department Product",
         description: "Plant Operations is not configured through a meal- or period-style operating rhythm.",
-        actionLabel: "View Teams →",
+        actionLabel: "Open People & Coverage →",
       };
     }
     return {
@@ -106,7 +106,7 @@ export function formatOperatingRhythmGuidance(input: {
   return {
     status: parts.join(" · "),
     description: "Recurring operating rhythm.",
-    actionLabel: hasDrafts ? "Make live on Teams →" : "Manage on Teams →",
+    actionLabel: hasDrafts ? "Publish from Operating Rhythm →" : "Open Operating Rhythm →",
   };
 }
 
@@ -137,11 +137,11 @@ export function formatPeopleGuidance(memberCount: number): {
   actionLabel: string;
 } {
   if (memberCount === 0) {
-    return { status: "No people assigned", actionLabel: "Manage employees →" };
+    return { status: "No people assigned", actionLabel: "Open People & Coverage →" };
   }
   return {
     status: `${memberCount} assigned`,
-    actionLabel: "Manage employees →",
+    actionLabel: "Open People & Coverage →",
   };
 }
 
@@ -194,17 +194,22 @@ export function hasUnmatchedPublishedOperationalTypes(input: {
   return published.some((key) => !classified.has(key));
 }
 
-export function formatEvidenceGuidance(placedLogCount: number): {
+export function formatRecordsGuidance(placedLogCount: number): {
   status: string;
   actionLabel: string;
 } {
   if (placedLogCount === 0) {
-    return { status: "No logs placed", actionLabel: "Configure logs →" };
+    return { status: "No records required yet", actionLabel: "Configure records →" };
   }
   return {
-    status: placedLogCount === 1 ? "1 log placed" : `${placedLogCount} logs placed`,
-    actionLabel: "Configure logs →",
+    status: placedLogCount === 1 ? "1 record requirement" : `${placedLogCount} record requirements`,
+    actionLabel: "Configure records →",
   };
+}
+
+/** @deprecated Use formatRecordsGuidance. */
+export function formatEvidenceGuidance(placedLogCount: number) {
+  return formatRecordsGuidance(placedLogCount);
 }
 
 export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewGuidanceRow[] {
@@ -220,7 +225,7 @@ export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewG
   }
   const people = formatPeopleGuidance(input.memberCount);
   const work = formatWorkGuidance(input);
-  const evidence = formatEvidenceGuidance(input.placedLogCount);
+  const records = formatRecordsGuidance(input.placedLogCount);
 
   const rows: OverviewGuidanceRow[] = [
     {
@@ -237,16 +242,16 @@ export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewG
       title: "Operating rhythm",
       status: rhythm.status,
       description: rhythm.description,
-      href: departmentAdminHref(input.departmentId, "teams"),
+      href: departmentAdminHref(input.departmentId, "operating-rhythm"),
       actionLabel: rhythm.actionLabel,
       testId: "overview-rhythm-summary",
     },
     {
       id: "people",
-      title: "People",
+      title: "People & Coverage",
       status: people.status,
-      description: "Department membership. Daily assignment is separate.",
-      href: `/employees?dept=${encodeURIComponent(input.departmentId)}`,
+      description: "Teams and coverage for this department. Employee identity stays in People.",
+      href: departmentAdminHref(input.departmentId, "people"),
       actionLabel: people.actionLabel,
       testId: "overview-people-summary",
     },
@@ -259,23 +264,23 @@ export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewG
       title: "Work",
       status: work.status,
       description: unmatchedTypes
-        ? "Published work targets location types with no matching rooms."
-        : "Recurring work plans for this department.",
+        ? "Published work targets a Location Function with no bound room."
+        : "Work plans for this department. Assignment does not define the work.",
       href: unmatchedTypes
         ? departmentAdminHref(input.departmentId, "locations")
-        : "/staffing/work-plans",
+        : departmentAdminHref(input.departmentId, "work"),
       actionLabel: unmatchedTypes ? "Configure locations →" : work.actionLabel,
       testId: "overview-work-summary",
     });
   }
 
   rows.push({
-    id: "evidence",
-    title: "Evidence",
-    status: evidence.status,
-    description: "Logs placed for this department.",
-    href: "/build/logs",
-    actionLabel: evidence.actionLabel,
+    id: "records",
+    title: "Records",
+    status: records.status,
+    description: "Readings, checklists, inspections, and acknowledgements.",
+    href: departmentAdminHref(input.departmentId, "records"),
+    actionLabel: records.actionLabel,
     testId: "overview-evidence-summary",
   });
 

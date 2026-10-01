@@ -103,7 +103,7 @@ export default async function SupervisorCycleOverviewPage() {
   }
 
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
-  const builderHref = departmentAdminHref(department.id, "teams");
+  const builderHref = departmentAdminHref(department.id, "operating-rhythm");
   const isEvs = department.key === "EVS";
   const currentPeriod = isCurrentPeriodModel(overview.runProvenance);
   const departmentPresentation = currentPeriod
@@ -149,7 +149,7 @@ export default async function SupervisorCycleOverviewPage() {
               href="/staffing"
               className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
             >
-              Staffing
+              Schedule
             </Link>
             {canOpenBuilder ? (
               <Link

@@ -195,7 +195,15 @@ describe("Team product contracts", () => {
     assert.match(workspace, /department-teams-split/);
     assert.match(workspace, /team-detail-panel/);
     assert.match(workspace, /TeamCyclesPanel/);
-    assert.match(workspace, /OperatingRhythmPanel/);
+    assert.doesNotMatch(workspace, /OperatingRhythmPanel/);
+    const rhythm = readFileSync(
+      join(
+        process.cwd(),
+        "src/app/(protected)/admin/departments/[departmentId]/operating-rhythm-section.tsx",
+      ),
+      "utf8",
+    );
+    assert.match(rhythm, /OperatingRhythmPanel/);
     assert.doesNotMatch(workspace, /Applies to Operational Types/);
     assert.doesNotMatch(workspace, /Physical Room Type as/);
     assert.equal(/servery|kitchen|retail|culinary|dietary/i.test(workspace), false);
@@ -233,12 +241,13 @@ describe("Team product contracts", () => {
     assert.match(load, /applyViewerTeamScopeToLocations/);
   });
 
-  it("page mounts Teams as a primary Department Builder tab", () => {
+  it("page mounts People & Coverage as a Department Builder section", () => {
     const page = readFileSync(
       join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/page.tsx"),
       "utf8",
     );
     assert.match(page, /TeamsPanel/);
-    assert.match(page, /tab === "teams"/);
+    assert.match(page, /tab === "people"/);
+    assert.match(page, /OperatingRhythmSection/);
   });
 });
