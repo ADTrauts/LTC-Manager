@@ -40,7 +40,7 @@ export type LoadProjectedLocationOptions = {
     | {
         mode: "DEPARTMENT";
         departmentId: string;
-        departmentKey: "DIETARY" | "EVS" | "PLANT";
+        departmentKey: string;
       };
   allowedUnitIdsOverride?: readonly string[] | "ALL";
   lockedUnitIdOverride?: string | null;

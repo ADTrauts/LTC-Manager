@@ -26,10 +26,6 @@ import { prisma } from "@/lib/prisma";
 export default async function OperationalTemplateBuilderPage() {
   noStore();
 
-  if (!isAnyStaffingOperationalFeatureEnabled("evidence")) {
-    redirect("/staffing");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
 
@@ -39,6 +35,9 @@ export default async function OperationalTemplateBuilderPage() {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
   const department = await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,

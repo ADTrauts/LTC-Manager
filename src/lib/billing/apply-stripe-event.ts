@@ -1,4 +1,8 @@
 import type { BillingInterval, BillingSetupPath } from "./catalog";
+import {
+  installDepartmentsForActiveEntitlements,
+  shouldInstallLicensedDepartmentProducts,
+} from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
 
 export async function applyFacilitySubscription(input: {
@@ -76,4 +80,15 @@ export async function applyFacilitySubscription(input: {
       });
     }
   });
+
+  if (
+    departmentKeys.length > 0 &&
+    shouldInstallLicensedDepartmentProducts(input.status)
+  ) {
+    await installDepartmentsForActiveEntitlements({
+      facilityId: input.facilityId,
+      productKeys: departmentKeys,
+      prisma,
+    });
+  }
 }

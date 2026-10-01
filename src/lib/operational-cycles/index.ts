@@ -96,18 +96,30 @@ export {
 
 export {
   detectRunModelProvenance,
+  describeDepartmentCycleConfiguration,
+  isCurrentPeriodModel,
   presentDepartmentRunOperation,
   presentLocationRunOperation,
+  publishedPeriodHasParticipatingLocations,
   serializeLocationRunProof,
   timingsForPublishedKeyTimeCycles,
   currentPublishedKeyTimeTimings,
   selectCurrentDayKeyTimeGroups,
   type CurrentDayKeyTimeGroupSummary,
+  type RunDepartmentConfiguration,
   type RunDepartmentOperationPresentation,
   type RunLocationOperationPresentation,
   type RunLocationIdentity,
   type RunModelProvenance,
 } from "./present-run-operation";
+
+export {
+  activePhaseLabelsForCycle,
+  isOperationalCycleOccurrence,
+  isPhaseOccurrence,
+  resolveCycleAndPhaseLabels,
+  selectNextKeyPointSummary,
+} from "./cycle-timeline";
 
 export {
   loadDepartmentRunPresentation,

@@ -19,7 +19,7 @@ export function formatCycleClock(localHhMm: string): string {
 }
 
 export function formatCycleWindow(startLocal: string | null, endLocal: string | null): string {
-  if (!startLocal?.trim() || !endLocal?.trim()) return "Key Time";
+  if (!startLocal?.trim() || !endLocal?.trim()) return "Key Point";
   return `${formatCycleClock(startLocal)}–${formatCycleClock(endLocal)}`;
 }
 

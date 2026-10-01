@@ -89,6 +89,45 @@ test("non-authority profile edits do not revoke password sessions", async () => 
   ]);
 });
 
+test("employee primary department syncs onto the linked User without revoking sessions", async () => {
+  const { client, updates } = fakeClient();
+  const result = await syncLinkedUserAuthority(client, {
+    ...baseInput,
+    primaryDepartmentId: "dept-dietary",
+  });
+
+  assert.deepEqual(result, { roleChanged: false, terminated: false, sessionsRevoked: false });
+  assert.deepEqual(updates, [
+    {
+      where: { id: "user-1" },
+      data: {
+        displayName: "Updated Manager",
+        email: "manager@example.test",
+        primaryDepartmentId: "dept-dietary",
+      },
+    },
+  ]);
+});
+
+test("clearing employee primary department clears the linked User primary", async () => {
+  const { client, updates } = fakeClient();
+  await syncLinkedUserAuthority(client, {
+    ...baseInput,
+    primaryDepartmentId: null,
+  });
+
+  assert.deepEqual(updates, [
+    {
+      where: { id: "user-1" },
+      data: {
+        displayName: "Updated Manager",
+        email: "manager@example.test",
+        primaryDepartmentId: null,
+      },
+    },
+  ]);
+});
+
 test("role changes fail before mutation when the destination role is unavailable", async () => {
   const { client, updates } = fakeClient(null);
 

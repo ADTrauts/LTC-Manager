@@ -34,7 +34,12 @@ import {
   type CycleMilestoneStatusKey,
 } from "./milestone-cycle-status";
 import { pickTimingForMeal, timingOwnerUnitIds } from "./plan-day-expectations";
-import { detectRunModelProvenance, timingsForPublishedKeyTimeCycles } from "./present-run-operation";
+import {
+  detectRunModelProvenance,
+  isCurrentPeriodModel,
+  timingsForPublishedKeyTimeCycles,
+  type RunModelProvenance,
+} from "./present-run-operation";
 import {
   formatCycleHierarchyLabel,
   resolveOperationalCycle,
@@ -93,6 +98,7 @@ export type SupervisorCycleOverview = {
   facilityId: string;
   departmentId: string;
   operationalDateKey: string;
+  runProvenance: RunModelProvenance;
   rows: SupervisorUnitCycleRow[];
   keyTimeGroups: SupervisorKeyTimeGroupCard[];
   counts: {
@@ -266,7 +272,7 @@ export async function loadSupervisorCycleOverview(input: {
 
   const rows: SupervisorUnitCycleRow[] = [];
 
-  if (runProvenance !== "NEW_PERIOD_KEY_TIME") {
+  if (!isCurrentPeriodModel(runProvenance)) {
   for (const unit of units) {
     const ownerIds = timingOwnerUnitIds(unit);
     const unitTimings = timings.filter((row) => ownerIds.includes(row.unitId));
@@ -514,6 +520,7 @@ export async function loadSupervisorCycleOverview(input: {
     facilityId: input.facilityId,
     departmentId: input.departmentId,
     operationalDateKey,
+    runProvenance,
     rows,
     keyTimeGroups,
     counts: {

@@ -13,9 +13,12 @@ import {
 import { Button } from "@/components/design-system/Button";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { Select, TextArea, TextInput } from "@/components/design-system/Field";
+import { OperatingRhythmPanel } from "@/app/(protected)/admin/departments/[departmentId]/operating-rhythm-panel";
 import { TeamCyclesPanel } from "@/app/(protected)/admin/departments/[departmentId]/team-cycles-panel";
 import { RoomPicker } from "@/components/operational-cycles/room-picker";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
+import type { OperatingRhythmRootView } from "@/lib/department-administration/operating-rhythm";
+import type { ResolvedCycleStarter } from "@/lib/department-products/cycle-starter";
 import type {
   DepartmentCycleOption,
   DepartmentTeamView,
@@ -30,10 +33,16 @@ type Props = {
   catalog: TeamCatalog;
   employees: TeamEmployeeOption[];
   canManage: boolean;
+  canManageCycles: boolean;
+  canPublishCycles: boolean;
   selectedTeamId: string | null;
   cycleOptions: DepartmentCycleOption[];
   showMeal: boolean;
   nextDayKey: string;
+  cycleStarter: ResolvedCycleStarter | null;
+  starterWouldCreate: number;
+  rhythmRoots: OperatingRhythmRootView[];
+  allowImmediateTesting: boolean;
 };
 
 function managerSelect(
@@ -175,10 +184,16 @@ export function TeamsWorkspace({
   catalog,
   employees,
   canManage,
+  canManageCycles,
+  canPublishCycles,
   selectedTeamId,
   cycleOptions,
   showMeal,
   nextDayKey,
+  cycleStarter,
+  starterWouldCreate,
+  rhythmRoots,
+  allowImmediateTesting,
 }: Props) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -201,6 +216,19 @@ export function TeamsWorkspace({
 
   return (
     <div className="space-y-3" data-testid="department-teams-panel">
+      <OperatingRhythmPanel
+        departmentId={departmentId}
+        starter={cycleStarter}
+        starterWouldCreate={starterWouldCreate}
+        roots={rhythmRoots}
+        catalog={catalog}
+        canManage={canManageCycles}
+        canPublish={canPublishCycles}
+        showMeal={showMeal}
+        nextDayKey={nextDayKey}
+        allowImmediateTesting={allowImmediateTesting}
+      />
+
       <div
         className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
         data-testid="department-teams-header"

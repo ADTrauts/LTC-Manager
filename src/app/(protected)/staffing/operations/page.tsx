@@ -40,10 +40,6 @@ export default async function SupervisorOperationsBoardPage({
 }: OperationsPageProps) {
   noStore();
 
-  if (!isAnyStaffingOperationalFeatureEnabled("jobFlow")) {
-    redirect("/staffing");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
@@ -67,6 +63,9 @@ export default async function SupervisorOperationsBoardPage({
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("jobFlow", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
 
   const department = await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,

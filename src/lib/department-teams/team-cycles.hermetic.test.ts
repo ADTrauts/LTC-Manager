@@ -42,8 +42,9 @@ describe("Team cycle authoring contracts", () => {
       join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/page.tsx"),
       "utf8",
     );
-    assert.match(page, /requestedTab === "coverage" \|\| requestedTab === "cycles"/);
-    assert.match(page, /departmentAdminHref\(departmentId, "teams"\)/);
+    assert.match(page, /isDepartmentAdminRetiredTabId/);
+    assert.match(page, /DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT/);
+    assert.match(page, /departmentAdminHref\(departmentId, dest\)/);
     assert.doesNotMatch(page, /CoveragePanel/);
     assert.doesNotMatch(page, /CyclesPanel/);
   });

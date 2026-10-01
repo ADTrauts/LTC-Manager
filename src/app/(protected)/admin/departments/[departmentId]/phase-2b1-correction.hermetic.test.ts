@@ -65,7 +65,7 @@ test("TemporalStrip empty Period skips blank rail", () => {
     "utf8",
   );
   assert.match(strip, /cycle-temporal-strip-empty/);
-  assert.match(strip, /No phases or key times yet/);
+  assert.match(strip, /No phases or key points yet/);
   assert.match(strip, /hasTimelineContent/);
 });
 

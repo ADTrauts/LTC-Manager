@@ -4,7 +4,32 @@
  * No facility-specific unit IDs or location names.
  */
 
+import { getLocationFunction } from "@/lib/department-products/location-functions";
+
 import type { WorkPlanDraftInput } from "./types";
+
+const FOOD_SERVICE_AREA = getLocationFunction("DIETARY", "food_service_area");
+const RESIDENT_CARE = getLocationFunction("EVS", "resident_care");
+const SERVICE_SUPPORT = getLocationFunction("EVS", "service_support");
+
+if (!FOOD_SERVICE_AREA || !RESIDENT_CARE || !SERVICE_SUPPORT) {
+  throw new Error("Department Product Location Functions required by Work presets are missing.");
+}
+
+const FOOD_SERVICE_AREA_APPLICABILITY = {
+  kind: "OPERATIONAL_TYPE" as const,
+  operationalTypeKey: FOOD_SERVICE_AREA.functionKey,
+};
+
+const RESIDENT_CARE_APPLICABILITY = {
+  kind: "OPERATIONAL_TYPE" as const,
+  operationalTypeKey: RESIDENT_CARE.functionKey,
+};
+
+const SERVICE_SUPPORT_APPLICABILITY = {
+  kind: "OPERATIONAL_TYPE" as const,
+  operationalTypeKey: SERVICE_SUPPORT.functionKey,
+};
 
 export const DIETARY_WORK_PRESET_KEYS = [
   "SERVERY_OPENING_CHECKS",
@@ -48,7 +73,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
         description: "Unit-shared opening steps before meal service.",
         presetKey: "SERVERY_OPENING_CHECKS",
         weekdays: [],
-        applicabilities: [{ kind: "DEPARTMENT_UNIT" }],
+        applicabilities: [FOOD_SERVICE_AREA_APPLICABILITY],
         items: [
           {
             itemKey: "verify_stations",
@@ -59,7 +84,8 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["morning_prep"],
+            // Opening is the morning start-of-day window (historical morning_prep).
+            cycleStableKeys: ["breakfast_prep"],
             supervisorVisible: true,
           },
           {
@@ -71,7 +97,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "LINKED_EVIDENCE",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["morning_prep"],
+            cycleStableKeys: ["breakfast_prep"],
             linkedTemplateStableKey: "cooler_temperature_log",
             supervisorVisible: true,
           },
@@ -83,7 +109,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
         description: "Unit-shared support steps during meal service windows.",
         presetKey: "MEAL_SERVICE_SUPPORT",
         weekdays: [],
-        applicabilities: [{ kind: "DEPARTMENT_UNIT" }],
+        applicabilities: [FOOD_SERVICE_AREA_APPLICABILITY],
         items: [
           {
             itemKey: "tray_line_check",
@@ -94,6 +120,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
+            // During-meal Work binds to Service Phases (not the full meal Cycle window).
             cycleStableKeys: ["breakfast_service", "lunch_service", "dinner_service"],
             supervisorVisible: true,
           },
@@ -118,7 +145,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
         description: "Unit-shared closing steps after meal service.",
         presetKey: "SERVERY_CLOSING_CHECKS",
         weekdays: [],
-        applicabilities: [{ kind: "DEPARTMENT_UNIT" }],
+        applicabilities: [FOOD_SERVICE_AREA_APPLICABILITY],
         items: [
           {
             itemKey: "leftover_handling",
@@ -129,7 +156,8 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["closing"],
+            // Leftovers are handled after each meal (historical singular "closing").
+            cycleStableKeys: ["breakfast_cleanup", "lunch_cleanup", "dinner_cleanup"],
             supervisorVisible: true,
           },
           {
@@ -148,10 +176,10 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
     case "ROUTINE_ROOM_CLEAN":
       return {
         name: "Routine Room Clean",
-        description: "Patient-room clean checklist expanded per matching UnitSpace.",
+        description: "Resident-care clean checklist for rooms bound to that Location Function.",
         presetKey: "ROUTINE_ROOM_CLEAN",
         weekdays: [],
-        applicabilities: [{ kind: "SPACE_TYPE", spaceType: "PATIENT_ROOM" }],
+        applicabilities: [RESIDENT_CARE_APPLICABILITY],
         items: [
           {
             itemKey: "surfaces",
@@ -226,13 +254,10 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
     case "COMMON_AREA_ROUND":
       return {
         name: "Common Area Round",
-        description: "Public area and restroom round checklist.",
+        description: "Service and support area round for rooms bound to that Location Function.",
         presetKey: "COMMON_AREA_ROUND",
         weekdays: [],
-        applicabilities: [
-          { kind: "SPACE_TYPE", spaceType: "PUBLIC_AREA" },
-          { kind: "SPACE_TYPE", spaceType: "RESTROOM" },
-        ],
+        applicabilities: [SERVICE_SUPPORT_APPLICABILITY],
         items: [
           {
             itemKey: "walk_area",
@@ -243,7 +268,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["afternoon_round"],
+            cycleStableKeys: ["day_cleaning"],
             supervisorVisible: true,
           },
           {
@@ -255,7 +280,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["afternoon_round"],
+            cycleStableKeys: ["day_cleaning"],
             supervisorVisible: true,
           },
           {
@@ -288,7 +313,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["shift_closeout"],
+            cycleStableKeys: ["evening_closeout"],
             supervisorVisible: true,
           },
           {
@@ -300,7 +325,7 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
             completionMode: "EXPLICIT_CONFIRMATION",
             responsibilityMode: "UNIT_SHARED",
             scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["shift_closeout"],
+            cycleStableKeys: ["evening_closeout"],
             supervisorVisible: true,
           },
         ],
@@ -330,15 +355,29 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
   }
 }
 
-export function listWorkPlanPresetSummaries(
-  departmentKey?: "DIETARY" | "EVS" | "PLANT",
-) {
+/** Product function keys a new preset draft requires the facility to have adopted. */
+export function unadoptedPresetLocationFunctions(
+  draft: Pick<WorkPlanDraftInput, "applicabilities">,
+  adoptedKeys: readonly string[],
+): string[] {
+  const adopted = new Set(adoptedKeys);
+  const missing: string[] = [];
+  for (const app of draft.applicabilities ?? []) {
+    if (app.kind !== "OPERATIONAL_TYPE") continue;
+    const key = app.operationalTypeKey?.trim();
+    if (!key || adopted.has(key) || missing.includes(key)) continue;
+    missing.push(key);
+  }
+  return missing;
+}
+
+export function listWorkPlanPresetSummaries(departmentKey?: string) {
   const keys =
     departmentKey === "DIETARY"
       ? DIETARY_WORK_PRESET_KEYS
       : departmentKey === "EVS"
         ? EVS_WORK_PRESET_KEYS
-        : departmentKey === "PLANT"
+        : departmentKey === "PLANT" || departmentKey
           ? ([] as const)
           : DEPARTMENT_WORK_PRESET_KEYS;
 

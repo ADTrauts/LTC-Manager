@@ -9,6 +9,7 @@ import {
   addRoomExperienceException,
   certifyProfile,
   clearRoomArchetypeBinding,
+  adoptProductLocationFunction,
   createBaselineDraft,
   createNextDraftVersion,
   createRoomArchetype,
@@ -25,6 +26,7 @@ import {
   type ProfileActor,
 } from "@/lib/department-administration/profile-service";
 import { departmentArchetypeForRoomType } from "@/lib/department-administration/room-types";
+import { isDepartmentProductKey } from "@/lib/department-products/registry";
 import type { AuthMethod } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
@@ -240,32 +242,43 @@ export async function createOperationalTypeAction(formData: FormData): Promise<A
   try {
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const name = z.string().min(1).max(120).parse(String(formData.get("name") ?? "").trim());
-    const description = z
-      .string()
-      .max(500)
-      .optional()
-      .parse(String(formData.get("description") ?? "").trim() || undefined);
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const functionKey = String(formData.get("functionKey") ?? "").trim();
+    if (!functionKey) {
+      return {
+        ok: false,
+        message:
+          "Choose a Location Function from the Department Product. A label does not create an identity.",
+      };
+    }
+    const department = await assertDepartmentInFacility(departmentId, session.facilityId);
+    if (!isDepartmentProductKey(department.key)) {
+      return {
+        ok: false,
+        message: "Location Functions are adopted from a Department Product.",
+      };
+    }
     const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
       facilityId: session.facilityId,
       departmentId,
     });
-    await createRoomArchetype(actorFromSession(session), {
+    const adopted = await adoptProductLocationFunction(actorFromSession(session), {
       profileId: draft.profileId,
-      name,
-      description: description ?? null,
+      productKey: department.key,
+      functionKey,
+      displayName: String(formData.get("name") ?? ""),
     });
     revalidateDepartmentAdmin(departmentId);
     return {
       ok: true,
-      message: `Operational type “${name}” created.`,
+      message: adopted.alreadyAdopted
+        ? "That Location Function is already adopted."
+        : "Location Function adopted.",
       profileId: draft.profileId,
     };
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Could not create operational type.",
+      message: error instanceof Error ? error.message : "Could not adopt Location Function.",
     };
   }
 }
@@ -467,6 +480,26 @@ export async function createArchetypeAction(formData: FormData): Promise<ActionR
     const name = z.string().min(1).max(120).parse(formData.get("name"));
     const description = z.string().max(500).optional().parse(formData.get("description") || undefined);
     const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const department = await prisma.department.findFirst({
+      where: { id: profile.departmentId, facilityId: session.facilityId },
+      select: { key: true },
+    });
+    if (isDepartmentProductKey(department?.key)) {
+      const adopted = await adoptProductLocationFunction(actorFromSession(session), {
+        profileId,
+        productKey: department.key,
+        functionKey: key,
+        displayName: name,
+      });
+      revalidateDepartmentAdmin(profile.departmentId);
+      return {
+        ok: true,
+        message: adopted.alreadyAdopted
+          ? "That Location Function is already adopted."
+          : "Location Function adopted.",
+        profileId: adopted.archetypeId,
+      };
+    }
     const result = await createRoomArchetype(actorFromSession(session), {
       profileId,
       key,

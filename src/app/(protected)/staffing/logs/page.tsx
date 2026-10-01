@@ -19,16 +19,19 @@ import { prisma } from "@/lib/prisma";
 export default async function CanonicalRunLogsPage() {
   noStore();
 
-  if (!isCanonicalLogsEnabled()) {
-    redirect(isAnyStaffingOperationalFeatureEnabled("evidence") ? "/staffing/log-book" : "/logs");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
   if (!hasAtLeastRole(session.role, "STAFF")) redirect("/workspace");
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isCanonicalLogsEnabled()) {
+    redirect(
+      isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey)
+        ? "/staffing/log-book"
+        : "/logs",
+    );
+  }
 
   let departmentId: string | null = deptNav.activeDepartmentId;
   const facilityWide = deptNav.showAllDepartmentNav && !deptNav.activeDepartmentId;

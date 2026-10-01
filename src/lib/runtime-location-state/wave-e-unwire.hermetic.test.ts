@@ -21,7 +21,11 @@ test("RLS prefetch and compose do not key cycles or evidence off Operational Typ
   assert.match(prefetch, /operationalTypeKey: null/);
   assert.match(compose, /locationMode: "EXPLICIT_UNITS"/);
   assert.match(compose, /operationalTypeKey: null/);
-  assert.match(compose, /function isServeryPlace/);
+  // Superseded: meal milestones no longer match the substring "servery".
+  // Admission is hasDietaryDomainCapabilities (Department.key === "DIETARY").
+  assert.match(compose, /hasDietaryDomainCapabilities/);
+  assert.doesNotMatch(compose, /function isServeryPlace/);
+  assert.doesNotMatch(compose, /\.includes\("servery"\)/);
   assert.doesNotMatch(compose, /toUpperCase\(\) !== "SERVERY"/);
 });
 

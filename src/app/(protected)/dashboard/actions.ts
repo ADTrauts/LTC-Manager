@@ -4,20 +4,15 @@ import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateMorningBrief } from "@/lib/ai";
 import { isAiBriefEnabled } from "@/lib/feature-flags";
 import { requireFacilitySession } from "@/lib/facility-context";
-import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { parseOperationalDepartmentKey } from "@/lib/department-admission";
 import type { MorningBriefView } from "@/lib/ai/types";
 
 export type MorningBriefActionResult =
   | { ok: true; brief: MorningBriefView }
   | { ok: false; message: string };
 
-function parseDepartmentKey(value: unknown): OperationalDepartmentKey | null {
-  if (typeof value !== "string") return null;
-  const key = value.trim().toUpperCase();
-  if (key === "DIETARY" || key === "EVS" || key === "PLANT") {
-    return key;
-  }
-  return null;
+function parseDepartmentKey(value: unknown): string | null {
+  return parseOperationalDepartmentKey(value);
 }
 
 /** Manager+ may trigger provider generation / refresh. */

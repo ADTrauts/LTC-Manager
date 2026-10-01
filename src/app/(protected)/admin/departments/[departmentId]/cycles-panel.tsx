@@ -173,7 +173,7 @@ export async function CyclesPanel({
         <div className="min-w-0 space-y-2">
           <h2 className="text-base font-semibold text-zinc-900">Operational Cycles</h2>
           <p className="text-sm text-zinc-600">
-            Define recurring periods, phases, and key times that shape {departmentName}&apos;s
+            Define recurring periods, phases, and key points that shape {departmentName}&apos;s
             operating day.
           </p>
         </div>

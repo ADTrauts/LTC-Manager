@@ -40,7 +40,7 @@ test("Operational Cycles UI uses phase language and major/phase hierarchy afford
   assert.match(controls, /\+ Add operational cycle/);
   assert.match(controls, /Drawer/);
   assert.match(tree, /\+ Add phase/);
-  assert.match(tree, /\+ Add key time/);
+  assert.match(tree, /\+ Add key point/);
   assert.match(tree, /Drawer/);
   assert.match(tree, /data-cycle-role="major"/);
   assert.match(tree, /"key_time" : "phase"/);

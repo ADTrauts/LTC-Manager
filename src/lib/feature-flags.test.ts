@@ -180,9 +180,9 @@ test("isProjectionTodaysWorkEnabled can be enabled for cutover", () => {
   });
 });
 
-test("isDietaryWorkPlansEnabled defaults to false when unset", () => {
+test("isDietaryWorkPlansEnabled defaults to true when unset", () => {
   withEnv("DIETARY_WORK_PLANS_ENABLED", undefined, () => {
-    assert.equal(isDietaryWorkPlansEnabled(), false);
+    assert.equal(isDietaryWorkPlansEnabled(), true);
   });
 });
 

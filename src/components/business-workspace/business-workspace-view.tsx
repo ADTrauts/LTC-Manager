@@ -28,6 +28,7 @@ import { orderedWorkspaceSections } from "@/lib/business-workspace";
 import type { StatusTone } from "@/lib/design-system/status-styles";
 import { OperationsCenterKeyTimeSummaries } from "@/components/operations-center/operations-center-key-time-summaries";
 import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
+import { isCurrentPeriodModel } from "@/lib/operational-cycles";
 
 function priorityStatusLabel(tone: StatusTone): string {
   if (tone === "blocked") return "Needs attention";
@@ -572,18 +573,21 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
               <p data-testid="dashboard-runtime-header-operation">
                 {view.data.dashboardRuntime.operation.label}
               </p>
-            ) : header.runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
+            ) : isCurrentPeriodModel(header.runPresentation?.provenance) &&
+              header.runPresentation ? (
               <TodaysWorkRunOperationBanner presentation={header.runPresentation} />
-            ) : (
+            ) : header.runPresentation?.provenance === "LEGACY_MEAL_SERVICE" ? (
               <p>
                 {header.operation.serviceLabel} — {header.operation.phase}
                 {header.operation.scheduledTimeLabel
                   ? ` · ${header.operation.scheduledTimeLabel}`
                   : ""}
               </p>
+            ) : (
+              <p data-testid="run-rhythm-not-configured">No published operating rhythm is configured.</p>
             )}
             {!view.data.dashboardRuntime &&
-            header.runPresentation?.provenance !== "NEW_PERIOD_KEY_TIME" &&
+            header.runPresentation?.provenance === "LEGACY_MEAL_SERVICE" &&
             header.keyTimeSummaries &&
             header.keyTimeSummaries.length > 0 ? (
               <OperationsCenterKeyTimeSummaries summaries={header.keyTimeSummaries} />

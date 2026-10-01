@@ -8,6 +8,7 @@ import { AppCard } from "@/components/design-system/AppCard";
 import { PageHeader } from "@/components/design-system/page-header";
 import { SectionHeader } from "@/components/design-system/SectionHeader";
 import { TodaysWorkCallDownList } from "@/components/todays-work/todays-work-call-down-list";
+import { TodaysWorkExpectedWork } from "@/components/todays-work/todays-work-expected-work";
 import { TodaysWorkProjectionUnavailable } from "@/components/todays-work/todays-work-experience-contributions";
 import { OperatingLocationBoard } from "@/components/todays-work/operating-location-board";
 import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
@@ -16,9 +17,13 @@ import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
-import { loadDepartmentRunPresentation } from "@/lib/operational-cycles";
+import {
+  isCurrentPeriodModel,
+  loadDepartmentRunPresentation,
+} from "@/lib/operational-cycles";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import {
   assembleProjectedTodaysWorkHub,
@@ -26,6 +31,7 @@ import {
   keyTimeSpaceFilterFromTeamScope,
   loadPresenceCallOffs,
   loadOperatingLocationBoard,
+  loadTodaysExpectedWork,
   TODAYS_WORK_HUB_SUBTITLE,
 } from "@/lib/todays-work";
 
@@ -96,9 +102,24 @@ export default async function TodaysWorkHubPage() {
           spaceIdFilter: keyTimeSpaceFilterFromTeamScope(teamScope),
         })
       : null;
+    const expectedWork = deptNav.activeDepartmentId
+      ? await loadTodaysExpectedWork({
+          session,
+          facilityId: session.facilityId,
+          departmentId: deptNav.activeDepartmentId,
+          runPresentation,
+        })
+      : null;
+    const builderHref =
+      deptNav.activeDepartmentId && hasAtLeastRole(session.role, "MANAGER")
+        ? departmentAdminHref(deptNav.activeDepartmentId, "teams")
+        : null;
     const operationBanner =
-      runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
-        <TodaysWorkRunOperationBanner presentation={runPresentation} />
+      runPresentation && isCurrentPeriodModel(runPresentation.provenance) ? (
+        <TodaysWorkRunOperationBanner
+          presentation={runPresentation}
+          builderHref={builderHref}
+        />
       ) : null;
     const teamUnconfigured = isTeamUnconfiguredScope(teamScope);
 
@@ -119,7 +140,7 @@ export default async function TodaysWorkHubPage() {
 
         {projection.lensMode === "FACILITY" ? (
           <p className="text-sm text-zinc-600">
-            All Departments — choose a department for period and Key Time summaries. Operating
+            All Departments — choose a department for period and Key Point summaries. Operating
             locations below are listed by department.
           </p>
         ) : null}
@@ -128,6 +149,7 @@ export default async function TodaysWorkHubPage() {
           <TodaysWorkTeamUnconfigured scope={teamScope} />
         ) : (
           <>
+            {expectedWork ? <TodaysWorkExpectedWork view={expectedWork} /> : null}
             <WalkListSummaryCards summary={board.summary} />
 
             <section>
@@ -173,12 +195,27 @@ export default async function TodaysWorkHubPage() {
         spaceIdFilter: keyTimeSpaceFilterFromTeamScope(operating.teamScope),
       })
     : null;
+  const expectedWork = deptNav.activeDepartmentId
+    ? await loadTodaysExpectedWork({
+        session,
+        facilityId: session.facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        runPresentation,
+      })
+    : null;
+  const builderHref =
+    deptNav.activeDepartmentId && hasAtLeastRole(session.role, "MANAGER")
+      ? departmentAdminHref(deptNav.activeDepartmentId, "teams")
+      : null;
   const operationBanner =
-    runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
-      <TodaysWorkRunOperationBanner presentation={runPresentation} />
-    ) : (
+    runPresentation && isCurrentPeriodModel(runPresentation.provenance) ? (
+      <TodaysWorkRunOperationBanner
+        presentation={runPresentation}
+        builderHref={builderHref}
+      />
+    ) : runPresentation?.provenance === "LEGACY_MEAL_SERVICE" ? (
       <OperationContextBanner context={operating.operationContext} embedded />
-    );
+    ) : null;
   const teamUnconfigured = isTeamUnconfiguredScope(operating.teamScope);
 
   return (
@@ -201,7 +238,7 @@ export default async function TodaysWorkHubPage() {
 
       {!activeDepartmentKey ? (
         <p className="text-sm text-zinc-600">
-          All Departments — choose a department for period and Key Time summaries. Operating
+          All Departments — choose a department for period and Key Point summaries. Operating
           locations below are listed by department.
         </p>
       ) : null}
@@ -210,6 +247,7 @@ export default async function TodaysWorkHubPage() {
         <TodaysWorkTeamUnconfigured scope={operating.teamScope} />
       ) : (
         <>
+          {expectedWork ? <TodaysWorkExpectedWork view={expectedWork} /> : null}
           <WalkListSummaryCards summary={operating.board.summary} />
 
           <section>

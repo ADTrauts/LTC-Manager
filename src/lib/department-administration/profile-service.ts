@@ -16,6 +16,8 @@ import type { AuthMethod } from "@/lib/auth";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
+import { resolveLocationFunctionAdoption } from "@/lib/department-products/location-functions";
+
 import { assertExperienceCatalogBaselinesNotWritable } from "./baseline";
 import {
   validateProfileForCertification,
@@ -840,6 +842,43 @@ export async function moveAreaExperience(
 // Draft Archetype editing
 // ---------------------------------------------------------------------------
 
+/**
+ * Persist a Product Location Function on a draft profile.
+ * The stored key is the Product functionKey. The facility label is not slugified.
+ * An existing row with that key is left unchanged.
+ */
+export async function adoptProductLocationFunction(
+  actor: ProfileActor,
+  input: {
+    profileId: string;
+    productKey: string;
+    functionKey: string;
+    displayName?: string | null;
+  },
+): Promise<{ archetypeId: string; alreadyAdopted: boolean }> {
+  const adoption = resolveLocationFunctionAdoption({
+    productKey: input.productKey,
+    functionKey: input.functionKey,
+    displayName: input.displayName,
+  });
+  if (!adoption) {
+    throw new Error("That Location Function is not part of this Department Product.");
+  }
+  const profile = await loadEditablePatternProfile(actor, input.profileId);
+  const existing = await prisma.departmentRoomArchetype.findFirst({
+    where: { profileId: profile.id, key: adoption.key },
+    select: { id: true },
+  });
+  if (existing) return { archetypeId: existing.id, alreadyAdopted: true };
+  const created = await createRoomArchetype(actor, {
+    profileId: profile.id,
+    key: adoption.key,
+    name: adoption.name,
+    description: adoption.description,
+  });
+  return { archetypeId: created.archetypeId, alreadyAdopted: false };
+}
+
 export async function createRoomArchetype(
   actor: ProfileActor,
   input: {
@@ -864,6 +903,8 @@ export async function createRoomArchetype(
     throw new Error(`An operational type named “${name}” already exists.`);
   }
 
+  // Explicit key is the identity. Slug-from-name remains only when no key is supplied
+  // (legacy custom departments). Product adoption always passes functionKey.
   const key = input.key?.trim()
     ? input.key.trim().toLowerCase().replace(/\s+/g, "_")
     : uniqueOperationalTypeKey(

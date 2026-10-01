@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
 import { loadEvidenceRecordDetail } from "@/lib/operational-evidence";
@@ -17,13 +19,14 @@ export default async function EvidenceLogBookRecordPage({
 }) {
   noStore();
 
-  if (!isAnyStaffingOperationalFeatureEnabled("evidence")) {
-    redirect("/staffing");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) redirect("/workspace");
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
 
   const { recordId } = await params;
   const stub = await prisma.operationalEvidenceRecord.findFirst({

@@ -195,6 +195,7 @@ describe("Team product contracts", () => {
     assert.match(workspace, /department-teams-split/);
     assert.match(workspace, /team-detail-panel/);
     assert.match(workspace, /TeamCyclesPanel/);
+    assert.match(workspace, /OperatingRhythmPanel/);
     assert.doesNotMatch(workspace, /Applies to Operational Types/);
     assert.doesNotMatch(workspace, /Physical Room Type as/);
     assert.equal(/servery|kitchen|retail|culinary|dietary/i.test(workspace), false);

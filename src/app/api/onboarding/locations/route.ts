@@ -7,7 +7,7 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
 import {
   backfillUnitDepartmentResponsibilities,
-  ensureDefaultDepartments,
+  loadInstalledBootstrapDepartmentIds,
 } from "@/lib/ensure-default-departments";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   if (incoming.length === 0) {
     await prisma.facility.update({
       where: { id: session.facilityId },
-      data: { onboardingCurrentStep: "billing", onboardingStartedAt: new Date() },
+      data: { onboardingCurrentStep: "complete", onboardingCompletedAt: new Date(), onboardingStartedAt: new Date() },
     });
     return NextResponse.json({ ok: true, created: 0 });
   }
@@ -112,13 +112,17 @@ export async function POST(request: Request) {
       nameToId.set(item.name.toLowerCase(), created.id);
     }
 
-    const departmentIds = await ensureDefaultDepartments(prisma, session.facilityId);
+    const departmentIds = await loadInstalledBootstrapDepartmentIds(prisma, session.facilityId);
     await backfillUnitDepartmentResponsibilities(prisma, session.facilityId, departmentIds);
   }
 
   await prisma.facility.update({
     where: { id: session.facilityId },
-    data: { onboardingCurrentStep: "billing", onboardingStartedAt: new Date() },
+    data: {
+      onboardingCurrentStep: "complete",
+      onboardingCompletedAt: new Date(),
+      onboardingStartedAt: new Date(),
+    },
   });
 
   await trackEvent("onboarding.locations.saved", { facilityId: session.facilityId, locationCount: normalized.length });

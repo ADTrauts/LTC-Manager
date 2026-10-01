@@ -13,7 +13,7 @@ export function OperationsCenterKeyTimeSummaries({ summaries }: Props) {
       className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
       data-testid="operations-center-key-times"
     >
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Key Times</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Key Points</p>
       <ul className="mt-2 space-y-2">
         {summaries.map((group) => (
           <li

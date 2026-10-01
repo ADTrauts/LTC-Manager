@@ -14,8 +14,12 @@ import { WalkListSummaryCards } from "@/components/todays-work/walk-list-summary
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
-import { loadDepartmentRunPresentation } from "@/lib/operational-cycles";
+import {
+  isCurrentPeriodModel,
+  loadDepartmentRunPresentation,
+} from "@/lib/operational-cycles";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import {
   assembleProjectedTodaysWorkWalk,
@@ -77,9 +81,16 @@ export default async function TodaysWorkWalkPage() {
           spaceIdFilter: keyTimeSpaceFilterFromTeamScope(assembled.teamScope),
         })
       : null;
+    const builderHref =
+      deptNav.activeDepartmentId && hasAtLeastRole(session.role, "MANAGER")
+        ? departmentAdminHref(deptNav.activeDepartmentId, "teams")
+        : null;
     const operationBanner =
-      runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
-        <TodaysWorkRunOperationBanner presentation={runPresentation} />
+      runPresentation && isCurrentPeriodModel(runPresentation.provenance) ? (
+        <TodaysWorkRunOperationBanner
+          presentation={runPresentation}
+          builderHref={builderHref}
+        />
       ) : null;
     const teamUnconfigured = isTeamUnconfiguredScope(assembled.teamScope);
 
@@ -135,12 +146,19 @@ export default async function TodaysWorkWalkPage() {
         spaceIdFilter: keyTimeSpaceFilterFromTeamScope(operating.teamScope),
       })
     : null;
+  const builderHref =
+    deptNav.activeDepartmentId && hasAtLeastRole(session.role, "MANAGER")
+      ? departmentAdminHref(deptNav.activeDepartmentId, "teams")
+      : null;
   const operationBanner =
-    runPresentation?.provenance === "NEW_PERIOD_KEY_TIME" ? (
-      <TodaysWorkRunOperationBanner presentation={runPresentation} />
-    ) : (
+    runPresentation && isCurrentPeriodModel(runPresentation.provenance) ? (
+      <TodaysWorkRunOperationBanner
+        presentation={runPresentation}
+        builderHref={builderHref}
+      />
+    ) : runPresentation?.provenance === "LEGACY_MEAL_SERVICE" ? (
       <OperationContextBanner context={operating.operationContext} embedded />
-    );
+    ) : null;
   const teamUnconfigured = isTeamUnconfiguredScope(operating.teamScope);
 
   return (

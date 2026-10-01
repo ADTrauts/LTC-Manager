@@ -18,6 +18,7 @@ import {
   loadBuilderWorkPlans,
   resolveWorkAuthority,
 } from "@/lib/department-work";
+import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
 import { prisma } from "@/lib/prisma";
 
 export default async function WorkPlanBuilderPage({
@@ -28,10 +29,6 @@ export default async function WorkPlanBuilderPage({
   noStore();
   const params = searchParams ? await searchParams : {};
 
-  if (!isAnyStaffingOperationalFeatureEnabled("workPlans")) {
-    redirect("/staffing");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
 
@@ -41,6 +38,9 @@ export default async function WorkPlanBuilderPage({
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("workPlans", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
   const department = await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,
@@ -73,7 +73,7 @@ export default async function WorkPlanBuilderPage({
     departmentId: department.id,
   });
 
-  const [procedures, units, cycles, templates] = await Promise.all([
+  const [procedures, units, cycles, templates, operationalTypeOptions] = await Promise.all([
     prisma.knowledgeArticle.findMany({
       where: {
         facilityId: session.facilityId,
@@ -98,6 +98,7 @@ export default async function WorkPlanBuilderPage({
         facilityId: session.facilityId,
         departmentId: department.id,
         status: "PUBLISHED",
+        nodeKind: "PERIOD",
       },
       select: { stableKey: true, label: true },
       orderBy: [{ displaySequence: "asc" }, { stableKey: "asc" }],
@@ -111,6 +112,11 @@ export default async function WorkPlanBuilderPage({
       },
       select: { id: true, stableKey: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    loadDepartmentOperationalTypeOptions({
+      facilityId: session.facilityId,
+      departmentId: department.id,
+      perspective: "working",
     }),
   ]);
 
@@ -156,6 +162,7 @@ export default async function WorkPlanBuilderPage({
       spaceType: a.spaceType,
       assetId: a.assetId,
       assetType: a.assetType,
+      operationalTypeKey: a.operationalTypeKey,
     })),
     _count: { items: plan._count.items },
   }));
@@ -189,6 +196,7 @@ export default async function WorkPlanBuilderPage({
         units={units}
         cycleOptions={cycles}
         templates={templates}
+        operationalTypeOptions={operationalTypeOptions}
       />
     </section>
   );

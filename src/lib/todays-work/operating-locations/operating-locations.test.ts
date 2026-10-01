@@ -154,10 +154,15 @@ function roomView(input: {
         windowLabel: input.hierarchyLabel ? "5:30 AM–10:00 AM" : null,
         parentLabel: input.hierarchyLabel?.split(" → ")[0] ?? null,
         phaseLabel: input.hierarchyLabel?.includes("→")
-          ? input.hierarchyLabel.split(" → ")[1] ?? null
+          ? input.hierarchyLabel.split(" → ")[1]?.trim() ?? null
           : null,
+        cycleLabel: input.hierarchyLabel?.split(" → ")[0] ?? null,
+        activePhaseLabels: input.hierarchyLabel?.includes("→")
+          ? [input.hierarchyLabel.split(" → ")[1]?.trim() ?? ""].filter(Boolean)
+          : [],
       },
       keyTimes: input.keyTimes ?? [],
+      nextKeyPoint: null,
       attention: { kind: "none", title: "", description: "" },
     },
   };

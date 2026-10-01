@@ -134,6 +134,8 @@ function state(partial: {
         cycleVersion: 1,
         label: "Breakfast",
         hierarchyLabel: "Breakfast",
+        cycleLabel: null,
+        phaseLabel: null,
         window: { start: "06:00", end: "10:00" },
         timing: {
           configured: "06:00",

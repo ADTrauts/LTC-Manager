@@ -174,7 +174,7 @@ function daysEqual(a: readonly number[], b: readonly number[]): boolean {
 function formatTimingSummary(
   draft: Pick<CycleLifecycleRow, "nodeKind" | "startLocal" | "endLocal">,
 ): string {
-  if (draft.nodeKind === "KEY_TIME") return "Key Time";
+  if (draft.nodeKind === "KEY_TIME") return "Key Point";
   if (draft.startLocal && draft.endLocal) return `${draft.startLocal}–${draft.endLocal}`;
   return "timing updated";
 }
@@ -392,7 +392,7 @@ export function reviewDraftChangesAgainstCurrent(input: {
         kind: "key_times",
         stableKey: draft.stableKey,
         label: draft.label,
-        summary: `“${draft.label}” Key Times: ${summarizeKeyTimeGroups(prior.keyTimeGroups, input.locationNames)} → ${summarizeKeyTimeGroups(draft.keyTimeGroups, input.locationNames)}`,
+        summary: `“${draft.label}” Key Points: ${summarizeKeyTimeGroups(prior.keyTimeGroups, input.locationNames)} → ${summarizeKeyTimeGroups(draft.keyTimeGroups, input.locationNames)}`,
       });
     }
     if (draft.cycleType !== prior.cycleType) {

@@ -4,6 +4,7 @@ import { areAllCatalogPricesConfigured } from "@/lib/billing/stripe-prices";
 import { formatUsdCents } from "@/lib/billing/format";
 import { quoteBilling } from "@/lib/billing/quote";
 import { applyCheckoutSessionId, syncFacilityBillingFromStripe } from "@/lib/billing/sync-from-stripe";
+import { loadFacilityDepartmentCatalog } from "@/lib/department-products";
 import type { FacilityBillingStatus } from "@/lib/billing/entitlement";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
@@ -75,13 +76,9 @@ export default async function AdminBillingPage({
           },
         },
       },
-      departments: {
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
-        select: { key: true, name: true },
-      },
     },
   });
+  const catalog = await loadFacilityDepartmentCatalog(prisma, session.facilityId);
 
   const billingStatus: FacilityBillingStatus = facility?.billing?.status ?? "UNMANAGED";
   const licensedKeys = facility?.billing?.entitlements.map((row) => row.departmentKey) ?? [];
@@ -145,9 +142,9 @@ export default async function AdminBillingPage({
             <dt className="text-zinc-500">Included departments</dt>
             <dd className="font-medium text-zinc-900">
               {licensedKeys.length > 0
-                ? (facility?.departments ?? [])
-                    .filter((department) => licensedKeys.includes(department.key))
-                    .map((department) => department.name)
+                ? catalog
+                    .filter((item) => licensedKeys.includes(item.productKey))
+                    .map((item) => item.name)
                     .join(", ") || licensedKeys.join(", ")
                 : "None selected yet"}
             </dd>
@@ -166,7 +163,7 @@ export default async function AdminBillingPage({
       </section>
 
       <BillingPlanForm
-        departments={facility?.departments ?? []}
+        departments={catalog.map((item) => ({ key: item.productKey, name: item.name }))}
         initialDepartmentKeys={licensedKeys}
         initialInterval={facility?.billing?.interval ?? "ANNUAL"}
         initialSetupPath={facility?.billing?.setupPath ?? "SELF_SERVE"}

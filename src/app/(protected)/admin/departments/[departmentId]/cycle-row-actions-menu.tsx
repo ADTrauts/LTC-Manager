@@ -37,7 +37,7 @@ function confirmDelete(kind: CycleRowActionKind, label: string): boolean {
   }
   if (kind === "delete-draft-key-time") {
     return window.confirm(
-      `Delete key time “${label}”? This unpublished key time will be permanently removed.`,
+      `Delete key point “${label}”? This unpublished key point will be permanently removed.`,
     );
   }
   if (kind === "retire-current") {
@@ -51,7 +51,7 @@ function confirmDelete(kind: CycleRowActionKind, label: string): boolean {
 function deleteLabel(kind: CycleRowActionKind): string {
   if (kind === "delete-draft-root") return "Delete draft cycle";
   if (kind === "delete-draft-phase") return "Delete phase";
-  if (kind === "delete-draft-key-time") return "Delete key time";
+  if (kind === "delete-draft-key-time") return "Delete key point";
   return "Delete";
 }
 

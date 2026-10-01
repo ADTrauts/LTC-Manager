@@ -3,9 +3,21 @@
  * Draft plans never appear. Retired plans are not prospective.
  * PAST_DUE_NOT_CONFIRMED is neutral — not proof work did not occur.
  *
+ * Expected Work is derived from published plans + service date + applicability +
+ * cycle participation when cycle-bound. Confirmed assignments do not enumerate
+ * locations. EACH_ASSIGNED_EMPLOYEE remains skipped.
+ *
  * Phase 11B: SPECIFIC_SPACE / SPACE_TYPE applicabilities expand one requirement
- * per matching UnitSpace in the unit. Room = UnitSpace. EACH_ASSIGNED_EMPLOYEE
- * remains skipped.
+ * per matching UnitSpace in the unit. Room = UnitSpace.
+ *
+ * OPERATIONAL_TYPE matches DepartmentRoomArchetype.key on spaces (department
+ * operational classification). It does not use physical SpaceType, department
+ * key special cases, or location-name inference. No match → no Work (no
+ * fallback to every responsible unit).
+ *
+ * OPERATIONAL_CYCLE with no cycleStableKeys is not configured: it matches no
+ * Cycle and produces no WorkRequirement. It does not mean every published Cycle.
+ * A closed function room set (roomSetClosed) matches only those rooms.
  */
 
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
@@ -31,6 +43,8 @@ export type SpaceScopeForWorkResolve = {
   id: string;
   spaceType: string;
   unitId?: string | null;
+  /** Department operational type (DepartmentRoomArchetype.key). Distinct from spaceType. */
+  operationalTypeKey?: string | null;
 };
 
 export type ResolveWorkRequirementsInput = {
@@ -43,6 +57,12 @@ export type ResolveWorkRequirementsInput = {
   assets?: readonly AssetScopeForWorkResolve[];
   spaces?: readonly SpaceScopeForWorkResolve[];
   confirmedAssignments: readonly ConfirmedAssignmentForWorkResolve[];
+  /**
+   * Department-responsible units (or an explicit caller scope).
+   * When omitted, candidates are inferred from requested unitId, SPECIFIC_UNIT
+   * applicability, cycle participation, and space.unitId — never from assignments.
+   */
+  candidateUnitIds?: readonly string[];
   publishedPlans: readonly PublishedWorkPlanForResolve[];
   publishedCycles: readonly PublishedCycleWindowForWorkResolve[];
   existingOccurrences: readonly ExistingWorkOccurrenceForResolve[];
@@ -61,6 +81,108 @@ function spacesForUnit(
   return (spaces ?? []).filter((s) => !s.unitId || s.unitId === unitId);
 }
 
+function dateOnlyKey(value: Date | string | null | undefined): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString().slice(0, 10);
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 10) : null;
+}
+
+/** Published plan is live on this facility-local service date (weekdays empty = all days). */
+export function isWorkPlanEffectiveOnDate(
+  plan: Pick<PublishedWorkPlanForResolve, "effectiveStartDate" | "effectiveEndDate" | "weekdays">,
+  operationalDateKey: string,
+): boolean {
+  const dateKey = operationalDateKey.slice(0, 10);
+  const start = dateOnlyKey(plan.effectiveStartDate);
+  const end = dateOnlyKey(plan.effectiveEndDate);
+  if (start && dateKey < start) return false;
+  if (end && dateKey > end) return false;
+  if (!plan.weekdays.length) return true;
+  const weekday = new Date(`${dateKey}T00:00:00.000Z`).getUTCDay();
+  return plan.weekdays.includes(weekday);
+}
+
+function cycleIncludesUnit(
+  cycle: PublishedCycleWindowForWorkResolve,
+  unitId: string,
+  spaces?: readonly SpaceScopeForWorkResolve[],
+): boolean {
+  if (cycle.departmentWide) return true;
+  const unitIds = cycle.participatingUnitIds ?? [];
+  if (unitIds.includes(unitId)) return true;
+  const spaceIds = cycle.participatingSpaceIds ?? [];
+  if (!spaceIds.length) return false;
+  return spacesForUnit(spaces, unitId).some((space) => spaceIds.includes(space.id));
+}
+
+function cycleIncludesSpace(
+  cycle: PublishedCycleWindowForWorkResolve,
+  spaceId: string | null,
+): boolean {
+  if (cycle.departmentWide) return true;
+  const spaceIds = cycle.participatingSpaceIds ?? [];
+  if (cycle.roomSetClosed) {
+    if (!spaceId) return false;
+    return spaceIds.includes(spaceId);
+  }
+  if (!spaceId) return true;
+  if (!spaceIds.length) return true;
+  return spaceIds.includes(spaceId);
+}
+
+/**
+ * Function-targeted cycles participate only through their bound rooms.
+ * A unit-level Work item expands onto those rooms. An empty closed set expands to none.
+ */
+function spaceIdsForCycleTarget(
+  baseSpaceIds: readonly (string | null)[],
+  cycle: PublishedCycleWindowForWorkResolve | undefined,
+  unitId: string,
+  spaces: readonly SpaceScopeForWorkResolve[] | undefined,
+): Array<string | null> {
+  if (!cycle?.roomSetClosed || cycle.departmentWide) return [...baseSpaceIds];
+  const allowed = new Set(cycle.participatingSpaceIds ?? []);
+  if (allowed.size === 0) return [];
+  if (baseSpaceIds.length === 1 && baseSpaceIds[0] == null) {
+    return spacesForUnit(spaces, unitId)
+      .map((space) => space.id)
+      .filter((id) => allowed.has(id));
+  }
+  return baseSpaceIds.filter((id): id is string => id != null && allowed.has(id));
+}
+
+function collectFallbackCandidateUnitIds(input: ResolveWorkRequirementsInput): string[] {
+  const ids = new Set<string>();
+  if (input.unitId) ids.add(input.unitId);
+  for (const plan of input.publishedPlans) {
+    for (const app of plan.applicabilities) {
+      if (app.kind === "SPECIFIC_UNIT" && app.unitId) ids.add(app.unitId);
+    }
+    for (const item of plan.items) {
+      if (item.unitId) ids.add(item.unitId);
+    }
+  }
+  for (const cycle of input.publishedCycles) {
+    for (const unitId of cycle.participatingUnitIds ?? []) ids.add(unitId);
+  }
+  for (const space of input.spaces ?? []) {
+    if (space.unitId) ids.add(space.unitId);
+  }
+  return [...ids];
+}
+
+function resolveTargetUnitIds(input: ResolveWorkRequirementsInput): string[] {
+  if (input.candidateUnitIds) {
+    const scoped = input.candidateUnitIds.filter(Boolean);
+    return input.unitId ? scoped.filter((id) => id === input.unitId) : scoped;
+  }
+  return collectFallbackCandidateUnitIds(input);
+}
+
 function planAppliesToUnit(
   plan: PublishedWorkPlanForResolve,
   unitId: string | null,
@@ -77,6 +199,11 @@ function planAppliesToUnit(
     if (a.kind === "SPACE_TYPE" && a.spaceType) {
       return spacesForUnit(spaces, unitId).some((s) => s.spaceType === a.spaceType);
     }
+    if (a.kind === "OPERATIONAL_TYPE" && a.operationalTypeKey) {
+      return spacesForUnit(spaces, unitId).some(
+        (s) => s.operationalTypeKey === a.operationalTypeKey,
+      );
+    }
     return false;
   });
 }
@@ -84,7 +211,7 @@ function planAppliesToUnit(
 /**
  * Resolve which spaceId values to emit for an item under a plan.
  * - item.spaceId set → that single space (must belong to unit when spaces provided)
- * - plan has SPECIFIC_SPACE / SPACE_TYPE → one per matching unit space
+ * - plan has SPECIFIC_SPACE / SPACE_TYPE / OPERATIONAL_TYPE → one per matching unit space
  * - else → unit-level (null spaceId)
  */
 function resolveSpaceIdsForItem(input: {
@@ -104,7 +231,10 @@ function resolveSpaceIdsForItem(input: {
   }
 
   const spaceApps = input.plan.applicabilities.filter(
-    (a) => a.kind === "SPECIFIC_SPACE" || a.kind === "SPACE_TYPE",
+    (a) =>
+      a.kind === "SPECIFIC_SPACE" ||
+      a.kind === "SPACE_TYPE" ||
+      a.kind === "OPERATIONAL_TYPE",
   );
   if (!spaceApps.length) {
     return [null];
@@ -116,6 +246,12 @@ function resolveSpaceIdsForItem(input: {
       if (app.kind === "SPECIFIC_SPACE" && app.spaceId === space.id) {
         matched.set(space.id, space);
       } else if (app.kind === "SPACE_TYPE" && app.spaceType === space.spaceType) {
+        matched.set(space.id, space);
+      } else if (
+        app.kind === "OPERATIONAL_TYPE" &&
+        app.operationalTypeKey &&
+        space.operationalTypeKey === app.operationalTypeKey
+      ) {
         matched.set(space.id, space);
       }
     }
@@ -211,17 +347,7 @@ export function resolveWorkRequirements(
   const pendingEvidence = new Set(input.pendingEvidenceKeys ?? []);
   const accepted = input.acceptedEvidence ?? [];
 
-  const unitsWithConfirmed = new Set(
-    input.confirmedAssignments
-      .map((a) => a.unitId)
-      .filter((id): id is string => Boolean(id)),
-  );
-
-  const targetUnitIds = input.unitId
-    ? unitsWithConfirmed.has(input.unitId)
-      ? [input.unitId]
-      : []
-    : [...unitsWithConfirmed];
+  const targetUnitIds = resolveTargetUnitIds(input);
 
   const dayStart = resolveCycleWindowInstants({
     operationalDateKey: input.operationalDateKey,
@@ -232,20 +358,13 @@ export function resolveWorkRequirements(
 
   for (const plan of input.publishedPlans) {
     if (plan.status && plan.status !== "PUBLISHED") continue;
+    if (!isWorkPlanEffectiveOnDate(plan, input.operationalDateKey)) continue;
 
     for (const unitId of targetUnitIds) {
       if (!planAppliesToUnit(plan, unitId, input.spaces)) continue;
-      const assignmentsHere = input.confirmedAssignments.filter((a) => a.unitId === unitId);
 
       for (const item of plan.items) {
         if (item.responsibilityMode === "EACH_ASSIGNED_EMPLOYEE") continue;
-
-        if (item.roleKeys.length) {
-          const roleMatch = assignmentsHere.some(
-            (a) => a.roleKey && item.roleKeys.includes(a.roleKey),
-          );
-          if (!roleMatch) continue;
-        }
         if (item.unitId && item.unitId !== unitId) continue;
 
         const spaceIds = resolveSpaceIdsForItem({
@@ -265,9 +384,7 @@ export function resolveWorkRequirements(
         }[] = [];
 
         if (item.scheduleKind === "OPERATIONAL_CYCLE") {
-          const keys = item.cycleStableKeys.length
-            ? item.cycleStableKeys
-            : input.publishedCycles.map((c) => c.stableKey);
+          const keys = item.cycleStableKeys;
           for (const cycleKey of keys) {
             const cycle = input.publishedCycles.find((c) => c.stableKey === cycleKey);
             if (!cycle) continue;
@@ -305,8 +422,18 @@ export function resolveWorkRequirements(
           });
         }
 
-        for (const spaceId of spaceIds) {
-          for (const target of scheduleTargets) {
+        for (const target of scheduleTargets) {
+          const cycle = target.cycleStableKey
+            ? input.publishedCycles.find((c) => c.stableKey === target.cycleStableKey)
+            : undefined;
+          if (target.cycleStableKey) {
+            if (!cycle) continue;
+            if (!cycleIncludesUnit(cycle, unitId, input.spaces)) continue;
+          }
+          const targetSpaceIds = spaceIdsForCycleTarget(spaceIds, cycle, unitId, input.spaces);
+          for (const spaceId of targetSpaceIds) {
+            if (cycle && !cycleIncludesSpace(cycle, spaceId)) continue;
+
             const occurrenceKey = buildOccurrenceKey({
               sourceKind: "WORK_PLAN",
               workPlanStableKey: plan.stableKey,

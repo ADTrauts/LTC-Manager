@@ -10,6 +10,10 @@ import {
   subscriptionItemUpdates,
   type ExistingSubscriptionItem,
 } from "./subscription-items";
+import {
+  DepartmentProductInstallError,
+  resolvePublishedDepartmentProductKeys,
+} from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
 import { getStripeServerClient } from "@/lib/stripe";
 import { trackEvent } from "@/lib/telemetry";
@@ -25,9 +29,14 @@ export async function addDepartmentsToFacilitySubscription(input: {
   facilityId: string;
   departmentKeysToAdd: readonly string[];
 }): Promise<void> {
-  const keysToAdd = [...new Set(input.departmentKeysToAdd.map((key) => key.trim()).filter(Boolean))];
-  if (keysToAdd.length === 0) {
-    throw new BillingAddDepartmentsError("Select at least one department to add.");
+  let keysToAdd: string[];
+  try {
+    keysToAdd = resolvePublishedDepartmentProductKeys(input.departmentKeysToAdd);
+  } catch (error) {
+    if (error instanceof DepartmentProductInstallError) {
+      throw new BillingAddDepartmentsError(error.message);
+    }
+    throw error;
   }
 
   const facility = await prisma.facility.findUnique({
@@ -46,7 +55,6 @@ export async function addDepartmentsToFacilitySubscription(input: {
           },
         },
       },
-      departments: { where: { isActive: true }, select: { key: true } },
     },
   });
   if (!facility?.billing?.stripeSubscriptionId) {
@@ -58,11 +66,6 @@ export async function addDepartmentsToFacilitySubscription(input: {
         ? "Update the card in Manage billing before adding departments."
         : "Start or finish checkout before adding departments.",
     );
-  }
-
-  const allowedKeys = new Set(facility.departments.map((department) => department.key));
-  if (keysToAdd.some((key) => !allowedKeys.has(key))) {
-    throw new BillingAddDepartmentsError("Select departments that belong to this facility.");
   }
 
   const stripe = getStripeServerClient();

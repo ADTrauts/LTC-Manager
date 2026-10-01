@@ -81,6 +81,7 @@ function space(
     name: partial.name ?? partial.spaceId,
     unitId: partial.unitId ?? "unit-1",
     unitName: partial.unitName ?? "1A",
+    departmentKey: partial.departmentKey ?? null,
     departmentLabel: partial.departmentLabel ?? "Dietary",
     floorName: partial.floorName ?? "Floor 1",
     neighborhoodName: partial.neighborhoodName ?? null,
@@ -852,9 +853,18 @@ test("assets: factual status; only SERVICE_AT_RISK / EQUIPMENT_UNAVAILABLE becom
 });
 
 test("milestones: Key Time statuses stay canonical; Servery events are legacy", () => {
+  // Dietary meal milestones stay for Department.key DIETARY. The room label is not the gate.
   const state = composeRuntimeLocationStates(
     composeInput({
-      spaces: [space({ spaceId: "servery-a", departmentId: "dept-1", roomTypeKey: "servery", roomTypeLabel: "Servery" })],
+      spaces: [
+        space({
+          spaceId: "servery-a",
+          departmentId: "dept-1",
+          departmentKey: "DIETARY",
+          roomTypeKey: "servery",
+          roomTypeLabel: "Servery",
+        }),
+      ],
       operationalTypesBySpaceId: new Map([
         ["servery-a", { key: "SERVERY", name: "Servery", id: "ot-servery" }],
       ]),

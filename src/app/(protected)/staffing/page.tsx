@@ -345,7 +345,7 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
                 Daily Assignments
               </Link>
             ) : null}
-            {isAnyStaffingOperationalFeatureEnabled("cycles") ? (
+            {isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey) ? (
               <Link
                 href="/staffing/cycles"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"

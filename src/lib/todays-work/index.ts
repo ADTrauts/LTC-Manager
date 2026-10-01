@@ -90,3 +90,9 @@ export {
   type ExperienceWalkContribution,
   type TodaysWorkProjectionView,
 } from "./projection";
+export {
+  loadTodaysExpectedWork,
+  presentExpectedWorkFromRequirements,
+  todaysExpectedWorkHasVisibleWork,
+  type TodaysExpectedWorkView,
+} from "./expected-work";

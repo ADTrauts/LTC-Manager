@@ -147,6 +147,17 @@ export async function resolveWorkAuthority(
     select: { id: true, key: true, name: true },
   });
 
+  // FA primary may be set on User after login (Employee Builder sync). Prefer live User
+  // over a stale JWT, matching Cycles / Job Flow / Operational Requests.
+  let primaryDepartmentId = session.primaryDepartmentId ?? null;
+  if (isFacilityAdministratorRole(session.role)) {
+    const user = await prisma.user.findFirst({
+      where: { id: session.uid, facilityId, isActive: true },
+      select: { primaryDepartmentId: true },
+    });
+    primaryDepartmentId = user?.primaryDepartmentId ?? null;
+  }
+
   return decideWorkAuthority({
     flagEnabled: isDepartmentWorkPlansEnabled(department?.key),
     role: session.role,
@@ -155,7 +166,7 @@ export async function resolveWorkAuthority(
     facilityId,
     departmentId,
     departmentExists: Boolean(department),
-    primaryDepartmentId: session.primaryDepartmentId,
+    primaryDepartmentId,
     departmentLabel: department?.name ?? department?.key ?? "Department",
   });
 }

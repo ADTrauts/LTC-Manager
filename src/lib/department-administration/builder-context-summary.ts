@@ -15,6 +15,7 @@ import {
 } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 import { EmployeeStatus } from "@prisma/client";
+import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 
 export type DepartmentBuilderContextSummary = {
   showInEmployeeApp: boolean;
@@ -31,12 +32,19 @@ export type DepartmentBuilderContextSummary = {
   }>;
   /** Currently effective published root operational cycles (today). */
   currentCycleCount: number;
+  currentRootLabels: string[];
+  draftRootCount: number;
   activeTeamCount: number;
   draftCount: number;
   scheduledCount: number;
   scheduledEffectiveFrom: string | null;
   /** null = no drafts; changes = drafts differ from current; no_changes = drafts match current. */
   draftState: null | "changes" | "no_changes";
+  publishedWorkPlanCount: number;
+  draftWorkPlanCount: number;
+  placedLogCount: number;
+  publishedWorkOperationalTypeKeys: string[];
+  classifiedOperationalTypeKeys: string[];
 };
 
 export async function loadDepartmentBuilderContextSummary(
@@ -58,7 +66,17 @@ export async function loadDepartmentBuilderContextSummary(
   const timezone = await loadFacilityTimezone(prisma, facilityId);
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
 
-  const [employees, cycleRows, canEditHead, activeTeamCount] = await Promise.all([
+  const [
+    employees,
+    cycleRows,
+    canEditHead,
+    activeTeamCount,
+    publishedWorkPlanCount,
+    draftWorkPlanCount,
+    placedLogCount,
+    publishedOtRows,
+    operationalTypeAssignments,
+  ] = await Promise.all([
     prisma.employee.findMany({
       where: { facilityId },
       select: {
@@ -88,6 +106,29 @@ export async function loadDepartmentBuilderContextSummary(
     canManageDepartmentHeadSettings(session, departmentId),
     prisma.departmentTeam.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
+    }),
+    prisma.departmentWorkPlan.count({
+      where: { facilityId, departmentId, status: "PUBLISHED" },
+    }),
+    prisma.departmentWorkPlan.count({
+      where: { facilityId, departmentId, status: "DRAFT" },
+    }),
+    prisma.logAttachment.count({
+      where: { facilityId, departmentId, status: "ACTIVE" },
+    }),
+    prisma.departmentWorkPlanApplicability.findMany({
+      where: {
+        kind: "OPERATIONAL_TYPE",
+        operationalTypeKey: { not: null },
+        workPlan: { facilityId, departmentId, status: "PUBLISHED" },
+      },
+      select: { operationalTypeKey: true },
+      distinct: ["operationalTypeKey"],
+    }),
+    loadSpaceOperationalTypeAssignments({
+      facilityId,
+      departmentId,
+      perspective: "runtime",
     }),
   ]);
 
@@ -142,10 +183,29 @@ export async function loadDepartmentBuilderContextSummary(
       isFacilityAdministratorRole(session.role) && session.authMethod !== "QUICK_PIN",
     employees: roster,
     currentCycleCount: current.length,
+    currentRootLabels: current
+      .filter((row) => row.parentStableKey == null && row.nodeKind === "PERIOD")
+      .map((row) => row.label),
+    draftRootCount: drafts.filter(
+      (row) => row.parentStableKey == null && row.nodeKind === "PERIOD",
+    ).length,
     activeTeamCount,
     draftCount,
     scheduledCount,
     scheduledEffectiveFrom,
     draftState,
+    publishedWorkPlanCount,
+    draftWorkPlanCount,
+    placedLogCount,
+    publishedWorkOperationalTypeKeys: [
+      ...new Set(
+        publishedOtRows
+          .map((row) => row.operationalTypeKey)
+          .filter((key): key is string => Boolean(key)),
+      ),
+    ],
+    classifiedOperationalTypeKeys: [
+      ...new Set([...operationalTypeAssignments.values()].map((row) => row.key)),
+    ],
   };
 }

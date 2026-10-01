@@ -1,5 +1,5 @@
 import type { AppJwtPayload } from "@/lib/auth";
-import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { parseOperationalDepartmentKey } from "@/lib/department-admission";
 import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
 import { employeeBelongsToDepartment, resolveDepartmentMembershipIds } from "@/lib/employee-membership";
 import { prisma } from "@/lib/prisma";
@@ -10,12 +10,8 @@ import type { NextRequest } from "next/server";
 export type ActiveDepartmentNavResolution = {
   showAllDepartmentNav: boolean;
   activeDepartmentId: string | null;
-  activeOperationalDepartmentKey: OperationalDepartmentKey | null;
+  activeOperationalDepartmentKey: string | null;
 };
-
-function isOperationalKey(k: string): k is OperationalDepartmentKey {
-  return k === "DIETARY" || k === "EVS" || k === "PLANT";
-}
 
 async function userMaySelectDepartment(
   session: AppJwtPayload,
@@ -108,7 +104,7 @@ async function resolveNavWithRawCookie(
     where: { id: departmentId, facilityId, isActive: true },
     select: { key: true },
   });
-  const key = row?.key && isOperationalKey(row.key) ? row.key : null;
+  const key = parseOperationalDepartmentKey(row?.key);
 
   return {
     showAllDepartmentNav: false,

@@ -365,7 +365,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <Link href={`/staffing/legacy?date=${selectedDateIso}`} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50">
               Legacy unit staffing
             </Link>
-            {isAnyStaffingOperationalFeatureEnabled("cycles") ? (
+            {isAnyStaffingOperationalFeatureEnabled("cycles", deptKey) ? (
               <Link
                 href="/staffing/cycles"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
@@ -373,7 +373,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                 Cycle overview
               </Link>
             ) : null}
-            {isAnyStaffingOperationalFeatureEnabled("jobFlow") ? (
+            {isAnyStaffingOperationalFeatureEnabled("jobFlow", deptKey) ? (
               <Link
                 href="/staffing/operations"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"

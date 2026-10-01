@@ -3,13 +3,14 @@
  *
  * Ownership:
  * - DepartmentWorkPlan owns versioned configuration (publish/retire).
- * - WorkRequirement is derived for an operational date (not pre-generated).
+ * - WorkRequirement is derived for an operational date from published plans,
+ *   applicability, and cycle participation — not from employee assignment.
  * - DepartmentWorkOccurrence is sparse runtime state when acted on.
  * - KnowledgeArticle owns Procedures (viewing ≠ completion).
  * - Wave Task / Operations Engine remain isolated.
  *
- * Gates: DIETARY_WORK_PLANS_ENABLED / EVS_OPERATIONS_ENABLED via
- * isDepartmentWorkPlansEnabled (see department-operations).
+ * Gates: DIETARY_WORK_PLANS_ENABLED (default on; `false` rollback) /
+ * EVS_OPERATIONS_ENABLED via isDepartmentWorkPlansEnabled (see department-operations).
  */
 
 export type {
@@ -67,6 +68,7 @@ export {
 } from "./work-plan-service";
 
 export {
+  isWorkPlanEffectiveOnDate,
   resolveWorkRequirements,
   type AssetScopeForWorkResolve,
   type ResolveWorkRequirementsInput,

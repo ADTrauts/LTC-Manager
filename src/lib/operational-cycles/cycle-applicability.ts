@@ -170,4 +170,58 @@ export function primaryCycleApplicabilitySource(
   return sources[0] ?? "EXPLICIT_LOCATION";
 }
 
+export function cycleUsesOperationalTypeParticipation(
+  cycle: Pick<
+    OperationalCycleDefinition,
+    "locationMode" | "locationInheritFromParent" | "parentStableKey"
+  >,
+  allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
+): boolean {
+  return resolvedMode(cycle, allCyclesByStableKey) === "OPERATIONAL_TYPES";
+}
+
+/**
+ * Rooms bound to a cycle's operational-type keys.
+ * Identity is the archetype key only. Room name, label, and physical type are ignored.
+ * An empty key list or an empty binding set returns no rooms.
+ */
+export function boundSpaceIdsForOperationalTypeKeys(
+  keys: readonly string[],
+  spaces: readonly { id: string; operationalTypeKey?: string | null }[],
+): string[] {
+  const wanted = new Set(keys.map((key) => key.trim()).filter(Boolean));
+  if (wanted.size === 0) return [];
+  const ids: string[] = [];
+  for (const space of spaces) {
+    const key = space.operationalTypeKey?.trim() ?? "";
+    if (key && wanted.has(key)) ids.push(space.id);
+  }
+  return ids;
+}
+
+/**
+ * Room set used when deriving cycle-bound Work.
+ * OPERATIONAL_TYPES is closed: the result is exactly the bound rooms, and empty means none.
+ * Explicit rooms and whole-department mode stay on their existing paths.
+ */
+export function resolveWorkCycleRoomParticipation(
+  cycle: OperationalCycleDefinition,
+  allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
+  spaces: readonly { id: string; operationalTypeKey?: string | null }[],
+): { spaceIds: string[]; roomSetClosed: boolean } {
+  if (!cycleUsesOperationalTypeParticipation(cycle, allCyclesByStableKey)) {
+    return {
+      spaceIds: effectiveCycleSpaceIds(cycle, allCyclesByStableKey),
+      roomSetClosed: false,
+    };
+  }
+  return {
+    spaceIds: boundSpaceIdsForOperationalTypeKeys(
+      effectiveOperationalTypeKeys(cycle, allCyclesByStableKey),
+      spaces,
+    ),
+    roomSetClosed: true,
+  };
+}
+
 export { buildCyclesByStableKey };

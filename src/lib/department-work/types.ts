@@ -2,6 +2,8 @@
  * Phase 11A Department Work Plans — shared contracts.
  *
  * Work Requirements are derived for an operational date (not pre-generated).
+ * Existence comes from published plans + applicability + timing/cycle participation.
+ * Assignment is optional ownership/scope — not the reason Work exists.
  * Sparse DepartmentWorkOccurrence rows persist only when acted on.
  * Wave-era Task / Operations Engine remain isolated.
  */
@@ -41,6 +43,8 @@ export type WorkPlanApplicabilityDraftInput = {
   spaceType?: SpaceType | null;
   assetId?: string | null;
   assetType?: string | null;
+  /** When kind=OPERATIONAL_TYPE — DepartmentRoomArchetype.key. */
+  operationalTypeKey?: string | null;
 };
 
 export type WorkItemDraftInput = {
@@ -167,6 +171,7 @@ export type PublishedWorkPlanForResolve = {
     spaceType: SpaceType | null;
     assetId: string | null;
     assetType: string | null;
+    operationalTypeKey?: string | null;
   }>;
   items: Array<{
     id: string;
@@ -202,6 +207,23 @@ export type PublishedCycleWindowForWorkResolve = {
   endLocal: string;
   startsAt: Date;
   endsAt: Date;
+  /**
+   * ALL_DEPARTMENT_UNITS (including inherited parent mode).
+   * Cycle-bound Work then uses department-responsible candidate units.
+   */
+  departmentWide?: boolean;
+  /** Explicit / inherited participating units. Empty + not departmentWide = no locations. */
+  participatingUnitIds?: readonly string[];
+  /**
+   * Explicit, inherited, or function-bound rooms.
+   * When roomSetClosed is true, this list is complete: empty means no rooms.
+   */
+  participatingSpaceIds?: readonly string[];
+  /**
+   * Function-targeted participation. Empty participatingSpaceIds then means no rooms,
+   * never every room in the unit.
+   */
+  roomSetClosed?: boolean;
 };
 
 export type ExistingWorkOccurrenceForResolve = {

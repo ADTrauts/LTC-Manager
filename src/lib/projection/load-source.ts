@@ -15,7 +15,7 @@ import {
   type RoomExceptionSnapshot,
 } from "@/lib/department-administration";
 import { toProfileSnapshot } from "@/lib/department-administration/profile-service";
-import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { hasPlantDomainCapabilities } from "@/lib/department-admission";
 import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import { isStagedUnit, isUndesignatedSpace } from "@/lib/facility-builder/operational-visibility";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -32,8 +32,6 @@ import type {
   ProjectionRequest,
   ProjectionRevision,
 } from "./types";
-
-const OPERATIONAL_DEPARTMENT_KEYS = new Set<string>(["DIETARY", "EVS", "PLANT"]);
 
 const ACTIVE_PROFILE_INCLUDE = {
   department: {
@@ -96,12 +94,6 @@ function unitLocationId(unitId: string): string {
 
 function spaceLocationId(spaceId: string): string {
   return `space:${spaceId}`;
-}
-
-function isOperationalDepartmentKey(
-  value: string,
-): value is OperationalDepartmentKey {
-  return OPERATIONAL_DEPARTMENT_KEYS.has(value);
 }
 
 function mapHierarchyRole(
@@ -398,18 +390,6 @@ export async function loadProjectionSource(
   const policies: ProjectionSourcePolicy[] = [];
 
   for (const department of facility.departments) {
-    if (!isOperationalDepartmentKey(department.key)) {
-      diagnostics.push(
-        diagnostic(
-          "UNKNOWN_DEPARTMENT",
-          `Skipping non-operational department key ${department.key}`,
-          `departments.${department.id}`,
-          "INFO",
-        ),
-      );
-      continue;
-    }
-
     const activeRow = department.operationalProfiles[0] as
       | LoadedActiveProfile
       | undefined;
@@ -535,7 +515,7 @@ export async function loadProjectionSource(
       ),
     });
 
-    if (department.key === "PLANT" && department.isActive) {
+    if (hasPlantDomainCapabilities(department.key) && department.isActive) {
       policies.push({
         kind: PLANT_FACILITY_WIDE_POLICY.kind,
         departmentId: department.id,

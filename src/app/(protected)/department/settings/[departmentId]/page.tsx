@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { setDepartmentHeadAction } from "@/app/(protected)/admin/departments/actions";
 import { getSession } from "@/lib/auth";
-import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -19,10 +18,6 @@ export default async function DepartmentSettingsPage({ params }: PageProps) {
 
   const { departmentId } = await params;
   const facilityId = session.facilityId;
-
-  if ((await prisma.department.count({ where: { facilityId } })) === 0) {
-    await ensureDefaultDepartments(prisma, facilityId);
-  }
 
   if (!(await canManageDepartmentHeadSettings(session, departmentId))) {
     redirect("/dashboard");

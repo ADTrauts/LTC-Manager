@@ -135,7 +135,7 @@ function rowSecondary(
 ): string {
   if (row.nodeKind === "KEY_TIME") {
     const summary = keyTimeSummary(row);
-    return summary ?? "Key Time";
+    return summary ?? "Key Point";
   }
   const parts: string[] = [];
   parts.push(
@@ -804,7 +804,7 @@ export function CompactDraftList({
                           setCollapsed((prev) => ({ ...prev, [row.stableKey]: false }));
                         }}
                       >
-                        + Add key time
+                        + Add key point
                       </button>
                     </div>
                   </div>
@@ -880,7 +880,7 @@ export function CompactDraftList({
         closeLabel="Cancel"
         title={
           editingRow
-            ? `Edit ${editingRow.nodeKind === "KEY_TIME" ? "key time" : editingRow.parentStableKey ? "phase" : "operational cycle"}`
+            ? `Edit ${editingRow.nodeKind === "KEY_TIME" ? "key point" : editingRow.parentStableKey ? "phase" : "operational cycle"}`
             : "Edit"
         }
       >
@@ -951,10 +951,10 @@ export function CompactDraftList({
                 <input type="hidden" name="cycleId" value={editingRow.id} />
                 <p className="text-xs text-zinc-500">
                   {editingRow.nodeKind === "KEY_TIME"
-                    ? "Delete permanently removes this unpublished key time."
+                    ? "Delete permanently removes this unpublished key point."
                     : editingRow.parentStableKey
                       ? "Delete permanently removes this unpublished phase and any nested draft items."
-                      : "Delete permanently removes this unpublished cycle and any nested draft phases or key times."}{" "}
+                      : "Delete permanently removes this unpublished cycle and any nested draft phases or key points."}{" "}
                   Published configuration is not affected.
                 </p>
                 <button
@@ -964,7 +964,7 @@ export function CompactDraftList({
                   onClick={(event) => {
                     const kind =
                       editingRow.nodeKind === "KEY_TIME"
-                        ? "key time"
+                        ? "key point"
                         : editingRow.parentStableKey
                           ? "phase"
                           : "draft cycle";
@@ -978,7 +978,7 @@ export function CompactDraftList({
                   }}
                 >
                   {editingRow.nodeKind === "KEY_TIME"
-                    ? "Delete key time"
+                    ? "Delete key point"
                     : editingRow.parentStableKey
                       ? "Delete phase"
                       : "Delete draft cycle"}
@@ -995,7 +995,7 @@ export function CompactDraftList({
         closeLabel="Cancel"
         title={
           addingParent
-            ? `Add ${addingKind === "KEY_TIME" ? "key time" : "phase"} to ${addingParent.label}`
+            ? `Add ${addingKind === "KEY_TIME" ? "key point" : "phase"} to ${addingParent.label}`
             : "Add"
         }
       >

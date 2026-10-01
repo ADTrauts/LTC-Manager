@@ -17,8 +17,11 @@ import {
   delayMealExpectationAction,
   completeKeyTimeExpectationAction,
 } from "@/app/(protected)/staffing/cycles/actions";
+import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
 import {
   formatClock12,
+  isCurrentPeriodModel,
+  loadDepartmentRunPresentation,
   loadSupervisorCycleOverview,
   type SupervisorUnitCycleRow,
 } from "@/lib/operational-cycles";
@@ -52,10 +55,6 @@ function statusLabel(row: SupervisorUnitCycleRow): string {
 export default async function SupervisorCycleOverviewPage() {
   noStore();
 
-  if (!isAnyStaffingOperationalFeatureEnabled("cycles")) {
-    redirect("/staffing");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
@@ -67,6 +66,9 @@ export default async function SupervisorCycleOverviewPage() {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
 
   const department = await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,
@@ -107,6 +109,14 @@ export default async function SupervisorCycleOverviewPage() {
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
   const builderHref = departmentAdminHref(department.id, "teams");
   const isEvs = department.key === "EVS";
+  const currentPeriod = isCurrentPeriodModel(overview.runProvenance);
+  const departmentPresentation = currentPeriod
+    ? await loadDepartmentRunPresentation({
+        session,
+        facilityId: session.facilityId,
+        departmentId: department.id,
+      })
+    : null;
 
   const groupedRows = (() => {
     const groups = new Map<string, SupervisorUnitCycleRow[]>();
@@ -124,9 +134,11 @@ export default async function SupervisorCycleOverviewPage() {
       <PageHeader
         title="Cycle overview"
         subtitle={
-          isEvs
-            ? `${department.name} · ${overview.operationalDateKey} — exception-first cycle status.`
-            : `${department.name} · ${overview.operationalDateKey} — exception-first servery status.`
+          currentPeriod
+            ? `${department.name} · ${overview.operationalDateKey} — current and upcoming operating periods.`
+            : isEvs
+              ? `${department.name} · ${overview.operationalDateKey} — exception-first cycle status.`
+              : `${department.name} · ${overview.operationalDateKey} — exception-first servery status.`
         }
         compact
         actions={
@@ -155,7 +167,14 @@ export default async function SupervisorCycleOverviewPage() {
         }
       />
 
-      {!isEvs ? (
+      {currentPeriod && departmentPresentation ? (
+        <TodaysWorkRunOperationBanner
+          presentation={departmentPresentation}
+          builderHref={canOpenBuilder ? builderHref : null}
+        />
+      ) : null}
+
+      {!currentPeriod && !isEvs ? (
         <div className="flex flex-wrap gap-2 text-xs text-zinc-700">
           <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">
             Ready confirmed: {overview.counts.readyConfirmed}
@@ -174,14 +193,14 @@ export default async function SupervisorCycleOverviewPage() {
           </span>
           {overview.counts.keyTimesTotal > 0 ? (
             <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">
-              Key Times: {overview.counts.keyTimesCompleted}/{overview.counts.keyTimesTotal}
+              Key Points: {overview.counts.keyTimesCompleted}/{overview.counts.keyTimesTotal}
               {overview.counts.keyTimesOverdue > 0
                 ? ` · ${overview.counts.keyTimesOverdue} overdue`
                 : ""}
             </span>
           ) : null}
         </div>
-      ) : (
+      ) : !currentPeriod ? (
         <div className="flex flex-wrap gap-2 text-xs text-zinc-700">
           <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">
             Units: {overview.rows.length}
@@ -191,16 +210,16 @@ export default async function SupervisorCycleOverviewPage() {
           </span>
           {overview.counts.keyTimesTotal > 0 ? (
             <span className="rounded-md border border-zinc-200 bg-white px-2 py-1">
-              Key Times: {overview.counts.keyTimesCompleted}/{overview.counts.keyTimesTotal}
+              Key Points: {overview.counts.keyTimesCompleted}/{overview.counts.keyTimesTotal}
             </span>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       {overview.keyTimeGroups.length > 0 ? (
         <div className="space-y-3" data-testid="supervisor-key-time-groups">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Key Times
+            Key Points
           </h2>
           {overview.keyTimeGroups.map((group) => (
             <div
@@ -269,13 +288,13 @@ export default async function SupervisorCycleOverviewPage() {
         </div>
       ) : null}
 
-      {overview.rows.length === 0 && overview.keyTimeGroups.length === 0 ? (
+      {overview.rows.length === 0 && overview.keyTimeGroups.length === 0 && !currentPeriod ? (
         <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white shadow-sm">
           <li className="px-4 py-6 text-sm text-zinc-500">
             {isEvs ? "No units found for this department." : "No meal-service locations for today."}
           </li>
         </ul>
-      ) : overview.rows.length === 0 ? null : (
+      ) : currentPeriod || overview.rows.length === 0 ? null : (
         <div className="space-y-4">
           {groupedRows.map(([groupLabel, rows]) => (
             <div key={groupLabel} className="space-y-2" data-testid="supervisor-cycle-group">

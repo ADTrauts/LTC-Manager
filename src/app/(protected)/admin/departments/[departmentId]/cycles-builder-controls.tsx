@@ -354,7 +354,7 @@ export function CycleEditorFields({
   const nodeKind = defaults.nodeKind ?? "PERIOD";
   const [parentStableKey, setParentStableKey] = useState(defaults.parentStableKey ?? "");
   const isNested = Boolean(parentStableKey);
-  /** Key Times always need a parent; nested phases should not casually detach to top-level. */
+  /** Key Points always need a parent; nested phases should not casually detach to top-level. */
   const requireParent =
     nodeKind === "KEY_TIME" ||
     Boolean(defaults.parentStableKey) ||
@@ -546,7 +546,7 @@ export function CycleEditorFields({
               {requireParent ? (
                 <span className="mt-1 block text-[11px] font-normal text-zinc-500">
                   {nodeKind === "KEY_TIME"
-                    ? "Key Times must stay under an Operational Cycle."
+                    ? "Key Points must stay under an Operational Cycle."
                     : "Phases belong under an Operational Cycle. Drag in the tree to move between cycles."}
                 </span>
               ) : null}

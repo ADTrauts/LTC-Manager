@@ -26,7 +26,13 @@ import {
   isCanonicalLogsEnabled,
   isDepartmentOperationalProfilesEnabled,
 } from "@/lib/feature-flags";
+import {
+  presentOverviewGuidance,
+  resolveOverviewProductIdentity,
+} from "@/lib/department-administration/overview-guidance";
+import { loadFacilityDepartmentCatalog } from "@/lib/department-products";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
+import { prisma } from "@/lib/prisma";
 
 type PageProps = {
   params: Promise<{ departmentId: string }>;
@@ -89,6 +95,12 @@ export default async function DepartmentBuilderPage({
   }
 
   const profileId = view.workingProfileMeta?.id ?? null;
+  const productIdentity = resolveOverviewProductIdentity(view.department.key);
+  const catalog =
+    tab === "overview"
+      ? await loadFacilityDepartmentCatalog(prisma, session.facilityId)
+      : [];
+  const catalogItem = catalog.find((item) => item.productKey === view.department.key);
   const settings: OverviewDepartmentSettings = {
     showInEmployeeApp: contextSummary.showInEmployeeApp,
     headEmployeeId: contextSummary.headEmployeeId,
@@ -104,6 +116,25 @@ export default async function DepartmentBuilderPage({
       draftCount: contextSummary.draftState === "changes" ? contextSummary.draftCount : 0,
       scheduledCount: contextSummary.scheduledCount,
       scheduledEffectiveFrom: contextSummary.scheduledEffectiveFrom,
+    }),
+    productName: productIdentity.name,
+    isVssylProduct: productIdentity.isVssylProduct,
+    licensed: catalogItem ? catalogItem.licensed : null,
+    guidanceRows: presentOverviewGuidance({
+      departmentId: view.department.id,
+      departmentKey: view.department.key,
+      departmentName: view.department.name,
+      locationCount: view.locationCoverage.total,
+      currentRootLabels: contextSummary.currentRootLabels,
+      draftRootCount: contextSummary.draftRootCount,
+      scheduledCount: contextSummary.scheduledCount,
+      scheduledEffectiveFrom: contextSummary.scheduledEffectiveFrom,
+      memberCount: contextSummary.assignedEmployeeCount,
+      publishedWorkPlanCount: contextSummary.publishedWorkPlanCount,
+      draftWorkPlanCount: contextSummary.draftWorkPlanCount,
+      placedLogCount: contextSummary.placedLogCount,
+      publishedWorkOperationalTypeKeys: contextSummary.publishedWorkOperationalTypeKeys,
+      classifiedOperationalTypeKeys: contextSummary.classifiedOperationalTypeKeys,
     }),
   };
 
@@ -164,8 +195,6 @@ export default async function DepartmentBuilderPage({
             department={view.department}
             locationCoverage={view.locationCoverage}
             settings={settings}
-            view={view}
-            profilesEnabled={profilesEnabled}
             logsSection={
               departmentLogsCtx ? (
                 <TargetLogsSection

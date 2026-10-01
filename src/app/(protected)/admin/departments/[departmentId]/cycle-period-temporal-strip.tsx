@@ -13,7 +13,7 @@ type HierarchySource = { stableKey: string; label: string; id?: string };
 
 /**
  * TemporalStrip for one root Period — explains configured rhythm.
- * Empty periods (no Phase / Key Time) show an empty state instead of a blank rail.
+ * Empty periods (no Phase / Key Point) show an empty state instead of a blank rail.
  */
 export function CyclePeriodTemporalStrip({
   root,
@@ -46,7 +46,7 @@ export function CyclePeriodTemporalStrip({
         className="border-b border-zinc-100 bg-white px-3 py-4"
         data-testid="cycle-temporal-strip-empty"
       >
-        <p className="text-sm text-zinc-700">No phases or key times yet.</p>
+        <p className="text-sm text-zinc-700">No phases or key points yet.</p>
         {showEmptyActions && (onAddPhase || onAddKeyTime) ? (
           <div className="mt-2 flex flex-wrap gap-3">
             {onAddPhase ? (
@@ -66,7 +66,7 @@ export function CyclePeriodTemporalStrip({
                 data-testid="add-key-time-cycle"
                 onClick={onAddKeyTime}
               >
-                + Add key time
+                + Add key point
               </button>
             ) : null}
           </div>

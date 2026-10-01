@@ -15,6 +15,11 @@ import {
   roleMayCorrectMilestones,
 } from "@/lib/servery";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import {
+  isCurrentPeriodModel,
+  loadPublishedRunModel,
+  resolveRunPresentationDepartment,
+} from "@/lib/operational-cycles";
 
 export async function renderServeryActionChrome(input: {
   session: AppJwtPayload;
@@ -74,6 +79,21 @@ export async function renderServeryActionChrome(input: {
     }),
   ]);
   if (!unit) return null;
+
+  const runDepartment = await resolveRunPresentationDepartment({
+    facilityId: input.session.facilityId,
+    activeDepartmentId: null,
+    unitId: input.unitId,
+  });
+  const runModel = runDepartment
+    ? await loadPublishedRunModel({
+        facilityId: input.session.facilityId,
+        departmentId: runDepartment.id,
+        now: input.now,
+      })
+    : null;
+  const hideLegacyMealControls =
+    Boolean(runModel) && isCurrentPeriodModel(runModel?.provenance);
 
   const sessionEmployeeId = await getOperationalEmployeeIdForSession(input.session);
   const cookieJar = await cookies();
@@ -144,27 +164,33 @@ export async function renderServeryActionChrome(input: {
     };
   });
 
+  if (hideLegacyMealControls && conflictRows.length === 0) {
+    return null;
+  }
+
   return (
     <div className="space-y-3">
       {conflictRows.length > 0 && canCorrect ? (
         <OfflineConflictReview unitId={input.unitId} conflicts={conflictRows} />
       ) : null}
-      <OfflineServeryControls
-        unitId={input.unitId}
-        facilityId={input.session.facilityId}
-        sessionVersion={input.session.sessionVersion ?? 0}
-        actorRef={actorRefForSession(input.session)}
-        deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
-        deviceBoundUnitId={deviceBoundUnitId}
-        defaultMealType={recordableMealForContext(mealServiceContext)?.mealType ?? null}
-        returnTab="overview"
-        returnLogTab=""
-        slots={unit.mealTimes}
-        contextNote={describeMealServiceContext(mealServiceContext)}
-        canRecord={canRecord}
-        canCorrect={canCorrect}
-        eventByMeal={eventByMeal}
-      />
+      {hideLegacyMealControls ? null : (
+        <OfflineServeryControls
+          unitId={input.unitId}
+          facilityId={input.session.facilityId}
+          sessionVersion={input.session.sessionVersion ?? 0}
+          actorRef={actorRefForSession(input.session)}
+          deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
+          deviceBoundUnitId={deviceBoundUnitId}
+          defaultMealType={recordableMealForContext(mealServiceContext)?.mealType ?? null}
+          returnTab="overview"
+          returnLogTab=""
+          slots={unit.mealTimes}
+          contextNote={describeMealServiceContext(mealServiceContext)}
+          canRecord={canRecord}
+          canCorrect={canCorrect}
+          eventByMeal={eventByMeal}
+        />
+      )}
     </div>
   );
 }

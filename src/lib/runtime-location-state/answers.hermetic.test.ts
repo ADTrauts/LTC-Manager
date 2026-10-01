@@ -101,6 +101,8 @@ function emptyState(partial: {
             cycleVersion: 1,
             label: "Breakfast",
             hierarchyLabel: "Breakfast",
+            cycleLabel: null,
+            phaseLabel: null,
             window: { start: "06:00", end: "10:00" },
             timing: {
               configured: "06:00",
@@ -329,6 +331,7 @@ test("compose attaches answers on every Runtime Location State", () => {
         unitId: "unit-1",
         unitName: "1",
         departmentId: "dept-1",
+        departmentKey: null,
         departmentLabel: "Dietary",
         floorName: "1",
         neighborhoodName: null,

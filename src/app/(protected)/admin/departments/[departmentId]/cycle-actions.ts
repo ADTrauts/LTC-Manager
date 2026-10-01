@@ -5,6 +5,9 @@ import { z } from "zod";
 
 import { requireFacilitySession } from "@/lib/facility-context";
 import {
+  resolveCycleStarterForDepartmentProduct,
+} from "@/lib/department-products/cycle-starter";
+import {
   createDraft,
   deleteDraft,
   discardAllDrafts,
@@ -12,6 +15,8 @@ import {
   formatServiceDateLong,
   generateDietaryDefaultsDrafts,
   generateEvsDefaultsDrafts,
+  isCycleEffectiveOnDate,
+  minimumPublishEffectiveFrom,
   nextOperationalDayKey,
   publishCycle,
   reorderDrafts,
@@ -552,6 +557,123 @@ export async function retireCycleAction(formData: FormData): Promise<CycleAction
     });
     revalidateCycles(departmentId);
     return { ok: true, message: `Retired “${retired.label}”.`, cycleId: retired.id };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+
+export async function applyProductCycleStarterAction(
+  formData: FormData,
+): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+    const department = await prisma.department.findFirst({
+      where: { id: departmentId, facilityId: session.facilityId, isActive: true },
+      select: { key: true },
+    });
+    const starter = resolveCycleStarterForDepartmentProduct(department?.key);
+    if (!starter) {
+      return { ok: false, message: "This Department Product does not have a Vssyl operating rhythm." };
+    }
+    const effectiveFrom = z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .parse(String(formData.get("effectiveFrom") ?? "").trim());
+    const created =
+      starter.kind === "dietary"
+        ? await generateDietaryDefaultsDrafts(session, {
+            facilityId: session.facilityId,
+            departmentId,
+            effectiveFrom,
+            actor: actorFromSession(session),
+          })
+        : await generateEvsDefaultsDrafts(session, {
+            facilityId: session.facilityId,
+            departmentId,
+            effectiveFrom,
+            actor: actorFromSession(session),
+          });
+    revalidateCycles(departmentId);
+    return {
+      ok: true,
+      message:
+        created.length === 0
+          ? `${starter.productName} operating periods already exist for this department.`
+          : `Added ${created.length} editable ${starter.productName} operating periods. They will not be used in Run until you make them live.`,
+    };
+  } catch (error) {
+    return toErrors(error);
+  }
+}
+
+/** Publish every current draft using existing scheduleDraftPublications. */
+export async function makeOperatingRhythmLiveAction(
+  formData: FormData,
+): Promise<CycleActionResult> {
+  try {
+    const session = await requireFacilitySession();
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    await requireCyclesFeature(departmentId);
+    await assertDepartmentInFacility(departmentId, session.facilityId);
+
+    const timezone = await loadFacilityTimezone(prisma, session.facilityId);
+    const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
+    const published = await prisma.departmentOperationalCycle.findMany({
+      where: {
+        facilityId: session.facilityId,
+        departmentId,
+        status: "PUBLISHED",
+      },
+      select: { effectiveFrom: true, effectiveTo: true },
+    });
+    const hasCurrentEffectiveConfig = published.some((row) =>
+      isCycleEffectiveOnDate(row, todayKey),
+    );
+
+    const requestedImmediate = String(formData.get("activationMode") ?? "") === "immediate";
+    let effectiveFrom = minimumPublishEffectiveFrom({
+      todayKey,
+      hasCurrentEffectiveConfig,
+    });
+    let allowImmediate = !hasCurrentEffectiveConfig;
+    if (requestedImmediate) {
+      if (process.env.NODE_ENV === "production") {
+        return {
+          ok: false,
+          message: "Same-day activation is only available in development/test environments.",
+        };
+      }
+      if (String(formData.get("confirmImmediate") ?? "") !== "1") {
+        return {
+          ok: false,
+          message: "Confirm that today’s Run should switch immediately before making this live today.",
+        };
+      }
+      effectiveFrom = todayKey;
+      allowImmediate = true;
+    }
+
+    const result = await scheduleDraftPublications(session, {
+      facilityId: session.facilityId,
+      departmentId,
+      effectiveFrom,
+      allowImmediate,
+      actor: actorFromSession(session),
+    });
+    revalidateCycles(departmentId);
+    if (result.publishedIds.length === 0) {
+      return { ok: true, message: "No draft operating periods to make live." };
+    }
+    return {
+      ok: true,
+      message:
+        allowImmediate && effectiveFrom === todayKey
+          ? `Operating rhythm is live as of today (${formatServiceDateLong(result.effectiveFrom)}).`
+          : `Operating rhythm is scheduled for ${formatServiceDateLong(result.effectiveFrom)}. Run uses the current live periods until then.`,
+    };
   } catch (error) {
     return toErrors(error);
   }

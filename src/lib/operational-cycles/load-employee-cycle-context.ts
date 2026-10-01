@@ -31,6 +31,7 @@ import {
 import { timingOwnerUnitIds } from "./plan-day-expectations";
 import {
   detectRunModelProvenance,
+  isCurrentPeriodModel,
   timingsForPublishedKeyTimeCycles,
 } from "./present-run-operation";
 import {
@@ -206,7 +207,7 @@ export async function loadEmployeeCycleContext(input: {
   }
 
   const provenance = detectRunModelProvenance(cycles, keyTimeMaterialized.timings);
-  if (provenance === "NEW_PERIOD_KEY_TIME") {
+  if (isCurrentPeriodModel(provenance)) {
     mealTargets = [];
   }
 

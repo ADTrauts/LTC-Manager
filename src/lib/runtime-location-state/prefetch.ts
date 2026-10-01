@@ -137,7 +137,7 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   stats.spaceIdentityQueries += 1;
-  const [facility, spaces, activeProfiles] = await Promise.all([
+  const [facility, spaces, activeProfiles, departments] = await Promise.all([
     prisma.facility.findFirst({
       where: { id: input.facilityId },
       select: { id: true, displayName: true },
@@ -172,8 +172,15 @@ export async function prefetchRuntimeLocationInputs(
           select: { id: true, departmentId: true, version: true, status: true },
           orderBy: { version: "desc" },
         }),
+    departmentIds.length === 0
+      ? Promise.resolve([])
+      : prisma.department.findMany({
+          where: { id: { in: departmentIds }, facilityId: input.facilityId },
+          select: { id: true, key: true },
+        }),
   ]);
 
+  const departmentKeyById = new Map(departments.map((row) => [row.id, row.key]));
   const refBySpaceId = new Map(spaceRefs.map((row) => [row.spaceId, row] as const));
   const spaceRows = spaces.map((space) => {
     const ref = refBySpaceId.get(space.id);
@@ -195,6 +202,7 @@ export async function prefetchRuntimeLocationInputs(
       unitId: space.unitId ?? ref?.unitId ?? null,
       unitName: unit?.name ?? null,
       departmentId: ref?.departmentId ?? "",
+      departmentKey: departmentKeyById.get(ref?.departmentId ?? "") ?? null,
       departmentLabel: ref?.departmentLabel ?? null,
       floorName,
       neighborhoodName,

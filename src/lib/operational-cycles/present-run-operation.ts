@@ -3,6 +3,7 @@
  * Does not invent meal-service copy. Legacy meal banners stay on the legacy path.
  */
 
+import { resolveWorkCycleRoomParticipation } from "./cycle-applicability";
 import { formatCycleWindow } from "./cycle-display";
 import {
   buildCyclesByStableKey,
@@ -15,12 +16,47 @@ import {
   type KeyTimeStatusKey,
 } from "./key-time-day-expectation";
 import {
+  activePhaseLabelsForCycle,
+  resolveCycleAndPhaseLabels,
+  selectNextKeyPointSummary,
+} from "./cycle-timeline";
+import {
   formatCycleHierarchyLabel,
   resolveOperationalCycle,
 } from "./resolve-operational-cycle";
 import type { OperationalCycleDefinition } from "./types";
 
+/**
+ * `NEW_PERIOD_KEY_TIME` is the current PERIOD model. The name is kept for
+ * compatibility — Key Times are optional and do not define the model.
+ */
 export type RunModelProvenance = "NEW_PERIOD_KEY_TIME" | "LEGACY_MEAL_SERVICE";
+
+export function isCurrentPeriodModel(
+  provenance: RunModelProvenance | null | undefined,
+): boolean {
+  return provenance === "NEW_PERIOD_KEY_TIME";
+}
+
+const LEGACY_MEAL_MILESTONES = new Set(["READY", "SERVICE_STARTED"]);
+
+function isLegacyMealServiceCycle(
+  cycle: Pick<OperationalCycleDefinition, "expectedMilestones">,
+): boolean {
+  return cycle.expectedMilestones.some((milestone) => LEGACY_MEAL_MILESTONES.has(milestone));
+}
+
+export type RunDepartmentConfiguration =
+  | "not_configured"
+  | "missing_participation"
+  | "configured";
+
+export type RunDepartmentNextOperation = {
+  label: string;
+  windowLabel: string | null;
+  minutesUntil: number | null;
+  cycleStableKey: string | null;
+};
 
 export type RunLocationIdentity = {
   title: string;
@@ -51,10 +87,22 @@ export type RunLocationAttention = {
 
 export type RunLocationCurrentOperation = {
   state: "ACTIVE" | "NONE";
+  /** Compatibility path label (Cycle → Phase). Prefer cycleLabel + phaseLabel. */
   hierarchyLabel: string | null;
   windowLabel: string | null;
+  /** @deprecated Prefer cycleLabel — Operational Cycle display name. */
   parentLabel: string | null;
+  /** Active Phase label, or null when the Cycle is active with no Phase covering now. */
   phaseLabel: string | null;
+  /** Operational Cycle (root PERIOD) display name. */
+  cycleLabel: string | null;
+  /** All concurrently active Phase labels under this Cycle (overlap allowed). */
+  activePhaseLabels: string[];
+};
+
+export type RunLocationNextKeyPoint = {
+  label: string;
+  dueLabel: string;
 };
 
 export type RunLocationOperationPresentation = {
@@ -62,6 +110,8 @@ export type RunLocationOperationPresentation = {
   location: RunLocationIdentity;
   currentOperation: RunLocationCurrentOperation;
   keyTimes: RunLocationKeyTimeView[];
+  /** Next/relevant incomplete Key Point from existing Key Time facts only. */
+  nextKeyPoint: RunLocationNextKeyPoint | null;
   attention: RunLocationAttention;
 };
 
@@ -72,9 +122,16 @@ export type RunDepartmentPhaseView = {
 };
 
 export type RunDepartmentCurrentOperation = {
+  /** Operational Cycle (root) display name. */
   parentLabel: string;
+  /** Alias of parentLabel for Cycle → Phase vocabulary. */
+  cycleLabel: string;
   windowLabel: string | null;
+  /** Primary Phase when exactly one child Phase is active; otherwise null. */
+  phaseLabel: string | null;
   phases: RunDepartmentPhaseView[];
+  /** PERIOD keys in this current group — used to join expected Work, not a second resolver. */
+  cycleStableKeys: string[];
 };
 
 export type RunDepartmentKeyTimeSummary = {
@@ -87,7 +144,9 @@ export type RunDepartmentKeyTimeSummary = {
 
 export type RunDepartmentOperationPresentation = {
   provenance: RunModelProvenance;
+  configuration: RunDepartmentConfiguration;
   currentOperations: RunDepartmentCurrentOperation[];
+  nextOperation: RunDepartmentNextOperation | null;
   keyTimeSummaries: RunDepartmentKeyTimeSummary[];
   overdueIncompleteCount: number;
 };
@@ -259,23 +318,32 @@ export function selectCurrentDayKeyTimeGroups(
   );
 }
 
+function publishedEffectiveCycles(
+  cycles: readonly OperationalCycleDefinition[],
+): OperationalCycleDefinition[] {
+  return cycles.filter((cycle) => cycle.status === "PUBLISHED" || cycle.status === "RETIRED");
+}
+
+function hasPublishedPeriodWindow(cycle: OperationalCycleDefinition): boolean {
+  return (
+    cycle.nodeKind === "PERIOD" &&
+    Boolean(cycle.startLocal?.trim()) &&
+    Boolean(cycle.endLocal?.trim())
+  );
+}
+
 /**
- * New-model when the effective published set has PERIOD windows plus KEY_TIME
- * nodes (or already-materialized expectations for those nodes).
- * Never uses meal labels or department key.
+ * Current PERIOD model when a published PERIOD window exists and is not a
+ * leftover SERVICE / READY / SERVICE_STARTED meal-service row.
+ * KEY_TIME groups are optional.
  */
 export function detectRunModelProvenance(
   cycles: readonly OperationalCycleDefinition[],
   timings: readonly KeyTimeDayTiming[] = [],
 ): RunModelProvenance {
-  const published = cycles.filter(
-    (cycle) => cycle.status === "PUBLISHED" || cycle.status === "RETIRED",
-  );
-  const hasPeriod = published.some(
-    (cycle) =>
-      cycle.nodeKind === "PERIOD" &&
-      Boolean(cycle.startLocal?.trim()) &&
-      Boolean(cycle.endLocal?.trim()),
+  const published = publishedEffectiveCycles(cycles);
+  const hasCurrentPeriod = published.some(
+    (cycle) => hasPublishedPeriodWindow(cycle) && !isLegacyMealServiceCycle(cycle),
   );
   const hasKeyTimeNode = published.some(
     (cycle) =>
@@ -286,10 +354,56 @@ export function detectRunModelProvenance(
   );
   const ids = publishedKeyTimeCycleIds(published);
   const hasMaterialized = timings.some((row) => ids.has(row.cycleId));
-  if (hasPeriod && (hasKeyTimeNode || hasMaterialized)) {
+  if (hasCurrentPeriod || hasKeyTimeNode || hasMaterialized) {
     return "NEW_PERIOD_KEY_TIME";
   }
-  return "LEGACY_MEAL_SERVICE";
+  const hasLegacyMeal = published.some(
+    (cycle) => hasPublishedPeriodWindow(cycle) && isLegacyMealServiceCycle(cycle),
+  );
+  return hasLegacyMeal ? "LEGACY_MEAL_SERVICE" : "NEW_PERIOD_KEY_TIME";
+}
+
+function cycleHasParticipatingLocations(
+  cycle: OperationalCycleDefinition,
+  allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
+): boolean {
+  if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  if (cycle.locationMode === "UNIT_TYPES" && cycle.applicableUnitTypes.length > 0) return true;
+  if (
+    cycle.locationMode === "OPERATIONAL_TYPES" &&
+    (cycle.applicableOperationalTypeKeys?.length ?? 0) > 0
+  ) {
+    return true;
+  }
+  if (cycle.locationMode === "ROOM_TYPE" && Boolean(cycle.roomTypeKey?.trim())) return true;
+  if (cycle.unitIds.length > 0) return true;
+  return effectiveCycleSpaceIds(cycle, allByKey).length > 0;
+}
+
+/** True when any published current-model PERIOD has usable location targeting. */
+export function publishedPeriodHasParticipatingLocations(
+  cycles: readonly OperationalCycleDefinition[],
+): boolean {
+  const published = publishedEffectiveCycles(cycles);
+  const allByKey = buildCyclesByStableKey(published);
+  return published.some(
+    (cycle) =>
+      hasPublishedPeriodWindow(cycle) &&
+      !isLegacyMealServiceCycle(cycle) &&
+      cycleHasParticipatingLocations(cycle, allByKey),
+  );
+}
+
+export function describeDepartmentCycleConfiguration(
+  cycles: readonly OperationalCycleDefinition[],
+): RunDepartmentConfiguration {
+  const published = publishedEffectiveCycles(cycles);
+  const hasCurrentPeriod = published.some(
+    (cycle) => hasPublishedPeriodWindow(cycle) && !isLegacyMealServiceCycle(cycle),
+  );
+  if (!hasCurrentPeriod) return "not_configured";
+  if (!publishedPeriodHasParticipatingLocations(published)) return "missing_participation";
+  return "configured";
 }
 
 export function presentationContainsLegacyMealCopy(text: string): boolean {
@@ -376,7 +490,7 @@ function presentAttention(
   return {
     kind: "all_caught_up",
     title: "All caught up",
-    description: "No overdue Key Times or other open operational items need attention right now.",
+    description: "No overdue Key Points or other open operational items need attention right now.",
   };
 }
 
@@ -413,16 +527,22 @@ export function presentLocationRunOperation(input: {
     windowLabel: null,
     parentLabel: null,
     phaseLabel: null,
+    cycleLabel: null,
+    activePhaseLabels: [],
   };
 
   if (context.state === "ACTIVE") {
     const primary = context.primary;
+    const { cycleLabel, phaseLabel } = resolveCycleAndPhaseLabels(primary);
     currentOperation = {
       state: "ACTIVE",
+      // Compatibility path; Cycle + Phase are authoritative via cycleLabel / phaseLabel.
       hierarchyLabel: formatCycleHierarchyLabel(primary),
       windowLabel: formatCycleWindow(primary.startLocal, primary.endLocal),
-      parentLabel: primary.ancestorLabels[0] ?? null,
-      phaseLabel: primary.depth > 0 ? primary.label : null,
+      parentLabel: cycleLabel,
+      phaseLabel,
+      cycleLabel,
+      activePhaseLabels: activePhaseLabelsForCycle(primary, context.activeCycles),
     };
   }
 
@@ -450,6 +570,7 @@ export function presentLocationRunOperation(input: {
     },
     currentOperation,
     keyTimes,
+    nextKeyPoint: selectNextKeyPointSummary(keyTimes),
     attention: presentAttention(keyTimes, hasAnyConfig),
   };
 }
@@ -457,8 +578,12 @@ export function presentLocationRunOperation(input: {
 function roomCountSpaceIds(
   cycle: OperationalCycleDefinition | undefined,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
+  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[],
 ): string[] {
   if (!cycle) return [];
+  if (functionSpaces) {
+    return resolveWorkCycleRoomParticipation(cycle, allByKey, functionSpaces).spaceIds;
+  }
   return effectiveCycleSpaceIds(cycle, allByKey);
 }
 
@@ -470,6 +595,8 @@ export function presentDepartmentRunOperation(input: {
   operationalDateKey: string;
   nowLocalHhMm: string;
   spaceIdFilter?: ReadonlySet<string>;
+  /** Rooms and their adopted Location Function keys. Same binding set Work uses. */
+  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[];
 }): RunDepartmentOperationPresentation {
   const provenance = detectRunModelProvenance(input.cycles, input.timings);
   const defsByKey = buildCyclesByStableKey(
@@ -500,18 +627,23 @@ export function presentDepartmentRunOperation(input: {
           label: occ.label,
           windowLabel: formatCycleWindow(occ.startLocal, occ.endLocal),
           roomCount: filterSpaceIds(
-            roomCountSpaceIds(defsByKey.get(occ.stableKey), defsByKey),
+            roomCountSpaceIds(defsByKey.get(occ.stableKey), defsByKey, input.functionSpaces),
             input.spaceIdFilter,
           ).length,
         }))
         .filter((phase) => !input.spaceIdFilter || phase.roomCount > 0);
       if (input.spaceIdFilter && phaseViews.length === 0) continue;
+      const primaryPhase =
+        phaseViews.length === 1 ? phaseViews[0]!.label : null;
       currentOperations.push({
         parentLabel,
+        cycleLabel: parentLabel,
+        phaseLabel: primaryPhase,
         windowLabel: parentOcc
           ? formatCycleWindow(parentOcc.startLocal, parentOcc.endLocal)
           : (occs[0] ? formatCycleWindow(occs[0].startLocal, occs[0].endLocal) : null),
         phases: phaseViews,
+        cycleStableKeys: [...new Set(occs.map((occ) => occ.stableKey))],
       });
     }
   }
@@ -531,9 +663,30 @@ export function presentDepartmentRunOperation(input: {
   }));
   const overdueIncompleteCount = groups.reduce((sum, group) => sum + group.overdue, 0);
 
+  let nextOperation: RunDepartmentNextOperation | null = null;
+  if (context.state === "ACTIVE" || context.state === "UPCOMING" || context.state === "BETWEEN") {
+    const next = context.next;
+    if (next) {
+      const roomCount = filterSpaceIds(
+        roomCountSpaceIds(defsByKey.get(next.stableKey), defsByKey, input.functionSpaces),
+        input.spaceIdFilter,
+      ).length;
+      if (!input.spaceIdFilter || roomCount > 0) {
+        nextOperation = {
+          label: formatCycleHierarchyLabel(next),
+          windowLabel: formatCycleWindow(next.startLocal, next.endLocal),
+          minutesUntil: context.minutesUntilNext,
+          cycleStableKey: next.stableKey,
+        };
+      }
+    }
+  }
+
   return {
     provenance,
+    configuration: describeDepartmentCycleConfiguration(input.cycles),
     currentOperations,
+    nextOperation,
     keyTimeSummaries,
     overdueIncompleteCount,
   };
@@ -544,22 +697,30 @@ export function serializeLocationRunProof(view: RunLocationOperationPresentation
   title: string;
   roomTypeLabel: string | null;
   current: string | null;
+  cycle: string | null;
+  phase: string | null;
   window: string | null;
   keyTimes: Array<{ label: string; due: string; status: string }>;
+  nextKeyPoint: { label: string; due: string } | null;
   attentionKind: RunLocationAttention["kind"];
 } {
+  const active = view.currentOperation.state === "ACTIVE";
   return {
     provenance: view.provenance,
     title: view.location.title,
     roomTypeLabel: view.location.roomTypeLabel,
-    current:
-      view.currentOperation.state === "ACTIVE" ? view.currentOperation.hierarchyLabel : null,
+    current: active ? view.currentOperation.cycleLabel : null,
+    cycle: active ? view.currentOperation.cycleLabel : null,
+    phase: active ? view.currentOperation.phaseLabel : null,
     window: view.currentOperation.windowLabel,
     keyTimes: view.keyTimes.map((row) => ({
       label: row.label,
       due: row.dueLabel,
       status: row.statusKey,
     })),
+    nextKeyPoint: view.nextKeyPoint
+      ? { label: view.nextKeyPoint.label, due: view.nextKeyPoint.dueLabel }
+      : null,
     attentionKind: view.attention.kind,
   };
 }

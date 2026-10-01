@@ -1,10 +1,19 @@
 /**
- * Department-keyed operational feature gates (Phase 11B / 12A).
- * DIETARY uses existing DIETARY_* flags; EVS uses EVS_OPERATIONS_ENABLED umbrella;
- * PLANT uses PLANT_OPERATIONS_ENABLED umbrella.
+ * Department-keyed operational feature gates.
+ *
+ * Shared engines (cycles, job flow, evidence, work, assets) admit any active
+ * department. DIETARY / EVS / PLANT keep their existing release flags.
+ * Custom keys do not need a compile-time flag and do not receive domain
+ * capabilities from those flags.
+ *
  * Does not enable OPERATION_ENGINE_ENABLED or TASK_SYNC_ENABLED.
  */
 
+import {
+  DOMAIN_DEPARTMENT_KEYS,
+  isDomainDepartmentKey,
+  type DomainDepartmentKey,
+} from "@/lib/department-admission";
 import {
   isDietaryAssetOperationsEnabled,
   isDietaryJobFlowEnabled,
@@ -16,9 +25,9 @@ import {
 } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
-export type OperationalDepartmentKey = "DIETARY" | "EVS" | "PLANT";
-
-type StaffingOperationalKey = "DIETARY" | "EVS" | "PLANT";
+export type { DomainDepartmentKey };
+/** @deprecated Use DomainDepartmentKey for domain modules; any string key may be operational. */
+export type OperationalDepartmentKey = string;
 
 export type StaffingOperationalFeature =
   | "workPlans"
@@ -27,59 +36,68 @@ export type StaffingOperationalFeature =
   | "evidence"
   | "asset";
 
-function normalizeKey(key: string | null | undefined): OperationalDepartmentKey | null {
-  if (key === "DIETARY" || key === "EVS" || key === "PLANT") return key;
-  return null;
+function isSharedOperationalEngineEnabledForKey(
+  key: string | null | undefined,
+  dietaryFlag: () => boolean,
+  evsFlag: () => boolean,
+  plantFlag: () => boolean,
+): boolean {
+  if (!key) return false;
+  if (key === "DIETARY") return dietaryFlag();
+  if (key === "EVS") return evsFlag();
+  if (key === "PLANT") return plantFlag();
+  return true;
 }
 
 export function isDepartmentOperationalCyclesEnabled(
   key: string | null | undefined,
 ): boolean {
-  const k = normalizeKey(key);
-  if (k === "DIETARY") return isDietaryOperationalCyclesEnabled();
-  if (k === "EVS") return isEvsOperationsEnabled();
-  if (k === "PLANT") return isPlantOperationsEnabled();
-  return false;
+  return isSharedOperationalEngineEnabledForKey(
+    key,
+    isDietaryOperationalCyclesEnabled,
+    isEvsOperationsEnabled,
+    isPlantOperationsEnabled,
+  );
 }
 
 export function isDepartmentJobFlowEnabled(key: string | null | undefined): boolean {
-  const k = normalizeKey(key);
-  if (k === "DIETARY") return isDietaryJobFlowEnabled();
-  if (k === "EVS") return isEvsOperationsEnabled();
-  if (k === "PLANT") return isPlantOperationsEnabled();
-  return false;
+  return isSharedOperationalEngineEnabledForKey(
+    key,
+    isDietaryJobFlowEnabled,
+    isEvsOperationsEnabled,
+    isPlantOperationsEnabled,
+  );
 }
 
 export function isDepartmentOperationalEvidenceEnabled(
   key: string | null | undefined,
 ): boolean {
-  const k = normalizeKey(key);
-  if (k === "DIETARY") return isDietaryOperationalEvidenceEnabled();
-  if (k === "EVS") return isEvsOperationsEnabled();
-  if (k === "PLANT") return isPlantOperationsEnabled();
-  return false;
+  return isSharedOperationalEngineEnabledForKey(
+    key,
+    isDietaryOperationalEvidenceEnabled,
+    isEvsOperationsEnabled,
+    isPlantOperationsEnabled,
+  );
 }
 
 export function isDepartmentAssetOperationsEnabled(
   key: string | null | undefined,
 ): boolean {
-  const k = normalizeKey(key);
-  if (k === "DIETARY") return isDietaryAssetOperationsEnabled();
-  if (k === "EVS") return isEvsOperationsEnabled();
-  if (k === "PLANT") return isPlantOperationsEnabled();
-  return false;
+  return isSharedOperationalEngineEnabledForKey(
+    key,
+    isDietaryAssetOperationsEnabled,
+    isEvsOperationsEnabled,
+    isPlantOperationsEnabled,
+  );
 }
 
 export function isDepartmentWorkPlansEnabled(key: string | null | undefined): boolean {
-  const k = normalizeKey(key);
-  if (k === "DIETARY") return isDietaryWorkPlansEnabled();
-  if (k === "EVS") return isEvsOperationsEnabled();
-  if (k === "PLANT") return isPlantOperationsEnabled();
-  return false;
-}
-
-function isStaffingKey(key: string | null | undefined): key is StaffingOperationalKey {
-  return key === "DIETARY" || key === "EVS" || key === "PLANT";
+  return isSharedOperationalEngineEnabledForKey(
+    key,
+    isDietaryWorkPlansEnabled,
+    isEvsOperationsEnabled,
+    isPlantOperationsEnabled,
+  );
 }
 
 function isFeatureEnabledForKey(
@@ -100,10 +118,18 @@ function isFeatureEnabledForKey(
   }
 }
 
-/** True when Dietary, EVS, or Plant has the named staffing feature family enabled. */
+/**
+ * True when a staffing engine surface should be reachable.
+ * Trio departments still honor their release flags. An active custom
+ * department key admits the shared engine without a new flag.
+ */
 export function isAnyStaffingOperationalFeatureEnabled(
   feature: StaffingOperationalFeature,
+  activeDepartmentKey?: string | null,
 ): boolean {
+  if (isFeatureEnabledForKey(feature, activeDepartmentKey)) {
+    return true;
+  }
   return (
     isFeatureEnabledForKey(feature, "DIETARY") ||
     isFeatureEnabledForKey(feature, "EVS") ||
@@ -112,19 +138,19 @@ export function isAnyStaffingOperationalFeatureEnabled(
 }
 
 /**
- * Resolve DIETARY | EVS | PLANT department for `/staffing/*` when that department's
- * matching feature flag is enabled.
+ * Resolve the department for `/staffing/*` when that department's
+ * matching shared engine is enabled.
  */
 export async function resolveStaffingOperationalDepartment(input: {
   facilityId: string;
   activeDepartmentId: string | null;
   feature?: StaffingOperationalFeature;
-  preferKeys?: readonly StaffingOperationalKey[];
-  /** When true, DIETARY/EVS/PLANT resolve even if that department's feature flag is off. */
+  preferKeys?: readonly DomainDepartmentKey[];
+  /** When true, resolve even if that department's release flag is off. */
   skipFeatureGate?: boolean;
-}): Promise<{ id: string; name: string; key: StaffingOperationalKey } | null> {
+}): Promise<{ id: string; name: string; key: string } | null> {
   const feature = input.feature ?? "workPlans";
-  const preferKeys = input.preferKeys ?? (["DIETARY", "EVS", "PLANT"] as const);
+  const preferKeys = input.preferKeys ?? DOMAIN_DEPARTMENT_KEYS;
   const gated = !input.skipFeatureGate;
 
   if (input.activeDepartmentId) {
@@ -136,11 +162,7 @@ export async function resolveStaffingOperationalDepartment(input: {
       },
       select: { id: true, name: true, key: true },
     });
-    if (
-      active &&
-      isStaffingKey(active.key) &&
-      (!gated || isFeatureEnabledForKey(feature, active.key))
-    ) {
+    if (active && (!gated || isFeatureEnabledForKey(feature, active.key))) {
       return { id: active.id, name: active.name, key: active.key };
     }
   }
@@ -151,16 +173,29 @@ export async function resolveStaffingOperationalDepartment(input: {
       where: { facilityId: input.facilityId, key, isActive: true },
       select: { id: true, name: true, key: true },
     });
-    if (dept && isStaffingKey(dept.key)) {
+    if (dept) {
       return { id: dept.id, name: dept.name, key: dept.key };
     }
+  }
+
+  const custom = await prisma.department.findFirst({
+    where: {
+      facilityId: input.facilityId,
+      isActive: true,
+      key: { notIn: [...DOMAIN_DEPARTMENT_KEYS] },
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, key: true },
+  });
+  if (custom && (!gated || isFeatureEnabledForKey(feature, custom.key))) {
+    return { id: custom.id, name: custom.name, key: custom.key };
   }
 
   return null;
 }
 
 /**
- * Look up department key and assert the named feature is enabled for that department.
+ * Look up department key and assert the named shared engine is enabled.
  */
 export async function requireDepartmentFeatureEnabled(
   departmentId: string,
@@ -178,15 +213,16 @@ export async function requireDepartmentFeatureEnabled(
 }
 
 /**
- * Resolve DIETARY|EVS|PLANT for Unit Workspace Job Flow / cycles:
- * prefer active department when flagged; else Dietary; else EVS; else Plant.
+ * Resolve an operational department for Unit Workspace Job Flow / cycles:
+ * prefer the active admitted department; else domain-key order among
+ * responsible departments; else any other responsible admitted department.
  */
 export async function resolveUnitOperationalDepartment(input: {
   facilityId: string;
   activeDepartmentId: string | null;
   unitId?: string | null;
   feature?: StaffingOperationalFeature;
-}): Promise<{ id: string; name: string; key: StaffingOperationalKey } | null> {
+}): Promise<{ id: string; name: string; key: string } | null> {
   const feature = input.feature ?? "jobFlow";
 
   const fromActive = await resolveStaffingOperationalDepartment({
@@ -201,29 +237,32 @@ export async function resolveUnitOperationalDepartment(input: {
       where: {
         unitId: input.unitId,
         unit: { facilityId: input.facilityId, isActive: true },
-        department: { isActive: true, key: { in: ["DIETARY", "EVS", "PLANT"] } },
+        department: { isActive: true },
       },
       select: {
         department: { select: { id: true, name: true, key: true } },
       },
     });
-    for (const key of ["DIETARY", "EVS", "PLANT"] as const) {
-      if (!isFeatureEnabledForKey(feature, key)) continue;
-      const match = responsibilities.find((r) => r.department.key === key);
-      if (match && isStaffingKey(match.department.key)) {
-        return {
-          id: match.department.id,
-          name: match.department.name,
-          key: match.department.key,
-        };
-      }
+    const preferred = DOMAIN_DEPARTMENT_KEYS.map((key) =>
+      responsibilities.find((row) => row.department.key === key),
+    ).filter((row): row is (typeof responsibilities)[number] => Boolean(row));
+    const custom = responsibilities.filter(
+      (row) => !isDomainDepartmentKey(row.department.key),
+    );
+    for (const match of [...preferred, ...custom]) {
+      if (!isFeatureEnabledForKey(feature, match.department.key)) continue;
+      return {
+        id: match.department.id,
+        name: match.department.name,
+        key: match.department.key,
+      };
     }
   }
 
   return null;
 }
 
-/** Resolve Plant department when PLANT_OPERATIONS_ENABLED for the named feature. */
+/** Resolve Plant department when Plant domain operations are enabled. */
 export async function resolvePlantOperationalDepartment(input: {
   facilityId: string;
   feature?: StaffingOperationalFeature;

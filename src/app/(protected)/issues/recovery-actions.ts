@@ -3,7 +3,7 @@
 import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateRecoveryAssistant } from "@/lib/ai/recovery-assistant";
 import type { RecoveryAssistantView } from "@/lib/ai/recovery-assistant/types";
-import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { parseOperationalDepartmentKey } from "@/lib/department-admission";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isAiRecoveryAssistantEnabled } from "@/lib/feature-flags";
@@ -13,11 +13,8 @@ export type RecoveryAssistantActionResult =
   | { ok: true; guidance: RecoveryAssistantView }
   | { ok: false; message: string };
 
-function parseDepartmentKey(value: unknown): OperationalDepartmentKey | null {
-  if (typeof value !== "string") return null;
-  const key = value.trim().toUpperCase();
-  if (key === "DIETARY" || key === "EVS" || key === "PLANT") return key;
-  return null;
+function parseDepartmentKey(value: unknown): string | null {
+  return parseOperationalDepartmentKey(value);
 }
 
 /** Manager+ may trigger provider generation. Facility-scoped; issue must belong to session facility. */

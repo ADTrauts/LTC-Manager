@@ -8,6 +8,11 @@ import {
   addDepartmentsToFacilitySubscription,
   BillingAddDepartmentsError,
 } from "@/lib/billing/add-departments";
+import { departmentBuilderWorkspaceHref } from "@/lib/department-administration";
+import {
+  DepartmentProductInstallError,
+  resolvePublishedDepartmentProductKeys,
+} from "@/lib/department-products";
 import {
   areStripePricesConfiguredForQuote,
   MissingStripePriceError,
@@ -55,7 +60,6 @@ export async function startBillingCheckoutAction(
       billingEmail: true,
       stripeCustomerId: true,
       billing: { select: { status: true, stripeSubscriptionId: true } },
-      departments: { where: { isActive: true }, select: { key: true } },
     },
   });
   if (!facility) {
@@ -69,13 +73,20 @@ export async function startBillingCheckoutAction(
     return { error: "This facility already has a subscription. Use Manage billing to update payment." };
   }
 
-  const allowedKeys = new Set(facility.departments.map((department) => department.key));
-  if (parsed.data.departmentKeys.some((key) => !allowedKeys.has(key))) {
-    return { error: "Select departments that belong to this facility." };
+  let publishedKeys: string[];
+  try {
+    publishedKeys = resolvePublishedDepartmentProductKeys(parsed.data.departmentKeys);
+  } catch (error) {
+    if (error instanceof DepartmentProductInstallError) {
+      return { error: error.message };
+    }
+    throw error;
   }
 
+  const returnTo = checkoutReturnTo(formData.get("returnTo"));
+
   const quote = quoteBilling({
-    departmentCount: parsed.data.departmentKeys.length,
+    departmentCount: publishedKeys.length,
     interval: parsed.data.interval,
     setupPath: parsed.data.setupPath,
   });
@@ -98,19 +109,19 @@ export async function startBillingCheckoutAction(
       customer: customerId,
       client_reference_id: facility.id,
       line_items: stripeCheckoutLineItemsForQuote(quote),
-      success_url: `${origin}/admin/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/admin/billing?checkout=canceled`,
+      success_url: `${origin}${checkoutSuccessPath(returnTo)}`,
+      cancel_url: `${origin}${checkoutCancelPath(returnTo)}`,
       customer_update: { address: "auto", name: "auto" },
       metadata: {
         facilityId: facility.id,
-        departmentKeys: parsed.data.departmentKeys.join(","),
+        departmentKeys: publishedKeys.join(","),
         interval: parsed.data.interval,
         setupPath: parsed.data.setupPath,
       },
       subscription_data: {
         metadata: {
           facilityId: facility.id,
-          departmentKeys: parsed.data.departmentKeys.join(","),
+          departmentKeys: publishedKeys.join(","),
           interval: parsed.data.interval,
           setupPath: parsed.data.setupPath,
         },
@@ -125,7 +136,7 @@ export async function startBillingCheckoutAction(
     await trackEvent("billing.checkout.created", {
       facilityId: facility.id,
       checkoutSessionId: checkoutSession.id,
-      departmentCount: parsed.data.departmentKeys.length,
+      departmentCount: publishedKeys.length,
     });
 
     redirect(checkoutSession.url);
@@ -144,9 +155,14 @@ export async function addBillingDepartmentsAction(
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
-  const departmentKeys = formData.getAll("departmentKey").map(String);
-  if (departmentKeys.length === 0) {
-    return { error: "Select at least one department to add." };
+  let departmentKeys: string[];
+  try {
+    departmentKeys = resolvePublishedDepartmentProductKeys(formData.getAll("departmentKey").map(String));
+  } catch (error) {
+    if (error instanceof DepartmentProductInstallError) {
+      return { error: error.message };
+    }
+    throw error;
   }
 
   try {
@@ -154,6 +170,17 @@ export async function addBillingDepartmentsAction(
       facilityId: session.facilityId,
       departmentKeysToAdd: departmentKeys,
     });
+    if (formData.get("returnTo") === "department-builder" && departmentKeys.length === 1) {
+      const installed = await prisma.department.findUnique({
+        where: {
+          facilityId_key: { facilityId: session.facilityId, key: departmentKeys[0]! },
+        },
+        select: { id: true },
+      });
+      if (installed) {
+        redirect(departmentBuilderWorkspaceHref(installed.id));
+      }
+    }
     redirect("/admin/billing?departments=added");
   } catch (error) {
     if (isNextRedirect(error)) {
@@ -217,7 +244,7 @@ async function ensureBillingPortalConfiguration(): Promise<string | null> {
   }
 
   const created = await stripe.billingPortal.configurations.create({
-    business_profile: { headline: "LTC Manager billing" },
+    business_profile: { headline: "Vssyl billing" },
     features: {
       customer_update: { enabled: true, allowed_updates: ["email", "address"] },
       invoice_history: { enabled: true },
@@ -246,6 +273,29 @@ function isNextRedirect(error: unknown): boolean {
       typeof error.digest === "string" &&
       error.digest.startsWith("NEXT_REDIRECT"),
   );
+}
+
+type CheckoutReturnTo = "billing" | "setup" | "departments";
+
+function checkoutReturnTo(value: FormDataEntryValue | null): CheckoutReturnTo {
+  if (value === "setup" || value === "departments") return value;
+  return "billing";
+}
+
+function checkoutSuccessPath(returnTo: CheckoutReturnTo): string {
+  if (returnTo === "setup") {
+    return "/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}";
+  }
+  if (returnTo === "departments") {
+    return "/admin/departments?all=1&checkout=success&session_id={CHECKOUT_SESSION_ID}";
+  }
+  return "/admin/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}";
+}
+
+function checkoutCancelPath(returnTo: CheckoutReturnTo): string {
+  if (returnTo === "setup") return "/setup?checkout=canceled";
+  if (returnTo === "departments") return "/admin/departments?all=1&checkout=canceled";
+  return "/admin/billing?checkout=canceled";
 }
 
 function randomLetterSuffix(length = 8): string {

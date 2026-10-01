@@ -7,6 +7,8 @@ import { ArchetypeExperiencePicker } from "@/app/(protected)/admin/departments/[
 import { AppCard, SectionHeader, StatusBadge } from "@/components/design-system";
 import type { DepartmentAdminView } from "@/lib/department-administration";
 import { experienceDisplayName } from "@/lib/department-administration/load-department-admin";
+import { listLocationFunctionsForProduct } from "@/lib/department-products/location-functions";
+import { isDepartmentProductKey } from "@/lib/department-products/registry";
 
 type Props = {
   view: DepartmentAdminView;
@@ -29,6 +31,10 @@ export function ArchetypesPanel({ view }: Props) {
       areaName: area.name,
     })),
   );
+  const productFunctions = isDepartmentProductKey(view.department.key)
+    ? listLocationFunctionsForProduct(view.department.key)
+    : [];
+  const productDepartment = isDepartmentProductKey(view.department.key);
 
   return (
     <div className="space-y-6">
@@ -42,7 +48,48 @@ export function ArchetypesPanel({ view }: Props) {
         </p>
       ) : null}
 
-      {editable ? (
+      {editable && productDepartment ? (
+        <AppCard title="Adopt Location Function">
+          {productFunctions.length === 0 ? (
+            <p className="text-sm text-zinc-600">
+              This Department Product does not define Location Functions.
+            </p>
+          ) : (
+            <DepartmentAdminActionForm
+              action={createArchetypeAction}
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              <input type="hidden" name="profileId" value={profileId} />
+              <input type="hidden" name="name" value={productFunctions[0]!.label} />
+              <label className="text-xs font-medium text-zinc-700 sm:col-span-2">
+                Location Function
+                <select
+                  name="key"
+                  required
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                  defaultValue={productFunctions[0]!.functionKey}
+                >
+                  {productFunctions.map((fn) => (
+                    <option key={fn.functionKey} value={fn.functionKey}>
+                      {fn.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
+                >
+                  Adopt
+                </button>
+              </div>
+            </DepartmentAdminActionForm>
+          )}
+        </AppCard>
+      ) : null}
+
+      {editable && !productDepartment ? (
         <AppCard title="Create archetype">
           <DepartmentAdminActionForm
             action={createArchetypeAction}
@@ -54,7 +101,7 @@ export function ArchetypesPanel({ view }: Props) {
               <input
                 name="key"
                 required
-                placeholder="servery"
+                placeholder="custom_function"
                 className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
               />
             </label>
@@ -63,7 +110,7 @@ export function ArchetypesPanel({ view }: Props) {
               <input
                 name="name"
                 required
-                placeholder="Servery"
+                placeholder="Custom function"
                 className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
               />
             </label>

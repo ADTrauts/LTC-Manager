@@ -4,6 +4,7 @@
  */
 
 import { normalizeAssetStatus } from "@/lib/asset-operations/types";
+import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import {
   emptyLocationProgram,
   type LocationProgram,
@@ -19,6 +20,7 @@ import {
   presentLocationRunOperation,
   type RunModelProvenance,
 } from "@/lib/operational-cycles/present-run-operation";
+import { resolveCycleAndPhaseLabels } from "@/lib/operational-cycles/cycle-timeline";
 import {
   formatCycleHierarchyLabel,
   resolveOperationalCycle,
@@ -62,6 +64,8 @@ export type RuntimeSpaceIdentityRow = {
   unitId: string | null;
   unitName: string | null;
   departmentId: string;
+  /** Department.key. Dietary meal milestones require the exact DIETARY product key. */
+  departmentKey: string | null;
   departmentLabel: string | null;
   floorName: string | null;
   neighborhoodName: string | null;
@@ -247,13 +251,17 @@ function composeOperation(
   }
 
   const primary = context.primary;
+  const { cycleLabel, phaseLabel } = resolveCycleAndPhaseLabels(primary);
   return {
     state: "ACTIVE",
     current: {
       cycleStableKey: primary.stableKey,
       cycleVersion: primary.version,
-      label: formatCycleHierarchyLabel(primary) ?? primary.label,
+      // Prefer Operational Cycle label; hierarchy remains for path consumers.
+      label: cycleLabel,
       hierarchyLabel: formatCycleHierarchyLabel(primary),
+      cycleLabel,
+      phaseLabel,
       window: { start: primary.startLocal, end: primary.endLocal },
       timing: {
         configured: primary.startLocal,
@@ -521,16 +529,8 @@ function composeCoverage(input: {
   return composeTemplateCoverage(input);
 }
 
-function isServeryPlace(space: RuntimeSpaceIdentityRow, program: LocationProgram): boolean {
-  const haystack = [
-    space.roomTypeKey,
-    space.roomTypeLabel,
-    program.location.facilityTypeLabel,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes("servery");
+function includeDietaryMealMilestones(space: RuntimeSpaceIdentityRow): boolean {
+  return hasDietaryDomainCapabilities(space.departmentKey);
 }
 
 function composeMilestones(input: {
@@ -823,7 +823,7 @@ export function composeRuntimeLocationStates(
       items: composeMilestones({
         model,
         spaceId: space.spaceId,
-        includeServeryMilestones: isServeryPlace(space, program),
+        includeServeryMilestones: includeDietaryMealMilestones(space),
         unitId: space.unitId,
         serveryEvents: space.unitId
           ? (input.serveryEventsByUnitId.get(space.unitId) ?? [])

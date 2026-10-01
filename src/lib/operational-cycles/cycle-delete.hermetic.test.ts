@@ -55,7 +55,7 @@ test("deleteDraft cascades draft descendants and UI exposes Delete draft cycle",
   assert.match(tree, /deleteCycleDraftAction/);
   assert.match(tree, /Delete draft cycle/);
   assert.match(tree, /Delete phase/);
-  assert.match(tree, /Delete key time/);
+  assert.match(tree, /Delete key point/);
   assert.doesNotMatch(tree, /Add child/);
   assert.match(tree, /\+ Add phase/);
   assert.match(tree, /CycleRowActionsMenu/);

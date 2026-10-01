@@ -4,7 +4,10 @@ import { useState } from "react";
 
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
 import { CycleEditorFields } from "@/app/(protected)/admin/departments/[departmentId]/cycles-builder-controls";
-import { updateCycleDraftAction } from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
+import {
+  publishCycleAction,
+  updateCycleDraftAction,
+} from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
 import {
   createTeamCycleAction,
   linkTeamCycleAction,
@@ -78,7 +81,11 @@ export function TeamCyclesPanel({
                     {formatCycleWindow(row.startLocal, row.endLocal)}
                     {" · "}
                     {formatDaysSummary(row.applicableDaysOfWeek)}
-                    {row.status === "DRAFT" ? " · Draft" : null}
+                    {row.status === "DRAFT"
+                      ? " · Draft — not used in Run"
+                      : row.status === "PUBLISHED"
+                        ? " · Live"
+                        : null}
                   </p>
                 </div>
                 {canManage ? (
@@ -94,6 +101,15 @@ export function TeamCyclesPanel({
                       >
                         {editingId === row.cycleId ? "Close editor" : "Edit timeline"}
                       </Button>
+                    ) : null}
+                    {row.cycleId && row.status === "DRAFT" ? (
+                      <DepartmentAdminActionForm action={publishCycleAction}>
+                        <input type="hidden" name="departmentId" value={departmentId} />
+                        <input type="hidden" name="cycleId" value={row.cycleId} />
+                        <Button type="submit" variant="secondary" size="compact">
+                          Make live
+                        </Button>
+                      </DepartmentAdminActionForm>
                     ) : null}
                     <DepartmentAdminActionForm action={unlinkTeamCycleAction}>
                       <input type="hidden" name="departmentId" value={departmentId} />
@@ -232,7 +248,7 @@ export function TeamCyclesPanel({
                 onClick={() => setMode((current) => (current === "keytime" ? "none" : "keytime"))}
                 data-testid="team-cycle-add-key-time"
               >
-                + Add key time
+                + Add key point
               </Button>
             </>
           ) : null}

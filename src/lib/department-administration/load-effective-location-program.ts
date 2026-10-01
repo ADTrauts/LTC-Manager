@@ -397,6 +397,7 @@ export async function loadLocationProgramOverlays(input: {
         unitId: input.scope.unitId,
         spaceId: input.scope.spaceId,
         spaceType: input.scope.spaceType,
+        operationalTypeKey: input.scope.operationalTypeKey ?? null,
       }),
     )
     .map((plan) =>
@@ -504,8 +505,14 @@ function workPlanAppliesToScope(
     unitId: string | null;
     spaceId: string | null;
     spaceType: SpaceType | null;
+    operationalTypeKey?: string | null;
   }[],
-  scope: { unitId: string | null; spaceId: string | null; spaceType: SpaceType | null },
+  scope: {
+    unitId: string | null;
+    spaceId: string | null;
+    spaceType: SpaceType | null;
+    operationalTypeKey?: string | null;
+  },
 ): boolean {
   if (applicabilities.length === 0) return true;
   return applicabilities.some((row) => {
@@ -518,6 +525,13 @@ function workPlanAppliesToScope(
     }
     if (row.kind === "SPACE_TYPE") {
       return Boolean(scope.spaceType && row.spaceType === scope.spaceType);
+    }
+    if (row.kind === "OPERATIONAL_TYPE") {
+      return Boolean(
+        scope.operationalTypeKey &&
+          row.operationalTypeKey &&
+          row.operationalTypeKey === scope.operationalTypeKey,
+      );
     }
     return false;
   });
@@ -785,6 +799,7 @@ export async function loadDepartmentLocationPrograms(input: {
             unitId: location.parentUnitId,
             spaceId: location.id,
             spaceType: null,
+            operationalTypeKey: archetype?.key ?? null,
           }),
         )
         .map((plan) =>

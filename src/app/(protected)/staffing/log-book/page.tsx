@@ -35,10 +35,6 @@ export default async function EvidenceLogBookPage({
 }) {
   noStore();
 
-  if (!isAnyStaffingOperationalFeatureEnabled("evidence") && !isCanonicalLogsEnabled()) {
-    redirect("/staffing");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) redirect("/workspace");
@@ -56,6 +52,12 @@ export default async function EvidenceLogBookPage({
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (
+    !isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey) &&
+    !isCanonicalLogsEnabled()
+  ) {
+    redirect("/staffing");
+  }
   const department = await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,

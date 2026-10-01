@@ -8,6 +8,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { AppJwtPayload } from "@/lib/auth";
+import { getLocationFunctionByKey } from "@/lib/department-products/location-functions";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -18,6 +19,7 @@ import {
 import {
   buildWorkPlanPresetDraft,
   isDepartmentWorkPresetKey,
+  unadoptedPresetLocationFunctions,
   type DepartmentWorkPresetKey,
 } from "./work-presets";
 import type { WorkItemDraftInput, WorkPlanDraftInput } from "./types";
@@ -168,6 +170,7 @@ function applicabilityCreateRows(draft: WorkPlanDraftInput) {
     spaceType: row.spaceType ?? null,
     assetId: row.assetId?.trim() || null,
     assetType: row.assetType?.trim() || null,
+    operationalTypeKey: row.operationalTypeKey?.trim() || null,
   }));
 }
 
@@ -393,6 +396,7 @@ export async function duplicateWorkPlan(
         spaceType: a.spaceType,
         assetId: a.assetId,
         assetType: a.assetType,
+        operationalTypeKey: a.operationalTypeKey,
       })),
       items: existing.items.map((item) => ({
         itemKey: item.itemKey,
@@ -553,6 +557,7 @@ export async function createSuccessorDraft(
         spaceType: a.spaceType,
         assetId: a.assetId,
         assetType: a.assetType,
+        operationalTypeKey: a.operationalTypeKey,
       })),
       items: existing.items.map((item) => ({
         itemKey: item.itemKey,
@@ -642,6 +647,24 @@ export async function createDraftFromPreset(
     throw new Error(`Unknown Work Plan preset "${input.presetKey}".`);
   }
   const draft = buildWorkPlanPresetDraft(input.presetKey);
+  const client = input.client ?? prisma;
+  const adopted = await client.departmentRoomArchetype.findMany({
+    where: {
+      isActive: true,
+      profile: { facilityId: input.facilityId, departmentId: input.departmentId },
+    },
+    select: { key: true },
+  });
+  const missing = unadoptedPresetLocationFunctions(
+    draft,
+    adopted.map((row) => row.key),
+  );
+  if (missing.length > 0) {
+    const labels = missing.map((key) => getLocationFunctionByKey(key)?.label ?? key);
+    throw new Error(
+      `Adopt ${labels.join(", ")} before applying this Work preset. Room names do not assign a Location Function.`,
+    );
+  }
   return createDraft(session, {
     facilityId: input.facilityId,
     departmentId: input.departmentId,
@@ -794,6 +817,7 @@ export async function previewWorkPlanRequirements(input: {
       spaceType: a.spaceType,
       assetId: a.assetId,
       assetType: a.assetType,
+      operationalTypeKey: a.operationalTypeKey,
     })),
     items: plan.items.map((item) => ({
       id: item.id,
@@ -843,9 +867,8 @@ export async function previewWorkPlanRequirements(input: {
       },
     ],
     publishedCycles: [],
-    confirmedAssignments: input.unitId
-      ? [{ employeeId: "preview", unitId: input.unitId, roleKey: null }]
-      : [{ employeeId: "preview", unitId: "preview-unit", roleKey: null }],
+    candidateUnitIds: input.unitId ? [input.unitId] : ["preview-unit"],
+    confirmedAssignments: [],
     existingOccurrences: [],
     unitNames: input.unitId
       ? new Map([[input.unitId, "Preview unit"]])

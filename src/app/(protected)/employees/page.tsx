@@ -20,7 +20,6 @@ import { resolveActiveDepartmentForShell } from "@/lib/active-department-context
 import { getSession } from "@/lib/auth";
 import { buildPageIntro } from "@/lib/build-hub";
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
-import { ensureDefaultDepartments } from "@/lib/ensure-default-departments";
 import { loadActiveJobRolesForFacilityDepartments } from "@/lib/department-job-roles";
 import { prisma } from "@/lib/prisma";
 
@@ -167,10 +166,6 @@ export default async function EmployeesPage({
   const facilityId = session.facilityId;
   const showPinManagement = hasAtLeastRole(session.role, "GM");
   const showManagerTools = hasAtLeastRole(session.role, "MANAGER");
-
-  if ((await prisma.department.count({ where: { facilityId } })) === 0) {
-    await ensureDefaultDepartments(prisma, facilityId);
-  }
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);

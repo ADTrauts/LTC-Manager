@@ -153,14 +153,15 @@ export function decideOperationalRequestAuthority(input: {
 }
 
 function requesterFlagForKey(key: string | null | undefined): boolean {
+  if (!key) return false;
   if (key === "PLANT") return isPlantOperationsEnabled();
   if (key === "DIETARY" || key === "EVS") {
     return isDepartmentJobFlowEnabled(key) || isDepartmentAssetOperationsEnabled(key);
   }
-  return false;
+  return true;
 }
 
-/** Requester-side report authority for Dietary / EVS / Plant when their ops flag is on. */
+/** Requester-side report authority. Trio departments keep release flags; custom keys are admitted. */
 export async function resolveRequesterReportAuthority(
   session: AppJwtPayload,
   facilityId: string,

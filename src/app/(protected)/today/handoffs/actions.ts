@@ -2,7 +2,7 @@
 
 import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateShiftTransition } from "@/lib/ai/shift-transition";
-import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { parseOperationalDepartmentKey } from "@/lib/department-admission";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isAiShiftSummaryEnabled } from "@/lib/feature-flags";
 import type { ShiftTransitionView } from "@/lib/ai/shift-transition/types";
@@ -11,13 +11,8 @@ export type ShiftTransitionActionResult =
   | { ok: true; summary: ShiftTransitionView }
   | { ok: false; message: string };
 
-function parseDepartmentKey(value: unknown): OperationalDepartmentKey | null {
-  if (typeof value !== "string") return null;
-  const key = value.trim().toUpperCase();
-  if (key === "DIETARY" || key === "EVS" || key === "PLANT") {
-    return key;
-  }
-  return null;
+function parseDepartmentKey(value: unknown): string | null {
+  return parseOperationalDepartmentKey(value);
 }
 
 /** Manager+ may trigger provider generation / refresh for shift transition. */

@@ -32,6 +32,8 @@ test("canonical Review loader batches domain reads and does not score RLS or Wor
   assert.doesNotMatch(loader, /loadRuntimeLocationStates/);
   assert.doesNotMatch(loader, /loadDashboardRuntime/);
   assert.doesNotMatch(loader, /loadPublishedWorkPlansForDate/);
+  assert.doesNotMatch(loader, /resolveUnitWorkRequirements/);
+  assert.doesNotMatch(loader, /loadTodaysExpectedWork/);
   assert.equal([...loader.matchAll(/unitSpace\.findMany/g)].length, 1);
   assert.match(loader, /operationalEvidenceRecord\.findMany/);
   assert.match(loader, /operationalAssignmentTemplate\.findMany/);

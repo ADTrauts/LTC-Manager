@@ -55,6 +55,11 @@ export type EvsDefaultCyclePlan = {
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
+/**
+ * Meal Phase children for a Dietary Operational Cycle root.
+ * Service window is the contiguous gap between Prep end and Cleanup start so the
+ * root Cycle no longer doubles as an implicit Service Phase.
+ */
 function mealChildren(
   mealKey: string,
   mealLabel: string,
@@ -84,13 +89,32 @@ function mealChildren(
       roomTypeKey: null,
     },
     {
+      stableKey: `${mealKey}_service`,
+      parentStableKey: mealKey,
+      nodeKind: "PERIOD" as const,
+      label: "Service",
+      description: `${mealLabel} service phase.`,
+      cycleType: "SERVICE" as const,
+      displaySequence: 12,
+      startLocal: prepEnd,
+      endLocal: cleanupStart,
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [] as ServeryMilestone[],
+      locationMode: "EXPLICIT_UNITS" as const,
+      locationInheritFromParent: true,
+      applicableUnitTypes: [] as UnitType[],
+      roomTypeKey: null,
+    },
+    {
       stableKey: `${mealKey}_due`,
       parentStableKey: mealKey,
       nodeKind: "KEY_TIME" as const,
       label: `${mealLabel} Due`,
-      description: `${mealLabel} key due times — configure rooms and due times after setup.`,
+      description: `${mealLabel} key points — configure rooms and due times after setup.`,
       cycleType: "CUSTOM" as const,
-      displaySequence: 12,
+      displaySequence: 13,
       startLocal: null,
       endLocal: null,
       overnight: false,
@@ -108,7 +132,7 @@ function mealChildren(
       label: "Cleanup",
       description: `${mealLabel} cleanup phase.`,
       cycleType: "CLOSEOUT" as const,
-      displaySequence: 13,
+      displaySequence: 14,
       startLocal: cleanupStart,
       endLocal: cleanupEnd,
       overnight: false,
@@ -124,9 +148,10 @@ function mealChildren(
 }
 
 /**
- * Example Dietary operating day: Breakfast / Lunch / Dinner PERIOD roots with
- * Prep (inherit), Due KEY_TIME (no groups yet), and Cleanup (inherit) children.
+ * Example Dietary operating day: Breakfast / Lunch / Dinner Operational Cycles
+ * with Prep, Service, Cleanup Phases (inherit) and Due Key Points.
  * Top-level locations use EXPLICIT_UNITS with empty spaces — assign rooms in Build.
+ * Future starter application only — never rewrites published facility rhythms.
  */
 export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
   const breakfastStart = "05:30";

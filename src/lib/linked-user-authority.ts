@@ -10,12 +10,20 @@ export type LinkedUserAuthorityInput = {
   nextEmployeeStatus: EmployeeStatus;
   displayName: string;
   email?: string;
+  /**
+   * Employee primary department is the operational home for password login scoping
+   * (Work Plans, Cycles, nav). Always written onto the linked User when provided.
+   */
+  primaryDepartmentId?: string | null;
 };
 
 /**
  * Keep the password identity aligned with the Employee identity in the same transaction as the
  * Employee profile update. Session invalidation is part of the User update so authority cannot
  * change while a password session issued under the old role remains current.
+ *
+ * Primary department sync does not revoke sessions; FA / manager resolvers that need a live
+ * primary reload it from User (see resolveWorkAuthority).
  */
 export async function syncLinkedUserAuthority(
   client: LinkedUserAuthorityClient,
@@ -45,6 +53,9 @@ export async function syncLinkedUserAuthority(
       ...(roleRow ? { roleId: roleRow.id } : {}),
       ...(terminated ? { isActive: false } : {}),
       ...(sessionsRevoked ? { sessionVersion: { increment: 1 } } : {}),
+      ...(input.primaryDepartmentId !== undefined
+        ? { primaryDepartmentId: input.primaryDepartmentId }
+        : {}),
     },
   });
 

@@ -52,6 +52,7 @@ type PlanRow = {
     spaceType: string | null;
     assetId: string | null;
     assetType: string | null;
+    operationalTypeKey: string | null;
   }>;
   _count: { items: number };
 };
@@ -60,6 +61,20 @@ type ProcedureOption = { id: string; title: string };
 type UnitOption = { id: string; name: string };
 type CycleOption = { stableKey: string; label: string };
 type TemplateOption = { id: string; stableKey: string; name: string };
+type OperationalTypeOption = { key: string; name: string };
+
+const SPACE_TYPE_OPTIONS: Array<{ value: NonNullable<WorkPlanDraftInput["applicabilities"]>[number]["spaceType"]; label: string }> = [
+  { value: "PATIENT_ROOM", label: "Patient rooms" },
+  { value: "PUBLIC_AREA", label: "Public areas" },
+  { value: "RESTROOM", label: "Restrooms" },
+  { value: "SERVICE_AREA", label: "Service areas" },
+  { value: "PRODUCTION_AREA", label: "Production areas" },
+  { value: "STORAGE", label: "Storage" },
+  { value: "UTILITY", label: "Utility" },
+  { value: "OFFICE", label: "Offices" },
+  { value: "MECHANICAL", label: "Mechanical" },
+  { value: "OTHER", label: "Other spaces" },
+];
 
 type Props = {
   facilityId: string;
@@ -74,6 +89,7 @@ type Props = {
   units: UnitOption[];
   cycleOptions: CycleOption[];
   templates: TemplateOption[];
+  operationalTypeOptions: OperationalTypeOption[];
 };
 
 function blankDraft(): WorkPlanDraftInput {
@@ -120,6 +136,7 @@ function toDraft(plan: PlanRow): WorkPlanDraftInput {
         : null,
       assetId: a.assetId,
       assetType: a.assetType,
+      operationalTypeKey: a.operationalTypeKey,
     })),
     items: plan.items.map((item) => ({
       itemKey: item.itemKey,
@@ -154,6 +171,7 @@ export function WorkPlanBuilderPanel({
   units,
   cycleOptions,
   templates,
+  operationalTypeOptions,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -207,9 +225,44 @@ export function WorkPlanBuilderPanel({
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_1fr]" data-testid="work-plan-builder">
       <aside className="space-y-3" data-testid="work-plan-list">
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-3">
+          {canManage && presets.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Recommended work
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    className="rounded-md border px-3 py-1.5 text-sm"
+                    data-testid={`work-plan-preset-${preset.key}`}
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        const created = await createWorkPlanPresetDraftAction({
+                          facilityId,
+                          departmentId,
+                          presetKey: preset.key,
+                        });
+                        setMessage(`Created preset draft ${preset.name}`);
+                        setSelectedId(created.id);
+                        return created.id;
+                      })
+                    }
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {canManage ? (
-            <>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Advanced / custom
+              </p>
               <button
                 type="button"
                 className="rounded-md border px-3 py-1.5 text-sm"
@@ -229,32 +282,9 @@ export function WorkPlanBuilderPanel({
                   })
                 }
               >
-                Create blank
+                Create blank Work Plan
               </button>
-              {presets.map((preset) => (
-                <button
-                  key={preset.key}
-                  type="button"
-                  className="rounded-md border px-3 py-1.5 text-sm"
-                  data-testid={`work-plan-preset-${preset.key}`}
-                  disabled={pending}
-                  onClick={() =>
-                    run(async () => {
-                      const created = await createWorkPlanPresetDraftAction({
-                        facilityId,
-                        departmentId,
-                        presetKey: preset.key,
-                      });
-                      setMessage(`Created preset draft ${preset.name}`);
-                      setSelectedId(created.id);
-                      return created.id;
-                    })
-                  }
-                >
-                  Preset: {preset.name}
-                </button>
-              ))}
-            </>
+            </div>
           ) : null}
         </div>
         <ul className="divide-y rounded-md border">
@@ -314,6 +344,13 @@ export function WorkPlanBuilderPanel({
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
           </label>
+          <WorkPlanAppliesToEditor
+            draft={draft}
+            units={units}
+            operationalTypeOptions={operationalTypeOptions}
+            disabled={!canManage || !isDraft || pending}
+            onChange={(applicabilities) => setDraft({ ...draft, applicabilities })}
+          />
         </div>
 
         <div className="space-y-3" data-testid="work-plan-items">
@@ -429,33 +466,83 @@ export function WorkPlanBuilderPanel({
                     ))}
                   </select>
                 </label>
-                <label className="text-xs">
-                  Cycle
-                  <select
-                    className="mt-1 w-full rounded-md border px-2 py-1.5"
-                    data-testid={`work-plan-item-cycle-${index}`}
-                    value={item.cycleStableKeys?.[0] ?? ""}
-                    disabled={!canManage || !isDraft || pending}
-                    onChange={(e) => {
-                      const items = [...draft.items];
-                      items[index] = {
-                        ...item,
-                        scheduleKind: e.target.value
-                          ? "OPERATIONAL_CYCLE"
-                          : "ONCE_PER_OPERATIONAL_DATE",
-                        cycleStableKeys: e.target.value ? [e.target.value] : [],
-                      };
-                      setDraft({ ...draft, items });
-                    }}
+                <fieldset className="text-xs sm:col-span-2">
+                  <legend className="mb-1">Operating periods</legend>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      data-testid={`work-plan-item-once-${index}`}
+                      checked={(item.cycleStableKeys ?? []).length === 0}
+                      disabled={!canManage || !isDraft || pending}
+                      onChange={() => {
+                        const items = [...draft.items];
+                        items[index] = {
+                          ...item,
+                          scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
+                          cycleStableKeys: [],
+                        };
+                        setDraft({ ...draft, items });
+                      }}
+                    />
+                    Once per day
+                  </label>
+                  <div
+                    className="mt-1 grid gap-1 sm:grid-cols-2"
+                    data-testid={`work-plan-item-cycles-${index}`}
                   >
-                    <option value="">Once per day</option>
-                    {cycleOptions.map((c) => (
-                      <option key={c.stableKey} value={c.stableKey}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    {cycleOptions.map((c) => {
+                      const selected = (item.cycleStableKeys ?? []).includes(c.stableKey);
+                      return (
+                        <label key={c.stableKey} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            data-testid={`work-plan-item-cycle-${index}-${c.stableKey}`}
+                            checked={selected}
+                            disabled={!canManage || !isDraft || pending}
+                            onChange={() => {
+                              const current = item.cycleStableKeys ?? [];
+                              const next = selected
+                                ? current.filter((key) => key !== c.stableKey)
+                                : [...current, c.stableKey];
+                              const items = [...draft.items];
+                              items[index] = {
+                                ...item,
+                                scheduleKind: next.length
+                                  ? "OPERATIONAL_CYCLE"
+                                  : "ONCE_PER_OPERATIONAL_DATE",
+                                cycleStableKeys: next,
+                              };
+                              setDraft({ ...draft, items });
+                            }}
+                          />
+                          {c.label}
+                        </label>
+                      );
+                    })}
+                    {(item.cycleStableKeys ?? [])
+                      .filter((key) => !cycleOptions.some((c) => c.stableKey === key))
+                      .map((key) => (
+                        <label key={key} className="flex items-center gap-2 text-slate-600">
+                          <input
+                            type="checkbox"
+                            checked
+                            disabled={!canManage || !isDraft || pending}
+                            onChange={() => {
+                              const items = [...draft.items];
+                              items[index] = {
+                                ...item,
+                                cycleStableKeys: (item.cycleStableKeys ?? []).filter(
+                                  (cycleKey) => cycleKey !== key,
+                                ),
+                              };
+                              setDraft({ ...draft, items });
+                            }}
+                          />
+                          {key} (not in current PERIOD list)
+                        </label>
+                      ))}
+                  </div>
+                </fieldset>
               </div>
             </div>
           ))}
@@ -609,6 +696,9 @@ export function WorkPlanBuilderPanel({
           >
             <p className="font-medium">{draft.name}</p>
             <p className="text-slate-600">{draft.description}</p>
+            <p className="mt-2 text-slate-700" data-testid="work-plan-preview-applies-to">
+              {describeAppliesTo(draft, units, operationalTypeOptions)}
+            </p>
             <ul className="mt-2 list-disc pl-5">
               {draft.items.map((item) => (
                 <li key={item.itemKey}>
@@ -629,6 +719,195 @@ export function WorkPlanBuilderPanel({
           </div>
         ) : null}
       </section>
+    </div>
+  );
+}
+
+function primaryApplicability(
+  draft: WorkPlanDraftInput,
+): NonNullable<WorkPlanDraftInput["applicabilities"]>[number] {
+  return draft.applicabilities?.[0] ?? { kind: "DEPARTMENT_UNIT" };
+}
+
+function describeAppliesTo(
+  draft: WorkPlanDraftInput,
+  units: UnitOption[],
+  operationalTypeOptions: OperationalTypeOption[],
+): string {
+  const app = primaryApplicability(draft);
+  if (app.kind === "DEPARTMENT_UNIT") return "Applies to department locations";
+  if (app.kind === "SPECIFIC_UNIT") {
+    const unitName = units.find((unit) => unit.id === app.unitId)?.name;
+    return unitName ? `Applies to ${unitName}` : "Applies to a specific location";
+  }
+  if (app.kind === "OPERATIONAL_TYPE") {
+    const typeName =
+      operationalTypeOptions.find((option) => option.key === app.operationalTypeKey)?.name ??
+      app.operationalTypeKey;
+    return typeName ? `Applies to ${typeName} locations` : "Applies to an operational type";
+  }
+  if (app.kind === "SPACE_TYPE") {
+    const label = SPACE_TYPE_OPTIONS.find((option) => option.value === app.spaceType)?.label;
+    return label ? `Applies to ${label.toLowerCase()}` : "Applies to a physical space type";
+  }
+  if (app.kind === "SPECIFIC_SPACE") return "Applies to a specific space";
+  if (app.kind === "SPECIFIC_ASSET" || app.kind === "ASSET_TYPE") return "Applies to selected assets";
+  return "Applies to department locations";
+}
+
+function WorkPlanAppliesToEditor({
+  draft,
+  units,
+  operationalTypeOptions,
+  disabled,
+  onChange,
+}: {
+  draft: WorkPlanDraftInput;
+  units: UnitOption[];
+  operationalTypeOptions: OperationalTypeOption[];
+  disabled: boolean;
+  onChange: (applicabilities: NonNullable<WorkPlanDraftInput["applicabilities"]>) => void;
+}) {
+  const apps = draft.applicabilities ?? [{ kind: "DEPARTMENT_UNIT" }];
+  const app = apps[0] ?? { kind: "DEPARTMENT_UNIT" };
+  const multiple = apps.length > 1;
+  const editorKind =
+    multiple
+      ? "OTHER"
+      : app.kind === "SPECIFIC_UNIT" ||
+          app.kind === "OPERATIONAL_TYPE" ||
+          app.kind === "SPACE_TYPE" ||
+          app.kind === "DEPARTMENT_UNIT"
+        ? app.kind
+        : "OTHER";
+  const typeOptions = [...operationalTypeOptions];
+  if (
+    app.kind === "OPERATIONAL_TYPE" &&
+    app.operationalTypeKey &&
+    !typeOptions.some((option) => option.key === app.operationalTypeKey)
+  ) {
+    typeOptions.unshift({ key: app.operationalTypeKey, name: app.operationalTypeKey });
+  }
+
+  return (
+    <div className="space-y-2" data-testid="work-plan-applies-to">
+      <p className="text-sm font-medium">Applies to</p>
+      {editorKind === "OTHER" ? (
+        <p className="text-sm text-slate-600" data-testid="work-plan-applies-to-custom">
+          {multiple
+            ? apps
+                .map((row) =>
+                  describeAppliesTo({ ...draft, applicabilities: [row] }, units, operationalTypeOptions),
+                )
+                .join("; ")
+            : describeAppliesTo(draft, units, operationalTypeOptions)}
+        </p>
+      ) : null}
+      <select
+        className="w-full rounded-md border px-2 py-1.5 text-sm"
+        data-testid="work-plan-applies-to-kind"
+        value={editorKind === "OTHER" ? "DEPARTMENT_UNIT" : editorKind}
+        disabled={disabled}
+        onChange={(event) => {
+          const kind = event.target.value;
+          if (kind === "DEPARTMENT_UNIT") {
+            onChange([{ kind: "DEPARTMENT_UNIT" }]);
+            return;
+          }
+          if (kind === "SPECIFIC_UNIT") {
+            onChange([{ kind: "SPECIFIC_UNIT", unitId: app.unitId ?? units[0]?.id ?? null }]);
+            return;
+          }
+          if (kind === "OPERATIONAL_TYPE") {
+            onChange([
+              {
+                kind: "OPERATIONAL_TYPE",
+                operationalTypeKey: app.operationalTypeKey ?? typeOptions[0]?.key ?? null,
+              },
+            ]);
+            return;
+          }
+          if (kind === "SPACE_TYPE") {
+            onChange([
+              {
+                kind: "SPACE_TYPE",
+                spaceType: app.spaceType ?? "PATIENT_ROOM",
+              },
+            ]);
+          }
+        }}
+      >
+        <option value="DEPARTMENT_UNIT">Department locations</option>
+        <option value="SPECIFIC_UNIT">A specific location</option>
+        <option value="OPERATIONAL_TYPE">An operational type</option>
+        <option value="SPACE_TYPE">A physical space type</option>
+      </select>
+      {app.kind === "SPECIFIC_UNIT" ? (
+        <select
+          className="w-full rounded-md border px-2 py-1.5 text-sm"
+          data-testid="work-plan-applies-to-unit"
+          value={app.unitId ?? ""}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange([{ kind: "SPECIFIC_UNIT", unitId: event.target.value || null }])
+          }
+        >
+          <option value="">Select a location</option>
+          {units.map((unit) => (
+            <option key={unit.id} value={unit.id}>
+              {unit.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
+      {app.kind === "OPERATIONAL_TYPE" ? (
+        <select
+          className="w-full rounded-md border px-2 py-1.5 text-sm"
+          data-testid="work-plan-applies-to-operational-type"
+          value={app.operationalTypeKey ?? ""}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange([
+              {
+                kind: "OPERATIONAL_TYPE",
+                operationalTypeKey: event.target.value || null,
+              },
+            ])
+          }
+        >
+          <option value="">Select an operational type</option>
+          {typeOptions.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.name} locations
+            </option>
+          ))}
+        </select>
+      ) : null}
+      {app.kind === "SPACE_TYPE" ? (
+        <select
+          className="w-full rounded-md border px-2 py-1.5 text-sm"
+          data-testid="work-plan-applies-to-space-type"
+          value={app.spaceType ?? ""}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange([
+              {
+                kind: "SPACE_TYPE",
+                spaceType: (event.target.value || null) as NonNullable<
+                  WorkPlanDraftInput["applicabilities"]
+                >[number]["spaceType"],
+              },
+            ])
+          }
+        >
+          <option value="">Select a space type</option>
+          {SPACE_TYPE_OPTIONS.map((option) => (
+            <option key={option.value ?? "none"} value={option.value ?? ""}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
     </div>
   );
 }

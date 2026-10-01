@@ -108,6 +108,8 @@ export function cycleAppliesToUnit(
     }
     case "ROOM_TYPE":
       if (!cycle.roomTypeKey) return false;
+      // Legacy fail-open: missing child room-type keys match every ROOM_TYPE cycle.
+      // Registered for retirement. Location Functions do not use this branch.
       if (!unit.childRoomTypeKeys) return true;
       return unit.childRoomTypeKeys.includes(cycle.roomTypeKey);
     case "OPERATIONAL_TYPES": {

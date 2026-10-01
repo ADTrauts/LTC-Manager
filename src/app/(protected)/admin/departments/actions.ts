@@ -9,6 +9,7 @@ import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 import { assertFacilityAdministratorAction } from "@/lib/facility-admin-guard";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
+import { createFacilityDepartment } from "@/lib/departments/create-department";
 import { prisma } from "@/lib/prisma";
 
 function toOptional(value: FormDataEntryValue | null) {
@@ -25,6 +26,47 @@ function revalidateDepartmentRelatedViews(departmentId?: string) {
   revalidatePath("/department/settings");
   revalidatePath("/employees");
   revalidatePath("/employees", "layout");
+}
+
+export type CreateDepartmentActionResult =
+  | { ok: true; departmentId: string; key: string; name: string }
+  | { ok: false; message: string };
+
+const createDepartmentSchema = z.object({
+  name: z.string().trim().min(1, "Enter a department name.").max(80),
+});
+
+export async function createDepartmentAction(
+  formData: FormData,
+): Promise<CreateDepartmentActionResult> {
+  const session = await requireFacilitySession();
+  assertFacilityAdministratorAction(session.role);
+
+  const parsed = createDepartmentSchema.safeParse({
+    name: formData.get("name"),
+  });
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Enter a department name." };
+  }
+
+  try {
+    const created = await createFacilityDepartment({
+      facilityId: session.facilityId,
+      name: parsed.data.name,
+    });
+    revalidateDepartmentRelatedViews(created.id);
+    return {
+      ok: true,
+      departmentId: created.id,
+      key: created.key,
+      name: created.name,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not create the department.",
+    };
+  }
 }
 
 const departmentHeadSchema = z.object({

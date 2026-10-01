@@ -69,19 +69,22 @@ test("occurrence key is deterministic for plan work", () => {
   assert.match(a, /^plan\|/);
 });
 
-test("draft assignments never produce requirements without confirmed assignment", () => {
+test("unit-shared requirements exist without a confirmed assignment", () => {
   const reqs = resolveWorkRequirements({
     facilityId: "f1",
     departmentId: "d1",
     operationalDateKey: "2026-08-06",
     now: new Date("2026-08-06T15:00:00.000Z"),
+    facilityTimezone: "America/New_York",
     unitId: "u1",
     publishedPlans: [plan],
     publishedCycles: [],
     confirmedAssignments: [],
     existingOccurrences: [],
   });
-  assert.equal(reqs.length, 0);
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0]!.assignedEmployeeId, null);
+  assert.equal(reqs[0]!.occurrenceId, null);
 });
 
 test("confirmed unit assignment derives unit-shared requirement", () => {
@@ -261,7 +264,7 @@ test("Dietary DEPARTMENT_UNIT plan without spaces still one unit-level requireme
   assert.equal(reqs[0]!.unitId, "u1");
 });
 
-test("space expansion still requires confirmed assignment", () => {
+test("space expansion does not require a confirmed assignment", () => {
   const spacePlan: PublishedWorkPlanForResolve = {
     ...plan,
     stableKey: "routine_room_clean",
@@ -280,5 +283,6 @@ test("space expansion still requires confirmed assignment", () => {
     confirmedAssignments: [],
     existingOccurrences: [],
   });
-  assert.equal(reqs.length, 0);
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0]!.spaceId, "r1");
 });

@@ -3,11 +3,8 @@ import type { ReactNode } from "react";
 
 import { DepartmentManagerForm } from "@/app/(protected)/admin/departments/[departmentId]/department-manager-form";
 import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/department-visibility-form";
-import {
-  departmentAdminHref,
-  type DepartmentAdminView,
-} from "@/lib/department-administration";
 import { AppIcons } from "@/lib/design-system/icons";
+import type { OverviewGuidanceRow } from "@/lib/department-administration/overview-guidance";
 
 export type OverviewEmployeeOption = {
   id: string;
@@ -27,6 +24,10 @@ export type OverviewDepartmentSettings = {
   publishedCycleCount: number;
   cycleSummary: string;
   activeTeamCount: number;
+  productName: string;
+  isVssylProduct: boolean;
+  licensed: boolean | null;
+  guidanceRows: OverviewGuidanceRow[];
 };
 
 type Props = {
@@ -38,8 +39,6 @@ type Props = {
     withPattern: number;
   };
   settings: OverviewDepartmentSettings;
-  view?: DepartmentAdminView | null;
-  profilesEnabled?: boolean;
   logsSection?: ReactNode;
 };
 
@@ -83,24 +82,38 @@ function ConfigRow({
   );
 }
 
+const ROW_ICONS: Record<OverviewGuidanceRow["id"], typeof AppIcons.locations> = {
+  locations: AppIcons.locations,
+  rhythm: AppIcons.todaysWork,
+  people: AppIcons.employees,
+  work: AppIcons.todaysWork,
+  evidence: AppIcons.logs,
+};
+
 export function OverviewPanel({
   department,
   locationCoverage,
   settings,
-  view,
-  profilesEnabled = false,
   logsSection,
 }: Props) {
-  void view;
-  void profilesEnabled;
-
-  const LocationIcon = AppIcons.locations;
-  const TeamIcon = AppIcons.employees;
-  const CycleIcon = AppIcons.todaysWork;
+  void locationCoverage;
 
   return (
     <div className="max-w-4xl space-y-5" data-testid="department-overview-panel">
       {logsSection ? <div data-testid="department-logs-slot">{logsSection}</div> : null}
+
+      <section data-testid="overview-product-identity">
+        <p className="text-lg font-semibold text-zinc-900">{settings.productName}</p>
+        {settings.isVssylProduct ? (
+          <p className="text-xs text-zinc-500">
+            Vssyl Department Product
+            {settings.licensed === true ? " · Licensed" : null}
+            {settings.licensed === false ? " · Not on the current plan" : null}
+          </p>
+        ) : (
+          <p className="text-xs text-zinc-500">{department.name}</p>
+        )}
+      </section>
 
       <section data-testid="overview-department-manager">
         <h2 className="text-sm font-semibold text-zinc-900">Department Manager</h2>
@@ -109,7 +122,7 @@ export function OverviewPanel({
         ) : (
           <p className="mt-1 text-sm text-zinc-500">No Department Manager assigned.</p>
         )}
-        <p className="text-xs text-zinc-500">Department Manager</p>
+        <p className="text-xs text-zinc-500">Optional. Not required for Run.</p>
         {settings.canEditHead ? (
           <div className="mt-2">
             <DepartmentManagerForm
@@ -125,19 +138,26 @@ export function OverviewPanel({
 
       <section className="space-y-0" aria-labelledby="dept-config-heading">
         <h2 id="dept-config-heading" className="text-sm font-semibold text-zinc-900">
-          Configuration
+          This department
         </h2>
         <div className="mt-1 divide-y divide-zinc-100">
+          {settings.guidanceRows.map((row) => {
+            const Icon = ROW_ICONS[row.id];
+            return (
+              <ConfigRow
+                key={row.id}
+                icon={<Icon className="h-4 w-4" aria-hidden />}
+                title={row.title}
+                status={row.status}
+                description={row.description}
+                href={row.href}
+                actionLabel={row.actionLabel}
+                testId={row.testId}
+              />
+            );
+          })}
           <ConfigRow
-            icon={<LocationIcon className="h-4 w-4" aria-hidden />}
-            title="Locations"
-            status={`${locationCoverage.total} assigned location${locationCoverage.total === 1 ? "" : "s"}`}
-            description={`Where ${department.name} operates.`}
-            href={departmentAdminHref(department.id, "locations")}
-            actionLabel="View locations →"
-          />
-          <ConfigRow
-            icon={<TeamIcon className="h-4 w-4" aria-hidden />}
+            icon={<AppIcons.employees className="h-4 w-4" aria-hidden />}
             title="Teams"
             status={
               settings.activeTeamCount === 0
@@ -145,17 +165,9 @@ export function OverviewPanel({
                 : `${settings.activeTeamCount} active team${settings.activeTeamCount === 1 ? "" : "s"}`
             }
             description={`How ${department.name} is organizationally divided.`}
-            href={departmentAdminHref(department.id, "teams")}
+            href={`/build/departments/${department.id}?tab=teams`}
             actionLabel="Manage teams →"
             testId="overview-teams-summary"
-          />
-          <ConfigRow
-            icon={<CycleIcon className="h-4 w-4" aria-hidden />}
-            title="Operational Cycles"
-            status={settings.cycleSummary}
-            description="Recurring operating rhythm."
-            href={departmentAdminHref(department.id, "teams")}
-            actionLabel="Manage on Teams →"
           />
         </div>
       </section>

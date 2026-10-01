@@ -91,6 +91,10 @@ export type RuntimeCurrentOperation = {
     cycleVersion: number;
     label: string;
     hierarchyLabel: string | null;
+    /** Operational Cycle (root PERIOD) display name. */
+    cycleLabel: string | null;
+    /** Active Phase display name, or null when Cycle is active with no Phase. */
+    phaseLabel: string | null;
     window: { start: string | null; end: string | null };
     timing: RuntimeTimeTriple;
   } | null;

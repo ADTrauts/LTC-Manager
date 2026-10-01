@@ -19,8 +19,6 @@ type Props = {
 
 export default async function WorkPlanDetailPage({ params }: Props) {
   noStore();
-  if (!isAnyStaffingOperationalFeatureEnabled("workPlans")) redirect("/staffing");
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
   if (!hasAtLeastRole(session.role, "MANAGER")) redirect("/workspace");
@@ -28,6 +26,9 @@ export default async function WorkPlanDetailPage({ params }: Props) {
   const { workPlanId } = await params;
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("workPlans", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
   const department = await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,

@@ -179,7 +179,7 @@ test("legacy SERVICE_STARTED period without KEY_TIME stays LEGACY", () => {
   assert.equal(detectRunModelProvenance(legacy), "LEGACY_MEAL_SERVICE");
 });
 
-test("draft KEY_TIME is ignored for provenance and runtime", () => {
+test("draft KEY_TIME is ignored for runtime; published PERIOD is still current model", () => {
   const cycles = [
     cycle({
       stableKey: "lunch",
@@ -199,7 +199,7 @@ test("draft KEY_TIME is ignored for provenance and runtime", () => {
       keyTimeGroups: [{ id: "g", dueLocal: "12:00", spaceIds: [NAVAL] }],
     }),
   ];
-  assert.equal(detectRunModelProvenance(cycles), "LEGACY_MEAL_SERVICE");
+  assert.equal(detectRunModelProvenance(cycles), "NEW_PERIOD_KEY_TIME");
   const view = presentLocationRunOperation({
     cycles,
     timings: [],
@@ -211,6 +211,7 @@ test("draft KEY_TIME is ignored for provenance and runtime", () => {
     nowLocalHhMm: "10:30",
   });
   assert.equal(view.keyTimes.length, 0);
+  assert.equal(view.currentOperation.state, "ACTIVE");
 });
 
 test("product proof: Naval Park Servery at 10:30 / 12:00 / 13:45 / 14:01", () => {
@@ -219,9 +220,12 @@ test("product proof: Naval Park Servery at 10:30 / 12:00 / 13:45 / 14:01", () =>
     provenance: "NEW_PERIOD_KEY_TIME",
     title: "Naval Park Servery",
     roomTypeLabel: "Servery",
-    current: "Lunch → Prep",
+    current: "Lunch",
+    cycle: "Lunch",
+    phase: "Prep",
     window: "10:00 AM–11:30 AM",
     keyTimes: [{ label: "1st Round Lunch Due", due: "12:00 PM", status: "upcoming" }],
+    nextKeyPoint: { label: "1st Round Lunch Due", due: "12:00 PM" },
     attentionKind: "upcoming",
   });
 
@@ -231,25 +235,33 @@ test("product proof: Naval Park Servery at 10:30 / 12:00 / 13:45 / 14:01", () =>
     title: "Naval Park Servery",
     roomTypeLabel: "Servery",
     current: "Lunch",
+    cycle: "Lunch",
+    phase: null,
     window: "10:00 AM–2:00 PM",
     keyTimes: [{ label: "1st Round Lunch Due", due: "12:00 PM", status: "due" }],
+    nextKeyPoint: { label: "1st Round Lunch Due", due: "12:00 PM" },
     attentionKind: "needs_attention",
   });
-  assert.notEqual(t1200.current, "Lunch → Prep");
+  assert.equal(t1200.phase, null);
 
   const t1345 = serializeLocationRunProof(presentAt("13:45"));
   assert.deepEqual(t1345, {
     provenance: "NEW_PERIOD_KEY_TIME",
     title: "Naval Park Servery",
     roomTypeLabel: "Servery",
-    current: "Lunch → Cleanup",
+    current: "Lunch",
+    cycle: "Lunch",
+    phase: "Cleanup",
     window: "1:30 PM–2:00 PM",
     keyTimes: [{ label: "1st Round Lunch Due", due: "12:00 PM", status: "overdue" }],
+    nextKeyPoint: { label: "1st Round Lunch Due", due: "12:00 PM" },
     attentionKind: "needs_attention",
   });
 
   const t1401 = serializeLocationRunProof(presentAt("14:01"));
   assert.equal(t1401.current, null);
+  assert.equal(t1401.cycle, null);
+  assert.equal(t1401.phase, null);
   assert.equal(t1401.window, null);
   assert.equal(t1401.keyTimes[0]?.status, "overdue");
 });
@@ -549,25 +561,32 @@ test("Dinner fixture: 16:17 Prep active, Dinner Due upcoming; 17:01 Prep off; 19
     provenance: "NEW_PERIOD_KEY_TIME",
     title: "Naval Park Servery",
     roomTypeLabel: "Servery",
-    current: "Dinner → Prep",
+    current: "Dinner",
+    cycle: "Dinner",
+    phase: "Prep",
     window: "3:30 PM–5:00 PM",
     keyTimes: [{ label: "Dinner Due", due: "5:00 PM", status: "upcoming" }],
+    nextKeyPoint: { label: "Dinner Due", due: "5:00 PM" },
     attentionKind: "upcoming",
   });
   assert.equal(presentationContainsLegacyMealCopy(JSON.stringify(t1617)), false);
 
   const t1701 = serializeLocationRunProof(presentDinnerAt("17:01"));
   assert.equal(t1701.current, "Dinner");
-  assert.notEqual(t1701.current, "Dinner → Prep");
+  assert.equal(t1701.cycle, "Dinner");
+  assert.equal(t1701.phase, null);
   assert.equal(t1701.keyTimes[0]?.status, "overdue");
   assert.equal(t1701.attentionKind, "needs_attention");
 
   const t1915 = serializeLocationRunProof(presentDinnerAt("19:15"));
-  assert.equal(t1915.current, "Dinner → Cleanup");
+  assert.equal(t1915.current, "Dinner");
+  assert.equal(t1915.phase, "Cleanup");
   assert.equal(t1915.window, "7:00 PM–8:00 PM");
 
   const t2001 = serializeLocationRunProof(presentDinnerAt("20:01"));
   assert.equal(t2001.current, null);
+  assert.equal(t2001.cycle, null);
+  assert.equal(t2001.phase, null);
   assert.equal(t2001.window, null);
 });
 

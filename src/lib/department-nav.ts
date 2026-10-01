@@ -1,13 +1,22 @@
+import {
+  hasDietaryDomainCapabilities,
+  parseOperationalDepartmentKey,
+} from "@/lib/department-admission";
 import type { NavRouteItem } from "@/lib/nav-zones";
 
 /** Cookie stores facility department cuid (operational scope). */
 export const ACTIVE_DEPARTMENT_COOKIE = "ltc_active_department";
 
-export type OperationalDepartmentKey = "DIETARY" | "EVS" | "PLANT";
+/**
+ * Any department key, including user-created departments.
+ * Domain modules remain the exact strings DIETARY / EVS / PLANT.
+ */
+export type OperationalDepartmentKey = string;
 
 type NavDeptRule = { pathPrefix: string } & (
   | { visibility: "shared" }
-  | { visibility: "department"; keys: OperationalDepartmentKey[] }
+  | { visibility: "sharedOperational" }
+  | { visibility: "dietaryDomain" }
 );
 
 /**
@@ -25,12 +34,11 @@ export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/today", visibility: "shared" },
   { pathPrefix: "/reports", visibility: "shared" },
   { pathPrefix: "/department", visibility: "shared" },
-  { pathPrefix: "/menus", visibility: "department", keys: ["DIETARY"] },
-  /** Phase 10A/11B: Dietary + EVS thin Asset Issue reporting; Plant remains allowed. */
-  { pathPrefix: "/assets", visibility: "department", keys: ["DIETARY", "EVS", "PLANT"] },
-  { pathPrefix: "/asset-issues", visibility: "department", keys: ["DIETARY", "EVS", "PLANT"] },
-  { pathPrefix: "/repairs", visibility: "department", keys: ["DIETARY", "EVS", "PLANT"] },
-  { pathPrefix: "/issues", visibility: "department", keys: ["DIETARY", "EVS", "PLANT"] },
+  { pathPrefix: "/menus", visibility: "dietaryDomain" },
+  { pathPrefix: "/assets", visibility: "sharedOperational" },
+  { pathPrefix: "/asset-issues", visibility: "sharedOperational" },
+  { pathPrefix: "/repairs", visibility: "sharedOperational" },
+  { pathPrefix: "/issues", visibility: "sharedOperational" },
   { pathPrefix: "/admin", visibility: "shared" },
   { pathPrefix: "/unit", visibility: "shared" },
 ];
@@ -62,16 +70,20 @@ function ruleForPath(pathname: string): NavDeptRule | undefined {
 
 export function pathnameAllowedForDepartmentKey(
   pathname: string,
-  departmentKey: OperationalDepartmentKey | null,
+  departmentKey: string | null,
 ): boolean {
   const rule = ruleForPath(pathname);
   if (!rule || rule.visibility === "shared") {
     return true;
   }
-  if (!departmentKey) {
+  const key = parseOperationalDepartmentKey(departmentKey);
+  if (!key) {
     return false;
   }
-  return rule.keys.includes(departmentKey);
+  if (rule.visibility === "sharedOperational") {
+    return true;
+  }
+  return hasDietaryDomainCapabilities(key);
 }
 
 export function filterNavItemsForDepartmentScope(
@@ -79,7 +91,7 @@ export function filterNavItemsForDepartmentScope(
   opts: {
     /** When true, bypass department hiding (facility-wide staffing data still handled elsewhere). */
     showAllDepartmentNav: boolean;
-    activeOperationalDepartmentKey: OperationalDepartmentKey | null;
+    activeOperationalDepartmentKey: string | null;
   },
 ): NavRouteItem[] {
   if (opts.showAllDepartmentNav) {

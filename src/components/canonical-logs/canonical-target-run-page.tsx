@@ -4,6 +4,9 @@ import { unstable_noStore as noStore } from "next/cache";
 import { PageHeader } from "@/components/design-system";
 import { RunTargetLogsSection } from "@/components/canonical-logs/run-target-logs-section";
 import { hasAtLeastRole } from "@/lib/access";
+import { cookies } from "next/headers";
+
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
@@ -21,13 +24,18 @@ type Props = {
 
 export async function CanonicalTargetRunLogsPage({ target, subtitle, testId }: Props) {
   noStore();
-  if (!isCanonicalLogsEnabled()) {
-    redirect(isAnyStaffingOperationalFeatureEnabled("evidence") ? "/staffing/log-book" : "/logs");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
   if (!hasAtLeastRole(session.role, "STAFF")) redirect("/workspace");
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isCanonicalLogsEnabled()) {
+    redirect(
+      isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey)
+        ? "/staffing/log-book"
+        : "/logs",
+    );
+  }
 
   const view = await loadTargetRunLogs({
     client: prisma,

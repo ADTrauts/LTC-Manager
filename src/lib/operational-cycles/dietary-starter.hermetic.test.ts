@@ -12,16 +12,17 @@ import {
 import { buildDietaryDefaultCyclePlans } from "./defaults";
 import { projectCycleHierarchy } from "./cycle-hierarchy";
 
-test("dietary starter preview is nested Breakfast/Lunch/Dinner with phases and key times", () => {
+test("dietary starter preview is nested Breakfast/Lunch/Dinner with phases and key points", () => {
   const preview = buildDietaryStarterPreview();
   assert.deepEqual(
     preview.map((r) => r.label),
     ["Breakfast", "Lunch", "Dinner"],
   );
   for (const root of preview) {
-    assert.ok(root.children.length >= 3);
+    assert.ok(root.children.length >= 4);
     assert.ok(root.children.every((c) => c.label !== root.label));
     assert.ok(root.children.some((c) => c.label === "Prep"));
+    assert.ok(root.children.some((c) => c.label === "Service"));
     assert.ok(root.children.some((c) => c.label.endsWith(" Due")));
     assert.ok(root.children.some((c) => c.label === "Cleanup"));
   }
@@ -46,6 +47,7 @@ test("starter duplicate detection is stableKey-only (rename-safe)", () => {
   const missing = dietaryStarterPlansToCreate(existing);
   assert.ok(missing.some((p) => p.stableKey === "lunch"));
   assert.ok(missing.some((p) => p.stableKey === "breakfast_prep"));
+  assert.ok(missing.some((p) => p.stableKey === "breakfast_service"));
   assert.ok(!missing.some((p) => p.stableKey === "breakfast"));
   assert.ok(!missing.some((p) => p.stableKey === "breakfast_due"));
   assert.ok(missing.some((p) => p.label === "Prep" && p.parentStableKey === "lunch"));
@@ -77,7 +79,7 @@ test("builder UI uses clickable open targets and nested starter language", () =>
   assert.match(tree, /data-cycle-role="major"/);
   assert.match(tree, /data-cycle-role=\{row\.nodeKind === "KEY_TIME" \? "key_time" : "phase"\}/);
   assert.match(tree, /\+ Add phase/);
-  assert.match(tree, /\+ Add key time/);
+  assert.match(tree, /\+ Add key point/);
   assert.match(tree, /Scope needs review/);
   assert.doesNotMatch(tree, /Legacy scope — edit to update/);
   assert.doesNotMatch(panel, /Already exists/);

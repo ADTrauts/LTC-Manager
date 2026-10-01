@@ -334,10 +334,15 @@ export function projectOperatingLocationFromRuntime(input: {
           state.operation.current?.window.start && state.operation.current.window.end
             ? `${state.operation.current.window.start}–${state.operation.current.window.end}`
             : null,
-        parentLabel: null,
-        phaseLabel: null,
+        parentLabel: state.operation.current?.cycleLabel ?? null,
+        phaseLabel: state.operation.current?.phaseLabel ?? null,
+        cycleLabel: state.operation.current?.cycleLabel ?? null,
+        activePhaseLabels: state.operation.current?.phaseLabel
+          ? [state.operation.current.phaseLabel]
+          : [],
       },
       keyTimes: keyTimeViewFromState(state),
+      nextKeyPoint: null,
       attention: { kind: "none", title: "", description: "" },
     },
   }));

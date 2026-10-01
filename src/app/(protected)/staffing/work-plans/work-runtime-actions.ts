@@ -91,6 +91,7 @@ export async function completeWorkRequirementAction(input: {
   });
   revalidatePath(`/unit/${input.unitId}`);
   revalidatePath("/staffing/operations");
+  revalidatePath("/today");
   return { id: result.occurrence.id, deduplicated: result.deduplicated };
 }
 
