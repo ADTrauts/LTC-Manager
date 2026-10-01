@@ -22,6 +22,9 @@ export type SendTemplatedEmailInput = {
   tag?: string;
   /** Optional override; Postmark templates usually own the subject. */
   subject?: string;
+  /** Overrides the shared sender, e.g. a dedicated support address. */
+  from?: string;
+  replyTo?: string | null;
   headers?: EmailHeader[];
   /** Postmark Metadata; echoed back on delivery/bounce webhooks. */
   metadata?: Record<string, string>;
@@ -51,6 +54,7 @@ type PostmarkLikeClient = {
     To: string;
     TemplateAlias: string;
     TemplateModel: Record<string, unknown>;
+    ReplyTo?: string;
     Tag?: string;
     MessageStream?: string;
     InlineCss?: boolean;
@@ -165,10 +169,11 @@ export async function sendTemplatedEmail(
 
   try {
     const response = await client.sendEmailWithTemplate({
-      From: getEmailFromAddress(env),
+      From: input.from?.trim() || getEmailFromAddress(env),
       To: to,
       TemplateAlias: templateAlias,
       TemplateModel: templateModel,
+      ...(input.replyTo?.trim() ? { ReplyTo: input.replyTo.trim() } : {}),
       Tag: input.tag?.trim() || undefined,
       MessageStream: getEmailMessageStream(env),
       InlineCss: true,

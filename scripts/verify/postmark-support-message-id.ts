@@ -10,7 +10,7 @@
  */
 import { ServerClient } from "postmark";
 
-import { getEmailFromAddress } from "@/lib/email";
+import { getSupportFromAddress } from "@/lib/support/config";
 import {
   formatMessageIdHeader,
   generateSupportInternetMessageId,
@@ -42,12 +42,13 @@ async function main() {
     process.exit(1);
   }
 
-  const internetMessageId = generateSupportInternetMessageId(
-    messageIdDomainFromAddress(getEmailFromAddress()),
-  );
+  const from = getSupportFromAddress();
+  const internetMessageId = generateSupportInternetMessageId(messageIdDomainFromAddress(from));
   const expected = formatMessageIdHeader(internetMessageId);
   const result = await postmarkSupportReplySender({
     to,
+    from,
+    replyTo: null,
     displayName: "Message-ID check",
     facilityDisplayName: null,
     ticketNumber: "VSS-0000",

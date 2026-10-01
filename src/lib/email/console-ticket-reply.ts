@@ -52,6 +52,8 @@ export async function sendConsoleTicketReplyEmail(
     emailSubject: string;
     ticketSubject: string;
     replyBody: string;
+    from?: string;
+    replyTo?: string | null;
     headers?: EmailHeader[];
     metadata?: Record<string, string>;
   },
@@ -60,6 +62,8 @@ export async function sendConsoleTicketReplyEmail(
   return sendTemplatedEmail(
     {
       to: input.to,
+      from: input.from,
+      replyTo: input.replyTo,
       templateAlias: CONSOLE_TICKET_REPLY_TEMPLATE_ALIAS,
       templateModel: buildConsoleTicketReplyTemplateModel(input),
       tag: "console-ticket-reply",

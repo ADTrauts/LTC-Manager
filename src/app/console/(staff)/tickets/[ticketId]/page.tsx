@@ -9,11 +9,18 @@ import {
   updateSupportTicketDetailsAction,
 } from "@/app/console/(staff)/tickets/actions";
 import { SupportSubmitButton } from "@/components/harbor-console/support-submit-button";
-import { getEmailFromAddress } from "@/lib/email";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
+import { getSupportFromAddress, isSupportReplyRoutingConfigured } from "@/lib/support/config";
 import { isSupportTicketErrorCode, SUPPORT_TICKET_ERROR_MESSAGE } from "@/lib/support/errors";
 import { newClientSubmissionId } from "@/lib/support/identifiers";
+import {
+  inboundDisplayBody,
+  isAutoSubmitted,
+  isPossibleSpam,
+  readAttachmentManifest,
+  readStoredHeaders,
+} from "@/lib/support/inbound-email";
 import {
   SUPPORT_DELIVERY_STATUS_LABEL,
   SUPPORT_TICKET_PRIORITIES,
@@ -63,6 +70,7 @@ export default async function ConsoleTicketPage({
       assignedStaff: { select: { displayName: true } },
       facilityId: true,
       facility: { select: { id: true, displayName: true } },
+      contactId: true,
       contact: { select: { email: true, displayName: true, userId: true } },
       messages: {
         orderBy: { createdAt: "asc" },
@@ -70,8 +78,15 @@ export default async function ConsoleTicketPage({
           id: true,
           kind: true,
           bodyText: true,
+          bodyHtml: true,
+          strippedReplyText: true,
           fromEmail: true,
+          fromName: true,
           toEmails: true,
+          receivedAt: true,
+          contactId: true,
+          inboundHeaders: true,
+          attachmentManifest: true,
           deliveryStatus: true,
           deliveryError: true,
           sentAt: true,
@@ -88,6 +103,7 @@ export default async function ConsoleTicketPage({
           fromValue: true,
           toValue: true,
           metadata: true,
+          causedByMessageId: true,
           createdAt: true,
           actorStaff: { select: { displayName: true } },
         },
@@ -115,10 +131,12 @@ export default async function ConsoleTicketPage({
   }
 
   const timeline = mergeSupportTimeline(
-    ticket.messages.map((message) => ({
+    ticket.messages.map((message) => {
+      const headers = message.kind === "INBOUND" ? readStoredHeaders(message.inboundHeaders) : [];
+      return {
       id: message.id,
       kind: message.kind,
-      bodyText: message.bodyText,
+      bodyText: message.kind === "INBOUND" ? inboundDisplayBody(message) : message.bodyText,
       authorName: message.authorStaff?.displayName ?? null,
       contactEmail: message.contact?.email ?? null,
       fromEmail: message.fromEmail,
@@ -127,11 +145,19 @@ export default async function ConsoleTicketPage({
       deliveryError: message.deliveryError,
       sentAt: message.sentAt,
       createdAt: message.createdAt,
-    })),
+      fromName: message.fromName,
+      receivedAt: message.receivedAt,
+      fromRequester: message.kind !== "INBOUND" || message.contactId === ticket.contactId,
+      attachments: readAttachmentManifest(message.attachmentManifest),
+      autoSubmitted: isAutoSubmitted(headers),
+      possibleSpam: isPossibleSpam(headers),
+      };
+    }),
     ticket.events.map((event) => ({
       id: event.id,
       type: event.type,
       actorName: event.actorStaff?.displayName ?? null,
+      causedByMessageId: event.causedByMessageId,
       fromValue: event.fromValue,
       toValue: event.toValue,
       metadata: event.metadata,
@@ -213,8 +239,10 @@ export default async function ConsoleTicketPage({
                 <textarea name="body" required maxLength={8000} rows={5} className={INPUT_CLASS} />
               </label>
               <p className="text-xs text-[var(--text-secondary)]">
-                Emails {ticket.contact.email} from {getEmailFromAddress()}. Customer email replies don&apos;t
-                reach Console yet.
+                Emails {ticket.contact.email} from {getSupportFromAddress()}.{" "}
+                {isSupportReplyRoutingConfigured()
+                  ? "When the customer replies, it comes back to this ticket."
+                  : "Reply routing isn't configured on this server, so customer replies won't reach Console."}
               </p>
               <div className="flex flex-wrap items-end gap-3">
                 <label className="block text-sm">
@@ -389,16 +417,49 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
   }
 
   if (message.kind === "INBOUND") {
+    const sender = message.fromEmail ?? message.contactEmail ?? "Unknown sender";
+    const attachments = message.attachments ?? [];
     return (
-      <li className="rounded-md border border-[var(--border)] bg-white p-4">
+      <li className="rounded-md border border-[var(--border)] border-l-4 border-l-sky-500 bg-sky-50/40 p-4">
         <p className="text-xs text-[var(--text-secondary)]">
           <span className="font-semibold uppercase tracking-wide text-[var(--foreground)]">Customer email</span>
           {" · "}
-          {message.fromEmail ?? message.contactEmail ?? "Unknown sender"}
-          {" · "}
-          {formatTime(message.createdAt)}
+          <span className="text-[var(--foreground)]">{message.fromName ? `${message.fromName} <${sender}>` : sender}</span>
+          {" · received "}
+          {formatTime(message.receivedAt ?? message.createdAt)}
         </p>
-        <p className="mt-2 whitespace-pre-wrap text-sm">{message.bodyText}</p>
+        {message.fromRequester === false || message.autoSubmitted || message.possibleSpam ? (
+          <p className="mt-1 flex flex-wrap gap-2 text-xs">
+            {message.fromRequester === false ? (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900">Not the ticket&apos;s requester</span>
+            ) : null}
+            {message.autoSubmitted ? (
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Automatic reply · status not changed</span>
+            ) : null}
+            {message.possibleSpam ? (
+              <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-800">Postmark flagged as possible spam</span>
+            ) : null}
+          </p>
+        ) : null}
+        <p className="mt-2 whitespace-pre-wrap text-sm">{message.bodyText || "(No message text)"}</p>
+        {attachments.length > 0 ? (
+          <div className="mt-3 rounded border border-[var(--border)] bg-white px-3 py-2 text-xs">
+            <p className="font-medium">
+              {attachments.length} {attachments.length === 1 ? "attachment" : "attachments"} received
+            </p>
+            <ul className="mt-1 space-y-0.5 text-[var(--text-secondary)]">
+              {attachments.map((attachment, index) => (
+                <li key={`${attachment.name ?? "attachment"}-${index}`}>
+                  {attachment.name ?? "Unnamed file"}
+                  {attachment.contentType ? ` · ${attachment.contentType}` : ""}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[var(--text-secondary)]">
+              Attachment storage isn&apos;t enabled yet. Ask the customer to resend if you need the file.
+            </p>
+          </div>
+        ) : null}
       </li>
     );
   }

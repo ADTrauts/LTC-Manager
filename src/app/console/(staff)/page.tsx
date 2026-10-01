@@ -4,13 +4,20 @@ import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborToday } from "@/lib/harbor-console/queries";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_SUPPORT_STATUSES } from "@/lib/support/queues";
+import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 
 export default async function HarborTodayPage() {
   await requireHarborStaff();
-  const [{ stuckSetups, paymentProblems }, openTickets] = await Promise.all([
+  const [{ stuckSetups, paymentProblems }, openTickets, newTickets] = await Promise.all([
     loadHarborToday(prisma),
     prisma.supportTicket.count({
       where: { status: { in: ACTIVE_SUPPORT_STATUSES } },
+    }),
+    prisma.supportTicket.findMany({
+      where: { status: "NEW" },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: { id: true, number: true, subject: true, contact: { select: { email: true } } },
     }),
   ]);
 
@@ -29,6 +36,15 @@ export default async function HarborTodayPage() {
         <Stat value={String(paymentProblems.length)} label="Payment problems" />
       </section>
 
+      <Queue
+        title="New tickets"
+        empty="No new tickets."
+        rows={newTickets.map((row) => ({
+          href: `/console/tickets/${row.id}`,
+          title: `${formatSupportTicketNumber(row.number)} · ${row.subject}`,
+          detail: row.contact.email,
+        }))}
+      />
       <Queue
         title="Stuck setups"
         empty="No facilities are still in setup."

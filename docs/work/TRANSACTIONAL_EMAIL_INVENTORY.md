@@ -15,7 +15,7 @@
 | Password reset | `/forgot-password` for facility `User` accounts | `password-reset` | Live (Postmark template + app) |
 | Signup email verification | Public `/signup` when Postmark is configured | `signup-email-verification` | Live (Postmark template + app) |
 | Account invite | Admin creates EMAIL_PASSWORD employee / promotion | `account-invite` | Live (Postmark template + app) |
-| Console ticket reply | Staff replies on a Vssyl Console support ticket | `console-ticket-reply` | Live. Template Subject must be `{{subject}}` (see `docs/architecture/SUPPORT_TICKETS.md`) |
+| Console ticket reply | Staff replies on a Vssyl Console support ticket | `console-ticket-reply` | Live. Sender `SUPPORT_FROM_EMAIL`, routed Reply-To. Template Subject must be `{{subject}}` (see `docs/architecture/SUPPORT_TICKETS.md`) |
 
 ---
 

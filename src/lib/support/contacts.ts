@@ -29,7 +29,7 @@ async function findSafeUserMatch(tx: Prisma.TransactionClient, email: string) {
 export async function upsertSupportContact(
   tx: Prisma.TransactionClient,
   input: { email: string; displayName?: string | null },
-): Promise<{ id: string; email: string }> {
+): Promise<{ id: string; email: string; facilityId: string | null }> {
   const email = normalizeSupportEmail(input.email);
   if (!email) {
     throw new Error("Support contact email is required.");
@@ -50,7 +50,7 @@ export async function upsertSupportContact(
         userId: match?.id ?? null,
         facilityId: match?.facilityId ?? null,
       },
-      select: { id: true, email: true },
+      select: { id: true, email: true, facilityId: true },
     });
   }
 
@@ -70,5 +70,9 @@ export async function upsertSupportContact(
   if (Object.keys(data).length > 0) {
     await tx.supportContact.update({ where: { id: existing.id }, data });
   }
-  return { id: existing.id, email: existing.email };
+  return {
+    id: existing.id,
+    email: existing.email,
+    facilityId: (data.facilityId as string | undefined) ?? existing.facilityId,
+  };
 }

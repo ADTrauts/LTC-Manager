@@ -85,4 +85,36 @@ test("console ticket reply forwards headers and metadata to Postmark", async () 
     supportMessageId: "m1",
   });
   assert.equal((message.TemplateModel as Record<string, unknown>).subject, "[VSS-1001] Billing");
+  assert.equal(message.From, "noreply@vssyl.com");
+  assert.equal("ReplyTo" in message, false);
+});
+
+test("console ticket reply uses the support sender and routed Reply-To when given", async () => {
+  resetPostmarkClientForTests();
+  let sent: Record<string, unknown> | null = null;
+  await sendConsoleTicketReplyEmail(
+    {
+      to: "ada@example.com",
+      from: "Vssyl Support <support@vssyl.com>",
+      replyTo: "support+0123456789abcdef0123456789abcdef01234567@reply.vssyl.com",
+      displayName: "Ada",
+      facilityDisplayName: null,
+      ticketNumber: "VSS-1001",
+      emailSubject: "[VSS-1001] Billing",
+      ticketSubject: "Billing",
+      replyBody: "Hello",
+    },
+    {
+      env: { POSTMARK_SERVER_TOKEN: "server-token", POSTMARK_FROM_EMAIL: "noreply@vssyl.com" },
+      client: {
+        sendEmailWithTemplate: async (message) => {
+          sent = message;
+          return { MessageID: "pm-2" };
+        },
+      },
+    },
+  );
+  const message = sent as unknown as Record<string, unknown>;
+  assert.equal(message.From, "Vssyl Support <support@vssyl.com>");
+  assert.equal(message.ReplyTo, "support+0123456789abcdef0123456789abcdef01234567@reply.vssyl.com");
 });

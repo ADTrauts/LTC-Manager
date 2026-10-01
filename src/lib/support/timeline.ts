@@ -7,6 +7,7 @@ import type {
   SupportTicketType,
 } from "@prisma/client";
 
+import type { SupportAttachmentManifestEntry } from "./inbound-email";
 import {
   SUPPORT_TICKET_PRIORITY_LABEL,
   SUPPORT_TICKET_STATUS_LABEL,
@@ -25,12 +26,20 @@ export type SupportTimelineMessage = {
   deliveryError: string | null;
   sentAt: Date | null;
   createdAt: Date;
+  fromName?: string | null;
+  receivedAt?: Date | null;
+  /** False when an inbound email came from someone other than the ticket's requester. */
+  fromRequester?: boolean;
+  attachments?: SupportAttachmentManifestEntry[];
+  autoSubmitted?: boolean;
+  possibleSpam?: boolean;
 };
 
 export type SupportTimelineEvent = {
   id: string;
   type: SupportTicketEventType;
   actorName: string | null;
+  causedByMessageId?: string | null;
   fromValue: string | null;
   toValue: string | null;
   metadata: unknown;
@@ -81,12 +90,20 @@ function priorityLabel(value: string | null): string {
 
 export function describeSupportEvent(event: SupportTimelineEvent): string {
   switch (event.type) {
-    case "CREATED":
-      return metadataString(event.metadata, "migratedFrom")
-        ? "Ticket opened (moved from the earlier Console ticket list; status history before the move wasn't recorded)"
-        : "Ticket opened";
-    case "STATUS_CHANGED":
-      return `Status changed from ${statusLabel(event.fromValue)} to ${statusLabel(event.toValue)}`;
+    case "CREATED": {
+      if (metadataString(event.metadata, "migratedFrom")) {
+        return "Ticket opened (moved from the earlier Console ticket list; status history before the move wasn't recorded)";
+      }
+      if (metadataString(event.metadata, "source") !== "EMAIL") return "Ticket opened";
+      const previous = metadataString(event.metadata, "previousTicketNumber");
+      return previous
+        ? `Ticket opened from email (a reply to ${previous}, which is closed)`
+        : "Ticket opened from email";
+    }
+    case "STATUS_CHANGED": {
+      const change = `Status changed from ${statusLabel(event.fromValue)} to ${statusLabel(event.toValue)}`;
+      return !event.actorName && event.causedByMessageId ? `${change} because the customer replied` : change;
+    }
     case "PRIORITY_CHANGED":
       return `Priority changed from ${priorityLabel(event.fromValue)} to ${priorityLabel(event.toValue)}`;
     case "TYPE_CHANGED":

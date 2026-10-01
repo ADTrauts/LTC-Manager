@@ -948,6 +948,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes: "Stripe webhook. Authenticated by signature verification against the webhook secret, not by session.",
   },
+  {
+    pattern: "/api/support/inbound-email",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "support",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Postmark inbound email webhook. Authenticated by HTTP Basic Auth against POSTMARK_INBOUND_WEBHOOK_USERNAME/PASSWORD, not by session.",
+  },
 
   // ── Authenticated APIs, authorization completed in the handler ────────────
   {

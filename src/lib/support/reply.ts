@@ -4,12 +4,9 @@ import type {
   SupportTicketStatus,
 } from "@prisma/client";
 
-import {
-  getEmailFromAddress,
-  sendConsoleTicketReplyEmail,
-  type SendTransactionalEmailResult,
-} from "@/lib/email";
+import { sendConsoleTicketReplyEmail, type SendTransactionalEmailResult } from "@/lib/email";
 
+import { getSupportFromAddress, getSupportReplyToAddress } from "./config";
 import { SupportTicketError } from "./errors";
 import {
   formatMessageIdHeader,
@@ -25,6 +22,8 @@ import { formatSupportEmailSubject, formatSupportTicketNumber } from "./ticket-n
 
 export type SupportReplyEmail = {
   to: string;
+  from: string;
+  replyTo: string | null;
   displayName: string;
   facilityDisplayName: string | null;
   ticketNumber: string;
@@ -48,6 +47,8 @@ export type SupportReplyEmailSender = (email: SupportReplyEmail) => Promise<Send
 export const postmarkSupportReplySender: SupportReplyEmailSender = (email) =>
   sendConsoleTicketReplyEmail({
     to: email.to,
+    from: email.from,
+    replyTo: email.replyTo,
     displayName: email.displayName,
     facilityDisplayName: email.facilityDisplayName,
     ticketNumber: email.ticketNumber,
@@ -81,6 +82,8 @@ export type RecordSupportReplyInput = {
   /** Status to apply with the reply; null or the current status leaves it alone. */
   status?: SupportTicketStatus | null;
   fromEmail?: string;
+  /** Defaults to the ticket's routed Reply-To when inbound routing is configured. */
+  replyTo?: string | null;
   now?: Date;
 };
 
@@ -98,7 +101,7 @@ export async function recordSupportReply(
   }
 
   const now = input.now ?? new Date();
-  const fromEmail = input.fromEmail ?? getEmailFromAddress();
+  const fromEmail = input.fromEmail ?? getSupportFromAddress();
 
   try {
     return await db.$transaction(async (tx) => {
@@ -108,6 +111,7 @@ export async function recordSupportReply(
           id: true,
           number: true,
           subject: true,
+          replyToken: true,
           status: true,
           resolvedAt: true,
           closedAt: true,
@@ -129,6 +133,7 @@ export async function recordSupportReply(
           bodyText: input.body.trim(),
           fromEmail,
           toEmails: [ticket.contact.email],
+          replyTo: input.replyTo === undefined ? getSupportReplyToAddress(ticket.replyToken) : input.replyTo,
           subject: formatSupportEmailSubject(ticket.number, ticket.subject),
           internetMessageId: generateSupportInternetMessageId(messageIdDomainFromAddress(fromEmail)),
           deliveryStatus: "PENDING",
@@ -174,6 +179,8 @@ export async function deliverSupportReply(
       id: true,
       kind: true,
       bodyText: true,
+      fromEmail: true,
+      replyTo: true,
       toEmails: true,
       subject: true,
       internetMessageId: true,
@@ -201,6 +208,8 @@ export async function deliverSupportReply(
   try {
     result = await send({
       to: message.toEmails[0] ?? "",
+      from: message.fromEmail ?? getSupportFromAddress(),
+      replyTo: message.replyTo,
       displayName: message.ticket.contact.displayName ?? "there",
       facilityDisplayName: message.ticket.facility?.displayName ?? null,
       ticketNumber,
