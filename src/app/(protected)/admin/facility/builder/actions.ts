@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { UnitDepartmentKind, UnitHierarchyRole, UnitType } from "@prisma/client";
 import { z } from "zod";
 
+import { appendPlaceNameChange } from "@/lib/audit/place-name";
+import { sessionUserIdForFk } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { requireAtLeastRole } from "@/lib/access";
 import { pruneTeamRoomsAfterResponsibilityRemoved } from "@/lib/department-teams";
@@ -815,7 +817,7 @@ export async function updateBuilderSpaceAction(formData: FormData) {
 
   const space = await prisma.unitSpace.findFirst({
     where: { id: parsed.spaceId, facilityId: session.facilityId },
-    select: { id: true, unitId: true, parentSpaceId: true },
+    select: { id: true, unitId: true, parentSpaceId: true, name: true },
   });
   if (!space) throw new Error("Space not found.");
 
@@ -885,6 +887,14 @@ export async function updateBuilderSpaceAction(formData: FormData) {
       isActive: parsed.isActive,
       ...(nextSortOrder != null ? { sortOrder: nextSortOrder } : {}),
     },
+  });
+  await appendPlaceNameChange(prisma, {
+    facilityId: session.facilityId,
+    placeKind: "SPACE",
+    unitSpaceId: space.id,
+    previousLabel: space.name,
+    newLabel: parsed.name,
+    recordedByUserId: sessionUserIdForFk(session),
   });
 
   revalidateBuilderViews();
@@ -1963,7 +1973,7 @@ export async function renameBuilderUnitAction(data: z.infer<typeof renameUnitSch
 
   const unit = await prisma.unit.findFirst({
     where: { id: parsed.unitId, facilityId: session.facilityId },
-    select: { id: true, parentUnitId: true },
+    select: { id: true, parentUnitId: true, name: true },
   });
   if (!unit) throw new Error("Unit not found.");
 
@@ -1977,6 +1987,14 @@ export async function renameBuilderUnitAction(data: z.infer<typeof renameUnitSch
   await prisma.unit.update({
     where: { id: parsed.unitId, facilityId: session.facilityId },
     data: { name: parsed.name },
+  });
+  await appendPlaceNameChange(prisma, {
+    facilityId: session.facilityId,
+    placeKind: "UNIT",
+    unitId: unit.id,
+    previousLabel: unit.name,
+    newLabel: parsed.name,
+    recordedByUserId: sessionUserIdForFk(session),
   });
 
   revalidateBuilderViews();
@@ -1995,7 +2013,7 @@ export async function renameBuilderSpaceAction(data: z.infer<typeof renameSpaceS
 
   const space = await prisma.unitSpace.findFirst({
     where: { id: parsed.spaceId, facilityId: session.facilityId },
-    select: { id: true, unitId: true },
+    select: { id: true, unitId: true, name: true },
   });
   if (!space) {
     throw new Error((await validationCopy(session.facilityId)).level3NotFound);
@@ -2019,6 +2037,14 @@ export async function renameBuilderSpaceAction(data: z.infer<typeof renameSpaceS
   await prisma.unitSpace.update({
     where: { id: parsed.spaceId },
     data: { name: parsed.name },
+  });
+  await appendPlaceNameChange(prisma, {
+    facilityId: session.facilityId,
+    placeKind: "SPACE",
+    unitSpaceId: space.id,
+    previousLabel: space.name,
+    newLabel: parsed.name,
+    recordedByUserId: sessionUserIdForFk(session),
   });
 
   revalidateBuilderViews();

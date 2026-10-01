@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { AuditRecordSlot } from "@/lib/audit/audit-records";
+import type { TimingAuditRow } from "@/lib/audit/timing-audit";
 import { EmptyState, PageHeader } from "@/components/design-system";
 import type { OperationalReviewRangePresentation } from "@/lib/operational-review/present-operational-review-range";
 
@@ -12,6 +14,8 @@ import {
   ReviewTable,
   ReviewTableRow,
 } from "./review-layout";
+import { AuditRecordsPanel } from "./audit-records-panel";
+import { TimingAuditPanel } from "./timing-audit-panel";
 import { ReviewDateForm } from "./review-date-form";
 import { ReviewModeNav } from "./review-mode-nav";
 
@@ -22,6 +26,11 @@ export function CanonicalRangeReview({
   end,
   todayKey,
   validationMessage,
+  definition = "",
+  locationFunction = "",
+  auditSlots = null,
+  timingRows = null,
+  departmentId = "",
 }: {
   presentation: OperationalReviewRangePresentation | null;
   spaceId: string | null;
@@ -29,13 +38,18 @@ export function CanonicalRangeReview({
   end: string;
   todayKey: string;
   validationMessage?: string | null;
+  definition?: string;
+  locationFunction?: string;
+  auditSlots?: readonly AuditRecordSlot[] | null;
+  timingRows?: readonly TimingAuditRow[] | null;
+  departmentId?: string | null;
 }) {
   const locationOptions = presentation?.locationOptions ?? [];
   return (
     <section className="space-y-6" data-testid="canonical-range-review">
       <PageHeader
         icon="review"
-        title="Review"
+        title="Audit / Reports"
         subtitle={
           presentation
             ? `${presentation.rangeLabel}. Exception patterns across independently evaluated service days.`
@@ -51,10 +65,18 @@ export function CanonicalRangeReview({
               spaceId={spaceId}
               locationOptions={locationOptions}
               testId="review-range-form"
+              definition={definition}
+              locationFunction={locationFunction}
             />
           </div>
         }
       />
+
+      {auditSlots && departmentId ? (
+        <AuditRecordsPanel slots={auditSlots} departmentId={departmentId} />
+      ) : null}
+
+      {timingRows && timingRows.length > 0 ? <TimingAuditPanel rows={timingRows} /> : null}
 
       {validationMessage ? (
         <p
@@ -73,7 +95,7 @@ export function CanonicalRangeReview({
                 <EmptyState
                   icon="review"
                   tone="neutral"
-                  title="No operational Review items were found for this date range."
+                  title="No Audit / Reports items were found for this date range."
                 />
               ) : presentation.quiet ? (
                 <ReviewMuted>No operational exceptions were identified for this date range.</ReviewMuted>
@@ -116,7 +138,7 @@ export function CanonicalRangeReview({
                         }
                       >
                         {day.empty
-                          ? "No operational Review items"
+                          ? "No Audit / Reports items"
                           : day.quiet && day.unavailableLabels.length === 0
                             ? "No exceptions"
                             : [...day.exceptionLabels, ...day.unavailableLabels].join(" · ") ||
@@ -183,15 +205,17 @@ export function CanonicalRangeReview({
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
+            {timingRows && timingRows.length > 0 ? null : (
             <ReviewCard
               title="Service"
               subtitle="Service timing is evaluated per day from the cycle version effective that date."
               testId="review-range-service"
             >
               <ReviewMuted>
-                Open a service day for expected versus actual milestones.
+                Open a service day when this range has no Key Point or legacy milestone rows.
               </ReviewMuted>
             </ReviewCard>
+            )}
 
             {presentation.assets.impactCount > 0 ? (
               <ReviewCard title="Asset impact" testId="review-range-assets">

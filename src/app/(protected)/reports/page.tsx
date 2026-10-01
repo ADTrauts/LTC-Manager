@@ -7,6 +7,10 @@ import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { loadAuditOperationalRecords } from "@/lib/audit/load-audit-records";
+import { loadOperationalTimingAudit } from "@/lib/audit/load-timing-audit";
+import type { AuditRecordSlot } from "@/lib/audit/audit-records";
+import type { TimingAuditRow } from "@/lib/audit/timing-audit";
 import { PageHeader } from "@/components/design-system";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
@@ -36,8 +40,56 @@ type ReportsPageProps = {
     end?: string;
     unitId?: string;
     repairStatus?: string;
+    definition?: string;
+    locationFunction?: string;
   }>;
 };
+
+async function loadRecordAudit(input: {
+  facilityId: string;
+  departmentId: string | null;
+  fromDateKey: string;
+  toDateKey: string;
+  catalogStableKey: string;
+  locationFunctionKey: string;
+}): Promise<AuditRecordSlot[] | null> {
+  if (!input.departmentId || !input.catalogStableKey) return null;
+  try {
+    const result = await loadAuditOperationalRecords(prisma, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      fromDateKey: input.fromDateKey,
+      toDateKey: input.toDateKey,
+      catalogStableKey: input.catalogStableKey,
+      locationFunctionKey: input.locationFunctionKey || null,
+    });
+    return result.slots;
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2021") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function loadTimingAudit(input: {
+  facilityId: string;
+  departmentId: string | null;
+  fromDateKey: string;
+  toDateKey: string;
+  locationId: string | null;
+}): Promise<TimingAuditRow[] | null> {
+  if (!input.departmentId) return null;
+  const departmentId = input.departmentId;
+  try {
+    return await loadOperationalTimingAudit(prisma, { ...input, departmentId });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2021") {
+      return null;
+    }
+    throw error;
+  }
+}
 
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   noStore();
@@ -55,6 +107,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const rangeMode = !legacyMode && Boolean(start && end && start !== end);
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const spaceId = params.spaceId?.trim() || null;
+  const definition = params.definition?.trim() || "";
+  const locationFunction = params.locationFunction?.trim() || "";
 
   if (legacyMode) {
     return (
@@ -62,7 +116,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         <PageHeader
           icon="review"
           title="Legacy Report"
-          subtitle="Previous reporting model. Use Review for date-effective operational history."
+          subtitle="Previous reporting model. Use Audit / Reports for date-effective operational history."
           below={<ReviewModeNav activeId="legacy" date={params.start ?? params.date} />}
         />
         <LegacyReport facilityId={facilityId} params={params} />
@@ -91,6 +145,23 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         />
       );
     }
+    const [auditSlots, timingRows] = await Promise.all([
+      loadRecordAudit({
+        facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        fromDateKey: loaded.model.startServiceDate,
+        toDateKey: loaded.model.endServiceDate,
+        catalogStableKey: definition,
+        locationFunctionKey: locationFunction,
+      }),
+      loadTimingAudit({
+        facilityId,
+        departmentId: deptNav.activeDepartmentId,
+        fromDateKey: loaded.model.startServiceDate,
+        toDateKey: loaded.model.endServiceDate,
+        locationId: spaceId,
+      }),
+    ]);
     return (
       <CanonicalRangeReview
         presentation={presentOperationalReviewRange(loaded.model, { spaceId })}
@@ -98,6 +169,11 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         start={loaded.model.startServiceDate}
         end={loaded.model.endServiceDate}
         todayKey={loaded.model.todayKey}
+        definition={definition}
+        locationFunction={locationFunction}
+        auditSlots={auditSlots}
+        timingRows={timingRows}
+        departmentId={deptNav.activeDepartmentId}
       />
     );
   }
@@ -122,7 +198,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           facts.timezone,
         ) ?? facts.now);
   const runtime =
-    facts.spaces.length > 0
+    facts.serviceDate === facts.todayKey && facts.spaces.length > 0
       ? await loadRuntimeLocationStates({
           facilityId,
           spaceRefs: facts.spaces.map((space) => ({
@@ -140,8 +216,31 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     ? runtime.states.filter((state) => state.identity.location.spaceId === spaceId)
     : runtime.states;
 
+  const [auditSlots, timingRows] = await Promise.all([
+    loadRecordAudit({
+      facilityId,
+      departmentId: deptNav.activeDepartmentId,
+      fromDateKey: facts.serviceDate,
+      toDateKey: facts.serviceDate,
+      catalogStableKey: definition,
+      locationFunctionKey: locationFunction,
+    }),
+    loadTimingAudit({
+      facilityId,
+      departmentId: deptNav.activeDepartmentId,
+      fromDateKey: facts.serviceDate,
+      toDateKey: facts.serviceDate,
+      locationId: spaceId,
+    }),
+  ]);
+
   return (
     <CanonicalReview
+      definition={definition}
+      locationFunction={locationFunction}
+      auditSlots={auditSlots}
+      timingRows={timingRows}
+      departmentId={deptNav.activeDepartmentId}
       presentation={{
         ...presentation,
         locations:

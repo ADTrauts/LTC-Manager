@@ -3,7 +3,8 @@
  *
  * Historical-significant edits on an already-effective Attachment must close the
  * current segment and open a successor starting the next service date.
- * Display-only edits and not-yet-effective rows may update in place.
+ * Display-label edits and not-yet-effective rows may update in place.
+ * Operational instructions on an already-effective segment close and succeed.
  */
 
 import { dayBefore, nextOperationalDayKey } from "@/lib/operational-cycles/cycle-lifecycle";
@@ -36,7 +37,7 @@ export type AttachmentHistoricalSnapshot = AttachmentTimingSnapshot & {
   operationalTypeKey: string | null;
 };
 
-const DISPLAY_ONLY_KEYS = ["localDisplayLabel", "localInstructions"] as const;
+const DISPLAY_ONLY_KEYS = ["localDisplayLabel"] as const;
 
 export function attachmentLineageKey(input: {
   catalogStableKey: string;
@@ -154,7 +155,8 @@ export function isDisplayOnlyAttachmentPatch(input: {
   localInstructionsChanged: boolean;
 }): boolean {
   if (!historicalSnapshotsEqual(input.existing, input.next)) return false;
-  return input.localDisplayLabelChanged || input.localInstructionsChanged;
+  if (input.localInstructionsChanged) return false;
+  return input.localDisplayLabelChanged;
 }
 
 export function classifyAttachmentUpdate(input: {
@@ -218,13 +220,26 @@ export function classifyAttachmentUpdate(input: {
     localInstructionsChanged: input.localInstructionsChanged,
   });
 
-  if (displayOnly || historicalSnapshotsEqual(input.existing, input.next)) {
+  if (
+    input.localInstructionsChanged &&
+    becomeEffective &&
+    historicalSnapshotsEqual(input.existing, input.next)
+  ) {
+    return {
+      mode: "SUCCESSOR",
+      closeEffectiveToKey: lastServiceDateOldConfigApplies(input.todayKey),
+      successorFromKey: successorEffectiveFromKey(input.todayKey),
+      reason: "Operational instructions are effective-dated with the requirement segment.",
+    };
+  }
+
+  if (displayOnly || (historicalSnapshotsEqual(input.existing, input.next) && !input.localInstructionsChanged)) {
     return {
       mode: "IN_PLACE",
       closeEffectiveToKey: null,
       successorFromKey: null,
       reason: displayOnly
-        ? "Label/instructions do not change historical expected slots."
+        ? "Display labels do not change historical expected slots."
         : "No historical-significant fields changed.",
     };
   }

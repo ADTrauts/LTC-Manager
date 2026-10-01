@@ -28,11 +28,11 @@ export function ReviewModeNav({ activeId, date, spaceId }: ReviewModeNavProps) {
   return (
     <SubNav
       items={[
-        { id: "review", label: "Review", href: reviewHref(date, spaceId) },
+        { id: "review", label: "Audit / Reports", href: reviewHref(date, spaceId) },
         { id: "legacy", label: "Legacy Report", href: legacyHref(date) },
       ]}
       activeId={activeId}
-      aria-label="Review mode"
+      aria-label="Audit / Reports"
       data-testid="review-mode-nav"
     />
   );

@@ -211,7 +211,7 @@ export async function LegacyReport({
         <p className="font-semibold">Legacy Report</p>
         <p className="mt-1 text-amber-900">
           This report uses the previous reporting model. Historical expectation calculations on this
-          page use legacy reporting logic. They are not the new canonical operational Review.
+          page use legacy reporting logic. They are not the new canonical Audit / Reports.
           Expected, missing, and effective coverage figures below should not be treated as audit
           truth.
         </p>

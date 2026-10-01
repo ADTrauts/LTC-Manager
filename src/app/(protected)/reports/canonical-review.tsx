@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { AuditRecordSlot } from "@/lib/audit/audit-records";
+import type { TimingAuditRow } from "@/lib/audit/timing-audit";
 import { EmptyState, PageHeader } from "@/components/design-system";
 import {
   presenceExceptionLabel,
@@ -17,6 +19,8 @@ import {
   ReviewTable,
   ReviewTableRow,
 } from "./review-layout";
+import { AuditRecordsPanel } from "./audit-records-panel";
+import { TimingAuditPanel } from "./timing-audit-panel";
 import { ReviewDateForm } from "./review-date-form";
 import { ReviewModeNav } from "./review-mode-nav";
 
@@ -94,13 +98,23 @@ export function CanonicalReview({
   presentation,
   spaceId,
   todayKey,
+  definition = "",
+  locationFunction = "",
+  auditSlots = null,
+  timingRows = null,
+  departmentId = "",
 }: {
   presentation: OperationalReviewDayPresentation;
   spaceId: string | null;
   todayKey: string;
+  definition?: string;
+  locationFunction?: string;
+  auditSlots?: readonly AuditRecordSlot[] | null;
+  timingRows?: readonly TimingAuditRow[] | null;
+  departmentId?: string | null;
 }) {
   const subtitle = presentation.isToday
-    ? `${presentation.serviceDateLabel}. This is Review for the current service day — live work continues in Run.`
+    ? `${presentation.serviceDateLabel}. This is Audit / Reports for the current service day — live work continues in Run.`
     : `${presentation.serviceDateLabel}. What was supposed to happen, what actually happened, and where the operation differed.`;
 
   const serviceRows = presentation.service.cycles.flatMap((cycle) =>
@@ -115,7 +129,7 @@ export function CanonicalReview({
     <section className="space-y-6" data-testid="canonical-review">
       <PageHeader
         icon="review"
-        title="Review"
+        title="Audit / Reports"
         subtitle={subtitle}
         below={
           <div className="space-y-4">
@@ -127,16 +141,22 @@ export function CanonicalReview({
               spaceId={spaceId}
               locationOptions={presentation.locationOptions}
               testId="review-date-form"
+              definition={definition}
+              locationFunction={locationFunction}
             />
           </div>
         }
       />
 
+      {auditSlots && departmentId ? (
+        <AuditRecordsPanel slots={auditSlots} departmentId={departmentId} />
+      ) : null}
+
       {presentation.empty ? (
         <EmptyState
           icon="review"
           tone="neutral"
-          title="No operational Review items were found for this service day."
+          title="No Audit / Reports items were found for this service day."
         />
       ) : (
         <section className="grid gap-4 lg:grid-cols-2">
@@ -212,7 +232,7 @@ export function CanonicalReview({
 
       <ReviewCard
         title="Evidence"
-        subtitle="Expected Harbor occurrences and recorded results for this service day."
+        subtitle="Expected slots and submitted Records for this service day."
         testId="review-evidence"
       >
         {presentation.evidence.unavailableMessage ? (
@@ -314,9 +334,12 @@ export function CanonicalReview({
         </ReviewCard>
       </section>
 
+      {timingRows && timingRows.length > 0 ? (
+        <TimingAuditPanel rows={timingRows} />
+      ) : (
       <ReviewCard
         title="Service"
-        subtitle="Date-effective cycles and recorded milestones."
+        subtitle="Date-effective cycles. Recorded Key Points use the timing source effective that service date."
         testId="review-service"
       >
         {presentation.service.unavailableMessage ? (
@@ -357,6 +380,7 @@ export function CanonicalReview({
           </ReviewTable>
         )}
       </ReviewCard>
+      )}
 
       {presentation.assets.rows.length > 0 ? (
         <ReviewCard title="Asset impact" subtitle="Issues that affected operation that day." testId="review-assets">

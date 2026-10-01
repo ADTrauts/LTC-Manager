@@ -27,7 +27,7 @@ test("Legacy Report remains labeled and isolated from canonical Review", () => {
   const legacy = read("src/app/(protected)/reports/legacy-report.tsx");
   assert.match(legacy, /Legacy Report/);
   assert.match(legacy, /previous reporting model/);
-  assert.match(legacy, /not the new canonical operational Review/);
+  assert.match(legacy, /not the new canonical Audit \/ Reports/);
   assert.match(legacy, /Expected \(legacy\)/);
   assert.match(legacy, /Missing \(legacy\)/);
   assert.match(legacy, /Effective Coverage \(legacy\)/);
@@ -44,7 +44,7 @@ test("Legacy Report remains labeled and isolated from canonical Review", () => {
 test("canonical Review UI does not consume legacy expected math or Run scoring", () => {
   const ui = read("src/app/(protected)/reports/canonical-review.tsx");
   assert.match(ui, /No operational exceptions were identified for this service day/);
-  assert.match(ui, /No operational Review items were found for this service day/);
+  assert.match(ui, /No Audit \/ Reports items were found for this service day/);
   assert.match(ui, /Historical expectation unavailable/);
   assert.match(ui, /Staffing & Coverage/);
   assert.match(ui, /ReviewDateForm/);

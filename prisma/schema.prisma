@@ -3834,6 +3834,8 @@ model OperationalEvidenceRecord {
   unit                         Unit?                           @relation(fields: [unitId], references: [id], onDelete: Restrict)
   spaceId                      String?
   space                        UnitSpace?                      @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+  /// Label the person saw for the place. Null when this Record predates name snapshots.
+  placeLabelSnapshot           String?
   assetId                      String?
   asset                        Asset?                          @relation(fields: [assetId], references: [id], onDelete: Restrict)
   status                       OperationalEvidenceRecordStatus @default(COMPLETED)
@@ -4698,4 +4700,41 @@ model SupportTicketEvent {
   createdAt         DateTime               @default(now())
 
   @@index([ticketId, createdAt])
+}
+
+/// Sparse waiver for one expected Record slot. Not a placeholder for every slot.
+model OperationalRecordWaiver {
+  id                   String    @id @default(cuid())
+  facilityId           String
+  departmentId         String
+  /// buildLogRequirementKey for the expected slot.
+  requirementKey       String
+  operationalDate      DateTime  @db.Date
+  logAttachmentId      String?
+  reason               String
+  recordedByUserId     String?
+  recordedByEmployeeId String?
+  recordedByLabel      String?
+  recordedAt           DateTime  @default(now())
+
+  @@unique([facilityId, requirementKey])
+  @@index([facilityId, departmentId, operationalDate])
+}
+
+/// Forward place-name history. Dates before the first row are not claimed as known.
+model PlaceNameChange {
+  id               String   @id @default(cuid())
+  facilityId       String
+  /// SPACE or UNIT.
+  placeKind        String
+  unitSpaceId      String?
+  unitId           String?
+  previousLabel    String
+  newLabel         String
+  effectiveFrom    DateTime @db.Date
+  recordedAt       DateTime @default(now())
+  recordedByUserId String?
+
+  @@index([facilityId, unitSpaceId, effectiveFrom])
+  @@index([facilityId, unitId, effectiveFrom])
 }

@@ -32,6 +32,20 @@ function toDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
+async function placeLabelAtSubmission(
+  client: Db,
+  input: { facilityId: string; spaceId: string | null; supplied?: string | null },
+): Promise<string | null> {
+  const supplied = input.supplied?.trim() || null;
+  if (supplied) return supplied;
+  if (!input.spaceId) return null;
+  const space = await client.unitSpace.findFirst({
+    where: { id: input.spaceId, facilityId: input.facilityId },
+    select: { name: true },
+  });
+  return space?.name ?? null;
+}
+
 function resolveRecordStatus(input: {
   outOfStandard: boolean;
   correctiveActionText: string | null | undefined;
@@ -135,6 +149,8 @@ export type SubmitCanonicalLogInput = {
   values: EvidenceFieldValueInput[];
   allowNeedsReview?: boolean;
   boundSpaceId?: string | null;
+  /** Place label shown at submission. Looked up when omitted and a place is known. */
+  placeLabelSnapshot?: string | null;
   followsRecordId?: string | null;
   /** When true, allows submit without a scheduled requirement key (ad hoc). */
   adHoc?: boolean;
@@ -372,6 +388,11 @@ export async function submitCanonicalLogSubmission(
         windowEndLocal: input.windowEndLocal ?? null,
         unitId: target.unitId,
         spaceId: boundSpaceId ?? target.spaceId,
+        placeLabelSnapshot: await placeLabelAtSubmission(client, {
+          facilityId: input.facilityId,
+          spaceId: boundSpaceId ?? target.spaceId,
+          supplied: input.placeLabelSnapshot,
+        }),
         assetId: target.assetId,
         followsRecordId,
         status,
