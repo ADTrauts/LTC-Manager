@@ -414,11 +414,22 @@ export function validateDraftsForReviewPublish(input: {
 
   for (const row of drafts) {
     const displayPath = hierarchy.byStableKey.get(row.stableKey)?.displayPath ?? row.label;
+    const parentRow = row.parentStableKey ? byKey.get(row.parentStableKey) : undefined;
     const result = validateCycle({
       label: row.label,
       cycleType: row.cycleType,
       nodeKind: row.nodeKind,
       parentStableKey: row.parentStableKey,
+      parentNode: parentRow
+        ? {
+            stableKey: parentRow.stableKey,
+            parentStableKey: parentRow.parentStableKey,
+            nodeKind: parentRow.nodeKind,
+            startLocal: parentRow.startLocal,
+            endLocal: parentRow.endLocal,
+            overnight: parentRow.overnight,
+          }
+        : null,
       startLocal: row.startLocal,
       endLocal: row.endLocal,
       overnight: row.overnight,

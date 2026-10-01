@@ -192,6 +192,7 @@ export function parentOptionsForCycle(input: {
   const tree = projectCycleHierarchy(input.rows);
   return tree.flatDepthFirst
     .filter((node) => {
+      if (node.depth !== 0) return false;
       if (node.stableKey === input.stableKey) return false;
       if (node.ancestorStableKeys.includes(input.stableKey)) return false;
       if (node.source.nodeKind === "KEY_TIME") return false;

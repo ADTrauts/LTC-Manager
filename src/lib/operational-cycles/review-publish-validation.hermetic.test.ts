@@ -190,7 +190,7 @@ test("duplicate Room across groups emits blocker with room name", () => {
   assert.equal(dup!.fixTarget.stableKey, "breakfast_due");
 });
 
-test("warnings do not block publish; blockers do", () => {
+test("a Phase outside its Cycle blocks publish; empty locations still block", () => {
   const withWarning = validateDraftsForReviewPublish({
     drafts: [
       cycle({
@@ -220,8 +220,8 @@ test("warnings do not block publish; blockers do", () => {
       }),
     ],
   });
-  assert.equal(withWarning.valid, true);
-  assert.ok(withWarning.warnings.some((w) => w.code === "phase_outside_parent_window"));
+  assert.equal(withWarning.valid, false);
+  assert.ok(withWarning.blockers.some((b) => b.code === "canonical_containment"));
 
   const withBlocker = validateDraftsForReviewPublish({
     drafts: [cycle({ stableKey: "breakfast", label: "Breakfast", spaceIds: [] })],

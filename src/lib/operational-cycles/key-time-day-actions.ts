@@ -6,6 +6,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import { hasPlatformCapability } from "@/lib/platform-capability";
 import type { AppJwtPayload } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { loadFacilityTimezone } from "@/lib/operational-time";
@@ -111,15 +112,17 @@ export async function adjustKeyTimeDayExpectation(
 export type CompleteKeyTimeDayExpectationDenial =
   | AdjustDayExpectationDenial
   | "ALREADY_COMPLETED"
-  | "CORRECTION_FORBIDDEN";
+  | "CORRECTION_FORBIDDEN"
+  | "CORRECTION_REASON_REQUIRED";
 
 export type CompleteKeyTimeDayExpectationInput = {
   session: AppJwtPayload;
   expectationId: string;
   /** Optional absolute actual time (HH:mm). Defaults to now in facility TZ. */
   actualDueLocal?: string;
-  /** Supervisor+ may overwrite an existing actual. */
+  /** When an actual already exists, record an append-only correction. */
   allowCorrection?: boolean;
+  correctionReason?: string | null;
   now?: Date;
 };
 
@@ -140,6 +143,8 @@ export function decideCompleteKeyTimeAuthority(input: {
   role: AppRole;
   alreadyCompleted: boolean;
   allowCorrection: boolean;
+  /** Platform capability operational_timing.adjust. Corrections do not name a job title. */
+  canAdjustTiming?: boolean;
 }): { allowed: true } | { allowed: false; reason: CompleteKeyTimeDayExpectationDenial } {
   if (input.sessionFacilityId !== input.expectationFacilityId) {
     return { allowed: false, reason: "CROSS_FACILITY" };
@@ -150,7 +155,7 @@ export function decideCompleteKeyTimeAuthority(input: {
   if (input.alreadyCompleted && !input.allowCorrection) {
     return { allowed: false, reason: "ALREADY_COMPLETED" };
   }
-  if (input.alreadyCompleted && input.allowCorrection && !hasAtLeastRole(input.role, "SUPERVISOR")) {
+  if (input.alreadyCompleted && input.allowCorrection && !input.canAdjustTiming) {
     return { allowed: false, reason: "CORRECTION_FORBIDDEN" };
   }
   return { allowed: true };
@@ -174,6 +179,11 @@ export async function completeKeyTimeDayExpectation(
       departmentId: true,
       configuredDueLocal: true,
       adjustedDueLocal: true,
+      serviceDate: true,
+      cycleId: true,
+      cycleStableKey: true,
+      cycleVersion: true,
+      spaceId: true,
       actualDueLocal: true,
       completedAt: true,
     },
@@ -181,12 +191,19 @@ export async function completeKeyTimeDayExpectation(
   if (!row) return { ok: false, reason: "NOT_FOUND" };
 
   const allowCorrection = Boolean(input.allowCorrection);
+  const alreadyCompleted = Boolean(row.actualDueLocal || row.completedAt);
+  const canAdjustTiming = hasPlatformCapability({
+    capability: "operational_timing.adjust",
+    role: input.session.role as AppRole,
+    authKind: input.session.authKind,
+  });
   const decision = decideCompleteKeyTimeAuthority({
     sessionFacilityId: input.session.facilityId,
     expectationFacilityId: row.facilityId,
     role: input.session.role as AppRole,
-    alreadyCompleted: Boolean(row.actualDueLocal || row.completedAt),
+    alreadyCompleted,
     allowCorrection,
+    canAdjustTiming,
   });
   if (!decision.allowed) return { ok: false, reason: decision.reason };
 
@@ -199,6 +216,35 @@ export async function completeKeyTimeDayExpectation(
     actual = localHhMmFromInstant(now, timezone);
   }
   if (!actual) return { ok: false, reason: "INVALID_TIME" };
+  if (alreadyCompleted && !input.correctionReason?.trim()) {
+    return { ok: false, reason: "CORRECTION_REASON_REQUIRED" };
+  }
+
+  const prior = alreadyCompleted
+    ? await client.operationalCycleKeyPointActual.findFirst({
+        where: { cycleId: row.cycleId, serviceDate: row.serviceDate, spaceId: row.spaceId },
+        orderBy: { recordedAt: "desc" },
+        select: { id: true },
+      })
+    : null;
+
+  await client.operationalCycleKeyPointActual.create({
+    data: {
+      facilityId: row.facilityId,
+      departmentId: row.departmentId,
+      serviceDate: row.serviceDate,
+      cycleId: row.cycleId,
+      cycleStableKey: row.cycleStableKey,
+      cycleVersion: row.cycleVersion,
+      spaceId: row.spaceId,
+      actualLocal: actual,
+      recordedAt: now,
+      actorUserId: sessionUserIdForFk(input.session),
+      actorEmployeeId: input.session.authKind === "employee" ? input.session.uid : null,
+      correctionReason: alreadyCompleted ? input.correctionReason!.trim() : null,
+      correctsActualId: prior?.id ?? null,
+    },
+  });
 
   const updated = await client.operationalCycleKeyTimeDayExpectation.update({
     where: { id: row.id },

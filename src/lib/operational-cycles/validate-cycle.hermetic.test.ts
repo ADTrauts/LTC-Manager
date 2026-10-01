@@ -249,7 +249,39 @@ test("Retail and Servery scoped cycles can coexist", () => {
   assert.equal(result.valid, true);
 });
 
-test("findOverlappingPublishedCycles ignores overnight peers", () => {
+test("overnight Cycles participate in overlap warnings when their windows meet", () => {
+  const overlaps = findOverlappingPublishedCycles(
+    {
+      id: "c1",
+      label: "Late",
+      startLocal: "23:00",
+      endLocal: "23:30",
+      overnight: false,
+      applicableDaysOfWeek: [1],
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      applicableUnitTypes: [],
+      unitIds: [],
+    },
+    [
+      {
+        id: "c2",
+        label: "Night",
+        startLocal: "22:00",
+        endLocal: "08:00",
+        overnight: true,
+        applicableDaysOfWeek: [1],
+        locationMode: "ALL_DEPARTMENT_UNITS",
+        applicableUnitTypes: [],
+        unitIds: [],
+      },
+    ],
+    "UTC",
+  );
+  assert.equal(overlaps.length, 1);
+  assert.equal(overlaps[0]?.label, "Night");
+});
+
+test("a night Cycle that does not meet a morning window is not an overlap", () => {
   const overlaps = findOverlappingPublishedCycles(
     {
       id: "c1",

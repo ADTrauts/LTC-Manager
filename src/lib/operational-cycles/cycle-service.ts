@@ -37,6 +37,7 @@ import {
   validateCycleScopeAgainstCatalog,
   type CycleScopeLocationOption,
 } from "./cycle-scope";
+import type { CanonicalParentContext } from "./cycle-canonical";
 import { validateCycle, validateCycleForPublish } from "./validate-cycle";
 import {
   formatReviewPublishBlockerSummary,
@@ -89,6 +90,36 @@ async function loadHierarchyPeers(
   return [...byKey.values()];
 }
 
+async function loadParentContext(
+  client: DbClient,
+  departmentId: string,
+  parentStableKey: string | null | undefined,
+): Promise<CanonicalParentContext | null> {
+  const parent = parentStableKey?.trim() || null;
+  if (!parent) return null;
+  const row = await client.departmentOperationalCycle.findFirst({
+    where: { departmentId, stableKey: parent },
+    orderBy: { version: "desc" },
+    select: {
+      stableKey: true,
+      parentStableKey: true,
+      nodeKind: true,
+      startLocal: true,
+      endLocal: true,
+      overnight: true,
+    },
+  });
+  if (!row) return null;
+  return {
+    stableKey: row.stableKey,
+    parentStableKey: row.parentStableKey,
+    nodeKind: row.nodeKind,
+    startLocal: row.startLocal,
+    endLocal: row.endLocal,
+    overnight: row.overnight,
+  };
+}
+
 async function resolveParentStableKey(
   client: DbClient,
   input: {
@@ -110,6 +141,12 @@ async function resolveParentStableKey(
     const parentRow = peers.find((p) => p.stableKey === parent);
     if (parentRow?.nodeKind === "KEY_TIME") {
       throw new Error("Key Time nodes cannot contain child cycles.");
+    }
+    if (input.nodeKind === "KEY_TIME" && parentRow?.parentStableKey) {
+      throw new Error("A Key Point belongs on the Operational Cycle, not on a Phase.");
+    }
+    if (input.nodeKind === "PERIOD" && parentRow?.parentStableKey) {
+      throw new Error("A Phase cannot contain another Phase.");
     }
   }
 
@@ -469,11 +506,18 @@ export async function createDraft(
   const nodeKind = resolvedNodeKind(input.draft);
   const locationInherit = resolvedLocationInherit(input.draft, nodeKind);
   const locationMode = resolvedLocationMode(input.draft, nodeKind, locationInherit);
+  const parentNode = await loadParentContext(
+    client,
+    input.departmentId,
+    input.draft.parentStableKey,
+  );
   const validation = validateCycle({
     label: input.draft.label,
     cycleType: input.draft.cycleType,
     nodeKind,
     parentStableKey: input.draft.parentStableKey,
+    parentNode,
+    keyPointGrain: input.draft.keyPointGrain,
     startLocal: nodeKind === "KEY_TIME" ? null : input.draft.startLocal,
     endLocal: nodeKind === "KEY_TIME" ? null : input.draft.endLocal,
     overnight: input.draft.overnight,
@@ -527,6 +571,8 @@ export async function createDraft(
       stableKey,
       parentStableKey,
       nodeKind,
+      occurrenceTracking: input.draft.occurrenceTracking ?? "REQUIRED",
+      keyPointGrain: input.draft.keyPointGrain ?? "LOCATION",
       version,
       label: input.draft.label.trim(),
       description: input.draft.description?.trim() || null,
@@ -613,11 +659,14 @@ export async function updateDraft(
     nodeKind,
   );
   const locationMode = resolvedLocationMode(input.draft, nodeKind, locationInherit);
+  const parentNode = await loadParentContext(client, input.departmentId, parentCandidate);
   const validation = validateCycle({
     label: input.draft.label,
     cycleType: input.draft.cycleType,
     nodeKind,
     parentStableKey: parentCandidate,
+    parentNode,
+    keyPointGrain: input.draft.keyPointGrain,
     startLocal: nodeKind === "KEY_TIME" ? null : input.draft.startLocal,
     endLocal: nodeKind === "KEY_TIME" ? null : input.draft.endLocal,
     overnight: input.draft.overnight,
@@ -677,6 +726,10 @@ export async function updateDraft(
     data: {
       label: input.draft.label.trim(),
       description: input.draft.description?.trim() || null,
+      ...(input.draft.occurrenceTracking
+        ? { occurrenceTracking: input.draft.occurrenceTracking }
+        : {}),
+      ...(input.draft.keyPointGrain ? { keyPointGrain: input.draft.keyPointGrain } : {}),
       cycleType: input.draft.cycleType,
       nodeKind,
       parentStableKey,

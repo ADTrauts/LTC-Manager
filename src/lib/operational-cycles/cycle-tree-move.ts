@@ -84,6 +84,22 @@ export function computeCycleTreeMove(input: CycleTreeMoveInput): CycleTreeMoveRe
     insertBeforeId = input.placement === "before" ? over.id : null;
   }
 
+  if (active.nodeKind === "KEY_TIME" && !nextParent) {
+    return { ok: false, reason: "A Key Point must belong directly to an Operational Cycle." };
+  }
+  if (nextParent) {
+    const parent = input.rows.find((row) => row.stableKey === nextParent);
+    if (parent?.parentStableKey) {
+      return {
+        ok: false,
+        reason:
+          active.nodeKind === "KEY_TIME"
+            ? "A Key Point belongs on the Operational Cycle, not on a Phase."
+            : "A Phase cannot contain another Phase.",
+      };
+    }
+  }
+
   const loop = wouldCreateHierarchyCycle({
     stableKey: active.stableKey,
     parentStableKey: nextParent,

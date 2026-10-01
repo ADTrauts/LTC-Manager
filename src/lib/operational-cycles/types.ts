@@ -164,6 +164,10 @@ export type CycleDraftInput = {
   stableKey?: string;
   /** Logical parent stableKey. Null/omit = top-level. */
   parentStableKey?: string | null;
+  /** Key Point occurrence tracking. Omitted drafts keep REQUIRED. */
+  occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
+  /** Key Point grain. Omitted drafts keep LOCATION. */
+  keyPointGrain?: "DEPARTMENT" | "LOCATION";
 };
 
 export type UnitMealTarget = {

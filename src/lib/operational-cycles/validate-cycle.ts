@@ -16,6 +16,12 @@ import {
   weekdaySetsIntersect,
   windowsOverlap,
 } from "./cycle-windows";
+import {
+  canonicalParentRejection,
+  containmentRejection,
+  type CanonicalParentContext,
+  type KeyPointGrain,
+} from "./cycle-canonical";
 import type { CycleValidationIssue, CycleValidationResult, KeyTimeGroupDefinition } from "./types";
 
 export type ValidateCycleInput = {
@@ -36,8 +42,11 @@ export type ValidateCycleInput = {
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
+  keyPointGrain?: KeyPointGrain;
   roomTypeKey?: string | null;
   expectedMilestones?: ServeryMilestone[];
+  /** Latest parent row. Required to enforce one-level Phase and Cycle-parented Key Points. */
+  parentNode?: CanonicalParentContext | null;
   /** When true, SERVICE without mealType is an error; otherwise a warning. */
   forPublish?: boolean;
 };
@@ -115,18 +124,15 @@ export function findOverlappingPublishedCycles(
   if (candidate.nodeKind === "KEY_TIME") return [];
   if (!candidate.startLocal?.trim() || !candidate.endLocal?.trim()) return [];
 
-  if (
+  const candidateOvernight =
     candidate.overnight ||
-    isStructurallyOvernight(candidate.startLocal, candidate.endLocal, false)
-  ) {
-    return [];
-  }
+    isStructurallyOvernight(candidate.startLocal, candidate.endLocal, false);
 
   const candidateWindow = resolveCycleWindowInstants({
     operationalDateKey,
     startLocal: candidate.startLocal,
     endLocal: candidate.endLocal,
-    overnight: false,
+    overnight: candidateOvernight,
     facilityTimezone,
   });
   if (!candidateWindow) return [];
@@ -156,22 +162,18 @@ export function findOverlappingPublishedCycles(
     ) {
       continue;
     }
-    if (
-      other.overnight ||
-      isStructurallyOvernight(other.startLocal, other.endLocal, false)
-    ) {
-      continue;
-    }
     if (!weekdaySetsIntersect(candidate.applicableDaysOfWeek, other.applicableDaysOfWeek)) {
       continue;
     }
     if (!locationScopesIntersect(candidate, other)) continue;
 
+    const otherOvernight =
+      other.overnight || isStructurallyOvernight(other.startLocal, other.endLocal, false);
     const otherWindow = resolveCycleWindowInstants({
       operationalDateKey,
       startLocal: other.startLocal,
       endLocal: other.endLocal,
-      overnight: false,
+      overnight: otherOvernight,
       facilityTimezone,
     });
     if (!otherWindow) continue;
@@ -194,6 +196,7 @@ function validateKeyTimeGroups(
   groups: KeyTimeGroupDefinition[] | undefined,
   errors: CycleValidationIssue[],
   forPublish: boolean,
+  grain: KeyPointGrain,
 ): void {
   const list = groups ?? [];
   if (forPublish && list.length === 0) {
@@ -221,7 +224,7 @@ function validateKeyTimeGroups(
       continue;
     }
     const spaceIds = (group.spaceIds ?? []).filter(Boolean);
-    if (forPublish && spaceIds.length === 0) {
+    if (forPublish && grain === "LOCATION" && spaceIds.length === 0) {
       errors.push(
         issue(
           "key_time_group_rooms_required",
@@ -264,16 +267,34 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
     errors.push(issue("label_required", "Cycle label is required.", "error"));
   }
 
+  const structureError = canonicalParentRejection({
+    nodeKind,
+    parent: input.parentNode ?? null,
+  });
+  if (nodeKind === "KEY_TIME" && isTopLevel && !input.parentNode) {
+    errors.push(
+      issue(
+        "key_time_parent_required",
+        "A Key Point must belong directly to an Operational Cycle.",
+        "error",
+      ),
+    );
+  } else if (input.parentNode && structureError) {
+    errors.push(issue("canonical_parent", structureError, "error"));
+  }
+  const contained = containmentRejection({
+    nodeKind,
+    parent: input.parentNode ?? null,
+    startLocal: input.startLocal,
+    endLocal: input.endLocal,
+    overnight: input.overnight,
+    dueLocals: (input.keyTimeGroups ?? []).map((group) => group.dueLocal),
+  });
+  if (contained) {
+    errors.push(issue("canonical_containment", contained, "error"));
+  }
+
   if (nodeKind === "KEY_TIME") {
-    if (isTopLevel) {
-      errors.push(
-        issue(
-          "key_time_parent_required",
-          "A Key Time must belong to an Operational Cycle such as Lunch or Breakfast.",
-          "error",
-        ),
-      );
-    }
     if (input.startLocal?.trim() || input.endLocal?.trim()) {
       errors.push(
         issue(
@@ -283,7 +304,12 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
         ),
       );
     }
-    validateKeyTimeGroups(input.keyTimeGroups, errors, forPublish);
+    validateKeyTimeGroups(
+      input.keyTimeGroups,
+      errors,
+      forPublish,
+      input.keyPointGrain ?? "LOCATION",
+    );
   } else {
     const start = parseLocalTime(input.startLocal ?? "");
     const end = parseLocalTime(input.endLocal ?? "");

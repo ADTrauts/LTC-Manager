@@ -696,6 +696,19 @@ enum OperationalCycleNodeKind {
   KEY_TIME
 }
 
+/// Whether a Key Point expects a recorded actual. Planned time still displays for NONE.
+enum OperationalCycleOccurrenceTracking {
+  NONE
+  OPTIONAL
+  REQUIRED
+}
+
+/// Department = one moment for the Cycle. Location = one moment per participating place.
+enum OperationalCycleKeyPointGrain {
+  DEPARTMENT
+  LOCATION
+}
+
 enum MealType {
   BREAKFAST
   LUNCH
@@ -3313,6 +3326,10 @@ model DepartmentOperationalCycle {
   parentStableKey      String?
   /// PERIOD = operating window (root = Operational Cycle, nested = Phase). KEY_TIME = checkpoint.
   nodeKind             OperationalCycleNodeKind             @default(PERIOD)
+  /// Key Point only. Existing rows stay REQUIRED so current completion behavior remains readable.
+  occurrenceTracking   OperationalCycleOccurrenceTracking   @default(REQUIRED)
+  /// Key Point only. Existing rows stay LOCATION (room groups).
+  keyPointGrain        OperationalCycleKeyPointGrain        @default(LOCATION)
   version              Int                                  @default(1)
   label                String
   description          String?
@@ -3353,6 +3370,8 @@ model DepartmentOperationalCycle {
   keyTimeGroups        DepartmentOperationalCycleKeyTimeGroup[]
   dayExpectations      OperationalCycleDayExpectation[]
   keyTimeDayExpectations OperationalCycleKeyTimeDayExpectation[]
+  timingAdjustments    OperationalCycleTimingAdjustment[]
+  keyPointActuals      OperationalCycleKeyPointActual[]
   events               DepartmentOperationalCycleEvent[]
   createdAt            DateTime                             @default(now())
   updatedAt            DateTime                             @updatedAt
@@ -3532,6 +3551,55 @@ model OperationalCycleKeyTimeDayExpectation {
   @@index([adjustedByEmployeeId])
   @@index([completedByUserId])
   @@index([completedByEmployeeId])
+}
+
+/// Date-specific timing revision. Does not modify the published Cycle version.
+/// One row per adjustment. Children are not offset implicitly.
+model OperationalCycleTimingAdjustment {
+  id                 String                     @id @default(cuid())
+  facilityId         String
+  departmentId       String
+  serviceDate        DateTime                   @db.Date
+  cycleId            String
+  cycle              DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleStableKey     String
+  cycleVersion       Int
+  adjustedStartLocal String?
+  adjustedEndLocal   String?
+  adjustedDueLocal   String?
+  reason             String
+  actorUserId        String?
+  actorEmployeeId    String?
+  recordedAt         DateTime                   @default(now())
+
+  @@index([facilityId, departmentId, serviceDate])
+  @@index([cycleStableKey, serviceDate])
+  @@index([cycleId])
+}
+
+/// Append-only Key Point actuals. A correction inserts a new row; the original fact stays.
+model OperationalCycleKeyPointActual {
+  id               String                     @id @default(cuid())
+  facilityId       String
+  departmentId     String
+  serviceDate      DateTime                   @db.Date
+  cycleId          String
+  cycle            DepartmentOperationalCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleStableKey   String
+  cycleVersion     Int
+  /// Null for department-grain Key Points.
+  spaceId          String?
+  actualLocal      String
+  recordedAt       DateTime                   @default(now())
+  actorUserId      String?
+  actorEmployeeId  String?
+  /// Null on the original fact. Required when this row corrects an earlier actual.
+  correctionReason String?
+  correctsActualId String?
+
+  @@index([facilityId, departmentId, serviceDate, cycleStableKey])
+  @@index([cycleId, serviceDate])
+  @@index([correctsActualId])
 }
 
 /// Append-only audit for Operational Cycle configuration changes.

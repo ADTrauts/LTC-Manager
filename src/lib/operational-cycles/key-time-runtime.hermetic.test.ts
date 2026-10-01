@@ -233,6 +233,7 @@ test("Key Time completion authority: employee once, supervisor correction", () =
     role: "STAFF",
     alreadyCompleted: true,
     allowCorrection: true,
+    canAdjustTiming: false,
   });
   assert.equal(employeeCorrection.allowed, false);
 
@@ -242,6 +243,7 @@ test("Key Time completion authority: employee once, supervisor correction", () =
     role: "SUPERVISOR",
     alreadyCompleted: true,
     allowCorrection: true,
+    canAdjustTiming: true,
   });
   assert.equal(supervisorCorrection.allowed, true);
 

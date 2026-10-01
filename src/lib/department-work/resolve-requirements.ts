@@ -387,7 +387,7 @@ export function resolveWorkRequirements(
           const keys = item.cycleStableKeys;
           for (const cycleKey of keys) {
             const cycle = input.publishedCycles.find((c) => c.stableKey === cycleKey);
-            if (!cycle) continue;
+            if (!cycle || cycle.nodeKind === "KEY_TIME") continue;
             scheduleTargets.push({
               cycleStableKey: cycle.stableKey,
               windowStartLocal: cycle.startLocal,

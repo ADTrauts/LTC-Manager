@@ -203,6 +203,8 @@ export type PublishedWorkPlanForResolve = {
 export type PublishedCycleWindowForWorkResolve = {
   stableKey: string;
   label: string;
+  /** KEY_TIME is not a Work schedule identity. Omitted rows are treated as Cycle or Phase. */
+  nodeKind?: "PERIOD" | "KEY_TIME";
   startLocal: string;
   endLocal: string;
   startsAt: Date;
