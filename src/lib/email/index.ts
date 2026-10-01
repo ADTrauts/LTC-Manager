@@ -30,6 +30,7 @@ export {
   sendConsoleTicketReplyEmail,
 } from "@/lib/email/console-ticket-reply";
 export {
+  type EmailHeader,
   resetPostmarkClientForTests,
   sendTemplatedEmail,
   sendTransactionalEmail,

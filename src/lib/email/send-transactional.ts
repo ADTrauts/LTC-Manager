@@ -22,7 +22,12 @@ export type SendTemplatedEmailInput = {
   tag?: string;
   /** Optional override; Postmark templates usually own the subject. */
   subject?: string;
+  headers?: EmailHeader[];
+  /** Postmark Metadata; echoed back on delivery/bounce webhooks. */
+  metadata?: Record<string, string>;
 };
+
+export type EmailHeader = { name: string; value: string };
 
 export type SendTransactionalEmailResult =
   | { sent: true; messageId: string }
@@ -49,6 +54,8 @@ type PostmarkLikeClient = {
     Tag?: string;
     MessageStream?: string;
     InlineCss?: boolean;
+    Headers?: Array<{ Name: string; Value: string }>;
+    Metadata?: Record<string, string>;
   }) => Promise<{ MessageID?: string }>;
 };
 
@@ -165,6 +172,12 @@ export async function sendTemplatedEmail(
       Tag: input.tag?.trim() || undefined,
       MessageStream: getEmailMessageStream(env),
       InlineCss: true,
+      ...(input.headers?.length
+        ? { Headers: input.headers.map((header) => ({ Name: header.name, Value: header.value })) }
+        : {}),
+      ...(input.metadata && Object.keys(input.metadata).length > 0
+        ? { Metadata: input.metadata }
+        : {}),
     });
     return {
       sent: true,

@@ -4,149 +4,219 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { isEmailConfigured, sendConsoleTicketReplyEmail } from "@/lib/email";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
+import { SupportTicketError, type SupportTicketErrorCode } from "@/lib/support/errors";
+import { SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_TYPES } from "@/lib/support/labels";
+import { sendSupportReply } from "@/lib/support/reply";
+import { SUPPORT_TICKET_STATUSES } from "@/lib/support/status-transition";
+import {
+  addSupportTicketNote,
+  changeSupportTicketStatus,
+  createSupportTicket,
+  updateSupportTicketDetails,
+} from "@/lib/support/ticket-service";
 
-const openSchema = z.object({
-  facilityId: z.string().cuid(),
+const id = z.string().trim().min(1).max(64);
+const optionalId = z
+  .string()
+  .trim()
+  .max(64)
+  .transform((value) => value || null);
+const body = z.string().trim().min(1).max(8000);
+const submissionId = z.string().uuid();
+const status = z.enum(SUPPORT_TICKET_STATUSES);
+const optionalType = z
+  .union([z.enum(SUPPORT_TICKET_TYPES), z.literal("")])
+  .transform((value) => value || null);
+const priority = z.enum(SUPPORT_TICKET_PRIORITIES);
+
+const createSchema = z.object({
+  facilityId: optionalId,
   subject: z.string().trim().min(3).max(160),
   requesterEmail: z.string().trim().email().max(200),
-  requesterName: z.string().trim().max(120).optional(),
-  body: z.string().trim().min(1).max(8000),
+  requesterName: z.string().trim().max(120),
+  type: optionalType,
+  priority,
+  assignedStaffId: optionalId,
+  body,
 });
+
+const noteSchema = z.object({ ticketId: id, body, clientSubmissionId: submissionId });
 
 const replySchema = z.object({
-  ticketId: z.string().cuid(),
-  body: z.string().trim().min(1).max(8000),
-  status: z.enum(["OPEN", "WAITING_ON_CUSTOMER", "RESOLVED"]),
+  ticketId: id,
+  body,
+  clientSubmissionId: submissionId,
+  status: z.union([status, z.literal("")]).transform((value) => value || null),
 });
 
-export async function openConsoleTicketAction(formData: FormData) {
-  const session = await requireHarborStaff();
-  const parsed = openSchema.safeParse({
-    facilityId: formData.get("facilityId"),
-    subject: formData.get("subject"),
-    requesterEmail: formData.get("requesterEmail"),
-    requesterName: String(formData.get("requesterName") ?? "").trim() || undefined,
-    body: formData.get("body"),
-  });
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Check the ticket fields.");
-  }
+const statusSchema = z.object({ ticketId: id, status });
 
-  const facility = await prisma.facility.findUnique({
-    where: { id: parsed.data.facilityId },
-    select: { id: true },
-  });
-  if (!facility) {
-    throw new Error("Facility not found.");
-  }
+const detailsSchema = z.object({
+  ticketId: id,
+  type: optionalType,
+  priority,
+  assignedStaffId: optionalId,
+  facilityId: optionalId,
+});
 
-  const ticket = await prisma.$transaction(async (tx) => {
-    const created = await tx.consoleTicket.create({
-      data: {
-        facilityId: facility.id,
-        subject: parsed.data.subject,
-        requesterEmail: parsed.data.requesterEmail.toLowerCase(),
-        requesterName: parsed.data.requesterName || null,
-        openedByStaffId: session.uid,
-        status: "OPEN",
-        messages: {
-          create: {
-            body: parsed.data.body,
-            authorStaffId: session.uid,
-          },
-        },
-      },
-      select: { id: true },
-    });
-    await tx.harborAuditEvent.create({
-      data: {
-        staffId: session.uid,
-        action: "TICKET_OPEN",
-        facilityId: facility.id,
-      },
-    });
-    return created;
-  });
-
-  revalidatePath("/console");
-  revalidatePath("/console/tickets");
-  redirect(`/console/tickets/${ticket.id}`);
+function field(formData: FormData, name: string): string {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
 }
 
-export async function replyConsoleTicketAction(formData: FormData) {
-  const session = await requireHarborStaff();
-  const parsed = replySchema.safeParse({
-    ticketId: formData.get("ticketId"),
-    body: formData.get("body"),
-    status: formData.get("status"),
-  });
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Check the reply.");
-  }
+function ticketPath(ticketId: string) {
+  return `/console/tickets/${ticketId}`;
+}
 
-  const ticket = await prisma.consoleTicket.findUnique({
-    where: { id: parsed.data.ticketId },
-    select: {
-      id: true,
-      subject: true,
-      requesterEmail: true,
-      requesterName: true,
-      facilityId: true,
-      facility: { select: { displayName: true } },
-    },
-  });
-  if (!ticket) {
-    throw new Error("Ticket not found.");
-  }
-
-  const now = new Date();
-  let emailedAt: Date | null = null;
-  if (isEmailConfigured()) {
-    const result = await sendConsoleTicketReplyEmail({
-      to: ticket.requesterEmail,
-      displayName: ticket.requesterName || "there",
-      facilityDisplayName: ticket.facility.displayName,
-      subject: ticket.subject,
-      replyBody: parsed.data.body,
-    });
-    if (result.sent) {
-      emailedAt = now;
-    } else if (result.reason === "send_failed") {
-      console.info("console_ticket_reply_failed", { ticketId: ticket.id, error: result.error });
-    }
-  } else {
-    console.info("console_ticket_reply_skipped_not_configured", { ticketId: ticket.id });
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.consoleTicketMessage.create({
-      data: {
-        ticketId: ticket.id,
-        body: parsed.data.body,
-        authorStaffId: session.uid,
-        emailedAt,
-      },
-    });
-    await tx.consoleTicket.update({
-      where: { id: ticket.id },
-      data: {
-        status: parsed.data.status,
-        resolvedAt: parsed.data.status === "RESOLVED" ? now : null,
-      },
-    });
-    await tx.harborAuditEvent.create({
-      data: {
-        staffId: session.uid,
-        action: "TICKET_REPLY",
-        facilityId: ticket.facilityId,
-      },
-    });
-  });
-
+function revalidateTickets(ticketId?: string) {
   revalidatePath("/console");
   revalidatePath("/console/tickets");
-  revalidatePath(`/console/tickets/${ticket.id}`);
+  if (ticketId) {
+    revalidatePath(ticketPath(ticketId));
+  }
+}
+
+/** Expected domain failures return to the ticket with a notice instead of an error page. */
+async function mutateTicket(ticketId: string, mutation: () => Promise<unknown>): Promise<never> {
+  let errorCode: SupportTicketErrorCode | null = null;
+  try {
+    await mutation();
+  } catch (error) {
+    if (!(error instanceof SupportTicketError)) {
+      throw error;
+    }
+    errorCode = error.code;
+  }
+  revalidateTickets(ticketId);
+  redirect(errorCode ? `${ticketPath(ticketId)}?error=${errorCode}` : ticketPath(ticketId));
+}
+
+export async function createSupportTicketAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const parsed = createSchema.safeParse({
+    facilityId: field(formData, "facilityId"),
+    subject: field(formData, "subject"),
+    requesterEmail: field(formData, "requesterEmail"),
+    requesterName: field(formData, "requesterName"),
+    type: field(formData, "type"),
+    priority: field(formData, "priority") || "NORMAL",
+    assignedStaffId: field(formData, "assignedStaffId"),
+    body: field(formData, "body"),
+  });
+  if (!parsed.success) {
+    redirect("/console/tickets/new?error=invalid_input");
+  }
+
+  let ticketId: string | null = null;
+  let errorCode: SupportTicketErrorCode | null = null;
+  try {
+    const ticket = await createSupportTicket(prisma, {
+      actorStaffId: session.uid,
+      requesterEmail: parsed.data.requesterEmail,
+      requesterName: parsed.data.requesterName,
+      subject: parsed.data.subject,
+      facilityId: parsed.data.facilityId,
+      type: parsed.data.type,
+      priority: parsed.data.priority,
+      assignedStaffId: parsed.data.assignedStaffId,
+      note: parsed.data.body,
+    });
+    ticketId = ticket.id;
+  } catch (error) {
+    if (!(error instanceof SupportTicketError)) {
+      throw error;
+    }
+    errorCode = error.code;
+  }
+
+  if (!ticketId) {
+    redirect(`/console/tickets/new?error=${errorCode ?? "invalid_input"}`);
+  }
+  revalidateTickets(ticketId);
+  redirect(ticketPath(ticketId));
+}
+
+export async function addSupportTicketNoteAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const ticketId = field(formData, "ticketId");
+  const parsed = noteSchema.safeParse({
+    ticketId,
+    body: field(formData, "body"),
+    clientSubmissionId: field(formData, "clientSubmissionId"),
+  });
+  if (!parsed.success) {
+    redirect(`${ticketPath(ticketId)}?error=invalid_input`);
+  }
+  await mutateTicket(parsed.data.ticketId, () =>
+    addSupportTicketNote(prisma, { ...parsed.data, actorStaffId: session.uid }),
+  );
+}
+
+export async function replySupportTicketAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const ticketId = field(formData, "ticketId");
+  const parsed = replySchema.safeParse({
+    ticketId,
+    body: field(formData, "body"),
+    clientSubmissionId: field(formData, "clientSubmissionId"),
+    status: field(formData, "status"),
+  });
+  if (!parsed.success) {
+    redirect(`${ticketPath(ticketId)}?error=invalid_input`);
+  }
+  await mutateTicket(parsed.data.ticketId, () =>
+    sendSupportReply(prisma, { ...parsed.data, actorStaffId: session.uid }),
+  );
+}
+
+export async function changeSupportTicketStatusAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const ticketId = field(formData, "ticketId");
+  const parsed = statusSchema.safeParse({ ticketId, status: field(formData, "status") });
+  if (!parsed.success) {
+    redirect(`${ticketPath(ticketId)}?error=invalid_input`);
+  }
+  await mutateTicket(parsed.data.ticketId, () =>
+    changeSupportTicketStatus(prisma, { ...parsed.data, actorStaffId: session.uid }),
+  );
+}
+
+export async function updateSupportTicketDetailsAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const ticketId = field(formData, "ticketId");
+  const parsed = detailsSchema.safeParse({
+    ticketId,
+    type: field(formData, "type"),
+    priority: field(formData, "priority"),
+    assignedStaffId: field(formData, "assignedStaffId"),
+    facilityId: field(formData, "facilityId"),
+  });
+  if (!parsed.success) {
+    redirect(`${ticketPath(ticketId)}?error=invalid_input`);
+  }
+  const { ticketId: parsedTicketId, ...changes } = parsed.data;
+  await mutateTicket(parsedTicketId, () =>
+    updateSupportTicketDetails(prisma, {
+      ticketId: parsedTicketId,
+      actorStaffId: session.uid,
+      changes,
+    }),
+  );
+}
+
+export async function assignSupportTicketToMeAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const parsed = id.safeParse(field(formData, "ticketId"));
+  if (!parsed.success) {
+    redirect("/console/tickets");
+  }
+  await mutateTicket(parsed.data, () =>
+    updateSupportTicketDetails(prisma, {
+      ticketId: parsed.data,
+      actorStaffId: session.uid,
+      changes: { assignedStaffId: session.uid },
+    }),
+  );
 }

@@ -65,6 +65,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/operational-requests/phase-12a-operational-requests.test.ts",
   "src/lib/plant/phase-12a-plant-operations.test.ts",
   "src/lib/bulk-import/bulk-import.scale.db.test.ts",
+  "src/lib/support/support-tickets.db.test.ts",
 ];
 
 function main() {

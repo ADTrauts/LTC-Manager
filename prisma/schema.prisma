@@ -141,6 +141,8 @@ model Facility {
   unionHandbookEffectiveDate     DateTime?                       @db.Date
   users                          User[]
   consoleTickets                 ConsoleTicket[]
+  supportContacts                SupportContact[]
+  supportTickets                 SupportTicket[]
   userFacilityAccesses           UserFacilityAccess[]
   units                          Unit[]
   unitSpaces                     UnitSpace[]
@@ -494,6 +496,7 @@ model User {
   primaryDepartmentId            String?
   primaryDepartment              Department?                     @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
   submissions                    LogSubmission[]
+  supportContacts                SupportContact[]
   createdSchedules               ScheduleEntry[]                 @relation("ScheduleCreatedBy")
   changedOverrides               AssignmentOverride[]            @relation("OverrideChangedBy")
   createdAssignments             OperationalAssignment[]         @relation("AssignmentCreatedBy")
@@ -4481,6 +4484,9 @@ model PlatformStaff {
   auditEvents    HarborAuditEvent[]
   openedConsoleTickets ConsoleTicket[] @relation("ConsoleTicketOpenedBy")
   consoleTicketMessages ConsoleTicketMessage[]
+  assignedSupportTickets SupportTicket[]
+  supportTicketMessages  SupportTicketMessage[]
+  supportTicketEvents    SupportTicketEvent[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -4497,7 +4503,8 @@ model HarborAuditEvent {
   @@index([facilityId, createdAt])
 }
 
-/// Platform support ticket. Facility operations issues stay on Repair / OperationalRequest.
+/// Legacy (transitional). Rows were copied into SupportTicket by 20261001130000_support_ticket;
+/// no runtime code reads or writes this table. Drop in a later forward-only migration.
 model ConsoleTicket {
   id              String              @id @default(cuid())
   facilityId      String
@@ -4517,6 +4524,7 @@ model ConsoleTicket {
   @@index([status, updatedAt])
 }
 
+/// Legacy (transitional). Rows were copied into SupportTicketMessage; no runtime use.
 model ConsoleTicketMessage {
   id            String        @id @default(cuid())
   ticketId      String
@@ -4526,6 +4534,168 @@ model ConsoleTicketMessage {
   authorStaff   PlatformStaff @relation(fields: [authorStaffId], references: [id], onDelete: Restrict)
   emailedAt     DateTime?
   createdAt     DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+// ── Customer support (Vssyl Console) ───────────────────────────────────────────
+// Customer support for Vssyl itself. Facility operations stay on OperationalRequest / Repair /
+// AssetIssue / Task. See docs/architecture/SUPPORT_TICKETS.md.
+
+enum SupportTicketStatus {
+  NEW
+  OPEN
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketType {
+  SUPPORT
+  BUG
+  FEATURE_REQUEST
+  IMPROVEMENT
+  ACCOUNT_ACCESS
+  BILLING
+  OTHER
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportTicketMessageKind {
+  INBOUND
+  OUTBOUND
+  NOTE
+}
+
+enum SupportMessageDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SupportTicketEventType {
+  CREATED
+  STATUS_CHANGED
+  ASSIGNMENT_CHANGED
+  PRIORITY_CHANGED
+  TYPE_CHANGED
+  FACILITY_CHANGED
+  CONTACT_CHANGED
+  SUBJECT_CHANGED
+}
+
+/// Who a support ticket is from. Needs no Vssyl login; a user/facility link is a label for staff
+/// and never grants authorization.
+model SupportContact {
+  id          String                 @id @default(cuid())
+  /// Lowercased and trimmed.
+  email       String                 @unique
+  displayName String?
+  userId      String?
+  user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  facilityId  String?
+  facility    Facility?              @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  tickets     SupportTicket[]
+  messages    SupportTicketMessage[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([userId])
+  @@index([facilityId])
+}
+
+model SupportTicket {
+  id              String                 @id @default(cuid())
+  /// Displayed as VSS-{number}. Sequence starts at 1001; never reused.
+  number          Int                    @unique @default(autoincrement())
+  /// Lowercase hex, at most 40 chars so `support+{token}@…` fits a 64-octet email local part.
+  /// Reserved for inbound reply routing; never shown in the UI.
+  replyToken      String                 @unique
+  subject         String
+  status          SupportTicketStatus    @default(NEW)
+  /// Null until staff classify the ticket.
+  type            SupportTicketType?
+  priority        SupportTicketPriority  @default(NORMAL)
+  contactId       String
+  contact         SupportContact         @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  facilityId      String?
+  facility        Facility?              @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  assignedStaffId String?
+  assignedStaff   PlatformStaff?         @relation(fields: [assignedStaffId], references: [id], onDelete: Restrict)
+  messages        SupportTicketMessage[]
+  events          SupportTicketEvent[]
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([assignedStaffId, status])
+  @@index([facilityId])
+  @@index([contactId])
+}
+
+/// INBOUND (customer email), OUTBOUND (Vssyl reply), or NOTE (internal). Per-kind required and
+/// forbidden fields are enforced by CHECK constraints in the migration.
+model SupportTicketMessage {
+  id                 String                        @id @default(cuid())
+  ticketId           String
+  ticket             SupportTicket                 @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  kind               SupportTicketMessageKind
+  authorStaffId      String?
+  authorStaff        PlatformStaff?                @relation(fields: [authorStaffId], references: [id], onDelete: Restrict)
+  contactId          String?
+  contact            SupportContact?               @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  bodyText           String
+  bodyHtml           String?
+  strippedReplyText  String?
+  fromEmail          String?
+  fromName           String?
+  toEmails           String[]                      @default([])
+  ccEmails           String[]                      @default([])
+  replyTo            String?
+  subject            String?
+  /// RFC 5322 Message-ID without angle brackets. Not unique: external mailers reuse values.
+  internetMessageId  String?
+  inReplyTo          String?
+  references         String[]                      @default([])
+  /// Postmark MessageID.
+  providerMessageId  String?                       @unique
+  inboundHeaders     Json?
+  /// Attachment name/type/size only; contents are never stored here.
+  attachmentManifest Json?
+  deliveryStatus     SupportMessageDeliveryStatus?
+  deliveryError      String?
+  sentAt             DateTime?
+  clientSubmissionId String?                       @unique
+  receivedAt         DateTime?
+  causedEvents       SupportTicketEvent[]
+  createdAt          DateTime                      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([internetMessageId])
+}
+
+/// Append-only ticket history. Application code only inserts rows.
+model SupportTicketEvent {
+  id                String                 @id @default(cuid())
+  ticketId          String
+  ticket            SupportTicket          @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  type              SupportTicketEventType
+  actorStaffId      String?
+  actorStaff        PlatformStaff?         @relation(fields: [actorStaffId], references: [id], onDelete: Restrict)
+  causedByMessageId String?
+  causedByMessage   SupportTicketMessage?  @relation(fields: [causedByMessageId], references: [id], onDelete: Restrict)
+  fromValue         String?
+  toValue           String?
+  metadata          Json?
+  createdAt         DateTime               @default(now())
 
   @@index([ticketId, createdAt])
 }

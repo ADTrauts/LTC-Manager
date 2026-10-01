@@ -33,6 +33,7 @@
     "verify:migrations": "node scripts/verify/migration-integrity.mjs",
     "verify:hygiene": "node scripts/verify/repository-hygiene.mjs",
     "verify:schema-drift": "node scripts/verify/schema-drift.mjs",
+    "verify:postmark-message-id": "tsx scripts/verify/postmark-support-message-id.ts",
     "maintenance:auth-rate-limits": "node scripts/maintenance/auth-rate-limits.mjs",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",

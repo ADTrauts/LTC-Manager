@@ -134,6 +134,23 @@ test("sendTemplatedEmail sends through Postmark template alias", async () => {
   assert.deepEqual(result, { sent: true, messageId: "tmpl-1" });
 });
 
+test("sendTemplatedEmail omits Headers and Metadata unless a caller provides them", async () => {
+  resetPostmarkClientForTests();
+  await sendTemplatedEmail(
+    { to: "manager@example.com", templateAlias: "password-reset", templateModel: {} },
+    {
+      env: { POSTMARK_SERVER_TOKEN: "server-token" },
+      client: {
+        sendEmailWithTemplate: async (message) => {
+          assert.equal("Headers" in message, false);
+          assert.equal("Metadata" in message, false);
+          return { MessageID: "tmpl-2" };
+        },
+      },
+    },
+  );
+});
+
 test("manager invite uses branded template model fields", () => {
   const model = buildManagerInviteTemplateModel({
     facilityDisplayName: "Terrace View",

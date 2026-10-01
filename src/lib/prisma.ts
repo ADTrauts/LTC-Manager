@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 let prismaSingleton: PrismaClient | undefined;
 
 /** Bump when schema relations must force a fresh client after `prisma generate`. */
-const PRISMA_CLIENT_EPOCH = "facility-catalog-install-v1";
+const PRISMA_CLIENT_EPOCH = "support-ticket-v1";
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -37,6 +37,10 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "logAttachment",
     "platformStaff",
     "harborAuditEvent",
+    "supportContact",
+    "supportTicket",
+    "supportTicketMessage",
+    "supportTicketEvent",
   ] as const;
   return required.filter((key) => typeof c[key]?.findMany !== "function");
 }

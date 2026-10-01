@@ -3,13 +3,14 @@ import Link from "next/link";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborToday } from "@/lib/harbor-console/queries";
 import { prisma } from "@/lib/prisma";
+import { ACTIVE_SUPPORT_STATUSES } from "@/lib/support/queues";
 
 export default async function HarborTodayPage() {
   await requireHarborStaff();
   const [{ stuckSetups, paymentProblems }, openTickets] = await Promise.all([
     loadHarborToday(prisma),
-    prisma.consoleTicket.count({
-      where: { status: { in: ["OPEN", "WAITING_ON_CUSTOMER"] } },
+    prisma.supportTicket.count({
+      where: { status: { in: ACTIVE_SUPPORT_STATUSES } },
     }),
   ]);
 
