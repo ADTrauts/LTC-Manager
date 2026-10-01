@@ -5,7 +5,10 @@
  * Expected slots are derived. Missing slots are not stored.
  */
 
-import { bindOperationalTypeRequirementToSpace } from "@/lib/canonical-logs/log-operational-type-applicability";
+import {
+  bindOperationalTypeRequirementToSpace,
+  expandOperationalTypeSpaces,
+} from "@/lib/canonical-logs/log-operational-type-applicability";
 import { presentRecordForm } from "@/lib/canonical-logs/record-engine";
 import { attachmentLineageKey } from "@/lib/canonical-logs/attachment-update-policy";
 import { selectSegmentForDate, type LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
@@ -336,10 +339,7 @@ function targetsForSegment(
   });
   if (selected.status !== "evaluated") return [];
   const assignments = historicalOtAssignmentsFromBindings(input.bindings, selected.profile.id);
-  const wanted = segment.operationalTypeKey?.trim() || "";
-  const spaceIds = [...assignments.entries()]
-    .filter(([, assignment]) => assignment.key === wanted)
-    .map(([spaceId]) => spaceId);
+  const spaceIds = expandOperationalTypeSpaces(assignments, segment.operationalTypeKey);
   return spaceIds.map((spaceId) => ({ spaceId }));
 }
 

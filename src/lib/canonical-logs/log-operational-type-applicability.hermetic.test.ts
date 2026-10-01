@@ -547,14 +547,20 @@ test("assign keys stay department-scoped", () => {
   });
 });
 
-test("runtime loaders request runtime OT; Log Builder uses working types", () => {
+test("runtime loaders request runtime OT; Build uses working types", () => {
   const run = readFileSync(join(process.cwd(), "src/lib/canonical-logs/load-target-run-logs.ts"), "utf8");
   const book = readFileSync(join(process.cwd(), "src/lib/canonical-logs/load-run-requirements.ts"), "utf8");
   const assign = readFileSync(join(process.cwd(), "src/lib/canonical-logs/catalog-assign.ts"), "utf8");
+  const build = readFileSync(
+    join(process.cwd(), "src/lib/operational-cycles/load-cycle-builder.ts"),
+    "utf8",
+  );
   const actions = readFileSync(join(process.cwd(), "src/app/(protected)/build/logs/actions.ts"), "utf8");
   assert.match(run, /perspective:\s*"runtime"/);
   assert.match(book, /perspective:\s*"runtime"/);
-  assert.match(assign, /perspective:\s*"working"/);
+  assert.match(build, /perspective:\s*"working"/);
+  assert.doesNotMatch(run, /perspective:\s*"working"/);
+  assert.doesNotMatch(book, /perspective:\s*"working"/);
   assert.match(assign, /OPERATIONAL_TYPE/);
   assert.match(assign, /Operational Types/);
   assert.match(actions, /QUICK_PIN/);

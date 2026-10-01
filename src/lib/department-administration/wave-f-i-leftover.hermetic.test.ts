@@ -11,7 +11,7 @@ function source(rel: string) {
   return readFileSync(join(process.cwd(), rel), "utf8");
 }
 
-test("leftover Run loaders do not read Operational Type assignments", () => {
+test("Run loaders read Location Functions from the shared runtime resolver", () => {
   const files = [
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
@@ -19,15 +19,18 @@ test("leftover Run loaders do not read Operational Type assignments", () => {
     "src/lib/offline/build-runtime-bundle.ts",
     "src/lib/canonical-logs/load-run-requirements.ts",
     "src/lib/canonical-logs/load-target-run-logs.ts",
-    "src/lib/scheduling/operational-assignments/build-coverage-summary.ts",
   ];
   for (const file of files) {
-    assert.equal(
-      source(file).includes("loadSpaceOperationalTypeAssignments"),
-      false,
-      file,
-    );
+    const text = source(file);
+    assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), true, file);
+    assert.match(text, /perspective:\s*"runtime"/, file);
   }
+  assert.equal(
+    source("src/lib/scheduling/operational-assignments/build-coverage-summary.ts").includes(
+      "loadSpaceOperationalTypeAssignments",
+    ),
+    false,
+  );
 });
 
 test("Today's Work and workspace adapters do not require the Experience catalog", () => {
