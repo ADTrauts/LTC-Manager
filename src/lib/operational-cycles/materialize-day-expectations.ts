@@ -105,8 +105,8 @@ async function loadExistingTimings(
 
 /**
  * Materialize meal-service day expectations for one department + operational date.
- * Today's first Run load creates the frozen snapshot. Re-runs are no-ops for existing cycles.
- * Historical dates load existing rows only unless createIfMissing is explicitly true.
+ * Today's Run loads existing rows only. Pass createIfMissing only from
+ * historical tests. Normal Run load leaves it false.
  */
 export async function materializeMealServiceDayExpectations(
   input: MaterializeDayExpectationsInput,
@@ -116,7 +116,7 @@ export async function materializeMealServiceDayExpectations(
   const now = input.now ?? new Date();
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const operationalDateKey = input.operationalDateKey ?? todayKey;
-  const createIfMissing = input.createIfMissing ?? operationalDateKey === todayKey;
+  const createIfMissing = input.createIfMissing ?? false;
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
 
   const existing = await loadExistingTimings(client, {

@@ -38,6 +38,7 @@ export type OverviewGuidanceInput = {
   placedLogCount: number;
   publishedWorkOperationalTypeKeys?: readonly string[];
   classifiedOperationalTypeKeys?: readonly string[];
+  mealTimingUpgradeRequired?: boolean;
 };
 
 export type OverviewProductIdentity = {
@@ -59,6 +60,7 @@ export function formatOperatingRhythmGuidance(input: {
   draftRootCount: number;
   scheduledCount: number;
   scheduledEffectiveFrom: string | null;
+  mealTimingUpgradeRequired?: boolean;
 }): { status: string; description: string; actionLabel: string } {
   const product = getDepartmentProduct(input.departmentKey);
   const hasStarter = Boolean(product?.starters.cycleStarter);
@@ -208,6 +210,14 @@ export function formatEvidenceGuidance(placedLogCount: number): {
 export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewGuidanceRow[] {
   const locations = formatLocationGuidance(input.locationCount);
   const rhythm = formatOperatingRhythmGuidance(input);
+  if (input.mealTimingUpgradeRequired) {
+    rhythm.status = rhythm.status
+      ? `${rhythm.status} · MEAL_TIMING_UPGRADE_REQUIRED`
+      : "MEAL_TIMING_UPGRADE_REQUIRED";
+    rhythm.description =
+      "Published meal Cycles still use legacy timing. Prepare a draft successor. It is not published automatically.";
+    rhythm.actionLabel = "Prepare timing upgrade";
+  }
   const people = formatPeopleGuidance(input.memberCount);
   const work = formatWorkGuidance(input);
   const evidence = formatEvidenceGuidance(input.placedLogCount);

@@ -12,11 +12,7 @@ import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
-import {
-  delayKeyTimeExpectationAction,
-  delayMealExpectationAction,
-  completeKeyTimeExpectationAction,
-} from "@/app/(protected)/staffing/cycles/actions";
+import { completeKeyTimeExpectationAction } from "@/app/(protected)/staffing/cycles/actions";
 import { TodaysWorkRunOperationBanner } from "@/components/todays-work/todays-work-run-operation-banner";
 import {
   formatClock12,
@@ -254,19 +250,6 @@ export default async function SupervisorCycleOverviewPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {room.canAdjust ? (
-                        <form action={delayKeyTimeExpectationAction}>
-                          <input type="hidden" name="expectationId" value={room.expectationId} />
-                          <input type="hidden" name="minutes" value="5" />
-                          <button
-                            type="submit"
-                            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
-                            data-testid="delay-key-time-plus-5"
-                          >
-                            +5 min
-                          </button>
-                        </form>
-                      ) : null}
                       {room.canComplete ? (
                         <form action={completeKeyTimeExpectationAction}>
                           <input type="hidden" name="expectationId" value={room.expectationId} />
@@ -275,7 +258,7 @@ export default async function SupervisorCycleOverviewPage() {
                             className="rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-700"
                             data-testid="complete-key-time"
                           >
-                            Mark complete
+                            Record time
                           </button>
                         </form>
                       ) : null}
@@ -349,19 +332,6 @@ export default async function SupervisorCycleOverviewPage() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {row.canAdjust && row.expectationId ? (
-                        <form action={delayMealExpectationAction}>
-                          <input type="hidden" name="expectationId" value={row.expectationId} />
-                          <input type="hidden" name="minutes" value="5" />
-                          <button
-                            type="submit"
-                            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
-                            data-testid="delay-meal-plus-5"
-                          >
-                            +5 min
-                          </button>
-                        </form>
-                      ) : null}
                       <Link
                         href={row.workspaceHref}
                         className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50"

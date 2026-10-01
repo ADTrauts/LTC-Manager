@@ -405,7 +405,7 @@ export function CycleEditorFields({
     defaults.mealType ?? (showMeal && !inheritedMealType ? "BREAKFAST" : defaults.mealType ?? ""),
   );
   const [milestones, setMilestones] = useState<string[]>(
-    defaults.expectedMilestones ?? (showMeal ? ["READY", "SERVICE_STARTED"] : []),
+    defaults.expectedMilestones ?? [],
   );
   const [times, setTimes] = useState<Record<string, string>>(() => {
     const next: Record<string, string> = {};

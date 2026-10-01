@@ -5,6 +5,7 @@
 
 import { normalizeAssetStatus } from "@/lib/asset-operations/types";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
+import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
 import {
   emptyLocationProgram,
   type LocationProgram,
@@ -572,34 +573,51 @@ function composeMilestones(input: {
   }
 
   for (const event of input.serveryEvents) {
-    items.push({
-      kind: "SERVERY_READY",
-      label: "Servery Ready",
-      cycleStableKey: null,
-      timing: {
-        configured: null,
-        adjusted: null,
-        expectedToday: null,
-        actual: event.mealServiceReadyAt?.toISOString() ?? null,
-        recordedAt: event.readyRecordedAt,
-      },
-      statusKey: event.mealServiceReadyAt ? "completed_on_time" : "not_recorded",
-      canonical: false,
-    });
-    items.push({
-      kind: "MEAL_SERVICE_STARTED",
-      label: "Meal Service Started",
-      cycleStableKey: null,
-      timing: {
-        configured: null,
-        adjusted: null,
-        expectedToday: null,
-        actual: event.mealServiceStartedAt?.toISOString() ?? null,
-        recordedAt: event.startedRecordedAt,
-      },
-      statusKey: event.mealServiceStartedAt ? "completed_on_time" : "not_recorded",
-      canonical: false,
-    });
+    const cycles = input.model?.cycles ?? [];
+    if (
+      selectDietaryMealTimingModel({
+        mealType: event.mealType,
+        eventType: "READY",
+        effectiveCycles: cycles,
+      }) === "LEGACY_MILESTONES"
+    ) {
+      items.push({
+        kind: "SERVERY_READY",
+        label: "Servery Ready",
+        cycleStableKey: null,
+        timing: {
+          configured: null,
+          adjusted: null,
+          expectedToday: null,
+          actual: event.mealServiceReadyAt?.toISOString() ?? null,
+          recordedAt: event.readyRecordedAt,
+        },
+        statusKey: event.mealServiceReadyAt ? "completed_on_time" : "not_recorded",
+        canonical: false,
+      });
+    }
+    if (
+      selectDietaryMealTimingModel({
+        mealType: event.mealType,
+        eventType: "STARTED",
+        effectiveCycles: cycles,
+      }) === "LEGACY_MILESTONES"
+    ) {
+      items.push({
+        kind: "MEAL_SERVICE_STARTED",
+        label: "Meal Service Started",
+        cycleStableKey: null,
+        timing: {
+          configured: null,
+          adjusted: null,
+          expectedToday: null,
+          actual: event.mealServiceStartedAt?.toISOString() ?? null,
+          recordedAt: event.startedRecordedAt,
+        },
+        statusKey: event.mealServiceStartedAt ? "completed_on_time" : "not_recorded",
+        canonical: false,
+      });
+    }
   }
 
   return items;

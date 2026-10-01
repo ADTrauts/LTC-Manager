@@ -1,25 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { MealType, IssueType, RepairPriority, RepairStatus, WorkOrderKind } from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { resolveMilestoneActor } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
 import {
   defaultRepairTradeForIssueType,
   suggestRepairDepartmentIds,
 } from "@/lib/repair-routing";
-import {
-  recordServeryMilestone,
-  type RecordServeryMilestoneResult,
-  type ServeryMilestone,
-} from "@/lib/servery";
+import { sessionUserIdForFk } from "@/lib/auth";
+import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 import { submitInspection } from "@/lib/work/inspections";
 import type { InspectionItemAnswerInput } from "@/lib/work/inspections/types";
@@ -44,31 +39,27 @@ const correctServeryServiceTimeSchema = recordServeryServiceTimeSchema.extend({
 
 const MILESTONE_BY_EVENT_TYPE = {
   READY: "READY",
-  STARTED: "SERVICE_STARTED",
-} as const satisfies Record<"READY" | "STARTED", ServeryMilestone>;
+  STARTED: "STARTED",
+} as const;
 
-/**
- * Assemble the actor from the session only.
- *
- * A PIN session carries an Employee id and no User row, which is why the previous code recorded no
- * actor for exactly the shared-tablet case this workflow exists to serve.
- */
-async function resolveMilestoneActorFromSession(
-  session: Awaited<ReturnType<typeof requireFacilitySession>>,
+function milestoneOutcomeParam(
+  result: { ok: true; deduplicated: boolean } | { ok: false; reason: string },
+  eventType: "READY" | "STARTED",
 ) {
-  return resolveMilestoneActor(session);
-}
-
-/** The Unit this tablet is locked to, when the device has been bound to one. */
-async function resolveDeviceBoundUnitId(): Promise<string | null> {
-  const jar = await cookies();
-  return jar.get(DEVICE_UNIT_COOKIE)?.value?.trim() || null;
-}
-
-function milestoneOutcomeParam(result: RecordServeryMilestoneResult, milestone: ServeryMilestone) {
   if (!result.ok) return `denied-${result.reason.toLowerCase().replace(/_/g, "-")}`;
   if (result.deduplicated) return "already-recorded";
-  return milestone === "READY" ? "ready-recorded" : "started-recorded";
+  return eventType === "READY" ? "ready-recorded" : "started-recorded";
+}
+
+async function dietaryTimingActor(session: Awaited<ReturnType<typeof requireFacilitySession>>) {
+  const actor = await resolveMilestoneActor(session);
+  return {
+    userId: actor.userId ?? sessionUserIdForFk(session),
+    employeeId: actor.employeeId,
+    role: session.role,
+    authKind: session.authKind,
+    authMethod: actor.authMethod,
+  };
 }
 
 export async function recordServeryServiceTimeAction(formData: FormData) {
@@ -82,16 +73,15 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
     returnLogTab: formData.get("returnLogTab") ?? undefined,
   });
 
-  const milestone = MILESTONE_BY_EVENT_TYPE[parsed.eventType];
-  const result = await recordServeryMilestone({
+  const eventType = MILESTONE_BY_EVENT_TYPE[parsed.eventType];
+  const result = await routeDietaryMealTiming({
     facilityId: session.facilityId,
     unitId: parsed.unitId,
     mealType: parsed.mealType,
-    milestone,
+    eventType,
     action: "RECORD",
     clientActionId: parsed.clientActionId,
-    actor: await resolveMilestoneActorFromSession(session),
-    deviceBoundUnitId: await resolveDeviceBoundUnitId(),
+    actor: await dietaryTimingActor(session),
   });
 
   if (result.ok) {
@@ -102,7 +92,7 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
   }
 
   const redirectParams = new URLSearchParams();
-  redirectParams.set("mealServiceEvent", milestoneOutcomeParam(result, milestone));
+  redirectParams.set("mealServiceEvent", milestoneOutcomeParam(result, eventType));
   if (parsed.returnTab) {
     redirectParams.set("unitTab", parsed.returnTab);
   }
@@ -113,10 +103,7 @@ export async function recordServeryServiceTimeAction(formData: FormData) {
 }
 
 /**
- * Correct an already-recorded milestone.
- *
- * Separate from recording because it needs a higher role and a reason, and because it appends a
- * correction entry that preserves the value it replaced rather than overwriting history.
+ * Correct a Key Point actual. The original actual row stays.
  */
 export async function correctServeryServiceTimeAction(formData: FormData) {
   const session = await requireFacilitySession();
@@ -132,18 +119,17 @@ export async function correctServeryServiceTimeAction(formData: FormData) {
   });
 
   const occurredAt = new Date(parsed.occurredAt);
-  const milestone = MILESTONE_BY_EVENT_TYPE[parsed.eventType];
-  const result = await recordServeryMilestone({
+  const eventType = MILESTONE_BY_EVENT_TYPE[parsed.eventType];
+  const result = await routeDietaryMealTiming({
     facilityId: session.facilityId,
     unitId: parsed.unitId,
     mealType: parsed.mealType,
-    milestone,
+    eventType,
     action: "CORRECT",
     clientActionId: parsed.clientActionId,
     occurredAt,
     reason: parsed.reason,
-    actor: await resolveMilestoneActorFromSession(session),
-    deviceBoundUnitId: await resolveDeviceBoundUnitId(),
+    actor: await dietaryTimingActor(session),
   });
 
   if (result.ok) {
@@ -156,7 +142,7 @@ export async function correctServeryServiceTimeAction(formData: FormData) {
   const redirectParams = new URLSearchParams();
   redirectParams.set(
     "mealServiceEvent",
-    result.ok ? "correction-recorded" : milestoneOutcomeParam(result, milestone),
+    result.ok ? "correction-recorded" : milestoneOutcomeParam(result, eventType),
   );
   if (parsed.returnTab) {
     redirectParams.set("unitTab", parsed.returnTab);

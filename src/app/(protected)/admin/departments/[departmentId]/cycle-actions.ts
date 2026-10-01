@@ -18,6 +18,7 @@ import {
   isCycleEffectiveOnDate,
   minimumPublishEffectiveFrom,
   nextOperationalDayKey,
+  prepareDietaryMealTimingUpgrade,
   publishCycle,
   reorderDrafts,
   applyDraftTreeMove,
@@ -739,5 +740,23 @@ export async function generateEvsDefaultsAction(
   } catch (error) {
     return toErrors(error);
   }
+}
+
+export async function prepareDietaryMealTimingUpgradeAction(formData: FormData): Promise<void> {
+  const departmentId = String(formData.get("departmentId") ?? "").trim();
+  const session = await requireFacilitySession();
+  await requireCyclesFeature(departmentId);
+  await assertDepartmentInFacility(departmentId, session.facilityId);
+  const timezone = await loadFacilityTimezone(prisma, session.facilityId);
+  const effectiveFrom = nextOperationalDayKey(
+    toServiceDateKey(getFacilityServiceDate(timezone, new Date())),
+  );
+  await prepareDietaryMealTimingUpgrade(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    effectiveFrom,
+    actor: actorFromSession(session),
+  });
+  revalidateCycles(departmentId);
 }
 

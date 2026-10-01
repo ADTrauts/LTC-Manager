@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { DepartmentManagerForm } from "@/app/(protected)/admin/departments/[departmentId]/department-manager-form";
+import { prepareDietaryMealTimingUpgradeAction } from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
 import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/department-visibility-form";
 import { AppIcons } from "@/lib/design-system/icons";
 import type { OverviewGuidanceRow } from "@/lib/department-administration/overview-guidance";
@@ -144,16 +145,29 @@ export function OverviewPanel({
           {settings.guidanceRows.map((row) => {
             const Icon = ROW_ICONS[row.id];
             return (
-              <ConfigRow
-                key={row.id}
-                icon={<Icon className="h-4 w-4" aria-hidden />}
-                title={row.title}
-                status={row.status}
-                description={row.description}
-                href={row.href}
-                actionLabel={row.actionLabel}
-                testId={row.testId}
-              />
+              <div key={row.id}>
+                <ConfigRow
+                  icon={<Icon className="h-4 w-4" aria-hidden />}
+                  title={row.title}
+                  status={row.status}
+                  description={row.description}
+                  href={row.href}
+                  actionLabel={row.actionLabel}
+                  testId={row.testId}
+                />
+                {row.status.includes("MEAL_TIMING_UPGRADE_REQUIRED") ? (
+                  <form action={prepareDietaryMealTimingUpgradeAction} className="pb-3">
+                    <input type="hidden" name="departmentId" value={department.id} />
+                    <button
+                      type="submit"
+                      className="text-xs font-medium text-zinc-800 underline"
+                      data-testid="prepare-meal-timing-upgrade"
+                    >
+                      Prepare timing upgrade
+                    </button>
+                  </form>
+                ) : null}
+              </div>
             );
           })}
           <ConfigRow

@@ -7,7 +7,7 @@ import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AuthKind } from "@/lib/auth";
 
-export type PlatformCapability = "operational_timing.adjust";
+export type PlatformCapability = "operational_timing.adjust" | "operational_timing.record";
 
 export function hasPlatformCapability(input: {
   capability: PlatformCapability;
@@ -17,6 +17,9 @@ export function hasPlatformCapability(input: {
   if (input.authKind === "harbor_staff") return false;
   if (input.capability === "operational_timing.adjust") {
     return hasAtLeastRole(input.role, "SUPERVISOR");
+  }
+  if (input.capability === "operational_timing.record") {
+    return hasAtLeastRole(input.role, "STAFF");
   }
   return false;
 }

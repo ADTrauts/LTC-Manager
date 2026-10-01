@@ -1,16 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { sessionUserIdForFk } from "@/lib/auth";
-import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { resolveMilestoneActor } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
-import { recordServeryMilestone } from "@/lib/servery";
+import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
 const schema = z.object({
@@ -55,18 +53,24 @@ export async function resolveOfflineConflictAction(formData: FormData) {
     const commandType = payload.commandType;
     if (!mealType || !commandType || !parsed.reason || !parsed.occurredAt) return;
 
-    const milestone = commandType === "RECORD_SERVERY_READY" ? "READY" : "SERVICE_STARTED";
-    await recordServeryMilestone({
+    const eventType = commandType === "RECORD_SERVERY_READY" ? "READY" : "STARTED";
+    const actor = await resolveMilestoneActor(session);
+    await routeDietaryMealTiming({
       facilityId: session.facilityId,
       unitId: parsed.unitId,
-      mealType: mealType as "BREAKFAST" | "LUNCH" | "DINNER",
-      milestone: milestone as "READY" | "SERVICE_STARTED",
+      mealType,
+      eventType,
       action: "CORRECT",
       clientActionId: `${parsed.clientCommandId}:correction`,
       occurredAt: new Date(parsed.occurredAt),
       reason: parsed.reason,
-      actor: await resolveMilestoneActor(session),
-      deviceBoundUnitId: (await cookies()).get(DEVICE_UNIT_COOKIE)?.value?.trim() || null,
+      actor: {
+        userId: actor.userId,
+        employeeId: actor.employeeId,
+        role: session.role,
+        authKind: session.authKind,
+        authMethod: actor.authMethod,
+      },
     });
   }
 

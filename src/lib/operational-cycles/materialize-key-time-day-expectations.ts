@@ -13,6 +13,7 @@ import {
 } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
+import { applyCanonicalKeyPointOccurrence } from "./cycle-canonical";
 import {
   expectedKeyTimeToday,
   type KeyTimeDayTiming,
@@ -137,13 +138,27 @@ async function loadExistingTimings(
     },
     orderBy: [{ configuredDueLocal: "asc" }, { cycleLabel: "asc" }, { spaceId: "asc" }],
   });
-  return rows.map(mapTiming);
+  const actuals = await client.operationalCycleKeyPointActual.findMany({
+    where: {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      serviceDate: input.serviceDate,
+    },
+    select: {
+      cycleId: true,
+      spaceId: true,
+      actualLocal: true,
+      recordedAt: true,
+    },
+    orderBy: { recordedAt: "asc" },
+  });
+  return applyCanonicalKeyPointOccurrence(rows.map(mapTiming), actuals);
 }
 
 /**
  * Materialize Key Time day expectations for one department + operational date.
- * Today's first Run load freezes the snapshot. Re-runs skip existing rows.
- * Historical dates load existing rows only unless createIfMissing is true.
+ * Forward Run loads existing rows only. Pass createIfMissing only from
+ * historical tests. Normal Run load leaves it false.
  */
 export async function materializeKeyTimeDayExpectations(
   input: MaterializeKeyTimeDayExpectationsInput,
@@ -153,7 +168,7 @@ export async function materializeKeyTimeDayExpectations(
   const now = input.now ?? new Date();
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const operationalDateKey = input.operationalDateKey ?? todayKey;
-  const createIfMissing = input.createIfMissing ?? operationalDateKey === todayKey;
+  const createIfMissing = input.createIfMissing ?? false;
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
 
   const existing = await loadExistingTimings(client, {

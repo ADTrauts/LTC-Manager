@@ -135,6 +135,7 @@ export default async function DepartmentBuilderPage({
       placedLogCount: contextSummary.placedLogCount,
       publishedWorkOperationalTypeKeys: contextSummary.publishedWorkOperationalTypeKeys,
       classifiedOperationalTypeKeys: contextSummary.classifiedOperationalTypeKeys,
+      mealTimingUpgradeRequired: contextSummary.mealTimingUpgradeRequired,
     }),
   };
 

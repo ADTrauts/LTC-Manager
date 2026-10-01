@@ -26,10 +26,19 @@ export type DietaryDefaultCyclePlan = {
   applicableDaysOfWeek: number[];
   mealType: MealType | null;
   expectedMilestones: ServeryMilestone[];
-  locationMode: "ALL_DEPARTMENT_UNITS" | "UNIT_TYPES" | "EXPLICIT_UNITS" | "ROOM_TYPE";
+  locationMode:
+    | "ALL_DEPARTMENT_UNITS"
+    | "UNIT_TYPES"
+    | "EXPLICIT_UNITS"
+    | "ROOM_TYPE"
+    | "OPERATIONAL_TYPES";
   locationInheritFromParent?: boolean;
   applicableUnitTypes: UnitType[];
+  applicableOperationalTypeKeys?: string[];
   roomTypeKey: string | null;
+  occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
+  keyPointGrain?: "DEPARTMENT" | "LOCATION";
+  dueLocals?: string[];
 };
 
 /** EVS cycles: no mealType, no expectedMilestones. */
@@ -67,6 +76,9 @@ function mealChildren(
   prepEnd: string,
   cleanupStart: string,
   cleanupEnd: string,
+  dueLocal: string,
+  readyLocal: string,
+  serviceStartedLocal: string,
 ) {
   return [
     {
@@ -121,9 +133,56 @@ function mealChildren(
       applicableDaysOfWeek: [...ALL_DAYS],
       mealType: null,
       expectedMilestones: [] as ServeryMilestone[],
-      locationMode: "EXPLICIT_UNITS" as const,
+      locationMode: "ALL_DEPARTMENT_UNITS" as const,
       applicableUnitTypes: [] as UnitType[],
       roomTypeKey: null,
+      occurrenceTracking: "NONE" as const,
+      keyPointGrain: "DEPARTMENT" as const,
+      dueLocals: [dueLocal],
+    },
+    {
+      stableKey: `${mealKey}_ready`,
+      parentStableKey: mealKey,
+      nodeKind: "KEY_TIME" as const,
+      label: `${mealLabel} Ready`,
+      description: `${mealLabel} readiness at each Food Service Area.`,
+      cycleType: "CUSTOM" as const,
+      displaySequence: 13,
+      startLocal: null,
+      endLocal: null,
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [] as ServeryMilestone[],
+      locationMode: "EXPLICIT_UNITS" as const,
+      applicableUnitTypes: [] as UnitType[],
+      applicableOperationalTypeKeys: ["food_service_area"],
+      roomTypeKey: null,
+      occurrenceTracking: "REQUIRED" as const,
+      keyPointGrain: "LOCATION" as const,
+      dueLocals: [readyLocal],
+    },
+    {
+      stableKey: `${mealKey}_service_started`,
+      parentStableKey: mealKey,
+      nodeKind: "KEY_TIME" as const,
+      label: `${mealLabel} Service Started`,
+      description: `${mealLabel} service start at each Food Service Area.`,
+      cycleType: "CUSTOM" as const,
+      displaySequence: 13,
+      startLocal: null,
+      endLocal: null,
+      overnight: false,
+      applicableDaysOfWeek: [...ALL_DAYS],
+      mealType: null,
+      expectedMilestones: [] as ServeryMilestone[],
+      locationMode: "EXPLICIT_UNITS" as const,
+      applicableUnitTypes: [] as UnitType[],
+      applicableOperationalTypeKeys: ["food_service_area"],
+      roomTypeKey: null,
+      occurrenceTracking: "REQUIRED" as const,
+      keyPointGrain: "LOCATION" as const,
+      dueLocals: [serviceStartedLocal],
     },
     {
       stableKey: `${mealKey}_cleanup`,
@@ -180,7 +239,7 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       applicableUnitTypes: [],
       roomTypeKey: null,
     },
-    ...mealChildren("breakfast", "Breakfast", "05:30", "07:10", "09:00", "10:00"),
+    ...mealChildren("breakfast", "Breakfast", "05:30", "07:10", "09:00", "10:00", "08:00", "07:05", "07:10"),
     {
       stableKey: "lunch",
       parentStableKey: null,
@@ -199,7 +258,7 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       applicableUnitTypes: [],
       roomTypeKey: null,
     },
-    ...mealChildren("lunch", "Lunch", "10:00", "11:30", "13:30", "14:00"),
+    ...mealChildren("lunch", "Lunch", "10:00", "11:30", "13:30", "14:00", "12:00", "11:25", "11:30"),
     {
       stableKey: "dinner",
       parentStableKey: null,
@@ -218,7 +277,7 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       applicableUnitTypes: [],
       roomTypeKey: null,
     },
-    ...mealChildren("dinner", "Dinner", "15:30", "17:00", "19:00", "20:00"),
+    ...mealChildren("dinner", "Dinner", "15:30", "17:00", "19:00", "20:00", "17:30", "16:55", "17:00"),
   ];
 }
 

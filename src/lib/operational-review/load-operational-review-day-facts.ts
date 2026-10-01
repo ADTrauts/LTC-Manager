@@ -6,6 +6,8 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { LogAttachmentForResolve } from "@/lib/canonical-logs/resolve-log-requirements";
+import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-canonical";
+import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import { loadPublishedCyclesForLogsOnDate } from "@/lib/canonical-logs/load-published-cycles-for-logs";
 import {
@@ -101,6 +103,7 @@ export async function loadOperationalReviewDayFacts(input: {
     overrides,
     serveryEvents,
     keyTimes,
+    keyPointActuals,
     assetIssues,
     legacyCount,
   ] = await Promise.all([
@@ -274,8 +277,23 @@ export async function loadOperationalReviewDayFacts(input: {
             cycleLabel: true,
             configuredDueLocal: true,
             adjustedDueLocal: true,
-            completedAt: true,
           },
+        }),
+    departmentIds.length === 0
+      ? Promise.resolve([])
+      : input.client.operationalCycleKeyPointActual.findMany({
+          where: {
+            facilityId: input.facilityId,
+            departmentId: { in: departmentIds },
+            serviceDate,
+          },
+          select: {
+            spaceId: true,
+            cycleStableKey: true,
+            cycleVersion: true,
+            recordedAt: true,
+          },
+          orderBy: { recordedAt: "asc" },
         }),
     input.client.assetIssue.findMany({
       where: {
@@ -472,7 +490,8 @@ export async function loadOperationalReviewDayFacts(input: {
     );
   }
 
-  const serveryMilestoneActuals = serveryEvents.flatMap((event) => {
+  const serveryMilestoneActuals = selectAuthoritativeLegacyMilestones(
+    serveryEvents.flatMap((event) => {
     const latestReady =
       event.entries.find((entry) => entry.milestone === "READY") ??
       (event.mealServiceReadyAt
@@ -500,7 +519,9 @@ export async function loadOperationalReviewDayFacts(input: {
         occurredAt: row.occurredAt,
         recordedAt: row.recordedAt,
       }));
-  });
+  }),
+    cycleRows,
+  );
 
   return {
     facilityId: facility.id,
@@ -544,7 +565,7 @@ export async function loadOperationalReviewDayFacts(input: {
     cycles: cycleRows,
     publishedCyclesForLogs,
     serveryMilestoneActuals,
-    keyTimeActuals: keyTimes,
+    keyTimeActuals: projectReviewKeyTimeOccurrences(keyTimes, keyPointActuals),
     scheduledPresence: scheduleEntries.map((row) => ({
       id: row.id,
       employeeId: row.employeeId,

@@ -1,4 +1,4 @@
-import type { MealType, OperationalTemplateScheduleKind, PrismaClient } from "@prisma/client";
+import type { OperationalTemplateScheduleKind, PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { reportAssetIssue } from "@/lib/asset-operations";
@@ -13,7 +13,7 @@ import { submitCanonicalLogSubmission } from "@/lib/canonical-logs";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
-import { recordServeryMilestone, type ServeryMilestone } from "@/lib/servery";
+import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
 
 import { resolveMilestoneActor } from "./resolve-milestone-actor";
 import type {
@@ -26,8 +26,8 @@ import type {
 
 const MILESTONE_BY_COMMAND = {
   RECORD_SERVERY_READY: "READY",
-  RECORD_MEAL_SERVICE_STARTED: "SERVICE_STARTED",
-} as const satisfies Record<"RECORD_SERVERY_READY" | "RECORD_MEAL_SERVICE_STARTED", ServeryMilestone>;
+  RECORD_MEAL_SERVICE_STARTED: "STARTED",
+} as const;
 
 async function departmentKeyForCommand(
   client: PrismaClient,
@@ -46,7 +46,7 @@ function safeReasonFromFailure(reason: string): string {
 
 function milestoneProjectionFromResult(input: {
   eventId: string;
-  milestone: ServeryMilestone;
+  milestone: "READY" | "SERVICE_STARTED";
   occurredAt: Date;
   recordedAt: Date;
 }): OfflineMilestoneProjection {
@@ -97,12 +97,12 @@ export async function processSyncCommand(
   }
 
   const actor = await resolveMilestoneActor(input.session);
-  const milestone =
+  const eventType =
     command.commandType === "RECORD_SERVERY_READY" ||
     command.commandType === "RECORD_MEAL_SERVICE_STARTED"
       ? MILESTONE_BY_COMMAND[command.commandType]
       : null;
-  if (!milestone) {
+  if (!eventType) {
     return reject(command.clientCommandId, "UNSUPPORTED_COMMAND");
   }
 
@@ -111,17 +111,23 @@ export async function processSyncCommand(
     return reject(command.clientCommandId, "OCCURRENCE_TIME_INVALID");
   }
 
-  const result = await recordServeryMilestone(
+  const result = await routeDietaryMealTiming(
     {
       facilityId: input.session.facilityId,
       unitId: command.unitId,
-      mealType: command.mealType as MealType,
-      milestone,
+      mealType: command.mealType,
+      eventType,
       action: "RECORD",
       clientActionId: command.clientCommandId,
       occurredAt,
-      actor,
-      deviceBoundUnitId: input.deviceBoundUnitId,
+      actor: {
+        userId: actor.userId,
+        employeeId: actor.employeeId,
+        role: input.session.role,
+        authKind: input.session.authKind,
+        authMethod: actor.authMethod,
+        deviceBoundUnitId: input.deviceBoundUnitId,
+      },
       now,
     },
     client,
@@ -129,19 +135,19 @@ export async function processSyncCommand(
 
   if (result.ok) {
     const category: OfflineSyncResultCategory = result.deduplicated ? "ALREADY_ACCEPTED" : "ACCEPTED";
-    await upsertReceipt(client, input, command, category, null, result.recordedAt, result.eventId, null);
+    await upsertReceipt(client, input, command, category, null, result.recordedAt, result.actualId, null);
     return {
       clientCommandId: command.clientCommandId,
       category,
       reasonCode: null,
-      authoritativeRecordId: result.eventId,
+      authoritativeRecordId: result.actualId,
       serverAcceptedAt: result.recordedAt.toISOString(),
       serverRevision: null,
       retryAfterSeconds: null,
       conflictCategory: null,
       authoritativeMilestone: milestoneProjectionFromResult({
-        eventId: result.eventId,
-        milestone: result.milestone,
+        eventId: result.actualId,
+        milestone: eventType === "READY" ? "READY" : "SERVICE_STARTED",
         occurredAt: result.occurredAt,
         recordedAt: result.recordedAt,
       }),
@@ -174,7 +180,7 @@ export async function processSyncCommand(
     };
   }
 
-  const retryable = result.reason === "MEAL_NOT_CONFIGURED";
+  const retryable = result.reason === "KEY_POINT_UNAVAILABLE";
   const category: OfflineSyncResultCategory = retryable ? "RETRY_REQUIRED" : "REJECTED";
   await upsertReceipt(client, input, command, category, result.reason, null, null, null);
   return {

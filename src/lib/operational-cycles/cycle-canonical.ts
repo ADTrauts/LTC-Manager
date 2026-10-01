@@ -315,6 +315,114 @@ export function appendKeyPointActual(input: {
   };
 }
 
+export type KeyPointOccurrenceSource = {
+  cycleId: string;
+  spaceId: string | null;
+  actualLocal: string;
+  recordedAt: Date;
+};
+
+/** Latest append in one grain. Corrections stay in the lineage; they do not replace it. */
+export function currentKeyPointActual<T extends { recordedAt: Date }>(
+  rows: readonly T[],
+): T | null {
+  if (rows.length === 0) return null;
+  return [...rows].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()).at(-1) ?? null;
+}
+
+/**
+ * Occurrence on a Key Time timing comes from OperationalCycleKeyPointActual.
+ * Expectation actualDueLocal / completedAt are not consulted.
+ */
+export function applyCanonicalKeyPointOccurrence<
+  T extends {
+    cycleId: string;
+    spaceId: string;
+    actualDueLocal: string | null;
+    completedAt: Date | null;
+  },
+>(timings: readonly T[], actuals: readonly KeyPointOccurrenceSource[]): T[] {
+  const grouped = new Map<string, KeyPointOccurrenceSource[]>();
+  for (const actual of actuals) {
+    if (!actual.spaceId) continue;
+    const key = `${actual.cycleId}:${actual.spaceId}`;
+    const list = grouped.get(key) ?? [];
+    list.push(actual);
+    grouped.set(key, list);
+  }
+  return timings.map((timing) => {
+    const current = currentKeyPointActual(grouped.get(`${timing.cycleId}:${timing.spaceId}`) ?? []);
+    return {
+      ...timing,
+      actualDueLocal: current?.actualLocal ?? null,
+      completedAt: current?.recordedAt ?? null,
+    };
+  });
+}
+
+export type ReviewKeyTimeOccurrenceInput = {
+  spaceId: string;
+  cycleStableKey: string;
+  cycleVersion: number;
+  cycleLabel: string;
+  configuredDueLocal: string;
+  adjustedDueLocal: string | null;
+};
+
+export type ReviewKeyTimeOccurrenceActual = {
+  spaceId: string | null;
+  cycleStableKey: string;
+  cycleVersion: number;
+  recordedAt: Date;
+};
+
+/** Review occurrence is the current Key Point actual. A pointer on the expectation is ignored. */
+export function projectReviewKeyTimeOccurrences(
+  expectations: readonly ReviewKeyTimeOccurrenceInput[],
+  actuals: readonly ReviewKeyTimeOccurrenceActual[],
+): Array<ReviewKeyTimeOccurrenceInput & { completedAt: Date | null }> {
+  const grouped = new Map<string, ReviewKeyTimeOccurrenceActual[]>();
+  for (const actual of actuals) {
+    if (!actual.spaceId) continue;
+    const key = `${actual.cycleStableKey}:${actual.spaceId}`;
+    const list = grouped.get(key) ?? [];
+    list.push(actual);
+    grouped.set(key, list);
+  }
+  const projected = expectations.map((row) => {
+    const current = currentKeyPointActual(
+      grouped.get(`${row.cycleStableKey}:${row.spaceId}`) ?? [],
+    );
+    return { ...row, completedAt: current?.recordedAt ?? null };
+  });
+  const seen = new Set(projected.map((row) => `${row.cycleStableKey}:${row.spaceId}`));
+  for (const [key, rows] of grouped) {
+    if (seen.has(key)) continue;
+    const current = currentKeyPointActual(rows);
+    if (!current?.spaceId) continue;
+    projected.push({
+      spaceId: current.spaceId,
+      cycleStableKey: current.cycleStableKey,
+      cycleVersion: current.cycleVersion,
+      cycleLabel: current.cycleStableKey,
+      configuredDueLocal: "",
+      adjustedDueLocal: null,
+      completedAt: current.recordedAt,
+    });
+  }
+  return projected;
+}
+
+/** One original actual. A later fact is a correction, not a second original. */
+export function keyPointActualAppendDecision(input: {
+  existingCount: number;
+  correctionReason?: string | null;
+}): "create" | "correct" | "already_recorded" {
+  if (input.existingCount <= 0) return "create";
+  if (!input.correctionReason?.trim()) return "already_recorded";
+  return "correct";
+}
+
 export function validateTimingAdjustment(input: {
   reason?: string | null;
   actorId?: string | null;
@@ -333,6 +441,13 @@ export function validateTimingAdjustment(input: {
   return { ok: true };
 }
 
+/** New Key Points do not infer REQUIRED from node kind. Product content must opt in. */
+export function defaultOccurrenceTrackingForNewNode(
+  nodeKind: CycleNodeKind,
+): OccurrenceTracking {
+  return nodeKind === "KEY_TIME" ? "NONE" : "REQUIRED";
+}
+
 export type StarterStructurePlan = {
   stableKey: string;
   parentStableKey: string | null;
@@ -341,6 +456,7 @@ export type StarterStructurePlan = {
   startLocal: string | null;
   endLocal: string | null;
   overnight: boolean;
+  dueLocals?: readonly string[];
 };
 
 /** Future Product starter content must already obey canonical structure. */
@@ -388,6 +504,7 @@ export function validateStarterStructure(
       startLocal: plan.startLocal,
       endLocal: plan.endLocal,
       overnight: plan.overnight,
+      dueLocals: plan.dueLocals,
     });
     if (contained) errors.push(`${plan.stableKey}: ${contained}`);
   }

@@ -3,40 +3,69 @@
 import { revalidatePath } from "next/cache";
 
 import { requireFacilitySession } from "@/lib/facility-context";
-import { adjustMealServiceDayExpectation } from "@/lib/operational-cycles/adjust-day-expectation";
-import {
-  adjustKeyTimeDayExpectation,
-  completeKeyTimeDayExpectation,
-} from "@/lib/operational-cycles/key-time-day-actions";
+import { addMinutesToLocalTime } from "@/lib/operational-cycles/day-expectation";
+import { completeKeyTimeDayExpectation } from "@/lib/operational-cycles/key-time-day-actions";
+import { recordOperationalTimingAdjustment } from "@/lib/operational-cycles/record-timing-adjustment";
+import { prisma } from "@/lib/prisma";
+
+async function adjustCanonicalTiming(input: {
+  session: Awaited<ReturnType<typeof requireFacilitySession>>;
+  cycleId: string;
+  serviceDate: Date;
+  baseline: string | null;
+  minutes: number;
+  reason: string;
+}): Promise<void> {
+  const reason = input.reason.trim();
+  if (!reason) {
+    throw new Error("A reason is required to adjust operational timing.");
+  }
+  if (!input.baseline) {
+    throw new Error("Expected time not configured.");
+  }
+  const adjusted = addMinutesToLocalTime(input.baseline, input.minutes);
+  if (!adjusted) {
+    throw new Error("Unable to adjust today's expected time.");
+  }
+  const result = await recordOperationalTimingAdjustment({
+    session: input.session,
+    cycleId: input.cycleId,
+    serviceDate: input.serviceDate,
+    adjustedDueLocal: adjusted,
+    reason,
+  });
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
+}
 
 export async function delayMealExpectationAction(formData: FormData): Promise<void> {
   const session = await requireFacilitySession();
   const expectationId = String(formData.get("expectationId") ?? "").trim();
   const minutesRaw = Number(formData.get("minutes") ?? 5);
   const minutes = Number.isFinite(minutesRaw) ? minutesRaw : 5;
-
+  const reason = String(formData.get("reason") ?? "");
   if (!expectationId) {
     throw new Error("Missing meal-service expectation.");
   }
-
-  const result = await adjustMealServiceDayExpectation({
-    session,
-    expectationId,
-    addMinutes: minutes,
+  const row = await prisma.operationalCycleDayExpectation.findFirst({
+    where: { id: expectationId, facilityId: session.facilityId },
+    select: {
+      cycleId: true,
+      serviceDate: true,
+      configuredTime: true,
+      adjustedTime: true,
+    },
   });
-
-  if (!result.ok) {
-    const message =
-      result.reason === "NOT_CONFIGURED"
-        ? "Expected time not configured."
-        : result.reason === "ROLE_REQUIRED" || result.reason === "EMPLOYEE_FORBIDDEN"
-          ? "Supervisor access is required to adjust today's expected time."
-          : result.reason === "CROSS_FACILITY"
-            ? "That expectation belongs to another facility."
-            : "Unable to adjust today's expected time.";
-    throw new Error(message);
-  }
-
+  if (!row) throw new Error("That expectation was not found.");
+  await adjustCanonicalTiming({
+    session,
+    cycleId: row.cycleId,
+    serviceDate: row.serviceDate,
+    baseline: row.adjustedTime ?? row.configuredTime,
+    minutes,
+    reason,
+  });
   revalidatePath("/staffing/cycles");
   revalidatePath("/workspace");
   revalidatePath("/today");
@@ -48,29 +77,28 @@ export async function delayKeyTimeExpectationAction(formData: FormData): Promise
   const expectationId = String(formData.get("expectationId") ?? "").trim();
   const minutesRaw = Number(formData.get("minutes") ?? 5);
   const minutes = Number.isFinite(minutesRaw) ? minutesRaw : 5;
-
+  const reason = String(formData.get("reason") ?? "");
   if (!expectationId) {
     throw new Error("Missing Key Time expectation.");
   }
-
-  const result = await adjustKeyTimeDayExpectation({
-    session,
-    expectationId,
-    addMinutes: minutes,
+  const row = await prisma.operationalCycleKeyTimeDayExpectation.findFirst({
+    where: { id: expectationId, facilityId: session.facilityId },
+    select: {
+      cycleId: true,
+      serviceDate: true,
+      configuredDueLocal: true,
+      adjustedDueLocal: true,
+    },
   });
-
-  if (!result.ok) {
-    throw new Error(
-      result.reason === "ROLE_REQUIRED" || result.reason === "EMPLOYEE_FORBIDDEN"
-        ? "Supervisor access is required to adjust today's Key Time."
-        : result.reason === "CROSS_FACILITY"
-          ? "That Key Time belongs to another facility."
-          : result.reason === "NOT_FOUND"
-            ? "That Key Time was not found."
-            : "Unable to adjust today's Key Time.",
-    );
-  }
-
+  if (!row) throw new Error("That Key Time was not found.");
+  await adjustCanonicalTiming({
+    session,
+    cycleId: row.cycleId,
+    serviceDate: row.serviceDate,
+    baseline: row.adjustedDueLocal ?? row.configuredDueLocal,
+    minutes,
+    reason,
+  });
   revalidatePath("/staffing/cycles");
   revalidatePath("/workspace");
   revalidatePath("/today");

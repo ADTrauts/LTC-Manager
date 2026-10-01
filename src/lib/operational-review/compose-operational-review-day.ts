@@ -149,7 +149,7 @@ export function composeOperationalReviewDay(
   const occurrences: ReviewEvidenceOccurrence[] = [];
   let anyReliableEvidence = false;
   let anyUnreliableEvidence = false;
-  let anyHarborSegment = facts.attachmentSegments.length > 0;
+  const anyHarborSegment = facts.attachmentSegments.length > 0;
 
   for (const lineageSegments of lineages.values()) {
     const reliability = attachmentHistoryReliability({
@@ -387,7 +387,10 @@ export function composeOperationalReviewDay(
             cycleStableKey: cycle.stableKey,
             cycleVersion: cycle.version,
             cycleLabel: cycle.label,
-            expectedTimeLocal: actual?.adjustedDueLocal ?? actual?.configuredDueLocal ?? group.dueLocal,
+            expectedTimeLocal:
+              actual?.adjustedDueLocal?.trim() ||
+              actual?.configuredDueLocal?.trim() ||
+              group.dueLocal,
             spaceId,
             unitId: null,
             actualOccurredAt: actual?.completedAt?.toISOString() ?? null,

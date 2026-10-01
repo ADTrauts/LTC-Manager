@@ -10,6 +10,7 @@ import {
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { prisma } from "@/lib/prisma";
 
+import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
 import { resolveCycleAuthority } from "./cycle-authority";
 import { roomTypeKeyForStoredSpace } from "./cycle-scope";
 import {
@@ -354,14 +355,28 @@ export async function loadSupervisorCycleOverview(input: {
       adjustedByLabel = timing?.adjustedByLabel ?? null;
 
       if (includeMealMilestones && mealType) {
+        const readyLegacy =
+          selectDietaryMealTimingModel({
+            mealType,
+            eventType: "READY",
+            effectiveCycles: cycles,
+          }) === "LEGACY_MILESTONES";
+        const startedLegacy =
+          selectDietaryMealTimingModel({
+            mealType,
+            eventType: "STARTED",
+            effectiveCycles: cycles,
+          }) === "LEGACY_MILESTONES";
+        if (readyLegacy || startedLegacy) {
         const relatedUnitIds = [unit.id, ...(childIdsByParent.get(unit.id) ?? [])];
         const event =
           events.find(
             (e) => relatedUnitIds.includes(e.unitId) && e.mealType === mealType,
           ) ?? null;
-        actualStartedTime = event?.mealServiceStartedAt
-          ? localHhMmFromInstant(event.mealServiceStartedAt, timezone)
-          : null;
+        actualStartedTime =
+          startedLegacy && event?.mealServiceStartedAt
+            ? localHhMmFromInstant(event.mealServiceStartedAt, timezone)
+            : null;
         const mealTargetAt = expectedToday
           ? parseFacilityLocalScheduledStart(expectedToday, now, timezone)
           : null;
@@ -374,8 +389,8 @@ export async function loadSupervisorCycleOverview(input: {
           event: event
             ? {
                 mealType: event.mealType,
-                mealServiceReadyAt: event.mealServiceReadyAt,
-                mealServiceStartedAt: event.mealServiceStartedAt,
+                mealServiceReadyAt: readyLegacy ? event.mealServiceReadyAt : null,
+                mealServiceStartedAt: startedLegacy ? event.mealServiceStartedAt : null,
                 hasCorrection: event.entries.length > 0,
               }
             : null,
@@ -420,6 +435,7 @@ export async function loadSupervisorCycleOverview(input: {
             break;
           default:
             break;
+        }
         }
       }
     }

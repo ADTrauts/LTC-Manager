@@ -5,12 +5,14 @@ import { resolveWorkRequirements } from "@/lib/department-work/resolve-requireme
 
 import {
   appendKeyPointActual,
+  applyCanonicalKeyPointOccurrence,
   canonicalParentRejection,
   containmentRejection,
   cycleServiceDateKey,
   displayParentStableKey,
   instantContainedInCycle,
   presentKeyPointRuntime,
+  projectReviewKeyTimeOccurrences,
   validateStarterStructure,
   validateTimingAdjustment,
   windowContainedInCycle,
@@ -461,4 +463,91 @@ test("Key Points are not Work schedule targets", () => {
   });
   assert.ok(requirements.every((row) => row.cycleStableKey !== "breakfast_due"));
   assert.ok(requirements.some((row) => row.cycleStableKey === "breakfast"));
+});
+
+test("a Key Time expectation pointer does not prove the occurrence", () => {
+  const recordedAt = new Date("2026-10-05T11:17:00.000Z");
+  const correctedAt = new Date("2026-10-05T11:25:00.000Z");
+  const timings = applyCanonicalKeyPointOccurrence(
+    [
+      {
+        cycleId: "cycle-ready",
+        spaceId: "room-a",
+        actualDueLocal: "07:40",
+        completedAt: new Date("2026-10-05T11:40:00.000Z"),
+      },
+      {
+        cycleId: "cycle-open",
+        spaceId: "room-a",
+        actualDueLocal: null,
+        completedAt: null,
+      },
+      {
+        cycleId: "cycle-pointer",
+        spaceId: "room-a",
+        actualDueLocal: "09:00",
+        completedAt: new Date("2026-10-05T13:00:00.000Z"),
+      },
+    ],
+    [
+      {
+        cycleId: "cycle-ready",
+        spaceId: "room-a",
+        actualLocal: "07:10",
+        recordedAt,
+      },
+      {
+        cycleId: "cycle-ready",
+        spaceId: "room-a",
+        actualLocal: "07:12",
+        recordedAt: correctedAt,
+      },
+      {
+        cycleId: "cycle-open",
+        spaceId: "room-b",
+        actualLocal: "08:00",
+        recordedAt,
+      },
+    ],
+  );
+  assert.equal(timings[0]?.actualDueLocal, "07:12");
+  assert.equal(timings[0]?.completedAt, correctedAt);
+  assert.equal(timings[1]?.actualDueLocal, null);
+  assert.equal(timings[1]?.completedAt, null);
+  assert.equal(timings[2]?.actualDueLocal, null);
+  assert.equal(timings[2]?.completedAt, null);
+});
+
+test("review occurrence follows the Key Point actual, including an actual with no expectation row", () => {
+  const recordedAt = new Date("2026-10-05T11:10:00.000Z");
+  const projected = projectReviewKeyTimeOccurrences(
+    [
+      {
+        spaceId: "room-a",
+        cycleStableKey: "breakfast_ready",
+        cycleVersion: 4,
+        cycleLabel: "Ready",
+        configuredDueLocal: "07:05",
+        adjustedDueLocal: null,
+      },
+    ],
+    [
+      {
+        spaceId: "room-a",
+        cycleStableKey: "breakfast_ready",
+        cycleVersion: 4,
+        recordedAt,
+      },
+      {
+        spaceId: "room-b",
+        cycleStableKey: "breakfast_service_started",
+        cycleVersion: 4,
+        recordedAt,
+      },
+    ],
+  );
+  assert.equal(projected[0]?.completedAt, recordedAt);
+  assert.equal(projected[1]?.spaceId, "room-b");
+  assert.equal(projected[1]?.completedAt, recordedAt);
+  assert.equal(projected[1]?.configuredDueLocal, "");
 });

@@ -37,7 +37,9 @@ import {
   validateCycleScopeAgainstCatalog,
   type CycleScopeLocationOption,
 } from "./cycle-scope";
+import { planDietaryTimingUpgrade } from "@/lib/dietary/meal-timing";
 import type { CanonicalParentContext } from "./cycle-canonical";
+import { defaultOccurrenceTrackingForNewNode } from "./cycle-canonical";
 import { validateCycle, validateCycleForPublish } from "./validate-cycle";
 import {
   formatReviewPublishBlockerSummary,
@@ -571,7 +573,8 @@ export async function createDraft(
       stableKey,
       parentStableKey,
       nodeKind,
-      occurrenceTracking: input.draft.occurrenceTracking ?? "REQUIRED",
+      occurrenceTracking:
+        input.draft.occurrenceTracking ?? defaultOccurrenceTrackingForNewNode(nodeKind),
       keyPointGrain: input.draft.keyPointGrain ?? "LOCATION",
       version,
       label: input.draft.label.trim(),
@@ -814,6 +817,8 @@ export async function duplicateCycle(
       stableKey: source.stableKey,
       parentStableKey: source.parentStableKey,
       nodeKind: source.nodeKind,
+      occurrenceTracking: source.occurrenceTracking,
+      keyPointGrain: source.keyPointGrain,
       version,
       label: source.label,
       description: source.description,
@@ -1525,25 +1530,6 @@ export async function scheduleDraftPublications(
     publishedIds.push(published.id);
   }
 
-  if (input.allowImmediate && publishedIds.length > 0) {
-    const timezone = await loadFacilityTimezone(client as PrismaClient, input.facilityId);
-    const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
-    if (input.effectiveFrom === todayKey) {
-      const { materializeKeyTimeDayExpectations } = await import(
-        "./materialize-key-time-day-expectations"
-      );
-      await materializeKeyTimeDayExpectations(
-        {
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          operationalDateKey: todayKey,
-          now: new Date(),
-        },
-        client,
-      );
-    }
-  }
-
   return { publishedIds, effectiveFrom: input.effectiveFrom };
 }
 
@@ -1604,11 +1590,117 @@ export async function generateDietaryDefaultsDrafts(
         applicableUnitTypes: plan.applicableUnitTypes,
         roomTypeKey: plan.roomTypeKey,
         expectedMilestones: plan.expectedMilestones,
+        occurrenceTracking: plan.occurrenceTracking,
+        keyPointGrain: plan.keyPointGrain,
+        applicableOperationalTypeKeys: plan.applicableOperationalTypeKeys,
+        keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
+          dueLocal,
+          spaceIds: [],
+        })),
       },
     });
     created.push(row);
   }
   return created;
+}
+
+/**
+ * Draft successor for published Dietary meal Cycles that still use legacy timing.
+ * Does not publish and does not change the published predecessor.
+ * A second call skips stable keys that already exist.
+ */
+export async function prepareDietaryMealTimingUpgrade(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    actor: CycleActor;
+    effectiveFrom: string;
+    client?: DbClient;
+  },
+) {
+  const client = input.client ?? prisma;
+  await assertManage(session, input.facilityId, input.departmentId);
+  const timezone = await loadFacilityTimezone(client as PrismaClient, input.facilityId);
+  const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
+  const rows = await client.departmentOperationalCycle.findMany({
+    where: { facilityId: input.facilityId, departmentId: input.departmentId },
+    select: {
+      id: true,
+      stableKey: true,
+      status: true,
+      nodeKind: true,
+      mealType: true,
+      expectedMilestones: true,
+      parentStableKey: true,
+      version: true,
+      effectiveFrom: true,
+      effectiveTo: true,
+    },
+  });
+  const effective = rows.filter(
+    (row) => row.status === "PUBLISHED" && isCycleEffectiveOnDate(row, todayKey),
+  );
+  const plan = planDietaryTimingUpgrade({
+    effectiveCycles: effective,
+    occupiedStableKeys: rows
+      .filter((row) => row.status === "DRAFT" || row.status === "PUBLISHED")
+      .map((row) => row.stableKey),
+    draftStableKeys: rows.filter((row) => row.status === "DRAFT").map((row) => row.stableKey),
+  });
+  const forked: string[] = [];
+  for (const stableKey of plan.forkStableKeys) {
+    const published = effective
+      .filter((row) => row.stableKey === stableKey)
+      .sort((a, b) => b.version - a.version)[0];
+    if (!published) continue;
+    await duplicateCycle(session, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      cycleId: published.id,
+      actor: input.actor,
+      client,
+    });
+    forked.push(stableKey);
+  }
+  const created = [];
+  for (const keyPoint of plan.createPlans) {
+    const row = await createDraft(session, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      actor: input.actor,
+      client,
+      draft: {
+        stableKey: keyPoint.stableKey,
+        parentStableKey: keyPoint.parentStableKey,
+        nodeKind: keyPoint.nodeKind,
+        label: keyPoint.label,
+        description: keyPoint.description,
+        cycleType: keyPoint.cycleType,
+        displaySequence: keyPoint.displaySequence,
+        startLocal: keyPoint.startLocal,
+        endLocal: keyPoint.endLocal,
+        overnight: keyPoint.overnight,
+        applicableDaysOfWeek: keyPoint.applicableDaysOfWeek,
+        effectiveFrom: input.effectiveFrom,
+        mealType: null,
+        locationMode: keyPoint.locationMode,
+        locationInheritFromParent: keyPoint.locationInheritFromParent,
+        applicableUnitTypes: keyPoint.applicableUnitTypes,
+        roomTypeKey: keyPoint.roomTypeKey,
+        expectedMilestones: [],
+        occurrenceTracking: keyPoint.occurrenceTracking,
+        keyPointGrain: keyPoint.keyPointGrain,
+        applicableOperationalTypeKeys: keyPoint.applicableOperationalTypeKeys,
+        keyTimeGroups: (keyPoint.dueLocals ?? []).map((dueLocal) => ({
+          dueLocal,
+          spaceIds: [],
+        })),
+      },
+    });
+    created.push(row);
+  }
+  return { forked, createdStableKeys: plan.createPlans.map((plan) => plan.stableKey) };
 }
 
 /**

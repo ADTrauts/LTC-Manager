@@ -5,6 +5,8 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-canonical";
+import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesForLogsOnDate } from "@/lib/canonical-logs/load-published-cycles-for-logs";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import {
@@ -100,7 +102,7 @@ export async function loadOperationalReviewRangeFacts(input: {
     parentUnitLabel: space.unit?.name ?? null,
   }));
 
-  const [profiles, attachments, evidence, templates, plans, assignments, scheduleEntries, overrides, serveryEvents, keyTimes, assetIssues, legacyRows] =
+  const [profiles, attachments, evidence, templates, plans, assignments, scheduleEntries, overrides, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
     await Promise.all([
       departmentIds.length === 0
         ? Promise.resolve([])
@@ -277,8 +279,24 @@ export async function loadOperationalReviewRangeFacts(input: {
               cycleLabel: true,
               configuredDueLocal: true,
               adjustedDueLocal: true,
-              completedAt: true,
             },
+          }),
+      departmentIds.length === 0
+        ? Promise.resolve([])
+        : input.client.operationalCycleKeyPointActual.findMany({
+            where: {
+              facilityId: input.facilityId,
+              departmentId: { in: departmentIds },
+              serviceDate: { gte: startDate, lt: endExclusive },
+            },
+            select: {
+              serviceDate: true,
+              spaceId: true,
+              cycleStableKey: true,
+              cycleVersion: true,
+              recordedAt: true,
+            },
+            orderBy: { recordedAt: "asc" },
           }),
       input.client.assetIssue.findMany({
         where: {
@@ -355,6 +373,9 @@ export async function loadOperationalReviewRangeFacts(input: {
   const overridesByDate = groupByDateKey(overrides, (row) => toServiceDateKey(row.date));
   const serveryByDate = groupByDateKey(serveryEvents, (row) => toServiceDateKey(row.serviceDate));
   const keyTimesByDate = groupByDateKey(keyTimes, (row) => toServiceDateKey(row.serviceDate));
+  const keyPointActualsByDate = groupByDateKey(keyPointActuals, (row) =>
+    toServiceDateKey(row.serviceDate),
+  );
   const assetsByDate = groupByDateKey(assetIssues, (row) => toServiceDateKey(row.observedAt));
   const legacyByDate = groupByDateKey(legacyRows, (row) => toServiceDateKey(row.submittedAt));
 
@@ -408,16 +429,14 @@ export async function loadOperationalReviewRangeFacts(input: {
       })),
       cycles: dayCycles.flatMap((row) => row.cycles),
       publishedCyclesForLogs: dayCycles.flatMap((row) => row.publishedCyclesForLogs),
-      serveryMilestoneActuals: mapReviewServeryEvents(dayServery),
-      keyTimeActuals: (keyTimesByDate.get(serviceDate) ?? []).map((row) => ({
-        spaceId: row.spaceId,
-        cycleStableKey: row.cycleStableKey,
-        cycleVersion: row.cycleVersion,
-        cycleLabel: row.cycleLabel,
-        configuredDueLocal: row.configuredDueLocal,
-        adjustedDueLocal: row.adjustedDueLocal,
-        completedAt: row.completedAt,
-      })),
+      serveryMilestoneActuals: selectAuthoritativeLegacyMilestones(
+        mapReviewServeryEvents(dayServery),
+        dayCycles.flatMap((row) => row.cycles),
+      ),
+      keyTimeActuals: projectReviewKeyTimeOccurrences(
+        keyTimesByDate.get(serviceDate) ?? [],
+        keyPointActualsByDate.get(serviceDate) ?? [],
+      ),
       scheduledPresence: (scheduleByDate.get(serviceDate) ?? []).map((row) => ({
         id: row.id,
         employeeId: row.employeeId,

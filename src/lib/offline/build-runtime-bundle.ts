@@ -41,7 +41,12 @@ import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import { loadPublishedCyclesForDate, resolveOperationalCycle } from "@/lib/operational-cycles";
+import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
+import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
+import {
+  loadPublishedCyclesForDate,
+  resolveOperationalCycle,
+} from "@/lib/operational-cycles";
 import { roomTypeKeyForStoredSpace } from "@/lib/operational-cycles/cycle-scope";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
@@ -171,7 +176,7 @@ export async function buildRuntimeBundle(
   const dietary = operationalDepartment;
   const includeMealMilestones = dietary.key === "DIETARY";
 
-  let runtimeMealTimes = unit.mealTimes;
+  let runtimeMealTimes: typeof unit.mealTimes = [];
   let keyTimeExpectations: NonNullable<OfflineRuntimeBundle["keyTimeExpectations"]> = [];
   if (includeMealMilestones) {
     const {
@@ -322,26 +327,46 @@ export async function buildRuntimeBundle(
   const employeeLabel = (e?: { firstName: string; lastName: string } | null) =>
     e ? `${e.firstName} ${e.lastName}`.trim() : null;
 
+  const timingCycles = includeMealMilestones
+    ? await loadPublishedCyclesWithKeyTimesForDate(
+        input.session.facilityId,
+        dietary.id,
+        serviceDateKey,
+        client,
+      )
+    : [];
+  const legacyOwns = (mealType: string, eventType: "READY" | "STARTED") =>
+    selectDietaryMealTimingModel({
+      mealType,
+      eventType,
+      effectiveCycles: timingCycles,
+    }) === "LEGACY_MILESTONES";
+
   const milestones = includeMealMilestones
     ? runtimeMealTimes.map((slot) => {
     const ev = events.find((e) => e.mealType === slot.mealType);
     const corrected = new Set(ev?.entries?.filter((x) => x.kind === "CORRECTION").map((x) => x.milestone) ?? []);
+    const readyLegacy = legacyOwns(slot.mealType, "READY");
+    const startedLegacy = legacyOwns(slot.mealType, "STARTED");
     return {
       mealType: slot.mealType as MealType,
       ready: milestoneProjection({
-        eventId: ev?.id ?? null,
-        occurredAt: ev?.mealServiceReadyAt ?? null,
-        recordedAt: ev?.readyRecordedAt ?? null,
-        recordedByLabel: ev?.readyRecordedBy?.displayName ?? employeeLabel(ev?.readyRecordedByEmployee) ?? null,
-        corrected: corrected.has("READY"),
+        eventId: readyLegacy ? ev?.id ?? null : null,
+        occurredAt: readyLegacy ? ev?.mealServiceReadyAt ?? null : null,
+        recordedAt: readyLegacy ? ev?.readyRecordedAt ?? null : null,
+        recordedByLabel: readyLegacy
+          ? ev?.readyRecordedBy?.displayName ?? employeeLabel(ev?.readyRecordedByEmployee) ?? null
+          : null,
+        corrected: readyLegacy && corrected.has("READY"),
       }),
       started: milestoneProjection({
-        eventId: ev?.id ?? null,
-        occurredAt: ev?.mealServiceStartedAt ?? null,
-        recordedAt: ev?.startedRecordedAt ?? null,
-        recordedByLabel:
-          ev?.startedRecordedBy?.displayName ?? employeeLabel(ev?.startedRecordedByEmployee) ?? null,
-        corrected: corrected.has("SERVICE_STARTED"),
+        eventId: startedLegacy ? ev?.id ?? null : null,
+        occurredAt: startedLegacy ? ev?.mealServiceStartedAt ?? null : null,
+        recordedAt: startedLegacy ? ev?.startedRecordedAt ?? null : null,
+        recordedByLabel: startedLegacy
+          ? ev?.startedRecordedBy?.displayName ?? employeeLabel(ev?.startedRecordedByEmployee) ?? null
+          : null,
+        corrected: startedLegacy && corrected.has("SERVICE_STARTED"),
       }),
     };
   })

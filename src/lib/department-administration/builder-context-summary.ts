@@ -8,6 +8,7 @@ import {
   type CycleLifecycleRow,
 } from "@/lib/operational-cycles/cycle-lifecycle";
 import { mapCycleRow } from "@/lib/operational-cycles/load-published-cycles";
+import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 import { EmployeeStatus } from "@prisma/client";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
+import { dietaryMealTimingUpgradeRequired } from "@/lib/dietary/meal-timing";
 
 export type DepartmentBuilderContextSummary = {
   showInEmployeeApp: boolean;
@@ -45,6 +46,7 @@ export type DepartmentBuilderContextSummary = {
   placedLogCount: number;
   publishedWorkOperationalTypeKeys: string[];
   classifiedOperationalTypeKeys: string[];
+  mealTimingUpgradeRequired: boolean;
 };
 
 export async function loadDepartmentBuilderContextSummary(
@@ -56,6 +58,7 @@ export async function loadDepartmentBuilderContextSummary(
     where: { id: departmentId, facilityId, isActive: true },
     select: {
       id: true,
+      key: true,
       showInEmployeeApp: true,
       headEmployeeId: true,
       headEmployee: { select: { firstName: true, lastName: true } },
@@ -207,5 +210,7 @@ export async function loadDepartmentBuilderContextSummary(
     classifiedOperationalTypeKeys: [
       ...new Set([...operationalTypeAssignments.values()].map((row) => row.key)),
     ],
+    mealTimingUpgradeRequired:
+      department.key === "DIETARY" && dietaryMealTimingUpgradeRequired(current),
   };
 }

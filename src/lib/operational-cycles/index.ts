@@ -221,6 +221,7 @@ export {
   duplicateCycle,
   generateDietaryDefaultsDrafts,
   generateEvsDefaultsDrafts,
+  prepareDietaryMealTimingUpgrade,
   orderDraftSubtreeForDelete,
   publishCycle,
   reorderDrafts,

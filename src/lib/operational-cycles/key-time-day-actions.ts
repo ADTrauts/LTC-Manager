@@ -6,10 +6,10 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import { hasPlatformCapability } from "@/lib/platform-capability";
 import type { AppJwtPayload } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { loadFacilityTimezone } from "@/lib/operational-time";
+import { hasPlatformCapability } from "@/lib/platform-capability";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -17,6 +17,7 @@ import {
   expectedKeyTimeToday,
   localHhMmFromInstant,
 } from "./key-time-day-expectation";
+import { keyPointActualAppendDecision } from "./cycle-canonical";
 import {
   decideAdjustDayExpectationAuthority,
   type AdjustDayExpectationDenial,
@@ -162,10 +163,8 @@ export function decideCompleteKeyTimeAuthority(input: {
 }
 
 /**
- * Mark a Key Time complete for a Room. Employees may complete once;
- * Supervisor+ may correct. Does not write ServeryMealServiceEvent.
- * Same-facility + role is enough — published Key Time rows are Run
- * records even when DIETARY_OPERATIONAL_CYCLES_ENABLED is off.
+ * Appends OperationalCycleKeyPointActual. The expectation actualDueLocal update is
+ * compatibility presentation for the older screen. Occurrence is the actual row.
  */
 export async function completeKeyTimeDayExpectation(
   input: CompleteKeyTimeDayExpectationInput,
@@ -184,14 +183,17 @@ export async function completeKeyTimeDayExpectation(
       cycleStableKey: true,
       cycleVersion: true,
       spaceId: true,
-      actualDueLocal: true,
-      completedAt: true,
     },
   });
   if (!row) return { ok: false, reason: "NOT_FOUND" };
 
+  const existingActuals = await client.operationalCycleKeyPointActual.findMany({
+    where: { cycleId: row.cycleId, serviceDate: row.serviceDate, spaceId: row.spaceId },
+    orderBy: { recordedAt: "asc" },
+    select: { id: true },
+  });
   const allowCorrection = Boolean(input.allowCorrection);
-  const alreadyCompleted = Boolean(row.actualDueLocal || row.completedAt);
+  const alreadyCompleted = existingActuals.length > 0;
   const canAdjustTiming = hasPlatformCapability({
     capability: "operational_timing.adjust",
     role: input.session.role as AppRole,
@@ -216,17 +218,18 @@ export async function completeKeyTimeDayExpectation(
     actual = localHhMmFromInstant(now, timezone);
   }
   if (!actual) return { ok: false, reason: "INVALID_TIME" };
-  if (alreadyCompleted && !input.correctionReason?.trim()) {
-    return { ok: false, reason: "CORRECTION_REASON_REQUIRED" };
-  }
 
-  const prior = alreadyCompleted
-    ? await client.operationalCycleKeyPointActual.findFirst({
-        where: { cycleId: row.cycleId, serviceDate: row.serviceDate, spaceId: row.spaceId },
-        orderBy: { recordedAt: "desc" },
-        select: { id: true },
-      })
-    : null;
+  const append = keyPointActualAppendDecision({
+    existingCount: existingActuals.length,
+    correctionReason: input.correctionReason,
+  });
+  if (append === "already_recorded") {
+    return {
+      ok: false,
+      reason: allowCorrection ? "CORRECTION_REASON_REQUIRED" : "ALREADY_COMPLETED",
+    };
+  }
+  const prior = existingActuals[existingActuals.length - 1] ?? null;
 
   await client.operationalCycleKeyPointActual.create({
     data: {
@@ -241,8 +244,8 @@ export async function completeKeyTimeDayExpectation(
       recordedAt: now,
       actorUserId: sessionUserIdForFk(input.session),
       actorEmployeeId: input.session.authKind === "employee" ? input.session.uid : null,
-      correctionReason: alreadyCompleted ? input.correctionReason!.trim() : null,
-      correctsActualId: prior?.id ?? null,
+      correctionReason: append === "correct" ? input.correctionReason!.trim() : null,
+      correctsActualId: append === "correct" ? prior?.id ?? null : null,
     },
   });
 

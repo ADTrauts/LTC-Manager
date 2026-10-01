@@ -162,7 +162,7 @@ export async function loadEmployeeCycleContext(input: {
         mealType: target.mealType as MealType,
         scheduledTime: target.scheduledTime,
       }));
-    } else {
+    } else if (cycles.length === 0) {
       mealTargets = row.mealTimes.map((m) => ({
         mealType: m.mealType,
         scheduledTime: m.scheduledTime,
