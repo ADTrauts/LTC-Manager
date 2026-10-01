@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
-import { isTaskSyncEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled, isTaskSyncEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -305,6 +305,9 @@ export async function generateDueInspectionWorkForFacilities(
   } = {},
   deps: TaskSyncDeps & { db?: GenerateDueInspectionWorkDb & Pick<PrismaClient, "facility"> } = {},
 ): Promise<GenerateDueInspectionWorkResult[]> {
+  // Product Record operation does not pre-create InspectionOccurrence rows.
+  // Direct generateDueInspectionWork remains the historical library.
+  if (isCanonicalLogsEnabled()) return [];
   const db = deps.db ?? defaultPrisma;
   if (input.facilityId) {
     return [await generateDueInspectionWork({ ...input, facilityId: input.facilityId }, deps)];

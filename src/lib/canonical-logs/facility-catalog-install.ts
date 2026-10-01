@@ -6,6 +6,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadPublishedCatalogByStableKey } from "./catalog-service";
+import { recordPurposeRejection } from "./record-engine";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -116,11 +117,14 @@ export async function installPublishedCatalog(
 ): Promise<{ created: boolean; id: string; catalogStableKey: string }> {
   const catalog = await loadPublishedCatalogByStableKey(client, input.catalogStableKey);
   if (!catalog) throw new Error("Catalog log not found.");
+  const purposeRejection = recordPurposeRejection(catalog.purposeType);
+  if (purposeRejection && catalog.purposeType === "PROCEDURE") {
+    throw new Error(purposeRejection);
+  }
   if (
     catalog.purposeType !== "LOG" &&
     catalog.purposeType !== "CHECKLIST" &&
-    catalog.purposeType !== "INSPECTION" &&
-    catalog.purposeType !== "PROCEDURE"
+    catalog.purposeType !== "INSPECTION"
   ) {
     throw new Error("Only published Harbor catalog items can be installed.");
   }

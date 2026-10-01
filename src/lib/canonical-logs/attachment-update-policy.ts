@@ -20,6 +20,8 @@ export type AttachmentTimingSnapshot = {
   calendarDayOfMonth: number | null;
   calendarDueTimeLocal: string | null;
   allowAdHoc: boolean;
+  /** Requirement declaration. Changing it on an effective segment closes and succeeds. */
+  waiverAllowed?: boolean;
 };
 
 export type AttachmentHistoricalSnapshot = AttachmentTimingSnapshot & {
@@ -117,6 +119,7 @@ export function timingSnapshotsEqual(
   return (
     a.timingMode === b.timingMode &&
     a.allowAdHoc === b.allowAdHoc &&
+    (a.waiverAllowed ?? false) === (b.waiverAllowed ?? false) &&
     a.calendarCadence === b.calendarCadence &&
     a.calendarDayOfMonth === b.calendarDayOfMonth &&
     a.calendarDueTimeLocal === b.calendarDueTimeLocal &&

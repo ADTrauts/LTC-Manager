@@ -64,6 +64,7 @@ export type CreateLogAttachmentInput = {
   calendarDayOfMonth?: number | null;
   calendarDueTimeLocal?: string | null;
   allowAdHoc?: boolean;
+  waiverAllowed?: boolean;
   localDisplayLabel?: string | null;
   localInstructions?: string | null;
   /** Facility-local YYYY-MM-DD. Defaults to today UTC-date key if omitted — callers should pass facility service date. */
@@ -226,6 +227,7 @@ export async function createLogAttachment(client: Db, input: CreateLogAttachment
       calendarDayOfMonth,
       calendarDueTimeLocal,
       allowAdHoc,
+      waiverAllowed: input.waiverAllowed ?? false,
       dailyWindows: {
         create: dailyWindows.map((w, i) => ({
           id: cuidLike(),
@@ -268,6 +270,7 @@ function snapshotFromRow(row: {
   calendarDayOfMonth: number | null;
   calendarDueTimeLocal: string | null;
   allowAdHoc: boolean;
+  waiverAllowed?: boolean;
   catalogDefinitionId: string;
   catalogVersion: number;
   departmentId: string;
@@ -291,6 +294,7 @@ function snapshotFromRow(row: {
     calendarDayOfMonth: row.calendarDayOfMonth,
     calendarDueTimeLocal: row.calendarDueTimeLocal,
     allowAdHoc: row.allowAdHoc,
+    waiverAllowed: row.waiverAllowed ?? false,
     catalogDefinitionId: row.catalogDefinitionId,
     catalogVersion: row.catalogVersion,
     departmentId: row.departmentId,
@@ -358,6 +362,7 @@ export type UpdateLogAttachmentInput = {
   calendarDayOfMonth?: number | null;
   calendarDueTimeLocal?: string | null;
   allowAdHoc?: boolean;
+  waiverAllowed?: boolean;
   localDisplayLabel?: string | null;
   localInstructions?: string | null;
   status?: LogAttachmentStatus;
@@ -418,7 +423,7 @@ export async function updateLogAttachment(
     catalogStableKey = catalog.stableKey;
   }
 
-  let departmentId = input.departmentId ?? existing.departmentId;
+  const departmentId = input.departmentId ?? existing.departmentId;
   let targetKind = existing.targetKind;
   let assetId = existing.assetId;
   let spaceId = existing.spaceId;
@@ -451,6 +456,7 @@ export async function updateLogAttachment(
   const cycleStableKeys =
     input.cycleStableKeys ?? existing.cycleSelections.map((c) => c.cycleStableKey);
   const allowAdHoc = input.allowAdHoc ?? existing.allowAdHoc;
+  const waiverAllowed = input.waiverAllowed ?? existing.waiverAllowed;
   const calendarCadence =
     input.calendarCadence !== undefined ? input.calendarCadence : existing.calendarCadence;
   const calendarDaysOfWeek = input.calendarDaysOfWeek ?? existing.calendarDaysOfWeek;
@@ -494,6 +500,7 @@ export async function updateLogAttachment(
     calendarDayOfMonth,
     calendarDueTimeLocal,
     allowAdHoc,
+    waiverAllowed,
     catalogDefinitionId,
     catalogVersion,
     departmentId,
@@ -565,6 +572,7 @@ export async function updateLogAttachment(
         calendarDayOfMonth,
         calendarDueTimeLocal,
         allowAdHoc,
+        waiverAllowed,
         localDisplayLabel,
         localInstructions,
         effectiveFromKey: classified.successorFromKey ?? todayKey,
@@ -581,6 +589,7 @@ export async function updateLogAttachment(
       existingSnap.calendarDayOfMonth !== nextSnap.calendarDayOfMonth ||
       existingSnap.calendarDueTimeLocal !== nextSnap.calendarDueTimeLocal ||
       existingSnap.allowAdHoc !== nextSnap.allowAdHoc ||
+      (existingSnap.waiverAllowed ?? false) !== (nextSnap.waiverAllowed ?? false) ||
       existing.catalogDefinitionId !== catalogDefinitionId;
 
     if (!timingChanged) {
@@ -589,6 +598,7 @@ export async function updateLogAttachment(
         data: {
           localDisplayLabel,
           localInstructions,
+          waiverAllowed,
           status: nextStatus,
           departmentId,
           targetKind,
@@ -623,6 +633,7 @@ export async function updateLogAttachment(
         operationalTypeKey,
         timingMode,
         allowAdHoc,
+        waiverAllowed,
         calendarCadence: timingMode === "CALENDAR" ? calendarCadence : null,
         calendarDaysOfWeek: timingMode === "CALENDAR" ? calendarDaysOfWeek : [],
         calendarDayOfMonth: timingMode === "CALENDAR" ? calendarDayOfMonth : null,

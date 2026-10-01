@@ -15,6 +15,8 @@ import {
 } from "@/lib/repair-routing";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 import { submitInspection } from "@/lib/work/inspections";
 import type { InspectionItemAnswerInput } from "@/lib/work/inspections/types";
@@ -165,6 +167,14 @@ export type SubmitUnitInspectionActionResult =
 export async function submitUnitInspectionAction(
   formData: FormData,
 ): Promise<SubmitUnitInspectionActionResult> {
+  try {
+    assertLegacyRecordWriteAllowed({
+      productRecordEngine: isCanonicalLogsEnabled(),
+      writer: "INSPECTION_SUBMISSION",
+    });
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Inspection write blocked." };
+  }
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "STAFF");
 

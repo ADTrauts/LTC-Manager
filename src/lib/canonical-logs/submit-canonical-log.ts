@@ -20,6 +20,7 @@ import {
   snapshotToPrismaJson,
 } from "./snapshot";
 import { normalizeAttachmentTarget } from "./attachment-validate";
+import { followUpRecordDecision, recordPurposeRejection } from "./record-engine";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -133,6 +134,8 @@ export type SubmitCanonicalLogInput = {
   correctiveActionText?: string | null;
   values: EvidenceFieldValueInput[];
   allowNeedsReview?: boolean;
+  boundSpaceId?: string | null;
+  followsRecordId?: string | null;
   /** When true, allows submit without a scheduled requirement key (ad hoc). */
   adHoc?: boolean;
 };
@@ -196,6 +199,24 @@ export async function submitCanonicalLogSubmission(
   if (catalog.id !== attachment.catalogDefinitionId) {
     throw new Error("Attachment Catalog reference mismatch.");
   }
+  const purposeRejection = recordPurposeRejection(catalog.purposeType);
+  if (purposeRejection) throw new Error(purposeRejection);
+
+  const followsRecordId = input.followsRecordId?.trim() || null;
+  if (followsRecordId) {
+    const origin = await client.operationalEvidenceRecord.findFirst({
+      where: { id: followsRecordId, facilityId: input.facilityId },
+      select: { id: true, templateStableKey: true },
+    });
+    if (!origin) throw new Error("The originating Record was not found.");
+    const link = followUpRecordDecision({
+      originStableKey: origin.templateStableKey,
+      nextStableKey: catalog.stableKey,
+      originId: origin.id,
+      nextId: "new",
+    });
+    if (!link.ok) throw new Error(link.reason);
+  }
 
   const fields = mapFields(catalog.fields);
   const validation = validateEvidenceSubmission({
@@ -213,15 +234,21 @@ export async function submitCanonicalLogSubmission(
     spaceId: attachment.spaceId,
     unitId: attachment.unitId,
     targetDepartmentId: attachment.targetDepartmentId,
+    operationalTypeKey: attachment.operationalTypeKey,
   });
+  const boundSpaceId =
+    target.targetKind === "OPERATIONAL_TYPE" ? input.boundSpaceId?.trim() || null : null;
 
   const scheduleKind = mapTimingModeToScheduleKind(attachment.timingMode);
-  const isAdHoc = input.adHoc === true || attachment.timingMode === "AD_HOC";
+  const isFollowUp = Boolean(followsRecordId);
+  const isAdHoc = input.adHoc === true || attachment.timingMode === "AD_HOC" || isFollowUp;
   const requirementKey =
-    input.requirementKey?.trim() ||
-    (isAdHoc
-      ? `adhoc|${attachment.stableKey}|${input.operationalDateKey}|${cuidLike().slice(0, 8)}`
-      : null);
+    isFollowUp
+      ? `followup|${followsRecordId}|${cuidLike().slice(0, 8)}`
+      : input.requirementKey?.trim() ||
+        (isAdHoc
+          ? `adhoc|${attachment.stableKey}|${input.operationalDateKey}|${cuidLike().slice(0, 8)}`
+          : null);
   if (!requirementKey) {
     throw new Error("requirementKey is required for scheduled Log submissions.");
   }
@@ -344,8 +371,9 @@ export async function submitCanonicalLogSubmission(
         windowStartLocal: input.windowStartLocal ?? null,
         windowEndLocal: input.windowEndLocal ?? null,
         unitId: target.unitId,
-        spaceId: target.spaceId,
+        spaceId: boundSpaceId ?? target.spaceId,
         assetId: target.assetId,
+        followsRecordId,
         status,
         outOfStandard: validation.outOfStandard,
         correctiveActionText,

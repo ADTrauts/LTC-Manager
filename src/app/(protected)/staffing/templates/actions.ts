@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
+import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   createDraft,
   createDraftFromPreset,
@@ -34,6 +36,10 @@ export async function createEvidenceTemplateDraftAction(input: {
   departmentId: string;
   draft: TemplateDraftInput;
 }) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: isCanonicalLogsEnabled(),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
@@ -52,6 +58,10 @@ export async function createEvidencePresetDraftAction(input: {
   departmentId: string;
   presetKey: string;
 }) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: isCanonicalLogsEnabled(),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   await requireEvidence(input.departmentId);
   if (!isOperationalEvidencePresetKey(input.presetKey)) {
     throw new Error("Unknown template preset.");
@@ -131,6 +141,10 @@ export async function createEvidenceSuccessorDraftAction(input: {
   departmentId: string;
   templateId: string;
 }) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: isCanonicalLogsEnabled(),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");

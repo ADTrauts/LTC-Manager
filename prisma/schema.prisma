@@ -3850,6 +3850,10 @@ model OperationalEvidenceRecord {
   recordedByEmployeeId         String?
   recordedByEmployee           Employee?                       @relation("EvidenceRecordedByEmployee", fields: [recordedByEmployeeId], references: [id], onDelete: SetNull)
   recordedByLabel              String?
+  /// Later measurement. The originating Record stays unchanged.
+  followsRecordId              String?
+  followsRecord                OperationalEvidenceRecord?  @relation("EvidenceFollowUp", fields: [followsRecordId], references: [id], onDelete: SetNull)
+  followUps                    OperationalEvidenceRecord[] @relation("EvidenceFollowUp")
   /// Immutable snapshot of template/Catalog fields/standards/instructions at submit time.
   /// Attachment-backed records use snapshotSchemaVersion >= 2 (LogSubmissionSnapshot).
   templateSnapshotJson         Json
@@ -3870,6 +3874,7 @@ model OperationalEvidenceRecord {
   @@index([logRequirementKey, operationalDate])
   @@index([catalogDefinitionId])
   @@index([attachmentStableKey])
+  @@index([followsRecordId])
   @@index([recordedByEmployeeId])
   @@index([status])
 }
@@ -4391,6 +4396,8 @@ model LogAttachment {
   calendarDayOfMonth  Int?
   calendarDueTimeLocal String?
   allowAdHoc          Boolean                       @default(false)
+  /// Declaration only. Phase E does not write waiver rows.
+  waiverAllowed       Boolean                       @default(false)
   dailyWindows        LogAttachmentDailyWindow[]
   cycleSelections     LogAttachmentCycleSelection[]
   evidenceRecords     OperationalEvidenceRecord[]
