@@ -249,7 +249,7 @@ test("webhook processes valid credentials without any session and returns 200", 
   assert.deepEqual(seen, ["pm-ok"]);
 });
 
-test("webhook response codes: duplicate 200, malformed 400, unacceptable 422, failure 500, unconfigured 503", async () => {
+test("webhook response codes: duplicate 200, permanent rejections 403, failure 500, unconfigured 503", async () => {
   const auth = { authorization: basic(CREDENTIALS.username, CREDENTIALS.password) };
   const body = JSON.stringify(postmarkInboundPayload());
   const { logger } = captureLogger();
@@ -263,9 +263,21 @@ test("webhook response codes: duplicate 200, malformed 400, unacceptable 422, fa
   assert.equal(duplicate.status, 200);
   assert.equal((await duplicate.json()).result, "duplicate");
   assert.equal((await run(body, async () => ({ result: "ignored", reason: "own_address" }))).status, 200);
-  assert.equal((await run("{not json", never)).status, 400);
-  assert.equal((await run(JSON.stringify({ From: "a@b.example" }), never)).status, 422);
-  assert.equal((await run(JSON.stringify({ MessageID: "x", From: "nobody" }), never)).status, 422);
+  const malformed = await run("{not json", never);
+  assert.equal(malformed.status, 403);
+  assert.equal((await malformed.json()).reason, "malformed_json");
+  const noMessageId = await run(JSON.stringify({ From: "a@b.example" }), never);
+  assert.equal(noMessageId.status, 403);
+  assert.equal((await noMessageId.json()).reason, "invalid_payload");
+  const noSender = await run(JSON.stringify({ MessageID: "x", From: "nobody" }), never);
+  assert.equal(noSender.status, 403);
+  assert.equal((await noSender.json()).reason, "missing_sender");
+  const tooLarge = await handleSupportInboundWebhook(
+    request(body, { ...auth, "content-length": String(51 * 1024 * 1024) }),
+    { credentials: CREDENTIALS, process: never, logger },
+  );
+  assert.equal(tooLarge.status, 403);
+  assert.equal((await tooLarge.json()).reason, "too_large");
   assert.equal((await run(body, never)).status, 500);
   assert.equal((await run(body, never, null)).status, 503);
 });

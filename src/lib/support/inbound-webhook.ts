@@ -40,14 +40,20 @@ function json(body: Record<string, unknown>, status: number, headers?: Record<st
   return Response.json(body, { status, headers });
 }
 
+/** Postmark retries every non-200 except 403; the message stays visible as an Inbound Error for manual retry. */
+function rejectPermanently(reason: string, error: string): Response {
+  return json({ error, reason }, 403);
+}
+
 function errorCode(error: unknown): string {
   if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
   return error instanceof Error ? error.name : "unknown";
 }
 
 /**
- * 2xx: processed, duplicate, or deliberately ignored. 401: bad credentials. 4xx: payload Vssyl will
- * never accept (nothing is written). 5xx: retry later (not configured, database unavailable).
+ * 200: processed, duplicate, or deliberately ignored. 401: bad credentials (retried, so mail survives a
+ * credential rotation). 403: payload Vssyl will never accept, nothing written, Postmark stops retrying.
+ * 5xx: retry later (not configured, database unavailable).
  */
 export async function handleSupportInboundWebhook(
   request: Request,
@@ -66,7 +72,7 @@ export async function handleSupportInboundWebhook(
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   if (declaredLength > MAX_BODY_BYTES) {
     logger.warn("support.inbound.rejected", { reason: "too_large" });
-    return json({ error: "Payload too large." }, 413);
+    return rejectPermanently("too_large", "Payload too large.");
   }
 
   let raw: unknown;
@@ -74,13 +80,13 @@ export async function handleSupportInboundWebhook(
     raw = JSON.parse(await request.text());
   } catch {
     logger.warn("support.inbound.rejected", { reason: "malformed_json" });
-    return json({ error: "Malformed JSON." }, 400);
+    return rejectPermanently("malformed_json", "Malformed JSON.");
   }
 
   const parsed = parsePostmarkInbound(raw);
   if (!parsed.ok) {
     logger.warn("support.inbound.rejected", { reason: parsed.reason });
-    return json({ error: "Unacceptable inbound payload.", reason: parsed.reason }, 422);
+    return rejectPermanently(parsed.reason, "Unacceptable inbound payload.");
   }
 
   const providerMessageId = parsed.email.providerMessageId;

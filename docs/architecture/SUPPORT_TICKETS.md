@@ -102,11 +102,15 @@ there.
 | Processed (new ticket or reply) | 200 | yes |
 | Duplicate Postmark `MessageID` | 200 | none |
 | Mail from Vssyl's own addresses | 200 (`ignored`) | none |
-| Missing or wrong credentials | 401 | none |
-| Malformed JSON | 400 | none |
-| Valid JSON but no `MessageID` or sender | 422 | none |
-| Credentials not configured | 503 | none |
+| Missing or wrong credentials | 401 (Postmark retries) | none |
+| Malformed JSON, no `MessageID` or sender, or body over 50 MB | 403 (Postmark stops retrying) | none |
+| Credentials not configured | 503 (Postmark retries) | none |
 | Database or other failure | 500 (Postmark retries) | rolled back |
+
+Postmark retries every non-200 response up to 10 times over about 10 hours, except 403. Retrying a
+payload that can never parse only delays the failure, so permanent rejections return 403; the message
+still shows as an Inbound Error in Postmark and can be retried manually once fixed. Auth failures stay
+401 so mail queued during a credential rotation is delivered once the credentials match again.
 
 Logs carry the Postmark `MessageID`, ticket id and number, message id, routing, duplicate flag, and
 result. They never include bodies, the reply token, the Authorization header, or the password.

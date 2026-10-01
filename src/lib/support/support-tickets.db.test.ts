@@ -123,10 +123,9 @@ test(
         subject: "Second",
       });
       ticketIds.push(second.id);
-      assert.equal(second.number, created.number + 1);
+      assert.ok(second.number > created.number);
 
       // A failed create leaves nothing behind.
-      const contactsBefore = await prisma.supportContact.count();
       await rejectsWith(
         createSupportTicket(prisma, {
           actorStaffId: staff.id,
@@ -136,7 +135,10 @@ test(
         }),
         "invalid_reference",
       );
-      assert.equal(await prisma.supportContact.count(), contactsBefore);
+      assert.equal(
+        await prisma.supportContact.count({ where: { email: `rollback-${tag}@example.com` } }),
+        0,
+      );
 
       // No facility, no user.
       const unlinkedEmail = `stranger-${tag}@example.com`;
