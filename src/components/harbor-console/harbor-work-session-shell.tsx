@@ -49,13 +49,13 @@ export function HarborWorkSessionShell({
         data-testid="harbor-work-banner"
         role="status"
       >
-        <p className="font-semibold">Harbor work session</p>
+        <p className="font-semibold">Vssyl work session</p>
         <p className="mt-0.5 text-amber-900">
-          You are LTC Corp staff in {facilityName}. This is not a facility login.
+          You are Vssyl platform staff in {facilityName}. This is not a facility login.
         </p>
       </div>
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] bg-white px-4 py-2 sm:px-6">
-        <p className="mr-2 text-sm font-semibold tracking-tight">Harbor · {facilityName}</p>
+        <p className="mr-2 text-sm font-semibold tracking-tight">Vssyl · {facilityName}</p>
         <nav className="flex flex-wrap items-center gap-1" aria-label="Work session">
           {NAV.map((item) => {
             const href = item.match === "/admin/departments" ? departmentBuilderHref : item.href;

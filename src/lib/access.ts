@@ -1,4 +1,4 @@
-/** App roles: FACILITY_ADMINISTRATOR tops org-wide admin; GM = department-head tier at facility level enum (scoped by roster in product rules). STAFF = Team Member. */
+/** App roles on User.role / session. FACILITY_ADMINISTRATOR is facility administrative authority (not organization-wide super-admin). GM is a distinct lower hub role. STAFF = Team Member. */
 export const APP_ROLES = [
   "FACILITY_ADMINISTRATOR",
   "GM",

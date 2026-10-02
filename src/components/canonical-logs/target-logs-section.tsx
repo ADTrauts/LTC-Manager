@@ -79,7 +79,7 @@ export function TargetLogsSection({
           data-testid="target-logs-empty"
         >
           <p className="font-medium text-zinc-800">No Logs attached</p>
-          <p className="mt-1 text-xs text-zinc-500">Add a Log from the LTC Corp Catalog.</p>
+          <p className="mt-1 text-xs text-zinc-500">Add a Log from the Vssyl catalog.</p>
           <Link
             href={addHref}
             className="mt-2 inline-flex min-h-9 items-center text-xs font-medium text-zinc-900 underline underline-offset-2"

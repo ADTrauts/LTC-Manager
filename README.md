@@ -1,4 +1,8 @@
-# LTC Manager
+# Vssyl
+
+**Business Operations Platform.** Your operations. All together.
+
+This repository still uses the historical package/folder name `ltc-manager`. That is a retained technical identifier, not the product name.
 
 Phase 0 foundation for a unit-driven operations platform:
 - Next.js + TypeScript app shell

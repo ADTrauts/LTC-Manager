@@ -1,12 +1,12 @@
 {
-  "name": "LTC Manager",
-  "short_name": "LTC Manager",
-  "description": "Shared-tablet operations for long-term care nutrition services.",
+  "name": "Vssyl",
+  "short_name": "Vssyl",
+  "description": "Business Operations Platform. Your operations. All together.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fafafa",
-  "theme_color": "#18181b",
+  "background_color": "#e8eef3",
+  "theme_color": "#0b3d3a",
   "lang": "en",
   "icons": [
     {

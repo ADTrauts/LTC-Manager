@@ -14,12 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LTC Manager",
-  description: "Operations platform for long-term care nutrition services.",
+  title: "Vssyl",
+  description: "Vssyl — Business Operations Platform. Your operations. All together.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "LTC Manager",
+    title: "Vssyl",
   },
 };
 

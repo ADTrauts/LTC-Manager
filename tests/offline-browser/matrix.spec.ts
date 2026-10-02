@@ -73,7 +73,7 @@ test("scenario-01: PWA manifest valid", async ({ page }) => {
   } catch {
     installability = null;
   }
-  expect(manifest.name).toBe("LTC Manager");
+  expect(manifest.name).toBe("Vssyl");
   void installability;
 });
 

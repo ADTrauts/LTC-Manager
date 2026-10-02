@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
+import { loadFacilityDepartmentCatalog } from "@/lib/department-products";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { normalizeOnboardingStep, ONBOARDING_STEPS } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
@@ -42,11 +43,18 @@ export async function GET() {
     return NextResponse.json({ error: "Facility not found." }, { status: 404 });
   }
 
-  const managerInvites = await prisma.onboardingManagerInvite.findMany({
-    where: { facilityId: session.facilityId },
-    select: { id: true, email: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const [managerInvites, catalog, billing] = await Promise.all([
+    prisma.onboardingManagerInvite.findMany({
+      where: { facilityId: session.facilityId },
+      select: { id: true, email: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    loadFacilityDepartmentCatalog(prisma, session.facilityId),
+    prisma.facilityBilling.findUnique({
+      where: { facilityId: session.facilityId },
+      select: { status: true },
+    }),
+  ]);
 
   return NextResponse.json({
     facility: {
@@ -54,6 +62,8 @@ export async function GET() {
       onboardingCurrentStep: normalizeOnboardingStep(facility.onboardingCurrentStep),
     },
     managerInvites,
+    catalog,
+    billingStatus: billing?.status ?? "UNMANAGED",
     stripeBillingReady: isStripeBillingFullyConfigured(),
   });
 }
@@ -75,11 +85,19 @@ export async function PATCH(request: Request) {
     if (stripeReady) {
       const facilityRow = await prisma.facility.findUnique({
         where: { id: session.facilityId },
-        select: { stripeDefaultPaymentMethodId: true },
+        select: {
+          stripeDefaultPaymentMethodId: true,
+          billing: { select: { status: true } },
+        },
       });
-      if (!facilityRow?.stripeDefaultPaymentMethodId) {
+      const billed =
+        facilityRow?.billing?.status === "ACTIVE" || facilityRow?.billing?.status === "PAST_DUE";
+      if (!billed && !facilityRow?.stripeDefaultPaymentMethodId) {
         return NextResponse.json(
-          { error: "Add a payment method before finishing setup, or turn off Stripe keys to skip in development." },
+          {
+            error:
+              "License at least one department before finishing setup, or turn off Stripe keys to skip in development.",
+          },
           { status: 400 },
         );
       }

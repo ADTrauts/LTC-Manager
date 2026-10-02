@@ -67,10 +67,12 @@ Wave-era `Task` dual-write and Operations Engine remain isolated (`OPERATION_ENG
 
 ## Responsibility model
 
-- Confirmed Assignments only; draft plans never create frontline Work
+- Expected unit-shared Work is derived from published plans, applicability, service date, and cycle participation when cycle-bound. Assignment does not create that Work.
+- Draft plans never create frontline Work
 - Unit-shared: eligible Employees on the Unit see the same occurrence; first valid completion satisfies it
 - Occurrence-level reassignment does not mutate Operational Assignment
 - One-off may optionally target a specific Employee
+- My Work may still require person scope (Job Flow / assignment) to know which expected Work belongs to the employee
 
 ## Scheduling model
 
@@ -109,7 +111,7 @@ TASK_SYNC_ENABLED=false
 PROJECTION_UNIT_WORKSPACE_ENABLED=false
 ```
 
-Default for `DIETARY_WORK_PLANS_ENABLED` is **false**.
+Default for `DIETARY_WORK_PLANS_ENABLED` was **false** at Phase 11A publish. Later operational-type applicability made Dietary Work Plans default-on (`false` remains rollback).
 
 ## Database
 

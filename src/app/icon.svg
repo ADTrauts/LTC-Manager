@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Vssyl">
-  <rect width="192" height="192" rx="36" fill="#0B3D3A"/>
-  <g transform="translate(36 28) scale(1.875)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vssyl">
+  <rect width="64" height="64" rx="12" fill="#0B3D3A"/>
+  <g transform="translate(6 4) scale(0.8125)">
     <polygon fill="#C5E6E1" points="8,8 24,8 26.5,20 12.5,20"/>
     <polygon fill="#9ECAC3" points="12.5,20 26.5,20 29,32 15,32"/>
     <polygon fill="#6FB3AA" points="15,32 29,32 31.5,44 17.5,44"/>

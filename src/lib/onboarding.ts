@@ -1,6 +1,13 @@
 import type { Facility } from "@prisma/client";
 
-export const ONBOARDING_STEPS = ["facility", "managers", "locations", "billing", "complete"] as const;
+export const ONBOARDING_STEPS = [
+  "facility",
+  "managers",
+  "departments",
+  "billing",
+  "locations",
+  "complete",
+] as const;
 
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 

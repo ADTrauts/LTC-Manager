@@ -7,9 +7,9 @@ import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
 
 export const metadata: Metadata = {
-  title: "LTC Manager — How is today going?",
+  title: "Vssyl — Your operations. All together.",
   description:
-    "See coverage, readiness, logs, and issues for this meal — from the manager’s board and the tablet on the floor.",
+    "See coverage, readiness, logs, and issues for today — from the manager’s board and the tablet on the floor.",
 };
 
 export default async function Home() {

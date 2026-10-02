@@ -2,13 +2,31 @@
 
 **Status:** Binding product policy (ADL-013)  
 **List prices:** Working figures; first paying facilities may validate them  
-**Does not:** Gate departments until `BILLING_ENTITLEMENTS_ENABLED`. Administrators start Stripe Checkout from `/admin/billing`.
+**Does not:** Gate departments until `BILLING_ENTITLEMENTS_ENABLED`. Checkout accepts published Department Product keys; installation happens after entitlement.
 
 ---
 
 ## What we sell
 
 One product. Unlimited users at every role. Price follows **licensed operational departments** at a facility.
+
+For Dietary, EVS, and Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the Vssyl Department Product key.
+
+Canonical commercial order:
+
+```text
+Select published Department Product
+        ↓
+Stripe Checkout / subscription update
+        ↓
+FacilityDepartmentEntitlement ACTIVE
+        ↓
+installDepartmentProduct
+        ↓
+Department row
+```
+
+Checkout validates published registry keys. It does not require Department rows to exist first. Installation does not create entitlements. Price remains count-based (`ltc_*` lookup keys). Do not charge separately for Industry.
 
 Do **not** charge per administrator, supervisor, employee, PIN user, room, or routine log.
 
@@ -53,11 +71,13 @@ Stripe customer remains on `Facility` until org billing is scoped.
 
 Separate Products (not Prices on one Product):
 
-1. **LTC Manager — Facility** (includes first department) — monthly + annual Prices  
-2. **LTC Manager — Additional department** — monthly + annual Prices  
-3. **LTC Manager — Whole facility** — monthly + annual Prices (used when list would exceed $999)  
-4. **LTC Manager — Assisted setup (first department)** — one-time  
-5. **LTC Manager — Assisted setup (additional department)** — one-time  
+1. **Vssyl — Facility** (includes first department) — monthly + annual Prices  
+2. **Vssyl — Additional department** — monthly + annual Prices  
+3. **Vssyl — Whole facility** — monthly + annual Prices (used when list would exceed $999)  
+4. **Vssyl — Assisted setup (first department)** — one-time  
+5. **Vssyl — Assisted setup (additional department)** — one-time  
+
+Stripe **lookup keys** remain `ltc_*` until a billing migration is explicitly scoped.  
 
 Charging path: Stripe Billing + Checkout `mode: subscription`. Not PaymentIntents. Not Metronome.
 

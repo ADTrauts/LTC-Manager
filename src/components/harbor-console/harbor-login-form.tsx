@@ -36,7 +36,7 @@ export function HarborLoginForm() {
     >
       <h1 className="text-xl font-semibold text-[var(--foreground)]">Staff sign in</h1>
       <p className="text-sm text-[var(--text-secondary)]">
-        Harbor Console is for LTC Corp staff. Facility accounts use the main sign-in page.
+        Vssyl Console is for platform staff. Facility accounts use the main sign-in page.
       </p>
       <div className="space-y-2">
         <label htmlFor="harbor-email" className="block text-sm font-medium text-[var(--text-secondary)]">

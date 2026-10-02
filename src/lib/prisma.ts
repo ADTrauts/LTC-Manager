@@ -41,6 +41,9 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "supportTicket",
     "supportTicketMessage",
     "supportTicketEvent",
+    "passwordResetToken",
+    "emailVerificationToken",
+    "accountInviteToken",
   ] as const;
   return required.filter((key) => typeof c[key]?.findMany !== "function");
 }

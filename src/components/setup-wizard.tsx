@@ -1,12 +1,20 @@
 "use client";
 
 import type { UnitType } from "@prisma/client";
-import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
-import { useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 
-type Step = "facility" | "managers" | "locations" | "billing";
+import {
+  startBillingCheckoutAction,
+  type BillingActionState,
+} from "@/app/(protected)/admin/billing/actions";
+import {
+  groupCatalogByIndustry,
+  type FacilityDepartmentCatalogItem,
+} from "@/lib/department-products/facility-catalog";
+
+type Step = "facility" | "managers" | "departments" | "billing" | "locations";
 
 type OnboardingStateResponse = {
   facility: {
@@ -16,10 +24,14 @@ type OnboardingStateResponse = {
     onboardingCurrentStep: string;
   };
   managerInvites: Array<{ id: string; email: string }>;
+  catalog?: FacilityDepartmentCatalogItem[];
+  billingStatus?: string;
   stripeBillingReady?: boolean;
 };
 
-const stepOrder: Step[] = ["facility", "managers", "locations", "billing"];
+const stepOrder: Step[] = ["facility", "managers", "departments", "billing", "locations"];
+const SELECTED_KEYS_STORAGE = "vssyl.setup.departmentProductKeys";
+const checkoutInitialState: BillingActionState = { error: null };
 
 function toStep(raw: string): Step {
   if ((stepOrder as string[]).includes(raw)) {
@@ -43,65 +55,22 @@ const unitTypes: UnitType[] = [
   "OTHER",
 ];
 
-function BillingCardForm({
-  onSuccess,
-}: {
-  onSuccess: (paymentMethodId: string) => Promise<void>;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submitBilling() {
-    if (!stripe || !elements) return;
-    setBusy(true);
-    setError(null);
-
-    const result = await stripe.confirmSetup({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/setup`,
-      },
-      redirect: "if_required",
-    });
-
-    if (result.error) {
-      setBusy(false);
-      setError(result.error.message ?? "Could not save card.");
-      return;
-    }
-
-    const paymentMethodId =
-      typeof result.setupIntent?.payment_method === "string" ? result.setupIntent.payment_method : null;
-    if (!paymentMethodId) {
-      setBusy(false);
-      setError("Payment method was not returned.");
-      return;
-    }
-
-    await onSuccess(paymentMethodId);
-    setBusy(false);
+function readStoredDepartmentKeys(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(SELECTED_KEYS_STORAGE);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : [];
+  } catch {
+    return [];
   }
-
-  return (
-    <div className="space-y-4">
-      <PaymentElement />
-      {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      <button
-        type="button"
-        onClick={submitBilling}
-        disabled={busy || !stripe || !elements}
-        className="app-button app-accent-button w-full font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {busy ? "Saving card..." : "Save card and finish setup"}
-      </button>
-      <p className="text-xs text-zinc-500">Your card is securely handled by Stripe. We do not store raw card data.</p>
-    </div>
-  );
 }
 
-export function SetupWizard() {
+function writeStoredDepartmentKeys(keys: string[]) {
+  window.sessionStorage.setItem(SELECTED_KEYS_STORAGE, JSON.stringify(keys));
+}
+
+export function SetupWizard({ checkout }: { checkout?: string | null }) {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [state, setState] = useState<OnboardingStateResponse | null>(null);
@@ -115,13 +84,10 @@ export function SetupWizard() {
     Array<{ name: string; unitType: UnitType; parentName: string | null }>
   >([]);
   const [locationParentName, setLocationParentName] = useState<string>("");
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [stripeBillingReady, setStripeBillingReady] = useState(true);
-
-  const stripePromise = useMemo(() => {
-    const publishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-    return publishable ? loadStripe(publishable) : null;
-  }, []);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [interval, setInterval] = useState<"MONTHLY" | "ANNUAL">("ANNUAL");
+  const [checkoutState, checkoutAction] = useActionState(startBillingCheckoutAction, checkoutInitialState);
 
   useEffect(() => {
     void (async () => {
@@ -130,6 +96,9 @@ export function SetupWizard() {
       setState(payload);
       setStripeBillingReady(payload.stripeBillingReady !== false);
       setStep(toStep(payload.facility.onboardingCurrentStep));
+      const stored = readStoredDepartmentKeys();
+      const licensed = (payload.catalog ?? []).filter((item) => item.licensed).map((item) => item.productKey);
+      setSelectedKeys(stored.length > 0 ? stored : licensed);
       setLoaded(true);
     })();
   }, []);
@@ -194,10 +163,27 @@ export function SetupWizard() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ emails }),
       });
-      await patchState({ step: "locations" });
-      setStep("locations");
+      await patchState({ step: "departments" });
+      setStep("departments");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save manager emails.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveDepartments() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (stripeBillingReady && selectedKeys.length === 0) {
+        throw new Error("Select at least one department.");
+      }
+      writeStoredDepartmentKeys(selectedKeys);
+      await patchState({ step: "billing" });
+      setStep("billing");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save department selection.");
     } finally {
       setBusy(false);
     }
@@ -223,8 +209,9 @@ export function SetupWizard() {
         const payload = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(payload.error ?? "Could not save locations.");
       }
-      await patchState({ step: "billing" });
-      setStep("billing");
+      window.sessionStorage.removeItem(SELECTED_KEYS_STORAGE);
+      router.push("/dashboard?onboarding=complete");
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save locations.");
     } finally {
@@ -232,50 +219,33 @@ export function SetupWizard() {
     }
   }
 
-  async function beginBilling() {
-    setError(null);
-    const res = await fetch("/api/billing/setup-intent", { method: "POST" });
-    const payload = (await res.json().catch(() => ({}))) as { clientSecret?: string; error?: string };
-    if (!res.ok || !payload.clientSecret) {
-      setError(payload.error ?? "Unable to initialize billing step.");
-      return;
-    }
-    setClientSecret(payload.clientSecret);
-  }
-
-  async function finishWithoutCard() {
+  async function finishWithoutLicense() {
     setBusy(true);
     setError(null);
     try {
-      await patchState({ completeOnboarding: true, step: "complete" });
-      router.push("/dashboard?onboarding=complete");
-      router.refresh();
+      await patchState({ step: "locations" });
+      setStep("locations");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not finish setup.");
+      setError(e instanceof Error ? e.message : "Could not continue setup.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function finalizeBilling(paymentMethodId: string) {
-    const res = await fetch("/api/billing/payment-method/default", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ paymentMethodId }),
+  function toggleDepartment(key: string) {
+    setSelectedKeys((current) => {
+      const next = current.includes(key) ? current.filter((value) => value !== key) : [...current, key];
+      writeStoredDepartmentKeys(next);
+      return next;
     });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(payload.error ?? "Could not save payment method.");
-    }
-    await patchState({ completeOnboarding: true, step: "complete" });
-    router.push("/dashboard?onboarding=complete");
-    router.refresh();
   }
 
   if (!loaded || !state) {
     return <div className="mx-auto max-w-4xl rounded-xl border border-zinc-200 bg-white p-6">Loading setup...</div>;
   }
 
+  const catalog = state.catalog ?? [];
+  const groups = groupCatalogByIndustry(catalog);
   const currentIdx = stepOrder.indexOf(step);
 
   return (
@@ -285,7 +255,7 @@ export function SetupWizard() {
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900">Guided setup</h1>
             <p className="text-sm text-zinc-600">
-              Finish these steps once, and your team can start using LTC Manager right away.
+              Finish these steps once, and your team can start using Vssyl right away.
             </p>
           </div>
           <form action="/api/auth/logout" method="post" className="shrink-0">
@@ -297,7 +267,7 @@ export function SetupWizard() {
             </button>
           </form>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {stepOrder.map((item, idx) => (
             <div
               key={item}
@@ -378,12 +348,143 @@ export function SetupWizard() {
           </div>
         ) : null}
 
+        {step === "departments" ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-zinc-900">Choose your departments</h2>
+            <p className="text-sm text-zinc-600">
+              Select the departments your facility will operate with Vssyl.
+            </p>
+            {groups.map((group) => (
+              <section key={group.industry} className="space-y-2">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">{group.label}</h3>
+                <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
+                  {group.products.map((product) => {
+                    const checked = selectedKeys.includes(product.productKey);
+                    return (
+                      <li key={product.productKey}>
+                        <label className="flex cursor-pointer items-start gap-3 px-3 py-3 text-sm hover:bg-zinc-50">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleDepartment(product.productKey)}
+                            className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+                          />
+                          <span>
+                            <span className="font-medium text-zinc-900">{product.name}</span>
+                            <span className="mt-0.5 block text-xs text-zinc-500">{product.productKey}</span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+            <button
+              type="button"
+              onClick={() => void saveDepartments()}
+              disabled={busy}
+              className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
+            >
+              {busy ? "Saving..." : "Continue to billing"}
+            </button>
+          </div>
+        ) : null}
+
+        {step === "billing" ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-zinc-900">License departments</h2>
+            <p className="text-sm text-zinc-600">
+              Payment licenses the departments you selected. They are installed only after checkout
+              succeeds.
+            </p>
+            {checkout === "canceled" ? (
+              <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
+                Checkout was canceled. No department was licensed or installed.
+              </p>
+            ) : null}
+            {selectedKeys.length > 0 ? (
+              <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 text-sm">
+                {catalog
+                  .filter((item) => selectedKeys.includes(item.productKey))
+                  .map((item) => (
+                    <li key={item.productKey} className="px-3 py-2 font-medium text-zinc-900">
+                      {item.name}
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-zinc-600">No departments selected yet.</p>
+            )}
+
+            {!stripeBillingReady ? (
+              <div className="space-y-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                <p>
+                  Stripe is not fully configured. You can finish facility setup now. Selected
+                  departments will not be installed until they are licensed later.
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void finishWithoutLicense()}
+                  className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
+                >
+                  {busy ? "Continuing..." : "Continue without licensing"}
+                </button>
+              </div>
+            ) : (
+              <form action={checkoutAction} className="space-y-3">
+                {selectedKeys.map((key) => (
+                  <input key={key} type="hidden" name="departmentKey" value={key} />
+                ))}
+                <input type="hidden" name="setupPath" value="SELF_SERVE" />
+                <input type="hidden" name="returnTo" value="setup" />
+                <fieldset className="grid gap-3 sm:grid-cols-2">
+                  <legend className="sr-only">Billing interval</legend>
+                  <label className="flex cursor-pointer flex-col rounded-md border border-zinc-200 px-3 py-3 text-sm">
+                    <span className="flex items-center gap-2 font-medium text-zinc-900">
+                      <input
+                        type="radio"
+                        name="interval"
+                        value="MONTHLY"
+                        checked={interval === "MONTHLY"}
+                        onChange={() => setInterval("MONTHLY")}
+                        className="h-4 w-4"
+                      />
+                      Monthly
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer flex-col rounded-md border border-zinc-200 px-3 py-3 text-sm">
+                    <span className="flex items-center gap-2 font-medium text-zinc-900">
+                      <input
+                        type="radio"
+                        name="interval"
+                        value="ANNUAL"
+                        checked={interval === "ANNUAL"}
+                        onChange={() => setInterval("ANNUAL")}
+                        className="h-4 w-4"
+                      />
+                      Annual
+                    </span>
+                  </label>
+                </fieldset>
+                {checkoutState.error ? (
+                  <p className="text-sm text-rose-700" role="alert">
+                    {checkoutState.error}
+                  </p>
+                ) : null}
+                <CheckoutSubmit disabled={selectedKeys.length === 0} />
+              </form>
+            )}
+          </div>
+        ) : null}
+
         {step === "locations" ? (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-zinc-900">Initial locations (optional)</h2>
             <p className="text-sm text-zinc-600">
-              Add locations now, or skip and do it later from the Units page. You can nest a location under another
-              you already added (for example a servery under a building) using the optional parent field.
+              Add locations now, or skip and do it later from the Units page. Responsibility is
+              assigned only to departments already installed at this facility.
             </p>
             <div className="grid gap-2 md:grid-cols-2">
               <label className="block space-y-1 text-sm md:col-span-2">
@@ -490,7 +591,7 @@ export function SetupWizard() {
                 disabled={busy}
                 className="app-button app-accent-button flex-1 font-semibold text-white disabled:opacity-70"
               >
-                {busy ? "Saving..." : "Save and continue"}
+                {busy ? "Saving..." : "Save and finish"}
               </button>
               <button
                 type="button"
@@ -504,51 +605,21 @@ export function SetupWizard() {
           </div>
         ) : null}
 
-        {step === "billing" ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">Billing card</h2>
-            <p className="text-sm text-zinc-600">Add a payment method now, or choose a plan later in Administration → Billing.</p>
-            {!stripeBillingReady ? (
-              <div className="space-y-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900">
-                <p>
-                  Stripe is not fully configured (needs both <code className="rounded bg-amber-100 px-1">STRIPE_SECRET_KEY</code> and{" "}
-                  <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> in <code className="rounded bg-amber-100 px-1">.env</code>
-                  ). You can finish setup now and add a card later.
-                </p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void finishWithoutCard()}
-                  className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
-                >
-                  {busy ? "Finishing..." : "Finish setup without card"}
-                </button>
-              </div>
-            ) : null}
-            {stripeBillingReady && !stripePromise ? (
-              <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Billing UI could not load. Set <code className="rounded bg-zinc-100 px-1">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> and restart the dev server.
-              </p>
-            ) : null}
-            {stripeBillingReady && !clientSecret ? (
-              <button
-                type="button"
-                onClick={() => void beginBilling()}
-                className="app-button app-accent-button w-full font-semibold text-white"
-              >
-                Load secure card form
-              </button>
-            ) : null}
-            {stripeBillingReady && stripePromise && clientSecret ? (
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <BillingCardForm onSuccess={finalizeBilling} />
-              </Elements>
-            ) : null}
-          </div>
-        ) : null}
-
         {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       </article>
     </section>
+  );
+}
+
+function CheckoutSubmit({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
+    >
+      {pending ? "Opening checkout..." : "Continue to checkout"}
+    </button>
   );
 }

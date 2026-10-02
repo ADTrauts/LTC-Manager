@@ -58,8 +58,7 @@ export function PinLoginForm({ facilityName, lockedUnitName, onUseEmail }: PinLo
   return (
     <div className="w-full max-w-sm space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 shadow-sm">
       <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">LTC Manager</p>
-        <h1 className="mt-1 text-lg font-semibold text-[var(--foreground)]">{facilityName}</h1>
+        <h1 className="text-lg font-semibold text-[var(--foreground)]">{facilityName}</h1>
         {lockedUnitName ? (
           <p className="mt-1 text-sm font-medium text-zinc-800">Unit: {lockedUnitName}</p>
         ) : null}

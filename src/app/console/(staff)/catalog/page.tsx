@@ -14,7 +14,7 @@ export default async function HarborCatalogPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            LTC Corp logs, checklists, inspections, and procedures. Facilities install them, then place them. They do not author them.
+            Vssyl catalog logs, checklists, inspections, and procedures. Facilities install them, then place them. They do not author them.
           </p>
         </div>
         <Link

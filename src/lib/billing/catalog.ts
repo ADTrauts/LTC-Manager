@@ -13,11 +13,11 @@ export const BILLING_LIST = {
 export const ANNUAL_DISCOUNT_BPS = 1_000;
 
 export const BILLING_STRIPE_PRODUCTS = {
-  FACILITY: "LTC Manager — Facility",
-  ADDITIONAL_DEPARTMENT: "LTC Manager — Additional department",
-  WHOLE_FACILITY: "LTC Manager — Whole facility",
-  SETUP_FIRST: "LTC Manager — Assisted setup (first department)",
-  SETUP_ADDITIONAL: "LTC Manager — Assisted setup (additional department)",
+  FACILITY: "Vssyl — Facility",
+  ADDITIONAL_DEPARTMENT: "Vssyl — Additional department",
+  WHOLE_FACILITY: "Vssyl — Whole facility",
+  SETUP_FIRST: "Vssyl — Assisted setup (first department)",
+  SETUP_ADDITIONAL: "Vssyl — Assisted setup (additional department)",
 } as const;
 
 /** Stable Stripe Price lookup keys (test catalog on acct_1UGiNyI0d1L6Rh8X). */

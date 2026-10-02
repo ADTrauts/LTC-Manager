@@ -88,6 +88,13 @@ test("V1 refinement — RUN uses Harbor teal and BUILD uses orange shell chrome"
   assert.match(shell, /ShellModeCue/);
 });
 
+test("V1 refinement — shell brand block presents Vssyl, not LTC Manager", () => {
+  const brand = readFileSync(join(process.cwd(), "src/components/shell-brand-block.tsx"), "utf8");
+  assert.match(brand, /VssylLockup/);
+  assert.match(brand, /tone="brand"/);
+  assert.doesNotMatch(brand, /LTC Manager/);
+});
+
 test("V1 refinement — AppShell switches the left rail via ShellSidebar (Build vs Locations)", () => {
   const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
   assert.match(shell, /ShellSidebar/);

@@ -147,7 +147,7 @@ export function AttachmentEditForm(props: Props) {
           <h1 className="text-lg font-semibold text-zinc-900">{props.catalogName}</h1>
           <p className="text-xs text-zinc-500">
             {props.targetTitle ? `${props.targetTitle} · ` : ""}
-            Version {props.catalogVersion} · LTC Corp maintained
+            Version {props.catalogVersion} · Vssyl catalog
           </p>
         </div>
         <Link href={props.backHref} className="text-xs font-medium underline underline-offset-2">

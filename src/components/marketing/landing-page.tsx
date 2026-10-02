@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { VssylLockup } from "@/components/brand/vssyl-lockup";
+
 const navLinkClass =
   "text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]";
 
@@ -19,8 +21,8 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,white)] backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3 sm:px-6">
-          <a href="#top" className="text-sm font-semibold tracking-tight text-[#0b3d3a]">
-            LTC Manager
+          <a href="#top" className="inline-flex items-center">
+            <VssylLockup tone="brand" size="marketing" />
           </a>
           <nav className="hidden items-center gap-6 md:flex" aria-label="Page">
             <a href="#product" className={navLinkClass}>
@@ -62,13 +64,13 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
           <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-24">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9ecac3]">
-                Dietary · EVS · Plant Ops
+                Business Operations Platform
               </p>
               <h1 className="mt-4 max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">
-                How is today going?
+                Your operations. All together.
               </h1>
               <p className="mt-5 max-w-lg text-lg leading-relaxed text-[#d7eeea]">
-                See coverage, readiness, logs, and issues for this meal — from the
+                See coverage, readiness, logs, and issues for today — from the
                 manager’s board and the tablet on the floor.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -181,7 +183,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
               One product
             </p>
             <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-white">
-              Start with dietary. Add EVS and Plant Ops when you are ready.
+              Add the departments you run. Keep one picture of the day.
             </h2>
             <p className="mt-4 max-w-2xl text-[#9ecac3]">
               The same board, licensed by the departments you run. Unlimited people
@@ -225,7 +227,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
                 How it works
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-                Built for the people who run the meal.
+                Built for the people who run the day.
               </h2>
               <div className="mt-8 space-y-6">
                 <PrincipleCard
@@ -308,9 +310,9 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
       <footer className="border-t border-[var(--border)] bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <p className="text-sm font-semibold text-[#0b3d3a]">LTC Manager</p>
+            <p className="text-sm font-semibold text-[#0b3d3a]">Vssyl</p>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Operations for dietary, EVS, and Plant Ops.
+              Business Operations Platform. Your operations. All together.
             </p>
           </div>
           <div className="flex gap-4 text-sm text-[var(--text-secondary)]">

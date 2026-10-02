@@ -43,7 +43,7 @@ export default async function CatalogDetailPage({ params }: Props) {
         subtitle={`${detail.categoryLabel} · ${detail.purposeLabel}`}
       />
       <p className="text-sm text-zinc-700">{detail.description}</p>
-      <p className="text-xs text-zinc-500">LTC Corp maintained · Catalog version {detail.version}</p>
+      <p className="text-xs text-zinc-500">Vssyl catalog · Catalog version {detail.version}</p>
 
       <dl className="grid gap-3 sm:grid-cols-2">
         <div>

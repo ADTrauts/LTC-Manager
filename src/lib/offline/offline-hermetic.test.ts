@@ -118,8 +118,18 @@ test("manifest is valid JSON webmanifest", () => {
   const path = join(process.cwd(), "public/manifest.webmanifest");
   const raw = readFileSync(path, "utf8");
   const parsed = JSON.parse(raw);
-  assert.equal(parsed.name, "LTC Manager");
+  assert.equal(parsed.name, "Vssyl");
+  assert.equal(parsed.short_name, "Vssyl");
   assert.ok(Array.isArray(parsed.icons));
+});
+
+test("PWA icons use the Vssyl mark, not the LTC lettermark", () => {
+  const icon192 = readFileSync(join(process.cwd(), "public/icons/icon-192.svg"), "utf8");
+  const icon512 = readFileSync(join(process.cwd(), "public/icons/icon-512.svg"), "utf8");
+  assert.match(icon192, /aria-label="Vssyl"/);
+  assert.match(icon512, /aria-label="Vssyl"/);
+  assert.doesNotMatch(icon192, />LTC</);
+  assert.doesNotMatch(icon512, />LTC</);
 });
 
 test("service worker does not cache auth or API paths", () => {

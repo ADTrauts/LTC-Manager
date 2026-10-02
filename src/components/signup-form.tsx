@@ -42,7 +42,7 @@ export function SignupForm() {
   return (
     <form action={onSubmit} className="w-full max-w-xl space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 shadow-sm">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Create your LTC Manager account</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Create your Vssyl account</h1>
         <p className="mt-1 text-sm text-zinc-600">Set up your facility and start onboarding in a few minutes.</p>
       </div>
 

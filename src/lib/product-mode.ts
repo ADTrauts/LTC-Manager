@@ -1,5 +1,5 @@
 /**
- * The canonical LTC Manager product model: RUN, BUILD, ADMIN.
+ * The canonical Vssyl product model: RUN, BUILD, ADMIN.
  *
  * RUN   — operate today (the operational surfaces staff and managers use to run the shift).
  * BUILD — configure how the operation works (Facility, Department, Employee, Template, Asset builders).

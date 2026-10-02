@@ -76,7 +76,7 @@ This document records the architecture trace and ownership decision required bef
 24. **Old routes to isolate:** Task dual-write paths; `/today` projection assemblies; Operations Engine routes; do not activate via Phase 11A flag.
 
 25. **Smallest coherent Phase 11A architecture:**  
-    `DepartmentWorkPlan` (versioned) → `DepartmentWorkItem` → derived `WorkRequirement` → sparse `DepartmentWorkOccurrence` + events → Job Flow / Supervisor Board / Offline consumers. Procedures = `KnowledgeArticle` links. Flag: `DIETARY_WORK_PLANS_ENABLED` (default false).
+    `DepartmentWorkPlan` (versioned) → `DepartmentWorkItem` → derived `WorkRequirement` → sparse `DepartmentWorkOccurrence` + events → Today's Work expected Work / Job Flow / Supervisor Board / Offline consumers. Procedures = `KnowledgeArticle` links. Flag: `DIETARY_WORK_PLANS_ENABLED` (default true; `false` rollback). Review does not consume Work.
 
 ---
 
