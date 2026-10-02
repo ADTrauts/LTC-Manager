@@ -49,11 +49,13 @@ test("V1 refinement — the canonical Build Home card set is present for a Facil
   assert.equal(hrefs.includes("/admin/knowledge"), false);
 });
 
-test("V1 refinement — the account menu contains Change password and Sign out", () => {
+test("V1 refinement — the account menu contains Change password, Help & Support, and Sign out", () => {
   const source = readFileSync(join(process.cwd(), "src/components/sign-out-controls.tsx"), "utf8");
   assert.match(source, /account-menu-change-password/);
+  assert.match(source, /account-menu-help/);
   assert.match(source, /account-menu-sign-out/);
   assert.match(source, /Change password/);
+  assert.match(source, /Help & Support/);
   assert.match(source, /Sign out/);
 });
 

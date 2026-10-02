@@ -9,6 +9,7 @@ import {
   ChefHat,
   ChevronDown,
   CircleCheck,
+  CircleHelp,
   CircleX,
   ClipboardList,
   ConciergeBell,
@@ -57,6 +58,7 @@ export const AppIcons = {
   notifications: Bell,
   user: User,
   signOut: LogOut,
+  help: CircleHelp,
   facility: Building2,
   chevronDown: ChevronDown,
   /** Compact shell navigation trigger. */

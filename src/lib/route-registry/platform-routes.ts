@@ -215,6 +215,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Every authenticated role manages its own account here.",
   },
   {
+    pattern: "/help",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "AUTHENTICATED" },
+    module: "account",
+    notes:
+      "Customer Help & Support. Mailto to support@vssyl.com only — not Vssyl Console tickets.",
+  },
+  {
     pattern: "/department/settings/[departmentId]",
     match: "EXACT",
     surface: "PAGE",

@@ -68,9 +68,9 @@ test("navigation — Procedures is a Build door and leftover /admin/knowledge st
 });
 
 test("navigation — absence from navigation does not deny access", () => {
-  // /dashboard, /operations, /account and the dynamic detail routes are intentionally hidden.
+  // /dashboard, /operations, /account, /help and the dynamic detail routes are intentionally hidden.
   // They stay reachable by URL for the roles the registry approves.
-  for (const path of ["/dashboard", "/operations", "/account"]) {
+  for (const path of ["/dashboard", "/operations", "/account", "/help"]) {
     assert.equal(hrefsFor("STAFF").includes(path), false, `${path} should be hidden`);
     assert.equal(roleMayAccessRoute(path, "STAFF", FLAGS), true, `${path} should stay reachable`);
   }

@@ -32,6 +32,7 @@ test("work session denies billing, setup, PIN/device bind, Catalog hub, and RUN 
     "/api/auth/logout-full",
     "/api/auth/switch-facility",
     "/account",
+    "/help",
     "/build",
     "/workspace",
     "/admin",

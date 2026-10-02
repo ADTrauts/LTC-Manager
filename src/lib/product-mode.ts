@@ -67,6 +67,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/admin/billing", mode: "ADMIN", label: "Billing" },
     { pathPrefix: "/admin", mode: "ADMIN", label: "Admin" },
     { pathPrefix: "/account", mode: "ADMIN", label: "Account & Security" },
+    { pathPrefix: "/help", mode: "ADMIN", label: "Help & Support" },
 
     // ── RUN — operational surfaces (default) ───────────────────────────────
     { pathPrefix: "/workspace", mode: "RUN", label: "Dashboard" },

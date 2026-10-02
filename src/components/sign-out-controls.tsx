@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { OPEN_ACCOUNT_MENU_EVENT } from "@/components/shell-mode-cue";
+import { CUSTOMER_SUPPORT_HREF } from "@/lib/customer-support";
 import { AppIcons } from "@/lib/design-system";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 import { clearAllOfflineData, clearForSignOut } from "@/lib/offline/local-store";
@@ -258,6 +259,14 @@ export function AccountMenu({
               Change password
             </Link>
           ) : null}
+          <Link
+            href={CUSTOMER_SUPPORT_HREF}
+            className={MENU_ITEM_CLASS}
+            data-testid="account-menu-help"
+            onClick={() => setOpen(false)}
+          >
+            Help & Support
+          </Link>
           <form action="/api/auth/logout" method="post" onSubmit={(e) => void prepareStandardSignOut(e)}>
             <button type="submit" className={MENU_ITEM_CLASS} data-testid="account-menu-sign-out">
               <span className="inline-flex items-center gap-2">

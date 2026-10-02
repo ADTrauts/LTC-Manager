@@ -60,7 +60,7 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
 });
 
 test("product-mode — governance surfaces resolve to ADMIN", () => {
-  for (const path of ["/admin", "/admin/organization", "/admin/organization/facilities", "/admin/permissions", "/admin/billing", "/account"]) {
+  for (const path of ["/admin", "/admin/organization", "/admin/organization/facilities", "/admin/permissions", "/admin/billing", "/account", "/help"]) {
     assert.equal(resolveProductModeForPath(path), "ADMIN", path);
   }
 });
@@ -85,6 +85,7 @@ test("product-mode — area label is available for the mode indicator", () => {
   assert.equal(resolveProductAreaLabel("/admin/departments"), "Department Builder");
   assert.equal(resolveProductAreaLabel("/admin/billing"), "Billing");
   assert.equal(resolveProductAreaLabel("/staffing/log-book"), "Log Book");
+  assert.equal(resolveProductAreaLabel("/help"), "Help & Support");
 });
 
 test("groupNavItemsByMode — groups in RUN → BUILD → ADMIN order and preserves item order", () => {

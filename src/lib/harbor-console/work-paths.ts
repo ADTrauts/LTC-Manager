@@ -26,6 +26,7 @@ const DENIED_PREFIXES = [
   "/api/auth/logout-full",
   "/api/auth/switch-facility",
   "/account",
+  "/help",
 ] as const;
 
 function pathMatchesPrefix(pathname: string, prefix: string): boolean {

@@ -197,6 +197,13 @@ test("role policy — /account stays available to every authenticated role", () 
   assert.equal(outcome("/account", null), "REQUIRE_AUTHENTICATION");
 });
 
+test("role policy — /help stays available to every authenticated role", () => {
+  for (const role of APP_ROLES) {
+    assert.equal(roleMayAccessRoute("/help", role, FLAGS), true, `${role} at /help`);
+  }
+  assert.equal(outcome("/help", null), "REQUIRE_AUTHENTICATION");
+});
+
 test("role policy — /department/settings defers to its own department-head authority", () => {
   // The proxy admits any authenticated role; the page decides per department. Encoding a static
   // floor here would either widen or narrow the certified behavior.
