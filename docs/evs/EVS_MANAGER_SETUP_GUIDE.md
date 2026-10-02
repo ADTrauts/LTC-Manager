@@ -1,5 +1,7 @@
 # EVS Manager Setup Guide
 
+> **Domain guide.** Current configuration lives in Department Builder: Locations, Operating Rhythm, People & Coverage, and Records. Location Functions are `resident_care` and `service_support`. See `docs/product/01_PRODUCT_CONSTITUTION.md`.
+
 **Phase:** 11C — EVS Assignment Scope, Zones, and Scale  
 **Audience:** EVS Manager / GM-equivalent with EVS operational authority
 

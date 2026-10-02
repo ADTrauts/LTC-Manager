@@ -1,8 +1,10 @@
 # 04 — Persona Model
 
-**Status:** Post–Wave 12 personas aligned to `AppRole` and default homes  
+**Status:** Role homes. Architecture map is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Audit / Reports is the manager history surface. Review is not a workspace.  
 
 Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TEAM_MEMBER`, `STAFF` (display often “Team Member”).
+
+**Platform authorization** lives on `User.role` and is copied into the session JWT. **Operational roster identity** lives on `Employee.roleType`. They share the `RoleKey` enum but are not interchangeable: a Department Manager (`Department.headEmployeeId` or `MANAGER`) does not purchase Department Products. The person who creates a Facility through `/signup` receives `FACILITY_ADMINISTRATOR` on the User (and the matching hub Employee). Existing GM Users are not Facility Administrators.
 
 ---
 

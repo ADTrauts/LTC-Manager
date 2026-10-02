@@ -1,8 +1,33 @@
-# LTC Manager — Legacy Surface Register
+# Legacy Surface Register
 
-**Phase:** Product Phase 13 (amended in Phase 14 — V1 UX Completion)
-**Date:** 2026-08-08
-**Purpose:** Explicitly govern every legacy / duplicate route so legacy surfaces are governed rather than silently competing for authority.
+**Status:** Compatibility register. Current architecture is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
+**Date:** 2026-08-08, compatibility systems certified 2026-10-02  
+**Purpose:** Name the systems that remain readable and are not the forward architecture.
+
+---
+
+## Compatibility systems (2026-10-02)
+
+These stores and names stay. They are readable. They are not the canonical forward model. New writes are fenced where noted.
+
+| System | What it still is | New writes |
+|--------|------------------|------------|
+| Legacy meal milestone stores (`READY` / `SERVICE_STARTED` on the older milestone path) | Historical Dietary timing compatibility | Not the timing source when a service date already has `OperationalCycleKeyPointActual` |
+| `UnitMealTime` | Older unit meal clock | Not the Dietary Key Point actual |
+| `LogTemplate` / `LogSubmission` | Legacy log capture and history | Fenced when canonical Records are enabled |
+| Legacy Inspection engine | Legacy inspection definitions, occurrences, and submissions | Fenced when canonical Records are enabled. Inspection as a Record form is the forward path |
+| `OperationalTemplate` | Earlier unified template layer | Not the Record definition. Catalog definitions and facility requirement segments are |
+| Review-named internal infrastructure | Loaders and types that still say Review | Not a workspace. Manager surface is Audit / Reports at `/reports` |
+| Legacy physical-type applicability | Older readers that match room type or unit type | Not used for canonical Product Location Functions, Cycles, Work, or Records |
+| Legacy Operational Type terminology and `DepartmentRoomArchetype` rows | Persistence for Location Functions, including historical keys such as `servery` | Canonical identity is the Product `functionKey`. Display labels and room names are not identity |
+
+No historical rows are rewritten to make these systems disappear.
+
+---
+
+# Historical route register (2026-08)
+
+The table below governed duplicate routes during the Build / Run shell. It remains a route history. It is not the platform map.
 
 > **Phase 14 amendment (2026-08-08):** the deprecated zone-based navigation code (row 9) has been **removed** (no longer DEPRECATED-retained), and the dedicated BUILD hub (`/build`, row 11) is now the Build-mode landing. See `docs/product/LTC_MANAGER_V1_UX_COMPLETION_PHASE_14_2026-08-08.md`.
 >

@@ -1,19 +1,90 @@
 # 01 — Product Constitution
 
-**Status:** Governing product document (post–Wave 12)  
-**Mode:** Architecture / product definition — not implementation  
-**Supersedes for “what we are now”:** earlier planning notes that treat Organization, Task, Business Workspace, or AI Moments as absent  
-**Companion vision (pre-implementation intent):** [`docs/platform-vision/`](../platform-vision/)  
+**Status:** Current architecture authority  
+**Certified through:** `06935aef0d2e257c1ff616694992f522360a83c1` (2026-10-02)  
+**Current product identity:** **Vssyl — Business Operations Platform.** See [12 — Vssyl Brand](./12_VSSYL_BRAND.md).  
+**Vocabulary:** [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md)  
+**Department Product contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
+**Compatibility systems:** [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md)  
+
+This document is the one current map. Deeper documents explain a layer. Dated `LTC_MANAGER_*.md` files, wave roadmaps, and domain guidebooks are historical or operational references. They do not override this constitution.
+
+---
+
+## Canonical platform model
+
+```text
+VSSYL PLATFORM
+    reusable operating mechanisms
+
+DEPARTMENT PRODUCT
+    Vssyl-authored domain framework
+
+FACILITY CONFIGURATION
+    local implementation
+
+RUN
+    current operational truth
+
+HISTORY / AUDIT
+    historically effective configuration + source facts
+
+GOVERNANCE
+    organization, access, licensing, permissions
+```
+
+| Layer | Owns | Does not own |
+|-------|------|----------------|
+| **Platform** | Physical facility tree, Location Functions mechanism, Operational Cycles, Work, Records, Assets, Issues where present | A department’s domain rules |
+| **Department Product** | Purpose, function keys, rhythm starters, Work presets, Record definitions, coverage needs, starter content | A second location tree, Cycle engine, Work engine, Record engine, or history store |
+| **Facility configuration** | Which rooms are bound, local times, published plans, people, installed departments | Product identity (`functionKey`, catalog definitions) |
+| **Run** | What is true in the current operation | Permanent configuration |
+| **History / Audit** | Expected versus actual for a requested service date, using the configuration effective that day | A central history ledger |
+| **Governance** | Organization, facility access, licensing, permissions | Day-of operational truth |
+
+### Implementation status
+
+| State | Meaning here |
+|-------|----------------|
+| **Implemented** | Dietary and EVS products, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
+| **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
+| **Future product work** | Plant Operations as a Department Product. Not designed. Platform Assets and repairs are not that product. |
+
+### Shared mechanisms
+
+**Physical world.** One Facility tree: Facility → structural Units → neighborhoods / operational Units → Rooms / Spaces. Departments do not clone the building. Facility Builder owns physical hierarchy, physical room type, and physical names.
+
+**Location Functions.** The Product defines `functionKey` and the product label. The facility binds those functions to existing rooms on a Department profile. Runtime matches `functionKey`. Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the service date. An empty binding set matches no rooms. Dietary `food_service_area` and EVS `service_support` on the same room are independent.
+
+**Operational Rhythm.** An Operational Cycle is a root recurring window. A Phase is one interval inside that Cycle. A Key Point is an instant on the Cycle. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Key Points are not Work.
+
+**Work.** Product preset → facility Work Plan → publish → derived WorkRequirement → optional Assignment → sparse WorkOccurrence. Assignment does not create Work. Work may bind to a Cycle or a Phase. An empty Cycle binding means not configured.
+
+**Records.** One engine. Manager forms are Reading, Checklist, Inspection, Acknowledgement, and On-demand Record. The forward fact is `OperationalEvidenceRecord`. Definition → facility requirement segment → derived expected slot → Record or permitted waiver → correction / follow-up. Missing expected Records are derived. Procedures are knowledge, not Records.
+
+**Dietary timing.** Meal Due is a Key Point with tracking NONE. Ready and Service Started are Dietary Key Points with tracking REQUIRED at LOCATION grain. The canonical actual is `OperationalCycleKeyPointActual`. A service date has one authoritative timing source.
+
+**History.** No central ledger. Log Book is submitted Records. Asset History is source facts about an Asset. Location History is source facts about a Place. Audit / Reports compares expected and actual across a range. Selectors use the configuration effective on the requested service date.
+
+### Product workspaces
+
+**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Dietary also has Menus. Assets and Procedures appear only where a real configurable capability exists.
+
+**Facility Builder:** physical structure only.
+
+**Run:** current operation — Dashboard, Locations, Employees / Assignments, Log Book, Assets, today’s Operational Rhythm, and access to Audit / Reports. Permanent configuration stays in Build.
+
+**Audit / Reports:** manager-facing name. Review is not a workspace. The route may remain `/reports`. Internal code may still say Review.
 
 ---
 
 ## Purpose of this constitution
 
-LTC Manager has completed twelve modernization waves. The codebase is large enough that **feature imagination outruns shared definition**.
+The product now presented as **Vssyl** completed twelve modernization waves under the earlier LTC Manager name. The codebase is large enough that **feature imagination outruns shared definition**.
 
 This constitution answers:
 
-> **What is LTC Manager?**
+> **What is Vssyl?**
 
 It does **not** answer “what should we code next” in isolation. Coding decisions must pass through this document, the capability model, and the decision model.
 
@@ -29,7 +100,7 @@ We replace spreadsheet-and-radio coordination with **operational awareness at th
 
 ## Vision
 
-LTC Manager becomes the **operations home for multi-node service environments**: many locations, many shifts, multiple departments (Dietary, EVS, Plant, and future modes), across long-term care and adjacent dining/hospitality environments.
+Vssyl is the **operations home for multi-node service environments**: many locations, many shifts, multiple departments (Dietary, EVS, Plant, and future modes), across long-term care and adjacent dining/hospitality environments.
 
 Long-term:
 
@@ -85,13 +156,13 @@ Operations Engine, Work Engine, and Readiness are **substrate**. Business Worksp
 
 ---
 
-## What belongs in LTC Manager
+## What belongs in Vssyl
 
 - Facility-day operational readiness and exception awareness  
 - Location / unit execution (logs, meal rhythm, issues, inspections)  
 - Supervisor walk, coverage, call-downs, handoffs  
 - Manager daily home (Business Workspace) composing those signals  
-- Department operational modes (Dietary, EVS, Plant…)  
+- Department operational modes via Vssyl-defined Department Products (Dietary, EVS, Plant…) that a facility selects, licenses, then installs
 - Assets / vendors as operational equipment context  
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  
 - Knowledge bound to work  
@@ -137,23 +208,21 @@ No feature may violate (1)–(3) to satisfy (7).
 
 ## Product philosophy
 
-LTC Manager is an **operational platform**, not a module menu.
+Vssyl is an **operational platform**, not a module menu.
 
 The story of a day:
 
-```
-Operation (time-bound commitment)
-  → Work (tasks / logs / issues / inspections)
-  → Execution (Unit Workspace)
-  → Verification (readiness, findings, compliance completion)
-  → Knowledge (SOPs at the moment of need)
-  → Improvement (handoffs, briefs, recovery — never vanity dashboards)
+```text
+Operational Cycle (what window is active)
+  → Work and Records (what the window requires)
+  → Execution at the place
+  → Audit / Reports (what was expected, and what was recorded)
 ```
 
 Managers begin in **Business Workspace**.  
 Supervisors begin in **Today's Work**.  
-Floor staff begin in **Unit Workspace** (or logs if no unit locked).  
-**Operations Center** remains the site exception glance — not a second home for everyone.
+Floor staff begin in **Unit Workspace** (or logs if no unit is locked).  
+**Operations Center** is a retired peer destination. Site awareness lives on Dashboard and Today's Work.
 
 ---
 
@@ -169,7 +238,7 @@ Floor staff begin in **Unit Workspace** (or logs if no unit locked).
 
 ## Commercial model
 
-LTC Manager is sold as **one product**. Price scales with the operational footprint we support, not with how many people the facility allows to log in.
+Vssyl is sold as **one product**. Price scales with the operational footprint we support, not with how many people the facility allows to log in.
 
 Binding numbers, setup-fee rules, and Stripe catalog shape: [11_COMMERCIAL_MODEL.md](./11_COMMERCIAL_MODEL.md) (ADL-013).
 

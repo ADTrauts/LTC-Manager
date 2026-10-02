@@ -36,18 +36,37 @@ Departments (Dietary, EVS, Plant Operations, and others) are operational domains
 |----------|---------|-------|
 | **Facility** | Operational site | Site *(vision alias — migrate language to Facility)* |
 | **Organization** | Parent of facilities | Company, Tenant *(unless billing copy)* |
-| **Department** | Operational mode / ownership | Line of business |
+| **Department Product** | Vssyl-published operational product (Dietary, EVS, Plant Operations) | Industry pack, Experience, blank “create any department” |
+| **Department** | Facility-installed instance / operational ownership | Line of business |
+| **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
+| **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
+| **Location Function** | Product-owned `functionKey` bound by the facility to an existing room. Persistence is `DepartmentRoomArchetype.key` on the Department profile. | Operational Type, Archetype, room name, physical room type, label slug |
+| **Operational Cycle** | Root recurring window (persisted as root PERIOD) | Peer “Breakfast Cleanup” as a top-level operation, meal milestone engine |
+| **Phase** | One interval inside an Operational Cycle (persisted as nested PERIOD) | Sub-operation, peer cycle |
+| **Key Point** | Instant on a Cycle (persisted as `KEY_TIME`) | Key Time in current product language, Work, a Record |
+| **Records** | Manager umbrella for Reading, Checklist, Inspection, Acknowledgement, and On-demand Record. One engine. The fact is `OperationalEvidenceRecord`. | Logs and Inspections as separate canonical engines; Evidence in manager language |
+| **Audit / Reports** | Expected versus actual for a service date or range. Route may remain `/reports`. | Review as a workspace |
+| **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system |
+| **Participating location** | Room explicitly attached to a cycle | Department-responsible room *(responsibility ≠ participation)* |
+| **Work applicability** | Where a Work Plan’s expected Work may exist | Assignment, cycle participation, department responsibility *(each is separate)* |
+| **Healthy quiet** | Rhythm and participation exist; no operation is active now | Not configured, missing rooms, idle, complete |
+| **Make live** | Publish configured cycles so Run can use them | Review & Publish, Submit for Review |
 | **Room / Space** | Area within a unit; model is `UnitSpace` | Location *(reserve for section level; see `docs/location-architecture/`)* |
 | **Location / Unit** | Place of work — UI “Location”, model often `Unit` | Room *(unless truly a resident room entity)* |
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
+| **Expected Work** | What the operation needs doing today, derived from published Work Plans | Tasks due, inbox, job list |
+| **Work Plan** | Recurring expected Work configuration | Job, checklist catalog |
+| **My Work** | Person-scoped Work | Today's Work *(Today is the operation; My Work is mine)* |
 | **Task** | Work Engine projection | Ticket *(unless issue context)* |
 | **Issue** | Disruption requiring recovery | Ticket, Incident *(unless safety-legal context)* |
 | **Repair** | Persistence/equipment work order record | Prefer Issue in product copy when showing the façade |
 | **Finding** | Inspection item outcome needing follow-up | Defect *(unless manufacturing)* |
-| **Inspection** | Verification workflow | Audit *(unless regulatory audit specifically)* |
+| **Inspection** | A Record form inside the one Record engine | A second inspection engine; Audit / Reports |
 | **Knowledge** | Operational SOP/reference | Wiki, CMS |
 | **Asset** | Equipment / plant object | Device *(reserve for PIN tablets)* |
 | **Employee** | Roster person | User *(User = app login identity)* |
+| **User.role** | Platform authorization (session) | Employee.roleType, job title, Department Manager |
+| **Facility Administrator** | Facility-scoped administrative authority | Equating GM with FA |
 | **Call-down** | Coverage change needing attention | Call-off *(synonym risk — pick Call-down in product)* |
 
 ---

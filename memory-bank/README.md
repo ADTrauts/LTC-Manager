@@ -6,8 +6,8 @@ Use it to keep operational context so future sessions do not drift.
 
 ## Files
 
-- `project-overview.md`: product scope, module map, and current MVP boundaries.
-- `architecture-decisions.md`: key technical decisions and rationale.
+- `project-overview.md`: product scope. Current architecture is `docs/product/01_PRODUCT_CONSTITUTION.md`. The module list is the earlier MVP inventory.
+- `architecture-decisions.md`: key technical decisions, including the certified platform mechanisms.
 - `progress-log.md`: phase-by-phase implementation history, quality gates, and notable post-phase fixes.
 - `implementation-phases.md`: planned phases (facility through Phase E) and per-phase quality gates.
 - `runbook.md`: local setup, DB, auth, provisioning (`db:provision` blank facility), PIN/tablet flow, troubleshooting.

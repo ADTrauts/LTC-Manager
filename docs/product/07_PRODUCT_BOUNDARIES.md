@@ -4,7 +4,7 @@
 
 ---
 
-## LTC Manager is NOT
+## Vssyl is NOT
 
 | Not this | Why | Integrate later? |
 |----------|-----|------------------|
@@ -26,7 +26,7 @@
 |------------------|---------------|
 | Employee roster & discipline | Staffing and compliance support — not career platform |
 | Menus | Operational production support — not recipe R&D cloud |
-| Assets / PM | Service supportability — not CMMS for campuses of any type unless modes justify |
+| Assets / repairs | Platform equipment registry and repair queue. Not a designed Plant Operations product (maintenance requests, work orders, PM programs, technician workflows, parts and vendors). |
 | Organization multi-facility | Access & structure — not corporate analytics suite |
 
 ---

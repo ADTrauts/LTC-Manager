@@ -8,6 +8,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## Vssyl architecture
+
+Current authority is `docs/product/01_PRODUCT_CONSTITUTION.md`. Vocabulary is `docs/product/08_PRODUCT_LANGUAGE_GUIDE.md`. The next Department Product uses `docs/product/13_DEPARTMENT_PRODUCT.md`. Compatibility systems are `docs/product/LEGACY_SURFACE_REGISTER.md`.
+
+Manager language is Location Function, Operational Cycle, Phase, Key Point, Records, Audit / Reports, Work, and People & Coverage. Plant Operations Product design has not started.
+
 ## Prisma migrations (guardrails)
 
 - **Never edit migration files that are already applied** (or that exist under `prisma/migrations/` in a shared repo) to “fix” drift, typos, or shadow-database failures. Changing them breaks checksums and makes `prisma migrate dev` report modified migrations / drift.

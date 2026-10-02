@@ -1,5 +1,7 @@
 # LTC Manager — Build / Run Information Architecture
 
+> **Superseded for architecture (2026-10-02).** Current authority is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). This file remains the 2026-08-08 shell record. Department Builder sections, Location Functions, Records, and Audit / Reports in that constitution replace the workspace map below where they differ.
+
 **Phase:** Product Phase 13 — Build / Run Product Shell, Information Architecture, and UX Consolidation
 **Date:** 2026-08-08
 **Branch:** `product/build-run-shell-phase-13-2026-08-08`
@@ -212,7 +214,7 @@ The shell derives nav from route registry + role/scope + department activation +
 |------|---------|-----------|
 | `TODAYS_WORK_ENABLED` | true | withdraws `/today*` (proxy-enforced) |
 | `DIETARY_OPERATIONAL_EVIDENCE_ENABLED` | false | hides Log Book + Operational Templates nav |
-| `DIETARY_WORK_PLANS_ENABLED` | false | hides Work Plans nav |
+| `DIETARY_WORK_PLANS_ENABLED` | true | Work Plans nav / Dietary Work; `false` rollback |
 | `OPERATION_ENGINE_ENABLED` | **false** | unchanged (must remain false) |
 | `TASK_SYNC_ENABLED` | **false** | unchanged (must remain false) |
 

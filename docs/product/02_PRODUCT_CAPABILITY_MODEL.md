@@ -1,7 +1,7 @@
 # 02 — Product Capability Model
 
-**Status:** Post–Wave 12 capability inventory  
-**Rule:** Capabilities describe **user-facing value**. Engines are dependencies, not capabilities by themselves.
+**Status:** Wave 12 capability inventory. The current map is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
+**Rule:** Where this inventory still names Operations Center as a peer home, or Logs and Inspections as separate engines, the constitution wins.
 
 ---
 

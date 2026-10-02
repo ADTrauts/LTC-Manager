@@ -2,7 +2,13 @@
 
 ## Product
 
-**LTC Manager** is a unit-driven operations platform for long-term care nutrition workflows (customer facility name is configured per deployment, not baked into the product title).
+**Vssyl** is a Business Operations Platform. Departments operate within Vssyl. The customer / facility name is configured per deployment and is not the product title. Historical docs may still say LTC Manager.
+
+Current architecture authority: `docs/product/01_PRODUCT_CONSTITUTION.md`, certified through `06935aef0d2e257c1ff616694992f522360a83c1`.
+
+Implemented platform mechanisms: one physical facility tree, Location Functions, Operational Cycles, Work, one Record engine, Audit / Reports, Assets and repairs. Dietary and EVS are Department Products. Plant Operations Product design has not started.
+
+The module list below is the earlier MVP inventory. It is not the current architecture map.
 
 ## Core Pattern
 
@@ -13,7 +19,7 @@
 
 ## Implemented MVP Scope
 
-- **Self-serve acquisition (delivered):** public `/` hero, `/signup` first-admin bootstrap, `/setup` guided onboarding (facility → managers → locations → billing), Stripe card-on-file when configured, proxy onboarding gate until complete; legacy facilities backfilled so existing GMs are not stuck in setup.
+- **Self-serve acquisition (delivered):** public `/` hero, `/signup` first-admin bootstrap, `/setup` guided onboarding (facility → managers → Department Products → Checkout → locations), proxy onboarding gate until complete; legacy facilities backfilled so existing GMs are not stuck in setup.
 - **GM roster alignment:** first GM from signup gets a matching **`Employee`** row; **`/employees`** auto-ensures a roster row for email-session GMs if missing; optional **`npm run db:backfill-gm-roster`** for CLI repair.
 - Auth + role-aware routing
 - Units builder (CRUD, ordering, meal times)

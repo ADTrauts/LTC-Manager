@@ -1,6 +1,6 @@
 # 06 — Navigation Model
 
-**Status:** Post–Wave 12 navigation philosophy  
+**Status:** Historical navigation notes. Current workspaces are in [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Operations Center is not a current peer destination.  
 **Code:** `src/lib/nav-zones.ts`, department lens, route permissions  
 
 ---

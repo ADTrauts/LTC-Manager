@@ -63,7 +63,7 @@ Related: device binding cookies (see `src/lib/device-cookie.ts`) — **not** par
 
 ## Self-serve onboarding + billing flow
 
-- Signup bootstrap (`/api/auth/signup`) creates facility + GM user in one transaction, then issues session cookies and redirects to `/setup`.
+- Signup bootstrap (`/api/auth/signup`) creates Organization + Facility + the first **Facility Administrator** `User` (session role) and a matching hub `Employee` (`RoleKey.FACILITY_ADMINISTRATOR`) in one transaction, then issues session cookies and redirects to `/setup`. GM remains a distinct lower authorization role and is not treated as FA.
 - Onboarding wizard APIs:
   - `/api/onboarding/state` (load/update step state + facility profile)
   - `/api/onboarding/managers` (optional manager email capture)
@@ -111,7 +111,14 @@ Related: device binding cookies (see `src/lib/device-cookie.ts`) — **not** par
 
 ## Departments (facility operational structure)
 
-- **`Department`**: per-facility slug (`key`), display `name`, `sortOrder`, `isActive`. Default keys include Dietary, EVS, Plant Operations (`ensureDefaultDepartments`).
+Certified platform map: `docs/product/01_PRODUCT_CONSTITUTION.md` (`06935aef`).
+
+- **Department Product** install creates an admitted `Department` (`isActive: true`). It does not materialize local cycles, work, or Records. Department Builder sections are Overview, Locations, Operating Rhythm, Work, People & Coverage, and Records. Dietary also has Menus. Operating-rhythm starters are explicit drafts. Publishing makes a profile ACTIVE. Overview guidance is derived. Plant has no Location Functions and no period starter. The Plant Operations Product is not designed.
+- **Location Functions** are Product `functionKey` values stored on `DepartmentRoomArchetype.key`. Dietary: `food_service_area`. EVS: `resident_care`, `service_support`. Build reads the working profile. Run reads ACTIVE. Audit reads the profile effective on the service date. Empty bindings match no rooms. Room names and physical room types are not identity.
+- **Published Operational Cycles** (root PERIOD) with **Phases** (nested PERIOD) and **Key Points** (`KEY_TIME`) are the Run rhythm. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Dietary Meal Due is NONE. Ready and Service Started are REQUIRED at LOCATION grain. The actual is `OperationalCycleKeyPointActual`. Cycle-active with no Phase is valid. Department responsibility is not cycle participation.
+- **Work projection:** Product presets copy into facility drafts. Dietary presets bind Opening Work to Prep, Meal Service Support to Service, and Leftover Handling to Cleanup. Station Reset stays cycle-free. Expected `WorkRequirement`s are derived from published plans, service date, applicability (Location Function key when used), and cycle participation when cycle-bound. Assignment does not create Work. Occurrences stay sparse. Audit / Reports does not invent a second Work engine.
+- **Records:** One engine. Expected slots are derived. The fact is `OperationalEvidenceRecord`. Run projects `OPERATIONAL_TYPE` requirements through the same ACTIVE Location Function bindings. Legacy log and inspection writers are fenced when canonical Records are enabled.
+- **`Department`**: per-facility slug (`key`), display `name`, `sortOrder`, `isActive`. `isActive` means enabled/admitted — not configured. Customer routes install via `installDepartmentProduct`; CLI/seed may still call `ensureDefaultDepartments`.
 - **`showInEmployeeApp`:** **Facility Administrator** controls visibility for employee HR UI. Hidden departments may still appear on an individual’s profile dropdown if they are already assigned (labeled “hidden in app”) so saves do not wipe `primaryDepartmentId`.
 - **`headEmployeeId`**: optional operational lead; assignable only when department is visible in app; save action can add the person to the department roster (primary if none, else `EmployeeDepartment`).
 - **`EmployeeDepartment`**: multi-department roster memberships (**floaters**); used with primary for department-scoped filters (directory, points, CHRC, separations, HR audit). Distinct from **`unionMember`** (HR contract field).

@@ -1,5 +1,7 @@
 # Plant Manager Setup Guide
 
+> **Domain guide, not current architecture.** Platform Assets and repairs exist. The Plant Operations Product (maintenance requests, work orders, PM programs, technician workflows, parts and vendors) has not been designed. See `docs/product/01_PRODUCT_CONSTITUTION.md`.
+
 **Phase:** 12A — Plant Operations Reference  
 **Audience:** Plant Manager / GM-equivalent with Plant operational authority  
 **Companion:** [`PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md`](./PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md)

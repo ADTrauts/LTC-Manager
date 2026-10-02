@@ -1,5 +1,7 @@
 # Dietary Operational Cycles — Manager Guide
 
+> **Domain guide.** Current section is Department Builder → Operating Rhythm. Manager terms are Operational Cycle, Phase, and Key Point. Meal Due, Ready, and Service Started are Key Points. See `docs/product/01_PRODUCT_CONSTITUTION.md`.
+
 Phase 9A lets Dietary Managers define the **named phases of the operating day** (Operational Cycles) and publish them so Employees and Supervisors see what part of the day is active.
 
 This phase does **not** implement full Job Flow, minute-by-minute task lists, or automatic task generation.

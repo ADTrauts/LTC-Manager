@@ -1,38 +1,40 @@
 # 05 — Operational Philosophy
 
-**Status:** How day-of operations should work in LTC Manager  
+**Status:** How day-of operations should work in Vssyl  
 
 ---
 
 ## The operating loop
 
 ```text
-Operations          What commitment are we in? (Breakfast / Lunch / Dinner / Close)
+Operational Cycle   Which recurring window is active?
         ↓
-Work                What must be done for that commitment?
+Work and Records    What does that window require, at which Location Functions?
         ↓
-Execution           Do it at the Unit Workspace (and staffing surfaces)
+Execution           Do it at the place
         ↓
-Verification        Readiness, inspections, findings, log completion
-        ↓
-Knowledge           How we do it correctly, attached to the moment
-        ↓
-Improvement         Handoffs, briefs, recovery — feed the next operation
+History / Audit     What was expected that service date, and what was recorded?
 ```
 
-This loop is **time-bound** (facility timezone, service day, active operation) and **place-bound** (unit / location).
+This loop is **time-bound** (facility timezone, service date) and **place-bound** (the physical room).
+
+An **Operational Cycle** is the Department’s recurring window. A **Phase** is one interval inside it. A **Key Point** is an instant on it, with occurrence tracking NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Key Points are not Work.
+
+Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the requested service date. Department responsibility is not cycle participation and is not a Location Function binding.
+
+Dietary timing actuals are `OperationalCycleKeyPointActual`. Meal Due tracks NONE. Ready and Service Started track REQUIRED at LOCATION grain. Plant Operations is not designed and is not forced through a meal rhythm. Work may bind to a Cycle or Phase. An empty Cycle binding means the Work is not configured to a rhythm.
 
 ---
 
 ## How the pieces interact
 
-### Operations Engine
+### Operational Cycle
 
-Defines the **bounded commitment** (e.g., Lunch Preparation → Execution). When the feature flag is off, meal/servery heuristics approximate the same idea. Surfaces that need “now” should consume one shared operation context — not invent clocks.
+The current window is a published Operational Cycle, not a separate meal-milestone engine. Surfaces that need “now” read that published rhythm.
 
-### Work Engine
+### Work
 
-Projects episodic work (logs, repairs/issues, inspections) into a **Task** dual-write when enabled. Users still live in domain UIs; Task is substrate for future unified inboxes — not a second competing queue today.
+Expected Work is derived from a published Work Plan. Assignment is optional and does not create the requirement. Sparse WorkOccurrences record that someone acted.
 
 ### Readiness
 
@@ -40,22 +42,20 @@ Answers: **Can this location support the current commitment?**
 States: **Ready / In Progress / Needs Attention** (internal code may still say `blocked`).  
 Department profiles change *which* signals matter (Dietary vs EVS vs Plant). Incomplete *future* logs must not paint today red.
 
-### Issues / Repairs / Inspections
+### Issues, repairs, and Records
 
-- **Issue** — disruption requiring management recovery.  
-- **Repair** — persistence and equipment history (often the same record).  
-- **Inspection** — planned verification; findings may spawn follow-up work.  
+- **Issue** — disruption requiring recovery.  
+- **Repair** — equipment work-order persistence already in the platform.  
+- **Inspection** — a Record form, not a second engine.  
 
-Together with logs they **feed readiness** and **appear** on OC / Today / Workspace Focus.
-
-### Business Workspace vs Operations Center vs Today's Work
+### Homes
 
 | Surface | Question it answers |
 |---------|---------------------|
 | Business Workspace | What should **I** personally do next? |
-| Operations Center | What is broken **across the site** right now? |
-| Today's Work | Where should **I walk / cover / hand off** as supervisor? |
+| Today's Work | What is happening today, and what expected Work does the operation need? |
 | Unit Workspace | What do I do **standing here**? |
+| Audit / Reports | What was expected, and what was recorded, for this service date? |
 
 If a design makes two homes answer the same question the same way, **one home is wrong**.
 
@@ -63,7 +63,7 @@ If a design makes two homes answer the same question the same way, **one home is
 
 Compress the same loop into **read-only or assistive summaries**:
 
-- Morning Brief → OC (+ cached Workspace peek only)  
+- Morning Brief → Dashboard peek when cached  
 - Shift Transition → Today's Work  
 - Recovery Assistant → Issue detail  
 
