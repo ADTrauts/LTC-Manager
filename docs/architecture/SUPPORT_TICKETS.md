@@ -140,9 +140,27 @@ Console: compact “Sent …” / “Delivered …” on healthy replies. Failur
 red. If the newest outbound message is `FAILED`, `BOUNCED`, or `SPAM_COMPLAINT`, the ticket shows a
 warning. Provider IDs are not shown.
 
-Safe bounce tests: Postmark's blackhole / fake-bounce mechanism, not random fake domains. Safe
-complaint tests: Postmark's documented test payload. This configuration is **not verified** until
-those webhooks are created in Postmark and a real or test event is observed.
+Safe bounce tests: Postmark's blackhole addresses on `bounce-testing.postmarkapp.com` (for example
+`hardbounce@bounce-testing.postmarkapp.com`), not random fake domains. Safe complaint tests:
+Postmark's documented `SpamComplaint` JSON posted to `/api/support/email-events`. Postmark does not
+offer a blackhole spam-complaint address; do not generate a real user spam report.
+
+### Production certification (2026-10-03)
+
+Live on Vssyl Production, Default Transactional Stream (`outbound`):
+
+- Webhook URL `https://vssyl.com/api/support/email-events` with outbound Basic Auth (env names
+  `POSTMARK_OUTBOUND_WEBHOOK_USERNAME` / `POSTMARK_OUTBOUND_WEBHOOK_PASSWORD` on Vercel Production
+  and Preview). Status **Verified**. Triggers: Delivery, Bounce, Spam Complaint only.
+- Postmark Check/Test: Delivery, Bounce, and Spam Complaint each returned **Verified** (HTTP 200).
+- Live send: VSS-1002 reply accepted as `SENT`, then Delivery webhook moved it to `DELIVERED` with
+  `deliveredAt`. A repeated Delivery returned `duplicate` and did not change state.
+- Bounce: support send to `hardbounce@bounce-testing.postmarkapp.com` on VSS-1003. Message became
+  `BOUNCED` (`HardBounce` / TypeCode 1). The reply had set `WAITING_ON_CUSTOMER`; hard bounce
+  reopened the ticket to `OPEN`. A repeated Bounce returned `duplicate` (one `EMAIL_BOUNCED`).
+- Complaint: documented `SpamComplaint` fixture POST against the VSS-1003 outbound MessageID (not a
+  real mailbox spam click). Message became `SPAM_COMPLAINT` with `complainedAt`. A retry returned
+  `duplicate` (one `EMAIL_COMPLAINT`). Future automated follow-up suppression UI is still not built.
 
 ## Inbound email
 
@@ -424,9 +442,10 @@ was replaced.
    receives the webhook. Do not publish `support@reply.vssyl.com` to customers.
 7. On the **outbound** message stream → Webhooks: add
    `https://{POSTMARK_OUTBOUND_WEBHOOK_USERNAME}:{POSTMARK_OUTBOUND_WEBHOOK_PASSWORD}@vssyl.com/api/support/email-events`
-   and enable Delivery, Bounce, and Spam Complaint. Do not reuse the inbound webhook URL or
-   inbound Basic Auth unless you deliberately set the same values. Verify the webhook in Postmark
-   (it must return 200 for each enabled type) before treating it as live.
+   (or the same path with HTTP Basic Auth fields). Enable Delivery, Bounce, and Spam Complaint
+   only. Do not reuse the inbound webhook URL or inbound Basic Auth unless you deliberately set
+   the same values. Production was certified this way on 2026-10-03; Postmark Check/Test returned
+   Verified for each enabled type.
 
 ### DNS
 
