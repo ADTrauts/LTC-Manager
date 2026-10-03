@@ -83,6 +83,13 @@ test("authentication — the Stripe webhook stays public and signature-verified"
   assert.equal(route?.requiresDownstreamAuthorization, true);
 });
 
+test("authentication — the Postmark outbound delivery webhook stays public and Basic-Auth verified", () => {
+  assert.equal(outcome("/api/support/email-events", null), "ALLOW");
+  assert.equal(outcome("/api/support/email-events", "FACILITY_ADMINISTRATOR"), "ALLOW");
+  const route = PLATFORM_ROUTES.find((entry) => entry.pattern === "/api/support/email-events");
+  assert.equal(route?.requiresDownstreamAuthorization, true);
+});
+
 test("authentication — a protected page without a session asks for sign-in", () => {
   const decision = decide("/workspace", null);
   assert.equal(decision.outcome, "REQUIRE_AUTHENTICATION");

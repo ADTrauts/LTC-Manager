@@ -68,6 +68,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/support/support-tickets.db.test.ts",
   "src/lib/support/support-attachments.db.test.ts",
   "src/lib/support/support-inbound.db.test.ts",
+  "src/lib/support/support-delivery.db.test.ts",
 ];
 
 function main() {

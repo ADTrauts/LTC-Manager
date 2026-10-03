@@ -51,6 +51,9 @@ export const SUPPORT_DELIVERY_STATUS_LABEL: Record<SupportMessageDeliveryStatus,
   PENDING: "Pending",
   SENT: "Sent",
   FAILED: "Failed",
+  DELIVERED: "Delivered",
+  BOUNCED: "Delivery failed",
+  SPAM_COMPLAINT: "Spam complaint received",
 };
 
 export function isSupportTicketType(value: unknown): value is SupportTicketType {

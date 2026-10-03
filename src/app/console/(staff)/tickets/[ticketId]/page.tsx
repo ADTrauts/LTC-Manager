@@ -15,6 +15,7 @@ import { getSupportFromAddress, isSupportReplyRoutingConfigured } from "@/lib/su
 import { isSupportTicketErrorCode, SUPPORT_TICKET_ERROR_MESSAGE } from "@/lib/support/errors";
 import { newClientSubmissionId } from "@/lib/support/identifiers";
 import { presentSupportAttachment } from "@/lib/support/attachment-presentation";
+import { latestOutboundDeliveryWarning, presentOutboundDelivery } from "@/lib/support/delivery-presentation";
 import {
   inboundDisplayBody,
   isAutoSubmitted,
@@ -22,7 +23,6 @@ import {
   readStoredHeaders,
 } from "@/lib/support/inbound-email";
 import {
-  SUPPORT_DELIVERY_STATUS_LABEL,
   SUPPORT_TICKET_PRIORITIES,
   SUPPORT_TICKET_PRIORITY_LABEL,
   SUPPORT_TICKET_STATUS_LABEL,
@@ -100,6 +100,9 @@ export default async function ConsoleTicketPage({
           deliveryStatus: true,
           deliveryError: true,
           sentAt: true,
+          deliveredAt: true,
+          bounceType: true,
+          bounceDescription: true,
           createdAt: true,
           authorStaff: { select: { displayName: true } },
           contact: { select: { email: true } },
@@ -154,6 +157,9 @@ export default async function ConsoleTicketPage({
       deliveryStatus: message.deliveryStatus,
       deliveryError: message.deliveryError,
       sentAt: message.sentAt,
+      deliveredAt: message.deliveredAt,
+      bounceType: message.bounceType,
+      bounceDescription: message.bounceDescription,
       createdAt: message.createdAt,
       fromName: message.fromName,
       receivedAt: message.receivedAt,
@@ -176,6 +182,7 @@ export default async function ConsoleTicketPage({
   );
 
   const closed = ticket.status === "CLOSED";
+  const deliveryWarning = latestOutboundDeliveryWarning(ticket.messages);
   const transitions = allowedSupportTicketTransitions(ticket.status);
   const replyDefault = transitions.includes("WAITING_ON_CUSTOMER") ? "WAITING_ON_CUSTOMER" : "";
   const ticketNumber = formatSupportTicketNumber(ticket.number);
@@ -221,6 +228,12 @@ export default async function ConsoleTicketPage({
           </div>
         </dl>
       </header>
+
+      {deliveryWarning ? (
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {deliveryWarning}
+        </p>
+      ) : null}
 
       {isSupportTicketErrorCode(error) ? (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -405,9 +418,9 @@ function TimelineEntry({ item }: { item: SupportTimelineItem }) {
 }
 
 const DELIVERY_TONE = {
-  PENDING: "text-[var(--text-secondary)]",
-  SENT: "text-emerald-700",
-  FAILED: "text-red-700",
+  neutral: "text-[var(--text-secondary)]",
+  ok: "text-emerald-700",
+  problem: "text-red-700",
 } as const;
 
 function MessageEntry({ message }: { message: SupportTimelineMessage }) {
@@ -484,26 +497,34 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
     );
   }
 
-  const delivery = message.deliveryStatus ?? "PENDING";
+  const delivery = presentOutboundDelivery(message, formatTime);
   return (
     <li className="rounded-md border border-[var(--border)] border-l-4 border-l-[var(--run-aside)] bg-white p-4">
       <p className="text-xs text-[var(--text-secondary)]">
         <span className="font-semibold uppercase tracking-wide text-[var(--foreground)]">Vssyl reply</span>
         {" · "}
         {message.authorName ?? "Vssyl staff"}
-        {" · "}
-        {formatTime(message.createdAt)}
         {message.toEmails.length > 0 ? ` · to ${message.toEmails.join(", ")}` : ""}
-        {" · "}
-        <span className={`font-semibold ${DELIVERY_TONE[delivery]}`}>{SUPPORT_DELIVERY_STATUS_LABEL[delivery]}</span>
+        {delivery.sentText ? (
+          <>
+            {" · "}
+            <span className={delivery.tone === "problem" ? "" : DELIVERY_TONE.ok}>{delivery.sentText}</span>
+          </>
+        ) : null}
+        {delivery.outcomeText ? (
+          <>
+            {" · "}
+            <span className={`font-semibold ${DELIVERY_TONE[delivery.tone]}`}>{delivery.outcomeText}</span>
+          </>
+        ) : null}
       </p>
       <p className="mt-2 whitespace-pre-wrap text-sm">{message.bodyText}</p>
-      {delivery === "FAILED" && message.deliveryError ? (
+      {message.deliveryStatus === "FAILED" && message.deliveryError ? (
         <p className="mt-2 text-xs text-red-700">Not delivered: {message.deliveryError}</p>
       ) : null}
-      {delivery === "PENDING" ? (
-        <p className="mt-2 text-xs text-[var(--text-secondary)]">
-          Delivery hasn&apos;t been confirmed. Check Postmark before sending again.
+      {delivery.detail ? (
+        <p className={`mt-2 text-xs ${delivery.tone === "problem" ? "text-red-700" : "text-[var(--text-secondary)]"}`}>
+          {delivery.detail}
         </p>
       ) : null}
     </li>

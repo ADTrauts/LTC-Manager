@@ -985,6 +985,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes:
       "Postmark inbound email webhook. Authenticated by HTTP Basic Auth against POSTMARK_INBOUND_WEBHOOK_USERNAME/PASSWORD, not by session.",
   },
+  {
+    pattern: "/api/support/email-events",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "support",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Postmark outbound Delivery / Bounce / Spam Complaint webhook. Authenticated by HTTP Basic Auth against POSTMARK_OUTBOUND_WEBHOOK_USERNAME/PASSWORD, not by session.",
+  },
 
   // ── Authenticated APIs, authorization completed in the handler ────────────
   {

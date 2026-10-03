@@ -1,9 +1,10 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
 import type { SupportInboundCredentials } from "./config";
 import { type InboundSupportEmail, parsePostmarkInbound, readInboundAttachmentContents } from "./inbound-email";
 import type { SupportInboundResult } from "./inbound-service";
 import { formatSupportTicketNumber } from "./ticket-number";
+import { checkBasicAuth } from "./webhook-auth";
+
+export { checkBasicAuth } from "./webhook-auth";
 
 /** Postmark caps inbound messages at 35 MB including base64 attachments. */
 const MAX_BODY_BYTES = 50 * 1024 * 1024;
@@ -18,26 +19,6 @@ export type SupportInboundWebhookDeps = {
   ) => Promise<SupportInboundResult>;
   logger?: Logger;
 };
-
-function digest(value: string): Buffer {
-  return createHash("sha256").update(value, "utf8").digest();
-}
-
-/** Compares fixed-length digests so neither length nor content leaks through timing. */
-function safeEqual(a: string, b: string): boolean {
-  return timingSafeEqual(digest(a), digest(b));
-}
-
-export function checkBasicAuth(header: string | null, expected: SupportInboundCredentials): boolean {
-  const match = header?.match(/^Basic\s+([A-Za-z0-9+/=]+)\s*$/i);
-  if (!match) return false;
-  const decoded = Buffer.from(match[1], "base64").toString("utf8");
-  const separator = decoded.indexOf(":");
-  if (separator < 0) return false;
-  const usernameOk = safeEqual(decoded.slice(0, separator), expected.username);
-  const passwordOk = safeEqual(decoded.slice(separator + 1), expected.password);
-  return usernameOk && passwordOk;
-}
 
 function json(body: Record<string, unknown>, status: number, headers?: Record<string, string>): Response {
   return Response.json(body, { status, headers });

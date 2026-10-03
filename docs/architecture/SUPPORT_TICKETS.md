@@ -69,7 +69,10 @@ involved in `metadata`. A status change made with a reply points at that reply v
    `Message-ID`, `X-PM-KeepID: true`, and Metadata `supportTicketId`, `supportTicketNumber`,
    `supportMessageId`.
 3. Mark `SENT` (with `providerMessageId`, `sentAt`) or `FAILED` (with a readable `deliveryError`).
-   Messages are never deleted; a failed reply stays on the timeline.
+   `SENT` means Postmark accepted the submission. It is not proof the customer's mail server
+   accepted the message. Messages are never deleted; a failed reply stays on the timeline.
+4. Later Postmark Delivery / Bounce / Spam Complaint webhooks update the same outbound row by
+   `providerMessageId`. See [Outbound delivery](#outbound-delivery).
 
 `providerMessageId` and `clientSubmissionId` are unique. `internetMessageId` is indexed but not
 unique, because inbound mail may repeat IDs.
@@ -81,6 +84,65 @@ Reply-To: `support+{replyToken}@{inbound domain}`, built from `SUPPORT_REPLY_ADD
 when `SUPPORT_REPLY_ADDRESS` and both inbound webhook credentials are configured, so replies are
 never routed to an address nobody receives. The token appears in email headers by necessity; Console
 never shows it.
+
+## Outbound delivery
+
+`SENT` is not `DELIVERED`. Postmark inbound Basic Auth does **not** apply to these webhooks.
+
+| Status | Meaning |
+|--------|---------|
+| `PENDING` | Reply recorded; not yet submitted to Postmark |
+| `SENT` | Postmark accepted the outbound submission |
+| `FAILED` | Postmark rejected the submission |
+| `DELIVERED` | The recipient mail server accepted the message (not inbox placement) |
+| `BOUNCED` | Postmark reported a bounce after acceptance |
+| `SPAM_COMPLAINT` | The recipient marked the message as spam |
+
+Correlation is only `Postmark MessageID` → `SupportTicketMessage.providerMessageId`. Subject, ticket
+number, and recipient are not used. An unknown MessageID (other transactional mail on the same
+server, or a Postmark verification probe) is acknowledged with 200 and does not mutate records.
+
+Route: `POST /api/support/email-events`. One URL handles `RecordType` `Delivery`, `Bounce`, and
+`SpamComplaint`. HTTP Basic Auth uses `POSTMARK_OUTBOUND_WEBHOOK_USERNAME` /
+`POSTMARK_OUTBOUND_WEBHOOK_PASSWORD`. Postmark does not sign outbound webhooks. Configure the URL
+as `https://{username}:{password}@vssyl.com/api/support/email-events` on the **outbound** message
+stream (Delivery, Bounce, and Spam Complaint triggers). This is not the inbound stream webhook.
+
+Outbound webhook retries (Postmark docs): 5xx, 408, 429, and network failures retry; other 4xx
+including 401 and 403 are permanent. Vssyl returns 401 for bad credentials, 403 for malformed
+payloads, 503 when credentials are missing, 500 on processing failure.
+
+Idempotency: message state plus timestamps. A repeated Delivery stays `DELIVERED` with the first
+`deliveredAt`. A repeated Bounce or complaint does not write a second `SupportTicketEvent`.
+
+Precedence (never downgrade):
+
+`PENDING` → `SENT` or `FAILED`  
+`SENT` → `DELIVERED`  
+`SENT` or `DELIVERED` → `BOUNCED`  
+`SENT`, `DELIVERED`, or `BOUNCED` → `SPAM_COMPLAINT`
+
+A later Delivery cannot overwrite `BOUNCED` or `SPAM_COMPLAINT`.
+
+Bounce: persist `bounceType`, `bounceCode`, `bounceDescription` (truncated). Console says “Mailbox
+does not exist” for hard bounces and “Temporary delivery problem” for soft/transient. Permanent
+hard bounce (`HardBounce` / TypeCode 1, or inactive and not soft/transient): if that reply set the
+ticket to `WAITING_ON_CUSTOMER` (`STATUS_CHANGED.causedByMessageId`), reopen to `OPEN`. Soft bounces
+warn only. `EMAIL_BOUNCED` is written once.
+
+Spam complaint: `SPAM_COMPLAINT`, `EMAIL_COMPLAINT` once, prominent ticket warning. Do not send
+automated follow-ups to that address until staff resolve it. Account-wide suppression UI is not
+built; Postmark also deactivates the address on its side.
+
+Successful `DELIVERED` does not write a timeline event. The message row is canonical.
+
+Console: compact “Sent …” / “Delivered …” on healthy replies. Failures, bounces, and complaints are
+red. If the newest outbound message is `FAILED`, `BOUNCED`, or `SPAM_COMPLAINT`, the ticket shows a
+warning. Provider IDs are not shown.
+
+Safe bounce tests: Postmark's blackhole / fake-bounce mechanism, not random fake domains. Safe
+complaint tests: Postmark's documented test payload. This configuration is **not verified** until
+those webhooks are created in Postmark and a real or test event is observed.
 
 ## Inbound email
 
@@ -360,6 +422,11 @@ was replaced.
 6. Customer intake is **outside the app**: Google Workspace (or the current `vssyl.com` mailbox
    host) accepts `support@vssyl.com` and forwards it to the Postmark inbound address. Vssyl only
    receives the webhook. Do not publish `support@reply.vssyl.com` to customers.
+7. On the **outbound** message stream → Webhooks: add
+   `https://{POSTMARK_OUTBOUND_WEBHOOK_USERNAME}:{POSTMARK_OUTBOUND_WEBHOOK_PASSWORD}@vssyl.com/api/support/email-events`
+   and enable Delivery, Bounce, and Spam Complaint. Do not reuse the inbound webhook URL or
+   inbound Basic Auth unless you deliberately set the same values. Verify the webhook in Postmark
+   (it must return 200 for each enabled type) before treating it as live.
 
 ### DNS
 
@@ -387,7 +454,8 @@ ticket; reply from Console; confirm the customer Reply stays on that ticket.
 
 ### Secrets
 
-`POSTMARK_SERVER_TOKEN`, `POSTMARK_INBOUND_WEBHOOK_USERNAME`, `POSTMARK_INBOUND_WEBHOOK_PASSWORD`.
+`POSTMARK_SERVER_TOKEN`, `POSTMARK_INBOUND_WEBHOOK_USERNAME`, `POSTMARK_INBOUND_WEBHOOK_PASSWORD`,
+`POSTMARK_OUTBOUND_WEBHOOK_USERNAME`, `POSTMARK_OUTBOUND_WEBHOOK_PASSWORD`.
 Configuration: `POSTMARK_FROM_EMAIL`, `SUPPORT_FROM_EMAIL`, `SUPPORT_REPLY_ADDRESS`.
 Attachment storage: `BLOB_READ_WRITE_TOKEN` (Vercel Blob, private, Production and Preview). Without
 it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
@@ -397,5 +465,5 @@ it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
 
 Malware scanner vendor and `SupportAttachmentScanner` processor (stored files remain `PENDING` and
 non-downloadable), outbound attachments, attachment previews, retention/deletion automation,
-acknowledgment emails, delivery/bounce/spam-complaint webhooks, staff notifications, SLAs, teams
+acknowledgment emails, staff notifications, SLAs, teams
 and routing rules, AI classification, feature-request aggregation, customer portal, and chat.

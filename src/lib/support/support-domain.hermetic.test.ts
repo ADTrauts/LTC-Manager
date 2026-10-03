@@ -208,6 +208,14 @@ test("event descriptions use labels and name snapshots", () => {
     }),
     "Assigned to Sam",
   );
+  assert.equal(
+    describeSupportEvent({ ...base, type: "EMAIL_BOUNCED", fromValue: null, toValue: "HardBounce" }),
+    "Outbound email bounced",
+  );
+  assert.equal(
+    describeSupportEvent({ ...base, type: "EMAIL_COMPLAINT", fromValue: null, toValue: "SpamComplaint" }),
+    "Customer marked a reply as spam",
+  );
 });
 
 test("delivery failures are described without throwing away the Postmark reason", () => {

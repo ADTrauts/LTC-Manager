@@ -25,6 +25,9 @@ export type SupportTimelineMessage = {
   deliveryStatus: SupportMessageDeliveryStatus | null;
   deliveryError: string | null;
   sentAt: Date | null;
+  deliveredAt?: Date | null;
+  bounceType?: string | null;
+  bounceDescription?: string | null;
   createdAt: Date;
   fromName?: string | null;
   receivedAt?: Date | null;
@@ -133,5 +136,9 @@ export function describeSupportEvent(event: SupportTimelineEvent): string {
       return "Requester changed";
     case "SUBJECT_CHANGED":
       return `Subject changed to “${event.toValue ?? ""}”`;
+    case "EMAIL_BOUNCED":
+      return "Outbound email bounced";
+    case "EMAIL_COMPLAINT":
+      return "Customer marked a reply as spam";
   }
 }

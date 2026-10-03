@@ -13,6 +13,16 @@ export function getSupportInboundCredentials(env: EnvLike = process.env): Suppor
   return username && password ? { username, password } : null;
 }
 
+/**
+ * Basic Auth for outbound Delivery / Bounce / Spam Complaint webhooks.
+ * Separate from inbound: Postmark inbound and outbound webhooks are different products.
+ */
+export function getSupportOutboundWebhookCredentials(env: EnvLike = process.env): SupportInboundCredentials | null {
+  const username = env.POSTMARK_OUTBOUND_WEBHOOK_USERNAME?.trim();
+  const password = env.POSTMARK_OUTBOUND_WEBHOOK_PASSWORD?.trim();
+  return username && password ? { username, password } : null;
+}
+
 /** Sender for support replies. Falls back to the shared transactional sender. */
 export function getSupportFromAddress(env: EnvLike = process.env): string {
   return env.SUPPORT_FROM_EMAIL?.trim() || getEmailFromAddress(env);
