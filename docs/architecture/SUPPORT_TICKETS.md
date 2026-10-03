@@ -8,6 +8,11 @@ Canonical support domain for Vssyl Console. Code: `src/lib/support/`. Schema: `S
 - Support tickets belong to **Vssyl Console** (`/console/tickets`), worked by `PlatformStaff`.
   Every Console server action calls `requireHarborStaff()` first; facility sessions never reach
   Console.
+- Customers never see Console tickets. Facility Vssyl exposes **Help & Support** (`/help`) only:
+  the public address `support@vssyl.com` and a `mailto` action. There is no in-app ticket form,
+  customer ticket portal, or chat.
+- Reply routing stays on the inbound domain: `support+{token}@reply.vssyl.com`. That address is
+  infrastructure. Customer-facing copy never tells people to email `support@reply.vssyl.com`.
 - Support is Vssyl talking to its customers. It is **not** facility operations: it does not use or
   feed `OperationalRequest`, `Repair`, `AssetIssue`, `Task`, or `IssueType`.
 - Email is a **transport**, not the record. The ticket and its messages are the record; Postmark
@@ -232,8 +237,9 @@ was replaced.
 4. Verify the support sender (`SUPPORT_FROM_EMAIL`) as a sender signature or verified domain.
 5. Template `console-ticket-reply`: **Subject** must be exactly `{{subject}}`. Other model fields:
    `display_name`, `facility_name`, `ticket_number`, `ticket_subject`, `reply_html`, `reply_text`.
-6. Customer intake: forward `support@vssyl.com` (in the existing mail provider) to the inbound
-   address, or publish the inbound address directly.
+6. Customer intake is **outside the app**: Google Workspace (or the current `vssyl.com` mailbox
+   host) accepts `support@vssyl.com` and forwards it to the Postmark inbound address. Vssyl only
+   receives the webhook. Do not publish `support@reply.vssyl.com` to customers.
 
 ### DNS
 
@@ -242,6 +248,22 @@ On the dedicated inbound subdomain only (never the root `vssyl.com`, which keeps
 | Type | Host | Value | Priority |
 |------|------|-------|----------|
 | MX | `{inbound subdomain}` (for example `reply`) | `inbound.postmarkapp.com` | 10 |
+
+### Google Workspace (external)
+
+Not application logic. Expected mail path:
+
+```
+support@vssyl.com
+  → Google Workspace mailbox / group
+  → forward to the Postmark inbound address
+  → POST /api/support/inbound-email
+  → SupportTicket
+```
+
+Manual checklist: create or confirm `support@vssyl.com`; forward to the Postmark inbound address;
+complete Google’s forwarding confirmation; send a real test to `support@vssyl.com`; confirm a
+ticket; reply from Console; confirm the customer Reply stays on that ticket.
 
 ### Secrets
 

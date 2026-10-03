@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
+  CUSTOMER_SUPPORT_BODY_PROMPT,
   CUSTOMER_SUPPORT_EMAIL,
   CUSTOMER_SUPPORT_HREF,
   CUSTOMER_SUPPORT_SUBJECT,
@@ -30,10 +31,11 @@ function source(relativePath: string): string {
 test("customer support — mailto uses support@vssyl.com and the default subject", () => {
   assert.equal(CUSTOMER_SUPPORT_EMAIL, "support@vssyl.com");
   assert.equal(CUSTOMER_SUPPORT_SUBJECT, "Vssyl Support Request");
+  assert.equal(CUSTOMER_SUPPORT_BODY_PROMPT, "What can we help with?");
   assert.equal(CUSTOMER_SUPPORT_HREF, "/help");
   assert.equal(
     customerSupportMailtoHref(),
-    "mailto:support@vssyl.com?subject=Vssyl%20Support%20Request",
+    "mailto:support@vssyl.com?subject=Vssyl%20Support%20Request&body=What%20can%20we%20help%20with%3F",
   );
 });
 
@@ -48,6 +50,10 @@ test("customer support — Help & Support lives in the account menu and settings
   assert.match(account, /account-support-link/);
   assert.match(account, /CUSTOMER_SUPPORT_HREF/);
   assert.match(account, /Support/);
+  assert.doesNotMatch(menu, /reply\.vssyl\.com/);
+  assert.doesNotMatch(account, /reply\.vssyl\.com/);
+  assert.doesNotMatch(menu, /console\/tickets/);
+  assert.doesNotMatch(account, /console\/tickets/);
 });
 
 test("customer support — the help surface is mailto-only and does not expose Console tickets", () => {
@@ -57,10 +63,13 @@ test("customer support — the help surface is mailto-only and does not expose C
 
   assert.match(panel, /Help & Support/);
   assert.match(panel, /Need help with Vssyl\?/);
+  assert.match(panel, /billing questions/);
+  assert.match(panel, /We.ll respond by email/);
   assert.match(panel, /help-support-email/);
   assert.match(panel, /Email Support/);
   assert.match(panel, /customerSupportMailtoHref/);
   assert.doesNotMatch(page, /console\/tickets/);
+  assert.doesNotMatch(combined, /reply\.vssyl\.com/);
 
   for (const phrase of FORBIDDEN_CUSTOMER_SUPPORT) {
     assert.equal(

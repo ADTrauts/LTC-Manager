@@ -16,14 +16,14 @@ export function HelpSupportPanel() {
       <PageHeader
         icon="help"
         title="Help & Support"
-        subtitle="Need help with Vssyl? Email us for product questions, bugs, account help, or suggestions."
+        subtitle="Need help with Vssyl? Email us for product questions, bugs, account help, billing questions, or suggestions."
         compact
       />
       <AppCard data-testid="help-support-card">
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Email</p>
         <a
           href={mailtoHref}
-          className={`mt-1 inline-block text-base font-medium text-zinc-900 underline-offset-2 hover:underline ${FOCUS_RING_CLASS}`}
+          className={`mt-1 inline-block break-all text-base font-medium text-zinc-900 underline-offset-2 hover:underline ${FOCUS_RING_CLASS}`}
           data-testid="help-support-address"
         >
           {CUSTOMER_SUPPORT_EMAIL}
@@ -37,6 +37,7 @@ export function HelpSupportPanel() {
             Email Support
           </a>
         </div>
+        <p className="mt-4 text-sm text-zinc-600">We’ll respond by email.</p>
       </AppCard>
     </div>
   );
