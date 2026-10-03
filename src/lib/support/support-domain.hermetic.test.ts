@@ -21,7 +21,7 @@ import {
   planSupportTicketStatusChange,
   SUPPORT_TICKET_STATUSES,
 } from "./status-transition";
-import { formatSupportEmailSubject, formatSupportTicketNumber } from "./ticket-number";
+import { formatSupportEmailSubject, formatSupportTicketNumber, parseSupportTicketNumberQuery } from "./ticket-number";
 import { describeSupportEvent, mergeSupportTimeline } from "./timeline";
 
 const EXPECTED_TRANSITIONS = {
@@ -93,6 +93,7 @@ test("resolvedAt and closedAt follow the lifecycle", () => {
 
 test("ticket numbers format as VSS-n and reject non-positive integers", () => {
   assert.equal(formatSupportTicketNumber(1001), "VSS-1001");
+  assert.equal(parseSupportTicketNumberQuery("VSS-1001"), 1001);
   assert.equal(formatSupportEmailSubject(1001, "  Cooler logs not saving "), "[VSS-1001] Cooler logs not saving");
   assert.equal(formatSupportEmailSubject(1002, "  "), "[VSS-1002]");
   for (const bad of [0, -1, 1.5, Number.NaN]) {
@@ -139,6 +140,13 @@ test("queues scope active work for Unassigned and My tickets", () => {
   });
   assert.deepEqual(supportQueueWhere("mine", "s1"), {
     assignedStaffId: "s1",
+    status: { in: ["NEW", "OPEN", "WAITING_ON_CUSTOMER"] },
+  });
+  assert.deepEqual(supportQueueWhere("high", "s1"), {
+    priority: { in: ["HIGH", "URGENT"] },
+    status: { in: ["NEW", "OPEN", "WAITING_ON_CUSTOMER"] },
+  });
+  assert.deepEqual(supportQueueWhere("recent", "s1"), {
     status: { in: ["NEW", "OPEN", "WAITING_ON_CUSTOMER"] },
   });
 });

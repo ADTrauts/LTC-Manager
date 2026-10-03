@@ -7,6 +7,8 @@ export const SUPPORT_QUEUES = [
   { key: "new", label: "New" },
   { key: "open", label: "Open" },
   { key: "waiting", label: "Waiting on customer" },
+  { key: "high", label: "High + Urgent" },
+  { key: "recent", label: "Recently updated" },
   { key: "resolved", label: "Resolved" },
   { key: "closed", label: "Closed" },
 ] as const;
@@ -42,6 +44,12 @@ export function supportQueueWhere(
   }
   if (queue === "mine") {
     return { assignedStaffId: staffId, status: { in: ACTIVE_SUPPORT_STATUSES } };
+  }
+  if (queue === "high") {
+    return { priority: { in: ["HIGH", "URGENT"] }, status: { in: ACTIVE_SUPPORT_STATUSES } };
+  }
+  if (queue === "recent") {
+    return { status: { in: ACTIVE_SUPPORT_STATUSES } };
   }
   return {};
 }

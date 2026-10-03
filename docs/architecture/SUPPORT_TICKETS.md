@@ -45,6 +45,45 @@ Status transitions (`src/lib/support/status-transition.ts`):
 Entering `RESOLVED` sets `resolvedAt`; reopening clears it. Entering `CLOSED` sets `closedAt`.
 Staff-opened tickets start `OPEN`; tickets opened by inbound email start `NEW`.
 
+## Console list (search, filters, queues)
+
+Harbor staff only (`/console/tickets`). Facility sessions cannot query tickets. Code:
+`src/lib/support/list-query.ts`, `list.ts`, `queues.ts`.
+
+State lives in the URL: `q`, `queue`, `status`, `priority`, `type`, `assignee`, `facility`,
+`updated`, `page`. Queue tabs keep `q` and compatible refinements (priority, type, facility, date)
+and drop status, assignee, and page. **Clear filters** returns to the current queue with no
+refinements. Queue sets the canonical scope; extra filters AND with it (`Unassigned` + `HIGH`).
+Contradictory combinations (New + status=OPEN) return empty results rather than a silent override.
+
+Search (`q`) is case-insensitive `contains` on ticket subject, contact email, contact display name,
+facility name, and **all** message `bodyText` including internal notes. Notes may match because
+search is Console-only; note text is never shown on customer surfaces. No snippets. Not searched:
+headers, provider IDs, storage keys, attachment bytes, HTML bodies.
+
+Ticket-number fast path: `VSS-1002`, `vss-1002`, `[VSS-1002]`, or `1002`. Bare digits must be four
+or more characters and at least 1001. If that exact ticket exists, the list returns only that row
+and ignores other filters. `7` or `42` stay ordinary text search.
+
+Default sort is `updatedAt` descending. **New** and **Unassigned** sort oldest-updated first for
+FIFO triage. Page size is 25; search runs in the database, not on the current page.
+
+Queues are deterministic filters, not stored objects:
+
+| Queue | Rule |
+|-------|------|
+| All | no extra constraint |
+| Unassigned | `assignedStaffId` is null and status in NEW / OPEN / WAITING_ON_CUSTOMER |
+| My tickets | `assignedStaffId` is the current staff member, same active statuses |
+| New / Open / Waiting / Resolved / Closed | that status |
+| High + Urgent | priority HIGH or URGENT, and active status |
+| Recently updated | active status, newest `updatedAt` first |
+
+Date presets (`updated`): Today is the America/New_York calendar day; Last 7 / 30 days are rolling
+windows. Indexes already cover `number`, `(status, updatedAt)`, `(assignedStaffId, status)`, and
+`facilityId`. Message `contains` is acceptable at current volume; add Postgres full-text only when
+list queries show it.
+
 ## Messages and events
 
 - `INBOUND`: customer email. Requires a contact; no staff author or delivery state.
