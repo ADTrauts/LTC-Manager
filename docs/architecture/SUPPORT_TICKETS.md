@@ -204,12 +204,19 @@ Types: reported MIME and filename are recorded, but extensions are not trusted. 
 and common executables are blocked from storage. Downloads always use `Content-Disposition:
 attachment` and `application/octet-stream`. Inbound HTML is still not rendered.
 
-Scan status: `PENDING`, `CLEAN`, `BLOCKED`, `SCAN_FAILED`. **Malware scanning is deferred.** Stored
-files stay `PENDING` and are not downloadable. Do not treat `PENDING` as clean. Only a future
-scanner may set `CLEAN`.
+Scan status: `PENDING`, `CLEAN`, `BLOCKED`, `SCAN_FAILED`.
 
-Download: `GET /api/console/support-attachments/{id}` after `getHarborSession()`. Facility sessions
-receive 403; anonymous callers receive 401. Guessing an id is not authorization.
+**An attachment is never downloadable merely because it was successfully stored. It must receive a
+real `CLEAN` scan result.** Stored files stay `PENDING` until a real malware scanner returns a
+result. Do not treat `PENDING` as clean. No code path may mark `CLEAN` without a scanner result.
+
+Malware scanning is **not implemented**. Slice 2B stopped after the runtime audit rather than
+improvising a vendor or a dedicated worker. See [Malware scanning](#malware-scanning).
+
+Download: `GET /api/console/support-attachments/{id}` after `getHarborSession()`. Only `CLEAN` is
+streamed. `PENDING`, `BLOCKED`, and `SCAN_FAILED` are denied and never expose a blob URL. Facility
+sessions receive 403; anonymous callers receive 401. Guessing an id is not authorization. Downloads
+use `Content-Disposition: attachment` and `application/octet-stream` with a sanitized filename.
 
 Retries: `providerMessageId` remains the message idempotency key. Attachments use
 `(messageId, position)`. A Postmark retry does not create a second message or second attachment
@@ -219,6 +226,90 @@ Lifecycle: support history is append-only. The app does not delete tickets, mess
 objects. A manual row delete would orphan the object; there is no retention job yet.
 
 Outbound staff attachments are deferred. Previews are deferred.
+
+## Malware scanning
+
+Vssyl does not yet scan stored support attachments. The inbound webhook stores a private object,
+writes `scanStatus = PENDING`, and returns 200. Harbor cannot download the file until a future
+scanner sets `CLEAN`.
+
+### Why scanning is not in the inbound webhook
+
+`POST /api/support/inbound-email` is a default Node.js route (not Edge). There is no
+`export const runtime` or `maxDuration`. Fluid Compute defaults are about 300s and 2 GB. Postmark
+retries every non-200 except 403. A synchronous scanner call would make Postmark wait, and a
+timeout or 5xx would replay the whole inbound payload. Attachment persistence is already
+idempotent, but scanner latency must not become inbound retry pressure.
+
+`after()` / `waitUntil` can continue work after 200, but they are best-effort and not a durable
+queue. Vssyl has no cron (`vercel.json` is absent), no Inngest/workflow/job worker, and no runtime
+outside Vercel. Support “queues” are Console list filters. The offline queue is client IndexedDB.
+
+### Options considered
+
+| Class | Approach | Verdict |
+|-------|----------|---------|
+| A | Managed private malware-scanning API. Vercel uploads/streams the private object to the vendor and maps clean / infected / error. | Smallest fit for the current Vercel-only runtime, **if** a B2B vendor is contracted. File bytes leave Vercel. Requires an API key, DPA, and retention review. |
+| B | Dedicated ClamAV (or equivalent) worker on a persistent host. Vercel invokes it asynchronously. | Compatible with large binaries and private data, but it is a new service, image, virus-definition updates, and on-call surface. |
+| C | Storage-native scanning on Vercel Blob / Neon. | Not available. Vercel Blob has no malware scanner. |
+
+Rejected: VirusTotal and any consumer/research service whose normal behavior publishes or broadly
+shares samples. Do not create public blob URLs for scanning.
+
+### Recommended architecture when a vendor is chosen
+
+Do not scan inside the inbound webhook. Keep this lifecycle:
+
+```
+Inbound email
+  → private Blob put
+  → SupportTicketAttachment scanStatus = PENDING
+  → 200 to Postmark
+  → support-specific PENDING processor (Vercel Cron is enough; do not build a generic job platform)
+  → SupportAttachmentScanner.scan({ attachmentId, storageKey, contentType, filename, sizeBytes, checksumSha256 })
+  → CLEAN | BLOCKED | SCAN_FAILED
+```
+
+Provider logic stays behind `SupportAttachmentScanner`. Do not put vendor code in inbound-email
+parsing, `SupportTicketMessage`, or Console UI.
+
+Allowed transitions: `PENDING → CLEAN | BLOCKED | SCAN_FAILED`. An explicit re-scan may move
+`SCAN_FAILED → PENDING` and then to a new result. Never silently convert `BLOCKED → CLEAN`.
+
+Retry: three attempts with bounded backoff, then `SCAN_FAILED`. Infected (`BLOCKED`) does not
+retry. Scanner outage must not fail the inbound webhook or loop Postmark. Two workers on the same
+attachment must be idempotent (claim the row before scanning). Persist `scannedAt`, a provider
+identifier, a short result code, and a failure reason — not secrets or raw vendor payloads.
+
+Recovery while the scanner is unavailable: inbound mail and tickets continue; attachments remain
+`PENDING` or become `SCAN_FAILED` after bounded retries; Harbor sees “Security scan pending” or
+“Unavailable — security scan failed”; downloads stay denied. Re-ingestion from Postmark is not
+required: the processor discovers existing `PENDING` rows.
+
+Slice 2B did not install a vendor because that is a new infrastructure and data-processing
+decision (account, secret, DPA, cost). Implement the adapter only after that choice is made.
+
+## Private Blob
+
+Production store: `ltc-manager-private` (`store_WvnKrZ5UUUsYvWLq`) in `iad1`. Access is **private**.
+Base host is on `private.blob.vercel-storage.com`. `BLOB_READ_WRITE_TOKEN` is bound to Production
+and Preview. Development is intentionally unset so local Next.js keeps using `.env`
+(`127.0.0.1/ltc_manager`) and tests keep using the in-memory store.
+
+`@vercel/blob` `^2.8.0` puts and gets with `access: "private"`. Keys are
+`support/{ticketId}/{messageId}/{attachmentId}`. Blobs are never public and URLs are never shown.
+
+A new production deploy is required before the running app sees the token. Local `.env.local`
+must not override `DATABASE_URL` with Neon.
+
+## Production migration
+
+`20261003140000_support_ticket_attachment` is additive only (`CREATE TYPE`, `CREATE TABLE`,
+indexes, FK). It was applied once with `prisma migrate deploy` to Neon host
+`ep-plain-salad-avjht24p` / database `neondb` (pooler host
+`ep-plain-salad-avjht24p-pooler`). Existing support rows stayed intact (2 tickets, 4 messages, 2
+contacts). No attachment rows existed before or immediately after the migration. Do not
+`migrate dev`, reset, `db push`, or drop to “fix” this.
 
 ### Idempotency
 
@@ -298,12 +389,13 @@ ticket; reply from Console; confirm the customer Reply stays on that ticket.
 
 `POSTMARK_SERVER_TOKEN`, `POSTMARK_INBOUND_WEBHOOK_USERNAME`, `POSTMARK_INBOUND_WEBHOOK_PASSWORD`.
 Configuration: `POSTMARK_FROM_EMAIL`, `SUPPORT_FROM_EMAIL`, `SUPPORT_REPLY_ADDRESS`.
-Attachment storage: `BLOB_READ_WRITE_TOKEN` (Vercel Blob, private). Without it, inbound mail is
-still recorded and attachment rows are stored as `BLOCKED` / `STORAGE_UNAVAILABLE`.
+Attachment storage: `BLOB_READ_WRITE_TOKEN` (Vercel Blob, private, Production and Preview). Without
+it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
+`STORAGE_UNAVAILABLE`. There is no malware-scanner secret yet; stored files remain `PENDING`.
 
 ## Not built yet
 
-Malware scanning (stored files remain `PENDING` and non-downloadable), outbound attachments,
-attachment previews, retention/deletion automation, acknowledgment emails, delivery/bounce/spam-complaint
-webhooks, staff notifications, SLAs, teams and routing rules, AI classification, feature-request
-aggregation, customer portal, and chat.
+Malware scanner vendor and `SupportAttachmentScanner` processor (stored files remain `PENDING` and
+non-downloadable), outbound attachments, attachment previews, retention/deletion automation,
+acknowledgment emails, delivery/bounce/spam-complaint webhooks, staff notifications, SLAs, teams
+and routing rules, AI classification, feature-request aggregation, customer portal, and chat.
