@@ -88,14 +88,15 @@ test("URL state is bookmarkable and clear/queue tabs drop incompatible params", 
     priority: "HIGH",
     assignee: "me",
     page: "2",
+    tag: "reporting",
   });
   assert.equal(
     supportListHref(query),
-    "/console/tickets?queue=unassigned&q=export&status=OPEN&priority=HIGH&assignee=me&page=2",
+    "/console/tickets?queue=unassigned&q=export&status=OPEN&priority=HIGH&assignee=me&tag=reporting&page=2",
   );
   assert.equal(
     supportQueueTabHref(query, "high"),
-    "/console/tickets?queue=high&q=export&priority=HIGH",
+    "/console/tickets?queue=high&q=export&priority=HIGH&tag=reporting",
   );
   assert.equal(supportListClearHref(query), "/console/tickets?queue=unassigned");
   assert.equal(supportListHref({}), "/console/tickets");

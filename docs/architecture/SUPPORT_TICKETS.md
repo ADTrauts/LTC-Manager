@@ -1,7 +1,8 @@
 # Support tickets
 
 Canonical support domain for Vssyl Console. Code: `src/lib/support/`. Schema: `SupportContact`,
-`SupportTicket`, `SupportTicketMessage`, `SupportTicketEvent` in `prisma/schema.prisma`.
+`SupportTicket`, `SupportTicketMessage`, `SupportTicketEvent`, `SupportSavedReply`, `SupportTag`,
+`SupportTicketTag` in `prisma/schema.prisma`.
 
 ## Ownership and boundaries
 
@@ -51,9 +52,9 @@ Harbor staff only (`/console/tickets`). Facility sessions cannot query tickets. 
 `src/lib/support/list-query.ts`, `list.ts`, `queues.ts`.
 
 State lives in the URL: `q`, `queue`, `status`, `priority`, `type`, `assignee`, `facility`,
-`updated`, `page`. Queue tabs keep `q` and compatible refinements (priority, type, facility, date)
-and drop status, assignee, and page. **Clear filters** returns to the current queue with no
-refinements. Queue sets the canonical scope; extra filters AND with it (`Unassigned` + `HIGH`).
+`tag`, `updated`, `page`. Queue tabs keep `q` and compatible refinements (priority, type, facility,
+tag, date) and drop status, assignee, and page. **Clear filters** returns to the current queue with
+no refinements. Queue sets the canonical scope; extra filters AND with it (`Unassigned` + `HIGH`).
 Contradictory combinations (New + status=OPEN) return empty results rather than a silent override.
 
 Search (`q`) is case-insensitive `contains` on ticket subject, contact email, contact display name,
@@ -83,6 +84,49 @@ Date presets (`updated`): Today is the America/New_York calendar day; Last 7 / 3
 windows. Indexes already cover `number`, `(status, updatedAt)`, `(assignedStaffId, status)`, and
 `facilityId`. Message `contains` is acceptable at current volume; add Postgres full-text only when
 list queries show it.
+
+Tag filter is explicit (`?tag=reporting`). Free-text `q` does not search tag names. List rows show
+the first two tag names and `+N` overflow.
+
+## Saved replies
+
+Harbor-only shared library (`/console/tickets/saved-replies`). Every staff member sees the same
+active replies. There are no per-user, team, or facility libraries.
+
+Inserting a saved reply copies rendered text into the customer-reply draft. The operator can edit
+it. Nothing sends automatically. Sent messages store the final body only; they do not keep a live
+reference to the template.
+
+Optional variables, resolved at insert time:
+
+- `{{customer.first_name}}`
+- `{{customer.name}}`
+- `{{ticket.number}}`
+- `{{facility.name}}`
+- `{{staff.name}}`
+
+Missing values become empty strings. Unknown tokens are left as written. No conditionals or
+expressions.
+
+Saved replies are **not macros**. Macros are deferred and may later combine a saved response with
+type, priority, assignment, tags, or status. This slice does not auto-send or mutate ticket state.
+
+No starter library is seeded. Staff create replies in Console. Soft-deactivate instead of delete.
+
+## Tags
+
+Harbor-only topic labels (`/console/tickets/tags`). Type answers what kind of request this is
+(`BUG`, `BILLING`). A tag answers what area is involved (`reporting`, `permissions`, `export`).
+
+Normalization: trim, collapse internal whitespace, lowercase for uniqueness. Display name is
+preserved. Max 40 characters. No nested tags, colors, or groups.
+
+`SupportTicketTag` records `addedByStaffId` and `addedAt`. Add/remove does **not** write
+`SupportTicketEvent` rows (the customer-support timeline stays about status, assignment, and mail).
+Removal deletes the join row; there is no removal audit log yet.
+
+Deactivated tags stay on existing tickets and remain filterable. They are not offered for new
+assignments. Rename keeps ticket relationships. No hard delete.
 
 ## Messages and events
 

@@ -4489,6 +4489,8 @@ model PlatformStaff {
   assignedSupportTickets SupportTicket[]
   supportTicketMessages  SupportTicketMessage[]
   supportTicketEvents    SupportTicketEvent[]
+  createdSupportSavedReplies SupportSavedReply[]
+  addedSupportTicketTags SupportTicketTag[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -4652,6 +4654,7 @@ model SupportTicket {
   assignedStaff   PlatformStaff?         @relation(fields: [assignedStaffId], references: [id], onDelete: Restrict)
   messages        SupportTicketMessage[]
   events          SupportTicketEvent[]
+  ticketTags      SupportTicketTag[]
   resolvedAt      DateTime?
   closedAt        DateTime?
   createdAt       DateTime               @default(now())
@@ -4734,6 +4737,48 @@ model SupportTicketAttachment {
 
   @@unique([messageId, position])
   @@index([messageId])
+}
+
+/// Shared Harbor canned response. Insertion copies text into the draft; sent mail does not
+/// reference this row. Not a macro: no automatic send, status, assignment, or tags.
+model SupportSavedReply {
+  id               String        @id @default(cuid())
+  name             String
+  body             String
+  isActive         Boolean       @default(true)
+  createdByStaffId String
+  createdByStaff   PlatformStaff @relation(fields: [createdByStaffId], references: [id], onDelete: Restrict)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([isActive, name])
+}
+
+/// Topic label for a support ticket. Distinct from Type (kind of request).
+model SupportTag {
+  id             String            @id @default(cuid())
+  name           String
+  /// Lowercased trimmed name; uniqueness is case-insensitive.
+  normalizedName String            @unique
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  tickets        SupportTicketTag[]
+
+  @@index([isActive, name])
+}
+
+model SupportTicketTag {
+  ticketId       String
+  ticket         SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tagId          String
+  tag            SupportTag     @relation(fields: [tagId], references: [id], onDelete: Restrict)
+  addedByStaffId String
+  addedByStaff   PlatformStaff  @relation(fields: [addedByStaffId], references: [id], onDelete: Restrict)
+  addedAt        DateTime       @default(now())
+
+  @@id([ticketId, tagId])
+  @@index([tagId, ticketId])
 }
 
 /// Append-only ticket history. Application code only inserts rows.

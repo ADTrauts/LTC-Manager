@@ -13,6 +13,7 @@ import {
 import { isSupportTicketPriority, isSupportTicketType } from "./labels";
 import { parseSupportQueue, supportQueueWhere, type SupportQueueKey } from "./queues";
 import { isSupportTicketStatus } from "./status-transition";
+import { normalizeSupportTagName } from "./tags";
 import { parseSupportTicketNumberQuery } from "./ticket-number";
 
 export const SUPPORT_LIST_PAGE_SIZE = 25;
@@ -35,6 +36,7 @@ export type SupportListQuery = {
   type: SupportListTypeFilter | null;
   assignee: SupportListAssigneeFilter | null;
   facility: SupportListFacilityFilter | null;
+  tag: string | null;
   updated: SupportListUpdatedPreset | null;
   page: number;
   pageSize: number;
@@ -105,6 +107,7 @@ export function parseSupportListQuery(params: SupportListParamInput = {}): Suppo
     type: parseType(firstParam(params.type)),
     assignee: parseAssignee(firstParam(params.assignee)),
     facility: parseFacility(firstParam(params.facility)),
+    tag: normalizeSupportTagName(firstParam(params.tag) ?? ""),
     updated: parseUpdated(firstParam(params.updated)),
     page: parsePage(firstParam(params.page)),
     pageSize: SUPPORT_LIST_PAGE_SIZE,
@@ -126,6 +129,7 @@ export function hasSupportListRefinements(query: SupportListQuery): boolean {
       query.type ||
       query.assignee ||
       query.facility ||
+      query.tag ||
       query.updated ||
       query.page > 1,
   );
@@ -154,6 +158,7 @@ export function supportListSearchParams(
   else if (input.facility && "facilityId" in input.facility) {
     params.set("facility", input.facility.facilityId);
   }
+  if (input.tag) params.set("tag", input.tag);
   if (input.updated) params.set("updated", input.updated);
   if (input.page && input.page > 1) params.set("page", String(input.page));
   return params;
@@ -175,6 +180,7 @@ export function supportQueueTabHref(query: SupportListQuery, queue: SupportQueue
     priority: query.priority,
     type: query.type,
     facility: query.facility,
+    tag: query.tag,
     updated: query.updated,
   });
 }
@@ -249,6 +255,9 @@ export function supportListWhere(
   if (query.assignee) parts.push(assigneeWhere(query.assignee, options.staffId));
   if (query.facility === "none") parts.push({ facilityId: null });
   else if (query.facility) parts.push({ facilityId: query.facility.facilityId });
+  if (query.tag) {
+    parts.push({ ticketTags: { some: { tag: { is: { normalizedName: query.tag } } } } });
+  }
   if (query.updated) {
     parts.push({ updatedAt: { gte: supportListUpdatedSince(query.updated, options.now ?? new Date()) } });
   }

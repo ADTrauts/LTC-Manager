@@ -9,7 +9,19 @@ import { prisma } from "@/lib/prisma";
 import { SupportTicketError, type SupportTicketErrorCode } from "@/lib/support/errors";
 import { SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_TYPES } from "@/lib/support/labels";
 import { sendSupportReply } from "@/lib/support/reply";
+import {
+  createSupportSavedReply,
+  setSupportSavedReplyActive,
+  updateSupportSavedReply,
+} from "@/lib/support/saved-replies";
 import { SUPPORT_TICKET_STATUSES } from "@/lib/support/status-transition";
+import {
+  addSupportTicketTag,
+  createSupportTag,
+  removeSupportTicketTag,
+  renameSupportTag,
+  setSupportTagActive,
+} from "@/lib/support/tags";
 import {
   addSupportTicketNote,
   changeSupportTicketStatus,
@@ -73,9 +85,32 @@ function ticketPath(ticketId: string) {
 function revalidateTickets(ticketId?: string) {
   revalidatePath("/console");
   revalidatePath("/console/tickets");
+  revalidatePath("/console/tickets/saved-replies");
+  revalidatePath("/console/tickets/tags");
   if (ticketId) {
     revalidatePath(ticketPath(ticketId));
   }
+}
+
+function libraryPath(kind: "saved-replies" | "tags", error?: SupportTicketErrorCode | null) {
+  return error ? `/console/tickets/${kind}?error=${error}` : `/console/tickets/${kind}`;
+}
+
+async function mutateLibrary(
+  kind: "saved-replies" | "tags",
+  mutation: () => Promise<unknown>,
+): Promise<never> {
+  let errorCode: SupportTicketErrorCode | null = null;
+  try {
+    await mutation();
+  } catch (error) {
+    if (!(error instanceof SupportTicketError)) {
+      throw error;
+    }
+    errorCode = error.code;
+  }
+  revalidateTickets();
+  redirect(libraryPath(kind, errorCode));
 }
 
 /** Expected domain failures return to the ticket with a notice instead of an error page. */
@@ -217,6 +252,88 @@ export async function assignSupportTicketToMeAction(formData: FormData) {
       ticketId: parsed.data,
       actorStaffId: session.uid,
       changes: { assignedStaffId: session.uid },
+    }),
+  );
+}
+
+export async function addSupportTicketTagAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const ticketId = field(formData, "ticketId");
+  const tagId = field(formData, "tagId");
+  const name = field(formData, "name");
+  if (!ticketId) {
+    redirect("/console/tickets");
+  }
+  await mutateTicket(ticketId, () =>
+    addSupportTicketTag(prisma, {
+      ticketId,
+      actorStaffId: session.uid,
+      tagId: tagId || undefined,
+      name: name || undefined,
+    }),
+  );
+}
+
+export async function removeSupportTicketTagAction(formData: FormData) {
+  await requireHarborStaff();
+  const ticketId = field(formData, "ticketId");
+  const tagId = field(formData, "tagId");
+  if (!ticketId || !tagId) {
+    redirect(ticketId ? ticketPath(ticketId) : "/console/tickets");
+  }
+  await mutateTicket(ticketId, () => removeSupportTicketTag(prisma, { ticketId, tagId }));
+}
+
+export async function createSupportSavedReplyAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  await mutateLibrary("saved-replies", () =>
+    createSupportSavedReply(prisma, {
+      actorStaffId: session.uid,
+      name: field(formData, "name"),
+      body: field(formData, "body"),
+    }),
+  );
+}
+
+export async function updateSupportSavedReplyAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("saved-replies", () =>
+    updateSupportSavedReply(prisma, {
+      id: field(formData, "id"),
+      name: field(formData, "name"),
+      body: field(formData, "body"),
+    }),
+  );
+}
+
+export async function setSupportSavedReplyActiveAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("saved-replies", () =>
+    setSupportSavedReplyActive(prisma, {
+      id: field(formData, "id"),
+      isActive: field(formData, "isActive") === "true",
+    }),
+  );
+}
+
+export async function createSupportTagAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("tags", () => createSupportTag(prisma, { name: field(formData, "name") }));
+}
+
+export async function renameSupportTagAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("tags", () =>
+    renameSupportTag(prisma, { id: field(formData, "id"), name: field(formData, "name") }),
+  );
+}
+
+export async function setSupportTagActiveAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("tags", () =>
+    setSupportTagActive(prisma, {
+      id: field(formData, "id"),
+      isActive: field(formData, "isActive") === "true",
     }),
   );
 }

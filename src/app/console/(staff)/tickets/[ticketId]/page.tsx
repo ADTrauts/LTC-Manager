@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 
 import {
   addSupportTicketNoteAction,
+  addSupportTicketTagAction,
   assignSupportTicketToMeAction,
   changeSupportTicketStatusAction,
+  removeSupportTicketTagAction,
   replySupportTicketAction,
   updateSupportTicketDetailsAction,
 } from "@/app/console/(staff)/tickets/actions";
+import { SupportReplyComposer } from "@/components/harbor-console/support-reply-composer";
 import { SupportSubmitButton } from "@/components/harbor-console/support-submit-button";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
@@ -29,7 +32,9 @@ import {
   SUPPORT_TICKET_TYPE_LABEL,
   SUPPORT_TICKET_TYPES,
 } from "@/lib/support/labels";
+import { listSupportSavedReplies, renderSupportSavedReply } from "@/lib/support/saved-replies";
 import { allowedSupportTicketTransitions } from "@/lib/support/status-transition";
+import { listSupportTags } from "@/lib/support/tags";
 import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 import {
   describeSupportEvent,
@@ -108,6 +113,14 @@ export default async function ConsoleTicketPage({
           contact: { select: { email: true } },
         },
       },
+      ticketTags: {
+        orderBy: { addedAt: "asc" },
+        select: {
+          tagId: true,
+          addedAt: true,
+          tag: { select: { id: true, name: true, normalizedName: true, isActive: true } },
+        },
+      },
       events: {
         orderBy: { createdAt: "asc" },
         select: {
@@ -127,7 +140,7 @@ export default async function ConsoleTicketPage({
     notFound();
   }
 
-  const [staff, facilities] = await Promise.all([
+  const [staff, facilities, savedReplies, tags] = await Promise.all([
     prisma.platformStaff.findMany({
       where: { OR: [{ isActive: true }, ...(ticket.assignedStaffId ? [{ id: ticket.assignedStaffId }] : [])] },
       orderBy: { displayName: "asc" },
@@ -138,6 +151,8 @@ export default async function ConsoleTicketPage({
       select: { id: true, displayName: true },
       take: 200,
     }),
+    listSupportSavedReplies(prisma, { activeOnly: true }),
+    listSupportTags(prisma, { activeOnly: true }),
   ]);
   if (ticket.facility && !facilities.some((row) => row.id === ticket.facility?.id)) {
     facilities.unshift(ticket.facility);
@@ -186,6 +201,18 @@ export default async function ConsoleTicketPage({
   const transitions = allowedSupportTicketTransitions(ticket.status);
   const replyDefault = transitions.includes("WAITING_ON_CUSTOMER") ? "WAITING_ON_CUSTOMER" : "";
   const ticketNumber = formatSupportTicketNumber(ticket.number);
+  const assignedTagIds = new Set(ticket.ticketTags.map((row) => row.tagId));
+  const unusedTags = tags.filter((tag) => !assignedTagIds.has(tag.id));
+  const composerReplies = savedReplies.map((reply) => ({
+    id: reply.id,
+    name: reply.name,
+    renderedBody: renderSupportSavedReply(reply.body, {
+      customerName: ticket.contact.displayName,
+      ticketNumber: ticket.number,
+      facilityName: ticket.facility?.displayName ?? null,
+      staffName: session.name,
+    }),
+  }));
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -227,6 +254,63 @@ export default async function ConsoleTicketPage({
             </dd>
           </div>
         </dl>
+        <div className="rounded-md border border-[var(--border)] bg-white px-4 py-3">
+          <p className="text-xs text-[var(--text-secondary)]">Tags</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            Topics for staff. Not shown to customers. Changing tags does not change status.
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {ticket.ticketTags.length === 0 ? (
+              <li className="text-sm text-[var(--text-secondary)]">No tags</li>
+            ) : (
+              ticket.ticketTags.map((row) => (
+                <li key={row.tagId}>
+                  <form action={removeSupportTicketTagAction} className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm">
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <input type="hidden" name="tagId" value={row.tagId} />
+                    <span>{row.tag.name}</span>
+                    {row.tag.isActive ? null : (
+                      <span className="text-xs text-[var(--text-secondary)]">(inactive)</span>
+                    )}
+                    <button type="submit" className="text-xs text-[var(--text-secondary)] hover:underline">
+                      Remove
+                    </button>
+                  </form>
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-4">
+            {unusedTags.length > 0 ? (
+              <form action={addSupportTicketTagAction} className="flex flex-wrap items-end gap-2">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <label className="block text-sm">
+                  <span className="font-medium">Add existing</span>
+                  <select name="tagId" required className={INPUT_CLASS}>
+                    {unusedTags.map((tag) => (
+                      <option key={tag.id} value={tag.id}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <SupportSubmitButton pendingLabel="Adding…" variant="secondary">
+                  Add tag
+                </SupportSubmitButton>
+              </form>
+            ) : null}
+            <form action={addSupportTicketTagAction} className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="ticketId" value={ticket.id} />
+              <label className="block text-sm">
+                <span className="font-medium">Create and add</span>
+                <input name="name" required maxLength={40} placeholder="New tag" className={INPUT_CLASS} />
+              </label>
+              <SupportSubmitButton pendingLabel="Adding…" variant="secondary">
+                Create tag
+              </SupportSubmitButton>
+            </form>
+          </div>
+        </div>
       </header>
 
       {deliveryWarning ? (
@@ -257,10 +341,7 @@ export default async function ConsoleTicketPage({
             <form action={replySupportTicketAction} className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
               <input type="hidden" name="ticketId" value={ticket.id} />
               <input type="hidden" name="clientSubmissionId" value={newClientSubmissionId()} />
-              <label className="block text-sm">
-                <span className="font-medium">Reply to customer</span>
-                <textarea name="body" required maxLength={8000} rows={5} className={INPUT_CLASS} />
-              </label>
+              <SupportReplyComposer replies={composerReplies} />
               <p className="text-xs text-[var(--text-secondary)]">
                 Emails {ticket.contact.email} from {getSupportFromAddress()}.{" "}
                 {isSupportReplyRoutingConfigured()

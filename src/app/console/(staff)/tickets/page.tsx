@@ -23,6 +23,7 @@ import {
 } from "@/lib/support/list-query";
 import { SUPPORT_QUEUES, supportQueueWhere } from "@/lib/support/queues";
 import { SUPPORT_TICKET_STATUSES } from "@/lib/support/status-transition";
+import { listSupportTags } from "@/lib/support/tags";
 import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 
 function formatUpdated(value: Date) {
@@ -45,7 +46,7 @@ export default async function ConsoleTicketsPage({
 }) {
   const session = await requireHarborStaff();
   const params = await searchParams;
-  const [{ query, tickets, total, pageCount, exactTicketNumberHit }, counts, staff, facilities] =
+  const [{ query, tickets, total, pageCount, exactTicketNumberHit }, counts, staff, facilities, tags] =
     await Promise.all([
       listSupportTickets(prisma, { staffId: session.uid, params }),
       Promise.all(
@@ -64,6 +65,7 @@ export default async function ConsoleTicketsPage({
         select: { id: true, displayName: true },
         take: 200,
       }),
+      listSupportTags(prisma),
     ]);
 
   const refined = hasSupportListRefinements(query);
@@ -86,12 +88,20 @@ export default async function ConsoleTicketsPage({
             Customer support for Vssyl. Replies are emailed to the requester; internal notes stay in Console.
           </p>
         </div>
-        <Link
-          href="/console/tickets/new"
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
-        >
-          New ticket
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/console/tickets/saved-replies" className="text-sm text-[var(--text-secondary)] hover:underline">
+            Saved replies
+          </Link>
+          <Link href="/console/tickets/tags" className="text-sm text-[var(--text-secondary)] hover:underline">
+            Tags
+          </Link>
+          <Link
+            href="/console/tickets/new"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
+          >
+            New ticket
+          </Link>
+        </div>
       </header>
 
       <form action="/console/tickets" className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
@@ -167,6 +177,17 @@ export default async function ConsoleTicketsPage({
                 {row.displayName}
               </option>
             ))}
+          </FilterSelect>
+          <FilterSelect id="tag" name="tag" label="Tag" defaultValue={query.tag ?? ""}>
+            <option value="">Any tag</option>
+            {tags
+              .filter((tag) => tag.isActive || tag.normalizedName === query.tag)
+              .map((tag) => (
+                <option key={tag.id} value={tag.normalizedName}>
+                  {tag.name}
+                  {tag.isActive ? "" : " (inactive)"}
+                </option>
+              ))}
           </FilterSelect>
           <FilterSelect id="updated" name="updated" label="Updated" defaultValue={query.updated ?? ""}>
             <option value="">Any time</option>
@@ -251,6 +272,15 @@ export default async function ConsoleTicketsPage({
                         </span>
                         {ticket.subject}
                       </Link>
+                      {ticket.tags.length > 0 ? (
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                          {ticket.tags
+                            .slice(0, 2)
+                            .map((tag) => tag.name)
+                            .join(" · ")}
+                          {ticket.tags.length > 2 ? ` +${ticket.tags.length - 2}` : ""}
+                        </p>
+                      ) : null}
                       {exactTicketNumberHit ? (
                         <p className="mt-1 text-xs text-[var(--text-secondary)]">Exact ticket number</p>
                       ) : null}

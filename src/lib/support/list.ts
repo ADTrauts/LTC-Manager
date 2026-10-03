@@ -26,6 +26,7 @@ export type SupportTicketListRow = {
   contact: { email: string; displayName: string | null };
   facility: { displayName: string } | null;
   assignedStaff: { displayName: string } | null;
+  tags: { name: string; normalizedName: string }[];
   latestOutboundDeliveryStatus: SupportMessageDeliveryStatus | null;
 };
 
@@ -77,6 +78,10 @@ export async function listSupportTickets(
         contact: { select: { email: true, displayName: true } },
         facility: { select: { displayName: true } },
         assignedStaff: { select: { displayName: true } },
+        ticketTags: {
+          orderBy: { addedAt: "asc" },
+          select: { tag: { select: { name: true, normalizedName: true } } },
+        },
         messages: {
           where: { kind: "OUTBOUND" },
           orderBy: { createdAt: "desc" },
@@ -101,6 +106,7 @@ export async function listSupportTickets(
       contact: ticket.contact,
       facility: ticket.facility,
       assignedStaff: ticket.assignedStaff,
+      tags: ticket.ticketTags.map((row) => row.tag),
       latestOutboundDeliveryStatus: ticket.messages[0]?.deliveryStatus ?? null,
     })),
     total,
