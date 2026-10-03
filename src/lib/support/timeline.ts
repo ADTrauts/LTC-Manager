@@ -25,7 +25,7 @@ export type SupportTimelineMessage = {
   deliveryStatus: SupportMessageDeliveryStatus | null;
   deliveryError: string | null;
   sentAt: Date | null;
-  deliveredAt?: Date | null;
+  deliveredAt: Date | null;
   bounceType?: string | null;
   bounceDescription?: string | null;
   createdAt: Date;

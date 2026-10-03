@@ -88,7 +88,8 @@ test(
         parsed(postmarkDeliveryPayload({ messageId: `pm-wait-${tag}` })),
       );
       assert.equal(delivered.result, "applied");
-      assert.equal(delivered.result !== "unknown" && delivered.deliveryStatus, "DELIVERED");
+      if (delivered.result !== "applied") throw new Error("expected applied");
+      assert.equal(delivered.deliveryStatus, "DELIVERED");
       const afterDelivery = await prisma.supportTicketMessage.findUniqueOrThrow({ where: { id: reply.messageId } });
       assert.equal(afterDelivery.deliveryStatus, "DELIVERED");
       assert.ok(afterDelivery.deliveredAt);

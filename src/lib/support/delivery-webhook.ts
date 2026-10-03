@@ -1,5 +1,9 @@
 import type { SupportInboundCredentials } from "./config";
-import { applySupportDeliveryEvent, parseSupportDeliveryEvent } from "./delivery-events";
+import {
+  parseSupportDeliveryEvent,
+  type ApplySupportDeliveryResult,
+  type ParsedSupportDeliveryEvent,
+} from "./delivery-events";
 import { checkBasicAuth } from "./webhook-auth";
 
 /** Outbound webhooks are small JSON; keep well under inbound's 50 MB cap. */
@@ -9,7 +13,7 @@ type Logger = Pick<Console, "info" | "warn" | "error">;
 
 export type SupportDeliveryWebhookDeps = {
   credentials: SupportInboundCredentials | null;
-  apply: typeof applySupportDeliveryEvent;
+  apply: (event: ParsedSupportDeliveryEvent) => Promise<ApplySupportDeliveryResult>;
   logger?: Logger;
 };
 

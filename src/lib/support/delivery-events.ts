@@ -136,14 +136,20 @@ export async function applySupportDeliveryEvent(
   if (!message || message.kind !== "OUTBOUND" || !message.deliveryStatus) {
     return { result: "unknown" };
   }
+  const row: MessageRow = {
+    id: message.id,
+    ticketId: message.ticketId,
+    deliveryStatus: message.deliveryStatus,
+    ticket: message.ticket,
+  };
 
   if (event.kind === "Delivery") {
-    return applyDelivery(db, message, event, now);
+    return applyDelivery(db, row, event, now);
   }
   if (event.kind === "Bounce") {
-    return applyBounce(db, message, event, now);
+    return applyBounce(db, row, event, now);
   }
-  return applyComplaint(db, message, event, now);
+  return applyComplaint(db, row, event, now);
 }
 
 type MessageRow = {

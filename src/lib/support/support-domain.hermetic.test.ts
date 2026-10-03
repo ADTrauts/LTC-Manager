@@ -157,6 +157,7 @@ test("timeline puts CREATED first, then a message, then the events it carried", 
     deliveryStatus: "SENT" as const,
     deliveryError: null,
     sentAt: at,
+    deliveredAt: null,
     createdAt: at,
   };
   const event = (id: string, type: "CREATED" | "STATUS_CHANGED", createdAt: Date) => ({
