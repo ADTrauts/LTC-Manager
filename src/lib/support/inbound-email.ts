@@ -286,3 +286,15 @@ export function parsePostmarkInbound(raw: unknown): InboundParseResult {
     },
   };
 }
+
+/** Base64 bodies from the raw Postmark payload. Never stored on the parsed email object. */
+export function readInboundAttachmentContents(raw: unknown): Array<string | null> {
+  if (!raw || typeof raw !== "object" || !("Attachments" in raw) || !Array.isArray(raw.Attachments)) {
+    return [];
+  }
+  return raw.Attachments.slice(0, MAX_ATTACHMENTS).map((entry) => {
+    if (!entry || typeof entry !== "object" || !("Content" in entry)) return null;
+    const content = entry.Content;
+    return typeof content === "string" && content.trim() ? content.trim() : null;
+  });
+}

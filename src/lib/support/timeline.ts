@@ -1,4 +1,6 @@
 import type {
+  SupportAttachmentRejectionReason,
+  SupportAttachmentScanStatus,
   SupportMessageDeliveryStatus,
   SupportTicketEventType,
   SupportTicketMessageKind,
@@ -6,8 +8,6 @@ import type {
   SupportTicketStatus,
   SupportTicketType,
 } from "@prisma/client";
-
-import type { SupportAttachmentManifestEntry } from "./inbound-email";
 import {
   SUPPORT_TICKET_PRIORITY_LABEL,
   SUPPORT_TICKET_STATUS_LABEL,
@@ -30,9 +30,18 @@ export type SupportTimelineMessage = {
   receivedAt?: Date | null;
   /** False when an inbound email came from someone other than the ticket's requester. */
   fromRequester?: boolean;
-  attachments?: SupportAttachmentManifestEntry[];
+  attachments?: SupportTimelineAttachment[];
   autoSubmitted?: boolean;
   possibleSpam?: boolean;
+};
+
+export type SupportTimelineAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  scanStatus: SupportAttachmentScanStatus;
+  rejectionReason: SupportAttachmentRejectionReason | null;
 };
 
 export type SupportTimelineEvent = {

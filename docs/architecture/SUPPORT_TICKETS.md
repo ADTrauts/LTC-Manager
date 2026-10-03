@@ -187,9 +187,38 @@ text derived from the HTML with every tag removed. Inbound HTML is never rendere
 
 ### Attachments
 
-Not stored. `attachmentManifest` records `name`, `contentType`, `contentLength`, and `contentId` for
-each attachment. Base64 contents are never written. Console lists the files and says storage isn't
-enabled. File storage and malware scanning are a later slice.
+Ownership: ticket → inbound message → `SupportTicketAttachment`. Files are never attached directly
+to the ticket. `attachmentManifest` still records `name`, `contentType`, `contentLength`, and
+`contentId` on the message. Base64 contents are never written to Postgres.
+
+Storage: private object storage (`@vercel/blob` with `access: "private"` when
+`BLOB_READ_WRITE_TOKEN` is set). Object keys look like `support/{ticketId}/{messageId}/{attachmentId}`
+and are never shown in Console or returned to customers. Facility `Attachment` / local `uploads/`
+are not used.
+
+Limits: 10 MB decoded per file. The inbound webhook still rejects bodies over 50 MB (Postmark's
+own cap is 35 MB). An oversized, unreadable, or blocked file does not fail the email: the message
+is kept and the attachment row is `BLOCKED` with a reason.
+
+Types: reported MIME and filename are recorded, but extensions are not trusted. HTML, SVG, scripts,
+and common executables are blocked from storage. Downloads always use `Content-Disposition:
+attachment` and `application/octet-stream`. Inbound HTML is still not rendered.
+
+Scan status: `PENDING`, `CLEAN`, `BLOCKED`, `SCAN_FAILED`. **Malware scanning is deferred.** Stored
+files stay `PENDING` and are not downloadable. Do not treat `PENDING` as clean. Only a future
+scanner may set `CLEAN`.
+
+Download: `GET /api/console/support-attachments/{id}` after `getHarborSession()`. Facility sessions
+receive 403; anonymous callers receive 401. Guessing an id is not authorization.
+
+Retries: `providerMessageId` remains the message idempotency key. Attachments use
+`(messageId, position)`. A Postmark retry does not create a second message or second attachment
+row. If the message committed and storage did not, the retry completes the missing rows.
+
+Lifecycle: support history is append-only. The app does not delete tickets, messages, or stored
+objects. A manual row delete would orphan the object; there is no retention job yet.
+
+Outbound staff attachments are deferred. Previews are deferred.
 
 ### Idempotency
 
@@ -269,9 +298,12 @@ ticket; reply from Console; confirm the customer Reply stays on that ticket.
 
 `POSTMARK_SERVER_TOKEN`, `POSTMARK_INBOUND_WEBHOOK_USERNAME`, `POSTMARK_INBOUND_WEBHOOK_PASSWORD`.
 Configuration: `POSTMARK_FROM_EMAIL`, `SUPPORT_FROM_EMAIL`, `SUPPORT_REPLY_ADDRESS`.
+Attachment storage: `BLOB_READ_WRITE_TOKEN` (Vercel Blob, private). Without it, inbound mail is
+still recorded and attachment rows are stored as `BLOCKED` / `STORAGE_UNAVAILABLE`.
 
 ## Not built yet
 
-Attachment storage and malware scanning, acknowledgment emails, delivery/bounce/spam-complaint
+Malware scanning (stored files remain `PENDING` and non-downloadable), outbound attachments,
+attachment previews, retention/deletion automation, acknowledgment emails, delivery/bounce/spam-complaint
 webhooks, staff notifications, SLAs, teams and routing rules, AI classification, feature-request
 aggregation, customer portal, and chat.

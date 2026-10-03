@@ -1,5 +1,7 @@
 import { Prisma, type PrismaClient, type SupportTicketStatus } from "@prisma/client";
 
+import { persistInboundSupportAttachments } from "./attachments";
+import type { SupportAttachmentStore } from "./attachment-store";
 import { upsertSupportContact } from "./contacts";
 import { generateSupportReplyToken } from "./identifiers";
 import { type InboundSupportEmail, normalizeInboundSubject, parseTicketMarkers } from "./inbound-email";
@@ -232,24 +234,53 @@ async function recordInbound(
 export async function processInboundSupportEmail(
   db: PrismaClient,
   email: InboundSupportEmail,
-  options: { now?: Date; isOwnAddress?: (address: string) => boolean } = {},
+  options: {
+    now?: Date;
+    isOwnAddress?: (address: string) => boolean;
+    attachmentContents?: Array<string | null>;
+    attachmentStore?: SupportAttachmentStore | null;
+    logger?: Pick<Console, "info" | "warn" | "error">;
+  } = {},
 ): Promise<SupportInboundResult> {
   if (options.isOwnAddress?.(email.fromEmail)) {
     return { result: "ignored", reason: "own_address" };
   }
+  const shouldPersistAttachments =
+    options.attachmentContents !== undefined || options.attachmentStore !== undefined;
+
+  const persist = (ticketId: string, messageId: string) =>
+    shouldPersistAttachments
+      ? persistInboundSupportAttachments(db, {
+          ticketId,
+          messageId,
+          attachments: email.attachments,
+          contents: options.attachmentContents,
+          store: options.attachmentStore,
+          logger: options.logger,
+        })
+      : Promise.resolve();
+
   const prior = await findDuplicate(db, email);
-  if (prior) return prior;
+  if (prior) {
+    await persist(prior.ticketId, prior.messageId);
+    return prior;
+  }
 
   const now = options.now ?? new Date();
   for (let attempt = 0; ; attempt++) {
     try {
-      return await recordInbound(db, email, now);
+      const result = await recordInbound(db, email, now);
+      await persist(result.ticketId, result.messageId);
+      return result;
     } catch (error) {
       const target = uniqueTarget(error);
       if (!target) throw error;
       if (target.some((field) => field.includes("providerMessageId"))) {
         const raced = await findDuplicate(db, email);
-        if (raced) return raced;
+        if (raced) {
+          await persist(raced.ticketId, raced.messageId);
+          return raced;
+        }
       }
       // A concurrent email from the same new sender created the contact first.
       if (attempt === 0 && target.some((field) => field.includes("email"))) continue;

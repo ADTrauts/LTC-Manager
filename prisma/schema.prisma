@@ -4592,6 +4592,21 @@ enum SupportTicketEventType {
   SUBJECT_CHANGED
 }
 
+enum SupportAttachmentScanStatus {
+  PENDING
+  CLEAN
+  BLOCKED
+  SCAN_FAILED
+}
+
+enum SupportAttachmentRejectionReason {
+  OVERSIZE
+  INVALID_BASE64
+  BLOCKED_TYPE
+  STORAGE_UNAVAILABLE
+  STORAGE_FAILED
+}
+
 /// Who a support ticket is from. Needs no Vssyl login; a user/facility link is a label for staff
 /// and never grants authorization.
 model SupportContact {
@@ -4677,11 +4692,34 @@ model SupportTicketMessage {
   sentAt             DateTime?
   clientSubmissionId String?                       @unique
   receivedAt         DateTime?
+  attachments        SupportTicketAttachment[]
   causedEvents       SupportTicketEvent[]
   createdAt          DateTime                      @default(now())
 
   @@index([ticketId, createdAt])
   @@index([internetMessageId])
+}
+
+/// Binary for one inbound email attachment. Never stored on SupportTicket or in Postgres.
+model SupportTicketAttachment {
+  id               String                            @id @default(cuid())
+  messageId        String
+  message          SupportTicketMessage              @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  /// 0-based index in the inbound payload. Unique per message so Postmark retries do not duplicate.
+  position         Int
+  filename         String
+  contentType      String
+  sizeBytes        Int
+  /// Opaque private object key. Never shown in Console or returned to customers.
+  storageKey       String?
+  checksumSha256   String?
+  contentId        String?
+  scanStatus       SupportAttachmentScanStatus
+  rejectionReason  SupportAttachmentRejectionReason?
+  createdAt        DateTime                          @default(now())
+
+  @@unique([messageId, position])
+  @@index([messageId])
 }
 
 /// Append-only ticket history. Application code only inserts rows.

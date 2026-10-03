@@ -162,6 +162,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Opens a bannered work session on a customer facility. Does not impersonate a facility user.",
   },
   {
+    pattern: "/api/console/support-attachments/[attachmentId]",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Private support attachment download. Handler re-checks Harbor staff and CLEAN scan status.",
+  },
+  {
     pattern: "/api/console/work-session/end",
     match: "EXACT",
     surface: "API",

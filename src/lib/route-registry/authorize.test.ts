@@ -108,6 +108,7 @@ test("harbor console — facility roles never enter /console", () => {
     "/console/catalog/new",
     "/api/console/work-session",
     "/api/console/work-session/end",
+    "/api/console/support-attachments/satt_1",
   ]) {
     assert.equal(outcome(path, null), "REQUIRE_AUTHENTICATION", path);
     for (const role of APP_ROLES) {

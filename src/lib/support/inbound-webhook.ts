@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import type { SupportInboundCredentials } from "./config";
-import { type InboundSupportEmail, parsePostmarkInbound } from "./inbound-email";
+import { type InboundSupportEmail, parsePostmarkInbound, readInboundAttachmentContents } from "./inbound-email";
 import type { SupportInboundResult } from "./inbound-service";
 import { formatSupportTicketNumber } from "./ticket-number";
 
@@ -12,7 +12,10 @@ type Logger = Pick<Console, "info" | "warn" | "error">;
 
 export type SupportInboundWebhookDeps = {
   credentials: SupportInboundCredentials | null;
-  process: (email: InboundSupportEmail) => Promise<SupportInboundResult>;
+  process: (
+    email: InboundSupportEmail,
+    extras?: { attachmentContents?: Array<string | null> },
+  ) => Promise<SupportInboundResult>;
   logger?: Logger;
 };
 
@@ -90,9 +93,10 @@ export async function handleSupportInboundWebhook(
   }
 
   const providerMessageId = parsed.email.providerMessageId;
+  const attachmentContents = readInboundAttachmentContents(raw);
   let result: SupportInboundResult;
   try {
-    result = await deps.process(parsed.email);
+    result = await deps.process(parsed.email, { attachmentContents });
   } catch (error) {
     logger.error("support.inbound.failed", { providerMessageId, error: errorCode(error) });
     return json({ error: "Inbound processing failed; retry later." }, 500);

@@ -6,6 +6,10 @@ import { handleSupportInboundWebhook } from "@/lib/support/inbound-webhook";
 export async function POST(request: Request) {
   return handleSupportInboundWebhook(request, {
     credentials: getSupportInboundCredentials(),
-    process: (email) => processInboundSupportEmail(prisma, email, { isOwnAddress: (address) => isSupportOwnAddress(address) }),
+    process: (email, extras) =>
+      processInboundSupportEmail(prisma, email, {
+        isOwnAddress: (address) => isSupportOwnAddress(address),
+        attachmentContents: extras?.attachmentContents,
+      }),
   });
 }

@@ -14,11 +14,11 @@ import { prisma } from "@/lib/prisma";
 import { getSupportFromAddress, isSupportReplyRoutingConfigured } from "@/lib/support/config";
 import { isSupportTicketErrorCode, SUPPORT_TICKET_ERROR_MESSAGE } from "@/lib/support/errors";
 import { newClientSubmissionId } from "@/lib/support/identifiers";
+import { presentSupportAttachment } from "@/lib/support/attachment-presentation";
 import {
   inboundDisplayBody,
   isAutoSubmitted,
   isPossibleSpam,
-  readAttachmentManifest,
   readStoredHeaders,
 } from "@/lib/support/inbound-email";
 import {
@@ -86,7 +86,17 @@ export default async function ConsoleTicketPage({
           receivedAt: true,
           contactId: true,
           inboundHeaders: true,
-          attachmentManifest: true,
+          attachments: {
+            orderBy: { position: "asc" },
+            select: {
+              id: true,
+              filename: true,
+              contentType: true,
+              sizeBytes: true,
+              scanStatus: true,
+              rejectionReason: true,
+            },
+          },
           deliveryStatus: true,
           deliveryError: true,
           sentAt: true,
@@ -148,7 +158,7 @@ export default async function ConsoleTicketPage({
       fromName: message.fromName,
       receivedAt: message.receivedAt,
       fromRequester: message.kind !== "INBOUND" || message.contactId === ticket.contactId,
-      attachments: readAttachmentManifest(message.attachmentManifest),
+      attachments: message.attachments,
       autoSubmitted: isAutoSubmitted(headers),
       possibleSpam: isPossibleSpam(headers),
       };
@@ -443,21 +453,31 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
         ) : null}
         <p className="mt-2 whitespace-pre-wrap text-sm">{message.bodyText || "(No message text)"}</p>
         {attachments.length > 0 ? (
-          <div className="mt-3 rounded border border-[var(--border)] bg-white px-3 py-2 text-xs">
-            <p className="font-medium">
-              {attachments.length} {attachments.length === 1 ? "attachment" : "attachments"} received
-            </p>
-            <ul className="mt-1 space-y-0.5 text-[var(--text-secondary)]">
-              {attachments.map((attachment, index) => (
-                <li key={`${attachment.name ?? "attachment"}-${index}`}>
-                  {attachment.name ?? "Unnamed file"}
-                  {attachment.contentType ? ` · ${attachment.contentType}` : ""}
-                </li>
-              ))}
+          <div className="mt-3 rounded border border-[var(--border)] bg-white px-3 py-2 text-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">Attachments</p>
+            <ul className="mt-2 space-y-2">
+              {attachments.map((attachment) => {
+                const view = presentSupportAttachment(attachment);
+                return (
+                  <li key={view.id} className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-[var(--foreground)]">{view.filename}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">{view.detail}</p>
+                    </div>
+                    {view.downloadHref ? (
+                      <a
+                        href={view.downloadHref}
+                        className="text-xs font-medium text-[var(--foreground)] underline-offset-2 hover:underline"
+                      >
+                        Download
+                      </a>
+                    ) : (
+                      <p className="text-xs text-[var(--text-secondary)]">{view.statusLabel}</p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
-            <p className="mt-1 text-[var(--text-secondary)]">
-              Attachment storage isn&apos;t enabled yet. Ask the customer to resend if you need the file.
-            </p>
           </div>
         ) : null}
       </li>

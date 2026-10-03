@@ -363,6 +363,7 @@ test(
       });
       const ticketIds = tickets.map((row) => row.id);
       await prisma.supportTicketEvent.deleteMany({ where: { ticketId: { in: ticketIds } } });
+      await prisma.supportTicketAttachment.deleteMany({ where: { message: { ticketId: { in: ticketIds } } } });
       await prisma.supportTicketMessage.deleteMany({ where: { ticketId: { in: ticketIds } } });
       await prisma.supportTicket.deleteMany({ where: { id: { in: ticketIds } } });
       await prisma.supportContact.deleteMany({ where: { id: { in: contactIds } } });
