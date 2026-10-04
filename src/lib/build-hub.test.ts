@@ -13,7 +13,7 @@ import type { ModeNavItem } from "@/lib/product-mode";
 const ITEMS: ModeNavItem[] = [
   { label: "Build Home", href: "/build" },
   { label: "Facility Builder", href: "/admin/facility/builder" },
-  { label: "Department Builder", href: "/admin/departments" },
+  { label: "Department Builder", href: "/build/departments" },
   { label: "Employee Builder", href: "/employees" },
   { label: "Asset Builder", href: "/assets/builder" },
   { label: "Operational Templates", href: "/staffing/templates" },
@@ -25,7 +25,7 @@ test("build-hub — drops the hub's own home link and keeps every other surface 
     cards.map((card) => card.href),
     [
       "/admin/facility/builder",
-      "/admin/departments",
+      "/build/departments",
       "/employees",
       "/assets/builder",
       "/staffing/templates",
@@ -73,7 +73,7 @@ test("build sidebar — keeps Build Home first and mirrors hub builders in regis
     [
       "/build",
       "/admin/facility/builder",
-      "/admin/departments",
+      "/build/departments",
       "/employees",
       "/assets/builder",
       "/staffing/templates",

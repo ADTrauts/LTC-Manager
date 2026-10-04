@@ -81,7 +81,7 @@ export function AddDepartmentForm({
           <input type="hidden" name="returnTo" value="departments" />
         </>
       ) : (
-        <input type="hidden" name="returnTo" value="department-builder" />
+        <input type="hidden" name="returnTo" value="departments" />
       )}
 
       {error ? (

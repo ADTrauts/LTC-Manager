@@ -141,6 +141,8 @@ test("role policy — /admin permits only FACILITY_ADMINISTRATOR", () => {
     "/admin/inspections",
     "/admin/facility/builder",
     "/admin/billing",
+    "/admin/departments",
+    "/admin/departments/cldept0001/manage",
   ]) {
     assert.equal(roleMayAccessRoute(path, "FACILITY_ADMINISTRATOR", FLAGS), true, path);
     for (const role of APP_ROLES.filter((r) => r !== "FACILITY_ADMINISTRATOR")) {
@@ -151,7 +153,7 @@ test("role policy — /admin permits only FACILITY_ADMINISTRATOR", () => {
 
 test("role policy — Department Builder admits Manager+ for Operational Cycles", () => {
   const managementTier: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER"];
-  for (const path of ["/admin/departments", "/admin/departments/cldept0001"]) {
+  for (const path of ["/build/departments", "/build/departments/cldept0001", "/admin/departments/cldept0001"]) {
     for (const role of APP_ROLES) {
       assert.equal(
         roleMayAccessRoute(path, role, FLAGS),

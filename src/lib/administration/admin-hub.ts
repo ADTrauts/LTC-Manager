@@ -2,8 +2,8 @@
  * Administration hub IA — presentation labels and grouping only.
  * Routes are preserved; this module does not change domain behavior.
  *
- * Wave C: Admin is governance. Builders (Facility, Departments, Logs, Inspections,
- * Procedures) are not primary cards here.
+ * Admin is governance. Department Product installation lives here.
+ * Department Builder (operational configuration) lives under Build.
  */
 
 import {
@@ -39,10 +39,17 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
         href: "/admin/organization",
       },
       {
+        id: "departments",
+        label: "Departments",
+        description:
+          "Manage installed Department Products and add Departments to this facility.",
+        href: "/admin/departments",
+      },
+      {
         id: "billing",
         label: "Billing",
         description:
-          "Choose departments included in this facility's plan, review pricing, and manage payment.",
+          "Review pricing and manage payment for this facility's subscription.",
         href: "/admin/billing",
       },
     ],
@@ -71,7 +78,6 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
 export const ADMIN_HUB_EXCLUDED_PRIMARY_HREFS = [
   "/admin/organization/facilities",
   "/admin/facility/builder",
-  "/admin/departments",
   "/build/departments",
   "/logs",
   "/build/logs",

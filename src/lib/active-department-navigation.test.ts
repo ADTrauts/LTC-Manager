@@ -9,14 +9,15 @@ import {
   isDepartmentBuilderAreaPath,
   shouldSyncActiveDepartmentFromRoute,
 } from "@/lib/active-department-navigation";
-import { departmentBuilderAllDepartmentsHref } from "@/lib/department-administration/builder-entry";
 
 const dietaryId = "cldietary000000000000001";
 const evsId = "clevs00000000000000000001";
 
 test("Department Builder area includes list and workspace, not other builders", () => {
-  assert.equal(isDepartmentBuilderAreaPath("/admin/departments"), true);
-  assert.equal(isDepartmentBuilderAreaPath(`/admin/departments/${evsId}`), true);
+  assert.equal(isDepartmentBuilderAreaPath("/build/departments"), true);
+  assert.equal(isDepartmentBuilderAreaPath(`/build/departments/${evsId}`), true);
+  assert.equal(isDepartmentBuilderAreaPath("/admin/departments"), false);
+  assert.equal(isDepartmentBuilderAreaPath(`/admin/departments/${evsId}`), false);
   assert.equal(isDepartmentBuilderAreaPath("/build"), false);
   assert.equal(isDepartmentBuilderAreaPath("/employees"), false);
   assert.equal(isDepartmentBuilderAreaPath("/assets/builder"), false);
@@ -26,7 +27,8 @@ test("Department Builder area includes list and workspace, not other builders", 
 });
 
 test("workspace department id is parsed from the Builder route only", () => {
-  assert.equal(departmentIdFromBuilderWorkspacePath(`/admin/departments/${evsId}`), evsId);
+  assert.equal(departmentIdFromBuilderWorkspacePath(`/build/departments/${evsId}`), evsId);
+  assert.equal(departmentIdFromBuilderWorkspacePath("/build/departments"), null);
   assert.equal(departmentIdFromBuilderWorkspacePath("/admin/departments"), null);
   assert.equal(departmentIdFromBuilderWorkspacePath("/employees"), null);
 });
@@ -34,7 +36,7 @@ test("workspace department id is parsed from the Builder route only", () => {
 test("Dietary → EVS on a retired Cycles tab lands on Operating Rhythm", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: evsId,
-    currentPathname: `/admin/departments/${dietaryId}`,
+    currentPathname: `/build/departments/${dietaryId}`,
     currentSearch: "?tab=cycles",
   });
   assert.equal(href, `/build/departments/${evsId}?tab=operating-rhythm`);
@@ -43,26 +45,25 @@ test("Dietary → EVS on a retired Cycles tab lands on Operating Rhythm", () => 
 test("EVS → Dietary on Locations preserves tab", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: dietaryId,
-    currentPathname: `/admin/departments/${evsId}`,
+    currentPathname: `/build/departments/${evsId}`,
     currentSearch: "?tab=locations",
   });
   assert.equal(href, `/build/departments/${dietaryId}?tab=locations`);
 });
 
-test("specific department → All departments uses the facility list with all=1", () => {
+test("clearing the selected department returns to the Build resolver", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: null,
-    currentPathname: `/admin/departments/${dietaryId}`,
+    currentPathname: `/build/departments/${dietaryId}`,
     currentSearch: "?tab=cycles",
   });
-  assert.equal(href, departmentBuilderAllDepartmentsHref());
+  assert.equal(href, "/build/departments");
 });
 
-test("All departments list → specific department opens that workspace", () => {
+test("Build resolver → specific department opens that workspace", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: dietaryId,
-    currentPathname: "/admin/departments",
-    currentSearch: "?all=1",
+    currentPathname: "/build/departments",
   });
   assert.equal(href, `/build/departments/${dietaryId}`);
 });
@@ -135,7 +136,7 @@ test("All departments (null selection) on an EVS workspace must sync to EVS", ()
 test("list route has no workspace id so it does not sync a department from the URL", () => {
   assert.equal(
     shouldSyncActiveDepartmentFromRoute({
-      routeDepartmentId: departmentIdFromBuilderWorkspacePath("/admin/departments"),
+      routeDepartmentId: departmentIdFromBuilderWorkspacePath("/build/departments"),
       selectedDepartmentId: dietaryId,
       selectableDepartmentIds: [dietaryId, evsId],
     }),
@@ -146,7 +147,7 @@ test("list route has no workspace id so it does not sync a department from the U
 test("header/route invariant: switch href department id equals the selected department", () => {
   const href = hrefAfterActiveDepartmentChange({
     nextDepartmentId: evsId,
-    currentPathname: `/admin/departments/${dietaryId}`,
+    currentPathname: `/build/departments/${dietaryId}`,
     currentSearch: "?tab=cycles",
   });
   assert.equal(departmentIdFromBuilderWorkspacePath(href!.split("?")[0]!), evsId);
@@ -176,11 +177,12 @@ test("selectable departments for the header still use showInEmployeeApp (not Bui
     join(process.cwd(), "src/lib/active-department-context.ts"),
     "utf8",
   );
-  assert.match(source, /where: \{ facilityId, isActive: true, showInEmployeeApp: true \}/);
+  assert.match(source, /loadCustomerOperableDepartments/);
+  assert.match(source, /dept\.showInEmployeeApp/);
   const listPage = readFileSync(
     join(process.cwd(), "src/app/(protected)/admin/departments/page.tsx"),
     "utf8",
   );
-  assert.match(listPage, /where: \{ facilityId, isActive: true \}/);
+  assert.match(listPage, /loadCustomerOperableDepartments/);
   assert.doesNotMatch(listPage, /where: \{ facilityId, isActive: true, showInEmployeeApp/);
 });

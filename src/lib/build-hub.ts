@@ -21,9 +21,9 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
   "/admin/facility/builder":
     "Physical structure and identity — floors, neighborhoods, rooms, spaces, and the location hierarchy.",
   "/build/departments":
-    "Configure how each department operates — Overview, Locations, and Teams. Cycles and need live on the team.",
+    "Configure the selected Department — Overview, Locations, Operating Rhythm, Work, People & Coverage, and Records.",
   "/admin/departments":
-    "Configure how each department operates — Overview, Locations, and Teams. Cycles and need live on the team.",
+    "Manage installed Department Products and add Departments to this facility.",
   "/employees":
     "Workforce configuration — people, employment, department, job role, and HR records.",
   "/assets/builder":
@@ -49,9 +49,9 @@ export const BUILD_PAGE_INTROS: Record<string, string> = {
   "/admin/facility/builder":
     "Define the physical structure of your facility and assign departmental responsibility.",
   "/build/departments":
-    "Facility-level department visibility and heads. Selected-department configuration opens in Department Builder.",
+    "Configure the currently selected Department.",
   "/admin/departments":
-    "Facility-level department visibility and heads. Selected-department configuration opens in Department Builder.",
+    "Manage installed Department Products and add Departments to this facility.",
   "/employees":
     "Manage people, employment records, department assignment, and HR configuration.",
   "/assets/builder":

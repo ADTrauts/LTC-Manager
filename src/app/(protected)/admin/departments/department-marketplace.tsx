@@ -41,7 +41,7 @@ export function DepartmentMarketplace({
           </p>
         </div>
         <Link
-          href="/build/departments?all=1"
+          href="/admin/departments"
           className="shrink-0 text-sm font-medium text-zinc-700 hover:text-zinc-900"
         >
           Back
@@ -98,7 +98,7 @@ export function DepartmentMarketplace({
                             <input type="hidden" name="returnTo" value="departments" />
                           </>
                         ) : (
-                          <input type="hidden" name="returnTo" value="department-builder" />
+                          <input type="hidden" name="returnTo" value="departments" />
                         )}
                         <MarketplaceAddSubmit
                           disabled={!checkoutReady}

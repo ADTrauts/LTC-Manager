@@ -71,9 +71,9 @@ export default async function DepartmentBuilderPage({
       access.reason === "not_entitled" &&
       canPurchaseDepartmentProducts(session.role)
     ) {
-      redirect("/build/departments?all=1&marketplace=1");
+      redirect("/admin/departments?marketplace=1");
     }
-    redirect("/build/departments?all=1");
+    redirect("/admin/departments");
   }
 
   const query = await searchParams;

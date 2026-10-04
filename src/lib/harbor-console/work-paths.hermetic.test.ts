@@ -8,6 +8,8 @@ test("work session allows Facility Builder, Department Builder, Employees, Asset
     "/admin/facility/builder",
     "/admin/departments",
     "/admin/departments/cldept0001",
+    "/build/departments",
+    "/build/departments/cldept0001",
     "/employees",
     "/employees/import",
     "/assets",

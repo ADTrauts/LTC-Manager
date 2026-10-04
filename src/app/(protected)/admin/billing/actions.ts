@@ -8,7 +8,7 @@ import {
   addDepartmentsToFacilitySubscription,
   BillingAddDepartmentsError,
 } from "@/lib/billing/add-departments";
-import { departmentBuilderWorkspaceHref } from "@/lib/department-administration";
+import { adminDepartmentManageHref } from "@/lib/department-administration";
 import {
   DepartmentProductInstallError,
   resolvePublishedDepartmentProductKeys,
@@ -170,7 +170,11 @@ export async function addBillingDepartmentsAction(
       facilityId: session.facilityId,
       departmentKeysToAdd: departmentKeys,
     });
-    if (formData.get("returnTo") === "department-builder" && departmentKeys.length === 1) {
+    const returnTo = formData.get("returnTo");
+    if (returnTo === "departments") {
+      redirect("/admin/departments");
+    }
+    if (returnTo === "department-builder" && departmentKeys.length === 1) {
       const installed = await prisma.department.findUnique({
         where: {
           facilityId_key: { facilityId: session.facilityId, key: departmentKeys[0]! },
@@ -178,7 +182,7 @@ export async function addBillingDepartmentsAction(
         select: { id: true },
       });
       if (installed) {
-        redirect(departmentBuilderWorkspaceHref(installed.id));
+        redirect(adminDepartmentManageHref(installed.id));
       }
     }
     redirect("/admin/billing?departments=added");
@@ -287,14 +291,14 @@ function checkoutSuccessPath(returnTo: CheckoutReturnTo): string {
     return "/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}";
   }
   if (returnTo === "departments") {
-    return "/admin/departments?all=1&checkout=success&session_id={CHECKOUT_SESSION_ID}";
+    return "/admin/departments?checkout=success&session_id={CHECKOUT_SESSION_ID}";
   }
   return "/admin/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}";
 }
 
 function checkoutCancelPath(returnTo: CheckoutReturnTo): string {
   if (returnTo === "setup") return "/setup?checkout=canceled";
-  if (returnTo === "departments") return "/admin/departments?all=1&checkout=canceled";
+  if (returnTo === "departments") return "/admin/departments?checkout=canceled";
   return "/admin/billing?checkout=canceled";
 }
 

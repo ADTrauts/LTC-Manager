@@ -8,6 +8,7 @@ export const HARBOR_WORK_DEFAULT_PATH = "/admin/facility/builder";
 const ALLOWED_PREFIXES = [
   "/admin/facility/builder",
   "/admin/departments",
+  "/build/departments",
   "/employees",
   "/assets",
   "/build/logs",

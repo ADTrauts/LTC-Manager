@@ -114,14 +114,17 @@ export {
 } from "./admin-nav";
 
 export {
+  ADMIN_DEPARTMENTS_HREF,
+  ADMIN_DEPARTMENTS_MARKETPLACE_HREF,
   DEPARTMENT_BUILDER_LIST_HREF,
+  adminDepartmentManageHref,
+  adminDepartmentsHrefFromLegacyBuildQuery,
   departmentBuilderAllDepartmentsHref,
   departmentBuilderHrefAfterDepartmentSwitch,
   departmentBuilderWorkspaceHref,
   isDepartmentBuilderWorkspacePath,
   resolveDepartmentBuilderEntryHref,
   rewriteDepartmentBuilderNavHref,
-  shouldRedirectDepartmentsListToWorkspace,
 } from "./builder-entry";
 
 export {

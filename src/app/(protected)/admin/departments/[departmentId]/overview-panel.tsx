@@ -1,9 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { DepartmentManagerForm } from "@/app/(protected)/admin/departments/[departmentId]/department-manager-form";
 import { prepareDietaryMealTimingUpgradeAction } from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
-import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/department-visibility-form";
 import { AppIcons } from "@/lib/design-system/icons";
 import type { OverviewGuidanceRow } from "@/lib/department-administration/overview-guidance";
 
@@ -116,27 +114,6 @@ export function OverviewPanel({
         )}
       </section>
 
-      <section data-testid="overview-department-manager">
-        <h2 className="text-sm font-semibold text-zinc-900">Department Manager</h2>
-        {settings.headLabel ? (
-          <p className="mt-1 text-base font-medium text-zinc-900">{settings.headLabel}</p>
-        ) : (
-          <p className="mt-1 text-sm text-zinc-500">No Department Manager assigned.</p>
-        )}
-        <p className="text-xs text-zinc-500">Optional. Not required for Run.</p>
-        {settings.canEditHead ? (
-          <div className="mt-2">
-            <DepartmentManagerForm
-              departmentId={department.id}
-              headEmployeeId={settings.headEmployeeId}
-              employees={settings.employees}
-            />
-          </div>
-        ) : null}
-      </section>
-
-      <div className="border-t border-zinc-200" />
-
       <section className="space-y-0" aria-labelledby="dept-config-heading">
         <h2 id="dept-config-heading" className="text-sm font-semibold text-zinc-900">
           This department
@@ -172,27 +149,6 @@ export function OverviewPanel({
           })}
         </div>
       </section>
-
-      <div className="border-t border-zinc-200" />
-
-      {settings.canEditVisibility ? (
-        <details data-testid="overview-advanced-settings">
-          <summary className="cursor-pointer text-xs font-medium text-zinc-500">
-            Advanced settings
-          </summary>
-          <div className="mt-3 max-w-lg">
-            <p className="mb-2 text-xs text-zinc-500">
-              Employee application visibility is a facility-wide picker setting, not day-to-day
-              Department Builder configuration.
-            </p>
-            <DepartmentVisibilityForm
-              departmentId={department.id}
-              showInEmployeeApp={settings.showInEmployeeApp}
-              assignedEmployeeCount={settings.assignedEmployeeCount}
-            />
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }

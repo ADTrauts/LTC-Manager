@@ -2,14 +2,17 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  ADMIN_DEPARTMENTS_HREF,
+  ADMIN_DEPARTMENTS_MARKETPLACE_HREF,
   DEPARTMENT_BUILDER_LIST_HREF,
+  adminDepartmentManageHref,
+  adminDepartmentsHrefFromLegacyBuildQuery,
   departmentBuilderAllDepartmentsHref,
   departmentBuilderHrefAfterDepartmentSwitch,
   departmentBuilderWorkspaceHref,
   isDepartmentBuilderWorkspacePath,
   resolveDepartmentBuilderEntryHref,
   rewriteDepartmentBuilderNavHref,
-  shouldRedirectDepartmentsListToWorkspace,
 } from "@/lib/department-administration/builder-entry";
 
 describe("Department Builder entry routing", () => {
@@ -38,38 +41,29 @@ describe("Department Builder entry routing", () => {
     );
   });
 
-  it("redirects list → workspace when a department is selected unless ?all=1", () => {
+  it("sends leftover Build management queries to Admin", () => {
     assert.equal(
-      shouldRedirectDepartmentsListToWorkspace({
-        activeDepartmentId: "clx",
-        forceAllDepartments: false,
-      }),
-      true,
+      adminDepartmentsHrefFromLegacyBuildQuery({ marketplace: true }),
+      ADMIN_DEPARTMENTS_MARKETPLACE_HREF,
     );
     assert.equal(
-      shouldRedirectDepartmentsListToWorkspace({
-        activeDepartmentId: "clx",
-        forceAllDepartments: true,
-      }),
-      false,
+      adminDepartmentsHrefFromLegacyBuildQuery({ all: true }),
+      ADMIN_DEPARTMENTS_HREF,
     );
-    assert.equal(
-      shouldRedirectDepartmentsListToWorkspace({
-        activeDepartmentId: null,
-        forceAllDepartments: false,
-      }),
-      false,
-    );
+    assert.equal(departmentBuilderAllDepartmentsHref(), ADMIN_DEPARTMENTS_HREF);
+    assert.equal(adminDepartmentManageHref("clx"), "/admin/departments/clx/manage");
   });
 
-  it("detects workspace paths and preserves tab when switching department", () => {
-    assert.equal(isDepartmentBuilderWorkspacePath("/admin/departments/clx"), true);
-    assert.equal(isDepartmentBuilderWorkspacePath("/admin/departments/clx?tab=locations"), true);
+  it("detects Build workspace paths and preserves tab when switching department", () => {
+    assert.equal(isDepartmentBuilderWorkspacePath("/build/departments/clx"), true);
+    assert.equal(isDepartmentBuilderWorkspacePath("/build/departments/clx?tab=locations"), true);
+    assert.equal(isDepartmentBuilderWorkspacePath("/admin/departments/clx"), false);
     assert.equal(isDepartmentBuilderWorkspacePath("/admin/departments"), false);
+    assert.equal(isDepartmentBuilderWorkspacePath("/build/departments"), false);
     assert.equal(
       departmentBuilderHrefAfterDepartmentSwitch({
         nextDepartmentId: "clevs",
-        currentPathname: "/admin/departments/cldiet",
+        currentPathname: "/build/departments/cldiet",
         currentSearch: "?tab=locations&profile=old",
       }),
       "/build/departments/clevs?tab=locations",
@@ -77,21 +71,18 @@ describe("Department Builder entry routing", () => {
     assert.equal(
       departmentBuilderHrefAfterDepartmentSwitch({
         nextDepartmentId: null,
-        currentPathname: "/admin/departments/cldiet",
+        currentPathname: "/build/departments/cldiet",
       }),
-      departmentBuilderAllDepartmentsHref(),
+      DEPARTMENT_BUILDER_LIST_HREF,
     );
     assert.equal(
       departmentBuilderHrefAfterDepartmentSwitch({
         nextDepartmentId: "clevs",
-        currentPathname: "/admin/departments/cldiet",
+        currentPathname: "/build/departments/cldiet",
         currentSearch: "?tab=cycles",
       }),
       "/build/departments/clevs?tab=operating-rhythm",
     );
-    assert.equal(
-      departmentBuilderWorkspaceHref("abc"),
-      "/build/departments/abc",
-    );
+    assert.equal(departmentBuilderWorkspaceHref("abc"), "/build/departments/abc");
   });
 });

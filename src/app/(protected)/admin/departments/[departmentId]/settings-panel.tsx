@@ -71,10 +71,10 @@ export function SettingsPanel({ view }: Props) {
         <ul className="space-y-2 text-sm">
           <li>
             <Link
-              href="/admin/departments?all=1"
+              href="/admin/departments"
               className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
-              All departments (visibility & heads)
+              Departments (Admin)
             </Link>
           </li>
           <li>

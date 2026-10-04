@@ -36,11 +36,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/admin/departments",
-        destination: "/build/departments",
-        permanent: false,
-      },
-      {
         source: "/admin/departments/:departmentId",
         destination: "/build/departments/:departmentId",
         permanent: false,
@@ -59,10 +54,6 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
-      {
-        source: "/build/departments",
-        destination: "/admin/departments",
-      },
       {
         source: "/build/departments/:departmentId",
         destination: "/admin/departments/:departmentId",

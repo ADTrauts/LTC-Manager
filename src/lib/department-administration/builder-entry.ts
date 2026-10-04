@@ -1,18 +1,24 @@
 /**
  * Department Builder entry resolution.
  *
- * Global department selector (cookie `ltc_active_department`) is the department lens.
- * Build → Department Builder should open that department's workspace when a selection exists.
+ * Global department selector is the department lens.
+ * Build → Department Builder opens that department's operational workspace.
+ * Admin → Departments owns installation, Marketplace, and administrative controls.
  */
 
 import { resolveDepartmentAdminTab } from "./admin-nav";
 
 export const DEPARTMENT_BUILDER_LIST_HREF = "/build/departments";
-export const DEPARTMENT_BUILDER_ALL_QUERY = "all=1";
+export const ADMIN_DEPARTMENTS_HREF = "/admin/departments";
+export const ADMIN_DEPARTMENTS_MARKETPLACE_HREF = "/admin/departments?marketplace=1";
 
-/** Facility-management list (bypass selected-department redirect). */
+export function adminDepartmentManageHref(departmentId: string): string {
+  return `${ADMIN_DEPARTMENTS_HREF}/${departmentId}/manage`;
+}
+
+/** @deprecated Compatibility alias — the facility list now lives in Admin. */
 export function departmentBuilderAllDepartmentsHref(): string {
-  return `${DEPARTMENT_BUILDER_LIST_HREF}?${DEPARTMENT_BUILDER_ALL_QUERY}`;
+  return ADMIN_DEPARTMENTS_HREF;
 }
 
 /** Selected-department workspace (Overview by default). */
@@ -23,7 +29,7 @@ export function departmentBuilderWorkspaceHref(departmentId: string): string {
 /**
  * Resolve the Build sidebar / hub href for Department Builder.
  * When a selected department exists, deep-link into its workspace.
- * When FA is in all-departments mode (null id), keep the list href.
+ * When none is selected, `/build/departments` resolves the operable Department.
  */
 export function resolveDepartmentBuilderEntryHref(
   activeDepartmentId: string | null | undefined,
@@ -51,10 +57,10 @@ export function rewriteDepartmentBuilderNavHref<T extends { href: string }>(
   );
 }
 
-/** True when pathname is a Department Builder workspace (not the facility list). */
+/** True when pathname is a Department Builder workspace (not Admin management). */
 export function isDepartmentBuilderWorkspacePath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  return /^\/(?:admin|build)\/departments\/[^/]+/.test(pathname);
+  return /^\/build\/departments\/[^/]+/.test(pathname);
 }
 
 /**
@@ -67,7 +73,7 @@ export function departmentBuilderHrefAfterDepartmentSwitch(input: {
   currentSearch?: string;
 }): string {
   if (!input.nextDepartmentId) {
-    return departmentBuilderAllDepartmentsHref();
+    return DEPARTMENT_BUILDER_LIST_HREF;
   }
   const params = new URLSearchParams(
     input.currentSearch?.startsWith("?")
@@ -84,12 +90,14 @@ export function departmentBuilderHrefAfterDepartmentSwitch(input: {
   return qs ? `${base}?${qs}` : base;
 }
 
-/** Whether the list page should redirect into the selected department workspace. */
-export function shouldRedirectDepartmentsListToWorkspace(input: {
-  activeDepartmentId: string | null | undefined;
-  /** When true (`?all=1`), keep the facility-level management list. */
-  forceAllDepartments: boolean;
-}): boolean {
-  if (input.forceAllDepartments) return false;
-  return Boolean(input.activeDepartmentId?.trim());
+/**
+ * Compatibility query on `/build/departments` that used to force the management list.
+ * Those URLs now belong to Admin.
+ */
+export function adminDepartmentsHrefFromLegacyBuildQuery(input: {
+  marketplace?: boolean;
+  all?: boolean;
+}): string {
+  if (input.marketplace) return ADMIN_DEPARTMENTS_MARKETPLACE_HREF;
+  return ADMIN_DEPARTMENTS_HREF;
 }

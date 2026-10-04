@@ -9,7 +9,7 @@ import { resolveDepartmentBuilderEntryHref } from "@/lib/department-administrati
 
 const NAV = [
   { href: "/admin/facility/builder", match: "/admin/facility/builder", label: "Facility Builder" },
-  { href: "/admin/departments", match: "/admin/departments", label: "Department Builder" },
+  { href: "/build/departments", match: "/build/departments", label: "Department Builder" },
   { href: "/employees", match: "/employees", label: "Employees" },
   { href: "/assets", match: "/assets", label: "Assets" },
   { href: "/build/logs", match: "/build/logs", label: "Logs" },
@@ -58,7 +58,7 @@ export function HarborWorkSessionShell({
         <p className="mr-2 text-sm font-semibold tracking-tight">Vssyl · {facilityName}</p>
         <nav className="flex flex-wrap items-center gap-1" aria-label="Work session">
           {NAV.map((item) => {
-            const href = item.match === "/admin/departments" ? departmentBuilderHref : item.href;
+            const href = item.match === "/build/departments" ? departmentBuilderHref : item.href;
             const active = navActive(pathname, item.match);
             return (
               <Link

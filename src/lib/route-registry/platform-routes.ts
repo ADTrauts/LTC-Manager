@@ -819,23 +819,39 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     nav: { label: "Admin", order: 300 },
   },
   {
-    pattern: "/build/departments",
+    pattern: "/admin/departments",
     match: "EXACT",
     surface: "PAGE",
-    // Phase 9A: Manager+ may reach Department Builder for Operational Cycles.
-    // Cycle mutations still enforce Dietary operational authority (FA alone is denied).
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
-    // BUILD · Department Builder — Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
-    nav: { label: "Department Builder", order: 220 },
+    notes: "Department Product installation, entitlement, and administrative management.",
   },
   {
-    pattern: "/build/departments/[departmentId]",
+    pattern: "/admin/departments/[departmentId]/manage",
     match: "EXACT",
     surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    notes: "Administrative ownership for one installed Department Product.",
+  },
+  {
+    pattern: "/admin/departments/[departmentId]",
+    match: "EXACT",
+    surface: "PAGE",
+    // Physical Builder files still live here; next.config redirects the URL to /build/departments/:id.
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "administration",
     requiresDownstreamAuthorization: true,
+    notes: "Compatibility leftover for Department Builder files. Canonical URL is /build/departments/:id.",
+  },
+  {
+    pattern: "/build/departments",
+    match: "PREFIX",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "administration",
+    nav: { label: "Department Builder", order: 220 },
+    notes: "Resolver at /build/departments; workspace URLs rewrite to the Builder files.",
   },
   {
     pattern: "/admin/facility/builder",

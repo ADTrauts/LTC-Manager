@@ -37,6 +37,8 @@ test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
     "app/(protected)/admin/organization/page.tsx",
     "app/(protected)/admin/organization/facilities/page.tsx",
     "app/(protected)/admin/billing/page.tsx",
+    "app/(protected)/admin/departments/page.tsx",
+    "app/(protected)/admin/departments/[departmentId]/manage/page.tsx",
   ];
   for (const page of pages) {
     const source = readSrc(page);
@@ -57,7 +59,6 @@ test("admin child pages use shared AdminPageHeader or AdminBreadcrumbs", () => {
 test("BUILD surfaces under /admin use Build chrome, not Back to Administration", () => {
   const pages = [
     ["app/(protected)/admin/facility/builder/page.tsx", "FacilityBuildContextBar"],
-    ["app/(protected)/admin/departments/page.tsx", "BuildPageHeader"],
     ["app/(protected)/admin/departments/[departmentId]/page.tsx", "DepartmentBuildContextBar"],
     ["app/(protected)/admin/inspections/page.tsx", "BuildPageHeader"],
     ["app/(protected)/admin/knowledge/page.tsx", "BuildPageHeader"],
@@ -106,10 +107,13 @@ test("access matrix copy uses Roles not Jobs", () => {
 test("department visibility copy does not imply licensing", () => {
   const form = readSrc("app/(protected)/admin/departments/department-visibility-form.tsx");
   const page = readSrc("app/(protected)/admin/departments/page.tsx");
+  const manage = readSrc("app/(protected)/admin/departments/[departmentId]/manage/page.tsx");
   assert.match(form, /Show in employee application/);
   assert.match(form, /not a\s+subscription or license setting/);
   assert.doesNotMatch(form, /purchased|entitlement|licensed module/i);
   assert.doesNotMatch(page, /Turn departments on or off|purchased departments|licensed modules/i);
+  assert.match(manage, /DepartmentVisibilityForm/);
+  assert.match(page, /AdminPageHeader/);
 });
 
 test("knowledge page clarifies resources do not assign departments to rooms", () => {

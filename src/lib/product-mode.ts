@@ -48,7 +48,6 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     // ── BUILD — configuration surfaces ─────────────────────────────────────
     { pathPrefix: "/build", mode: "BUILD", label: "Build Home" },
     { pathPrefix: "/admin/facility/builder", mode: "BUILD", label: "Facility Builder" },
-    { pathPrefix: "/admin/departments", mode: "BUILD", label: "Department Builder" },
     { pathPrefix: "/build/departments", mode: "BUILD", label: "Department Builder" },
     { pathPrefix: "/admin/knowledge", mode: "BUILD", label: "Procedures" },
     { pathPrefix: "/build/knowledge", mode: "BUILD", label: "Procedures" },
@@ -63,6 +62,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
 
     // ── ADMIN — governance surfaces ────────────────────────────────────────
     { pathPrefix: "/admin/organization", mode: "ADMIN", label: "Organization" },
+    { pathPrefix: "/admin/departments", mode: "ADMIN", label: "Departments" },
     { pathPrefix: "/admin/permissions", mode: "ADMIN", label: "Access Matrix" },
     { pathPrefix: "/admin/billing", mode: "ADMIN", label: "Billing" },
     { pathPrefix: "/admin", mode: "ADMIN", label: "Admin" },

@@ -20,11 +20,18 @@ test("admin hub is Organization and Access only", () => {
   );
 });
 
-test("admin hub cards are Organization, Billing, Access, and Account", () => {
+test("admin hub cards are Organization, Departments, Billing, Access, and Account", () => {
   const byId = new Map(flattenAdminHubLinks().map((link) => [link.id, link]));
 
   assert.equal(byId.get("organization_settings")?.label, "Organization");
   assert.equal(byId.get("organization_settings")?.href, "/admin/organization");
+
+  assert.equal(byId.get("departments")?.label, "Departments");
+  assert.equal(byId.get("departments")?.href, "/admin/departments");
+  assert.match(
+    byId.get("departments")?.description ?? "",
+    /Manage installed Department Products and add Departments to this facility/,
+  );
 
   assert.equal(byId.get("billing")?.label, "Billing");
   assert.equal(byId.get("billing")?.href, "/admin/billing");
@@ -37,7 +44,7 @@ test("admin hub cards are Organization, Billing, Access, and Account", () => {
 
   assert.deepEqual(
     flattenAdminHubLinks().map((link) => link.id),
-    ["organization_settings", "billing", "roles_permissions", "account"],
+    ["organization_settings", "departments", "billing", "roles_permissions", "account"],
   );
 });
 
@@ -46,7 +53,10 @@ test("builders are not primary admin hub cards", () => {
   for (const excluded of ADMIN_HUB_EXCLUDED_PRIMARY_HREFS) {
     assert.equal(hrefs.includes(excluded), false, excluded);
   }
-  assert.deepEqual([...hrefs], ["/admin/organization", "/admin/billing", "/admin/permissions", "/account"]);
+  assert.deepEqual(
+    [...hrefs],
+    ["/admin/organization", "/admin/departments", "/admin/billing", "/admin/permissions", "/account"],
+  );
 });
 
 test("visible admin hub matches the catalog", () => {

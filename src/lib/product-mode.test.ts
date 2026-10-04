@@ -44,8 +44,8 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
   for (const path of [
     "/build",
     "/admin/facility/builder",
-    "/admin/departments",
-    "/admin/departments/dept-1",
+    "/build/departments",
+    "/build/departments/dept-1",
     "/admin/knowledge",
     "/employees",
     "/employees/import",
@@ -60,7 +60,17 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
 });
 
 test("product-mode — governance surfaces resolve to ADMIN", () => {
-  for (const path of ["/admin", "/admin/organization", "/admin/organization/facilities", "/admin/permissions", "/admin/billing", "/account", "/help"]) {
+  for (const path of [
+    "/admin",
+    "/admin/organization",
+    "/admin/organization/facilities",
+    "/admin/departments",
+    "/admin/departments/dept-1/manage",
+    "/admin/permissions",
+    "/admin/billing",
+    "/account",
+    "/help",
+  ]) {
     assert.equal(resolveProductModeForPath(path), "ADMIN", path);
   }
 });
@@ -71,7 +81,9 @@ test("product-mode — longest-prefix wins so BUILD tools override the RUN /staf
   assert.equal(resolveProductModeForPath("/staffing/work-plans"), "BUILD");
   // and BUILD tools override the ADMIN /admin default
   assert.equal(resolveProductModeForPath("/admin"), "ADMIN");
-  assert.equal(resolveProductModeForPath("/admin/departments"), "BUILD");
+  assert.equal(resolveProductModeForPath("/admin/facility/builder"), "BUILD");
+  assert.equal(resolveProductModeForPath("/admin/departments"), "ADMIN");
+  assert.equal(resolveProductModeForPath("/build/departments"), "BUILD");
 });
 
 test("product-mode — unknown paths default to RUN (never hides a surface behind a mode)", () => {
@@ -82,7 +94,8 @@ test("product-mode — unknown paths default to RUN (never hides a surface behin
 test("product-mode — area label is available for the mode indicator", () => {
   assert.equal(resolveProductAreaLabel("/units"), "Locations");
   assert.equal(resolveProductAreaLabel("/build"), "Build Home");
-  assert.equal(resolveProductAreaLabel("/admin/departments"), "Department Builder");
+  assert.equal(resolveProductAreaLabel("/admin/departments"), "Departments");
+  assert.equal(resolveProductAreaLabel("/build/departments"), "Department Builder");
   assert.equal(resolveProductAreaLabel("/admin/billing"), "Billing");
   assert.equal(resolveProductAreaLabel("/staffing/log-book"), "Log Book");
   assert.equal(resolveProductAreaLabel("/help"), "Help & Support");
@@ -91,7 +104,7 @@ test("product-mode — area label is available for the mode indicator", () => {
 test("groupNavItemsByMode — groups in RUN → BUILD → ADMIN order and preserves item order", () => {
   const groups = groupNavItemsByMode([
     { label: "Dashboard", href: "/workspace" },
-    { label: "Department Builder", href: "/admin/departments" },
+    { label: "Department Builder", href: "/build/departments" },
     { label: "Locations", href: "/units" },
     { label: "Admin", href: "/admin" },
     { label: "Facility Builder", href: "/admin/facility/builder" },
@@ -106,7 +119,7 @@ test("groupNavItemsByMode — groups in RUN → BUILD → ADMIN order and preser
   );
   assert.deepEqual(
     groups[1]?.items.map((i) => i.href),
-    ["/admin/departments", "/admin/facility/builder"],
+    ["/build/departments", "/admin/facility/builder"],
   );
 });
 
@@ -127,10 +140,11 @@ test("resolveActiveMode — active mode follows the path, falling back to an ava
   assert.equal(resolveActiveMode("/admin", runOnly), "RUN");
   const full = groupNavItemsByMode([
     { label: "Dashboard", href: "/workspace" },
-    { label: "Department Builder", href: "/admin/departments" },
+    { label: "Department Builder", href: "/build/departments" },
     { label: "Admin", href: "/admin" },
   ]);
-  assert.equal(resolveActiveMode("/admin/departments", full), "BUILD");
+  assert.equal(resolveActiveMode("/build/departments", full), "BUILD");
+  assert.equal(resolveActiveMode("/admin/departments", full), "ADMIN");
   assert.equal(resolveActiveMode("/workspace", full), "RUN");
   assert.equal(resolveActiveMode("/admin", full), "ADMIN");
 });
@@ -150,7 +164,7 @@ test("headerNavItemsForMode — BUILD contributes no header nav items (rail owns
   const buildItems = [
     { label: "Build Home", href: "/build" },
     { label: "Facility Builder", href: "/admin/facility/builder" },
-    { label: "Department Builder", href: "/admin/departments" },
+    { label: "Department Builder", href: "/build/departments" },
     { label: "Employee Builder", href: "/employees" },
     { label: "Asset Builder", href: "/assets/builder" },
   ];

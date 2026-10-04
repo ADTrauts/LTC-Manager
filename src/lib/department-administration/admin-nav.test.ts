@@ -112,7 +112,7 @@ describe("Department Builder local navigation", () => {
     assert.equal(profileStatusBadgeVariant("RETIRED"), "warning");
   });
 
-  it("Overview is compact: manager, no profile lifecycle, visibility demoted", () => {
+  it("Overview is operational guidance only — no administrative ownership controls", () => {
     const overview = readFileSync(
       join(
         process.cwd(),
@@ -120,8 +120,9 @@ describe("Department Builder local navigation", () => {
       ),
       "utf8",
     );
-    assert.match(overview, /Department Manager/);
-    assert.match(overview, /overview-advanced-settings/);
+    assert.match(overview, /This department/);
+    assert.doesNotMatch(overview, /Department Manager/);
+    assert.doesNotMatch(overview, /overview-advanced-settings/);
     assert.equal(/Ready to certify/.test(overview), false);
     assert.equal(/rooms mapped/.test(overview), false);
     assert.equal(/Department head/.test(overview), false);

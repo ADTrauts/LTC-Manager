@@ -22,6 +22,8 @@ function revalidateDepartmentRelatedViews(departmentId?: string) {
   revalidatePath("/admin/departments");
   if (departmentId) {
     revalidatePath(`/admin/departments/${departmentId}`);
+    revalidatePath(`/admin/departments/${departmentId}/manage`);
+    revalidatePath(`/build/departments/${departmentId}`);
   }
   revalidatePath("/department/settings");
   revalidatePath("/employees");

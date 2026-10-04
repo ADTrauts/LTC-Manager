@@ -14,21 +14,18 @@ function isBuilderPath(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-/** Department Builder list or a specific workspace. */
+/** Department Builder list resolver or a specific workspace. */
 export function isDepartmentBuilderAreaPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  return (
-    isBuilderPath(pathname, DEPARTMENT_BUILDER_AREA_PREFIX) ||
-    isBuilderPath(pathname, "/admin/departments")
-  );
+  return isBuilderPath(pathname, DEPARTMENT_BUILDER_AREA_PREFIX);
 }
 
-/** Workspace department id from `/build/departments/{id}` (or leftover /admin). */
+/** Workspace department id from `/build/departments/{id}`. */
 export function departmentIdFromBuilderWorkspacePath(
   pathname: string | null | undefined,
 ): string | null {
   if (!pathname) return null;
-  const match = /^\/(?:admin|build)\/departments\/([^/]+)\/?$/.exec(pathname);
+  const match = /^\/build\/departments\/([^/]+)\/?$/.exec(pathname);
   const id = match?.[1]?.trim();
   return id ? id : null;
 }

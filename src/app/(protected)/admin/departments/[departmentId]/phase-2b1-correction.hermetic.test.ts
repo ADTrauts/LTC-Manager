@@ -11,7 +11,7 @@ test("Overview identity appears once — panel does not repeat department name h
     ),
     "utf8",
   );
-  assert.match(overview, /Department Manager/);
+  assert.match(overview, /This department/);
   assert.match(overview, /This department/);
   assert.doesNotMatch(overview, /<h2[^>]*>\{department\.name\}<\/h2>/);
   assert.match(overview, /actionLabel=\{row\.actionLabel\}/);
