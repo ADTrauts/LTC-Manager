@@ -50,6 +50,7 @@ test("list query normalizes defaults and ignores unknown enums", () => {
     type: "unclassified",
     assignee: "me",
     facility: "none",
+    contact: "not-a-cuid",
     updated: "7d",
     page: "0",
   });
@@ -60,6 +61,7 @@ test("list query normalizes defaults and ignores unknown enums", () => {
   assert.equal(dirty.type, "unclassified");
   assert.equal(dirty.assignee, "me");
   assert.equal(dirty.facility, "none");
+  assert.equal(dirty.contact, null);
   assert.equal(dirty.updated, "7d");
   assert.equal(dirty.page, 1);
 });
@@ -89,14 +91,15 @@ test("URL state is bookmarkable and clear/queue tabs drop incompatible params", 
     assignee: "me",
     page: "2",
     tag: "reporting",
+    contact: "cabcdefghijklmnopqrstu",
   });
   assert.equal(
     supportListHref(query),
-    "/console/tickets?queue=unassigned&q=export&status=OPEN&priority=HIGH&assignee=me&tag=reporting&page=2",
+    "/console/tickets?queue=unassigned&q=export&status=OPEN&priority=HIGH&assignee=me&contact=cabcdefghijklmnopqrstu&tag=reporting&page=2",
   );
   assert.equal(
     supportQueueTabHref(query, "high"),
-    "/console/tickets?queue=high&q=export&priority=HIGH&tag=reporting",
+    "/console/tickets?queue=high&q=export&priority=HIGH&contact=cabcdefghijklmnopqrstu&tag=reporting",
   );
   assert.equal(supportListClearHref(query), "/console/tickets?queue=unassigned");
   assert.equal(supportListHref({}), "/console/tickets");
@@ -118,6 +121,14 @@ test("filters AND with the queue; exact ticket number ignores them when the row 
       { assignedStaffId: null, status: { in: ["NEW", "OPEN", "WAITING_ON_CUSTOMER"] } },
       { priority: "HIGH" },
     ],
+  });
+  const contact = parseSupportListQuery({
+    contact: "cabcdefghijklmnopqrstu",
+    status: "OPEN",
+  });
+  assert.deepEqual(contact.contact, { contactId: "cabcdefghijklmnopqrstu" });
+  assert.deepEqual(supportListWhere(contact, { staffId: "s1" }), {
+    AND: [{}, { status: "OPEN" }, { contactId: "cabcdefghijklmnopqrstu" }],
   });
 });
 

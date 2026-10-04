@@ -53,10 +53,15 @@ Harbor staff only (`/console/tickets`). Facility sessions cannot query tickets. 
 `src/lib/support/list-query.ts`, `list.ts`, `queues.ts`.
 
 State lives in the URL: `q`, `queue`, `status`, `priority`, `type`, `assignee`, `facility`,
-`tag`, `updated`, `page`. Queue tabs keep `q` and compatible refinements (priority, type, facility,
-tag, date) and drop status, assignee, and page. **Clear filters** returns to the current queue with
-no refinements. Queue sets the canonical scope; extra filters AND with it (`Unassigned` + `HIGH`).
-Contradictory combinations (New + status=OPEN) return empty results rather than a silent override.
+`contact`, `tag`, `updated`, `page`. Queue tabs keep `q` and compatible refinements (priority, type,
+facility, contact, tag, date) and drop status, assignee, and page. **Clear filters** returns to the
+current queue with no refinements. Queue sets the canonical scope; extra filters AND with it
+(`Unassigned` + `HIGH`). Contradictory combinations (New + status=OPEN) return empty results rather
+than a silent override.
+
+`contact=<SupportContact id>` is a Harbor-only refinement from ticket/contact context. It is not
+shown as a dropdown on the main list. The ticket-number fast path still ignores other filters,
+including contact.
 
 Search (`q`) is case-insensitive `contains` on ticket subject, contact email, contact display name,
 facility name, and **all** message `bodyText` including internal notes. Notes may match because
@@ -163,6 +168,37 @@ Canonical `SupportTicketEvent` rows are written for status/type/priority/assignm
 `metadata` may include `source: "MACRO"`, `macroId`, and a `macroName` snapshot. Tag adds stay
 join-only. `SupportMacroApplication` records each apply (`macroName` snapshot). Soft-deactivate;
 no hard delete after use.
+
+## Support history
+
+Harbor-only context derived from `SupportTicket`. It is not a second CRM or ticket store. Counts and
+recent rows are queried; there is no summary table.
+
+Active tickets use the same queue definition: `NEW`, `OPEN`, `WAITING_ON_CUSTOMER`. `RESOLVED` and
+`CLOSED` are not active.
+
+**SupportContact history** (`/console/support/contacts/[contactId]`) belongs to the contact record
+(normalized email), not the current user or facility relationship. A contact may have no user and no
+facility. If the contact later changes facility, historical tickets keep their original
+`SupportTicket.facilityId`.
+
+Shows total/active/waiting/resolved/closed, last ticket `updatedAt`, and the 5 most recently updated
+tickets (`updatedAt` desc, then `number` desc). **View all** opens `/console/tickets?contact=…`.
+Empty: “No previous support history.”
+
+**Facility history** on `/console/customers/[facilityId]` includes only tickets whose
+`SupportTicket.facilityId` is that facility. It does not infer from user membership, the contact’s
+current facility, or email domain. Unlinked tickets stay out of facility history. Empty: “No support
+tickets for this facility.” Recent requesters come from those recent ticket rows.
+
+Ticket detail links the requester to the contact page and “N previous tickets” (excluding the
+current ticket) to the contact-filtered list. Facility context is “N support tickets · M active”
+and opens the facility-filtered list. Requester name/email and facility name are Harbor-only
+navigation.
+
+History rows select ticket identity, status, priority/type, and `updatedAt` only. No message bodies,
+headers, provider IDs, notes, or attachments. Delivery warnings and tags are omitted from the
+summary.
 
 ## Notifications
 
@@ -636,5 +672,5 @@ it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
 
 Malware scanner vendor and `SupportAttachmentScanner` processor (stored files remain `PENDING` and
 non-downloadable), outbound attachments, attachment previews, retention/deletion automation,
-acknowledgment emails, notification preferences and retention cleanup, SLAs, teams
-and routing rules, AI classification, feature-request aggregation, customer portal, and chat.
+acknowledgment emails, notification preferences and retention cleanup, time-based automation, SLAs,
+teams and routing rules, AI classification, feature-request aggregation, customer portal, and chat.

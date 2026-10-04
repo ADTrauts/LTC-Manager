@@ -165,6 +165,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
   },
   {
+    pattern: "/console/support/contacts/[contactId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Support contact history. Derived from SupportTicket; not a customer CRM.",
+  },
+  {
     pattern: "/api/console/auth/login",
     match: "EXACT",
     surface: "API",

@@ -35,6 +35,7 @@ import {
 import { describeSupportMacroActions, listSupportMacros } from "@/lib/support/macros";
 import { listSupportSavedReplies, renderSupportSavedReply } from "@/lib/support/saved-replies";
 import { allowedSupportTicketTransitions } from "@/lib/support/status-transition";
+import { loadSupportTicketHistoryContext } from "@/lib/support/history";
 import { listSupportTags } from "@/lib/support/tags";
 import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 import {
@@ -141,7 +142,7 @@ export default async function ConsoleTicketPage({
     notFound();
   }
 
-  const [staff, facilities, savedReplies, tags, macros] = await Promise.all([
+  const [staff, facilities, savedReplies, tags, macros, history] = await Promise.all([
     prisma.platformStaff.findMany({
       where: { OR: [{ isActive: true }, ...(ticket.assignedStaffId ? [{ id: ticket.assignedStaffId }] : [])] },
       orderBy: { displayName: "asc" },
@@ -155,6 +156,10 @@ export default async function ConsoleTicketPage({
     listSupportSavedReplies(prisma, { activeOnly: true }),
     listSupportTags(prisma, { activeOnly: true }),
     listSupportMacros(prisma, { activeOnly: true }),
+    loadSupportTicketHistoryContext(prisma, {
+      contactId: ticket.contactId,
+      facilityId: ticket.facilityId,
+    }),
   ]);
   if (ticket.facility && !facilities.some((row) => row.id === ticket.facility?.id)) {
     facilities.unshift(ticket.facility);
@@ -242,8 +247,15 @@ export default async function ConsoleTicketPage({
           <div className="min-w-0">
             <dt className="text-xs text-[var(--text-secondary)]">Requester</dt>
             <dd className="truncate">
-              {ticket.contact.displayName ? `${ticket.contact.displayName} · ` : ""}
-              {ticket.contact.email}
+              <Link href={history.contact.contactHref} className="underline">
+                {ticket.contact.displayName ? `${ticket.contact.displayName} · ` : ""}
+                {ticket.contact.email}
+              </Link>
+            </dd>
+            <dd>
+              <Link href={history.contact.ticketsHref} className="text-xs text-[var(--text-secondary)] hover:underline">
+                {history.contact.previousLabel}
+              </Link>
             </dd>
             {ticket.contact.userId ? (
               <dd className="text-xs text-[var(--text-secondary)]">Matches a Vssyl user</dd>
@@ -260,6 +272,13 @@ export default async function ConsoleTicketPage({
                 "No facility"
               )}
             </dd>
+            {history.facility ? (
+              <dd>
+                <Link href={history.facility.ticketsHref} className="text-xs text-[var(--text-secondary)] hover:underline">
+                  {history.facility.label}
+                </Link>
+              </dd>
+            ) : null}
           </div>
         </dl>
         <div className="rounded-md border border-[var(--border)] bg-white px-4 py-3">

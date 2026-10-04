@@ -23,7 +23,7 @@ export type SupportTicketListRow = {
   type: SupportTicketType | null;
   priority: SupportTicketPriority;
   updatedAt: Date;
-  contact: { email: string; displayName: string | null };
+  contact: { id: string; email: string; displayName: string | null };
   facility: { displayName: string } | null;
   assignedStaff: { displayName: string } | null;
   tags: { name: string; normalizedName: string }[];
@@ -75,7 +75,7 @@ export async function listSupportTickets(
         type: true,
         priority: true,
         updatedAt: true,
-        contact: { select: { email: true, displayName: true } },
+        contact: { select: { id: true, email: true, displayName: true } },
         facility: { select: { displayName: true } },
         assignedStaff: { select: { displayName: true } },
         ticketTags: {

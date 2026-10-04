@@ -11,6 +11,7 @@ import {
   SUPPORT_TICKET_TYPE_LABEL,
   SUPPORT_TICKET_TYPES,
 } from "@/lib/support/labels";
+import { supportContactHref } from "@/lib/support/history";
 import { listSupportTickets } from "@/lib/support/list";
 import {
   hasSupportListRefinements,
@@ -67,6 +68,12 @@ export default async function ConsoleTicketsPage({
       }),
       listSupportTags(prisma),
     ]);
+  const filteredContact = query.contact
+    ? await prisma.supportContact.findUnique({
+        where: { id: query.contact.contactId },
+        select: { id: true, email: true, displayName: true },
+      })
+    : null;
 
   const refined = hasSupportListRefinements(query);
   const emptyMessage = emptyListMessage(query, total);
@@ -109,6 +116,16 @@ export default async function ConsoleTicketsPage({
 
       <form action="/console/tickets" className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
         {query.queue !== "all" ? <input type="hidden" name="queue" value={query.queue} /> : null}
+        {query.contact ? <input type="hidden" name="contact" value={query.contact.contactId} /> : null}
+        {filteredContact ? (
+          <p className="text-sm text-[var(--text-secondary)]">
+            Showing tickets for{" "}
+            <Link href={supportContactHref(filteredContact.id)} className="font-medium hover:underline">
+              {filteredContact.displayName || filteredContact.email}
+            </Link>
+            .
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <label className="sr-only" htmlFor="support-ticket-search">
             Search tickets
@@ -290,13 +307,15 @@ export default async function ConsoleTicketsPage({
                       {warning ? <p className="mt-1 text-xs font-medium text-red-700">{warning}</p> : null}
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)]">
-                      {ticket.contact.displayName ? (
-                        <>
-                          <span className="text-[var(--foreground)]">{ticket.contact.displayName}</span>
-                          <br />
-                        </>
-                      ) : null}
-                      {ticket.contact.email}
+                      <Link href={supportContactHref(ticket.contact.id)} className="hover:underline">
+                        {ticket.contact.displayName ? (
+                          <>
+                            <span className="text-[var(--foreground)]">{ticket.contact.displayName}</span>
+                            <br />
+                          </>
+                        ) : null}
+                        {ticket.contact.email}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)]">
                       {ticket.facility?.displayName ?? "—"}

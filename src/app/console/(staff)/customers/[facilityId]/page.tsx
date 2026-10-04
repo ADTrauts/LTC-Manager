@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { SupportHistoryPanel } from "@/components/harbor-console/support-history-panel";
 import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborFacility } from "@/lib/harbor-console/queries";
 import { prisma } from "@/lib/prisma";
+import { loadSupportFacilityHistory, supportContactHref } from "@/lib/support/history";
 
 export default async function HarborCustomerPage({
   params,
@@ -19,6 +21,7 @@ export default async function HarborCustomerPage({
   if (!facility) {
     notFound();
   }
+  const supportHistory = await loadSupportFacilityHistory(prisma, facility.id);
 
   await prisma.harborAuditEvent.create({
     data: {
@@ -109,6 +112,33 @@ export default async function HarborCustomerPage({
           </ul>
         )}
       </section>
+
+      <SupportHistoryPanel
+        empty="No support tickets for this facility."
+        counts={supportHistory}
+        recent={supportHistory.recent}
+        viewAllHref={supportHistory.viewAllHref}
+        viewAllLabel="View all support tickets"
+        extraCounts={[{ label: "Closed", value: supportHistory.closed }]}
+        showRequester
+      />
+      {supportHistory.recentRequesters.length > 0 ? (
+        <section className="rounded-md border border-[var(--border)] bg-white p-4">
+          <h2 className="text-sm font-semibold">Recent requesters</h2>
+          <ul className="mt-3 divide-y divide-[var(--border)]">
+            {supportHistory.recentRequesters.map((requester) => (
+              <li key={requester.id} className="py-2 text-sm">
+                <Link href={supportContactHref(requester.id)} className="font-medium hover:underline">
+                  {requester.displayName || requester.email}
+                </Link>
+                {requester.displayName ? (
+                  <p className="text-xs text-[var(--text-secondary)]">{requester.email}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
