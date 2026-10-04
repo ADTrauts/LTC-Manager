@@ -49,6 +49,15 @@ test("cron requires the bearer secret and does not use Harbor session", () => {
     ),
     true,
   );
+  assert.equal(
+    isSupportAutomationCronAuthorized(
+      new Request("https://vssyl.com/api/internal/support/automation", {
+        headers: { authorization: "Bearer [SENSITIVE]" },
+      }),
+      secret,
+    ),
+    false,
+  );
   const route = readFileSync(join(process.cwd(), "src/app/api/internal/support/automation/route.ts"), "utf8");
   assert.match(route, /isSupportAutomationCronAuthorized/);
   assert.match(route, /processSupportAutomations/);

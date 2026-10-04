@@ -171,7 +171,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "API",
     access: { kind: "PUBLIC" },
     module: "harbor-console",
-    notes: "Vercel Cron. Handler requires CRON_SECRET; no Harbor session. Hobby is daily.",
+    notes: "Vercel Cron. Handler requires Bearer CRON_SECRET; no Harbor session. Hobby is daily.",
   },
   {
     pattern: "/console/tickets/[ticketId]",

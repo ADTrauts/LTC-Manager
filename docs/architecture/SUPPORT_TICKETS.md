@@ -240,12 +240,36 @@ Do not send when:
 reminder. A failed final send does not resolve the ticket. Resolve without a Saved Reply is allowed
 when the rule has none.
 
-Cron: `GET /api/internal/support/automation`. Auth is `Authorization: Bearer CRON_SECRET`. Missing
-secret → 503. Wrong secret → 401. No Harbor session. No default active rules.
+Cron: `GET /api/internal/support/automation`. Auth is exactly `Authorization: Bearer <CRON_SECRET>`.
+Vercel Cron sends that header automatically when `CRON_SECRET` is set. Missing secret → 503. Wrong
+secret → 401. No Harbor session. `vercel env pull` cannot read Hidden Production secrets; it writes
+the placeholder `[SENSITIVE]`, which is not the live value and will 401.
 
-The processor is safe to run hourly. Vercel Hobby only allows one cron per day, so production
-currently runs at 16:00 UTC (`vercel.json`). Move to `0 * * * *` after a Pro upgrade if closer
-to hourly evaluation is wanted.
+## Operating policy
+
+Current production cadence is **daily** while the project is on Vercel Hobby (`0 16 * * *` UTC in
+`vercel.json`). Hobby may invoke anywhere inside that hour. Day-based rules therefore run on the
+first daily processor pass after eligibility — not to the minute. 5 days = 120 hours of elapsed UTC
+time, then up to one scheduling interval of delay.
+
+Initial Vssyl support policy (Harbor-created, currently **ACTIVE**):
+
+| Rule | Type | Delay | Saved Reply | Action |
+|------|------|-------|-------------|--------|
+| Waiting on customer — reminder | `WAITING_REMINDER` | 5 days (7200 min) | Waiting on customer reminder | customer email; stay waiting |
+| Waiting on customer — resolve | `WAITING_RESOLVE` | 10 days (14400 min) | Final waiting on customer follow-up | email, then `RESOLVED` |
+| Resolved — close | `RESOLVED_CLOSE` | 7 days (10080 min) | none | `CLOSED`, no email |
+
+`UNASSIGNED_ALERT` is deferred until an hourly scheduler is available. A daily job cannot provide a
+useful 1–2 hour unassigned escalation. Immediate `NEW_TICKET` staff notifications already cover new
+intake. Do not create or activate an unassigned timed alert on Hobby.
+
+Reminder and resolve share the same waiting-entered timestamp (latest `STATUS_CHANGED` to
+`WAITING_ON_CUSTOMER`). A customer reply between day 5 and day 10 moves the ticket to `OPEN`, so
+resolve is no longer eligible. Re-entering waiting starts a new cycle and a new dedupe key.
+
+Saved Reply is reusable text. Macro is a staff-triggered bundle. Notification tells Harbor staff
+something happened. Automation is the system acting on a schedule.
 
 ## Notifications
 

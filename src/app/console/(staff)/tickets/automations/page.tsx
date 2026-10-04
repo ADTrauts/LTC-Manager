@@ -56,9 +56,11 @@ export default async function SupportAutomationsPage({
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Automations</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Time-based support actions. They use elapsed UTC time, not facility service days. New
-          rules stay off until you turn them on. A Saved Reply is reusable text; a Macro is a staff
-          action; a notification tells staff; automation is the system acting.
+          Time-based support actions. They use elapsed UTC time, not facility service days. The
+          current policy is a 5-day reminder, 10-day resolve, and 7-day close. The job runs once a
+          day, so an eligible ticket is handled on the next daily pass. Unassigned timed alerts stay
+          off until hourly scheduling is available. A Saved Reply is reusable text; a Macro is a
+          staff action; a notification tells staff; automation is the system acting.
         </p>
       </header>
 
