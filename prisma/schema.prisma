@@ -4495,6 +4495,7 @@ model PlatformStaff {
   assignedSupportMacros SupportMacro[] @relation("SupportMacroAssignedStaff")
   supportMacroApplications SupportMacroApplication[]
   supportNotifications SupportStaffNotification[]
+  createdSupportAutomations SupportAutomationRule[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -4606,12 +4607,34 @@ enum SupportStaffNotificationType {
   DELIVERY_FAILED
   BOUNCED
   SPAM_COMPLAINT
+  UNASSIGNED_ALERT
 }
 
 enum SupportStaffNotificationEmailStatus {
   NOT_REQUIRED
   PENDING
   SENT
+  FAILED
+}
+
+enum SupportAutomationType {
+  WAITING_REMINDER
+  WAITING_RESOLVE
+  RESOLVED_CLOSE
+  UNASSIGNED_ALERT
+}
+
+enum SupportAutomationAction {
+  SEND_REMINDER
+  RESOLVE_AFTER_WAIT
+  CLOSE_RESOLVED
+  ALERT_UNASSIGNED
+}
+
+enum SupportAutomationRunOutcome {
+  CLAIMED
+  APPLIED
+  SKIPPED
   FAILED
 }
 
@@ -4626,6 +4649,7 @@ enum SupportTicketEventType {
   SUBJECT_CHANGED
   EMAIL_BOUNCED
   EMAIL_COMPLAINT
+  AUTOMATION_APPLIED
 }
 
 enum SupportAttachmentScanStatus {
@@ -4686,6 +4710,7 @@ model SupportTicket {
   ticketTags      SupportTicketTag[]
   macroApplications SupportMacroApplication[]
   staffNotifications SupportStaffNotification[]
+  automationRuns  SupportAutomationRun[]
   resolvedAt      DateTime?
   closedAt        DateTime?
   createdAt       DateTime               @default(now())
@@ -4783,6 +4808,7 @@ model SupportSavedReply {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   macros           SupportMacro[]
+  automations      SupportAutomationRule[]
 
   @@index([isActive, name])
 }
@@ -4893,6 +4919,47 @@ model SupportStaffNotification {
   @@index([staffId, isRead, createdAt])
   @@index([staffId, createdAt])
   @@index([ticketId])
+}
+
+/// Harbor-configured time-based support action. Not a generic workflow engine.
+model SupportAutomationRule {
+  id               String                 @id @default(cuid())
+  name             String
+  type             SupportAutomationType
+  /// New rules start inactive. Harbor must enable them explicitly.
+  isActive         Boolean                @default(false)
+  /// Elapsed real time in UTC minutes. Days are stored as days * 1440.
+  delayMinutes     Int
+  savedReplyId     String?
+  savedReply       SupportSavedReply?     @relation(fields: [savedReplyId], references: [id], onDelete: Restrict)
+  createdByStaffId String
+  createdByStaff   PlatformStaff          @relation(fields: [createdByStaffId], references: [id], onDelete: Restrict)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  runs             SupportAutomationRun[]
+
+  @@index([isActive, type])
+  @@index([savedReplyId])
+}
+
+/// One claimed/attempted automation action. Unique dedupeKey prevents double-sends.
+model SupportAutomationRun {
+  id         String                       @id @default(cuid())
+  ruleId     String
+  rule       SupportAutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  ticketId   String
+  ticket     SupportTicket                @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  action     SupportAutomationAction
+  outcome    SupportAutomationRunOutcome
+  dedupeKey  String                       @unique
+  reason     String?
+  messageId  String?
+  eventId    String?
+  metadata   Json?
+  occurredAt DateTime                     @default(now())
+
+  @@index([ruleId, occurredAt])
+  @@index([ticketId, occurredAt])
 }
 
 /// Append-only ticket history. Application code only inserts rows.

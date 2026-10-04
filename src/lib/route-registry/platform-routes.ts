@@ -157,6 +157,23 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Harbor support macros. Apply prepares a ticket; never auto-sends.",
   },
   {
+    pattern: "/console/tickets/automations",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Time-based support automation. Harbor-managed; no default active rules.",
+  },
+  {
+    pattern: "/api/internal/support/automation",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+    notes: "Hourly Vercel Cron. Handler requires CRON_SECRET; no Harbor session.",
+  },
+  {
     pattern: "/console/tickets/[ticketId]",
     match: "EXACT",
     surface: "PAGE",

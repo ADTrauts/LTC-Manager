@@ -105,6 +105,9 @@ export default async function ConsoleTicketsPage({
           <Link href="/console/tickets/macros" className="text-sm text-[var(--text-secondary)] hover:underline">
             Macros
           </Link>
+          <Link href="/console/tickets/automations" className="text-sm text-[var(--text-secondary)] hover:underline">
+            Automations
+          </Link>
           <Link
             href="/console/tickets/new"
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"

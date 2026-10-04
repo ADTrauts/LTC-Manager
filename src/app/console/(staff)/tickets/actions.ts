@@ -13,6 +13,13 @@ import {
 } from "@/lib/support/errors";
 import { SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_TYPES } from "@/lib/support/labels";
 import {
+  createSupportAutomationRule,
+  isSupportAutomationType,
+  setSupportAutomationRuleActive,
+  SUPPORT_AUTOMATION_MINUTES_PER_DAY,
+  updateSupportAutomationRule,
+} from "@/lib/support/automation";
+import {
   createSupportMacro,
   isSupportMacroAssignmentMode,
   setSupportMacroActive,
@@ -103,20 +110,21 @@ function revalidateTickets(ticketId?: string) {
   revalidatePath("/console/tickets/saved-replies");
   revalidatePath("/console/tickets/tags");
   revalidatePath("/console/tickets/macros");
+  revalidatePath("/console/tickets/automations");
   if (ticketId) {
     revalidatePath(ticketPath(ticketId));
   }
 }
 
 function libraryPath(
-  kind: "saved-replies" | "tags" | "macros",
+  kind: "saved-replies" | "tags" | "macros" | "automations",
   error?: SupportTicketErrorCode | null,
 ) {
   return error ? `/console/tickets/${kind}?error=${error}` : `/console/tickets/${kind}`;
 }
 
 async function mutateLibrary(
-  kind: "saved-replies" | "tags" | "macros",
+  kind: "saved-replies" | "tags" | "macros" | "automations",
   mutation: () => Promise<unknown>,
 ): Promise<never> {
   let errorCode: SupportTicketErrorCode | null = null;
@@ -452,6 +460,70 @@ export async function applySupportMacroAction(ticketId: string, macroId: string)
     }
     throw error;
   }
+}
+
+function parseAutomationDelayMinutes(formData: FormData, type: string): number {
+  const rawMinutes = field(formData, "delayMinutes");
+  const rawHours = field(formData, "delayHours");
+  const rawDays = field(formData, "delayDays");
+  if (rawMinutes) {
+    const minutes = Number(rawMinutes);
+    if (Number.isInteger(minutes) && minutes >= 0) return minutes;
+  }
+  if (type === "UNASSIGNED_ALERT") {
+    const hours = Number(rawHours);
+    return Number.isInteger(hours) && hours >= 0 ? hours * 60 : Number.NaN;
+  }
+  const days = Number(rawDays);
+  return Number.isInteger(days) && days >= 0 ? days * SUPPORT_AUTOMATION_MINUTES_PER_DAY : Number.NaN;
+}
+
+export async function createSupportAutomationRuleAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  const type = field(formData, "type");
+  if (!isSupportAutomationType(type)) {
+    return mutateLibrary("automations", async () => {
+      throw new SupportTicketError("invalid_input");
+    });
+  }
+  const delayMinutes = parseAutomationDelayMinutes(formData, type);
+  return mutateLibrary("automations", () =>
+    createSupportAutomationRule(prisma, {
+      actorStaffId: session.uid,
+      name: field(formData, "name"),
+      type,
+      delayMinutes,
+      savedReplyId: field(formData, "savedReplyId") || null,
+      isActive: field(formData, "isActive") === "on",
+    }),
+  );
+}
+
+export async function updateSupportAutomationRuleAction(formData: FormData) {
+  await requireHarborStaff();
+  const current = await prisma.supportAutomationRule.findUnique({
+    where: { id: field(formData, "ruleId") },
+    select: { type: true },
+  });
+  const delayMinutes = parseAutomationDelayMinutes(formData, current?.type ?? "");
+  return mutateLibrary("automations", () =>
+    updateSupportAutomationRule(prisma, {
+      ruleId: field(formData, "ruleId"),
+      name: field(formData, "name"),
+      delayMinutes,
+      savedReplyId: field(formData, "savedReplyId") || null,
+    }),
+  );
+}
+
+export async function setSupportAutomationRuleActiveAction(formData: FormData) {
+  await requireHarborStaff();
+  return mutateLibrary("automations", () =>
+    setSupportAutomationRuleActive(prisma, {
+      ruleId: field(formData, "ruleId"),
+      isActive: field(formData, "isActive") === "true",
+    }),
+  );
 }
 
 export async function markSupportNotificationReadAction(notificationId: string, ticketId: string) {

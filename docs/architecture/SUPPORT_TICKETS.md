@@ -3,7 +3,8 @@
 Canonical support domain for Vssyl Console. Code: `src/lib/support/`. Schema: `SupportContact`,
 `SupportTicket`, `SupportTicketMessage`, `SupportTicketEvent`, `SupportSavedReply`, `SupportTag`,
 `SupportTicketTag`, `SupportMacro`, `SupportMacroTag`, `SupportMacroApplication`,
-`SupportStaffNotification` in `prisma/schema.prisma`.
+`SupportStaffNotification`, `SupportAutomationRule`, `SupportAutomationRun` in
+`prisma/schema.prisma`.
 
 ## Ownership and boundaries
 
@@ -141,8 +142,9 @@ draft. It never sends email. The operator reviews and sends explicitly.
 | Concept | Meaning |
 |---------|---------|
 | Saved Reply | reusable message text |
-| Macro | reusable bundle of operator actions |
-| Automation | future event/time-triggered behavior (not implemented) |
+| Macro | reusable staff-triggered bundle |
+| Notification | tells Harbor staff something happened |
+| Automation | system-triggered action on a schedule |
 
 A Macro optionally **references** a Saved Reply. It does not store a second template body. Apply
 renders the current active Saved Reply with the same variables. If that reply is inactive or
@@ -199,6 +201,47 @@ navigation.
 History rows select ticket identity, status, priority/type, and `updatedAt` only. No message bodies,
 headers, provider IDs, notes, or attachments. Delivery warnings and tags are omitted from the
 summary.
+
+## Automation
+
+Harbor-only time-based rules (`/console/tickets/automations`). Code: `src/lib/support/automation.ts`,
+`automation-processor.ts`. Schema: `SupportAutomationRule`, `SupportAutomationRun`.
+
+This is not a generic workflow engine. Types are fixed:
+
+| Type | Timer | Action |
+|------|-------|--------|
+| `WAITING_REMINDER` | latest `STATUS_CHANGED` to `WAITING_ON_CUSTOMER` | send configured Saved Reply; stay waiting |
+| `WAITING_RESOLVE` | same waiting-entered timestamp | optional Saved Reply, then `RESOLVED` |
+| `RESOLVED_CLOSE` | `resolvedAt` | `CLOSED`, no email |
+| `UNASSIGNED_ALERT` | `createdAt`, or last unassign event | Harbor notification only |
+
+Timing is elapsed UTC real time (`delayMinutes`; 5 days = 7200 minutes). Not facility timezone, not
+business hours. Tag, assignment, note, and priority changes do **not** reset a waiting timer.
+A customer reply moves the ticket to `OPEN`, which ends the waiting cycle. Re-entering waiting
+starts a new cycle.
+
+Idempotency: unique `dedupeKey` = rule + ticket + action + cycle timestamp. Concurrent cron
+workers lose the unique insert and skip. One ticket failure is logged and does not stop the run.
+
+Automated customer email uses the existing reply path (`PENDING` → `SENT`/`FAILED`). No Reply-To
+change. Subject stays a normal support reply. Internally, events use `metadata.source = AUTOMATION`
+or `AUTOMATION_APPLIED`.
+
+Do not send when:
+
+- latest outbound is `FAILED`, `BOUNCED`, or `SPAM_COMPLAINT`
+- the contact has any `SPAM_COMPLAINT`
+- the contact email is invalid
+- the ticket is no longer in the required status (manual override wins)
+- the rule is inactive
+
+`WAITING_RESOLVE` may fire without a prior reminder if its delay is shorter. It does not send the
+reminder. A failed final send does not resolve the ticket. Resolve without a Saved Reply is allowed
+when the rule has none.
+
+Cron: `GET /api/internal/support/automation` hourly (`vercel.json`). Auth is `Authorization: Bearer
+CRON_SECRET`. Missing secret → 503. Wrong secret → 401. No Harbor session. No default active rules.
 
 ## Notifications
 
@@ -672,5 +715,5 @@ it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
 
 Malware scanner vendor and `SupportAttachmentScanner` processor (stored files remain `PENDING` and
 non-downloadable), outbound attachments, attachment previews, retention/deletion automation,
-acknowledgment emails, notification preferences and retention cleanup, time-based automation, SLAs,
+acknowledgment emails, notification preferences and retention cleanup, business-hour/SLA calendars, SLAs,
 teams and routing rules, AI classification, feature-request aggregation, customer portal, and chat.

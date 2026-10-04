@@ -113,6 +113,10 @@ export function describeSupportEvent(event: SupportTimelineEvent): string {
         : "Ticket opened from email";
     }
     case "STATUS_CHANGED": {
+      if (metadataString(event.metadata, "source") === "AUTOMATION") {
+        if (event.toValue === "RESOLVED") return "Automation resolved ticket after no response";
+        if (event.toValue === "CLOSED") return "Automation closed resolved ticket";
+      }
       const change = `Status changed from ${statusLabel(event.fromValue)} to ${statusLabel(event.toValue)}`;
       return !event.actorName && event.causedByMessageId ? `${change} because the customer replied` : change;
     }
@@ -140,5 +144,9 @@ export function describeSupportEvent(event: SupportTimelineEvent): string {
       return "Outbound email bounced";
     case "EMAIL_COMPLAINT":
       return "Customer marked a reply as spam";
+    case "AUTOMATION_APPLIED":
+      if (event.toValue === "SEND_REMINDER") return "Automation sent customer reminder";
+      if (event.toValue === "ALERT_UNASSIGNED") return "Automation alerted staff about an unassigned ticket";
+      return "Automation ran";
   }
 }

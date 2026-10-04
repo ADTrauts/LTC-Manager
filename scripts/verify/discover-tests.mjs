@@ -74,6 +74,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/support/support-macros.db.test.ts",
   "src/lib/support/support-notifications.db.test.ts",
   "src/lib/support/support-history.db.test.ts",
+  "src/lib/support/support-automation.db.test.ts",
 ];
 
 function main() {

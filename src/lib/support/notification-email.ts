@@ -20,6 +20,7 @@ const EMAIL_HEADLINES: Record<SupportStaffNotificationType, string> = {
   DELIVERY_FAILED: "A support reply may not have reached the customer.",
   BOUNCED: "A support reply bounced.",
   SPAM_COMPLAINT: "A customer marked a support reply as spam. Do not send automated follow-ups.",
+  UNASSIGNED_ALERT: "An unassigned support ticket has been waiting.",
 };
 
 export function supportConsoleOrigin(env: EnvLike = process.env): string {
@@ -90,6 +91,8 @@ function notificationSubjectLabel(type: SupportStaffNotificationType): string {
       return "High-priority ticket";
     case "DELIVERY_FAILED":
       return "Delivery failed";
+    case "UNASSIGNED_ALERT":
+      return "Unassigned ticket";
   }
 }
 

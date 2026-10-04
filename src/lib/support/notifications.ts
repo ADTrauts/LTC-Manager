@@ -19,6 +19,7 @@ export const SUPPORT_STAFF_NOTIFICATION_TYPES = [
   "DELIVERY_FAILED",
   "BOUNCED",
   "SPAM_COMPLAINT",
+  "UNASSIGNED_ALERT",
 ] as const satisfies readonly SupportStaffNotificationType[];
 
 export const SUPPORT_STAFF_NOTIFICATION_EMAIL_TYPES = [
@@ -94,6 +95,8 @@ export function supportNotificationCopy(
         title: "Spam complaint",
         body: `${ticketNumber} · Do not send automated follow-ups`,
       };
+    case "UNASSIGNED_ALERT":
+      return { title: "Unassigned ticket waiting", body: headline };
   }
 }
 
@@ -152,6 +155,7 @@ export async function recordSupportStaffNotifications(
 ): Promise<string[]> {
   const needsAllStaff =
     input.type === "NEW_TICKET" ||
+    input.type === "UNASSIGNED_ALERT" ||
     ((input.type === "HIGH_PRIORITY" ||
       input.type === "URGENT_PRIORITY" ||
       input.type === "DELIVERY_FAILED" ||
