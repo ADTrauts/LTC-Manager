@@ -247,7 +247,7 @@ async function applyBounce(
     return { result: "ignored", messageId: message.id, ticketId: message.ticketId, deliveryStatus: message.deliveryStatus };
   }
   const occurredAt = event.occurredAt ?? now;
-  const result = await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx): Promise<ApplySupportDeliveryResult> => {
     const updated = await tx.supportTicketMessage.updateMany({
       where: { id: message.id, deliveryStatus: { in: [...BOUNCEABLE_FROM] } },
       data: {
@@ -266,7 +266,7 @@ async function applyBounce(
       });
       const status = current?.deliveryStatus ?? message.deliveryStatus;
       return {
-        result: status === "BOUNCED" ? "duplicate" : "ignored",
+        result: status === "BOUNCED" ? ("duplicate" as const) : ("ignored" as const),
         messageId: message.id,
         ticketId: message.ticketId,
         deliveryStatus: status,
@@ -336,7 +336,7 @@ async function applyComplaint(
     return { result: "ignored", messageId: message.id, ticketId: message.ticketId, deliveryStatus: message.deliveryStatus };
   }
   const occurredAt = event.occurredAt ?? now;
-  const result = await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx): Promise<ApplySupportDeliveryResult> => {
     const updated = await tx.supportTicketMessage.updateMany({
       where: { id: message.id, deliveryStatus: { in: [...COMPLAINT_FROM] } },
       data: {
@@ -353,7 +353,7 @@ async function applyComplaint(
       });
       const status = current?.deliveryStatus ?? message.deliveryStatus;
       return {
-        result: status === "SPAM_COMPLAINT" ? "duplicate" : "ignored",
+        result: status === "SPAM_COMPLAINT" ? ("duplicate" as const) : ("ignored" as const),
         messageId: message.id,
         ticketId: message.ticketId,
         deliveryStatus: status,
