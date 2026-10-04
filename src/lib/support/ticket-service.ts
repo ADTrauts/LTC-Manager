@@ -64,7 +64,7 @@ export async function createSupportTicket(
   db: PrismaClient,
   input: CreateSupportTicketInput,
 ): Promise<{ id: string; number: number }> {
-  return db.$transaction(async (tx) => {
+  const ticket = await db.$transaction(async (tx) => {
     const facility = input.facilityId ? await requireFacility(tx, input.facilityId) : null;
     if (input.assignedStaffId) {
       await requireActiveStaff(tx, input.assignedStaffId);
@@ -143,10 +143,9 @@ export async function createSupportTicket(
     }
 
     return ticket;
-  }).then(async (ticket) => {
-    await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: ticket.id });
-    return ticket;
   });
+  await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: ticket.id });
+  return ticket;
 }
 
 type StatusRow = {

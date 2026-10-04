@@ -247,7 +247,7 @@ async function applyBounce(
     return { result: "ignored", messageId: message.id, ticketId: message.ticketId, deliveryStatus: message.deliveryStatus };
   }
   const occurredAt = event.occurredAt ?? now;
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const updated = await tx.supportTicketMessage.updateMany({
       where: { id: message.id, deliveryStatus: { in: [...BOUNCEABLE_FROM] } },
       data: {
@@ -316,12 +316,11 @@ async function applyBounce(
     await tx.supportTicket.update({ where: { id: message.ticketId }, data: { updatedAt: now } });
     await recordDeliveryProblemNotification(tx, message, "BOUNCED");
     return { result: "applied" as const, messageId: message.id, ticketId: message.ticketId, deliveryStatus: "BOUNCED" as const };
-  }).then(async (result) => {
-    if (result.result === "applied") {
-      await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticketId });
-    }
-    return result;
   });
+  if (result.result === "applied") {
+    await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticketId });
+  }
+  return result;
 }
 
 async function applyComplaint(
@@ -337,7 +336,7 @@ async function applyComplaint(
     return { result: "ignored", messageId: message.id, ticketId: message.ticketId, deliveryStatus: message.deliveryStatus };
   }
   const occurredAt = event.occurredAt ?? now;
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const updated = await tx.supportTicketMessage.updateMany({
       where: { id: message.id, deliveryStatus: { in: [...COMPLAINT_FROM] } },
       data: {
@@ -383,10 +382,9 @@ async function applyComplaint(
       ticketId: message.ticketId,
       deliveryStatus: "SPAM_COMPLAINT" as const,
     };
-  }).then(async (result) => {
-    if (result.result === "applied") {
-      await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticketId });
-    }
-    return result;
   });
+  if (result.result === "applied") {
+    await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticketId });
+  }
+  return result;
 }
