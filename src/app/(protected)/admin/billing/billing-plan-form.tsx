@@ -122,8 +122,8 @@ export function BillingPlanForm({
       {!entitlementsEnforced ? (
         <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
           {alreadySubscribed
-            ? "This plan sets what the facility pays. It does not turn Dietary, EVS, or Plant off in the app."
-            : "Choosing departments here sets what this facility pays. It does not turn Dietary, EVS, or Plant off in the app."}
+            ? "This plan sets what the facility pays. It does not turn licensed Department Products off in the app."
+            : "Choosing departments here sets what this facility pays. It does not turn licensed Department Products off in the app."}
         </p>
       ) : null}
 

@@ -17,6 +17,8 @@ import {
   type DepartmentProductStatus,
 } from "./registry";
 
+export type DepartmentProductInstallAudience = "customer" | "internal-development";
+
 export type DepartmentProductDbClient = PrismaClient | Prisma.TransactionClient;
 
 export type DepartmentProductInstallErrorCode =
@@ -51,8 +53,8 @@ export type InstallDepartmentProductInput = {
 };
 
 /**
- * Validate customer-selected keys against the published registry.
- * Rejects blank input and unknown/unpublished keys.
+ * Validate customer-selected keys against the AVAILABLE registry.
+ * Rejects blank input and unknown, DEVELOPMENT, or RETIRED keys.
  */
 export function resolvePublishedDepartmentProductKeys(
   keys: readonly string[],
@@ -93,6 +95,26 @@ export function resolveDepartmentProductForInstall(
   return product;
 }
 
+export function resolveDepartmentProductForInternalInstall(
+  productKey: string,
+): DepartmentProduct {
+  const trimmed = productKey.trim();
+  if (!trimmed) {
+    throw new DepartmentProductInstallError(
+      "INVALID_INPUT",
+      "A Department Product key is required.",
+    );
+  }
+  const product = getDepartmentProduct(trimmed);
+  if (!product) {
+    throw new DepartmentProductInstallError(
+      "UNKNOWN_PRODUCT",
+      "That Department Product is not published by Vssyl.",
+    );
+  }
+  return product;
+}
+
 /**
  * Materialize a resolved Department Product as a facility Department row.
  * Test-only products may be passed here without being in the production registry.
@@ -106,8 +128,13 @@ export async function installResolvedDepartmentProduct(input: {
     status: DepartmentProductStatus;
   };
   prisma: DepartmentProductDbClient;
+  audience?: DepartmentProductInstallAudience;
 }): Promise<InstalledDepartmentProduct> {
-  if (!isDepartmentProductAvailableForInstall(input.product)) {
+  const audience = input.audience ?? "customer";
+  if (
+    audience !== "internal-development" &&
+    !isDepartmentProductAvailableForInstall(input.product)
+  ) {
     throw new DepartmentProductInstallError(
       "UNAVAILABLE_PRODUCT",
       `${input.product.name} is not available for installation.`,
@@ -184,5 +211,26 @@ export async function installDepartmentProduct(
     facilityId,
     product,
     prisma: input.prisma,
+    audience: "customer",
+  });
+}
+
+/**
+ * Seed / fixture / Harbor development install.
+ * May materialize DEVELOPMENT products. Never used by customer Marketplace.
+ */
+export async function installDepartmentProductForInternalDevelopment(
+  input: InstallDepartmentProductInput,
+): Promise<InstalledDepartmentProduct> {
+  const facilityId = input.facilityId.trim();
+  if (!facilityId) {
+    throw new DepartmentProductInstallError("INVALID_INPUT", "A facility is required.");
+  }
+  const product = resolveDepartmentProductForInternalInstall(input.productKey);
+  return installResolvedDepartmentProduct({
+    facilityId,
+    product,
+    prisma: input.prisma,
+    audience: "internal-development",
   });
 }

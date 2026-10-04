@@ -1,3 +1,4 @@
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
 import type { UnitType, SpaceType, UnitDepartmentKind, UnitHierarchyRole } from "@prisma/client";
 import {
@@ -170,11 +171,9 @@ export async function loadFacilityHierarchy(
       orderBy: { sortOrder: "asc" },
       select: spaceSelect,
     }),
-    prisma.department.findMany({
-      where: { facilityId, isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, key: true, name: true },
-    }),
+    loadCustomerOperableDepartments(prisma, facilityId).then((rows) =>
+      rows.map((row) => ({ id: row.id, key: row.key, name: row.name })),
+    ),
     listFacilityRoomTypes(facilityId, prisma),
   ]);
 

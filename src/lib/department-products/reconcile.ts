@@ -15,7 +15,8 @@ export function shouldInstallLicensedDepartmentProducts(
 }
 
 /**
- * After commercial entitlement is ACTIVE, install each published product.
+ * After commercial entitlement is ACTIVE, install each AVAILABLE product.
+ * DEVELOPMENT and RETIRED keys are skipped (no new customer install).
  * Idempotent: existing Department rows are reused. Safe for webhook retries.
  */
 export async function installDepartmentsForActiveEntitlements(input: {

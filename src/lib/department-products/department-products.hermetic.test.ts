@@ -23,6 +23,7 @@ import {
   DepartmentProductInstallError,
   getDepartmentProduct,
   installDepartmentProduct,
+  installDepartmentProductForInternalDevelopment,
   installResolvedDepartmentProduct,
   isDepartmentProductKey,
   listDepartmentProducts,
@@ -110,7 +111,7 @@ describe("Department Product registry", () => {
     assert.ok(dietary);
     assert.equal(dietary.name, "Dietary");
     assert.equal(dietary.industry, "healthcare");
-    assert.equal(dietary.status, "published");
+    assert.equal(dietary.status, "AVAILABLE");
     assert.equal(dietary.sortOrder, 10);
     assert.equal(dietary.domainCapability, "dietary");
     assert.equal(dietary.starters.cycleStarter, "dietary");
@@ -118,6 +119,7 @@ describe("Department Product registry", () => {
     const evs = getDepartmentProduct("EVS");
     assert.ok(evs);
     assert.equal(evs.name, "Environmental Services");
+    assert.equal(evs.status, "DEVELOPMENT");
     assert.equal(evs.domainCapability, "evs");
     assert.equal(evs.starters.cycleStarter, "evs");
     assert.equal(evs.starters.workPresets, true);
@@ -125,6 +127,7 @@ describe("Department Product registry", () => {
     const plant = getDepartmentProduct("PLANT");
     assert.ok(plant);
     assert.equal(plant.name, "Plant Operations");
+    assert.equal(plant.status, "DEVELOPMENT");
     assert.equal(plant.domainCapability, "plant");
     assert.equal(plant.starters.workPresets, undefined);
     assert.equal(plant.starters.assignmentRoles, true);
@@ -152,19 +155,29 @@ describe("Department Product registry", () => {
 });
 
 describe("Department Product installation", () => {
-  it("installs Dietary / EVS / Plant as the existing facility Department keys", async () => {
+  it("installs Dietary for customers and EVS / Plant only through internal development", async () => {
     const { prisma, created } = mockDb({ facilityId: "fac_terrace" });
     const dietary = await installDepartmentProduct({
       facilityId: "fac_terrace",
       productKey: "DIETARY",
       prisma: prisma as never,
     });
-    const evs = await installDepartmentProduct({
+    await assert.rejects(
+      () =>
+        installDepartmentProduct({
+          facilityId: "fac_terrace",
+          productKey: "EVS",
+          prisma: prisma as never,
+        }),
+      (error: unknown) =>
+        error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
+    );
+    const evs = await installDepartmentProductForInternalDevelopment({
       facilityId: "fac_terrace",
       productKey: "EVS",
       prisma: prisma as never,
     });
-    const plant = await installDepartmentProduct({
+    const plant = await installDepartmentProductForInternalDevelopment({
       facilityId: "fac_terrace",
       productKey: "PLANT",
       prisma: prisma as never,
@@ -272,7 +285,7 @@ describe("Department Product installation", () => {
       productKey: "TEST_SHARED",
       name: "Shared Test Product",
       industry: "healthcare",
-      status: "published",
+      status: "AVAILABLE",
       sortOrder: 500,
       domainCapability: null,
       starters: {},
@@ -335,7 +348,7 @@ describe("Department Product vs admission", () => {
 
   it("routes bootstrap seeding through the install primitive without auto-seeding future products", () => {
     const seed = source("src/lib/ensure-default-departments.ts");
-    assert.match(seed, /installDepartmentProduct/);
+    assert.match(seed, /installDepartmentProductForInternalDevelopment/);
     assert.match(seed, /BOOTSTRAP_DEPARTMENT_PRODUCT_KEYS/);
     assert.doesNotMatch(seed, /listDepartmentProducts\(/);
   });

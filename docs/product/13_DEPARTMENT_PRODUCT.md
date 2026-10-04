@@ -1,16 +1,40 @@
 # 13 — Department Product
 
 **Status:** Binding product/architecture rule  
-**Does not:** Persist Facility Industry, add a second industry, redesign Stripe SKUs, enable entitlement enforcement, or remove departments
+**Does not:** Persist Facility Industry, add a second industry, redesign Stripe SKUs, delete Department history, or start Plant Operations / EVS product design
+
+---
+
+## Release state
+
+A product existing in the Vssyl registry does not make it customer-visible.
+
+Customer visibility requires release status **AVAILABLE**.
+
+| Status | Meaning |
+|--------|---------|
+| **DEVELOPMENT** | Internal only. May exist in source, Console, tests, seeds, and Harbor work. Not listed in Marketplace. Not selectable in the customer Department picker. Cannot be newly purchased. |
+| **AVAILABLE** | Certified customer Product. Visible in Marketplace. Can be purchased / entitled and installed. |
+| **RETIRED** | Not offered for new purchase or new install. Existing entitled installations remain. |
+
+Current catalog:
+
+| Product | Release status |
+|---------|----------------|
+| Dietary | AVAILABLE |
+| Environmental Services | DEVELOPMENT |
+| Plant Operations | DEVELOPMENT |
+
+Vssyl Console owns the Records / Logs catalog, not Department Product release metadata. Department Product release state lives on the code registry until Console-backed product metadata exists.
 
 ---
 
 ## Customer journey
 
 ```text
-Published Department Product
+AVAILABLE Department Product
         ↓
-Customer selection
+Marketplace selection
         ↓
 Commercial entitlement
         ↓
@@ -21,7 +45,7 @@ Local configuration
 Run
 ```
 
-Vssyl Inc. publishes Department Products. The customer chooses which products a facility uses, licenses those products, then installs only the selected products.
+Vssyl Inc. publishes Department Products. The customer chooses which **AVAILABLE** products a facility uses, licenses those products, then installs only the selected products.
 
 ```text
 Choose Department Products
@@ -31,7 +55,7 @@ Choose Department Products
 → Run
 ```
 
-Do not invert this order. Selection may stay ephemeral until payment succeeds. Abandoned checkout creates no entitlement and no Department row.
+Do not invert this order. Selection may stay ephemeral until payment succeeds. Abandoned checkout creates no entitlement and no Department row. DEVELOPMENT products never enter this journey.
 
 ---
 
@@ -39,9 +63,11 @@ Do not invert this order. Selection may stay ephemeral until payment succeeds. A
 
 | Question | Source of truth |
 |----------|-----------------|
-| What Department Products does Vssyl sell? | Department Product Registry |
+| What Department Products has Vssyl developed? | Department Product Registry |
+| Which of those are customer-visible? | Registry `status === AVAILABLE` |
 | What products did this facility purchase? | `FacilityDepartmentEntitlement` |
 | What Departments are installed? | `Department` |
+| Which Departments may a customer enter? | Eligibility: AVAILABLE or entitled RETIRED + valid entitlement + installed + active |
 | Is an installed Department admitted / enabled? | `Department.isActive` |
 | What is locally configured? | Existing facility-scoped Build models |
 
@@ -68,7 +94,7 @@ Configuration readiness is derived from those operational facts. Do not persist 
 | **Department** | Facility installation | Existing `Department` row (`facilityId` + `key`) |
 | **isActive** | Operational state | `Department.isActive` |
 
-`Department.key` for the published trio (`DIETARY`, `EVS`, `PLANT`) is the installation key **and** the product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows.
+`Department.key` for the registry trio (`DIETARY`, `EVS`, `PLANT`) is the installation key **and** the product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
 
 Industry currently classifies products in the registry (`healthcare`). It is catalog metadata only — not a Facility or Organization field and not a billing unit.
 
@@ -78,20 +104,24 @@ Do not revive retired industry packs (`applyIndustryPack()`).
 
 ## Shared catalog model
 
-Setup and All Departments project from the same derived model (`deriveFacilityDepartmentCatalog` / `loadFacilityDepartmentCatalog`):
+Marketplace and Admin installed-product context project from `deriveFacilityDepartmentCatalog` / `loadFacilityDepartmentCatalog`. The customer Department picker, Build, Run, and Admin installed list use `loadCustomerOperableDepartments` / `evaluateCustomerDepartmentOperability`.
 
-- published products (registry, unpublished hidden)
+- AVAILABLE products (DEVELOPMENT hidden; RETIRED not offered)
 - installed products (Department rows)
 - licensed products (ACTIVE entitlements)
+- grandfathered UNMANAGED installs of AVAILABLE products while `BILLING_ENTITLEMENTS_ENABLED` is off
 - available-to-add (`!installed && !licensed`)
+- operable (`released + entitled + installed + active`)
 
-No second catalog table. No installation status table.
+No second catalog table. No installation status table. Adding Departments belongs in Admin → Departments → Marketplace, not the Department picker.
+
+Future Plant completion is an explicit `PLANT` `DEVELOPMENT → AVAILABLE` registry change after certification and commercial configuration. It must not appear before that change.
 
 ---
 
 ## License then install
 
-Checkout and add-departments accept **published Department Product registry keys**, not pre-existing Department rows.
+Checkout and add-departments accept **AVAILABLE Department Product registry keys**, not pre-existing Department rows. DEVELOPMENT keys are rejected.
 
 After Stripe sync writes an ACTIVE (or PAST_DUE) entitlement, `installDepartmentsForActiveEntitlements` calls `installDepartmentProduct`. Installation is idempotent and reuses an existing row. It never mints `DIETARY_2`.
 

@@ -9,9 +9,13 @@ export {
 export {
   DEPARTMENT_PRODUCT_INDUSTRIES,
   DEPARTMENT_PRODUCT_KEYS,
+  DEPARTMENT_PRODUCT_RELEASE_STATUSES,
   getDepartmentProduct,
   isDepartmentProductAvailableForInstall,
+  isDepartmentProductCommerciallyRecognized,
+  isDepartmentProductCustomerVisible,
   isDepartmentProductKey,
+  isDepartmentProductOfferedForSale,
   listDepartmentProducts,
   listDepartmentProductsForIndustry,
   resolveDepartmentProductForInstallationKey,
@@ -19,15 +23,32 @@ export {
   type DepartmentProductDomainCapability,
   type DepartmentProductIndustry,
   type DepartmentProductKey,
+  type DepartmentProductReleaseStatus,
   type DepartmentProductStarterRefs,
   type DepartmentProductStatus,
 } from "./registry";
 export {
+  departmentProductReleaseStatus,
+  evaluateCustomerDepartmentOperability,
+  evaluateDepartmentForAudience,
+  hasInternalDepartmentProductAccess,
+  marketplaceDenialReason,
+  resolveCommercialEntitlement,
+  type BillingStatusForEntitlement,
+  type DepartmentAccessAudience,
+  type DepartmentOperability,
+  type DepartmentOperabilityInput,
+  type DepartmentOperabilityReason,
+} from "./eligibility";
+export {
   DepartmentProductInstallError,
   installDepartmentProduct,
+  installDepartmentProductForInternalDevelopment,
   installResolvedDepartmentProduct,
   resolveDepartmentProductForInstall,
+  resolveDepartmentProductForInternalInstall,
   resolvePublishedDepartmentProductKeys,
+  type DepartmentProductInstallAudience,
   type DepartmentProductInstallErrorCode,
   type InstalledDepartmentProduct,
   type InstallDepartmentProductInput,
@@ -45,11 +66,17 @@ export {
   industryCatalogLabel,
   availableToAddProductKeys,
   publishedCatalogProductKeys,
+  selectOperableCatalogItems,
   type FacilityDepartmentCatalogItem,
   type FacilityDepartmentRecord,
   type FacilityEntitlementRecord,
 } from "./facility-catalog";
-export { loadFacilityDepartmentCatalog } from "./load-facility-catalog";
+export {
+  loadCustomerOperableDepartments,
+  loadFacilityDepartmentAccessContext,
+  loadFacilityDepartmentCatalog,
+  selectCustomerOperableDepartments,
+} from "./load-facility-catalog";
 export {
   installDepartmentsForActiveEntitlements,
   shouldInstallLicensedDepartmentProducts,

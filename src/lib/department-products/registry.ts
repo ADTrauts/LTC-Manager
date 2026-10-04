@@ -6,6 +6,9 @@
  * and not a plugin host.
  *
  * Industry is catalog metadata only — not a Facility or Organization field.
+ *
+ * A product existing in this registry does not make it customer-visible.
+ * Customer visibility requires release status AVAILABLE.
  */
 
 export const DEPARTMENT_PRODUCT_INDUSTRIES = ["healthcare"] as const;
@@ -14,7 +17,13 @@ export type DepartmentProductIndustry = (typeof DEPARTMENT_PRODUCT_INDUSTRIES)[n
 export const DEPARTMENT_PRODUCT_KEYS = ["DIETARY", "EVS", "PLANT"] as const;
 export type DepartmentProductKey = (typeof DEPARTMENT_PRODUCT_KEYS)[number];
 
-export type DepartmentProductStatus = "published";
+export const DEPARTMENT_PRODUCT_RELEASE_STATUSES = [
+  "DEVELOPMENT",
+  "AVAILABLE",
+  "RETIRED",
+] as const;
+export type DepartmentProductReleaseStatus = (typeof DEPARTMENT_PRODUCT_RELEASE_STATUSES)[number];
+export type DepartmentProductStatus = DepartmentProductReleaseStatus;
 
 /**
  * Optional exact-key domain module attached to a product.
@@ -43,7 +52,11 @@ export type DepartmentProduct = {
   productKey: DepartmentProductKey;
   name: string;
   industry: DepartmentProductIndustry;
-  status: DepartmentProductStatus;
+  status: DepartmentProductReleaseStatus;
+  /** Customer marketplace subtitle. Omit for products that are not customer-visible. */
+  shortDescription?: string;
+  /** Customer marketplace capability list. Only certified AVAILABLE products declare these. */
+  customerCapabilities?: readonly string[];
   /** Display / bootstrap sort on the facility Department row. */
   sortOrder: number;
   domainCapability: DepartmentProductDomainCapability | null;
@@ -55,7 +68,16 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     productKey: "DIETARY",
     name: "Dietary",
     industry: "healthcare",
-    status: "published",
+    status: "AVAILABLE",
+    shortDescription: "Food & Nutrition Operations",
+    customerCapabilities: [
+      "Location Functions",
+      "Operating Rhythm",
+      "Work",
+      "Records",
+      "Menus",
+      "Audit / Reports",
+    ],
     sortOrder: 10,
     domainCapability: "dietary",
     starters: {
@@ -70,7 +92,7 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     productKey: "EVS",
     name: "Environmental Services",
     industry: "healthcare",
-    status: "published",
+    status: "DEVELOPMENT",
     sortOrder: 20,
     domainCapability: "evs",
     starters: {
@@ -85,7 +107,7 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     productKey: "PLANT",
     name: "Plant Operations",
     industry: "healthcare",
-    status: "published",
+    status: "DEVELOPMENT",
     sortOrder: 30,
     domainCapability: "plant",
     starters: {
@@ -133,8 +155,32 @@ export function resolveDepartmentProductForInstallationKey(
   return getDepartmentProduct(departmentKey);
 }
 
-export function isDepartmentProductAvailableForInstall(product: {
-  status: DepartmentProductStatus;
+/** AVAILABLE products may be sold, entitled, and newly installed. */
+export function isDepartmentProductOfferedForSale(product: {
+  status: DepartmentProductReleaseStatus;
 }): boolean {
-  return product.status === "published";
+  return product.status === "AVAILABLE";
+}
+
+/** Customer marketplace and new facility installation. */
+export function isDepartmentProductAvailableForInstall(product: {
+  status: DepartmentProductReleaseStatus;
+}): boolean {
+  return isDepartmentProductOfferedForSale(product);
+}
+
+export function isDepartmentProductCustomerVisible(product: {
+  status: DepartmentProductReleaseStatus;
+}): boolean {
+  return product.status === "AVAILABLE";
+}
+
+/**
+ * Commercially recognized products may keep an existing entitlement.
+ * DEVELOPMENT is never a customer commercial product.
+ */
+export function isDepartmentProductCommerciallyRecognized(product: {
+  status: DepartmentProductReleaseStatus;
+}): boolean {
+  return product.status === "AVAILABLE" || product.status === "RETIRED";
 }

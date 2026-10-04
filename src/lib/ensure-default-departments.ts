@@ -3,7 +3,7 @@ import { PrismaClient, type UnitType } from "@prisma/client";
 
 import {
   getDepartmentProduct,
-  installDepartmentProduct,
+  installDepartmentProductForInternalDevelopment,
   type DepartmentProductKey,
 } from "@/lib/department-products";
 
@@ -18,7 +18,7 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 
 /**
  * Ensures the original three Vssyl Department Products exist for a facility.
- * Routes through `installDepartmentProduct`. Idempotent.
+ * Routes through `installDepartmentProductForInternalDevelopment`. Idempotent.
  *
  * Customer application routes must not call this. CLI / seed / provision
  * may still bootstrap the original trio for local development.
@@ -30,7 +30,7 @@ export async function ensureDefaultDepartments(prisma: DbClient, facilityId: str
     if (!product) {
       throw new Error(`Bootstrap Department Product ${productKey} is missing from the registry.`);
     }
-    const installed = await installDepartmentProduct({
+    const installed = await installDepartmentProductForInternalDevelopment({
       facilityId,
       productKey,
       prisma,

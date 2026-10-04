@@ -676,9 +676,10 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
       const deptContext = page.getByTestId("department-context");
       await expect(deptContext).toBeVisible({ timeout: 30_000 });
-      // The seeded facility has more than one department, so the FA gets the multi-department selector.
-      await expect(deptContext).toHaveAttribute("data-department-context", "multi");
-      await expect(deptContext.getByRole("combobox").first()).toBeVisible();
+      // Customer-visible Terrace View is Dietary only, so the FA control is compact.
+      await expect(deptContext).toHaveAttribute("data-department-context", "single");
+      await expect(deptContext.getByRole("combobox")).toHaveCount(0);
+      await expect(deptContext).toContainText("Dietary");
     } finally {
       await context.close();
     }

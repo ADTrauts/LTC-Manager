@@ -189,24 +189,12 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
               The same board, licensed by the departments you run. Unlimited people
               at every role.
             </p>
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <div className="mt-10 grid gap-4 md:max-w-md">
               <DepartmentCard
                 name="Dietary"
                 body="Meal periods, servery readiness, coverage, and the logs that happen during service."
                 image="/marketing/hero-servery-morning.png"
                 imageAlt="A servery pass before breakfast"
-              />
-              <DepartmentCard
-                name="EVS"
-                body="Zones, rounds, and what still needs a walk before the next service window."
-                image="/marketing/dept-evs-cart.png"
-                imageAlt="An EVS cart in a quiet corridor"
-              />
-              <DepartmentCard
-                name="Plant Ops"
-                body="Assets, repairs, and the issues that keep a location from being ready."
-                image="/marketing/dept-plant-ops.png"
-                imageAlt="A Plant Ops technician at an air handler"
               />
             </div>
           </div>

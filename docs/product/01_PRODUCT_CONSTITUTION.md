@@ -46,9 +46,12 @@ GOVERNANCE
 
 | State | Meaning here |
 |-------|----------------|
-| **Implemented** | Dietary and EVS products, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
+| **Implemented** | Dietary as the customer-visible Department Product, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
 | **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
+| **In development** | Environmental Services and Plant Operations exist in the registry, tests, and internal tooling. They are not customer-visible until marked AVAILABLE. |
 | **Future product work** | Plant Operations as a Department Product. Not designed. Platform Assets and repairs are not that product. |
+
+A Product existing in the Vssyl registry does not make it customer-visible. Customer visibility requires AVAILABLE release state. See [13 — Department Product](./13_DEPARTMENT_PRODUCT.md).
 
 ### Shared mechanisms
 

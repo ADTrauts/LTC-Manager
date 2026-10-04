@@ -7,6 +7,7 @@
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
@@ -90,11 +91,9 @@ async function loadSupportingData(facilityId: string, unitIds: readonly string[]
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-    prisma.department.findMany({
-      where: { facilityId, isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, key: true, name: true },
-    }),
+    loadCustomerOperableDepartments(prisma, facilityId).then((rows) =>
+      rows.map((row) => ({ id: row.id, key: row.key, name: row.name })),
+    ),
     idList.length === 0
       ? Promise.resolve([])
       : prisma.logAssignment.findMany({

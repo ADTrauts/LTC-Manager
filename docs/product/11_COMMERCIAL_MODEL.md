@@ -2,7 +2,7 @@
 
 **Status:** Binding product policy (ADL-013)  
 **List prices:** Working figures; first paying facilities may validate them  
-**Does not:** Gate departments until `BILLING_ENTITLEMENTS_ENABLED`. Checkout accepts published Department Product keys; installation happens after entitlement.
+**Does not:** Invent per-department Stripe prices, enable commercial enforcement until `BILLING_ENTITLEMENTS_ENABLED`, or sell DEVELOPMENT products. Checkout accepts AVAILABLE Department Product keys; installation happens after entitlement.
 
 ---
 
@@ -15,7 +15,7 @@ For Dietary, EVS, and Plant Operations, `FacilityDepartmentEntitlement.departmen
 Canonical commercial order:
 
 ```text
-Select published Department Product
+Select AVAILABLE Department Product
         ↓
 Stripe Checkout / subscription update
         ↓
@@ -26,7 +26,7 @@ installDepartmentProduct
 Department row
 ```
 
-Checkout validates published registry keys. It does not require Department rows to exist first. Installation does not create entitlements. Price remains count-based (`ltc_*` lookup keys). Do not charge separately for Industry.
+Checkout validates AVAILABLE registry keys. DEVELOPMENT products cannot be purchased. It does not require Department rows to exist first. Installation does not create entitlements. Price remains count-based (`ltc_*` lookup keys). Department-level Stripe price identity is not bound in this phase. Do not charge separately for Industry.
 
 Do **not** charge per administrator, supervisor, employee, PIN user, room, or routine log.
 
@@ -87,4 +87,4 @@ US charges need Stripe Tax with an **active registration** before `automatic_tax
 
 ## Enforcement
 
-Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered). Do not hide Dietary / EVS / Plant behind purchase until that flag is an explicit product launch.
+Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Dietary behind purchase until that flag is an explicit product launch.

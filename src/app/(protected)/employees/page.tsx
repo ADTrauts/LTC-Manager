@@ -21,6 +21,7 @@ import { getSession } from "@/lib/auth";
 import { buildPageIntro } from "@/lib/build-hub";
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
 import { loadActiveJobRolesForFacilityDepartments } from "@/lib/department-job-roles";
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
 
 function toIsoDate(d: Date | null): string | null {
@@ -274,18 +275,22 @@ export default async function EmployeesPage({
     ),
   ];
 
-  const departments = await prisma.department.findMany({
-    where: {
-      facilityId,
-      isActive: true,
-      OR: [
-        { showInEmployeeApp: true },
-        ...(assignedDeptIdsOnPage.length > 0 ? [{ id: { in: assignedDeptIdsOnPage } }] : []),
-      ],
-    },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, showInEmployeeApp: true },
-  });
+  const operableDepartments = await loadCustomerOperableDepartments(prisma, facilityId);
+  const operableIds = new Set(operableDepartments.map((row) => row.id));
+  const departments = (
+    await prisma.department.findMany({
+      where: {
+        facilityId,
+        isActive: true,
+        OR: [
+          { showInEmployeeApp: true },
+          ...(assignedDeptIdsOnPage.length > 0 ? [{ id: { in: assignedDeptIdsOnPage } }] : []),
+        ],
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, showInEmployeeApp: true },
+    })
+  ).filter((department) => operableIds.has(department.id));
 
   const departmentsForCreate = departments.filter((d) => d.showInEmployeeApp);
   const jobRoleDepartmentIds = [

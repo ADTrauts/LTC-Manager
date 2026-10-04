@@ -1,6 +1,8 @@
 import type { BillingInterval, BillingSetupPath } from "./catalog";
 import {
+  getDepartmentProduct,
   installDepartmentsForActiveEntitlements,
+  isDepartmentProductCommerciallyRecognized,
   shouldInstallLicensedDepartmentProducts,
 } from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +15,14 @@ export async function applyFacilitySubscription(input: {
   stripeSubscriptionId?: string | null;
   departmentKeys?: readonly string[];
 }): Promise<void> {
-  const departmentKeys = [...new Set(input.departmentKeys ?? [])];
+  const departmentKeys = [
+    ...new Set(
+      (input.departmentKeys ?? []).filter((key) => {
+        const product = getDepartmentProduct(key);
+        return Boolean(product && isDepartmentProductCommerciallyRecognized(product));
+      }),
+    ),
+  ];
 
   await prisma.$transaction(async (tx) => {
     const billing = await tx.facilityBilling.upsert({

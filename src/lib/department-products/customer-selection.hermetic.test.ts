@@ -103,33 +103,33 @@ function mockInstallDb(options: {
 }
 
 describe("Facility Department Product catalog", () => {
-  it("shows published registry products and hides unpublished ones", () => {
-    const unpublished = {
+  it("shows AVAILABLE registry products and hides DEVELOPMENT ones", () => {
+    const development = {
       ...listDepartmentProducts()[0]!,
       productKey: "DRAFT_X" as "DIETARY",
       name: "Draft Product",
-      status: "unpublished" as "published",
+      status: "DEVELOPMENT" as const,
     };
     const catalog = deriveFacilityDepartmentCatalog({
-      products: [...listDepartmentProducts(), unpublished],
+      products: [...listDepartmentProducts(), development],
       departments: [],
       entitlements: [],
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["DIETARY", "EVS", "PLANT"],
+      ["DIETARY"],
     );
     assert.equal(
       catalog.every((item) => item.availableToAdd && !item.installed && !item.licensed),
       true,
     );
     assert.equal(
-      catalog.some((item) => item.productKey === "DRAFT_X" || item.productKey === AQUATICS),
+      catalog.some((item) => item.productKey === "DRAFT_X" || item.productKey === "EVS" || item.productKey === "PLANT"),
       false,
     );
   });
 
-  it("identifies installed, licensed, and available-to-add products", () => {
+  it("identifies installed, licensed, and available-to-add AVAILABLE products", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [
         { id: "dept_dietary", key: "DIETARY", isActive: true },
@@ -139,28 +139,27 @@ describe("Facility Department Product catalog", () => {
         { departmentKey: "DIETARY", status: "ACTIVE" },
         { departmentKey: "PLANT", status: "REVOKED" },
       ],
+      entitlementsEnforced: true,
     });
     const byKey = Object.fromEntries(catalog.map((item) => [item.productKey, item]));
     assert.equal(byKey.DIETARY?.installed, true);
     assert.equal(byKey.DIETARY?.licensed, true);
+    assert.equal(byKey.DIETARY?.operable, true);
     assert.equal(byKey.DIETARY?.availableToAdd, false);
     assert.equal(byKey.DIETARY?.departmentActive, true);
-    assert.equal(byKey.EVS?.installed, true);
-    assert.equal(byKey.EVS?.licensed, false);
-    assert.equal(byKey.EVS?.availableToAdd, false);
-    assert.equal(byKey.PLANT?.installed, false);
-    assert.equal(byKey.PLANT?.licensed, false);
-    assert.equal(byKey.PLANT?.availableToAdd, true);
+    assert.equal(byKey.EVS, undefined);
+    assert.equal(byKey.PLANT, undefined);
   });
 });
 
 describe("Published Department Product selection", () => {
   it("accepts Dietary only and rejects unpublished or blank keys", () => {
     assert.deepEqual(resolvePublishedDepartmentProductKeys(["DIETARY"]), ["DIETARY"]);
-    assert.deepEqual(resolvePublishedDepartmentProductKeys([" EVS ", "DIETARY", "EVS"]), [
-      "EVS",
-      "DIETARY",
-    ]);
+    assert.throws(
+      () => resolvePublishedDepartmentProductKeys([" EVS ", "DIETARY", "EVS"]),
+      (error: unknown) =>
+        error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
+    );
     assert.throws(
       () => resolvePublishedDepartmentProductKeys([AQUATICS]),
       (error: unknown) =>
@@ -199,7 +198,7 @@ describe("Published Department Product selection", () => {
     );
   });
 
-  it("installs Dietary + EVS without creating Plant", async () => {
+  it("skips DEVELOPMENT EVS keys during reconcile", async () => {
     const { prisma, created } = mockInstallDb({ facilityId: "fac_2" });
     await installDepartmentsForActiveEntitlements({
       facilityId: "fac_2",
@@ -208,7 +207,7 @@ describe("Published Department Product selection", () => {
     });
     assert.deepEqual(
       created.map((row) => row.key),
-      ["DIETARY", "EVS"],
+      ["DIETARY"],
     );
   });
 });
@@ -317,7 +316,8 @@ describe("Purchase authority and customer bootstrap retirement", () => {
     }
     assert.match(source("src/app/api/onboarding/locations/route.ts"), /loadInstalledBootstrapDepartmentIds/);
     assert.doesNotMatch(source("src/app/(protected)/admin/departments/page.tsx"), /CreateDepartmentForm/);
-    assert.match(source("src/app/(protected)/admin/departments/page.tsx"), /AddDepartmentForm/);
+    assert.match(source("src/app/(protected)/admin/departments/page.tsx"), /DepartmentMarketplace/);
+    assert.match(source("src/app/(protected)/admin/departments/page.tsx"), /add-department-button/);
   });
 
   it("installs after entitlement on the Stripe sync path only when payment succeeded", () => {

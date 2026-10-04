@@ -2,9 +2,15 @@ import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 
 import {
-  isDepartmentProductAvailableForInstall,
+  evaluateCustomerDepartmentOperability,
+  resolveCommercialEntitlement,
+  type BillingStatusForEntitlement,
+} from "./eligibility";
+import {
+  isDepartmentProductCustomerVisible,
   listDepartmentProducts,
   type DepartmentProduct,
+  type DepartmentProductReleaseStatus,
 } from "./registry";
 
 export type FacilityDepartmentRecord = {
@@ -22,10 +28,15 @@ export type FacilityDepartmentCatalogItem = {
   productKey: string;
   name: string;
   industry: DepartmentProduct["industry"];
+  releaseStatus: DepartmentProductReleaseStatus;
+  shortDescription: string | null;
+  customerCapabilities: readonly string[];
   installed: boolean;
   departmentId: string | null;
   departmentActive: boolean;
   licensed: boolean;
+  entitled: boolean;
+  operable: boolean;
   availableToAdd: boolean;
 };
 
@@ -37,29 +48,50 @@ export function deriveFacilityDepartmentCatalog(input: {
   products?: readonly DepartmentProduct[];
   departments: readonly FacilityDepartmentRecord[];
   entitlements: readonly FacilityEntitlementRecord[];
+  billingStatus?: BillingStatusForEntitlement;
+  entitlementsEnforced?: boolean;
 }): FacilityDepartmentCatalogItem[] {
   const products = (input.products ?? listDepartmentProducts()).filter((product) =>
-    isDepartmentProductAvailableForInstall(product),
+    isDepartmentProductCustomerVisible(product),
   );
   const departmentByKey = new Map(input.departments.map((row) => [row.key, row]));
-  const licensedKeys = new Set(
-    input.entitlements
-      .filter((row) => row.status === "ACTIVE")
-      .map((row) => row.departmentKey),
+  const entitlementByKey = new Map(
+    input.entitlements.map((row) => [row.departmentKey, row.status]),
   );
+  const billingStatus = input.billingStatus ?? null;
+  const entitlementsEnforced = input.entitlementsEnforced ?? false;
 
   return products.map((product) => {
     const department = departmentByKey.get(product.productKey);
     const installed = Boolean(department);
-    const licensed = licensedKeys.has(product.productKey);
+    const licensed = entitlementByKey.get(product.productKey) === "ACTIVE";
+    const entitled = resolveCommercialEntitlement({
+      releaseStatus: product.status,
+      entitlementStatus: entitlementByKey.get(product.productKey) ?? null,
+      billingStatus,
+      entitlementsEnforced,
+      installed,
+    });
+    const operability = evaluateCustomerDepartmentOperability({
+      productKey: product.productKey,
+      releaseStatus: product.status,
+      installed,
+      departmentActive: department?.isActive ?? false,
+      entitled,
+    });
     return {
       productKey: product.productKey,
       name: product.name,
       industry: product.industry,
+      releaseStatus: product.status,
+      shortDescription: product.shortDescription ?? null,
+      customerCapabilities: product.customerCapabilities ?? [],
       installed,
       departmentId: department?.id ?? null,
       departmentActive: department?.isActive ?? false,
       licensed,
+      entitled,
+      operable: operability.operable,
       availableToAdd: !installed && !licensed,
     };
   });
@@ -100,4 +132,10 @@ export function groupCatalogByIndustry(
     label: industryCatalogLabel(industry),
     products,
   }));
+}
+
+export function selectOperableCatalogItems(
+  items: readonly FacilityDepartmentCatalogItem[],
+): FacilityDepartmentCatalogItem[] {
+  return items.filter((item) => item.operable);
 }

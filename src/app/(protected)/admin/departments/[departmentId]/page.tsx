@@ -23,6 +23,7 @@ import { loadDepartmentAdminView } from "@/lib/department-administration/load-de
 import { loadDepartmentLocationRoomInspects } from "@/lib/department-administration/load-location-room-inspect";
 import { resolveTeamAuthority } from "@/lib/department-teams";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
+import { assertCustomerDepartmentContext } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
 import {
@@ -33,7 +34,11 @@ import {
   presentOverviewGuidance,
   resolveOverviewProductIdentity,
 } from "@/lib/department-administration/overview-guidance";
-import { loadFacilityDepartmentCatalog, getDepartmentProduct } from "@/lib/department-products";
+import {
+  canPurchaseDepartmentProducts,
+  getDepartmentProduct,
+  loadFacilityDepartmentCatalog,
+} from "@/lib/department-products";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 import { prisma } from "@/lib/prisma";
@@ -60,6 +65,17 @@ export default async function DepartmentBuilderPage({
 
   const profilesEnabled = isDepartmentOperationalProfilesEnabled();
   const { departmentId } = await params;
+  const access = await assertCustomerDepartmentContext({ session, departmentId });
+  if (!access.allowed) {
+    if (
+      access.reason === "not_entitled" &&
+      canPurchaseDepartmentProducts(session.role)
+    ) {
+      redirect("/build/departments?all=1&marketplace=1");
+    }
+    redirect("/build/departments?all=1");
+  }
+
   const query = await searchParams;
 
   const requestedTab = query.tab;

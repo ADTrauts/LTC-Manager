@@ -17,6 +17,7 @@ import {
 import { hasAtLeastRole } from "@/lib/access";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
 
 type SearchParams = Promise<{ tab?: string; departmentId?: string }>;
@@ -36,11 +37,10 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
     query.tab === "attachments" ? "attachments" : query.tab === "library" ? "library" : "catalog";
   const facilityId = session.facilityId;
 
-  const departments = await prisma.department.findMany({
-    where: { facilityId, isActive: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const departments = (await loadCustomerOperableDepartments(prisma, facilityId)).map((row) => ({
+    id: row.id,
+    name: row.name,
+  }));
 
   const [catalogCards, installedStableKeys] = await Promise.all([
     listPublishedCatalogBrowseCards(prisma),

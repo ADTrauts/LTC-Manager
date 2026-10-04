@@ -12,7 +12,7 @@
 | **Organization** | Parent legal/operating group; facilities belong here. Shared org alone never grants facility access. |
 | **Facility** | Operational site with timezone, users, units, departments. Primary tenancy boundary for day-to-day data. |
 | **UserFacilityAccess** | Explicit grant for a user to enter a facility. |
-| **Department Product** | Vssyl-owned operational product (Dietary, EVS, Plant Operations). Code registry, not a customer-editable row. |
+| **Department Product** | Vssyl-owned operational product (Dietary, EVS, Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
