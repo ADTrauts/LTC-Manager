@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { VssylLockup } from "@/components/brand/vssyl-lockup";
+import { HarborSupportNotifications } from "@/components/harbor-console/harbor-support-notifications";
+import type { SupportStaffNotificationItem } from "@/lib/support/notifications";
 
 const NAV = [
   { href: "/console", label: "Today", enabled: true },
@@ -22,10 +24,14 @@ function navActive(pathname: string, href: string) {
 export function HarborConsoleShell({
   staffName,
   staffRole,
+  notifications,
+  unreadCount,
   children,
 }: {
   staffName: string;
   staffRole: string;
+  notifications?: SupportStaffNotificationItem[];
+  unreadCount?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -64,6 +70,7 @@ export function HarborConsoleShell({
           </nav>
         </div>
         <div className="space-y-3 px-1">
+          <HarborSupportNotifications items={notifications ?? []} unreadCount={unreadCount ?? 0} />
           <div>
             <p className="text-sm font-medium">{staffName}</p>
             <p className="text-xs text-[var(--run-aside-muted)]">{staffRole === "OWNER" ? "Owner" : "Member"}</p>

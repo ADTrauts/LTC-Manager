@@ -8,6 +8,8 @@ import { sendConsoleTicketReplyEmail, type SendTransactionalEmailResult } from "
 
 import { getSupportFromAddress, getSupportReplyToAddress } from "./config";
 import { SupportTicketError } from "./errors";
+import { dispatchPendingSupportStaffNotificationEmails } from "./notification-email";
+import { recordSupportStaffNotifications } from "./notifications";
 import {
   formatMessageIdHeader,
   generateSupportInternetMessageId,
@@ -190,6 +192,7 @@ export async function deliverSupportReply(
           id: true,
           number: true,
           subject: true,
+          assignedStaffId: true,
           facility: { select: { displayName: true } },
           contact: { select: { displayName: true } },
         },
@@ -242,6 +245,20 @@ export async function deliverSupportReply(
         }
       : { deliveryStatus: "FAILED", deliveryError: describeSupportDeliveryFailure(result) },
   });
+  if (status === "FAILED") {
+    await recordSupportStaffNotifications(db, {
+      type: "DELIVERY_FAILED",
+      ticket: {
+        id: message.ticket.id,
+        number: message.ticket.number,
+        subject: message.ticket.subject,
+        assignedStaffId: message.ticket.assignedStaffId,
+      },
+      messageId: message.id,
+      sourceKey: message.id,
+    });
+    await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticket.id });
+  }
   return status;
 }
 

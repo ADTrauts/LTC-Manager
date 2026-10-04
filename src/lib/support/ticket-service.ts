@@ -10,6 +10,8 @@ import {
 import { upsertSupportContact } from "./contacts";
 import { SupportTicketError } from "./errors";
 import { generateSupportReplyToken } from "./identifiers";
+import { dispatchPendingSupportStaffNotificationEmails } from "./notification-email";
+import { recordSupportStaffNotifications } from "./notifications";
 import { planSupportTicketStatusChange } from "./status-transition";
 
 type Tx = Prisma.TransactionClient;
@@ -117,6 +119,32 @@ export async function createSupportTicket(
       });
     }
 
+    const ticketRef = {
+      id: ticket.id,
+      number: ticket.number,
+      subject: input.subject.trim(),
+      assignedStaffId: input.assignedStaffId ?? null,
+    };
+    if (ticketRef.assignedStaffId) {
+      await recordSupportStaffNotifications(tx, {
+        type: "ASSIGNED_TO_ME",
+        ticket: ticketRef,
+        actorStaffId: input.actorStaffId,
+        sourceKey: `create->${ticketRef.assignedStaffId}`,
+      });
+    }
+    if (priority === "URGENT" || priority === "HIGH") {
+      await recordSupportStaffNotifications(tx, {
+        type: priority === "URGENT" ? "URGENT_PRIORITY" : "HIGH_PRIORITY",
+        ticket: ticketRef,
+        actorStaffId: input.actorStaffId,
+        sourceKey: `create->${priority}`,
+      });
+    }
+
+    return ticket;
+  }).then(async (ticket) => {
+    await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: ticket.id });
     return ticket;
   });
 }
@@ -228,6 +256,8 @@ export async function applySupportTicketDetailChanges(
     where: { id: input.ticketId },
     select: {
       id: true,
+      number: true,
+      subject: true,
       type: true,
       priority: true,
       assignedStaffId: true,
@@ -305,6 +335,41 @@ export async function applySupportTicketDetailChanges(
     throw new SupportTicketError("conflict");
   }
   await tx.supportTicketEvent.createMany({ data: events });
+
+  const nextAssigned =
+    changes.assignedStaffId !== undefined ? (data.assignedStaffId as string | null) : current.assignedStaffId;
+  const ticketRef = {
+    id: current.id,
+    number: current.number,
+    subject: current.subject,
+    assignedStaffId: nextAssigned ?? null,
+  };
+  if (changes.assignedStaffId !== undefined && changes.assignedStaffId !== current.assignedStaffId && nextAssigned) {
+    await recordSupportStaffNotifications(tx, {
+      type: "ASSIGNED_TO_ME",
+      ticket: ticketRef,
+      actorStaffId: input.actorStaffId,
+      sourceKey: `${current.assignedStaffId ?? "none"}->${nextAssigned}`,
+    });
+  }
+  if (changes.priority !== undefined && changes.priority !== current.priority) {
+    if (changes.priority === "URGENT") {
+      await recordSupportStaffNotifications(tx, {
+        type: "URGENT_PRIORITY",
+        ticket: ticketRef,
+        actorStaffId: input.actorStaffId,
+        sourceKey: `${current.priority}->URGENT`,
+      });
+    } else if (changes.priority === "HIGH" && current.priority !== "URGENT") {
+      await recordSupportStaffNotifications(tx, {
+        type: "HIGH_PRIORITY",
+        ticket: ticketRef,
+        actorStaffId: input.actorStaffId,
+        sourceKey: `${current.priority}->HIGH`,
+      });
+    }
+  }
+
   return events.map((row) => row.type);
 }
 
@@ -312,7 +377,9 @@ export async function updateSupportTicketDetails(
   db: PrismaClient,
   input: { ticketId: string; actorStaffId: string; changes: SupportTicketDetailChanges },
 ): Promise<SupportTicketEventType[]> {
-  return db.$transaction((tx) => applySupportTicketDetailChanges(tx, input));
+  const events = await db.$transaction((tx) => applySupportTicketDetailChanges(tx, input));
+  await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: input.ticketId });
+  return events;
 }
 
 export async function findPriorSupportSubmission(

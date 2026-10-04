@@ -222,7 +222,10 @@ test(
       if (contactEmails.length) {
         await prisma.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
       }
-      if (staffIds.length) await prisma.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+      if (staffIds.length) {
+        await prisma.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
+        await prisma.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+      }
       if (orgId) {
         await prisma.facility.deleteMany({ where: { organizationId: orgId } });
         await prisma.organization.delete({ where: { id: orgId } });

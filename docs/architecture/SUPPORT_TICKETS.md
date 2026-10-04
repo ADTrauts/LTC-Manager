@@ -2,8 +2,8 @@
 
 Canonical support domain for Vssyl Console. Code: `src/lib/support/`. Schema: `SupportContact`,
 `SupportTicket`, `SupportTicketMessage`, `SupportTicketEvent`, `SupportSavedReply`, `SupportTag`,
-`SupportTicketTag`, `SupportMacro`, `SupportMacroTag`, `SupportMacroApplication` in
-`prisma/schema.prisma`.
+`SupportTicketTag`, `SupportMacro`, `SupportMacroTag`, `SupportMacroApplication`,
+`SupportStaffNotification` in `prisma/schema.prisma`.
 
 ## Ownership and boundaries
 
@@ -163,6 +163,39 @@ Canonical `SupportTicketEvent` rows are written for status/type/priority/assignm
 `metadata` may include `source: "MACRO"`, `macroId`, and a `macroName` snapshot. Tag adds stay
 join-only. `SupportMacroApplication` records each apply (`macroName` snapshot). Soft-deactivate;
 no hard delete after use.
+
+## Notifications
+
+Harbor-only inbox rows (`SupportStaffNotification`) plus optional internal staff email. A
+notification informs a Harbor staff member. It is not Automation: nothing is sent to the customer
+and ticket state is not changed by the notification itself.
+
+| Type | Recipients | Console | Staff email |
+|------|------------|---------|-------------|
+| `NEW_TICKET` | All active Harbor staff | Yes | Yes |
+| `ASSIGNED_TO_ME` | Newly assigned staff, not the actor | Yes | No |
+| `CUSTOMER_REPLIED` | Assignee only. Unassigned: none | Yes | Yes |
+| `HIGH_PRIORITY` | Assignee, or all active staff if unassigned; not the actor | Yes | No |
+| `URGENT_PRIORITY` | Same as HIGH | Yes | Yes |
+| `DELIVERY_FAILED` | Assignee, or all active staff if unassigned | Yes | No |
+| `BOUNCED` | Same | Yes | Yes |
+| `SPAM_COMPLAINT` | Same | Yes | Yes |
+
+Self-assignment and unassign produce no assignment notification. `HIGH → URGENT` notifies again.
+`URGENT → HIGH` does not. Notes, outbound mail, and Auto-Submitted inbound mail do not create
+`CUSTOMER_REPLIED`. PlatformStaff has no support-role split, so fan-out is every active Harbor
+staff member.
+
+Idempotency is `dedupeKey` (`type + staffId + source`). Retried inbound or bounce webhooks do not
+create a second row. Email send is after commit; failure is logged and never rolls back the
+support mutation. Staff mail uses `sendTransactionalEmail` (tag `support-staff-notification`),
+not the customer reply template, and never adds a Reply-To token.
+
+Console: bell in the Harbor shell, last 50, unread count, mark one / mark all read. Click opens
+`/console/tickets/[ticketId]`. Staff see only their own rows. Facility users cannot access
+Console. Retention cleanup is deferred; rows persist.
+
+Preferences are deferred. No snooze, archive, or folders.
 
 ## Messages and events
 
@@ -603,5 +636,5 @@ it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
 
 Malware scanner vendor and `SupportAttachmentScanner` processor (stored files remain `PENDING` and
 non-downloadable), outbound attachments, attachment previews, retention/deletion automation,
-acknowledgment emails, staff notifications, SLAs, teams
+acknowledgment emails, notification preferences and retention cleanup, SLAs, teams
 and routing rules, AI classification, feature-request aggregation, customer portal, and chat.

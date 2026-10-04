@@ -34,6 +34,10 @@ import {
   setSupportTagActive,
 } from "@/lib/support/tags";
 import {
+  markAllSupportStaffNotificationsRead,
+  markSupportStaffNotificationRead,
+} from "@/lib/support/notifications";
+import {
   addSupportTicketNote,
   changeSupportTicketStatus,
   createSupportTicket,
@@ -448,4 +452,24 @@ export async function applySupportMacroAction(ticketId: string, macroId: string)
     }
     throw error;
   }
+}
+
+export async function markSupportNotificationReadAction(notificationId: string, ticketId: string) {
+  const session = await requireHarborStaff();
+  const result = await markSupportStaffNotificationRead(prisma, {
+    staffId: session.uid,
+    id: notificationId,
+  });
+  revalidatePath("/console");
+  if (!result.ok) {
+    return { ok: false as const, href: "/console/tickets" };
+  }
+  return { ok: true as const, href: ticketPath(ticketId) };
+}
+
+export async function markAllSupportNotificationsReadAction() {
+  const session = await requireHarborStaff();
+  await markAllSupportStaffNotificationsRead(prisma, { staffId: session.uid });
+  revalidatePath("/console");
+  return { ok: true as const };
 }

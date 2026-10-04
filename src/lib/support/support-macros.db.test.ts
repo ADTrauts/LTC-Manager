@@ -352,7 +352,10 @@ test(
       if (replyIds.length) await db.supportSavedReply.deleteMany({ where: { id: { in: replyIds } } });
       if (tagIds.length) await db.supportTag.deleteMany({ where: { id: { in: tagIds } } });
       if (contactEmails.length) await db.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
-      if (staffIds.length) await db.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+      if (staffIds.length) {
+        await db.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
+        await db.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+      }
       if (facilityIds.length) await db.facility.deleteMany({ where: { id: { in: facilityIds } } });
       if (orgId) await db.organization.delete({ where: { id: orgId } });
       await db.$disconnect();

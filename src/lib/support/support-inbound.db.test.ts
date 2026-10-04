@@ -368,7 +368,10 @@ test(
       await prisma.supportTicket.deleteMany({ where: { id: { in: ticketIds } } });
       await prisma.supportContact.deleteMany({ where: { id: { in: contactIds } } });
       if (userId) await prisma.user.deleteMany({ where: { id: userId } });
-      if (staffId) await prisma.platformStaff.deleteMany({ where: { id: staffId } });
+      if (staffId) {
+        await prisma.supportStaffNotification.deleteMany({ where: { staffId } });
+        await prisma.platformStaff.deleteMany({ where: { id: staffId } });
+      }
       if (facilityId) await prisma.facility.deleteMany({ where: { id: facilityId } });
       if (orgId) await prisma.organization.deleteMany({ where: { id: orgId } });
       await prisma.$disconnect();

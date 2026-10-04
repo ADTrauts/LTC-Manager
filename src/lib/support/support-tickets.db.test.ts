@@ -434,6 +434,7 @@ test(
       }
       await prisma.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      await prisma.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
       await prisma.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
       await prisma.facility.deleteMany({ where: { id: { in: facilityIds } } });
       if (orgId) {

@@ -1,5 +1,7 @@
-import type { PrismaClient, SupportMessageDeliveryStatus } from "@prisma/client";
+import { Prisma, type PrismaClient, type SupportMessageDeliveryStatus, type SupportStaffNotificationType } from "@prisma/client";
 
+import { dispatchPendingSupportStaffNotificationEmails } from "./notification-email";
+import { recordSupportStaffNotifications } from "./notifications";
 import { applySupportTicketStatusChange } from "./ticket-service";
 
 const MAX_DESCRIPTION = 240;
@@ -130,7 +132,17 @@ export async function applySupportDeliveryEvent(
       kind: true,
       deliveryStatus: true,
       ticketId: true,
-      ticket: { select: { id: true, status: true, resolvedAt: true, closedAt: true } },
+      ticket: {
+        select: {
+          id: true,
+          number: true,
+          subject: true,
+          assignedStaffId: true,
+          status: true,
+          resolvedAt: true,
+          closedAt: true,
+        },
+      },
     },
   });
   if (!message || message.kind !== "OUTBOUND" || !message.deliveryStatus) {
@@ -156,8 +168,34 @@ type MessageRow = {
   id: string;
   ticketId: string;
   deliveryStatus: SupportMessageDeliveryStatus;
-  ticket: { id: string; status: "NEW" | "OPEN" | "WAITING_ON_CUSTOMER" | "RESOLVED" | "CLOSED"; resolvedAt: Date | null; closedAt: Date | null };
+  ticket: {
+    id: string;
+    number: number;
+    subject: string;
+    assignedStaffId: string | null;
+    status: "NEW" | "OPEN" | "WAITING_ON_CUSTOMER" | "RESOLVED" | "CLOSED";
+    resolvedAt: Date | null;
+    closedAt: Date | null;
+  };
 };
+
+async function recordDeliveryProblemNotification(
+  db: PrismaClient | Prisma.TransactionClient,
+  message: MessageRow,
+  type: Extract<SupportStaffNotificationType, "DELIVERY_FAILED" | "BOUNCED" | "SPAM_COMPLAINT">,
+) {
+  await recordSupportStaffNotifications(db, {
+    type,
+    ticket: {
+      id: message.ticket.id,
+      number: message.ticket.number,
+      subject: message.ticket.subject,
+      assignedStaffId: message.ticket.assignedStaffId,
+    },
+    messageId: message.id,
+    sourceKey: message.id,
+  });
+}
 
 async function applyDelivery(
   db: PrismaClient,
@@ -276,7 +314,13 @@ async function applyBounce(
     }
 
     await tx.supportTicket.update({ where: { id: message.ticketId }, data: { updatedAt: now } });
+    await recordDeliveryProblemNotification(tx, message, "BOUNCED");
     return { result: "applied" as const, messageId: message.id, ticketId: message.ticketId, deliveryStatus: "BOUNCED" as const };
+  }).then(async (result) => {
+    if (result.result === "applied") {
+      await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticketId });
+    }
+    return result;
   });
 }
 
@@ -332,11 +376,17 @@ async function applyComplaint(
       });
     }
     await tx.supportTicket.update({ where: { id: message.ticketId }, data: { updatedAt: now } });
+    await recordDeliveryProblemNotification(tx, message, "SPAM_COMPLAINT");
     return {
       result: "applied" as const,
       messageId: message.id,
       ticketId: message.ticketId,
       deliveryStatus: "SPAM_COMPLAINT" as const,
     };
+  }).then(async (result) => {
+    if (result.result === "applied") {
+      await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: message.ticketId });
+    }
+    return result;
   });
 }

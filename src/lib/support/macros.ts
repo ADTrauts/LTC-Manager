@@ -9,6 +9,7 @@ import type {
 import { Prisma } from "@prisma/client";
 
 import { SupportTicketError } from "./errors";
+import { dispatchPendingSupportStaffNotificationEmails } from "./notification-email";
 import {
   SUPPORT_TICKET_PRIORITY_LABEL,
   SUPPORT_TICKET_STATUS_LABEL,
@@ -343,7 +344,7 @@ export async function applySupportMacro(
     now?: Date;
   },
 ): Promise<SupportMacroApplyResult> {
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const ticket = await tx.supportTicket.findUnique({
       where: { id: input.ticketId },
       select: { id: true, status: true, resolvedAt: true, closedAt: true },
@@ -447,4 +448,6 @@ export async function applySupportMacro(
       events,
     };
   });
+  await dispatchPendingSupportStaffNotificationEmails(db as PrismaClient, { ticketId: input.ticketId });
+  return result;
 }

@@ -5,6 +5,8 @@ import type { SupportAttachmentStore } from "./attachment-store";
 import { upsertSupportContact } from "./contacts";
 import { generateSupportReplyToken } from "./identifiers";
 import { type InboundSupportEmail, normalizeInboundSubject, parseTicketMarkers } from "./inbound-email";
+import { dispatchPendingSupportStaffNotificationEmails } from "./notification-email";
+import { recordSupportStaffNotifications } from "./notifications";
 import { applySupportTicketStatusChange } from "./ticket-service";
 import { formatSupportTicketNumber } from "./ticket-number";
 
@@ -29,10 +31,12 @@ export type SupportInboundResult =
 type RoutedTicket = {
   id: string;
   number: number;
+  subject: string;
   status: SupportTicketStatus;
   resolvedAt: Date | null;
   closedAt: Date | null;
   contactId: string;
+  assignedStaffId: string | null;
 };
 
 type Route =
@@ -42,10 +46,12 @@ type Route =
 const ROUTED_TICKET_SELECT = {
   id: true,
   number: true,
+  subject: true,
   status: true,
   resolvedAt: true,
   closedAt: true,
   contactId: true,
+  assignedStaffId: true,
 } as const;
 
 const REPLY_TOKEN_PATTERN = /^[0-9a-f]{32,40}$/;
@@ -139,12 +145,13 @@ async function recordInbound(
     const contact = await upsertSupportContact(tx, { email: email.fromEmail, displayName: email.fromName });
     const route = await resolveRoute(tx, email, contact.id);
 
-    let ticket: { id: string; number: number };
+    let ticket: { id: string; number: number; subject: string; assignedStaffId: string | null };
     if (route.kind === "new") {
+      const subject = normalizeInboundSubject(email.subject);
       ticket = await tx.supportTicket.create({
         data: {
           replyToken: generateSupportReplyToken(),
-          subject: normalizeInboundSubject(email.subject),
+          subject,
           status: "NEW",
           type: null,
           priority: "NORMAL",
@@ -152,7 +159,7 @@ async function recordInbound(
           facilityId: contact.facilityId,
           assignedStaffId: null,
         },
-        select: { id: true, number: true },
+        select: { id: true, number: true, subject: true, assignedStaffId: true },
       });
       await tx.supportTicketEvent.create({
         data: {
@@ -215,6 +222,24 @@ async function recordInbound(
     }
     await tx.supportTicket.update({ where: { id: ticket.id }, data: { updatedAt: now } });
 
+    if (route.kind === "new") {
+      await recordSupportStaffNotifications(tx, {
+        type: "NEW_TICKET",
+        ticket,
+        messageId: message.id,
+        sourceKey: ticket.id,
+        now,
+      });
+    } else if (!email.autoSubmitted) {
+      await recordSupportStaffNotifications(tx, {
+        type: "CUSTOMER_REPLIED",
+        ticket,
+        messageId: message.id,
+        sourceKey: message.id,
+        now,
+      });
+    }
+
     return {
       result: route.kind === "new" ? "created" : "attached",
       ticketId: ticket.id,
@@ -271,6 +296,7 @@ export async function processInboundSupportEmail(
     try {
       const result = await recordInbound(db, email, now);
       await persist(result.ticketId, result.messageId);
+      await dispatchPendingSupportStaffNotificationEmails(db, { ticketId: result.ticketId });
       return result;
     } catch (error) {
       const target = uniqueTarget(error);

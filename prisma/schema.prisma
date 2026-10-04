@@ -4494,6 +4494,7 @@ model PlatformStaff {
   createdSupportMacros SupportMacro[] @relation("SupportMacroCreatedBy")
   assignedSupportMacros SupportMacro[] @relation("SupportMacroAssignedStaff")
   supportMacroApplications SupportMacroApplication[]
+  supportNotifications SupportStaffNotification[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -4596,6 +4597,24 @@ enum SupportMacroAssignmentMode {
   UNASSIGN
 }
 
+enum SupportStaffNotificationType {
+  NEW_TICKET
+  ASSIGNED_TO_ME
+  CUSTOMER_REPLIED
+  HIGH_PRIORITY
+  URGENT_PRIORITY
+  DELIVERY_FAILED
+  BOUNCED
+  SPAM_COMPLAINT
+}
+
+enum SupportStaffNotificationEmailStatus {
+  NOT_REQUIRED
+  PENDING
+  SENT
+  FAILED
+}
+
 enum SupportTicketEventType {
   CREATED
   STATUS_CHANGED
@@ -4666,6 +4685,7 @@ model SupportTicket {
   events          SupportTicketEvent[]
   ticketTags      SupportTicketTag[]
   macroApplications SupportMacroApplication[]
+  staffNotifications SupportStaffNotification[]
   resolvedAt      DateTime?
   closedAt        DateTime?
   createdAt       DateTime               @default(now())
@@ -4722,6 +4742,7 @@ model SupportTicketMessage {
   receivedAt         DateTime?
   attachments        SupportTicketAttachment[]
   causedEvents       SupportTicketEvent[]
+  staffNotifications SupportStaffNotification[]
   createdAt          DateTime                      @default(now())
 
   @@index([ticketId, createdAt])
@@ -4846,6 +4867,32 @@ model SupportMacroApplication {
 
   @@index([ticketId, appliedAt])
   @@index([macroId, appliedAt])
+}
+
+/// Harbor-only support inbox row. Not a generic platform notification.
+model SupportStaffNotification {
+  id          String                               @id @default(cuid())
+  staffId     String
+  staff       PlatformStaff                        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  type        SupportStaffNotificationType
+  ticketId    String
+  ticket      SupportTicket                        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId   String?
+  message     SupportTicketMessage?                @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  /// Stable retry key: type + staff + source (ticket/message/transition). Not a timestamp.
+  dedupeKey   String                               @unique
+  title       String
+  body        String
+  isRead      Boolean                              @default(false)
+  readAt      DateTime?
+  emailStatus SupportStaffNotificationEmailStatus  @default(NOT_REQUIRED)
+  emailSentAt DateTime?
+  emailError  String?
+  createdAt   DateTime                             @default(now())
+
+  @@index([staffId, isRead, createdAt])
+  @@index([staffId, createdAt])
+  @@index([ticketId])
 }
 
 /// Append-only ticket history. Application code only inserts rows.
