@@ -112,6 +112,7 @@ test("harbor console — facility roles never enter /console", () => {
     "/console/tickets/new",
     "/console/tickets/saved-replies",
     "/console/tickets/tags",
+    "/console/tickets/macros",
     "/console/tickets/cm1supportticket0000000001",
     "/console/catalog",
     "/console/catalog/new",

@@ -136,6 +136,7 @@ export async function applySupportTicketStatusChange(
     to: SupportTicketStatus;
     actorStaffId: string | null;
     causedByMessageId?: string | null;
+    eventMetadata?: Prisma.InputJsonObject;
     now: Date;
   },
 ): Promise<boolean> {
@@ -170,6 +171,7 @@ export async function applySupportTicketStatusChange(
       causedByMessageId: input.causedByMessageId ?? null,
       fromValue: plan.from,
       toValue: plan.to,
+      metadata: input.eventMetadata,
     },
   });
   return true;
@@ -213,92 +215,104 @@ export type SupportTicketDetailChanges = {
  * Applies only the fields that actually differ, writing one event per changed field in the same
  * transaction. Never touches the SupportContact.
  */
+export async function applySupportTicketDetailChanges(
+  tx: Tx,
+  input: {
+    ticketId: string;
+    actorStaffId: string;
+    changes: SupportTicketDetailChanges;
+    eventMetadata?: Prisma.InputJsonObject;
+  },
+): Promise<SupportTicketEventType[]> {
+  const current = await tx.supportTicket.findUnique({
+    where: { id: input.ticketId },
+    select: {
+      id: true,
+      type: true,
+      priority: true,
+      assignedStaffId: true,
+      facilityId: true,
+      assignedStaff: { select: { displayName: true } },
+      facility: { select: { displayName: true } },
+    },
+  });
+  if (!current) {
+    throw new SupportTicketError("not_found");
+  }
+
+  const { changes } = input;
+  const data: Prisma.SupportTicketUncheckedUpdateManyInput = {};
+  const events: Prisma.SupportTicketEventCreateManyInput[] = [];
+  const event = (
+    type: SupportTicketEventType,
+    fromValue: string | null,
+    toValue: string | null,
+    metadata?: Prisma.InputJsonObject,
+  ) =>
+    events.push({
+      ticketId: current.id,
+      type,
+      actorStaffId: input.actorStaffId,
+      fromValue,
+      toValue,
+      metadata: metadata
+        ? { ...metadata, ...(input.eventMetadata ?? {}) }
+        : input.eventMetadata,
+    });
+
+  if (changes.type !== undefined && changes.type !== current.type) {
+    data.type = changes.type;
+    event("TYPE_CHANGED", current.type, changes.type);
+  }
+  if (changes.priority !== undefined && changes.priority !== current.priority) {
+    data.priority = changes.priority;
+    event("PRIORITY_CHANGED", current.priority, changes.priority);
+  }
+  if (changes.assignedStaffId !== undefined && changes.assignedStaffId !== current.assignedStaffId) {
+    const next = changes.assignedStaffId
+      ? await requireActiveStaff(tx, changes.assignedStaffId)
+      : null;
+    data.assignedStaffId = next?.id ?? null;
+    event("ASSIGNMENT_CHANGED", current.assignedStaffId, next?.id ?? null, {
+      fromStaffName: current.assignedStaff?.displayName ?? null,
+      toStaffName: next?.displayName ?? null,
+    });
+  }
+  if (changes.facilityId !== undefined && changes.facilityId !== current.facilityId) {
+    const next = changes.facilityId ? await requireFacility(tx, changes.facilityId) : null;
+    data.facilityId = next?.id ?? null;
+    event("FACILITY_CHANGED", current.facilityId, next?.id ?? null, {
+      fromFacilityName: current.facility?.displayName ?? null,
+      toFacilityName: next?.displayName ?? null,
+    });
+  }
+
+  if (events.length === 0) {
+    return [];
+  }
+
+  const updated = await tx.supportTicket.updateMany({
+    where: {
+      id: current.id,
+      type: current.type,
+      priority: current.priority,
+      assignedStaffId: current.assignedStaffId,
+      facilityId: current.facilityId,
+    },
+    data,
+  });
+  if (updated.count !== 1) {
+    throw new SupportTicketError("conflict");
+  }
+  await tx.supportTicketEvent.createMany({ data: events });
+  return events.map((row) => row.type);
+}
+
 export async function updateSupportTicketDetails(
   db: PrismaClient,
   input: { ticketId: string; actorStaffId: string; changes: SupportTicketDetailChanges },
 ): Promise<SupportTicketEventType[]> {
-  return db.$transaction(async (tx) => {
-    const current = await tx.supportTicket.findUnique({
-      where: { id: input.ticketId },
-      select: {
-        id: true,
-        type: true,
-        priority: true,
-        assignedStaffId: true,
-        facilityId: true,
-        assignedStaff: { select: { displayName: true } },
-        facility: { select: { displayName: true } },
-      },
-    });
-    if (!current) {
-      throw new SupportTicketError("not_found");
-    }
-
-    const { changes } = input;
-    const data: Prisma.SupportTicketUncheckedUpdateManyInput = {};
-    const events: Prisma.SupportTicketEventCreateManyInput[] = [];
-    const event = (
-      type: SupportTicketEventType,
-      fromValue: string | null,
-      toValue: string | null,
-      metadata?: Prisma.InputJsonObject,
-    ) =>
-      events.push({
-        ticketId: current.id,
-        type,
-        actorStaffId: input.actorStaffId,
-        fromValue,
-        toValue,
-        metadata,
-      });
-
-    if (changes.type !== undefined && changes.type !== current.type) {
-      data.type = changes.type;
-      event("TYPE_CHANGED", current.type, changes.type);
-    }
-    if (changes.priority !== undefined && changes.priority !== current.priority) {
-      data.priority = changes.priority;
-      event("PRIORITY_CHANGED", current.priority, changes.priority);
-    }
-    if (changes.assignedStaffId !== undefined && changes.assignedStaffId !== current.assignedStaffId) {
-      const next = changes.assignedStaffId
-        ? await requireActiveStaff(tx, changes.assignedStaffId)
-        : null;
-      data.assignedStaffId = next?.id ?? null;
-      event("ASSIGNMENT_CHANGED", current.assignedStaffId, next?.id ?? null, {
-        fromStaffName: current.assignedStaff?.displayName ?? null,
-        toStaffName: next?.displayName ?? null,
-      });
-    }
-    if (changes.facilityId !== undefined && changes.facilityId !== current.facilityId) {
-      const next = changes.facilityId ? await requireFacility(tx, changes.facilityId) : null;
-      data.facilityId = next?.id ?? null;
-      event("FACILITY_CHANGED", current.facilityId, next?.id ?? null, {
-        fromFacilityName: current.facility?.displayName ?? null,
-        toFacilityName: next?.displayName ?? null,
-      });
-    }
-
-    if (events.length === 0) {
-      return [];
-    }
-
-    const updated = await tx.supportTicket.updateMany({
-      where: {
-        id: current.id,
-        type: current.type,
-        priority: current.priority,
-        assignedStaffId: current.assignedStaffId,
-        facilityId: current.facilityId,
-      },
-      data,
-    });
-    if (updated.count !== 1) {
-      throw new SupportTicketError("conflict");
-    }
-    await tx.supportTicketEvent.createMany({ data: events });
-    return events.map((row) => row.type);
-  });
+  return db.$transaction((tx) => applySupportTicketDetailChanges(tx, input));
 }
 
 export async function findPriorSupportSubmission(

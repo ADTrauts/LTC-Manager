@@ -4491,6 +4491,9 @@ model PlatformStaff {
   supportTicketEvents    SupportTicketEvent[]
   createdSupportSavedReplies SupportSavedReply[]
   addedSupportTicketTags SupportTicketTag[]
+  createdSupportMacros SupportMacro[] @relation("SupportMacroCreatedBy")
+  assignedSupportMacros SupportMacro[] @relation("SupportMacroAssignedStaff")
+  supportMacroApplications SupportMacroApplication[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -4586,6 +4589,13 @@ enum SupportMessageDeliveryStatus {
   SPAM_COMPLAINT
 }
 
+enum SupportMacroAssignmentMode {
+  UNCHANGED
+  ME
+  STAFF
+  UNASSIGN
+}
+
 enum SupportTicketEventType {
   CREATED
   STATUS_CHANGED
@@ -4655,6 +4665,7 @@ model SupportTicket {
   messages        SupportTicketMessage[]
   events          SupportTicketEvent[]
   ticketTags      SupportTicketTag[]
+  macroApplications SupportMacroApplication[]
   resolvedAt      DateTime?
   closedAt        DateTime?
   createdAt       DateTime               @default(now())
@@ -4750,6 +4761,7 @@ model SupportSavedReply {
   createdByStaff   PlatformStaff @relation(fields: [createdByStaffId], references: [id], onDelete: Restrict)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  macros           SupportMacro[]
 
   @@index([isActive, name])
 }
@@ -4764,6 +4776,7 @@ model SupportTag {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   tickets        SupportTicketTag[]
+  macros         SupportMacroTag[]
 
   @@index([isActive, name])
 }
@@ -4779,6 +4792,60 @@ model SupportTicketTag {
 
   @@id([ticketId, tagId])
   @@index([tagId, ticketId])
+}
+
+/// Harbor operator action bundle. Never auto-sends. Reply text comes from an optional Saved Reply.
+model SupportMacro {
+  id               String                      @id @default(cuid())
+  name             String
+  description      String?
+  isActive         Boolean                     @default(true)
+  savedReplyId     String?
+  savedReply       SupportSavedReply?          @relation(fields: [savedReplyId], references: [id], onDelete: SetNull)
+  /// Immediate status. WAITING_ON_CUSTOMER is not stored here when a Saved Reply is attached.
+  status           SupportTicketStatus?
+  /// Applied by sendSupportReply after the operator sends, not when the Macro is applied.
+  statusAfterReply SupportTicketStatus?
+  type             SupportTicketType?
+  priority         SupportTicketPriority?
+  assignmentMode   SupportMacroAssignmentMode  @default(UNCHANGED)
+  assignedStaffId  String?
+  assignedStaff    PlatformStaff?              @relation("SupportMacroAssignedStaff", fields: [assignedStaffId], references: [id], onDelete: Restrict)
+  createdByStaffId String
+  createdByStaff   PlatformStaff               @relation("SupportMacroCreatedBy", fields: [createdByStaffId], references: [id], onDelete: Restrict)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  tags             SupportMacroTag[]
+  applications     SupportMacroApplication[]
+
+  @@index([isActive, name])
+  @@index([savedReplyId])
+}
+
+model SupportMacroTag {
+  macroId String
+  macro   SupportMacro @relation(fields: [macroId], references: [id], onDelete: Cascade)
+  tagId   String
+  tag     SupportTag   @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([macroId, tagId])
+  @@index([tagId])
+}
+
+/// One Harbor apply. Does not send mail. Macro name is snapshotted.
+model SupportMacroApplication {
+  id               String        @id @default(cuid())
+  macroId          String
+  macro            SupportMacro  @relation(fields: [macroId], references: [id], onDelete: Restrict)
+  ticketId         String
+  ticket           SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  appliedByStaffId String
+  appliedByStaff   PlatformStaff @relation(fields: [appliedByStaffId], references: [id], onDelete: Restrict)
+  appliedAt        DateTime      @default(now())
+  macroName        String
+
+  @@index([ticketId, appliedAt])
+  @@index([macroId, appliedAt])
 }
 
 /// Append-only ticket history. Application code only inserts rows.

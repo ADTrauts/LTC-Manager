@@ -10,7 +10,7 @@ import {
   replySupportTicketAction,
   updateSupportTicketDetailsAction,
 } from "@/app/console/(staff)/tickets/actions";
-import { SupportReplyComposer } from "@/components/harbor-console/support-reply-composer";
+import { SupportTicketWorkPanel } from "@/components/harbor-console/support-ticket-work-panel";
 import { SupportSubmitButton } from "@/components/harbor-console/support-submit-button";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +32,7 @@ import {
   SUPPORT_TICKET_TYPE_LABEL,
   SUPPORT_TICKET_TYPES,
 } from "@/lib/support/labels";
+import { describeSupportMacroActions, listSupportMacros } from "@/lib/support/macros";
 import { listSupportSavedReplies, renderSupportSavedReply } from "@/lib/support/saved-replies";
 import { allowedSupportTicketTransitions } from "@/lib/support/status-transition";
 import { listSupportTags } from "@/lib/support/tags";
@@ -140,7 +141,7 @@ export default async function ConsoleTicketPage({
     notFound();
   }
 
-  const [staff, facilities, savedReplies, tags] = await Promise.all([
+  const [staff, facilities, savedReplies, tags, macros] = await Promise.all([
     prisma.platformStaff.findMany({
       where: { OR: [{ isActive: true }, ...(ticket.assignedStaffId ? [{ id: ticket.assignedStaffId }] : [])] },
       orderBy: { displayName: "asc" },
@@ -153,6 +154,7 @@ export default async function ConsoleTicketPage({
     }),
     listSupportSavedReplies(prisma, { activeOnly: true }),
     listSupportTags(prisma, { activeOnly: true }),
+    listSupportMacros(prisma, { activeOnly: true }),
   ]);
   if (ticket.facility && !facilities.some((row) => row.id === ticket.facility?.id)) {
     facilities.unshift(ticket.facility);
@@ -212,6 +214,12 @@ export default async function ConsoleTicketPage({
       facilityName: ticket.facility?.displayName ?? null,
       staffName: session.name,
     }),
+  }));
+  const composerMacros = macros.map((macro) => ({
+    id: macro.id,
+    name: macro.name,
+    description: macro.description,
+    preview: describeSupportMacroActions(macro),
   }));
 
   return (
@@ -341,27 +349,21 @@ export default async function ConsoleTicketPage({
             <form action={replySupportTicketAction} className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
               <input type="hidden" name="ticketId" value={ticket.id} />
               <input type="hidden" name="clientSubmissionId" value={newClientSubmissionId()} />
-              <SupportReplyComposer replies={composerReplies} />
+              <SupportTicketWorkPanel
+                ticketId={ticket.id}
+                replies={composerReplies}
+                macros={composerMacros}
+                currentStatus={ticket.status}
+                replyDefault={replyDefault}
+                transitions={transitions}
+              />
               <p className="text-xs text-[var(--text-secondary)]">
                 Emails {ticket.contact.email} from {getSupportFromAddress()}.{" "}
                 {isSupportReplyRoutingConfigured()
                   ? "When the customer replies, it comes back to this ticket."
                   : "Reply routing isn't configured on this server, so customer replies won't reach Console."}
               </p>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block text-sm">
-                  <span className="font-medium">Status after reply</span>
-                  <select name="status" defaultValue={replyDefault} className={INPUT_CLASS}>
-                    <option value="">Keep {SUPPORT_TICKET_STATUS_LABEL[ticket.status]}</option>
-                    {transitions.map((status) => (
-                      <option key={status} value={status}>
-                        {SUPPORT_TICKET_STATUS_LABEL[status]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <SupportSubmitButton pendingLabel="Sending…">Send reply</SupportSubmitButton>
-              </div>
+              <SupportSubmitButton pendingLabel="Sending…">Send reply</SupportSubmitButton>
             </form>
           )}
 

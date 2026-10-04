@@ -6,8 +6,19 @@ import { z } from "zod";
 
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
-import { SupportTicketError, type SupportTicketErrorCode } from "@/lib/support/errors";
+import {
+  SupportTicketError,
+  SUPPORT_TICKET_ERROR_MESSAGE,
+  type SupportTicketErrorCode,
+} from "@/lib/support/errors";
 import { SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_TYPES } from "@/lib/support/labels";
+import {
+  createSupportMacro,
+  isSupportMacroAssignmentMode,
+  setSupportMacroActive,
+  updateSupportMacro,
+  applySupportMacro,
+} from "@/lib/support/macros";
 import { sendSupportReply } from "@/lib/support/reply";
 import {
   createSupportSavedReply,
@@ -87,17 +98,21 @@ function revalidateTickets(ticketId?: string) {
   revalidatePath("/console/tickets");
   revalidatePath("/console/tickets/saved-replies");
   revalidatePath("/console/tickets/tags");
+  revalidatePath("/console/tickets/macros");
   if (ticketId) {
     revalidatePath(ticketPath(ticketId));
   }
 }
 
-function libraryPath(kind: "saved-replies" | "tags", error?: SupportTicketErrorCode | null) {
+function libraryPath(
+  kind: "saved-replies" | "tags" | "macros",
+  error?: SupportTicketErrorCode | null,
+) {
   return error ? `/console/tickets/${kind}?error=${error}` : `/console/tickets/${kind}`;
 }
 
 async function mutateLibrary(
-  kind: "saved-replies" | "tags",
+  kind: "saved-replies" | "tags" | "macros",
   mutation: () => Promise<unknown>,
 ): Promise<never> {
   let errorCode: SupportTicketErrorCode | null = null;
@@ -336,4 +351,101 @@ export async function setSupportTagActiveAction(formData: FormData) {
       isActive: field(formData, "isActive") === "true",
     }),
   );
+}
+
+function optionalEnum<T extends string>(value: string, allowed: readonly T[]): T | null {
+  return (allowed as readonly string[]).includes(value) ? (value as T) : null;
+}
+
+function parseMacroForm(formData: FormData) {
+  const assignmentModeRaw = field(formData, "assignmentMode") || "UNCHANGED";
+  if (!isSupportMacroAssignmentMode(assignmentModeRaw)) {
+    throw new SupportTicketError("invalid_input");
+  }
+  return {
+    name: field(formData, "name"),
+    description: field(formData, "description") || null,
+    savedReplyId: field(formData, "savedReplyId") || null,
+    status: optionalEnum(field(formData, "status"), SUPPORT_TICKET_STATUSES),
+    statusAfterReply: optionalEnum(field(formData, "statusAfterReply"), SUPPORT_TICKET_STATUSES),
+    type: optionalEnum(field(formData, "type"), SUPPORT_TICKET_TYPES),
+    priority: optionalEnum(field(formData, "priority"), SUPPORT_TICKET_PRIORITIES),
+    assignmentMode: assignmentModeRaw,
+    assignedStaffId: field(formData, "assignedStaffId") || null,
+    tagIds: formData.getAll("tagIds").filter((value): value is string => typeof value === "string" && value),
+  };
+}
+
+export async function createSupportMacroAction(formData: FormData) {
+  const session = await requireHarborStaff();
+  await mutateLibrary("macros", () =>
+    createSupportMacro(prisma, { actorStaffId: session.uid, ...parseMacroForm(formData) }),
+  );
+}
+
+export async function updateSupportMacroAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("macros", () =>
+    updateSupportMacro(prisma, { id: field(formData, "id"), ...parseMacroForm(formData) }),
+  );
+}
+
+export async function setSupportMacroActiveAction(formData: FormData) {
+  await requireHarborStaff();
+  await mutateLibrary("macros", () =>
+    setSupportMacroActive(prisma, {
+      id: field(formData, "id"),
+      isActive: field(formData, "isActive") === "true",
+    }),
+  );
+}
+
+export async function applySupportMacroAction(ticketId: string, macroId: string) {
+  const session = await requireHarborStaff();
+  try {
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      select: {
+        number: true,
+        contact: { select: { displayName: true } },
+        facility: { select: { displayName: true } },
+      },
+    });
+    if (!ticket) {
+      return { ok: false as const, message: SUPPORT_TICKET_ERROR_MESSAGE.not_found };
+    }
+    const result = await applySupportMacro(prisma, {
+      ticketId,
+      macroId,
+      actorStaffId: session.uid,
+      context: {
+        customerName: ticket.contact.displayName,
+        ticketNumber: ticket.number,
+        facilityName: ticket.facility?.displayName ?? null,
+        staffName: session.name,
+      },
+    });
+    revalidateTickets(ticketId);
+    const warnings: string[] = [];
+    if (result.savedReplyWarning === "inactive") {
+      warnings.push("The saved reply is inactive, so no draft text was inserted.");
+    }
+    if (result.savedReplyWarning === "missing") {
+      warnings.push("The saved reply is no longer available, so no draft text was inserted.");
+    }
+    if (result.skippedInactiveTags.length) {
+      warnings.push(`Skipped inactive tags: ${result.skippedInactiveTags.join(", ")}.`);
+    }
+    return {
+      ok: true as const,
+      draftBody: result.draftBody,
+      statusAfterReply: result.statusAfterReply,
+      notice: warnings.join(" ") || "Macro applied. Review the draft before sending.",
+    };
+  } catch (error) {
+    if (error instanceof SupportTicketError) {
+      return { ok: false as const, message: SUPPORT_TICKET_ERROR_MESSAGE[error.code] };
+    }
+    throw error;
+  }
 }

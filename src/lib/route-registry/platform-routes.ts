@@ -148,6 +148,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Support topic tags. Distinct from ticket Type.",
   },
   {
+    pattern: "/console/tickets/macros",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor support macros. Apply prepares a ticket; never auto-sends.",
+  },
+  {
     pattern: "/console/tickets/[ticketId]",
     match: "EXACT",
     surface: "PAGE",

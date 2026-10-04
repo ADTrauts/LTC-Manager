@@ -1,5 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
+type DbOrTx = PrismaClient | Prisma.TransactionClient;
+
 import { SupportTicketError } from "./errors";
 
 export const SUPPORT_TAG_NAME_MAX = 40;
@@ -83,6 +85,34 @@ export async function setSupportTagActive(
   } catch {
     throw new SupportTicketError("not_found");
   }
+}
+
+export async function addExistingSupportTicketTag(
+  db: DbOrTx,
+  input: { ticketId: string; actorStaffId: string; tagId: string },
+): Promise<"added" | "duplicate" | "skipped_inactive"> {
+  const tag = await db.supportTag.findUnique({ where: { id: input.tagId } });
+  if (!tag) {
+    throw new SupportTicketError("invalid_reference");
+  }
+  if (!tag.isActive) {
+    return "skipped_inactive";
+  }
+  const existing = await db.supportTicketTag.findUnique({
+    where: { ticketId_tagId: { ticketId: input.ticketId, tagId: tag.id } },
+    select: { tagId: true },
+  });
+  if (existing) {
+    return "duplicate";
+  }
+  await db.supportTicketTag.create({
+    data: {
+      ticketId: input.ticketId,
+      tagId: tag.id,
+      addedByStaffId: input.actorStaffId,
+    },
+  });
+  return "added";
 }
 
 export async function addSupportTicketTag(

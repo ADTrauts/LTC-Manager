@@ -2,7 +2,8 @@
 
 Canonical support domain for Vssyl Console. Code: `src/lib/support/`. Schema: `SupportContact`,
 `SupportTicket`, `SupportTicketMessage`, `SupportTicketEvent`, `SupportSavedReply`, `SupportTag`,
-`SupportTicketTag` in `prisma/schema.prisma`.
+`SupportTicketTag`, `SupportMacro`, `SupportMacroTag`, `SupportMacroApplication` in
+`prisma/schema.prisma`.
 
 ## Ownership and boundaries
 
@@ -108,8 +109,7 @@ Optional variables, resolved at insert time:
 Missing values become empty strings. Unknown tokens are left as written. No conditionals or
 expressions.
 
-Saved replies are **not macros**. Macros are deferred and may later combine a saved response with
-type, priority, assignment, tags, or status. This slice does not auto-send or mutate ticket state.
+Saved replies are reusable message text. They are not Macros.
 
 No starter library is seeded. Staff create replies in Console. Soft-deactivate instead of delete.
 
@@ -127,6 +127,42 @@ Removal deletes the join row; there is no removal audit log yet.
 
 Deactivated tags stay on existing tickets and remain filterable. They are not offered for new
 assignments. Rename keeps ticket relationships. No hard delete.
+
+## Macros
+
+Harbor-only action bundles (`/console/tickets/macros`). A Macro prepares a ticket and optional
+draft. It never sends email. The operator reviews and sends explicitly.
+
+| Concept | Meaning |
+|---------|---------|
+| Saved Reply | reusable message text |
+| Macro | reusable bundle of operator actions |
+| Automation | future event/time-triggered behavior (not implemented) |
+
+A Macro optionally **references** a Saved Reply. It does not store a second template body. Apply
+renders the current active Saved Reply with the same variables. If that reply is inactive or
+missing, ticket actions still apply and draft insertion is skipped with a warning. Sent mail stores
+the final draft only.
+
+Immediate actions (one transaction):
+
+- type, priority
+- assignment: no change / me / specific staff / unassign
+- add tags (no removal; duplicates ignored; inactive tags skipped)
+- immediate status, except `WAITING_ON_CUSTOMER` when a Saved Reply is attached
+
+Send-time:
+
+- `statusAfterReply` (typically `WAITING_ON_CUSTOMER`) is placed on the existing Status after reply
+  control and applied by `sendSupportReply` only after the operator sends
+
+CLOSED tickets cannot receive a Macro. Reopen first. `RESOLVED` uses existing `resolvedAt` logic.
+No facility action. Macros are not a list filter.
+
+Canonical `SupportTicketEvent` rows are written for status/type/priority/assignment changes.
+`metadata` may include `source: "MACRO"`, `macroId`, and a `macroName` snapshot. Tag adds stay
+join-only. `SupportMacroApplication` records each apply (`macroName` snapshot). Soft-deactivate;
+no hard delete after use.
 
 ## Messages and events
 
