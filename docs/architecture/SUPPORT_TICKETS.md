@@ -240,8 +240,12 @@ Do not send when:
 reminder. A failed final send does not resolve the ticket. Resolve without a Saved Reply is allowed
 when the rule has none.
 
-Cron: `GET /api/internal/support/automation` hourly (`vercel.json`). Auth is `Authorization: Bearer
-CRON_SECRET`. Missing secret → 503. Wrong secret → 401. No Harbor session. No default active rules.
+Cron: `GET /api/internal/support/automation`. Auth is `Authorization: Bearer CRON_SECRET`. Missing
+secret → 503. Wrong secret → 401. No Harbor session. No default active rules.
+
+The processor is safe to run hourly. Vercel Hobby only allows one cron per day, so production
+currently runs at 16:00 UTC (`vercel.json`). Move to `0 * * * *` after a Pro upgrade if closer
+to hourly evaluation is wanted.
 
 ## Notifications
 
