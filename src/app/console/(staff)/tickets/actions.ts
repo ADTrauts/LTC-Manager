@@ -372,7 +372,7 @@ function parseMacroForm(formData: FormData) {
     priority: optionalEnum(field(formData, "priority"), SUPPORT_TICKET_PRIORITIES),
     assignmentMode: assignmentModeRaw,
     assignedStaffId: field(formData, "assignedStaffId") || null,
-    tagIds: formData.getAll("tagIds").filter((value): value is string => typeof value === "string" && value),
+    tagIds: formData.getAll("tagIds").filter((value): value is string => typeof value === "string" && value.length > 0),
   };
 }
 
