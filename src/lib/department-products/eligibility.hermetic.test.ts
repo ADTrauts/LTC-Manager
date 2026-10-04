@@ -9,11 +9,14 @@ import {
   evaluateDepartmentForAudience,
   getDepartmentProduct,
   hasInternalDepartmentProductAccess,
+  customerCurrentDepartmentLabel,
+  isCustomerCurrentDepartmentProductKey,
   listDepartmentProducts,
   marketplaceDenialReason,
   resolveCommercialEntitlement,
   resolvePublishedDepartmentProductKeys,
   selectCustomerOperableDepartments,
+  shouldPresentDepartmentOnCustomerCurrentSurface,
   DepartmentProductInstallError,
 } from "./index";
 
@@ -206,37 +209,13 @@ describe("Entitlement and operability", () => {
 });
 
 describe("Internal development access", () => {
-  it("lets Harbor staff and EVS/Plant operation flags exercise DEVELOPMENT products", () => {
+  it("lets Harbor staff exercise DEVELOPMENT products", () => {
     assert.equal(
       hasInternalDepartmentProductAccess({
         authKind: "harbor_staff",
         productKey: "EVS",
       }),
       true,
-    );
-    assert.equal(
-      hasInternalDepartmentProductAccess({
-        authKind: "user",
-        productKey: "EVS",
-        evsOperationsEnabled: true,
-      }),
-      true,
-    );
-    assert.equal(
-      hasInternalDepartmentProductAccess({
-        authKind: "user",
-        productKey: "PLANT",
-        plantOperationsEnabled: true,
-      }),
-      true,
-    );
-    assert.equal(
-      hasInternalDepartmentProductAccess({
-        authKind: "user",
-        productKey: "EVS",
-        evsOperationsEnabled: false,
-      }),
-      false,
     );
     assert.equal(
       evaluateDepartmentForAudience({
@@ -251,6 +230,29 @@ describe("Internal development access", () => {
     );
   });
 
+  it("does not let feature flags grant DEVELOPMENT products to a normal customer user", () => {
+    assert.equal(
+      hasInternalDepartmentProductAccess({
+        authKind: "user",
+        productKey: "EVS",
+      }),
+      false,
+    );
+    assert.equal(
+      hasInternalDepartmentProductAccess({
+        authKind: "user",
+        productKey: "PLANT",
+      }),
+      false,
+    );
+    const access = source("src/lib/department-products/eligibility.ts");
+    assert.doesNotMatch(access, /evsOperationsEnabled/);
+    assert.doesNotMatch(access, /plantOperationsEnabled/);
+    const picker = source("src/lib/active-department-context.ts");
+    assert.doesNotMatch(picker, /isEvsOperationsEnabled/);
+    assert.doesNotMatch(picker, /isPlantOperationsEnabled/);
+  });
+
   it("does not grant DEVELOPMENT products to facility manager roles by themselves", () => {
     assert.equal(
       hasInternalDepartmentProductAccess({
@@ -263,6 +265,37 @@ describe("Internal development access", () => {
       () => resolvePublishedDepartmentProductKeys(["EVS"]),
       (error: unknown) =>
         error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
+    );
+  });
+});
+
+describe("Customer current Department presentation", () => {
+  it("omits DEVELOPMENT product keys from current customer labels", () => {
+    assert.equal(isCustomerCurrentDepartmentProductKey("DIETARY"), true);
+    assert.equal(isCustomerCurrentDepartmentProductKey("EVS"), false);
+    assert.equal(isCustomerCurrentDepartmentProductKey("PLANT"), false);
+    assert.equal(
+      shouldPresentDepartmentOnCustomerCurrentSurface("EVS", "customer"),
+      false,
+    );
+    assert.equal(
+      shouldPresentDepartmentOnCustomerCurrentSurface("EVS", "internal"),
+      true,
+    );
+    assert.equal(
+      customerCurrentDepartmentLabel({ name: "Dietary", key: "DIETARY" }),
+      "Dietary",
+    );
+    assert.equal(
+      customerCurrentDepartmentLabel({
+        name: "Plant Operations",
+        key: "PLANT",
+      }),
+      null,
+    );
+    assert.equal(
+      customerCurrentDepartmentLabel({ name: "Environmental Services" }),
+      null,
     );
   });
 });
@@ -297,6 +330,22 @@ describe("Cross-surface eligibility authority", () => {
       source("src/app/(protected)/admin/departments/[departmentId]/page.tsx"),
       /assertCustomerDepartmentContext/,
     );
+    assert.match(
+      source("src/lib/locations/adapt-projection.ts"),
+      /shouldPresentDepartmentOnCustomerCurrentSurface/,
+    );
+    assert.match(
+      source("src/lib/employees-department-tabs.ts"),
+      /loadCustomerOperableDepartments/,
+    );
+    assert.match(
+      source("src/app/(protected)/assets/builder/page.tsx"),
+      /loadDepartmentsForCurrentSurface/,
+    );
+    assert.match(
+      source("src/lib/scheduling/load-department-week-schedule.ts"),
+      /loadCustomerOperableDepartments/,
+    );
   });
 
   it("does not delete historical EVS or Plant rows to hide them", () => {
@@ -305,6 +354,10 @@ describe("Cross-surface eligibility authority", () => {
     assert.doesNotMatch(source("src/lib/department-products/eligibility.ts"), /deleteMany/);
     assert.match(source("src/lib/ensure-default-departments.ts"), /EVS/);
     assert.match(source("src/lib/ensure-default-departments.ts"), /PLANT/);
+    const sourceLoad = source("src/lib/projection/load-source.ts");
+    assert.match(sourceLoad, /departments:/);
+    assert.doesNotMatch(sourceLoad, /isCustomerCurrentDepartmentProductKey/);
+    assert.doesNotMatch(sourceLoad, /loadCustomerOperableDepartments/);
   });
 
   it("installs only after billing writes entitlements, and never from a failed update", () => {

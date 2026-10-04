@@ -259,7 +259,9 @@ export async function loadProjectedLocationView(
     };
   }
 
-  const adapted = adaptProjectionToLocationsView(resolved.runtime.snapshot);
+  const adapted = adaptProjectionToLocationsView(resolved.runtime.snapshot, {
+    audience: session.authKind === "harbor_staff" ? "internal" : "customer",
+  });
   const view = await enrichLocationsRoomDisplay(adapted);
   return {
     view,

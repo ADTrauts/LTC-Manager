@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
 
 export type EmployeeAppDepartment = { id: string; name: string };
@@ -9,11 +10,10 @@ export async function loadEmployeeAppDepartments(
   prisma: PrismaClient,
   facilityId: string,
 ): Promise<EmployeeAppDepartment[]> {
-  return prisma.department.findMany({
-    where: { facilityId, isActive: true, showInEmployeeApp: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const operable = await loadCustomerOperableDepartments(prisma, facilityId);
+  return operable
+    .filter((department) => department.showInEmployeeApp)
+    .map((department) => ({ id: department.id, name: department.name }));
 }
 
 export function parseEmployeesDeptId(

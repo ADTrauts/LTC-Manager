@@ -32,6 +32,7 @@ import {
   workOrderStatusLabel,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
+import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import { isCanonicalLogsEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
@@ -119,11 +120,7 @@ export default async function AssetProfilePage({ params }: Props) {
         })
       : Promise.resolve([] as { id: string; name: string }[]),
     ensureAndListResponsibleOrganizations(prisma, session.facilityId),
-    prisma.department.findMany({
-      where: { facilityId: session.facilityId, isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
-    }),
+    loadDepartmentsForCurrentSurface(prisma, session.facilityId, session),
     prisma.facility.findFirst({
       where: { id: session.facilityId },
       select: {

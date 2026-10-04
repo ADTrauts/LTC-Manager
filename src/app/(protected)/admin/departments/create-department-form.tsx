@@ -35,8 +35,7 @@ export function CreateDepartmentForm() {
       <p className="text-sm font-medium text-zinc-900">Create a department</p>
       <p className="mt-1 text-xs text-zinc-600">
         Adds a local operating department. This is not how Vssyl Department
-        Products are installed. Dietary, EVS, and Plant capabilities are not
-        added automatically.
+        Products are installed. Product capabilities are not added automatically.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="text-xs font-medium text-zinc-700">

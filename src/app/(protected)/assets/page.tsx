@@ -25,6 +25,7 @@ import {
 } from "@/lib/asset-operations";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { customerCurrentDepartmentLabel } from "@/lib/department-products";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
@@ -77,7 +78,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         unit: { select: { name: true } },
         space: { select: { name: true } },
         vendor: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, key: true } },
       },
     }),
     prisma.facility.findFirst({
@@ -259,10 +260,19 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                       {" · "}
                       <span aria-label={locationAria}>{locationLabel}</span>
                       {" · "}
-                      {asset.department?.name ? (
-                        <>Dept: {asset.department.name}</>
+                      {customerCurrentDepartmentLabel({
+                        name: asset.department?.name,
+                        key: asset.department?.key,
+                      }) ? (
+                        <>
+                          Dept:{" "}
+                          {customerCurrentDepartmentLabel({
+                            name: asset.department?.name,
+                            key: asset.department?.key,
+                          })}
+                        </>
                       ) : (
-                        <span className="text-amber-700">No responsible department</span>
+                        <span className="text-amber-700">No current department</span>
                       )}
                       {" · "}
                       <span

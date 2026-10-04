@@ -107,6 +107,7 @@ export async function loadBusinessWorkspaceProjection(
   const scope = adaptProjectionToBusinessWorkspace(resolved.runtime.snapshot, {
     projectionDurationMs,
     diagnostics: resolved.runtime.snapshot.diagnostics.issues,
+    audience: session.authKind === "harbor_staff" ? "internal" : "customer",
   });
 
   return {

@@ -95,6 +95,11 @@ test("Facility Overview — labeled department sections", () => {
   assert.equal(view.lensMode, "FACILITY");
   assert.ok(view.sections.every((s) => s.label != null));
   assert.ok(view.sections.length >= 1);
+  assert.deepEqual(
+    view.sections.map((s) => s.departmentKey),
+    view.sections.filter((s) => s.departmentKey === "DIETARY").map((s) => s.departmentKey),
+  );
+  assert.ok(!view.sections.some((s) => s.departmentKey === "EVS" || s.departmentKey === "PLANT"));
 });
 
 test("Permission narrowing — actions subset", () => {

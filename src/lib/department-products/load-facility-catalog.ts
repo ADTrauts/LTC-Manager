@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 
+import type { AuthKind } from "@/lib/auth";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
 
 import {
@@ -144,4 +145,20 @@ export async function loadCustomerOperableDepartments(
 ): Promise<FacilityDepartmentAccessRow[]> {
   const context = await loadFacilityDepartmentAccessContext(prisma, facilityId);
   return selectCustomerOperableDepartments(context.departments, context);
+}
+
+/**
+ * Current-state customer lists. Harbor work sessions may still see installed
+ * DEVELOPMENT rows; ordinary facility users never do.
+ */
+export async function loadDepartmentsForCurrentSurface(
+  prisma: CatalogDbClient,
+  facilityId: string,
+  session?: { authKind?: AuthKind | null },
+): Promise<FacilityDepartmentAccessRow[]> {
+  if (session?.authKind === "harbor_staff") {
+    const context = await loadFacilityDepartmentAccessContext(prisma, facilityId);
+    return context.departments.filter((row) => row.isActive);
+  }
+  return loadCustomerOperableDepartments(prisma, facilityId);
 }

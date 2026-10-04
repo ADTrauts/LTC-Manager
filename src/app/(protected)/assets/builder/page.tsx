@@ -18,6 +18,10 @@ import {
   responsibleOrganizationDisplayLabel,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
+import {
+  customerCurrentDepartmentLabel,
+  loadDepartmentsForCurrentSurface,
+} from "@/lib/department-products";
 import { AppIcons } from "@/lib/design-system";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import { isDietaryAssetOperationsEnabled, isCanonicalLogsEnabled } from "@/lib/feature-flags";
@@ -61,11 +65,7 @@ export default async function AssetBuilderPage() {
       select: { id: true, name: true },
     }),
     ensureAndListResponsibleOrganizations(prisma, facilityId),
-    prisma.department.findMany({
-      where: { facilityId, isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
-    }),
+    loadDepartmentsForCurrentSurface(prisma, facilityId, session),
     prisma.asset.findMany({
       where: { unit: { facilityId } },
       orderBy: { createdAt: "desc" },
@@ -73,7 +73,7 @@ export default async function AssetBuilderPage() {
         unit: { select: { name: true } },
         space: { select: { name: true } },
         vendor: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, key: true } },
         responsibleOrganization: { select: { id: true, name: true, isActive: true } },
       },
     }),
@@ -179,10 +179,19 @@ export default async function AssetBuilderPage() {
                     <p className="mt-1 text-xs leading-5">
                       {asset.equipmentType} · {locationLabel}
                       {" · "}
-                      {asset.department?.name ? (
-                        <>Dept: {asset.department.name}</>
+                      {customerCurrentDepartmentLabel({
+                        name: asset.department?.name,
+                        key: asset.department?.key,
+                      }) ? (
+                        <>
+                          Dept:{" "}
+                          {customerCurrentDepartmentLabel({
+                            name: asset.department?.name,
+                            key: asset.department?.key,
+                          })}
+                        </>
                       ) : (
-                        <span className="text-amber-700">No responsible department</span>
+                        <span className="text-amber-700">No current department</span>
                       )}
                       {" · "}
                       Org: {orgLabel}

@@ -32,13 +32,17 @@ export {
   evaluateCustomerDepartmentOperability,
   evaluateDepartmentForAudience,
   hasInternalDepartmentProductAccess,
+  customerCurrentDepartmentLabel,
+  isCustomerCurrentDepartmentProductKey,
   marketplaceDenialReason,
   resolveCommercialEntitlement,
+  shouldPresentDepartmentOnCustomerCurrentSurface,
   type BillingStatusForEntitlement,
   type DepartmentAccessAudience,
   type DepartmentOperability,
   type DepartmentOperabilityInput,
   type DepartmentOperabilityReason,
+  type DepartmentPresentationAudience,
 } from "./eligibility";
 export {
   DepartmentProductInstallError,
@@ -73,6 +77,7 @@ export {
 } from "./facility-catalog";
 export {
   loadCustomerOperableDepartments,
+  loadDepartmentsForCurrentSurface,
   loadFacilityDepartmentAccessContext,
   loadFacilityDepartmentCatalog,
   selectCustomerOperableDepartments,

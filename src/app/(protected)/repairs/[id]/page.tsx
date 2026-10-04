@@ -27,6 +27,7 @@ import {
   responsibleOrganizationDisplayLabel,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
+import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { isAiRecoveryAssistantEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
@@ -126,11 +127,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       take: 200,
       select: { id: true, firstName: true, lastName: true },
     }),
-    prisma.department.findMany({
-      where: { facilityId: session.facilityId, isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+    loadDepartmentsForCurrentSurface(prisma, session.facilityId, session),
     prisma.task.findFirst({
       where: {
         facilityId: session.facilityId,

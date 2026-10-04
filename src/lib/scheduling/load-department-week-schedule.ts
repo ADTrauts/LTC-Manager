@@ -3,6 +3,7 @@
  * One query set for the whole week — avoids 7× day loaders.
  */
 
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-membership";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -267,11 +268,9 @@ export async function loadFacilityWeekSchedule(input: {
     bundle: DepartmentWeekScheduleBundle;
   }>
 > {
-  const departments = await prisma.department.findMany({
-    where: { facilityId: input.facilityId, isActive: true, showInEmployeeApp: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const departments = (await loadCustomerOperableDepartments(prisma, input.facilityId))
+    .filter((department) => department.showInEmployeeApp)
+    .map((department) => ({ id: department.id, name: department.name }));
   const bundles = await Promise.all(
     departments.map(async (d) => ({
       departmentId: d.id,

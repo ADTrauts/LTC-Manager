@@ -85,6 +85,11 @@ test("5. Facility Overview — labeled department sections", () => {
   assert.equal(scope.lensMode, "FACILITY");
   assert.ok(scope.departmentSections.every((s) => s.label != null));
   assert.ok(scope.departmentSections.length >= 1);
+  assert.ok(
+    !scope.departmentSections.some(
+      (s) => s.departmentKey === "EVS" || s.departmentKey === "PLANT",
+    ),
+  );
 });
 
 test("6. Staff/Lead denied; Manager/Supervisor allowed", () => {

@@ -173,29 +173,37 @@ test("Facility Overview — labeled department snapshots, never flattened", () =
   const view = adaptProjectionToLocationsView(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
   assert.equal(view.lensMode, "FACILITY");
   assert.equal(view.departmentKey, null);
-  assert.equal(view.departmentSnapshots.length, 3);
+  assert.deepEqual(
+    view.departmentSnapshots.map((d) => d.departmentKey),
+    ["DIETARY"],
+  );
+  assert.ok(
+    !view.departmentSnapshots.some((d) => d.departmentKey === "EVS" || d.departmentKey === "PLANT"),
+  );
+  assert.ok(
+    !view.departmentSnapshots.some((d) => /EVS|Environmental Services|Plant/i.test(d.label)),
+  );
 
-  const keys = view.departmentSnapshots.map((d) => d.departmentKey).sort();
-  assert.deepEqual(keys, ["DIETARY", "EVS", "PLANT"]);
-
-  // Labels remain department-specific; trees are not merged into one ops body.
   for (const dept of view.departmentSnapshots) {
     assert.ok(dept.label.length > 0);
     assert.ok(dept.roots.length > 0 || dept.unitIds.length >= 0);
   }
 
-  // Physical unit ids may overlap; Experiences stay department-scoped.
   const dietaryExp = view.departmentSnapshots
     .find((d) => d.departmentKey === "DIETARY")
     ?.roots.flatMap((r) => walk([r]))
     .flatMap((n) => n.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)));
-  const plantExp = view.departmentSnapshots
-    .find((d) => d.departmentKey === "PLANT")
-    ?.roots.flatMap((r) => walk([r]))
-    .flatMap((n) => n.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)));
-
   assert.ok(dietaryExp?.includes("MEAL_SERVICE"));
-  assert.ok(!plantExp?.includes("MEAL_SERVICE"));
+});
+
+test("Facility Overview internal audience preserves historical DEVELOPMENT snapshots", () => {
+  const view = adaptProjectionToLocationsView(FACILITY_OVERVIEW_GOLDEN_PROJECTION, {
+    audience: "internal",
+  });
+  assert.deepEqual(
+    view.departmentSnapshots.map((d) => d.departmentKey).sort(),
+    ["DIETARY", "EVS", "PLANT"],
+  );
 });
 
 test("Undesignated / empty branches — golden fixtures omit staged nodes", () => {
@@ -268,7 +276,11 @@ test("Golden parity with Wave 15E shadow adapters (rooms + plant)", () => {
   );
   assert.deepEqual(
     [...facilityLocations.departmentSnapshots.map((d) => d.departmentKey)].sort(),
+    ["DIETARY"],
+  );
+  assert.deepEqual(
     [...facilityShadow.departmentKeys].sort(),
+    ["DIETARY", "EVS", "PLANT"],
   );
 });
 

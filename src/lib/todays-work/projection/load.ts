@@ -116,7 +116,9 @@ export async function loadTodaysWorkProjection(
     };
   }
 
-  const view = adaptProjectionToTodaysWork(resolved.runtime.snapshot, null);
+  const view = adaptProjectionToTodaysWork(resolved.runtime.snapshot, null, {
+    audience: session.authKind === "harbor_staff" ? "internal" : "customer",
+  });
   return {
     enabled: true,
     view,

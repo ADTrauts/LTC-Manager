@@ -18,6 +18,7 @@ import {
   operationalListShellClass,
 } from "@/components/design-system";
 import { buildPageIntro } from "@/lib/build-hub";
+import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import {
   knowledgeCategoryLabel,
@@ -94,11 +95,7 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
           },
         },
       }),
-      prisma.department.findMany({
-        where: { facilityId: session.facilityId, isActive: true },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        select: { id: true, name: true },
-      }),
+      loadDepartmentsForCurrentSurface(prisma, session.facilityId, session),
       prisma.unit.findMany({
         where: { facilityId: session.facilityId, isActive: true },
         orderBy: [{ displayOrder: "asc" }, { name: "asc" }],

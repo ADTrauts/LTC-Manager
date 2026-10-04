@@ -6,6 +6,7 @@ import {
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { InspectionDefinitionEditor } from "@/components/inspections/inspection-definition-editor";
 import { buildPageIntro } from "@/lib/build-hub";
+import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
@@ -31,11 +32,7 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
         _count: { select: { submissions: true, items: true } },
       },
     }),
-    prisma.department.findMany({
-      where: { facilityId: session.facilityId, isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
-    }),
+    loadDepartmentsForCurrentSurface(prisma, session.facilityId, session),
     prisma.unit.findMany({
       where: { facilityId: session.facilityId, isActive: true },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],

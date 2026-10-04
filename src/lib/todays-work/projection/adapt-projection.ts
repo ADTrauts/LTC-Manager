@@ -6,6 +6,10 @@
  */
 
 import {
+  shouldPresentDepartmentOnCustomerCurrentSurface,
+  type DepartmentPresentationAudience,
+} from "@/lib/department-products/eligibility";
+import {
   getExperienceTool,
   type ExperienceToolKey,
 } from "@/lib/experiences";
@@ -144,10 +148,17 @@ function adaptDepartmentSnapshot(
 /**
  * Adapt Projection into Today's Work eligibility + Experience contributors.
  */
+function facilityOverviewChildProductKey(snapshot: ProjectionSnapshot): string | null {
+  const lens = snapshot.context.request.lens;
+  return lens.mode === "DEPARTMENT" ? lens.departmentKey : null;
+}
+
 export function adaptProjectionToTodaysWork(
   snapshot: ProjectionSnapshot,
   error: string | null = null,
+  options?: { audience?: DepartmentPresentationAudience },
 ): TodaysWorkProjectionView {
+  const audience = options?.audience ?? "customer";
   const lens = snapshot.context.request.lens;
   const lensMode = lens.mode === "FACILITY" ? "FACILITY" : "DEPARTMENT";
   const lensKey =
@@ -160,7 +171,13 @@ export function adaptProjectionToTodaysWork(
   const actionableUnitIds = new Set<string>();
 
   if (lens.mode === "FACILITY") {
-    const children = snapshot.facilityOverview?.departmentSnapshots ?? [];
+    const children = (snapshot.facilityOverview?.departmentSnapshots ?? []).filter(
+      (child) =>
+        shouldPresentDepartmentOnCustomerCurrentSurface(
+          facilityOverviewChildProductKey(child),
+          audience,
+        ),
+    );
     sections = children
       .map((child) => adaptDepartmentSnapshot(child, true))
       .filter(

@@ -173,12 +173,12 @@ test("STRUCTURAL nodes have no href; ACTIONABLE units link without inventing roo
   }
 });
 
-test("Facility Overview remains labeled by department", () => {
+test("Facility Overview remains labeled by customer-current department", () => {
   const view = adaptProjectionToLocationsView(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
   assert.equal(view.lensMode, "FACILITY");
   assert.ok(view.departmentSnapshots.every((d) => d.label.length > 0));
   assert.deepEqual(
     view.departmentSnapshots.map((d) => d.departmentKey).sort(),
-    ["DIETARY", "EVS", "PLANT"],
+    ["DIETARY"],
   );
 });

@@ -5,6 +5,7 @@
  * Also surfaces ASSIGNED_UNSCHEDULED employees (OA without Shift).
  */
 
+import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-membership";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -328,11 +329,9 @@ export async function loadFacilityDaySchedule(input: {
   facilityId: string;
   serviceDate: string;
 }): Promise<Array<{ departmentId: string; departmentName: string; schedule: DepartmentDaySchedule }>> {
-  const departments = await prisma.department.findMany({
-    where: { facilityId: input.facilityId, isActive: true, showInEmployeeApp: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const departments = (await loadCustomerOperableDepartments(prisma, input.facilityId))
+    .filter((department) => department.showInEmployeeApp)
+    .map((department) => ({ id: department.id, name: department.name }));
   const schedules = await Promise.all(
     departments.map(async (d) => ({
       departmentId: d.id,

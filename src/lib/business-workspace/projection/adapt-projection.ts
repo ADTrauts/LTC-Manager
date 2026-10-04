@@ -7,6 +7,10 @@
  */
 
 import {
+  shouldPresentDepartmentOnCustomerCurrentSurface,
+  type DepartmentPresentationAudience,
+} from "@/lib/department-products/eligibility";
+import {
   getExperienceTool,
   type ExperienceToolKey,
 } from "@/lib/experiences";
@@ -386,14 +390,21 @@ export function resolveAllowedQuickActionIds(
 /**
  * Adapt Projection into Business Workspace eligibility scope.
  */
+function facilityOverviewChildProductKey(snapshot: ProjectionSnapshot): string | null {
+  const lens = snapshot.context.request.lens;
+  return lens.mode === "DEPARTMENT" ? lens.departmentKey : null;
+}
+
 export function adaptProjectionToBusinessWorkspace(
   snapshot: ProjectionSnapshot,
   options?: {
     error?: string | null;
     diagnostics?: readonly ProjectionDiagnostic[];
     projectionDurationMs?: number | null;
+    audience?: DepartmentPresentationAudience;
   },
 ): ProjectedBusinessWorkspaceScope {
+  const audience = options?.audience ?? "customer";
   const lens = snapshot.context.request.lens;
   const lensMode = lens.mode === "FACILITY" ? "FACILITY" : "DEPARTMENT";
   const lensKey =
@@ -407,7 +418,13 @@ export function adaptProjectionToBusinessWorkspace(
   let plantPolicy = snapshot.plantPolicy ?? null;
 
   if (lens.mode === "FACILITY") {
-    const children = snapshot.facilityOverview?.departmentSnapshots ?? [];
+    const children = (snapshot.facilityOverview?.departmentSnapshots ?? []).filter(
+      (child) =>
+        shouldPresentDepartmentOnCustomerCurrentSurface(
+          facilityOverviewChildProductKey(child),
+          audience,
+        ),
+    );
     departmentSections = children
       .map((child) => adaptDepartmentSnapshot(child, true))
       .filter(
@@ -456,7 +473,12 @@ export function adaptProjectionToBusinessWorkspace(
 
   const querySnapshots =
     lens.mode === "FACILITY"
-      ? (snapshot.facilityOverview?.departmentSnapshots ?? [])
+      ? (snapshot.facilityOverview?.departmentSnapshots ?? []).filter((child) =>
+          shouldPresentDepartmentOnCustomerCurrentSurface(
+            facilityOverviewChildProductKey(child),
+            audience,
+          ),
+        )
       : [snapshot];
   const queryScopesByDomainMutable: Record<string, ProjectionQueryScope[]> =
     {};

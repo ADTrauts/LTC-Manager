@@ -99,12 +99,12 @@ test("3. Plant policy-projected Sidebar tree", () => {
 test("4. Facility Overview labeled composition", () => {
   const view = sidebarFromGolden(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
   assert.equal(view.lensMode, "FACILITY");
-  assert.equal(view.sections.length, 3);
   assert.deepEqual(
-    view.sections.map((s) => s.departmentKey).sort(),
-    ["DIETARY", "EVS", "PLANT"],
+    view.sections.map((s) => s.departmentKey),
+    ["DIETARY"],
   );
   assert.ok(view.sections.every((s) => s.label != null && s.label.length > 0));
+  assert.ok(!view.sections.some((s) => /EVS|Plant|Environmental/i.test(s.label ?? "")));
 });
 
 test("5–6. Manager / Supervisor department lens (Dietary golden)", () => {

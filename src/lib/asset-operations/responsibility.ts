@@ -15,6 +15,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { customerCurrentDepartmentLabel } from "@/lib/department-products";
+
 export type AssetResponsibilityParty = {
   id: string;
   name: string;
@@ -70,9 +72,14 @@ export function projectAssetResponsibility(input: {
 }
 
 export function departmentDisplayLabel(
-  department: AssetResponsibilityParty | null | undefined,
+  department: (AssetResponsibilityParty & { key?: string | null }) | null | undefined,
 ): string {
-  return department?.name?.trim() || "Not assigned";
+  return (
+    customerCurrentDepartmentLabel({
+      name: department?.name,
+      key: department?.key,
+    }) || "Not assigned"
+  );
 }
 
 export function responsibleOrganizationDisplayLabel(

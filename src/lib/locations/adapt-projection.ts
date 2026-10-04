@@ -6,6 +6,10 @@
  */
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import {
+  shouldPresentDepartmentOnCustomerCurrentSurface,
+  type DepartmentPresentationAudience,
+} from "@/lib/department-products/eligibility";
 import type {
   ProjectionArea,
   ProjectionExperience,
@@ -184,6 +188,15 @@ function collectUnitIds(nodes: readonly LocationsTreeNode[]): string[] {
   return [...ids].sort((a, b) => a.localeCompare(b));
 }
 
+export type AdaptLocationsViewOptions = {
+  audience?: DepartmentPresentationAudience;
+};
+
+function facilityOverviewChildProductKey(snapshot: ProjectionSnapshot): string | null {
+  const lens = snapshot.context.request.lens;
+  return lens.mode === "DEPARTMENT" ? lens.departmentKey : null;
+}
+
 function adaptDepartmentSnapshot(
   snapshot: ProjectionSnapshot,
 ): LocationsDepartmentSnapshot | null {
@@ -211,7 +224,9 @@ function adaptDepartmentSnapshot(
  */
 export function adaptProjectionToLocationsView(
   snapshot: ProjectionSnapshot,
+  options?: AdaptLocationsViewOptions,
 ): LocationsViewModel {
+  const audience = options?.audience ?? "customer";
   const lens = snapshot.context.request.lens;
   const lensMode = lens.mode === "FACILITY" ? "FACILITY" : "DEPARTMENT";
   const lensKey =
@@ -222,7 +237,13 @@ export function adaptProjectionToLocationsView(
   let departmentSnapshots: LocationsDepartmentSnapshot[];
 
   if (lens.mode === "FACILITY") {
-    const children = snapshot.facilityOverview?.departmentSnapshots ?? [];
+    const children = (snapshot.facilityOverview?.departmentSnapshots ?? []).filter(
+      (child) =>
+        shouldPresentDepartmentOnCustomerCurrentSurface(
+          facilityOverviewChildProductKey(child),
+          audience,
+        ),
+    );
     departmentSnapshots = children
       .map(adaptDepartmentSnapshot)
       .filter((child): child is LocationsDepartmentSnapshot => child != null);

@@ -325,7 +325,7 @@ function UnitDepartmentResponsibilitiesSection({
     <div className="mt-6 border-t border-zinc-100 pt-4">
       <h3 className="text-sm font-medium text-zinc-900">Department ownership</h3>
       <p className="mt-0.5 text-xs text-zinc-500">
-        Links this location to Dietary, EVS, Plant Ops, and more. Drives meal boards and operational scoping.
+        Links this location to a current Department. Drives meal boards and operational scoping.
       </p>
       <ul className="mt-3 space-y-2">
         {rows.map((row) => (

@@ -9,6 +9,7 @@ import type { AuthKind } from "@/lib/auth";
 
 import {
   getDepartmentProduct,
+  listDepartmentProducts,
   type DepartmentProductReleaseStatus,
 } from "./registry";
 
@@ -123,21 +124,57 @@ export function departmentProductReleaseStatus(
   return getDepartmentProduct(productKey)?.status ?? null;
 }
 
+export type DepartmentPresentationAudience = "customer" | "internal";
+
 /**
- * Explicit internal/developer access — not a customer permission role.
- * Harbor Console work sessions and process-local EVS/Plant operation flags
- * may exercise DEVELOPMENT products without making them customer-visible.
+ * Current-state customer labels may only name commercially recognized products.
+ * DEVELOPMENT remains historical provenance in the projection engine and
+ * must not appear as a current operational Department.
+ */
+export function isCustomerCurrentDepartmentProductKey(
+  productKey: string | null | undefined,
+): boolean {
+  const status = departmentProductReleaseStatus(productKey);
+  return status === "AVAILABLE" || status === "RETIRED";
+}
+
+export function shouldPresentDepartmentOnCustomerCurrentSurface(
+  productKey: string | null | undefined,
+  audience: DepartmentPresentationAudience = "customer",
+): boolean {
+  if (audience === "internal") return Boolean(productKey);
+  return isCustomerCurrentDepartmentProductKey(productKey);
+}
+
+/**
+ * Current customer ownership label. DEVELOPMENT product names are omitted;
+ * historical rows stay intact.
+ */
+export function customerCurrentDepartmentLabel(input: {
+  name?: string | null;
+  key?: string | null;
+}): string | null {
+  const name = input.name?.trim() || "";
+  const product =
+    getDepartmentProduct(input.key) ??
+    listDepartmentProducts().find((item) => item.name === name) ??
+    null;
+  if (product && !isCustomerCurrentDepartmentProductKey(product.productKey)) {
+    return null;
+  }
+  return name || null;
+}
+
+/**
+ * Explicit internal/developer access — Harbor work sessions only.
+ * Domain flags may exercise EVS/Plant behavior in tests, but they must not
+ * convert a DEVELOPMENT Product into a customer-operable Department.
  */
 export function hasInternalDepartmentProductAccess(input: {
   authKind?: AuthKind | null;
   productKey: string;
-  evsOperationsEnabled?: boolean;
-  plantOperationsEnabled?: boolean;
 }): boolean {
-  if (input.authKind === "harbor_staff") return true;
-  if (input.productKey === "EVS" && input.evsOperationsEnabled) return true;
-  if (input.productKey === "PLANT" && input.plantOperationsEnabled) return true;
-  return false;
+  return input.authKind === "harbor_staff";
 }
 
 export function marketplaceDenialReason(input: {

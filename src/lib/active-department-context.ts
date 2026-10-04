@@ -12,7 +12,6 @@ import {
   type FacilityDepartmentAccessRow,
 } from "@/lib/department-products/load-facility-catalog";
 import { employeeBelongsToDepartment, resolveDepartmentMembershipIds } from "@/lib/employee-membership";
-import { isEvsOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -30,8 +29,6 @@ function departmentHasInternalAccess(session: AppJwtPayload, productKey: string)
   return hasInternalDepartmentProductAccess({
     authKind: session.authKind,
     productKey,
-    evsOperationsEnabled: isEvsOperationsEnabled(),
-    plantOperationsEnabled: isPlantOperationsEnabled(),
   });
 }
 
