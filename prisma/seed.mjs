@@ -47,6 +47,7 @@ async function main() {
     update: {
       name: "Terrace View Organization",
       displayName: "Terrace View Organization",
+      organizationType: "LONG_TERM_CARE",
       isActive: true,
     },
     create: {

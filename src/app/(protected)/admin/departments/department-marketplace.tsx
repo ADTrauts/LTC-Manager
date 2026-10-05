@@ -69,8 +69,9 @@ export function DepartmentMarketplace({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold text-zinc-900">{product.name}</h3>
-                    {product.shortDescription ? (
-                      <p className="mt-0.5 text-sm text-zinc-600">{product.shortDescription}</p>
+                    <p className="mt-0.5 text-sm text-zinc-600">{product.industryLabel}</p>
+                    {product.applicabilitySummary ? (
+                      <p className="text-sm text-zinc-600">{product.applicabilitySummary}</p>
                     ) : null}
                     {product.customerCapabilities.length > 0 ? (
                       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-700">

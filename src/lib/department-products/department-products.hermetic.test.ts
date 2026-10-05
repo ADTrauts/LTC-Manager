@@ -103,7 +103,7 @@ describe("Department Product registry", () => {
       ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
     assert.deepEqual(
-      listDepartmentProductsForIndustry("healthcare").map((product) => product.productKey),
+      listDepartmentProductsForIndustry("HEALTHCARE").map((product) => product.productKey),
       ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
 
@@ -113,7 +113,8 @@ describe("Department Product registry", () => {
     assert.equal(dietary.name, "Healthcare Food & Nutrition");
     assert.equal(dietary.installationKey, "DIETARY");
     assert.equal(dietary.defaultDepartmentName, "Dietary");
-    assert.equal(dietary.industry, "healthcare");
+    assert.equal(dietary.industry, "HEALTHCARE");
+    assert.deepEqual(dietary.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(dietary.status, "AVAILABLE");
     assert.equal(dietary.sortOrder, 10);
     assert.equal(dietary.domainCapability, "dietary");
@@ -122,6 +123,8 @@ describe("Department Product registry", () => {
     const evs = getDepartmentProduct("EVS");
     assert.ok(evs);
     assert.equal(evs.name, "Environmental Services");
+    assert.equal(evs.industry, "HEALTHCARE");
+    assert.deepEqual(evs.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(evs.status, "DEVELOPMENT");
     assert.equal(evs.domainCapability, "evs");
     assert.equal(evs.starters.cycleStarter, "evs");
@@ -130,6 +133,8 @@ describe("Department Product registry", () => {
     const plant = getDepartmentProduct("PLANT");
     assert.ok(plant);
     assert.equal(plant.name, "Plant Operations");
+    assert.equal(plant.industry, "HEALTHCARE");
+    assert.deepEqual(plant.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(plant.status, "DEVELOPMENT");
     assert.equal(plant.domainCapability, "plant");
     assert.equal(plant.starters.workPresets, undefined);
@@ -294,7 +299,8 @@ describe("Department Product installation", () => {
     const testProduct = {
       productKey: "TEST_SHARED",
       name: "Shared Test Product",
-      industry: "healthcare",
+      industry: "HEALTHCARE",
+      facilityTypes: [] as const,
       status: "AVAILABLE",
       sortOrder: 500,
       domainCapability: null,

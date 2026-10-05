@@ -7,6 +7,7 @@ export {
   type LocationFunctionDefinition,
 } from "./location-functions";
 export {
+  DEPARTMENT_PRODUCT_FACILITY_TYPES,
   DEPARTMENT_PRODUCT_INDUSTRIES,
   DEPARTMENT_PRODUCT_KEYS,
   DEPARTMENT_PRODUCT_RELEASE_STATUSES,
@@ -30,6 +31,7 @@ export {
   resolveDepartmentProductForInstallationKey,
   type DepartmentProduct,
   type DepartmentProductDomainCapability,
+  type DepartmentProductFacilityType,
   type DepartmentProductIndustry,
   type DepartmentProductKey,
   type DepartmentProductReferenceKey,

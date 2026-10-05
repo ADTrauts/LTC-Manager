@@ -1,7 +1,7 @@
 # 13 — Department Product
 
 **Status:** Binding product/architecture rule  
-**Does not:** Persist Facility Industry, add a second industry, redesign Stripe SKUs, delete Department history, or start Plant Operations / EVS product design
+**Does not:** Persist a second Facility Industry column, redesign Stripe SKUs, delete Department history, or start Plant Operations / EVS product design
 
 ---
 
@@ -25,7 +25,7 @@ Current catalog:
 | Environmental Services | DEVELOPMENT |
 | Plant Operations | DEVELOPMENT |
 
-Healthcare Food & Nutrition is designed for hospitals, long-term care, and healthcare food and nutrition operations with similar workflows. It is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
+Healthcare Food & Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
 
 A Department Product and a facility Department are not the same concept.
 
@@ -83,6 +83,8 @@ Do not invert this order. Selection may stay ephemeral until payment succeeds. A
 | Which Departments may a customer enter? | Eligibility: AVAILABLE or entitled RETIRED + valid entitlement + installed + active |
 | Is an installed Department admitted / enabled? | `Department.isActive` |
 | What is locally configured? | Existing facility-scoped Build models |
+| What Industry / Facility Type is this facility? | Derived from `Organization.organizationType` and `Facility.vocabularyProfile` (`src/lib/facility-classification.ts`) |
+| Which industries / facility types is a Product designed for? | Registry `industry` + `facilityTypes` |
 
 Installation creates the operational Department. It does not invent local facility configuration (locations, operating times, membership, work, or Records).
 
@@ -109,7 +111,13 @@ Configuration readiness is derived from those operational facts. Do not persist 
 
 `Department.key` is the facility installation key. For Healthcare Food & Nutrition it remains `DIETARY`. For EVS and Plant it matches the Product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
 
-Industry currently classifies products in the registry (`healthcare`). It is catalog metadata only — not a Facility or Organization field and not a billing unit.
+Industry and facility-type applicability live on the Product registry (`HEALTHCARE`, `HOSPITAL`, `LONG_TERM_CARE`). They are catalog metadata for future Marketplace organization and recommendations. They do not grant visibility, entitlement, or installation.
+
+Facility classification is derived from existing fields. Do not add `Facility.industry` or `Facility.facilityType` columns that duplicate `Organization.organizationType`.
+
+Applicability / relevance ≠ release state ≠ entitlement ≠ installation.
+
+Marketplace category tabs (Healthcare | Hospitality | Education) wait until more than one AVAILABLE Product justifies them.
 
 Do not revive retired industry packs (`applyIndustryPack()`).
 

@@ -2,6 +2,13 @@ import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 
 import {
+  facilityIndustryLabel,
+  facilityTypeApplicabilitySummary,
+  facilityTypeLabel,
+  type FacilityType,
+} from "@/lib/facility-classification";
+
+import {
   evaluateCustomerDepartmentOperability,
   resolveCommercialEntitlement,
   type BillingStatusForEntitlement,
@@ -32,6 +39,10 @@ export type FacilityDepartmentCatalogItem = {
   installationKey: string;
   name: string;
   industry: DepartmentProduct["industry"];
+  industryLabel: string;
+  facilityTypes: readonly FacilityType[];
+  facilityTypeLabels: readonly string[];
+  applicabilitySummary: string | null;
   releaseStatus: DepartmentProductReleaseStatus;
   shortDescription: string | null;
   customerCapabilities: readonly string[];
@@ -85,6 +96,10 @@ export function deriveFacilityDepartmentCatalog(input: {
       installationKey: product.installationKey,
       name: product.name,
       industry: product.industry,
+      industryLabel: facilityIndustryLabel(product.industry),
+      facilityTypes: product.facilityTypes,
+      facilityTypeLabels: product.facilityTypes.map(facilityTypeLabel),
+      applicabilitySummary: facilityTypeApplicabilitySummary(product.facilityTypes),
       releaseStatus: product.status,
       shortDescription: product.shortDescription ?? null,
       customerCapabilities: product.customerCapabilities ?? [],
@@ -121,8 +136,7 @@ export function availableToAddProductKeys(
 }
 
 export function industryCatalogLabel(industry: DepartmentProduct["industry"] | string): string {
-  if (industry === "healthcare") return "Healthcare";
-  return industry;
+  return facilityIndustryLabel(industry);
 }
 
 export function groupCatalogByIndustry(

@@ -5,7 +5,10 @@
  * as a Department row. This registry is not a shared-engine admission list
  * and not a plugin host.
  *
- * Industry is catalog metadata only — not a Facility or Organization field.
+ * Industry and facility-type applicability are catalog metadata only.
+ * They do not grant entitlement, release visibility, or installation.
+ * Facility classification is derived from existing Organization.organizationType
+ * and Facility.vocabularyProfile — not a second persisted taxonomy.
  *
  * A product existing in this registry does not make it customer-visible.
  * Customer visibility requires release status AVAILABLE.
@@ -20,8 +23,18 @@
  *   DIETARY is not a second sellable Product. It resolves to the same lineage.
  */
 
-export const DEPARTMENT_PRODUCT_INDUSTRIES = ["healthcare"] as const;
-export type DepartmentProductIndustry = (typeof DEPARTMENT_PRODUCT_INDUSTRIES)[number];
+import {
+  FACILITY_INDUSTRIES,
+  FACILITY_TYPES,
+  type FacilityIndustry,
+  type FacilityType,
+} from "@/lib/facility-classification";
+
+export const DEPARTMENT_PRODUCT_INDUSTRIES = FACILITY_INDUSTRIES;
+export type DepartmentProductIndustry = FacilityIndustry;
+
+export const DEPARTMENT_PRODUCT_FACILITY_TYPES = FACILITY_TYPES;
+export type DepartmentProductFacilityType = FacilityType;
 
 export const DEPARTMENT_PRODUCT_KEYS = ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"] as const;
 export type DepartmentProductKey = (typeof DEPARTMENT_PRODUCT_KEYS)[number];
@@ -81,6 +94,8 @@ export type DepartmentProduct = {
   /** Default facility Department.name on first install. Not the commercial name. */
   defaultDepartmentName: string;
   industry: DepartmentProductIndustry;
+  /** Operating environments this Product was designed for. Not a second Product. */
+  facilityTypes: readonly DepartmentProductFacilityType[];
   status: DepartmentProductReleaseStatus;
   /** Customer marketplace subtitle. Omit for products that are not customer-visible. */
   shortDescription?: string;
@@ -98,7 +113,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     name: "Healthcare Food & Nutrition",
     installationKey: "DIETARY",
     defaultDepartmentName: "Dietary",
-    industry: "healthcare",
+    industry: "HEALTHCARE",
+    facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
     status: "AVAILABLE",
     shortDescription: "Food and nutrition operations for hospitals and long-term care.",
     customerCapabilities: [
@@ -124,7 +140,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     name: "Environmental Services",
     installationKey: "EVS",
     defaultDepartmentName: "Environmental Services",
-    industry: "healthcare",
+    industry: "HEALTHCARE",
+    facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
     status: "DEVELOPMENT",
     sortOrder: 20,
     domainCapability: "evs",
@@ -141,7 +158,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     name: "Plant Operations",
     installationKey: "PLANT",
     defaultDepartmentName: "Plant Operations",
-    industry: "healthcare",
+    industry: "HEALTHCARE",
+    facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
     status: "DEVELOPMENT",
     sortOrder: 30,
     domainCapability: "plant",

@@ -100,6 +100,10 @@ describe("Healthcare Food & Nutrition product identity", () => {
       "Menus",
       "Audit / Reports",
     ]);
+    assert.equal(catalog[0]?.industry, "HEALTHCARE");
+    assert.deepEqual(catalog[0]?.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
+    assert.equal(catalog[0]?.industryLabel, "Healthcare");
+    assert.equal(catalog[0]?.applicabilitySummary, "For hospitals and long-term care.");
     assert.equal(
       catalog.some((item) => item.productKey === "EVS" || item.productKey === "PLANT"),
       false,
@@ -158,6 +162,11 @@ describe("Healthcare Food & Nutrition product identity", () => {
     assert.equal(fromLegacy.key, "DIETARY");
     assert.equal(fromLegacy.name, "Dietary");
     assert.equal(fromLegacy.productKey, "HEALTHCARE_FOOD_NUTRITION");
+    assert.equal(getDepartmentProduct(fromLegacy.productKey)?.industry, "HEALTHCARE");
+    assert.deepEqual(getDepartmentProduct(fromLegacy.productKey)?.facilityTypes, [
+      "HOSPITAL",
+      "LONG_TERM_CARE",
+    ]);
     assert.equal(created.length, 0);
     assert.equal(existing.filter((row) => row.key === "DIETARY").length, 1);
     assert.equal(existing.some((row) => row.key === "HEALTHCARE_FOOD_NUTRITION"), false);
