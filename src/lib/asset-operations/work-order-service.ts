@@ -192,6 +192,7 @@ export type CreateWorkOrderDirectInput = {
   departmentId: string;
   unitId: string;
   assetId?: string | null;
+  issueId?: string | null;
   title: string;
   description: string;
   priority?: RepairPriority;
@@ -261,6 +262,16 @@ export async function createWorkOrderDirect(
     if (!dept) throw new Error("Responsible department not found.");
   }
 
+  let linkedIssueId: string | null = null;
+  if (input.issueId) {
+    const issue = await client.assetIssue.findFirst({
+      where: { id: input.issueId, facilityId: input.facilityId },
+      select: { id: true },
+    });
+    if (!issue) throw new Error("Issue not found.");
+    linkedIssueId = issue.id;
+  }
+
   const repairTrade = input.repairTrade ?? "GENERAL";
   const suggested = await suggestRepairDepartmentIds(prisma, {
     facilityId: input.facilityId,
@@ -300,6 +311,7 @@ export async function createWorkOrderDirect(
       dueAt: input.dueAt ?? null,
       requestedAt: now,
       reportedById: actorUserId,
+      issueId: linkedIssueId,
       updates: {
         create: {
           id: cuidLike(),
@@ -347,13 +359,7 @@ export async function createWorkOrderFromIssue(
       departmentId: input.departmentId,
     },
   });
-  if (!issue) throw new Error("Asset Issue not found.");
-  if (issue.workOrderId) {
-    const existing = await client.repair.findFirst({
-      where: { id: issue.workOrderId },
-    });
-    if (existing) return existing;
-  }
+  if (!issue) throw new Error("Issue not found.");
   if (!OPEN_ASSET_ISSUE_STATUSES.includes(issue.status) && issue.status !== "RESOLVED") {
     throw new Error("Cannot create a Work Order from a closed or cancelled Issue.");
   }
@@ -375,6 +381,7 @@ export async function createWorkOrderFromIssue(
     departmentId: input.departmentId,
     unitId: issue.unitId,
     assetId: issue.assetId,
+    issueId: issue.id,
     title: input.title?.trim() || issue.summary,
     description: input.description?.trim() || issue.description,
     priority: input.priority ?? issue.priority,
@@ -387,10 +394,13 @@ export async function createWorkOrderFromIssue(
     now: input.now,
   });
 
-  await client.assetIssue.update({
-    where: { id: issue.id },
-    data: { workOrderId: created.id },
-  });
+  // Compatibility dual-write: first Work Order only. Additional WOs use Repair.issueId.
+  if (!issue.workOrderId) {
+    await client.assetIssue.update({
+      where: { id: issue.id },
+      data: { workOrderId: created.id },
+    });
+  }
 
   const actorUserId = sessionUserIdForFk(session);
   await client.assetIssueUpdate.create({
@@ -404,6 +414,67 @@ export async function createWorkOrderFromIssue(
   });
 
   return created;
+}
+
+/**
+ * Link an existing Work Order to an Issue. One Work Order → at most one Issue.
+ * Dual-writes AssetIssue.workOrderId only when it is still empty (first WO).
+ */
+export async function linkWorkOrderToIssue(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    repairId: string;
+    issueId: string;
+    client?: DbClient;
+  },
+) {
+  const client = input.client ?? prisma;
+  const authority = await resolveAssetOperationsAuthority(
+    session,
+    input.facilityId,
+    input.departmentId,
+  );
+  requireWorkOrderManage(authority);
+
+  const issue = await client.assetIssue.findFirst({
+    where: {
+      id: input.issueId,
+      facilityId: input.facilityId,
+    },
+  });
+  if (!issue) throw new Error("Issue not found.");
+
+  const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
+  if (repair.issueId && repair.issueId !== issue.id) {
+    throw new Error("Work Order is already linked to a different Issue.");
+  }
+
+  const updated = await client.repair.update({
+    where: { id: repair.id },
+    data: { issueId: issue.id },
+  });
+
+  if (!issue.workOrderId) {
+    await client.assetIssue.update({
+      where: { id: issue.id },
+      data: { workOrderId: repair.id },
+    });
+  }
+
+  const actorUserId = sessionUserIdForFk(session);
+  await client.assetIssueUpdate.create({
+    data: {
+      id: cuidLike(),
+      issueId: issue.id,
+      updateText: `Work Order ${repair.repairCode} linked`,
+      statusAfterUpdate: issue.status,
+      updatedByUserId: actorUserId,
+    },
+  });
+
+  return updated;
 }
 
 export async function updateWorkOrderStatus(

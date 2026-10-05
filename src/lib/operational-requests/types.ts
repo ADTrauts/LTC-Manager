@@ -3,9 +3,8 @@
  *
  * Request is intake: someone is asking for attention.
  * Repair is the Work Order row — not Request state and not canonical Issue.
- * AssetIssue is the current Issue store (Asset-required until a later slice).
- * Location-only conditions being Requests today is an implementation limit,
- * not Product meaning. Do not treat Request as the problem itself.
+ * AssetIssue is the Issue store. Asset is optional; location-only Issues are valid.
+ * Creating a Request does not create an Issue.
  */
 
 import type {

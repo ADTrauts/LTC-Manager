@@ -3,8 +3,8 @@
  *
  * Ownership:
  * - Asset owns identity + operational status (+ AssetStatusHistory).
- * - AssetIssue owns reported condition (separate from Work Order).
- * - Repair owns Work Order / repair response.
+ * - AssetIssue owns reported condition (Issue). Not a Request. Not a Work Order.
+ * - Repair owns Work Order / repair response. Repair.issueId is authoritative.
  * - Operational Evidence remains separate.
  * - Supervisor Board / Job Flow project exceptions only.
  *
@@ -17,6 +17,7 @@ export type {
   AssetOperationalStatus,
   ChangeAssetStatusInput,
   ReportAssetIssueInput,
+  ReportIssueInput,
 } from "./types";
 
 export {
@@ -32,6 +33,13 @@ export {
   operationalImpactLabel,
   workOrderStatusLabel,
 } from "./types";
+
+export {
+  issueAuthorityLabel,
+  isOpenIssueAuthority,
+  presentIssueAuthority,
+  type IssueAuthority,
+} from "./issue-semantics";
 
 export {
   decideAssetOperationsAuthority,
@@ -59,13 +67,18 @@ export {
 
 export {
   acknowledgeIssue,
+  cancelIssue,
   closeIssue,
+  createIssueFromRequest,
   getIssueDetail,
+  getIssueWorkOrders,
   linkEvidenceToIssue,
+  linkRequestToIssue,
   listIssuesForDepartment,
   markMonitoring,
   reopenIssue,
   reportAssetIssue,
+  reportIssue,
   resolveIssue,
   triageIssue,
 } from "./issue-service";
@@ -77,6 +90,7 @@ export {
   createWorkOrderDirect,
   createWorkOrderFromIssue,
   createWorkOrderFromOperationalRequest,
+  linkWorkOrderToIssue,
   markReturnToServiceReady,
   technicianUpdateWorkOrder,
   updateWorkOrderStatus,

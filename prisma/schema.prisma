@@ -2053,7 +2053,8 @@ model AssetStatusHistory {
   @@index([sourceRepairId])
 }
 
-/// Reported Asset problem / observed condition (Phase 10A). Not a Work Order.
+/// Canonical Issue store (persistence name AssetIssue). Not a Request. Not a Work Order.
+/// Asset is optional — location-only Issues snapshot unitId (+ optional spaceId).
 model AssetIssue {
   id                       String                 @id @default(cuid())
   issueCode                String                 @unique
@@ -2061,8 +2062,8 @@ model AssetIssue {
   facility                 Facility               @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   departmentId             String
   department               Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  assetId                  String
-  asset                    Asset                  @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  assetId                  String?
+  asset                    Asset?                 @relation(fields: [assetId], references: [id], onDelete: Restrict)
   unitId                   String
   unit                     Unit                   @relation(fields: [unitId], references: [id], onDelete: Restrict)
   spaceId                  String?
@@ -2089,10 +2090,13 @@ model AssetIssue {
   resolvedAt               DateTime?
   closedAt                 DateTime?
   resolutionReason         String?
+  /// Compatibility pointer to the first linked Work Order. Not cardinality authority.
   workOrderId              String?                @unique
   workOrder                Repair?                @relation("AssetIssueWorkOrder", fields: [workOrderId], references: [id], onDelete: SetNull)
-  /// Reverse of OperationalRequest.relatedAssetIssueId (Request owns the FK).
-  relatedFromOperationalRequest OperationalRequest? @relation("OperationalRequestRelatedIssue")
+  /// Authoritative Issue → many Work Orders (Repair.issueId).
+  workOrders               Repair[]               @relation("RepairCanonicalIssue")
+  /// Reverse of OperationalRequest.relatedAssetIssueId (many Requests → one Issue).
+  relatedFromOperationalRequests OperationalRequest[] @relation("OperationalRequestRelatedIssue")
   updates                  AssetIssueUpdate[]
   evidenceLinks            AssetIssueEvidenceLink[]
   statusHistoryLinks       AssetStatusHistory[]
@@ -2201,7 +2205,7 @@ model OperationalRequest {
   resolutionReason             String?
   resolvedAt                   DateTime?
   closedAt                     DateTime?
-  relatedAssetIssueId          String?                  @unique
+  relatedAssetIssueId          String?
   relatedAssetIssue            AssetIssue?              @relation("OperationalRequestRelatedIssue", fields: [relatedAssetIssueId], references: [id], onDelete: SetNull)
   workOrderId                  String?                  @unique
   workOrder                    Repair?                  @relation("OperationalRequestWorkOrder", fields: [workOrderId], references: [id], onDelete: SetNull)
@@ -2298,7 +2302,10 @@ model Repair {
   reportedBy              User?                          @relation("RepairReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
   vendorId                String?
   vendor                  Vendor?                        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  /// Optional Phase 10A source Asset Issue (Issue and Work Order remain separate rows).
+  /// Authoritative Issue link (one Work Order → zero or one Issue; one Issue → many Work Orders).
+  issueId                 String?
+  issue                   AssetIssue?                    @relation("RepairCanonicalIssue", fields: [issueId], references: [id], onDelete: SetNull)
+  /// Compatibility reverse of AssetIssue.workOrderId (first linked Work Order only).
   sourceAssetIssue        AssetIssue?                    @relation("AssetIssueWorkOrder")
   /// Optional Phase 12A source Operational Request (Request owns the FK).
   sourceOperationalRequest OperationalRequest?           @relation("OperationalRequestWorkOrder")
@@ -2318,6 +2325,7 @@ model Repair {
   @@index([preventiveScheduleId])
   @@index([dueAt])
   @@index([targetDate])
+  @@index([issueId])
 }
 
 model RepairUpdate {

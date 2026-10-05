@@ -10,8 +10,7 @@
  * Issue (AssetIssue) = a known undesirable condition.
  * Repair = Work Order persistence. Not canonical Issue.
  *
- * Location-only conditions may exist only as Requests today (implementation
- * limitation). That does not make Request the Issue.
+ * Location-only Issues are valid (Asset optional). Request remains intake.
  */
 
 import type { OperationalRequestStatus, RepairStatus } from "@prisma/client";

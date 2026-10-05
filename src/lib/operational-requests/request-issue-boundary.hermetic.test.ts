@@ -8,12 +8,13 @@ test("creating a Request does not create an Issue record", () => {
   assert.doesNotMatch(source, /assetIssue\.create/);
 });
 
-test("reporting an AssetIssue is not equivalent to creating a Request", () => {
+test("reporting an Issue does not create a Request", () => {
   const source = readFileSync(
     new URL("../asset-operations/issue-service.ts", import.meta.url),
     "utf8",
   );
   assert.match(source, /not a Request and not a Work Order/);
+  assert.match(source, /export async function reportIssue/);
   assert.doesNotMatch(source, /operationalRequest\.create/);
 });
 

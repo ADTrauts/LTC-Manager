@@ -229,7 +229,7 @@ export async function loadSupervisorAssetExceptions(
       temporal === "Late" ? 470 : temporal === "Current" ? 480 : 490;
     items.push({
       group: "Asset",
-      status: `${assetIssueStatusLabel(issue.status)} · ${issue.asset.assetCode}`,
+      status: `${assetIssueStatusLabel(issue.status)} · ${issue.asset?.assetCode ?? issue.unit.name}`,
       temporal,
       unitId: issue.unitId,
       unitName: issue.unit.name,
@@ -238,13 +238,15 @@ export async function loadSupervisorAssetExceptions(
         ? ["Open Asset Issue", "Open Work Order"]
         : ["Open Asset Issue", "Create Work Order"],
       sortRank,
-      assetId: issue.assetId,
+      assetId: issue.assetId ?? undefined,
       issueId: issue.id,
       workOrderId: issue.workOrderId ?? undefined,
     });
   }
 
-  const issueAssetIds = new Set(openIssues.map((i) => i.assetId));
+  const issueAssetIds = new Set(
+    openIssues.map((i) => i.assetId).filter((id): id is string => Boolean(id)),
+  );
   for (const asset of outOfServiceAssets) {
     if (issueAssetIds.has(asset.id)) continue;
     items.push({

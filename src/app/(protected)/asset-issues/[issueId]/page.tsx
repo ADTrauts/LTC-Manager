@@ -19,11 +19,13 @@ import {
   assetStatusLabel,
   getIssueDetail,
   operationalImpactLabel,
+  presentIssueAuthority,
+  issueAuthorityLabel,
   resolveAssetOperationsAuthority,
   workOrderStatusLabel,
 } from "@/lib/asset-operations";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { prisma } from "@/lib/prisma";
 import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
@@ -34,7 +36,7 @@ type Props = {
 
 export default async function AssetIssueDetailPage({ params }: Props) {
   noStore();
-  if (!isDietaryAssetOperationsEnabled()) {
+  if (!isDietaryAssetOperationsEnabled() && !isPlantOperationsEnabled()) {
     redirect("/assets");
   }
 
@@ -92,22 +94,33 @@ export default async function AssetIssueDetailPage({ params }: Props) {
 
   const canTriage = authority.canTriageIssue;
   const canManageWo = authority.canManageWorkOrders;
-  const canChangeStatus = authority.canChangeAssetStatus;
+  const canChangeStatus = Boolean(detail.assetId) && authority.canChangeAssetStatus;
+  const linkedWorkOrders =
+    detail.workOrders.length > 0
+      ? detail.workOrders
+      : detail.workOrder
+        ? [detail.workOrder]
+        : [];
 
   return (
     <section className="space-y-6" data-testid="asset-issue-detail">
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-          <Link href={`/assets/${detail.assetId}`} className="underline underline-offset-2">
-            {detail.asset.assetCode}
-          </Link>
+          {detail.asset ? (
+            <Link href={`/assets/${detail.assetId}`} className="underline underline-offset-2">
+              {detail.asset.assetCode}
+            </Link>
+          ) : (
+            <span>Location-only Issue</span>
+          )}
         </p>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
           {detail.issueCode} · {detail.summary}
         </h1>
         <p className="text-sm text-zinc-600">
-          {assetIssueStatusLabel(detail.status)} · {operationalImpactLabel(detail.operationalImpact)} ·{" "}
-          {detail.unit.name}
+          {issueAuthorityLabel(presentIssueAuthority(detail.status))} · {assetIssueStatusLabel(detail.status)} ·{" "}
+          {operationalImpactLabel(detail.operationalImpact)} · {detail.unit.name}
+          {detail.space ? ` · ${detail.space.name}` : ""}
         </p>
       </header>
 
@@ -117,10 +130,16 @@ export default async function AssetIssueDetailPage({ params }: Props) {
           <div>
             <dt className="text-xs uppercase text-zinc-500">Asset</dt>
             <dd>
-              <Link href={`/assets/${detail.asset.id}`} className="underline underline-offset-2">
-                {detail.asset.assetCode} · {detail.asset.name}
-              </Link>{" "}
-              ({assetStatusLabel(detail.asset.status)})
+              {detail.asset ? (
+                <>
+                  <Link href={`/assets/${detail.asset.id}`} className="underline underline-offset-2">
+                    {detail.asset.assetCode} · {detail.asset.name}
+                  </Link>{" "}
+                  ({assetStatusLabel(detail.asset.status)})
+                </>
+              ) : (
+                "None (location-only)"
+              )}
             </dd>
           </div>
           <div>
@@ -215,7 +234,7 @@ export default async function AssetIssueDetailPage({ params }: Props) {
             </form>
           </div>
 
-          {canChangeStatus ? (
+          {canChangeStatus && detail.assetId ? (
             <form action={updateAssetStatusAction} className="mt-4 flex flex-wrap items-end gap-2">
               <input type="hidden" name="assetId" value={detail.assetId} />
               <input type="hidden" name="departmentId" value={detail.departmentId} />
@@ -244,16 +263,16 @@ export default async function AssetIssueDetailPage({ params }: Props) {
               <input type="hidden" name="departmentId" value={detail.departmentId} />
               <p className="text-xs text-zinc-600" data-testid="repair-responsibility-context">
                 Responsible maintainer:{" "}
-                {detail.asset.responsibleOrganization?.name ?? "Not assigned"}
+                {detail.asset?.responsibleOrganization?.name ?? "Not assigned"}
                 {" · "}
-                Preferred repair vendor: {detail.asset.vendor?.name ?? "No preferred vendor"}
+                Preferred repair vendor: {detail.asset?.vendor?.name ?? "No preferred vendor"}
               </p>
               {authority.canAssignVendor ? (
                 <label className="flex flex-col gap-1 text-sm">
                   <span className="font-medium">Repair provider (optional)</span>
                   <select
                     name="vendorId"
-                    defaultValue={detail.asset.vendorId ?? ""}
+                    defaultValue={detail.asset?.vendorId ?? ""}
                     className="rounded-md border border-zinc-300 px-3 py-2"
                     data-testid="wo-vendor"
                   >
@@ -277,7 +296,7 @@ export default async function AssetIssueDetailPage({ params }: Props) {
                 testId="issue-wo-photo-input"
               />
               <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white" data-testid="create-work-order">
-                Create repair
+                Create Work Order
               </button>
             </form>
           ) : null}
@@ -301,14 +320,19 @@ export default async function AssetIssueDetailPage({ params }: Props) {
       ) : null}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900">Repair</h2>
-        {detail.workOrder ? (
-          <Link href={`/repairs/${detail.workOrder.id}`} className="mt-2 block text-sm underline underline-offset-2" data-testid="linked-work-order">
-            {detail.workOrder.repairCode} · {detail.workOrder.title} ·{" "}
-            {workOrderStatusLabel(detail.workOrder.status)}
-          </Link>
+        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
+        {linkedWorkOrders.length === 0 ? (
+          <p className="mt-2 text-sm text-zinc-500">No Work Order linked. An Issue may exist without work.</p>
         ) : (
-          <p className="mt-2 text-sm text-zinc-500">No repair linked. An issue may exist without a repair.</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {linkedWorkOrders.map((workOrder) => (
+              <li key={workOrder.id}>
+                <Link href={`/repairs/${workOrder.id}`} className="underline underline-offset-2" data-testid="linked-work-order">
+                  {workOrder.repairCode} · {workOrder.title} · {workOrderStatusLabel(workOrder.status)}
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

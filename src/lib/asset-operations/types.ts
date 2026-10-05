@@ -4,7 +4,10 @@
  * Ownership (locked):
  * - Asset owns identity + operational status (+ AssetStatusHistory).
  * - AssetIssue owns reported condition (Issue). Not a Request. Not a Work Order.
+ *   Asset is optional; location-only Issues snapshot unitId / spaceId.
  * - Repair owns Work Order / repair response. Not canonical Issue.
+ *   Repair.issueId is authoritative Issue → many Work Orders.
+ *   AssetIssue.workOrderId is a compatibility pointer to the first linked Work Order.
  * - OperationalRequest owns intake. Creating a Request does not create an Issue.
  * - Operational Evidence remains separate; may link to an Issue without owning it.
  * - Supervisor Board / Job Flow project exceptions only — no ownership.
@@ -171,11 +174,11 @@ export type AssetHistoryEvent = {
   status?: string | null;
 };
 
-export type ReportAssetIssueInput = {
+export type ReportIssueInput = {
   facilityId: string;
   departmentId: string;
-  assetId: string;
-  unitId: string;
+  assetId?: string | null;
+  unitId?: string | null;
   spaceId?: string | null;
   summary: string;
   description: string;
@@ -190,6 +193,12 @@ export type ReportAssetIssueInput = {
   deviceBoundUnitId?: string | null;
   recordedOnline?: boolean;
   allowDuplicateOpen?: boolean;
+};
+
+/** Dietary / Asset-ops path still requires an Asset. */
+export type ReportAssetIssueInput = ReportIssueInput & {
+  assetId: string;
+  unitId: string;
 };
 
 export type ChangeAssetStatusInput = {

@@ -396,6 +396,7 @@ export async function prefetchRuntimeLocationInputs(
 
   const issueCountByAsset = new Map<string, number>();
   for (const issue of openIssues) {
+    if (!issue.assetId) continue;
     issueCountByAsset.set(issue.assetId, (issueCountByAsset.get(issue.assetId) ?? 0) + 1);
   }
   const woCountByAsset = new Map(
@@ -417,6 +418,7 @@ export async function prefetchRuntimeLocationInputs(
     assetsBySpaceId.set(asset.spaceId, list);
   }
   for (const issue of openIssues) {
+    if (!issue.assetId) continue;
     const spaceId =
       issue.spaceId ?? assets.find((asset) => asset.id === issue.assetId)?.spaceId ?? null;
     if (!spaceId) continue;
