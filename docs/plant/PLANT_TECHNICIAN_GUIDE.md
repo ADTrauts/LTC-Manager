@@ -1,5 +1,7 @@
 # Plant Technician Guide
 
+> **LEGACY operational guide for Phase 12A.** Canonical architecture: [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md).
+
 **Phase:** 12A — Plant Operations Reference  
 **Audience:** Plant Staff / Lead technicians using Unit Job Flow (password preferred for WO actions)  
 **Companion:** [`PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md`](./PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md)

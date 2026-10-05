@@ -6,7 +6,7 @@
 
 Current architecture authority: `docs/product/01_PRODUCT_CONSTITUTION.md`, certified through `06935aef0d2e257c1ff616694992f522360a83c1`.
 
-Implemented platform mechanisms: one physical facility tree, Location Functions, Operational Cycles, Work, one Record engine, Audit / Reports, Assets and repairs. Dietary and EVS are Department Products. Plant Operations Product design has not started.
+Implemented platform mechanisms: one physical facility tree, Location Functions, Operational Cycles, Work, one Record engine, Audit / Reports, Assets and repairs. Dietary is the customer-visible Department Product. EVS and Facility Plant Operations remain DEVELOPMENT. Facility Plant Operations architecture is `docs/product/14_FACILITY_PLANT_OPERATIONS.md`.
 
 The module list below is the earlier MVP inventory. It is not the current architecture map.
 

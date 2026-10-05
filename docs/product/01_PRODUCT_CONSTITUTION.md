@@ -5,6 +5,7 @@
 **Current product identity:** **Vssyl — Business Operations Platform.** See [12 — Vssyl Brand](./12_VSSYL_BRAND.md).  
 **Vocabulary:** [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md)  
 **Department Product contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
+**Facility Plant Operations architecture:** [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md)  
 **Compatibility systems:** [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md)  
 
 This document is the one current map. Deeper documents explain a layer. Dated `LTC_MANAGER_*.md` files, wave roadmaps, and domain guidebooks are historical or operational references. They do not override this constitution.
@@ -48,8 +49,8 @@ GOVERNANCE
 |-------|----------------|
 | **Implemented** | Healthcare Food & Nutrition as the customer-visible Department Product, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
 | **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
-| **In development** | Environmental Services and Plant Operations exist in the registry, tests, and internal tooling. They are not customer-visible until marked AVAILABLE. |
-| **Future product work** | Plant Operations as a Department Product. Not designed. Platform Assets and repairs are not that product. |
+| **In development** | Environmental Services and Facility Plant Operations exist in the registry, tests, and internal tooling. They are not customer-visible until marked AVAILABLE. |
+| **Designed, not implemented as a customer Product** | Facility Plant Operations architecture is locked in [14](./14_FACILITY_PLANT_OPERATIONS.md). Platform Assets and repairs are shared mechanisms; they are not that Product. Implementation has not started. |
 
 A Product existing in the Vssyl registry does not make it customer-visible. Customer visibility requires AVAILABLE release state. See [13 — Department Product](./13_DEPARTMENT_PRODUCT.md).
 

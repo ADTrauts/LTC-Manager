@@ -1,5 +1,7 @@
 # Dietary Asset Issue Reporting Guide
 
+> **SUPPORTING for Platform Asset Issues.** Canonical Issue architecture is [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md). `AssetIssue` remains Asset-required in code until a later Platform generalization.
+
 **Phase:** 10A — Dietary Asset Operations  
 **Audience:** Frontline STAFF / LEAD (including Quick PIN) and Supervisors  
 **Flag:** `DIETARY_ASSET_OPERATIONS_ENABLED=true`

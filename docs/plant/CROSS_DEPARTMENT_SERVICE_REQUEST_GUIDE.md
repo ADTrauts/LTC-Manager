@@ -1,5 +1,7 @@
 # Cross-Department Service Request Guide
 
+> **LEGACY operational guide for Phase 12A.** Canonical architecture: [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md). Request remains shared `OperationalRequest` intake; Issue is a distinct object.
+
 **Phase:** 12A — Plant Operations Reference  
 **Audience:** Dietary / EVS Staff and Leads reporting facility / equipment problems; Plant readers who need the requester contract  
 **Companion:** [`PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md`](./PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md)

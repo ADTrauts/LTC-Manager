@@ -1,5 +1,7 @@
 # Dietary Work Order Guide
 
+> **SUPPORTING for Platform Work Orders (`Repair`).** Canonical Facility Plant Operations architecture is [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md).
+
 **Phase:** 10A — Dietary Asset Operations  
 **Audience:** Supervisors (where policy allows) and Managers / GMs  
 **Flag:** `DIETARY_ASSET_OPERATIONS_ENABLED=true`

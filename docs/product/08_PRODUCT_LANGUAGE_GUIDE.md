@@ -36,7 +36,7 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 |----------|---------|-------|
 | **Facility** | Operational site | Site *(vision alias — migrate language to Facility)* |
 | **Organization** | Parent of facilities | Company, Tenant *(unless billing copy)* |
-| **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name |
+| **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Facility Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name; generic **Maintenance** as a Product name |
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
@@ -58,12 +58,16 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Work Plan** | Recurring expected Work configuration | Job, checklist catalog |
 | **My Work** | Person-scoped Work | Today's Work *(Today is the operation; My Work is mine)* |
 | **Task** | Work Engine projection | Ticket *(unless issue context)* |
-| **Issue** | Disruption requiring recovery | Ticket, Incident *(unless safety-legal context)* |
-| **Repair** | Persistence/equipment work order record | Prefer Issue in product copy when showing the façade |
+| **Request** | Intake: someone is asking for maintenance attention | Treating a Request as the problem itself or as a Work Order |
+| **Issue** | A known undesirable condition. May exist without an Asset or a Work Order | Ticket, Incident *(unless safety-legal context)*; collapsing Issue into Request or Repair |
+| **Work Order** | Facility Plant Operations accepted maintenance work with a persistent lifecycle | Generic shared Work; Repair as the manager-facing noun |
+| **Repair** | Persistence name for the Work Order row (`Repair`, `/repairs`) | Using Repair as the Product name for Issue or for Facility Plant Operations |
+| **Preventive Maintenance Plan** | Published maintenance rule for a specified target and fixed cadence | Operational Cycle; rolling next-due as the Product definition of PM |
 | **Finding** | Inspection item outcome needing follow-up | Defect *(unless manufacturing)* |
 | **Inspection** | A Record form inside the one Record engine | A second inspection engine; Audit / Reports |
 | **Knowledge** | Operational SOP/reference | Wiki, CMS |
-| **Asset** | Equipment / plant object | Device *(reserve for PIN tablets)* |
+| **Asset** | Shared Platform equipment / built-environment object | Device *(reserve for PIN tablets)*; PlantAsset / MaintenanceAsset |
+| **Facility Plant Operations** | Department Product for maintaining the built facility environment | Generic Maintenance as the Product name; treating manufacturing/fleet/biomedical maintenance as this Product |
 | **Employee** | Roster person | User *(User = app login identity)* |
 | **User.role** | Platform authorization (session) | Employee.roleType, job title, Department Manager |
 | **Facility Administrator** | Facility-scoped administrative authority | Equating GM with FA |
@@ -106,7 +110,7 @@ Never show **Blocked** to end users. Never say **Complete** for readiness green.
 
 ## Consolidation recommendations (docs; code later)
 
-1. Prefer **Issue** in all manager-facing copy; keep `/repairs` only until routes converge.  
+1. Prefer **Request**, **Issue**, and **Work Order** as distinct nouns. Keep `/repairs` until routes converge; do not revive Repair-as-Issue façade copy.  
 2. Prefer **Facility** over Site in new docs.  
 3. Prefer **Needs Attention** everywhere readiness is user-visible.  
 4. Stop calling Workspace “Wave 12 Industry” — that overloaded the roadmap term.

@@ -1,6 +1,6 @@
 # Plant Manager Setup Guide
 
-> **Domain guide, not current architecture.** Platform Assets and repairs exist. The Plant Operations Product (maintenance requests, work orders, PM programs, technician workflows, parts and vendors) has not been designed. See `docs/product/01_PRODUCT_CONSTITUTION.md`.
+> **LEGACY operational guide for Phase 12A.** Canonical Facility Plant Operations architecture is [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md). This guide describes the flag-gated reference layer (`PLANT_OPERATIONS_ENABLED`), not the customer Product.
 
 **Phase:** 12A — Plant Operations Reference  
 **Audience:** Plant Manager / GM-equivalent with Plant operational authority  

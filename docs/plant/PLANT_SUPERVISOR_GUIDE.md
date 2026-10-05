@@ -1,5 +1,7 @@
 # Plant Supervisor Guide
 
+> **LEGACY operational guide for Phase 12A.** Canonical architecture: [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md).
+
 **Phase:** 12A — Plant Operations Reference  
 **Audience:** Plant Supervisor with password session (Quick PIN does not grant triage / WO management)  
 **Companion:** [`PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md`](./PLANT_OPERATIONS_REFERENCE_PHASE_12A_2026-08-07.md)

@@ -1,5 +1,7 @@
 # Dietary Asset Manager Guide
 
+> **SUPPORTING for Platform Assets.** Canonical Facility Plant Operations architecture is [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md).
+
 **Phase:** 10A — Dietary Asset Operations  
 **Audience:** Managers and GMs with Dietary operational authority  
 **Flag:** `DIETARY_ASSET_OPERATIONS_ENABLED=true`

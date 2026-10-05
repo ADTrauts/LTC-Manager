@@ -10,7 +10,7 @@
 
 One product. Unlimited users at every role. Price follows **licensed operational departments** at a facility.
 
-For Healthcare Food & Nutrition, EVS, and Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the persisted installation key for that Product lineage. Healthcare Food & Nutrition keeps `DIETARY`. The canonical Product key is `HEALTHCARE_FOOD_NUTRITION`; `DIETARY` is a compatibility alias, not a second SKU.
+For Healthcare Food & Nutrition, EVS, and Facility Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the persisted installation key for that Product lineage. Healthcare Food & Nutrition keeps `DIETARY`. Facility Plant Operations keeps `PLANT`. The canonical Product key for Dietary is `HEALTHCARE_FOOD_NUTRITION`; `DIETARY` is a compatibility alias, not a second SKU. Facility Plant Operations remains DEVELOPMENT and is not sold.
 
 Canonical commercial order:
 

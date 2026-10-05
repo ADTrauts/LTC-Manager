@@ -22,7 +22,7 @@ Vssyl is the platform.
 
 Departments operate within Vssyl.
 
-Vssyl must not be described as synonymous with Healthcare Food & Nutrition, Dietary, EVS, Plant Operations, Long Term Care, or any other individual department or industry.
+Vssyl must not be described as synonymous with Healthcare Food & Nutrition, Dietary, EVS, Facility Plant Operations, Long Term Care, or any other individual department or industry.
 
 Department and industry language may appear inside a department’s own workflows. That does not make those terms the product identity.
 

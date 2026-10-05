@@ -1,6 +1,6 @@
 # 10 — Product Roadmap
 
-**Status:** Historical wave record. Current architecture is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Plant Operations Product design has not started.  
+**Status:** Historical wave record. Current architecture is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Facility Plant Operations Product architecture is [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md).  
 **Application:** `ltc-manager/`  
 
 > **Clarification:** Implementation treated **Wave 12 as Business Workspace**. The earlier modernization roadmap reserved Wave 12 for **Industry Configuration**. That program is **retired** — industry packs are not how the platform expands. See [../platform-vision/RETIRED.md](../platform-vision/RETIRED.md).

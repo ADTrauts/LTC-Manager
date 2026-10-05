@@ -1,5 +1,7 @@
 # Plant Operations Reference — Phase 12A Ownership Decision
 
+> **HISTORICAL.** Canonical Facility Plant Operations architecture is [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md). This 2026-08 ownership trace is not current Product authority.
+
 **Date:** 2026-08-07  
 **Branch:** `product/plant-operations-reference-phase-12a-2026-08-07`  
 **Base tip:** `4cd5b890e4aab6caeb2a8f11a19fa17e392e2894` (Phase 11C sequential certification)  

@@ -22,7 +22,7 @@ An **Operational Cycle** is the Department’s recurring window. A **Phase** is 
 
 Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the requested service date. Department responsibility is not cycle participation and is not a Location Function binding.
 
-Dietary timing actuals are `OperationalCycleKeyPointActual`. Meal Due tracks NONE. Ready and Service Started track REQUIRED at LOCATION grain. Plant Operations is not designed and is not forced through a meal rhythm. Work may bind to a Cycle or Phase. An empty Cycle binding means the Work is not configured to a rhythm.
+Dietary timing actuals are `OperationalCycleKeyPointActual`. Meal Due tracks NONE. Ready and Service Started track REQUIRED at LOCATION grain. Facility Plant Operations has zero required starter Operational Cycles and is not forced through a meal rhythm. Preventive Maintenance is not an Operational Cycle. Work may bind to a Cycle or Phase. An empty Cycle binding means the Work is not configured to a rhythm. See [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md).
 
 ---
 

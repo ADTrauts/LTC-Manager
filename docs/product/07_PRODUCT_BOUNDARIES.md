@@ -26,7 +26,7 @@
 |------------------|---------------|
 | Employee roster & discipline | Staffing and compliance support — not career platform |
 | Menus | Operational production support — not recipe R&D cloud |
-| Assets / repairs | Platform equipment registry and repair queue. Not a designed Plant Operations product (maintenance requests, work orders, PM programs, technician workflows, parts and vendors). |
+| Assets / repairs | Platform equipment registry and repair queue. Not the Facility Plant Operations Product. That Product architecture is [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md) and remains DEVELOPMENT. |
 | Organization multi-facility | Access & structure — not corporate analytics suite |
 
 ---

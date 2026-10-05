@@ -1,7 +1,8 @@
 # 13 — Department Product
 
 **Status:** Binding product/architecture rule  
-**Does not:** Persist a second Facility Industry column, redesign Stripe SKUs, delete Department history, or start Plant Operations / EVS product design
+**Does not:** Persist a second Facility Industry column, redesign Stripe SKUs, delete Department history, start EVS product design, or change Facility Plant Operations release status  
+**Facility Plant Operations architecture:** [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md)
 
 ---
 
@@ -23,7 +24,7 @@ Current catalog:
 |---------|----------------|
 | Healthcare Food & Nutrition | AVAILABLE |
 | Environmental Services | DEVELOPMENT |
-| Plant Operations | DEVELOPMENT |
+| Facility Plant Operations (`PLANT`) | DEVELOPMENT |
 
 Healthcare Food & Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
 
@@ -136,7 +137,7 @@ Marketplace and Admin installed-product context project from `deriveFacilityDepa
 
 No second catalog table. No installation status table. Adding Departments belongs in Admin → Departments → Marketplace, not the Department picker.
 
-Future Plant completion is an explicit `PLANT` `DEVELOPMENT → AVAILABLE` registry change after certification and commercial configuration. It must not appear before that change.
+Future Facility Plant Operations completion is an explicit `PLANT` `DEVELOPMENT → AVAILABLE` registry change after certification and commercial configuration. It must not appear before that change. Architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md).
 
 ---
 
@@ -179,7 +180,7 @@ An **Operational Cycle** is the Department’s recurring operating rhythm. Persi
 
 Published **Operational Cycles** are the current Run rhythm. **Phases** are one-level intervals. **Key Points** (persisted as `KEY_TIME`) are instants, not Work and not Records. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Department responsibility does not imply cycle participation. Run may show an active Cycle with no active Phase when phases leave gaps. Legacy Dietary meal-milestone presentation must not override a current Cycle.
 
-**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Healthcare Food & Nutrition’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Plant defines none. Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
+**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Healthcare Food & Nutrition’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Facility Plant Operations defines none (empty is allowed). Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
 
 **Work.** Product Work presets copy into facility drafts when a manager applies them. They are never auto-published. A published Work Plan determines expected Work. Work may bind to a Cycle or Phase stable key. It does not bind to Key Points. An empty Cycle binding means not configured. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when used), then cycle participation when the item is cycle-bound. Assignment does not create Work. Occurrences stay sparse.
 
@@ -193,7 +194,7 @@ Department Products that exist today:
 |---------|-------------|--------------|
 | **Healthcare Food & Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. Healthcare-scoped. | — |
 | **Environmental Services** | `resident_care`, `service_support`. Morning / Afternoon / Evening Operations. | A second location tree |
-| **Plant Operations** | Platform Assets and repairs are available to any department that uses them. | The Plant Department Product: maintenance requests, work orders, PM programs, technician workflows, parts and vendors as a product design |
+| **Facility Plant Operations** | Platform Assets and repairs remain shared. Phase 12A reference intake/triage exists behind `PLANT_OPERATIONS_ENABLED`. | Customer-visible Product. Runtime Work Orders, PM Plans, starter content, and AVAILABLE release. Architecture is locked in [14](./14_FACILITY_PLANT_OPERATIONS.md). |
 
 When Vssyl-authored Work belongs to a Phase, the preset binds that Work to the Phase stable key. Changing a preset affects future drafts only.
 
@@ -203,7 +204,7 @@ Configure Locations, Operating Rhythm, Work, People & Coverage, and Records in D
 
 ## Department Product blueprint
 
-Every new Department Product, starting with Plant Operations, must define these before implementation:
+Every new Department Product must define these before implementation. Facility Plant Operations has filled this contract in [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md). Environmental Services has not.
 
 | Contract item | Question it answers |
 |----------------|---------------------|
@@ -224,4 +225,4 @@ Every new Department Product, starting with Plant Operations, must define these 
 
 A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, or history store unless that platform-gap test shows a missing reusable mechanism.
 
-Plant Operations is the next product expected to use this contract. Designing it has not started.
+Facility Plant Operations is the next product expected to be implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). It remains DEVELOPMENT until certification and an explicit AVAILABLE change.

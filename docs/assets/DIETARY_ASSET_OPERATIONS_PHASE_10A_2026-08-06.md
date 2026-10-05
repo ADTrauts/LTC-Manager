@@ -1,5 +1,7 @@
 # Dietary Asset Operations — Phase 10A
 
+> **SUPPORTING for Platform Assets and repairs.** Not Facility Plant Operations Product architecture. Canonical Product architecture is [`docs/product/14_FACILITY_PLANT_OPERATIONS.md`](../product/14_FACILITY_PLANT_OPERATIONS.md).
+
 **Date:** 2026-08-06  
 **Branch:** `product/dietary-assets-work-orders-phase-10a-2026-08-06`  
 **Base tip:** `8688184cdaecf3ce3d6c651a04bef870ae20ec36` (Phase 9C.1)  
