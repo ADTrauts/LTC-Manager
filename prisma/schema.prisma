@@ -193,6 +193,7 @@ model Facility {
   departmentJobRoles             DepartmentJobRole[]
   departmentRequestRoutes        DepartmentRequestRoute[]
   operationalRequests            OperationalRequest[]
+  maintenanceCategories          MaintenanceCategory[]
   billing                        FacilityBilling?
   departmentEntitlements         FacilityDepartmentEntitlement[]
   createdAt                      DateTime                        @default(now())
@@ -537,6 +538,7 @@ model User {
   operationalRequestsReported    OperationalRequest[]            @relation("OperationalRequestReportedByUser")
   operationalRequestUpdates      OperationalRequestUpdate[]     @relation("OperationalRequestUpdateByUser")
   operationalRequestEvidenceLinks OperationalRequestEvidenceLink[] @relation("OperationalRequestEvidenceLinkedBy")
+  repairEvidenceLinks            RepairEvidenceLink[]            @relation("RepairEvidenceLinkedBy")
   workPlansCreated               DepartmentWorkPlan[]            @relation("WorkPlanCreatedBy")
   workPlansPublished             DepartmentWorkPlan[]            @relation("WorkPlanPublishedBy")
   workPlansRetired               DepartmentWorkPlan[]            @relation("WorkPlanRetiredBy")
@@ -906,6 +908,17 @@ enum RepairPriority {
   MEDIUM
   HIGH
   URGENT
+  EMERGENCY
+}
+
+/// Canonical Work Order hold context. New holds persist ON_HOLD + this reason.
+/// Legacy WAITING_* statuses remain readable and project an inferred reason.
+enum WorkOrderHoldReason {
+  WAITING_FOR_PART
+  WAITING_FOR_VENDOR
+  WAITING_FOR_ACCESS
+  SCHEDULED_LATER
+  OTHER
 }
 
 /// Work Order lifecycle on Repair. CLOSED/WAITING_PARTS retained for legacy rows.
@@ -1161,6 +1174,7 @@ model UnitSpace {
   assets                             Asset[]
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
+  repairs                            Repair[]
   departmentWorkOccurrences          DepartmentWorkOccurrence[]
   zoneMemberships                    DepartmentOperationalZoneLocation[]
   teamMemberships                    DepartmentTeamRoomMembership[]
@@ -2262,6 +2276,23 @@ model OperationalRequestEvidenceLink {
   @@index([evidenceRecordId])
 }
 
+/// Facility-scoped Plant maintenance classification. Not Asset class. Not RepairTrade.
+model MaintenanceCategory {
+  id         String    @id @default(cuid())
+  facilityId String
+  facility   Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  key        String
+  label      String
+  sortOrder  Int       @default(100)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  workOrders Repair[]
+
+  @@unique([facilityId, key])
+  @@index([facilityId, archivedAt])
+}
+
 model Repair {
   id                      String                         @id @default(cuid())
   repairCode              String                         @unique
@@ -2269,6 +2300,8 @@ model Repair {
   asset                   Asset?                         @relation(fields: [assetId], references: [id], onDelete: SetNull)
   unitId                  String
   unit                    Unit                           @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  spaceId                 String?
+  space                   UnitSpace?                     @relation(fields: [spaceId], references: [id], onDelete: SetNull)
   title                   String
   description             String
   priority                RepairPriority                 @default(MEDIUM)
@@ -2309,9 +2342,18 @@ model Repair {
   sourceAssetIssue        AssetIssue?                    @relation("AssetIssueWorkOrder")
   /// Optional Phase 12A source Operational Request (Request owns the FK).
   sourceOperationalRequest OperationalRequest?           @relation("OperationalRequestWorkOrder")
+  /// Canonical hold reason when status is ON_HOLD. Null when not on hold.
+  holdReason              WorkOrderHoldReason?
+  /// Exact Procedure version pin. Never the Knowledge article head.
+  procedureVersionId      String?
+  procedureVersion        KnowledgeArticleVersion?       @relation(fields: [procedureVersionId], references: [id], onDelete: Restrict)
+  /// Facility Plant Operations maintenance category. Optional for historical rows.
+  maintenanceCategoryId   String?
+  maintenanceCategory     MaintenanceCategory?           @relation(fields: [maintenanceCategoryId], references: [id], onDelete: Restrict)
   updates                 RepairUpdate[]
   attachments             Attachment[]
   assetStatusHistoryLinks AssetStatusHistory[]
+  evidenceLinks           RepairEvidenceLink[]
   createdAt               DateTime                       @default(now())
   completedAt             DateTime?
   updatedAt               DateTime                       @updatedAt
@@ -2326,6 +2368,25 @@ model Repair {
   @@index([dueAt])
   @@index([targetDate])
   @@index([issueId])
+  @@index([spaceId])
+  @@index([procedureVersionId])
+  @@index([maintenanceCategoryId])
+}
+
+/// Incidental canonical Record linked to a Work Order. Not a required-closeout gate.
+model RepairEvidenceLink {
+  id               String                    @id @default(cuid())
+  repairId         String
+  repair           Repair                    @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  evidenceRecordId String
+  evidenceRecord   OperationalEvidenceRecord @relation(fields: [evidenceRecordId], references: [id], onDelete: Cascade)
+  linkedByUserId   String?
+  linkedByUser     User?                     @relation("RepairEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+  linkedAt         DateTime                  @default(now())
+  note             String?
+
+  @@unique([repairId, evidenceRecordId])
+  @@index([evidenceRecordId])
 }
 
 model RepairUpdate {
@@ -2810,6 +2871,7 @@ model KnowledgeArticleVersion {
   createdFromVersionId String?
   createdFromVersion   KnowledgeArticleVersion?       @relation("KnowledgeArticleVersionSuccessor", fields: [createdFromVersionId], references: [id], onDelete: SetNull)
   successors           KnowledgeArticleVersion[]      @relation("KnowledgeArticleVersionSuccessor")
+  pinnedWorkOrders     Repair[]
   createdAt            DateTime                       @default(now())
   updatedAt            DateTime                       @updatedAt
 
@@ -3910,6 +3972,7 @@ model OperationalEvidenceRecord {
   corrections                  OperationalEvidenceCorrection[]
   assetIssueLinks              AssetIssueEvidenceLink[]
   operationalRequestLinks      OperationalRequestEvidenceLink[]
+  repairLinks                  RepairEvidenceLink[]
   createdAt                    DateTime                        @default(now())
   updatedAt                    DateTime                        @updatedAt
 

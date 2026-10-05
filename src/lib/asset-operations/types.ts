@@ -117,15 +117,13 @@ export function workOrderStatusLabel(status: RepairStatus): string {
     case "IN_PROGRESS":
       return "In progress";
     case "WAITING_PARTS":
-      return "Waiting on parts";
     case "WAITING_ON_VENDOR":
-      return "Waiting on vendor";
     case "ON_HOLD":
       return "On hold";
     case "COMPLETED":
       return "Completed";
     case "CANCELLED":
-      return "Cancelled";
+      return "Canceled";
     case "CLOSED":
       return "Closed";
     default:

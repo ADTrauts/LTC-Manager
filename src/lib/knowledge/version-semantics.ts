@@ -4,8 +4,8 @@
  * KnowledgeArticle.id is the stable logical article/resource identity.
  * KnowledgeArticleVersion holds immutable published content snapshots.
  * Not every article is a Procedure — category remains on the article
- * (SOP / REFERENCE / TRAINING / …). Facility Plant Operations may later
- * pin Procedure-type versions; that FK is not part of this phase.
+ * (SOP / REFERENCE / TRAINING / …). Facility Plant Operations pins
+ * Procedure versions via Repair.procedureVersionId.
  */
 
 import type {

@@ -108,11 +108,6 @@ export function repairSourceCompactLine(input: {
 
 /** Calm user-facing status for queue chips (maps enum → product language). */
 export function repairStatusProductLabel(status: RepairStatus): string {
-  if (isRepairWaitingStatus(status)) {
-    if (status === "WAITING_PARTS") return "Waiting (parts)";
-    if (status === "WAITING_ON_VENDOR") return "Waiting (vendor)";
-    return "Waiting";
-  }
   return workOrderStatusLabel(status);
 }
 

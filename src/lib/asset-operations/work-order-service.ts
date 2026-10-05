@@ -10,6 +10,7 @@ import type {
   RepairPriority,
   RepairStatus,
   RepairTrade,
+  WorkOrderHoldReason,
   WorkOrderKind,
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
@@ -25,7 +26,15 @@ import {
   resolveAssetOperationsAuthority,
 } from "./authority";
 import { resolvePreferredRepairProviderForAsset } from "./responsibility";
+import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
+
+import { ensureDefaultMaintenanceCategories } from "./maintenance-categories";
 import { normalizeAssetStatus, OPEN_ASSET_ISSUE_STATUSES } from "./types";
+import {
+  mapRepairTradeToCategoryKey,
+  presentWorkOrder,
+  resolveStoredHoldWrite,
+} from "./work-order-semantics";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -187,10 +196,121 @@ function assertTransition(from: RepairStatus, to: RepairStatus) {
   }
 }
 
+async function snapshotWorkOrderLocation(
+  client: DbClient,
+  input: {
+    facilityId: string;
+    assetId?: string | null;
+    issueId?: string | null;
+    unitId?: string | null;
+    spaceId?: string | null;
+    allowLocationOverride?: boolean;
+  },
+): Promise<{ assetId: string | null; unitId: string; spaceId: string | null }> {
+  let asset: { id: string; unitId: string; spaceId: string | null; status: string } | null = null;
+  if (input.assetId) {
+    asset = await client.asset.findFirst({
+      where: { id: input.assetId, unit: { facilityId: input.facilityId } },
+      select: { id: true, unitId: true, spaceId: true, status: true },
+    });
+    if (!asset) throw new Error("Asset not found.");
+    if (normalizeAssetStatus(asset.status) === "RETIRED") {
+      throw new Error("Cannot open a Work Order against a retired Asset.");
+    }
+  }
+
+  let issue: { id: string; unitId: string; spaceId: string | null; assetId: string | null } | null =
+    null;
+  if (input.issueId) {
+    issue = await client.assetIssue.findFirst({
+      where: { id: input.issueId, facilityId: input.facilityId },
+      select: { id: true, unitId: true, spaceId: true, assetId: true },
+    });
+    if (!issue) throw new Error("Issue not found.");
+  }
+
+  const unitId = input.unitId?.trim() || issue?.unitId || asset?.unitId || null;
+  if (!unitId) throw new Error("Work Order unit is required.");
+
+  if (asset && unitId !== asset.unitId && !input.allowLocationOverride) {
+    throw new Error("Work Order unit must match the Asset unit unless explicitly overridden.");
+  }
+
+  const unit = await client.unit.findFirst({
+    where: { id: unitId, facilityId: input.facilityId },
+    select: { id: true },
+  });
+  if (!unit) throw new Error("Unit not found.");
+
+  const spaceId =
+    input.spaceId !== undefined
+      ? input.spaceId
+      : (issue?.spaceId ?? asset?.spaceId ?? null);
+  if (spaceId) {
+    const space = await client.unitSpace.findFirst({
+      where: {
+        id: spaceId,
+        facilityId: input.facilityId,
+        OR: [{ unitId }, { unitId: null }],
+      },
+      select: { id: true },
+    });
+    if (!space) throw new Error("Space not found.");
+  }
+
+  return { assetId: asset?.id ?? issue?.assetId ?? null, unitId, spaceId };
+}
+
+async function assertPublishedProcedurePin(
+  client: DbClient,
+  input: { facilityId: string; procedureVersionId: string },
+) {
+  const version = await client.knowledgeArticleVersion.findFirst({
+    where: { id: input.procedureVersionId },
+    include: { article: { select: { facilityId: true, category: true } } },
+  });
+  if (!version) throw new Error("Procedure version not found.");
+  if (version.article.facilityId !== input.facilityId) {
+    throw new Error("Procedure version belongs to another facility.");
+  }
+  if (!isKnowledgeProcedureCategory(version.article.category)) {
+    throw new Error("Work Orders may pin only Procedure (SOP) Knowledge versions.");
+  }
+  if (version.status !== "PUBLISHED") {
+    throw new Error("Active Work Orders may pin only PUBLISHED Procedure versions.");
+  }
+}
+
+async function resolveMaintenanceCategoryId(
+  client: DbClient,
+  input: {
+    facilityId: string;
+    maintenanceCategoryId?: string | null;
+    categoryKey?: string | null;
+    repairTrade?: RepairTrade;
+  },
+): Promise<string | null> {
+  await ensureDefaultMaintenanceCategories(input.facilityId, client);
+  if (input.maintenanceCategoryId) {
+    const category = await client.maintenanceCategory.findFirst({
+      where: { id: input.maintenanceCategoryId, facilityId: input.facilityId },
+    });
+    if (!category) throw new Error("Maintenance category not found.");
+    if (category.archivedAt) throw new Error("Cannot assign an archived maintenance category.");
+    return category.id;
+  }
+  const key = input.categoryKey ?? mapRepairTradeToCategoryKey(input.repairTrade ?? "GENERAL");
+  const category = await client.maintenanceCategory.findFirst({
+    where: { facilityId: input.facilityId, key, archivedAt: null },
+  });
+  return category?.id ?? null;
+}
+
 export type CreateWorkOrderDirectInput = {
   facilityId: string;
   departmentId: string;
-  unitId: string;
+  unitId?: string;
+  spaceId?: string | null;
   assetId?: string | null;
   issueId?: string | null;
   title: string;
@@ -203,7 +323,20 @@ export type CreateWorkOrderDirectInput = {
   assignedEmployeeId?: string | null;
   targetDate?: Date | null;
   dueAt?: Date | null;
+  procedureVersionId?: string | null;
+  maintenanceCategoryId?: string | null;
+  categoryKey?: string | null;
+  holdReason?: WorkOrderHoldReason | null;
+  allowLocationOverride?: boolean;
 };
+
+/** Canonical create alias. Persistence remains Repair. */
+export async function createWorkOrder(
+  session: AppJwtPayload,
+  input: CreateWorkOrderDirectInput & { client?: DbClient; now?: Date },
+) {
+  return createWorkOrderDirect(session, input);
+}
 
 export async function createWorkOrderDirect(
   session: AppJwtPayload,
@@ -217,22 +350,14 @@ export async function createWorkOrderDirect(
   );
   requireWorkOrderManage(authority);
 
-  const unit = await client.unit.findFirst({
-    where: { id: input.unitId, facilityId: input.facilityId },
-    select: { id: true },
+  const location = await snapshotWorkOrderLocation(client, {
+    facilityId: input.facilityId,
+    assetId: input.assetId,
+    issueId: input.issueId,
+    unitId: input.unitId,
+    spaceId: input.spaceId,
+    allowLocationOverride: input.allowLocationOverride,
   });
-  if (!unit) throw new Error("Unit not found.");
-
-  if (input.assetId) {
-    const asset = await client.asset.findFirst({
-      where: { id: input.assetId, unit: { facilityId: input.facilityId } },
-      select: { id: true, status: true, unitId: true },
-    });
-    if (!asset) throw new Error("Asset not found.");
-    if (normalizeAssetStatus(asset.status) === "RETIRED") {
-      throw new Error("Cannot open a Work Order against a retired Asset.");
-    }
-  }
 
   if (input.vendorId) {
     const vendor = await client.vendor.findFirst({
@@ -273,10 +398,24 @@ export async function createWorkOrderDirect(
   }
 
   const repairTrade = input.repairTrade ?? "GENERAL";
+  if (input.procedureVersionId) {
+    await assertPublishedProcedurePin(client, {
+      facilityId: input.facilityId,
+      procedureVersionId: input.procedureVersionId,
+    });
+  }
+
+  const maintenanceCategoryId = await resolveMaintenanceCategoryId(client, {
+    facilityId: input.facilityId,
+    maintenanceCategoryId: input.maintenanceCategoryId,
+    categoryKey: input.categoryKey,
+    repairTrade,
+  });
+
   const suggested = await suggestRepairDepartmentIds(prisma, {
     facilityId: input.facilityId,
-    unitId: input.unitId,
-    assetId: input.assetId,
+    unitId: location.unitId,
+    assetId: location.assetId,
     repairTrade,
     issueType: "EQUIPMENT",
     sessionPrimaryDepartmentId: session.primaryDepartmentId,
@@ -293,8 +432,9 @@ export async function createWorkOrderDirect(
     data: {
       id: cuidLike(),
       repairCode,
-      assetId: input.assetId ?? null,
-      unitId: input.unitId,
+      assetId: location.assetId,
+      unitId: location.unitId,
+      spaceId: location.spaceId,
       title: input.title.trim(),
       description: input.description.trim(),
       priority: input.priority ?? "MEDIUM",
@@ -312,6 +452,9 @@ export async function createWorkOrderDirect(
       requestedAt: now,
       reportedById: actorUserId,
       issueId: linkedIssueId,
+      procedureVersionId: input.procedureVersionId ?? null,
+      maintenanceCategoryId,
+      holdReason: null,
       updates: {
         create: {
           id: cuidLike(),
@@ -336,6 +479,10 @@ export async function createWorkOrderFromIssue(
     description?: string | null;
     priority?: RepairPriority;
     repairTrade?: RepairTrade;
+    procedureVersionId?: string | null;
+    maintenanceCategoryId?: string | null;
+    categoryKey?: string | null;
+    spaceId?: string | null;
     vendorId?: string | null;
     responsibleDepartmentId?: string | null;
     assignedEmployeeId?: string | null;
@@ -380,12 +527,16 @@ export async function createWorkOrderFromIssue(
     facilityId: input.facilityId,
     departmentId: input.departmentId,
     unitId: issue.unitId,
+    spaceId: input.spaceId !== undefined ? input.spaceId : issue.spaceId,
     assetId: issue.assetId,
     issueId: issue.id,
     title: input.title?.trim() || issue.summary,
     description: input.description?.trim() || issue.description,
     priority: input.priority ?? issue.priority,
     repairTrade: input.repairTrade,
+    procedureVersionId: input.procedureVersionId,
+    maintenanceCategoryId: input.maintenanceCategoryId,
+    categoryKey: input.categoryKey,
     vendorId,
     responsibleDepartmentId: input.responsibleDepartmentId,
     assignedEmployeeId: input.assignedEmployeeId,
@@ -484,6 +635,7 @@ export async function updateWorkOrderStatus(
     departmentId: string;
     repairId: string;
     toStatus: RepairStatus;
+    holdReason?: WorkOrderHoldReason | null;
     comment?: string | null;
     client?: DbClient;
     now?: Date;
@@ -499,19 +651,21 @@ export async function updateWorkOrderStatus(
 
   const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
   assertTransition(repair.status, input.toStatus);
+  const stored = resolveStoredHoldWrite(input.toStatus, input.holdReason);
 
   const actorUserId = sessionUserIdForFk(session);
   const now = input.now ?? new Date();
   const data: Prisma.RepairUpdateInput = {
-    status: input.toStatus,
+    status: stored.status,
+    holdReason: stored.holdReason,
   };
-  if (input.toStatus === "IN_PROGRESS" && !repair.startedAt) {
+  if (stored.status === "IN_PROGRESS" && !repair.startedAt) {
     data.startedAt = now;
   }
-  if (input.toStatus === "COMPLETED") {
+  if (stored.status === "COMPLETED") {
     data.completedAt = now;
   }
-  if (input.toStatus === "CANCELLED") {
+  if (stored.status === "CANCELLED") {
     data.completedAt = repair.completedAt ?? now;
   }
 
@@ -523,8 +677,8 @@ export async function updateWorkOrderStatus(
   await appendRepairUpdate(client, {
     repairId: repair.id,
     updateText:
-      input.comment?.trim() || `Status changed to ${input.toStatus}`,
-    statusAfterUpdate: input.toStatus,
+      input.comment?.trim() || `Status changed to ${stored.status}`,
+    statusAfterUpdate: stored.status,
     updatedById: actorUserId,
   });
 
@@ -569,7 +723,7 @@ export async function assignVendor(
     data: {
       vendorId: input.vendorId,
       ...(repair.status === "OPEN" && input.vendorId
-        ? { status: "WAITING_ON_VENDOR" as RepairStatus }
+        ? { status: "ON_HOLD" as RepairStatus, holdReason: "WAITING_FOR_VENDOR" as WorkOrderHoldReason }
         : {}),
     },
   });
@@ -708,6 +862,7 @@ export async function completeWorkOrder(
     where: { id: repair.id },
     data: {
       status: "COMPLETED",
+      holdReason: null,
       completedAt: now,
       startedAt: repair.startedAt ?? now,
       workPerformed: input.workPerformed?.trim() || repair.workPerformed,
@@ -806,18 +961,31 @@ export async function createWorkOrderFromOperationalRequest(
   const repairCode = await nextRepairCode(client);
   const initialStatus: RepairStatus = input.assignedEmployeeId ? "ASSIGNED" : "OPEN";
 
+  const location = await snapshotWorkOrderLocation(client, {
+    facilityId: input.facilityId,
+    assetId: request.assetId,
+    unitId: request.unitId,
+    spaceId: request.spaceId,
+  });
+  const requestTrade = input.repairTrade ?? "GENERAL";
+  const requestCategoryId = await resolveMaintenanceCategoryId(client, {
+    facilityId: input.facilityId,
+    repairTrade: requestTrade,
+  });
+
   const created = await client.repair.create({
     data: {
       id: cuidLike(),
       repairCode,
-      assetId: request.assetId ?? null,
-      unitId: request.unitId,
+      assetId: location.assetId,
+      unitId: location.unitId,
+      spaceId: location.spaceId,
       title: input.title?.trim() || request.summary,
       description: input.description?.trim() || request.description,
       priority: input.priority ?? request.priority,
       status: initialStatus,
       workOrderKind: "CORRECTIVE",
-      repairTrade: input.repairTrade ?? "GENERAL",
+      repairTrade: requestTrade,
       issueType: "EQUIPMENT",
       requestingDepartmentId: request.requestingDepartmentId,
       responsibleDepartmentId: request.responsibleDepartmentId,
@@ -826,6 +994,7 @@ export async function createWorkOrderFromOperationalRequest(
       targetDate: input.targetDate ?? null,
       requestedAt: now,
       reportedById: actorUserId,
+      maintenanceCategoryId: requestCategoryId,
       updates: {
         create: {
           id: cuidLike(),
@@ -938,12 +1107,14 @@ export async function technicianUpdateWorkOrder(
     return updated;
   }
 
-  let toStatus: RepairStatus;
-  if (input.action === "START") toStatus = "IN_PROGRESS";
-  else if (input.action === "WAITING_PARTS") toStatus = "WAITING_PARTS";
-  else if (input.action === "WAITING_ON_VENDOR") toStatus = "WAITING_ON_VENDOR";
-  else if (input.action === "COMPLETE") toStatus = "COMPLETED";
+  let requestedStatus: RepairStatus;
+  if (input.action === "START") requestedStatus = "IN_PROGRESS";
+  else if (input.action === "WAITING_PARTS") requestedStatus = "WAITING_PARTS";
+  else if (input.action === "WAITING_ON_VENDOR") requestedStatus = "WAITING_ON_VENDOR";
+  else if (input.action === "COMPLETE") requestedStatus = "COMPLETED";
   else throw new Error("Unsupported Work Order action.");
+  const storedHold = resolveStoredHoldWrite(requestedStatus);
+  const toStatus = storedHold.status;
 
   if (input.action === "COMPLETE") {
     if (repair.status === "COMPLETED" || repair.status === "CLOSED") {
@@ -968,6 +1139,7 @@ export async function technicianUpdateWorkOrder(
       where: { id: repair.id },
       data: {
         status: "COMPLETED",
+        holdReason: null,
         completedAt: now,
         startedAt: repair.startedAt ?? now,
         workPerformed: input.workPerformed?.trim() || repair.workPerformed,
@@ -996,7 +1168,10 @@ export async function technicianUpdateWorkOrder(
   }
 
   assertTransition(repair.status, toStatus);
-  const data: Prisma.RepairUpdateInput = { status: toStatus };
+  const data: Prisma.RepairUpdateInput = {
+    status: toStatus,
+    holdReason: storedHold.holdReason,
+  };
   if (toStatus === "IN_PROGRESS" && !repair.startedAt) {
     data.startedAt = now;
   }
@@ -1059,4 +1234,106 @@ export async function markReturnToServiceReady(
   });
 
   return updated;
+}
+
+export async function loadWorkOrder(
+  session: AppJwtPayload,
+  input: { facilityId: string; departmentId: string; repairId: string; client?: DbClient },
+) {
+  const client = input.client ?? prisma;
+  await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
+    repairId: input.repairId,
+  });
+  const repair = await client.repair.findFirst({
+    where: { id: input.repairId, unit: { facilityId: input.facilityId } },
+    include: {
+      maintenanceCategory: true,
+      procedureVersion: { select: { id: true, version: true, title: true, status: true } },
+      vendor: true,
+      assignedEmployee: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+  if (!repair) throw new Error("Work Order not found.");
+  return {
+    workOrder: repair,
+    presentation: presentWorkOrder(repair),
+  };
+}
+
+export async function listWorkOrders(
+  session: AppJwtPayload,
+  input: { facilityId: string; departmentId: string; take?: number; client?: DbClient },
+) {
+  const client = input.client ?? prisma;
+  await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId);
+  const rows = await client.repair.findMany({
+    where: {
+      unit: { facilityId: input.facilityId },
+      OR: [
+        { responsibleDepartmentId: input.departmentId },
+        { requestingDepartmentId: input.departmentId },
+      ],
+    },
+    include: { maintenanceCategory: true },
+    orderBy: { requestedAt: "desc" },
+    take: input.take ?? 80,
+  });
+  return rows.map((workOrder) => ({
+    workOrder,
+    presentation: presentWorkOrder(workOrder),
+  }));
+}
+
+export async function holdWorkOrder(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    repairId: string;
+    holdReason: WorkOrderHoldReason;
+    comment?: string | null;
+    client?: DbClient;
+    now?: Date;
+  },
+) {
+  return updateWorkOrderStatus(session, {
+    ...input,
+    toStatus: "ON_HOLD",
+  });
+}
+
+export async function linkEvidenceToWorkOrder(
+  session: AppJwtPayload,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    repairId: string;
+    evidenceRecordId: string;
+    note?: string | null;
+    client?: DbClient;
+  },
+) {
+  const client = input.client ?? prisma;
+  await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
+    repairId: input.repairId,
+  });
+  const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
+  const evidence = await client.operationalEvidenceRecord.findFirst({
+    where: { id: input.evidenceRecordId, facilityId: input.facilityId },
+    select: { id: true },
+  });
+  if (!evidence) throw new Error("Evidence record not found.");
+  const existing = await client.repairEvidenceLink.findFirst({
+    where: { repairId: repair.id, evidenceRecordId: evidence.id },
+  });
+  if (existing) return existing;
+  return client.repairEvidenceLink.create({
+    data: {
+      id: cuidLike(),
+      repairId: repair.id,
+      evidenceRecordId: evidence.id,
+      linkedByUserId: sessionUserIdForFk(session),
+      note: input.note?.trim() || null,
+    },
+  });
 }

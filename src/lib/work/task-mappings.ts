@@ -61,6 +61,7 @@ export function mapRepairPriorityToTaskPriority(
     case "HIGH":
       return "HIGH";
     case "URGENT":
+    case "EMERGENCY":
       return "URGENT";
     default: {
       const _exhaustive: never = priority;

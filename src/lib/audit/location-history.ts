@@ -4,7 +4,7 @@
  *
  * Placement uses the location stored on the source row. Live Asset location
  * is never used to rewrite historical Request / Issue / Repair entries.
- * Repair stores unitId only — no spaceId in this phase.
+ * Repair stores unitId and optional spaceId. Historical rows may have spaceId null.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -147,6 +147,7 @@ export async function loadLocationHistory(
         requestedAt: true,
         completedAt: true,
         unitId: true,
+        spaceId: true,
         updates: {
           orderBy: { updatedAt: "desc" },
           take: 8,
@@ -300,7 +301,7 @@ export async function loadLocationHistory(
   }
 
   for (const repair of repairs) {
-    if (!matchesSpaceFilter(null, spaceId)) {
+    if (!matchesSpaceFilter(repair.spaceId, spaceId)) {
       continue;
     }
     events.push({
@@ -314,7 +315,7 @@ export async function loadLocationHistory(
       source: "Repair",
       sourceId: repair.id,
       unitId: repair.unitId,
-      spaceId: null,
+      spaceId: repair.spaceId,
     });
     if (repair.status === "COMPLETED" || repair.completedAt) {
       events.push({
@@ -328,7 +329,7 @@ export async function loadLocationHistory(
         source: "Repair",
         sourceId: repair.id,
         unitId: repair.unitId,
-        spaceId: null,
+        spaceId: repair.spaceId,
       });
     }
     for (const update of repair.updates) {
@@ -344,7 +345,7 @@ export async function loadLocationHistory(
         source: "Repair",
         sourceId: repair.id,
         unitId: repair.unitId,
-        spaceId: null,
+        spaceId: repair.spaceId,
       });
     }
   }

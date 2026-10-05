@@ -28,11 +28,12 @@ test("historical Location uses stored unit/space, not live Asset location", () =
   assert.doesNotMatch(projector, /asset\.spaceId/);
   assert.match(projector, /spaceId: request\.spaceId/);
   assert.match(projector, /spaceId: issue\.spaceId/);
-  assert.match(projector, /spaceId: null/);
+  assert.match(projector, /spaceId: repair\.spaceId/);
 });
 
 test("Repair Location History does not invent space from live Asset", () => {
   const projector = readFileSync(new URL("./location-history.ts", import.meta.url), "utf8");
-  assert.match(projector, /Repair stores unitId only/);
-  assert.match(projector, /matchesSpaceFilter\(null, spaceId\)/);
+  assert.match(projector, /optional spaceId/);
+  assert.match(projector, /matchesSpaceFilter\(repair\.spaceId, spaceId\)/);
+  assert.doesNotMatch(projector, /asset\.spaceId/);
 });

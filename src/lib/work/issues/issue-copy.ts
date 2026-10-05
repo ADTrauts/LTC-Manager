@@ -143,7 +143,7 @@ export function recoveryStageBadgeVariant(stage: IssueRecoveryStage): StatusBadg
 }
 
 export function priorityBadgeVariant(priority: RepairPriority): StatusBadgeVariant {
-  if (priority === "URGENT") return "blocked";
+  if (priority === "URGENT" || priority === "EMERGENCY") return "blocked";
   if (priority === "HIGH") return "warning";
   return "neutral";
 }

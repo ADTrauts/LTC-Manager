@@ -87,15 +87,40 @@ export {
   assignResponsibleEmployee,
   assignVendor,
   completeWorkOrder,
+  createWorkOrder,
   createWorkOrderDirect,
   createWorkOrderFromIssue,
   createWorkOrderFromOperationalRequest,
+  holdWorkOrder,
+  linkEvidenceToWorkOrder,
   linkWorkOrderToIssue,
+  listWorkOrders,
+  loadWorkOrder,
   markReturnToServiceReady,
   technicianUpdateWorkOrder,
   updateWorkOrderStatus,
   type CreateWorkOrderDirectInput,
 } from "./work-order-service";
+
+export {
+  DEFAULT_MAINTENANCE_CATEGORIES,
+  mapRepairTradeToCategoryKey,
+  presentWorkOrder,
+  presentWorkOrderHoldReason,
+  presentWorkOrderPriority,
+  presentWorkOrderStatus,
+  presentWorkOrderKind,
+  workOrderPriorityAuthorityLabel,
+  workOrderStatusAuthorityLabel,
+  type WorkOrderPriority,
+  type WorkOrderStatus,
+} from "./work-order-semantics";
+
+export {
+  archiveMaintenanceCategory,
+  ensureDefaultMaintenanceCategories,
+  listMaintenanceCategories,
+} from "./maintenance-categories";
 
 export { loadAssetTimeline, type LoadAssetTimelineOptions } from "./history";
 

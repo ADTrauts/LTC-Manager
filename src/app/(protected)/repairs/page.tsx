@@ -160,7 +160,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <nav
           className="flex flex-wrap gap-2"
-          aria-label="Repair status filters"
+          aria-label="Work Order status filters"
           data-testid="repairs-status-filters"
         >
           {FILTER_TABS.map((tab) => {
@@ -206,7 +206,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
 
       {!isEmpty ? (
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="sr-only">Repair queue</h2>
+        <h2 className="sr-only">Work Order queue</h2>
         <div className="space-y-3" data-testid="repairs-queue">
           {filtered.map((repair) => {
             const sourceKind = repairSourceKind({

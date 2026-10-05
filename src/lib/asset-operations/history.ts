@@ -87,6 +87,10 @@ export async function loadAssetTimeline(
         completedAt: true,
         vendorId: true,
         workPerformed: true,
+        holdReason: true,
+        procedureVersionId: true,
+        procedureVersion: { select: { id: true, version: true, title: true } },
+        maintenanceCategory: { select: { key: true, label: true } },
         returnToServiceReady: true,
         updates: {
           orderBy: { updatedAt: "desc" },
@@ -190,8 +194,16 @@ export async function loadAssetTimeline(
       id: `wo-open:${repair.id}`,
       kind: "WORK_ORDER_OPENED",
       at: repair.requestedAt,
-      title: `Repair opened — ${repair.title}`,
-      detail: repair.repairCode,
+      title: `Work Order opened — ${repair.title}`,
+      detail: [
+        repair.repairCode,
+        repair.maintenanceCategory?.label,
+        repair.procedureVersion
+          ? `Procedure v${repair.procedureVersion.version}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       href: `/repairs/${repair.id}`,
       status: repair.status,
     });
@@ -201,7 +213,7 @@ export async function loadAssetTimeline(
         id: `wo-vendor:${repair.id}`,
         kind: "VENDOR_ASSIGNED",
         at: repair.requestedAt,
-        title: `Vendor assigned on repair ${repair.repairCode}`,
+        title: `Vendor assigned on Work Order ${repair.repairCode}`,
         detail: null,
         href: `/repairs/${repair.id}`,
         status: repair.status,
@@ -213,7 +225,7 @@ export async function loadAssetTimeline(
         id: `wo-complete:${repair.id}`,
         kind: "WORK_COMPLETED",
         at: repair.completedAt ?? repair.requestedAt,
-        title: `Repair completed — ${repair.title}`,
+        title: `Work Order completed — ${repair.title}`,
         detail: repair.workPerformed ?? repair.repairCode,
         href: `/repairs/${repair.id}`,
         status: repair.status,
@@ -227,7 +239,7 @@ export async function loadAssetTimeline(
         id: `wo-update:${update.id}`,
         kind: "WORK_ORDER_STATUS_CHANGED",
         at: update.updatedAt,
-        title: `Repair ${repair.repairCode} — ${workOrderStatusLabel(update.statusAfterUpdate)}`,
+        title: `Work Order ${repair.repairCode} — ${workOrderStatusLabel(update.statusAfterUpdate)}`,
         detail: update.updateText,
         href: `/repairs/${repair.id}`,
         status: update.statusAfterUpdate,

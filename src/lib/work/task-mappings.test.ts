@@ -59,6 +59,7 @@ test("repair priority maps 1:1", () => {
   assert.equal(mapRepairPriorityToTaskPriority("MEDIUM"), "MEDIUM");
   assert.equal(mapRepairPriorityToTaskPriority("HIGH"), "HIGH");
   assert.equal(mapRepairPriorityToTaskPriority("URGENT"), "URGENT");
+  assert.equal(mapRepairPriorityToTaskPriority("EMERGENCY"), "URGENT");
 });
 
 test("log task title includes meal when present", () => {
