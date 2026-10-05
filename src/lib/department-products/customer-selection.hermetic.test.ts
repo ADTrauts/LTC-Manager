@@ -106,7 +106,7 @@ describe("Facility Department Product catalog", () => {
   it("shows AVAILABLE registry products and hides DEVELOPMENT ones", () => {
     const development = {
       ...listDepartmentProducts()[0]!,
-      productKey: "DRAFT_X" as "DIETARY",
+      productKey: "DRAFT_X" as "HEALTHCARE_FOOD_NUTRITION",
       name: "Draft Product",
       status: "DEVELOPMENT" as const,
     };
@@ -117,7 +117,7 @@ describe("Facility Department Product catalog", () => {
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["DIETARY"],
+      ["HEALTHCARE_FOOD_NUTRITION"],
     );
     assert.equal(
       catalog.every((item) => item.availableToAdd && !item.installed && !item.licensed),
@@ -142,11 +142,12 @@ describe("Facility Department Product catalog", () => {
       entitlementsEnforced: true,
     });
     const byKey = Object.fromEntries(catalog.map((item) => [item.productKey, item]));
-    assert.equal(byKey.DIETARY?.installed, true);
-    assert.equal(byKey.DIETARY?.licensed, true);
-    assert.equal(byKey.DIETARY?.operable, true);
-    assert.equal(byKey.DIETARY?.availableToAdd, false);
-    assert.equal(byKey.DIETARY?.departmentActive, true);
+    assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.installed, true);
+    assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.licensed, true);
+    assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.operable, true);
+    assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.availableToAdd, false);
+    assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.departmentActive, true);
+    assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.installationKey, "DIETARY");
     assert.equal(byKey.EVS, undefined);
     assert.equal(byKey.PLANT, undefined);
   });

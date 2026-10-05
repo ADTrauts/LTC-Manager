@@ -57,7 +57,11 @@ function row(partial: Partial<CycleLifecycleRow> & { stableKey: string; status: 
 describe("Overview guidance derivation", () => {
   it("identifies Vssyl Department Products without exposing keys as the title", () => {
     assert.deepEqual(resolveOverviewProductIdentity("DIETARY"), {
-      name: "Dietary",
+      name: "Healthcare Food & Nutrition",
+      isVssylProduct: true,
+    });
+    assert.deepEqual(resolveOverviewProductIdentity("HEALTHCARE_FOOD_NUTRITION"), {
+      name: "Healthcare Food & Nutrition",
       isVssylProduct: true,
     });
     assert.equal(resolveOverviewProductIdentity("LAUNDRY").isVssylProduct, false);
@@ -185,7 +189,7 @@ describe("Overview guidance derivation", () => {
     const all = source("src/app/(protected)/admin/departments/page.tsx");
     const summary = source("src/lib/department-administration/builder-context-summary.ts");
     assert.match(overview, /overview-product-identity/);
-    assert.match(overview, /Vssyl Department Product/);
+    assert.match(overview, /Product: \{settings\.productName\}/);
     assert.doesNotMatch(overview, /configurationStatus|setupComplete|readinessStatus/);
     assert.doesNotMatch(summary, /configurationStatus|setupComplete/);
     assert.match(all, />Enabled</);

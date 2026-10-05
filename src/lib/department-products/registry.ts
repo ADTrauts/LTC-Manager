@@ -9,13 +9,35 @@
  *
  * A product existing in this registry does not make it customer-visible.
  * Customer visibility requires release status AVAILABLE.
+ *
+ * Product identity and facility Department identity are not the same thing.
+ * Healthcare Food & Nutrition is the Vssyl Product. A facility may locally
+ * name its installed Department Dietary, Food & Nutrition, or something else.
+ *
+ * Compatibility:
+ *   Canonical product key: HEALTHCARE_FOOD_NUTRITION
+ *   Legacy alias / persisted install key: DIETARY
+ *   DIETARY is not a second sellable Product. It resolves to the same lineage.
  */
 
 export const DEPARTMENT_PRODUCT_INDUSTRIES = ["healthcare"] as const;
 export type DepartmentProductIndustry = (typeof DEPARTMENT_PRODUCT_INDUSTRIES)[number];
 
-export const DEPARTMENT_PRODUCT_KEYS = ["DIETARY", "EVS", "PLANT"] as const;
+export const DEPARTMENT_PRODUCT_KEYS = ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"] as const;
 export type DepartmentProductKey = (typeof DEPARTMENT_PRODUCT_KEYS)[number];
+
+/**
+ * Historical commercial/install key. One product lineage — not a second Product.
+ * Persisted Department.key and FacilityDepartmentEntitlement.departmentKey stay
+ * on this value so existing installations and Stripe metadata do not fork.
+ */
+export const LEGACY_DEPARTMENT_PRODUCT_ALIASES = {
+  DIETARY: "HEALTHCARE_FOOD_NUTRITION",
+} as const satisfies Record<string, DepartmentProductKey>;
+
+export type LegacyDepartmentProductAlias = keyof typeof LEGACY_DEPARTMENT_PRODUCT_ALIASES;
+
+export type DepartmentProductReferenceKey = DepartmentProductKey | LegacyDepartmentProductAlias;
 
 export const DEPARTMENT_PRODUCT_RELEASE_STATUSES = [
   "DEVELOPMENT",
@@ -51,6 +73,13 @@ export type DepartmentProductStarterRefs = {
 export type DepartmentProduct = {
   productKey: DepartmentProductKey;
   name: string;
+  /**
+   * Persisted Department.key and entitlement.departmentKey for this lineage.
+   * May differ from productKey when a legacy install key is preserved.
+   */
+  installationKey: string;
+  /** Default facility Department.name on first install. Not the commercial name. */
+  defaultDepartmentName: string;
   industry: DepartmentProductIndustry;
   status: DepartmentProductReleaseStatus;
   /** Customer marketplace subtitle. Omit for products that are not customer-visible. */
@@ -65,11 +94,13 @@ export type DepartmentProduct = {
 
 const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
   {
-    productKey: "DIETARY",
-    name: "Dietary",
+    productKey: "HEALTHCARE_FOOD_NUTRITION",
+    name: "Healthcare Food & Nutrition",
+    installationKey: "DIETARY",
+    defaultDepartmentName: "Dietary",
     industry: "healthcare",
     status: "AVAILABLE",
-    shortDescription: "Food & Nutrition Operations",
+    shortDescription: "Food and nutrition operations for hospitals and long-term care.",
     customerCapabilities: [
       "Location Functions",
       "Operating Rhythm",
@@ -91,6 +122,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
   {
     productKey: "EVS",
     name: "Environmental Services",
+    installationKey: "EVS",
+    defaultDepartmentName: "Environmental Services",
     industry: "healthcare",
     status: "DEVELOPMENT",
     sortOrder: 20,
@@ -106,6 +139,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
   {
     productKey: "PLANT",
     name: "Plant Operations",
+    installationKey: "PLANT",
+    defaultDepartmentName: "Plant Operations",
     industry: "healthcare",
     status: "DEVELOPMENT",
     sortOrder: 30,
@@ -122,17 +157,87 @@ const PRODUCT_BY_KEY = new Map<string, DepartmentProduct>(
   DEPARTMENT_PRODUCTS.map((product) => [product.productKey, product]),
 );
 
-export function isDepartmentProductKey(
+export function canonicalizeDepartmentProductKey(
+  key: string | null | undefined,
+): string | null {
+  if (!key) return null;
+  const trimmed = key.trim();
+  if (!trimmed) return null;
+  if (trimmed in LEGACY_DEPARTMENT_PRODUCT_ALIASES) {
+    return LEGACY_DEPARTMENT_PRODUCT_ALIASES[trimmed as LegacyDepartmentProductAlias];
+  }
+  return trimmed;
+}
+
+export function isLegacyDepartmentProductAlias(
+  key: string | null | undefined,
+): key is LegacyDepartmentProductAlias {
+  return key === "DIETARY";
+}
+
+export function isCanonicalDepartmentProductKey(
   key: string | null | undefined,
 ): key is DepartmentProductKey {
-  return key === "DIETARY" || key === "EVS" || key === "PLANT";
+  return key === "HEALTHCARE_FOOD_NUTRITION" || key === "EVS" || key === "PLANT";
 }
 
 export function getDepartmentProduct(
   productKey: string | null | undefined,
 ): DepartmentProduct | null {
-  if (!productKey) return null;
-  return PRODUCT_BY_KEY.get(productKey) ?? null;
+  const canonical = canonicalizeDepartmentProductKey(productKey);
+  if (!canonical) return null;
+  return PRODUCT_BY_KEY.get(canonical) ?? null;
+}
+
+export function isDepartmentProductKey(
+  key: string | null | undefined,
+): key is DepartmentProductReferenceKey {
+  return getDepartmentProduct(key) !== null;
+}
+
+export function departmentProductLineageKeys(
+  product: { productKey: string; installationKey: string },
+): readonly string[] {
+  if (product.installationKey === product.productKey) {
+    return [product.productKey];
+  }
+  return [product.productKey, product.installationKey];
+}
+
+export function persistableDepartmentProductKey(
+  key: string | null | undefined,
+): string | null {
+  return getDepartmentProduct(key)?.installationKey ?? null;
+}
+
+export function departmentProductKeysBelongToSameLineage(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const leftProduct = getDepartmentProduct(left);
+  const rightProduct = getDepartmentProduct(right);
+  return Boolean(leftProduct && rightProduct && leftProduct.productKey === rightProduct.productKey);
+}
+
+export function matchDepartmentRecordForProduct<T extends { key: string }>(
+  departments: readonly T[],
+  product: { productKey: string; installationKey: string },
+): T | undefined {
+  return (
+    departments.find((row) => row.key === product.installationKey) ??
+    departments.find((row) => row.key === product.productKey)
+  );
+}
+
+export function matchEntitlementStatusForProduct(
+  entitlements: readonly { departmentKey: string; status: "ACTIVE" | "REVOKED" }[],
+  product: { productKey: string; installationKey: string },
+): "ACTIVE" | "REVOKED" | null {
+  const lineage = new Set(departmentProductLineageKeys(product));
+  const matches = entitlements.filter((row) => lineage.has(row.departmentKey));
+  if (matches.some((row) => row.status === "ACTIVE")) return "ACTIVE";
+  if (matches.length > 0) return "REVOKED";
+  return null;
 }
 
 export function listDepartmentProducts(): readonly DepartmentProduct[] {

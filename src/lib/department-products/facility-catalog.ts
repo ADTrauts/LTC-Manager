@@ -7,8 +7,11 @@ import {
   type BillingStatusForEntitlement,
 } from "./eligibility";
 import {
+  getDepartmentProduct,
   isDepartmentProductCustomerVisible,
   listDepartmentProducts,
+  matchDepartmentRecordForProduct,
+  matchEntitlementStatusForProduct,
   type DepartmentProduct,
   type DepartmentProductReleaseStatus,
 } from "./registry";
@@ -26,6 +29,7 @@ export type FacilityEntitlementRecord = {
 
 export type FacilityDepartmentCatalogItem = {
   productKey: string;
+  installationKey: string;
   name: string;
   industry: DepartmentProduct["industry"];
   releaseStatus: DepartmentProductReleaseStatus;
@@ -54,20 +58,17 @@ export function deriveFacilityDepartmentCatalog(input: {
   const products = (input.products ?? listDepartmentProducts()).filter((product) =>
     isDepartmentProductCustomerVisible(product),
   );
-  const departmentByKey = new Map(input.departments.map((row) => [row.key, row]));
-  const entitlementByKey = new Map(
-    input.entitlements.map((row) => [row.departmentKey, row.status]),
-  );
   const billingStatus = input.billingStatus ?? null;
   const entitlementsEnforced = input.entitlementsEnforced ?? false;
 
   return products.map((product) => {
-    const department = departmentByKey.get(product.productKey);
+    const department = matchDepartmentRecordForProduct(input.departments, product);
     const installed = Boolean(department);
-    const licensed = entitlementByKey.get(product.productKey) === "ACTIVE";
+    const entitlementStatus = matchEntitlementStatusForProduct(input.entitlements, product);
+    const licensed = entitlementStatus === "ACTIVE";
     const entitled = resolveCommercialEntitlement({
       releaseStatus: product.status,
-      entitlementStatus: entitlementByKey.get(product.productKey) ?? null,
+      entitlementStatus,
       billingStatus,
       entitlementsEnforced,
       installed,
@@ -81,6 +82,7 @@ export function deriveFacilityDepartmentCatalog(input: {
     });
     return {
       productKey: product.productKey,
+      installationKey: product.installationKey,
       name: product.name,
       industry: product.industry,
       releaseStatus: product.status,
@@ -95,6 +97,15 @@ export function deriveFacilityDepartmentCatalog(input: {
       availableToAdd: !installed && !licensed,
     };
   });
+}
+
+export function findCatalogItemForDepartmentKey(
+  catalog: readonly FacilityDepartmentCatalogItem[],
+  departmentKey: string,
+): FacilityDepartmentCatalogItem | undefined {
+  const product = getDepartmentProduct(departmentKey);
+  if (!product) return catalog.find((item) => item.productKey === departmentKey);
+  return catalog.find((item) => item.productKey === product.productKey);
 }
 
 export function publishedCatalogProductKeys(

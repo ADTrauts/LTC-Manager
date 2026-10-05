@@ -1,4 +1,5 @@
 import {
+  departmentProductLineageKeys,
   getDepartmentProduct,
   isDepartmentProductAvailableForInstall,
 } from "./registry";
@@ -64,10 +65,12 @@ async function linkEntitlementsToInstalledDepartments(input: {
   if (!billing) return;
 
   for (const row of input.installed) {
+    const product = getDepartmentProduct(row.productKey) ?? getDepartmentProduct(row.key);
+    const lineageKeys = product ? departmentProductLineageKeys(product) : [row.key];
     await input.prisma.facilityDepartmentEntitlement.updateMany({
       where: {
         facilityBillingId: billing.id,
-        departmentKey: row.key,
+        departmentKey: { in: [...lineageKeys] },
         status: "ACTIVE",
       },
       data: { departmentId: row.id },

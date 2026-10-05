@@ -26,6 +26,12 @@ export type DomainDepartmentKey = (typeof DOMAIN_DEPARTMENT_KEYS)[number];
 
 const DOMAIN_KEY_SET = new Set<string>(DOMAIN_DEPARTMENT_KEYS);
 
+/** Reserved so a user-created Department cannot collide with a Product key. */
+const RESERVED_DEPARTMENT_KEYS = new Set<string>([
+  ...DOMAIN_DEPARTMENT_KEYS,
+  "HEALTHCARE_FOOD_NUTRITION",
+]);
+
 const MAX_DEPARTMENT_KEY_LENGTH = 32;
 
 export function isDomainDepartmentKey(
@@ -88,7 +94,7 @@ export function allocateDepartmentKey(
   const taken = new Set(existingKeys);
   const base = slugifyDepartmentKeyFromName(name);
   const candidates: string[] = [];
-  if (!DOMAIN_KEY_SET.has(base)) {
+  if (!RESERVED_DEPARTMENT_KEYS.has(base)) {
     candidates.push(base);
   }
   for (let n = 2; n < 10_000; n += 1) {
@@ -97,7 +103,7 @@ export function allocateDepartmentKey(
     candidates.push(`${trimmedBase}${suffix}`);
   }
   for (const candidate of candidates) {
-    if (!taken.has(candidate) && !DOMAIN_KEY_SET.has(candidate)) {
+    if (!taken.has(candidate) && !RESERVED_DEPARTMENT_KEYS.has(candidate)) {
       return candidate;
     }
   }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/department-administration";
 import {
   canPurchaseDepartmentProducts,
+  findCatalogItemForDepartmentKey,
   getDepartmentProduct,
   loadCustomerOperableDepartments,
   loadFacilityDepartmentCatalog,
@@ -89,7 +90,6 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
   const canPurchase = canPurchaseDepartmentProducts(session.role);
   const alreadySubscribed = billing?.status === "ACTIVE" || billing?.status === "PAST_DUE";
   const checkoutReady = isStripeSecretConfigured() && areAllCatalogPricesConfigured();
-  const licensedByKey = new Map(catalog.map((item) => [item.productKey, item.licensed]));
 
   if (showMarketplace) {
     if (!canPurchase) {
@@ -153,7 +153,8 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
           <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
             {departments.map((d) => {
               const product = getDepartmentProduct(d.key);
-              const licensed = licensedByKey.get(d.key) ?? false;
+              const catalogItem = findCatalogItemForDepartmentKey(catalog, d.key);
+              const licensed = catalogItem?.licensed ?? false;
               const managerName =
                 d.headEmployee?.firstName && d.headEmployee?.lastName
                   ? `${d.headEmployee.firstName} ${d.headEmployee.lastName}`
@@ -162,12 +163,11 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
                 <li key={d.id} className="px-4 py-4 sm:px-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-zinc-900">{product?.name ?? d.name}</p>
+                      <p className="text-sm font-semibold text-zinc-900">{d.name}</p>
+                      {product ? (
+                        <p className="mt-0.5 text-xs text-zinc-600">Product: {product.name}</p>
+                      ) : null}
                       <p className="text-xs text-zinc-500">
-                        {product?.status === "AVAILABLE" ? <span>AVAILABLE</span> : null}
-                        {product?.status === "AVAILABLE" ? (
-                          <span className="mx-1.5 text-zinc-300">·</span>
-                        ) : null}
                         {licensed ? (
                           <span className="text-emerald-800">Licensed</span>
                         ) : (

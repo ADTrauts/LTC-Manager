@@ -80,7 +80,7 @@ export function formatOperatingRhythmGuidance(input: {
     return {
       status: "Not configured",
       description: "Recurring operating periods have not been added yet.",
-      actionLabel: `Use ${product?.name ?? "product"} operating rhythm →`,
+      actionLabel: `Use ${product?.defaultDepartmentName ?? product?.name ?? "product"} operating rhythm →`,
     };
   }
 

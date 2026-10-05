@@ -13,6 +13,7 @@ import {
   groupCatalogByIndustry,
   type FacilityDepartmentCatalogItem,
 } from "@/lib/department-products/facility-catalog";
+import { getDepartmentProduct } from "@/lib/department-products/registry";
 
 type Step = "facility" | "managers" | "departments" | "billing" | "locations";
 
@@ -55,12 +56,26 @@ const unitTypes: UnitType[] = [
   "OTHER",
 ];
 
+function canonicalizeSelectedProductKeys(keys: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const key of keys) {
+    const canonical = getDepartmentProduct(key)?.productKey ?? key;
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    out.push(canonical);
+  }
+  return out;
+}
+
 function readStoredDepartmentKeys(): string[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.sessionStorage.getItem(SELECTED_KEYS_STORAGE);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : [];
+    return canonicalizeSelectedProductKeys(
+      Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : [],
+    );
   } catch {
     return [];
   }
@@ -371,7 +386,11 @@ export function SetupWizard({ checkout }: { checkout?: string | null }) {
                           />
                           <span>
                             <span className="font-medium text-zinc-900">{product.name}</span>
-                            <span className="mt-0.5 block text-xs text-zinc-500">{product.productKey}</span>
+                            {product.shortDescription ? (
+                              <span className="mt-0.5 block text-xs text-zinc-500">
+                                {product.shortDescription}
+                              </span>
+                            ) : null}
                           </span>
                         </label>
                       </li>

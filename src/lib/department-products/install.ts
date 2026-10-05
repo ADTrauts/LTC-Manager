@@ -13,6 +13,7 @@ import type { PrismaClient } from "@prisma/client";
 import {
   getDepartmentProduct,
   isDepartmentProductAvailableForInstall,
+  matchDepartmentRecordForProduct,
   type DepartmentProduct,
   type DepartmentProductStatus,
 } from "./registry";
@@ -66,7 +67,15 @@ export function resolvePublishedDepartmentProductKeys(
       "Select at least one Department Product.",
     );
   }
-  return unique.map((key) => resolveDepartmentProductForInstall(key).productKey);
+  const installationKeys: string[] = [];
+  const seen = new Set<string>();
+  for (const key of unique) {
+    const installationKey = resolveDepartmentProductForInstall(key).installationKey;
+    if (seen.has(installationKey)) continue;
+    seen.add(installationKey);
+    installationKeys.push(installationKey);
+  }
+  return installationKeys;
 }
 
 export function resolveDepartmentProductForInstall(
@@ -126,6 +135,8 @@ export async function installResolvedDepartmentProduct(input: {
     name: string;
     sortOrder: number;
     status: DepartmentProductStatus;
+    installationKey?: string;
+    defaultDepartmentName?: string;
   };
   prisma: DepartmentProductDbClient;
   audience?: DepartmentProductInstallAudience;
@@ -152,15 +163,26 @@ export async function installResolvedDepartmentProduct(input: {
     );
   }
 
-  const existing = await input.prisma.department.findUnique({
-    where: {
-      facilityId_key: {
-        facilityId: input.facilityId,
-        key: input.product.productKey,
-      },
-    },
-    select: { id: true, facilityId: true, key: true, name: true },
-  });
+  const installationKey = input.product.installationKey ?? input.product.productKey;
+  const localName = input.product.defaultDepartmentName ?? input.product.name;
+  const lookupKeys = [...new Set([installationKey, input.product.productKey])];
+  const existingRows = await Promise.all(
+    lookupKeys.map((key) =>
+      input.prisma.department.findUnique({
+        where: {
+          facilityId_key: {
+            facilityId: input.facilityId,
+            key,
+          },
+        },
+        select: { id: true, facilityId: true, key: true, name: true },
+      }),
+    ),
+  );
+  const existing = matchDepartmentRecordForProduct(
+    existingRows.filter((row): row is NonNullable<(typeof existingRows)[number]> => Boolean(row)),
+    { productKey: input.product.productKey, installationKey },
+  );
   if (existing) {
     return {
       id: existing.id,
@@ -175,8 +197,8 @@ export async function installResolvedDepartmentProduct(input: {
   const created = await input.prisma.department.create({
     data: {
       facilityId: input.facilityId,
-      key: input.product.productKey,
-      name: input.product.name,
+      key: installationKey,
+      name: localName,
       sortOrder: input.product.sortOrder,
       isActive: true,
       showInEmployeeApp: true,

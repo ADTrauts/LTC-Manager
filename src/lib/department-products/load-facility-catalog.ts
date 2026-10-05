@@ -14,6 +14,7 @@ import {
   deriveFacilityDepartmentCatalog,
   type FacilityDepartmentCatalogItem,
 } from "./facility-catalog";
+import { getDepartmentProduct, matchEntitlementStatusForProduct } from "./registry";
 
 type CatalogDbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -100,7 +101,8 @@ export function isDepartmentRowCustomerOperable(input: {
   billingStatus: BillingStatusForEntitlement;
   entitlementsEnforced: boolean;
 }): boolean {
-  const releaseStatus = departmentProductReleaseStatus(input.key);
+  const product = getDepartmentProduct(input.key);
+  const releaseStatus = product?.status ?? departmentProductReleaseStatus(input.key);
   const entitled = resolveCommercialEntitlement({
     releaseStatus,
     entitlementStatus: input.entitlementStatus,
@@ -109,7 +111,7 @@ export function isDepartmentRowCustomerOperable(input: {
     installed: true,
   });
   return evaluateCustomerDepartmentOperability({
-    productKey: input.key,
+    productKey: product?.productKey ?? input.key,
     releaseStatus,
     installed: true,
     departmentActive: input.isActive,
@@ -125,18 +127,19 @@ export function selectCustomerOperableDepartments<T extends { key: string; isAct
     entitlementsEnforced: boolean;
   },
 ): T[] {
-  const entitlementByKey = new Map(
-    input.entitlements.map((row) => [row.departmentKey, row.status]),
-  );
-  return departments.filter((department) =>
-    isDepartmentRowCustomerOperable({
+  return departments.filter((department) => {
+    const product = getDepartmentProduct(department.key);
+    const entitlementStatus = product
+      ? matchEntitlementStatusForProduct(input.entitlements, product)
+      : input.entitlements.find((row) => row.departmentKey === department.key)?.status ?? null;
+    return isDepartmentRowCustomerOperable({
       key: department.key,
       isActive: department.isActive,
-      entitlementStatus: entitlementByKey.get(department.key) ?? null,
+      entitlementStatus,
       billingStatus: input.billingStatus,
       entitlementsEnforced: input.entitlementsEnforced,
-    }),
-  );
+    });
+  });
 }
 
 export async function loadCustomerOperableDepartments(

@@ -46,7 +46,7 @@ GOVERNANCE
 
 | State | Meaning here |
 |-------|----------------|
-| **Implemented** | Dietary as the customer-visible Department Product, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
+| **Implemented** | Healthcare Food & Nutrition as the customer-visible Department Product, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
 | **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
 | **In development** | Environmental Services and Plant Operations exist in the registry, tests, and internal tooling. They are not customer-visible until marked AVAILABLE. |
 | **Future product work** | Plant Operations as a Department Product. Not designed. Platform Assets and repairs are not that product. |
@@ -71,7 +71,7 @@ A Product existing in the Vssyl registry does not make it customer-visible. Cust
 
 ### Product workspaces
 
-**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Dietary also has Menus. Assets and Procedures appear only where a real configurable capability exists.
+**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Healthcare Food & Nutrition also has Menus. Assets and Procedures appear only where a real configurable capability exists.
 
 **Facility Builder:** physical structure only.
 
@@ -103,7 +103,7 @@ We replace spreadsheet-and-radio coordination with **operational awareness at th
 
 ## Vision
 
-Vssyl is the **operations home for multi-node service environments**: many locations, many shifts, multiple departments (Dietary, EVS, Plant, and future modes), across long-term care and adjacent dining/hospitality environments.
+Vssyl is the **operations home for multi-node service environments**: many locations, many shifts, multiple departments (Healthcare Food & Nutrition, EVS, Plant, and future modes), across long-term care and adjacent dining/hospitality environments.
 
 Long-term:
 
@@ -165,7 +165,7 @@ Operations Engine, Work Engine, and Readiness are **substrate**. Business Worksp
 - Location / unit execution (logs, meal rhythm, issues, inspections)  
 - Supervisor walk, coverage, call-downs, handoffs  
 - Manager daily home (Business Workspace) composing those signals  
-- Department operational modes via Vssyl-defined Department Products (Dietary, EVS, Plant…) that a facility selects, licenses, then installs
+- Department operational modes via Vssyl-defined Department Products (Healthcare Food & Nutrition, EVS, Plant…) that a facility selects, licenses, then installs
 - Assets / vendors as operational equipment context  
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  
 - Knowledge bound to work  

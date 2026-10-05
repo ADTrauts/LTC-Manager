@@ -5,6 +5,7 @@
  */
 
 import { getLocationFunction } from "@/lib/department-products/location-functions";
+import { getDepartmentProduct } from "@/lib/department-products/registry";
 
 import type { WorkPlanDraftInput } from "./types";
 
@@ -371,11 +372,17 @@ export function unadoptedPresetLocationFunctions(
   return missing;
 }
 
+function resolveWorkPresetDepartmentKey(departmentKey?: string): string | undefined {
+  if (!departmentKey) return undefined;
+  return getDepartmentProduct(departmentKey)?.installationKey ?? departmentKey;
+}
+
 export function listWorkPlanPresetSummaries(departmentKey?: string) {
+  const resolvedKey = resolveWorkPresetDepartmentKey(departmentKey);
   const keys =
-    departmentKey === "DIETARY"
+    resolvedKey === "DIETARY"
       ? DIETARY_WORK_PRESET_KEYS
-      : departmentKey === "EVS"
+      : resolvedKey === "EVS"
         ? EVS_WORK_PRESET_KEYS
         : departmentKey === "PLANT" || departmentKey
           ? ([] as const)

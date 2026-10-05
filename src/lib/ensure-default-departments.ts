@@ -4,15 +4,15 @@ import { PrismaClient, type UnitType } from "@prisma/client";
 import {
   getDepartmentProduct,
   installDepartmentProductForInternalDevelopment,
-  type DepartmentProductKey,
 } from "@/lib/department-products";
 
 /**
- * Legacy bootstrap product set. New Vssyl Department Products must be
- * installed explicitly via `installDepartmentProduct` — adding a registry
- * entry must not auto-seed every facility.
+ * Legacy bootstrap product set. Keys are persisted installation keys.
+ * New Vssyl Department Products must be installed explicitly via
+ * `installDepartmentProduct` — adding a registry entry must not auto-seed
+ * every facility.
  */
-const BOOTSTRAP_DEPARTMENT_PRODUCT_KEYS = ["DIETARY", "EVS", "PLANT"] as const satisfies readonly DepartmentProductKey[];
+const BOOTSTRAP_DEPARTMENT_PRODUCT_KEYS = ["DIETARY", "EVS", "PLANT"] as const;
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -38,7 +38,7 @@ export async function ensureDefaultDepartments(prisma: DbClient, facilityId: str
     await prisma.department.update({
       where: { id: installed.id },
       data: {
-        name: product.name,
+        name: product.defaultDepartmentName,
         sortOrder: product.sortOrder,
         isActive: true,
       },

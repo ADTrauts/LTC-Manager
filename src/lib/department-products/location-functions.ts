@@ -5,7 +5,7 @@
  * binds it to rooms. Display labels and room names are not the identity.
  */
 
-import type { DepartmentProductKey } from "./registry";
+import { getDepartmentProduct, type DepartmentProductKey } from "./registry";
 
 export type LocationFunctionDefinition = {
   functionKey: string;
@@ -24,7 +24,7 @@ export const LOCATION_FUNCTIONS: readonly LocationFunctionDefinition[] = [
   {
     functionKey: "food_service_area",
     label: "Food Service Area",
-    productKey: "DIETARY",
+    productKey: "HEALTHCARE_FOOD_NUTRITION",
     description:
       "Where Dietary serves food. Serveries, pods, and kitchenettes use this key when the facility binds them.",
   },
@@ -46,19 +46,28 @@ const BY_PRODUCT_AND_KEY = new Map<string, LocationFunctionDefinition>(
   LOCATION_FUNCTIONS.map((fn) => [`${fn.productKey}:${fn.functionKey}`, fn]),
 );
 
+function canonicalLocationFunctionProductKey(
+  productKey: string | null | undefined,
+): string | null {
+  if (!productKey) return null;
+  return getDepartmentProduct(productKey)?.productKey ?? productKey;
+}
+
 export function listLocationFunctionsForProduct(
   productKey: string | null | undefined,
 ): readonly LocationFunctionDefinition[] {
-  if (!productKey) return [];
-  return LOCATION_FUNCTIONS.filter((fn) => fn.productKey === productKey);
+  const canonical = canonicalLocationFunctionProductKey(productKey);
+  if (!canonical) return [];
+  return LOCATION_FUNCTIONS.filter((fn) => fn.productKey === canonical);
 }
 
 export function getLocationFunction(
   productKey: string | null | undefined,
   functionKey: string | null | undefined,
 ): LocationFunctionDefinition | null {
-  if (!productKey || !functionKey) return null;
-  return BY_PRODUCT_AND_KEY.get(`${productKey}:${functionKey.trim()}`) ?? null;
+  const canonical = canonicalLocationFunctionProductKey(productKey);
+  if (!canonical || !functionKey) return null;
+  return BY_PRODUCT_AND_KEY.get(`${canonical}:${functionKey.trim()}`) ?? null;
 }
 
 export function getLocationFunctionByKey(

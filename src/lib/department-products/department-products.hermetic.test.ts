@@ -100,16 +100,19 @@ describe("Department Product registry", () => {
     const products = listDepartmentProducts();
     assert.deepEqual(
       products.map((product) => product.productKey),
-      ["DIETARY", "EVS", "PLANT"],
+      ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
     assert.deepEqual(
       listDepartmentProductsForIndustry("healthcare").map((product) => product.productKey),
-      ["DIETARY", "EVS", "PLANT"],
+      ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
 
     const dietary = getDepartmentProduct("DIETARY");
     assert.ok(dietary);
-    assert.equal(dietary.name, "Dietary");
+    assert.equal(dietary.productKey, "HEALTHCARE_FOOD_NUTRITION");
+    assert.equal(dietary.name, "Healthcare Food & Nutrition");
+    assert.equal(dietary.installationKey, "DIETARY");
+    assert.equal(dietary.defaultDepartmentName, "Dietary");
     assert.equal(dietary.industry, "healthcare");
     assert.equal(dietary.status, "AVAILABLE");
     assert.equal(dietary.sortOrder, 10);
@@ -137,7 +140,14 @@ describe("Department Product registry", () => {
     assert.equal(isDepartmentProductKey(AQUATICS), false);
     assert.equal(getDepartmentProduct(AQUATICS), null);
     assert.equal(getDepartmentProduct("DIETARY_2"), null);
-    assert.equal(resolveDepartmentProductForInstallationKey("DIETARY")?.productKey, "DIETARY");
+    assert.equal(
+      resolveDepartmentProductForInstallationKey("DIETARY")?.productKey,
+      "HEALTHCARE_FOOD_NUTRITION",
+    );
+    assert.equal(
+      resolveDepartmentProductForInstallationKey("HEALTHCARE_FOOD_NUTRITION")?.productKey,
+      "HEALTHCARE_FOOD_NUTRITION",
+    );
     assert.equal(resolveDepartmentProductForInstallationKey(AQUATICS), null);
     assert.equal(resolveDepartmentProductForInstallationKey("LAUNDRY"), null);
   });
@@ -185,7 +195,7 @@ describe("Department Product installation", () => {
 
     assert.equal(dietary.created, true);
     assert.equal(dietary.key, "DIETARY");
-    assert.equal(dietary.productKey, "DIETARY");
+    assert.equal(dietary.productKey, "HEALTHCARE_FOOD_NUTRITION");
     assert.equal(dietary.name, "Dietary");
     assert.equal(dietary.facilityId, "fac_terrace");
     assert.equal(evs.key, "EVS");

@@ -1,3 +1,5 @@
+import { persistableDepartmentProductKey } from "@/lib/department-products";
+
 import type { StripeCheckoutLineItem } from "./checkout-items";
 
 export type ExistingSubscriptionItem = {
@@ -21,9 +23,10 @@ export function mergeLicensedDepartmentKeys(
   const merged: string[] = [];
   for (const key of [...currentKeys, ...keysToAdd]) {
     const trimmed = key.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    merged.push(trimmed);
+    const normalized = persistableDepartmentProductKey(trimmed) ?? trimmed;
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    merged.push(normalized);
   }
   return merged;
 }

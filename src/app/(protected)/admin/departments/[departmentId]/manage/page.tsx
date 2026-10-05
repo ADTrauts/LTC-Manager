@@ -5,6 +5,7 @@ import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/de
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { ADMIN_DEPARTMENTS_HREF } from "@/lib/department-administration";
 import {
+  findCatalogItemForDepartmentKey,
   getDepartmentProduct,
   loadCustomerOperableDepartments,
   loadFacilityDepartmentCatalog,
@@ -60,7 +61,7 @@ export default async function AdminManageDepartmentPage({ params }: PageProps) {
   }
 
   const product = getDepartmentProduct(department.key);
-  const catalogItem = catalog.find((item) => item.productKey === department.key);
+  const catalogItem = findCatalogItemForDepartmentKey(catalog, department.key);
   const licensed = catalogItem?.licensed ?? false;
   const assignedEmployeeCount = employees.filter((employee) =>
     employeeBelongsToDepartment(employee, department.id),
@@ -84,16 +85,19 @@ export default async function AdminManageDepartmentPage({ params }: PageProps) {
   return (
     <div className="mx-auto max-w-3xl space-y-6" data-testid="admin-manage-department">
       <AdminPageHeader
-        title={product?.name ?? department.name}
+        title={department.name}
         subtitle="Administrative ownership, employee availability, and installed Product state."
         trail={[
           { label: "Departments", href: ADMIN_DEPARTMENTS_HREF },
-          { label: product?.name ?? department.name },
+          { label: department.name },
         ]}
       />
 
       <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="manage-department-identity">
-        <p className="text-sm font-semibold text-zinc-900">{product?.name ?? department.name}</p>
+        <p className="text-sm font-semibold text-zinc-900">{department.name}</p>
+        {product ? (
+          <p className="mt-0.5 text-xs text-zinc-600">Product: {product.name}</p>
+        ) : null}
         <p className="mt-1 text-xs text-zinc-500">
           {product?.status === "AVAILABLE" ? (
             <>

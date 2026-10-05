@@ -47,6 +47,13 @@ test("merge keeps current departments and appends new ones once", () => {
   ]);
 });
 
+test("legacy Dietary and Healthcare Food & Nutrition collapse to one licensed key", () => {
+  assert.deepEqual(
+    mergeLicensedDepartmentKeys(["DIETARY"], ["HEALTHCARE_FOOD_NUTRITION"]),
+    ["DIETARY"],
+  );
+});
+
 test("adding a second department adds the additional-department price", () => {
   const updates = subscriptionItemUpdates(
     [{ id: "si_facility", priceId: "price_fac_mo", quantity: 1 }],

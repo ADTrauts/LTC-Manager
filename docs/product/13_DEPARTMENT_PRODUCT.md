@@ -21,9 +21,22 @@ Current catalog:
 
 | Product | Release status |
 |---------|----------------|
-| Dietary | AVAILABLE |
+| Healthcare Food & Nutrition | AVAILABLE |
 | Environmental Services | DEVELOPMENT |
 | Plant Operations | DEVELOPMENT |
+
+Healthcare Food & Nutrition is designed for hospitals, long-term care, and healthcare food and nutrition operations with similar workflows. It is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
+
+A Department Product and a facility Department are not the same concept.
+
+| Concept | Meaning | Example |
+|---------|---------|---------|
+| **Department Product** | Vssyl-authored operating model | Healthcare Food & Nutrition |
+| **Facility Department** | Local installed instance / local name | Dietary |
+
+A facility may locally call the Department Dietary, Food & Nutrition, Nutrition Services, Food Services, or Resident Dining without changing the Product identity. Do not force the Product name into every facility Department label.
+
+Compatibility: the canonical Product key is `HEALTHCARE_FOOD_NUTRITION`. Existing Department rows and entitlements keep the legacy installation key `DIETARY`. `DIETARY` resolves to Healthcare Food & Nutrition and is not a second sellable Product.
 
 Vssyl Console owns the Records / Logs catalog, not Department Product release metadata. Department Product release state lives on the code registry until Console-backed product metadata exists.
 
@@ -77,7 +90,7 @@ Department Builder is the post-install configuration home:
 
 Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
 
-Dietary also has Menus. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
+Healthcare Food & Nutrition also has Menus. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
 
 Configuration readiness is derived from those operational facts. Do not persist `CONFIGURED` / `UNCONFIGURED` / `SETUP_COMPLETE` on Department.
 
@@ -94,7 +107,7 @@ Configuration readiness is derived from those operational facts. Do not persist 
 | **Department** | Facility installation | Existing `Department` row (`facilityId` + `key`) |
 | **isActive** | Operational state | `Department.isActive` |
 
-`Department.key` for the registry trio (`DIETARY`, `EVS`, `PLANT`) is the installation key **and** the product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
+`Department.key` is the facility installation key. For Healthcare Food & Nutrition it remains `DIETARY`. For EVS and Plant it matches the Product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
 
 Industry currently classifies products in the registry (`healthcare`). It is catalog metadata only — not a Facility or Organization field and not a billing unit.
 
@@ -123,7 +136,7 @@ Future Plant completion is an explicit `PLANT` `DEVELOPMENT → AVAILABLE` regis
 
 Checkout and add-departments accept **AVAILABLE Department Product registry keys**, not pre-existing Department rows. DEVELOPMENT keys are rejected.
 
-After Stripe sync writes an ACTIVE (or PAST_DUE) entitlement, `installDepartmentsForActiveEntitlements` calls `installDepartmentProduct`. Installation is idempotent and reuses an existing row. It never mints `DIETARY_2`.
+After Stripe sync writes an ACTIVE (or PAST_DUE) entitlement, `installDepartmentsForActiveEntitlements` calls `installDepartmentProduct`. Installation is idempotent and reuses an existing row. It never mints `DIETARY_2` or a second Healthcare Food & Nutrition Department.
 
 Incomplete / abandoned payment does not install. If payment succeeds and installation fails, a later webhook or billing sync retries the same reconcile.
 
@@ -133,7 +146,7 @@ Incomplete / abandoned payment does not install. If payment succeeds and install
 
 ## Customer routes vs dev bootstrap
 
-Normal customer routes no longer call `ensureDefaultDepartments`. Visiting Employees, All Departments, Department Settings, or saving onboarding locations does not install Dietary + EVS + Plant.
+Normal customer routes no longer call `ensureDefaultDepartments`. Visiting Employees, All Departments, Department Settings, or saving onboarding locations does not install Healthcare Food & Nutrition + EVS + Plant.
 
 Location responsibility backfill uses only Departments that are already installed.
 
@@ -158,7 +171,7 @@ An **Operational Cycle** is the Department’s recurring operating rhythm. Persi
 
 Published **Operational Cycles** are the current Run rhythm. **Phases** are one-level intervals. **Key Points** (persisted as `KEY_TIME`) are instants, not Work and not Records. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Department responsibility does not imply cycle participation. Run may show an active Cycle with no active Phase when phases leave gaps. Legacy Dietary meal-milestone presentation must not override a current Cycle.
 
-**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Dietary’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Plant defines none. Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
+**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Healthcare Food & Nutrition’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Plant defines none. Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
 
 **Work.** Product Work presets copy into facility drafts when a manager applies them. They are never auto-published. A published Work Plan determines expected Work. Work may bind to a Cycle or Phase stable key. It does not bind to Key Points. An empty Cycle binding means not configured. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when used), then cycle participation when the item is cycle-bound. Assignment does not create Work. Occurrences stay sparse.
 
@@ -170,7 +183,7 @@ Department Products that exist today:
 
 | Product | Implemented | Not designed |
 |---------|-------------|--------------|
-| **Dietary** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. | — |
+| **Healthcare Food & Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. Healthcare-scoped. | — |
 | **Environmental Services** | `resident_care`, `service_support`. Morning / Afternoon / Evening Operations. | A second location tree |
 | **Plant Operations** | Platform Assets and repairs are available to any department that uses them. | The Plant Department Product: maintenance requests, work orders, PM programs, technician workflows, parts and vendors as a product design |
 

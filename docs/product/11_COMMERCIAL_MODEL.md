@@ -10,7 +10,7 @@
 
 One product. Unlimited users at every role. Price follows **licensed operational departments** at a facility.
 
-For Dietary, EVS, and Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the Vssyl Department Product key.
+For Healthcare Food & Nutrition, EVS, and Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the persisted installation key for that Product lineage. Healthcare Food & Nutrition keeps `DIETARY`. The canonical Product key is `HEALTHCARE_FOOD_NUTRITION`; `DIETARY` is a compatibility alias, not a second SKU.
 
 Canonical commercial order:
 
@@ -87,4 +87,4 @@ US charges need Stripe Tax with an **active registration** before `automatic_tax
 
 ## Enforcement
 
-Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Dietary behind purchase until that flag is an explicit product launch.
+Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Healthcare Food & Nutrition behind purchase until that flag is an explicit product launch.

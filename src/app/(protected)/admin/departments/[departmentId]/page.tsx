@@ -36,6 +36,7 @@ import {
 } from "@/lib/department-administration/overview-guidance";
 import {
   canPurchaseDepartmentProducts,
+  findCatalogItemForDepartmentKey,
   getDepartmentProduct,
   loadFacilityDepartmentCatalog,
 } from "@/lib/department-products";
@@ -126,7 +127,7 @@ export default async function DepartmentBuilderPage({
     tab === "overview"
       ? await loadFacilityDepartmentCatalog(prisma, session.facilityId)
       : [];
-  const catalogItem = catalog.find((item) => item.productKey === view.department.key);
+  const catalogItem = findCatalogItemForDepartmentKey(catalog, view.department.key);
   const settings: OverviewDepartmentSettings = {
     showInEmployeeApp: contextSummary.showInEmployeeApp,
     headEmployeeId: contextSummary.headEmployeeId,

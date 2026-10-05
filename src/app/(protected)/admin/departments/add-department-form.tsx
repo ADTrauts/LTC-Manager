@@ -65,7 +65,11 @@ export function AddDepartmentForm({
                   />
                   <span>
                     <span className="font-medium text-zinc-900">{product.name}</span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">{product.productKey}</span>
+                    {product.shortDescription ? (
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        {product.shortDescription}
+                      </span>
+                    ) : null}
                   </span>
                 </label>
               </li>

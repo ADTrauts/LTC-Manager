@@ -102,15 +102,15 @@ export function OverviewPanel({
       {logsSection ? <div data-testid="department-logs-slot">{logsSection}</div> : null}
 
       <section data-testid="overview-product-identity">
-        <p className="text-lg font-semibold text-zinc-900">{settings.productName}</p>
+        <p className="text-lg font-semibold text-zinc-900">{department.name}</p>
         {settings.isVssylProduct ? (
           <p className="text-xs text-zinc-500">
-            Vssyl Department Product
+            Product: {settings.productName}
             {settings.licensed === true ? " · Licensed" : null}
             {settings.licensed === false ? " · Not on the current plan" : null}
           </p>
         ) : (
-          <p className="text-xs text-zinc-500">{department.name}</p>
+          <p className="text-xs text-zinc-500">Local department</p>
         )}
       </section>
 

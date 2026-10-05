@@ -13,7 +13,7 @@
 | **Vssyl Console** | Harbor Console, Staff desk *(as product name)*, LTC Corp console |
 | **Business Operations Platform** (descriptor) | Long-term care nutrition software *(as the product identity)* |
 
-Departments (Dietary, EVS, Plant Operations, and others) are operational domains **inside** Vssyl. They are not synonyms for the product.
+A Department Product is a Vssyl-authored operating model. A Department is the facility’s local installed instance and local name. Healthcare Food & Nutrition is the Product; a facility may still call its Department Dietary. These are not synonyms for Vssyl.
 
 ---
 
@@ -36,7 +36,7 @@ Departments (Dietary, EVS, Plant Operations, and others) are operational domains
 |----------|---------|-------|
 | **Facility** | Operational site | Site *(vision alias — migrate language to Facility)* |
 | **Organization** | Parent of facilities | Company, Tenant *(unless billing copy)* |
-| **Department Product** | Vssyl-published operational product (Dietary, EVS, Plant Operations) | Industry pack, Experience, blank “create any department” |
+| **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name |
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |

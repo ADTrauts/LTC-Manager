@@ -1,8 +1,10 @@
 import type { BillingInterval, BillingSetupPath } from "./catalog";
 import {
+  departmentProductLineageKeys,
   getDepartmentProduct,
   installDepartmentsForActiveEntitlements,
   isDepartmentProductCommerciallyRecognized,
+  matchDepartmentRecordForProduct,
   shouldInstallLicensedDepartmentProducts,
 } from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
@@ -17,9 +19,10 @@ export async function applyFacilitySubscription(input: {
 }): Promise<void> {
   const departmentKeys = [
     ...new Set(
-      (input.departmentKeys ?? []).filter((key) => {
+      (input.departmentKeys ?? []).flatMap((key) => {
         const product = getDepartmentProduct(key);
-        return Boolean(product && isDepartmentProductCommerciallyRecognized(product));
+        if (!product || !isDepartmentProductCommerciallyRecognized(product)) return [];
+        return [product.installationKey];
       }),
     ),
   ];
@@ -50,11 +53,26 @@ export async function applyFacilitySubscription(input: {
       return;
     }
 
+    const lookupKeys = [
+      ...new Set(
+        departmentKeys.flatMap((key) => {
+          const product = getDepartmentProduct(key);
+          return product ? departmentProductLineageKeys(product) : [key];
+        }),
+      ),
+    ];
     const departments = await tx.department.findMany({
-      where: { facilityId: input.facilityId, key: { in: [...departmentKeys] } },
+      where: { facilityId: input.facilityId, key: { in: lookupKeys } },
       select: { id: true, key: true },
     });
-    const departmentIdByKey = new Map(departments.map((row) => [row.key, row.id]));
+    const departmentIdByKey = new Map<string, string>();
+    for (const departmentKey of departmentKeys) {
+      const product = getDepartmentProduct(departmentKey);
+      const row = product
+        ? matchDepartmentRecordForProduct(departments, product)
+        : departments.find((item) => item.key === departmentKey);
+      if (row) departmentIdByKey.set(departmentKey, row.id);
+    }
 
     await tx.facilityDepartmentEntitlement.updateMany({
       where: {

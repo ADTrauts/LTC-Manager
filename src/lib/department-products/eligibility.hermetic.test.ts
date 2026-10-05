@@ -27,11 +27,12 @@ function source(relative: string) {
 describe("Department Product release visibility", () => {
   it("keeps Dietary AVAILABLE and EVS / Plant DEVELOPMENT", () => {
     assert.equal(getDepartmentProduct("DIETARY")?.status, "AVAILABLE");
+    assert.equal(getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION")?.status, "AVAILABLE");
     assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
     assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
     assert.deepEqual(
       listDepartmentProducts().map((product) => product.productKey),
-      ["DIETARY", "EVS", "PLANT"],
+      ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
   });
 
@@ -47,8 +48,9 @@ describe("Department Product release visibility", () => {
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["DIETARY"],
+      ["HEALTHCARE_FOOD_NUTRITION"],
     );
+    assert.equal(catalog[0]?.installationKey, "DIETARY");
     assert.equal(catalog[0]?.installed, true);
     assert.equal(catalog[0]?.availableToAdd, false);
   });
@@ -104,7 +106,6 @@ describe("Marketplace offer rules", () => {
       products: [
         {
           ...listDepartmentProducts()[0]!,
-          productKey: "DIETARY",
           status: "RETIRED",
         },
       ],
