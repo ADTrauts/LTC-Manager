@@ -4,9 +4,9 @@
 
 import { prisma } from "@/lib/prisma";
 
+import { isAssetStatusHistoryLifecycleEvent } from "./ownership";
 import {
   assetStatusLabel,
-  normalizeAssetStatus,
   workOrderStatusLabel,
   type AssetHistoryEvent,
 } from "./types";
@@ -124,7 +124,7 @@ export async function loadAssetTimeline(
     const kind =
       row.reason === "RETURN_TO_SERVICE"
         ? "RETURN_TO_SERVICE"
-        : row.reason === "RETIREMENT" || normalizeAssetStatus(row.toStatus) === "RETIRED"
+        : isAssetStatusHistoryLifecycleEvent(row)
           ? "ASSET_RETIRED"
           : row.reason === "INITIAL"
             ? "ASSET_CREATED"

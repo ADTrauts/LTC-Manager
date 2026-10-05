@@ -85,6 +85,12 @@ test("lifecycle presentation — Retired is not shown as a temporary condition",
   assert.deepEqual(runConditionSelectValues("RETIRED"), []);
 });
 
+test("lifecycle presentation — OPERATIONAL is Active + Operational", () => {
+  const p = presentAssetLifecycleAndCondition("OPERATIONAL");
+  assert.equal(p.lifecycle, "ACTIVE");
+  assert.equal(p.condition, "OPERATIONAL");
+});
+
 test("RUN condition select excludes Retired for active assets", () => {
   assert.deepEqual(runConditionSelectValues("OPERATIONAL"), [
     "OPERATIONAL",

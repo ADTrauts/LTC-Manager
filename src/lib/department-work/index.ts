@@ -6,7 +6,8 @@
  * - WorkRequirement is derived for an operational date from published plans,
  *   applicability, and cycle participation — not from employee assignment.
  * - DepartmentWorkOccurrence is sparse runtime state when acted on.
- * - KnowledgeArticle owns Procedures (viewing ≠ completion).
+ * - KnowledgeArticle is the stable Knowledge/Resource identity. Procedures are
+ *   a category of that Knowledge (typically SOP), not a separate Plant table.
  * - Wave Task / Operations Engine remain isolated.
  *
  * Gates: DIETARY_WORK_PLANS_ENABLED (default on; `false` rollback) /

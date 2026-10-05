@@ -23,6 +23,10 @@ import {
 } from "./authority";
 import { loadAssetTimeline } from "./history";
 import {
+  assetAvailableForProspectiveUseWhere,
+  assetNotRetiredWhere,
+} from "./ownership";
+import {
   type ChangeAssetStatusInput,
   isAssetAvailableForProspectiveUse,
   normalizeAssetStatus,
@@ -526,10 +530,10 @@ export async function listAssetsForFacility(
   }
 
   const statusFilter: Prisma.AssetWhereInput = input.prospectiveTemplateBinding
-    ? { status: { in: ["ACTIVE", "OPERATIONAL", "DEGRADED"] } }
+    ? assetAvailableForProspectiveUseWhere()
     : input.includeRetired
       ? {}
-      : { status: { not: "RETIRED" } };
+      : assetNotRetiredWhere();
 
   const rows = await prisma.asset.findMany({
     where: {

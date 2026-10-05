@@ -26,6 +26,7 @@ import {
   knowledgeStatusLabel,
 } from "@/lib/knowledge/labels";
 import { buildKnowledgeAdminListWhere } from "@/lib/knowledge/search";
+import { loadKnowledgeArticleEditorState } from "@/lib/knowledge/version-service";
 import { prisma } from "@/lib/prisma";
 
 type AdminKnowledgePageProps = {
@@ -119,17 +120,11 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
       }),
     ]);
 
-  const editing = query?.edit
-    ? await prisma.knowledgeArticle.findFirst({
-        where: { id: query.edit, facilityId: session.facilityId },
-        include: {
-          unitLinks: true,
-          assetLinks: true,
-          logTemplateLinks: true,
-          inspectionDefinitionLinks: true,
-        },
-      })
+  const editingState = query?.edit
+    ? await loadKnowledgeArticleEditorState(prisma, query.edit)
     : null;
+  const editing =
+    editingState?.article.facilityId === session.facilityId ? editingState : null;
 
   const previewArticle = query?.preview
     ? await prisma.knowledgeArticle.findFirst({
@@ -324,7 +319,7 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-zinc-900">
-          {editing ? `Edit · ${editing.title}` : "Create article"}
+          {editing ? `Edit · ${editing.article.title}` : "Create article"}
         </h2>
         {editing ? (
           <p className="text-sm text-zinc-600">
@@ -333,21 +328,27 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
             </Link>
           </p>
         ) : null}
+        {editing?.published ? (
+          <p className="text-sm text-zinc-600">
+            Published content is immutable. Saving creates or updates a successor draft until you
+            publish. Previous published versions remain readable.
+          </p>
+        ) : null}
         <KnowledgeArticleEditor
-          key={editing?.id ?? "create"}
+          key={editing?.article.id ?? "create"}
           mode={editing ? "edit" : "create"}
-          articleId={editing?.id}
-          initialTitle={editing?.title}
-          initialSummary={editing?.summary ?? ""}
-          initialBody={editing?.body}
-          initialCategory={editing?.category}
-          initialSourceType={editing?.sourceType}
-          initialDepartmentId={editing?.departmentId ?? ""}
-          initialStatus={editing?.status}
-          initialUnitIds={editing?.unitLinks.map((link) => link.unitId)}
-          initialAssetIds={editing?.assetLinks.map((link) => link.assetId)}
-          initialLogTemplateIds={editing?.logTemplateLinks.map((link) => link.logTemplateId)}
-          initialInspectionDefinitionIds={editing?.inspectionDefinitionLinks.map(
+          articleId={editing?.article.id}
+          initialTitle={editing?.editorTitle}
+          initialSummary={editing?.editorSummary ?? ""}
+          initialBody={editing?.editorBody}
+          initialCategory={editing?.article.category}
+          initialSourceType={editing?.article.sourceType}
+          initialDepartmentId={editing?.article.departmentId ?? ""}
+          initialStatus={editing?.editorStatus}
+          initialUnitIds={editing?.article.unitLinks.map((link) => link.unitId)}
+          initialAssetIds={editing?.article.assetLinks.map((link) => link.assetId)}
+          initialLogTemplateIds={editing?.article.logTemplateLinks.map((link) => link.logTemplateId)}
+          initialInspectionDefinitionIds={editing?.article.inspectionDefinitionLinks.map(
             (link) => link.inspectionDefinitionId,
           )}
           departments={selectOptions.departments}

@@ -69,7 +69,7 @@ export function KnowledgeArticleLifecycleActions({
             run(() => restoreKnowledgeArticleAction(formData));
           }}
         >
-          Restore to Draft
+          Restore
         </button>
       ) : null}
     </div>

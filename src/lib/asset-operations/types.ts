@@ -3,8 +3,9 @@
  *
  * Ownership (locked):
  * - Asset owns identity + operational status (+ AssetStatusHistory).
- * - AssetIssue owns reported condition (separate from Work Order).
- * - Repair owns Work Order / repair response.
+ * - AssetIssue owns reported condition (Issue). Not a Request. Not a Work Order.
+ * - Repair owns Work Order / repair response. Not canonical Issue.
+ * - OperationalRequest owns intake. Creating a Request does not create an Issue.
  * - Operational Evidence remains separate; may link to an Issue without owning it.
  * - Supervisor Board / Job Flow project exceptions only — no ownership.
  */

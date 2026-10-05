@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { assetNotRetiredWhere } from "@/lib/asset-operations/ownership";
 import { isDepartmentOperationalEvidenceEnabled } from "@/lib/department-operations";
 import type {
   ExistingEvidenceRecordForResolve,
@@ -79,7 +80,7 @@ export async function loadEvidenceScopeForUnit(input: {
       where: {
         unitId: input.unitId,
         unit: { facilityId: input.facilityId },
-        status: { not: "RETIRED" },
+        ...assetNotRetiredWhere(),
       },
       select: { id: true, equipmentType: true, unitId: true },
     }),

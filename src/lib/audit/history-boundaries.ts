@@ -15,4 +15,10 @@ export const LOCATION_HISTORY_SOURCES = [
   "DepartmentWorkOccurrence",
   "OperationalCycleKeyPointActual",
   "OperationalAssignment",
+  "AssetIssue",
+  "Repair",
+  "OperationalRequest",
+  "PlaceNameChange",
 ] as const;
+
+export type LocationHistorySource = (typeof LOCATION_HISTORY_SOURCES)[number];

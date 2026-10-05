@@ -303,8 +303,9 @@ export type CreateUnitIssueResult =
   | { ok: false; message: string };
 
 /**
- * Quick operational issue report from Unit Workspace (Wave 8a).
- * Persists as Repair with issueType; Repair remains source of truth (ADL-008).
+ * Legacy Unit Workspace quick action. Persists as Repair (Work Order), not AssetIssue.
+ * Repair remains the compatibility source of truth for this path (ADL-008).
+ * Naming this an "issue" in the action is leftover UI language, not canonical Issue.
  */
 export async function createUnitIssueAction(
   formData: FormData,

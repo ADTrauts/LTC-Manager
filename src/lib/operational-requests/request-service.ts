@@ -1,6 +1,8 @@
 /**
  * Phase 12A Operational Request service.
- * Completing a Work Order does not auto-close the Request or mutate Asset status.
+ * Request is intake: someone is asking for attention. Creating a Request does
+ * not create an AssetIssue. Completing a Work Order does not auto-close the
+ * Request or mutate Asset status.
  */
 
 import type {
@@ -25,6 +27,11 @@ import {
   resolveRequesterReportAuthority,
 } from "./authority";
 import { validateRoute } from "./routing-service";
+import {
+  presentRequestAuthority,
+  presentRequesterStatus,
+  requesterProjectedStatusLabel,
+} from "./request-semantics";
 import {
   OPEN_OPERATIONAL_REQUEST_STATUSES,
   requesterVisibleStatusLabel,
@@ -742,11 +749,22 @@ export async function loadRequesterVisibleStatus(
   });
   if (!request) throw new Error("Operational Request not found.");
 
+  const requestAuthority = presentRequestAuthority(request.status, request.workOrderId);
+  const projectedStatus = presentRequesterStatus({
+    status: request.status,
+    workOrderId: request.workOrderId,
+    workOrderStatus: request.workOrder?.status ?? null,
+  });
+  const projectedStatusLabel = requesterProjectedStatusLabel(projectedStatus);
+
   return {
     requestId: request.id,
     requestCode: request.requestCode,
     status: request.status,
-    statusLabel: requesterVisibleStatusLabel(request.status),
+    statusLabel: projectedStatusLabel,
+    requestAuthority,
+    projectedStatus,
+    projectedStatusLabel,
     summary: request.summary,
     requesterVisibleStatusSummary: request.requesterVisibleStatusSummary,
     workaroundInstruction: request.workaroundInstruction,

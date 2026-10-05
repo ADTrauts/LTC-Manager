@@ -17,6 +17,7 @@ import {
   OPEN_ASSET_ISSUE_STATUSES,
   OPEN_WORK_ORDER_STATUSES,
   assetResponsibleDepartmentWhere,
+  assetNotRetiredWhere,
   conditionToneClass,
   formatAssetLocationAriaLabel,
   formatAssetLocationLabel,
@@ -72,7 +73,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       select: { id: true, name: true },
     }),
     prisma.asset.findMany({
-      where: { unit: { facilityId }, ...departmentWhere },
+      where: { unit: { facilityId }, ...departmentWhere, ...assetNotRetiredWhere() },
       orderBy: { createdAt: "desc" },
       include: {
         unit: { select: { name: true } },

@@ -64,7 +64,7 @@ export function RequesterStatusPanel({ requestingDepartmentId, requestId }: Prop
         <div>
           <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
           <dd className="font-medium text-zinc-900" data-testid="requester-status-label">
-            {status.requesterVisibleStatusSummary || status.statusLabel}
+            {status.projectedStatusLabel}
           </dd>
         </div>
         <div>

@@ -1,6 +1,11 @@
 /**
  * Phase 12A Operational Request contracts.
- * Request owns intake/triage; Repair owns Work Orders; AssetIssue remains Asset-specific.
+ *
+ * Request is intake: someone is asking for attention.
+ * Repair is the Work Order row — not Request state and not canonical Issue.
+ * AssetIssue is the current Issue store (Asset-required until a later slice).
+ * Location-only conditions being Requests today is an implementation limit,
+ * not Product meaning. Do not treat Request as the problem itself.
  */
 
 import type {
@@ -8,6 +13,11 @@ import type {
   OperationalRequestStatus,
   RepairPriority,
 } from "@prisma/client";
+
+import type {
+  RequestAuthority,
+  RequesterProjectedStatus,
+} from "./request-semantics";
 
 export const OPEN_OPERATIONAL_REQUEST_STATUSES: OperationalRequestStatus[] = [
   "REPORTED",
@@ -93,8 +103,12 @@ export type CreateOperationalRequestInput = {
 export type RequesterVisibleRequestStatus = {
   requestId: string;
   requestCode: string;
+  /** Stored Prisma status (compatibility). Prefer projectedStatus for requester UI. */
   status: OperationalRequestStatus;
   statusLabel: string;
+  requestAuthority: RequestAuthority;
+  projectedStatus: RequesterProjectedStatus;
+  projectedStatusLabel: string;
   summary: string;
   requesterVisibleStatusSummary: string | null;
   workaroundInstruction: string | null;

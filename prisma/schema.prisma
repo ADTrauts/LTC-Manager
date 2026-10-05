@@ -524,6 +524,7 @@ model User {
   attachmentsCreated             Attachment[]                    @relation("AttachmentCreatedByUser")
   knowledgeArticlesCreated       KnowledgeArticle[]              @relation("KnowledgeArticleCreatedBy")
   knowledgeArticlesUpdated       KnowledgeArticle[]              @relation("KnowledgeArticleUpdatedBy")
+  knowledgeArticleVersionsCreated KnowledgeArticleVersion[]      @relation("KnowledgeArticleVersionCreatedBy")
   facilityAccesses               UserFacilityAccess[]            @relation("UserFacilityAccessUser")
   facilityAccessesGranted        UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
   workspacePreferences           WorkspacePreference[]
@@ -2720,6 +2721,14 @@ enum KnowledgeArticleStatus {
   ARCHIVED
 }
 
+/// Version lifecycle for immutable published Knowledge content. Distinct from article head status.
+enum KnowledgeArticleVersionStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+  ARCHIVED
+}
+
 enum KnowledgeArticleCategory {
   SOP
   EQUIPMENT
@@ -2765,6 +2774,7 @@ model KnowledgeArticle {
   logTemplateLinks          KnowledgeArticleLogTemplate[]
   inspectionDefinitionLinks KnowledgeArticleInspectionDefinition[]
   workItemLinks             DepartmentWorkItem[]
+  versions                  KnowledgeArticleVersion[]
   createdAt                 DateTime                               @default(now())
   updatedAt                 DateTime                               @updatedAt
 
@@ -2772,6 +2782,32 @@ model KnowledgeArticle {
   @@index([facilityId, category])
   @@index([facilityId, departmentId])
   @@index([facilityId, status, category])
+}
+
+/// Immutable published Knowledge content identity. Article.id stays the stable resource.
+/// Not every article is a Procedure — category (SOP / REFERENCE / TRAINING / …) remains on the article.
+model KnowledgeArticleVersion {
+  id                   String                         @id @default(cuid())
+  articleId            String
+  article              KnowledgeArticle               @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  version              Int
+  status               KnowledgeArticleVersionStatus  @default(DRAFT)
+  title                String
+  summary              String?
+  body                 String
+  createdByUserId      String?
+  createdBy            User?                          @relation("KnowledgeArticleVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  publishedAt          DateTime?
+  archivedAt           DateTime?
+  createdFromVersionId String?
+  createdFromVersion   KnowledgeArticleVersion?       @relation("KnowledgeArticleVersionSuccessor", fields: [createdFromVersionId], references: [id], onDelete: SetNull)
+  successors           KnowledgeArticleVersion[]      @relation("KnowledgeArticleVersionSuccessor")
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+
+  @@unique([articleId, version])
+  @@index([articleId, status])
+  @@index([createdFromVersionId])
 }
 
 model KnowledgeArticleUnit {

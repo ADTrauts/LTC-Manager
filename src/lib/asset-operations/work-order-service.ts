@@ -1,6 +1,7 @@
 /**
  * Phase 10A Work Order services — Repair remains the Work Order SoT.
  * Completing a Work Order does not change Asset status or close an Asset Issue.
+ * Work Order execution status is not copied onto OperationalRequest.status.
  */
 
 import type {
@@ -16,6 +17,7 @@ import { randomBytes } from "node:crypto";
 import type { AppJwtPayload } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requesterVisibleStatusLabel } from "@/lib/operational-requests/types";
 import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
 
 import {
@@ -765,14 +767,19 @@ export async function createWorkOrderFromOperationalRequest(
     },
   });
 
+  const nextRequestStatus =
+    request.status === "UNDER_REVIEW" ||
+    request.status === "MONITORING" ||
+    request.status === "REOPENED"
+      ? request.status
+      : "UNDER_REVIEW";
+
   await client.operationalRequest.update({
     where: { id: request.id },
     data: {
       workOrderId: created.id,
-      status: input.assignedEmployeeId ? "WORK_ASSIGNED" : "UNDER_REVIEW",
-      requesterVisibleStatusSummary: input.assignedEmployeeId
-        ? "Work assigned"
-        : "Under review",
+      status: nextRequestStatus,
+      requesterVisibleStatusSummary: requesterVisibleStatusLabel(nextRequestStatus),
     },
   });
 
@@ -781,7 +788,7 @@ export async function createWorkOrderFromOperationalRequest(
       id: cuidLike(),
       requestId: request.id,
       updateText: `Work Order ${created.repairCode} linked`,
-      statusAfterUpdate: input.assignedEmployeeId ? "WORK_ASSIGNED" : "UNDER_REVIEW",
+      statusAfterUpdate: nextRequestStatus,
       updatedByUserId: actorUserId,
       requesterVisible: true,
     },
@@ -936,36 +943,7 @@ export async function technicianUpdateWorkOrder(
     requesterVisible,
   });
 
-  // Sync linked Operational Request status when responsible dept is Plant — never auto-close.
-  const linkedRequest = await client.operationalRequest.findFirst({
-    where: { workOrderId: repair.id },
-    select: { id: true, status: true },
-  });
-  if (linkedRequest && linkedRequest.status !== "CLOSED" && linkedRequest.status !== "CANCELLED" && linkedRequest.status !== "RESOLVED") {
-    const nextRequestStatus =
-      toStatus === "IN_PROGRESS"
-        ? "WORK_IN_PROGRESS"
-        : toStatus === "WAITING_ON_VENDOR"
-          ? "WAITING_ON_VENDOR"
-          : toStatus === "WAITING_PARTS"
-            ? "WAITING_ON_PARTS"
-            : null;
-    if (nextRequestStatus) {
-      await client.operationalRequest.update({
-        where: { id: linkedRequest.id },
-        data: {
-          status: nextRequestStatus,
-          requesterVisibleStatusSummary:
-            nextRequestStatus === "WORK_IN_PROGRESS"
-              ? "Work in progress"
-              : nextRequestStatus === "WAITING_ON_VENDOR"
-                ? "Waiting on vendor"
-                : "Waiting on parts",
-        },
-      });
-    }
-  }
-
+  // Request authority stays intake/outcome. Linked Repair progress is projected, not stored.
   return updated;
 }
 

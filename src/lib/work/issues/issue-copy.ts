@@ -4,6 +4,14 @@ import type { AppIconKey } from "@/lib/design-system/icons";
 import type { StatusBadgeVariant } from "@/lib/design-system/status-styles";
 import { issueTypeLabel } from "@/lib/repair-routing";
 
+/**
+ * Compatibility copy for the legacy Repair façade (`/issues` → `/repairs`).
+ *
+ * Repair is the Work Order row. It is not canonical Issue.
+ * AssetIssue is the Issue store. OperationalRequest is intake.
+ * `/issues` remains a compatibility path, not domain authority.
+ */
+
 /** User-facing recovery stage (display only — maps onto RepairStatus + assignment). */
 export type IssueRecoveryStage =
   | "REPORTED"

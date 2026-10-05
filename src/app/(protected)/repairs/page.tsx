@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import {
+  assetNotRetiredWhere,
   compareRepairsForQueue,
   departmentDisplayLabel,
   formatAssetLocationLabel,
@@ -74,7 +75,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
     prisma.asset.findMany({
       where: {
         unit: { facilityId },
-        status: { not: "RETIRED" },
+        ...assetNotRetiredWhere(),
       },
       orderBy: { assetCode: "asc" },
       select: {

@@ -15,6 +15,7 @@ import {
   operationalImpactLabel,
   workOrderStatusLabel,
 } from "./types";
+import { assetAttentionConditionWhere, assetNotRetiredWhere } from "./ownership";
 
 export type UnitRuntimeAssetItem = {
   assetId: string;
@@ -45,7 +46,7 @@ export async function loadUnitRuntimeAssets(
     where: {
       unitId,
       unit: { facilityId },
-      ...(options.includeRetired ? {} : { status: { not: "RETIRED" } }),
+      ...(options.includeRetired ? {} : assetNotRetiredWhere()),
       ...(options.departmentId
         ? {
             OR: [{ departmentId: options.departmentId }, { departmentId: null }],
@@ -176,7 +177,7 @@ export async function loadSupervisorAssetExceptions(
       where: {
         unit: { facilityId },
         OR: [{ departmentId }, { departmentId: null }],
-        status: { in: ["OUT_OF_SERVICE", "DEGRADED"] },
+        ...assetAttentionConditionWhere(),
       },
       take: 40,
       select: {

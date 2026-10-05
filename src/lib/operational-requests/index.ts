@@ -10,6 +10,17 @@ export {
   requesterVisibleStatusLabel,
 } from "./types";
 
+export type { RequestAuthority, RequesterProjectedStatus } from "./request-semantics";
+
+export {
+  LEGACY_REQUEST_EXECUTION_STATUSES,
+  isLegacyRequestExecutionStatus,
+  presentRequestAuthority,
+  presentRequesterStatus,
+  requestAuthorityLabel,
+  requesterProjectedStatusLabel,
+} from "./request-semantics";
+
 export {
   decideOperationalRequestAuthority,
   requireConfigureRoutes,

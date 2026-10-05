@@ -9,6 +9,7 @@ import { OperationalTemplateBuilderPanel } from "@/components/operational-eviden
 import { hasAtLeastRole } from "@/lib/access";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { assetNotRetiredWhere } from "@/lib/asset-operations/ownership";
 import { getSession } from "@/lib/auth";
 import { buildPageIntro } from "@/lib/build-hub";
 import {
@@ -72,7 +73,7 @@ export default async function OperationalTemplateBuilderPage() {
   const assets = await prisma.asset.findMany({
     where: {
       OR: [{ departmentId: department.id }, { departmentId: null }],
-      status: { not: "RETIRED" },
+      ...assetNotRetiredWhere(),
       unit: { facilityId: session.facilityId },
     },
     select: { id: true, name: true, assetCode: true, equipmentType: true, unitId: true },

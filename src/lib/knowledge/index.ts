@@ -27,6 +27,24 @@ export {
 } from "./surface";
 export { articleVisibleToViewer, buildPublishedKnowledgeWhere } from "./visibility";
 export {
+  assertKnowledgePublishedVersionImmutable,
+  isKnowledgeProcedureCategory,
+  mapArticleStatusToVersionStatus,
+  nextKnowledgeVersionNumber,
+  restoreArticleHeadFromVersions,
+} from "./version-semantics";
+export {
+  archiveKnowledgeArticle,
+  createKnowledgeArticleWithInitialVersion,
+  loadCurrentDraftVersion,
+  loadCurrentPublishedVersion,
+  loadKnowledgeArticleEditorState,
+  loadKnowledgeVersionById,
+  publishKnowledgeArticle,
+  restoreKnowledgeArticle,
+  saveKnowledgeArticleEditableContent,
+} from "./version-service";
+export {
   loadContextualKnowledge,
   loadContextualKnowledgeByAssetIds,
   buildContextualKnowledgeWhere,

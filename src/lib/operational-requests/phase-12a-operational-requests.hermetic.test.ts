@@ -12,6 +12,8 @@ import {
 import { isPlantOperationsEnabled, isEvsOperationsEnabled, isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import {
   decideOperationalRequestAuthority,
+  presentRequestAuthority,
+  presentRequesterStatus,
   requesterVisibleStatusLabel,
 } from "@/lib/operational-requests";
 
@@ -156,6 +158,17 @@ test("requester-visible status labels avoid private triage language", () => {
   assert.equal(requesterVisibleStatusLabel("WAITING_ON_VENDOR"), "Waiting on vendor");
   assert.equal(requesterVisibleStatusLabel("WORK_IN_PROGRESS"), "Work in progress");
   assert.doesNotMatch(requesterVisibleStatusLabel("UNDER_REVIEW"), /triage/i);
+});
+
+test("authoritative Request state is not Work Order execution", () => {
+  assert.equal(presentRequestAuthority("UNDER_REVIEW"), "ACCEPTED");
+  assert.equal(
+    presentRequesterStatus({
+      status: "UNDER_REVIEW",
+      workOrderStatus: "IN_PROGRESS",
+    }),
+    "IN_PROGRESS",
+  );
 });
 
 test("Plant flag off denies even with Plant department key", () => {

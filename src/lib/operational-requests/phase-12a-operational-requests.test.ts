@@ -257,12 +257,43 @@ test(
       });
       assert.ok(workOrder.repairCode);
 
+      const linked = await prisma.operationalRequest.findUniqueOrThrow({
+        where: { id: request.id },
+      });
+      assert.equal(linked.workOrderId, workOrder.id);
+      assert.notEqual(linked.status, "WORK_ASSIGNED");
+      assert.notEqual(linked.status, "WORK_IN_PROGRESS");
+
       await technicianUpdateWorkOrder(mgr, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: workOrder.id,
         action: "START",
       });
+      const afterStart = await prisma.operationalRequest.findUniqueOrThrow({
+        where: { id: request.id },
+      });
+      assert.notEqual(afterStart.status, "WORK_IN_PROGRESS");
+      const inProgressVisible = await loadRequesterVisibleStatus(dietaryStaff, {
+        facilityId: fx.facility.id,
+        requestingDepartmentId: fx.dietary.id,
+        requestId: request.id,
+      });
+      assert.equal(inProgressVisible.projectedStatus, "IN_PROGRESS");
+      assert.notEqual(inProgressVisible.requestAuthority, "IN_PROGRESS");
+
+      await technicianUpdateWorkOrder(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: workOrder.id,
+        action: "WAITING_ON_VENDOR",
+      });
+      const afterVendor = await prisma.operationalRequest.findUniqueOrThrow({
+        where: { id: request.id },
+      });
+      assert.equal(afterVendor.status, afterStart.status);
+      assert.notEqual(afterVendor.status, "WAITING_ON_VENDOR");
+
       await technicianUpdateWorkOrder(mgr, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
@@ -278,6 +309,13 @@ test(
       assert.notEqual(after.status, "CLOSED");
       assert.notEqual(after.status, "RESOLVED");
       assert.equal(after.workOrderId, workOrder.id);
+      const afterCompleteVisible = await loadRequesterVisibleStatus(dietaryStaff, {
+        facilityId: fx.facility.id,
+        requestingDepartmentId: fx.dietary.id,
+        requestId: request.id,
+      });
+      assert.notEqual(afterCompleteVisible.projectedStatus, "RESOLVED");
+      assert.equal(afterCompleteVisible.requestAuthority, "ACCEPTED");
 
       const completed = await prisma.repair.findUniqueOrThrow({ where: { id: workOrder.id } });
       assert.equal(completed.status, "COMPLETED");

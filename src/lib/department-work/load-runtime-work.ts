@@ -19,6 +19,7 @@ import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/lo
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
+import { assetNotRetiredWhere } from "@/lib/asset-operations/ownership";
 import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments/assignment-plan";
 
 import {
@@ -170,7 +171,7 @@ export async function loadWorkScopeForUnit(input: {
       where: {
         unitId: input.unitId,
         unit: { facilityId: input.facilityId },
-        status: { not: "RETIRED" },
+        ...assetNotRetiredWhere(),
       },
       select: { id: true, equipmentType: true, unitId: true },
     }),
@@ -422,7 +423,7 @@ export async function resolveUnitWorkRequirements(
           where: {
             unitId: input.unitId,
             unit: { facilityId: input.facilityId },
-            status: { not: "RETIRED" },
+            ...assetNotRetiredWhere(),
           },
           select: { id: true, equipmentType: true, unitId: true },
         })

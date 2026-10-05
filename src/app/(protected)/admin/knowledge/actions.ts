@@ -12,6 +12,13 @@ import {
   validatePublishableArticle,
 } from "@/lib/knowledge/article-schema";
 import {
+  archiveKnowledgeArticle,
+  createKnowledgeArticleWithInitialVersion,
+  publishKnowledgeArticle,
+  restoreKnowledgeArticle,
+  saveKnowledgeArticleEditableContent,
+} from "@/lib/knowledge/version-service";
+import {
   dedupeIds,
   isDepartmentCompatibleLink,
   isUnitCompatibleWithArticleDepartment,
@@ -245,30 +252,15 @@ export async function upsertKnowledgeArticleAction(
   if (parsed.articleId) {
     const existing = await prisma.knowledgeArticle.findFirst({
       where: { id: parsed.articleId, facilityId: session.facilityId },
-      select: { id: true, status: true, publishedAt: true },
+      select: { id: true },
     });
     if (!existing) {
       return { ok: false, message: "Article not found." };
     }
 
-    const publishedAt =
-      nextStatus === KnowledgeArticleStatus.PUBLISHED
-        ? existing.publishedAt ?? new Date()
-        : nextStatus === KnowledgeArticleStatus.DRAFT
-          ? null
-          : existing.publishedAt;
-
-    const archivedAt =
-      nextStatus === KnowledgeArticleStatus.ARCHIVED
-        ? new Date()
-        : nextStatus === KnowledgeArticleStatus.DRAFT ||
-            nextStatus === KnowledgeArticleStatus.PUBLISHED
-          ? null
-          : undefined;
-
-    await prisma.knowledgeArticle.update({
-      where: { id: existing.id },
-      data: {
+    try {
+      await saveKnowledgeArticleEditableContent(prisma, {
+        articleId: existing.id,
         title: parsed.title,
         summary: parsed.summary,
         body: parsed.body,
@@ -277,10 +269,13 @@ export async function upsertKnowledgeArticleAction(
         departmentId: articleDepartmentId,
         status: nextStatus,
         updatedByUserId: userId,
-        publishedAt,
-        ...(archivedAt !== undefined ? { archivedAt } : {}),
-      },
-    });
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : "Unable to save article.",
+      };
+    }
 
     await syncArticleObjectLinks(
       existing.id,
@@ -294,8 +289,9 @@ export async function upsertKnowledgeArticleAction(
     redirect(`/admin/knowledge?saved=${existing.id}`);
   }
 
-  const created = await prisma.knowledgeArticle.create({
-    data: {
+  let created;
+  try {
+    created = await createKnowledgeArticleWithInitialVersion(prisma, {
       facilityId: session.facilityId,
       title: parsed.title,
       summary: parsed.summary,
@@ -305,12 +301,13 @@ export async function upsertKnowledgeArticleAction(
       departmentId: articleDepartmentId,
       status: nextStatus,
       createdByUserId: userId,
-      updatedByUserId: userId,
-      publishedAt: nextStatus === KnowledgeArticleStatus.PUBLISHED ? new Date() : null,
-      archivedAt: nextStatus === KnowledgeArticleStatus.ARCHIVED ? new Date() : null,
-    },
-    select: { id: true },
-  });
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Unable to create article.",
+    };
+  }
 
   await syncArticleObjectLinks(
     created.id,
@@ -342,15 +339,14 @@ export async function publishKnowledgeArticleAction(
   const publishCheck = validatePublishableArticle(article);
   if (!publishCheck.ok) return publishCheck;
 
-  await prisma.knowledgeArticle.update({
-    where: { id: article.id },
-    data: {
-      status: KnowledgeArticleStatus.PUBLISHED,
-      publishedAt: new Date(),
-      archivedAt: null,
-      updatedByUserId: userIdForSession(session),
-    },
-  });
+  try {
+    await publishKnowledgeArticle(prisma, article.id, userIdForSession(session));
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Unable to publish article.",
+    };
+  }
 
   revalidateKnowledgeViews();
   return { ok: true, message: "Article published.", articleId: article.id };
@@ -371,14 +367,7 @@ export async function archiveKnowledgeArticleAction(
   });
   if (!article) return { ok: false, message: "Article not found." };
 
-  await prisma.knowledgeArticle.update({
-    where: { id: article.id },
-    data: {
-      status: KnowledgeArticleStatus.ARCHIVED,
-      archivedAt: new Date(),
-      updatedByUserId: userIdForSession(session),
-    },
-  });
+  await archiveKnowledgeArticle(prisma, article.id, userIdForSession(session));
 
   revalidateKnowledgeViews();
   return { ok: true, message: "Article archived.", articleId: article.id };
@@ -399,19 +388,11 @@ export async function restoreKnowledgeArticleAction(
   });
   if (!article) return { ok: false, message: "Article not found." };
   if (article.status !== KnowledgeArticleStatus.ARCHIVED) {
-    return { ok: false, message: "Only archived articles can be restored to Draft." };
+    return { ok: false, message: "Only archived articles can be restored." };
   }
 
-  await prisma.knowledgeArticle.update({
-    where: { id: article.id },
-    data: {
-      status: KnowledgeArticleStatus.DRAFT,
-      archivedAt: null,
-      publishedAt: null,
-      updatedByUserId: userIdForSession(session),
-    },
-  });
+  await restoreKnowledgeArticle(prisma, article.id, userIdForSession(session));
 
   revalidateKnowledgeViews();
-  return { ok: true, message: "Article restored to Draft.", articleId: article.id };
+  return { ok: true, message: "Article restored.", articleId: article.id };
 }

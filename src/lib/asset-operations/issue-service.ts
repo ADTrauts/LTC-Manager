@@ -1,6 +1,10 @@
 /**
- * Phase 10A Asset Issue services (reported condition — not a Work Order).
- * Never auto-creates a Repair / Work Order.
+ * Phase 10A Asset Issue services.
+ *
+ * AssetIssue is the current Issue store: a known undesirable condition.
+ * It is not a Request and not a Work Order.
+ * Never auto-creates a Repair / Work Order or an OperationalRequest.
+ * assetId is required today (implementation limit until the later Issue slice).
  */
 
 import type {
