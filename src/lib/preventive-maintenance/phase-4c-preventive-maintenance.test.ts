@@ -431,3 +431,56 @@ test(
     }
   },
 );
+
+test(
+  "phase4c sql: publishing without a Procedure is allowed",
+  { skip: skipReason },
+  async () => {
+    assert.ok(databaseUrl);
+    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    const prevPlant = process.env.PLANT_OPERATIONS_ENABLED;
+    process.env.PLANT_OPERATIONS_ENABLED = "true";
+    try {
+      const fx = await createFacilityFixture(prisma);
+      const mgr = session({
+        uid: fx.manager.id,
+        facilityId: fx.facility.id,
+        role: "MANAGER",
+        primaryDepartmentId: fx.plant.id,
+      });
+      const now = new Date("2027-01-08T15:00:00.000Z");
+      const created = await createPmPlanWithDraft(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        assetId: fx.asset.id,
+        draft: {
+          name: "No Procedure Dishwasher PM",
+          instructions: "Inspect spray arms.",
+          anchorDate: "2027-01-15",
+          intervalMonths: 3,
+          generationLeadDays: 7,
+          maintenanceCategoryId: fx.category.id,
+          procedureVersionId: null,
+          recordRequirements: [],
+          priority: "MEDIUM",
+          effectiveDate: "2027-01-08",
+        },
+        client: prisma,
+        now,
+      });
+      const published = await publishPmPlanVersion(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        planId: created.id,
+        client: prisma,
+        now,
+      });
+      assert.equal(published.status, "PUBLISHED");
+      assert.equal(published.procedureVersionId, null);
+    } finally {
+      if (prevPlant === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
+      else process.env.PLANT_OPERATIONS_ENABLED = prevPlant;
+      await prisma.$disconnect();
+    }
+  },
+);

@@ -13,8 +13,10 @@ import {
   groupPmRunBoard,
   hasPmAttention,
   isPmDueSoon,
+  isPmProcedureOptionalAbsence,
   isPmRunUnassigned,
   presentPmOccurrenceStateLabel,
+  presentPmProcedureField,
   presentPmWorkOrderKindLabel,
   type PmRunRowInput,
 } from "./run-board";
@@ -247,6 +249,26 @@ test("Needs configuration is OPEN in-window with no Work Order, not a canceled r
   assert.equal(grouped.dueToday.length, 2);
 });
 
+test("No Procedure is valid configuration, not Needs configuration", () => {
+  assert.equal(isPmProcedureOptionalAbsence(null), true);
+  assert.equal(isPmProcedureOptionalAbsence(undefined), true);
+  assert.equal(isPmProcedureOptionalAbsence(""), true);
+  assert.equal(isPmProcedureOptionalAbsence("proc-1"), false);
+  assert.equal(presentPmProcedureField(null), "None");
+  assert.equal(presentPmProcedureField("AHU SOP v1"), "AHU SOP v1");
+  const generated = row({
+    occurrenceId: "no-procedure",
+    procedureLabel: null,
+    scheduledDate: "2027-04-15",
+    facilityToday: "2027-04-15",
+    configurationIssue: null,
+  });
+  assert.deepEqual(classifyPmRunAttention(generated), ["DUE_TODAY"]);
+  const grouped = groupPmRunBoard([generated]);
+  assert.equal(grouped.needsConfiguration.length, 0);
+  assert.equal(grouped.dueToday.length, 1);
+});
+
 test("Unassigned requires an active Work Order without an assignee", () => {
   assert.equal(
     isPmRunUnassigned({
@@ -385,6 +407,18 @@ test("PM Work Order context is occurrence-backed, not a sourceType string", () =
   assert.equal(context?.scheduledDate, "2027-04-15");
   assert.equal(context?.procedureLabel, "Dishwasher SOP v1");
   assert.deepEqual(context?.requirementLabels, ["PM Inspection"]);
+  const withoutProcedure = presentPmWorkOrderContext({
+    workOrderKind: "PREVENTIVE",
+    pmOccurrence: {
+      id: "occ-2",
+      planId: "plan-2",
+      scheduledDate: "2027-04-15",
+      status: "OPEN",
+      planVersion: { name: "No Procedure PM" },
+    },
+  });
+  assert.equal(withoutProcedure?.procedureLabel, null);
+  assert.equal(presentPmProcedureField(withoutProcedure?.procedureLabel), "None");
   assert.equal(
     presentPmWorkOrderContext({ workOrderKind: "CORRECTIVE", pmOccurrence: null }),
     null,

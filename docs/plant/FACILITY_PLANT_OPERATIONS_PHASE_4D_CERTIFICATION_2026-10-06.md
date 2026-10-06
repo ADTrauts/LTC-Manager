@@ -218,7 +218,9 @@ Not implemented (intentionally):
 - Product AVAILABLE
 - Generator “ensure now” from Run page load
 
-Known non-blocking tension (from 4C): Build may publish a Plan without a pinned Procedure; the 4B generator still requires a historically published Procedure and leaves the occurrence OPEN. Run surfaces that as **Needs configuration**.
+Known non-blocking remaining work is content, analytics, and Product release — not another PM execution engine.
+
+Procedure is optional on PM Plans. The generator creates a valid preventive Work Order with no Procedure when none is configured. Run does not surface **Needs configuration** solely because Procedure is absent. When a Procedure is pinned, the generator still requires that exact historically valid version and does not upgrade to latest.
 
 ---
 

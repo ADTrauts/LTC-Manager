@@ -116,6 +116,22 @@ export function isPmRunUnassigned(input: {
   return Boolean(active && !active.assignedEmployeeId);
 }
 
+/**
+ * Absence of a Procedure on a published PM Plan is valid configuration.
+ * A configured (non-null) Procedure that cannot be loaded or is historically
+ * invalid remains a configuration exception.
+ */
+export function isPmProcedureOptionalAbsence(
+  procedureVersionId: string | null | undefined,
+): boolean {
+  return !procedureVersionId;
+}
+
+export function presentPmProcedureField(label: string | null | undefined): string {
+  const trimmed = label?.trim() ?? "";
+  return trimmed || "None";
+}
+
 export function presentPmConfigurationIssue(code: string, message: string): PmRunConfigurationIssue {
   if (code === "ARCHIVED_CATEGORY") {
     return { code, message: message || "Maintenance category is archived." };

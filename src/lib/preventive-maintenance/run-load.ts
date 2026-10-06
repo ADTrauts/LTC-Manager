@@ -18,6 +18,7 @@ import { addMonthsClamped, projectPmSchedule } from "./schedule";
 import { isPmActiveWorkOrderStatus } from "./active-work-order";
 import {
   groupPmRunBoard,
+  isPmProcedureOptionalAbsence,
   presentPmConfigurationIssue,
   type PmRunBoardCounts,
   type PmRunConfigurationIssue,
@@ -133,18 +134,23 @@ async function diagnoseMissingWorkOrder(
   if (input.version.maintenanceCategory.archivedAt) {
     return presentPmConfigurationIssue("ARCHIVED_CATEGORY", "Maintenance category is archived.");
   }
-  if (!input.version.procedureVersionId || !input.version.procedureVersion) {
-    return presentPmConfigurationIssue("PROCEDURE_INVALID", "Pinned Procedure is missing.");
-  }
-  const procedure = input.version.procedureVersion;
-  if (!isKnowledgeProcedureCategory(procedure.article.category)) {
-    return presentPmConfigurationIssue("PROCEDURE_INVALID", "Pinned Knowledge version is not a Procedure.");
-  }
-  if (procedure.status !== "PUBLISHED" && procedure.status !== "SUPERSEDED") {
-    return presentPmConfigurationIssue(
-      "PROCEDURE_INVALID",
-      "Pinned Procedure version is not historically published.",
-    );
+  if (!isPmProcedureOptionalAbsence(input.version.procedureVersionId)) {
+    if (!input.version.procedureVersion) {
+      return presentPmConfigurationIssue("PROCEDURE_INVALID", "Pinned Procedure is missing.");
+    }
+    const procedure = input.version.procedureVersion;
+    if (!isKnowledgeProcedureCategory(procedure.article.category)) {
+      return presentPmConfigurationIssue(
+        "PROCEDURE_INVALID",
+        "Pinned Knowledge version is not a Procedure.",
+      );
+    }
+    if (procedure.status !== "PUBLISHED" && procedure.status !== "SUPERSEDED") {
+      return presentPmConfigurationIssue(
+        "PROCEDURE_INVALID",
+        "Pinned Procedure version is not historically published.",
+      );
+    }
   }
   for (const requirement of input.version.recordRequirements) {
     const template = await client.operationalTemplate.findFirst({

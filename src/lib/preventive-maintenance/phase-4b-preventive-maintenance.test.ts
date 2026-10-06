@@ -248,7 +248,7 @@ async function publishQuarterlyPlan(
   input: {
     name: string;
     now: Date;
-    procedureVersionId: string;
+    procedureVersionId: string | null;
     templateId: string;
     categoryId?: string;
     assetId?: string;
@@ -1055,6 +1055,71 @@ test(
       else process.env.PLANT_OPERATIONS_ENABLED = prevPlant;
       await a.$disconnect();
       await b.$disconnect();
+    }
+  },
+);
+
+test(
+  "phase4b sql: published plan without Procedure generates a PREVENTIVE Work Order",
+  { skip: skipReason },
+  async () => {
+    assert.ok(databaseUrl);
+    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    const prevPlant = process.env.PLANT_OPERATIONS_ENABLED;
+    process.env.PLANT_OPERATIONS_ENABLED = "true";
+    try {
+      const fx = await createFacilityFixture(prisma);
+      const mgr = session({
+        uid: fx.manager.id,
+        facilityId: fx.facility.id,
+        role: "MANAGER",
+        primaryDepartmentId: fx.plant.id,
+      });
+      const now = new Date("2027-01-08T15:00:00.000Z");
+      const kit = await publishedSopAndTemplate(prisma, fx, now);
+      const published = await publishQuarterlyPlan(prisma, fx, mgr, {
+        name: "No Procedure Dishwasher PM",
+        now,
+        procedureVersionId: null,
+        templateId: kit.template.id,
+        instructions: "Inspect spray arms.",
+      });
+      assert.equal(published.procedureVersionId, null);
+
+      const generated = await generatePmForFacility(prisma, {
+        facilityId: fx.facility.id,
+        now,
+      });
+      assert.equal(generated.occurrencesCreated, 1);
+      assert.equal(generated.workOrdersCreated, 1);
+      assert.equal(
+        generated.configurationErrors.some((row) => row.code === "PROCEDURE_INVALID"),
+        false,
+      );
+
+      const occurrences = await prisma.preventiveMaintenanceOccurrence.findMany({
+        where: { planId: published.planId },
+      });
+      assert.equal(occurrences.length, 1);
+      const wo = await prisma.repair.findFirstOrThrow({
+        where: { pmOccurrenceId: occurrences[0]!.id },
+      });
+      assert.equal(wo.workOrderKind, "PREVENTIVE");
+      assert.equal(wo.procedureVersionId, null);
+      assert.equal(wo.assetId, fx.asset.id);
+      assert.equal(wo.unitId, fx.unit.id);
+      assert.equal(wo.spaceId, fx.space.id);
+      assert.equal(wo.maintenanceCategoryId, fx.category.id);
+      assert.equal(wo.priority, "MEDIUM");
+      const reqs = await prisma.repairRecordRequirement.findMany({
+        where: { repairId: wo.id },
+      });
+      assert.equal(reqs.length, 1);
+      assert.equal(reqs[0]?.templateId, kit.template.id);
+    } finally {
+      if (prevPlant === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
+      else process.env.PLANT_OPERATIONS_ENABLED = prevPlant;
+      await prisma.$disconnect();
     }
   },
 );

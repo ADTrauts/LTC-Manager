@@ -6,7 +6,8 @@
  * - title ← Plan Version name
  * - description ← Plan Version instructions, else "Preventive Maintenance / Scheduled {date}"
  * - priority ← Plan Version priority
- * - procedureVersionId ← frozen Plan Version pin (PUBLISHED or SUPERSEDED)
+ * - procedureVersionId ← Plan Version pin when present (PUBLISHED or SUPERSEDED);
+ *   optional otherwise. Null is valid and must not block generation.
  * - maintenanceCategoryId ← frozen Plan Version category (must still exist, unarchived)
  * - record requirements ← Plan Version requirements (pinned ids/keys/versions/names/sort)
  * - assignedEmployeeId ← default assignee if still eligible, else Unassigned
@@ -229,16 +230,17 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
       );
     }
 
-    if (!version.procedureVersionId) {
-      throw new PmWorkOrderConfigurationError(
-        "PROCEDURE_INVALID",
-        "Plan Version has no pinned Procedure.",
-      );
+    /**
+     * Procedure is optional on a published PM Plan. When absent, the generated
+     * Work Order pins `procedureVersionId = null`. When present, the exact
+     * historical pin is required (SOP + PUBLISHED or SUPERSEDED — never latest).
+     */
+    if (version.procedureVersionId) {
+      await assertHistoricallyPublishedProcedurePin(tx, {
+        facilityId: plan.facilityId,
+        procedureVersionId: version.procedureVersionId,
+      });
     }
-    await assertHistoricallyPublishedProcedurePin(tx, {
-      facilityId: plan.facilityId,
-      procedureVersionId: version.procedureVersionId,
-    });
 
     for (const requirement of version.recordRequirements) {
       const template = await tx.operationalTemplate.findFirst({

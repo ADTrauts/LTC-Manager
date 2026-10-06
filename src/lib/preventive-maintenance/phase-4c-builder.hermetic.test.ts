@@ -152,6 +152,41 @@ test("custom interval and successor effective boundary drop prior-cadence dates"
   );
 });
 
+test("Procedure is optional on publish; ineligible Procedure still blocks", () => {
+  const withoutProcedure = collectPmDraftValidationIssues({
+    name: "Quarterly Dishwasher PM",
+    assetId: "a1",
+    maintenanceCategoryId: "c1",
+    intervalMonths: 3,
+    generationLeadDays: 7,
+    priority: "MEDIUM",
+    anchorDate: "2027-01-15",
+    effectiveDate: "2027-01-15",
+    facilityToday: "2027-01-08",
+    procedureVersionId: null,
+    firstPublish: true,
+  });
+  assert.equal(
+    withoutProcedure.some((row) => row.code === "PROCEDURE"),
+    false,
+  );
+  const ineligible = collectPmDraftValidationIssues({
+    name: "Quarterly Dishwasher PM",
+    assetId: "a1",
+    maintenanceCategoryId: "c1",
+    intervalMonths: 3,
+    generationLeadDays: 7,
+    priority: "MEDIUM",
+    anchorDate: "2027-01-15",
+    effectiveDate: "2027-01-15",
+    facilityToday: "2027-01-08",
+    procedureVersionId: "proc-1",
+    procedureEligible: false,
+    firstPublish: true,
+  });
+  assert.ok(ineligible.some((row) => row.code === "PROCEDURE"));
+});
+
 test("incomplete drafts are allowed; publish issues are collected without throwing", () => {
   const issues = collectPmDraftValidationIssues({
     name: "",

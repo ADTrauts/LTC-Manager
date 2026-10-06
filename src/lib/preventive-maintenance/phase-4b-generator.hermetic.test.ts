@@ -156,6 +156,8 @@ test("generator and cron do not fake a user session", () => {
   assert.match(create, /reportedById:\s*null/);
   assert.match(create, /workOrderKind:\s*"PREVENTIVE"/);
   assert.match(create, /issueId:\s*null/);
+  assert.match(create, /if \(version\.procedureVersionId\)/);
+  assert.doesNotMatch(create, /Plan Version has no pinned Procedure/);
   assert.match(route, /handlePlantPmCron/);
   assert.match(cron, /isPlantPmCronAuthorized/);
   assert.match(cron, /runPmGeneration/);

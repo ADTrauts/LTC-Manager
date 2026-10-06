@@ -13,6 +13,7 @@ import {
   activePmRunWorkOrder,
   formatPmRunPriority,
   presentPmOccurrenceStateLabel,
+  presentPmProcedureField,
 } from "@/lib/preventive-maintenance/run-board";
 import { presentPmOccurrence } from "@/lib/preventive-maintenance/version-semantics";
 import { isPmActiveWorkOrderStatus } from "@/lib/preventive-maintenance/active-work-order";
@@ -101,7 +102,7 @@ export default async function PreventiveMaintenanceOccurrencePage({ params }: Pa
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Procedure</dt>
-            <dd>{row.procedureLabel ?? "—"}</dd>
+            <dd>{presentPmProcedureField(row.procedureLabel)}</dd>
           </div>
         </dl>
         {row.planStatus === "RETIRED" ? (

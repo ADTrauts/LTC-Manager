@@ -44,6 +44,7 @@ import { presentPmWorkOrderContext } from "@/lib/preventive-maintenance/pm-conte
 import { formatProjectedDateLabel } from "@/lib/preventive-maintenance/presentation";
 import {
   presentPmOccurrenceStateLabel,
+  presentPmProcedureField,
   presentPmWorkOrderKindLabel,
 } from "@/lib/preventive-maintenance/run-board";
 import { presentPmOccurrence } from "@/lib/preventive-maintenance/version-semantics";
@@ -469,7 +470,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Procedure</dt>
-              <dd data-testid="pm-context-procedure">{pmContext.procedureLabel ?? "—"}</dd>
+              <dd data-testid="pm-context-procedure">{presentPmProcedureField(pmContext.procedureLabel)}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Category</dt>

@@ -874,3 +874,78 @@ test(
     }
   },
 );
+
+test(
+  "phase4d sql: no-Procedure PM generates and is not Needs configuration",
+  { skip: skipReason },
+  async () => {
+    assert.ok(databaseUrl);
+    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    const prevPlant = process.env.PLANT_OPERATIONS_ENABLED;
+    process.env.PLANT_OPERATIONS_ENABLED = "true";
+    try {
+      const fx = await createFacilityFixture(prisma);
+      const mgr = session({
+        uid: fx.manager.id,
+        facilityId: fx.facility.id,
+        role: "MANAGER",
+        primaryDepartmentId: fx.plant.id,
+      });
+      const publishNow = new Date("2027-01-08T15:00:00.000Z");
+      const { template } = await publishedSopAndTemplate(prisma, fx, publishNow);
+      const published = await publishPlan(prisma, fx, mgr, {
+        name: "No Procedure Run PM",
+        now: publishNow,
+        procedureVersionId: null,
+        templateId: template.id,
+      });
+      assert.equal(published.procedureVersionId, null);
+
+      const catchUpNow = new Date("2027-01-11T15:00:00.000Z");
+      const generated = await generatePmForFacility(prisma, {
+        facilityId: fx.facility.id,
+        now: catchUpNow,
+      });
+      assert.equal(generated.occurrencesCreated, 1);
+      assert.equal(generated.workOrdersCreated, 1);
+      assert.equal(
+        generated.configurationErrors.some((row) => row.code === "PROCEDURE_INVALID"),
+        false,
+      );
+
+      const occurrence = await prisma.preventiveMaintenanceOccurrence.findFirstOrThrow({
+        where: { planId: published.planId },
+      });
+      const wo = await prisma.repair.findFirstOrThrow({
+        where: { pmOccurrenceId: occurrence.id },
+      });
+      assert.equal(wo.workOrderKind, "PREVENTIVE");
+      assert.equal(wo.procedureVersionId, null);
+      assert.equal(wo.assetId, fx.asset.id);
+      assert.equal(wo.maintenanceCategoryId, fx.category.id);
+
+      const board = await loadPmRunBoard(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        now: catchUpNow,
+        client: prisma,
+      });
+      assert.equal(
+        board.grouped.needsConfiguration.some((item) => item.planId === published.planId),
+        false,
+      );
+      const row = [
+        ...board.grouped.overdue,
+        ...board.grouped.dueToday,
+        ...board.grouped.dueSoon,
+        ...board.grouped.unassigned,
+      ].find((item) => item.planId === published.planId);
+      assert.ok(row);
+      assert.equal(row.procedureLabel, null);
+      assert.equal(row.configurationIssue, null);
+    } finally {
+      process.env.PLANT_OPERATIONS_ENABLED = prevPlant;
+      await prisma.$disconnect();
+    }
+  },
+);
