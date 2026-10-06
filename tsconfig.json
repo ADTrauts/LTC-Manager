@@ -44,7 +44,9 @@
     ".next-evs-browser/types/**/*.ts",
     ".next-evs-browser/dev/types/**/*.ts",
     ".next-workplans-browser/types/**/*.ts",
-    ".next-workplans-browser/dev/types/**/*.ts"
+    ".next-workplans-browser/dev/types/**/*.ts",
+    ".next-phase3d-browser/types/**/*.ts",
+    ".next-phase3d-browser/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

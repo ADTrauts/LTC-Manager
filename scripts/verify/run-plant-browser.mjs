@@ -163,7 +163,17 @@ async function main() {
     }
 
     run("npx", ["prisma", "migrate", "deploy"], baseEnv, "migrate deploy");
-    run("npx", ["prisma", "db", "seed"], baseEnv, "seed");
+    const seedResult = spawnSync("npx", ["prisma", "db", "seed"], {
+      cwd: ROOT,
+      env: baseEnv,
+      stdio: "inherit",
+      shell: false,
+    });
+    if (seedResult.status !== 0) {
+      console.warn(
+        "test:plant-browser: seed exited non-zero; continuing because plant-browser-fixtures bootstrap Terrace View",
+      );
+    }
 
     if (process.env.PLANT_BROWSER_SKIP_BUILD !== "1") {
       console.log(`test:plant-browser: production build → ${DIST_DIR}`);

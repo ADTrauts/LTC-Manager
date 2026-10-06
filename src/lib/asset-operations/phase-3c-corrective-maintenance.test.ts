@@ -46,6 +46,7 @@ import {
   triageRequestLinkIssue,
 } from "./index";
 import { completeWorkOrder } from "./work-order-service";
+import { addWorkOrderLabor } from "./work-order-closeout";
 import { assignResponsibleEmployee } from "./work-order-service";
 
 const databaseUrl =
@@ -319,11 +320,20 @@ test(
         repairId: accepted.workOrder.id,
         client: prisma,
       });
+      await addWorkOrderLabor(supervisor, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: accepted.workOrder.id,
+        minutes: 15,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(tech, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: accepted.workOrder.id,
         workPerformed: "Replaced heating element",
+        assetConditionReview: "NO_CHANGE",
         client: prisma,
       });
 
@@ -396,10 +406,19 @@ test(
         repairId: leak.workOrder.id,
         client: prisma,
       });
+      await addWorkOrderLabor(supervisor, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: leak.workOrder.id,
+        minutes: 15,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(tech, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: leak.workOrder.id,
+        workPerformed: "Sealed leak",
         client: prisma,
       });
       const leakIssueOpen = await prisma.assetIssue.findUniqueOrThrow({
@@ -497,10 +516,19 @@ test(
         title: "Diagnose belt",
         client: prisma,
       });
+      await addWorkOrderLabor(supervisor, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: wo1.id,
+        minutes: 15,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(supervisor, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: wo1.id,
+        workPerformed: "Diagnosed belt",
         client: prisma,
       });
       assert.equal(
@@ -516,10 +544,19 @@ test(
         title: "Replace belt",
         client: prisma,
       });
+      await addWorkOrderLabor(supervisor, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: wo2.id,
+        minutes: 15,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(supervisor, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: wo2.id,
+        workPerformed: "Replaced belt",
         client: prisma,
       });
       assert.equal(
@@ -576,10 +613,19 @@ test(
       const resumed = await prisma.repair.findUniqueOrThrow({ where: { id: holdFlow.workOrder.id } });
       assert.equal(resumed.status, "IN_PROGRESS");
       assert.equal(resumed.holdReason, null);
+      await addWorkOrderLabor(supervisor, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: holdFlow.workOrder.id,
+        minutes: 15,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(tech, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: holdFlow.workOrder.id,
+        workPerformed: "Part installed",
         client: prisma,
       });
 

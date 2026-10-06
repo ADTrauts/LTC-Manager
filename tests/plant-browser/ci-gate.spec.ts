@@ -96,9 +96,14 @@ async function openPersistent(suffix: string): Promise<{ context: BrowserContext
 
 async function loginPassword(page: Page, email: string, password: string) {
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
-  await page.getByRole("button", { name: /sign in|log in/i }).click();
+  await page.waitForLoadState("domcontentloaded");
+  if (!page.url().includes("/login")) {
+    return;
+  }
+  await expect(page.getByLabel(/^email$/i)).toBeVisible({ timeout: 20_000 });
+  await page.getByLabel(/^email$/i).fill(email);
+  await page.getByLabel(/^password$/i).fill(password);
+  await page.getByRole("button", { name: /^continue$/i }).click();
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
 }
 

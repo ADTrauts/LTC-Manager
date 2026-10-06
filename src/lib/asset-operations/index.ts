@@ -106,6 +106,29 @@ export {
 } from "./work-order-service";
 
 export {
+  addWorkOrderLabor,
+  addWorkOrderPart,
+  addWorkOrderRecordRequirement,
+  formatRecordedExpense,
+  formatWorkOrderCloseoutBlockedMessage,
+  projectRecordedExpense,
+  removeWorkOrderLabor,
+  removeWorkOrderPart,
+  removeWorkOrderRecordRequirement,
+  satisfyWorkOrderRecordRequirement,
+  setWorkOrderExternalCost,
+  updateWorkOrderLabor,
+  updateWorkOrderPart,
+  validateWorkOrderCloseout,
+  waiveWorkOrderRecordRequirement,
+  WAIVE_REASON_MIN_LENGTH,
+  WORK_PERFORMED_MIN_LENGTH,
+  type RepairAssetConditionReviewChoice,
+  type WorkOrderCloseoutMissingFact,
+  type WorkOrderCloseoutValidation,
+} from "./work-order-closeout";
+
+export {
   DEFAULT_MAINTENANCE_CATEGORIES,
   mapRepairTradeToCategoryKey,
   presentWorkOrder,

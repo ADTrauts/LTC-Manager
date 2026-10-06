@@ -23,6 +23,7 @@ import {
 import { createRequest } from "@/lib/operational-requests";
 
 import {
+  addWorkOrderLabor,
   completeWorkOrder,
   createWorkOrder,
   createWorkOrderFromIssue,
@@ -143,6 +144,17 @@ async function createFacilityFixture(prisma: PrismaClient, label: string) {
       emailVerifiedAt: new Date(),
     },
   });
+  const tech = await prisma.employee.create({
+    data: {
+      id: cuidLike(),
+      facilityId: facility.id,
+      firstName: "Phase3B",
+      lastName: `Tech ${suffix}`,
+      roleType: "STAFF",
+      status: "ACTIVE",
+      primaryDepartmentId: plant.id,
+    },
+  });
   await prisma.departmentRequestRoute.create({
     data: {
       facilityId: facility.id,
@@ -151,7 +163,7 @@ async function createFacilityFixture(prisma: PrismaClient, label: string) {
       isActive: true,
     },
   });
-  return { facility, dietary, plant, unitA, unitB, spaceA, spaceB, manager, staff };
+  return { facility, dietary, plant, unitA, unitB, spaceA, spaceB, manager, staff, tech };
 }
 
 test("Facility Plant Operations remains DEVELOPMENT", () => {
@@ -413,6 +425,14 @@ test(
         client: prisma,
       });
       const assetBefore = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+      await addWorkOrderLabor(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: woA.id,
+        minutes: 25,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(mgr, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,

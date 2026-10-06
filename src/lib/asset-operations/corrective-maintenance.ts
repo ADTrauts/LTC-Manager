@@ -364,6 +364,7 @@ export async function completeAssignedWorkOrder(
     workPerformed?: string | null;
     resolution?: string | null;
     note?: string | null;
+    assetConditionReview?: import("./work-order-closeout").RepairAssetConditionReviewChoice | null;
     client?: DbClient;
     now?: Date;
   },
@@ -377,6 +378,7 @@ export async function completeAssignedWorkOrder(
     return completeWorkOrder(session, {
       ...input,
       comment: input.note,
+      assetConditionReview: input.assetConditionReview,
     });
   }
   return technicianUpdateWorkOrder(session, {

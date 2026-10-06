@@ -175,7 +175,7 @@ async function main() {
           facilityId: facility.id,
           name: "Main Servery",
           unitType: "SERVERY",
-          hierarchyRole: "FLOOR",
+          hierarchyRole: "LEGACY_LOCATION",
           departmentResponsibilities: {
             create: { departmentId: dietaryForServery.id, kind: "PRIMARY" },
           },

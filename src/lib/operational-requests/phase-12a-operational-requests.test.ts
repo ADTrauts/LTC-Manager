@@ -18,7 +18,7 @@ import {
   createWorkOrderFromRequest,
   acknowledgeRequest,
 } from "./index";
-import { technicianUpdateWorkOrder } from "@/lib/asset-operations";
+import { technicianUpdateWorkOrder, addWorkOrderLabor } from "@/lib/asset-operations";
 
 const databaseUrl =
   process.env.PLANT_OPERATIONS_TEST_DATABASE_URL ||
@@ -294,12 +294,20 @@ test(
       assert.equal(afterVendor.status, afterStart.status);
       assert.notEqual(afterVendor.status, "WAITING_ON_VENDOR");
 
+      await addWorkOrderLabor(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: workOrder.id,
+        minutes: 20,
+        employeeId: fx.tech.id,
+      });
       await technicianUpdateWorkOrder(mgr, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         repairId: workOrder.id,
         action: "COMPLETE",
         resolution: "Repaired valve",
+        workPerformed: "Repaired valve",
         requesterVisible: true,
       });
 

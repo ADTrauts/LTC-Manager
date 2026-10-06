@@ -16,6 +16,7 @@ import { loadLocationHistory } from "@/lib/audit/location-history";
 import { createRequest } from "@/lib/operational-requests";
 import { getDepartmentProduct } from "@/lib/department-products";
 import {
+  addWorkOrderLabor,
   completeWorkOrder,
   createIssueFromRequest,
   createWorkOrderFromIssue,
@@ -134,6 +135,17 @@ async function createFixture(prisma: PrismaClient) {
       emailVerifiedAt: new Date(),
     },
   });
+  const tech = await prisma.employee.create({
+    data: {
+      id: cuidLike(),
+      facilityId: facility.id,
+      firstName: "Phase3A",
+      lastName: `Tech ${suffix}`,
+      roleType: "STAFF",
+      status: "ACTIVE",
+      primaryDepartmentId: plant.id,
+    },
+  });
   await prisma.departmentRequestRoute.create({
     data: {
       facilityId: facility.id,
@@ -142,7 +154,7 @@ async function createFixture(prisma: PrismaClient) {
       isActive: true,
     },
   });
-  return { facility, dietary, plant, unitA, unitB, spaceA, spaceB, manager, staff };
+  return { facility, dietary, plant, unitA, unitB, spaceA, spaceB, manager, staff, tech };
 }
 
 test("Facility Plant Operations remains DEVELOPMENT", () => {
@@ -248,6 +260,14 @@ test(
       });
       assert.equal(unlinkedWo.issueId, null);
 
+      await addWorkOrderLabor(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        repairId: woA.id,
+        minutes: 20,
+        employeeId: fx.tech.id,
+        client: prisma,
+      });
       await completeWorkOrder(mgr, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,

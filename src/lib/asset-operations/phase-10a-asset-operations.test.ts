@@ -10,6 +10,7 @@ import { randomBytes } from "node:crypto";
 import type { AppJwtPayload } from "@/lib/auth";
 
 import {
+  addWorkOrderLabor,
   changeAssetStatus,
   createAsset,
   createWorkOrderDirect,
@@ -588,12 +589,34 @@ test(
         repairId: woFromIssue.id,
         toStatus: "IN_PROGRESS",
       });
+      const staffEmployee =
+        fx.staffEmployee ??
+        (await prisma.employee.create({
+          data: {
+            facilityId: fx.facility.id,
+            firstName: "Phase10A",
+            lastName: "Closer",
+            roleType: "STAFF",
+            status: "ACTIVE",
+            primaryDepartmentId: fx.dietary.id,
+          },
+        }));
+      await addWorkOrderLabor(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.dietary.id,
+        repairId: woFromIssue.id,
+        minutes: 20,
+        employeeId: staffEmployee.id,
+        client: prisma,
+      });
       await completeWorkOrder(mgr, {
         facilityId: fx.facility.id,
         departmentId: fx.dietary.id,
         repairId: woFromIssue.id,
         workPerformed: "Replaced element",
         resolution: "Heating restored",
+        assetConditionReview: "NO_CHANGE",
+        client: prisma,
       });
 
       const afterComplete = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });

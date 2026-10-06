@@ -11,6 +11,7 @@ import { PhotoFileField } from "@/components/photos/photo-file-field";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected)/repairs/actions";
 import { WorkOrderExecutionPanel } from "@/components/work-orders/work-order-execution-panel";
+import { WorkOrderCloseoutPanel } from "@/components/work-orders/work-order-closeout-panel";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
 import { hasAtLeastRole } from "@/lib/access";
@@ -28,6 +29,9 @@ import {
   repairSourceLabel,
   repairStatusProductLabel,
   responsibleOrganizationDisplayLabel,
+  formatRecordedExpense,
+  projectRecordedExpense,
+  validateWorkOrderCloseout,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
 import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
@@ -115,6 +119,26 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           },
         },
       },
+      laborEntries: {
+        orderBy: { recordedAt: "asc" },
+        include: {
+          employee: { select: { id: true, firstName: true, lastName: true } },
+        },
+      },
+      partsUsed: { orderBy: { createdAt: "asc" } },
+      recordRequirements: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          satisfiedByRecord: {
+            select: {
+              id: true,
+              status: true,
+              outOfStandard: true,
+              templateName: true,
+            },
+          },
+        },
+      },
       sourceOperationalRequest: {
         select: { id: true, requestCode: true, summary: true, status: true },
       },
@@ -183,6 +207,50 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
   const plantOrAssetOps = isDietaryAssetOperationsEnabled() || isPlantOperationsEnabled();
   const tz = facility.timezone;
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
+  const closeoutDepartmentId =
+    repair.responsibleDepartmentId ?? deptNav.activeDepartmentId ?? repair.unit.facilityId;
+  const [publishedTemplates, vendors] = canAssign
+    ? await Promise.all([
+        prisma.operationalTemplate.findMany({
+          where: {
+            facilityId: session.facilityId,
+            status: "PUBLISHED",
+            ...(repair.responsibleDepartmentId
+              ? { departmentId: repair.responsibleDepartmentId }
+              : {}),
+          },
+          select: { id: true, name: true, version: true },
+          orderBy: [{ name: "asc" }, { version: "desc" }],
+          take: 80,
+        }),
+        prisma.vendor.findMany({
+          where: { facilityId: session.facilityId },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+          take: 80,
+        }),
+      ])
+    : [[], []];
+  const closeoutExpense = projectRecordedExpense({
+    parts: repair.partsUsed,
+    externalCost: repair.externalCost,
+  });
+  const closeoutValidation = validateWorkOrderCloseout({
+    workPerformed: repair.workPerformed,
+    laborEntryCount: repair.laborEntries.length,
+    requirements: repair.recordRequirements,
+    hasAsset: Boolean(repair.assetId),
+    assetConditionReview: repair.assetConditionReview,
+  });
+  const closeoutMissing: string[] = [];
+  for (const fact of closeoutValidation.missing) {
+    if (fact === "WORK_PERFORMED") closeoutMissing.push("Work performed");
+    if (fact === "LABOR") closeoutMissing.push("Labor time");
+    if (fact === "ASSET_CONDITION_REVIEW") closeoutMissing.push("Asset condition review");
+    if (fact === "REQUIRED_RECORD") {
+      closeoutMissing.push(...closeoutValidation.missingRecordLabels);
+    }
+  }
   const aiEnabled = isAiRecoveryAssistantEnabled();
   const canViewRecoveryAssistant = hasAtLeastRole(session.role, "SUPERVISOR");
   const canRefreshRecovery = hasAtLeastRole(session.role, "MANAGER");
@@ -483,7 +551,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       ) : null}
 
       {repair.evidenceLinks.length > 0 ? (
-        <AppCard title="Evidence" subtitle="Incidental Records linked to this Work Order">
+        <AppCard title="Associated evidence" subtitle="Incidental Records linked to this Work Order">
           <ul className="space-y-1 text-sm">
             {repair.evidenceLinks.map((link) => (
               <li key={link.id}>
@@ -572,7 +640,8 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       </AppCard>
 
       {plantOrAssetOps ? (
-        <AppCard title="Execution" subtitle="Start, hold, resume, update, or complete">
+        <>
+        <AppCard title="Execution" subtitle="Start, hold, resume, or update">
           <WorkOrderExecutionPanel
             repairId={repair.id}
             departmentId={
@@ -589,6 +658,61 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
             }))}
           />
         </AppCard>
+        <AppCard
+          title="Closeout"
+          subtitle="Work performed, labor, parts, required evidence, and recorded material & vendor expense"
+        >
+          <WorkOrderCloseoutPanel
+            repairId={repair.id}
+            departmentId={closeoutDepartmentId}
+            issueId={linkedIssue?.id ?? null}
+            status={repair.status}
+            completed={completed}
+            canExecute={canMutate}
+            canSupervise={canAssign}
+            hasAsset={Boolean(repair.assetId)}
+            workPerformed={repair.workPerformed ?? ""}
+            labor={repair.laborEntries.map((entry) => ({
+              id: entry.id,
+              minutes: entry.minutes,
+              employeeId: entry.employeeId,
+              employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`.trim(),
+            }))}
+            laborTotalMinutes={repair.laborEntries.reduce((sum, entry) => sum + entry.minutes, 0)}
+            parts={repair.partsUsed.map((part) => ({
+              id: part.id,
+              description: part.description,
+              partNumber: part.partNumber,
+              quantity: part.quantity.toString(),
+              lineCost: formatRecordedExpense(part.lineCost),
+            }))}
+            requirements={repair.recordRequirements.map((requirement) => ({
+              id: requirement.id,
+              templateName: requirement.templateName,
+              templateVersion: requirement.templateVersion,
+              status: requirement.status,
+              waiveReason: requirement.waiveReason,
+              satisfiedStatus: requirement.satisfiedByRecord?.status ?? null,
+              outOfStandard: requirement.satisfiedByRecord?.outOfStandard ?? false,
+            }))}
+            templates={publishedTemplates}
+            vendors={vendors}
+            employees={employees.map((employee) => ({
+              id: employee.id,
+              name: `${employee.firstName} ${employee.lastName}`.trim(),
+            }))}
+            vendorId={repair.vendorId}
+            vendorName={repair.vendor?.name ?? null}
+            externalCost={repair.externalCost?.toFixed(2) ?? null}
+            externalCostNote={repair.externalCostNote}
+            recordedExpense={formatRecordedExpense(
+              closeoutExpense.recordedMaterialVendorExpense,
+            )}
+            assetReview={repair.assetConditionReview}
+            missing={closeoutMissing}
+          />
+        </AppCard>
+        </>
       ) : (
       <AppCard title="Repair actions" subtitle="Assign, update, or complete this repair">
         <IssueDetailActions

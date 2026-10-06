@@ -205,6 +205,11 @@ test.describe("Phase 3C corrective maintenance @phase-3c @ci-gate", () => {
         });
         await tech.page.getByTestId("wo-resume").click();
         await expect(tech.page.getByText(/In progress/i).first()).toBeVisible({ timeout: 15_000 });
+        await tech.page.getByTestId("wo-labor-minutes").fill("45");
+        await tech.page.getByTestId("wo-labor-save").click();
+        await expect(tech.page.getByTestId("wo-labor-total")).toContainText("45", { timeout: 15_000 });
+        await tech.page.getByTestId("wo-work-performed").fill("Element replaced");
+        await tech.page.getByTestId("wo-asset-review-NO_CHANGE").check();
         await tech.page.getByTestId("wo-note").fill("Element replaced");
         await tech.page.getByTestId("wo-complete").click();
         await expect(tech.page.getByTestId("wo-post-completion")).toBeVisible({ timeout: 20_000 });

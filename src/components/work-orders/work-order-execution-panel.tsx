@@ -6,7 +6,6 @@ import { useState, useTransition } from "react";
 import {
   addWorkOrderNoteAction,
   assignWorkOrderAction,
-  completeWorkOrderAction,
   holdWorkOrderAction,
   linkEvidenceToWorkOrderAction,
   resumeWorkOrderAction,
@@ -177,7 +176,7 @@ export function WorkOrderExecutionPanel({
             </button>
             <button
               type="button"
-              disabled={pending || !note.trim()}
+              disabled={pending}
               className="rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50"
               onClick={() =>
                 run(async () => {
@@ -189,22 +188,6 @@ export function WorkOrderExecutionPanel({
               data-testid="wo-add-note"
             >
               Add update
-            </button>
-            <button
-              type="button"
-              disabled={pending || status === "COMPLETED"}
-              className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-              onClick={() =>
-                run(async () => {
-                  const fd = new FormData();
-                  hiddenFields(fd);
-                  if (note) fd.set("resolution", note);
-                  await completeWorkOrderAction(fd);
-                })
-              }
-              data-testid="wo-complete"
-            >
-              Complete
             </button>
           </div>
           <form

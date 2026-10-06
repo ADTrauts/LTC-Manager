@@ -10,7 +10,7 @@ import {
   type CatalogAssignKind,
   type CatalogAssignTargetRow,
   type CatalogAssignView,
-} from "@/lib/canonical-logs/catalog-assign";
+} from "@/lib/canonical-logs/catalog-assign-model";
 
 type Props = {
   view: CatalogAssignView;

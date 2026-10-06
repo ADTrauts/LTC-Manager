@@ -15,6 +15,7 @@ import {
   resolvePlantOperationsAuthority,
 } from "@/lib/operational-requests";
 import {
+  addWorkOrderLabor,
   returnAssetToService,
   technicianUpdateWorkOrder,
   createAsset,
@@ -209,12 +210,38 @@ test(
         requestId: request.id,
       });
 
+      let closer = await prisma.employee.findFirst({
+        where: { facilityId: plant.facilityId, status: "ACTIVE" },
+        select: { id: true },
+      });
+      if (!closer) {
+        closer = await prisma.employee.create({
+          data: {
+            facilityId: plant.facilityId,
+            firstName: "Plant",
+            lastName: "Closer",
+            roleType: "STAFF",
+            status: "ACTIVE",
+            primaryDepartmentId: plant.id,
+          },
+          select: { id: true },
+        });
+      }
+      await addWorkOrderLabor(mgr, {
+        facilityId: plant.facilityId,
+        departmentId: plant.id,
+        repairId: workOrder.id,
+        minutes: 20,
+        employeeId: closer.id,
+      });
       await technicianUpdateWorkOrder(mgr, {
         facilityId: plant.facilityId,
         departmentId: plant.id,
         repairId: workOrder.id,
         action: "COMPLETE",
         resolution: "Valve replaced",
+        workPerformed: "Valve replaced",
+        assetConditionReview: "NO_CHANGE",
       });
 
       const assetAfterWo = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });

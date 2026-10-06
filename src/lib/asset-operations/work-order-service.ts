@@ -6,103 +6,41 @@
 
 import type {
   Prisma,
-  PrismaClient,
   RepairPriority,
   RepairStatus,
   RepairTrade,
   WorkOrderHoldReason,
   WorkOrderKind,
 } from "@prisma/client";
-import { randomBytes } from "node:crypto";
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requesterVisibleStatusLabel } from "@/lib/operational-requests/types";
 import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
-import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
-import {
-  requireWorkOrderManage,
-  resolveAssetOperationsAuthority,
-} from "./authority";
-import { isAssignedWorkOrderTechnician } from "./work-order-actor";
+import { requireWorkOrderManage, resolveAssetOperationsAuthority } from "./authority";
 import { resolvePreferredRepairProviderForAsset } from "./responsibility";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 
 import { ensureDefaultMaintenanceCategories } from "./maintenance-categories";
 import { normalizeAssetStatus, OPEN_ASSET_ISSUE_STATUSES } from "./types";
 import {
+  appendRepairUpdate,
+  loadWorkOrderScoped,
+  newWorkOrderCuid,
+  resolveWorkOrderActorAuthority,
+  type DbClient,
+} from "./work-order-access";
+import { applyWorkOrderCloseoutCompletion } from "./work-order-closeout";
+import {
   mapRepairTradeToCategoryKey,
   presentWorkOrder,
   resolveStoredHoldWrite,
 } from "./work-order-semantics";
 
-type DbClient = PrismaClient | Prisma.TransactionClient;
-
-async function resolveWorkOrderActorAuthority(
-  session: AppJwtPayload,
-  facilityId: string,
-  departmentId: string,
-  opts?: { repairId?: string },
-) {
-  const department = await prisma.department.findFirst({
-    where: { id: departmentId, facilityId, isActive: true },
-    select: { id: true, key: true },
-  });
-
-  if (department?.key === "PLANT") {
-    const { resolvePlantOperationsAuthority, requirePlantWorkOrderManage } =
-      await import("@/lib/operational-requests/authority");
-
-    let isAssignedTechnician = false;
-    if (opts?.repairId) {
-      const repair = await prisma.repair.findFirst({
-        where: { id: opts.repairId, unit: { facilityId } },
-        select: { assignedEmployeeId: true },
-      });
-      const operationalEmployeeId = await getOperationalEmployeeIdForSession(session);
-      isAssignedTechnician = isAssignedWorkOrderTechnician({
-        assignedEmployeeId: repair?.assignedEmployeeId,
-        operationalEmployeeId,
-        sessionUid: session.uid,
-        authKind: session.authKind,
-      });
-    }
-
-    const plantAuth = await resolvePlantOperationsAuthority(
-      session,
-      facilityId,
-      departmentId,
-      { isAssignedTechnician },
-    );
-    requirePlantWorkOrderManage(plantAuth);
-    return {
-      kind: "plant" as const,
-      canManage: plantAuth.canManageWorkOrders,
-      canAssignVendor: plantAuth.canManageVendors,
-      canActAssigned: plantAuth.canActOnAssignedWorkOrder,
-      plantAuth,
-    };
-  }
-
-  const authority = await resolveAssetOperationsAuthority(
-    session,
-    facilityId,
-    departmentId,
-  );
-  requireWorkOrderManage(authority);
-  return {
-    kind: "asset" as const,
-    canManage: authority.canManageWorkOrders,
-    canAssignVendor: authority.canAssignVendor,
-    canActAssigned: false,
-    assetAuth: authority,
-  };
-}
-
 function cuidLike() {
-  return `c${randomBytes(12).toString("hex")}`;
+  return newWorkOrderCuid();
 }
 
 const ALLOWED_WO_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
@@ -161,40 +99,6 @@ async function nextRepairCode(client: DbClient): Promise<string> {
     candidate = `R-${String(count + 1 + i + 1).padStart(5, "0")}`;
   }
   return `R-${cuidLike().slice(1, 9).toUpperCase()}`;
-}
-
-async function appendRepairUpdate(
-  client: DbClient,
-  input: {
-    repairId: string;
-    updateText: string;
-    statusAfterUpdate: RepairStatus | null;
-    updatedById: string | null;
-    requesterVisible?: boolean;
-  },
-) {
-  await client.repairUpdate.create({
-    data: {
-      id: cuidLike(),
-      repairId: input.repairId,
-      updateText: input.updateText,
-      statusAfterUpdate: input.statusAfterUpdate,
-      updatedById: input.updatedById,
-      requesterVisible: input.requesterVisible ?? false,
-    },
-  });
-}
-
-async function loadWorkOrderScoped(
-  client: DbClient,
-  repairId: string,
-  facilityId: string,
-) {
-  const repair = await client.repair.findFirst({
-    where: { id: repairId, unit: { facilityId } },
-  });
-  if (!repair) throw new Error("Work Order not found.");
-  return repair;
 }
 
 function assertTransition(from: RepairStatus, to: RepairStatus) {
@@ -817,7 +721,8 @@ export async function assignResponsibleEmployee(
 }
 
 /**
- * Completes the Work Order. Does NOT change Asset status. Does NOT close the Issue.
+ * Completes the Work Order through the Phase 3D closeout gate.
+ * Does NOT resolve Issue or Request. Asset condition changes only on explicit review.
  */
 export async function completeWorkOrder(
   session: AppJwtPayload,
@@ -830,64 +735,19 @@ export async function completeWorkOrder(
     followUpRequired?: boolean;
     followUpNote?: string | null;
     comment?: string | null;
+    assetConditionReview?: import("./work-order-closeout").RepairAssetConditionReviewChoice | null;
+    requesterVisible?: boolean;
     client?: DbClient;
     now?: Date;
   },
 ) {
-  const client = input.client ?? prisma;
-  await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
-    repairId: input.repairId,
-  });
-
-  const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
-  if (repair.status === "COMPLETED" || repair.status === "CLOSED") {
-    return repair;
-  }
-  if (repair.status === "CANCELLED") {
-    throw new Error("Cancelled Work Orders cannot be completed.");
-  }
-  if (
-    repair.status !== "IN_PROGRESS" &&
-    repair.status !== "WAITING_PARTS" &&
-    repair.status !== "WAITING_ON_VENDOR" &&
-    repair.status !== "ON_HOLD" &&
-    repair.status !== "ASSIGNED" &&
-    repair.status !== "OPEN"
-  ) {
-    throw new Error(`Cannot complete Work Order from status ${repair.status}.`);
-  }
-
-  const actorUserId = sessionUserIdForFk(session);
-  const now = input.now ?? new Date();
-
-  const updated = await client.repair.update({
-    where: { id: repair.id },
-    data: {
-      status: "COMPLETED",
-      holdReason: null,
-      completedAt: now,
-      startedAt: repair.startedAt ?? now,
-      workPerformed: input.workPerformed?.trim() || repair.workPerformed,
-      resolution: input.resolution?.trim() || repair.resolution,
-      followUpRequired: input.followUpRequired ?? repair.followUpRequired,
-      followUpNote:
-        input.followUpNote !== undefined
-          ? input.followUpNote?.trim() || null
-          : repair.followUpNote,
-    },
-  });
-
-  await appendRepairUpdate(client, {
-    repairId: repair.id,
-    updateText:
-      input.comment?.trim() ||
-      input.resolution?.trim() ||
-      "Work Order completed",
-    statusAfterUpdate: "COMPLETED",
-    updatedById: actorUserId,
-  });
-
-  return updated;
+  const run = (client: DbClient) =>
+    applyWorkOrderCloseoutCompletion(session, {
+      ...input,
+      client,
+    });
+  if (input.client) return run(input.client);
+  return prisma.$transaction((tx) => run(tx));
 }
 
 /**
@@ -1063,6 +923,7 @@ export async function technicianUpdateWorkOrder(
     requesterVisible?: boolean;
     workPerformed?: string | null;
     resolution?: string | null;
+    assetConditionReview?: import("./work-order-closeout").RepairAssetConditionReviewChoice | null;
     followUpRequired?: boolean;
     followUpNote?: string | null;
     client?: DbClient;
@@ -1123,54 +984,20 @@ export async function technicianUpdateWorkOrder(
   const toStatus = storedHold.status;
 
   if (input.action === "COMPLETE") {
-    if (repair.status === "COMPLETED" || repair.status === "CLOSED") {
-      return repair;
-    }
-    if (repair.status === "CANCELLED") {
-      throw new Error("Cancelled Work Orders cannot be completed.");
-    }
-    const allowedFrom = [
-      "OPEN",
-      "ASSIGNED",
-      "IN_PROGRESS",
-      "WAITING_PARTS",
-      "WAITING_ON_VENDOR",
-      "ON_HOLD",
-    ] as RepairStatus[];
-    if (!allowedFrom.includes(repair.status)) {
-      throw new Error(`Cannot complete Work Order from status ${repair.status}.`);
-    }
-
-    const updated = await client.repair.update({
-      where: { id: repair.id },
-      data: {
-        status: "COMPLETED",
-        holdReason: null,
-        completedAt: now,
-        startedAt: repair.startedAt ?? now,
-        workPerformed: input.workPerformed?.trim() || repair.workPerformed,
-        resolution: input.resolution?.trim() || repair.resolution,
-        followUpRequired: input.followUpRequired ?? repair.followUpRequired,
-        followUpNote:
-          input.followUpNote !== undefined
-            ? input.followUpNote?.trim() || null
-            : repair.followUpNote,
-      },
-    });
-
-    await appendRepairUpdate(client, {
-      repairId: repair.id,
-      updateText:
-        input.note?.trim() ||
-        input.resolution?.trim() ||
-        "Work Order completed",
-      statusAfterUpdate: "COMPLETED",
-      updatedById: actorUserId,
+    return completeWorkOrder(session, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      repairId: input.repairId,
+      workPerformed: input.workPerformed,
+      resolution: input.resolution,
+      followUpRequired: input.followUpRequired,
+      followUpNote: input.followUpNote,
+      comment: input.note,
+      assetConditionReview: input.assetConditionReview,
       requesterVisible,
+      client: input.client,
+      now: input.now,
     });
-
-    // Explicit: do NOT close OperationalRequest, do NOT mutate Asset status.
-    return updated;
   }
 
   assertTransition(repair.status, toStatus);

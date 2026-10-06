@@ -3,7 +3,7 @@
  * One Catalog Log, many Attachments. Unassign retires; Evidence stays.
  */
 
-import type { LogAttachmentTargetKind, PrismaClient, UnitHierarchyRole } from "@prisma/client";
+import type { PrismaClient, UnitHierarchyRole } from "@prisma/client";
 
 import { isActionableDepartmentUnit } from "@/lib/department-administration/department-locations";
 import { loadFacilityTimezone } from "@/lib/operational-time";
@@ -21,47 +21,25 @@ import {
 import { loadCycleOptionsForDepartment, cycleLabelMap } from "./cycle-options";
 import { resolveDefaultAttachmentEffectiveFromKey } from "./effective-from";
 import { createLogAttachment, setLogAttachmentStatus } from "./attachment-service";
+import {
+  computeCatalogAssignDiff,
+  parseTargetAssignKey,
+  targetAssignKey,
+  type CatalogAssignKind,
+  type CatalogAssignTargetRow,
+  type CatalogAssignView,
+} from "./catalog-assign-model";
 
-export type CatalogAssignKind = Exclude<LogAttachmentTargetKind, "FACILITY">;
-
-export type CatalogAssignTargetRow = {
-  key: string;
-  kind: CatalogAssignKind;
-  id: string;
-  label: string;
-  groupLabel: string | null;
-  departmentId: string | null;
-  departmentName: string | null;
-  suggested: boolean;
-  assigned: boolean;
-  attachmentId: string | null;
-  disabled: boolean;
-  disabledReason: string | null;
-};
-
-export type CatalogAssignCategory = {
-  kind: CatalogAssignKind;
-  label: string;
-  targets: CatalogAssignTargetRow[];
-};
-
-export type CatalogAssignView = {
-  catalogStableKey: string;
-  catalogName: string;
-  catalogDefinitionId: string;
-  recommendedCadenceLabel: string;
-  timingSummary: string;
-  usingRecommendedSchedule: boolean;
-  catalogNeedsSetup: boolean;
-  catalogNeedsSetupReason: string | null;
-  effectiveFromKey: string;
-  effectiveLabel: string;
-  categories: CatalogAssignCategory[];
-};
-
-export function targetAssignKey(kind: CatalogAssignKind, id: string): string {
-  return `${kind}:${id}`;
-}
+export {
+  CATALOG_UNASSIGN_NOTICE,
+  computeCatalogAssignDiff,
+  parseTargetAssignKey,
+  targetAssignKey,
+  type CatalogAssignCategory,
+  type CatalogAssignKind,
+  type CatalogAssignTargetRow,
+  type CatalogAssignView,
+} from "./catalog-assign-model";
 
 /** Floors and Buildings are grouping only — never new UNIT Log targets. */
 export function includeUnitInCatalogAssign(input: {
@@ -74,46 +52,6 @@ export function includeUnitInCatalogAssign(input: {
     hierarchyRole: input.hierarchyRole,
     parentUnitId: input.parentUnitId,
   });
-}
-
-export function parseTargetAssignKey(
-  key: string,
-): { kind: CatalogAssignKind; id: string } | null {
-  const split = key.indexOf(":");
-  if (split <= 0) return null;
-  const kind = key.slice(0, split);
-  const id = key.slice(split + 1);
-  if (!id) return null;
-  if (
-    kind !== "ASSET" &&
-    kind !== "SPACE" &&
-    kind !== "UNIT" &&
-    kind !== "DEPARTMENT" &&
-    kind !== "OPERATIONAL_TYPE"
-  ) {
-    return null;
-  }
-  return { kind, id };
-}
-
-export function computeCatalogAssignDiff(input: {
-  selectedKeys: readonly string[];
-  liveAssignments: ReadonlyArray<{ key: string; attachmentId: string }>;
-}): {
-  addKeys: string[];
-  remove: Array<{ key: string; attachmentId: string }>;
-} {
-  const selected = new Set(input.selectedKeys);
-  const live = new Map(input.liveAssignments.map((row) => [row.key, row.attachmentId]));
-  const addKeys: string[] = [];
-  const remove: Array<{ key: string; attachmentId: string }> = [];
-  for (const key of selected) {
-    if (!live.has(key)) addKeys.push(key);
-  }
-  for (const [key, attachmentId] of live) {
-    if (!selected.has(key)) remove.push({ key, attachmentId });
-  }
-  return { addKeys, remove };
 }
 
 function liveAssignmentMap(
@@ -574,9 +512,6 @@ export async function loadCatalogAssignView(input: {
     ],
   };
 }
-
-export const CATALOG_UNASSIGN_NOTICE =
-  "This Log will no longer be required on the unselected targets. Completed records stay in the Log Book.";
 
 export async function applyCatalogAssignSelection(input: {
   client: PrismaClient;

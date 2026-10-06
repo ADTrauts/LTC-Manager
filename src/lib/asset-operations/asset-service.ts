@@ -394,6 +394,7 @@ export async function changeAssetStatus(
     departmentId: string;
     client?: DbClient;
     now?: Date;
+    allowWorkOrderCloseoutTechnician?: boolean;
   },
 ) {
   const client = input.client ?? prisma;
@@ -402,7 +403,9 @@ export async function changeAssetStatus(
     input.facilityId,
     input.departmentId,
   );
-  requireAssetStatusChange(authority);
+  if (!input.allowWorkOrderCloseoutTechnician) {
+    requireAssetStatusChange(authority);
+  }
 
   const asset = await loadScopedAsset(client, input.assetId, input.facilityId);
   const fromStatus = asset.status;

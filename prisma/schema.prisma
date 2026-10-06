@@ -539,6 +539,11 @@ model User {
   operationalRequestUpdates      OperationalRequestUpdate[]     @relation("OperationalRequestUpdateByUser")
   operationalRequestEvidenceLinks OperationalRequestEvidenceLink[] @relation("OperationalRequestEvidenceLinkedBy")
   repairEvidenceLinks            RepairEvidenceLink[]            @relation("RepairEvidenceLinkedBy")
+  repairLaborRecorded            RepairLaborEntry[]              @relation("RepairLaborRecordedBy")
+  repairPartsCreated             RepairPartUsed[]                @relation("RepairPartUsedCreatedBy")
+  repairRequirementsCreated      RepairRecordRequirement[]       @relation("RepairRecordRequirementCreatedBy")
+  repairRequirementsWaived       RepairRecordRequirement[]       @relation("RepairRecordRequirementWaivedBy")
+  repairAssetConditionReviews    Repair[]                        @relation("RepairAssetConditionReviewedBy")
   workPlansCreated               DepartmentWorkPlan[]            @relation("WorkPlanCreatedBy")
   workPlansPublished             DepartmentWorkPlan[]            @relation("WorkPlanPublishedBy")
   workPlansRetired               DepartmentWorkPlan[]            @relation("WorkPlanRetiredBy")
@@ -932,6 +937,21 @@ enum RepairStatus {
   COMPLETED
   CANCELLED
   CLOSED
+}
+
+/// Closeout Asset condition review. NO_CHANGE stamps consideration without mutating Asset.
+enum RepairAssetConditionReview {
+  NO_CHANGE
+  OPERATIONAL
+  DEGRADED
+  OUT_OF_SERVICE
+}
+
+/// Required Record on a Work Order. WAIVED is a real outcome, not a fake completed Record.
+enum RepairRecordRequirementStatus {
+  PENDING
+  SATISFIED
+  WAIVED
 }
 
 enum WorkOrderKind {
@@ -1742,6 +1762,7 @@ model Employee {
   operationalEvidenceRecords     OperationalEvidenceRecord[]     @relation("EvidenceRecordedByEmployee")
   operationalEvidenceCorrections OperationalEvidenceCorrection[] @relation("EvidenceCorrectedByEmployee")
   assignedRepairs                Repair[]                        @relation("RepairAssignedEmployee")
+  repairLaborEntries             RepairLaborEntry[]
   roomAreaStatusUpdates          RoomAreaStatus[]
   assignedTasks                  Task[]                          @relation("TaskAssignedEmployee")
   attachmentsCreated             Attachment[]                    @relation("AttachmentCreatedByEmployee")
@@ -2330,7 +2351,15 @@ model Repair {
   estimatedLaborMinutes   Int?
   partsNote               String?
   workPerformed           String?
+  /// Compatibility completion note. Canonical closeout summary is workPerformed.
   resolution              String?
+  /// Recorded vendor/material expense. Not labor dollars. Not a Facility currency model.
+  externalCost            Decimal?                       @db.Decimal(12, 2)
+  externalCostNote        String?
+  assetConditionReview    RepairAssetConditionReview?
+  assetConditionReviewedAt DateTime?
+  assetConditionReviewedByUserId String?
+  assetConditionReviewedByUser User? @relation("RepairAssetConditionReviewedBy", fields: [assetConditionReviewedByUserId], references: [id], onDelete: SetNull)
   followUpRequired        Boolean                        @default(false)
   followUpNote            String?
   /// Explicit return-to-service confirmation on the Work Order (does not mutate Asset alone).
@@ -2358,6 +2387,9 @@ model Repair {
   attachments             Attachment[]
   assetStatusHistoryLinks AssetStatusHistory[]
   evidenceLinks           RepairEvidenceLink[]
+  laborEntries            RepairLaborEntry[]
+  partsUsed               RepairPartUsed[]
+  recordRequirements      RepairRecordRequirement[]
   createdAt               DateTime                       @default(now())
   completedAt             DateTime?
   updatedAt               DateTime                       @updatedAt
@@ -2375,6 +2407,7 @@ model Repair {
   @@index([spaceId])
   @@index([procedureVersionId])
   @@index([maintenanceCategoryId])
+  @@index([assetConditionReviewedByUserId])
 }
 
 /// Incidental canonical Record linked to a Work Order. Not a required-closeout gate.
@@ -2391,6 +2424,72 @@ model RepairEvidenceLink {
 
   @@unique([repairId, evidenceRecordId])
   @@index([evidenceRecordId])
+}
+
+/// Work Order Labor Entry. minutes >= 0; missing entries are not the same as zero labor.
+model RepairLaborEntry {
+  id                String   @id @default(cuid())
+  repairId          String
+  repair            Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  /// Employee who performed the labor. Independent of later Work Order assignee.
+  employeeId        String
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  minutes           Int
+  note              String?
+  recordedAt        DateTime @default(now())
+  recordedByUserId  String?
+  recordedByUser    User?    @relation("RepairLaborRecordedBy", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([repairId])
+  @@index([employeeId])
+  @@index([recordedByUserId])
+}
+
+/// Work Order Part Used. No catalog or inventory FK. lineCost is optional line total, not unit cost.
+model RepairPartUsed {
+  id              String   @id @default(cuid())
+  repairId        String
+  repair          Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  description     String
+  partNumber      String?
+  quantity        Decimal  @db.Decimal(12, 3)
+  lineCost        Decimal? @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+  createdByUserId String?
+  createdByUser   User?    @relation("RepairPartUsedCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([repairId])
+  @@index([createdByUserId])
+}
+
+/// Work Order Required Evidence. Pins a published OperationalTemplate version.
+model RepairRecordRequirement {
+  id                   String                         @id @default(cuid())
+  repairId             String
+  repair               Repair                         @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  templateId           String
+  template             OperationalTemplate            @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  templateStableKey    String
+  templateVersion      Int
+  templateName         String
+  sortOrder            Int                            @default(0)
+  status               RepairRecordRequirementStatus  @default(PENDING)
+  satisfiedByRecordId  String?
+  satisfiedByRecord    OperationalEvidenceRecord?     @relation(fields: [satisfiedByRecordId], references: [id], onDelete: Restrict)
+  waivedAt             DateTime?
+  waivedByUserId       String?
+  waivedByUser         User?                          @relation("RepairRecordRequirementWaivedBy", fields: [waivedByUserId], references: [id], onDelete: SetNull)
+  waiveReason          String?
+  createdAt            DateTime                       @default(now())
+  createdByUserId      String?
+  createdByUser        User?                          @relation("RepairRecordRequirementCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([repairId, templateId])
+  @@index([repairId, status])
+  @@index([templateId])
+  @@index([satisfiedByRecordId])
+  @@index([waivedByUserId])
+  @@index([createdByUserId])
 }
 
 model RepairUpdate {
@@ -3816,6 +3915,7 @@ model OperationalTemplate {
   schedules           OperationalTemplateSchedule[]
   events              OperationalTemplateEvent[]
   evidenceRecords     OperationalEvidenceRecord[]
+  repairRecordRequirements RepairRecordRequirement[]
   createdAt           DateTime                           @default(now())
   updatedAt           DateTime                           @updatedAt
 
@@ -3978,6 +4078,7 @@ model OperationalEvidenceRecord {
   originatedIssues             AssetIssue[]                    @relation("AssetIssueOriginEvidence")
   operationalRequestLinks      OperationalRequestEvidenceLink[]
   repairLinks                  RepairEvidenceLink[]
+  satisfiedRepairRequirements  RepairRecordRequirement[]
   createdAt                    DateTime                        @default(now())
   updatedAt                    DateTime                        @updatedAt
 

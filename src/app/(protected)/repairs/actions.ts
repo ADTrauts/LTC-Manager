@@ -7,6 +7,7 @@ import {
   RepairPriority,
   RepairStatus,
   RepairTrade,
+  RepairAssetConditionReview,
   WorkOrderHoldReason,
   WorkOrderKind,
 } from "@prisma/client";
@@ -20,14 +21,23 @@ import {
   suggestRepairDepartmentIds,
 } from "@/lib/repair-routing";
 import {
+  addWorkOrderLabor,
   addWorkOrderNote,
+  addWorkOrderPart,
+  addWorkOrderRecordRequirement,
   assignWorkOrder,
   completeAssignedWorkOrder,
   holdAssignedWorkOrder,
   linkEvidenceToWorkOrder,
+  removeWorkOrderLabor,
+  removeWorkOrderPart,
+  removeWorkOrderRecordRequirement,
   resolvePreferredRepairProviderForAsset,
   resumeWorkOrder,
+  satisfyWorkOrderRecordRequirement,
+  setWorkOrderExternalCost,
   startWorkOrder,
+  waiveWorkOrderRecordRequirement,
 } from "@/lib/asset-operations";
 import { listAttachmentsForRepair } from "@/lib/attachments";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
@@ -287,6 +297,166 @@ export async function completeWorkOrderAction(formData: FormData) {
     workPerformed: toOptional(formData.get("workPerformed")),
     resolution: toOptional(formData.get("resolution")),
     note: toOptional(formData.get("note")),
+    assetConditionReview: parseAssetConditionReview(formData.get("assetConditionReview")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+function parseAssetConditionReview(raw: FormDataEntryValue | null) {
+  const value = toOptional(raw);
+  if (!value) return null;
+  if (
+    value === RepairAssetConditionReview.NO_CHANGE ||
+    value === RepairAssetConditionReview.OPERATIONAL ||
+    value === RepairAssetConditionReview.DEGRADED ||
+    value === RepairAssetConditionReview.OUT_OF_SERVICE
+  ) {
+    return value;
+  }
+  throw new Error("Select a valid Asset condition review.");
+}
+
+function closeoutIds(formData: FormData) {
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!repairId || !departmentId) throw new Error("Invalid Work Order.");
+  return { repairId, departmentId };
+}
+
+export async function addWorkOrderLaborAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const { repairId, departmentId } = closeoutIds(formData);
+  const minutes = Number.parseInt(String(formData.get("minutes") ?? ""), 10);
+  await addWorkOrderLabor(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    minutes,
+    employeeId: toOptional(formData.get("employeeId")),
+    note: toOptional(formData.get("note")),
+    upsertOwn: true,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function addWorkOrderPartAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const { repairId, departmentId } = closeoutIds(formData);
+  await addWorkOrderPart(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    description: String(formData.get("description") ?? ""),
+    partNumber: toOptional(formData.get("partNumber")),
+    quantity: String(formData.get("quantity") ?? ""),
+    lineCost: toOptional(formData.get("lineCost")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function removeWorkOrderPartAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const { repairId, departmentId } = closeoutIds(formData);
+  const partId = String(formData.get("partId") ?? "");
+  if (!partId) throw new Error("Part is required.");
+  await removeWorkOrderPart(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    partId,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function removeWorkOrderLaborAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const { repairId, departmentId } = closeoutIds(formData);
+  const laborEntryId = String(formData.get("laborEntryId") ?? "");
+  if (!laborEntryId) throw new Error("Labor entry is required.");
+  await removeWorkOrderLabor(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    laborEntryId,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function setWorkOrderExternalCostAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+  const { repairId, departmentId } = closeoutIds(formData);
+  await setWorkOrderExternalCost(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    vendorId: toOptional(formData.get("vendorId")) ?? null,
+    externalCost: toOptional(formData.get("externalCost")),
+    externalCostNote: toOptional(formData.get("externalCostNote")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function addWorkOrderRecordRequirementAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+  const { repairId, departmentId } = closeoutIds(formData);
+  const templateId = String(formData.get("templateId") ?? "");
+  if (!templateId) throw new Error("Select a published Record template.");
+  await addWorkOrderRecordRequirement(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    templateId,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function removeWorkOrderRecordRequirementAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+  const { repairId, departmentId } = closeoutIds(formData);
+  const requirementId = String(formData.get("requirementId") ?? "");
+  if (!requirementId) throw new Error("Required Record is required.");
+  await removeWorkOrderRecordRequirement(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    requirementId,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function satisfyWorkOrderRecordRequirementAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const { repairId, departmentId } = closeoutIds(formData);
+  const requirementId = String(formData.get("requirementId") ?? "");
+  const evidenceRecordId = String(formData.get("evidenceRecordId") ?? "");
+  if (!requirementId || !evidenceRecordId) {
+    throw new Error("Record ID is required to satisfy this requirement.");
+  }
+  await satisfyWorkOrderRecordRequirement(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    requirementId,
+    evidenceRecordId,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function waiveWorkOrderRecordRequirementAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+  const { repairId, departmentId } = closeoutIds(formData);
+  const requirementId = String(formData.get("requirementId") ?? "");
+  if (!requirementId) throw new Error("Required Record is required.");
+  await waiveWorkOrderRecordRequirement(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    requirementId,
+    waiveReason: String(formData.get("waiveReason") ?? ""),
   });
   revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
 }
