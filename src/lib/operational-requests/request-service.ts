@@ -736,6 +736,12 @@ export async function loadRequesterVisibleStatus(
       unit: { select: { name: true } },
       asset: { select: { name: true } },
       workOrder: { select: { repairCode: true, status: true } },
+      relatedAssetIssue: {
+        select: {
+          issueCode: true,
+          workOrders: { select: { status: true, repairCode: true } },
+        },
+      },
       updates: {
         where: { requesterVisible: true },
         orderBy: { updatedAt: "asc" },
@@ -750,10 +756,12 @@ export async function loadRequesterVisibleStatus(
   if (!request) throw new Error("Operational Request not found.");
 
   const requestAuthority = presentRequestAuthority(request.status, request.workOrderId);
+  const linkedWorkOrderStatuses = request.relatedAssetIssue?.workOrders.map((row) => row.status) ?? [];
   const projectedStatus = presentRequesterStatus({
     status: request.status,
     workOrderId: request.workOrderId,
     workOrderStatus: request.workOrder?.status ?? null,
+    linkedWorkOrderStatuses,
   });
   const projectedStatusLabel = requesterProjectedStatusLabel(projectedStatus);
 
@@ -805,7 +813,16 @@ export async function listPlantTriageQueue(input: {
     include: {
       requestingDepartment: { select: { id: true, name: true, key: true } },
       unit: { select: { id: true, name: true } },
+      space: { select: { id: true, name: true } },
       asset: { select: { id: true, name: true, status: true } },
+      relatedAssetIssue: {
+        select: {
+          id: true,
+          issueCode: true,
+          status: true,
+          workOrders: { select: { status: true, repairCode: true } },
+        },
+      },
       workOrder: {
         select: {
           id: true,

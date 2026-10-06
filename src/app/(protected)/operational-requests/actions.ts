@@ -7,13 +7,21 @@ import {
   acknowledgeRequest,
   createRequest,
   createWorkOrderFromRequest,
+  declineRequest,
   listActiveRoutesForRequestingDepartment,
   loadRequesterVisibleStatus,
+  resolveRequestWithoutWork,
   triageRequest,
+  triageRequestCreateIssue,
+  triageRequestCreateIssueAndWorkOrder,
+  triageRequestLinkIssue,
   upsertRequestRoute,
 } from "@/lib/operational-requests";
-import { technicianUpdateWorkOrder } from "@/lib/asset-operations";
-import { returnAssetToService } from "@/lib/asset-operations";
+import {
+  listIssuesForDepartment,
+  returnAssetToService,
+  technicianUpdateWorkOrder,
+} from "@/lib/asset-operations";
 import type { AssetOperationalImpact, RepairPriority } from "@prisma/client";
 
 function formString(formData: FormData, key: string): string {
@@ -119,6 +127,112 @@ export async function triageOperationalRequestAction(formData: FormData) {
   return { ok: true as const };
 }
 
+export async function acceptRequestCreateIssueAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.facilityId) throw new Error("Not signed in.");
+
+  const result = await triageRequestCreateIssue(session, {
+    facilityId: session.facilityId,
+    plantDepartmentId: formString(formData, "plantDepartmentId"),
+    requestId: formString(formData, "requestId"),
+    triageNote: formString(formData, "triageNote") || null,
+  });
+
+  revalidatePath("/staffing/operations");
+  revalidatePath("/asset-issues");
+  return { ok: true as const, issueId: result.issue.id, issueCode: result.issue.issueCode };
+}
+
+export async function acceptRequestCreateIssueAndWorkOrderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.facilityId) throw new Error("Not signed in.");
+
+  const result = await triageRequestCreateIssueAndWorkOrder(session, {
+    facilityId: session.facilityId,
+    plantDepartmentId: formString(formData, "plantDepartmentId"),
+    requestId: formString(formData, "requestId"),
+    triageNote: formString(formData, "triageNote") || null,
+    assignedEmployeeId: formString(formData, "assignedEmployeeId") || null,
+  });
+
+  revalidatePath("/staffing/operations");
+  revalidatePath("/asset-issues");
+  revalidatePath("/repairs");
+  return {
+    ok: true as const,
+    issueId: result.issue.id,
+    issueCode: result.issue.issueCode,
+    repairId: result.workOrder.id,
+    repairCode: result.workOrder.repairCode,
+  };
+}
+
+export async function linkRequestToExistingIssueAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.facilityId) throw new Error("Not signed in.");
+
+  const result = await triageRequestLinkIssue(session, {
+    facilityId: session.facilityId,
+    plantDepartmentId: formString(formData, "plantDepartmentId"),
+    requestId: formString(formData, "requestId"),
+    issueId: formString(formData, "issueId"),
+    triageNote: formString(formData, "triageNote") || null,
+  });
+
+  revalidatePath("/staffing/operations");
+  revalidatePath("/asset-issues");
+  return { ok: true as const, issueId: result.issue.id };
+}
+
+export async function declineOperationalRequestAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.facilityId) throw new Error("Not signed in.");
+
+  await declineRequest(session, {
+    facilityId: session.facilityId,
+    plantDepartmentId: formString(formData, "plantDepartmentId"),
+    requestId: formString(formData, "requestId"),
+    reason: formString(formData, "reason") || formString(formData, "triageNote"),
+  });
+
+  revalidatePath("/staffing/operations");
+  return { ok: true as const };
+}
+
+export async function resolveRequestWithoutWorkAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.facilityId) throw new Error("Not signed in.");
+
+  await resolveRequestWithoutWork(session, {
+    facilityId: session.facilityId,
+    plantDepartmentId: formString(formData, "plantDepartmentId"),
+    requestId: formString(formData, "requestId"),
+    resolutionReason: formString(formData, "reason") || formString(formData, "triageNote"),
+  });
+
+  revalidatePath("/staffing/operations");
+  return { ok: true as const };
+}
+
+export async function searchOpenIssuesForTriageAction(input: {
+  plantDepartmentId: string;
+  unitId?: string | null;
+  assetId?: string | null;
+  q?: string | null;
+}) {
+  const session = await getSession();
+  if (!session?.facilityId) throw new Error("Not signed in.");
+  return listIssuesForDepartment(session, {
+    facilityId: session.facilityId,
+    departmentId: input.plantDepartmentId,
+    status: "OPEN",
+    unitId: input.unitId,
+    assetId: input.assetId,
+    q: input.q,
+    take: 20,
+  });
+}
+
 export async function createWorkOrderFromRequestAction(formData: FormData) {
   const session = await getSession();
   if (!session?.facilityId) throw new Error("Not signed in.");
@@ -148,6 +262,8 @@ export async function technicianWorkOrderAction(formData: FormData) {
   const action = formString(formData, "action") as
     | "START"
     | "NOTE"
+    | "HOLD"
+    | "RESUME"
     | "WAITING_PARTS"
     | "WAITING_ON_VENDOR"
     | "COMPLETE"

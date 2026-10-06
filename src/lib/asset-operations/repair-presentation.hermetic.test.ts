@@ -23,7 +23,16 @@ test("status filter membership", () => {
   assert.equal(repairMatchesQueueFilter("OPEN", "OPEN"), true);
   assert.equal(repairMatchesQueueFilter("WAITING_PARTS", "OPEN"), true);
   assert.equal(repairMatchesQueueFilter("COMPLETED", "OPEN"), false);
-  assert.equal(repairMatchesQueueFilter("ASSIGNED", "IN_PROGRESS"), true);
+  assert.equal(repairMatchesQueueFilter("ASSIGNED", "IN_PROGRESS"), false);
+  assert.equal(repairMatchesQueueFilter("ASSIGNED", "ASSIGNED"), true);
+  assert.equal(
+    repairMatchesQueueFilter("OPEN", "UNASSIGNED", { assignedEmployeeId: null }),
+    true,
+  );
+  assert.equal(
+    repairMatchesQueueFilter("OPEN", "URGENT", { priority: "EMERGENCY" }),
+    true,
+  );
   assert.equal(repairMatchesQueueFilter("WAITING_PARTS", "WAITING"), true);
   assert.equal(repairMatchesQueueFilter("COMPLETED", "COMPLETED"), true);
   assert.equal(repairMatchesQueueFilter("OPEN", "COMPLETED"), false);
@@ -54,7 +63,7 @@ test("source kind — linked / direct / preventive", () => {
 
 test("status product labels", () => {
   assert.equal(repairStatusProductLabel("OPEN"), "Open");
-  assert.equal(repairStatusProductLabel("WAITING_ON_VENDOR"), "Waiting (vendor)");
+  assert.equal(repairStatusProductLabel("WAITING_ON_VENDOR"), "On hold");
   assert.equal(repairStatusProductLabel("COMPLETED"), "Completed");
 });
 

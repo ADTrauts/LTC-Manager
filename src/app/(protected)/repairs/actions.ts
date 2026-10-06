@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { IssueType, RepairPriority, RepairStatus, RepairTrade, WorkOrderKind } from "@prisma/client";
+import {
+  IssueType,
+  RepairPriority,
+  RepairStatus,
+  RepairTrade,
+  WorkOrderHoldReason,
+  WorkOrderKind,
+} from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
@@ -12,7 +19,16 @@ import {
   defaultRepairTradeForIssueType,
   suggestRepairDepartmentIds,
 } from "@/lib/repair-routing";
-import { resolvePreferredRepairProviderForAsset } from "@/lib/asset-operations";
+import {
+  addWorkOrderNote,
+  assignWorkOrder,
+  completeAssignedWorkOrder,
+  holdAssignedWorkOrder,
+  linkEvidenceToWorkOrder,
+  resolvePreferredRepairProviderForAsset,
+  resumeWorkOrder,
+  startWorkOrder,
+} from "@/lib/asset-operations";
 import { listAttachmentsForRepair } from "@/lib/attachments";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 import {
@@ -207,6 +223,120 @@ export async function createRepairAction(formData: FormData) {
 
   revalidateRepairViews({ issueId: repair.id, unitId: repair.unitId });
   redirect("/repairs");
+}
+
+function revalidateWorkOrder(repairId: string, issueId?: string | null) {
+  revalidatePath("/repairs");
+  revalidatePath(`/repairs/${repairId}`);
+  revalidatePath("/staffing/operations");
+  if (issueId) revalidatePath(`/asset-issues/${issueId}`);
+}
+
+export async function startWorkOrderAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!repairId || !departmentId) throw new Error("Invalid Work Order start.");
+  await startWorkOrder(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    note: toOptional(formData.get("note")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function holdWorkOrderAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!repairId || !departmentId) throw new Error("Invalid Work Order hold.");
+  await holdAssignedWorkOrder(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    holdReason: (toOptional(formData.get("holdReason")) || "OTHER") as WorkOrderHoldReason,
+    note: toOptional(formData.get("note")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function resumeWorkOrderAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!repairId || !departmentId) throw new Error("Invalid Work Order resume.");
+  await resumeWorkOrder(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    note: toOptional(formData.get("note")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function completeWorkOrderAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!repairId || !departmentId) throw new Error("Invalid Work Order complete.");
+  await completeAssignedWorkOrder(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    workPerformed: toOptional(formData.get("workPerformed")),
+    resolution: toOptional(formData.get("resolution")),
+    note: toOptional(formData.get("note")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function addWorkOrderNoteAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const note = toOptional(formData.get("note"));
+  if (!repairId || !departmentId || !note) throw new Error("A note is required.");
+  await addWorkOrderNote(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    note,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function assignWorkOrderAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "SUPERVISOR");
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  if (!repairId || !departmentId) throw new Error("Invalid assignment.");
+  await assignWorkOrder(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    assignedEmployeeId: toOptional(formData.get("assignedEmployeeId")) ?? null,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+}
+
+export async function linkEvidenceToWorkOrderAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const evidenceRecordId = String(formData.get("evidenceRecordId") ?? "");
+  if (!repairId || !departmentId || !evidenceRecordId) {
+    throw new Error("Evidence record is required.");
+  }
+  await linkEvidenceToWorkOrder(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    evidenceRecordId,
+    note: toOptional(formData.get("note")),
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
 }
 
 export async function addRepairUpdateAction(formData: FormData) {

@@ -30,6 +30,7 @@ import {
   requireAssetTriage,
   resolveAssetOperationsAuthority,
 } from "./authority";
+import { issueStatusesForListView, type IssueListView } from "./issue-semantics";
 import {
   normalizeAssetStatus,
   OPEN_ASSET_ISSUE_STATUSES,
@@ -271,16 +272,27 @@ export async function reportIssue(
     }
   }
 
-  if (input.evidenceRecordId) {
+  const originEvidenceRecordId =
+    input.originEvidenceRecordId?.trim() || input.evidenceRecordId?.trim() || null;
+  if (originEvidenceRecordId) {
     const evidence = await client.operationalEvidenceRecord.findFirst({
       where: {
-        id: input.evidenceRecordId,
+        id: originEvidenceRecordId,
         facilityId: input.facilityId,
-        departmentId: input.departmentId,
       },
       select: { id: true },
     });
     if (!evidence) throw new Error("Evidence record not found.");
+  }
+  if (input.evidenceRecordId && input.evidenceRecordId !== originEvidenceRecordId) {
+    const linked = await client.operationalEvidenceRecord.findFirst({
+      where: {
+        id: input.evidenceRecordId,
+        facilityId: input.facilityId,
+      },
+      select: { id: true },
+    });
+    if (!linked) throw new Error("Evidence record not found.");
   }
 
   const employeeId = await getOperationalEmployeeIdForSession(session);
@@ -314,6 +326,7 @@ export async function reportIssue(
       reportedByUserId: actors.userId,
       reportedByEmployeeId: actors.employeeId,
       reportedByLabel: actors.label,
+      originEvidenceRecordId,
       updates: {
         create: {
           id: cuidLike(),
@@ -844,8 +857,10 @@ export async function listIssuesForDepartment(
     facilityId: string;
     departmentId: string;
     status?: AssetIssueStatus[] | "OPEN" | "ALL";
+    view?: IssueListView | string | null;
     assetId?: string | null;
     unitId?: string | null;
+    q?: string | null;
     take?: number;
   },
 ) {
@@ -858,12 +873,15 @@ export async function listIssuesForDepartment(
     throw new Error(authority.reason ?? "Issue list denied.");
   }
 
+  const q = input.q?.trim() || "";
   const statusFilter =
-    input.status === "ALL"
-      ? undefined
-      : input.status === "OPEN" || input.status === undefined
-        ? { in: OPEN_ASSET_ISSUE_STATUSES }
-        : { in: input.status };
+    input.view
+      ? { in: issueStatusesForListView(input.view) }
+      : input.status === "ALL"
+        ? undefined
+        : input.status === "OPEN" || input.status === undefined
+          ? { in: OPEN_ASSET_ISSUE_STATUSES }
+          : { in: input.status };
 
   return prisma.assetIssue.findMany({
     where: {
@@ -872,6 +890,15 @@ export async function listIssuesForDepartment(
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(input.assetId ? { assetId: input.assetId } : {}),
       ...(input.unitId ? { unitId: input.unitId } : {}),
+      ...(q
+        ? {
+            OR: [
+              { issueCode: { contains: q, mode: "insensitive" } },
+              { summary: { contains: q, mode: "insensitive" } },
+              { description: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ priority: "desc" }, { reportedAt: "desc" }],
     take: input.take ?? 100,
@@ -892,6 +919,16 @@ export async function listIssuesForDepartment(
       asset: { select: { id: true, assetCode: true, name: true, status: true } },
       unit: { select: { id: true, name: true } },
       space: { select: { id: true, name: true } },
+      _count: {
+        select: {
+          workOrders: true,
+          relatedFromOperationalRequests: true,
+        },
+      },
+      workOrders: {
+        select: { id: true, status: true },
+        take: 20,
+      },
     },
   });
 }
@@ -943,7 +980,10 @@ export async function getIssueDetail(
           title: true,
           status: true,
           priority: true,
+          holdReason: true,
           returnToServiceReady: true,
+          assignedEmployee: { select: { firstName: true, lastName: true } },
+          maintenanceCategory: { select: { key: true, label: true } },
         },
       },
       workOrders: {
@@ -954,8 +994,32 @@ export async function getIssueDetail(
           title: true,
           status: true,
           priority: true,
+          holdReason: true,
           returnToServiceReady: true,
           requestedAt: true,
+          assignedEmployeeId: true,
+          assignedEmployee: { select: { firstName: true, lastName: true } },
+          maintenanceCategory: { select: { key: true, label: true } },
+        },
+      },
+      relatedFromOperationalRequests: {
+        orderBy: { reportedAt: "asc" },
+        select: {
+          id: true,
+          requestCode: true,
+          summary: true,
+          status: true,
+          reportedAt: true,
+          requestingDepartment: { select: { name: true } },
+        },
+      },
+      originEvidenceRecord: {
+        select: {
+          id: true,
+          templateName: true,
+          status: true,
+          occurredAt: true,
+          outOfStandard: true,
         },
       },
       updates: { orderBy: { updatedAt: "asc" } },

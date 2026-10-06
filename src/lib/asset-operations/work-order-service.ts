@@ -642,12 +642,9 @@ export async function updateWorkOrderStatus(
   },
 ) {
   const client = input.client ?? prisma;
-  const authority = await resolveAssetOperationsAuthority(
-    session,
-    input.facilityId,
-    input.departmentId,
-  );
-  requireWorkOrderManage(authority);
+  await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
+    repairId: input.repairId,
+  });
 
   const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
   assertTransition(repair.status, input.toStatus);
@@ -830,12 +827,9 @@ export async function completeWorkOrder(
   },
 ) {
   const client = input.client ?? prisma;
-  const authority = await resolveAssetOperationsAuthority(
-    session,
-    input.facilityId,
-    input.departmentId,
-  );
-  requireWorkOrderManage(authority);
+  await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
+    repairId: input.repairId,
+  });
 
   const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
   if (repair.status === "COMPLETED" || repair.status === "CLOSED") {
@@ -1050,10 +1044,13 @@ export async function technicianUpdateWorkOrder(
     action:
       | "START"
       | "NOTE"
+      | "HOLD"
+      | "RESUME"
       | "WAITING_PARTS"
       | "WAITING_ON_VENDOR"
       | "COMPLETE"
       | "FOLLOW_UP";
+    holdReason?: WorkOrderHoldReason | null;
     note?: string | null;
     requesterVisible?: boolean;
     workPerformed?: string | null;
@@ -1108,12 +1105,13 @@ export async function technicianUpdateWorkOrder(
   }
 
   let requestedStatus: RepairStatus;
-  if (input.action === "START") requestedStatus = "IN_PROGRESS";
+  if (input.action === "START" || input.action === "RESUME") requestedStatus = "IN_PROGRESS";
+  else if (input.action === "HOLD") requestedStatus = "ON_HOLD";
   else if (input.action === "WAITING_PARTS") requestedStatus = "WAITING_PARTS";
   else if (input.action === "WAITING_ON_VENDOR") requestedStatus = "WAITING_ON_VENDOR";
   else if (input.action === "COMPLETE") requestedStatus = "COMPLETED";
   else throw new Error("Unsupported Work Order action.");
-  const storedHold = resolveStoredHoldWrite(requestedStatus);
+  const storedHold = resolveStoredHoldWrite(requestedStatus, input.holdReason);
   const toStatus = storedHold.status;
 
   if (input.action === "COMPLETE") {

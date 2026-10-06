@@ -10,11 +10,18 @@ import type { AppRole } from "@/lib/access";
 type Props = {
   role: AppRole;
   isEmpty: boolean;
+  technicianView?: boolean;
   createForm: ReactNode;
   children: ReactNode;
 };
 
-export function RepairsPageClient({ role, isEmpty, createForm, children }: Props) {
+export function RepairsPageClient({
+  role,
+  isEmpty,
+  technicianView = false,
+  createForm,
+  children,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -32,7 +39,10 @@ export function RepairsPageClient({ role, isEmpty, createForm, children }: Props
     <div className="space-y-4" data-testid="repairs-shell">
       <header className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Maintenance</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            {technicianView ? "My Work" : "Work Orders"}
+          </h1>
+          {!technicianView ? (
           <button
             type="button"
             onClick={openCreate}
@@ -40,8 +50,9 @@ export function RepairsPageClient({ role, isEmpty, createForm, children }: Props
             data-testid="repairs-create-open"
             aria-expanded={open}
           >
-            New repair
+            New Work Order
           </button>
+          ) : null}
         </div>
         <MaintenanceSubNav role={role} activeId="repairs" />
       </header>
@@ -51,8 +62,12 @@ export function RepairsPageClient({ role, isEmpty, createForm, children }: Props
       {isEmpty ? (
         <EmptyState
           icon="repairs"
-          title="No repairs yet"
-          description="Open work will show here once a repair is created."
+          title={technicianView ? "No assigned Work Orders" : "No Work Orders yet"}
+          description={
+            technicianView
+              ? "Assigned Work Orders will show here."
+              : "Open work will show here once a Work Order is created."
+          }
           action={
             <button
               type="button"

@@ -2111,6 +2111,9 @@ model AssetIssue {
   workOrders               Repair[]               @relation("RepairCanonicalIssue")
   /// Reverse of OperationalRequest.relatedAssetIssueId (many Requests → one Issue).
   relatedFromOperationalRequests OperationalRequest[] @relation("OperationalRequestRelatedIssue")
+  /// Canonical Record that first established this condition. Provenance only.
+  originEvidenceRecordId   String?
+  originEvidenceRecord     OperationalEvidenceRecord? @relation("AssetIssueOriginEvidence", fields: [originEvidenceRecordId], references: [id], onDelete: SetNull)
   updates                  AssetIssueUpdate[]
   evidenceLinks            AssetIssueEvidenceLink[]
   statusHistoryLinks       AssetStatusHistory[]
@@ -2123,6 +2126,7 @@ model AssetIssue {
   @@index([facilityId, unitId, status])
   @@index([priority, status])
   @@index([observedAt])
+  @@index([originEvidenceRecordId])
 }
 
 model AssetIssueUpdate {
@@ -3971,6 +3975,7 @@ model OperationalEvidenceRecord {
   values                       OperationalEvidenceFieldValue[]
   corrections                  OperationalEvidenceCorrection[]
   assetIssueLinks              AssetIssueEvidenceLink[]
+  originatedIssues             AssetIssue[]                    @relation("AssetIssueOriginEvidence")
   operationalRequestLinks      OperationalRequestEvidenceLink[]
   repairLinks                  RepairEvidenceLink[]
   createdAt                    DateTime                        @default(now())

@@ -17,6 +17,10 @@ import {
   isPlantOperationsEnabled,
 } from "@/lib/feature-flags";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
+import {
+  presentRequesterStatus,
+  requesterProjectedStatusLabel,
+} from "@/lib/operational-requests/request-semantics";
 import { OPEN_OPERATIONAL_REQUEST_STATUSES } from "@/lib/operational-requests/types";
 import {
   facilityLocalDateToServiceDate,
@@ -458,7 +462,16 @@ async function loadPlantOverlay(
       include: {
         requestingDepartment: { select: { id: true, name: true } },
         unit: { select: { name: true } },
-        workOrder: { select: { repairCode: true } },
+        space: { select: { name: true } },
+        asset: { select: { name: true } },
+        relatedAssetIssue: {
+          select: {
+            id: true,
+            issueCode: true,
+            workOrders: { select: { status: true } },
+          },
+        },
+        workOrder: { select: { repairCode: true, status: true } },
       },
       orderBy: [{ priority: "desc" }, { reportedAt: "asc" }],
       take: 80,
@@ -515,17 +528,34 @@ async function loadPlantOverlay(
       (row) => row.dueAt != null && row.dueAt.getTime() < now.getTime(),
     ).length,
     unassignedWorkOrders: workOrders.filter((row) => !row.assignedEmployeeId).length,
-    requests: requests.map((row) => ({
-      id: row.id,
-      requestCode: row.requestCode,
-      summary: row.summary,
-      status: row.status,
-      priority: row.priority,
-      requestingDepartmentName: row.requestingDepartment.name,
-      unitName: row.unit.name,
-      reportedAt: row.reportedAt.toISOString(),
-      workOrderCode: row.workOrder?.repairCode ?? null,
-    })),
+    requests: requests.map((row) => {
+      const projectedStatus = presentRequesterStatus({
+        status: row.status,
+        workOrderId: row.workOrderId,
+        workOrderStatus: row.workOrder?.status ?? null,
+        linkedWorkOrderStatuses: row.relatedAssetIssue?.workOrders.map((wo) => wo.status) ?? [],
+      });
+      return {
+        id: row.id,
+        requestCode: row.requestCode,
+        summary: row.summary,
+        description: row.description,
+        status: row.status,
+        priority: row.priority,
+        requestingDepartmentName: row.requestingDepartment.name,
+        requesterLabel: row.reportedByLabel,
+        unitName: row.unit.name,
+        spaceName: row.space?.name ?? null,
+        assetName: row.asset?.name ?? null,
+        reportedAt: row.reportedAt.toISOString(),
+        workOrderCode: row.workOrder?.repairCode ?? null,
+        workOrderStatus: row.workOrder?.status ?? null,
+        projectedStatus,
+        projectedStatusLabel: requesterProjectedStatusLabel(projectedStatus),
+        issueCode: row.relatedAssetIssue?.issueCode ?? null,
+        issueId: row.relatedAssetIssue?.id ?? null,
+      };
+    }),
     workOrders: workOrders.map((row) => ({
       id: row.id,
       repairCode: row.repairCode,

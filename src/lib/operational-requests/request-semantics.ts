@@ -80,13 +80,19 @@ export function presentRequesterStatus(input: {
   status: OperationalRequestStatus | string;
   workOrderId?: string | null;
   workOrderStatus?: RepairStatus | string | null;
+  /** Additional Work Orders linked via the Issue. Never written onto Request.status. */
+  linkedWorkOrderStatuses?: Array<RepairStatus | string | null | undefined>;
 }): RequesterProjectedStatus {
   const authority = presentRequestAuthority(input.status, input.workOrderId);
   if (authority === "DECLINED") return "DECLINED";
   if (authority === "CLOSED" || authority === "RESOLVED_WITHOUT_WORK") {
     return "RESOLVED";
   }
-  if (isOpenWorkOrderStatus(input.workOrderStatus ?? null)) {
+  const linked = [
+    input.workOrderStatus,
+    ...(input.linkedWorkOrderStatuses ?? []),
+  ];
+  if (linked.some((status) => isOpenWorkOrderStatus(status ?? null))) {
     return "IN_PROGRESS";
   }
   if (!input.workOrderStatus && isLegacyRequestExecutionStatus(input.status)) {

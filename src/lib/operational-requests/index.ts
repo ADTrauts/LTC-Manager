@@ -55,3 +55,11 @@ export {
   rerouteRequest,
   triageRequest,
 } from "./request-service";
+
+export {
+  declineRequest,
+  resolveRequestWithoutWork,
+  triageRequestCreateIssue,
+  triageRequestCreateIssueAndWorkOrder,
+  triageRequestLinkIssue,
+} from "@/lib/asset-operations/corrective-maintenance";

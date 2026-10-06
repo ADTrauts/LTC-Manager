@@ -13,9 +13,14 @@ import {
 
 export type RepairQueueFilter =
   | "OPEN"
+  | "URGENT"
+  | "UNASSIGNED"
+  | "ASSIGNED"
   | "IN_PROGRESS"
+  | "ON_HOLD"
   | "WAITING"
   | "COMPLETED"
+  | "MINE"
   | "ALL";
 
 export type RepairSourceKind = "LINKED_ISSUE" | "DIRECT" | "PREVENTIVE";
@@ -40,23 +45,44 @@ export function isRepairInProgressStatus(status: RepairStatus): boolean {
   return status === "IN_PROGRESS" || status === "ASSIGNED";
 }
 
-/** Product filter membership for the Repairs queue. */
+export type RepairQueueFilterExtras = {
+  priority?: string | null;
+  assignedEmployeeId?: string | null;
+  viewerEmployeeId?: string | null;
+};
+
+/** Product filter membership for the Work Order queue. */
 export function repairMatchesQueueFilter(
   status: RepairStatus,
   filter: RepairQueueFilter,
+  extras?: RepairQueueFilterExtras,
 ): boolean {
   switch (filter) {
     case "ALL":
       return true;
     case "OPEN":
-      // Default “Open work” tab — all non-terminal statuses needing attention.
       return isRepairOpenStatus(status);
+    case "URGENT":
+      return (
+        isRepairOpenStatus(status) &&
+        (extras?.priority === "EMERGENCY" || extras?.priority === "URGENT")
+      );
+    case "UNASSIGNED":
+      return isRepairOpenStatus(status) && !extras?.assignedEmployeeId;
+    case "ASSIGNED":
+      return status === "ASSIGNED";
     case "IN_PROGRESS":
-      return isRepairInProgressStatus(status);
+      return status === "IN_PROGRESS";
+    case "ON_HOLD":
+      return isRepairWaitingStatus(status);
     case "WAITING":
       return isRepairWaitingStatus(status);
     case "COMPLETED":
       return isRepairCompletedStatus(status) || status === "CANCELLED";
+    case "MINE":
+      return Boolean(
+        extras?.viewerEmployeeId && extras.assignedEmployeeId === extras.viewerEmployeeId,
+      );
     default:
       return true;
   }
@@ -65,9 +91,14 @@ export function repairMatchesQueueFilter(
 export function parseRepairQueueFilter(raw: string | undefined | null): RepairQueueFilter {
   if (
     raw === "OPEN" ||
+    raw === "URGENT" ||
+    raw === "UNASSIGNED" ||
+    raw === "ASSIGNED" ||
     raw === "IN_PROGRESS" ||
+    raw === "ON_HOLD" ||
     raw === "WAITING" ||
     raw === "COMPLETED" ||
+    raw === "MINE" ||
     raw === "ALL"
   ) {
     return raw;

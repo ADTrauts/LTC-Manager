@@ -56,6 +56,13 @@ test("requester projection can show IN_PROGRESS from linked work without stored 
     "ACCEPTED",
   );
   assert.equal(requesterProjectedStatusLabel("IN_PROGRESS"), "In progress");
+  assert.equal(
+    presentRequesterStatus({
+      status: "UNDER_REVIEW",
+      linkedWorkOrderStatuses: ["OPEN", "IN_PROGRESS"],
+    }),
+    "IN_PROGRESS",
+  );
 });
 
 test("historical WO-shaped Request statuses still project IN_PROGRESS", () => {

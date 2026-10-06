@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import {
   assetNotRetiredWhere,
@@ -11,16 +12,20 @@ import {
   formatAssetLocationLabel,
   parseRepairQueueFilter,
   preferredRepairProviderDisplayLabel,
+  presentWorkOrderPriority,
+  presentWorkOrderStatus,
   projectAssetResponsibility,
   repairDepartmentWhere,
   repairMatchesQueueFilter,
   repairOpenedAgeLabel,
   repairSourceCompactLine,
   repairSourceKind,
-  repairStatusProductLabel,
   responsibleOrganizationDisplayLabel,
+  workOrderPriorityAuthorityLabel,
+  workOrderStatusAuthorityLabel,
   type RepairQueueFilter,
 } from "@/lib/asset-operations";
+import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { issueDetailPath } from "@/lib/work/issues/issue-copy";
@@ -34,9 +39,13 @@ type RepairsPageProps = {
 
 const FILTER_TABS: Array<{ value: RepairQueueFilter; label: string }> = [
   { value: "OPEN", label: "Open work" },
+  { value: "URGENT", label: "Emergency / Urgent" },
+  { value: "UNASSIGNED", label: "Unassigned" },
+  { value: "ASSIGNED", label: "Assigned" },
   { value: "IN_PROGRESS", label: "In progress" },
-  { value: "WAITING", label: "Waiting" },
+  { value: "ON_HOLD", label: "On hold" },
   { value: "COMPLETED", label: "Completed" },
+  { value: "MINE", label: "My work" },
   { value: "ALL", label: "All" },
 ];
 
@@ -57,10 +66,16 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
   }
   const facilityId = session.facilityId;
   const params = await searchParams;
+  const isTechnicianView = !hasAtLeastRole(session.role, "SUPERVISOR");
   const statusFilter = parseRepairQueueFilter(
-    typeof params.status === "string" ? params.status : undefined,
+    typeof params.status === "string"
+      ? params.status
+      : isTechnicianView
+        ? "MINE"
+        : undefined,
   );
   const q = typeof params.q === "string" ? params.q.trim() : "";
+  const viewerEmployeeId = await getOperationalEmployeeIdForSession(session);
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
@@ -133,20 +148,29 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         },
         vendor: { select: { id: true, name: true } },
         responsibleDepartment: { select: { id: true, name: true } },
+        assignedEmployee: { select: { firstName: true, lastName: true } },
+        maintenanceCategory: { select: { label: true } },
+        space: { select: { name: true } },
         sourceAssetIssue: { select: { id: true, summary: true, status: true } },
       },
     }),
   ]);
 
   const filtered = repairs
-    .filter((repair) => repairMatchesQueueFilter(repair.status, statusFilter))
+    .filter((repair) =>
+      repairMatchesQueueFilter(repair.status, statusFilter, {
+        priority: repair.priority,
+        assignedEmployeeId: repair.assignedEmployeeId,
+        viewerEmployeeId,
+      }),
+    )
     .sort(compareRepairsForQueue);
 
   const emptyMessage =
     repairs.length === 0 && !q
       ? null
       : filtered.length === 0
-        ? "No repairs match these filters."
+        ? "No Work Orders match these filters."
         : null;
   const isEmpty = repairs.length === 0 && !q;
 
@@ -155,6 +179,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
       <RepairsPageClient
         role={session.role}
         isEmpty={isEmpty}
+        technicianView={isTechnicianView}
         createForm={<RepairCreateForm units={units} assets={assets} vendors={vendors} />}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -224,8 +249,15 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
             });
             const locationLabel = formatAssetLocationLabel({
               unitName: repair.unit.name,
-              spaceName: repair.asset?.space?.name ?? null,
+              spaceName: repair.space?.name ?? repair.asset?.space?.name ?? null,
             });
+            const assigneeName = repair.assignedEmployee
+              ? `${repair.assignedEmployee.firstName} ${repair.assignedEmployee.lastName}`.trim()
+              : "Unassigned";
+            const woStatus = workOrderStatusAuthorityLabel(presentWorkOrderStatus(repair.status));
+            const woPriority = workOrderPriorityAuthorityLabel(
+              presentWorkOrderPriority(repair.priority),
+            );
             const subject = repair.asset
               ? `${repair.asset.assetCode} · ${repair.asset.name}`
               : repair.title;
@@ -282,6 +314,16 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
                         </div>
                       ) : null}
                       <div>
+                        <dt className="inline text-zinc-500">Technician: </dt>
+                        <dd className="inline">{assigneeName}</dd>
+                      </div>
+                      {repair.maintenanceCategory ? (
+                        <div>
+                          <dt className="inline text-zinc-500">Category: </dt>
+                          <dd className="inline">{repair.maintenanceCategory.label}</dd>
+                        </div>
+                      ) : null}
+                      <div>
                         <dt className="inline text-zinc-500">Opened: </dt>
                         <dd className="inline">{repairOpenedAgeLabel(repair.requestedAt)}</dd>
                       </div>
@@ -292,16 +334,15 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
                       className="rounded bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-800"
                       data-testid="repair-queue-status"
                     >
-                      {repairStatusProductLabel(repair.status)}
-                      {repair.priority === "URGENT" || repair.priority === "HIGH"
-                        ? ` · ${repair.priority}`
-                        : ""}
+                      {woStatus}
+                      {` · ${woPriority}`}
+                      {repair.holdReason ? ` · ${repair.holdReason}` : ""}
                     </span>
                     <Link
                       href={issueDetailPath(repair.id)}
                       className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
                     >
-                      Open repair
+                      Open Work Order
                     </Link>
                   </div>
                 </div>

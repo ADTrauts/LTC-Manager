@@ -685,7 +685,9 @@ Do not make each column its own phase. Certifiable slices:
 
 ### 3C — Corrective execution + triage
 
-**Schema:** none required if 3A/3B landed.  
+**Status:** CERTIFIED 2026-10-05 — [Phase 3C certification](./FACILITY_PLANT_OPERATIONS_PHASE_3C_CERTIFICATION_2026-10-05.md).
+
+**Schema:** optional `AssetIssue.originEvidenceRecordId` landed in 3C.  
 **Services:** accept Request → Issue; duplicate link; technician-discovered Issue+WO; assign/start/hold/resume/complete; requester projection from Issue WOs; Asset condition prompt without auto-RTS.  
 **UI:** Plant triage: accept/link Issue, create WO, decline, resolve-without-work. Minimal assigned-WO technician actions on existing detail.  
 **Tests:** Request authority unchanged by WO progress; complete ≠ Issue resolve ≠ Asset OPERATIONAL; auth matrix.  

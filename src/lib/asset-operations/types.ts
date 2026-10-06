@@ -186,6 +186,7 @@ export type ReportIssueInput = {
   equipmentRemainsUsable?: boolean;
   workaroundInstruction?: string | null;
   evidenceRecordId?: string | null;
+  originEvidenceRecordId?: string | null;
   comment?: string | null;
   clientCommandId?: string | null;
   deviceBoundUnitId?: string | null;

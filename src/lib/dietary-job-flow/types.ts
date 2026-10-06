@@ -365,6 +365,15 @@ export type SupervisorOperationsBoard = {
       unitName: string;
       reportedAt: string;
       workOrderCode: string | null;
+      description?: string;
+      requesterLabel?: string | null;
+      spaceName?: string | null;
+      assetName?: string | null;
+      projectedStatus?: string;
+      projectedStatusLabel?: string;
+      issueCode?: string | null;
+      issueId?: string | null;
+      workOrderStatus?: string | null;
     }>;
     workOrders: Array<{
       id: string;

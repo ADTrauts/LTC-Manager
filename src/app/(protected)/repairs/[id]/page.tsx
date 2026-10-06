@@ -10,6 +10,9 @@ import { AppCard, PageHeader, StatusBadge } from "@/components/design-system";
 import { PhotoFileField } from "@/components/photos/photo-file-field";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected)/repairs/actions";
+import { WorkOrderExecutionPanel } from "@/components/work-orders/work-order-execution-panel";
+import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
 import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateRecoveryAssistant } from "@/lib/ai/recovery-assistant";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -29,7 +32,7 @@ import {
 import { getSession } from "@/lib/auth";
 import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
-import { isAiRecoveryAssistantEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { isAiRecoveryAssistantEnabled } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 import { formatIssueTimestamp } from "@/lib/work/issues/format-issue-time";
@@ -99,6 +102,19 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       sourceAssetIssue: {
         select: { id: true, issueCode: true, summary: true, status: true },
       },
+      issue: {
+        select: { id: true, issueCode: true, summary: true, status: true },
+      },
+      space: { select: { id: true, name: true } },
+      procedureVersion: { select: { id: true, version: true, title: true, status: true } },
+      maintenanceCategory: { select: { label: true } },
+      evidenceLinks: {
+        include: {
+          evidenceRecord: {
+            select: { id: true, templateName: true, status: true, occurredAt: true },
+          },
+        },
+      },
       sourceOperationalRequest: {
         select: { id: true, requestCode: true, summary: true, status: true },
       },
@@ -156,7 +172,15 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
   const assigneeName = repair.assignedEmployee
     ? `${repair.assignedEmployee.firstName} ${repair.assignedEmployee.lastName}`.trim()
     : null;
-  const canMutate = hasAtLeastRole(session.role, "STAFF");
+  const sessionEmployeeId = await getOperationalEmployeeIdForSession(session);
+  const linkedIssue = repair.issue ?? repair.sourceAssetIssue;
+  const isAssignedTechnician =
+    Boolean(repair.assignedEmployeeId) &&
+    (repair.assignedEmployeeId === sessionEmployeeId ||
+      (session.authKind === "employee" && repair.assignedEmployeeId === session.uid));
+  const canMutate = hasAtLeastRole(session.role, "SUPERVISOR") || isAssignedTechnician;
+  const canAssign = hasAtLeastRole(session.role, "SUPERVISOR");
+  const plantOrAssetOps = isDietaryAssetOperationsEnabled() || isPlantOperationsEnabled();
   const tz = facility.timezone;
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const aiEnabled = isAiRecoveryAssistantEnabled();
@@ -185,7 +209,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
   });
   const locationLabel = formatAssetLocationLabel({
     unitName: repair.unit.name,
-    spaceName: repair.asset?.space?.name ?? null,
+    spaceName: repair.space?.name ?? repair.asset?.space?.name ?? null,
   });
   const assetCondition = repair.asset
     ? presentAssetLifecycleAndCondition(repair.asset.status)
@@ -204,7 +228,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     >
       <PageHeader
         icon={issueTypeIconKey(repair.issueType)}
-        eyebrow="Repair"
+        eyebrow="Work Order"
         title={repair.title}
         subtitle={`${repair.repairCode} · ${
           repair.asset
@@ -226,7 +250,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
             href="/repairs"
             className="inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800"
           >
-            All repairs
+            All Work Orders
           </Link>
         }
         below={
@@ -439,23 +463,100 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
         </ol>
       </AppCard>
 
+      {linkedIssue ? (
+        <AppCard title="Why" subtitle="Linked Issue remains the condition record">
+          <p className="text-sm">
+            <Link href={`/asset-issues/${linkedIssue.id}`} className="underline underline-offset-2">
+              {linkedIssue.issueCode} · {linkedIssue.summary} · {linkedIssue.status}
+            </Link>
+          </p>
+        </AppCard>
+      ) : null}
+
+      {repair.procedureVersion ? (
+        <AppCard title="How" subtitle="Pinned Procedure version">
+          <p className="text-sm">
+            {repair.procedureVersion.title} · v{repair.procedureVersion.version} ·{" "}
+            {repair.procedureVersion.status}
+          </p>
+        </AppCard>
+      ) : null}
+
+      {repair.evidenceLinks.length > 0 ? (
+        <AppCard title="Evidence" subtitle="Incidental Records linked to this Work Order">
+          <ul className="space-y-1 text-sm">
+            {repair.evidenceLinks.map((link) => (
+              <li key={link.id}>
+                {link.evidenceRecord.templateName} · {link.evidenceRecord.status}
+              </li>
+            ))}
+          </ul>
+        </AppCard>
+      ) : null}
+
       <AppCard
-        title="Completion / return to service"
-        subtitle="Completing a repair does not resolve the Asset Issue or set the asset Operational"
+        title="Completion / recovery"
+        subtitle="Completing a Work Order does not resolve the Issue, close the Request, or restore the Asset"
       >
         <div className="space-y-3 text-sm" data-testid="repair-completion-guidance">
           {completed ? (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-800">
-              Repair completed
-              {repair.completedAt
-                ? ` · ${formatIssueTimestamp(repair.completedAt, tz)}`
-                : ""}
-              {repair.resolution ? ` · ${repair.resolution}` : ""}
-            </p>
+            <div
+              className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-800"
+              data-testid="wo-post-completion"
+            >
+              <p>Work Order completed.</p>
+              <p>
+                Issue:{" "}
+                {linkedIssue
+                  ? linkedIssue.status === "RESOLVED" || linkedIssue.status === "CLOSED"
+                    ? "Resolved"
+                    : "Still OPEN"
+                  : "None"}
+              </p>
+              {repair.asset ? (
+                <p>
+                  Asset: {assetCondition?.conditionLabel ?? repair.asset.status}
+                </p>
+              ) : (
+                <p>Location-only work. No Asset condition to update.</p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                {linkedIssue &&
+                linkedIssue.status !== "RESOLVED" &&
+                linkedIssue.status !== "CLOSED" &&
+                linkedIssue.status !== "CANCELLED" ? (
+                  <Link
+                    href={`/asset-issues/${linkedIssue.id}`}
+                    className="font-semibold underline underline-offset-2"
+                    data-testid="wo-resolve-issue-link"
+                  >
+                    Resolve Issue
+                  </Link>
+                ) : null}
+                {repair.asset ? (
+                  <Link
+                    href={`/assets/${repair.asset.id}`}
+                    className="font-semibold underline underline-offset-2"
+                    data-testid="wo-update-asset-link"
+                  >
+                    Update Asset condition
+                  </Link>
+                ) : null}
+                {linkedIssue ? (
+                  <Link
+                    href={`/asset-issues/${linkedIssue.id}`}
+                    className="font-semibold underline underline-offset-2"
+                    data-testid="wo-create-another-link"
+                  >
+                    Create another Work Order
+                  </Link>
+                ) : null}
+              </div>
+            </div>
           ) : (
             <p className="text-zinc-700">
-              When work finishes, mark the repair complete. Asset condition and any linked issue
-              stay separate.
+              When work finishes, complete this Work Order. Issue, Request, and Asset stay separate
+              until someone explicitly updates them.
             </p>
           )}
           {assetStillOos ? (
@@ -463,38 +564,32 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950"
               data-testid="repair-rts-reminder"
             >
-              Repair completed. Asset is still{" "}
-              {assetCondition?.conditionLabel ?? "Out of service"}. Update condition on the asset
-              when it is verified ready for use.
-            </p>
-          ) : null}
-          {repair.sourceAssetIssue &&
-          completed &&
-          repair.sourceAssetIssue.status !== "RESOLVED" &&
-          repair.sourceAssetIssue.status !== "CLOSED" &&
-          repair.sourceAssetIssue.status !== "CANCELLED" ? (
-            <p>
-              <Link
-                href={`/asset-issues/${repair.sourceAssetIssue.id}`}
-                className="inline-flex min-h-10 items-center font-semibold underline underline-offset-2"
-              >
-                Review linked issue
-              </Link>
-            </p>
-          ) : null}
-          {repair.asset ? (
-            <p>
-              <Link
-                href={`/assets/${repair.asset.id}`}
-                className="inline-flex min-h-10 items-center font-semibold underline underline-offset-2"
-              >
-                Open asset condition
-              </Link>
+              Work Order completed. Asset is still{" "}
+              {assetCondition?.conditionLabel ?? "Out of service"}.
             </p>
           ) : null}
         </div>
       </AppCard>
 
+      {plantOrAssetOps ? (
+        <AppCard title="Execution" subtitle="Start, hold, resume, update, or complete">
+          <WorkOrderExecutionPanel
+            repairId={repair.id}
+            departmentId={
+              repair.responsibleDepartmentId ?? deptNav.activeDepartmentId ?? repair.unit.facilityId
+            }
+            issueId={linkedIssue?.id ?? null}
+            status={repair.status}
+            canExecute={canMutate}
+            canAssign={canAssign}
+            assignedEmployeeId={repair.assignedEmployeeId}
+            employees={employees.map((employee) => ({
+              id: employee.id,
+              name: `${employee.firstName} ${employee.lastName}`.trim(),
+            }))}
+          />
+        </AppCard>
+      ) : (
       <AppCard title="Repair actions" subtitle="Assign, update, or complete this repair">
         <IssueDetailActions
           issueId={repair.id}
@@ -510,6 +605,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           terminology={assetOpsEnabled ? "repair" : "issue"}
         />
       </AppCard>
+      )}
 
       <AppCard
         title="Photos"

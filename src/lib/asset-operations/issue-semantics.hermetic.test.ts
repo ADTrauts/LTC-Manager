@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { presentIssueAuthority } from "./issue-semantics";
+import { issueStatusesForListView, presentIssueAuthority } from "./issue-semantics";
 
 test("Issue status projects OPEN / MONITORING / RESOLVED / CANCELED without rewriting storage", () => {
   assert.equal(presentIssueAuthority("REPORTED"), "OPEN");
@@ -11,4 +11,6 @@ test("Issue status projects OPEN / MONITORING / RESOLVED / CANCELED without rewr
   assert.equal(presentIssueAuthority("RESOLVED"), "RESOLVED");
   assert.equal(presentIssueAuthority("CLOSED"), "RESOLVED");
   assert.equal(presentIssueAuthority("CANCELLED"), "CANCELED");
+  assert.deepEqual(issueStatusesForListView("OPEN"), ["REPORTED", "ACKNOWLEDGED", "TRIAGED"]);
+  assert.deepEqual(issueStatusesForListView("MONITORING"), ["MONITORING"]);
 });

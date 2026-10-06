@@ -211,11 +211,16 @@ export default async function AssetIssueDetailPage({ params }: Props) {
               <input type="hidden" name="departmentId" value={detail.departmentId} />
               <input
                 name="resolutionReason"
-                placeholder="Resolution reason"
+                placeholder="Is the underlying condition resolved?"
                 className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                required
               />
+              <label className="flex items-center gap-2 text-sm text-zinc-700">
+                <input type="checkbox" name="resolveLinkedRequests" value="1" data-testid="resolve-linked-requests" />
+                Resolve linked open Requests
+              </label>
               <button type="submit" className="rounded-md border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100" data-testid="resolve-issue">
-                Resolve
+                Resolve Issue
               </button>
             </form>
             <form action={closeAssetIssueAction}>
@@ -319,19 +324,56 @@ export default async function AssetIssueDetailPage({ params }: Props) {
         </section>
       ) : null}
 
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="issue-linked-requests">
+        <h2 className="text-lg font-semibold text-zinc-900">Linked Requests</h2>
+        {detail.relatedFromOperationalRequests?.length ? (
+          <ul className="mt-2 space-y-1 text-sm">
+            {detail.relatedFromOperationalRequests.map((request) => (
+              <li key={request.id}>
+                {request.requestCode} · {request.summary} · {request.requestingDepartment.name}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-zinc-500">No linked Requests. Issues may be created directly.</p>
+        )}
+      </section>
+
+      {detail.originEvidenceRecord ? (
+        <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="issue-origin-record">
+          <h2 className="text-lg font-semibold text-zinc-900">Origin Record</h2>
+          <p className="mt-2 text-sm text-zinc-700">
+            {detail.originEvidenceRecord.templateName} · {detail.originEvidenceRecord.status}
+            {detail.originEvidenceRecord.outOfStandard ? " · Out of standard" : ""}
+          </p>
+        </section>
+      ) : null}
+
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
         {linkedWorkOrders.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-500">No Work Order linked. An Issue may exist without work.</p>
         ) : (
           <ul className="mt-2 space-y-1 text-sm">
-            {linkedWorkOrders.map((workOrder) => (
-              <li key={workOrder.id}>
-                <Link href={`/repairs/${workOrder.id}`} className="underline underline-offset-2" data-testid="linked-work-order">
-                  {workOrder.repairCode} · {workOrder.title} · {workOrderStatusLabel(workOrder.status)}
-                </Link>
-              </li>
-            ))}
+            {linkedWorkOrders.map((workOrder) => {
+              const extra = workOrder as {
+                assignedEmployee?: { firstName: string; lastName: string } | null;
+                maintenanceCategory?: { label: string } | null;
+              };
+              const assignee = extra.assignedEmployee
+                ? `${extra.assignedEmployee.firstName} ${extra.assignedEmployee.lastName}`.trim()
+                : null;
+              const category = extra.maintenanceCategory?.label ?? null;
+              return (
+                <li key={workOrder.id}>
+                  <Link href={`/repairs/${workOrder.id}`} className="underline underline-offset-2" data-testid="linked-work-order">
+                    {workOrder.repairCode} · {workOrder.title} · {workOrderStatusLabel(workOrder.status)}
+                    {assignee ? ` · ${assignee}` : " · Unassigned"}
+                    {category ? ` · ${category}` : ""}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

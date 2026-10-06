@@ -7,16 +7,18 @@ import { z } from "zod";
 import {
   acknowledgeIssue,
   closeIssue,
+  createIssueFromRecord,
   createWorkOrderFromIssue,
   linkEvidenceToIssue,
   markMonitoring,
   reopenIssue,
   reportAssetIssue,
-  resolveIssue,
+  reportIssue,
+  resolveIssueOptionallyRequests,
   triageIssue,
 } from "@/lib/asset-operations";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
 import {
   MAX_REPAIR_PHOTOS_PER_SUBMIT,
   savePhotosFromFormData,
@@ -39,8 +41,8 @@ function revalidateIssueViews(issueId?: string, assetId?: string, unitId?: strin
 }
 
 function requireFlag() {
-  if (!isDietaryAssetOperationsEnabled()) {
-    throw new Error("Dietary Asset Operations is not enabled.");
+  if (!isDietaryAssetOperationsEnabled() && !isPlantOperationsEnabled()) {
+    throw new Error("Asset Operations is not enabled.");
   }
 }
 
@@ -176,14 +178,52 @@ export async function resolveAssetIssueAction(formData: FormData) {
   const comment = toOptional(formData.get("comment"));
   if (!issueId || !departmentId) throw new Error("Invalid resolve request.");
 
-  await resolveIssue(session, {
+  await resolveIssueOptionallyRequests(session, {
     facilityId: session.facilityId,
     departmentId,
     issueId,
-    resolutionReason,
-    comment,
+    resolutionReason: resolutionReason || comment || "Issue resolved",
+    resolveLinkedRequests: String(formData.get("resolveLinkedRequests") ?? "") === "1",
   });
   revalidateIssueViews(issueId);
+}
+
+export async function reportDirectIssueAction(formData: FormData) {
+  requireFlag();
+  const session = await requireFacilitySession();
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const unitId = String(formData.get("unitId") ?? "");
+  const summary = String(formData.get("summary") ?? "");
+  const description = String(formData.get("description") ?? "");
+  const assetId = toOptional(formData.get("assetId"));
+  if (!departmentId || !unitId) throw new Error("Location is required.");
+
+  const result = await reportIssue(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    unitId,
+    assetId,
+    summary,
+    description,
+    observedAt: new Date(),
+    allowDuplicateOpen: true,
+  });
+  revalidateIssueViews(result.issue.id, assetId, unitId);
+}
+
+export async function createIssueFromRecordAction(formData: FormData) {
+  requireFlag();
+  const session = await requireFacilitySession();
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const evidenceRecordId = String(formData.get("evidenceRecordId") ?? "");
+  if (!departmentId || !evidenceRecordId) throw new Error("Record is required.");
+
+  const result = await createIssueFromRecord(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    evidenceRecordId,
+  });
+  revalidateIssueViews(result.issue.id);
 }
 
 export async function closeAssetIssueAction(formData: FormData) {

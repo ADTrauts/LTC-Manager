@@ -40,3 +40,24 @@ export function isOpenIssueAuthority(status: AssetIssueStatus | string | null | 
   const authority = presentIssueAuthority(status);
   return authority === "OPEN" || authority === "MONITORING";
 }
+
+export type IssueListView = "OPEN" | "MONITORING" | "RESOLVED" | "CANCELED";
+
+export function issueStatusesForListView(view: IssueListView | string | null | undefined): AssetIssueStatus[] {
+  switch (view) {
+    case "MONITORING":
+      return ["MONITORING"];
+    case "RESOLVED":
+      return ["RESOLVED", "CLOSED"];
+    case "CANCELED":
+      return ["CANCELLED"];
+    case "OPEN":
+    default:
+      return ["REPORTED", "ACKNOWLEDGED", "TRIAGED"];
+  }
+}
+
+export function parseIssueListView(raw: string | null | undefined): IssueListView {
+  if (raw === "MONITORING" || raw === "RESOLVED" || raw === "CANCELED") return raw;
+  return "OPEN";
+}

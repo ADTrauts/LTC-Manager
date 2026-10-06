@@ -37,8 +37,11 @@ export {
 export {
   issueAuthorityLabel,
   isOpenIssueAuthority,
+  issueStatusesForListView,
+  parseIssueListView,
   presentIssueAuthority,
   type IssueAuthority,
+  type IssueListView,
 } from "./issue-semantics";
 
 export {
@@ -121,6 +124,22 @@ export {
   ensureDefaultMaintenanceCategories,
   listMaintenanceCategories,
 } from "./maintenance-categories";
+
+export {
+  addWorkOrderNote,
+  assignWorkOrder,
+  completeAssignedWorkOrder,
+  createIssueFromRecord,
+  declineRequest,
+  holdAssignedWorkOrder,
+  resolveIssueOptionallyRequests,
+  resolveRequestWithoutWork,
+  resumeWorkOrder,
+  startWorkOrder,
+  triageRequestCreateIssue,
+  triageRequestCreateIssueAndWorkOrder,
+  triageRequestLinkIssue,
+} from "./corrective-maintenance";
 
 export { loadAssetTimeline, type LoadAssetTimelineOptions } from "./history";
 
