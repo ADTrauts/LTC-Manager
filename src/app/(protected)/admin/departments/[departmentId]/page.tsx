@@ -24,7 +24,13 @@ import { loadDepartmentLocationRoomInspects } from "@/lib/department-administrat
 import { resolveTeamAuthority } from "@/lib/department-teams";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { assertCustomerDepartmentContext } from "@/lib/active-department-context";
+import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import {
+  loadPlantStarterInstalledKeys,
+  loadPlantStarterState,
+} from "@/lib/department-products/plant-starter";
+import { classifyPlantStarterPresence } from "@/lib/department-products/plant-starter-catalog";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
 import {
   isCanonicalLogsEnabled,
@@ -55,6 +61,7 @@ type PageProps = {
     roomType?: string;
     team?: string;
     expectation?: string;
+    starter?: string;
   }>;
 };
 
@@ -156,6 +163,25 @@ export default async function DepartmentBuilderPage({
           }),
         }
       : null;
+  const canInstallStarter =
+    view.department.key === "PLANT" &&
+    hasAtLeastRole(session.role, "MANAGER") &&
+    session.authMethod !== "QUICK_PIN";
+  const plantStarterPresence =
+    tab === "overview" && view.department.key === "PLANT"
+      ? classifyPlantStarterPresence(
+          await loadPlantStarterInstalledKeys({
+            facilityId: session.facilityId,
+            departmentId: view.department.id,
+          }),
+        ).status
+      : "none";
+  const plantStarter = canInstallStarter
+    ? await loadPlantStarterState({
+        facilityId: session.facilityId,
+        departmentId: view.department.id,
+      })
+    : null;
   const settings: OverviewDepartmentSettings = {
     showInEmployeeApp: contextSummary.showInEmployeeApp,
     headEmployeeId: contextSummary.headEmployeeId,
@@ -196,9 +222,18 @@ export default async function DepartmentBuilderPage({
       ? presentPlantGettingStarted({
           departmentId: view.department.id,
           ...plantFacts,
+          starterPresence: plantStarter?.presence ?? plantStarterPresence,
+          canInstallStarter,
         })
       : null,
     plantCounts: plantFacts,
+    plantStarter: plantStarter
+      ? {
+          facilityId: session.facilityId,
+          items: plantStarter.items,
+          defaultOpen: query.starter === "1",
+        }
+      : null,
   };
 
   const contentMaxWidth = tab === "overview" ? "max-w-4xl" : tab === "people" ? "max-w-6xl" : "max-w-5xl";
@@ -277,6 +312,7 @@ export default async function DepartmentBuilderPage({
               (row) => row.id === "work" && row.description.includes("no bound room"),
             )}
             locationsHref={departmentAdminHref(view.department.id, "locations", profileId)}
+            starterHref={canInstallStarter ? `/build/departments/${view.department.id}?starter=1` : null}
           />
         ) : null}
         {tab === "people" ? (
@@ -295,6 +331,18 @@ export default async function DepartmentBuilderPage({
             <p className="text-sm text-zinc-600">
               Readings, checklists, inspections, and acknowledgements required for this department.
               Recording a value happens in Run.
+              {view.department.key === "PLANT" && canInstallStarter ? (
+                <>
+                  {" "}
+                  <a
+                    href={`/build/departments/${view.department.id}?starter=1`}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    Add starter configuration
+                  </a>{" "}
+                  or use the normal catalog.
+                </>
+              ) : null}
             </p>
             <TargetLogsSection
               targetTitle={view.department.name}

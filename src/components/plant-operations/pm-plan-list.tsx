@@ -104,6 +104,10 @@ export function PmPlanList({
       {rows.length === 0 ? (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-700" data-testid="pm-plan-empty">
           <p>Preventive Maintenance Plans schedule service for real Assets.</p>
+          <p className="mt-2 text-zinc-600">
+            Cadence presets (Monthly, Quarterly, Semiannual, Annual) only fill the schedule.
+            They do not create a Plan or a Work Order until you save against a real Asset.
+          </p>
           {assetCount === 0 ? (
             <p className="mt-2">
               Add an Asset first.{" "}

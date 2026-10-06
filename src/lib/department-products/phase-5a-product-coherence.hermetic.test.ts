@@ -125,7 +125,7 @@ test("Getting Started is derived guidance and never a persisted score", () => {
     publishedPmPlanCount: 0,
   });
   assert.equal(rows.length, 10);
-  assert.equal(rows.find((row) => row.id === "starter")?.status, "deferred");
+  assert.equal(rows.find((row) => row.id === "starter")?.status, "optional");
   assert.equal(rows.find((row) => row.id === "operate")?.status, "ready");
   const gettingStarted = source("src/lib/department-administration/plant-getting-started.ts");
   assert.doesNotMatch(gettingStarted, /SETUP_COMPLETE/);

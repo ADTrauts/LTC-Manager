@@ -1,9 +1,11 @@
 # Facility Plant Operations — Phase 0 + Phase 1 Reconciliation
 
+> **HISTORICAL.** This is the Phase 0/1 repository audit. Current architecture after Phase 5B is [`FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md`](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md). Do not treat this 2026-10-05 file as current certification.
+
 **Date:** 2026-10-05  
 **Mode:** PLAN / AUDIT ONLY — no runtime, migrations, or model/route renames  
 **Canonical Product architecture:** [14 — Facility Plant Operations](../product/14_FACILITY_PLANT_OPERATIONS.md)  
-**Classification of this file:** SUPPORTING (repository audit). It does not override [14](../product/14_FACILITY_PLANT_OPERATIONS.md).
+**Classification of this file:** HISTORICAL SUPPORTING (repository audit). It does not override [14](../product/14_FACILITY_PLANT_OPERATIONS.md).
 
 This record answers: **what the current Vssyl repository needs to change in order to become the approved Facility Plant Operations Product, while preserving certified Platform architecture and historical truth.**
 

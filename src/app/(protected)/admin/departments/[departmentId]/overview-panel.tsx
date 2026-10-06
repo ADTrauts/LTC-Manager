@@ -9,6 +9,8 @@ import type {
   PlantOverviewFactCounts,
 } from "@/lib/department-administration/plant-getting-started";
 import { presentPlantOverviewCounts } from "@/lib/department-administration/plant-getting-started";
+import { PlantStarterPanel } from "@/components/plant-operations/plant-starter-panel";
+import type { PlantStarterLoadItem } from "@/lib/department-products/plant-starter-catalog";
 
 export type OverviewEmployeeOption = {
   id: string;
@@ -34,6 +36,11 @@ export type OverviewDepartmentSettings = {
   guidanceRows: OverviewGuidanceRow[];
   plantGettingStarted?: PlantGettingStartedItem[] | null;
   plantCounts?: PlantOverviewFactCounts | null;
+  plantStarter?: {
+    facilityId: string;
+    items: PlantStarterLoadItem[];
+    defaultOpen: boolean;
+  } | null;
 };
 
 type Props = {
@@ -135,6 +142,15 @@ export function OverviewPanel({
         </section>
       ) : null}
 
+      {settings.plantStarter ? (
+        <PlantStarterPanel
+          facilityId={settings.plantStarter.facilityId}
+          departmentId={department.id}
+          items={settings.plantStarter.items}
+          defaultOpen={settings.plantStarter.defaultOpen}
+        />
+      ) : null}
+
       {settings.plantGettingStarted ? (
         <section className="space-y-2" data-testid="overview-getting-started">
           <h2 className="text-sm font-semibold text-zinc-900">Getting Started</h2>
@@ -155,7 +171,7 @@ export function OverviewPanel({
                     {item.actionLabel}
                   </Link>
                 ) : item.id === "starter" ? (
-                  <span className="text-xs text-zinc-500" data-testid="add-starter-configuration">
+                  <span className="text-xs text-zinc-500">
                     Add starter configuration
                   </span>
                 ) : null}

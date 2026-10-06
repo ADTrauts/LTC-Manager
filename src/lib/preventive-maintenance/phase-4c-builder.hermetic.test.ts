@@ -10,6 +10,7 @@ import {
   cadencePresetFromIntervalMonths,
   formatCadenceSummary,
   formatProjectedDateLabel,
+  applyPmCadencePresetDefaults,
   intervalMonthsFromCadencePreset,
   persistPmPriority,
   presentPmPlanStatus,
@@ -35,6 +36,11 @@ test("cadence presets are presentation-only mappings of intervalMonths", () => {
   assert.equal(cadencePresetFromIntervalMonths(5), "custom");
   assert.equal(formatCadenceSummary(3), "Quarterly");
   assert.equal(formatCadenceSummary(5), "Every 5 months");
+  assert.deepEqual(applyPmCadencePresetDefaults("quarterly"), {
+    intervalMonths: 3,
+    generationLeadDays: 7,
+    priority: "ROUTINE",
+  });
 });
 
 test("Build priority presents Routine/High/Urgent and persists MEDIUM for Routine", () => {

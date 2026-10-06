@@ -71,6 +71,22 @@ The table below governed duplicate routes during the Build / Run shell. It remai
 
 ---
 
+## Facility Plant Operations surfaces (2026-10-06)
+
+These routes and persistence names remain. Classify them; do not delete them to force Product nouns onto the URL or table.
+
+| Surface / name | Current class | User-facing noun | Notes |
+|----------------|---------------|------------------|-------|
+| `/repairs` | **ACTIVE AUTHORITY** | Work Orders | Route retained. STAFF land here as My Work. SUPERVISOR+ Maintenance sub-nav label is Work Orders. |
+| `/asset-issues` | **ACTIVE AUTHORITY** | Issues | Route retained. Supervisor-gated. Location-only Issues are valid. |
+| `/preventive-maintenance` | **ACTIVE AUTHORITY** | Preventive Maintenance | Canonical Plant Run PM surface. |
+| `Repair` | Persistence name | Work Order | Compatibility row for accepted maintenance work. Do not revive Repair as the manager-facing noun. |
+| `AssetIssue` | Persistence name | Issue | Compatibility row for a known undesirable condition. May exist without an Asset. |
+| `PreventiveMaintenanceSchedule` | **LEGACY READ-ONLY** | — | Older schedule row. Forward PM identity is `PreventiveMaintenancePlan` / occurrence. |
+| `preventiveScheduleId` | **LEGACY READ-ONLY** | — | Compatibility foreign key on older rows. New PM writes use plan / occurrence identity. |
+
+---
+
 ## Redirect / deprecation decisions summary
 
 - **Redirect:** `/settings → /admin/organization` (pre-existing; unchanged).

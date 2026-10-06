@@ -6,9 +6,11 @@
 **Platform contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
 **Platform map:** [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md)  
 **Vocabulary:** [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md)  
-**Repository reconciliation:** [Facility Plant Operations reconciliation (2026-10-05)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md)
+**Repository reconciliation:** [current 2026-10-06](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) · [historical Phase 0/1 audit 2026-10-05](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md)
 
 This document is the target Product architecture. Existing Platform Assets, repairs, requests, and Phase 12A reference code are evidence of available foundation. They do not define this Product.
+
+**Implementation through Phase 5B:** corrective MVP, Preventive Maintenance MVP, product coherence, and optional starter configuration are implemented. The Product remains **DEVELOPMENT**. Starter content is optional, select-before-install, Facility-owned after copy, and never auto-published.
 
 ---
 
@@ -433,7 +435,7 @@ This Product fills the contract in [13 — Department Product](./13_DEPARTMENT_P
 | **Purpose** | Maintain the built facility environment: intake of maintenance attention, known undesirable conditions, corrective and preventive Work Orders, and calendar PM against specific Assets |
 | **Location Functions** | None required. Empty is allowed. Optional later if Work presets need a `functionKey` |
 | **Operating Rhythm** | Zero required starter Operational Cycles. Optional facility-configured windows are allowed. PM is not a Cycle |
-| **Work presets** | None required at Product lock. A small optional generic starter pack may be authored later and is never auto-published |
+| **Work presets** | Optional generic recurring-Work starter pack. Never required. Never auto-published. Facility-owned after install |
 | **People / coverage needs** | Shared People, Department membership, and operational assignment roles. Technician is a Person, not a second identity |
 | **Record definitions** | Shared Record forms: Reading, Checklist, Inspection, Acknowledgement, On-demand Record. No Plant-owned Record engine |
 | **Assets used** | Shared Platform Asset registry. The Product maintains those Assets; it does not copy them |
@@ -441,7 +443,7 @@ This Product fills the contract in [13 — Department Product](./13_DEPARTMENT_P
 | **Domain-specific capabilities** | Work Order, Preventive Maintenance Plan, maintenance category, maintenance triage, maintenance closeout, maintenance-specific cost/parts/labor facts |
 | **Run requirements** | Plant Manager view, technician view, requester-safe status, repair/request queues, Asset condition, due/overdue PM once implemented |
 | **Historical / Audit questions** | Asset maintenance chronology, Location maintenance chronology, Issue history, Work Order history, PM history — projected from source facts, not a Plant ledger |
-| **Starter content** | Small optional generic pack later. Nothing auto-publishes. Nothing claims regulatory compliance |
+| **Starter content** | Optional **Plant Operations starter configuration**. Select-before-install. Facility-owned copies. Nothing auto-publishes. Nothing claims regulatory compliance. No fake Assets. No generic safety Procedures. PM cadence presets use real Assets |
 | **Facility-configurable values** | Room bindings, people, local labels, optional cycles, published Work Plans, PM plans, Vendor contacts |
 | **Platform-gap test** | See below. Missing reusable Asset/Issue/Request/Procedure/history behavior is Platform. Work Order and PM Plan are Product |
 
@@ -455,17 +457,27 @@ Would multiple Department Products reasonably need this capability? If yes, stro
 
 ---
 
-## Starter pack (locked, not built)
+## Starter pack (implemented, optional)
 
-Facility Plant Operations will eventually include a **small optional generic starter pack**. Nothing auto-publishes. Nothing should claim regulatory compliance. Industry-specific starter packs may come later. Do not build starter content until a later implementation phase.
+**Plant Operations starter configuration** is an optional Manager+ action from Build → Facility Plant Operations → Overview. It is not auto-launched and is not installed when the Product is installed.
 
-Potential examples:
+Rules that remain binding:
 
-**Work.** Mechanical Room Round; General Building Walkthrough; Exterior Building Inspection; Maintenance Shop Check; Generator Visual Check.
+- Optional examples to help a Facility get started — not a compliance pack
+- Review/select before install; sensible defaults may be checked
+- Facility-owned copies after install; Vssyl does not silently overwrite later
+- Idempotent: do not duplicate and do not overwrite
+- Never auto-published
+- Never presented as regulatory compliance
+- No fake Assets, rooms, employees, or Vendors
+- No generic Lockout/Tagout, safety, or regulatory Procedures
+- No persisted Preventive Maintenance Plans from starter install
 
-**Records.** Equipment Inspection; Mechanical Room Checklist; Generator Inspection; General Facility Condition Inspection.
+**Recurring Work presets** (shared Work Plan drafts): Mechanical Room Round; Building Walkthrough; Exterior / Grounds Walkthrough; Generator Visual Check.
 
-**PM.** Monthly Generator Maintenance; Quarterly Equipment Preventive Maintenance; Semiannual HVAC Maintenance; Annual Building Equipment Inspection.
+**Record templates** (canonical `OperationalTemplate` drafts): Equipment Condition Inspection; Mechanical Room Inspection; Generator Inspection; Basic Equipment Reading; Post-Work Order Verification.
+
+**PM cadence presets** are UI-only in the existing PM Plan editor: Monthly (1), Quarterly (3), Semiannual (6), Annual (12), with `generationLeadDays = 7` and Routine priority. The user must select a real Facility Asset and review the Plan before save/publish. Presets are not manufacturer recommendations.
 
 ---
 
@@ -559,7 +571,8 @@ Customer visibility still requires an explicit `PLANT` `DEVELOPMENT → AVAILABL
 | Class | Document |
 |-------|----------|
 | **CURRENT CANONICAL** | This file |
-| **SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-05)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) — repository audit against this architecture |
+| **SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) — current architecture after Phase 5B |
+| **HISTORICAL SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-05)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) — Phase 0/1 repository audit |
 | **BINDING PLATFORM CONTRACT** | [13 — Department Product](./13_DEPARTMENT_PRODUCT.md) |
 | **PLATFORM MAP** | [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) |
 | **HISTORICAL / SUPERSEDED for Product architecture** | Phase 12A Plant reference guides under `docs/plant/` |

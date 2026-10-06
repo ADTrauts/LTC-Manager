@@ -5,6 +5,11 @@
 
 import { ASSET_BUILD_PATH } from "@/lib/asset-operations/ownership";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
+import {
+  plantStarterHref,
+  presentPlantStarterPresenceLabel,
+  type PlantStarterPresence,
+} from "@/lib/department-products/plant-starter-catalog";
 
 export type PlantGettingStartedStatus = "ready" | "needed" | "optional" | "deferred";
 
@@ -29,6 +34,8 @@ export type PlantOverviewFactCounts = {
 
 export type PlantGettingStartedInput = PlantOverviewFactCounts & {
   departmentId: string;
+  starterPresence?: PlantStarterPresence;
+  canInstallStarter?: boolean;
 };
 
 export function presentPlantOverviewCounts(input: PlantOverviewFactCounts): Array<{
@@ -70,10 +77,25 @@ export function presentPlantGettingStarted(input: PlantGettingStartedInput): Pla
       id: "starter",
       step: 5,
       title: "Add starter configuration",
-      status: "deferred",
-      statusLabel: "Available in starter configuration",
-      href: null,
-      actionLabel: null,
+      status:
+        input.starterPresence === "added"
+          ? "ready"
+          : input.starterPresence === "partial"
+            ? "optional"
+            : "optional",
+      statusLabel:
+        input.starterPresence === "added"
+          ? presentPlantStarterPresenceLabel("added")
+          : input.starterPresence === "partial"
+            ? presentPlantStarterPresenceLabel("partial")
+            : "Optional — add recurring Work and Record examples",
+      href: input.canInstallStarter === false ? null : plantStarterHref(input.departmentId),
+      actionLabel:
+        input.canInstallStarter === false
+          ? null
+          : input.starterPresence === "added"
+            ? "Review starter configuration"
+            : "Add starter configuration",
     },
     item(6, "work", "Configure recurring Work", input.workPlanCount > 0, workHref, "Open Work", true),
     item(7, "records", "Confirm Records", input.recordCount > 0, recordsHref, "Open Records", true),

@@ -56,18 +56,22 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
 | **Expected Work** | What the operation needs doing today, derived from published Work Plans | Tasks due, inbox, job list |
 | **Work Plan** | Recurring expected Work configuration | Job, checklist catalog |
+| **Recurring Work** | Shared Work Plans / rounds and walkthroughs | Treating rounds as Preventive Maintenance; treating Work Orders as shared Work |
 | **My Work** | Person-scoped Work | Today's Work *(Today is the operation; My Work is mine)* |
 | **Task** | Work Engine projection | Ticket *(unless issue context)* |
 | **Request** | Intake: someone is asking for maintenance attention | Treating a Request as the problem itself or as a Work Order |
 | **Issue** | A known undesirable condition. May exist without an Asset or a Work Order | Ticket, Incident *(unless safety-legal context)*; collapsing Issue into Request or Repair |
 | **Work Order** | Facility Plant Operations accepted maintenance work with a persistent lifecycle | Generic shared Work; Repair as the manager-facing noun |
 | **Repair** | Persistence name for the Work Order row (`Repair`, `/repairs`) | Using Repair as the Product name for Issue or for Facility Plant Operations |
-| **Preventive Maintenance Plan** | Published maintenance rule for a specified target and fixed cadence | Operational Cycle; rolling next-due as the Product definition of PM |
+| **Preventive Maintenance Plan** | Published maintenance rule for a specified target and fixed cadence | Operational Cycle; rolling next-due as the Product definition of PM; recurring facility rounds |
 | **Finding** | Inspection item outcome needing follow-up | Defect *(unless manufacturing)* |
 | **Inspection** | A Record form inside the one Record engine | A second inspection engine; Audit / Reports |
 | **Knowledge** | Operational SOP/reference | Wiki, CMS |
 | **Asset** | Shared Platform equipment / built-environment object | Device *(reserve for PIN tablets)*; PlantAsset / MaintenanceAsset |
-| **Facility Plant Operations** | Department Product for maintaining the built facility environment | Generic Maintenance as the Product name; treating manufacturing/fleet/biomedical maintenance as this Product |
+| **Asset lifecycle** | Registry status such as operational, out of service, retired | Treating lifecycle as the same fact as observed condition |
+| **Asset condition** | Observed operating condition, updated from work and inspection facts | Treating condition restore as an automatic Work Order closeout |
+| **Facility Plant Operations** | Department Product for maintaining the built facility environment | Generic Maintenance as the Product name; treating manufacturing/fleet/biomedical maintenance as this Product; using the local Department name as the Product name |
+| **Plant Operations** | Default local Department name for an installed Facility Plant Operations Product | Official Product name |
 | **Employee** | Roster person | User *(User = app login identity)* |
 | **User.role** | Platform authorization (session) | Employee.roleType, job title, Department Manager |
 | **Facility Administrator** | Facility-scoped administrative authority | Equating GM with FA |

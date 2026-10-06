@@ -56,7 +56,10 @@ export {
   isOperationalEvidencePresetKey,
   listTemplatePresetSummaries,
   OPERATIONAL_EVIDENCE_PRESET_KEYS,
+  DIETARY_EVIDENCE_PRESET_KEYS,
+  PLANT_RECORD_PRESET_KEYS,
   type OperationalEvidencePresetKey,
+  type PlantRecordPresetKey,
 } from "./template-presets";
 
 export {

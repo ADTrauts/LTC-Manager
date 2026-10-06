@@ -85,6 +85,18 @@ export {
   resolveSharedAssetOperationsFromFacts,
 } from "./plant-runtime";
 export {
+  classifyPlantStarterPresence,
+  listPlantStarterCatalog,
+  plantStarterHref,
+  presentPlantStarterPresenceLabel,
+  PLANT_STARTER_INTRO,
+  PLANT_STARTER_PACKAGE_NAME,
+  type PlantStarterCatalogItem,
+  type PlantStarterInstallResult,
+  type PlantStarterLoadItem,
+  type PlantStarterPresence,
+} from "./plant-starter-catalog";
+export {
   canPurchaseDepartmentProducts,
   deriveFacilityDepartmentCatalog,
   findCatalogItemForDepartmentKey,

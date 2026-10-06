@@ -45,13 +45,22 @@ export const EVS_WORK_PRESET_KEYS = [
   "ROOM_TURN_SPECIAL_CLEAN",
 ] as const;
 
+export const PLANT_WORK_PRESET_KEYS = [
+  "MECHANICAL_ROOM_ROUND",
+  "BUILDING_WALKTHROUGH",
+  "EXTERIOR_GROUNDS_WALKTHROUGH",
+  "GENERATOR_VISUAL_CHECK",
+] as const;
+
 export const DEPARTMENT_WORK_PRESET_KEYS = [
   ...DIETARY_WORK_PRESET_KEYS,
   ...EVS_WORK_PRESET_KEYS,
+  ...PLANT_WORK_PRESET_KEYS,
 ] as const;
 
 export type DietaryWorkPresetKey = (typeof DIETARY_WORK_PRESET_KEYS)[number];
 export type EvsWorkPresetKey = (typeof EVS_WORK_PRESET_KEYS)[number];
+export type PlantWorkPresetKey = (typeof PLANT_WORK_PRESET_KEYS)[number];
 export type DepartmentWorkPresetKey = (typeof DEPARTMENT_WORK_PRESET_KEYS)[number];
 
 export function isDepartmentWorkPresetKey(value: string): value is DepartmentWorkPresetKey {
@@ -64,6 +73,31 @@ function isDietaryPresetKey(value: string): value is DietaryWorkPresetKey {
 
 function isEvsPresetKey(value: string): value is EvsWorkPresetKey {
   return (EVS_WORK_PRESET_KEYS as readonly string[]).includes(value);
+}
+
+function isPlantPresetKey(value: string): value is PlantWorkPresetKey {
+  return (PLANT_WORK_PRESET_KEYS as readonly string[]).includes(value);
+}
+
+const DEPARTMENT_WIDE_APPLICABILITY = { kind: "DEPARTMENT_UNIT" as const };
+
+function plantRoundItem(
+  itemKey: string,
+  label: string,
+  instructions: string,
+  displaySequence: number,
+): WorkPlanDraftInput["items"][number] {
+  return {
+    itemKey,
+    label,
+    instructions,
+    displaySequence,
+    priority: "ROUTINE",
+    completionMode: "EXPLICIT_CONFIRMATION",
+    responsibilityMode: "UNIT_SHARED",
+    scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
+    supervisorVisible: true,
+  };
 }
 
 export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): WorkPlanDraftInput {
@@ -353,6 +387,102 @@ export function buildWorkPlanPresetDraft(presetKey: DepartmentWorkPresetKey): Wo
           },
         ],
       };
+    case "MECHANICAL_ROOM_ROUND":
+      return {
+        name: "Mechanical Room Round",
+        description:
+          "Routine operational walkthrough of mechanical spaces. Review assigned mechanical spaces for obvious leaks, abnormal conditions, access concerns, housekeeping issues, or equipment conditions requiring follow-up.",
+        presetKey: "MECHANICAL_ROOM_ROUND",
+        stableKey: "MECHANICAL_ROOM_ROUND",
+        weekdays: [],
+        applicabilities: [DEPARTMENT_WIDE_APPLICABILITY],
+        items: [
+          plantRoundItem(
+            "walk_spaces",
+            "Walk assigned mechanical spaces",
+            "Review assigned mechanical spaces for obvious leaks, abnormal conditions, access concerns, housekeeping issues, or equipment conditions requiring follow-up.",
+            10,
+          ),
+          plantRoundItem(
+            "note_follow_up",
+            "Note conditions that need follow-up",
+            "Record anything that should be reported through the normal Request or Issue workflow. This round does not create Issues automatically.",
+            20,
+          ),
+        ],
+      };
+    case "BUILDING_WALKTHROUGH":
+      return {
+        name: "Building Walkthrough",
+        description:
+          "General Facility condition observation: walls and ceilings, doors, visible damage, leaks, lighting, trip hazards, and other maintenance needs. This is not an inspection or compliance program.",
+        presetKey: "BUILDING_WALKTHROUGH",
+        stableKey: "BUILDING_WALKTHROUGH",
+        weekdays: [],
+        applicabilities: [DEPARTMENT_WIDE_APPLICABILITY],
+        items: [
+          plantRoundItem(
+            "observe_interior",
+            "Observe interior condition",
+            "Look for walls/ceilings, doors, visible damage, leaks, lighting, trip hazards, or other maintenance needs.",
+            10,
+          ),
+          plantRoundItem(
+            "note_follow_up",
+            "Note conditions that need follow-up",
+            "Report maintenance needs through the normal Request or Issue workflow. This walkthrough does not create Issues automatically.",
+            20,
+          ),
+        ],
+      };
+    case "EXTERIOR_GROUNDS_WALKTHROUGH":
+      return {
+        name: "Exterior / Grounds Walkthrough",
+        description:
+          "General exterior Facility condition observation: walkways, exterior damage, grounds concerns, drainage, lighting, and access. This is not a grounds-management program.",
+        presetKey: "EXTERIOR_GROUNDS_WALKTHROUGH",
+        stableKey: "EXTERIOR_GROUNDS_WALKTHROUGH",
+        weekdays: [],
+        applicabilities: [DEPARTMENT_WIDE_APPLICABILITY],
+        items: [
+          plantRoundItem(
+            "observe_exterior",
+            "Observe exterior and grounds",
+            "Look for walkway, exterior damage, grounds, drainage, lighting, or access concerns.",
+            10,
+          ),
+          plantRoundItem(
+            "note_follow_up",
+            "Note conditions that need follow-up",
+            "Report maintenance needs through the normal Request or Issue workflow.",
+            20,
+          ),
+        ],
+      };
+    case "GENERATOR_VISUAL_CHECK":
+      return {
+        name: "Generator Visual Check",
+        description:
+          "Perform a basic visual check of the assigned generator area and report abnormal visible conditions. This is a visual operational check — not manufacturer preventive service, load-bank testing, or a regulatory generator inspection.",
+        presetKey: "GENERATOR_VISUAL_CHECK",
+        stableKey: "GENERATOR_VISUAL_CHECK",
+        weekdays: [],
+        applicabilities: [DEPARTMENT_WIDE_APPLICABILITY],
+        items: [
+          plantRoundItem(
+            "visual_check",
+            "Perform a basic visual check",
+            "Check the assigned generator area for abnormal visible conditions. Do not treat this as manufacturer PM, load-bank testing, or regulatory inspection.",
+            10,
+          ),
+          plantRoundItem(
+            "note_follow_up",
+            "Report abnormal visible conditions",
+            "Report abnormal visible conditions through the normal Request or Issue workflow.",
+            20,
+          ),
+        ],
+      };
   }
 }
 
@@ -384,9 +514,11 @@ export function listWorkPlanPresetSummaries(departmentKey?: string) {
       ? DIETARY_WORK_PRESET_KEYS
       : resolvedKey === "EVS"
         ? EVS_WORK_PRESET_KEYS
-        : departmentKey === "PLANT" || departmentKey
-          ? ([] as const)
-          : DEPARTMENT_WORK_PRESET_KEYS;
+        : resolvedKey === "PLANT"
+          ? PLANT_WORK_PRESET_KEYS
+          : departmentKey
+            ? ([] as const)
+            : [...DIETARY_WORK_PRESET_KEYS, ...EVS_WORK_PRESET_KEYS];
 
   return keys.map((key) => {
     const draft = buildWorkPlanPresetDraft(key);
@@ -399,7 +531,9 @@ export function listWorkPlanPresetSummaries(departmentKey?: string) {
         ? ("DIETARY" as const)
         : isEvsPresetKey(key)
           ? ("EVS" as const)
-          : null,
+          : isPlantPresetKey(key)
+            ? ("PLANT" as const)
+            : null,
     };
   });
 }

@@ -7,6 +7,7 @@ type Props = {
   draftCount: number;
   unmatchedLocationFunctions: boolean;
   locationsHref: string;
+  starterHref?: string | null;
 };
 
 export function DepartmentWorkPanel({
@@ -16,6 +17,7 @@ export function DepartmentWorkPanel({
   draftCount,
   unmatchedLocationFunctions,
   locationsHref,
+  starterHref = null,
 }: Props) {
   const parts: string[] = [];
   if (publishedCount > 0) {
@@ -39,7 +41,18 @@ export function DepartmentWorkPanel({
       {isPlant && publishedCount === 0 && draftCount === 0 ? (
         <p className="text-sm text-zinc-700" data-testid="department-work-empty">
           Recurring operational rounds and checks. Examples: mechanical room round, building
-          walkthrough. Starter configuration can add these later.
+          walkthrough. You can create Work manually
+          {starterHref ? (
+            <>
+              {" "}
+              or{" "}
+              <Link href={starterHref} className="font-medium underline underline-offset-2">
+                add starter configuration
+              </Link>
+            </>
+          ) : (
+            "."
+          )}
         </p>
       ) : (
         <p className="text-sm text-zinc-800">{parts.length > 0 ? parts.join(" · ") : "No work plan yet."}</p>

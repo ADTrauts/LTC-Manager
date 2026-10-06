@@ -6,12 +6,27 @@
 
 import type { TemplateDraftInput } from "./types";
 
-export const OPERATIONAL_EVIDENCE_PRESET_KEYS = [
+export const DIETARY_EVIDENCE_PRESET_KEYS = [
   "COOLER_TEMPERATURE_LOG",
   "DISHWASHER_SANITIZER_LOG",
   "OPENING_CLOSING_CHECKLIST",
 ] as const;
 
+export const PLANT_RECORD_PRESET_KEYS = [
+  "EQUIPMENT_CONDITION_INSPECTION",
+  "MECHANICAL_ROOM_INSPECTION",
+  "GENERATOR_INSPECTION",
+  "BASIC_EQUIPMENT_READING",
+  "POST_WORK_ORDER_VERIFICATION",
+] as const;
+
+export const OPERATIONAL_EVIDENCE_PRESET_KEYS = [
+  ...DIETARY_EVIDENCE_PRESET_KEYS,
+  ...PLANT_RECORD_PRESET_KEYS,
+] as const;
+
+export type DietaryEvidencePresetKey = (typeof DIETARY_EVIDENCE_PRESET_KEYS)[number];
+export type PlantRecordPresetKey = (typeof PLANT_RECORD_PRESET_KEYS)[number];
 export type OperationalEvidencePresetKey = (typeof OPERATIONAL_EVIDENCE_PRESET_KEYS)[number];
 
 export function isOperationalEvidencePresetKey(value: string): value is OperationalEvidencePresetKey {
@@ -181,16 +196,196 @@ export function buildTemplatePresetDraft(presetKey: OperationalEvidencePresetKey
           },
         ],
       };
+    case "EQUIPMENT_CONDITION_INSPECTION":
+      return {
+        name: "Equipment Condition Inspection",
+        description:
+          "Generic observation of equipment condition. This is not a manufacturer inspection.",
+        instructions:
+          "Observe the equipment and record visible facts. Do not treat this as a detailed manufacturer inspection.",
+        purposeType: "INSPECTION",
+        presetKey: "EQUIPMENT_CONDITION_INSPECTION",
+        stableKey: "EQUIPMENT_CONDITION_INSPECTION",
+        allowAdHoc: true,
+        fields: [
+          plantYesNo("general_condition_ok", "General condition acceptable", 10),
+          plantYesNo("visible_damage", "Visible damage observed", 20, true),
+          plantYesNo("leak_observed", "Leak observed", 30, true),
+          plantYesNo("abnormal_noise", "Abnormal noise or vibration (if applicable)", 40, true),
+          plantYesNo("access_ok", "Cleanliness and access acceptable", 50),
+          plantYesNo("operating_concern", "Operating concern observed", 60, true),
+          plantNotes(70),
+          plantFollowUp(80),
+        ],
+        applicabilities: [],
+        schedules: [{ kind: "AD_HOC" }],
+      };
+    case "MECHANICAL_ROOM_INSPECTION":
+      return {
+        name: "Mechanical Room Inspection",
+        description:
+          "Generic mechanical-space observation. This does not imply code compliance.",
+        instructions:
+          "Record visible room facts. This is not a code or regulatory inspection.",
+        purposeType: "INSPECTION",
+        presetKey: "MECHANICAL_ROOM_INSPECTION",
+        stableKey: "MECHANICAL_ROOM_INSPECTION",
+        allowAdHoc: true,
+        fields: [
+          plantYesNo("room_accessible", "Room is accessible", 10),
+          plantYesNo("obvious_leak", "Obvious leak or water observed", 20, true),
+          plantYesNo("housekeeping_ok", "Housekeeping acceptable", 30),
+          plantYesNo("equipment_condition_ok", "Visible equipment condition acceptable", 40),
+          plantYesNo("lighting_access_ok", "Lighting and access acceptable", 50),
+          plantNotes(60),
+          plantFollowUp(70),
+        ],
+        applicabilities: [],
+        schedules: [{ kind: "AD_HOC" }],
+      };
+    case "GENERATOR_INSPECTION":
+      return {
+        name: "Generator Inspection",
+        description:
+          "Generic visual generator-area observation. This does not satisfy regulatory testing.",
+        instructions:
+          "Record visible facts only. This does not satisfy manufacturer service, load-bank testing, or regulatory generator inspection.",
+        purposeType: "INSPECTION",
+        presetKey: "GENERATOR_INSPECTION",
+        stableKey: "GENERATOR_INSPECTION",
+        allowAdHoc: true,
+        fields: [
+          plantYesNo("visible_condition_ok", "Visible condition acceptable", 10),
+          plantYesNo("area_accessible", "Area is accessible", 20),
+          plantYesNo("obvious_leak", "Obvious leak observed", 30, true),
+          plantYesNo("warning_observed", "Warning or alarm observed", 40, true),
+          plantNotes(50),
+          plantFollowUp(60),
+        ],
+        applicabilities: [],
+        schedules: [{ kind: "AD_HOC" }],
+      };
+    case "BASIC_EQUIPMENT_READING":
+      return {
+        name: "Basic Equipment Reading",
+        description:
+          "Reusable simple equipment reading. This is evidence, not a Preventive Maintenance trigger.",
+        instructions:
+          "Enter the reading name, numeric value, unit, and optional notes. Expected ranges can be configured later by the Facility.",
+        purposeType: "LOG",
+        presetKey: "BASIC_EQUIPMENT_READING",
+        stableKey: "BASIC_EQUIPMENT_READING",
+        allowAdHoc: true,
+        fields: [
+          {
+            fieldKey: "reading_name",
+            label: "Reading name",
+            fieldType: "SHORT_TEXT",
+            isRequired: true,
+            displaySequence: 10,
+          },
+          {
+            fieldKey: "reading_value",
+            label: "Numeric value",
+            fieldType: "NUMBER",
+            isRequired: true,
+            displaySequence: 20,
+          },
+          {
+            fieldKey: "reading_unit",
+            label: "Unit",
+            fieldType: "SHORT_TEXT",
+            isRequired: false,
+            displaySequence: 30,
+          },
+          plantNotes(40),
+        ],
+        applicabilities: [],
+        schedules: [{ kind: "AD_HOC" }],
+      };
+    case "POST_WORK_ORDER_VERIFICATION":
+      return {
+        name: "Post-Work Order Verification",
+        description:
+          "Optional evidence after maintenance work. This does not replace Work Order closeout.",
+        instructions:
+          "Use when the Facility chooses to record a follow-up observation after work. This is evidence, not closeout.",
+        purposeType: "CHECKLIST",
+        presetKey: "POST_WORK_ORDER_VERIFICATION",
+        stableKey: "POST_WORK_ORDER_VERIFICATION",
+        allowAdHoc: true,
+        fields: [
+          plantYesNo("area_reviewed", "Work area reviewed", 10),
+          {
+            fieldKey: "subject_observed",
+            label: "Equipment or location observed",
+            fieldType: "SHORT_TEXT",
+            isRequired: true,
+            displaySequence: 20,
+          },
+          plantYesNo("abnormal_remaining", "Abnormal condition remaining", 30, true),
+          plantFollowUp(40),
+          plantNotes(50),
+        ],
+        applicabilities: [],
+        schedules: [{ kind: "AD_HOC" }],
+      };
   }
 }
 
-export function listTemplatePresetSummaries(): Array<{
+function plantYesNo(
+  fieldKey: string,
+  label: string,
+  displaySequence: number,
+  followUpTrigger = false,
+): TemplateDraftInput["fields"][number] {
+  return {
+    fieldKey,
+    label,
+    fieldType: "YES_NO",
+    isRequired: true,
+    displaySequence,
+    correctiveActionTrigger: followUpTrigger,
+    correctiveActionRequired: false,
+  };
+}
+
+function plantNotes(displaySequence: number): TemplateDraftInput["fields"][number] {
+  return {
+    fieldKey: "notes",
+    label: "Notes",
+    fieldType: "OPTIONAL_COMMENT",
+    isRequired: false,
+    displaySequence,
+  };
+}
+
+function plantFollowUp(displaySequence: number): TemplateDraftInput["fields"][number] {
+  return {
+    fieldKey: "follow_up_required",
+    label: "Follow-up required",
+    fieldType: "YES_NO",
+    isRequired: true,
+    displaySequence,
+    correctiveActionTrigger: true,
+    correctiveActionRequired: false,
+  };
+}
+
+export function listTemplatePresetSummaries(departmentKey?: string): Array<{
   presetKey: OperationalEvidencePresetKey;
   name: string;
   purposeType: TemplateDraftInput["purposeType"];
   description: string;
 }> {
-  return OPERATIONAL_EVIDENCE_PRESET_KEYS.map((presetKey) => {
+  const keys =
+    departmentKey === "PLANT"
+      ? PLANT_RECORD_PRESET_KEYS
+      : departmentKey === "DIETARY" || departmentKey === "HEALTHCARE_FOOD_NUTRITION" || !departmentKey
+        ? DIETARY_EVIDENCE_PRESET_KEYS
+        : [];
+
+  return keys.map((presetKey) => {
     const draft = buildTemplatePresetDraft(presetKey);
     return {
       presetKey,

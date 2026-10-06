@@ -54,6 +54,21 @@ const MONTH_LABELS = [
   "Dec",
 ] as const;
 
+export const PM_CADENCE_PRESET_LEAD_DAYS = 7;
+export const PM_CADENCE_PRESET_PRIORITY = "ROUTINE" as const;
+
+export function applyPmCadencePresetDefaults(preset: Exclude<PmCadencePresetId, "custom">): {
+  intervalMonths: number;
+  generationLeadDays: number;
+  priority: typeof PM_CADENCE_PRESET_PRIORITY;
+} {
+  return {
+    intervalMonths: intervalMonthsFromCadencePreset(preset),
+    generationLeadDays: PM_CADENCE_PRESET_LEAD_DAYS,
+    priority: PM_CADENCE_PRESET_PRIORITY,
+  };
+}
+
 export function intervalMonthsFromCadencePreset(
   preset: PmCadencePresetId,
   customMonths?: number,

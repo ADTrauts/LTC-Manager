@@ -138,7 +138,7 @@ describe("Department Product registry", () => {
     assert.deepEqual(plant.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(plant.status, "DEVELOPMENT");
     assert.equal(plant.domainCapability, "plant");
-    assert.equal(plant.starters.workPresets, undefined);
+    assert.equal(plant.starters.workPresets, true);
     assert.equal(plant.starters.assignmentRoles, true);
   });
 
@@ -163,7 +163,7 @@ describe("Department Product registry", () => {
     assert.doesNotMatch(registry, /Breakfast|SERVERY_OPENING_CHECKS|COOK/);
     assert.ok(listWorkPlanPresetSummaries("DIETARY").length > 0);
     assert.ok(listWorkPlanPresetSummaries("EVS").length > 0);
-    assert.deepEqual(listWorkPlanPresetSummaries("PLANT"), []);
+    assert.equal(listWorkPlanPresetSummaries("PLANT").length, 4);
     assert.ok(getRolesForDepartment("DIETARY").some((role) => role.key === "COOK"));
     assert.ok(getRolesForDepartment("EVS").some((role) => role.key === "CLEANING_ROUND"));
     assert.ok(getRolesForDepartment("PLANT").some((role) => role.key === "WORK_ORDER_RESPONSE"));

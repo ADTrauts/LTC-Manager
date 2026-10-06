@@ -8,6 +8,8 @@
 
 Facility Plant Operations remains **DEVELOPMENT**. This phase did not implement PM, inventory, payroll, purchasing/AP, Work Order reopen, Procedure architecture expansion, Marketplace/billing/entitlement changes, or registry AVAILABLE.
 
+> Historical note: the “did not implement PM” statement was true at Phase 3D close. Preventive Maintenance was implemented and certified in Phase 4A–4D.
+
 ---
 
 ## Verdict

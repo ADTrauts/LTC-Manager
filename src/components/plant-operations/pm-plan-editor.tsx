@@ -16,6 +16,7 @@ import {
   defaultSuccessorEffectiveDate,
   formatCadenceSummary,
   formatProjectedDateLabel,
+  applyPmCadencePresetDefaults,
   intervalMonthsFromCadencePreset,
   previewDraftProjectedSchedule,
   PM_CADENCE_PRESETS,
@@ -344,6 +345,10 @@ export function PmPlanEditor({
 
       <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4">
         <h2 className="text-base font-semibold text-zinc-900">Schedule</h2>
+        <p className="text-xs text-zinc-600">
+          Presets only fill the schedule. Review the maintenance requirements for this Asset before
+          publishing. Monthly, Quarterly, Semiannual, and Annual are not manufacturer recommendations.
+        </p>
         <Select
           label="Repeats"
           value={cadence}
@@ -351,7 +356,10 @@ export function PmPlanEditor({
             const next = e.target.value as PmCadencePresetId;
             setCadence(next);
             if (next !== "custom") {
-              setIntervalMonths(intervalMonthsFromCadencePreset(next));
+              const defaults = applyPmCadencePresetDefaults(next);
+              setIntervalMonths(defaults.intervalMonths);
+              setGenerationLeadDays(defaults.generationLeadDays);
+              setPriority("ROUTINE");
             }
           }}
           disabled={readOnly}

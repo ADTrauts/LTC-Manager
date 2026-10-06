@@ -48,9 +48,11 @@ export {
   DEPARTMENT_WORK_PRESET_KEYS,
   DIETARY_WORK_PRESET_KEYS,
   EVS_WORK_PRESET_KEYS,
+  PLANT_WORK_PRESET_KEYS,
   type DepartmentWorkPresetKey,
   type DietaryWorkPresetKey,
   type EvsWorkPresetKey,
+  type PlantWorkPresetKey,
 } from "./work-presets";
 
 export {

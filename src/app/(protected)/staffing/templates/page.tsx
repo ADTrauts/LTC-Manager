@@ -202,7 +202,7 @@ export default async function OperationalTemplateBuilderPage() {
         canManage={isCanonicalLogsEnabled() ? false : authority.canManage}
         canPublish={isCanonicalLogsEnabled() ? false : authority.canPublish}
         templates={templatesForPanel}
-        presets={listTemplatePresetSummaries()}
+        presets={listTemplatePresetSummaries(department.key)}
         assets={assets}
         spaces={spaces}
         units={units}

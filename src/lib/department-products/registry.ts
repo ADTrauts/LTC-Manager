@@ -163,7 +163,19 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     status: "DEVELOPMENT",
     sortOrder: 30,
     domainCapability: "plant",
+    shortDescription:
+      "Manage facility maintenance requests, Issues, Work Orders, Assets, recurring operational Work, and Preventive Maintenance in one operational workspace.",
+    customerCapabilities: [
+      "Maintenance Requests and triage",
+      "Issues and Work Orders",
+      "Asset maintenance history",
+      "Preventive Maintenance",
+      "Recurring facility rounds",
+      "Records and Procedures",
+      "Labor, parts, and vendor expense capture",
+    ],
     starters: {
+      workPresets: true,
       assignmentRoles: true,
       jobRoleTiers: "generic",
       responsibilityPresets: true,
