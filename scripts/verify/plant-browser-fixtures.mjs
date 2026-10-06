@@ -52,6 +52,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
       isActive: true,
       primaryDepartmentId,
       sessionVersion: 0,
+      emailVerifiedAt: new Date(),
     },
     create: {
       email,
@@ -61,6 +62,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
       passwordHash,
       isActive: true,
       primaryDepartmentId,
+      emailVerifiedAt: new Date(),
     },
     select: { id: true, email: true },
   });
@@ -121,7 +123,67 @@ async function main() {
   const db = new PrismaClient({ datasources: { db: { url } } });
 
   try {
-    const facility = await db.facility.findFirstOrThrow({
+    // Seed may fail on the dropped Unit.facilityId_name unique. Create the
+    // minimum Terrace View + department foundation when it is absent.
+    let facility = await db.facility.findFirst({
+      where: { displayName: "Terrace View Long Term Care" },
+      select: { id: true, timezone: true, displayName: true },
+    });
+    if (!facility) {
+      const org = await db.organization.create({
+        data: { name: "Terrace View Organization" },
+      });
+      facility = await db.facility.create({
+        data: {
+          organizationId: org.id,
+          displayName: "Terrace View Long Term Care",
+          timezone: "America/New_York",
+        },
+        select: { id: true, timezone: true, displayName: true },
+      });
+    }
+    for (const key of ["MANAGER", "SUPERVISOR", "STAFF", "FACILITY_ADMINISTRATOR", "GM"]) {
+      await db.role.upsert({
+        where: { key },
+        update: {},
+        create: { id: cuidLike(), key, name: key },
+      });
+    }
+    for (const [key, name] of [
+      ["DIETARY", "Dietary"],
+      ["PLANT", "Plant Operations"],
+      ["EVS", "Environmental Services"],
+    ]) {
+      const existing = await db.department.findFirst({
+        where: { facilityId: facility.id, key },
+      });
+      if (!existing) {
+        await db.department.create({
+          data: { facilityId: facility.id, key, name, isActive: true },
+        });
+      }
+    }
+    const dietaryForServery = await db.department.findFirstOrThrow({
+      where: { facilityId: facility.id, key: "DIETARY" },
+    });
+    const serveryExists = await db.unit.findFirst({
+      where: { facilityId: facility.id, unitType: "SERVERY" },
+    });
+    if (!serveryExists) {
+      await db.unit.create({
+        data: {
+          facilityId: facility.id,
+          name: "Main Servery",
+          unitType: "SERVERY",
+          hierarchyRole: "FLOOR",
+          departmentResponsibilities: {
+            create: { departmentId: dietaryForServery.id, kind: "PRIMARY" },
+          },
+        },
+      });
+    }
+
+    facility = await db.facility.findFirstOrThrow({
       where: { displayName: "Terrace View Long Term Care" },
       select: { id: true, timezone: true, displayName: true },
     });

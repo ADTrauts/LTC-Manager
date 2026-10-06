@@ -233,7 +233,7 @@ test("role policy — /department/settings defers to its own department-head aut
 });
 
 test("role policy — frontline surfaces stay open to every role", () => {
-  for (const path of ["/logs", "/repairs", "/dashboard", "/operations", "/unit/abc"]) {
+  for (const path of ["/logs", "/repairs", "/asset-issues", "/dashboard", "/operations", "/unit/abc"]) {
     for (const role of APP_ROLES) {
       assert.equal(roleMayAccessRoute(path, role, FLAGS), true, `${role} at ${path}`);
     }

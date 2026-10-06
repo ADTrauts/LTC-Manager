@@ -726,6 +726,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Phase 10A Asset profile. Downstream authority scopes Facility and Dietary Asset Operations manage/view.",
   },
   {
+    pattern: "/asset-issues",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "issues",
+    notes:
+      "Issue list / create. Product heading is Issues. Persistence remains AssetIssue. Downstream department authority applies on the page.",
+  },
+  {
     pattern: "/asset-issues/[issueId]",
     match: "EXACT",
     surface: "PAGE",

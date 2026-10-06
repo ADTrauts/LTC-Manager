@@ -11,6 +11,7 @@ import {
   loadFacilityDepartmentAccessContext,
   type FacilityDepartmentAccessRow,
 } from "@/lib/department-products/load-facility-catalog";
+import { resolveMembershipPrimaryOperationalDepartmentId } from "@/lib/active-department-scope";
 import { employeeBelongsToDepartment, resolveDepartmentMembershipIds } from "@/lib/employee-membership";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
@@ -133,12 +134,30 @@ async function resolveNavWithRawCookie(
     if (empId) {
       const employee = await prisma.employee.findFirst({
         where: { id: empId, facilityId },
-        select: { primaryDepartmentId: true },
+        select: {
+          primaryDepartmentId: true,
+          employeeDepartments: { select: { departmentId: true } },
+        },
       });
       const pid = employee?.primaryDepartmentId;
       if (pid) {
         const ok = await userMaySelectDepartment(session, pid, facilityId, isFacilityAdmin, context);
         if (ok) departmentId = pid;
+      }
+      if (!departmentId && employee) {
+        const membershipPrimary = resolveMembershipPrimaryOperationalDepartmentId({
+          selectableDepartmentId: null,
+          sessionPrimaryDepartmentId: session.primaryDepartmentId,
+          employeePrimaryDepartmentId: employee.primaryDepartmentId,
+          memberDepartmentIds: resolveDepartmentMembershipIds(employee),
+        });
+        if (membershipPrimary) {
+          const installed = await prisma.department.findFirst({
+            where: { id: membershipPrimary, facilityId, isActive: true },
+            select: { id: true },
+          });
+          if (installed) departmentId = installed.id;
+        }
       }
     }
   }

@@ -20,11 +20,13 @@ import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requesterVisibleStatusLabel } from "@/lib/operational-requests/types";
 import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
+import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
 import {
   requireWorkOrderManage,
   resolveAssetOperationsAuthority,
 } from "./authority";
+import { isAssignedWorkOrderTechnician } from "./work-order-actor";
 import { resolvePreferredRepairProviderForAsset } from "./responsibility";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 
@@ -54,12 +56,18 @@ async function resolveWorkOrderActorAuthority(
       await import("@/lib/operational-requests/authority");
 
     let isAssignedTechnician = false;
-    if (opts?.repairId && session.authKind === "employee") {
+    if (opts?.repairId) {
       const repair = await prisma.repair.findFirst({
         where: { id: opts.repairId, unit: { facilityId } },
         select: { assignedEmployeeId: true },
       });
-      isAssignedTechnician = repair?.assignedEmployeeId === session.uid;
+      const operationalEmployeeId = await getOperationalEmployeeIdForSession(session);
+      isAssignedTechnician = isAssignedWorkOrderTechnician({
+        assignedEmployeeId: repair?.assignedEmployeeId,
+        operationalEmployeeId,
+        sessionUid: session.uid,
+        authKind: session.authKind,
+      });
     }
 
     const plantAuth = await resolvePlantOperationsAuthority(

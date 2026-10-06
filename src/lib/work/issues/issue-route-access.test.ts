@@ -32,6 +32,20 @@ test("/issues maps to ADMINISTRATION zone and Dietary/EVS/Plant department visib
   assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "EVS"), true);
 });
 
+test("/asset-issues list is a registered STAFF+ frontline surface", () => {
+  for (const role of APP_ROLES) {
+    const allowed = ROLE_PRIORITY[role as AppRole] >= ROLE_PRIORITY.STAFF;
+    assert.equal(roleMayAccessRoute("/asset-issues", role, FLAGS), allowed, `${role} /asset-issues`);
+    assert.equal(
+      roleMayAccessRoute("/asset-issues/clxxxxxxxxxxxxxxxxxxxxxxxx", role, FLAGS),
+      allowed,
+      `${role} /asset-issues detail`,
+    );
+  }
+  assert.equal(pathnameAllowedForDepartmentKey("/asset-issues", "DIETARY"), true);
+  assert.equal(pathnameAllowedForDepartmentKey("/asset-issues", "PLANT"), true);
+});
+
 test("detail path helpers point at canonical /repairs", () => {
   const id = "clissue000000000000000001";
   assert.equal(issueDetailPath(id), `/repairs/${id}`);

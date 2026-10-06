@@ -1,7 +1,7 @@
 # Facility Plant Operations — Phase 3C Certification
 
 **Date:** 2026-10-05  
-**Mode:** ACT complete — corrective-maintenance operating workflow  
+**Mode:** ACT complete — corrective-maintenance operating workflow + authenticated browser closure  
 **Classification:** SUPPORTING  
 **Canonical Product:** [14 — Facility Plant Operations](../product/14_FACILITY_PLANT_OPERATIONS.md)  
 **Plan:** [Phase 3 Plan 2026-10-05](./FACILITY_PLANT_OPERATIONS_PHASE_3_PLAN_2026-10-05.md)  
@@ -15,19 +15,17 @@ Facility Plant Operations remains **DEVELOPMENT**. This phase did not implement 
 ## Verdict
 
 ```text
-PASS WITH GAPS
+PASS
 ```
 
-The corrective operating loop is implemented and SQL-certified:
+The corrective operating loop is implemented, SQL-certified, and interactively certified in a facility password session against disposable `ltc_verify_phase3c_browser_20261005`:
 
 ```text
 Request → Plant triage → Issue → Work Order → assign/start/hold/resume/complete
         → explicit Issue resolve / Asset condition / Request outcome
 ```
 
-Work Order completion still does not resolve Issue, close Request, or restore Asset. Those remain separate supervisor actions.
-
-The gap is interactive Harbor browser execution of the new UX against a live authenticated session. Domain, orchestration, and SQL scenarios 1–8 passed.
+Work Order completion still does not resolve Issue, close Request, or restore Asset. Those remain separate supervisor actions. The previous login / session gap is closed.
 
 ---
 
@@ -198,8 +196,9 @@ Disposable SQL: `scripts/verify/admin-database.mjs` → `ltc_verify_phase3c_plan
 
 | Suite | Result |
 |-------|--------|
-| Phase 3C corrective SQL (2) | PASS — scenarios 1–8 plus decline / resolve-without-work |
-| Targeted hermetic (61) | PASS |
+| Phase 3C corrective SQL (2) | PASS — scenarios 1–8 plus decline / resolve-without-work (re-run 2026-10-06) |
+| Playwright `@phase-3c` (1) | PASS — supervisor triage → technician complete → explicit recovery + location-only |
+| Targeted hermetic (route, department scope, technician actor, eligibility) | PASS |
 | Phase 3A (2) | PASS |
 | Phase 3B (2) | PASS |
 | Phase 10A (4) | PASS after Dietary servery fixtures on the disposable DB |
@@ -210,15 +209,64 @@ Disposable SQL: `scripts/verify/admin-database.mjs` → `ltc_verify_phase3c_plan
 | Department Product / eligibility | PASS — PLANT DEVELOPMENT |
 
 ```text
-pnpm exec prisma validate     PASS
+pnpm exec prisma validate     PASS (prior 3C commit; schema unchanged this closure)
 pnpm typecheck                PASS
-targeted eslint               PASS (unused import removed)
+targeted eslint               PASS
 pnpm lint                     FAIL — 9 errors, 45 warnings — PRE-EXISTING
 pnpm verify:migrations        PASS after staging — 117 migrations
                               newest 20261005230000_issue_origin_evidence_record
+                              (no new migration this closure)
 ```
 
-Browser: local `/repairs` redirects to `/login`. Seeded Terrace View demo sign-in did not establish a session in this pass (live password likely diverged, and DEVELOPMENT Plant still requires Harbor/internal access). Interactive supervisor/technician click-through was **not** completed. SQL + hermetic remain the certification of the workflow. Visibility rules were not weakened.
+Browser: authenticated facility password session on isolated `next start :3017` against disposable `ltc_verify_phase3c_browser_20261005`. Playwright `@phase-3c` (`tests/plant-browser/phase-3c-corrective.spec.ts`) **PASS** — 22.9s.
+
+### Authentication mechanism
+
+Facility email/password via `/api/auth/login` (`authKind: "user"`). Fixture users now set `emailVerifiedAt` so password login is accepted. `SEED_DEMO_PASSWORD` is the repository-supported demo secret.
+
+Harbor work sessions were inspected and **not** used for this RUN loop. The Harbor work allowlist is builder-only (`/admin/facility/builder`, `/assets`, `/employees`, …) and does not include `/staffing/operations`, `/repairs`, or `/asset-issues`. Harbor work JWTs are `FACILITY_ADMINISTRATOR` without a Plant primary, so Plant WO authority would still deny even if those routes were opened.
+
+DEVELOPMENT Plant remains omitted from the customer department picker. Plant-primary facility members keep Plant as operational scope so RUN Maintenance is not a dead end. Marketplace / customer install visibility was not changed.
+
+### Test personas
+
+| Persona | Identity | Role |
+|---------|----------|------|
+| Plant Supervisor | `plant.supervisor@ltc.local` | SUPERVISOR, Plant primary |
+| Plant Technician | `plant.staff@ltc.local` | STAFF, assigned Employee `techEmployeeId` |
+| Requester | Dietary Request fixture (`OR-3C-*`) | Prisma-created. Unit report form was not re-clicked; Phase 12A already covers Dietary report UI |
+
+### Routes exercised
+
+`/login` → `/staffing/operations` → `/asset-issues` → `/asset-issues/[id]` → `/repairs` → `/repairs/[id]` → `/assets/[id]`
+
+### Workflows certified in the browser
+
+1. Supervisor sees Plant triage (not Dietary-only Operations Board).
+2. Accept + Issue + Work Order with technician assignment. Request, Issue, and Work Order remain three records.
+3. Issues list heading is **Issues**. Row/detail show Location, optional Asset, linked Request, linked Work Order. Issue stays a condition workspace.
+4. `/repairs` heading is **Work Orders** for Supervisor and **My Work** for STAFF.
+5. Technician starts, holds (`WAITING_FOR_PART` / Waiting for part), resumes, adds an update, completes.
+6. Immediately after complete: Work Order `COMPLETED`, Issue still open, Request not resolved, Asset remains `OUT_OF_SERVICE`.
+7. Supervisor resolves Issue with “Resolve linked open Requests” checked, then returns Asset to `OPERATIONAL` on the Asset page.
+8. Location-only Create Issue (“Ceiling leak”, unit, no Asset) — list shows Location-only; no fake Asset.
+
+### Role checks
+
+Technician cannot open Plant triage (`/staffing/operations` has no `plant-triage-panel`), cannot resolve an Issue, cannot assign. Supervisor can triage, assign, resolve, and update Asset condition.
+
+### Limitations (not claimed as browser-certified)
+
+- Dietary requester **browser submit** was not re-run; Request was seeded. Phase 12A already has the unit report form.
+- Second Work Order on the same Issue, duplicate-Request link, Procedure pin after v2, and live Asset move were **not** re-clicked. SQL scenarios 1–8 already certify those.
+- Harbor Console work session cannot execute this RUN loop without expanding the builder allowlist (out of scope).
+
+### Browser defects found and fixed
+
+1. `/asset-issues` list was unregistered in the platform route registry → proxy returned empty **404**. Registered `/asset-issues` as STAFF+.
+2. Plant-primary facility members resolved to a null operational department, so `/repairs` redirected to `/today`. Membership primary now scopes RUN when the Product is not customer-selectable.
+3. Technician start/hold/resume/complete used assigned-technician recognition only for `authKind === "employee"`. Password-login Users now match the assigned Employee via `getOperationalEmployeeIdForSession`.
+4. Plant-browser fixtures now set `emailVerifiedAt` and can bootstrap Terrace View when seed is absent.
 
 ---
 
@@ -242,9 +290,9 @@ WO COMPLETED ≠ Asset OPERATIONAL
 
 ## Deferred
 
-### Browser click-through
+### Harbor work-session RUN allowlist
 
-Harbor-authenticated supervisor + technician execution on a DEVELOPMENT-gated local session.
+Harbor staff may still exercise DEVELOPMENT Products in builder surfaces. Expanding the work-session allowlist to `/staffing/operations`, `/repairs`, and `/asset-issues` is a later platform decision, not required to close Phase 3C.
 
 ### 3D
 
