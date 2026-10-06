@@ -23,6 +23,7 @@ import {
   isEvsOperationsEnabled,
   isPlantOperationsEnabled,
 } from "@/lib/feature-flags";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 
 export type { DomainDepartmentKey };
@@ -100,6 +101,18 @@ export function isDepartmentWorkPlansEnabled(key: string | null | undefined): bo
   );
 }
 
+export async function isDepartmentEngineEnabledForFacility(
+  facilityId: string,
+  feature: StaffingOperationalFeature,
+  key: string | null | undefined,
+  session?: { authKind?: string | null } | null,
+): Promise<boolean> {
+  if (key === "PLANT") {
+    return isPlantRuntimeEnabled(facilityId, session);
+  }
+  return isFeatureEnabledForKey(feature, key);
+}
+
 function isFeatureEnabledForKey(
   feature: StaffingOperationalFeature,
   key: string | null | undefined,
@@ -148,6 +161,7 @@ export async function resolveStaffingOperationalDepartment(input: {
   preferKeys?: readonly DomainDepartmentKey[];
   /** When true, resolve even if that department's release flag is off. */
   skipFeatureGate?: boolean;
+  session?: { authKind?: string | null } | null;
 }): Promise<{ id: string; name: string; key: string } | null> {
   const feature = input.feature ?? "workPlans";
   const preferKeys = input.preferKeys ?? DOMAIN_DEPARTMENT_KEYS;
@@ -162,13 +176,32 @@ export async function resolveStaffingOperationalDepartment(input: {
       },
       select: { id: true, name: true, key: true },
     });
-    if (active && (!gated || isFeatureEnabledForKey(feature, active.key))) {
+    if (
+      active &&
+      (!gated ||
+        (await isDepartmentEngineEnabledForFacility(
+          input.facilityId,
+          feature,
+          active.key,
+          input.session,
+        )))
+    ) {
       return { id: active.id, name: active.name, key: active.key };
     }
   }
 
   for (const key of preferKeys) {
-    if (gated && !isFeatureEnabledForKey(feature, key)) continue;
+    if (
+      gated &&
+      !(await isDepartmentEngineEnabledForFacility(
+        input.facilityId,
+        feature,
+        key,
+        input.session,
+      ))
+    ) {
+      continue;
+    }
     const dept = await prisma.department.findFirst({
       where: { facilityId: input.facilityId, key, isActive: true },
       select: { id: true, name: true, key: true },
@@ -187,7 +220,16 @@ export async function resolveStaffingOperationalDepartment(input: {
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: { id: true, name: true, key: true },
   });
-  if (custom && (!gated || isFeatureEnabledForKey(feature, custom.key))) {
+  if (
+    custom &&
+    (!gated ||
+      (await isDepartmentEngineEnabledForFacility(
+        input.facilityId,
+        feature,
+        custom.key,
+        input.session,
+      )))
+  ) {
     return { id: custom.id, name: custom.name, key: custom.key };
   }
 
@@ -204,12 +246,15 @@ export async function requireDepartmentFeatureEnabled(
 ): Promise<{ id: string; name: string; key: string }> {
   const dept = await prisma.department.findFirst({
     where: { id: departmentId, isActive: true },
-    select: { id: true, name: true, key: true },
+    select: { id: true, name: true, key: true, facilityId: true },
   });
-  if (!dept || !isFeatureEnabledForKey(feature, dept.key)) {
+  if (
+    !dept ||
+    !(await isDepartmentEngineEnabledForFacility(dept.facilityId, feature, dept.key))
+  ) {
     throw new Error(message ?? "This operational feature is not enabled for the department.");
   }
-  return dept;
+  return { id: dept.id, name: dept.name, key: dept.key };
 }
 
 /**
@@ -222,6 +267,7 @@ export async function resolveUnitOperationalDepartment(input: {
   activeDepartmentId: string | null;
   unitId?: string | null;
   feature?: StaffingOperationalFeature;
+  session?: { authKind?: string | null } | null;
 }): Promise<{ id: string; name: string; key: string } | null> {
   const feature = input.feature ?? "jobFlow";
 
@@ -229,6 +275,7 @@ export async function resolveUnitOperationalDepartment(input: {
     facilityId: input.facilityId,
     activeDepartmentId: input.activeDepartmentId,
     feature,
+    session: input.session,
   });
   if (fromActive) return fromActive;
 
@@ -250,7 +297,16 @@ export async function resolveUnitOperationalDepartment(input: {
       (row) => !isDomainDepartmentKey(row.department.key),
     );
     for (const match of [...preferred, ...custom]) {
-      if (!isFeatureEnabledForKey(feature, match.department.key)) continue;
+      if (
+        !(await isDepartmentEngineEnabledForFacility(
+          input.facilityId,
+          feature,
+          match.department.key,
+          input.session,
+        ))
+      ) {
+        continue;
+      }
       return {
         id: match.department.id,
         name: match.department.name,
@@ -266,9 +322,19 @@ export async function resolveUnitOperationalDepartment(input: {
 export async function resolvePlantOperationalDepartment(input: {
   facilityId: string;
   feature?: StaffingOperationalFeature;
+  session?: { authKind?: string | null } | null;
 }): Promise<{ id: string; name: string; key: "PLANT" } | null> {
   const feature = input.feature ?? "jobFlow";
-  if (!isFeatureEnabledForKey(feature, "PLANT")) return null;
+  if (
+    !(await isDepartmentEngineEnabledForFacility(
+      input.facilityId,
+      feature,
+      "PLANT",
+      input.session,
+    ))
+  ) {
+    return null;
+  }
   const dept = await prisma.department.findFirst({
     where: { facilityId: input.facilityId, key: "PLANT", isActive: true },
     select: { id: true, name: true, key: true },

@@ -66,24 +66,26 @@ export function RepairsPageClient({
           description={
             technicianView
               ? "Assigned Work Orders will show here."
-              : "Open work will show here once a Work Order is created."
+              : "A Work Order is assigned maintenance work. Create one directly, or let Plant triage a Request or Issue into work."
           }
           action={
+            technicianView ? undefined : (
             <button
               type="button"
               onClick={openCreate}
               className="inline-flex min-h-10 items-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-700"
               data-testid="repairs-empty-create"
             >
-              New repair
+              New Work Order
             </button>
+            )
           }
         />
       ) : null}
 
       <GuardedModal
         open={open}
-        title="New repair"
+        title="New Work Order"
         dirty={dirty}
         onClose={closeCreate}
         data-testid="repairs-create-modal"

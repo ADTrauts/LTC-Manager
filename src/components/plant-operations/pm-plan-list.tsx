@@ -26,12 +26,14 @@ export function PmPlanList({
   filter,
   assetQuery,
   canCreate,
+  assetCount = 0,
 }: {
   departmentId: string;
   rows: PmPlanListRow[];
   filter: PmPlanListFilter;
   assetQuery: string;
   canCreate: boolean;
+  assetCount?: number;
 }) {
   const filters: Array<{ id: PmPlanListFilter; label: string }> = [
     { id: "all", label: "All" },
@@ -55,8 +57,8 @@ export function PmPlanList({
         <div>
           <h1 className="text-lg font-semibold text-zinc-900">Preventive Maintenance</h1>
           <p className="mt-1 text-sm text-zinc-600">
-            Configure scheduled maintenance for Facility assets. Publishing does not create Work
-            Orders — the daily generator does that.
+            Configure scheduled maintenance for Facility assets. Publishing a Plan does not create
+            Work Orders until maintenance comes due.
           </p>
         </div>
         {canCreate ? (
@@ -100,9 +102,25 @@ export function PmPlanList({
       </form>
 
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-600" data-testid="pm-plan-empty">
-          No Preventive Maintenance Plans yet.
-        </p>
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-700" data-testid="pm-plan-empty">
+          <p>Preventive Maintenance Plans schedule service for real Assets.</p>
+          {assetCount === 0 ? (
+            <p className="mt-2">
+              Add an Asset first.{" "}
+              <Link href="/assets/builder" className="font-medium underline underline-offset-2">
+                Configure Assets
+              </Link>
+            </p>
+          ) : canCreate ? (
+            <p className="mt-2">
+              <Link href={preventiveMaintenanceNewHref(departmentId)} className="font-medium underline underline-offset-2">
+                Create a Preventive Maintenance Plan
+              </Link>
+            </p>
+          ) : (
+            <p className="mt-2">No Preventive Maintenance Plans yet.</p>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-zinc-200">
           <table className="min-w-full text-left text-sm">
@@ -113,7 +131,7 @@ export function PmPlanList({
                 <th className="px-3 py-2 font-medium">Status</th>
                 <th className="px-3 py-2 font-medium">Version</th>
                 <th className="px-3 py-2 font-medium">Cadence</th>
-                <th className="px-3 py-2 font-medium">Next projected</th>
+                <th className="px-3 py-2 font-medium">Next scheduled</th>
                 <th className="px-3 py-2 font-medium">Category</th>
                 <th className="px-3 py-2 font-medium">Priority</th>
                 <th className="px-3 py-2 font-medium">Procedure</th>

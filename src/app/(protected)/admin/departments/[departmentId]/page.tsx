@@ -35,13 +35,15 @@ import {
   resolveOverviewProductIdentity,
 } from "@/lib/department-administration/overview-guidance";
 import {
+  presentPlantGettingStarted,
+} from "@/lib/department-administration/plant-getting-started";
+import {
   canPurchaseDepartmentProducts,
   findCatalogItemForDepartmentKey,
   getDepartmentProduct,
   loadFacilityDepartmentCatalog,
 } from "@/lib/department-products";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
-import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 import { prisma } from "@/lib/prisma";
 
@@ -108,6 +110,7 @@ export default async function DepartmentBuilderPage({
   const profileId = view.workingProfileMeta?.id ?? null;
   const product = getDepartmentProduct(view.department.key);
   const workEnabled =
+    view.department.key === "PLANT" ||
     Boolean(product?.starters.workPresets) ||
     contextSummary.publishedWorkPlanCount > 0 ||
     contextSummary.draftWorkPlanCount > 0;
@@ -118,8 +121,7 @@ export default async function DepartmentBuilderPage({
     workEnabled,
     recordsEnabled: canonicalLogsEnabled,
     menusEnabled: hasDietaryDomainCapabilities(view.department.key),
-    maintenanceEnabled:
-      view.department.key === "PLANT" && isDepartmentAssetOperationsEnabled(view.department.key),
+    maintenanceEnabled: view.department.key === "PLANT",
   });
   const tab = resolveDepartmentAdminTab(query.tab, {
     availableTabIds: availableTabs.map((item) => item.id),
@@ -134,6 +136,26 @@ export default async function DepartmentBuilderPage({
       ? await loadFacilityDepartmentCatalog(prisma, session.facilityId)
       : [];
   const catalogItem = findCatalogItemForDepartmentKey(catalog, view.department.key);
+  const plantFacts =
+    tab === "overview" && view.department.key === "PLANT"
+      ? {
+          locationCount: view.locationCoverage.total,
+          assetCount: await prisma.asset.count({
+            where: { unit: { facilityId: session.facilityId } },
+          }),
+          peopleCount: contextSummary.assignedEmployeeCount,
+          workPlanCount:
+            contextSummary.publishedWorkPlanCount + contextSummary.draftWorkPlanCount,
+          recordCount: contextSummary.placedLogCount,
+          publishedPmPlanCount: await prisma.preventiveMaintenancePlan.count({
+            where: {
+              facilityId: session.facilityId,
+              departmentId: view.department.id,
+              status: "PUBLISHED",
+            },
+          }),
+        }
+      : null;
   const settings: OverviewDepartmentSettings = {
     showInEmployeeApp: contextSummary.showInEmployeeApp,
     headEmployeeId: contextSummary.headEmployeeId,
@@ -170,6 +192,13 @@ export default async function DepartmentBuilderPage({
       classifiedOperationalTypeKeys: contextSummary.classifiedOperationalTypeKeys,
       mealTimingUpgradeRequired: contextSummary.mealTimingUpgradeRequired,
     }),
+    plantGettingStarted: plantFacts
+      ? presentPlantGettingStarted({
+          departmentId: view.department.id,
+          ...plantFacts,
+        })
+      : null,
+    plantCounts: plantFacts,
   };
 
   const contentMaxWidth = tab === "overview" ? "max-w-4xl" : tab === "people" ? "max-w-6xl" : "max-w-5xl";
@@ -241,6 +270,7 @@ export default async function DepartmentBuilderPage({
         {tab === "work" ? (
           <DepartmentWorkPanel
             departmentName={view.department.name}
+            departmentKey={view.department.key}
             publishedCount={contextSummary.publishedWorkPlanCount}
             draftCount={contextSummary.draftWorkPlanCount}
             unmatchedLocationFunctions={settings.guidanceRows.some(

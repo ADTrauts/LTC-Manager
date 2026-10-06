@@ -226,6 +226,15 @@ test(
       assert.equal(request.status, "REPORTED");
       assert.equal(request.requestingDepartmentId, fx.dietary.id);
       assert.equal(request.responsibleDepartmentId, fx.plant.id);
+      assert.equal(request.relatedAssetIssueId, null);
+      assert.equal(request.workOrderId, null);
+      const received = await loadRequesterVisibleStatus(dietaryStaff, {
+        facilityId: fx.facility.id,
+        requestingDepartmentId: fx.dietary.id,
+        requestId: request.id,
+      });
+      assert.equal(received.projectedStatus, "RECEIVED");
+      assert.equal(received.projectedStatusLabel, "Received");
 
       await acknowledgeRequest(mgr, {
         facilityId: fx.facility.id,
@@ -355,7 +364,7 @@ test(
       });
       assert.equal(result.ok, false);
       if (!result.ok) {
-        assert.match(result.reason, /Plant Operations is not enabled/);
+        assert.match(result.reason, /Plant Operations is not enabled|Facility Plant Operations is not enabled/);
       }
     } finally {
       if (prev === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;

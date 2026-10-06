@@ -134,6 +134,7 @@ export type NeighborhoodWorkspaceViewModel = {
     overdueCount: number;
   };
   assets: NeighborhoodAssetView[];
+  reportProblemHref: string;
   milestones: NeighborhoodMilestoneView[];
   today: NeighborhoodChangeView[];
   sections: Array<{ id: NeighborhoodWorkspaceSectionId; title: string; present: boolean }>;

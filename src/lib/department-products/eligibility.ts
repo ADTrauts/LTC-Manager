@@ -5,8 +5,6 @@
  * It is released Product + valid entitlement + installed + active.
  */
 
-import type { AuthKind } from "@/lib/auth";
-
 import {
   getDepartmentProduct,
   listDepartmentProducts,
@@ -171,7 +169,7 @@ export function customerCurrentDepartmentLabel(input: {
  * convert a DEVELOPMENT Product into a customer-operable Department.
  */
 export function hasInternalDepartmentProductAccess(input: {
-  authKind?: AuthKind | null;
+  authKind?: string | null;
   productKey: string;
 }): boolean {
   return input.authKind === "harbor_staff";

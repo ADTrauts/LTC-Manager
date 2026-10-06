@@ -509,6 +509,7 @@ export function presentSpaceWorkspace(
     assets: {
       items: presentAssets(state, unitId, spaceId),
       maintenanceHref: "/assets",
+      reportProblemHref: `/unit/${unitId}?space=${encodeURIComponent(spaceId)}&reportProblem=1#assets`,
     },
     milestones: {
       items: milestones,

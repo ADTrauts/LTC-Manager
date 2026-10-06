@@ -77,6 +77,14 @@ export {
   type ResolvedCycleStarter,
 } from "./cycle-starter";
 export {
+  isPlantDepartmentProductInstalled,
+  isPlantOperationsDevelopmentOverrideEnabled,
+  isPlantRuntimeEnabled,
+  isSharedAssetOperationsEnabled,
+  resolvePlantRuntimeFromFacts,
+  resolveSharedAssetOperationsFromFacts,
+} from "./plant-runtime";
+export {
   canPurchaseDepartmentProducts,
   deriveFacilityDepartmentCatalog,
   findCatalogItemForDepartmentKey,

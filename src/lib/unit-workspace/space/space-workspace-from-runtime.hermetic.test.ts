@@ -518,6 +518,7 @@ test("Main Kitchen: multiple coverage slots and assets, no Servery assumptions",
   assert.equal(view.coverage.slots[0]?.coverageLabel, "At risk");
   assert.equal(view.coverage.slots[0]?.assignedSummary, "1 assigned");
   assert.equal(view.assets.items.length, 2);
+  assert.match(view.assets.reportProblemHref, /reportProblem=1/);
   assert.equal(view.milestones.showServeryControls, false);
   assert.equal(view.identity.breadcrumbs.some((row) => row.grain === "floor"), true);
 });

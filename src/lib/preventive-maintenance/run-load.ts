@@ -8,7 +8,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AppJwtPayload } from "@/lib/auth";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { formatAssetLocationLabel } from "@/lib/asset-operations";
-import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 import { preventiveMaintenancePlanHref } from "@/lib/department-administration";
 
@@ -204,7 +204,7 @@ export async function loadPlantRunDepartment(session: AppJwtPayload, client: DbC
     select: { id: true, key: true, name: true },
   });
   if (!department) return null;
-  if (!isDepartmentAssetOperationsEnabled(department.key)) return null;
+  if (!(await isPlantRuntimeEnabled(session.facilityId, session))) return null;
   return department;
 }
 

@@ -4,6 +4,11 @@ import type { ReactNode } from "react";
 import { prepareDietaryMealTimingUpgradeAction } from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
 import { AppIcons } from "@/lib/design-system/icons";
 import type { OverviewGuidanceRow } from "@/lib/department-administration/overview-guidance";
+import type {
+  PlantGettingStartedItem,
+  PlantOverviewFactCounts,
+} from "@/lib/department-administration/plant-getting-started";
+import { presentPlantOverviewCounts } from "@/lib/department-administration/plant-getting-started";
 
 export type OverviewEmployeeOption = {
   id: string;
@@ -27,6 +32,8 @@ export type OverviewDepartmentSettings = {
   isVssylProduct: boolean;
   licensed: boolean | null;
   guidanceRows: OverviewGuidanceRow[];
+  plantGettingStarted?: PlantGettingStartedItem[] | null;
+  plantCounts?: PlantOverviewFactCounts | null;
 };
 
 type Props = {
@@ -96,6 +103,9 @@ export function OverviewPanel({
   logsSection,
 }: Props) {
   void locationCoverage;
+  const plantCounts = settings.plantCounts
+    ? presentPlantOverviewCounts(settings.plantCounts)
+    : null;
 
   return (
     <div className="max-w-4xl space-y-5" data-testid="department-overview-panel">
@@ -113,6 +123,47 @@ export function OverviewPanel({
           <p className="text-xs text-zinc-500">Local department</p>
         )}
       </section>
+
+      {plantCounts ? (
+        <section data-testid="overview-plant-counts" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {plantCounts.map((row) => (
+            <div key={row.id} className="rounded-md border border-zinc-200 bg-white px-3 py-2">
+              <p className="text-xs text-zinc-500">{row.label}</p>
+              <p className="text-lg font-semibold tabular-nums text-zinc-900">{row.value}</p>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      {settings.plantGettingStarted ? (
+        <section className="space-y-2" data-testid="overview-getting-started">
+          <h2 className="text-sm font-semibold text-zinc-900">Getting Started</h2>
+          <p className="text-xs text-zinc-500">
+            Guidance only. This list does not block Run, Requests, or Work Orders.
+          </p>
+          <ol className="divide-y divide-zinc-100">
+            {settings.plantGettingStarted.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2" data-testid={`getting-started-${item.id}`}>
+                <span>
+                  <span className="text-sm font-medium text-zinc-900">
+                    {item.step}. {item.title}
+                  </span>
+                  <span className="ml-2 text-xs text-zinc-500">{item.statusLabel}</span>
+                </span>
+                {item.href && item.actionLabel ? (
+                  <Link href={item.href} className="text-xs font-medium text-zinc-700 underline underline-offset-2">
+                    {item.actionLabel}
+                  </Link>
+                ) : item.id === "starter" ? (
+                  <span className="text-xs text-zinc-500" data-testid="add-starter-configuration">
+                    Add starter configuration
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       <section className="space-y-0" aria-labelledby="dept-config-heading">
         <h2 id="dept-config-heading" className="text-sm font-semibold text-zinc-900">

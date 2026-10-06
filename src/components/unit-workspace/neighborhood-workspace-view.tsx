@@ -270,6 +270,15 @@ function Evidence({ view }: { view: NeighborhoodWorkspaceViewModel }) {
 function Assets({ view }: { view: NeighborhoodWorkspaceViewModel }) {
   return (
     <Card id={neighborhoodWorkspaceAnchorId("assets")} title="Assets & Issues">
+      <p className="mb-3">
+        <Link
+          href={view.reportProblemHref}
+          className="text-sm font-medium underline underline-offset-2"
+          data-testid="neighborhood-report-problem"
+        >
+          Report a problem
+        </Link>
+      </p>
       {view.assets.length === 0 ? (
         <p className="text-sm text-zinc-600">No local assets across these spaces.</p>
       ) : (

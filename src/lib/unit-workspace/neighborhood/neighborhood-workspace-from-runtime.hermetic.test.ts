@@ -434,6 +434,7 @@ test("asset SERVICE_AT_RISK stays on the owning SPACE", () => {
   assert.equal(cart?.spaceName, "Utility Room");
   assert.equal(cart?.issues.length, 0);
   assert.equal(view.exceptions.every((row) => row.spaceId === "servery"), true);
+  assert.match(view.reportProblemHref, /reportProblem=1/);
 });
 
 test("milestones and Servery Ready remain child-specific", () => {

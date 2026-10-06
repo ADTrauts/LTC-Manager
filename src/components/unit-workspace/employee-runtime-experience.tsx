@@ -288,6 +288,22 @@ export function EmployeeRuntimeExperience({ view, extras }: Props) {
         </p>
       ) : null}
 
+      {view.showExecution ? (
+        <p>
+          <Link
+            href={
+              view.spaceId
+                ? `/unit/${view.landingUnitId}?space=${encodeURIComponent(view.spaceId)}&reportProblem=1`
+                : `/unit/${view.landingUnitId}?reportProblem=1`
+            }
+            className="text-sm font-medium underline underline-offset-2"
+            data-testid="employee-report-problem"
+          >
+            Report a problem
+          </Link>
+        </p>
+      ) : null}
+
       {extras}
     </section>
   );

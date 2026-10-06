@@ -229,6 +229,15 @@ function Assets({
 }) {
   return (
     <Card id={spaceWorkspaceAnchorId("assets")} title="Assets & Issues">
+      <p className="mb-3">
+        <Link
+          href={view.assets.reportProblemHref}
+          className="text-sm font-medium underline underline-offset-2"
+          data-testid="space-report-problem"
+        >
+          Report a problem
+        </Link>
+      </p>
       {view.assets.items.length === 0 ? (
         <p className="text-sm text-zinc-600">No local assets.</p>
       ) : (

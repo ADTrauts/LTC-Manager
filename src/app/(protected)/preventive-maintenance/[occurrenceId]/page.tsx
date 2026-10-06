@@ -50,7 +50,7 @@ export default async function PreventiveMaintenanceOccurrencePage({ params }: Pa
   const skipBlocked = active
     ? "Cancel or complete the active Work Order first."
     : row.occurrenceStatus !== "OPEN"
-      ? "Only an open occurrence can be skipped."
+      ? "Only open scheduled maintenance can be skipped."
       : null;
 
   return (
@@ -119,7 +119,7 @@ export default async function PreventiveMaintenanceOccurrencePage({ params }: Pa
         <section className="space-y-2 rounded-lg border border-zinc-200 bg-white px-4 py-4">
           <h3 className="text-base font-semibold text-zinc-900">Work Orders</h3>
           {row.workOrders.length === 0 ? (
-            <p className="text-sm text-zinc-600">No Work Order has been generated for this occurrence.</p>
+            <p className="text-sm text-zinc-600">No Work Order has been generated for this scheduled maintenance.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {row.workOrders.map((wo) => {
@@ -152,7 +152,7 @@ export default async function PreventiveMaintenanceOccurrencePage({ params }: Pa
           </section>
         ) : detail.authority.canSkip ? (
           <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
-            <h3 className="text-base font-semibold text-zinc-900">Skip this occurrence</h3>
+            <h3 className="text-base font-semibold text-zinc-900">Skip this scheduled maintenance</h3>
             <div className="mt-2">
               <PmSkipForm occurrenceId={row.occurrenceId!} blockedReason={skipBlocked} />
             </div>

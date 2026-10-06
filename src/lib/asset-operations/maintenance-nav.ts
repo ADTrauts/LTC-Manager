@@ -18,7 +18,9 @@ export type MaintenanceNavRewriteOptions = {
 
 export const MAINTENANCE_PREVENTIVE_HREF = "/preventive-maintenance" as const;
 
-export type MaintenanceSubNavId = "assets" | "repairs" | "vendors" | "preventive";
+export const MAINTENANCE_ISSUES_HREF = "/asset-issues" as const;
+
+export type MaintenanceSubNavId = "assets" | "repairs" | "issues" | "vendors" | "preventive";
 
 export type MaintenanceSubNavItem = {
   id: MaintenanceSubNavId;
@@ -28,7 +30,8 @@ export type MaintenanceSubNavItem = {
 
 export const MAINTENANCE_SUBNAV_ITEMS: readonly MaintenanceSubNavItem[] = [
   { id: "assets", label: "Assets", href: MAINTENANCE_ASSETS_HREF },
-  { id: "repairs", label: "Repairs", href: MAINTENANCE_REPAIRS_HREF },
+  { id: "repairs", label: "Work Orders", href: MAINTENANCE_REPAIRS_HREF },
+  { id: "issues", label: "Issues", href: MAINTENANCE_ISSUES_HREF },
   { id: "preventive", label: "Preventive", href: MAINTENANCE_PREVENTIVE_HREF },
   { id: "vendors", label: "Vendors", href: MAINTENANCE_VENDORS_HREF },
 ];
@@ -67,15 +70,11 @@ export function resolveMaintenanceSubNavActiveId(
 ): MaintenanceSubNavId {
   if (!pathname) return "assets";
   const path = pathOnly(pathname);
-  if (
-    path === "/repairs" ||
-    path.startsWith("/repairs/") ||
-    path === "/issues" ||
-    path.startsWith("/issues/") ||
-    path === "/asset-issues" ||
-    path.startsWith("/asset-issues/")
-  ) {
+  if (path === "/repairs" || path.startsWith("/repairs/") || path === "/issues" || path.startsWith("/issues/")) {
     return "repairs";
+  }
+  if (path === "/asset-issues" || path.startsWith("/asset-issues/")) {
+    return "issues";
   }
   if (path === "/preventive-maintenance" || path.startsWith("/preventive-maintenance/")) {
     return "preventive";

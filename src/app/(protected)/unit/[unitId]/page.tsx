@@ -24,6 +24,7 @@ type UnitDashboardPageProps = {
     occurrence?: string | string[];
     evidence?: string | string[];
     reportAsset?: string | string[];
+    reportProblem?: string | string[];
     work?: string | string[];
     procedure?: string | string[];
     space?: string | string[];

@@ -155,7 +155,7 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
   },
   {
     productKey: "PLANT",
-    name: "Plant Operations",
+    name: "Facility Plant Operations",
     installationKey: "PLANT",
     defaultDepartmentName: "Plant Operations",
     industry: "HEALTHCARE",

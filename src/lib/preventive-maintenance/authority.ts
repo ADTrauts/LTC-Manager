@@ -9,6 +9,7 @@ import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 
@@ -108,7 +109,10 @@ export async function resolvePmPlanAuthority(
     select: { id: true, key: true },
   });
   return decidePmPlanAuthority({
-    flagEnabled: isDepartmentAssetOperationsEnabled(department?.key),
+    flagEnabled:
+      department?.key === "PLANT"
+        ? await isPlantRuntimeEnabled(facilityId, session)
+        : isDepartmentAssetOperationsEnabled(department?.key),
     role: session.role as AppRole,
     authMethod: session.authMethod ?? "PASSWORD",
     sessionFacilityId: session.facilityId,

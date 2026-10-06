@@ -13,7 +13,7 @@ import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected
 import { WorkOrderExecutionPanel } from "@/components/work-orders/work-order-execution-panel";
 import { WorkOrderCloseoutPanel } from "@/components/work-orders/work-order-closeout-panel";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { isSharedAssetOperationsEnabled, loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { hasAtLeastRole } from "@/lib/access";
 import { getOrGenerateRecoveryAssistant } from "@/lib/ai/recovery-assistant";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -34,7 +34,6 @@ import {
   validateWorkOrderCloseout,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
-import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { isAiRecoveryAssistantEnabled } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
@@ -235,7 +234,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       (session.authKind === "employee" && repair.assignedEmployeeId === session.uid));
   const canMutate = hasAtLeastRole(session.role, "SUPERVISOR") || isAssignedTechnician;
   const canAssign = hasAtLeastRole(session.role, "SUPERVISOR");
-  const plantOrAssetOps = isDietaryAssetOperationsEnabled() || isPlantOperationsEnabled();
+  const plantOrAssetOps = await isSharedAssetOperationsEnabled(session.facilityId, session);
   const tz = facility.timezone;
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const closeoutDepartmentId =
@@ -296,7 +295,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
         })
       : null;
 
-  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
+  const assetOpsEnabled = plantOrAssetOps;
   const sourceKind = repairSourceKind({
     workOrderKind: repair.workOrderKind,
     hasLinkedAssetIssue: Boolean(repair.sourceAssetIssue),
@@ -387,7 +386,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
         }
       />
 
-      <AppCard title="Why this repair exists" subtitle={repairSourceLabel(sourceKind)}>
+      <AppCard title="Work Order source" subtitle={repairSourceLabel(sourceKind)}>
         <div className="space-y-3 text-sm">
           {repair.sourceAssetIssue ? (
             <div data-testid="repair-linked-issue">
@@ -420,8 +419,8 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           {!repair.sourceAssetIssue && !repair.sourceOperationalRequest ? (
             <p className="text-zinc-700" data-testid="repair-direct-source">
               {sourceKind === "PREVENTIVE"
-                ? "Preventive maintenance work — not from a reported Asset Issue."
-                : "Direct repair — opened without a reported Asset Issue."}
+                ? "Preventive maintenance work — not from a reported Issue."
+                : "Direct Work Order — opened without a reported Issue."}
             </p>
           ) : null}
           <div>
@@ -447,7 +446,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Occurrence</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Scheduled maintenance</dt>
               <dd data-testid="pm-context-state">
                 {pmContext.occurrenceStatus
                   ? presentPmOccurrenceStateLabel(
@@ -491,7 +490,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
                 href={`/preventive-maintenance/${pmContext.occurrenceId}`}
                 className="font-medium underline underline-offset-2"
               >
-                View occurrence
+                View scheduled maintenance
               </Link>
             </p>
           ) : null}

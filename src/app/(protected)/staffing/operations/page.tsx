@@ -17,7 +17,7 @@ import {
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
 import { loadSupervisorOperationsViewModel } from "@/lib/dietary-job-flow";
-import { isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { isPlantRuntimeEnabled } from "@/lib/department-products";
 import { listRoutesForFacility } from "@/lib/operational-requests";
 import { prisma } from "@/lib/prisma";
 
@@ -63,7 +63,11 @@ export default async function SupervisorOperationsBoardPage({
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  if (!isAnyStaffingOperationalFeatureEnabled("jobFlow", deptNav.activeOperationalDepartmentKey)) {
+  const plantRuntime = await isPlantRuntimeEnabled(session.facilityId, session);
+  if (
+    !isAnyStaffingOperationalFeatureEnabled("jobFlow", deptNav.activeOperationalDepartmentKey) &&
+    !plantRuntime
+  ) {
     redirect("/staffing");
   }
 
@@ -71,6 +75,7 @@ export default async function SupervisorOperationsBoardPage({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,
     feature: "jobFlow",
+    session,
   });
 
   if (!department) {
@@ -146,7 +151,7 @@ export default async function SupervisorOperationsBoardPage({
 
   const showPlantRouting =
     department.key === "PLANT" &&
-    isPlantOperationsEnabled() &&
+    (await isPlantRuntimeEnabled(session.facilityId, session)) &&
     hasAtLeastRole(session.role, "MANAGER");
 
   let plantRouting: {

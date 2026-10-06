@@ -128,7 +128,7 @@ export function repairSourceLabel(kind: RepairSourceKind): string {
       return "Preventive";
     case "DIRECT":
     default:
-      return "Direct repair";
+      return "Direct Work Order";
   }
 }
 

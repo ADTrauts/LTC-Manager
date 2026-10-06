@@ -69,7 +69,7 @@ test("Work Order kind labels are Product copy, not raw enums", () => {
   assert.equal(presentPmOccurrenceStateLabel("OVERDUE"), "Overdue");
   assert.equal(presentPmOccurrenceStateLabel("DUE"), "Due today");
   assert.equal(presentPmOccurrenceStateLabel("SKIPPED"), "Skipped");
-  assert.equal(presentPmOccurrenceStateLabel("PROJECTED"), "Projected");
+  assert.equal(presentPmOccurrenceStateLabel("PROJECTED"), "Upcoming schedule");
   assert.doesNotMatch(presentPmOccurrenceStateLabel("OVERDUE"), /compliant/i);
 });
 
@@ -470,6 +470,6 @@ test("Run UI does not invoke the generator or invent compliance language", () =>
   assert.match(skipForm, /WAIVE_REASON_MIN_LENGTH/);
   assert.match(
     skipForm,
-    /This skips only this scheduled maintenance occurrence. Future schedule dates will not/,
+    /This skips only this scheduled maintenance. Future schedule dates will not change/,
   );
 });

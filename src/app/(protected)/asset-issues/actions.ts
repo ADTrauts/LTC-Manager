@@ -18,7 +18,7 @@ import {
   triageIssue,
 } from "@/lib/asset-operations";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import {
   MAX_REPAIR_PHOTOS_PER_SUBMIT,
   savePhotosFromFormData,
@@ -40,8 +40,8 @@ function revalidateIssueViews(issueId?: string, assetId?: string, unitId?: strin
   if (unitId) revalidatePath(`/unit/${unitId}`);
 }
 
-function requireFlag() {
-  if (!isDietaryAssetOperationsEnabled() && !isPlantOperationsEnabled()) {
+async function requireAssetOperations(facilityId: string, session?: { authKind?: string | null } | null) {
+  if (!(await isSharedAssetOperationsEnabled(facilityId, session))) {
     throw new Error("Asset Operations is not enabled.");
   }
 }
@@ -75,8 +75,8 @@ const reportSchema = z.object({
 export type ReportAssetIssueActionInput = z.infer<typeof reportSchema>;
 
 export async function reportAssetIssueAction(input: ReportAssetIssueActionInput) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const parsed = reportSchema.parse(input);
   if (parsed.facilityId !== session.facilityId) {
     throw new Error("Cross-facility Asset Issue reporting denied.");
@@ -117,8 +117,8 @@ export async function reportAssetIssueAction(input: ReportAssetIssueActionInput)
 }
 
 export async function acknowledgeAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const comment = toOptional(formData.get("comment"));
@@ -134,8 +134,8 @@ export async function acknowledgeAssetIssueAction(formData: FormData) {
 }
 
 export async function triageAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const triageNote = toOptional(formData.get("triageNote"));
@@ -153,8 +153,8 @@ export async function triageAssetIssueAction(formData: FormData) {
 }
 
 export async function markAssetIssueMonitoringAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const comment = toOptional(formData.get("comment"));
@@ -170,8 +170,8 @@ export async function markAssetIssueMonitoringAction(formData: FormData) {
 }
 
 export async function resolveAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const resolutionReason = toOptional(formData.get("resolutionReason"));
@@ -189,8 +189,8 @@ export async function resolveAssetIssueAction(formData: FormData) {
 }
 
 export async function reportDirectIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const departmentId = String(formData.get("departmentId") ?? "");
   const unitId = String(formData.get("unitId") ?? "");
   const summary = String(formData.get("summary") ?? "");
@@ -212,8 +212,8 @@ export async function reportDirectIssueAction(formData: FormData) {
 }
 
 export async function createIssueFromRecordAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const departmentId = String(formData.get("departmentId") ?? "");
   const evidenceRecordId = String(formData.get("evidenceRecordId") ?? "");
   if (!departmentId || !evidenceRecordId) throw new Error("Record is required.");
@@ -227,8 +227,8 @@ export async function createIssueFromRecordAction(formData: FormData) {
 }
 
 export async function closeAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const resolutionReason = toOptional(formData.get("resolutionReason"));
@@ -246,8 +246,8 @@ export async function closeAssetIssueAction(formData: FormData) {
 }
 
 export async function reopenAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const comment = toOptional(formData.get("comment"));
@@ -263,8 +263,8 @@ export async function reopenAssetIssueAction(formData: FormData) {
 }
 
 export async function linkEvidenceToAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const evidenceRecordId = String(formData.get("evidenceRecordId") ?? "");
@@ -284,8 +284,8 @@ export async function linkEvidenceToAssetIssueAction(formData: FormData) {
 }
 
 export async function createWorkOrderFromAssetIssueAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const issueId = String(formData.get("issueId") ?? "");
   const departmentId = String(formData.get("departmentId") ?? "");
   const vendorId = toOptional(formData.get("vendorId"));
@@ -325,8 +325,8 @@ export async function createWorkOrderFromAssetIssueAction(formData: FormData) {
 }
 
 export async function updateWorkOrderStatusAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
+  await requireAssetOperations(session.facilityId, session);
   const { updateWorkOrderStatus, completeWorkOrder, assignVendor } = await import(
     "@/lib/asset-operations"
   );

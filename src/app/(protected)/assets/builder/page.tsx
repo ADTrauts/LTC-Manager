@@ -20,11 +20,12 @@ import {
 import { getSession } from "@/lib/auth";
 import {
   customerCurrentDepartmentLabel,
+  isSharedAssetOperationsEnabled,
   loadDepartmentsForCurrentSurface,
 } from "@/lib/department-products";
 import { AppIcons } from "@/lib/design-system";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
-import { isDietaryAssetOperationsEnabled, isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { listPrimaryAssetPhotoIds } from "@/lib/attachments";
 
@@ -45,7 +46,7 @@ export default async function AssetBuilderPage() {
     redirect("/login");
   }
   const facilityId = session.facilityId;
-  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
+  const assetOpsEnabled = await isSharedAssetOperationsEnabled(facilityId, session);
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
 
   const [units, spaces, vendors, organizations, departments, assets, facility] = await Promise.all([

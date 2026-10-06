@@ -2,6 +2,7 @@ import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
 import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 
@@ -152,7 +153,10 @@ export async function resolveAssetOperationsAuthority(
   });
 
   return decideAssetOperationsAuthority({
-    flagEnabled: isDepartmentAssetOperationsEnabled(department?.key),
+    flagEnabled:
+      department?.key === "PLANT"
+        ? await isPlantRuntimeEnabled(facilityId, session)
+        : isDepartmentAssetOperationsEnabled(department?.key),
     role: session.role as AppRole,
     authMethod: session.authMethod ?? "PASSWORD",
     sessionFacilityId: session.facilityId,

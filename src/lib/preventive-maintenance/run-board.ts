@@ -79,7 +79,7 @@ export function presentPmOccurrenceStateLabel(state: PmOccurrencePresentation | 
     case "SKIPPED":
       return "Skipped";
     case "PROJECTED":
-      return "Projected";
+      return "Upcoming schedule";
     default:
       return "Scheduled";
   }

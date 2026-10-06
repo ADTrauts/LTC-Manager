@@ -8,12 +8,14 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 
 import { NeighborhoodWorkspaceView } from "@/components/unit-workspace/neighborhood-workspace-view";
+import { ReportProblemForm } from "@/components/operational-requests/report-problem-form";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import { loadLocationsView } from "@/lib/locations";
+import { resolveRunPresentationDepartment } from "@/lib/operational-cycles";
 import { prisma } from "@/lib/prisma";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import {
@@ -90,6 +92,7 @@ export async function tryRenderNeighborhoodWorkspace(input: {
     evidence?: string | string[];
     work?: string | string[];
     reportAsset?: string | string[];
+    reportProblem?: string | string[];
   };
 }): Promise<ReactNode> {
   const unit = await prisma.unit.findFirst({
@@ -165,5 +168,43 @@ export async function tryRenderNeighborhoodWorkspace(input: {
     emptySpaceActions,
   });
 
-  return <NeighborhoodWorkspaceView view={view} />;
+  const reportAsset = firstSearchValue(input.query?.reportAsset);
+  const reportProblem = firstSearchValue(input.query?.reportProblem);
+  const showRequestIntake = Boolean(reportAsset || reportProblem);
+  if (!showRequestIntake) {
+    return <NeighborhoodWorkspaceView view={view} />;
+  }
+
+  const cookieJar = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(input.session, cookieJar);
+  const department = await resolveRunPresentationDepartment({
+    facilityId: input.session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    unitId: unit.id,
+  });
+  const assets = loaded.states.flatMap((state) =>
+    state.assets.assets.map((asset) => ({
+      id: asset.assetId,
+      name: asset.name,
+      assetCode: "",
+    })),
+  );
+
+  return (
+    <>
+      {department ? (
+        <div className="mb-4">
+          <ReportProblemForm
+            facilityId={input.session.facilityId}
+            requestingDepartmentId={department.id}
+            unitId={unit.id}
+            defaultAssetId={reportAsset && reportAsset !== "1" ? reportAsset : null}
+            assets={assets}
+            compact
+          />
+        </div>
+      ) : null}
+      <NeighborhoodWorkspaceView view={view} />
+    </>
+  );
 }

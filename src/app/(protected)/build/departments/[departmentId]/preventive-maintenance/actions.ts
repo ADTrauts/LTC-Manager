@@ -9,7 +9,7 @@ import {
   preventiveMaintenanceBuilderHref,
   preventiveMaintenancePlanHref,
 } from "@/lib/department-administration";
-import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 import {
   createPmPlanSuccessorDraft,
@@ -45,8 +45,8 @@ async function requirePlantSession(departmentId: string) {
   if (!department || department.key !== "PLANT") {
     throw new Error("Preventive Maintenance is configured in Facility Plant Operations.");
   }
-  if (!isDepartmentAssetOperationsEnabled(department.key)) {
-    throw new Error("Asset Operations is not enabled for this department.");
+  if (!(await isPlantRuntimeEnabled(session.facilityId, session))) {
+    throw new Error("Facility Plant Operations is not enabled for this department.");
   }
   return { session, department };
 }

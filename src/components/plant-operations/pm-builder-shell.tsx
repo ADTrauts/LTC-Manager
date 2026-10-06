@@ -8,7 +8,6 @@ import {
   type DepartmentAdminTabId,
 } from "@/lib/department-administration";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
-import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
 import { getDepartmentProduct } from "@/lib/department-products";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 
@@ -22,8 +21,7 @@ export function plantMaintenanceTabs(input: {
     workEnabled: input.workEnabled,
     recordsEnabled: isCanonicalLogsEnabled(),
     menusEnabled: hasDietaryDomainCapabilities(input.departmentKey),
-    maintenanceEnabled:
-      input.departmentKey === "PLANT" && isDepartmentAssetOperationsEnabled(input.departmentKey),
+    maintenanceEnabled: input.departmentKey === "PLANT",
   });
 }
 
@@ -46,6 +44,7 @@ export function PmBuilderShell({
 }) {
   const product = getDepartmentProduct(departmentKey);
   const workEnabled =
+    departmentKey === "PLANT" ||
     Boolean(product?.starters.workPresets) ||
     context.publishedWorkPlanCount > 0 ||
     context.draftWorkPlanCount > 0;

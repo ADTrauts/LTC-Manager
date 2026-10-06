@@ -249,7 +249,7 @@ export function AssetIssueReportPanel({
       data-local-status={localStatus}
     >
       <header className="space-y-1">
-        <h2 className="text-base font-semibold text-zinc-900">Report Asset Issue</h2>
+        <h2 className="text-base font-semibold text-zinc-900">Report Issue</h2>
         <p className="text-xs text-zinc-600">
           Describe the observed condition. This does not create a Work Order.
         </p>

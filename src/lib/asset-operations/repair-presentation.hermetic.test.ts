@@ -68,7 +68,7 @@ test("source kind — linked / direct / preventive", () => {
     repairSourceKind({ workOrderKind: "PREVENTIVE", hasLinkedAssetIssue: false }),
     "PREVENTIVE",
   );
-  assert.equal(repairSourceLabel("DIRECT"), "Direct repair");
+  assert.equal(repairSourceLabel("DIRECT"), "Direct Work Order");
   assert.equal(
     repairSourceCompactLine({
       kind: "LINKED_ISSUE",

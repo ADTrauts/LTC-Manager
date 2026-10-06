@@ -26,10 +26,9 @@ import {
 } from "@/lib/asset-operations";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { customerCurrentDepartmentLabel } from "@/lib/department-products";
+import { customerCurrentDepartmentLabel, isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
-import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import {
   loadContextualKnowledgeByAssetIds,
   toContextualKnowledgeClientArticles,
@@ -55,13 +54,12 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   noStore();
   const params = await searchParams;
   const activeSubtab = parseSubtab(typeof params.subtab === "string" ? params.subtab : undefined);
-  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
-
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
   }
   const facilityId = session.facilityId;
+  const assetOpsEnabled = await isSharedAssetOperationsEnabled(facilityId, session);
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const departmentWhere = assetResponsibleDepartmentWhere(deptNav.activeDepartmentId);
@@ -181,7 +179,12 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   <p className="font-medium text-zinc-900">{vendor.name}</p>
                 </div>
               ))}
-              {vendors.length === 0 ? <p className="text-sm text-zinc-500">No vendors yet.</p> : null}
+              {vendors.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  Add external service providers when Work Orders are assigned to outside vendors.
+                  Vendor contracts and procurement are not managed here.
+                </p>
+              ) : null}
             </div>
           </section>
         </>
@@ -193,15 +196,15 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               <EmptyState
                 icon="assets"
                 inset
-                title="No equipment registered"
-                description="This list will show condition, open issues, and repairs once equipment is registered."
+                title="No Assets in the operational registry"
+                description="Run Assets shows condition, open Issues, and Work Orders. Configure Asset identity in Asset Builder."
                 action={
                   <Link
                     href={ASSET_BUILD_PATH}
                     className="inline-flex min-h-10 items-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-700"
                     data-testid="empty-open-asset-builder"
                   >
-                    Register equipment
+                    Configure Assets
                   </Link>
                 }
               />

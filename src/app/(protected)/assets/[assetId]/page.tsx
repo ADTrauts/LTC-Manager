@@ -32,7 +32,7 @@ import {
   workOrderStatusLabel,
 } from "@/lib/asset-operations";
 import { getSession } from "@/lib/auth";
-import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
+import { loadDepartmentsForCurrentSurface, isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import { isCanonicalLogsEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
@@ -44,6 +44,10 @@ import { PhotoFileField } from "@/components/photos/photo-file-field";
 import { PhotoGallery, PhotoThumb } from "@/components/photos/photo-gallery";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
 import { loadAssetRunLogs } from "@/lib/canonical-logs/load-asset-run-logs";
+import {
+  preventiveMaintenanceBuilderHref,
+  preventiveMaintenancePlanHref,
+} from "@/lib/department-administration";
 import { hasAtLeastRole } from "@/lib/access";
 import { MAX_ASSET_PHOTOS } from "@/lib/photo-attachments";
 
@@ -53,13 +57,12 @@ type Props = {
 
 export default async function AssetProfilePage({ params }: Props) {
   noStore();
-  if (!isDietaryAssetOperationsEnabled()) {
-    redirect("/assets");
-  }
-
   const { assetId } = await params;
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
+  if (!(await isSharedAssetOperationsEnabled(session.facilityId, session))) {
+    redirect("/assets");
+  }
 
   const assetRow = await prisma.asset.findFirst({
     where: { id: assetId, unit: { facilityId: session.facilityId } },
@@ -76,7 +79,21 @@ export default async function AssetProfilePage({ params }: Props) {
     assetRow.departmentId ??
     (
       await prisma.department.findFirst({
-        where: { facilityId: session.facilityId, key: "DIETARY", isActive: true },
+        where: {
+          facilityId: session.facilityId,
+          isActive: true,
+          key: isDietaryAssetOperationsEnabled() ? "DIETARY" : "PLANT",
+        },
+        select: { id: true },
+      })
+    )?.id ??
+    (
+      await prisma.department.findFirst({
+        where: {
+          facilityId: session.facilityId,
+          isActive: true,
+          key: { in: ["PLANT", "DIETARY"] },
+        },
         select: { id: true },
       })
     )?.id;
@@ -101,7 +118,7 @@ export default async function AssetProfilePage({ params }: Props) {
     departmentId,
   );
 
-  const [units, spaces, vendors, organizations, departments, facility] = await Promise.all([
+  const [units, spaces, vendors, organizations, departments, facility, pmPlans] = await Promise.all([
     prisma.unit.findMany({
       where: { facilityId: session.facilityId, isActive: true },
       orderBy: { displayOrder: "asc" },
@@ -129,6 +146,20 @@ export default async function AssetProfilePage({ params }: Props) {
         vocabularyLevel2Label: true,
         vocabularyLevel3Label: true,
       },
+    }),
+    prisma.preventiveMaintenancePlan.findMany({
+      where: { facilityId: session.facilityId, assetId, status: { not: "RETIRED" } },
+      select: {
+        id: true,
+        status: true,
+        departmentId: true,
+        versions: {
+          orderBy: { version: "desc" },
+          take: 1,
+          select: { name: true, status: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
     }),
   ]);
 
@@ -376,7 +407,7 @@ export default async function AssetProfilePage({ params }: Props) {
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-issues">
         <h2 className="text-lg font-semibold text-zinc-900">Open Issues</h2>
-        <p className="mt-1 text-xs text-zinc-500">Reported problems — separate from repairs.</p>
+        <p className="mt-1 text-xs text-zinc-500">Reported problems — separate from Work Orders.</p>
         <div className="mt-2 space-y-2">
           {profile.openIssues.length === 0 ? (
             <p className="text-sm text-zinc-500">No open issues.</p>
@@ -395,10 +426,10 @@ export default async function AssetProfilePage({ params }: Props) {
                       </p>
                       {linked ? (
                         <p className="mt-1 text-xs text-zinc-700">
-                          Linked repair: {linked.title} · {workOrderStatusLabel(linked.status)}
+                          Linked Work Order: {linked.title} · {workOrderStatusLabel(linked.status)}
                         </p>
                       ) : (
-                        <p className="mt-1 text-xs text-zinc-500">No repair yet.</p>
+                        <p className="mt-1 text-xs text-zinc-500">No Work Order yet.</p>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -416,18 +447,18 @@ export default async function AssetProfilePage({ params }: Props) {
                           <button
                             type="submit"
                             className="rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white"
-                            aria-label={`Create repair for ${issue.summary}`}
+                            aria-label={`Create Work Order for ${issue.summary}`}
                           >
-                            Create repair
+                            Create Work Order
                           </button>
                         </form>
                       ) : linked ? (
                         <Link
                           href={`/repairs/${linked.id}`}
                           className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium hover:bg-zinc-50"
-                          aria-label={`View repair ${linked.title}`}
+                          aria-label={`View Work Order ${linked.title}`}
                         >
-                          View repair
+                          View Work Order
                         </Link>
                       ) : null}
                     </div>
@@ -464,20 +495,20 @@ export default async function AssetProfilePage({ params }: Props) {
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-work-orders">
-        <h2 className="text-lg font-semibold text-zinc-900">Repairs</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Work being done to address an issue or maintenance need (work orders).
+          Work being done to address an Issue or maintenance need.
         </p>
         <div className="mt-2 space-y-2">
           {profile.activeWorkOrders.length === 0 ? (
-            <p className="text-sm text-zinc-500">No open repairs.</p>
+            <p className="text-sm text-zinc-500">No open Work Orders.</p>
           ) : (
             profile.activeWorkOrders.map((wo) => (
               <Link
                 key={wo.id}
                 href={`/repairs/${wo.id}`}
                 className="block rounded border border-zinc-200 p-2 text-sm hover:bg-zinc-50"
-                aria-label={`View repair ${wo.title}`}
+                aria-label={`View Work Order ${wo.title}`}
               >
                 <span className="font-medium text-zinc-900">
                   {wo.repairCode} · {wo.title}
@@ -487,10 +518,53 @@ export default async function AssetProfilePage({ params }: Props) {
                   {wo.returnToServiceReady ? " · Ready to return to service (confirm on asset)" : ""}
                   {wo.sourceAssetIssue
                     ? ` · For issue: ${wo.sourceAssetIssue.summary}`
-                    : " · Direct repair (no linked reported issue)"}
+                    : " · Direct Work Order (no linked reported issue)"}
                 </span>
               </Link>
             ))
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="asset-preventive-maintenance">
+        <h2 className="text-lg font-semibold text-zinc-900">Preventive Maintenance</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          Scheduled service configured for this Asset.
+        </p>
+        <div className="mt-2 space-y-2">
+          {pmPlans.length === 0 ? (
+            <p className="text-sm text-zinc-500">
+              No Preventive Maintenance Plans for this Asset.
+              {hasAtLeastRole(session.role, "SUPERVISOR") ? (
+                <>
+                  {" "}
+                  <Link
+                    href={preventiveMaintenanceBuilderHref(
+                      assetRow.department?.key === "PLANT"
+                        ? departmentId
+                        : (departments.find((row) => row.key === "PLANT")?.id ?? departmentId),
+                    )}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    Open Preventive Maintenance
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          ) : (
+            pmPlans.map((plan) => {
+              const name = plan.versions[0]?.name ?? "Preventive Maintenance Plan";
+              return (
+                <Link
+                  key={plan.id}
+                  href={preventiveMaintenancePlanHref(plan.departmentId, plan.id)}
+                  className="block rounded border border-zinc-200 p-2 text-sm hover:bg-zinc-50"
+                >
+                  <span className="font-medium text-zinc-900">{name}</span>
+                  <span className="mt-0.5 block text-xs text-zinc-600">{plan.status}</span>
+                </Link>
+              );
+            })
           )}
         </div>
       </section>

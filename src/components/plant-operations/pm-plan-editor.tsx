@@ -412,11 +412,11 @@ export function PmPlanEditor({
           helper="Default 7 days. This is not a due window."
         />
         <div data-testid="pm-schedule-preview" className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3">
-          <p className="text-sm font-medium text-zinc-900">Projected schedule</p>
+          <p className="text-sm font-medium text-zinc-900">Upcoming schedule</p>
           <p className="mt-1 text-xs text-zinc-600">
             Repeats {formatCadenceSummary(intervalMonths).toLowerCase()} from{" "}
             {anchorDate ? formatProjectedDateLabel(anchorDate, { includeYear: true }) : "—"}. These
-            dates are not saved as occurrences until the generator creates Work Orders.
+            dates are a preview. Work Orders are created when scheduled maintenance comes due.
           </p>
           <ol className="mt-2 flex flex-wrap gap-2" data-testid="pm-projected-dates">
             {projected.map((row) => (

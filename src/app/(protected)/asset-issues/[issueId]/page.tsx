@@ -25,7 +25,7 @@ import {
   workOrderStatusLabel,
 } from "@/lib/asset-operations";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { prisma } from "@/lib/prisma";
 import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
@@ -36,13 +36,13 @@ type Props = {
 
 export default async function AssetIssueDetailPage({ params }: Props) {
   noStore();
-  if (!isDietaryAssetOperationsEnabled() && !isPlantOperationsEnabled()) {
+  const session = await getSession();
+  if (!session?.facilityId) redirect("/login");
+  if (!(await isSharedAssetOperationsEnabled(session.facilityId, session))) {
     redirect("/assets");
   }
 
   const { issueId } = await params;
-  const session = await getSession();
-  if (!session?.facilityId) redirect("/login");
 
   const scoped = await prisma.assetIssue.findFirst({
     where: { id: issueId, facilityId: session.facilityId },

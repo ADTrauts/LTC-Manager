@@ -331,7 +331,7 @@ export async function LegacyReport({
 
       <section className="grid gap-4 xl:grid-cols-2">
         <article className="app-card">
-          <h2 className="text-lg font-semibold text-zinc-900">Repairs by Status</h2>
+          <h2 className="text-lg font-semibold text-zinc-900">Work Orders by Status</h2>
           <div className="mt-3 space-y-2 text-sm">
             {repairsByStatus.map((row) => (
               <div key={row.status} className="flex items-center justify-between rounded border border-zinc-200 p-2">
@@ -343,7 +343,7 @@ export async function LegacyReport({
         </article>
 
         <article className="app-card">
-          <h2 className="text-lg font-semibold text-zinc-900">Repairs by Unit</h2>
+          <h2 className="text-lg font-semibold text-zinc-900">Work Orders by Unit</h2>
           <div className="mt-3 space-y-2 text-sm">
             {repairsByUnit.map((row) => (
               <div key={row.unitName} className="flex items-center justify-between rounded border border-zinc-200 p-2">

@@ -67,7 +67,7 @@ export function IssueDetailActions({
     return (
       <p className="text-sm text-zinc-600">
         {isRepairCopy
-          ? "You can view this repair. Ask a supervisor to assign or update work."
+          ? "You can view this Work Order. Ask a supervisor to assign or update work."
           : "You can view this issue. Ask a supervisor to assign or update recovery."}
       </p>
     );
@@ -191,7 +191,7 @@ export function IssueDetailActions({
               run(() => closeIssueAction(formData));
             }}
           >
-            {isRepairCopy ? "Complete repair" : "Mark resolved"}
+            {isRepairCopy ? "Complete Work Order" : "Mark resolved"}
           </button>
         </div>
       ) : (
@@ -205,7 +205,7 @@ export function IssueDetailActions({
             run(() => reopenIssueAction(formData));
           }}
         >
-          {isRepairCopy ? "Reopen repair" : "Reopen issue"}
+          {isRepairCopy ? "Reopen Work Order" : "Reopen issue"}
         </button>
       )}
 

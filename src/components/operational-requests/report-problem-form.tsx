@@ -7,6 +7,7 @@ import {
   createOperationalRequestAction,
   listRequestRoutesAction,
 } from "@/app/(protected)/operational-requests/actions";
+import { RequesterStatusPanel } from "@/components/operational-requests/requester-status-panel";
 
 export type ReportProblemRouteOption = {
   responsibleDepartmentId: string;
@@ -26,6 +27,7 @@ type Props = {
   unitId: string;
   spaceId?: string | null;
   assets?: ReportProblemAssetOption[];
+  defaultAssetId?: string | null;
   compact?: boolean;
 };
 
@@ -52,6 +54,7 @@ export function ReportProblemForm({
   unitId,
   spaceId = null,
   assets = [],
+  defaultAssetId = null,
   compact = false,
 }: Props) {
   const router = useRouter();
@@ -60,7 +63,7 @@ export function ReportProblemForm({
   const [notice, setNotice] = useState<string | null>(null);
   const [routes, setRoutes] = useState<ReportProblemRouteOption[]>([]);
   const [responsibleDepartmentId, setResponsibleDepartmentId] = useState("");
-  const [assetId, setAssetId] = useState("");
+  const [assetId, setAssetId] = useState(defaultAssetId ?? "");
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
   const [observedAt, setObservedAt] = useState(nowLocalInputValue);
@@ -71,6 +74,7 @@ export function ReportProblemForm({
   const [usable, setUsable] = useState(true);
   const [workaround, setWorkaround] = useState("");
   const [allowDuplicate, setAllowDuplicate] = useState(false);
+  const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +123,7 @@ export function ReportProblemForm({
       try {
         const result = await createOperationalRequestAction(fd);
         setNotice(`Request ${result.requestCode} reported.`);
+        setCreatedRequestId(result.requestId);
         setSummary("");
         setDescription("");
         setWorkaround("");
@@ -135,12 +140,14 @@ export function ReportProblemForm({
         className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600"
         data-testid="report-problem-no-routes"
       >
-        No request destinations are configured for this department.
+        No request destinations are configured for this department. A supervisor can set Plant as a
+        destination from Operations.
       </div>
     );
   }
 
   return (
+    <>
     <form
       onSubmit={onSubmit}
       className={`space-y-3 rounded-md border border-zinc-200 bg-white p-4 ${compact ? "text-sm" : ""}`}
@@ -148,8 +155,8 @@ export function ReportProblemForm({
     >
       <h3 className="text-base font-semibold text-zinc-900">Report a problem</h3>
       <p className="text-sm text-zinc-600">
-        Send a request to a configured responsible department. Work Orders are not created
-        automatically.
+        Report a maintenance need for this location. Plant Operations will review it and determine
+        whether an Issue or Work Order is needed.
       </p>
 
       {routes.length > 1 ? (
@@ -321,5 +328,14 @@ export function ReportProblemForm({
         {pending ? "Submitting…" : "Report problem"}
       </button>
     </form>
+    {createdRequestId ? (
+      <div className="mt-3">
+        <RequesterStatusPanel
+          requestingDepartmentId={requestingDepartmentId}
+          requestId={createdRequestId}
+        />
+      </div>
+    ) : null}
+    </>
   );
 }

@@ -10,7 +10,7 @@ import { listMaintenanceCategories } from "@/lib/asset-operations/maintenance-ca
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
 import type { AppJwtPayload } from "@/lib/auth";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
-import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 
 import { resolvePmPlanAuthority, type PmPlanAuthorityDecision } from "./authority";
@@ -503,8 +503,8 @@ export async function loadPmPlanEditor(
 
 /**
  * Internal Plant Build access.
- * PLANT_OPERATIONS_ENABLED (Asset Operations) is the verification gate.
- * Does not use customer Marketplace entitlement — Plant remains DEVELOPMENT.
+ * Plant Product installed/authorized, or PLANT_OPERATIONS_ENABLED override.
+ * Does not use customer Marketplace entitlement while Plant remains DEVELOPMENT.
  */
 export async function loadPlantPmBuilderDepartment(
   session: AppJwtPayload,
@@ -515,6 +515,6 @@ export async function loadPlantPmBuilderDepartment(
     select: { id: true, key: true, name: true },
   });
   if (!department || department.key !== "PLANT") return null;
-  if (!isDepartmentAssetOperationsEnabled(department.key)) return null;
+  if (!(await isPlantRuntimeEnabled(session.facilityId, session))) return null;
   return department;
 }

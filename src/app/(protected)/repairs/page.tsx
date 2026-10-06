@@ -224,7 +224,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
             <input type="hidden" name="status" value={statusFilter} />
           ) : null}
           <label className="sr-only" htmlFor="repairs-search">
-            Search repairs
+            Search Work Orders
           </label>
           <input
             id="repairs-search"

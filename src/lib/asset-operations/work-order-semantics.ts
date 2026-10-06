@@ -49,7 +49,7 @@ export const DEFAULT_MAINTENANCE_CATEGORIES: ReadonlyArray<{
   { key: "KITCHEN_EQUIPMENT", label: "Kitchen equipment", sortOrder: 50 },
   { key: "CARPENTRY_BUILDING", label: "Carpentry / building", sortOrder: 60 },
   { key: "GROUNDS", label: "Grounds", sortOrder: 70 },
-  { key: "GENERAL_REPAIR", label: "General repair", sortOrder: 80 },
+  { key: "GENERAL_REPAIR", label: "General", sortOrder: 80 },
 ];
 
 export const ALL_REPAIR_STATUSES: readonly RepairStatus[] = [
@@ -206,7 +206,7 @@ export function presentWorkOrder(input: {
           label:
             DEFAULT_MAINTENANCE_CATEGORIES.find(
               (row) => row.key === mapRepairTradeToCategoryKey(input.repairTrade),
-            )?.label ?? "General repair",
+            )?.label ?? "General",
         }
       : { key: null, label: null };
   return {

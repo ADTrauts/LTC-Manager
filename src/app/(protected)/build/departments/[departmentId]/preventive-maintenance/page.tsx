@@ -6,6 +6,7 @@ import { PmPlanList } from "@/components/plant-operations/pm-plan-list";
 import { getSession } from "@/lib/auth";
 import { loadDepartmentAdminView } from "@/lib/department-administration/load-department-admin";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
+import { prisma } from "@/lib/prisma";
 import {
   loadPlantPmBuilderDepartment,
   loadPmPlanList,
@@ -48,6 +49,9 @@ export default async function PreventiveMaintenanceListPage({ params, searchPara
     filter,
     assetQuery: query.asset ?? "",
   });
+  const assetCount = await prisma.asset.count({
+    where: { unit: { facilityId: session.facilityId } },
+  });
 
   if (!list.authority.canView) {
     return (
@@ -77,6 +81,7 @@ export default async function PreventiveMaintenanceListPage({ params, searchPara
         filter={filter}
         assetQuery={query.asset ?? ""}
         canCreate={list.authority.canDraft}
+        assetCount={assetCount}
       />
     </PmBuilderShell>
   );

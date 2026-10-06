@@ -55,7 +55,7 @@ test("requester projection can show IN_PROGRESS from linked work without stored 
     }),
     "ACCEPTED",
   );
-  assert.equal(requesterProjectedStatusLabel("IN_PROGRESS"), "In progress");
+  assert.equal(requesterProjectedStatusLabel("IN_PROGRESS"), "In Progress");
   assert.equal(
     presentRequesterStatus({
       status: "UNDER_REVIEW",

@@ -247,7 +247,7 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
           <EmptyState
             icon="logs"
             title="No knowledge articles yet"
-            description="Create a draft SOP or reference article and link it to operational objects."
+            description="Add Facility Procedures when technicians need standardized instructions. Procedures are optional — Preventive Maintenance does not require one."
           />
         ) : (
           <ul className={operationalListShellClass}>

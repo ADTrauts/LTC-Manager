@@ -6,7 +6,7 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
-import { AssetIssueReportPanel } from "@/components/asset-operations/asset-issue-report-panel";
+import { ReportProblemForm } from "@/components/operational-requests/report-problem-form";
 import { WorkCompletionPanel } from "@/components/department-work/work-completion-panel";
 import { EvidenceEntryForm } from "@/components/operational-evidence/evidence-entry-form";
 import { EmployeeRuntimeExperience } from "@/components/unit-workspace/employee-runtime-experience";
@@ -40,6 +40,7 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
     evidence?: string | string[];
     work?: string | string[];
     reportAsset?: string | string[];
+    reportProblem?: string | string[];
   };
 }): Promise<ReactNode | null> {
   const viewer = resolveSpaceWorkspaceViewer(input.session);
@@ -84,6 +85,7 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
   const evidenceKey = firstSearchValue(input.query?.evidence);
   const workKey = firstSearchValue(input.query?.work);
   const reportAsset = firstSearchValue(input.query?.reportAsset);
+  const reportProblem = firstSearchValue(input.query?.reportProblem);
   const extras: ReactNode[] = [];
 
   if (
@@ -146,24 +148,16 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
     );
   }
 
-  if (view.showExecution && reportAsset) {
+  if (view.showExecution && (reportAsset || reportProblem)) {
     extras.push(
-      <AssetIssueReportPanel
+      <ReportProblemForm
         key="employee-report"
         facilityId={input.session.facilityId}
-        departmentId={department.id}
+        requestingDepartmentId={department.id}
         unitId={input.unitId}
-        defaultAssetId={reportAsset !== "1" ? reportAsset : null}
-        assets={loaded.flow.issues.map((issue) => ({
-          id: issue.assetId,
-          name: issue.summary,
-          assetCode: "",
-          statusLabel: issue.impact,
-        }))}
-        deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
-        deviceBoundUnitId={deviceBoundUnitId}
-        actorRef={actorRefForSession(input.session)}
-        sessionVersion={input.session.sessionVersion ?? 0}
+        spaceId={input.spaceId ?? null}
+        defaultAssetId={reportAsset && reportAsset !== "1" ? reportAsset : null}
+        assets={[]}
         compact
       />,
     );

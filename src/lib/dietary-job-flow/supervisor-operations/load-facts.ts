@@ -14,8 +14,8 @@ import {
   isCanonicalLogsEnabled,
   isEvsOperationsEnabled,
   isOperationalAssignmentsEnabled,
-  isPlantOperationsEnabled,
 } from "@/lib/feature-flags";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import {
   presentRequesterStatus,
@@ -70,7 +70,9 @@ export async function loadSupervisorOperationsFacts(
   const evidenceCompatEnabled = isDepartmentOperationalEvidenceEnabled(input.departmentKey);
   const workPlansEnabled = isDepartmentWorkPlansEnabled(input.departmentKey);
   const isEvs = input.departmentKey === "EVS" && isEvsOperationsEnabled();
-  const isPlant = input.departmentKey === "PLANT" && isPlantOperationsEnabled();
+  const isPlant =
+    input.departmentKey === "PLANT" &&
+    (await isPlantRuntimeEnabled(input.facilityId, input.session));
   const isDietary = input.departmentKey === "DIETARY";
 
   const [facility, spaces, departmentUnits] = await Promise.all([

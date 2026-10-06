@@ -132,7 +132,8 @@ describe("Department Product registry", () => {
 
     const plant = getDepartmentProduct("PLANT");
     assert.ok(plant);
-    assert.equal(plant.name, "Plant Operations");
+    assert.equal(plant.name, "Facility Plant Operations");
+    assert.equal(plant.defaultDepartmentName, "Plant Operations");
     assert.equal(plant.industry, "HEALTHCARE");
     assert.deepEqual(plant.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(plant.status, "DEVELOPMENT");

@@ -164,6 +164,7 @@ export type SpaceWorkspaceViewModel = {
   assets: {
     items: SpaceWorkspaceAssetView[];
     maintenanceHref: string;
+    reportProblemHref: string;
   };
   milestones: {
     items: SpaceWorkspaceMilestoneView[];

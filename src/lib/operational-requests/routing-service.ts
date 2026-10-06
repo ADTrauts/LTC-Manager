@@ -7,7 +7,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -93,8 +93,8 @@ export async function upsertRequestRoute(
     where: { id: input.responsibleDepartmentId, facilityId: input.facilityId },
     select: { key: true },
   });
-  if (responsible?.key === "PLANT" && !isPlantOperationsEnabled()) {
-    throw new Error("Cannot configure Plant as a destination while Plant Operations is disabled.");
+  if (responsible?.key === "PLANT" && !(await isPlantRuntimeEnabled(input.facilityId, session))) {
+    throw new Error("Cannot configure Plant as a destination while Facility Plant Operations is disabled.");
   }
 
   return prisma.departmentRequestRoute.upsert({
@@ -131,6 +131,7 @@ export async function validateRoute(input: {
   requestingDepartmentId: string;
   responsibleDepartmentId: string;
   client?: DbClient;
+  session?: AppJwtPayload | null;
 }): Promise<{ ok: true } | { ok: false; reason: string }> {
   const client = input.client ?? prisma;
 
@@ -157,10 +158,10 @@ export async function validateRoute(input: {
   }
 
   const responsible = depts.find((d) => d.id === input.responsibleDepartmentId);
-  if (responsible?.key === "PLANT" && !isPlantOperationsEnabled()) {
+  if (responsible?.key === "PLANT" && !(await isPlantRuntimeEnabled(input.facilityId, input.session))) {
     return {
       ok: false,
-      reason: "Plant Operations is not enabled; cannot route requests to Plant.",
+      reason: "Facility Plant Operations is not enabled; cannot route requests to Plant.",
     };
   }
 

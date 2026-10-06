@@ -64,6 +64,10 @@ describe("Overview guidance derivation", () => {
       name: "Healthcare Food & Nutrition",
       isVssylProduct: true,
     });
+    assert.deepEqual(resolveOverviewProductIdentity("PLANT"), {
+      name: "Facility Plant Operations",
+      isVssylProduct: true,
+    });
     assert.equal(resolveOverviewProductIdentity("LAUNDRY").isVssylProduct, false);
   });
 
@@ -127,7 +131,8 @@ describe("Overview guidance derivation", () => {
     assert.equal(formatPeopleGuidance(0).status, "No people assigned");
     assert.equal(formatPeopleGuidance(18).status, "18 assigned");
     assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
-    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, false);
+    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, true);
+    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
     assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).status, "3 live work plans · 2 drafts not live");
     assert.equal(formatRecordsGuidance(0).status, "No records required yet");
     assert.equal(formatRecordsGuidance(8).status, "8 record requirements");

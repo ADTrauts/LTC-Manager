@@ -8,7 +8,8 @@
  * - Operational Evidence remains separate.
  * - Supervisor Board / Job Flow project exceptions only.
  *
- * Gate: DIETARY_ASSET_OPERATIONS_ENABLED (see isDietaryAssetOperationsEnabled).
+ * Gate: Dietary Asset Operations flag or Facility Plant Operations runtime
+ * (`isSharedAssetOperationsEnabled`).
  */
 
 export type {

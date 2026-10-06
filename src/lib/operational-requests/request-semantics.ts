@@ -109,7 +109,7 @@ export function requesterProjectedStatusLabel(status: RequesterProjectedStatus):
     case "ACCEPTED":
       return "Accepted";
     case "IN_PROGRESS":
-      return "In progress";
+      return "In Progress";
     case "RESOLVED":
       return "Resolved";
     case "DECLINED":

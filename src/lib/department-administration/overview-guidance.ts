@@ -73,7 +73,7 @@ export function formatOperatingRhythmGuidance(input: {
     if (!hasStarter) {
       return {
         status: "Not required for this Department Product",
-        description: "Plant Operations is not configured through a meal- or period-style operating rhythm.",
+        description: "Operational Cycles are optional for Facility Plant Operations.",
         actionLabel: "Open People & Coverage →",
       };
     }
@@ -154,6 +154,7 @@ export function formatWorkGuidance(input: {
   const hasPresets = Boolean(product?.starters.workPresets);
   if (
     !hasPresets &&
+    input.departmentKey !== "PLANT" &&
     input.publishedWorkPlanCount === 0 &&
     input.draftWorkPlanCount === 0
   ) {

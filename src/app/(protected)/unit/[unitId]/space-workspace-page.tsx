@@ -7,12 +7,10 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
-import { AssetIssueReportPanel } from "@/components/asset-operations/asset-issue-report-panel";
+import { ReportProblemForm } from "@/components/operational-requests/report-problem-form";
 import { SpaceWorkspaceView } from "@/components/unit-workspace/space-workspace-view";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
-import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
-import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import {
   resolveRunPresentationDepartment,
   resolveSelectedRoomForUnit,
@@ -46,6 +44,7 @@ export async function SpaceWorkspacePage({
     evidence?: string | string[];
     work?: string | string[];
     reportAsset?: string | string[];
+    reportProblem?: string | string[];
     mealServiceEvent?: string | string[];
   };
 }) {
@@ -68,10 +67,12 @@ export async function SpaceWorkspacePage({
     const evidence = firstSearchValue(query?.evidence);
     const work = firstSearchValue(query?.work);
     const reportAsset = firstSearchValue(query?.reportAsset);
+    const reportProblem = firstSearchValue(query?.reportProblem);
     if (unitTab) params.set("unitTab", unitTab);
     if (evidence) params.set("evidence", evidence);
     if (work) params.set("work", work);
     if (reportAsset) params.set("reportAsset", reportAsset);
+    if (reportProblem) params.set("reportProblem", reportProblem);
     redirect(`/unit/${resolved.identity.unitId}?${params.toString()}`);
   }
 
@@ -114,24 +115,22 @@ export async function SpaceWorkspacePage({
   });
 
   const reportAsset = firstSearchValue(query?.reportAsset);
+  const reportProblem = firstSearchValue(query?.reportProblem);
+  const showRequestIntake = Boolean(reportAsset || reportProblem);
   const extras = {
-    assets: reportAsset
+    assets: showRequestIntake
       ? (
-          <AssetIssueReportPanel
+          <ReportProblemForm
             facilityId={session.facilityId}
-            departmentId={department.id}
+            requestingDepartmentId={department.id}
             unitId={unit.id}
-            defaultAssetId={reportAsset !== "1" ? reportAsset : null}
+            spaceId={spaceId}
+            defaultAssetId={reportAsset && reportAsset !== "1" ? reportAsset : null}
             assets={loaded.assets.assets.map((asset) => ({
               id: asset.assetId,
               name: asset.name,
               assetCode: "",
-              statusLabel: asset.status,
             }))}
-            deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
-            deviceBoundUnitId={cookieJar.get(DEVICE_UNIT_COOKIE)?.value?.trim() || null}
-            actorRef={actorRefForSession(session)}
-            sessionVersion={session.sessionVersion ?? 0}
             compact
           />
         )

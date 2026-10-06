@@ -8,12 +8,9 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
-import {
-  isDepartmentAssetOperationsEnabled,
-  isDepartmentJobFlowEnabled,
-} from "@/lib/department-operations";
+import { isDepartmentAssetOperationsEnabled, isDepartmentJobFlowEnabled } from "@/lib/department-operations";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
-import { isPlantOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export type OperationalRequestAuthorityDecision = {
@@ -152,9 +149,13 @@ export function decideOperationalRequestAuthority(input: {
   };
 }
 
-function requesterFlagForKey(key: string | null | undefined): boolean {
+async function requesterFlagForKey(
+  facilityId: string,
+  key: string | null | undefined,
+  session?: { authKind?: string | null } | null,
+): Promise<boolean> {
   if (!key) return false;
-  if (key === "PLANT") return isPlantOperationsEnabled();
+  if (key === "PLANT") return isPlantRuntimeEnabled(facilityId, session);
   if (key === "DIETARY" || key === "EVS") {
     return isDepartmentJobFlowEnabled(key) || isDepartmentAssetOperationsEnabled(key);
   }
@@ -182,7 +183,7 @@ export async function resolveRequesterReportAuthority(
   }
 
   return decideOperationalRequestAuthority({
-    flagEnabled: requesterFlagForKey(department?.key),
+    flagEnabled: await requesterFlagForKey(facilityId, department?.key, session),
     role: session.role as AppRole,
     authMethod: session.authMethod ?? "PASSWORD",
     sessionFacilityId: session.facilityId,
@@ -215,7 +216,8 @@ export async function resolvePlantOperationsAuthority(
   }
 
   return decideOperationalRequestAuthority({
-    flagEnabled: isPlantOperationsEnabled() && department?.key === "PLANT",
+    flagEnabled:
+      (await isPlantRuntimeEnabled(facilityId, session)) && department?.key === "PLANT",
     role: session.role as AppRole,
     authMethod: session.authMethod ?? "PASSWORD",
     sessionFacilityId: session.facilityId,

@@ -214,7 +214,7 @@ export function PmRunBoard({
     { id: "attention", label: "Needs attention" },
     { id: "completed", label: "Completed" },
     { id: "skipped", label: "Skipped" },
-    { id: "projected", label: "Projected" },
+    { id: "projected", label: "Upcoming schedule" },
   ];
 
   return (
@@ -334,17 +334,17 @@ export function PmRunBoard({
           title="Skipped"
           testId="pm-run-skipped"
           rows={grouped.skipped}
-          empty="No skipped occurrences."
+          empty="No skipped scheduled maintenance."
           departmentId={departmentId}
           canConfigure={canConfigure}
         />
       ) : null}
       {view === "projected" ? (
         <Section
-          title="Projected"
+          title="Upcoming schedule"
           testId="pm-run-projected"
           rows={grouped.projected}
-          empty="No upcoming projected dates."
+          empty="No upcoming schedule dates."
           departmentId={departmentId}
           canConfigure={canConfigure}
         />

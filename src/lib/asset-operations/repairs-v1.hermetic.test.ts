@@ -50,7 +50,7 @@ test("linked vs direct vs preventive source labels", () => {
         hasLinkedAssetIssue: false,
       }),
     }),
-    "Direct repair",
+    "Direct Work Order",
   );
   assert.equal(
     repairSourceCompactLine({

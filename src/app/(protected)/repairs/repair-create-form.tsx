@@ -53,7 +53,7 @@ export function RepairCreateForm({
         </select>
       </label>
       <label className="block text-sm text-zinc-700">
-        Actual repair provider
+        Vendor (optional)
         <select
           name="vendorId"
           defaultValue=""
@@ -114,7 +114,7 @@ export function RepairCreateForm({
           type="submit"
           className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
         >
-          Create repair
+          Create Work Order
         </button>
       </div>
     </form>

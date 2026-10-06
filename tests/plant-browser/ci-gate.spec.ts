@@ -136,7 +136,7 @@ test.describe("Phase 12A Plant @ci-gate", () => {
     const { context, page } = await openPersistent("dietary-report");
     try {
       await loginPassword(page, fx.users.dietaryStaff.email, demoPassword());
-      await page.goto(`/unit/${unitId}`);
+      await page.goto(`/unit/${unitId}?reportProblem=1`);
       const form = page.getByTestId("report-problem-form");
       const noRoutes = page.getByTestId("report-problem-no-routes");
       await expect(form.or(noRoutes)).toBeVisible({ timeout: 30_000 });

@@ -5,6 +5,7 @@ import {
   departmentProductReleaseStatus,
   hasInternalDepartmentProductAccess,
 } from "@/lib/department-products/eligibility";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import {
   isDepartmentRowCustomerOperable,
   loadCustomerOperableDepartments,
@@ -63,19 +64,25 @@ async function userMaySelectDepartment(
       id: departmentId,
       facilityId,
       isActive: true,
-      ...(session.authKind === "harbor_staff" ? {} : { showInEmployeeApp: true }),
     },
-    select: { id: true, key: true, isActive: true },
+    select: { id: true, key: true, isActive: true, showInEmployeeApp: true },
   });
   if (!dept) return false;
+  const plantRuntime =
+    dept.key === "PLANT" ? await isPlantRuntimeEnabled(facilityId, session) : false;
+  if (session.authKind !== "harbor_staff" && !dept.showInEmployeeApp && !plantRuntime) {
+    return false;
+  }
 
   const access = context ?? (await loadFacilityDepartmentAccessContext(prisma, facilityId));
-  if (!departmentIsProductEligible(session, dept, access)) {
+  if (!departmentIsProductEligible(session, dept, access) && !plantRuntime) {
     return false;
   }
   if (isFacilityAdmin) return true;
   const empId = await getOperationalEmployeeIdForSession(session);
-  if (!empId) return false;
+  if (!empId) {
+    return plantRuntime && session.primaryDepartmentId === departmentId;
+  }
   const employee = await prisma.employee.findFirst({
     where: { id: empId, facilityId },
     select: {
@@ -83,7 +90,9 @@ async function userMaySelectDepartment(
       employeeDepartments: { select: { departmentId: true } },
     },
   });
-  if (!employee) return false;
+  if (!employee) {
+    return plantRuntime && session.primaryDepartmentId === departmentId;
+  }
   return employeeBelongsToDepartment(employee, departmentId);
 }
 
@@ -275,6 +284,12 @@ export async function assertCustomerDepartmentContext(input: {
     return { allowed: false, reason: "not_installed", departmentKey: null };
   }
   if (departmentHasInternalAccess(input.session, department.key)) {
+    return { allowed: true, reason: "internal", departmentKey: department.key };
+  }
+  if (
+    department.key === "PLANT" &&
+    (await isPlantRuntimeEnabled(input.session.facilityId, input.session))
+  ) {
     return { allowed: true, reason: "internal", departmentKey: department.key };
   }
   const context = await loadFacilityDepartmentAccessContext(prisma, input.session.facilityId);

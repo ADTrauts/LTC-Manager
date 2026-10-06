@@ -135,6 +135,7 @@ export async function createRequest(
     requestingDepartmentId: input.requestingDepartmentId,
     responsibleDepartmentId: input.responsibleDepartmentId,
     client,
+    session,
   });
   if (!routeCheck.ok) throw new Error(routeCheck.reason);
 

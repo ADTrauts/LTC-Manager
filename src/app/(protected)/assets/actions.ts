@@ -20,8 +20,8 @@ import {
   updateAssetIdentity,
   type AssetOperationalStatus,
 } from "@/lib/asset-operations";
+import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { listAttachmentsForAsset } from "@/lib/attachments";
 import {
   deleteFacilityPhotoAttachment,
@@ -134,7 +134,7 @@ export async function createAssetAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
 
-  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
+  const assetOpsEnabled = await isSharedAssetOperationsEnabled(session.facilityId, session);
   const criticalityRaw = String(formData.get("criticality") ?? "ROUTINE");
   const lifecycleOrStatus = String(formData.get("lifecycle") ?? formData.get("status") ?? "ACTIVE");
   const parsed = createAssetSchema.parse({
@@ -306,7 +306,7 @@ export async function updateAssetStatusAction(formData: FormData) {
     throw new Error("Asset not found.");
   }
 
-  if (isDietaryAssetOperationsEnabled()) {
+  if (await isSharedAssetOperationsEnabled(session.facilityId, session)) {
     const departmentId = departmentIdRaw ?? asset.departmentId;
     if (!departmentId) {
       throw new Error("Select a responsible department before changing Asset status.");
@@ -350,8 +350,8 @@ export async function updateAssetStatusAction(formData: FormData) {
 
 export async function updateAssetIdentityAction(formData: FormData) {
   const session = await requireFacilitySession();
-  if (!isDietaryAssetOperationsEnabled()) {
-    throw new Error("Dietary Asset Operations is not enabled.");
+  if (!(await isSharedAssetOperationsEnabled(session.facilityId, session))) {
+    throw new Error("Asset Operations is not enabled.");
   }
 
   const assetId = String(formData.get("assetId") ?? "");
@@ -414,8 +414,8 @@ export async function updateAssetIdentityAction(formData: FormData) {
 
 export async function retireAssetAction(formData: FormData) {
   const session = await requireFacilitySession();
-  if (!isDietaryAssetOperationsEnabled()) {
-    throw new Error("Dietary Asset Operations is not enabled.");
+  if (!(await isSharedAssetOperationsEnabled(session.facilityId, session))) {
+    throw new Error("Asset Operations is not enabled.");
   }
 
   const assetId = String(formData.get("assetId") ?? "");
@@ -453,7 +453,7 @@ export async function updateAssetCriticalityAction(formData: FormData) {
     throw new Error("Asset not found.");
   }
 
-  if (isDietaryAssetOperationsEnabled() && asset.departmentId) {
+  if ((await isSharedAssetOperationsEnabled(session.facilityId, session)) && asset.departmentId) {
     await updateAssetIdentity(session, {
       facilityId: session.facilityId,
       departmentId: asset.departmentId,
@@ -490,7 +490,7 @@ export async function updateAssetDepartmentAction(formData: FormData) {
     throw new Error("Asset not found.");
   }
 
-  if (isDietaryAssetOperationsEnabled()) {
+  if (await isSharedAssetOperationsEnabled(session.facilityId, session)) {
     const authorityDept = asset.departmentId ?? deptRaw;
     if (!authorityDept) {
       throw new Error("Select a responsible department.");
@@ -563,7 +563,7 @@ export async function uploadAssetPhotosAction(formData: FormData) {
     throw new Error("Asset not found.");
   }
 
-  if (isDietaryAssetOperationsEnabled()) {
+  if (await isSharedAssetOperationsEnabled(session.facilityId, session)) {
     const authority = await resolveAssetOperationsAuthority(
       session,
       session.facilityId,
@@ -596,7 +596,7 @@ export async function removeAssetPhotoAction(formData: FormData) {
     throw new Error("Invalid photo removal.");
   }
 
-  if (isDietaryAssetOperationsEnabled()) {
+  if (await isSharedAssetOperationsEnabled(session.facilityId, session)) {
     const authority = await resolveAssetOperationsAuthority(
       session,
       session.facilityId,

@@ -31,8 +31,7 @@ export function PmSkipForm({
   return (
     <form action={action} className="space-y-3" data-testid="pm-skip-form">
       <p className="text-sm text-zinc-600">
-        This skips only this scheduled maintenance occurrence. Future schedule dates will not
-        change.
+        This skips only this scheduled maintenance. Future schedule dates will not change.
       </p>
       <TextArea
         label="Skip reason"
@@ -47,7 +46,7 @@ export function PmSkipForm({
         </p>
       ) : null}
       <Button type="submit" variant="secondary" data-testid="pm-skip-confirm">
-        Skip this occurrence
+        Skip this scheduled maintenance
       </Button>
     </form>
   );

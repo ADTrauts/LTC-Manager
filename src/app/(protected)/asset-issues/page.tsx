@@ -6,6 +6,8 @@ import {
   createIssueFromRecordAction,
   reportDirectIssueAction,
 } from "@/app/(protected)/asset-issues/actions";
+import { MaintenanceSubNav } from "@/components/maintenance-sub-nav";
+import { EmptyState } from "@/components/design-system";
 import {
   issueAuthorityLabel,
   listIssuesForDepartment,
@@ -14,8 +16,9 @@ import {
   resolveAssetOperationsAuthority,
 } from "@/lib/asset-operations";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
+import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
@@ -39,12 +42,14 @@ function ageLabel(reportedAt: Date) {
 
 export default async function IssuesIndexPage({ searchParams }: Props) {
   noStore();
-  if (!isDietaryAssetOperationsEnabled() && !isPlantOperationsEnabled()) {
-    redirect("/assets");
-  }
-
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
+  if (!(await isSharedAssetOperationsEnabled(session.facilityId, session))) {
+    redirect("/assets");
+  }
+  if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
+    redirect("/repairs");
+  }
 
   const params = await searchParams;
   const view = parseIssueListView(params.view);
@@ -83,11 +88,13 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
 
   return (
     <section className="space-y-4" data-testid="issues-index">
-      <header>
+      <header className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Issues</h1>
         <p className="text-sm text-zinc-600">
-          Known undesirable conditions. Not Requests. Not Work Orders.
+          An Issue is a known problem or condition. An Asset is optional. Requests are triaged into
+          Issues when Plant determines that is the right next step.
         </p>
+        <MaintenanceSubNav role={session.role} activeId="issues" />
       </header>
 
       <nav className="flex flex-wrap gap-2" aria-label="Issue status">
@@ -178,7 +185,11 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
       ) : null}
 
       {issues.length === 0 ? (
-        <p className="text-sm text-zinc-500">No Issues in this view.</p>
+        <EmptyState
+          icon="warning"
+          title="No Issues in this view"
+          description="An Issue is a known problem or condition. Asset is optional — a location-only Issue is valid. Plant triages Requests into Issues when that is the right next step."
+        />
       ) : (
         <ul className="space-y-2">
           {issues.map((issue) => (

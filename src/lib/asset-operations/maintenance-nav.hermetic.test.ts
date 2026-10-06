@@ -75,10 +75,11 @@ test("Maintenance sub-nav is supervisor composition, not a STAFF tab set", () =>
   assert.equal(maintenanceSubNavItems(false).length, 0);
   assert.deepEqual(
     maintenanceSubNavItems(true).map((i) => i.id),
-    ["assets", "repairs", "preventive", "vendors"],
+    ["assets", "repairs", "issues", "preventive", "vendors"],
   );
   assert.equal(resolveMaintenanceSubNavActiveId("/assets", undefined), "assets");
   assert.equal(resolveMaintenanceSubNavActiveId("/assets", "vendors"), "vendors");
   assert.equal(resolveMaintenanceSubNavActiveId("/repairs"), "repairs");
+  assert.equal(resolveMaintenanceSubNavActiveId("/asset-issues"), "issues");
   assert.equal(resolveMaintenanceSubNavActiveId("/preventive-maintenance"), "preventive");
 });

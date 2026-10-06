@@ -440,6 +440,7 @@ export function presentNeighborhoodWorkspace(
       overdueCount: overdueEvidenceCount,
     },
     assets,
+    reportProblemHref: `/unit/${options.unitId}?reportProblem=1#assets`,
     milestones,
     today,
     sections: order.map((id) => ({
