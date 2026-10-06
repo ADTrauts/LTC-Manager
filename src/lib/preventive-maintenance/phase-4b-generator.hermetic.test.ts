@@ -69,8 +69,14 @@ test("PM Work Order projection exposes plan name, scheduled date, and occurrence
   });
   assert.deepEqual(ctx, {
     occurrenceId: "occ1",
+    planId: undefined,
     planName: "Quarterly Dishwasher PM",
     scheduledDate: "2027-10-15",
+    occurrenceStatus: undefined,
+    categoryLabel: null,
+    procedureLabel: null,
+    requirementLabels: [],
+    assetName: null,
   });
   assert.equal(
     presentPmWorkOrderContext({

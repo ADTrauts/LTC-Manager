@@ -40,7 +40,14 @@ import { isAiRecoveryAssistantEnabled } from "@/lib/feature-flags";
 import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 import { formatIssueTimestamp } from "@/lib/work/issues/format-issue-time";
-import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
+import { presentPmWorkOrderContext } from "@/lib/preventive-maintenance/pm-context";
+import { formatProjectedDateLabel } from "@/lib/preventive-maintenance/presentation";
+import {
+  presentPmOccurrenceStateLabel,
+  presentPmWorkOrderKindLabel,
+} from "@/lib/preventive-maintenance/run-board";
+import { presentPmOccurrence } from "@/lib/preventive-maintenance/version-semantics";
+import { facilityCivilToday } from "@/lib/preventive-maintenance/civil-date";
 import {
   getIssueCopy,
   issueTypeIconKey,
@@ -49,6 +56,7 @@ import {
   recoveryStageBadgeVariant,
   recoveryStageLabel,
 } from "@/lib/work/issues/issue-copy";
+import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
 
 type RepairDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -112,6 +120,28 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       space: { select: { id: true, name: true } },
       procedureVersion: { select: { id: true, version: true, title: true, status: true } },
       maintenanceCategory: { select: { label: true } },
+      pmOccurrence: {
+        select: {
+          id: true,
+          planId: true,
+          scheduledDate: true,
+          status: true,
+          plan: { select: { asset: { select: { name: true, assetCode: true } } } },
+          planVersion: {
+            select: {
+              name: true,
+              maintenanceCategory: { select: { label: true } },
+              procedureVersion: {
+                select: { version: true, title: true, article: { select: { title: true } } },
+              },
+              recordRequirements: {
+                select: { templateName: true },
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          },
+        },
+      },
       evidenceLinks: {
         include: {
           evidenceRecord: {
@@ -270,6 +300,10 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     workOrderKind: repair.workOrderKind,
     hasLinkedAssetIssue: Boolean(repair.sourceAssetIssue),
   });
+  const pmContext = presentPmWorkOrderContext({
+    workOrderKind: repair.workOrderKind,
+    pmOccurrence: repair.pmOccurrence,
+  });
   const responsibility = projectAssetResponsibility({
     department: repair.asset?.department ?? repair.responsibleDepartment,
     responsibleOrganization: repair.asset?.responsibleOrganization ?? null,
@@ -307,6 +341,9 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           <div className="flex flex-wrap gap-2">
             <StatusBadge variant={recoveryStageBadgeVariant(stage)}>
               {repairStatusProductLabel(repair.status)}
+            </StatusBadge>
+            <StatusBadge variant="neutral">
+              {presentPmWorkOrderKindLabel(repair.workOrderKind)}
             </StatusBadge>
             <StatusBadge variant={priorityBadgeVariant(repair.priority)}>
               {repair.priority}
@@ -394,6 +431,71 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           </div>
         </div>
       </AppCard>
+
+      {pmContext ? (
+        <AppCard title="Preventive Maintenance" subtitle="Scheduled obligation for this Work Order">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2" data-testid="pm-work-order-context">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Plan</dt>
+              <dd data-testid="pm-context-plan">{pmContext.planName}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Scheduled</dt>
+              <dd data-testid="pm-context-scheduled">
+                {formatProjectedDateLabel(pmContext.scheduledDate, { includeYear: true })}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Occurrence</dt>
+              <dd data-testid="pm-context-state">
+                {pmContext.occurrenceStatus
+                  ? presentPmOccurrenceStateLabel(
+                      presentPmOccurrence({
+                        status: pmContext.occurrenceStatus,
+                        scheduledDate: pmContext.scheduledDate,
+                        facilityToday: facilityCivilToday(facility.timezone),
+                      }),
+                    )
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Asset</dt>
+              <dd>
+                {repair.asset
+                  ? `${repair.asset.assetCode} · ${repair.asset.name}`
+                  : pmContext.assetName ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Procedure</dt>
+              <dd data-testid="pm-context-procedure">{pmContext.procedureLabel ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Category</dt>
+              <dd>{pmContext.categoryLabel ?? repair.maintenanceCategory?.label ?? "—"}</dd>
+            </div>
+            {pmContext.requirementLabels && pmContext.requirementLabels.length > 0 ? (
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Required evidence
+                </dt>
+                <dd data-testid="pm-context-requirements">{pmContext.requirementLabels.join(", ")}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {hasAtLeastRole(session.role, "SUPERVISOR") ? (
+            <p className="mt-3 text-sm">
+              <Link
+                href={`/preventive-maintenance/${pmContext.occurrenceId}`}
+                className="font-medium underline underline-offset-2"
+              >
+                View occurrence
+              </Link>
+            </p>
+          ) : null}
+        </AppCard>
+      ) : null}
 
       <AppCard
         title="Responsibility"

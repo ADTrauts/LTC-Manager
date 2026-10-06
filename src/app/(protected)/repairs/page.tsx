@@ -28,6 +28,9 @@ import {
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { presentPmWorkOrderContext } from "@/lib/preventive-maintenance/pm-context";
+import { formatProjectedDateLabel } from "@/lib/preventive-maintenance/presentation";
+import { presentPmWorkOrderKindLabel } from "@/lib/preventive-maintenance/run-board";
 import { issueDetailPath } from "@/lib/work/issues/issue-copy";
 
 import { RepairCreateForm } from "./repair-create-form";
@@ -46,6 +49,7 @@ const FILTER_TABS: Array<{ value: RepairQueueFilter; label: string }> = [
   { value: "ON_HOLD", label: "On hold" },
   { value: "COMPLETED", label: "Completed" },
   { value: "MINE", label: "My work" },
+  { value: "PREVENTIVE", label: "Preventive" },
   { value: "ALL", label: "All" },
 ];
 
@@ -152,6 +156,13 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         maintenanceCategory: { select: { label: true } },
         space: { select: { name: true } },
         sourceAssetIssue: { select: { id: true, summary: true, status: true } },
+        pmOccurrence: {
+          select: {
+            id: true,
+            scheduledDate: true,
+            planVersion: { select: { name: true } },
+          },
+        },
       },
     }),
   ]);
@@ -162,6 +173,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         priority: repair.priority,
         assignedEmployeeId: repair.assignedEmployeeId,
         viewerEmployeeId,
+        workOrderKind: repair.workOrderKind,
       }),
     )
     .sort(compareRepairsForQueue);
@@ -200,6 +212,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
                     ? "inline-flex min-h-10 items-center rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white"
                     : "inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
                 }
+                data-testid={`repairs-filter-${tab.value}`}
               >
                 {tab.label}
               </Link>
@@ -238,10 +251,16 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
               workOrderKind: repair.workOrderKind,
               hasLinkedAssetIssue: Boolean(repair.sourceAssetIssue),
             });
-            const sourceLine = repairSourceCompactLine({
-              kind: sourceKind,
-              issueSummary: repair.sourceAssetIssue?.summary ?? null,
+            const pmContext = presentPmWorkOrderContext({
+              workOrderKind: repair.workOrderKind,
+              pmOccurrence: repair.pmOccurrence,
             });
+            const sourceLine = pmContext
+              ? `Preventive Maintenance · ${pmContext.planName} · Scheduled ${formatProjectedDateLabel(pmContext.scheduledDate, { includeYear: true })}`
+              : repairSourceCompactLine({
+                  kind: sourceKind,
+                  issueSummary: repair.sourceAssetIssue?.summary ?? null,
+                });
             const responsibility = projectAssetResponsibility({
               department: repair.asset?.department ?? repair.responsibleDepartment,
               responsibleOrganization: repair.asset?.responsibleOrganization ?? null,
@@ -279,6 +298,9 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
                     </p>
                     <p className="text-sm text-zinc-800">{subject}</p>
                     <p className="text-xs text-zinc-600">{locationLabel}</p>
+                    <p className="text-xs font-medium text-zinc-800" data-testid="repair-queue-kind">
+                      {presentPmWorkOrderKindLabel(repair.workOrderKind)}
+                    </p>
                     <p className="text-xs text-zinc-700" data-testid="repair-queue-source">
                       {sourceLine}
                     </p>

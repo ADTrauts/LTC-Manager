@@ -25,6 +25,8 @@ test("product-mode — operational surfaces resolve to RUN", () => {
     "/assets",
     "/assets/asset-1",
     "/repairs",
+    "/preventive-maintenance",
+    "/preventive-maintenance/occ-1",
     "/reports",
   ]) {
     assert.equal(resolveProductModeForPath(path), "RUN", path);

@@ -36,6 +36,23 @@ test("status filter membership", () => {
   assert.equal(repairMatchesQueueFilter("WAITING_PARTS", "WAITING"), true);
   assert.equal(repairMatchesQueueFilter("COMPLETED", "COMPLETED"), true);
   assert.equal(repairMatchesQueueFilter("OPEN", "COMPLETED"), false);
+  assert.equal(parseRepairQueueFilter("PREVENTIVE"), "PREVENTIVE");
+  assert.equal(
+    repairMatchesQueueFilter("OPEN", "PREVENTIVE", { workOrderKind: "PREVENTIVE" }),
+    true,
+  );
+  assert.equal(
+    repairMatchesQueueFilter("OPEN", "PREVENTIVE", { workOrderKind: "CORRECTIVE" }),
+    false,
+  );
+  assert.equal(
+    repairMatchesQueueFilter("OPEN", "MINE", {
+      assignedEmployeeId: "emp-1",
+      viewerEmployeeId: "emp-1",
+      workOrderKind: "PREVENTIVE",
+    }),
+    true,
+  );
 });
 
 test("source kind — linked / direct / preventive", () => {

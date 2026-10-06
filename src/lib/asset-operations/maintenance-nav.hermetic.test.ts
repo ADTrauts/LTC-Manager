@@ -65,6 +65,8 @@ test("isRunMaintenancePath covers the operational loop and excludes Asset Builde
   assert.equal(isRunMaintenancePath("/repairs/r1"), true);
   assert.equal(isRunMaintenancePath("/issues/legacy"), true);
   assert.equal(isRunMaintenancePath("/asset-issues/i1"), true);
+  assert.equal(isRunMaintenancePath("/preventive-maintenance"), true);
+  assert.equal(isRunMaintenancePath("/preventive-maintenance/occ1"), true);
   assert.equal(isRunMaintenancePath("/assets/builder"), false);
   assert.equal(isRunMaintenancePath("/staffing"), false);
 });
@@ -73,9 +75,10 @@ test("Maintenance sub-nav is supervisor composition, not a STAFF tab set", () =>
   assert.equal(maintenanceSubNavItems(false).length, 0);
   assert.deepEqual(
     maintenanceSubNavItems(true).map((i) => i.id),
-    ["assets", "repairs", "vendors"],
+    ["assets", "repairs", "preventive", "vendors"],
   );
   assert.equal(resolveMaintenanceSubNavActiveId("/assets", undefined), "assets");
   assert.equal(resolveMaintenanceSubNavActiveId("/assets", "vendors"), "vendors");
   assert.equal(resolveMaintenanceSubNavActiveId("/repairs"), "repairs");
+  assert.equal(resolveMaintenanceSubNavActiveId("/preventive-maintenance"), "preventive");
 });

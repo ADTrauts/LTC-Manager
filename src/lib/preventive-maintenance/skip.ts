@@ -60,9 +60,7 @@ export async function skipPmOccurrence(
 
   const active = occurrence.workOrders.find((row) => isPmActiveWorkOrderStatus(row.status));
   if (active) {
-    throw new Error(
-      "Cannot skip an occurrence with an active Work Order. Complete or cancel the Work Order first.",
-    );
+    throw new Error("Cancel or complete the active Work Order first.");
   }
 
   const now = input.now ?? new Date();

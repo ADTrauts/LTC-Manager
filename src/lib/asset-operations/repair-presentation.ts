@@ -21,6 +21,7 @@ export type RepairQueueFilter =
   | "WAITING"
   | "COMPLETED"
   | "MINE"
+  | "PREVENTIVE"
   | "ALL";
 
 export type RepairSourceKind = "LINKED_ISSUE" | "DIRECT" | "PREVENTIVE";
@@ -49,6 +50,7 @@ export type RepairQueueFilterExtras = {
   priority?: string | null;
   assignedEmployeeId?: string | null;
   viewerEmployeeId?: string | null;
+  workOrderKind?: string | null;
 };
 
 /** Product filter membership for the Work Order queue. */
@@ -83,6 +85,8 @@ export function repairMatchesQueueFilter(
       return Boolean(
         extras?.viewerEmployeeId && extras.assignedEmployeeId === extras.viewerEmployeeId,
       );
+    case "PREVENTIVE":
+      return extras?.workOrderKind === "PREVENTIVE";
     default:
       return true;
   }
@@ -99,6 +103,7 @@ export function parseRepairQueueFilter(raw: string | undefined | null): RepairQu
     raw === "WAITING" ||
     raw === "COMPLETED" ||
     raw === "MINE" ||
+    raw === "PREVENTIVE" ||
     raw === "ALL"
   ) {
     return raw;

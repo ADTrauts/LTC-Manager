@@ -114,3 +114,18 @@ export {
   collectPmDraftValidationIssues,
   type PmDraftValidationIssue,
 } from "./draft-validation";
+
+export {
+  classifyPmRunAttention,
+  comparePmRunRows,
+  emptyPmRunBoardCounts,
+  groupPmRunBoard,
+  hasPmAttention,
+  isPmDueSoon,
+  isPmRunUnassigned,
+  presentPmOccurrenceStateLabel,
+  presentPmWorkOrderKindLabel,
+  type PmRunAttentionKind,
+  type PmRunBoardCounts,
+  type PmRunRowInput,
+} from "./run-board";

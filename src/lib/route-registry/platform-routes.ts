@@ -774,6 +774,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "The page scopes the repair to the session Facility.",
   },
   {
+    pattern: "/preventive-maintenance",
+    match: "PREFIX",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "repairs",
+    notes:
+      "Facility Plant Operations Preventive Maintenance Run board. Supervisor+ operations; STAFF execute assigned PREVENTIVE Work Orders on /repairs.",
+  },
+  {
     pattern: "/issues/[issueId]",
     match: "EXACT",
     surface: "PAGE",

@@ -82,6 +82,8 @@ test("matching — prefix routes cover their descendants", () => {
   assert.equal(patternFor("/settings/profile"), "/settings");
   assert.equal(patternFor("/settings/a/b/c"), "/settings");
   assert.equal(patternFor("/_next/data/build/x.json"), "/_next");
+  assert.equal(patternFor("/preventive-maintenance"), "/preventive-maintenance");
+  assert.equal(patternFor("/preventive-maintenance/clocc00001"), "/preventive-maintenance");
 });
 
 test("matching — trailing slashes normalize to the same route", () => {

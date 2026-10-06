@@ -89,6 +89,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/assets", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/asset-issues", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/repairs", mode: "RUN", label: "Maintenance" },
+    { pathPrefix: "/preventive-maintenance", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/issues", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/operational-requests", mode: "RUN", label: "Requests" },
     { pathPrefix: "/reports", mode: "RUN", label: "Audit / Reports" },

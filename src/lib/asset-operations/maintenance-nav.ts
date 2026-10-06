@@ -16,7 +16,9 @@ export type MaintenanceNavRewriteOptions = {
   canViewAssets?: boolean;
 };
 
-export type MaintenanceSubNavId = "assets" | "repairs" | "vendors";
+export const MAINTENANCE_PREVENTIVE_HREF = "/preventive-maintenance" as const;
+
+export type MaintenanceSubNavId = "assets" | "repairs" | "vendors" | "preventive";
 
 export type MaintenanceSubNavItem = {
   id: MaintenanceSubNavId;
@@ -27,6 +29,7 @@ export type MaintenanceSubNavItem = {
 export const MAINTENANCE_SUBNAV_ITEMS: readonly MaintenanceSubNavItem[] = [
   { id: "assets", label: "Assets", href: MAINTENANCE_ASSETS_HREF },
   { id: "repairs", label: "Repairs", href: MAINTENANCE_REPAIRS_HREF },
+  { id: "preventive", label: "Preventive", href: MAINTENANCE_PREVENTIVE_HREF },
   { id: "vendors", label: "Vendors", href: MAINTENANCE_VENDORS_HREF },
 ];
 
@@ -48,7 +51,9 @@ export function isRunMaintenancePath(pathname: string | null): boolean {
     path === "/issues" ||
     path.startsWith("/issues/") ||
     path === "/asset-issues" ||
-    path.startsWith("/asset-issues/")
+    path.startsWith("/asset-issues/") ||
+    path === "/preventive-maintenance" ||
+    path.startsWith("/preventive-maintenance/")
   );
 }
 
@@ -71,6 +76,9 @@ export function resolveMaintenanceSubNavActiveId(
     path.startsWith("/asset-issues/")
   ) {
     return "repairs";
+  }
+  if (path === "/preventive-maintenance" || path.startsWith("/preventive-maintenance/")) {
+    return "preventive";
   }
   if (subtab === "vendors") return "vendors";
   return "assets";

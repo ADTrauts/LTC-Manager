@@ -164,6 +164,19 @@ test("role policy — Department Builder admits Manager+ for Operational Cycles"
   }
 });
 
+test("role policy — Plant Preventive Maintenance Run admits Supervisor+", () => {
+  const supervisorPlus: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER", "SUPERVISOR"];
+  for (const path of ["/preventive-maintenance", "/preventive-maintenance/clocc00001"]) {
+    for (const role of APP_ROLES) {
+      assert.equal(
+        roleMayAccessRoute(path, role, FLAGS),
+        supervisorPlus.includes(role),
+        `${role} at ${path}`,
+      );
+    }
+  }
+});
+
 test("role policy — Plant Preventive Maintenance builder admits Supervisor+", () => {
   const builderTier: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER", "SUPERVISOR"];
   for (const path of [
