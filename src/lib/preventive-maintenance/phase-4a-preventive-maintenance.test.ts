@@ -232,21 +232,29 @@ test(
         },
       });
 
+      const supervisorDraft = await createPmPlanWithDraft(supervisor, {
+        facilityId: fx.facility.id,
+        departmentId: fx.plant.id,
+        assetId: fx.asset.id,
+        draft: {
+          name: "Supervisor draft",
+          anchorDate: "2027-01-15",
+          intervalMonths: 3,
+          maintenanceCategoryId: fx.category.id,
+        },
+        client: prisma,
+      });
+      assert.equal(supervisorDraft.status, "DRAFT");
       await assert.rejects(
         () =>
-          createPmPlanWithDraft(supervisor, {
+          publishPmPlanVersion(supervisor, {
             facilityId: fx.facility.id,
             departmentId: fx.plant.id,
-            assetId: fx.asset.id,
-            draft: {
-              name: "Blocked",
-              anchorDate: "2027-01-15",
-              intervalMonths: 3,
-              maintenanceCategoryId: fx.category.id,
-            },
+            planId: supervisorDraft.id,
             client: prisma,
+            now,
           }),
-        /authority|publish|Build/i,
+        /publish|authority/i,
       );
 
       const created = await createPmPlanWithDraft(mgr, {

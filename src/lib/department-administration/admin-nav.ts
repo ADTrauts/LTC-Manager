@@ -28,6 +28,11 @@ export const DEPARTMENT_ADMIN_TABS = [
     description: "Work plans for this department",
   },
   {
+    id: "maintenance",
+    label: "Maintenance",
+    description: "Preventive Maintenance for Facility Plant Operations",
+  },
+  {
     id: "people",
     label: "People & Coverage",
     description: "Teams and coverage. Employee identity stays in People.",
@@ -121,6 +126,8 @@ export function departmentAdminTabsForFlags(input: {
   recordsEnabled?: boolean;
   /** Dietary menus. Omit for other products. */
   menusEnabled?: boolean;
+  /** Plant Preventive Maintenance builder. Omit for other products. */
+  maintenanceEnabled?: boolean;
 }): (typeof DEPARTMENT_ADMIN_TABS)[number][] {
   void input.profilesEnabled;
   void input.cyclesEnabled;
@@ -128,9 +135,11 @@ export function departmentAdminTabsForFlags(input: {
   const workEnabled = input.workEnabled ?? true;
   const recordsEnabled = input.recordsEnabled ?? false;
   const menusEnabled = input.menusEnabled ?? false;
+  const maintenanceEnabled = input.maintenanceEnabled ?? false;
   return DEPARTMENT_ADMIN_TABS.filter((tab) => {
     if (tab.id === "locations") return locationsEnabled;
     if (tab.id === "work") return workEnabled;
+    if (tab.id === "maintenance") return maintenanceEnabled;
     if (tab.id === "records") return recordsEnabled;
     if (tab.id === "menus") return menusEnabled;
     return true;
@@ -165,6 +174,23 @@ export function resolveDepartmentAdminTab(
   return fallback;
 }
 
+export function preventiveMaintenanceBuilderHref(departmentId: string): string {
+  return `/build/departments/${departmentId}/preventive-maintenance`;
+}
+
+export function preventiveMaintenancePlanHref(departmentId: string, planId: string): string {
+  return `${preventiveMaintenanceBuilderHref(departmentId)}/${planId}`;
+}
+
+export function preventiveMaintenanceNewHref(departmentId: string): string {
+  return `${preventiveMaintenanceBuilderHref(departmentId)}/new`;
+}
+
+export function isPreventiveMaintenanceBuilderPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return /^\/build\/departments\/[^/]+\/preventive-maintenance(?:\/.*)?$/.test(pathname);
+}
+
 export function departmentAdminHref(
   departmentId: string,
   tab: DepartmentAdminPrimaryTabId | DepartmentAdminRetiredTabId,
@@ -173,6 +199,9 @@ export function departmentAdminHref(
   const resolved = isDepartmentAdminRetiredTabId(tab)
     ? DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[tab]
     : tab;
+  if (resolved === "maintenance") {
+    return preventiveMaintenanceBuilderHref(departmentId);
+  }
   const params = new URLSearchParams();
   if (resolved !== "overview") params.set("tab", resolved);
   if (profileId) params.set("profile", profileId);

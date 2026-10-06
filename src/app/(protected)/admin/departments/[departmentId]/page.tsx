@@ -41,6 +41,7 @@ import {
   loadFacilityDepartmentCatalog,
 } from "@/lib/department-products";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
+import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 import { prisma } from "@/lib/prisma";
 
@@ -117,11 +118,16 @@ export default async function DepartmentBuilderPage({
     workEnabled,
     recordsEnabled: canonicalLogsEnabled,
     menusEnabled: hasDietaryDomainCapabilities(view.department.key),
+    maintenanceEnabled:
+      view.department.key === "PLANT" && isDepartmentAssetOperationsEnabled(view.department.key),
   });
   const tab = resolveDepartmentAdminTab(query.tab, {
     availableTabIds: availableTabs.map((item) => item.id),
     fallback: "overview",
   });
+  if (tab === "maintenance") {
+    redirect(`/build/departments/${view.department.id}/preventive-maintenance`);
+  }
   const productIdentity = resolveOverviewProductIdentity(view.department.key);
   const catalog =
     tab === "overview"

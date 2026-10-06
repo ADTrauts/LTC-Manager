@@ -15,9 +15,10 @@ test("departmentAdminHref preserves tab deep-links for SubNav items", () => {
   assert.match(cycles, /profile=prof-1/);
 });
 
-test("Department Builder primary tabs include Operating Rhythm and People & Coverage", () => {
+test("Department Builder primary tabs include Operating Rhythm, People & Coverage, and Plant Maintenance", () => {
   const ids = DEPARTMENT_ADMIN_TABS.map((t) => t.id);
   assert.ok(ids.includes("operating-rhythm"));
   assert.ok(ids.includes("people"));
+  assert.ok(ids.includes("maintenance"));
   assert.equal((ids as readonly string[]).includes("teams"), false);
 });

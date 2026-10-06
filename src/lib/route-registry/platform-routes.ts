@@ -872,6 +872,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Resolver at /build/departments; workspace URLs rewrite to the Builder files.",
   },
   {
+    pattern: "/build/departments/[departmentId]/preventive-maintenance",
+    match: "PREFIX",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "administration",
+    notes:
+      "Facility Plant Operations Preventive Maintenance builder. Supervisor drafts; Manager+ publish and retire. Longer PREFIX outranks /build/departments Manager+.",
+  },
+  {
     pattern: "/admin/facility/builder",
     match: "EXACT",
     surface: "PAGE",

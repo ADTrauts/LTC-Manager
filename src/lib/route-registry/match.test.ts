@@ -31,6 +31,14 @@ test("matching — dynamic segments capture exactly one segment", () => {
   assert.equal(patternFor("/build/departments"), "/build/departments");
   assert.equal(patternFor("/build/departments/cldept0001"), "/build/departments");
   assert.equal(
+    patternFor("/build/departments/cldept0001/preventive-maintenance"),
+    "/build/departments/[departmentId]/preventive-maintenance",
+  );
+  assert.equal(
+    patternFor("/build/departments/cldept0001/preventive-maintenance/new"),
+    "/build/departments/[departmentId]/preventive-maintenance",
+  );
+  assert.equal(
     patternFor("/department/settings/cldept0001"),
     "/department/settings/[departmentId]",
   );

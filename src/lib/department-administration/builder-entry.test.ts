@@ -70,6 +70,13 @@ describe("Department Builder entry routing", () => {
     );
     assert.equal(
       departmentBuilderHrefAfterDepartmentSwitch({
+        nextDepartmentId: "clplant",
+        currentPathname: "/build/departments/cldiet/preventive-maintenance/clplan1",
+      }),
+      "/build/departments/clplant/preventive-maintenance",
+    );
+    assert.equal(
+      departmentBuilderHrefAfterDepartmentSwitch({
         nextDepartmentId: null,
         currentPathname: "/build/departments/cldiet",
       }),

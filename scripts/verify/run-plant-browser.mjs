@@ -231,9 +231,10 @@ async function main() {
 
     const pins = loadPinsEnv();
 
+    const grep = process.env.PLANT_BROWSER_GREP || "@ci-gate";
     const pw = spawnSync(
       "npx",
-      ["playwright", "test", "-c", "tests/playwright.plant.config.ts", "--grep", "@ci-gate"],
+      ["playwright", "test", "-c", "tests/playwright.plant.config.ts", "--grep", grep],
       {
         cwd: ROOT,
         env: {

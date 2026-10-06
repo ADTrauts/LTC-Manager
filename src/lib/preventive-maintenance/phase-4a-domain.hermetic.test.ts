@@ -96,6 +96,8 @@ test("Build publish is Manager+, not Supervisor or PIN", () => {
   };
   assert.equal(decidePmPlanAuthority({ ...base, role: "STAFF" }).canPublish, false);
   assert.equal(decidePmPlanAuthority({ ...base, role: "SUPERVISOR" }).canPublish, false);
+  assert.equal(decidePmPlanAuthority({ ...base, role: "SUPERVISOR" }).canDraft, true);
+  assert.equal(decidePmPlanAuthority({ ...base, role: "MANAGER" }).canDraft, true);
   assert.equal(decidePmPlanAuthority({ ...base, role: "MANAGER" }).canPublish, true);
   assert.equal(decidePmPlanAuthority({ ...base, role: "MANAGER" }).canRetire, true);
   assert.equal(
@@ -108,6 +110,10 @@ test("Build publish is Manager+, not Supervisor or PIN", () => {
   assert.equal(
     decidePmPlanAuthority({ ...base, role: "SUPERVISOR", authMethod: "QUICK_PIN" }).canSkip,
     true,
+  );
+  assert.equal(
+    decidePmPlanAuthority({ ...base, role: "SUPERVISOR", authMethod: "QUICK_PIN" }).canDraft,
+    false,
   );
 });
 

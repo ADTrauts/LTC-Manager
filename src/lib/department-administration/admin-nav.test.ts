@@ -22,7 +22,16 @@ describe("Department Builder local navigation", () => {
   it("exposes Department Builder sections for the installed product", () => {
     assert.deepEqual(
       DEPARTMENT_ADMIN_TABS.map((tab) => tab.id),
-      ["overview", "locations", "operating-rhythm", "work", "people", "records", "menus"],
+      [
+        "overview",
+        "locations",
+        "operating-rhythm",
+        "work",
+        "maintenance",
+        "people",
+        "records",
+        "menus",
+      ],
     );
     assert.equal(
       DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("room-types" as string)),
@@ -82,6 +91,14 @@ describe("Department Builder local navigation", () => {
       }).map((t) => t.id),
       ["overview", "locations", "operating-rhythm", "people", "records", "menus"],
     );
+    assert.deepEqual(
+      departmentAdminTabsForFlags({
+        profilesEnabled: true,
+        workEnabled: false,
+        maintenanceEnabled: true,
+      }).map((t) => t.id),
+      ["overview", "locations", "operating-rhythm", "maintenance", "people"],
+    );
   });
 
   it("builds local hrefs without leaking into global nav paths", () => {
@@ -100,6 +117,10 @@ describe("Department Builder local navigation", () => {
     assert.equal(
       departmentAdminHref("dept1", "cycles"),
       "/build/departments/dept1?tab=operating-rhythm",
+    );
+    assert.equal(
+      departmentAdminHref("dept1", "maintenance"),
+      "/build/departments/dept1/preventive-maintenance",
     );
     assert.ok(!departmentAdminHref("dept1", "overview").includes("/sidebar"));
     assert.ok(!departmentAdminHref("dept1", "locations").includes("/units"));

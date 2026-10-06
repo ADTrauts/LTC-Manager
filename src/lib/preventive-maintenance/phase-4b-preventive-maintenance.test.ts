@@ -23,7 +23,7 @@ import {
   satisfyWorkOrderRecordRequirement,
   updateWorkOrderStatus,
 } from "@/lib/asset-operations";
-import { handlePlantPmCron } from "@/app/api/internal/plant/preventive-maintenance/route";
+import { handlePlantPmCron } from "@/lib/preventive-maintenance/cron";
 import {
   createPmPlanSuccessorDraft,
   createPmPlanWithDraft,

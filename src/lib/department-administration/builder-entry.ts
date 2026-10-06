@@ -6,7 +6,7 @@
  * Admin → Departments owns installation, Marketplace, and administrative controls.
  */
 
-import { resolveDepartmentAdminTab } from "./admin-nav";
+import { isPreventiveMaintenanceBuilderPath, resolveDepartmentAdminTab } from "./admin-nav";
 
 export const DEPARTMENT_BUILDER_LIST_HREF = "/build/departments";
 export const ADMIN_DEPARTMENTS_HREF = "/admin/departments";
@@ -81,6 +81,9 @@ export function departmentBuilderHrefAfterDepartmentSwitch(input: {
       : (input.currentSearch ?? ""),
   );
   params.delete("profile");
+  if (isPreventiveMaintenanceBuilderPath(input.currentPathname)) {
+    return `/build/departments/${input.nextDepartmentId}/preventive-maintenance`;
+  }
   const requestedTab = params.get("tab");
   const tab = requestedTab ? resolveDepartmentAdminTab(requestedTab) : "overview";
   const query = new URLSearchParams();

@@ -16,6 +16,9 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export type PmPlanAuthorityDecision = {
   canView: boolean;
+  /** Supervisor+ (password) may create and edit drafts. */
+  canDraft: boolean;
+  /** Manager+ (password) — publish, retire, and historical manage. */
   canManage: boolean;
   canPublish: boolean;
   canRetire: boolean;
@@ -25,6 +28,7 @@ export type PmPlanAuthorityDecision = {
 
 const DENIED: PmPlanAuthorityDecision = {
   canView: false,
+  canDraft: false,
   canManage: false,
   canPublish: false,
   canRetire: false,
@@ -66,10 +70,12 @@ export function decidePmPlanAuthority(input: {
     return { ...DENIED, canView: true, reason: null };
   }
 
+  const canDraft = !pinBlocksBuild && hasAtLeastRole(input.role, "SUPERVISOR");
   const canManage = !pinBlocksBuild && hasAtLeastRole(input.role, "MANAGER");
   if (hasAtLeastRole(input.role, "SUPERVISOR") && !canManage) {
     return {
       canView: true,
+      canDraft,
       canManage: false,
       canPublish: false,
       canRetire: false,
@@ -82,6 +88,7 @@ export function decidePmPlanAuthority(input: {
 
   return {
     canView: true,
+    canDraft,
     canManage,
     canPublish: canManage,
     canRetire: canManage,
@@ -111,6 +118,12 @@ export async function resolvePmPlanAuthority(
     departmentKey: department?.key ?? null,
     primaryDepartmentId: session.primaryDepartmentId,
   });
+}
+
+export function requirePmDraft(decision: PmPlanAuthorityDecision) {
+  if (!decision.canDraft) {
+    throw new Error(decision.reason || "Insufficient Preventive Maintenance draft authority.");
+  }
 }
 
 export function requirePmManage(decision: PmPlanAuthorityDecision) {

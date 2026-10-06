@@ -37,6 +37,7 @@ export { isPmPlanGenerationEligible, pmIneligibilityReason } from "./eligibility
 
 export {
   decidePmPlanAuthority,
+  requirePmDraft,
   requirePmManage,
   requirePmPublish,
   requirePmRetire,
@@ -62,6 +63,7 @@ export {
 } from "./active-work-order";
 
 export { isPlantPmCronAuthorized } from "./cron-auth";
+export { handlePlantPmCron } from "./cron";
 
 export {
   completePmOccurrenceForWorkOrder,
@@ -90,3 +92,25 @@ export {
   type PmGeneratorConfigurationError,
   type PmGeneratorResult,
 } from "./generator";
+
+export {
+  cadencePresetFromIntervalMonths,
+  defaultSuccessorEffectiveDate,
+  formatCadenceSummary,
+  formatProjectedDateLabel,
+  intervalMonthsFromCadencePreset,
+  persistPmPriority,
+  presentPmPlanStatus,
+  presentPmPriority,
+  previewDraftProjectedSchedule,
+  PM_CADENCE_PRESETS,
+  PM_PRIORITY_OPTIONS,
+  type PmBuilderPriority,
+  type PmCadencePresetId,
+  type PmPlanStatusPresentation,
+} from "./presentation";
+
+export {
+  collectPmDraftValidationIssues,
+  type PmDraftValidationIssue,
+} from "./draft-validation";

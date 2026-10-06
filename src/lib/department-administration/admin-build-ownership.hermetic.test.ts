@@ -100,6 +100,14 @@ describe("Admin vs Build Department ownership", () => {
     assert.equal(roleMayAccessRoute("/build/departments", "MANAGER", FLAGS), true);
     assert.equal(roleMayAccessRoute("/build/departments/cldept0001", "MANAGER", FLAGS), true);
     assert.equal(roleMayAccessRoute("/build/departments", "STAFF", FLAGS), false);
+    assert.equal(
+      roleMayAccessRoute("/build/departments/cldept0001/preventive-maintenance", "SUPERVISOR", FLAGS),
+      true,
+    );
+    assert.equal(
+      roleMayAccessRoute("/build/departments/cldept0001/preventive-maintenance", "STAFF", FLAGS),
+      false,
+    );
   });
 
   it("keeps Admin Departments in ADMIN mode and Builder in BUILD", () => {

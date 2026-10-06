@@ -98,6 +98,7 @@ test("Supervisor+ can skip; staff cannot; skip is not Build publish", () => {
   };
   assert.equal(decidePmPlanAuthority({ ...base, role: "STAFF" }).canSkip, false);
   assert.equal(decidePmPlanAuthority({ ...base, role: "SUPERVISOR" }).canSkip, true);
+  assert.equal(decidePmPlanAuthority({ ...base, role: "SUPERVISOR" }).canDraft, true);
   assert.equal(decidePmPlanAuthority({ ...base, role: "SUPERVISOR" }).canPublish, false);
 });
 
@@ -134,6 +135,10 @@ test("generator and cron do not fake a user session", () => {
     join(process.cwd(), "src/app/api/internal/plant/preventive-maintenance/route.ts"),
     "utf8",
   );
+  const cron = readFileSync(
+    join(process.cwd(), "src/lib/preventive-maintenance/cron.ts"),
+    "utf8",
+  );
   const vercel = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
   const closeout = readFileSync(
     join(process.cwd(), "src/lib/asset-operations/work-order-closeout.ts"),
@@ -145,8 +150,9 @@ test("generator and cron do not fake a user session", () => {
   assert.match(create, /reportedById:\s*null/);
   assert.match(create, /workOrderKind:\s*"PREVENTIVE"/);
   assert.match(create, /issueId:\s*null/);
-  assert.match(route, /isPlantPmCronAuthorized/);
-  assert.match(route, /runPmGeneration/);
+  assert.match(route, /handlePlantPmCron/);
+  assert.match(cron, /isPlantPmCronAuthorized/);
+  assert.match(cron, /runPmGeneration/);
   assert.match(vercel, /\/api\/internal\/plant\/preventive-maintenance/);
   assert.match(vercel, /0 6 \* \* \*/);
   assert.match(closeout, /completePmOccurrenceForWorkOrder/);

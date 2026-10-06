@@ -19,7 +19,7 @@ import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics"
 import { prisma } from "@/lib/prisma";
 
 import {
-  requirePmManage,
+  requirePmDraft,
   requirePmPublish,
   requirePmRetire,
   resolvePmPlanAuthority,
@@ -256,7 +256,7 @@ export async function createPmPlanWithDraft(
     input.departmentId,
     client,
   );
-  requirePmManage(authority);
+  requirePmDraft(authority);
   const shaped = await validateDraftShape(input.draft);
 
   const asset = await client.asset.findFirst({
@@ -312,6 +312,7 @@ export async function updatePmPlanDraft(
     departmentId: string;
     planId: string;
     draft: PmPlanDraftInput;
+    assetId?: string;
     client?: DbClient;
   },
 ) {
@@ -322,7 +323,7 @@ export async function updatePmPlanDraft(
     input.departmentId,
     client,
   );
-  requirePmManage(authority);
+  requirePmDraft(authority);
   const shaped = await validateDraftShape(input.draft);
 
   const plan = await client.preventiveMaintenancePlan.findFirst({
@@ -341,6 +342,20 @@ export async function updatePmPlanDraft(
     throw new Error("No draft version to edit. Create a successor draft from the published version.");
   }
   assertPmPublishedVersionImmutable(draft.status);
+
+  if (plan.status === "DRAFT" && input.assetId && input.assetId !== plan.assetId) {
+    const asset = await client.asset.findFirst({
+      where: { id: input.assetId },
+      include: { unit: { select: { facilityId: true } } },
+    });
+    if (!asset || asset.unit.facilityId !== input.facilityId) {
+      throw new Error("Asset not found.");
+    }
+    await client.preventiveMaintenancePlan.update({
+      where: { id: plan.id },
+      data: { assetId: input.assetId },
+    });
+  }
 
   await client.preventiveMaintenancePlanRecordRequirement.deleteMany({
     where: { planVersionId: draft.id },
@@ -498,7 +513,7 @@ export async function createPmPlanSuccessorDraft(
     input.departmentId,
     client,
   );
-  requirePmManage(authority);
+  requirePmDraft(authority);
 
   const plan = await client.preventiveMaintenancePlan.findFirst({
     where: {

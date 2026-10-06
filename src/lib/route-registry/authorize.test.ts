@@ -164,6 +164,23 @@ test("role policy — Department Builder admits Manager+ for Operational Cycles"
   }
 });
 
+test("role policy — Plant Preventive Maintenance builder admits Supervisor+", () => {
+  const builderTier: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER", "SUPERVISOR"];
+  for (const path of [
+    "/build/departments/cldept0001/preventive-maintenance",
+    "/build/departments/cldept0001/preventive-maintenance/new",
+    "/build/departments/cldept0001/preventive-maintenance/clplan0001",
+  ]) {
+    for (const role of APP_ROLES) {
+      assert.equal(
+        roleMayAccessRoute(path, role, FLAGS),
+        builderTier.includes(role),
+        `${role} at ${path}`,
+      );
+    }
+  }
+});
+
 test("role policy — /employees requires the management tier", () => {
   const managementTier: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER"];
   for (const path of ["/employees", "/employees/hr-audit", "/employees/terminations"]) {
