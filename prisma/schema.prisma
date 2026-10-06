@@ -2373,7 +2373,8 @@ model Repair {
   assignedEmployee        Employee?                      @relation("RepairAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
   preventiveScheduleId    String?
   preventiveSchedule      PreventiveMaintenanceSchedule? @relation(fields: [preventiveScheduleId], references: [id], onDelete: SetNull)
-  /// Canonical PM occurrence. Not unique: canceled Work Orders may be replaced.
+  /// Canonical PM occurrence. Not globally unique: canceled Work Orders may be replaced.
+  /// Partial unique index Repair_pmOccurrenceId_active_key: at most one active WO per occurrence.
   pmOccurrenceId          String?
   pmOccurrence            PreventiveMaintenanceOccurrence? @relation("PmOccurrenceWorkOrders", fields: [pmOccurrenceId], references: [id], onDelete: SetNull)
   completedPmOccurrence   PreventiveMaintenanceOccurrence? @relation("PmOccurrenceCompletedWorkOrder")
@@ -2785,7 +2786,8 @@ model PreventiveMaintenancePlanRecordRequirement {
 
 /// Durable PM obligation. Unique (planId, scheduledDate) is the idempotency boundary.
 /// planVersionId is frozen at materialization and never changes.
-/// Projected future dates are not rows. Active-WO partial unique index is deferred to Phase 4B.
+/// Projected future dates are not rows.
+/// Active Work Order uniqueness is Repair_pmOccurrenceId_active_key (SQL partial unique).
 model PreventiveMaintenanceOccurrence {
   id                    String                                  @id @default(cuid())
   planId                String

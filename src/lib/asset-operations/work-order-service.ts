@@ -33,6 +33,7 @@ import {
   type DbClient,
 } from "./work-order-access";
 import { applyWorkOrderCloseoutCompletion } from "./work-order-closeout";
+import { presentPmWorkOrderContext } from "@/lib/preventive-maintenance/pm-context";
 import {
   mapRepairTradeToCategoryKey,
   presentWorkOrder,
@@ -87,7 +88,7 @@ const ALLOWED_WO_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
   CLOSED: [],
 };
 
-async function nextRepairCode(client: DbClient): Promise<string> {
+export async function nextRepairCode(client: DbClient): Promise<string> {
   const count = await client.repair.count();
   let candidate = `R-${String(count + 1).padStart(5, "0")}`;
   for (let i = 0; i < 8; i += 1) {
@@ -108,7 +109,7 @@ function assertTransition(from: RepairStatus, to: RepairStatus) {
   }
 }
 
-async function snapshotWorkOrderLocation(
+export async function snapshotWorkOrderLocation(
   client: DbClient,
   input: {
     facilityId: string;
@@ -1084,12 +1085,20 @@ export async function loadWorkOrder(
       procedureVersion: { select: { id: true, version: true, title: true, status: true } },
       vendor: true,
       assignedEmployee: { select: { id: true, firstName: true, lastName: true } },
+      pmOccurrence: {
+        select: {
+          id: true,
+          scheduledDate: true,
+          planVersion: { select: { name: true } },
+        },
+      },
     },
   });
   if (!repair) throw new Error("Work Order not found.");
   return {
     workOrder: repair,
     presentation: presentWorkOrder(repair),
+    preventive: presentPmWorkOrderContext(repair),
   };
 }
 
@@ -1107,13 +1116,23 @@ export async function listWorkOrders(
         { requestingDepartmentId: input.departmentId },
       ],
     },
-    include: { maintenanceCategory: true },
+    include: {
+      maintenanceCategory: true,
+      pmOccurrence: {
+        select: {
+          id: true,
+          scheduledDate: true,
+          planVersion: { select: { name: true } },
+        },
+      },
+    },
     orderBy: { requestedAt: "desc" },
     take: input.take ?? 80,
   });
   return rows.map((workOrder) => ({
     workOrder,
     presentation: presentWorkOrder(workOrder),
+    preventive: presentPmWorkOrderContext(workOrder),
   }));
 }
 

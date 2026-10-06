@@ -102,6 +102,13 @@ test("Build publish is Manager+, not Supervisor or PIN", () => {
     decidePmPlanAuthority({ ...base, role: "MANAGER", authMethod: "QUICK_PIN" }).canPublish,
     false,
   );
+  assert.equal(decidePmPlanAuthority({ ...base, role: "STAFF" }).canSkip, false);
+  assert.equal(decidePmPlanAuthority({ ...base, role: "SUPERVISOR" }).canSkip, true);
+  assert.equal(decidePmPlanAuthority({ ...base, role: "MANAGER" }).canSkip, true);
+  assert.equal(
+    decidePmPlanAuthority({ ...base, role: "SUPERVISOR", authMethod: "QUICK_PIN" }).canSkip,
+    true,
+  );
 });
 
 test("phase 4A domain does not generate Work Orders or cron", () => {

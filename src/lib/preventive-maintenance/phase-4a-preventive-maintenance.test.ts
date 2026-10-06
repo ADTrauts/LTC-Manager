@@ -494,6 +494,7 @@ test(
           description: "First WO",
           workOrderKind: "PREVENTIVE",
           pmOccurrenceId: frozen.id,
+          status: "CANCELLED",
         },
       });
       const woB = await prisma.repair.create({

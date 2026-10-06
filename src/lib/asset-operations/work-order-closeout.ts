@@ -31,6 +31,7 @@ import {
   WAIVE_REASON_MIN_LENGTH,
   type RepairAssetConditionReviewChoice,
 } from "./work-order-closeout-gate";
+import { completePmOccurrenceForWorkOrder } from "@/lib/preventive-maintenance/complete-occurrence";
 
 export {
   formatWorkOrderCloseoutBlockedMessage,
@@ -1015,6 +1016,8 @@ export async function applyWorkOrderCloseoutCompletion(
     updatedById: actorUserId,
     requesterVisible: input.requesterVisible ?? false,
   });
+
+  await completePmOccurrenceForWorkOrder(input.client, updated, now);
 
   return updated;
 }

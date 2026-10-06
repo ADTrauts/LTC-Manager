@@ -174,6 +174,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Vercel Cron. Handler requires Bearer CRON_SECRET; no Harbor session. Hobby is daily.",
   },
   {
+    pattern: "/api/internal/plant/preventive-maintenance",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "plant",
+    notes:
+      "Vercel Cron. Daily PM occurrence materialization and PREVENTIVE Work Order generation. Bearer CRON_SECRET. Facility-local civil dates. No session.",
+  },
+  {
     pattern: "/console/tickets/[ticketId]",
     match: "EXACT",
     surface: "PAGE",

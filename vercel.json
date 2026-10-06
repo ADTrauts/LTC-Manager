@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/support/automation",
       "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/internal/plant/preventive-maintenance",
+      "schedule": "0 6 * * *"
     }
   ]
 }

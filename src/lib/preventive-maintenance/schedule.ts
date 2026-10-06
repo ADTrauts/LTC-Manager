@@ -5,8 +5,8 @@
  * Completion is not an input. Late work never shifts the next date.
  *
  * Projected scheduled dates are not PreventiveMaintenanceOccurrence rows.
- * An occurrence is persisted later (Phase 4B) only when the generation-lead
- * window is entered, freezing that date's governing Plan Version.
+ * An occurrence is persisted only when the generation-lead window is entered,
+ * freezing that date's governing Plan Version.
  */
 
 import {
@@ -24,6 +24,10 @@ export type PmVersionScheduleAuthority = {
   effectiveDate: CivilDate | Date | null;
   intervalMonths: number;
   anchorDate: CivilDate | Date;
+};
+
+export type PmVersionMaterializationAuthority = PmVersionScheduleAuthority & {
+  generationLeadDays: number;
 };
 
 export type ProjectedPmScheduledDate = {
@@ -195,6 +199,44 @@ export function projectPmSchedule(
   }
 
   return projected.sort((a, b) => compareCivilDates(a.scheduledDate, b.scheduledDate));
+}
+
+/**
+ * Scheduled dates whose materialization date is on or before Facility today.
+ * Uses projectPmSchedule from the first effective date through today + max lead.
+ * Does not persist rows. Does not invent dates before the first effective schedule.
+ */
+export function projectEligiblePmMaterializationDates(
+  versions: readonly PmVersionMaterializationAuthority[],
+  facilityToday: CivilDate | Date,
+): ProjectedPmScheduledDate[] {
+  const today = parseCivilDate(facilityToday);
+  const authoritative = versions.filter(
+    (row) => historicallyPublished(row.status) && row.effectiveDate,
+  );
+  if (authoritative.length === 0) return [];
+  const maxLead = authoritative.reduce(
+    (max, row) => Math.max(max, row.generationLeadDays),
+    0,
+  );
+  const from = authoritative
+    .map((row) => parseCivilDate(row.effectiveDate!))
+    .reduce((earliest, date) => (compareCivilDates(date, earliest) < 0 ? date : earliest));
+  const through = addCivilDays(today, maxLead);
+  const projected = projectPmSchedule(authoritative, {
+    fromInclusive: from,
+    throughInclusive: through,
+  });
+  const byId = new Map(authoritative.map((row) => [row.id, row]));
+  return projected.filter((row) => {
+    const version = byId.get(row.planVersionId);
+    if (!version) return false;
+    return isOccurrenceEligibleForMaterialization({
+      scheduledDate: row.scheduledDate,
+      generationLeadDays: version.generationLeadDays,
+      facilityToday: today,
+    });
+  });
 }
 
 export function governingPlanVersionId(input: {

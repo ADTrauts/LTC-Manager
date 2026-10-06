@@ -4,7 +4,6 @@
  * Asset RETIRED ≠ Plan RETIRED.
  * Asset retirement makes generation ineligible without mutating Plan status.
  * OUT_OF_SERVICE remains eligible. Plan DRAFT / RETIRED is ineligible.
- * Phase 4A does not run the generator.
  */
 
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";

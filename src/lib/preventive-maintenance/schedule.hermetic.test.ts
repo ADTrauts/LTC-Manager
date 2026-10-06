@@ -11,6 +11,7 @@ import {
   getVersionForScheduledDate,
   governingPlanVersionId,
   isOccurrenceEligibleForMaterialization,
+  projectEligiblePmMaterializationDates,
   projectPmSchedule,
 } from "./schedule";
 import { facilityCivilToday, parseCivilDate } from "./civil-date";
@@ -214,6 +215,91 @@ test("DRAFT is never schedule authority", () => {
     },
   ];
   assert.equal(getVersionForScheduledDate(versions, "2027-01-15"), null);
+});
+
+test("materialization eligibility is scheduledDate minus lead, catch-up included", () => {
+  assert.equal(getMaterializationDate("2027-10-15", 7), "2027-10-08");
+  assert.equal(
+    isOccurrenceEligibleForMaterialization({
+      scheduledDate: "2027-10-15",
+      generationLeadDays: 7,
+      facilityToday: "2027-10-08",
+    }),
+    true,
+  );
+  assert.equal(
+    isOccurrenceEligibleForMaterialization({
+      scheduledDate: "2027-10-15",
+      generationLeadDays: 7,
+      facilityToday: "2027-10-07",
+    }),
+    false,
+  );
+  assert.equal(
+    isOccurrenceEligibleForMaterialization({
+      scheduledDate: "2027-10-15",
+      generationLeadDays: 7,
+      facilityToday: "2027-10-11",
+    }),
+    true,
+  );
+  assert.equal(
+    isOccurrenceEligibleForMaterialization({
+      scheduledDate: "2027-10-15",
+      generationLeadDays: 7,
+      facilityToday: "2027-10-20",
+    }),
+    true,
+  );
+});
+
+test("eligible materialization dates use version lead and skip pre-effective history", () => {
+  const versions = [
+    {
+      id: "v1",
+      status: "PUBLISHED",
+      effectiveDate: "2027-01-01",
+      intervalMonths: 3,
+      anchorDate: "2027-01-15",
+      generationLeadDays: 7,
+    },
+  ];
+  assert.deepEqual(projectEligiblePmMaterializationDates(versions, "2027-01-07"), []);
+  assert.deepEqual(projectEligiblePmMaterializationDates(versions, "2027-01-08"), [
+    { scheduledDate: "2027-01-15", planVersionId: "v1" },
+  ]);
+  const late = projectEligiblePmMaterializationDates(versions, "2027-07-20");
+  assert.deepEqual(
+    late.map((row) => row.scheduledDate),
+    ["2027-01-15", "2027-04-15", "2027-07-15"],
+  );
+  assert.ok(!late.some((row) => row.scheduledDate === "2026-10-15"));
+});
+
+test("successor version governs unmaterialized July; April stays v1", () => {
+  const versions = [
+    {
+      id: "v1",
+      status: "SUPERSEDED",
+      effectiveDate: "2027-01-01",
+      intervalMonths: 3,
+      anchorDate: "2027-01-15",
+      generationLeadDays: 7,
+    },
+    {
+      id: "v2",
+      status: "PUBLISHED",
+      effectiveDate: "2027-07-01",
+      intervalMonths: 3,
+      anchorDate: "2027-01-15",
+      generationLeadDays: 7,
+    },
+  ];
+  const dates = projectEligiblePmMaterializationDates(versions, "2027-07-08");
+  const april = dates.find((row) => row.scheduledDate === "2027-04-15");
+  const july = dates.find((row) => row.scheduledDate === "2027-07-15");
+  assert.equal(april?.planVersionId, "v1");
+  assert.equal(july?.planVersionId, "v2");
 });
 
 test("facility civil date does not shift across NY / UTC / DST", () => {

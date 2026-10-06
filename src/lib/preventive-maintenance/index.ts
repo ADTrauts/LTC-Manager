@@ -15,7 +15,9 @@ export {
   getVersionForScheduledDate,
   governingPlanVersionId,
   isOccurrenceEligibleForMaterialization,
+  projectEligiblePmMaterializationDates,
   projectPmSchedule,
+  type PmVersionMaterializationAuthority,
   type PmVersionScheduleAuthority,
   type ProjectedPmScheduledDate,
 } from "./schedule";
@@ -38,6 +40,7 @@ export {
   requirePmManage,
   requirePmPublish,
   requirePmRetire,
+  requirePmSkip,
   resolvePmPlanAuthority,
   type PmPlanAuthorityDecision,
 } from "./authority";
@@ -51,3 +54,39 @@ export {
   type PmPlanDraftInput,
   type PmRecordRequirementInput,
 } from "./plan-service";
+
+export {
+  isPmActiveWorkOrderStatus,
+  isPmTerminalWorkOrderStatus,
+  PM_TERMINAL_WORK_ORDER_STATUSES,
+} from "./active-work-order";
+
+export { isPlantPmCronAuthorized } from "./cron-auth";
+
+export {
+  completePmOccurrenceForWorkOrder,
+} from "./complete-occurrence";
+
+export {
+  skipPmOccurrence,
+  SKIP_REASON_MIN_LENGTH,
+} from "./skip";
+
+export {
+  presentPmWorkOrderContext,
+  type WorkOrderPmContext,
+} from "./pm-context";
+
+export {
+  createPreventiveWorkOrderForOccurrence,
+  formatPmScheduledCopy,
+  preventiveWorkOrderCopy,
+  PmWorkOrderConfigurationError,
+} from "./work-order-create";
+
+export {
+  generatePmForFacility,
+  runPmGeneration,
+  type PmGeneratorConfigurationError,
+  type PmGeneratorResult,
+} from "./generator";

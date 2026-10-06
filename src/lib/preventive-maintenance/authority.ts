@@ -19,6 +19,7 @@ export type PmPlanAuthorityDecision = {
   canManage: boolean;
   canPublish: boolean;
   canRetire: boolean;
+  canSkip: boolean;
   reason: string | null;
 };
 
@@ -27,6 +28,7 @@ const DENIED: PmPlanAuthorityDecision = {
   canManage: false,
   canPublish: false,
   canRetire: false,
+  canSkip: false,
   reason: "Insufficient Preventive Maintenance authority.",
 };
 
@@ -71,6 +73,7 @@ export function decidePmPlanAuthority(input: {
       canManage: false,
       canPublish: false,
       canRetire: false,
+      canSkip: true,
       reason: pinBlocksBuild
         ? "Quick PIN does not grant Preventive Maintenance Build access."
         : null,
@@ -82,6 +85,7 @@ export function decidePmPlanAuthority(input: {
     canManage,
     canPublish: canManage,
     canRetire: canManage,
+    canSkip: true,
     reason: null,
   };
 }
@@ -124,5 +128,11 @@ export function requirePmPublish(decision: PmPlanAuthorityDecision) {
 export function requirePmRetire(decision: PmPlanAuthorityDecision) {
   if (!decision.canRetire) {
     throw new Error(decision.reason || "Insufficient Preventive Maintenance retire authority.");
+  }
+}
+
+export function requirePmSkip(decision: PmPlanAuthorityDecision) {
+  if (!decision.canSkip) {
+    throw new Error(decision.reason || "Insufficient Preventive Maintenance skip authority.");
   }
 }
