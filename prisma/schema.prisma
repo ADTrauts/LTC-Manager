@@ -194,6 +194,7 @@ model Facility {
   departmentRequestRoutes        DepartmentRequestRoute[]
   operationalRequests            OperationalRequest[]
   maintenanceCategories          MaintenanceCategory[]
+  preventiveMaintenancePlans     PreventiveMaintenancePlan[]
   billing                        FacilityBilling?
   departmentEntitlements         FacilityDepartmentEntitlement[]
   createdAt                      DateTime                        @default(now())
@@ -257,6 +258,7 @@ model Department {
   operationalRequestsResponsible OperationalRequest[]            @relation("OperationalRequestResponsible")
   operationalRequestsAffected    OperationalRequest[]            @relation("OperationalRequestAffected")
   departmentEntitlements         FacilityDepartmentEntitlement[]
+  preventiveMaintenancePlans     PreventiveMaintenancePlan[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -544,6 +546,10 @@ model User {
   repairRequirementsCreated      RepairRecordRequirement[]       @relation("RepairRecordRequirementCreatedBy")
   repairRequirementsWaived       RepairRecordRequirement[]       @relation("RepairRecordRequirementWaivedBy")
   repairAssetConditionReviews    Repair[]                        @relation("RepairAssetConditionReviewedBy")
+  pmPlansCreated                 PreventiveMaintenancePlan[]     @relation("PmPlanCreatedBy")
+  pmPlansRetired                 PreventiveMaintenancePlan[]     @relation("PmPlanRetiredBy")
+  pmPlanVersionsPublished        PreventiveMaintenancePlanVersion[] @relation("PmPlanVersionPublishedBy")
+  pmOccurrencesSkipped           PreventiveMaintenanceOccurrence[] @relation("PmOccurrenceSkippedBy")
   workPlansCreated               DepartmentWorkPlan[]            @relation("WorkPlanCreatedBy")
   workPlansPublished             DepartmentWorkPlan[]            @relation("WorkPlanPublishedBy")
   workPlansRetired               DepartmentWorkPlan[]            @relation("WorkPlanRetiredBy")
@@ -981,6 +987,27 @@ enum PreventiveMaintenanceCadence {
   MONTHLY
   QUARTERLY
   YEARLY
+}
+
+/// Stable Preventive Maintenance Plan identity. Schedule lives on versions, not here.
+enum PreventiveMaintenancePlanStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+/// Published versions are immutable. SUPERSEDED remains historically authoritative inside its effective window.
+enum PreventiveMaintenancePlanVersionStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+}
+
+/// Factual stored outcomes only. UPCOMING / DUE / OVERDUE are date projections.
+enum PreventiveMaintenanceOccurrenceStatus {
+  OPEN
+  COMPLETED
+  SKIPPED
 }
 
 enum RoomAreaOperationalStatus {
@@ -1762,6 +1789,7 @@ model Employee {
   operationalEvidenceRecords     OperationalEvidenceRecord[]     @relation("EvidenceRecordedByEmployee")
   operationalEvidenceCorrections OperationalEvidenceCorrection[] @relation("EvidenceCorrectedByEmployee")
   assignedRepairs                Repair[]                        @relation("RepairAssignedEmployee")
+  defaultPmPlanVersions          PreventiveMaintenancePlanVersion[] @relation("PmPlanVersionDefaultAssignee")
   repairLaborEntries             RepairLaborEntry[]
   roomAreaStatusUpdates          RoomAreaStatus[]
   assignedTasks                  Task[]                          @relation("TaskAssignedEmployee")
@@ -2045,6 +2073,7 @@ model Asset {
   lastChangedByUser                  User?                              @relation("AssetLastChangedByUser", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
   repairs                            Repair[]
   preventiveMaintenanceSchedules     PreventiveMaintenanceSchedule[]
+  preventiveMaintenancePlans         PreventiveMaintenancePlan[]
   knowledgeArticleAssets             KnowledgeArticleAsset[]
   operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
@@ -2313,6 +2342,7 @@ model MaintenanceCategory {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   workOrders Repair[]
+  pmPlanVersions PreventiveMaintenancePlanVersion[]
 
   @@unique([facilityId, key])
   @@index([facilityId, archivedAt])
@@ -2343,6 +2373,10 @@ model Repair {
   assignedEmployee        Employee?                      @relation("RepairAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
   preventiveScheduleId    String?
   preventiveSchedule      PreventiveMaintenanceSchedule? @relation(fields: [preventiveScheduleId], references: [id], onDelete: SetNull)
+  /// Canonical PM occurrence. Not unique: canceled Work Orders may be replaced.
+  pmOccurrenceId          String?
+  pmOccurrence            PreventiveMaintenanceOccurrence? @relation("PmOccurrenceWorkOrders", fields: [pmOccurrenceId], references: [id], onDelete: SetNull)
+  completedPmOccurrence   PreventiveMaintenanceOccurrence? @relation("PmOccurrenceCompletedWorkOrder")
   dueAt                   DateTime?
   /// Target completion date for Phase 10A Work Order tracking.
   targetDate              DateTime?
@@ -2401,6 +2435,7 @@ model Repair {
   @@index([responsibleDepartmentId])
   @@index([assignedEmployeeId])
   @@index([preventiveScheduleId])
+  @@index([pmOccurrenceId])
   @@index([dueAt])
   @@index([targetDate])
   @@index([issueId])
@@ -2636,6 +2671,8 @@ model WorkShift {
   @@index([departmentId])
 }
 
+/// LEGACY / SUPERSEDED. Rolling nextDueAt is not canonical PM.
+/// Canonical identity is PreventiveMaintenancePlan. Do not generate from this table.
 model PreventiveMaintenanceSchedule {
   id            String                       @id @default(cuid())
   facilityId    String
@@ -2657,6 +2694,121 @@ model PreventiveMaintenanceSchedule {
   @@index([assetId])
   @@index([departmentId])
   @@index([nextDueAt])
+}
+
+/// Canonical PM Plan identity. One Asset. No schedule fields on this row.
+/// Asset RETIRED does not mutate Plan status. Plan RETIRED is an explicit configuration action.
+model PreventiveMaintenancePlan {
+  id              String                          @id @default(cuid())
+  facilityId      String
+  facility        Facility                        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId    String
+  department      Department                      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assetId         String
+  asset           Asset                           @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  status          PreventiveMaintenancePlanStatus @default(DRAFT)
+  retiredAt       DateTime?
+  retiredByUserId String?
+  retiredByUser   User?                           @relation("PmPlanRetiredBy", fields: [retiredByUserId], references: [id], onDelete: SetNull)
+  createdByUserId String?
+  createdByUser   User?                           @relation("PmPlanCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  versions        PreventiveMaintenancePlanVersion[]
+  occurrences     PreventiveMaintenanceOccurrence[]
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+
+  @@index([facilityId, status])
+  @@index([departmentId, status])
+  @@index([assetId, status])
+  @@index([retiredByUserId])
+  @@index([createdByUserId])
+}
+
+/// Immutable published PM configuration. DRAFT is editable in place. Edits of published rows create a successor.
+model PreventiveMaintenancePlanVersion {
+  id                         String                                  @id @default(cuid())
+  planId                     String
+  plan                       PreventiveMaintenancePlan               @relation(fields: [planId], references: [id], onDelete: Cascade)
+  version                    Int
+  status                     PreventiveMaintenancePlanVersionStatus  @default(DRAFT)
+  createdFromVersionId       String?
+  createdFromVersion         PreventiveMaintenancePlanVersion?       @relation("PmPlanVersionSuccessor", fields: [createdFromVersionId], references: [id], onDelete: SetNull)
+  successors                 PreventiveMaintenancePlanVersion[]      @relation("PmPlanVersionSuccessor")
+  name                       String
+  instructions               String?
+  maintenanceCategoryId      String?
+  maintenanceCategory        MaintenanceCategory?                    @relation(fields: [maintenanceCategoryId], references: [id], onDelete: Restrict)
+  intervalMonths             Int                                     @default(1)
+  /// Facility-local civil date. Alignment for intervalMonths, not a rolling next-due.
+  anchorDate                 DateTime                                @db.Date
+  /// Facility-local civil date. Null on DRAFT until first publish.
+  effectiveDate              DateTime?                               @db.Date
+  generationLeadDays         Int                                     @default(7)
+  priority                   RepairPriority                          @default(MEDIUM)
+  procedureVersionId         String?
+  procedureVersion           KnowledgeArticleVersion?                @relation(fields: [procedureVersionId], references: [id], onDelete: Restrict)
+  defaultAssignedEmployeeId  String?
+  defaultAssignedEmployee    Employee?                               @relation("PmPlanVersionDefaultAssignee", fields: [defaultAssignedEmployeeId], references: [id], onDelete: SetNull)
+  publishedAt                DateTime?
+  publishedByUserId          String?
+  publishedByUser            User?                                   @relation("PmPlanVersionPublishedBy", fields: [publishedByUserId], references: [id], onDelete: SetNull)
+  recordRequirements         PreventiveMaintenancePlanRecordRequirement[]
+  occurrences                PreventiveMaintenanceOccurrence[]
+  createdAt                  DateTime                                @default(now())
+  updatedAt                  DateTime                                @updatedAt
+
+  @@unique([planId, version])
+  @@index([planId, status])
+  @@index([maintenanceCategoryId])
+  @@index([procedureVersionId])
+  @@index([defaultAssignedEmployeeId])
+  @@index([publishedByUserId])
+  @@index([createdFromVersionId])
+}
+
+/// Pins an exact published OperationalTemplate version onto a PM Plan Version.
+model PreventiveMaintenancePlanRecordRequirement {
+  id                String                          @id @default(cuid())
+  planVersionId     String
+  planVersion       PreventiveMaintenancePlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  templateId        String
+  template          OperationalTemplate             @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  templateStableKey String
+  templateVersion   Int
+  templateName      String
+  sortOrder         Int                             @default(0)
+  createdAt         DateTime                        @default(now())
+
+  @@unique([planVersionId, templateId])
+  @@index([templateId])
+}
+
+/// Durable PM obligation. Unique (planId, scheduledDate) is the idempotency boundary.
+/// planVersionId is frozen at materialization and never changes.
+/// Projected future dates are not rows. Active-WO partial unique index is deferred to Phase 4B.
+model PreventiveMaintenanceOccurrence {
+  id                    String                                  @id @default(cuid())
+  planId                String
+  plan                  PreventiveMaintenancePlan               @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planVersionId         String
+  planVersion           PreventiveMaintenancePlanVersion        @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  scheduledDate         DateTime                                @db.Date
+  status                PreventiveMaintenanceOccurrenceStatus   @default(OPEN)
+  skippedAt             DateTime?
+  skippedByUserId       String?
+  skippedByUser         User?                                   @relation("PmOccurrenceSkippedBy", fields: [skippedByUserId], references: [id], onDelete: SetNull)
+  skipReason            String?
+  completedAt           DateTime?
+  completedWorkOrderId  String?                                 @unique
+  completedWorkOrder    Repair?                                 @relation("PmOccurrenceCompletedWorkOrder", fields: [completedWorkOrderId], references: [id], onDelete: SetNull)
+  workOrders            Repair[]                                @relation("PmOccurrenceWorkOrders")
+  createdAt             DateTime                                @default(now())
+  updatedAt             DateTime                                @updatedAt
+
+  @@unique([planId, scheduledDate])
+  @@index([planVersionId])
+  @@index([status, scheduledDate])
+  @@index([skippedByUserId])
 }
 
 model RoomAreaStatus {
@@ -2975,6 +3127,7 @@ model KnowledgeArticleVersion {
   createdFromVersion   KnowledgeArticleVersion?       @relation("KnowledgeArticleVersionSuccessor", fields: [createdFromVersionId], references: [id], onDelete: SetNull)
   successors           KnowledgeArticleVersion[]      @relation("KnowledgeArticleVersionSuccessor")
   pinnedWorkOrders     Repair[]
+  pmPlanVersions       PreventiveMaintenancePlanVersion[]
   createdAt            DateTime                       @default(now())
   updatedAt            DateTime                       @updatedAt
 
@@ -3916,6 +4069,7 @@ model OperationalTemplate {
   events              OperationalTemplateEvent[]
   evidenceRecords     OperationalEvidenceRecord[]
   repairRecordRequirements RepairRecordRequirement[]
+  pmPlanRecordRequirements PreventiveMaintenancePlanRecordRequirement[]
   createdAt           DateTime                           @default(now())
   updatedAt           DateTime                           @updatedAt
 

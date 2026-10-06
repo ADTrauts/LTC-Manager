@@ -70,6 +70,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/asset-operations/phase-3b-work-order-domain.test.ts",
   "src/lib/asset-operations/phase-3c-corrective-maintenance.test.ts",
   "src/lib/asset-operations/phase-3d-work-order-closeout.test.ts",
+  "src/lib/preventive-maintenance/phase-4a-preventive-maintenance.test.ts",
   "src/lib/bulk-import/bulk-import.scale.db.test.ts",
   "src/lib/support/support-tickets.db.test.ts",
   "src/lib/support/support-attachments.db.test.ts",
