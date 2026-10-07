@@ -194,3 +194,17 @@ YES — READY FOR AVAILABLE FLIP
 ```
 
 Do not flip in this commit. Wait for explicit approval. Do not add billing in the same action.
+
+---
+
+## Release addendum — 2026-10-07
+
+Facility Plant Operations V1 became **AVAILABLE** after successful whole-Product release certification on October 7, 2026.
+
+Canonical registry (not the test overlay):
+
+```text
+getDepartmentProduct("PLANT").status === "AVAILABLE"
+```
+
+Unrelated Products: Dietary remains AVAILABLE. EVS remains DEVELOPMENT. No billing SKU. No schema change. No new V1 features.

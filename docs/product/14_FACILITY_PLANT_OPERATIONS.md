@@ -1,7 +1,7 @@
 # 14 — Facility Plant Operations
 
 **Status:** Canonical Department Product architecture  
-**Release status:** **DEVELOPMENT** — internal only; not Marketplace-visible; not selectable in the customer Department picker; not AVAILABLE  
+**Release status:** **AVAILABLE** — certified V1 customer Product; Marketplace-visible for eligible facilities; not a billing/SKU launch  
 **Does not:** Implement runtime, create migrations, rename models/routes, delete legacy code, publish starter content, or change billing/entitlement  
 **Platform contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
 **Platform map:** [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md)  
@@ -10,7 +10,7 @@
 
 This document is the target Product architecture. Existing Platform Assets, repairs, requests, and Phase 12A reference code are evidence of available foundation. They do not define this Product.
 
-**Implementation through Phase 5B plus V1 release certification:** corrective MVP, Preventive Maintenance MVP, product coherence, and optional starter configuration are implemented and certified. The Product remains **DEVELOPMENT** until an explicit `AVAILABLE` flip. Starter content is optional, select-before-install, Facility-owned after copy, and never auto-published.
+**Implementation through Phase 5B plus V1 release:** corrective MVP, Preventive Maintenance MVP, product coherence, and optional starter configuration are implemented and certified. Facility Plant Operations V1 became **AVAILABLE** on October 7, 2026. Starter content is optional, select-before-install, Facility-owned after copy, and never auto-published. Billing/commercial packaging is separate.
 
 ---
 
@@ -562,7 +562,7 @@ Facility Plant Operations — Advanced
 
 Core must remain operationally complete. Advanced pricing should eventually correspond to genuine additional maintenance capability rather than arbitrary usage limits.
 
-Customer visibility still requires an explicit `PLANT` `DEVELOPMENT → AVAILABLE` registry change after certification and commercial configuration.
+Facility Plant Operations V1 became **AVAILABLE** on October 7, 2026 after whole-Product release certification. Billing SKU / commercial packaging remains a separate decision.
 
 ---
 
@@ -571,7 +571,7 @@ Customer visibility still requires an explicit `PLANT` `DEVELOPMENT → AVAILABL
 | Class | Document |
 |-------|----------|
 | **CURRENT CANONICAL** | This file |
-| **AUTHORITATIVE RELEASE GATE** | [Facility Plant Operations V1 release certification (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md) — does not flip `AVAILABLE` |
+| **AUTHORITATIVE RELEASE GATE** | [Facility Plant Operations V1 release certification (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md) — certified READY TO SET AVAILABLE; flipped AVAILABLE on 2026-10-07 |
 | **SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) — current architecture after Phase 5B and V1 certification |
 | **HISTORICAL SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-05)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) — Phase 0/1 repository audit |
 | **BINDING PLATFORM CONTRACT** | [13 — Department Product](./13_DEPARTMENT_PRODUCT.md) |

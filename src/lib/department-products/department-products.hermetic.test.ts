@@ -136,7 +136,7 @@ describe("Department Product registry", () => {
     assert.equal(plant.defaultDepartmentName, "Plant Operations");
     assert.equal(plant.industry, "HEALTHCARE");
     assert.deepEqual(plant.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
-    assert.equal(plant.status, "DEVELOPMENT");
+    assert.equal(plant.status, "AVAILABLE");
     assert.equal(plant.domainCapability, "plant");
     assert.equal(plant.starters.workPresets, true);
     assert.equal(plant.starters.assignmentRoles, true);
@@ -171,7 +171,7 @@ describe("Department Product registry", () => {
 });
 
 describe("Department Product installation", () => {
-  it("installs Dietary for customers and EVS / Plant only through internal development", async () => {
+  it("installs Dietary and Plant for customers and EVS only through internal development", async () => {
     const { prisma, created } = mockDb({ facilityId: "fac_terrace" });
     const dietary = await installDepartmentProduct({
       facilityId: "fac_terrace",
@@ -193,7 +193,7 @@ describe("Department Product installation", () => {
       productKey: "EVS",
       prisma: prisma as never,
     });
-    const plant = await installDepartmentProductForInternalDevelopment({
+    const plant = await installDepartmentProduct({
       facilityId: "fac_terrace",
       productKey: "PLANT",
       prisma: prisma as never,

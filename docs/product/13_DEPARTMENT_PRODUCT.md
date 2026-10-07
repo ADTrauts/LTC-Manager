@@ -24,7 +24,7 @@ Current catalog:
 |---------|----------------|
 | Healthcare Food & Nutrition | AVAILABLE |
 | Environmental Services | DEVELOPMENT |
-| Facility Plant Operations (`PLANT`) | DEVELOPMENT |
+| Facility Plant Operations (`PLANT`) | AVAILABLE |
 
 Healthcare Food & Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
 
@@ -137,7 +137,7 @@ Marketplace and Admin installed-product context project from `deriveFacilityDepa
 
 No second catalog table. No installation status table. Adding Departments belongs in Admin → Departments → Marketplace, not the Department picker.
 
-Future Facility Plant Operations completion is an explicit `PLANT` `DEVELOPMENT → AVAILABLE` registry change after certification and commercial configuration. It must not appear before that change. Architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md).
+Facility Plant Operations V1 became AVAILABLE on October 7, 2026 after whole-Product release certification. Billing/commercial packaging is a separate decision. Architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md).
 
 ---
 
@@ -225,4 +225,4 @@ Every new Department Product must define these before implementation. Facility P
 
 A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, or history store unless that platform-gap test shows a missing reusable mechanism.
 
-Facility Plant Operations is the next product expected to be implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). It remains DEVELOPMENT until certification and an explicit AVAILABLE change.
+Facility Plant Operations is implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). V1 is AVAILABLE as of October 7, 2026.

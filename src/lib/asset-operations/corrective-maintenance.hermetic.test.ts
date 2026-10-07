@@ -8,8 +8,8 @@ import { presentRequesterStatus } from "@/lib/operational-requests/request-seman
 import { issueStatusesForListView, presentIssueAuthority } from "./issue-semantics";
 import { parseRepairQueueFilter, repairMatchesQueueFilter } from "./repair-presentation";
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+test("Facility Plant Operations is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test("Work Order complete is not written as Issue or Request resolution", () => {

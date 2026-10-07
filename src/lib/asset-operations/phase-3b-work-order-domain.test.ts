@@ -166,8 +166,8 @@ async function createFacilityFixture(prisma: PrismaClient, label: string) {
   return { facility, dietary, plant, unitA, unitB, spaceA, spaceB, manager, staff, tech };
 }
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+test("Facility Plant Operations is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test(

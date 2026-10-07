@@ -14,8 +14,8 @@ import {
   presentPmOccurrence,
 } from "./version-semantics";
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+test("Facility Plant Operations is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test("published and superseded versions are immutable", () => {

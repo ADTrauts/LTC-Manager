@@ -15,8 +15,8 @@ import {
   resolveStoredHoldWrite,
 } from "./work-order-semantics";
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+test("Facility Plant Operations is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test("every stored RepairStatus maps to one canonical Work Order status", () => {

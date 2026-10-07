@@ -1,12 +1,11 @@
 /**
  * Facility Plant Operations runtime eligibility.
  *
- * Marketplace / customer install stay DEVELOPMENT-gated elsewhere.
+ * Marketplace / customer install follow committed Product release status.
  * Runtime engines may run when:
  *   - internal override PLANT_OPERATIONS_ENABLED is on, or
  *   - Harbor/internal audience has an installed PLANT Department Product, or
- *   - the Facility is customer-operable for Plant (false while DEVELOPMENT;
- *     becomes a registry/entitlement decision when the Product is AVAILABLE).
+ *   - the Facility is customer-operable for Plant (installed + AVAILABLE + entitled).
  *
  * Association is by Product installation key, not a locally renamed Department.
  */

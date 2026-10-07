@@ -17,8 +17,8 @@ import { presentPmWorkOrderContext } from "./pm-context";
 import { preventiveWorkOrderCopy } from "./work-order-create";
 import { presentPmOccurrence } from "./version-semantics";
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+test("Facility Plant Operations is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test("active Work Order statuses match canonical OPEN_WORK_ORDER_STATUSES", () => {

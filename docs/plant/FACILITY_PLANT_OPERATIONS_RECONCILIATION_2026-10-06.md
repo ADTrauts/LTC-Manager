@@ -7,7 +7,7 @@
 **Release gate:** [V1 release certification](./FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md)  
 **Historical audit:** [2026-10-05 reconciliation](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) remains Phase 0/1 history. It is not current certification.
 
-Facility Plant Operations remains **DEVELOPMENT**. This document describes the built Product, not a release decision.
+Facility Plant Operations V1 is **AVAILABLE** as of October 7, 2026. This document describes the built Product. Billing/commercial packaging is separate.
 
 ---
 
@@ -18,7 +18,7 @@ Facility Plant Operations remains **DEVELOPMENT**. This document describes the b
 | **Facility Plant Operations** | Official Department Product name |
 | **Plant Operations** | Default local Department name |
 | `PLANT` | Installation / registry key |
-| **DEVELOPMENT** | Not Marketplace-visible; customer install blocked |
+| **AVAILABLE** | Marketplace-visible; eligible customer install enabled. No billing SKU. |
 
 Runtime remains: installed Plant Product **or** internal `PLANT_OPERATIONS_ENABLED` DEVELOPMENT override. No new Harbor dependency.
 
@@ -83,6 +83,6 @@ Package name: **Plant Operations starter configuration**.
 
 ## V1 deferrals
 
-Still deferred: inventory, purchasing, payroll, meter/usage PM, IoT, predictive, advanced analytics, contracts, warranties, Product `AVAILABLE`, billing SKU.
+Still deferred: inventory, purchasing, payroll, meter/usage PM, IoT, predictive, advanced analytics, contracts, warranties, billing SKU.
 
-V1 release certification (2026-10-06) recommends `AVAILABLE` as a separate explicit action. Committed Product status remains **DEVELOPMENT**.
+Facility Plant Operations V1 became AVAILABLE on October 7, 2026 after whole-Product release certification. Committed Product status is **AVAILABLE**.

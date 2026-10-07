@@ -93,9 +93,9 @@ function actor(userId: string) {
   return { userId, label: "Phase 5B Manager" };
 }
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
+test("Facility Plant Operations is AVAILABLE", () => {
   const plant = getDepartmentProduct("PLANT");
-  assert.equal(plant?.status, "DEVELOPMENT");
+  assert.equal(plant?.status, "AVAILABLE");
   assert.equal(plant?.name, "Facility Plant Operations");
 });
 

@@ -4,9 +4,9 @@ Canonical Facility Plant Operations Product architecture lives in [`docs/product
 
 This folder holds Plant-specific records. They do not override 14.
 
-## Current state (2026-10-06)
+## Current state (2026-10-07)
 
-Facility Plant Operations remains **DEVELOPMENT**. Marketplace visibility stays hidden. Customer install stays blocked.
+Facility Plant Operations V1 is **AVAILABLE**. Eligible customers can see and install it through the canonical Department Product Marketplace. Billing / commercial packaging is not launched.
 
 Implemented and certified:
 
@@ -18,7 +18,6 @@ Implemented and certified:
 
 Not done:
 
-- Registry `AVAILABLE` (separate explicit action after approval)
 - Billing / Marketplace sale
 - Inventory, purchasing, payroll, meter PM, IoT, predictive, advanced analytics
 
@@ -28,7 +27,7 @@ Current reconciliation: [`FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md
 
 | File | Classification |
 |------|----------------|
-| [FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md) | AUTHORITATIVE — V1 release-gate certification. Does not flip `AVAILABLE`. |
+| [FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md) | AUTHORITATIVE — V1 release-gate certification. AVAILABLE as of 2026-10-07. |
 | [FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) | SUPPORTING — current architecture after Phase 5B and V1 certification |
 | [FACILITY_PLANT_OPERATIONS_PHASE_5B_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_PHASE_5B_CERTIFICATION_2026-10-06.md) | SUPPORTING — Phase 5B starter / release-prep certification |
 | [FACILITY_PLANT_OPERATIONS_PHASE_5A_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_PHASE_5A_CERTIFICATION_2026-10-06.md) | SUPPORTING — Phase 5A product coherence certification |
@@ -52,4 +51,4 @@ Current reconciliation: [`FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md
 | [PLANT_TECHNICIAN_GUIDE.md](./PLANT_TECHNICIAN_GUIDE.md) | LEGACY Phase 12A guide |
 | [CROSS_DEPARTMENT_SERVICE_REQUEST_GUIDE.md](./CROSS_DEPARTMENT_SERVICE_REQUEST_GUIDE.md) | LEGACY Phase 12A guide |
 
-The Product remains DEVELOPMENT until an explicit `AVAILABLE` flip. Do not treat this folder as customer documentation.
+The Product is AVAILABLE. Do not treat this folder as customer documentation.

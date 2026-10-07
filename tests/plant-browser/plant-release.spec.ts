@@ -410,13 +410,13 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
     }
   });
 
-  test("5 gating: DEVELOPMENT hides Plant; Dietary remains; committed status stays DEVELOPMENT", async () => {
+  test("5 gating: AVAILABLE shows Plant; Dietary remains; EVS stays hidden", async () => {
     const fx = loadFixtures();
     const registry = readFileSync(
       join(process.cwd(), "src/lib/department-products/registry.ts"),
       "utf8",
     );
-    expect(registry).toMatch(/productKey: "PLANT"[\s\S]*?status: "DEVELOPMENT"/);
+    expect(registry).toMatch(/productKey: "PLANT"[\s\S]*?status: "AVAILABLE"/);
     expect(registry).toMatch(/productKey: "HEALTHCARE_FOOD_NUTRITION"[\s\S]*?status: "AVAILABLE"/);
     expect(registry).toMatch(/productKey: "EVS"[\s\S]*?status: "DEVELOPMENT"/);
 
@@ -425,11 +425,12 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
       await loginPassword(page, fx.users.faWithout.email, demoPassword());
       await page.goto("/admin/departments?marketplace=1");
       await expect(page.getByTestId("department-marketplace")).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByTestId("department-product-card-plant")).toHaveCount(0);
+      await expect(page.getByTestId("department-product-card-plant")).toBeVisible();
+      await expect(page.getByText("Facility Plant Operations")).toBeVisible();
       await expect(
         page.getByTestId("department-product-card-healthcare_food_nutrition"),
       ).toBeVisible();
-      await expect(page.getByText("Facility Plant Operations")).toHaveCount(0);
+      await expect(page.getByTestId("department-product-card-evs")).toHaveCount(0);
     } finally {
       await context.close();
     }

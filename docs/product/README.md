@@ -13,7 +13,7 @@
 | [05 — Operational Philosophy](./05_OPERATIONAL_PHILOSOPHY.md) | How a service day runs |
 | [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md) | Manager vocabulary |
 | [13 — Department Product](./13_DEPARTMENT_PRODUCT.md) | Install journey and the blueprint required for each Department Product |
-| [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md) | Canonical Facility Plant Operations Product architecture (DEVELOPMENT) |
+| [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md) | Canonical Facility Plant Operations Product architecture (AVAILABLE) |
 | [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md) | Compatibility systems that remain readable |
 | [11 — Commercial Model](./11_COMMERCIAL_MODEL.md) | Facility-plus-departments pricing |
 | [12 — Vssyl Brand](./12_VSSYL_BRAND.md) | Product name |
@@ -33,4 +33,4 @@
 
 Dated `LTC_MANAGER_*.md` files in this folder, [`docs/platform-vision/`](../platform-vision/), [`docs/product-reference/`](../product-reference/), and [`docs/implementation/`](../implementation/) record earlier decisions. Department guidebooks under `docs/operations/`, `docs/evs/`, `docs/plant/`, `docs/work/`, and `docs/assets/` are domain references. They do not override the constitution.
 
-Facility Plant Operations Product architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). The Product remains DEVELOPMENT. Platform Assets and repairs are shared mechanisms; they are not that Product. Phase 12A Plant guides under `docs/plant/` are historical/legacy relative to 14.
+Facility Plant Operations Product architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). The Product is AVAILABLE as of October 7, 2026. Platform Assets and repairs are shared mechanisms; they are not that Product. Phase 12A Plant guides under `docs/plant/` are historical/legacy relative to 14.

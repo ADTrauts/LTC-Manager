@@ -152,11 +152,20 @@ describe("Department Product applicability", () => {
           applicabilitySummary: "For hospitals and long-term care.",
           releaseStatus: "AVAILABLE",
         },
+        {
+          productKey: "PLANT",
+          industry: "HEALTHCARE",
+          industryLabel: "Healthcare",
+          facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
+          facilityTypeLabels: ["Hospital", "Long-Term Care"],
+          applicabilitySummary: "For hospitals and long-term care.",
+          releaseStatus: "AVAILABLE",
+        },
       ],
     );
-    assert.equal(catalog.some((item) => item.productKey === "EVS" || item.productKey === "PLANT"), false);
+    assert.equal(catalog.some((item) => item.productKey === "EVS"), false);
     assert.equal(evs.status, "DEVELOPMENT");
-    assert.equal(plant.status, "DEVELOPMENT");
+    assert.equal(plant.status, "AVAILABLE");
 
     const catalogSource = source("src/lib/department-products/facility-catalog.ts");
     assert.doesNotMatch(catalogSource, /productAppliesToFacility/);

@@ -71,7 +71,7 @@ function mockDb(options: {
 }
 
 describe("Healthcare Food & Nutrition product identity", () => {
-  it("publishes one AVAILABLE customer Product and keeps EVS / Plant in development", () => {
+  it("publishes Dietary and Plant as AVAILABLE customer Products and keeps EVS in development", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [],
       entitlements: [],
@@ -90,6 +90,13 @@ describe("Healthcare Food & Nutrition product identity", () => {
           status: "AVAILABLE",
           description: "Food and nutrition operations for hospitals and long-term care.",
         },
+        {
+          productKey: "PLANT",
+          name: "Facility Plant Operations",
+          status: "AVAILABLE",
+          description:
+            "Manage facility maintenance requests, Issues, Work Orders, Assets, recurring operational Work, and Preventive Maintenance in one operational workspace.",
+        },
       ],
     );
     assert.deepEqual(catalog[0]?.customerCapabilities, [
@@ -105,12 +112,12 @@ describe("Healthcare Food & Nutrition product identity", () => {
     assert.equal(catalog[0]?.industryLabel, "Healthcare");
     assert.equal(catalog[0]?.applicabilitySummary, "For hospitals and long-term care.");
     assert.equal(
-      catalog.some((item) => item.productKey === "EVS" || item.productKey === "PLANT"),
+      catalog.some((item) => item.productKey === "EVS"),
       false,
     );
     assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
-    assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
-    assert.equal(listDepartmentProducts().filter((product) => product.status === "AVAILABLE").length, 1);
+    assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
+    assert.equal(listDepartmentProducts().filter((product) => product.status === "AVAILABLE").length, 2);
   });
 
   it("resolves legacy DIETARY to Healthcare Food & Nutrition without a second sellable Product", () => {
@@ -178,12 +185,16 @@ describe("Healthcare Food & Nutrition product identity", () => {
       entitlements: [{ departmentKey: "DIETARY", status: "ACTIVE" }],
       entitlementsEnforced: true,
     });
-    assert.equal(catalog.length, 1);
-    assert.equal(catalog[0]?.productKey, "HEALTHCARE_FOOD_NUTRITION");
-    assert.equal(catalog[0]?.installed, true);
-    assert.equal(catalog[0]?.licensed, true);
-    assert.equal(catalog[0]?.availableToAdd, false);
-    assert.equal(catalog[0]?.departmentId, "dept_dietary");
+    const dietary = catalog.find((item) => item.productKey === "HEALTHCARE_FOOD_NUTRITION");
+    assert.ok(dietary);
+    assert.equal(dietary.installed, true);
+    assert.equal(dietary.licensed, true);
+    assert.equal(dietary.availableToAdd, false);
+    assert.equal(dietary.departmentId, "dept_dietary");
+    assert.equal(
+      catalog.filter((item) => item.productKey === "HEALTHCARE_FOOD_NUTRITION").length,
+      1,
+    );
 
     const aliasedEntitlement = deriveFacilityDepartmentCatalog({
       departments: [{ id: "dept_dietary", key: "DIETARY", isActive: true }],
@@ -193,8 +204,14 @@ describe("Healthcare Food & Nutrition product identity", () => {
       ],
       entitlementsEnforced: true,
     });
-    assert.equal(aliasedEntitlement.length, 1);
-    assert.equal(aliasedEntitlement[0]?.licensed, true);
+    assert.equal(
+      aliasedEntitlement.filter((item) => item.productKey === "HEALTHCARE_FOOD_NUTRITION").length,
+      1,
+    );
+    assert.equal(
+      aliasedEntitlement.find((item) => item.productKey === "HEALTHCARE_FOOD_NUTRITION")?.licensed,
+      true,
+    );
   });
 
   it("keeps picker language on the local Department name", () => {

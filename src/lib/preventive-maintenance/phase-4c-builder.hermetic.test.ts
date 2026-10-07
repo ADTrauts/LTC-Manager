@@ -19,8 +19,8 @@ import {
 } from "./presentation";
 import { addMonthsClamped, projectPmSchedule } from "./schedule";
 
-test("Facility Plant Operations remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+test("Facility Plant Operations is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test("cadence presets are presentation-only mappings of intervalMonths", () => {

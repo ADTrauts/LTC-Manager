@@ -25,18 +25,18 @@ function source(relative: string) {
 }
 
 describe("Department Product release visibility", () => {
-  it("keeps Dietary AVAILABLE and EVS / Plant DEVELOPMENT", () => {
+  it("keeps Dietary and Plant AVAILABLE and EVS DEVELOPMENT", () => {
     assert.equal(getDepartmentProduct("DIETARY")?.status, "AVAILABLE");
     assert.equal(getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION")?.status, "AVAILABLE");
     assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
-    assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+    assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
     assert.deepEqual(
       listDepartmentProducts().map((product) => product.productKey),
       ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
   });
 
-  it("returns only Dietary from the customer marketplace catalog", () => {
+  it("returns Dietary and Plant from the customer marketplace catalog", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [
         { id: "dept_dietary", key: "DIETARY", isActive: true },
@@ -48,14 +48,32 @@ describe("Department Product release visibility", () => {
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["HEALTHCARE_FOOD_NUTRITION"],
+      ["HEALTHCARE_FOOD_NUTRITION", "PLANT"],
     );
     assert.equal(catalog[0]?.installationKey, "DIETARY");
     assert.equal(catalog[0]?.installed, true);
     assert.equal(catalog[0]?.availableToAdd, false);
+    const plant = catalog.find((item) => item.productKey === "PLANT");
+    assert.equal(plant?.installed, true);
+    assert.equal(plant?.availableToAdd, false);
+    assert.equal(
+      catalog.some((item) => item.productKey === "EVS"),
+      false,
+    );
   });
 
-  it("does not let legacy EVS / Plant rows into the customer operable set", () => {
+  it("offers uninstalled Plant as Add and keeps unentitled Plant out of the operable set", () => {
+    const catalog = deriveFacilityDepartmentCatalog({
+      departments: [{ id: "dept_dietary", key: "DIETARY", isActive: true }],
+      entitlements: [{ departmentKey: "DIETARY", status: "ACTIVE" }],
+      entitlementsEnforced: true,
+    });
+    const plant = catalog.find((item) => item.productKey === "PLANT");
+    assert.equal(plant?.installed, false);
+    assert.equal(plant?.availableToAdd, true);
+  });
+
+  it("does not let unentitled Plant or DEVELOPMENT EVS into the customer operable set", () => {
     const operable = selectCustomerOperableDepartments(
       [
         { id: "dept_dietary", key: "DIETARY", isActive: true },
@@ -274,7 +292,7 @@ describe("Customer current Department presentation", () => {
   it("omits DEVELOPMENT product keys from current customer labels", () => {
     assert.equal(isCustomerCurrentDepartmentProductKey("DIETARY"), true);
     assert.equal(isCustomerCurrentDepartmentProductKey("EVS"), false);
-    assert.equal(isCustomerCurrentDepartmentProductKey("PLANT"), false);
+    assert.equal(isCustomerCurrentDepartmentProductKey("PLANT"), true);
     assert.equal(
       shouldPresentDepartmentOnCustomerCurrentSurface("EVS", "customer"),
       false,
@@ -292,7 +310,7 @@ describe("Customer current Department presentation", () => {
         name: "Plant Operations",
         key: "PLANT",
       }),
-      null,
+      "Plant Operations",
     );
     assert.equal(
       customerCurrentDepartmentLabel({ name: "Environmental Services" }),

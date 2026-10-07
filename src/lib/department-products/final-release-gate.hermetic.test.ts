@@ -1,7 +1,7 @@
 /**
  * Facility Plant Operations V1 — whole-Product release-gate hermetic suite.
- * Proves committed DEVELOPMENT gating and controlled AVAILABLE simulation
- * without mutating the Product registry.
+ * Proves committed AVAILABLE release and preserves DEVELOPMENT overlay
+ * simulation without mutating the Product registry.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -25,7 +25,6 @@ import {
   resolveCommercialEntitlement,
 } from "@/lib/department-products/eligibility";
 import {
-  DepartmentProductInstallError,
   resolveDepartmentProductForInstall,
   resolveDepartmentProductForInternalInstall,
 } from "@/lib/department-products/install";
@@ -63,64 +62,62 @@ test.afterEach(() => {
   resetDepartmentProductStatusOverridesForTest();
 });
 
-test("committed Facility Plant Operations remains DEVELOPMENT", () => {
+test("committed Facility Plant Operations is AVAILABLE", () => {
   const plant = getDepartmentProduct("PLANT");
   assert.ok(plant);
   assert.equal(plant.productKey, "PLANT");
   assert.equal(plant.name, "Facility Plant Operations");
   assert.equal(plant.defaultDepartmentName, "Plant Operations");
-  assert.equal(plant.status, "DEVELOPMENT");
-  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
-  assert.equal(isDepartmentProductAvailableForInstall(plant), false);
-  assert.equal(isDepartmentProductCustomerVisible(plant), false);
+  assert.equal(plant.status, "AVAILABLE");
+  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
+  assert.equal(isDepartmentProductAvailableForInstall(plant), true);
+  assert.equal(isDepartmentProductCustomerVisible(plant), true);
   assert.equal(
-    marketplaceDenialReason({ releaseStatus: "DEVELOPMENT", installed: false }),
-    "hidden",
+    marketplaceDenialReason({ releaseStatus: "AVAILABLE", installed: false }),
+    "add",
   );
   assert.equal(
     evaluateCustomerDepartmentOperability({
       productKey: "PLANT",
-      releaseStatus: "DEVELOPMENT",
+      releaseStatus: "AVAILABLE",
       installed: true,
       departmentActive: true,
       entitled: true,
     }).operable,
-    false,
+    true,
   );
   assert.equal(
     resolveCommercialEntitlement({
-      releaseStatus: "DEVELOPMENT",
+      releaseStatus: "AVAILABLE",
       entitlementStatus: "ACTIVE",
       billingStatus: "ACTIVE",
       entitlementsEnforced: true,
       installed: true,
     }),
-    false,
+    true,
   );
-  assert.throws(
-    () => resolveDepartmentProductForInstall("PLANT"),
-    (err: unknown) =>
-      err instanceof DepartmentProductInstallError && err.code === "UNAVAILABLE_PRODUCT",
-  );
+  const published = resolveDepartmentProductForInstall("PLANT");
+  assert.equal(published.productKey, "PLANT");
+  assert.equal(published.status, "AVAILABLE");
   const internal = resolveDepartmentProductForInternalInstall("PLANT");
   assert.equal(internal.productKey, "PLANT");
-  assert.equal(internal.status, "DEVELOPMENT");
+  assert.equal(internal.status, "AVAILABLE");
 });
 
-test("controlled AVAILABLE overlay does not mutate committed registry", () => {
-  overrideDepartmentProductStatusForTest("PLANT", "AVAILABLE");
+test("DEVELOPMENT overlay does not mutate committed AVAILABLE registry", () => {
+  overrideDepartmentProductStatusForTest("PLANT", "DEVELOPMENT");
   const live = getDepartmentProduct("PLANT");
   assert.ok(live);
-  assert.equal(live.status, "AVAILABLE");
-  assert.equal(isDepartmentProductAvailableForInstall(live), true);
-  assert.equal(isDepartmentProductCustomerVisible(live), true);
-  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
+  assert.equal(live.status, "DEVELOPMENT");
+  assert.equal(isDepartmentProductAvailableForInstall(live), false);
+  assert.equal(isDepartmentProductCustomerVisible(live), false);
+  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
   assert.equal(
     listDepartmentProducts().find((row) => row.productKey === "PLANT")?.status,
-    "AVAILABLE",
+    "DEVELOPMENT",
   );
   resetDepartmentProductStatusOverridesForTest();
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
 test("controlled AVAILABLE makes Plant customer-visible, installable, and operable", () => {
@@ -216,15 +213,16 @@ test("Plant runtime works from installed + customer-operable without env flag or
   );
 });
 
-test("other Products are unchanged by Plant certification", () => {
+test("other Products are unchanged by Plant release", () => {
   const dietary = getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION");
   const evs = getDepartmentProduct("EVS");
   assert.equal(dietary?.status, "AVAILABLE");
   assert.equal(evs?.status, "DEVELOPMENT");
-  overrideDepartmentProductStatusForTest("PLANT", "AVAILABLE");
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
+  overrideDepartmentProductStatusForTest("PLANT", "DEVELOPMENT");
   assert.equal(getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION")?.status, "AVAILABLE");
   assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
-  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
+  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 });
 
 test("starter catalog is the certified Work and Record package", () => {
@@ -438,9 +436,9 @@ test("role matrix: requester / STAFF / Supervisor / Manager / FA", () => {
   assert.match(starterAction, /hasAtLeastRole\(session\.role, "MANAGER"\)/);
 });
 
-test("after overlay cleanup committed status is DEVELOPMENT", () => {
-  overrideDepartmentProductStatusForTest("PLANT", "AVAILABLE");
+test("after overlay cleanup committed status is AVAILABLE", () => {
+  overrideDepartmentProductStatusForTest("PLANT", "DEVELOPMENT");
   resetDepartmentProductStatusOverridesForTest();
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
-  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
+  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 });

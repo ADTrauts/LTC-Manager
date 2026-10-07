@@ -223,30 +223,30 @@ test("Getting Started starter step is optional and does not mark unrelated items
   assert.equal(added.find((row) => row.id === "operate")?.status, "ready");
 });
 
-test("Facility Plant Operations registry is release-prep copy while DEVELOPMENT", () => {
+test("Facility Plant Operations registry is AVAILABLE customer copy without a billing SKU", () => {
   const plant = getDepartmentProduct("PLANT");
   assert.ok(plant);
   assert.equal(plant.name, "Facility Plant Operations");
   assert.equal(plant.defaultDepartmentName, "Plant Operations");
-  assert.equal(plant.status, "DEVELOPMENT");
+  assert.equal(plant.status, "AVAILABLE");
   assert.equal(plant.starters.workPresets, true);
   assert.match(plant.shortDescription ?? "", /Work Orders/);
   assert.ok(plant.customerCapabilities?.includes("Preventive Maintenance"));
   assert.ok(plant.customerCapabilities?.includes("Recurring facility rounds"));
-  assert.equal(isDepartmentProductAvailableForInstall(plant), false);
+  assert.equal(isDepartmentProductAvailableForInstall(plant), true);
   assert.equal(
     evaluateCustomerDepartmentOperability({
       productKey: "PLANT",
-      releaseStatus: "DEVELOPMENT",
+      releaseStatus: "AVAILABLE",
       installed: true,
       departmentActive: true,
       entitled: true,
     }).operable,
-    false,
+    true,
   );
   assert.equal(
-    marketplaceDenialReason({ releaseStatus: "DEVELOPMENT", installed: false }),
-    "hidden",
+    marketplaceDenialReason({ releaseStatus: "AVAILABLE", installed: false }),
+    "add",
   );
   const registry = source("src/lib/department-products/registry.ts");
   assert.doesNotMatch(registry, /priceId|stripeProduct|billingSku/i);

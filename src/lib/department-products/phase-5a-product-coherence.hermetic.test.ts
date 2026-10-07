@@ -21,22 +21,26 @@ function source(relative: string) {
   return readFileSync(join(process.cwd(), relative), "utf8");
 }
 
-test("Facility Plant Operations remains DEVELOPMENT and customer-hidden", () => {
+test("Facility Plant Operations is AVAILABLE and customer-visible", () => {
   const plant = getDepartmentProduct("PLANT");
   assert.ok(plant);
   assert.equal(plant.name, "Facility Plant Operations");
   assert.equal(plant.defaultDepartmentName, "Plant Operations");
-  assert.equal(plant.status, "DEVELOPMENT");
-  assert.equal(isDepartmentProductAvailableForInstall(plant), false);
+  assert.equal(plant.status, "AVAILABLE");
+  assert.equal(isDepartmentProductAvailableForInstall(plant), true);
   assert.equal(
     evaluateCustomerDepartmentOperability({
       productKey: "PLANT",
-      releaseStatus: "DEVELOPMENT",
+      releaseStatus: "AVAILABLE",
       installed: true,
       departmentActive: true,
       entitled: true,
     }).operable,
-    false,
+    true,
+  );
+  assert.equal(
+    marketplaceDenialReason({ releaseStatus: "AVAILABLE", installed: false }),
+    "add",
   );
   assert.equal(
     marketplaceDenialReason({ releaseStatus: "DEVELOPMENT", installed: false }),

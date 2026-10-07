@@ -117,14 +117,14 @@ describe("Facility Department Product catalog", () => {
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["HEALTHCARE_FOOD_NUTRITION"],
+      ["HEALTHCARE_FOOD_NUTRITION", "PLANT"],
     );
     assert.equal(
       catalog.every((item) => item.availableToAdd && !item.installed && !item.licensed),
       true,
     );
     assert.equal(
-      catalog.some((item) => item.productKey === "DRAFT_X" || item.productKey === "EVS" || item.productKey === "PLANT"),
+      catalog.some((item) => item.productKey === "DRAFT_X" || item.productKey === "EVS"),
       false,
     );
   });
@@ -149,13 +149,16 @@ describe("Facility Department Product catalog", () => {
     assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.departmentActive, true);
     assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.installationKey, "DIETARY");
     assert.equal(byKey.EVS, undefined);
-    assert.equal(byKey.PLANT, undefined);
+    assert.equal(byKey.PLANT?.installed, false);
+    assert.equal(byKey.PLANT?.licensed, false);
+    assert.equal(byKey.PLANT?.availableToAdd, true);
   });
 });
 
 describe("Published Department Product selection", () => {
-  it("accepts Dietary only and rejects unpublished or blank keys", () => {
+  it("accepts Dietary and Plant and rejects unpublished or blank keys", () => {
     assert.deepEqual(resolvePublishedDepartmentProductKeys(["DIETARY"]), ["DIETARY"]);
+    assert.deepEqual(resolvePublishedDepartmentProductKeys(["PLANT"]), ["PLANT"]);
     assert.throws(
       () => resolvePublishedDepartmentProductKeys([" EVS ", "DIETARY", "EVS"]),
       (error: unknown) =>

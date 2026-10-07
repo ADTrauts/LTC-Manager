@@ -160,7 +160,7 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     defaultDepartmentName: "Plant Operations",
     industry: "HEALTHCARE",
     facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
-    status: "DEVELOPMENT",
+    status: "AVAILABLE",
     sortOrder: 30,
     domainCapability: "plant",
     shortDescription:

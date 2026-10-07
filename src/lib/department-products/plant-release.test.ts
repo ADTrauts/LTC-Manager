@@ -213,9 +213,9 @@ test.afterEach(() => {
   resetDepartmentProductStatusOverridesForTest();
 });
 
-test("Facility Plant Operations committed status remains DEVELOPMENT", () => {
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
-  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
+test("Facility Plant Operations committed status is AVAILABLE", () => {
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
+  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 });
 
 test(
@@ -228,6 +228,7 @@ test(
     delete process.env.PLANT_OPERATIONS_ENABLED;
     try {
       const { facility } = await createBareFacility(prisma, "ReleaseDev");
+      overrideDepartmentProductStatusForTest("PLANT", "DEVELOPMENT");
       await assert.rejects(
         () =>
           installDepartmentProduct({
@@ -251,6 +252,7 @@ test(
       assert.equal(await isPlantRuntimeEnabled(facility.id, { authKind: "user" }), false);
       assert.equal(await isPlantRuntimeEnabled(facility.id, { authKind: "harbor_staff" }), true);
     } finally {
+      resetDepartmentProductStatusOverridesForTest();
       if (prevFlag === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
       else process.env.PLANT_OPERATIONS_ENABLED = prevFlag;
       await prisma.$disconnect();
@@ -259,7 +261,7 @@ test(
 );
 
 test(
-  "controlled AVAILABLE customer can install and operate without env flag or Harbor",
+  "committed AVAILABLE customer can install and operate without env flag or Harbor",
   { skip: skipReason },
   async () => {
     assert.ok(databaseUrl);
@@ -268,9 +270,8 @@ test(
     delete process.env.PLANT_OPERATIONS_ENABLED;
     try {
       const { facility, suffix } = await createBareFacility(prisma, "ReleaseAvail");
-      overrideDepartmentProductStatusForTest("PLANT", "AVAILABLE");
       assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
-      assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
+      assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 
       const installed = await installDepartmentProduct({
         facilityId: facility.id,
@@ -309,7 +310,6 @@ test(
     process.env.DIETARY_JOB_FLOW_ENABLED = "true";
     try {
       const { facility, suffix } = await createBareFacility(prisma, "ReleaseJourney");
-      overrideDepartmentProductStatusForTest("PLANT", "AVAILABLE");
       const dietary = await installDepartmentProduct({
         facilityId: facility.id,
         productKey: "HEALTHCARE_FOOD_NUTRITION",
@@ -924,8 +924,8 @@ test(
   },
 );
 
-test("after SQL journeys committed Product status is DEVELOPMENT", () => {
+test("after SQL journeys committed Product status is AVAILABLE", () => {
   resetDepartmentProductStatusOverridesForTest();
-  assert.equal(getDepartmentProduct("PLANT")?.status, "DEVELOPMENT");
-  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "DEVELOPMENT");
+  assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
+  assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 });
