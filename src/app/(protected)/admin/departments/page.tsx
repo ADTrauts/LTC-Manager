@@ -96,7 +96,7 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
       redirect(ADMIN_DEPARTMENTS_HREF);
     }
     return (
-      <div className="mx-auto max-w-5xl space-y-4" data-testid="department-marketplace-page">
+      <div className="mx-auto max-w-4xl space-y-4" data-testid="department-marketplace-page">
         <AdminPageHeader
           title="Add Department"
           subtitle="Choose a Vssyl Department Product. Licensing happens before installation."

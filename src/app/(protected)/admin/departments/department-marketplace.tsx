@@ -14,7 +14,7 @@ import type { FacilityDepartmentCatalogItem } from "@/lib/department-products/fa
 import { departmentProductCoverSrc } from "@/lib/department-products/marketplace-cover";
 
 const initialState: BillingActionState = { error: null };
-const MAX_CAPABILITIES = 4;
+const MAX_CAPABILITIES = 3;
 
 type DepartmentMarketplaceProps = {
   catalog: FacilityDepartmentCatalogItem[];
@@ -62,7 +62,7 @@ export function DepartmentMarketplace({
           No Department Products are available to add right now.
         </p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
           {catalog.map((product) => {
             const coverSrc = departmentProductCoverSrc(product.productKey);
             const summary = product.shortDescription?.trim() || product.applicabilitySummary;
@@ -71,61 +71,65 @@ export function DepartmentMarketplace({
             return (
               <li key={product.productKey}>
                 <article
-                  className="flex h-full flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
+                  className="flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm"
                   data-testid={`department-product-card-${product.productKey.toLowerCase()}`}
                 >
-                  <div className="relative aspect-[16/10] bg-zinc-100">
+                  <div className="relative aspect-[5/3] bg-zinc-100">
                     {coverSrc ? (
                       <Image
                         src={coverSrc}
                         alt=""
                         fill
                         className="object-cover"
-                        sizes="(max-width: 640px) 100vw, 320px"
+                        sizes="(max-width: 640px) 100vw, 280px"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-zinc-200 to-zinc-100" />
                     )}
+                    <div
+                      className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/5"
+                      aria-hidden
+                    />
                     {product.operable ? (
                       <span
-                        className="absolute right-3 top-3 inline-flex rounded-md bg-emerald-50/95 px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-100"
+                        className="absolute right-2.5 top-2.5 inline-flex rounded-md bg-emerald-50/95 px-2 py-0.5 text-[11px] font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-100"
                         data-testid="department-product-installed"
                       >
                         Installed
                       </span>
                     ) : null}
-                  </div>
-
-                  <div className="flex flex-1 flex-col gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <div className="absolute inset-x-0 bottom-0 p-3">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/75">
                         {product.industryLabel}
                       </p>
-                      <h3 className="mt-1 text-base font-semibold tracking-tight text-zinc-900">
+                      <h3 className="mt-0.5 text-sm font-semibold leading-snug text-white drop-shadow-sm">
                         {product.name}
                       </h3>
-                      {summary ? (
-                        <p className="mt-1.5 line-clamp-2 text-sm text-zinc-600">{summary}</p>
-                      ) : null}
                     </div>
+                  </div>
+
+                  <div className="flex flex-1 flex-col gap-2.5 p-3">
+                    {summary ? (
+                      <p className="line-clamp-2 text-xs leading-relaxed text-zinc-600">{summary}</p>
+                    ) : null}
 
                     {capabilities.length > 0 ? (
-                      <ul className="space-y-1 text-sm text-zinc-700">
+                      <ul className="space-y-0.5 text-xs text-zinc-700">
                         {capabilities.map((capability) => (
                           <li key={capability} className="flex gap-2">
-                            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-zinc-400" aria-hidden />
+                            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-zinc-400" aria-hidden />
                             <span className="min-w-0">{capability}</span>
                           </li>
                         ))}
                         {extraCount > 0 ? (
-                          <li className="pl-3 text-xs text-zinc-500">+{extraCount} more</li>
+                          <li className="pl-3 text-[11px] text-zinc-500">+{extraCount} more</li>
                         ) : null}
                       </ul>
                     ) : null}
 
-                    <div className="mt-auto pt-1">
+                    <div className="mt-auto pt-0.5">
                       {product.operable ? (
-                        <p className="text-xs font-medium text-emerald-800">Ready in this facility</p>
+                        <p className="text-[11px] font-medium text-emerald-800">Ready in this facility</p>
                       ) : canPurchase && product.availableToAdd ? (
                         <form action={alreadySubscribed ? addAction : checkoutAction}>
                           <input type="hidden" name="departmentKey" value={product.productKey} />
@@ -174,7 +178,7 @@ function MarketplaceAddSubmit({
     <button
       type="submit"
       disabled={disabled || pending}
-      className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
       data-testid="marketplace-add-department"
     >
       {pending ? (alreadySubscribed ? "Adding…" : "Opening checkout…") : alreadySubscribed ? "Add" : "Subscribe"}
