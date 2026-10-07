@@ -103,6 +103,8 @@ model Organization {
   facilities       Facility[]
   /// Departments this Organization operates (may differ from Facility parent Organization).
   departmentOperatorRelationships DepartmentOperatorRelationship[]
+  /// Facilities where this Organization is an explicit external partner (Phase 2A).
+  facilityPartnerOrganizations FacilityPartnerOrganization[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -199,6 +201,8 @@ model Facility {
   preventiveMaintenancePlans     PreventiveMaintenancePlan[]
   billing                        FacilityBilling?
   departmentEntitlements         FacilityDepartmentEntitlement[]
+  /// Explicit external partner Organizations (Phase 2A). Does not grant user access.
+  facilityPartnerOrganizations   FacilityPartnerOrganization[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -263,6 +267,8 @@ model Department {
   preventiveMaintenancePlans     PreventiveMaintenancePlan[]
   /// Date-effective operating Organization for this Department (governance metadata only).
   operatorRelationships          DepartmentOperatorRelationship[]
+  /// Partner Department authorization scope periods (Phase 2A). Not user access.
+  partnerDepartmentScopes        FacilityPartnerDepartmentScope[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -299,6 +305,77 @@ model DepartmentOperatorRelationship {
   @@index([departmentId, effectiveTo])
   @@index([organizationId])
   @@index([createdByUserId])
+}
+
+/// Durable Facility ↔ external Organization partnership identity (Phase 2A).
+/// Does not grant user access. Parent Organization of the Facility cannot be a partner.
+/// Authorization timeline lives on FacilityPartnerAccessPeriod (timestamps, not @db.Date).
+model FacilityPartnerOrganization {
+  id               String   @id @default(cuid())
+  facilityId       String
+  facility         Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  notes            String?
+  createdByUserId  String?
+  createdByUser    User?    @relation("FacilityPartnerCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvedByUserId String?
+  approvedByUser   User?    @relation("FacilityPartnerApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?
+  endedByUserId    String?
+  endedByUser      User?    @relation("FacilityPartnerEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  endedAt          DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  accessPeriods    FacilityPartnerAccessPeriod[]
+  departmentScopes FacilityPartnerDepartmentScope[]
+
+  @@unique([facilityId, organizationId])
+  @@index([facilityId])
+  @@index([organizationId])
+  @@index([endedAt])
+}
+
+/// Timestamp period when a Facility ↔ Organization partnership is security-active.
+/// Half-open: startsAt <= instant < endsAt (null endsAt = open). Periods must not overlap.
+model FacilityPartnerAccessPeriod {
+  id                          String                     @id @default(cuid())
+  facilityPartnerOrganizationId String
+  facilityPartnerOrganization FacilityPartnerOrganization @relation(fields: [facilityPartnerOrganizationId], references: [id], onDelete: Cascade)
+  startsAt                    DateTime
+  endsAt                      DateTime?
+  createdByUserId             String?
+  createdByUser               User?                      @relation("FacilityPartnerAccessPeriodCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId               String?
+  endedByUser                 User?                      @relation("FacilityPartnerAccessPeriodEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+
+  @@index([facilityPartnerOrganizationId, startsAt], map: "FacilityPartnerAccessPeriod_partner_startsAt_idx")
+  @@index([facilityPartnerOrganizationId, endsAt], map: "FacilityPartnerAccessPeriod_partner_endsAt_idx")
+}
+
+/// Timestamp period when a Department is in a partnership's authorized scope.
+/// Half-open: startsAt <= instant < endsAt. Overlapping periods for same partnership+department rejected.
+/// Not unique on (partnership, department) — remove/re-add creates new periods.
+model FacilityPartnerDepartmentScope {
+  id                          String                     @id @default(cuid())
+  facilityPartnerOrganizationId String
+  facilityPartnerOrganization FacilityPartnerOrganization @relation(fields: [facilityPartnerOrganizationId], references: [id], onDelete: Cascade)
+  departmentId                String
+  department                  Department                 @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  startsAt                    DateTime
+  endsAt                      DateTime?
+  createdByUserId             String?
+  createdByUser               User?                      @relation("FacilityPartnerDepartmentScopeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId               String?
+  endedByUser                 User?                      @relation("FacilityPartnerDepartmentScopeEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+
+  @@index([facilityPartnerOrganizationId, startsAt], map: "FacilityPartnerDeptScope_partner_startsAt_idx")
+  @@index([facilityPartnerOrganizationId, departmentId, startsAt], map: "FacilityPartnerDeptScope_partner_dept_startsAt_idx")
+  @@index([departmentId], map: "FacilityPartnerDeptScope_departmentId_idx")
 }
 
 enum BillingInterval {
@@ -601,6 +678,13 @@ model User {
   emailVerificationTokens        EmailVerificationToken[]
   accountInviteTokens            AccountInviteToken[]
   departmentOperatorRelationshipsCreated DepartmentOperatorRelationship[] @relation("DepartmentOperatorCreatedBy")
+  facilityPartnersCreated        FacilityPartnerOrganization[]   @relation("FacilityPartnerCreatedBy")
+  facilityPartnersApproved       FacilityPartnerOrganization[]   @relation("FacilityPartnerApprovedBy")
+  facilityPartnersEnded          FacilityPartnerOrganization[]   @relation("FacilityPartnerEndedBy")
+  facilityPartnerAccessPeriodsCreated FacilityPartnerAccessPeriod[] @relation("FacilityPartnerAccessPeriodCreatedBy")
+  facilityPartnerAccessPeriodsEnded   FacilityPartnerAccessPeriod[] @relation("FacilityPartnerAccessPeriodEndedBy")
+  facilityPartnerDepartmentScopesCreated FacilityPartnerDepartmentScope[] @relation("FacilityPartnerDepartmentScopeCreatedBy")
+  facilityPartnerDepartmentScopesEnded   FacilityPartnerDepartmentScope[] @relation("FacilityPartnerDepartmentScopeEndedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 

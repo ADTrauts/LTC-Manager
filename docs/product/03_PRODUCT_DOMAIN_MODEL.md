@@ -12,8 +12,11 @@
 | **Organization** | Canonical company/business entity (healthcare system, management company, school district, etc.). Used as Facility parent and as Department operating Organization. Shared org alone never grants facility access. |
 | **Parent Organization** | The Organization that owns/groups the Facility in platform hierarchy (`Facility.organizationId`). |
 | **Operating Organization** | The Organization with primary operating responsibility for a specific Department during a date-effective period (`DepartmentOperatorRelationship`). May equal Parent Organization (facility operated) or differ (contracted). |
+| **Partner Organization** | An external Organization with an explicitly established Facility partnership (`FacilityPartnerOrganization`). Independent of Operating Organization. |
+| **Partner Department Scope** | Departments the Facility has explicitly authorized under a partnership (`FacilityPartnerDepartmentScope`, timestamp periods). |
 | **Facility** | Operational site with timezone, users, units, departments. Primary tenancy boundary for day-to-day data. |
-| **UserFacilityAccess** | Explicit grant for a user to enter a facility. |
+| **UserFacilityAccess** | Explicit grant for a user to enter a facility (internal / same-parent-Organization path). |
+| **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
 | **Department Product** | Vssyl-owned operational product (Healthcare Food & Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
@@ -47,6 +50,9 @@ Organization (Parent)
         ├── Employee                          │
         ├── Department ◄── installed Department Product (mode lens) │
         │     └── DepartmentOperatorRelationship → Organization (Operating; may differ from Parent)
+        ├── FacilityPartnerOrganization → Organization (Partner; external)
+        │     ├── FacilityPartnerAccessPeriod (security-active timestamps)
+        │     └── FacilityPartnerDepartmentScope (authorized Departments; timestamps)
         ├── Unit (Location)                   │
         │     ├── Log assignments/submissions │
         │     ├── Issues / Repairs ── Asset   │
@@ -71,7 +77,30 @@ Operating Organization:  Metz Culinary Management
 
 `DepartmentOperatorRelationship` is **governance metadata** only. It does not move work, logs, teams, employees, assets, schedules, or other operational records to the operating Organization.
 
-**Operating a Department does not grant users from that Organization access to the Facility.** Facility entry remains explicit `UserFacilityAccess` (same-Organization eligibility rules unchanged). Partner authorization for outside operators is a later phase.
+**Operating a Department does not grant users from that Organization access to the Facility.** Facility entry remains explicit `UserFacilityAccess` (same-Organization eligibility rules unchanged).
+
+### Partner Organization (Phase 2A governance)
+
+```text
+Facility:                 Terrace View
+Partner Organization:     Metz Culinary Management
+Authorized Departments:   Food & Nutrition
+```
+
+This means the Facility has established Metz as an external partner and has explicitly approved certain Departments as eligible for **later** partner access. It does **not** mean any Metz user may access Terrace View.
+
+| Concept | Persistence | Grants user access? |
+|---------|-------------|---------------------|
+| Operating Organization | `DepartmentOperatorRelationship` (`@db.Date`, inclusive) | No |
+| Partner Organization | `FacilityPartnerOrganization` + `FacilityPartnerAccessPeriod` (UTC timestamps, half-open) | No (Phase 2A) |
+| Partner Department Scope | `FacilityPartnerDepartmentScope` (UTC timestamps, half-open) | No (Phase 2A) |
+| User authorization | Future Path B (Phase 2C+) | Not yet |
+
+`DepartmentOperatorRelationship` ≠ Facility partner authorization. UI may suggest operator Departments when configuring a partner; explicit Admin save is required. No automatic sync either direction.
+
+**Phase 2A grants zero external-user Facility access.** `UserFacilityAccess` remains internal / same-parent-org only.
+
+**Phase 2C warning:** Do not simply set a partner user's `User.facilityId` to the customer Facility and treat that as their home Facility. Existing auth uses `User.facilityId` in internal Organization eligibility; that would blur Path A (internal) and Path B (partner). Resolve home/default vs active Facility before enabling external users.
 
 Do not confuse with:
 
@@ -79,6 +108,8 @@ Do not confuse with:
 |---------|-------|------|
 | Parent Organization | Facility | Platform hierarchy / multi-facility grouping |
 | Operating Organization | Department (date-effective) | Who runs the department |
+| Partner Organization | Facility (timestamp access periods) | External partnership identity + security-active timeline |
+| Partner Department Scope | Partnership × Department (timestamps) | Explicit authorized Department eligibility |
 | `FacilityOrganization` | Facility / Asset | Asset maintenance responsibility (unchanged) |
 | `Vendor` | Facility | Preferred repair/service provider (unchanged) |
 | `Facility.managementCompanyName` | Facility (legacy string) | Compatibility only — not Department operator truth |

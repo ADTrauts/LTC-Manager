@@ -84,6 +84,20 @@ export default async function AdminOrganizationPage() {
             >
               Open Facilities &amp; User Access →
             </Link>
+            <div className="mt-4 border-t border-zinc-100 pt-3">
+              <p className="text-sm font-medium text-zinc-900">External Partners</p>
+              <p className="mt-0.5 text-sm text-zinc-600">
+                Establish Facility partnerships with external Organizations and authorize
+                Departments for later partner access. Does not grant user access yet.
+              </p>
+              <Link
+                href="/admin/organization/partners"
+                className="mt-2 inline-flex text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                data-testid="org-partners-nav-link"
+              >
+                Open External Partners →
+              </Link>
+            </div>
           </div>
         }
       />
