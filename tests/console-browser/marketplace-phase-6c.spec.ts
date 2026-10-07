@@ -198,7 +198,7 @@ test.describe("Harbor Marketplace", () => {
     await expect(plant).toContainText(/None yet|1 facility|\d+ facilities/);
     await expect(plant).toContainText(/\d+ users?/);
     await expect(plant).not.toContainText("installed");
-    await expect(plant.locator("a")).toHaveCount(0);
+    await expect(plant.locator("a")).toHaveAttribute("href", "/console/catalog/products/PLANT");
     await expect(page.getByTestId("marketplace-create")).toHaveCount(0);
 
     await page.getByRole("navigation", { name: "Marketplace families" }).getByRole("link", { name: "Records" }).click();
@@ -218,7 +218,7 @@ test.describe("Harbor Marketplace", () => {
     await expect(round).toContainText("—");
     await expect(round).toContainText(/None yet|1 facility|\d+ facilities/);
     await expect(round).toContainText(/\d+ published plans?/);
-    await expect(round.locator("a")).toHaveCount(0);
+    await expect(round.locator("a")).toHaveAttribute("href", "/console/catalog/work/MECHANICAL_ROOM_ROUND");
     await expect(page.getByLabel("Status")).toHaveCount(0);
     await expect(page.getByTestId("marketplace-create")).toHaveCount(0);
   });

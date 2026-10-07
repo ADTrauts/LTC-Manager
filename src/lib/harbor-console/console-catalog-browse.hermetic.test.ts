@@ -331,8 +331,8 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   assert.equal(round.versionDisplay, CONSOLE_CATALOG_EMPTY);
 
   assert.equal(marketplaceRowHref(cooler), "/console/catalog/cooler_temperature_log");
-  assert.equal(marketplaceRowHref(plant), null);
-  assert.equal(marketplaceRowHref(round), null);
+  assert.equal(marketplaceRowHref(plant), "/console/catalog/products/PLANT");
+  assert.equal(marketplaceRowHref(round), "/console/catalog/work/MECHANICAL_ROOM_ROUND");
 
   assert.equal(marketplaceEmptyCopy(resolveMarketplaceBrowse({}, [])), "No Marketplace items are available.");
   assert.equal(

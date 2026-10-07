@@ -137,7 +137,7 @@
     {
       "key": "reports",
       "pathPrefix": "/reports",
-      "label": "Review",
+      "label": "Audit / Reports",
       "navVisible": true,
       "navOrder": 90,
       "isCritical": false,

@@ -10,7 +10,8 @@ import {
 } from "@/app/console/(staff)/catalog/actions";
 import { HarborCatalogEditor } from "@/components/harbor-console/harbor-catalog-editor";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
-import { loadHarborCatalogDetail } from "@/lib/harbor-console/catalog";
+import { loadHarborCatalogAdoption, loadHarborCatalogDetail } from "@/lib/harbor-console/catalog";
+import { catalogRecordPublishedVersionLabel } from "@/lib/harbor-console/console-catalog-detail";
 import { prisma } from "@/lib/prisma";
 
 export default async function HarborCatalogDetailPage({
@@ -20,7 +21,10 @@ export default async function HarborCatalogDetailPage({
 }) {
   await requireHarborStaff();
   const { stableKey } = await params;
-  const detail = await loadHarborCatalogDetail(prisma, stableKey);
+  const [detail, adoption] = await Promise.all([
+    loadHarborCatalogDetail(prisma, stableKey),
+    loadHarborCatalogAdoption(prisma, stableKey),
+  ]);
   if (!detail) notFound();
 
   const published = detail.published;
@@ -31,13 +35,42 @@ export default async function HarborCatalogDetailPage({
     <div className="mx-auto max-w-3xl space-y-8">
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          Catalog
+          Marketplace
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{detail.name}</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {detail.statusLabel} · {stableKey}
         </p>
       </header>
+
+      <dl className="grid gap-4 rounded-md border border-[var(--border)] bg-white p-4 sm:grid-cols-2">
+        <div>
+          <dt className="text-xs font-medium text-[var(--text-secondary)]">Published version</dt>
+          <dd className="mt-1 text-sm" data-testid="record-published-version">
+            {catalogRecordPublishedVersionLabel(detail.published?.version ?? null)}
+          </dd>
+        </div>
+        {detail.draft ? (
+          <div>
+            <dt className="text-xs font-medium text-[var(--text-secondary)]">Draft version</dt>
+            <dd className="mt-1 text-sm" data-testid="record-draft-version">
+              v{detail.draft.version}
+            </dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="text-xs font-medium text-[var(--text-secondary)]">Facilities installed</dt>
+          <dd className="mt-1 text-sm" data-testid="record-install-count">
+            {adoption.facilityInstallCount}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-[var(--text-secondary)]">Active placements</dt>
+          <dd className="mt-1 text-sm" data-testid="record-placement-count">
+            {adoption.activePlacementCount}
+          </dd>
+        </div>
+      </dl>
 
       {draft ? (
         <section className="space-y-3">
@@ -146,7 +179,7 @@ export default async function HarborCatalogDetailPage({
       </section>
 
       <Link href="/console/catalog" className="text-sm text-[var(--text-secondary)] hover:underline">
-        Back to Catalog
+        Back to Marketplace
       </Link>
     </div>
   );

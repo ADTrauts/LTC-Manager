@@ -311,10 +311,9 @@ export function marketplaceEmptyCopy(query: MarketplaceBrowseQuery): string {
   return "No Marketplace items are available.";
 }
 
-/** Record rows only. Department and Work detail routes are Phase 6D. */
+/** Record, Department, and Work rows open their source detail routes. */
 export function marketplaceRowHref(item: ConsoleCatalogItem): string | null {
-  if (item.sourceType !== "CATALOG_RECORD") return null;
-  return `/console/catalog/${encodeURIComponent(item.stableKey)}`;
+  return item.detailHref || null;
 }
 
 export function marketplaceCreateAction(query: MarketplaceBrowseQuery): MarketplaceCreateAction | null {

@@ -107,6 +107,7 @@ type EmployeeAccessRow = {
   status: "ACTIVE" | "OFF" | "TERMINATED";
   primaryDepartmentId: string | null;
   employeeDepartments: Array<{ departmentId: string }>;
+  roleType?: string | null;
 };
 
 type FacilityAdministratorRow = {
@@ -128,13 +129,15 @@ type CatalogDefinitionRow = {
   purposeType: CatalogLogPurposeType;
 };
 
-type WorkPlanAdoptionRow = {
+export type WorkPresetAdoptionPlan = {
   presetKey: string | null;
   stableKey: string;
   facilityId: string;
   departmentId: string;
   status: "DRAFT" | "PUBLISHED" | "RETIRED";
 };
+
+type WorkPlanAdoptionRow = WorkPresetAdoptionPlan;
 
 export function consoleCatalogProductDetailHref(productKey: string): string {
   return `/console/catalog/products/${productKey}`;
@@ -152,7 +155,7 @@ function isRecordSubtype(purposeType: string): purposeType is ConsoleCatalogReco
   return RECORD_SUBTYPE_SET.has(purposeType);
 }
 
-function billingStatusFor(status: string | null | undefined): BillingStatusForEntitlement {
+export function billingStatusFor(status: string | null | undefined): BillingStatusForEntitlement {
   if (
     status === "UNMANAGED" ||
     status === "INCOMPLETE" ||
@@ -165,12 +168,12 @@ function billingStatusFor(status: string | null | undefined): BillingStatusForEn
   return null;
 }
 
-function accessIdentity(email: string | null | undefined, fallback: string): string {
+export function accessIdentity(email: string | null | undefined, fallback: string): string {
   const normalized = email?.trim().toLowerCase() ?? "";
   return normalized ? `email:${normalized}` : fallback;
 }
 
-function departmentInstallIsCustomerOperable(input: {
+export function departmentInstallIsCustomerOperable(input: {
   product: DepartmentProduct;
   department: Pick<DepartmentInstallRow, "isActive">;
   entitlements: readonly EntitlementRow[];
@@ -194,25 +197,91 @@ function departmentInstallIsCustomerOperable(input: {
   }).operable;
 }
 
+export const PRODUCT_ACCESS_ROLES = [
+  "generalManagers",
+  "managers",
+  "supervisors",
+  "staff",
+  "facilityAdministrators",
+] as const;
+
+export type ProductAccessRole = (typeof PRODUCT_ACCESS_ROLES)[number];
+
+const PRODUCT_ACCESS_ROLE_RANK: Record<ProductAccessRole, number> = {
+  generalManagers: 5,
+  managers: 4,
+  supervisors: 3,
+  staff: 2,
+  facilityAdministrators: 1,
+};
+
+/** Employee.roleType is the operational role. Lead Team Member counts as Staff. */
+export function employeeProductAccessRole(roleType: string | null | undefined): ProductAccessRole | null {
+  switch (roleType) {
+    case "GM":
+      return "generalManagers";
+    case "MANAGER":
+      return "managers";
+    case "SUPERVISOR":
+      return "supervisors";
+    case "STAFF":
+    case "LEAD_TEAM_MEMBER":
+      return "staff";
+    case "FACILITY_ADMINISTRATOR":
+      return "facilityAdministrators";
+    default:
+      return null;
+  }
+}
+
+export type ProductFacilityAccessIdentity = {
+  identity: string;
+  role: ProductAccessRole | null;
+};
+
+/**
+ * People who can access one installed, customer-operable Department.
+ * Dedup is inside this facility: the same email is one person. An employee
+ * operational role wins over a Facility Administrator user with that email.
+ * When two employees share an email, the higher operational role wins.
+ */
+export function productFacilityAccessIdentities(input: {
+  facilityId: string;
+  departmentId: string;
+  employees: readonly EmployeeAccessRow[];
+  administrators: readonly FacilityAdministratorRow[];
+}): ProductFacilityAccessIdentity[] {
+  const roles = new Map<string, ProductAccessRole | null>();
+  const ranks = new Map<string, number>();
+  for (const employee of input.employees) {
+    if (employee.facilityId !== input.facilityId || employee.status !== "ACTIVE") continue;
+    if (!employeeBelongsToDepartment(employee, input.departmentId)) continue;
+    const identity = accessIdentity(employee.email, `employee:${employee.id}`);
+    const role = employeeProductAccessRole(employee.roleType);
+    const rank = role ? PRODUCT_ACCESS_ROLE_RANK[role] : 0;
+    const current = ranks.get(identity);
+    if (current == null || rank > current) {
+      roles.set(identity, role);
+      ranks.set(identity, rank);
+    }
+  }
+  for (const administrator of input.administrators) {
+    if (administrator.facilityId !== input.facilityId) continue;
+    if (!administrator.isActive || administrator.emailVerifiedAt == null) continue;
+    if (administrator.roleKey !== "FACILITY_ADMINISTRATOR") continue;
+    const identity = accessIdentity(administrator.email, `user:${administrator.id}`);
+    if (!roles.has(identity)) roles.set(identity, "facilityAdministrators");
+  }
+  return [...roles.entries()].map(([identity, role]) => ({ identity, role }));
+}
+
 function countUsersWithAccess(input: {
   facilityId: string;
   departmentId: string;
   employees: readonly EmployeeAccessRow[];
   administrators: readonly FacilityAdministratorRow[];
 }): number {
-  const identities = new Set<string>();
-  for (const employee of input.employees) {
-    if (employee.facilityId !== input.facilityId || employee.status !== "ACTIVE") continue;
-    if (!employeeBelongsToDepartment(employee, input.departmentId)) continue;
-    identities.add(accessIdentity(employee.email, `employee:${employee.id}`));
-  }
-  for (const administrator of input.administrators) {
-    if (administrator.facilityId !== input.facilityId) continue;
-    if (!administrator.isActive || administrator.emailVerifiedAt == null) continue;
-    if (administrator.roleKey !== "FACILITY_ADMINISTRATOR") continue;
-    identities.add(accessIdentity(administrator.email, `user:${administrator.id}`));
-  }
-  return identities.size;
+  return productFacilityAccessIdentities(input).length;
 }
 
 export function toDepartmentProductCatalogItem(input: {
@@ -303,7 +372,10 @@ export function workPlanMatchesPreset(
   return plan.presetKey === presetKey || plan.stableKey === presetKey;
 }
 
-function workPresetAdoption(plans: readonly WorkPlanAdoptionRow[], presetKey: string): {
+export function summarizeWorkPresetAdoption(
+  plans: readonly WorkPresetAdoptionPlan[],
+  presetKey: string,
+): {
   facilityInstallCount: number;
   usageCount: number;
 } {
@@ -406,6 +478,7 @@ async function loadDepartmentProductItems(client: Db): Promise<ConsoleCatalogIte
             email: true,
             status: true,
             primaryDepartmentId: true,
+            roleType: true,
             employeeDepartments: { select: { departmentId: true } },
           },
         }),
@@ -530,7 +603,7 @@ async function loadWorkPresetItems(client: Db): Promise<ConsoleCatalogItem[]> {
     if (!product) {
       throw new Error(`Work preset ${presetKey} has no Department Product owner.`);
     }
-    const adoption = workPresetAdoption(plans, presetKey);
+    const adoption = summarizeWorkPresetAdoption(plans, presetKey);
     return toWorkPresetCatalogItem({
       presetKey,
       name: buildWorkPlanPresetDraft(presetKey).name,

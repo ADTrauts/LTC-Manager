@@ -216,3 +216,15 @@ export async function loadHarborCatalogDetail(
     })),
   };
 }
+
+/** Headline record adoption. Install rows are unique per facility and stable key. */
+export async function loadHarborCatalogAdoption(
+  client: Db,
+  stableKey: string,
+): Promise<{ facilityInstallCount: number; activePlacementCount: number }> {
+  const [facilityInstallCount, activePlacementCount] = await Promise.all([
+    client.facilityCatalogInstall.count({ where: { catalogStableKey: stableKey } }),
+    client.logAttachment.count({ where: { catalogStableKey: stableKey, status: "ACTIVE" } }),
+  ]);
+  return { facilityInstallCount, activePlacementCount };
+}
