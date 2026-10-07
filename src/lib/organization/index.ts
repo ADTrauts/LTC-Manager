@@ -4,9 +4,12 @@
  * Facility remains the session/data isolation root. Organization is a parent
  * grouping layer only — helpers never grant sibling-facility access.
  *
+ * Parent Organization ≠ Department operating Organization. Contracted department
+ * operation is DepartmentOperatorRelationship (governance metadata only).
+ *
  * managementCompanyName on Facility is legacy and retained for compatibility.
- * Do not dual-write it from Organization fields. Future deprecation: remove
- * after callers migrate to Organization display/legal names.
+ * Do not dual-write it from Organization fields. Do not treat it as Department
+ * operator identity. Future deprecation: remove after callers stop reading it.
  */
 export type {
   OrganizationContext,

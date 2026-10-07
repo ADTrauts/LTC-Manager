@@ -44,14 +44,19 @@ export function normalizeOrganizationKey(raw: string): string {
   return raw.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+/**
+ * Resolve the Facility parent Organization name for signup / provision.
+ *
+ * Parent Organization is the platform hierarchy owner — not a contracted
+ * Department operator. `managementCompanyName` is intentionally ignored so a
+ * food-service / EVS contractor string cannot become Facility.organizationId.
+ * Contracted department operation is modeled by DepartmentOperatorRelationship.
+ */
 export function resolveOrganizationCreateName(input: {
   managementCompanyName?: string | null;
   facilityName: string;
 }): { name: string; organizationType: OrganizationTypeValue } {
-  const company = input.managementCompanyName?.trim();
-  if (company) {
-    return { name: company.replace(/\s+/g, " "), organizationType: "MANAGEMENT_COMPANY" };
-  }
+  void input.managementCompanyName;
   const facility = input.facilityName.trim().replace(/\s+/g, " ") || "Facility";
   return { name: `${facility} Organization`, organizationType: "OTHER" };
 }

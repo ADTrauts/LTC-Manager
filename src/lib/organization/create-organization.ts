@@ -5,8 +5,10 @@ import { resolveOrganizationCreateName } from "./types";
 type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
 /**
- * Create an Organization for a new Facility (signup / seed / provision).
- * Does not mutate managementCompanyName dual-write behavior.
+ * Create the parent Organization for a new Facility (signup / seed / provision).
+ * Parent Organization is hierarchy ownership — not contracted department operation.
+ * `managementCompanyName` may still be stored on Facility as a legacy string, but
+ * it must not become Facility.organizationId.
  */
 export async function createOrganizationForNewFacility(
   db: DbClient,

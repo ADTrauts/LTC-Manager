@@ -17,7 +17,6 @@ import { prisma } from "@/lib/prisma";
 
 const updateFacilitySchema = z.object({
   displayName: z.string().trim().min(2).max(200),
-  managementCompanyName: z.string().trim().max(200).optional(),
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   timezone: z
     .string()
@@ -37,15 +36,10 @@ export async function updateFacilitySettingsAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
-  const managementRaw = formData.get("managementCompanyName");
   const brandColorRaw = formData.get("brandColor");
   const timezoneRaw = formData.get("timezone");
   const parsed = updateFacilitySchema.parse({
     displayName: formData.get("displayName"),
-    managementCompanyName:
-      typeof managementRaw === "string" && managementRaw.trim() !== ""
-        ? managementRaw
-        : undefined,
     brandColor:
       typeof brandColorRaw === "string" && brandColorRaw.trim() !== ""
         ? brandColorRaw.trim()
@@ -56,11 +50,12 @@ export async function updateFacilitySettingsAction(formData: FormData) {
         : resolveFacilityTimezone(null),
   });
 
+  // managementCompanyName is legacy and no longer writable from Admin UI.
+  // Existing values are preserved; Department operators use DepartmentOperatorRelationship.
   await prisma.facility.update({
     where: { id: session.facilityId },
     data: {
       displayName: parsed.displayName,
-      managementCompanyName: parsed.managementCompanyName ?? null,
       brandColor: parsed.brandColor ?? null,
       timezone: resolveFacilityTimezone(parsed.timezone),
     },

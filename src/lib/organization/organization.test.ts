@@ -18,16 +18,16 @@ test("normalizeOrganizationKey trims, collapses space, and lowercases", () => {
   assert.equal(normalizeOrganizationKey("Metz Culinary"), normalizeOrganizationKey("metz culinary"));
 });
 
-test("resolveOrganizationCreateName uses management company when present", () => {
-  const resolved = resolveOrganizationCreateName({
+test("resolveOrganizationCreateName always uses facility parent Organization name", () => {
+  const withLegacy = resolveOrganizationCreateName({
     facilityName: "Terrace View",
     managementCompanyName: "  Metz Culinary  ",
   });
-  assert.equal(resolved.name, "Metz Culinary");
-  assert.equal(resolved.organizationType, "MANAGEMENT_COMPANY");
+  assert.equal(withLegacy.name, "Terrace View Organization");
+  assert.equal(withLegacy.organizationType, "OTHER");
 });
 
-test("resolveOrganizationCreateName falls back to facility Organization name", () => {
+test("resolveOrganizationCreateName ignores null management company", () => {
   const resolved = resolveOrganizationCreateName({
     facilityName: "Terrace View",
     managementCompanyName: null,
@@ -160,7 +160,7 @@ test("shared organization key grouping is deterministic for identical company na
   assert.notEqual(normalizeOrganizationKey("Metz Culinary"), normalizeOrganizationKey("Metz Culnary"));
 });
 
-test("backfill naming contract: company orgs vs per-facility fallback", () => {
+test("parent Organization naming never uses legacy management company string", () => {
   const withCompany = resolveOrganizationCreateName({
     facilityName: "Site A",
     managementCompanyName: "Acme Food",
@@ -169,6 +169,6 @@ test("backfill naming contract: company orgs vs per-facility fallback", () => {
     facilityName: "Site B",
     managementCompanyName: null,
   });
-  assert.equal(withCompany.name, "Acme Food");
+  assert.equal(withCompany.name, "Site A Organization");
   assert.equal(without.name, "Site B Organization");
 });

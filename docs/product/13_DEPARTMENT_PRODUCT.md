@@ -108,7 +108,10 @@ Configuration readiness is derived from those operational facts. Do not persist 
 | **Department Product** | Vssyl Inc. | Code registry (`src/lib/department-products/`) |
 | **Entitlement** | Commercial authorization | `FacilityDepartmentEntitlement.departmentKey` |
 | **Department** | Facility installation | Existing `Department` row (`facilityId` + `key`) |
+| **Operating Organization** | Facility Administrator (governance) | `DepartmentOperatorRelationship` (date-effective). Does not grant Facility access. |
 | **isActive** | Operational state | `Department.isActive` |
+
+New Department installs initialize an explicit facility-operated operator relationship (`organizationId = Facility.organizationId`) as of the install date. Contracted operators are configured under Admin → Departments → Manage → Operating organization.
 
 `Department.key` is the facility installation key. For Healthcare Food & Nutrition it remains `DIETARY`. For EVS and Plant it matches the Product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
 

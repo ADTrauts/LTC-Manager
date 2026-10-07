@@ -81,23 +81,18 @@ export function FacilitySettingsForm({ facility }: { facility: Facility }) {
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-900 focus:ring-2"
         />
       </div>
-      <div className="space-y-2">
-        <label htmlFor="managementCompanyName" className="block text-sm font-medium text-zinc-700">
-          Management company (legacy)
-        </label>
-        <input
-          id="managementCompanyName"
-          name="managementCompanyName"
-          type="text"
-          defaultValue={facility.managementCompanyName ?? ""}
-          placeholder="e.g. contracted food service operator"
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-900 focus:ring-2"
-        />
-        <p className="text-xs text-zinc-500">
-          Legacy field retained for compatibility. Organization is the canonical parent entity and is not
-          dual-written from this value.
-        </p>
-      </div>
+      {facility.managementCompanyName ? (
+        <div className="space-y-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Legacy label (read-only)
+          </p>
+          <p className="text-sm text-zinc-700">{facility.managementCompanyName}</p>
+          <p className="text-xs text-zinc-500">
+            Retained for compatibility only. Department operating organization is managed under Admin →
+            Departments. This value is not the Facility parent Organization and is not dual-written.
+          </p>
+        </div>
+      ) : null}
       <div className="space-y-2">
         <label htmlFor="timezone" className="block text-sm font-medium text-zinc-700">
           Facility timezone

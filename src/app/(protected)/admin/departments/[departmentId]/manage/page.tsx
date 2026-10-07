@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { DepartmentManagerForm } from "@/app/(protected)/admin/departments/[departmentId]/department-manager-form";
 import { DepartmentVisibilityForm } from "@/app/(protected)/admin/departments/department-visibility-form";
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
-import { ADMIN_DEPARTMENTS_HREF } from "@/lib/department-administration";
+import { DepartmentGovernanceSection } from "@/components/department-operators/department-governance-section";
+import {
+  ADMIN_DEPARTMENTS_HREF,
+  adminDepartmentManageHref,
+} from "@/lib/department-administration";
+import { loadCurrentDepartmentOperator } from "@/lib/department-operators";
 import {
   findCatalogItemForDepartmentKey,
   getDepartmentProduct,
@@ -31,7 +36,7 @@ export default async function AdminManageDepartmentPage({ params }: PageProps) {
     notFound();
   }
 
-  const [department, employees] = await Promise.all([
+  const [department, employees, currentOperator] = await Promise.all([
     prisma.department.findFirst({
       where: { id: departmentId, facilityId: session.facilityId },
       select: {
@@ -54,6 +59,10 @@ export default async function AdminManageDepartmentPage({ params }: PageProps) {
         primaryDepartmentId: true,
         employeeDepartments: { select: { departmentId: true } },
       },
+    }),
+    loadCurrentDepartmentOperator(prisma, {
+      departmentId,
+      facilityId: session.facilityId,
     }),
   ]);
   if (!department) {
@@ -110,6 +119,12 @@ export default async function AdminManageDepartmentPage({ params }: PageProps) {
           {department.isActive ? <span>Enabled</span> : <span>Inactive</span>}
         </p>
       </section>
+
+      <DepartmentGovernanceSection
+        departmentId={department.id}
+        current={currentOperator}
+        manageHref={`${adminDepartmentManageHref(department.id)}/operator`}
+      />
 
       <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="manage-department-manager">
         <h2 className="text-sm font-semibold text-zinc-900">Department Manager</h2>

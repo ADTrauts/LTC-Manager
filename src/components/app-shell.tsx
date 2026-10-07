@@ -270,9 +270,7 @@ export async function AppShell({ children }: AppShellProps) {
         </div>
       </div>
       <footer className="hidden shrink-0 border-t border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-500 xl:block xl:px-6">
-        {facility?.managementCompanyName
-          ? `Operated by ${facility.managementCompanyName}.`
-          : "Nutrition operations workspace."}
+        Operations workspace.
       </footer>
     </ShellModeFrame>
   );

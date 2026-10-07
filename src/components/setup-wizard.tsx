@@ -137,7 +137,6 @@ export function SetupWizard({ checkout }: { checkout?: string | null }) {
     try {
       await patchState({
         facilityName: String(formData.get("facilityName") ?? ""),
-        managementCompanyName: String(formData.get("managementCompanyName") ?? ""),
         billingEmail: String(formData.get("billingEmail") ?? ""),
         step: "managers",
       });
@@ -149,7 +148,6 @@ export function SetupWizard({ checkout }: { checkout?: string | null }) {
               facility: {
                 ...prev.facility,
                 displayName: String(formData.get("facilityName") ?? prev.facility.displayName),
-                managementCompanyName: String(formData.get("managementCompanyName") ?? "") || null,
                 billingEmail: String(formData.get("billingEmail") ?? "") || null,
                 onboardingCurrentStep: "managers",
               },
@@ -303,14 +301,6 @@ export function SetupWizard({ checkout }: { checkout?: string | null }) {
             <label className="block space-y-1 text-sm">
               <span className="font-medium text-zinc-700">Facility Name</span>
               <input name="facilityName" defaultValue={state.facility.displayName} className="app-input w-full" required />
-            </label>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-zinc-700">Managing Partner (optional)</span>
-              <input
-                name="managementCompanyName"
-                defaultValue={state.facility.managementCompanyName ?? ""}
-                className="app-input w-full"
-              />
             </label>
             <label className="block space-y-1 text-sm">
               <span className="font-medium text-zinc-700">Billing Email</span>

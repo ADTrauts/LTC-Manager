@@ -1,4 +1,5 @@
 import { allocateDepartmentKey } from "@/lib/department-admission";
+import { ensureInitialDepartmentOperator } from "@/lib/department-operators";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -17,6 +18,7 @@ export type CreatedDepartment = {
 export async function createFacilityDepartment(input: {
   facilityId: string;
   name: string;
+  createdByUserId?: string | null;
 }): Promise<CreatedDepartment> {
   const name = input.name.trim();
   if (name.length < 1 || name.length > 80) {
@@ -44,5 +46,12 @@ export async function createFacilityDepartment(input: {
     },
     select: { id: true, key: true, name: true },
   });
+
+  await ensureInitialDepartmentOperator(prisma, {
+    departmentId: created.id,
+    facilityId: input.facilityId,
+    createdByUserId: input.createdByUserId ?? null,
+  });
+
   return created;
 }

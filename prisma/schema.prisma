@@ -101,6 +101,8 @@ model Organization {
   organizationType OrganizationType?
   isActive         Boolean           @default(true)
   facilities       Facility[]
+  /// Departments this Organization operates (may differ from Facility parent Organization).
+  departmentOperatorRelationships DepartmentOperatorRelationship[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -259,6 +261,8 @@ model Department {
   operationalRequestsAffected    OperationalRequest[]            @relation("OperationalRequestAffected")
   departmentEntitlements         FacilityDepartmentEntitlement[]
   preventiveMaintenancePlans     PreventiveMaintenancePlan[]
+  /// Date-effective operating Organization for this Department (governance metadata only).
+  operatorRelationships          DepartmentOperatorRelationship[]
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -266,6 +270,35 @@ model Department {
   @@index([facilityId])
   @@index([facilityId, showInEmployeeApp])
   @@index([headEmployeeId])
+}
+
+/// Which Organization has primary operating responsibility for a Department during a period.
+/// Governance metadata only — does not grant facility authorization or move operational tenancy.
+/// Inclusive [effectiveFrom, effectiveTo]; null effectiveTo means open-ended (current or scheduled).
+model DepartmentOperatorRelationship {
+  id                  String       @id @default(cuid())
+  departmentId        String
+  department          Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  /// Inclusive facility-local calendar start (@db.Date / UTC midnight).
+  effectiveFrom       DateTime     @db.Date
+  /// Inclusive facility-local calendar end. Null = open-ended.
+  effectiveTo         DateTime?    @db.Date
+  notes               String?
+  /// Optional external account / customer code used with the operating Organization.
+  externalAccountCode String?
+  /// Optional contract or agreement reference.
+  contractReference   String?
+  createdByUserId     String?
+  createdByUser       User?        @relation("DepartmentOperatorCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([departmentId, effectiveFrom])
+  @@index([departmentId, effectiveTo])
+  @@index([organizationId])
+  @@index([createdByUserId])
 }
 
 enum BillingInterval {
@@ -567,6 +600,7 @@ model User {
   passwordResetTokens            PasswordResetToken[]
   emailVerificationTokens        EmailVerificationToken[]
   accountInviteTokens            AccountInviteToken[]
+  departmentOperatorRelationshipsCreated DepartmentOperatorRelationship[] @relation("DepartmentOperatorCreatedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 

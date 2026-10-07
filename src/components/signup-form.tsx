@@ -20,7 +20,6 @@ export function SignupForm() {
       method: "POST",
       body: JSON.stringify({
         facilityName: String(formData.get("facilityName") ?? ""),
-        managementCompanyName: String(formData.get("managementCompanyName") ?? ""),
         adminName: String(formData.get("adminName") ?? ""),
         adminEmail: String(formData.get("adminEmail") ?? ""),
         password: String(formData.get("password") ?? ""),
@@ -50,10 +49,6 @@ export function SignupForm() {
         <label className="space-y-1 text-sm">
           <span className="font-medium text-zinc-700">Facility Name</span>
           <input name="facilityName" required minLength={2} maxLength={200} className="app-input w-full" />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium text-zinc-700">Managing Partner (optional)</span>
-          <input name="managementCompanyName" maxLength={200} className="app-input w-full" />
         </label>
         <label className="space-y-1 text-sm">
           <span className="font-medium text-zinc-700">Your Name (Admin)</span>

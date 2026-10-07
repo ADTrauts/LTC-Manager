@@ -171,6 +171,7 @@ Operations Engine, Work Engine, and Readiness are **substrate**. Business Worksp
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  
 - Knowledge bound to work  
 - Organization parent + explicit multi-facility access  
+- Department operating Organization as date-effective governance metadata (does not grant Facility access)  
 - Commercial licensing of **operational departments** (not seats)  
 - Design system and navigation zones that enforce the above  
 

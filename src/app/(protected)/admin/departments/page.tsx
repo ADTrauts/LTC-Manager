@@ -11,6 +11,10 @@ import {
   adminDepartmentManageHref,
 } from "@/lib/department-administration";
 import {
+  loadCurrentOperatorsForFacilityDepartments,
+  organizationDisplayLabel,
+} from "@/lib/department-operators";
+import {
   canPurchaseDepartmentProducts,
   findCatalogItemForDepartmentKey,
   getDepartmentProduct,
@@ -76,6 +80,10 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
             headEmployee: { select: { firstName: true, lastName: true } },
           },
         });
+  const operatorsByDepartment = await loadCurrentOperatorsForFacilityDepartments(prisma, {
+    facilityId,
+    departmentIds: departments.map((row) => row.id),
+  });
 
   if (catalogBeforeCheckout) {
     const newlyInstalled = catalog.filter((item) => {
@@ -159,6 +167,10 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
                 d.headEmployee?.firstName && d.headEmployee?.lastName
                   ? `${d.headEmployee.firstName} ${d.headEmployee.lastName}`
                   : "Not assigned";
+              const operator = operatorsByDepartment.get(d.id);
+              const operatedBy = operator
+                ? organizationDisplayLabel(operator.relationship.organization)
+                : null;
               return (
                 <li key={d.id} className="px-4 py-4 sm:px-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -183,6 +195,11 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
                       <p className="mt-1 text-sm text-zinc-600">
                         Department Manager: {managerName}
                       </p>
+                      {operatedBy ? (
+                        <p className="text-sm text-zinc-600" data-testid="department-operated-by">
+                          Operated by: {operatedBy}
+                        </p>
+                      ) : null}
                     </div>
                     <Link
                       href={adminDepartmentManageHref(d.id)}

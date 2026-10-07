@@ -55,6 +55,7 @@ export async function createDepartmentAction(
     const created = await createFacilityDepartment({
       facilityId: session.facilityId,
       name: parsed.data.name,
+      createdByUserId: session.uid,
     });
     revalidateDepartmentRelatedViews(created.id);
     return {

@@ -10,6 +10,8 @@
 import type { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 
+import { ensureInitialDepartmentOperator } from "@/lib/department-operators";
+
 import {
   getDepartmentProduct,
   isDepartmentProductAvailableForInstall,
@@ -184,6 +186,10 @@ export async function installResolvedDepartmentProduct(input: {
     { productKey: input.product.productKey, installationKey },
   );
   if (existing) {
+    await ensureInitialDepartmentOperator(input.prisma, {
+      departmentId: existing.id,
+      facilityId: existing.facilityId,
+    });
     return {
       id: existing.id,
       facilityId: existing.facilityId,
@@ -204,6 +210,11 @@ export async function installResolvedDepartmentProduct(input: {
       showInEmployeeApp: true,
     },
     select: { id: true, facilityId: true, key: true, name: true },
+  });
+
+  await ensureInitialDepartmentOperator(input.prisma, {
+    departmentId: created.id,
+    facilityId: created.facilityId,
   });
 
   return {

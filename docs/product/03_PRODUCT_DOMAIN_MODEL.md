@@ -9,12 +9,14 @@
 
 | Entity | Meaning |
 |--------|---------|
-| **Organization** | Parent legal/operating group; facilities belong here. Shared org alone never grants facility access. |
+| **Organization** | Canonical company/business entity (healthcare system, management company, school district, etc.). Used as Facility parent and as Department operating Organization. Shared org alone never grants facility access. |
+| **Parent Organization** | The Organization that owns/groups the Facility in platform hierarchy (`Facility.organizationId`). |
+| **Operating Organization** | The Organization with primary operating responsibility for a specific Department during a date-effective period (`DepartmentOperatorRelationship`). May equal Parent Organization (facility operated) or differ (contracted). |
 | **Facility** | Operational site with timezone, users, units, departments. Primary tenancy boundary for day-to-day data. |
 | **UserFacilityAccess** | Explicit grant for a user to enter a facility. |
 | **Department Product** | Vssyl-owned operational product (Healthcare Food & Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
-| **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. |
+| **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
 | **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
@@ -39,11 +41,12 @@
 ## Relationship diagram (business)
 
 ```text
-Organization
+Organization (Parent)
   └── Facility ───────────────────────────────┐
         ├── User ◄── UserFacilityAccess       │
         ├── Employee                          │
         ├── Department ◄── installed Department Product (mode lens) │
+        │     └── DepartmentOperatorRelationship → Organization (Operating; may differ from Parent)
         ├── Unit (Location)                   │
         │     ├── Log assignments/submissions │
         │     ├── Issues / Repairs ── Asset   │
@@ -54,6 +57,31 @@ Organization
         ├── Inspection definitions/occurrences│
         └── WorkspacePreference (User×Facility)
 ```
+
+### Parent Organization vs Operating Organization
+
+These may be the same or different.
+
+```text
+Parent Organization:     ECMC
+Facility:                Terrace View
+Department:              Food & Nutrition
+Operating Organization:  Metz Culinary Management
+```
+
+`DepartmentOperatorRelationship` is **governance metadata** only. It does not move work, logs, teams, employees, assets, schedules, or other operational records to the operating Organization.
+
+**Operating a Department does not grant users from that Organization access to the Facility.** Facility entry remains explicit `UserFacilityAccess` (same-Organization eligibility rules unchanged). Partner authorization for outside operators is a later phase.
+
+Do not confuse with:
+
+| Concept | Scope | Role |
+|---------|-------|------|
+| Parent Organization | Facility | Platform hierarchy / multi-facility grouping |
+| Operating Organization | Department (date-effective) | Who runs the department |
+| `FacilityOrganization` | Facility / Asset | Asset maintenance responsibility (unchanged) |
+| `Vendor` | Facility | Preferred repair/service provider (unchanged) |
+| `Facility.managementCompanyName` | Facility (legacy string) | Compatibility only — not Department operator truth |
 
 ```text
 Operation (instance)
