@@ -507,14 +507,20 @@ test("work category follows preset ownership metadata, not the display name", ()
   assert.equal(WORK_PRESET_PRODUCT_KEYS.MECHANICAL_ROOM_ROUND, "PLANT");
 });
 
-test("current Marketplace page stays on the catalog record list", () => {
+test("Marketplace browse uses the unified projection once", () => {
   const page = source("src/app/console/(staff)/catalog/page.tsx");
+  const browse = source("src/components/harbor-console/marketplace-browse.tsx");
   const detail = source("src/app/console/(staff)/catalog/[stableKey]/page.tsx");
   const actions = source("src/app/console/(staff)/catalog/actions.ts");
   const projection = source("src/lib/harbor-console/console-catalog.ts");
   assert.match(page, /requireHarborStaff\(\)/);
-  assert.match(page, /listHarborCatalogLines/);
-  assert.doesNotMatch(page, /listConsoleCatalogItems/);
+  assert.equal(page.match(/listConsoleCatalogItems/g)?.length, 2);
+  assert.doesNotMatch(page, /listHarborCatalogLines/);
+  assert.doesNotMatch(browse, /listConsoleCatalogItems/);
+  assert.doesNotMatch(browse, /listHarborCatalogLines/);
+  assert.doesNotMatch(browse, /listDepartmentProducts/);
+  assert.doesNotMatch(`${page}\n${browse}`, /\/console\/catalog\/products\//);
+  assert.doesNotMatch(`${page}\n${browse}`, /\/console\/catalog\/work\//);
   assert.match(detail, /loadHarborCatalogDetail/);
   assert.match(actions, /createCatalogDefinition/);
   assert.match(actions, /publishCatalogDefinition/);
