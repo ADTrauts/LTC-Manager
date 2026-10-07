@@ -187,6 +187,57 @@ const PRODUCT_BY_KEY = new Map<string, DepartmentProduct>(
   DEPARTMENT_PRODUCTS.map((product) => [product.productKey, product]),
 );
 
+/**
+ * Test-only Product status overlay. Never mutates committed DEPARTMENT_PRODUCTS.
+ * Production Next.js refuses the override unless an explicit certification flag is set.
+ */
+const TEST_STATUS_OVERRIDES = new Map<string, DepartmentProductReleaseStatus>();
+
+function assertDepartmentProductStatusOverrideAllowed() {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_DEPARTMENT_PRODUCT_STATUS_OVERRIDE !== "1"
+  ) {
+    throw new Error("Department Product status overrides are test-only.");
+  }
+}
+
+function applyDepartmentProductStatusOverride(
+  product: DepartmentProduct,
+): DepartmentProduct {
+  const override = TEST_STATUS_OVERRIDES.get(product.productKey);
+  if (!override || override === product.status) return product;
+  return { ...product, status: override };
+}
+
+/** Controlled AVAILABLE / RETIRED simulation. Pass null to clear one key. */
+export function overrideDepartmentProductStatusForTest(
+  productKey: string,
+  status: DepartmentProductReleaseStatus | null,
+): void {
+  assertDepartmentProductStatusOverrideAllowed();
+  const canonical = canonicalizeDepartmentProductKey(productKey);
+  if (!canonical) return;
+  if (status === null) {
+    TEST_STATUS_OVERRIDES.delete(canonical);
+    return;
+  }
+  TEST_STATUS_OVERRIDES.set(canonical, status);
+}
+
+export function resetDepartmentProductStatusOverridesForTest(): void {
+  TEST_STATUS_OVERRIDES.clear();
+}
+
+/** Committed registry status, ignoring any test overlay. */
+export function getCommittedDepartmentProductStatus(
+  productKey: string | null | undefined,
+): DepartmentProductReleaseStatus | null {
+  const canonical = canonicalizeDepartmentProductKey(productKey);
+  if (!canonical) return null;
+  return PRODUCT_BY_KEY.get(canonical)?.status ?? null;
+}
+
 export function canonicalizeDepartmentProductKey(
   key: string | null | undefined,
 ): string | null {
@@ -216,7 +267,8 @@ export function getDepartmentProduct(
 ): DepartmentProduct | null {
   const canonical = canonicalizeDepartmentProductKey(productKey);
   if (!canonical) return null;
-  return PRODUCT_BY_KEY.get(canonical) ?? null;
+  const product = PRODUCT_BY_KEY.get(canonical) ?? null;
+  return product ? applyDepartmentProductStatusOverride(product) : null;
 }
 
 export function isDepartmentProductKey(
@@ -271,13 +323,14 @@ export function matchEntitlementStatusForProduct(
 }
 
 export function listDepartmentProducts(): readonly DepartmentProduct[] {
-  return DEPARTMENT_PRODUCTS;
+  if (TEST_STATUS_OVERRIDES.size === 0) return DEPARTMENT_PRODUCTS;
+  return DEPARTMENT_PRODUCTS.map(applyDepartmentProductStatusOverride);
 }
 
 export function listDepartmentProductsForIndustry(
   industry: DepartmentProductIndustry,
 ): readonly DepartmentProduct[] {
-  return DEPARTMENT_PRODUCTS.filter((product) => product.industry === industry);
+  return listDepartmentProducts().filter((product) => product.industry === industry);
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
-import { isDepartmentWorkPlansEnabled } from "@/lib/department-operations";
+import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 
@@ -159,7 +159,12 @@ export async function resolveWorkAuthority(
   }
 
   return decideWorkAuthority({
-    flagEnabled: isDepartmentWorkPlansEnabled(department?.key),
+    flagEnabled: await isDepartmentEngineEnabledForFacility(
+      facilityId,
+      "workPlans",
+      department?.key,
+      session,
+    ),
     role: session.role,
     authMethod: session.authMethod,
     sessionFacilityId: session.facilityId,

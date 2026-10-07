@@ -75,6 +75,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/preventive-maintenance/phase-4c-preventive-maintenance.test.ts",
   "src/lib/preventive-maintenance/phase-4d-preventive-maintenance.test.ts",
   "src/lib/department-products/phase-5b-starter.test.ts",
+  "src/lib/department-products/plant-release.test.ts",
   "src/lib/bulk-import/bulk-import.scale.db.test.ts",
   "src/lib/support/support-tickets.db.test.ts",
   "src/lib/support/support-attachments.db.test.ts",

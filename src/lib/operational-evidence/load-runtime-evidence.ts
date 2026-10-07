@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { assetNotRetiredWhere } from "@/lib/asset-operations/ownership";
-import { isDepartmentOperationalEvidenceEnabled } from "@/lib/department-operations";
+import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import type {
   ExistingEvidenceRecordForResolve,
   PublishedCycleWindowForResolve,
@@ -150,7 +150,13 @@ export async function resolveUnitEvidenceRequirements(input: {
     where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
     select: { key: true },
   });
-  if (!isDepartmentOperationalEvidenceEnabled(department?.key)) {
+  if (
+    !(await isDepartmentEngineEnabledForFacility(
+      input.facilityId,
+      "evidence",
+      department?.key,
+    ))
+  ) {
     return [];
   }
 

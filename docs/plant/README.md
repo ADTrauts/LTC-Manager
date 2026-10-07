@@ -14,11 +14,11 @@ Implemented and certified:
 - Preventive Maintenance MVP (domain, generator, Build, Run) — Phases 4A–4D
 - Product coherence and discoverability — Phase 5A
 - Optional starter configuration, Work/Record presets, PM cadence presets, and release-prep Product identity — Phase 5B
+- Whole-Product V1 release certification — [2026-10-06](./FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md)
 
 Not done:
 
-- Whole-Product release certification
-- Registry `AVAILABLE`
+- Registry `AVAILABLE` (separate explicit action after approval)
 - Billing / Marketplace sale
 - Inventory, purchasing, payroll, meter PM, IoT, predictive, advanced analytics
 
@@ -28,7 +28,8 @@ Current reconciliation: [`FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md
 
 | File | Classification |
 |------|----------------|
-| [FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) | SUPPORTING — current architecture after Phase 5B |
+| [FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md) | AUTHORITATIVE — V1 release-gate certification. Does not flip `AVAILABLE`. |
+| [FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) | SUPPORTING — current architecture after Phase 5B and V1 certification |
 | [FACILITY_PLANT_OPERATIONS_PHASE_5B_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_PHASE_5B_CERTIFICATION_2026-10-06.md) | SUPPORTING — Phase 5B starter / release-prep certification |
 | [FACILITY_PLANT_OPERATIONS_PHASE_5A_CERTIFICATION_2026-10-06.md](./FACILITY_PLANT_OPERATIONS_PHASE_5A_CERTIFICATION_2026-10-06.md) | SUPPORTING — Phase 5A product coherence certification |
 | [FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) | HISTORICAL — Phase 0/1 repository audit; superseded for current state by 2026-10-06 |
@@ -51,4 +52,4 @@ Current reconciliation: [`FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md
 | [PLANT_TECHNICIAN_GUIDE.md](./PLANT_TECHNICIAN_GUIDE.md) | LEGACY Phase 12A guide |
 | [CROSS_DEPARTMENT_SERVICE_REQUEST_GUIDE.md](./CROSS_DEPARTMENT_SERVICE_REQUEST_GUIDE.md) | LEGACY Phase 12A guide |
 
-The Product remains DEVELOPMENT. Do not treat this folder as customer documentation.
+The Product remains DEVELOPMENT until an explicit `AVAILABLE` flip. Do not treat this folder as customer documentation.

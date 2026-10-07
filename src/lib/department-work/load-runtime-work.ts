@@ -4,7 +4,7 @@
  * not from confirmed Operational Assignments.
  */
 
-import { isDepartmentWorkPlansEnabled } from "@/lib/department-operations";
+import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import {
   cycleUsesOperationalTypeParticipation,
@@ -329,7 +329,11 @@ async function departmentWorkPlansEnabledFor(
     where: { id: departmentId, facilityId },
     select: { key: true },
   });
-  return isDepartmentWorkPlansEnabled(department?.key);
+  return isDepartmentEngineEnabledForFacility(
+    facilityId,
+    "workPlans",
+    department?.key,
+  );
 }
 
 export async function resolveUnitWorkRequirements(

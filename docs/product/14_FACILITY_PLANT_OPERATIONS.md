@@ -10,7 +10,7 @@
 
 This document is the target Product architecture. Existing Platform Assets, repairs, requests, and Phase 12A reference code are evidence of available foundation. They do not define this Product.
 
-**Implementation through Phase 5B:** corrective MVP, Preventive Maintenance MVP, product coherence, and optional starter configuration are implemented. The Product remains **DEVELOPMENT**. Starter content is optional, select-before-install, Facility-owned after copy, and never auto-published.
+**Implementation through Phase 5B plus V1 release certification:** corrective MVP, Preventive Maintenance MVP, product coherence, and optional starter configuration are implemented and certified. The Product remains **DEVELOPMENT** until an explicit `AVAILABLE` flip. Starter content is optional, select-before-install, Facility-owned after copy, and never auto-published.
 
 ---
 
@@ -571,7 +571,8 @@ Customer visibility still requires an explicit `PLANT` `DEVELOPMENT → AVAILABL
 | Class | Document |
 |-------|----------|
 | **CURRENT CANONICAL** | This file |
-| **SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) — current architecture after Phase 5B |
+| **AUTHORITATIVE RELEASE GATE** | [Facility Plant Operations V1 release certification (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md) — does not flip `AVAILABLE` |
+| **SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-06)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-06.md) — current architecture after Phase 5B and V1 certification |
 | **HISTORICAL SUPPORTING** | [Facility Plant Operations reconciliation (2026-10-05)](../plant/FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) — Phase 0/1 repository audit |
 | **BINDING PLATFORM CONTRACT** | [13 — Department Product](./13_DEPARTMENT_PRODUCT.md) |
 | **PLATFORM MAP** | [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) |

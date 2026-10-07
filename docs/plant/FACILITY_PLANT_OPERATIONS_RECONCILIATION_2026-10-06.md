@@ -1,9 +1,10 @@
 # Facility Plant Operations — Current Reconciliation
 
 **Date:** 2026-10-06  
-**Mode:** Current-state architecture after Phase 5B  
+**Mode:** Current-state architecture after Phase 5B and V1 release certification  
 **Classification:** SUPPORTING  
 **Canonical Product:** [14 — Facility Plant Operations](../product/14_FACILITY_PLANT_OPERATIONS.md)  
+**Release gate:** [V1 release certification](./FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md)  
 **Historical audit:** [2026-10-05 reconciliation](./FACILITY_PLANT_OPERATIONS_RECONCILIATION_2026-10-05.md) remains Phase 0/1 history. It is not current certification.
 
 Facility Plant Operations remains **DEVELOPMENT**. This document describes the built Product, not a release decision.
@@ -83,3 +84,5 @@ Package name: **Plant Operations starter configuration**.
 ## V1 deferrals
 
 Still deferred: inventory, purchasing, payroll, meter/usage PM, IoT, predictive, advanced analytics, contracts, warranties, Product `AVAILABLE`, billing SKU.
+
+V1 release certification (2026-10-06) recommends `AVAILABLE` as a separate explicit action. Committed Product status remains **DEVELOPMENT**.
