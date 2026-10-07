@@ -5,7 +5,10 @@
  */
 
 import { getLocationFunction } from "@/lib/department-products/location-functions";
-import { getDepartmentProduct } from "@/lib/department-products/registry";
+import {
+  getDepartmentProduct,
+  type DepartmentProductKey,
+} from "@/lib/department-products/registry";
 
 import type { WorkPlanDraftInput } from "./types";
 
@@ -65,6 +68,30 @@ export type DepartmentWorkPresetKey = (typeof DEPARTMENT_WORK_PRESET_KEYS)[numbe
 
 export function isDepartmentWorkPresetKey(value: string): value is DepartmentWorkPresetKey {
   return (DEPARTMENT_WORK_PRESET_KEYS as readonly string[]).includes(value);
+}
+
+/**
+ * Authoritative Department Product owner for each Vssyl Work preset.
+ * Marketplace category reads this map. Display names are not ownership.
+ */
+export const WORK_PRESET_PRODUCT_KEYS = {
+  SERVERY_OPENING_CHECKS: "HEALTHCARE_FOOD_NUTRITION",
+  MEAL_SERVICE_SUPPORT: "HEALTHCARE_FOOD_NUTRITION",
+  SERVERY_CLOSING_CHECKS: "HEALTHCARE_FOOD_NUTRITION",
+  ROUTINE_ROOM_CLEAN: "EVS",
+  COMMON_AREA_ROUND: "EVS",
+  SHIFT_CLOSEOUT: "EVS",
+  ROOM_TURN_SPECIAL_CLEAN: "EVS",
+  MECHANICAL_ROOM_ROUND: "PLANT",
+  BUILDING_WALKTHROUGH: "PLANT",
+  EXTERIOR_GROUNDS_WALKTHROUGH: "PLANT",
+  GENERATOR_VISUAL_CHECK: "PLANT",
+} as const satisfies Record<DepartmentWorkPresetKey, DepartmentProductKey>;
+
+export function workPresetOwningProductKey(
+  presetKey: DepartmentWorkPresetKey,
+): DepartmentProductKey {
+  return WORK_PRESET_PRODUCT_KEYS[presetKey];
 }
 
 function isDietaryPresetKey(value: string): value is DietaryWorkPresetKey {

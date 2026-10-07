@@ -45,6 +45,8 @@ export {
   buildWorkPlanPresetDraft,
   isDepartmentWorkPresetKey,
   listWorkPlanPresetSummaries,
+  WORK_PRESET_PRODUCT_KEYS,
+  workPresetOwningProductKey,
   DEPARTMENT_WORK_PRESET_KEYS,
   DIETARY_WORK_PRESET_KEYS,
   EVS_WORK_PRESET_KEYS,

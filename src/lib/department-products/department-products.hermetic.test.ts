@@ -116,6 +116,8 @@ describe("Department Product registry", () => {
     assert.equal(dietary.industry, "HEALTHCARE");
     assert.deepEqual(dietary.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(dietary.status, "AVAILABLE");
+    assert.equal(dietary.versionLabel, null);
+    assert.equal(dietary.releasedOn, null);
     assert.equal(dietary.sortOrder, 10);
     assert.equal(dietary.domainCapability, "dietary");
     assert.equal(dietary.starters.cycleStarter, "dietary");
@@ -126,6 +128,8 @@ describe("Department Product registry", () => {
     assert.equal(evs.industry, "HEALTHCARE");
     assert.deepEqual(evs.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(evs.status, "DEVELOPMENT");
+    assert.equal(evs.versionLabel, null);
+    assert.equal(evs.releasedOn, null);
     assert.equal(evs.domainCapability, "evs");
     assert.equal(evs.starters.cycleStarter, "evs");
     assert.equal(evs.starters.workPresets, true);
@@ -137,6 +141,8 @@ describe("Department Product registry", () => {
     assert.equal(plant.industry, "HEALTHCARE");
     assert.deepEqual(plant.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(plant.status, "AVAILABLE");
+    assert.equal(plant.versionLabel, "1.0");
+    assert.equal(plant.releasedOn, "2026-10-07");
     assert.equal(plant.domainCapability, "plant");
     assert.equal(plant.starters.workPresets, true);
     assert.equal(plant.starters.assignmentRoles, true);

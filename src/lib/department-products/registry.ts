@@ -105,6 +105,13 @@ export type DepartmentProduct = {
   sortOrder: number;
   domainCapability: DepartmentProductDomainCapability | null;
   starters: DepartmentProductStarterRefs;
+  /**
+   * Certified product release label, such as "1.0".
+   * Null until a release is declared. Not a git SHA and not a template version.
+   */
+  versionLabel: string | null;
+  /** ISO date (YYYY-MM-DD) that release became the current customer release. */
+  releasedOn: string | null;
 };
 
 const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
@@ -134,6 +141,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
+    versionLabel: null,
+    releasedOn: null,
   },
   {
     productKey: "EVS",
@@ -152,6 +161,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
+    versionLabel: null,
+    releasedOn: null,
   },
   {
     productKey: "PLANT",
@@ -180,6 +191,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
+    versionLabel: "1.0",
+    releasedOn: "2026-10-07",
   },
 ];
 
