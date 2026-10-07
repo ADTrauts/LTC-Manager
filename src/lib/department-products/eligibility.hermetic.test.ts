@@ -55,14 +55,15 @@ describe("Department Product release visibility", () => {
     assert.equal(catalog[0]?.availableToAdd, false);
     const plant = catalog.find((item) => item.productKey === "PLANT");
     assert.equal(plant?.installed, true);
-    assert.equal(plant?.availableToAdd, false);
+    assert.equal(plant?.operable, false);
+    assert.equal(plant?.availableToAdd, true);
     assert.equal(
       catalog.some((item) => item.productKey === "EVS"),
       false,
     );
   });
 
-  it("offers uninstalled Plant as Add and keeps unentitled Plant out of the operable set", () => {
+  it("offers uninstalled Plant as Add and keeps unentitled Plant out of the operable set when entitlements are enforced", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [{ id: "dept_dietary", key: "DIETARY", isActive: true }],
       entitlements: [{ departmentKey: "DIETARY", status: "ACTIVE" }],
@@ -201,6 +202,61 @@ describe("Entitlement and operability", () => {
       }),
       false,
     );
+  });
+
+  it("grandfathers installed AVAILABLE products when enforcement is off even if facility billing is ACTIVE", () => {
+    assert.equal(
+      resolveCommercialEntitlement({
+        releaseStatus: "AVAILABLE",
+        entitlementStatus: null,
+        billingStatus: "ACTIVE",
+        entitlementsEnforced: false,
+        installed: true,
+      }),
+      true,
+    );
+    const catalog = deriveFacilityDepartmentCatalog({
+      departments: [
+        { id: "dept_dietary", key: "DIETARY", isActive: true },
+        { id: "dept_plant", key: "PLANT", isActive: true },
+      ],
+      entitlements: [{ departmentKey: "DIETARY", status: "ACTIVE" }],
+      billingStatus: "ACTIVE",
+      entitlementsEnforced: false,
+    });
+    const plant = catalog.find((item) => item.productKey === "PLANT");
+    assert.equal(plant?.installed, true);
+    assert.equal(plant?.licensed, false);
+    assert.equal(plant?.operable, true);
+    assert.equal(plant?.availableToAdd, false);
+    const operable = selectCustomerOperableDepartments(
+      [
+        { id: "dept_dietary", key: "DIETARY", isActive: true },
+        { id: "dept_plant", key: "PLANT", isActive: true },
+      ],
+      {
+        entitlements: [{ departmentKey: "DIETARY", status: "ACTIVE" }],
+        billingStatus: "ACTIVE",
+        entitlementsEnforced: false,
+      },
+    );
+    assert.deepEqual(
+      operable.map((row) => row.key),
+      ["DIETARY", "PLANT"],
+    );
+  });
+
+  it("does not present an unentitled bootstrap Department as marketplace Installed when entitlements are enforced", () => {
+    const catalog = deriveFacilityDepartmentCatalog({
+      departments: [{ id: "dept_plant", key: "PLANT", isActive: true }],
+      entitlements: [],
+      billingStatus: "ACTIVE",
+      entitlementsEnforced: true,
+    });
+    const plant = catalog.find((item) => item.productKey === "PLANT");
+    assert.equal(plant?.installed, true);
+    assert.equal(plant?.operable, false);
+    assert.equal(plant?.availableToAdd, true);
   });
 
   it("keeps existing RETIRED entitled installations operable and blocks new ones", () => {

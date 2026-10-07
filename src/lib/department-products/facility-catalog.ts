@@ -109,7 +109,7 @@ export function deriveFacilityDepartmentCatalog(input: {
       licensed,
       entitled,
       operable: operability.operable,
-      availableToAdd: !installed && !licensed,
+      availableToAdd: !licensed && !operability.operable,
     };
   });
 }

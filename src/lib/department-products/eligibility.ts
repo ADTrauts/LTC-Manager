@@ -72,8 +72,9 @@ export function evaluateCustomerDepartmentOperability(
  * Resolve whether this facility is commercially entitled to operate a product.
  *
  * ACTIVE entitlement always counts.
- * When commercial enforcement is off, UNMANAGED/unbilled facilities may continue
- * operating already-installed AVAILABLE or RETIRED products (grandfather).
+ * When commercial enforcement is off, already-installed AVAILABLE or RETIRED
+ * products stay customer-operable. Facility billing may already be ACTIVE from
+ * another Product; that must not hide a newly AVAILABLE bootstrap install.
  * DEVELOPMENT is never entitled for customers.
  */
 export function resolveCommercialEntitlement(input: {
@@ -91,7 +92,6 @@ export function resolveCommercialEntitlement(input: {
   }
   if (
     !input.entitlementsEnforced &&
-    (input.billingStatus === "UNMANAGED" || input.billingStatus === null) &&
     input.installed &&
     (input.releaseStatus === "AVAILABLE" || input.releaseStatus === "RETIRED")
   ) {

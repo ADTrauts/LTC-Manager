@@ -82,7 +82,7 @@ export function DepartmentMarketplace({
                     ) : null}
                   </div>
                   <div className="shrink-0">
-                    {product.installed ? (
+                    {product.operable ? (
                       <span
                         className="inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800"
                         data-testid="department-product-installed"
