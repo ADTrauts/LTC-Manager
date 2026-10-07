@@ -10,6 +10,7 @@ import type { SupportStaffNotificationItem } from "@/lib/support/notifications";
 const NAV = [
   { href: "/console", label: "Today", enabled: true },
   { href: "/console/customers", label: "Customers", enabled: true },
+  { href: "/console/organization-claims", label: "Org Claims", enabled: true },
   { href: "/console/tickets", label: "Tickets", enabled: true },
   { href: "/console/catalog", label: "Marketplace", enabled: true },
 ] as const;

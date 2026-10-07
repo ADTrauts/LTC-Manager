@@ -55,6 +55,11 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
               : "None"}
           </span>
         </p>
+        {membership.currentRole === "ORG_ADMIN" ? (
+          <p className="mt-2 text-sm font-medium text-zinc-800" data-testid="org-admin-banner">
+            You are an Organization Administrator.
+          </p>
+        ) : null}
         <p className="mt-2 text-xs text-zinc-500">
           Organization membership does not grant access to customer Facilities. Partner Facility
           assignment is not available in this phase.

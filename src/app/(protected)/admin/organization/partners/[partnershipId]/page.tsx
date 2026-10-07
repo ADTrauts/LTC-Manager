@@ -2,9 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManageFacilityPartnerActions } from "@/components/facility-partners/manage-facility-partner-actions";
+import { OrganizationClaimRequestForm } from "@/components/facility-partners/organization-claim-request-form";
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
+import {
+  canRequestOrganizationClaim,
+  getOrganizationClaimState,
+  listFacilityClaimsForPartner,
+  organizationClaimDisplayStateLabel,
+  organizationClaimInvitationStatusLabel,
+} from "@/lib/organization-claims";
 import {
   FacilityPartnerError,
   getFacilityPartner,
@@ -29,13 +37,17 @@ function formatTimestamp(date: Date | null | undefined): string {
 
 export default async function AdminOrganizationPartnerDetailPage({ params }: PageProps) {
   const session = await assertFacilityAdministratorPage();
+  const facilityId = session.facilityId;
+  if (!facilityId) {
+    notFound();
+  }
   const { partnershipId } = await params;
 
   let partner;
   try {
     partner = await getFacilityPartner(prisma, {
       partnershipId,
-      facilityId: session.facilityId,
+      facilityId,
     });
   } catch (error) {
     if (error instanceof FacilityPartnerError && error.code === "PARTNERSHIP_NOT_FOUND") {
@@ -44,16 +56,27 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
     throw error;
   }
 
-  const [operable, suggestions] = await Promise.all([
-    loadCustomerOperableDepartments(prisma, session.facilityId),
-    suggestDepartmentsFromCurrentOperators(prisma, {
-      facilityId: session.facilityId,
-      organizationId: partner.organizationId,
-    }),
-  ]);
+  const [operable, suggestions, claimState, facilityClaims, claimEligibility] =
+    await Promise.all([
+      loadCustomerOperableDepartments(prisma, facilityId),
+      suggestDepartmentsFromCurrentOperators(prisma, {
+        facilityId,
+        organizationId: partner.organizationId,
+      }),
+      getOrganizationClaimState(prisma, { organizationId: partner.organizationId }),
+      listFacilityClaimsForPartner(prisma, {
+        facilityId,
+        organizationId: partner.organizationId,
+      }),
+      canRequestOrganizationClaim(prisma, {
+        facilityId,
+        organizationId: partner.organizationId,
+      }),
+    ]);
 
   const operableOptions = operable.map((row) => ({ id: row.id, name: row.name }));
   const suggestedOptions = suggestions.map((row) => ({ id: row.id, name: row.name }));
+  const latestFacilityClaim = facilityClaims[0] ?? null;
 
   return (
     <div
@@ -111,6 +134,50 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
           operableDepartments={operableOptions}
           suggestedDepartments={suggestedOptions}
         />
+      </section>
+
+      <section
+        className="rounded-lg border border-zinc-200 bg-white px-4 py-4"
+        data-testid="organization-claim-section"
+      >
+        <h2 className="text-sm font-semibold text-zinc-900">Organization administration</h2>
+        <p className="mt-1 text-sm text-zinc-700" data-testid="organization-claim-state">
+          {organizationClaimDisplayStateLabel(claimState.displayState)}
+        </p>
+        <p className="mt-2 text-xs text-zinc-500">
+          Facility Administrators may propose a contact for Harbor review. You cannot approve
+          claims or create Organization Administrators. Organization Administrators receive zero
+          Facility access from a claim.
+        </p>
+
+        {latestFacilityClaim ? (
+          <dl className="mt-3 space-y-1 text-sm text-zinc-700" data-testid="organization-claim-facility-status">
+            <div>
+              <dt className="inline font-medium text-zinc-900">Your request status </dt>
+              <dd className="inline">
+                {organizationClaimInvitationStatusLabel(latestFacilityClaim.displayStatus)}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-zinc-900">Proposed email </dt>
+              <dd className="inline">{latestFacilityClaim.targetEmailNormalized}</dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-zinc-900">Requested </dt>
+              <dd className="inline">{formatTimestamp(latestFacilityClaim.createdAt)}</dd>
+            </div>
+          </dl>
+        ) : null}
+
+        {claimEligibility.ok ? (
+          <OrganizationClaimRequestForm
+            partnershipId={partner.id}
+            organizationId={partner.organizationId}
+          />
+        ) : claimState.displayState === "UNCLAIMED" &&
+          partner.lifecycleState !== "ENDED" ? (
+          <p className="mt-3 text-sm text-zinc-500">{claimEligibility.message}</p>
+        ) : null}
       </section>
 
       <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">

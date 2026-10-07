@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-07  
 **Scope:** Nullable User home Facility / Facility RoleKey; Organization membership + role periods; facility vs organization sessions; Organization Home.  
-**Does not include:** claiming, member invitations, partner Facility user access.
+**Does not include:** claiming (see Phase 2B2), member invitations (2B3), partner Facility user access (2C).
 
 ---
 

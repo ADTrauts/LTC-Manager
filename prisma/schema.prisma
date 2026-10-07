@@ -24,6 +24,16 @@ enum OrganizationMembershipRole {
   ORG_MEMBER
 }
 
+/// First-admin Organization claim workflow status (Phase 2B2).
+/// EXPIRED is derived for APPROVED + past expiresAt + not accepted/revoked.
+enum OrganizationClaimStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  REVOKED
+  ACCEPTED
+}
+
 /// Platform role reference data: identity, display name, and the User relation.
 ///
 /// A role's *capabilities* are not stored here. What each role may reach is defined in
@@ -113,6 +123,8 @@ model Organization {
   facilityPartnerOrganizations FacilityPartnerOrganization[]
   /// Users with Organization membership records (Phase 2B). Does not grant Facility access.
   userOrganizationMemberships UserOrganizationMembership[]
+  /// First-admin claim workflows (Phase 2B2).
+  organizationClaimInvitations OrganizationClaimInvitation[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -211,6 +223,7 @@ model Facility {
   departmentEntitlements         FacilityDepartmentEntitlement[]
   /// Explicit external partner Organizations (Phase 2A). Does not grant user access.
   facilityPartnerOrganizations   FacilityPartnerOrganization[]
+  organizationClaimInvitationsRequested OrganizationClaimInvitation[] @relation("OrganizationClaimRequestedFromFacility")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -426,6 +439,47 @@ model UserOrganizationRolePeriod {
   @@index([membershipId, endsAt], map: "UserOrgRolePeriod_membership_endsAt_idx")
   @@index([createdByUserId])
   @@index([endedByUserId])
+}
+
+/// Secure first-admin claim workflow for an Organization (Phase 2B2).
+/// REQUESTED has no bearer token. APPROVED stores only tokenHash until acceptance.
+/// Acceptance creates ORG_ADMIN membership authority — claim token then dies.
+model OrganizationClaimInvitation {
+  id                         String                  @id @default(cuid())
+  organizationId             String
+  organization               Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  targetEmailNormalized      String
+  /// Optional contact display name for Harbor review (not authority).
+  contactName                String?
+  notes                      String?
+  /// Null until Harbor approves. SHA-256 of raw token; never store plaintext.
+  tokenHash                  String?                 @unique
+  expiresAt                  DateTime?
+  status                     OrganizationClaimStatus @default(REQUESTED)
+  requestedByUserId          String?
+  requestedByUser            User?                   @relation("OrganizationClaimRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  requestedFromFacilityId    String?
+  requestedFromFacility      Facility?               @relation("OrganizationClaimRequestedFromFacility", fields: [requestedFromFacilityId], references: [id], onDelete: SetNull)
+  approvedByPlatformStaffId  String?
+  approvedByPlatformStaff    PlatformStaff?          @relation("OrganizationClaimApprovedBy", fields: [approvedByPlatformStaffId], references: [id], onDelete: SetNull)
+  approvedAt                 DateTime?
+  rejectedByPlatformStaffId  String?
+  rejectedByPlatformStaff    PlatformStaff?          @relation("OrganizationClaimRejectedBy", fields: [rejectedByPlatformStaffId], references: [id], onDelete: SetNull)
+  rejectedAt                 DateTime?
+  revokedByPlatformStaffId   String?
+  revokedByPlatformStaff     PlatformStaff?          @relation("OrganizationClaimRevokedBy", fields: [revokedByPlatformStaffId], references: [id], onDelete: SetNull)
+  revokedAt                  DateTime?
+  acceptedByUserId           String?
+  acceptedByUser             User?                   @relation("OrganizationClaimAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  acceptedAt                 DateTime?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+
+  @@index([organizationId, status])
+  @@index([targetEmailNormalized])
+  @@index([requestedFromFacilityId])
+  @@index([requestedByUserId])
+  @@index([status, expiresAt])
 }
 
 enum BillingInterval {
@@ -742,6 +796,8 @@ model User {
   organizationMembershipsCreated         UserOrganizationMembership[] @relation("UserOrganizationMembershipCreatedBy")
   organizationRolePeriodsCreated         UserOrganizationRolePeriod[] @relation("UserOrganizationRolePeriodCreatedBy")
   organizationRolePeriodsEnded           UserOrganizationRolePeriod[] @relation("UserOrganizationRolePeriodEndedBy")
+  organizationClaimsRequested            OrganizationClaimInvitation[] @relation("OrganizationClaimRequestedBy")
+  organizationClaimsAccepted             OrganizationClaimInvitation[] @relation("OrganizationClaimAcceptedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -5040,6 +5096,9 @@ model PlatformStaff {
   supportMacroApplications SupportMacroApplication[]
   supportNotifications SupportStaffNotification[]
   createdSupportAutomations SupportAutomationRule[]
+  organizationClaimsApproved OrganizationClaimInvitation[] @relation("OrganizationClaimApprovedBy")
+  organizationClaimsRejected OrganizationClaimInvitation[] @relation("OrganizationClaimRejectedBy")
+  organizationClaimsRevoked  OrganizationClaimInvitation[] @relation("OrganizationClaimRevokedBy")
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }

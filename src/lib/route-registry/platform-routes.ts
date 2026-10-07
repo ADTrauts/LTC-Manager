@@ -80,6 +80,23 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Accept an admin-created account invite and set a password.",
   },
   {
+    pattern: "/organization/claim/[token]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "organization-claims",
+    notes:
+      "Harbor-approved Organization first-admin claim acceptance. Token-bound; grants no Facility access.",
+  },
+  {
+    pattern: "/api/auth/organization-claim/accept",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "organization-claims",
+    notes: "Accept an approved Organization claim invitation and start an organization session.",
+  },
+  {
     pattern: "/console/login",
     match: "EXACT",
     surface: "PAGE",
@@ -111,6 +128,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
+  },
+  {
+    pattern: "/console/organization-claims",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor Organization first-admin claim queue. PlatformStaff only.",
   },
   {
     pattern: "/console/tickets",

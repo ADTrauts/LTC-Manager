@@ -60,6 +60,8 @@ test("authentication — public routes need no session", () => {
     "/check-email",
     "/verify-email",
     "/accept-invite",
+    "/organization/claim/tok_example_aaaaaaaaaaaaaaaa",
+    "/api/auth/organization-claim/accept",
     "/api/auth/login",
     "/api/auth/pin-login",
     "/api/auth/password-reset/request",

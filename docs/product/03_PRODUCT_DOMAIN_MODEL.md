@@ -119,7 +119,7 @@ Active Facility session: HighPointe
 User.facilityId remains: Terrace View
 ```
 
-Organization membership grants **zero** Facility access. Claiming / member invitations are later phases.
+Organization membership grants **zero** Facility access. First ORG_ADMIN is established only through Harbor-approved Organization claim (Phase 2B2). General member invitations remain a later phase (2B3).
 
 **Phase 2C warning:** Do not set a partner user's home `User.facilityId` to a customer Facility. Active Facility must remain session-scoped for Path B.
 

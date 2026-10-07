@@ -25,6 +25,11 @@ export {
   sendAccountInviteEmail,
 } from "@/lib/email/account-invite";
 export {
+  ORGANIZATION_CLAIM_TEMPLATE_ALIAS,
+  buildOrganizationClaimTemplateModel,
+  sendOrganizationClaimEmail,
+} from "@/lib/email/organization-claim";
+export {
   buildConsoleTicketReplyTemplateModel,
   CONSOLE_TICKET_REPLY_TEMPLATE_ALIAS,
   sendConsoleTicketReplyEmail,
