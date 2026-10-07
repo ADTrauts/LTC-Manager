@@ -50,9 +50,12 @@ function resolveLockedUnitId(session: AppJwtPayload, deviceUnitId: string | unde
 }
 
 function defaultHomePath(session: AppJwtPayload, lockedUnitId?: string) {
+  if (session.scopeKind === "organization" && session.organizationId) {
+    return `/organization/${session.organizationId}`;
+  }
   return resolveDefaultHomePath({
     authKind: session.authKind ?? "user",
-    role: session.role as AppRole,
+    role: (session.role ?? "STAFF") as AppRole,
     activeUnitId: session.activeUnitId,
     lockedUnitId,
   });
@@ -128,7 +131,12 @@ export async function proxy(request: NextRequest) {
   try {
     const sessionRaw = await verifySessionToken(token);
     const session = sessionRaw as AppJwtPayload;
-    if (!session.facilityId) {
+    if (session.scopeKind === "facility" && !session.facilityId) {
+      const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
+      response.cookies.delete(SESSION_COOKIE);
+      return response;
+    }
+    if (session.scopeKind === "organization" && !session.organizationId) {
       const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
       response.cookies.delete(SESSION_COOKIE);
       return response;
@@ -146,8 +154,22 @@ export async function proxy(request: NextRequest) {
     // Department authority the identity no longer holds is dropped before it can reach nav scoping.
     session.primaryDepartmentId = authority.effectiveDepartmentId ?? undefined;
 
+    if (session.scopeKind === "organization") {
+      const decision = authorizeRoute({
+        pathname,
+        role: null,
+        sessionScope: "organization",
+        featureFlags,
+      });
+      const denial = respondToDecision(request, decision, session);
+      if (denial) {
+        return denial;
+      }
+      return NextResponse.next();
+    }
+
     const facility = await prisma.facility.findUnique({
-      where: { id: session.facilityId },
+      where: { id: session.facilityId! },
       select: { onboardingCompletedAt: true },
     });
     const onboardingComplete = Boolean(facility?.onboardingCompletedAt);
@@ -169,7 +191,12 @@ export async function proxy(request: NextRequest) {
       return defaultHomeRedirect(request, session, lockedUnitId);
     }
 
-    const decision = authorizeRoute({ pathname, role, featureFlags });
+    const decision = authorizeRoute({
+      pathname,
+      role,
+      sessionScope: "facility",
+      featureFlags,
+    });
     const denial = respondToDecision(request, decision, session, lockedUnitId);
     if (denial) {
       return denial;

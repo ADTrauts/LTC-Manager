@@ -23,8 +23,11 @@
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
 | **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
-| **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). |
-| **Role** | Capability ladder: Staff → Lead → Supervisor → Manager → GM → Facility Administrator. |
+| **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email `User` may be facility-native (`facilityId` + `roleId`) or organization-only (both null). |
+| **User home Facility** | Optional `User.facilityId` — facility-native home affiliation. Not the active Facility. |
+| **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
+| **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
+| **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |
 | **Operation** | Time-bound commitment (e.g. Lunch service) via definition + instance when Operations Engine is on. |
 | **Readiness** | Computed location state for an operation: Ready / In Progress / Needs Attention. |
 | **Task** | Unified work projection (optional dual-write) over logs, repairs/issues, inspections. |
@@ -100,7 +103,25 @@ This means the Facility has established Metz as an external partner and has expl
 
 **Phase 2A grants zero external-user Facility access.** `UserFacilityAccess` remains internal / same-parent-org only.
 
-**Phase 2C warning:** Do not simply set a partner user's `User.facilityId` to the customer Facility and treat that as their home Facility. Existing auth uses `User.facilityId` in internal Organization eligibility; that would blur Path A (internal) and Path B (partner). Resolve home/default vs active Facility before enabling external users.
+**Phase 2B1 identity:**
+
+```text
+Jane Smith
+User
+facilityId = null
+roleId = null
+Membership: Metz — ORG_ADMIN
+Terrace View access: NONE
+
+Andrew
+Home Facility: Terrace View (User.facilityId)
+Active Facility session: HighPointe
+User.facilityId remains: Terrace View
+```
+
+Organization membership grants **zero** Facility access. Claiming / member invitations are later phases.
+
+**Phase 2C warning:** Do not set a partner user's home `User.facilityId` to a customer Facility. Active Facility must remain session-scoped for Path B.
 
 Do not confuse with:
 

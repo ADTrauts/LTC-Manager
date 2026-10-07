@@ -44,7 +44,8 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
       return;
     }
 
-    router.push("/dashboard");
+    const payload = (await res.json().catch(() => null)) as { redirectPath?: string } | null;
+    router.push(payload?.redirectPath?.trim() || "/dashboard");
     router.refresh();
   }
 

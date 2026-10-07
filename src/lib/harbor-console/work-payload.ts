@@ -10,6 +10,7 @@ export function composeHarborWorkAppSession(
     uid: harbor.uid,
     authKind: "harbor_staff",
     authMethod: "PASSWORD",
+    scopeKind: "facility",
     role: "FACILITY_ADMINISTRATOR",
     name: harbor.name,
     email: harbor.email,

@@ -18,6 +18,12 @@ enum RoleKey {
   STAFF
 }
 
+/// Organization-level membership authority (Phase 2B). Not a Facility RoleKey.
+enum OrganizationMembershipRole {
+  ORG_ADMIN
+  ORG_MEMBER
+}
+
 /// Platform role reference data: identity, display name, and the User relation.
 ///
 /// A role's *capabilities* are not stored here. What each role may reach is defined in
@@ -105,6 +111,8 @@ model Organization {
   departmentOperatorRelationships DepartmentOperatorRelationship[]
   /// Facilities where this Organization is an explicit external partner (Phase 2A).
   facilityPartnerOrganizations FacilityPartnerOrganization[]
+  /// Users with Organization membership records (Phase 2B). Does not grant Facility access.
+  userOrganizationMemberships UserOrganizationMembership[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -378,6 +386,48 @@ model FacilityPartnerDepartmentScope {
   @@index([departmentId], map: "FacilityPartnerDeptScope_departmentId_idx")
 }
 
+/// Durable User ↔ Organization membership identity (Phase 2B).
+/// Does not grant Facility access. Current authority lives on UserOrganizationRolePeriod.
+model UserOrganizationMembership {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdByUserId String?
+  createdByUser   User?    @relation("UserOrganizationMembershipCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  rolePeriods     UserOrganizationRolePeriod[]
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([createdByUserId])
+}
+
+/// Timestamp period of Organization-level role authority for a membership.
+/// Half-open: startsAt <= instant < endsAt. Current period = current membership.
+model UserOrganizationRolePeriod {
+  id             String                     @id @default(cuid())
+  membershipId   String
+  membership     UserOrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role           OrganizationMembershipRole
+  startsAt       DateTime
+  endsAt         DateTime?
+  createdByUserId String?
+  createdByUser  User?                      @relation("UserOrganizationRolePeriodCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId  String?
+  endedByUser    User?                      @relation("UserOrganizationRolePeriodEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  @@index([membershipId, startsAt], map: "UserOrgRolePeriod_membership_startsAt_idx")
+  @@index([membershipId, endsAt], map: "UserOrgRolePeriod_membership_endsAt_idx")
+  @@index([createdByUserId])
+  @@index([endedByUserId])
+}
+
 enum BillingInterval {
   MONTHLY
   ANNUAL
@@ -591,11 +641,14 @@ model User {
   displayName                    String
   /// Null until the user sets a password (account invite accept) or signup/admin path hashes one.
   passwordHash                   String?
-  /// All app users belong to one facility in this deployment; session JWT carries facilityId for query scope.
-  facilityId                     String
-  facility                       Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  roleId                         String
-  role                           Role                            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  /// Optional HOME Facility affiliation for facility-native Users. Not the active Facility
+  /// (active Facility lives only in session/JWT). Null for organization-only Users.
+  facilityId                     String?
+  facility                       Facility?                       @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  /// Optional internal Facility RoleKey for facility-native authorization. Null for
+  /// organization-only Users. Never stores ORG_ADMIN / ORG_MEMBER.
+  roleId                         String?
+  role                           Role?                           @relation(fields: [roleId], references: [id], onDelete: Restrict)
   isActive                       Boolean                         @default(true)
   /// Set when the account email is confirmed (public signup verify link, or admin-created users at create time).
   /// Null means verification is still outstanding; login and sessions require a non-null value.
@@ -685,6 +738,10 @@ model User {
   facilityPartnerAccessPeriodsEnded   FacilityPartnerAccessPeriod[] @relation("FacilityPartnerAccessPeriodEndedBy")
   facilityPartnerDepartmentScopesCreated FacilityPartnerDepartmentScope[] @relation("FacilityPartnerDepartmentScopeCreatedBy")
   facilityPartnerDepartmentScopesEnded   FacilityPartnerDepartmentScope[] @relation("FacilityPartnerDepartmentScopeEndedBy")
+  organizationMemberships                UserOrganizationMembership[]
+  organizationMembershipsCreated         UserOrganizationMembership[] @relation("UserOrganizationMembershipCreatedBy")
+  organizationRolePeriodsCreated         UserOrganizationRolePeriod[] @relation("UserOrganizationRolePeriodCreatedBy")
+  organizationRolePeriodsEnded           UserOrganizationRolePeriod[] @relation("UserOrganizationRolePeriodEndedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 

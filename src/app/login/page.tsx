@@ -8,10 +8,13 @@ import { isPublicSignupEnabled } from "@/lib/signup-policy";
 export default async function LoginPage() {
   const session = await getSession();
   if (session) {
+    if (session.scopeKind === "organization" && session.organizationId) {
+      redirect(`/organization/${session.organizationId}`);
+    }
     redirect(
       resolveDefaultHomePath({
         authKind: session.authKind ?? "user",
-        role: session.role,
+        role: session.role ?? "STAFF",
         activeUnitId: session.activeUnitId,
       }),
     );

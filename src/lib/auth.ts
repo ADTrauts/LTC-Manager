@@ -12,6 +12,13 @@ export const authMethodValues = ["PASSWORD", "QUICK_PIN"] as const;
 export type AuthMethod = (typeof authMethodValues)[number];
 
 /**
+ * Explicit session context discriminant (Phase 2B1).
+ * Facility sessions carry Facility RoleKey + active Facility.
+ * Organization sessions carry selected Organization context only — authority is re-checked server-side.
+ */
+export type SessionScopeKind = "facility" | "organization";
+
+/**
  * Cookies issued before the `authMethod` claim existed do not carry it. Those sessions are read
  * as PASSWORD for `authKind: "user"` and QUICK_PIN for `authKind: "employee"`, which matches how
  * each kind was always created, so existing sessions stay valid across this release.
@@ -23,17 +30,39 @@ function resolveAuthMethod(raw: unknown, authKind: AuthKind): AuthMethod {
   return authKind === "employee" ? "QUICK_PIN" : "PASSWORD";
 }
 
+function resolveScopeKind(
+  raw: unknown,
+  facilityId: string | undefined,
+  organizationId: string | undefined,
+): SessionScopeKind {
+  if (raw === "organization") return "organization";
+  if (raw === "facility") return "facility";
+  // Pre-2B1 tokens: facilityId present ⇒ facility scope.
+  if (facilityId) return "facility";
+  if (organizationId) return "organization";
+  return "facility";
+}
+
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
 export type AppJwtPayload = JWTPayload & {
   uid: string;
   authKind: AuthKind;
-  /** Credential surface used at login. Authorization still derives from `role` and relationships. */
+  /** Credential surface used at login. Authorization still derives from relationships. */
   authMethod: AuthMethod;
-  role: AppRole;
+  /** Discriminates Facility vs Organization session context. */
+  scopeKind: SessionScopeKind;
+  /**
+   * Facility RoleKey for facility-scoped sessions.
+   * Absent on organization-scoped sessions (ORG_* roles are not RoleKeys).
+   */
+  role?: AppRole;
   name: string;
   email: string;
-  facilityId: string;
+  /** Active Facility for facility-scoped sessions. Not home Facility. */
+  facilityId?: string;
+  /** Selected Organization for organization-scoped sessions (selection context, not sole authority). */
+  organizationId?: string;
   activeUnitId?: string | null;
   /** When set, department-scoped lists default to this department (user or employee primary). */
   primaryDepartmentId?: string | null;
@@ -49,6 +78,18 @@ export type AppJwtPayload = JWTPayload & {
   sessionVersion?: number;
 };
 
+export function isFacilityScopedSession(
+  session: Pick<AppJwtPayload, "scopeKind" | "facilityId">,
+): boolean {
+  return session.scopeKind === "facility" && Boolean(session.facilityId);
+}
+
+export function isOrganizationScopedSession(
+  session: Pick<AppJwtPayload, "scopeKind" | "organizationId">,
+): boolean {
+  return session.scopeKind === "organization" && Boolean(session.organizationId);
+}
+
 function getJwtSecret() {
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
@@ -58,6 +99,7 @@ function getJwtSecret() {
   return new TextEncoder().encode(secret);
 }
 
+/** Mint a facility-scoped session (facility-native Users and Employees). */
 export async function createSessionToken(payload: {
   uid: string;
   authKind?: Exclude<AuthKind, "harbor_staff">;
@@ -73,10 +115,14 @@ export async function createSessionToken(payload: {
   sessionVersion: number;
 }) {
   const authKind = payload.authKind ?? "user";
+  if (!payload.facilityId?.trim()) {
+    throw new Error("Facility session requires facilityId.");
+  }
   const body: Record<string, unknown> = {
     uid: payload.uid,
     authKind,
     authMethod: resolveAuthMethod(payload.authMethod, authKind),
+    scopeKind: "facility",
     role: payload.role,
     name: payload.name,
     email: payload.email,
@@ -100,6 +146,36 @@ export async function createSessionToken(payload: {
     .sign(getJwtSecret());
 }
 
+/** Mint an organization-scoped session (organization-only Users). No Facility RoleKey. */
+export async function createOrganizationSessionToken(payload: {
+  uid: string;
+  authMethod?: AuthMethod;
+  name: string;
+  email: string;
+  organizationId: string;
+  sessionVersion: number;
+}) {
+  if (!payload.organizationId?.trim()) {
+    throw new Error("Organization session requires organizationId.");
+  }
+  const body: Record<string, unknown> = {
+    uid: payload.uid,
+    authKind: "user",
+    authMethod: resolveAuthMethod(payload.authMethod, "user"),
+    scopeKind: "organization",
+    name: payload.name,
+    email: payload.email,
+    organizationId: payload.organizationId,
+    sessionVersion: payload.sessionVersion,
+  };
+
+  return new SignJWT(body)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .sign(getJwtSecret());
+}
+
 export async function verifySessionToken(token: string): Promise<AppJwtPayload> {
   const { payload } = await jwtVerify(token, getJwtSecret());
   const p = payload as Record<string, unknown>;
@@ -107,15 +183,25 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
   if (authKind === "harbor_staff") {
     throw new Error("Not a facility session.");
   }
+  const facilityIdRaw = typeof p.facilityId === "string" ? p.facilityId : "";
+  const organizationIdRaw = typeof p.organizationId === "string" ? p.organizationId : "";
+  const facilityId = facilityIdRaw.trim() || undefined;
+  const organizationId = organizationIdRaw.trim() || undefined;
+  const scopeKind = resolveScopeKind(p.scopeKind, facilityId, organizationId);
+  const role =
+    typeof p.role === "string" && p.role.length > 0 ? (p.role as AppRole) : undefined;
+
   return {
     ...payload,
     uid: String(p.uid ?? ""),
     authKind,
     authMethod: resolveAuthMethod(p.authMethod, authKind),
-    role: p.role as AppRole,
+    scopeKind,
+    role,
     name: String(p.name ?? ""),
     email: String(p.email ?? ""),
-    facilityId: String(p.facilityId ?? ""),
+    facilityId,
+    organizationId,
     activeUnitId: (p.activeUnitId as string | undefined) ?? undefined,
     primaryDepartmentId: (p.primaryDepartmentId as string | undefined) ?? undefined,
     kioskUnitAccessWarning: p.kioskUnitAccessWarning === true,
@@ -149,6 +235,7 @@ export async function getSession(): Promise<AppJwtPayload | null> {
         return {
           ...workSession,
           authKind: "harbor_staff",
+          scopeKind: "facility",
           primaryDepartmentId: undefined,
         };
       }
@@ -165,7 +252,10 @@ export async function getSession(): Promise<AppJwtPayload | null> {
 
   try {
     const payload = await verifySessionToken(raw);
-    if (!payload.facilityId) {
+    if (payload.scopeKind === "facility" && !payload.facilityId) {
+      return null;
+    }
+    if (payload.scopeKind === "organization" && !payload.organizationId) {
       return null;
     }
 

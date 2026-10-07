@@ -17,8 +17,10 @@ export type RouteFeatureFlags = {
 
 export type RouteAuthorizationInput = {
   pathname: string;
-  /** The caller's role, or `null` when there is no valid session. */
+  /** The caller's Facility RoleKey, or `null` when there is no facility RoleKey session. */
   role: AppRole | null;
+  /** Explicit session context. Organization sessions authorize ORGANIZATION_SESSION routes without RoleKey. */
+  sessionScope?: "facility" | "organization" | null;
   featureFlags: RouteFeatureFlags;
 };
 
@@ -83,7 +85,9 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
     return { outcome: "ALLOW", route };
   }
 
-  if (!input.role) {
+  const hasFacilityRole = Boolean(input.role);
+  const isOrganizationSession = input.sessionScope === "organization";
+  if (!hasFacilityRole && !isOrganizationSession) {
     return { outcome: "REQUIRE_AUTHENTICATION", route, surface: route.surface };
   }
 
@@ -94,16 +98,33 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
   }
 
   switch (route.access.kind) {
+    case "ORGANIZATION_SESSION":
+      return isOrganizationSession
+        ? { outcome: "ALLOW", route }
+        : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+
     case "AUTHENTICATED":
     case "HANDLER_AUTHORIZED_API":
+      // Organization sessions may use a narrow authenticated set (account/help); facility routes stay RoleKey-gated.
+      if (isOrganizationSession) {
+        return route.module === "account"
+          ? { outcome: "ALLOW", route }
+          : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+      }
       return { outcome: "ALLOW", route };
 
     case "ROLE_RESTRICTED":
+      if (!input.role) {
+        return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+      }
       return route.access.allowedRoles.includes(input.role)
         ? { outcome: "ALLOW", route }
         : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
 
     case "REDIRECT_ONLY":
+      if (!input.role) {
+        return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+      }
       return {
         outcome: "REDIRECT",
         route,

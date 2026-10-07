@@ -94,44 +94,45 @@ export async function setUserActiveFacilityAction(formData: FormData) {
     },
   });
   if (!target) throw new Error("Target user not found.");
+  if (!target.facilityId || !target.role) {
+    throw new Error("Organization-only users cannot receive Facility session switches.");
+  }
 
-  await switchActiveFacility({
+  const switchResult = await switchActiveFacility({
     userId: parsed.targetUserId,
     authKind: "user",
     role: target.role.key,
-    sourceFacilityId: target.facilityId,
+    sourceFacilityId: session.facilityId,
     destinationFacilityId: parsed.targetFacilityId,
     sourceDepartmentId: target.primaryDepartmentId,
   });
 
-  // If the actor switched themselves, refresh their session cookies.
+  // If the actor switched themselves, refresh their session cookies with the new active Facility.
+  // Home User.facilityId is intentionally unchanged by switchActiveFacility.
   if (parsed.targetUserId === actorUserId) {
     const jar = await cookies();
-    const resultFacility = parsed.targetFacilityId;
     const user = await prisma.user.findUnique({
       where: { id: actorUserId },
       select: {
         displayName: true,
         email: true,
-        facilityId: true,
-        primaryDepartmentId: true,
         sessionVersion: true,
         role: { select: { key: true } },
       },
     });
-    if (user) {
+    if (user?.role) {
       const token = await createSessionToken({
         uid: actorUserId,
         authKind: "user",
         role: user.role.key,
         name: user.displayName,
         email: user.email,
-        facilityId: user.facilityId,
-        primaryDepartmentId: user.primaryDepartmentId,
+        facilityId: switchResult.facilityId,
+        primaryDepartmentId: switchResult.primaryDepartmentId,
         sessionVersion: user.sessionVersion,
       });
       jar.set(SESSION_COOKIE, token, getCookieOptions());
-      jar.set(DEVICE_FACILITY_COOKIE, resultFacility, getDeviceCookieOptions());
+      jar.set(DEVICE_FACILITY_COOKIE, switchResult.facilityId, getDeviceCookieOptions());
       jar.delete(ACTIVE_DEPARTMENT_COOKIE);
     }
   }

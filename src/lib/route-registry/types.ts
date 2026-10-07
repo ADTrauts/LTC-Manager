@@ -11,6 +11,8 @@ export const ROUTE_ACCESS_KINDS = [
   "PUBLIC",
   /** Any authenticated supported role, subject to page/handler/scope/object authorization. */
   "AUTHENTICATED",
+  /** Organization-scoped email User session; Facility RoleKey not required. */
+  "ORGANIZATION_SESSION",
   /** Only the explicitly listed roles. */
   "ROLE_RESTRICTED",
   /** Session required at the proxy; the handler remains responsible for role and object checks. */
@@ -28,6 +30,7 @@ export type RouteAccessKind = (typeof ROUTE_ACCESS_KINDS)[number];
 export type RouteAccess =
   | { kind: "PUBLIC" }
   | { kind: "AUTHENTICATED" }
+  | { kind: "ORGANIZATION_SESSION" }
   | { kind: "ROLE_RESTRICTED"; allowedRoles: readonly AppRole[] }
   | { kind: "HANDLER_AUTHORIZED_API" }
   | {

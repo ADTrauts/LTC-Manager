@@ -10,7 +10,7 @@ import {
 } from "./actions";
 
 type FacilityOption = { id: string; name: string };
-type UserOption = { id: string; displayName: string; email: string; facilityId: string };
+type UserOption = { id: string; displayName: string; email: string; facilityId: string | null };
 
 type GrantRow = {
   id: string;

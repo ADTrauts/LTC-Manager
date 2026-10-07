@@ -357,7 +357,7 @@ test("duplicate grant is idempotent", async () => {
   assert.equal(first.id, second.id);
 });
 
-test("valid switch updates User.facilityId; invalid/cross-org rejected", async () => {
+test("valid switch does not rewrite home User.facilityId; invalid/cross-org rejected", async () => {
   const db = createMemoryDb({
     facilities: [
       { id: "fac_a", displayName: "A", organizationId: "org_1" },
@@ -403,7 +403,8 @@ test("valid switch updates User.facilityId; invalid/cross-org rejected", async (
   );
   assert.equal(result.facilityId, "fac_b");
   assert.equal(result.primaryDepartmentId, "dept_b_dietary");
-  assert.equal(db._users[0].facilityId, "fac_b");
+  // Home Facility remains Terrace-equivalent fac_a; active Facility is session-only.
+  assert.equal(db._users[0].facilityId, "fac_a");
   assert.ok(result.redirectPath);
 
   await assert.rejects(

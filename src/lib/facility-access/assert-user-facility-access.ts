@@ -156,6 +156,12 @@ export async function grantUserFacilityAccess(
   if (!targetUser || !targetUser.isActive) {
     throw new Error("Target user not found or inactive.");
   }
+  // Path A is facility-native only. Organization-only Users cannot receive UserFacilityAccess.
+  if (!targetUser.facilityId || !targetUser.facility) {
+    throw new Error(
+      "Target user has no home Facility and cannot receive internal facility access grants.",
+    );
+  }
 
   const targetOrgIds = new Set<string>([
     targetUser.facility.organizationId,
@@ -237,7 +243,7 @@ export async function revokeUserFacilityAccess(
 
   if (targetUser.facilityId === input.targetFacilityId) {
     throw new Error(
-      "Cannot revoke access to the user's current facility. Switch them to another facility first.",
+      "Cannot revoke access to the user's home Facility. Change their home Facility first.",
     );
   }
 

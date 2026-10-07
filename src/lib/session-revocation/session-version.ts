@@ -105,6 +105,10 @@ async function validateUserSession(
   session: AppJwtPayload,
   client: PrismaLike,
 ): Promise<SessionValidation> {
+  if (session.scopeKind === "organization") {
+    return validateOrganizationUserSession(session, client);
+  }
+
   const user = await client.user.findUnique({
     where: { id: session.uid },
     select: {
@@ -114,7 +118,11 @@ async function validateUserSession(
       primaryDepartmentId: true,
       role: { select: { key: true, isActive: true } },
       facilityAccesses: {
-        where: { facilityId: session.facilityId, isActive: true, revokedAt: null },
+        where: {
+          facilityId: session.facilityId ?? "__missing__",
+          isActive: true,
+          revokedAt: null,
+        },
         select: { id: true },
         take: 1,
       },
@@ -124,19 +132,20 @@ async function validateUserSession(
   if (!user) {
     return { valid: false, reason: "IDENTITY_NOT_FOUND" };
   }
-  if (!user.isActive || !user.role.isActive) {
+  if (!user.isActive || !user.role?.isActive) {
     return { valid: false, reason: "IDENTITY_INACTIVE" };
   }
   if (user.sessionVersion !== session.sessionVersion) {
     return { valid: false, reason: "VERSION_STALE" };
   }
-  if (user.role.key !== session.role) {
+  if (!session.role || !user.role || user.role.key !== session.role) {
     return { valid: false, reason: "ROLE_STALE" };
   }
+  if (!session.facilityId) {
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
 
-  // The session names a facility. Home facility or an active access grant both count; losing both
-  // ends the session even if nothing incremented the version, which covers an access row deleted
-  // outside the helpers below.
+  // Active Facility is session context. Home Facility or an active Path A grant both authorize it.
   const hasFacility =
     user.facilityId === session.facilityId || user.facilityAccesses.length > 0;
   if (!hasFacility) {
@@ -144,6 +153,45 @@ async function validateUserSession(
   }
 
   return { valid: true, effectiveDepartmentId: user.primaryDepartmentId };
+}
+
+async function validateOrganizationUserSession(
+  session: AppJwtPayload,
+  client: PrismaLike,
+): Promise<SessionValidation> {
+  if (!session.organizationId) {
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
+
+  const user = await client.user.findUnique({
+    where: { id: session.uid },
+    select: {
+      isActive: true,
+      sessionVersion: true,
+      facilityId: true,
+      roleId: true,
+    },
+  });
+  if (!user) {
+    return { valid: false, reason: "IDENTITY_NOT_FOUND" };
+  }
+  if (!user.isActive) {
+    return { valid: false, reason: "IDENTITY_INACTIVE" };
+  }
+  if (user.sessionVersion !== session.sessionVersion) {
+    return { valid: false, reason: "VERSION_STALE" };
+  }
+
+  const { getCurrentOrganizationRole } = await import("@/lib/organization-membership");
+  const role = await getCurrentOrganizationRole(client, {
+    userId: session.uid,
+    organizationId: session.organizationId,
+  });
+  if (!role) {
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
+
+  return { valid: true, effectiveDepartmentId: null };
 }
 
 async function validateEmployeeSession(

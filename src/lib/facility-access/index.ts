@@ -4,13 +4,14 @@
  * Organization groups facilities. Access grants authorize facilities.
  * Shared Organization membership alone never grants access.
  *
- * Session strategy on switch:
- * - Updates User.facilityId (active/home facility for this milestone)
- * - Re-issues JWT with the destination facilityId
+ * Session strategy on switch (Phase 2B1):
+ * - Does NOT rewrite User.facilityId (home Facility affiliation)
+ * - Re-issues JWT with the destination facilityId as active Facility
  * - Updates device facility cookie
- * - Remaps or clears department cookie / primaryDepartmentId by department key
+ * - Remaps or clears department cookie by department key (session/cookie only)
  *
- * Per-facility role on UserFacilityAccess is deferred; User.role remains authoritative.
+ * Per-facility role on UserFacilityAccess is deferred; User.role remains authoritative for Path A.
+ * Organization membership never grants Facility access.
  */
 
 export type {

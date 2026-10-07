@@ -10,13 +10,19 @@ import {
   registerAuthFailure,
   resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
-import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import {
+  createOrganizationSessionToken,
+  createSessionToken,
+  getCookieOptions,
+  SESSION_COOKIE,
+} from "@/lib/auth";
 import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
 import {
   ensureUserFacilityAccessGrant,
   listActiveFacilityAccesses,
   userHasActiveFacilityAccess,
 } from "@/lib/facility-access";
+import { listCurrentOrganizationMembershipsForUser } from "@/lib/organization-membership";
 import { prisma } from "@/lib/prisma";
 import { INITIAL_SESSION_VERSION } from "@/lib/session-revocation";
 
@@ -71,7 +77,9 @@ export async function POST(request: Request) {
       isActive: true,
       emailVerifiedAt: true,
       facilityId: true,
+      roleId: true,
       primaryDepartmentId: true,
+      sessionVersion: true,
       role: { select: { key: true, isActive: true } },
     },
   });
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
   // Unknown and disabled accounts run a bcrypt comparison against a dummy hash so the response
   // time does not separate "no such account" from "wrong password", and both record a failure
   // so an attacker cannot probe for valid addresses without also being throttled.
-  if (!user || !user.isActive || !user.role.isActive) {
+  if (!user || !user.isActive) {
     await bcrypt.compare(password, ABSENT_ACCOUNT_HASH);
     await registerAuthFailure(buckets);
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
@@ -114,16 +122,65 @@ export async function POST(request: Request) {
 
   await resetAuthRateLimitBucket(accountBucketKey);
 
-  let activeFacilityId = user.facilityId;
-  const hasCurrent = await userHasActiveFacilityAccess(prisma, user.id, user.facilityId);
-  if (!hasCurrent) {
+  const isFacilityNative = Boolean(user.facilityId && user.roleId && user.role);
+  const isOrganizationOnly = !user.facilityId && !user.roleId;
+
+  if (!isFacilityNative && !isOrganizationOnly) {
+    return NextResponse.json(
+      { error: "Account identity is incomplete. Contact support." },
+      { status: 403 },
+    );
+  }
+
+  if (isOrganizationOnly) {
+    const memberships = await listCurrentOrganizationMembershipsForUser(prisma, {
+      userId: user.id,
+    });
+    if (memberships.length === 0) {
+      return NextResponse.json({ error: "No organization membership." }, { status: 403 });
+    }
+    // Deterministic: earliest created active membership.
+    const selected = memberships[0]!;
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const token = await createOrganizationSessionToken({
+      uid: user.id,
+      authMethod: "PASSWORD",
+      name: user.displayName,
+      email: user.email,
+      organizationId: selected.organizationId,
+      sessionVersion: user.sessionVersion ?? INITIAL_SESSION_VERSION,
+    });
+
+    const response = NextResponse.json({
+      ok: true,
+      redirectPath: `/organization/${selected.organizationId}`,
+    });
+    response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
+    return response;
+  }
+
+  if (!user.role?.isActive) {
+    await registerAuthFailure(buckets);
+    return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+  }
+
+  const homeFacilityId = user.facilityId!;
+  let activeFacilityId = homeFacilityId;
+  const hasHomeAccess = await userHasActiveFacilityAccess(prisma, user.id, homeFacilityId);
+  if (!hasHomeAccess) {
     // Compat repair: ensure home facility grant, else fall back to another active grant.
+    // Fallback changes active session context only — home User.facilityId is not rewritten.
     await ensureUserFacilityAccessGrant(prisma, {
       userId: user.id,
-      facilityId: user.facilityId,
+      facilityId: homeFacilityId,
       reactivate: false,
     });
-    const stillMissing = !(await userHasActiveFacilityAccess(prisma, user.id, user.facilityId));
+    const stillMissing = !(await userHasActiveFacilityAccess(prisma, user.id, homeFacilityId));
     if (stillMissing) {
       const accesses = await listActiveFacilityAccesses(prisma, user.id);
       const fallback = accesses[0];
@@ -131,22 +188,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "No facility access." }, { status: 403 });
       }
       activeFacilityId = fallback.facilityId;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { facilityId: activeFacilityId, lastLoginAt: new Date() },
-      });
-    } else {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      });
     }
-  } else {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
   }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
 
   // Ensure grant exists for the facility we will session into.
   await ensureUserFacilityAccessGrant(prisma, {
@@ -156,9 +204,8 @@ export async function POST(request: Request) {
 
   const refreshed = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { facilityId: true, primaryDepartmentId: true, sessionVersion: true },
+    select: { primaryDepartmentId: true, sessionVersion: true },
   });
-  activeFacilityId = refreshed?.facilityId ?? activeFacilityId;
 
   const token = await createSessionToken({
     uid: user.id,

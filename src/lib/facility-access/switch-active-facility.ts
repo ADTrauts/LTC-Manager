@@ -64,8 +64,9 @@ export async function resolveDepartmentCarryoverForFacilitySwitch(
 }
 
 /**
- * Switch the authenticated email user's active facility.
- * Updates User.facilityId and returns values for JWT re-issue + cookie updates.
+ * Switch the authenticated email user's active Facility (session context only).
+ * Does NOT rewrite User.facilityId (home Facility). Department carryover is returned
+ * for JWT/cookie update only — home identity is unchanged.
  * PIN/kiosk sessions must not call this.
  */
 export async function switchActiveFacility(
@@ -141,14 +142,6 @@ export async function switchActiveFacility(
     destinationFacilityId: destination.id,
     sourceDepartmentId: input.sourceDepartmentId,
     sourceDepartmentKey: input.sourceDepartmentKey,
-  });
-
-  await db.user.update({
-    where: { id: input.userId },
-    data: {
-      facilityId: destination.id,
-      primaryDepartmentId: carry.primaryDepartmentId,
-    },
   });
 
   await trackEvent("facility_access.switched", {

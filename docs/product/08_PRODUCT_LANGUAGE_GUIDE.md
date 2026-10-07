@@ -40,6 +40,9 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Operating Organization** | Organization responsible for operating a Department (date-effective) | Management company string on Facility; Vendor; FacilityOrganization; Partner Organization *(different concept)* |
 | **Partner Organization** | External Organization with an explicit Facility partnership | Inferring partnership from operators, vendors, or parent Organization |
 | **Partner Department Scope** | Departments explicitly authorized under a partnership (timestamp periods) | Auto-syncing from Operating Organization; undated permanent rows |
+| **Organization member / Organization administrator** | `ORG_MEMBER` / `ORG_ADMIN` on membership role periods | Facility Administrator; Vendor admin; putting ORG_* on RoleKey |
+| **Home Facility** | Optional `User.facilityId` for facility-native Users | Active Facility; rewriting home on Facility switch |
+| **Active Facility** | Session/JWT Facility context | Persisting active Facility by mutating `User.facilityId` |
 | **Facility operated / Contracted** | Derived operating model (operator org == / != Facility parent org) | Persisted SELF_OPERATED / CONTRACTED enum *(prefer derivation)* |
 | **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Facility Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name; generic **Maintenance** as a Product name |
 | **Department** | Facility-installed instance / operational ownership | Line of business |

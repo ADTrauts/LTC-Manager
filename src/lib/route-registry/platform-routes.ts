@@ -285,6 +285,28 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
   },
 
+  // ── Organization account (Phase 2B1) ───────────────────────────────────────
+  {
+    pattern: "/organization",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Organization Home index. Organization-scoped sessions only; no Facility access.",
+  },
+  {
+    pattern: "/organization/[organizationId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Organization Home for one membership. Server verifies current role period.",
+  },
+
   // ── Authenticated, guarded downstream ─────────────────────────────────────
   {
     pattern: "/setup",
@@ -880,6 +902,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Administrative ownership for one installed Department Product.",
   },
   {
+    pattern: "/admin/departments/[departmentId]/manage/operator",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    notes: "Department operating Organization governance (Phase 1).",
+  },
+  {
     pattern: "/admin/departments/[departmentId]",
     match: "EXACT",
     surface: "PAGE",
@@ -908,6 +938,30 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Facility Plant Operations Preventive Maintenance builder. Supervisor drafts; Manager+ publish and retire. Longer PREFIX outranks /build/departments Manager+.",
   },
   {
+    pattern: "/build/departments/[departmentId]/preventive-maintenance/new",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "administration",
+    notes: "Create Preventive Maintenance plan.",
+  },
+  {
+    pattern: "/build/departments/[departmentId]/preventive-maintenance/[planId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "administration",
+    notes: "Preventive Maintenance plan detail.",
+  },
+  {
+    pattern: "/preventive-maintenance/[occurrenceId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "operations",
+    notes: "Preventive Maintenance occurrence execution.",
+  },
+  {
     pattern: "/admin/facility/builder",
     match: "EXACT",
     surface: "PAGE",
@@ -930,10 +984,13 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     pattern: "/build/knowledge",
     match: "EXACT",
     surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    access: {
+      kind: "REDIRECT_ONLY",
+      destination: "/admin/knowledge",
+      allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR"),
+    },
     module: "administration",
-    notes:
-      "Local procedure notes. Harbor publishes procedures; install then place. Rooms can add a local note here.",
+    notes: "Canonical procedures URL redirects to Admin knowledge until Build surface exists.",
     ...(PROCEDURES_RESOURCES_VISIBLE
       ? { nav: { label: "Procedures", order: 260 } }
       : {}),
@@ -944,7 +1001,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
-    notes: "Leftover URL. Redirects to /build/knowledge.",
+    notes:
+      "Local procedure notes. Harbor publishes procedures; install then place. Rooms can add a local note here.",
   },
   {
     pattern: "/admin/organization",
@@ -959,6 +1017,22 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
+  },
+  {
+    pattern: "/admin/organization/partners",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    notes: "External Facility partner governance (Phase 2A). Does not grant partner user access.",
+  },
+  {
+    pattern: "/admin/organization/partners/[partnershipId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    notes: "Manage one Facility ↔ external Organization partnership.",
   },
   {
     pattern: "/admin/permissions",
