@@ -89,6 +89,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/support/support-automation.db.test.ts",
   "src/lib/harbor-console/console-catalog.db.test.ts",
   "src/lib/harbor-console/console-catalog-detail.db.test.ts",
+  "src/lib/harbor-console/console-marketplace-v1.db.test.ts",
 ];
 
 function main() {
