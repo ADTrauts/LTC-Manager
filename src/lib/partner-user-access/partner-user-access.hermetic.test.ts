@@ -21,6 +21,7 @@ import {
   PartnerFacilitySessionError,
   resolvePartnerFacilityEntry,
 } from "@/lib/partner-facility-session";
+import { resolvePartnerOperationalContext } from "@/lib/partner-operational-context";
 import { getCurrentOrganizationRole } from "@/lib/organization-membership";
 import { authorizeRoute } from "@/lib/route-registry/authorize";
 import {
@@ -698,7 +699,9 @@ function createWorld() {
       endsAt: null as Date | null,
     },
   ];
-  const departments = [{ id: "dietary", facilityId: "fac", isActive: true }];
+  const departments: Array<{ id: string; facilityId: string; isActive: boolean; sortOrder?: number }> = [
+    { id: "dietary", facilityId: "fac", isActive: true, sortOrder: 10 },
+  ];
   const scopes = [
     {
       id: "scope_dietary",
@@ -765,6 +768,7 @@ function createWorld() {
           .sort((left, right) => left.id.localeCompare(right.id))
           .map((row) => ({
             id: row.id,
+            sortOrder: row.sortOrder ?? (row.id === "evs" ? 20 : 10),
             name:
               row.id === "dietary" || row.id === "dietary_hp"
                 ? "Food & Nutrition"
@@ -1476,6 +1480,54 @@ test("partner recovery refuses membership loss, inactive Organizations, and cros
   await endPartnerUserAssignment(listed.db, { ...listed.actor, userId: "jane" });
   const clients = await listAuthorizedPartnerFacilities(listed.db, { userId: "jane", organizationId: "metz" });
   assert.deepEqual(clients.map((client) => client.facilityDisplayName), ["HighPointe"]);
+});
+
+test("partner operational context uses live allowed departments and ignores a stale preference", async () => {
+  const world = createWorld();
+  await grantJane(world);
+  world.departments.push({ id: "evs", facilityId: "fac", isActive: true, sortOrder: 20 });
+  world.scopes.push({
+    id: "scope_evs",
+    facilityPartnerOrganizationId: "partnership",
+    departmentId: "evs",
+    startsAt: at("2020-01-01T00:00:00.000Z"),
+    endsAt: null,
+  });
+  const input = {
+    userId: "jane",
+    facilityId: "fac",
+    partnerOrganizationId: "metz",
+    facilityPartnerOrganizationId: "partnership",
+  };
+  const preferred = await resolvePartnerOperationalContext(world.db, {
+    ...input,
+    requestedDepartmentId: "evs",
+  });
+  assert.equal(preferred?.context.activeDepartmentId, "evs");
+  assert.deepEqual(preferred?.context.allowedDepartmentIds, ["dietary", "evs"]);
+
+  world.departments.find((department) => department.id === "evs")!.sortOrder = 5;
+  const fallback = await resolvePartnerOperationalContext(world.db, input);
+  assert.equal(fallback?.context.activeDepartmentId, "evs");
+
+  world.scopes.find((scope) => scope.departmentId === "evs")!.endsAt = new Date(Date.now() - 1000);
+  const reduced = await resolvePartnerOperationalContext(world.db, {
+    ...input,
+    requestedDepartmentId: "evs",
+  });
+  assert.equal(reduced?.context.activeDepartmentId, "dietary");
+  assert.deepEqual(reduced?.context.allowedDepartmentIds, ["dietary"]);
+
+  world.departments.find((department) => department.id === "dietary")!.isActive = false;
+  const inactive = await resolvePartnerOperationalContext(world.db, {
+    ...input,
+    requestedDepartmentId: "dietary",
+  });
+  assert.equal(inactive, null);
+
+  const internalCookie = "evs";
+  assert.equal(internalCookie, "evs");
+  assert.equal(world.users.find((user) => user.id === "jane")?.facilityId, null);
 });
 
 test("invalid partner recovery stays on /partner/exit and validation stays side-effect free", () => {

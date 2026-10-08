@@ -230,13 +230,23 @@ async function validatePartnerFacilitySession(
     return { valid: false, reason: "VERSION_STALE" };
   }
 
-  const { resolveFacilityAuthorization } = await import("@/lib/partner-user-access");
-  const resolved = await resolveFacilityAuthorization(client, {
-    userId: session.uid,
-    facilityId: session.facilityId,
-    accessKind: "partner",
-    facilityPartnerOrganizationId: session.facilityPartnerOrganizationId,
-  });
+  const { usesRequestPartnerCache, resolvePartnerAuthorizationForPrismaRequest } = await import(
+    "@/lib/partner-path-request"
+  );
+  const resolved = usesRequestPartnerCache(client)
+    ? await resolvePartnerAuthorizationForPrismaRequest(
+        session.uid,
+        session.facilityId,
+        session.facilityPartnerOrganizationId,
+      )
+    : await (
+        await import("@/lib/partner-user-access")
+      ).resolveFacilityAuthorization(client, {
+        userId: session.uid,
+        facilityId: session.facilityId,
+        accessKind: "partner",
+        facilityPartnerOrganizationId: session.facilityPartnerOrganizationId,
+      });
   if (resolved.authorization.path !== "partner") {
     return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
   }

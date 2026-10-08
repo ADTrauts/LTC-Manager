@@ -1,3 +1,4 @@
+export { canPartner, PARTNER_CAPABILITIES, type PartnerCapability } from "./capabilities";
 export {
   comparePartnerRoles,
   isPartnerRoleAtOrBelow,

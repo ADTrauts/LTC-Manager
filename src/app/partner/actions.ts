@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   createPartnerFacilitySessionToken,
   getCookieOptions,
+  getPartnerFacilitySession,
   SESSION_COOKIE,
 } from "@/lib/auth";
 import { requireOrganizationSession } from "@/lib/organization-context";
@@ -14,6 +15,12 @@ import {
   PartnerFacilitySessionError,
   resolvePartnerFacilityEntry,
 } from "@/lib/partner-facility-session";
+import {
+  listSelectablePartnerDepartments,
+  PARTNER_ACTIVE_DEPARTMENT_COOKIE,
+  partnerDepartmentSwitch,
+} from "@/lib/partner-operational-context";
+import { resolvePartnerAuthorizationForPrismaRequest } from "@/lib/partner-path-request";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -84,4 +91,30 @@ export async function leavePartnerFacilityAction(): Promise<void> {
     partnerOrganizationId: transition.organizationId,
   });
   redirect(`/organization/${transition.organizationId}`);
+}
+
+export async function switchPartnerDepartmentAction(formData: FormData): Promise<void> {
+  const requestedDepartmentId = String(formData.get("departmentId") ?? "");
+  const session = await getPartnerFacilitySession();
+  if (!session) redirect("/partner/exit");
+
+  const resolved = await resolvePartnerAuthorizationForPrismaRequest(
+    session.uid,
+    session.facilityId,
+    session.facilityPartnerOrganizationId,
+  );
+  if (resolved.authorization.path !== "partner" || resolved.authorization.allowedDepartmentIds.length === 0) {
+    redirect("/partner/exit");
+  }
+  const departments = await listSelectablePartnerDepartments(prisma, {
+    facilityId: session.facilityId,
+    allowedDepartmentIds: resolved.authorization.allowedDepartmentIds,
+  });
+  const decision = partnerDepartmentSwitch(departments, requestedDepartmentId);
+  if (!decision.ok) {
+    redirect("/partner");
+  }
+  const jar = await cookies();
+  jar.set(PARTNER_ACTIVE_DEPARTMENT_COOKIE, decision.departmentId, getCookieOptions());
+  redirect("/partner");
 }
