@@ -42,6 +42,13 @@ enum OrganizationMemberInvitationStatus {
   REVOKED
 }
 
+/// External partner operational role (Phase 2C1). Not a Facility RoleKey.
+enum OrganizationPartnerRole {
+  PARTNER_VIEWER
+  PARTNER_OPERATOR
+  PARTNER_MANAGER
+}
+
 /// Platform role reference data: identity, display name, and the User relation.
 ///
 /// A role's *capabilities* are not stored here. What each role may reach is defined in
@@ -360,6 +367,10 @@ model FacilityPartnerOrganization {
   updatedAt        DateTime @updatedAt
   accessPeriods    FacilityPartnerAccessPeriod[]
   departmentScopes FacilityPartnerDepartmentScope[]
+  /// Facility-owned maximum partner role over time. Absence of a current period disables personal entry.
+  roleCeilingPeriods FacilityPartnerRoleCeilingPeriod[]
+  /// Personal partner assignments. Does not grant UserFacilityAccess or a Facility session.
+  partnerUserAccesses PartnerUserFacilityAccess[]
 
   @@unique([facilityId, organizationId])
   @@index([facilityId])
@@ -407,6 +418,71 @@ model FacilityPartnerDepartmentScope {
   @@index([facilityPartnerOrganizationId, startsAt], map: "FacilityPartnerDeptScope_partner_startsAt_idx")
   @@index([facilityPartnerOrganizationId, departmentId, startsAt], map: "FacilityPartnerDeptScope_partner_dept_startsAt_idx")
   @@index([departmentId], map: "FacilityPartnerDeptScope_departmentId_idx")
+}
+
+/// Facility-defined maximum personal partner role for one partnership.
+/// Half-open: startsAt <= instant < endsAt. No current period means personal partner entry is disabled.
+/// Changing the ceiling closes the current period and opens another. It does not rewrite assignment history.
+model FacilityPartnerRoleCeilingPeriod {
+  id                            String                      @id @default(cuid())
+  facilityPartnerOrganizationId String
+  facilityPartnerOrganization   FacilityPartnerOrganization @relation(fields: [facilityPartnerOrganizationId], references: [id], onDelete: Cascade)
+  maxPartnerRole                OrganizationPartnerRole
+  startsAt                      DateTime
+  endsAt                        DateTime?
+  createdByUserId               String?
+  createdByUser                 User?                       @relation("FacilityPartnerRoleCeilingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId                 String?
+  endedByUser                   User?                       @relation("FacilityPartnerRoleCeilingEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
+
+  @@index([facilityPartnerOrganizationId, startsAt], map: "FacilityPartnerRoleCeiling_partner_startsAt_idx")
+  @@index([facilityPartnerOrganizationId, endsAt], map: "FacilityPartnerRoleCeiling_partner_endsAt_idx")
+  @@index([createdByUserId])
+  @@index([endedByUserId])
+}
+
+/// Durable User ↔ Facility partnership assignment (Phase 2C1).
+/// Current authority lives on PartnerUserRolePeriod. Does not grant Facility access by itself.
+model PartnerUserFacilityAccess {
+  id                            String                      @id @default(cuid())
+  userId                        String
+  user                          User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  facilityPartnerOrganizationId String
+  facilityPartnerOrganization   FacilityPartnerOrganization @relation(fields: [facilityPartnerOrganizationId], references: [id], onDelete: Cascade)
+  createdByUserId               String?
+  createdByUser                 User?                       @relation("PartnerUserFacilityAccessCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
+  rolePeriods                   PartnerUserRolePeriod[]
+
+  @@unique([userId, facilityPartnerOrganizationId])
+  @@index([facilityPartnerOrganizationId])
+  @@index([userId])
+  @@index([createdByUserId])
+}
+
+/// Timestamp period of personal partner role under one assignment.
+/// Half-open: startsAt <= instant < endsAt. An open period means currently assigned.
+model PartnerUserRolePeriod {
+  id                         String                   @id @default(cuid())
+  partnerUserFacilityAccessId String
+  partnerUserFacilityAccess  PartnerUserFacilityAccess @relation(fields: [partnerUserFacilityAccessId], references: [id], onDelete: Cascade)
+  partnerRole                OrganizationPartnerRole
+  startsAt                   DateTime
+  endsAt                     DateTime?
+  createdByUserId            String?
+  createdByUser              User?                    @relation("PartnerUserRolePeriodCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId              String?
+  endedByUser                User?                    @relation("PartnerUserRolePeriodEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+
+  @@index([partnerUserFacilityAccessId, startsAt], map: "PartnerUserRolePeriod_access_startsAt_idx")
+  @@index([partnerUserFacilityAccessId, endsAt], map: "PartnerUserRolePeriod_access_endsAt_idx")
+  @@index([createdByUserId])
+  @@index([endedByUserId])
 }
 
 /// Durable User ↔ Organization membership identity (Phase 2B).
@@ -849,6 +925,12 @@ model User {
   organizationMemberInvitationsSent      OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationInvitedBy")
   organizationMemberInvitationsAccepted  OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationAcceptedBy")
   organizationMemberInvitationsRevoked   OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationRevokedBy")
+  facilityPartnerRoleCeilingsCreated     FacilityPartnerRoleCeilingPeriod[] @relation("FacilityPartnerRoleCeilingCreatedBy")
+  facilityPartnerRoleCeilingsEnded       FacilityPartnerRoleCeilingPeriod[] @relation("FacilityPartnerRoleCeilingEndedBy")
+  partnerUserFacilityAccesses            PartnerUserFacilityAccess[]
+  partnerUserFacilityAccessesCreated     PartnerUserFacilityAccess[] @relation("PartnerUserFacilityAccessCreatedBy")
+  partnerUserRolePeriodsCreated          PartnerUserRolePeriod[] @relation("PartnerUserRolePeriodCreatedBy")
+  partnerUserRolePeriodsEnded            PartnerUserRolePeriod[] @relation("PartnerUserRolePeriodEndedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 

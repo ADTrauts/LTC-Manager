@@ -31,7 +31,7 @@ Rejoining reuses the durable User↔Organization relationship and creates a new 
 
 Organization membership, including Organization Administrator status, grants no Facility access.
 
-Phase 2C partner Facility assignment is not implemented.
+Phase 2C1 records partner assignments separately. A valid assignment still does not create a Facility session.
 
 ## Tokens
 

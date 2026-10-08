@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManageFacilityPartnerActions } from "@/components/facility-partners/manage-facility-partner-actions";
+import { PartnerUserAccessPanel } from "@/components/facility-partners/partner-user-access-panel";
 import { OrganizationClaimRequestForm } from "@/components/facility-partners/organization-claim-request-form";
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
@@ -20,6 +21,7 @@ import {
   partnerOrganizationLabel,
   suggestDepartmentsFromCurrentOperators,
 } from "@/lib/partner-access";
+import { getPartnerUserAccessAdminView } from "@/lib/partner-user-access";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -56,7 +58,7 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
     throw error;
   }
 
-  const [operable, suggestions, claimState, facilityClaims, claimEligibility] =
+  const [operable, suggestions, claimState, facilityClaims, claimEligibility, partnerUsers] =
     await Promise.all([
       loadCustomerOperableDepartments(prisma, facilityId),
       suggestDepartmentsFromCurrentOperators(prisma, {
@@ -72,6 +74,7 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
         facilityId,
         organizationId: partner.organizationId,
       }),
+      getPartnerUserAccessAdminView(prisma, { partnershipId: partner.id, facilityId }),
     ]);
 
   const operableOptions = operable.map((row) => ({ id: row.id, name: row.name }));
@@ -85,7 +88,7 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
     >
       <AdminPageHeader
         title={partnerOrganizationLabel(partner.organization)}
-        subtitle="External partner governance for this Facility. Partner users are not yet granted access by this relationship."
+        subtitle="External partner governance for this Facility. A partnership does not by itself authorize a person, and a partner assignment does not open a Facility session."
         trail={[
           { label: "Organization Settings", href: "/admin/organization" },
           { label: "External Partners", href: "/admin/organization/partners" },
@@ -122,7 +125,8 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
           ) : null}
         </dl>
         <p className="mt-3 text-xs text-zinc-500">
-          Partner users are not yet granted access by this relationship.
+          Department scope here is the partnership boundary. Personal assignments inherit that
+          scope. They do not create internal Facility access.
         </p>
       </section>
 
@@ -133,6 +137,40 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
           currentScopeDepartmentIds={partner.currentDepartmentScopes.map((s) => s.departmentId)}
           operableDepartments={operableOptions}
           suggestedDepartments={suggestedOptions}
+        />
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
+        <PartnerUserAccessPanel
+          partnershipId={partner.id}
+          partnershipEnded={partner.lifecycleState === "ENDED"}
+          ceiling={partnerUsers.currentCeiling?.maxPartnerRole ?? null}
+          unassigned={partnerUsers.members
+            .filter((member) => member.assignedRole === null)
+            .map((member) => ({
+              userId: member.userId,
+              displayName: member.displayName,
+              organizationRole: member.organizationRole,
+            }))}
+          current={partnerUsers.members.flatMap((member) =>
+            member.assignedRole
+              ? [
+                  {
+                    userId: member.userId,
+                    displayName: member.displayName,
+                    organizationRole: member.organizationRole,
+                    assignedRole: member.assignedRole,
+                    effectiveRole: member.effectiveRole,
+                  },
+                ]
+              : [],
+          )}
+          history={partnerUsers.rolePeriods.map((period) => ({
+            id: period.id,
+            displayName: period.displayName,
+            partnerRole: period.partnerRole,
+            range: `${formatTimestamp(period.startsAt)} → ${formatTimestamp(period.endsAt)}`,
+          }))}
         />
       </section>
 
