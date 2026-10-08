@@ -64,6 +64,16 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
           Organization membership does not grant access to customer Facilities. Partner Facility
           assignment is not available in this phase.
         </p>
+        {membership.currentRole === "ORG_ADMIN" ? (
+          <p className="mt-3">
+            <Link
+              href={`/organization/${organizationId}/members`}
+              className="text-sm font-medium underline-offset-2 hover:underline"
+            >
+              Manage members
+            </Link>
+          </p>
+        ) : null}
       </div>
 
       <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
@@ -92,7 +102,7 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
         <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
           <h2 className="text-sm font-semibold text-zinc-900">Members</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Read-only in this phase. Invitations arrive in a later phase.
+            Organization membership does not grant Facility access.
           </p>
           {members.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-500">No current members.</p>

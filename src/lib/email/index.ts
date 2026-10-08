@@ -31,6 +31,11 @@ export {
   sendOrganizationClaimEmail,
 } from "@/lib/email/organization-claim";
 export {
+  ORGANIZATION_MEMBER_INVITATION_TEMPLATE_ALIAS,
+  buildOrganizationMemberInvitationBodies,
+  sendOrganizationMemberInvitationEmail,
+} from "@/lib/email/organization-member-invitation";
+export {
   buildConsoleTicketReplyTemplateModel,
   CONSOLE_TICKET_REPLY_TEMPLATE_ALIAS,
   sendConsoleTicketReplyEmail,

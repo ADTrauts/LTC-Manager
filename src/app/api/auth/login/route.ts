@@ -139,8 +139,11 @@ export async function POST(request: Request) {
     if (memberships.length === 0) {
       return NextResponse.json({ error: "No organization membership." }, { status: 403 });
     }
-    // Deterministic: earliest created active membership.
     const selected = memberships[0]!;
+    const redirectPath =
+      memberships.length === 1
+        ? `/organization/${selected.organizationId}`
+        : "/organization";
 
     await prisma.user.update({
       where: { id: user.id },
@@ -158,7 +161,7 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       ok: true,
-      redirectPath: `/organization/${selected.organizationId}`,
+      redirectPath,
     });
     response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
     return response;

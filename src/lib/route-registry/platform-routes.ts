@@ -332,6 +332,33 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes:
       "Organization Home for one membership. Server verifies current role period.",
   },
+  {
+    pattern: "/organization/[organizationId]/members",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Organization member administration. ORG_ADMIN authority is re-checked server-side. Grants no Facility access.",
+  },
+  {
+    pattern: "/organization/members/invite/[token]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "organization-membership",
+    notes:
+      "Accept an Organization member invitation. Token-bound; grants no Facility access.",
+  },
+  {
+    pattern: "/api/auth/organization-member-invitation/accept",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "organization-membership",
+    notes: "Accept an Organization member invitation and start an organization session.",
+  },
 
   // ── Authenticated, guarded downstream ─────────────────────────────────────
   {

@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 
+import { OrganizationSwitcher } from "@/components/organization-switcher";
 import { getAppSession, isOrganizationScopedSession } from "@/lib/auth";
+import {
+  listCurrentOrganizationMembershipsForUser,
+  organizationDisplayLabel,
+} from "@/lib/organization-membership";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +27,10 @@ export default async function OrganizationAccountLayout({ children }: Props) {
     redirect("/login");
   }
 
+  const memberships = await listCurrentOrganizationMembershipsForUser(prisma, {
+    userId: session.uid,
+  });
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white">
@@ -40,6 +50,17 @@ export default async function OrganizationAccountLayout({ children }: Props) {
             </button>
           </form>
         </div>
+        {memberships.length > 1 ? (
+          <div className="mx-auto max-w-3xl px-4 pb-4">
+            <OrganizationSwitcher
+              currentOrganizationId={session.organizationId}
+              options={memberships.map((membership) => ({
+                organizationId: membership.organizationId,
+                label: organizationDisplayLabel(membership.organization),
+              }))}
+            />
+          </div>
+        ) : null}
       </header>
       <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
     </div>

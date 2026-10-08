@@ -347,6 +347,10 @@ export async function changeOrganizationRole(
       return;
     }
 
+    if (current.role === "ORG_ADMIN" && input.role !== "ORG_ADMIN") {
+      await assertNotLastOrgAdmin(tx, input.organizationId, at);
+    }
+
     await tx.userOrganizationRolePeriod.update({
       where: { id: current.id },
       data: { endsAt: at, endedByUserId: input.actorUserId ?? null },
@@ -415,6 +419,9 @@ export async function endOrganizationMembership(
         "NOT_ACTIVE_MEMBER",
         "User is not currently a member of this Organization.",
       );
+    }
+    if (current.role === "ORG_ADMIN") {
+      await assertNotLastOrgAdmin(tx, input.organizationId, endsAt);
     }
     await tx.userOrganizationRolePeriod.update({
       where: { id: current.id },
@@ -491,6 +498,44 @@ export async function assertOrganizationAdmin(
     );
   }
   return membership;
+}
+
+/**
+ * Lock the Organization row when the client supports it, then refuse a mutation
+ * that would leave zero current ORG_ADMIN.
+ */
+async function assertNotLastOrgAdmin(
+  db: DbClient,
+  organizationId: string,
+  now: Date,
+): Promise<void> {
+  const org = db.organization as unknown as {
+    update?: (args: {
+      where: { id: string };
+      data: { updatedAt: Date };
+    }) => Promise<unknown>;
+  };
+  if (typeof org.update === "function") {
+    await org.update({ where: { id: organizationId }, data: { updatedAt: now } });
+  }
+  const rows = await db.userOrganizationMembership.findMany({
+    where: { organizationId },
+    include: {
+      organization: { select: organizationSelect },
+      rolePeriods: { orderBy: { startsAt: "asc" } },
+    },
+  });
+  const adminCount = rows.filter((row) => {
+    if (!row.organization.isActive) return false;
+    const current = findPeriodContainingInstant(row.rolePeriods, now);
+    return current?.role === "ORG_ADMIN";
+  }).length;
+  if (adminCount <= 1) {
+    throw new OrganizationMembershipError(
+      "LAST_ORG_ADMIN",
+      "An active Organization must keep at least one Organization Administrator.",
+    );
+  }
 }
 
 /** Phase 2B1: membership never authorizes Facility entry. */

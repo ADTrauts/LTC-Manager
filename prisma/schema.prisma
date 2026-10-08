@@ -34,6 +34,14 @@ enum OrganizationClaimStatus {
   ACCEPTED
 }
 
+/// Organization self-administration invitations (Phase 2B3).
+/// EXPIRED is derived for PENDING + past expiresAt + not accepted/revoked.
+enum OrganizationMemberInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
 /// Platform role reference data: identity, display name, and the User relation.
 ///
 /// A role's *capabilities* are not stored here. What each role may reach is defined in
@@ -125,6 +133,8 @@ model Organization {
   userOrganizationMemberships UserOrganizationMembership[]
   /// First-admin claim workflows (Phase 2B2).
   organizationClaimInvitations OrganizationClaimInvitation[]
+  /// Ordinary member invitations after first admin exists (Phase 2B3).
+  organizationMemberInvitations OrganizationMemberInvitation[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -486,6 +496,40 @@ model OrganizationClaimInvitation {
   @@index([status, expiresAt])
 }
 
+/// Secure invitation for an existing ORG_ADMIN to add ORG_MEMBER or ORG_ADMIN.
+/// Distinct from OrganizationClaimInvitation (Harbor first-admin bootstrap).
+/// Does not grant Facility access.
+model OrganizationMemberInvitation {
+  id                           String                             @id @default(cuid())
+  organizationId               String
+  organization                 Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  targetEmailNormalized        String
+  intendedRole                 OrganizationMembershipRole
+  /// SHA-256 of raw token. Rotated on resend. Never store plaintext.
+  tokenHash                    String?                            @unique
+  expiresAt                    DateTime?
+  status                       OrganizationMemberInvitationStatus @default(PENDING)
+  invitedByUserId              String
+  invitedByUser                User                               @relation("OrganizationMemberInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedByUserId             String?
+  acceptedByUser               User?                              @relation("OrganizationMemberInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  acceptedAt                   DateTime?
+  revokedByUserId              String?
+  revokedByUser                User?                              @relation("OrganizationMemberInvitationRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  revokedAt                    DateTime?
+  lastInvitationDeliveredAt    DateTime?
+  lastInvitationDeliveryStatus String?
+  lastInvitationDeliveryError  String?
+  createdAt                    DateTime                           @default(now())
+  updatedAt                    DateTime                           @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, targetEmailNormalized, status])
+  @@index([targetEmailNormalized])
+  @@index([invitedByUserId])
+  @@index([status, expiresAt])
+}
+
 enum BillingInterval {
   MONTHLY
   ANNUAL
@@ -802,6 +846,9 @@ model User {
   organizationRolePeriodsEnded           UserOrganizationRolePeriod[] @relation("UserOrganizationRolePeriodEndedBy")
   organizationClaimsRequested            OrganizationClaimInvitation[] @relation("OrganizationClaimRequestedBy")
   organizationClaimsAccepted             OrganizationClaimInvitation[] @relation("OrganizationClaimAcceptedBy")
+  organizationMemberInvitationsSent      OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationInvitedBy")
+  organizationMemberInvitationsAccepted  OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationAcceptedBy")
+  organizationMemberInvitationsRevoked   OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationRevokedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 

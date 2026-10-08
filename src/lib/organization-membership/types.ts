@@ -45,6 +45,7 @@ export class OrganizationMembershipError extends Error {
     | "ALREADY_ACTIVE_MEMBER"
     | "NOT_ACTIVE_MEMBER"
     | "OVERLAPPING_PERIOD"
+    | "LAST_ORG_ADMIN"
     | "INVALID_INPUT";
 
   constructor(code: OrganizationMembershipError["code"], message: string) {

@@ -19,6 +19,46 @@ import {
 } from "@/lib/organization-membership";
 import { isFacilityScopedSession, isOrganizationScopedSession } from "@/lib/auth";
 
+test("last organization administrator cannot be demoted or ended", async () => {
+  const db = makeDb({
+    organizations: [{ id: "org_metz", name: "Metz" }],
+    users: [
+      {
+        id: "u_only",
+        email: "only@metz.example",
+        displayName: "Only",
+        isActive: true,
+        facilityId: null,
+        roleId: null,
+      },
+    ],
+  });
+  await createOrganizationMembership(db as never, {
+    userId: "u_only",
+    organizationId: "org_metz",
+    role: "ORG_ADMIN",
+  });
+  await assert.rejects(
+    () =>
+      changeOrganizationRole(db as never, {
+        userId: "u_only",
+        organizationId: "org_metz",
+        role: "ORG_MEMBER",
+      }),
+    (error: unknown) =>
+      error instanceof OrganizationMembershipError && error.code === "LAST_ORG_ADMIN",
+  );
+  await assert.rejects(
+    () =>
+      endOrganizationMembership(db as never, {
+        userId: "u_only",
+        organizationId: "org_metz",
+      }),
+    (error: unknown) =>
+      error instanceof OrganizationMembershipError && error.code === "LAST_ORG_ADMIN",
+  );
+});
+
 test("half-open role period boundaries are deterministic", () => {
   const period = {
     startsAt: new Date("2027-01-01T00:00:00.000Z"),
@@ -273,6 +313,14 @@ test("membership lifecycle join promote demote end rejoin preserves history", as
         facilityId: null,
         roleId: null,
       },
+      {
+        id: "u_backup",
+        email: "backup@metz.example",
+        displayName: "Backup Admin",
+        isActive: true,
+        facilityId: null,
+        roleId: null,
+      },
     ],
   });
 
@@ -304,6 +352,13 @@ test("membership lifecycle join promote demote end rejoin preserves history", as
   });
   assert.equal(historicalMember?.currentRole, "ORG_MEMBER");
 
+  await createOrganizationMembership(db as never, {
+    userId: "u_backup",
+    organizationId: "org_metz",
+    role: "ORG_ADMIN",
+    startsAt: new Date("2027-02-15T00:00:00.000Z"),
+  });
+
   const tDemote = new Date("2027-03-01T00:00:00.000Z");
   const demoted = await changeOrganizationRole(db as never, {
     userId: "u_jane",
@@ -331,7 +386,8 @@ test("membership lifecycle join promote demote end rejoin preserves history", as
   });
   assert.equal(rejoined.currentRole, "ORG_MEMBER");
   assert.equal(rejoined.rolePeriods.length, 4);
-  assert.equal(db._memberships.length, 1);
+  assert.equal(db._memberships.filter((row) => row.userId === "u_jane").length, 1);
+  assert.equal(db._memberships.length, 2);
 });
 
 test("inactive Organization denies current authority", async () => {
