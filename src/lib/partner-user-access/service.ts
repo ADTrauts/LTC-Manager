@@ -656,7 +656,12 @@ async function resolveInternal(
 
 async function resolvePartner(
   db: DbClient,
-  input: { userId: string; facilityId: string; instant: Date },
+  input: {
+    userId: string;
+    facilityId: string;
+    instant: Date;
+    facilityPartnerOrganizationId?: string;
+  },
 ): Promise<PartnerFacilityAuthorization | null> {
   const user = await db.user.findUnique({
     where: { id: input.userId },
@@ -686,6 +691,12 @@ async function resolvePartner(
   const matches: PartnerFacilityAuthorization[] = [];
   for (const assignment of assignments) {
     const partnership = assignment.facilityPartnerOrganization;
+    if (
+      input.facilityPartnerOrganizationId &&
+      partnership.id !== input.facilityPartnerOrganizationId
+    ) {
+      continue;
+    }
     if (partnership.endedAt && partnership.endedAt.getTime() <= input.instant.getTime()) continue;
     if (!partnership.organization.isActive) continue;
     const rolePeriod = findPeriodContainingInstant(assignment.rolePeriods, input.instant);
@@ -740,12 +751,19 @@ export async function resolveFacilityAuthorization(
     facilityId: string;
     instant?: Date;
     accessKind?: "internal" | "partner";
+    /** When set, Path B considers only this partnership. Required when more than one could match. */
+    facilityPartnerOrganizationId?: string;
   },
 ): Promise<FacilityAuthorizationResult> {
   const instant = input.instant ?? new Date();
   const [internal, partner] = await Promise.all([
     resolveInternal(db, input),
-    resolvePartner(db, { ...input, instant }),
+    resolvePartner(db, {
+      userId: input.userId,
+      facilityId: input.facilityId,
+      instant,
+      facilityPartnerOrganizationId: input.facilityPartnerOrganizationId,
+    }),
   ]);
   const accessKind = input.accessKind ?? "internal";
   const selected = accessKind === "partner" ? partner : internal;
@@ -754,4 +772,59 @@ export async function resolveFacilityAuthorization(
     paths: { internal, partner },
     unversionedFacts: UNVERSIONED_AUTHORIZATION_FACTS,
   };
+}
+
+export async function listAuthorizedPartnerFacilities(
+  db: DbClient,
+  input: { userId: string; organizationId: string; now?: Date },
+): Promise<import("./types").AuthorizedPartnerFacility[]> {
+  const now = input.now ?? new Date();
+  const assignments = await db.partnerUserFacilityAccess.findMany({
+    where: {
+      userId: input.userId,
+      facilityPartnerOrganization: { organizationId: input.organizationId },
+    },
+    include: {
+      facilityPartnerOrganization: {
+        select: {
+          id: true,
+          facilityId: true,
+          organizationId: true,
+          facility: { select: { displayName: true } },
+        },
+      },
+    },
+  });
+  const rows: import("./types").AuthorizedPartnerFacility[] = [];
+  for (const assignment of assignments) {
+    const partnership = assignment.facilityPartnerOrganization;
+    const resolved = await resolveFacilityAuthorization(db, {
+      userId: input.userId,
+      facilityId: partnership.facilityId,
+      accessKind: "partner",
+      facilityPartnerOrganizationId: partnership.id,
+      instant: now,
+    });
+    if (resolved.authorization.path !== "partner") continue;
+    if (resolved.authorization.partnerOrganizationId !== input.organizationId) continue;
+    const departments = await db.department.findMany({
+      where: {
+        id: { in: resolved.authorization.allowedDepartmentIds },
+        facilityId: partnership.facilityId,
+        isActive: true,
+      },
+      select: { name: true },
+      orderBy: { name: "asc" },
+    });
+    rows.push({
+      facilityId: partnership.facilityId,
+      facilityDisplayName: partnership.facility.displayName,
+      facilityPartnerOrganizationId: partnership.id,
+      partnerOrganizationId: partnership.organizationId,
+      effectiveRole: resolved.authorization.effectiveRole,
+      departmentNames: departments.map((department) => department.name),
+    });
+  }
+  rows.sort((left, right) => left.facilityDisplayName.localeCompare(right.facilityDisplayName));
+  return rows;
 }

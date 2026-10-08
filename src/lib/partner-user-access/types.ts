@@ -83,6 +83,15 @@ export type PartnerAssignmentMemberView = {
   effectiveRole: OrganizationPartnerRole | null;
 };
 
+export type AuthorizedPartnerFacility = {
+  facilityId: string;
+  facilityDisplayName: string;
+  facilityPartnerOrganizationId: string;
+  partnerOrganizationId: string;
+  effectiveRole: OrganizationPartnerRole;
+  departmentNames: string[];
+};
+
 export type PartnerUserAccessAdminView = {
   partnershipId: string;
   facilityId: string;

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { AppRole } from "@/lib/access";
 import type { AppJwtPayload } from "@/lib/auth";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { isPartnerFacilitySession, SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { resolveActiveDepartmentForNav } from "@/lib/active-department-context";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
@@ -146,6 +146,30 @@ export async function proxy(request: NextRequest) {
     // authority it was issued under. Termination, a role change, or a password reset must take
     // effect now rather than when the token happens to expire.
     const authority = await validateSessionAuthority(session, prisma);
+    if (isPartnerFacilitySession(session)) {
+      if (!authority.valid) {
+        if (isApiPathname(pathname)) {
+          return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+        }
+        return NextResponse.redirect(new URL("/partner/exit", request.url));
+      }
+      const decision = authorizeRoute({
+        pathname,
+        role: null,
+        sessionScope: "partner",
+        featureFlags,
+      });
+      if (decision.outcome === "ALLOW") {
+        return NextResponse.next();
+      }
+      if (decision.outcome === "NOT_FOUND") {
+        return notFoundResponse(decision.surface);
+      }
+      if ("surface" in decision && decision.surface === "API") {
+        return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/partner", request.url));
+    }
     if (!authority.valid) {
       const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
       response.cookies.delete(SESSION_COOKIE);

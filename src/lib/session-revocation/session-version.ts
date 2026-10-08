@@ -108,6 +108,9 @@ async function validateUserSession(
   if (session.scopeKind === "organization") {
     return validateOrganizationUserSession(session, client);
   }
+  if (session.scopeKind === "facility" && session.accessKind === "partner") {
+    return validatePartnerFacilitySession(session, client);
+  }
 
   const user = await client.user.findUnique({
     where: { id: session.uid },
@@ -188,6 +191,61 @@ async function validateOrganizationUserSession(
     organizationId: session.organizationId,
   });
   if (!role) {
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
+
+  return { valid: true, effectiveDepartmentId: null };
+}
+
+/**
+ * Partner Facility tokens name a context. Authority is the live Path B result.
+ * This function does not replace cookies or mint another session.
+ */
+async function validatePartnerFacilitySession(
+  session: AppJwtPayload,
+  client: PrismaLike,
+): Promise<SessionValidation> {
+  if (
+    session.scopeKind !== "facility" ||
+    session.accessKind !== "partner" ||
+    session.authKind !== "user" ||
+    !session.facilityId ||
+    !session.partnerOrganizationId ||
+    !session.facilityPartnerOrganizationId
+  ) {
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
+
+  const user = await client.user.findUnique({
+    where: { id: session.uid },
+    select: { isActive: true, sessionVersion: true },
+  });
+  if (!user) {
+    return { valid: false, reason: "IDENTITY_NOT_FOUND" };
+  }
+  if (!user.isActive) {
+    return { valid: false, reason: "IDENTITY_INACTIVE" };
+  }
+  if (user.sessionVersion !== session.sessionVersion) {
+    return { valid: false, reason: "VERSION_STALE" };
+  }
+
+  const { resolveFacilityAuthorization } = await import("@/lib/partner-user-access");
+  const resolved = await resolveFacilityAuthorization(client, {
+    userId: session.uid,
+    facilityId: session.facilityId,
+    accessKind: "partner",
+    facilityPartnerOrganizationId: session.facilityPartnerOrganizationId,
+  });
+  if (resolved.authorization.path !== "partner") {
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
+  if (
+    resolved.authorization.facilityPartnerOrganizationId !== session.facilityPartnerOrganizationId ||
+    resolved.authorization.partnerOrganizationId !== session.partnerOrganizationId ||
+    resolved.authorization.facilityId !== session.facilityId ||
+    resolved.authorization.allowedDepartmentIds.length === 0
+  ) {
     return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
   }
 

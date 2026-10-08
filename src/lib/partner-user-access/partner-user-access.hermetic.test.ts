@@ -9,11 +9,24 @@ import { grantUserFacilityAccess } from "@/lib/facility-access";
 import { periodsOverlap } from "@/lib/partner-access";
 import { APP_ROLES } from "@/lib/access";
 import {
+  createPartnerFacilitySessionToken,
+  createSessionToken,
+  isFacilityScopedSession,
+  isPartnerFacilitySession,
+  verifySessionToken,
+  type AppJwtPayload,
+} from "@/lib/auth";
+import {
+  PartnerFacilitySessionError,
+  resolvePartnerFacilityEntry,
+} from "@/lib/partner-facility-session";
+import {
   assignPartnerUser,
   changePartnerUserRole,
   comparePartnerRoles,
   endPartnerUserAssignment,
   isPartnerRoleAtOrBelow,
+  listAuthorizedPartnerFacilities,
   minPartnerRole,
   PartnerUserAccessError,
   partnerRoleRank,
@@ -21,6 +34,9 @@ import {
   setFacilityPartnerRoleCeiling,
   UNVERSIONED_AUTHORIZATION_FACTS,
 } from "@/lib/partner-user-access";
+import { validateSessionAuthority } from "@/lib/session-revocation";
+
+process.env.AUTH_SECRET ??= "partner-facility-session-test-secret";
 
 const root = process.cwd();
 
@@ -40,7 +56,7 @@ test("partner role rank is explicit and ignores string order", () => {
   }
 });
 
-test("phase 2C1 does not issue a partner facility session", () => {
+test("phase 2C2 keeps internal facility sessions separate from partner sessions", () => {
   const auth = readFileSync(join(root, "src/lib/auth.ts"), "utf8");
   const switching = readFileSync(
     join(root, "src/lib/facility-access/switch-active-facility.ts"),
@@ -51,10 +67,20 @@ test("phase 2C1 does not issue a partner facility session", () => {
     "utf8",
   );
   const service = readFileSync(join(root, "src/lib/partner-user-access/service.ts"), "utf8");
+  const partnerMint = auth.slice(
+    auth.indexOf("export async function createPartnerFacilitySessionToken"),
+    auth.indexOf("export async function createOrganizationSessionToken"),
+  );
   assert.equal(auth.includes("OrganizationPartnerRole"), false);
-  assert.equal(auth.includes('accessKind: "partner"'), false);
+  assert.equal(auth.includes("getAnyFacilitySession"), false);
+  assert.equal(partnerMint.includes("partnerRole"), false);
+  assert.equal(partnerMint.includes("allowedDepartmentIds"), false);
+  assert.equal(partnerMint.includes("primaryDepartmentId"), false);
+  assert.match(auth, /export async function getSession\(\)[\s\S]*isFacilityScopedSession\(session\)/);
   assert.equal(switching.includes("PartnerUser"), false);
-  assert.equal(validation.includes("PartnerUser"), false);
+  assert.equal(validation.includes("cookies("), false);
+  assert.equal(validation.includes("createOrganizationSessionToken"), false);
+  assert.match(validation, /accessKind === "partner"/);
   assert.equal(service.includes("DepartmentOperatorRelationship"), false);
   assert.equal(service.includes("userFacilityAccess.create"), false);
   assert.equal(service.includes("switchActiveFacility"), false);
@@ -567,6 +593,7 @@ type UserRow = {
   facilityId: string | null;
   roleId: string | null;
   role: { key: string; isActive: boolean } | null;
+  sessionVersion?: number;
 };
 
 type Membership = {
@@ -716,6 +743,7 @@ function createWorld() {
         if (!user) return null;
         return {
           ...user,
+          sessionVersion: user.sessionVersion ?? 0,
           facilityAccesses: facilityAccesses.filter(
             (grant) => grant.userId === user.id && grant.isActive && grant.revokedAt === null,
           ),
@@ -723,11 +751,16 @@ function createWorld() {
       },
     },
     department: {
-      findMany: async ({ where }: { where: { facilityId: string; isActive: boolean } }) =>
+      findMany: async ({
+        where,
+      }: {
+        where: { facilityId: string; isActive: boolean; id?: { in: string[] } };
+      }) =>
         departments
           .filter((row) => row.facilityId === where.facilityId && row.isActive === where.isActive)
+          .filter((row) => !where.id?.in || where.id.in.includes(row.id))
           .sort((left, right) => left.id.localeCompare(right.id))
-          .map((row) => ({ id: row.id })),
+          .map((row) => ({ id: row.id, name: row.id === "dietary" ? "Food & Nutrition" : row.id })),
     },
     employee: {
       findFirst: async () => null,
@@ -813,7 +846,12 @@ function createWorld() {
             if (where.facilityPartnerOrganizationId && row.facilityPartnerOrganizationId !== where.facilityPartnerOrganizationId) return false;
             if (where.facilityPartnerOrganization) {
               const partnership = partnerships.find((item) => item.id === row.facilityPartnerOrganizationId);
-              if (partnership?.facilityId !== where.facilityPartnerOrganization.facilityId) return false;
+              const filter = where.facilityPartnerOrganization as {
+                facilityId?: string;
+                organizationId?: string;
+              };
+              if (filter.facilityId && partnership?.facilityId !== filter.facilityId) return false;
+              if (filter.organizationId && partnership?.organizationId !== filter.organizationId) return false;
             }
             return true;
           })
@@ -828,6 +866,7 @@ function createWorld() {
               facilityPartnerOrganization: {
                 ...partnership,
                 organization: { isActive: organization?.isActive ?? false },
+                facility: { displayName: partnership.facilityId === "fac" ? "Terrace View" : partnership.facilityId },
               },
             };
           });
@@ -896,3 +935,229 @@ function crossOrgDb() {
     },
   } as never;
 }
+
+async function grantJane(world: ReturnType<typeof createWorld>, role: "PARTNER_MANAGER" | "PARTNER_VIEWER" = "PARTNER_MANAGER") {
+  await setFacilityPartnerRoleCeiling(world.db, {
+    ...world.actor,
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await assignPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    partnerRole: role,
+    at: at("2026-01-02T00:00:00.000Z"),
+  });
+}
+
+async function janePartnerToken(world: ReturnType<typeof createWorld>) {
+  return createPartnerFacilitySessionToken({
+    uid: "jane",
+    name: "Jane Smith",
+    email: "jane@metz.example",
+    facilityId: "fac",
+    partnerOrganizationId: "metz",
+    facilityPartnerOrganizationId: "partnership",
+    sessionVersion: world.users.find((user) => user.id === "jane")?.sessionVersion ?? 0,
+  });
+}
+
+test("partner facility token names context and carries no operational authority", async () => {
+  const token = await createPartnerFacilitySessionToken({
+    uid: "jane",
+    name: "Jane Smith",
+    email: "jane@metz.example",
+    facilityId: "fac",
+    partnerOrganizationId: "metz",
+    facilityPartnerOrganizationId: "partnership",
+    sessionVersion: 0,
+  });
+  const session = await verifySessionToken(token);
+  assert.equal(isPartnerFacilitySession(session), true);
+  assert.equal(isFacilityScopedSession(session), false);
+  assert.equal(session.scopeKind, "facility");
+  assert.equal(session.accessKind, "partner");
+  assert.equal("role" in session, false);
+  assert.equal("partnerRole" in session, false);
+  assert.equal("allowedDepartmentIds" in session, false);
+  assert.equal("primaryDepartmentId" in session, false);
+  const raw = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString("utf8")) as Record<string, unknown>;
+  assert.equal(raw.role, undefined);
+  assert.equal(raw.partnerRole, undefined);
+  assert.equal(raw.allowedDepartmentIds, undefined);
+  assert.equal(raw.primaryDepartmentId, undefined);
+});
+
+test("internal facility token still requires a Facility role and is not a partner session", async () => {
+  const token = await createSessionToken({
+    uid: "actor",
+    role: "FACILITY_ADMINISTRATOR",
+    name: "Facility Admin",
+    email: "fa@terrace.example",
+    facilityId: "fac",
+    sessionVersion: 0,
+  });
+  const session = await verifySessionToken(token);
+  assert.equal(session.accessKind, undefined);
+  assert.equal(isFacilityScopedSession(session), true);
+  assert.equal(isPartnerFacilitySession(session), false);
+  assert.equal(session.role, "FACILITY_ADMINISTRATOR");
+});
+
+test("partner entry, live revalidation, and client list stay on Path B", async () => {
+  const world = createWorld();
+  await grantJane(world);
+  const beforeAccess = world.facilityAccesses.length;
+  const jane = world.users.find((user) => user.id === "jane")!;
+  const home = jane.facilityId;
+  const roleId = jane.roleId;
+
+  const entered = await resolvePartnerFacilityEntry(world.db, {
+    userId: "jane",
+    organizationId: "metz",
+    facilityId: "fac",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal(entered.effectiveRole, "PARTNER_MANAGER");
+  assert.deepEqual(entered.allowedDepartmentIds, ["dietary"]);
+  assert.equal(world.facilityAccesses.length, beforeAccess);
+  assert.equal(jane.facilityId, home);
+  assert.equal(jane.roleId, roleId);
+
+  await assert.rejects(
+    () =>
+      resolvePartnerFacilityEntry(world.db, {
+        userId: "jane",
+        organizationId: "otherco",
+        facilityId: "fac",
+        facilityPartnerOrganizationId: "partnership",
+      }),
+    (error: unknown) =>
+      error instanceof PartnerFacilitySessionError && error.code === "PARTNERSHIP_NOT_IN_ORGANIZATION",
+  );
+  await assert.rejects(
+    () =>
+      resolvePartnerFacilityEntry(world.db, {
+        userId: "john",
+        organizationId: "metz",
+        facilityId: "fac",
+        facilityPartnerOrganizationId: "partnership",
+      }),
+    (error: unknown) => error instanceof PartnerFacilitySessionError && error.code === "PARTNER_ACCESS_DENIED",
+  );
+
+  const listed = await listAuthorizedPartnerFacilities(world.db, { userId: "jane", organizationId: "metz" });
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0]?.facilityDisplayName, "Terrace View");
+  assert.deepEqual(listed[0]?.departmentNames, ["Food & Nutrition"]);
+  assert.equal(listed[0]?.effectiveRole, "PARTNER_MANAGER");
+  const john = await listAuthorizedPartnerFacilities(world.db, { userId: "john", organizationId: "metz" });
+  assert.equal(john.length, 0);
+  await assignPartnerUser(world.db, {
+    ...world.actor,
+    userId: "john",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-01-02T00:00:00.000Z"),
+  });
+  const adminEntered = await resolvePartnerFacilityEntry(world.db, {
+    userId: "john",
+    organizationId: "metz",
+    facilityId: "fac",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal(adminEntered.effectiveRole, "PARTNER_VIEWER");
+
+  const session = await verifySessionToken(await janePartnerToken(world));
+  const live = await validateSessionAuthority(session, world.db);
+  assert.equal(live.valid, true);
+  if (live.valid) assert.equal(live.effectiveDepartmentId, null);
+
+  await changePartnerUserRole(world.db, {
+    ...world.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+  });
+  const downgraded = await validateSessionAuthority(session, world.db);
+  assert.equal(downgraded.valid, true);
+  const afterRole = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal(afterRole.authorization.path, "partner");
+  if (afterRole.authorization.path === "partner") {
+    assert.equal(afterRole.authorization.effectiveRole, "PARTNER_VIEWER");
+  }
+
+  const mismatches = [
+    { ...session, facilityPartnerOrganizationId: "other" },
+    { ...session, facilityId: "other" },
+    { ...session, partnerOrganizationId: "otherco" },
+  ];
+  for (const forged of mismatches) {
+    const denied = await validateSessionAuthority(forged as AppJwtPayload, world.db);
+    assert.equal(denied.valid, false);
+  }
+
+  jane.sessionVersion = 3;
+  const stale = await validateSessionAuthority(session, world.db);
+  assert.equal(stale.valid, false);
+  if (!stale.valid) assert.equal(stale.reason, "VERSION_STALE");
+  jane.sessionVersion = 0;
+});
+
+test("partner session fails closed when Path B facts break and does not bump sessionVersion", async () => {
+  async function deniedAfter(mutate: (world: ReturnType<typeof createWorld>) => Promise<void>) {
+    const world = createWorld();
+    await grantJane(world);
+    const session = await verifySessionToken(await janePartnerToken(world));
+    const version = world.users.find((user) => user.id === "jane")!.sessionVersion ?? 0;
+    await mutate(world);
+    const result = await validateSessionAuthority(session, world.db);
+    assert.equal(result.valid, false);
+    assert.equal(world.users.find((user) => user.id === "jane")!.sessionVersion ?? 0, version);
+  }
+
+  await deniedAfter(async (world) => {
+    await endPartnerUserAssignment(world.db, { ...world.actor, userId: "jane" });
+  });
+  await deniedAfter(async (world) => {
+    const membership = world.memberships.find((row) => row.userId === "jane")!;
+    membership.rolePeriods[0]!.endsAt = new Date(Date.now() - 1000);
+  });
+  await deniedAfter(async (world) => {
+    world.organizations[0]!.isActive = false;
+  });
+  await deniedAfter(async (world) => {
+    world.partnerships[0]!.endedAt = new Date(Date.now() - 1000);
+  });
+  await deniedAfter(async (world) => {
+    await setFacilityPartnerRoleCeiling(world.db, {
+      ...world.actor,
+      maxPartnerRole: null,
+    });
+  });
+  await deniedAfter(async (world) => {
+    world.scopes[0]!.endsAt = new Date(Date.now() - 1000);
+  });
+  await deniedAfter(async (world) => {
+    world.accessPeriods[0]!.endsAt = new Date(Date.now() - 1000);
+  });
+});
+
+test("partner holding surface ignores the department cookie and internal loaders", () => {
+  const page = readFileSync(join(root, "src/app/partner/page.tsx"), "utf8");
+  const proxy = readFileSync(join(root, "src/proxy.ts"), "utf8");
+  const exitRoute = readFileSync(join(root, "src/app/partner/exit/route.ts"), "utf8");
+  const login = readFileSync(join(root, "src/app/api/auth/login/route.ts"), "utf8");
+  assert.equal(page.includes("getSession("), false);
+  assert.equal(page.includes("requireFacilitySession"), false);
+  assert.equal(page.includes("resolveActiveDepartmentForNav"), false);
+  assert.equal(page.includes("ltc_active_department"), false);
+  assert.equal(page.includes("ACTIVE_DEPARTMENT_COOKIE"), false);
+  assert.match(proxy, /sessionScope: "partner"/);
+  assert.equal(exitRoute.includes("searchParams"), false);
+  assert.equal(exitRoute.includes("organizationId="), false);
+  assert.equal(login.includes("createPartnerFacilitySessionToken"), false);
+});

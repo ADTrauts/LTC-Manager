@@ -355,6 +355,61 @@ test("feature gate — disabling Today's Work withdraws the route independently 
   assert.equal(roleMayAccessRoute("/workspace", "SUPERVISOR", flags), true);
 });
 
+test("partner session may open only the holding surface", () => {
+  const denied = [
+    "/dashboard",
+    "/operations",
+    "/workspace",
+    "/today",
+    "/units",
+    "/logs",
+    "/assets",
+    "/employees",
+    "/reports",
+    "/menus",
+    "/build",
+    "/admin",
+    "/admin/billing",
+    "/admin/facility/builder",
+    "/organization",
+    "/organization/metz",
+    "/account",
+    "/help",
+    "/setup",
+  ];
+  for (const pathname of denied) {
+    const decision = authorizeRoute({
+      pathname,
+      role: null,
+      sessionScope: "partner",
+      featureFlags: FLAGS,
+    });
+    assert.equal(decision.outcome, "DENY", pathname);
+  }
+  const holding = authorizeRoute({
+    pathname: "/partner",
+    role: null,
+    sessionScope: "partner",
+    featureFlags: FLAGS,
+  });
+  assert.equal(holding.outcome, "ALLOW");
+  const exit = authorizeRoute({
+    pathname: "/partner/exit",
+    role: null,
+    sessionScope: null,
+    featureFlags: FLAGS,
+  });
+  assert.equal(exit.outcome, "ALLOW");
+  const internalDashboard = authorizeRoute({
+    pathname: "/dashboard",
+    role: "FACILITY_ADMINISTRATOR",
+    sessionScope: "facility",
+    featureFlags: FLAGS,
+  });
+  assert.equal(internalDashboard.outcome, "ALLOW");
+  assert.equal(outcome("/partner", "FACILITY_ADMINISTRATOR"), "DENY");
+});
+
 test("internal — framework and static asset paths pass through", () => {
   for (const path of ["/_next/data/x.json", "/favicon.ico", "/next.svg", "/window.svg"]) {
     assert.equal(outcome(path, null), "ALLOW", path);

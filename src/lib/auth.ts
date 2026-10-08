@@ -58,14 +58,32 @@ type AppJwtCommon = JWTPayload & {
 };
 
 /**
- * Active Facility session. `facilityId` is the active (session) Facility, not home Facility.
- * Facility RoleKey is required.
+ * Active internal Facility session. `facilityId` is the active (session) Facility, not home Facility.
+ * Facility RoleKey is required. A partner Facility session is a different type and does not satisfy this.
  */
 export type FacilitySession = AppJwtCommon & {
   scopeKind: "facility";
+  /** Absent on tokens issued before partner sessions. Never "partner". */
+  accessKind?: undefined;
   role: AppRole;
   facilityId: string;
   organizationId?: string;
+};
+
+/**
+ * External Facility context for a User acting under one partnership.
+ * The token names the context only. Role, ceiling, and Department scope are reloaded from Path B.
+ */
+export type PartnerFacilitySession = AppJwtCommon & {
+  scopeKind: "facility";
+  accessKind: "partner";
+  authKind: "user";
+  facilityId: string;
+  partnerOrganizationId: string;
+  facilityPartnerOrganizationId: string;
+  role?: undefined;
+  organizationId?: undefined;
+  primaryDepartmentId?: undefined;
 };
 
 /** Organization-scoped session. No Facility RoleKey; authority is membership periods. */
@@ -76,7 +94,7 @@ export type OrganizationSessionPayload = AppJwtCommon & {
   facilityId?: undefined;
 };
 
-export type AppJwtPayload = FacilitySession | OrganizationSessionPayload;
+export type AppJwtPayload = FacilitySession | OrganizationSessionPayload | PartnerFacilitySession;
 
 export function isFacilityScopedSession(
   session: Pick<AppJwtPayload, "scopeKind" | "facilityId" | "role">,
@@ -86,6 +104,29 @@ export function isFacilityScopedSession(
     typeof session.facilityId === "string" &&
     session.facilityId.length > 0 &&
     session.role != null
+  );
+}
+
+export function isPartnerFacilitySession(
+  session: Pick<AppJwtPayload, "scopeKind" | "facilityId"> & {
+    accessKind?: string;
+    authKind?: AuthKind;
+    partnerOrganizationId?: string;
+    facilityPartnerOrganizationId?: string;
+    role?: AppRole;
+  },
+): session is PartnerFacilitySession {
+  return (
+    session.scopeKind === "facility" &&
+    session.accessKind === "partner" &&
+    session.authKind === "user" &&
+    session.role == null &&
+    typeof session.facilityId === "string" &&
+    session.facilityId.length > 0 &&
+    typeof session.partnerOrganizationId === "string" &&
+    session.partnerOrganizationId.length > 0 &&
+    typeof session.facilityPartnerOrganizationId === "string" &&
+    session.facilityPartnerOrganizationId.length > 0
   );
 }
 
@@ -148,6 +189,48 @@ export async function createSessionToken(payload: {
     body.primaryDepartmentId = payload.primaryDepartmentId;
   }
 
+  return new SignJWT(body)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .sign(getJwtSecret());
+}
+
+/**
+ * Mint a partner Facility session. Context only: no Facility RoleKey, no partner role,
+ * no Department ids, and no primaryDepartmentId.
+ */
+export async function createPartnerFacilitySessionToken(payload: {
+  uid: string;
+  name: string;
+  email: string;
+  facilityId: string;
+  partnerOrganizationId: string;
+  facilityPartnerOrganizationId: string;
+  sessionVersion: number;
+}) {
+  if (payload.uid.trim().length === 0) {
+    throw new Error("Partner facility session requires a user.");
+  }
+  if (!payload.facilityId.trim() || !payload.partnerOrganizationId.trim()) {
+    throw new Error("Partner facility session requires a Facility and partner Organization.");
+  }
+  if (!payload.facilityPartnerOrganizationId.trim()) {
+    throw new Error("Partner facility session requires a partnership.");
+  }
+  const body: Record<string, unknown> = {
+    uid: payload.uid,
+    authKind: "user",
+    authMethod: "PASSWORD",
+    scopeKind: "facility",
+    accessKind: "partner",
+    name: payload.name,
+    email: payload.email,
+    facilityId: payload.facilityId,
+    partnerOrganizationId: payload.partnerOrganizationId,
+    facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
+    sessionVersion: payload.sessionVersion,
+  };
   return new SignJWT(body)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -226,6 +309,39 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
     };
   }
 
+  if (p.accessKind === "partner") {
+    if (authKind !== "user") {
+      throw new Error("Partner facility session requires a user.");
+    }
+    const partnerOrganizationId =
+      typeof p.partnerOrganizationId === "string" ? p.partnerOrganizationId.trim() : "";
+    const facilityPartnerOrganizationId =
+      typeof p.facilityPartnerOrganizationId === "string"
+        ? p.facilityPartnerOrganizationId.trim()
+        : "";
+    if (!facilityId || !partnerOrganizationId || !facilityPartnerOrganizationId) {
+      throw new Error("Partner facility session is incomplete.");
+    }
+    if (role) {
+      throw new Error("Partner facility session cannot carry a Facility role.");
+    }
+    return {
+      uid: common.uid,
+      authKind: "user",
+      authMethod: common.authMethod,
+      name: common.name,
+      email: common.email,
+      sessionVersion: common.sessionVersion,
+      iat: payload.iat,
+      exp: payload.exp,
+      scopeKind: "facility",
+      accessKind: "partner",
+      facilityId,
+      partnerOrganizationId,
+      facilityPartnerOrganizationId,
+    };
+  }
+
   if (!facilityId || !role) {
     throw new Error("Facility session requires facilityId and role.");
   }
@@ -283,7 +399,11 @@ export async function getAppSession(): Promise<AppJwtPayload | null> {
 
   try {
     const payload = await verifySessionToken(raw);
-    if (payload.scopeKind === "facility" && !isFacilityScopedSession(payload)) {
+    if (
+      payload.scopeKind === "facility" &&
+      !isFacilityScopedSession(payload) &&
+      !isPartnerFacilitySession(payload)
+    ) {
       return null;
     }
     if (payload.scopeKind === "organization" && !isOrganizationScopedSession(payload)) {
@@ -297,6 +417,24 @@ export async function getAppSession(): Promise<AppJwtPayload | null> {
     const authority = await validateSessionForRequest(payload);
     if (!authority.valid) {
       return null;
+    }
+
+    if (isPartnerFacilitySession(payload)) {
+      return {
+        uid: payload.uid,
+        authKind: "user",
+        authMethod: payload.authMethod,
+        name: payload.name,
+        email: payload.email,
+        sessionVersion: payload.sessionVersion,
+        iat: payload.iat,
+        exp: payload.exp,
+        scopeKind: "facility",
+        accessKind: "partner",
+        facilityId: payload.facilityId,
+        partnerOrganizationId: payload.partnerOrganizationId,
+        facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
+      };
     }
 
     if (payload.scopeKind === "organization") {
@@ -327,6 +465,23 @@ export async function getSession(): Promise<FacilitySession | null> {
   const session = await getAppSession();
   if (!session || !isFacilityScopedSession(session)) {
     return null;
+  }
+  return session;
+}
+
+/** Partner Facility session only. Internal Facility sessions and Organization sessions return null. */
+export async function getPartnerFacilitySession(): Promise<PartnerFacilitySession | null> {
+  const session = await getAppSession();
+  if (!session || !isPartnerFacilitySession(session)) {
+    return null;
+  }
+  return session;
+}
+
+export async function requirePartnerFacilitySession(): Promise<PartnerFacilitySession> {
+  const session = await getPartnerFacilitySession();
+  if (!session) {
+    throw new Error("Unauthorized.");
   }
   return session;
 }

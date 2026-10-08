@@ -311,6 +311,27 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
   },
 
+  // ── Partner Facility holding surface (Phase 2C2) ──────────────────────────
+  {
+    pattern: "/partner",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Safe partner holding page. Live Path B is rechecked. Operational Facility loaders are not used.",
+  },
+  {
+    pattern: "/partner/exit",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "partner-facility-session",
+    notes:
+      "Recovers an invalidated partner Facility cookie into an Organization session or sign-in. Ignores query organization ids.",
+  },
+
   // ── Organization account (Phase 2B1) ───────────────────────────────────────
   {
     pattern: "/organization",

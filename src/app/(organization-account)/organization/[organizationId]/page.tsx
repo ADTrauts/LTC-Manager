@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { enterPartnerFacilityAction } from "@/app/partner/actions";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import {
   getOrganizationMembers,
   organizationDisplayLabel,
   organizationMembershipRoleLabel,
 } from "@/lib/organization-membership";
+import { listAuthorizedPartnerFacilities, partnerRoleLabel } from "@/lib/partner-user-access";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -40,6 +42,10 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
     membership.currentRole === "ORG_ADMIN"
       ? await getOrganizationMembers(prisma, { organizationId })
       : [];
+  const clientAccess = await listAuthorizedPartnerFacilities(prisma, {
+    userId: session.uid,
+    organizationId,
+  });
 
   return (
     <div className="space-y-6" data-testid="organization-home-detail">
@@ -61,8 +67,8 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
           </p>
         ) : null}
         <p className="mt-2 text-xs text-zinc-500">
-          Organization membership does not grant access to customer Facilities. Partner Facility
-          assignment is not available in this phase.
+          Organization membership does not grant access to customer Facilities. Client access below
+          lists only your current personal partner assignments.
         </p>
         {membership.currentRole === "ORG_ADMIN" ? (
           <p className="mt-3">
@@ -96,6 +102,45 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
             </div>
           ) : null}
         </dl>
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="client-access">
+        <h2 className="text-sm font-semibold text-zinc-900">Client access</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          Enter a client Facility only when you mean to work there as this Organization.
+        </p>
+        {clientAccess.length === 0 ? (
+          <p className="mt-2 text-sm text-zinc-500">No current client assignments.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-zinc-100">
+            {clientAccess.map((client) => (
+              <li key={client.facilityPartnerOrganizationId} className="flex items-center justify-between gap-4 py-3">
+                <div className="text-sm">
+                  <p className="font-medium text-zinc-900">{client.facilityDisplayName}</p>
+                  <p className="text-xs text-zinc-500">
+                    {client.departmentNames.join(", ") || "No departments"}
+                    {" · "}
+                    {partnerRoleLabel(client.effectiveRole)}
+                  </p>
+                </div>
+                <form action={enterPartnerFacilityAction}>
+                  <input type="hidden" name="facilityId" value={client.facilityId} />
+                  <input
+                    type="hidden"
+                    name="facilityPartnerOrganizationId"
+                    value={client.facilityPartnerOrganizationId}
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
+                  >
+                    Enter
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {membership.currentRole === "ORG_ADMIN" ? (

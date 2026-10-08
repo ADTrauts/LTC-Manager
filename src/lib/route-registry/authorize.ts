@@ -19,8 +19,8 @@ export type RouteAuthorizationInput = {
   pathname: string;
   /** The caller's Facility RoleKey, or `null` when there is no facility RoleKey session. */
   role: AppRole | null;
-  /** Explicit session context. Organization sessions authorize ORGANIZATION_SESSION routes without RoleKey. */
-  sessionScope?: "facility" | "organization" | null;
+  /** Explicit session context. Organization and partner sessions do not carry a Facility RoleKey. */
+  sessionScope?: "facility" | "organization" | "partner" | null;
   featureFlags: RouteFeatureFlags;
 };
 
@@ -85,6 +85,12 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
     return { outcome: "ALLOW", route };
   }
 
+  if (input.sessionScope === "partner") {
+    return route.access.kind === "PARTNER_SESSION"
+      ? { outcome: "ALLOW", route }
+      : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+  }
+
   const hasFacilityRole = Boolean(input.role);
   const isOrganizationSession = input.sessionScope === "organization";
   if (!hasFacilityRole && !isOrganizationSession) {
@@ -98,6 +104,9 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
   }
 
   switch (route.access.kind) {
+    case "PARTNER_SESSION":
+      return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+
     case "ORGANIZATION_SESSION":
       return isOrganizationSession
         ? { outcome: "ALLOW", route }

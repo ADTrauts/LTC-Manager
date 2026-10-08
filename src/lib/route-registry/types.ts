@@ -13,6 +13,8 @@ export const ROUTE_ACCESS_KINDS = [
   "AUTHENTICATED",
   /** Organization-scoped email User session; Facility RoleKey not required. */
   "ORGANIZATION_SESSION",
+  /** Partner Facility session. Internal Facility RoleKey sessions cannot use these routes. */
+  "PARTNER_SESSION",
   /** Only the explicitly listed roles. */
   "ROLE_RESTRICTED",
   /** Session required at the proxy; the handler remains responsible for role and object checks. */
@@ -31,6 +33,7 @@ export type RouteAccess =
   | { kind: "PUBLIC" }
   | { kind: "AUTHENTICATED" }
   | { kind: "ORGANIZATION_SESSION" }
+  | { kind: "PARTNER_SESSION" }
   | { kind: "ROLE_RESTRICTED"; allowedRoles: readonly AppRole[] }
   | { kind: "HANDLER_AUTHORIZED_API" }
   | {

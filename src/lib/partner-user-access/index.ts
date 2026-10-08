@@ -11,6 +11,7 @@ export {
   changePartnerUserRole,
   endPartnerUserAssignment,
   getPartnerUserAccessAdminView,
+  listAuthorizedPartnerFacilities,
   resolveFacilityAuthorization,
   setFacilityPartnerRoleCeiling,
 } from "./service";
@@ -20,6 +21,7 @@ export type {
   FacilityAuthorizationResult,
   InternalFacilityAuthorization,
   PartnerAssignmentMemberView,
+  AuthorizedPartnerFacility,
   PartnerFacilityAuthorization,
   PartnerRoleHistoryRow,
   PartnerRolePeriodView,

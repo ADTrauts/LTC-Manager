@@ -63,7 +63,7 @@ The default access kind is internal. Partner authorization is returned only when
 
 ## Current limitation
 
-A valid Path B result does not mint a Facility session, does not call `switchActiveFacility`, and does not change `getSession()`. Jane can be partner-authorized and still cannot open Terrace View.
+A valid Path B result does not by itself mint a session. Phase 2C2 can mint a separate partner Facility session from an Organization session. That session is not an internal Facility session, `getSession()` still rejects it, and operational Facility loaders stay closed.
 
 Assignment does not create `UserFacilityAccess`, a Facility RoleKey, or a home Facility.
 
