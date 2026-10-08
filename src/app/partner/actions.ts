@@ -4,18 +4,15 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
-  createOrganizationSessionToken,
   createPartnerFacilitySessionToken,
   getCookieOptions,
-  isPartnerFacilitySession,
   SESSION_COOKIE,
-  verifySessionToken,
 } from "@/lib/auth";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import {
+  completePartnerFacilityTransition,
   PartnerFacilitySessionError,
   resolvePartnerFacilityEntry,
-  resolvePartnerFacilityExit,
 } from "@/lib/partner-facility-session";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
@@ -73,44 +70,18 @@ export async function leavePartnerFacilityAction(): Promise<void> {
   const raw = jar.get(SESSION_COOKIE)?.value;
   if (!raw) redirect("/login");
 
-  let payload;
-  try {
-    payload = await verifySessionToken(raw);
-  } catch {
-    jar.set(SESSION_COOKIE, "", { ...getCookieOptions(), maxAge: 0 });
-    redirect("/login");
-  }
-  if (!isPartnerFacilitySession(payload)) {
+  const transition = await completePartnerFacilityTransition(prisma, { token: raw });
+  if (transition.outcome === "clear" && transition.reason === "NOT_PARTNER") {
     redirect("/partner");
   }
-
-  const user = await prisma.user.findUnique({
-    where: { id: payload.uid },
-    select: { id: true, email: true, displayName: true, sessionVersion: true, isActive: true },
-  });
-  const exit = await resolvePartnerFacilityExit(prisma, {
-    uid: payload.uid,
-    partnerOrganizationId: payload.partnerOrganizationId,
-  });
-  if (!user?.isActive || !user.email || exit.action === "login") {
+  if (transition.outcome === "clear") {
     jar.set(SESSION_COOKIE, "", { ...getCookieOptions(), maxAge: 0 });
     redirect("/login");
   }
 
-  const token = await createOrganizationSessionToken({
-    uid: user.id,
-    authMethod: "PASSWORD",
-    name: user.displayName,
-    email: user.email,
-    organizationId: exit.organizationId,
-    sessionVersion: user.sessionVersion,
-  });
-  jar.set(SESSION_COOKIE, token, getCookieOptions());
+  jar.set(SESSION_COOKIE, transition.token, getCookieOptions());
   await trackEvent("partner_session.left", {
-    userId: user.id,
-    facilityId: payload.facilityId,
-    partnerOrganizationId: payload.partnerOrganizationId,
-    facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
+    partnerOrganizationId: transition.organizationId,
   });
-  redirect(`/organization/${exit.organizationId}`);
+  redirect(`/organization/${transition.organizationId}`);
 }

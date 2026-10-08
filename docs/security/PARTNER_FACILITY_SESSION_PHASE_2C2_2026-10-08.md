@@ -54,3 +54,21 @@ A partner session does not make existing operational loaders safe.
 Dashboard, Operations, Today's Work, logs, assets, employees, reports, Build, Admin, and billing stay internal. The active Department cookie is ignored. Direct partner-to-partner switching is not implemented. PIN and Harbor sessions cannot enter this context.
 
 `sessionVersion` still changes when Organization membership role or membership end requires a global sign-out. Partner role changes, assignment end, partnership suspension, Department scope changes, and ceiling changes do not fan out `sessionVersion`. The next partner request sees the live Path B result.
+
+## Partner session invalidation
+
+Path B loss immediately invalidates the Facility context. A role downgrade or a narrower Department list does not. Removing the last Department, ending the assignment, suspending the partnership, or clearing the ceiling does.
+
+The proxy sends that failed partner token to `/partner/exit`. It does not send the holder to `/dashboard` or treat the token as an internal Facility session. `/partner/exit` is public, so the recovery request is not sent back through partner validation.
+
+## Recovery
+
+A still-valid membership in the signed partner Organization may restore an Organization session for that Organization. Explicit leave uses the same transition while Path B is still valid, and the assignment stays in place for a later entry.
+
+## Recovery authority
+
+Recovery never trusts a client-supplied Organization id. It also does not treat the partner assignment as Organization authority. The candidate Organization is the signed `partnerOrganizationId`, and only after that id matches the partnership row. Current membership is loaded again before any Organization token is minted.
+
+## Membership loss
+
+If that Organization membership is no longer current, or the Organization is inactive, recovery clears `ltc_session` and ends at sign-in. It does not reconstruct the membership. An internal Facility token or an unsigned token cannot use this endpoint to mint an Organization session.

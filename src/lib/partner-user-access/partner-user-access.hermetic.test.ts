@@ -17,9 +17,12 @@ import {
   type AppJwtPayload,
 } from "@/lib/auth";
 import {
+  completePartnerFacilityTransition,
   PartnerFacilitySessionError,
   resolvePartnerFacilityEntry,
 } from "@/lib/partner-facility-session";
+import { getCurrentOrganizationRole } from "@/lib/organization-membership";
+import { authorizeRoute } from "@/lib/route-registry/authorize";
 import {
   assignPartnerUser,
   changePartnerUserRole,
@@ -760,7 +763,15 @@ function createWorld() {
           .filter((row) => row.facilityId === where.facilityId && row.isActive === where.isActive)
           .filter((row) => !where.id?.in || where.id.in.includes(row.id))
           .sort((left, right) => left.id.localeCompare(right.id))
-          .map((row) => ({ id: row.id, name: row.id === "dietary" ? "Food & Nutrition" : row.id })),
+          .map((row) => ({
+            id: row.id,
+            name:
+              row.id === "dietary" || row.id === "dietary_hp"
+                ? "Food & Nutrition"
+                : row.id === "evs"
+                  ? "EVS"
+                  : row.id,
+          })),
     },
     employee: {
       findFirst: async () => null,
@@ -866,7 +877,14 @@ function createWorld() {
               facilityPartnerOrganization: {
                 ...partnership,
                 organization: { isActive: organization?.isActive ?? false },
-                facility: { displayName: partnership.facilityId === "fac" ? "Terrace View" : partnership.facilityId },
+                facility: {
+                  displayName:
+                    partnership.facilityId === "fac"
+                      ? "Terrace View"
+                      : partnership.facilityId === "hp"
+                        ? "HighPointe"
+                        : partnership.facilityId,
+                },
               },
             };
           });
@@ -1157,7 +1175,330 @@ test("partner holding surface ignores the department cookie and internal loaders
   assert.equal(page.includes("ltc_active_department"), false);
   assert.equal(page.includes("ACTIVE_DEPARTMENT_COOKIE"), false);
   assert.match(proxy, /sessionScope: "partner"/);
-  assert.equal(exitRoute.includes("searchParams"), false);
+  assert.match(exitRoute, /requestedOrganizationId: request\.nextUrl\.searchParams\.get\("organizationId"\)/);
   assert.equal(exitRoute.includes("organizationId="), false);
+  assert.equal(exitRoute.includes("createOrganizationSessionToken"), false);
   assert.equal(login.includes("createPartnerFacilitySessionToken"), false);
+});
+
+function tokenClaims(token: string): Record<string, unknown> {
+  return JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString("utf8")) as Record<string, unknown>;
+}
+
+async function mintPartnerToken(
+  world: ReturnType<typeof createWorld>,
+  userId: "jane" | "john",
+  partnershipId = "partnership",
+  facilityId = "fac",
+) {
+  const user = world.users.find((row) => row.id === userId)!;
+  const authorization = await resolvePartnerFacilityEntry(world.db, {
+    userId,
+    organizationId: "metz",
+    facilityId,
+    facilityPartnerOrganizationId: partnershipId,
+  });
+  return createPartnerFacilitySessionToken({
+    uid: user.id,
+    name: user.displayName,
+    email: user.email,
+    facilityId: authorization.facilityId,
+    partnerOrganizationId: authorization.partnerOrganizationId,
+    facilityPartnerOrganizationId: authorization.facilityPartnerOrganizationId,
+    sessionVersion: user.sessionVersion ?? 0,
+  });
+}
+
+function assertOrganizationReplacement(partnerToken: string, transition: Awaited<ReturnType<typeof completePartnerFacilityTransition>>) {
+  assert.equal(transition.outcome, "organization");
+  if (transition.outcome !== "organization") return;
+  assert.equal(transition.organizationId, "metz");
+  assert.notEqual(transition.token, partnerToken);
+  const claims = tokenClaims(transition.token);
+  assert.equal(claims.scopeKind, "organization");
+  assert.equal(claims.organizationId, "metz");
+  assert.equal(claims.facilityId, undefined);
+  assert.equal(claims.role, undefined);
+  assert.equal(claims.accessKind, undefined);
+  assert.equal(claims.partnerOrganizationId, undefined);
+  assert.equal(claims.facilityPartnerOrganizationId, undefined);
+  assert.equal(claims.partnerRole, undefined);
+  assert.equal(isFacilityScopedSession({ scopeKind: "organization", facilityId: undefined, role: undefined }), false);
+}
+
+test("partner leave and recovery replace the session only when Metz membership is current", async () => {
+  const world = createWorld();
+  await grantJane(world);
+  const jane = world.users.find((user) => user.id === "jane")!;
+  const home = jane.facilityId;
+  const accessCount = world.facilityAccesses.length;
+  const assignmentCount = world.assignments.length;
+
+  const memberToken = await mintPartnerToken(world, "jane");
+  const left = await completePartnerFacilityTransition(world.db, {
+    token: memberToken,
+    requestedOrganizationId: "otherco",
+  });
+  assertOrganizationReplacement(memberToken, left);
+  const stillAssigned = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal(stillAssigned.authorization.path, "partner");
+  const reentered = await mintPartnerToken(world, "jane");
+  const reenteredClaims = tokenClaims(reentered);
+  assert.equal(reenteredClaims.accessKind, "partner");
+  assert.equal(reenteredClaims.scopeKind, "facility");
+  assert.equal(reenteredClaims.facilityId, "fac");
+  assert.equal(reenteredClaims.partnerOrganizationId, "metz");
+  assert.equal(reenteredClaims.role, undefined);
+  assert.equal(jane.facilityId, home);
+  assert.equal(world.facilityAccesses.length, accessCount);
+  assert.equal(world.assignments.length, assignmentCount);
+  assert.equal(await getCurrentOrganizationRole(world.db, { userId: "jane", organizationId: "metz" }), "ORG_MEMBER");
+
+  await assignPartnerUser(world.db, {
+    ...world.actor,
+    userId: "john",
+    partnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-02T00:00:00.000Z"),
+  });
+  const adminToken = await mintPartnerToken(world, "john");
+  await endPartnerUserAssignment(world.db, { ...world.actor, userId: "john" });
+  const adminPath = await validateSessionAuthority(await verifySessionToken(adminToken), world.db);
+  assert.equal(adminPath.valid, false);
+  const adminRecovery = await completePartnerFacilityTransition(world.db, { token: adminToken });
+  assertOrganizationReplacement(adminToken, adminRecovery);
+  assert.equal(await getCurrentOrganizationRole(world.db, { userId: "john", organizationId: "metz" }), "ORG_ADMIN");
+
+  const revokedToken = await mintPartnerToken(world, "jane");
+  await endPartnerUserAssignment(world.db, { ...world.actor, userId: "jane" });
+  const revokedPath = await validateSessionAuthority(await verifySessionToken(revokedToken), world.db);
+  assert.equal(revokedPath.valid, false);
+  const revokedRecovery = await completePartnerFacilityTransition(world.db, {
+    token: revokedToken,
+    requestedOrganizationId: "otherco",
+  });
+  assertOrganizationReplacement(revokedToken, revokedRecovery);
+  assert.equal(jane.facilityId, home);
+  assert.equal(world.facilityAccesses.filter((grant) => grant.userId === "jane").length, 0);
+  assert.equal(world.assignments.filter((row) => row.userId === "jane").length, 1);
+  assert.ok(world.rolePeriods.some((period) => period.endsAt !== null));
+
+  const suspended = createWorld();
+  await grantJane(suspended);
+  const suspendedToken = await mintPartnerToken(suspended, "jane");
+  suspended.partnerships[0]!.endedAt = new Date(Date.now() - 1000);
+  assert.equal((await validateSessionAuthority(await verifySessionToken(suspendedToken), suspended.db)).valid, false);
+  assertOrganizationReplacement(
+    suspendedToken,
+    await completePartnerFacilityTransition(suspended.db, { token: suspendedToken }),
+  );
+
+  const cleared = createWorld();
+  await grantJane(cleared);
+  const clearedToken = await mintPartnerToken(cleared, "jane");
+  await setFacilityPartnerRoleCeiling(cleared.db, { ...cleared.actor, maxPartnerRole: null });
+  assert.equal((await validateSessionAuthority(await verifySessionToken(clearedToken), cleared.db)).valid, false);
+  assertOrganizationReplacement(
+    clearedToken,
+    await completePartnerFacilityTransition(cleared.db, { token: clearedToken }),
+  );
+
+  const scoped = createWorld();
+  await grantJane(scoped);
+  scoped.departments.push({ id: "evs", facilityId: "fac", isActive: true });
+  scoped.scopes.push({
+    id: "scope_evs",
+    facilityPartnerOrganizationId: "partnership",
+    departmentId: "evs",
+    startsAt: at("2020-01-01T00:00:00.000Z"),
+    endsAt: null,
+  });
+  const both = await resolveFacilityAuthorization(scoped.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal(both.authorization.path, "partner");
+  if (both.authorization.path === "partner") {
+    assert.deepEqual(both.authorization.allowedDepartmentIds, ["dietary", "evs"]);
+  }
+  scoped.scopes.find((scope) => scope.departmentId === "evs")!.endsAt = new Date(Date.now() - 1000);
+  const dietaryOnly = await resolveFacilityAuthorization(scoped.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal(dietaryOnly.authorization.path, "partner");
+  if (dietaryOnly.authorization.path === "partner") {
+    assert.deepEqual(dietaryOnly.authorization.allowedDepartmentIds, ["dietary"]);
+    assert.deepEqual(
+      dietaryOnly.authorization.allowedDepartmentIds.map((id) => (id === "dietary" ? "Food & Nutrition" : id)),
+      ["Food & Nutrition"],
+    );
+  }
+  const narrowedToken = await mintPartnerToken(scoped, "jane");
+  assert.equal((await validateSessionAuthority(await verifySessionToken(narrowedToken), scoped.db)).valid, true);
+  scoped.scopes.find((scope) => scope.departmentId === "dietary")!.endsAt = new Date(Date.now() - 1000);
+  assert.equal((await validateSessionAuthority(await verifySessionToken(narrowedToken), scoped.db)).valid, false);
+  assertOrganizationReplacement(
+    narrowedToken,
+    await completePartnerFacilityTransition(scoped.db, { token: narrowedToken }),
+  );
+
+  scoped.scopes.forEach((scope) => {
+    scope.endsAt = null;
+  });
+  await changePartnerUserRole(scoped.db, {
+    ...scoped.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+  });
+  const downgradedToken = await mintPartnerToken(scoped, "jane");
+  const downgraded = await resolveFacilityAuthorization(scoped.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+  });
+  assert.equal((await validateSessionAuthority(await verifySessionToken(downgradedToken), scoped.db)).valid, true);
+  if (downgraded.authorization.path === "partner") {
+    assert.equal(downgraded.authorization.effectiveRole, "PARTNER_VIEWER");
+  }
+});
+
+test("partner recovery refuses membership loss, inactive Organizations, and cross-organization input", async () => {
+  const ended = createWorld();
+  await grantJane(ended);
+  const endedToken = await mintPartnerToken(ended, "jane");
+  ended.memberships.find((row) => row.userId === "jane")!.rolePeriods[0]!.endsAt = new Date(Date.now() - 1000);
+  assert.equal((await validateSessionAuthority(await verifySessionToken(endedToken), ended.db)).valid, false);
+  const endedRecovery = await completePartnerFacilityTransition(ended.db, { token: endedToken });
+  assert.deepEqual(endedRecovery, { outcome: "clear", reason: "MEMBERSHIP" });
+
+  const inactive = createWorld();
+  await grantJane(inactive);
+  const inactiveToken = await mintPartnerToken(inactive, "jane");
+  inactive.organizations[0]!.isActive = false;
+  assert.equal((await validateSessionAuthority(await verifySessionToken(inactiveToken), inactive.db)).valid, false);
+  const inactiveRecovery = await completePartnerFacilityTransition(inactive.db, { token: inactiveToken });
+  assert.deepEqual(inactiveRecovery, { outcome: "clear", reason: "MEMBERSHIP" });
+
+  const mismatched = await createPartnerFacilitySessionToken({
+    uid: "jane",
+    name: "Jane Smith",
+    email: "jane@metz.example",
+    facilityId: "fac",
+    partnerOrganizationId: "otherco",
+    facilityPartnerOrganizationId: "partnership",
+    sessionVersion: 0,
+  });
+  const attack = createWorld();
+  await grantJane(attack);
+  attack.organizations.push({ id: "otherco", isActive: true });
+  attack.memberships.push({
+    id: "mem_jane_other",
+    userId: "jane",
+    organizationId: "otherco",
+    createdAt: at("2020-01-01T00:00:00.000Z"),
+    rolePeriods: [
+      { id: "mem_jane_other_period", role: "ORG_MEMBER", startsAt: at("2020-01-01T00:00:00.000Z"), endsAt: null },
+    ],
+  });
+  const mismatch = await completePartnerFacilityTransition(attack.db, {
+    token: mismatched,
+    requestedOrganizationId: "otherco",
+  });
+  assert.deepEqual(mismatch, { outcome: "clear", reason: "MISMATCH" });
+
+  const internal = await createSessionToken({
+    uid: "actor",
+    role: "FACILITY_ADMINISTRATOR",
+    name: "Facility Admin",
+    email: "fa@terrace.example",
+    facilityId: "fac",
+    sessionVersion: 0,
+  });
+  assert.equal((await completePartnerFacilityTransition(attack.db, { token: internal })).outcome, "clear");
+  const unsigned = await completePartnerFacilityTransition(attack.db, { token: "not-a-jwt" });
+  assert.equal(unsigned.outcome, "clear");
+  if (unsigned.outcome === "clear") assert.equal(unsigned.reason, "UNSIGNED");
+
+  const listed = createWorld();
+  await grantJane(listed);
+  listed.partnerships.push({
+    id: "hp_partnership",
+    facilityId: "hp",
+    organizationId: "metz",
+    endedAt: null,
+  });
+  listed.accessPeriods.push({
+    id: "hp_access",
+    facilityPartnerOrganizationId: "hp_partnership",
+    startsAt: at("2020-01-01T00:00:00.000Z"),
+    endsAt: null,
+  });
+  listed.departments.push({ id: "dietary_hp", facilityId: "hp", isActive: true });
+  listed.scopes.push({
+    id: "scope_hp",
+    facilityPartnerOrganizationId: "hp_partnership",
+    departmentId: "dietary_hp",
+    startsAt: at("2020-01-01T00:00:00.000Z"),
+    endsAt: null,
+  });
+  listed.facilityAccesses.push({
+    id: "actor_hp",
+    userId: "actor",
+    facilityId: "hp",
+    isActive: true,
+    revokedAt: null,
+  });
+  await setFacilityPartnerRoleCeiling(listed.db, {
+    actorUserId: "actor",
+    partnershipId: "hp_partnership",
+    facilityId: "hp",
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await assignPartnerUser(listed.db, {
+    actorUserId: "actor",
+    partnershipId: "hp_partnership",
+    facilityId: "hp",
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-01-02T00:00:00.000Z"),
+  });
+  await endPartnerUserAssignment(listed.db, { ...listed.actor, userId: "jane" });
+  const clients = await listAuthorizedPartnerFacilities(listed.db, { userId: "jane", organizationId: "metz" });
+  assert.deepEqual(clients.map((client) => client.facilityDisplayName), ["HighPointe"]);
+});
+
+test("invalid partner recovery stays on /partner/exit and validation stays side-effect free", () => {
+  const proxy = readFileSync(join(root, "src/proxy.ts"), "utf8");
+  const validation = readFileSync(join(root, "src/lib/session-revocation/session-version.ts"), "utf8");
+  const resolver = readFileSync(join(root, "src/lib/partner-user-access/service.ts"), "utf8");
+  const transition = readFileSync(join(root, "src/lib/partner-facility-session.ts"), "utf8");
+  const start = proxy.indexOf("if (isPartnerFacilitySession(session))");
+  const branch = proxy.slice(start, proxy.indexOf('session.scopeKind === "organization"', start));
+  assert.match(branch, /\/partner\/exit/);
+  assert.equal(branch.includes("/dashboard"), false);
+  assert.equal(branch.includes("defaultHome"), false);
+  assert.match(proxy, /anonymousDecision\.outcome === "ALLOW"/);
+  assert.equal(validation.includes("cookies("), false);
+  assert.equal(validation.includes("createOrganizationSessionToken"), false);
+  assert.equal(resolver.includes("cookies("), false);
+  assert.equal(resolver.includes("createOrganizationSessionToken"), false);
+  assert.equal(transition.includes("cookies("), false);
+  assert.equal(transition.includes("redirect("), false);
+  const flags = { todaysWorkEnabled: true };
+  assert.equal(authorizeRoute({ pathname: "/partner/exit", role: null, featureFlags: flags }).outcome, "ALLOW");
+  assert.equal(
+    authorizeRoute({ pathname: "/dashboard", role: null, sessionScope: "partner", featureFlags: flags }).outcome,
+    "DENY",
+  );
 });

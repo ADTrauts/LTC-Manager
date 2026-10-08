@@ -1,13 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  createOrganizationSessionToken,
-  getCookieOptions,
-  isPartnerFacilitySession,
-  SESSION_COOKIE,
-  verifySessionToken,
-} from "@/lib/auth";
-import { resolvePartnerFacilityExit } from "@/lib/partner-facility-session";
+import { getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { completePartnerFacilityTransition } from "@/lib/partner-facility-session";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -21,45 +15,22 @@ export async function GET(request: NextRequest) {
   login.cookies.set(SESSION_COOKIE, "", { ...getCookieOptions(), maxAge: 0 });
   if (!raw) return login;
 
-  let payload;
-  try {
-    payload = await verifySessionToken(raw);
-  } catch {
-    return login;
-  }
-  if (!isPartnerFacilitySession(payload)) return login;
-
-  const user = await prisma.user.findUnique({
-    where: { id: payload.uid },
-    select: { id: true, email: true, displayName: true, sessionVersion: true, isActive: true },
+  const transition = await completePartnerFacilityTransition(prisma, {
+    token: raw,
+    requestedOrganizationId: request.nextUrl.searchParams.get("organizationId"),
   });
-  const exit = await resolvePartnerFacilityExit(prisma, payload);
-  if (!user?.isActive || !user.email || user.sessionVersion !== payload.sessionVersion || exit.action === "login") {
+  if (transition.outcome === "clear") {
     await trackEvent("partner_session.invalidated", {
-      userId: payload.uid,
-      facilityId: payload.facilityId,
-      partnerOrganizationId: payload.partnerOrganizationId,
-      facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
       restoredOrganizationSession: false,
+      reason: transition.reason,
     });
     return login;
   }
 
-  const token = await createOrganizationSessionToken({
-    uid: user.id,
-    authMethod: "PASSWORD",
-    name: user.displayName,
-    email: user.email,
-    organizationId: exit.organizationId,
-    sessionVersion: user.sessionVersion,
-  });
-  const home = NextResponse.redirect(new URL(`/organization/${exit.organizationId}`, request.url));
-  home.cookies.set(SESSION_COOKIE, token, getCookieOptions());
+  const home = NextResponse.redirect(new URL(`/organization/${transition.organizationId}`, request.url));
+  home.cookies.set(SESSION_COOKIE, transition.token, getCookieOptions());
   await trackEvent("partner_session.invalidated", {
-    userId: user.id,
-    facilityId: payload.facilityId,
-    partnerOrganizationId: payload.partnerOrganizationId,
-    facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
+    partnerOrganizationId: transition.organizationId,
     restoredOrganizationSession: true,
   });
   return home;
