@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getSession, isOrganizationScopedSession } from "@/lib/auth";
+import { getAppSession, isOrganizationScopedSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ type Props = {
  * Not the Facility AppShell and not a corporate portfolio.
  */
 export default async function OrganizationAccountLayout({ children }: Props) {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session) {
     redirect("/login");
   }

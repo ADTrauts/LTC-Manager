@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { MealType, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -97,7 +97,7 @@ function computeServerRevision(input: {
 }
 
 export type BuildRuntimeBundleInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   unitId: string;
   deviceFacilityId: string;
   deviceBoundUnitId: string | null;

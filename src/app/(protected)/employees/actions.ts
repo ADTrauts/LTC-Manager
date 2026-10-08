@@ -723,6 +723,9 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         throw e;
       }
     } else if (existingUserForEmail) {
+      if (!existingUserForEmail.role?.key) {
+        throw new Error("Linked app account is missing a Facility role.");
+      }
       await syncLinkedUserAuthority(tx, {
         userId: existingUserForEmail.id,
         currentUserRole: existingUserForEmail.role.key,

@@ -27,6 +27,7 @@ export {
 export {
   ORGANIZATION_CLAIM_TEMPLATE_ALIAS,
   buildOrganizationClaimTemplateModel,
+  buildOrganizationClaimTransactionalBodies,
   sendOrganizationClaimEmail,
 } from "@/lib/email/organization-claim";
 export {

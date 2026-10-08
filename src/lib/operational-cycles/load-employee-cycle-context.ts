@@ -1,6 +1,6 @@
 import type { MealType } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import {
   getFacilityServiceDate,
@@ -68,7 +68,7 @@ export type EmployeeCycleContextCard = {
  * Key Times use the generic Runtime path when published KEY_TIME nodes exist.
  */
 export async function loadEmployeeCycleContext(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   unitId?: string | null;

@@ -313,14 +313,19 @@ async function loadDepartmentProductDetail(
         }),
   ]);
 
-  const administratorRows = administrators.map((row) => ({
-    id: row.id,
-    facilityId: row.facilityId,
-    email: row.email,
-    isActive: row.isActive,
-    emailVerifiedAt: row.emailVerifiedAt,
-    roleKey: row.role.key,
-  }));
+  const administratorRows = administrators.flatMap((row) => {
+    if (!row.facilityId || !row.role?.key) return [];
+    return [
+      {
+        id: row.id,
+        facilityId: row.facilityId,
+        email: row.email,
+        isActive: row.isActive,
+        emailVerifiedAt: row.emailVerifiedAt,
+        roleKey: row.role.key,
+      },
+    ];
+  });
 
   const roleCounts = emptyProductAccessRoleCounts();
   let usersWithAccess = 0;

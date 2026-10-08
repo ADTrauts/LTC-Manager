@@ -24,16 +24,20 @@ export {
   rejectOrganizationClaim,
   requestOrganizationClaim,
   revokeOrganizationClaim,
+  rotateOrganizationClaimInvitationToken,
 } from "./service";
 export {
   OrganizationClaimError,
+  organizationClaimDeliveryStatusLabel,
   organizationClaimDisplayStateLabel,
   organizationClaimInvitationStatusLabel,
 } from "./types";
 export type {
+  OrganizationClaimDeliveryStatus,
   OrganizationClaimDisplayState,
   OrganizationClaimInvitationDisplayStatus,
   OrganizationClaimInvitationView,
   OrganizationClaimStateView,
   OrganizationClaimStatus,
 } from "./types";
+export { deliverOrganizationClaimInvitation } from "./send";

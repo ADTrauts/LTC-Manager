@@ -8,7 +8,7 @@
 import type { LogAttachmentTargetKind, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
 import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
@@ -202,7 +202,7 @@ async function targetExists(
 
 export async function loadTargetRunLogs(input: {
   client: PrismaClient;
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   target: RunTargetRef;
   historyDays?: number;

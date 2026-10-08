@@ -15,7 +15,7 @@ import type {
 
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import {
   closeRequest,
@@ -52,7 +52,7 @@ function randomId() {
 }
 
 async function acceptRequestAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -100,7 +100,7 @@ async function dualWriteRequestWorkOrder(
 
 /** Accept Request and create Issue. No Work Order. */
 export async function triageRequestCreateIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -130,7 +130,7 @@ export async function triageRequestCreateIssue(
 
 /** Accept Request and link an existing Issue (duplicate reports). */
 export async function triageRequestLinkIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -156,7 +156,7 @@ export async function triageRequestLinkIssue(
 
 /** Accept Request, create Issue, and create the first corrective Work Order. */
 export async function triageRequestCreateIssueAndWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -202,7 +202,7 @@ export async function triageRequestCreateIssueAndWorkOrder(
 }
 
 export async function declineRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -261,7 +261,7 @@ export async function declineRequest(
 }
 
 export async function resolveRequestWithoutWork(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -275,7 +275,7 @@ export async function resolveRequestWithoutWork(
 }
 
 export async function assignWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -289,7 +289,7 @@ export async function assignWorkOrder(
 }
 
 export async function startWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -307,7 +307,7 @@ export async function startWorkOrder(
 }
 
 export async function resumeWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -325,7 +325,7 @@ export async function resumeWorkOrder(
 }
 
 export async function holdAssignedWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -356,7 +356,7 @@ export async function holdAssignedWorkOrder(
 }
 
 export async function completeAssignedWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -395,7 +395,7 @@ export async function completeAssignedWorkOrder(
  * Default: do not alter Request authority.
  */
 export async function resolveIssueOptionallyRequests(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -465,7 +465,7 @@ export async function resolveIssueOptionallyRequests(
 
 /** Explicit Issue from a canonical Record. No automatic Work Order. */
 export async function createIssueFromRecord(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -522,7 +522,7 @@ export async function createIssueFromRecord(
 }
 
 export async function addWorkOrderNote(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

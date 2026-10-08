@@ -7,7 +7,7 @@
 
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { isDepartmentAssetOperationsEnabled, isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -164,7 +164,7 @@ async function requesterFlagForKey(
 
 /** Requester-side report authority. Trio departments keep release flags; custom keys are admitted. */
 export async function resolveRequesterReportAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   requestingDepartmentId: string,
 ): Promise<OperationalRequestAuthorityDecision> {
@@ -196,7 +196,7 @@ export async function resolveRequesterReportAuthority(
 }
 
 export async function resolvePlantOperationsAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   plantDepartmentId: string,
   opts?: { isAssignedTechnician?: boolean },

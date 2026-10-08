@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { getSession, isOrganizationScopedSession } from "@/lib/auth";
+import { getAppSession, isOrganizationScopedSession } from "@/lib/auth";
 import {
   listCurrentOrganizationMembershipsForUser,
   organizationDisplayLabel,
@@ -10,7 +10,7 @@ import {
 import { prisma } from "@/lib/prisma";
 
 export default async function OrganizationHomeIndexPage() {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || !isOrganizationScopedSession(session) || session.authKind !== "user") {
     redirect("/login");
   }

@@ -17,7 +17,12 @@ import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
 import { TopNav } from "@/components/top-nav";
 import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
 import { hasAtLeastRole } from "@/lib/access";
-import { getSession, sessionUserIdForFk } from "@/lib/auth";
+import {
+  getAppSession,
+  getSession,
+  isOrganizationScopedSession,
+  sessionUserIdForFk,
+} from "@/lib/auth";
 import { getHarborSession } from "@/lib/harbor-console/auth";
 import {
   resolveActiveDepartmentForShell,
@@ -60,12 +65,20 @@ type AppShellProps = {
  * Compact (&lt;lg): rails off-canvas via ResponsiveShellNav drawers; main owns full width.
  */
 export async function AppShell({ children }: AppShellProps) {
-  const session = await getSession();
-  if (!session) {
+  const anySession = await getAppSession();
+  if (!anySession) {
     const harbor = await getHarborSession();
     if (harbor) {
       redirect("/console");
     }
+    redirect("/login");
+  }
+  if (isOrganizationScopedSession(anySession)) {
+    redirect(`/organization/${anySession.organizationId}`);
+  }
+
+  const session = await getSession();
+  if (!session) {
     redirect("/login");
   }
 

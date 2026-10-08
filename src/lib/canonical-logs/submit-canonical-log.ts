@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient, OperationalTemplatePurposeType } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
@@ -161,7 +161,7 @@ export type SubmitCanonicalLogInput = {
  * Snapshot is built server-side. Client must not supply templateSnapshotJson.
  */
 export async function submitCanonicalLogSubmission(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: SubmitCanonicalLogInput & {
     actorUserId?: string | null;
     client?: Db;

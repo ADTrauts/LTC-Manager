@@ -1,7 +1,7 @@
 import {
-  getSession,
+  getAppSession,
   isOrganizationScopedSession,
-  type AppJwtPayload,
+  type OrganizationSessionPayload,
 } from "@/lib/auth";
 import {
   assertOrganizationMember,
@@ -9,9 +9,7 @@ import {
 } from "@/lib/organization-membership";
 import { prisma } from "@/lib/prisma";
 
-export type OrganizationSession = AppJwtPayload & {
-  scopeKind: "organization";
-  organizationId: string;
+export type OrganizationSession = OrganizationSessionPayload & {
   authKind: "user";
 };
 
@@ -23,12 +21,11 @@ export async function requireOrganizationSession(): Promise<{
   session: OrganizationSession;
   membership: OrganizationMembershipView;
 }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (
     !session ||
     session.authKind !== "user" ||
-    !isOrganizationScopedSession(session) ||
-    !session.organizationId
+    !isOrganizationScopedSession(session)
   ) {
     throw new Error("Unauthorized.");
   }

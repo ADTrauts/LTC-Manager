@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
@@ -38,7 +38,7 @@ function cuidLike() {
 }
 
 async function requireManage(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ) {
@@ -156,7 +156,7 @@ export async function ensureWorkingCoverageDraft(
 }
 
 export async function createCoverageExpectation(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -186,7 +186,7 @@ export async function createCoverageExpectation(
 }
 
 export async function updateCoverageExpectation(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     templateId: string;
@@ -217,7 +217,7 @@ export async function updateCoverageExpectation(
 }
 
 export async function upsertCoverageExpectationItem(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     templateId: string;
@@ -331,7 +331,7 @@ export async function upsertCoverageExpectationItem(
 }
 
 export async function removeCoverageExpectationItem(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: { facilityId: string; templateId: string; itemId: string },
 ): Promise<CoverageExpectationView> {
   const current = await loadTemplateOrThrow(prisma, {
@@ -364,7 +364,7 @@ export async function removeCoverageExpectationItem(
 }
 
 export async function publishCoverageExpectation(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     templateId: string;

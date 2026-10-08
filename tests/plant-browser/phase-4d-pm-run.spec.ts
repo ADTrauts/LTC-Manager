@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test, expect, chromium, type BrowserContext, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { createIssueFromRecord } from "@/lib/asset-operations";
 import { civilDateToUtcMidnight, facilityCivilToday } from "@/lib/preventive-maintenance/civil-date";
 import { generatePmForFacility } from "@/lib/preventive-maintenance/generator";
@@ -54,20 +54,30 @@ function cuidLike() {
 }
 
 function asSession(
-  user: { id: string; email: string; displayName: string; facilityId: string; primaryDepartmentId: string | null },
-  role: AppJwtPayload["role"],
-): AppJwtPayload {
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    facilityId: string | null;
+    primaryDepartmentId: string | null;
+  },
+  role: FacilitySession["role"],
+): FacilitySession {
+  if (!user.facilityId) {
+    throw new Error("Plant browser fixtures require a Facility-native User home Facility.");
+  }
   return {
     uid: user.id,
     authKind: "user",
     authMethod: "PASSWORD",
+    scopeKind: "facility",
     role,
     name: user.displayName,
     email: user.email,
     facilityId: user.facilityId,
     primaryDepartmentId: user.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  };
 }
 
 async function openPersistent(suffix: string): Promise<{ context: BrowserContext; page: Page }> {

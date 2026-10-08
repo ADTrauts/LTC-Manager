@@ -1,13 +1,13 @@
 import { HarborOrganizationClaimActions } from "@/components/harbor-console/organization-claim-actions";
+import { HarborOrganizationClaimRequestForm } from "@/components/harbor-console/organization-claim-request-form";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import {
   listHarborClaimQueue,
+  organizationClaimDeliveryStatusLabel,
   organizationClaimInvitationStatusLabel,
 } from "@/lib/organization-claims";
 import { organizationDisplayLabel } from "@/lib/organization-membership";
 import { prisma } from "@/lib/prisma";
-
-import { createHarborClaimRequestFormAction } from "./actions";
 
 function formatTimestamp(date: Date | null | undefined): string {
   if (!date) return "—";
@@ -46,59 +46,7 @@ export default async function HarborOrganizationClaimsPage() {
           Optional bootstrap when no Facility request exists. Still requires Approve to mint a
           token.
         </p>
-        <form action={createHarborClaimRequestFormAction} className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm sm:col-span-2">
-            <span className="font-medium text-zinc-900">Organization</span>
-            <select
-              name="organizationId"
-              required
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Select organization…
-              </option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {organizationDisplayLabel(org)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-zinc-900">Contact email</span>
-            <input
-              type="email"
-              name="targetEmail"
-              required
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-zinc-900">Contact name</span>
-            <input
-              type="text"
-              name="contactName"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="font-medium text-zinc-900">Notes</span>
-            <textarea
-              name="notes"
-              rows={2}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
-            >
-              Create claim request
-            </button>
-          </div>
-        </form>
+        <HarborOrganizationClaimRequestForm organizations={organizations} />
       </section>
 
       <section className="space-y-3">
@@ -107,60 +55,89 @@ export default async function HarborOrganizationClaimsPage() {
           <p className="text-sm text-zinc-500">No open Organization claims.</p>
         ) : (
           <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">
-            {queue.map((claim) => (
-              <li key={claim.id} className="space-y-3 px-4 py-4" data-testid="harbor-claim-row">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-900">
-                      {organizationDisplayLabel({
-                        name: claim.organizationName,
-                        displayName: claim.organizationDisplayName,
-                      })}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {organizationClaimInvitationStatusLabel(claim.displayStatus)}
-                      {" · "}
-                      ORG_ADMIN count: {claim.currentOrgAdminCount}
-                    </p>
-                  </div>
-                  <HarborOrganizationClaimActions
-                    claimId={claim.id}
-                    status={claim.status}
-                    displayStatus={claim.displayStatus}
-                  />
-                </div>
-                <dl className="grid gap-1 text-sm text-zinc-700 sm:grid-cols-2">
-                  <div>
-                    <dt className="inline font-medium text-zinc-900">Proposed email </dt>
-                    <dd className="inline">{claim.targetEmailNormalized}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-medium text-zinc-900">Requesting Facility </dt>
-                    <dd className="inline">{claim.requestingFacilityName ?? "— (Harbor direct)"}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-medium text-zinc-900">Requested by </dt>
-                    <dd className="inline">{claim.requestedByEmail ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-medium text-zinc-900">Requested </dt>
-                    <dd className="inline">{formatTimestamp(claim.createdAt)}</dd>
-                  </div>
-                  {claim.contactName ? (
+            {queue.map((claim) => {
+              const deliveryLabel = organizationClaimDeliveryStatusLabel(
+                claim.lastInvitationDeliveryStatus,
+              );
+              return (
+                <li key={claim.id} className="space-y-3 px-4 py-4" data-testid="harbor-claim-row">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <dt className="inline font-medium text-zinc-900">Contact name </dt>
-                      <dd className="inline">{claim.contactName}</dd>
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {organizationDisplayLabel({
+                          name: claim.organizationName,
+                          displayName: claim.organizationDisplayName,
+                        })}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {organizationClaimInvitationStatusLabel(claim.displayStatus)}
+                        {" · "}
+                        ORG_ADMIN count: {claim.currentOrgAdminCount}
+                        {deliveryLabel ? ` · ${deliveryLabel}` : null}
+                      </p>
                     </div>
-                  ) : null}
-                  {claim.notes ? (
-                    <div className="sm:col-span-2">
-                      <dt className="inline font-medium text-zinc-900">Notes </dt>
-                      <dd className="inline">{claim.notes}</dd>
+                    <HarborOrganizationClaimActions
+                      claimId={claim.id}
+                      status={claim.status}
+                      displayStatus={claim.displayStatus}
+                      deliveryStatus={claim.lastInvitationDeliveryStatus}
+                    />
+                  </div>
+                  <dl className="grid gap-1 text-sm text-zinc-700 sm:grid-cols-2">
+                    <div>
+                      <dt className="inline font-medium text-zinc-900">Proposed email </dt>
+                      <dd className="inline">{claim.targetEmailNormalized}</dd>
                     </div>
-                  ) : null}
-                </dl>
-              </li>
-            ))}
+                    <div>
+                      <dt className="inline font-medium text-zinc-900">Requesting Facility </dt>
+                      <dd className="inline">
+                        {claim.requestingFacilityName ?? "— (Harbor direct)"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-medium text-zinc-900">Requested by </dt>
+                      <dd className="inline">{claim.requestedByEmail ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-medium text-zinc-900">Requested </dt>
+                      <dd className="inline">{formatTimestamp(claim.createdAt)}</dd>
+                    </div>
+                    {claim.status === "APPROVED" ? (
+                      <div>
+                        <dt className="inline font-medium text-zinc-900">Invitation delivery </dt>
+                        <dd className="inline">
+                          {deliveryLabel ?? "Not attempted"}
+                          {claim.lastInvitationDeliveredAt
+                            ? ` · ${formatTimestamp(claim.lastInvitationDeliveredAt)}`
+                            : ""}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {claim.lastInvitationDeliveryStatus === "FAILED" &&
+                    claim.lastInvitationDeliveryError ? (
+                      <div className="sm:col-span-2">
+                        <dt className="inline font-medium text-zinc-900">Delivery error </dt>
+                        <dd className="inline text-red-700">
+                          {claim.lastInvitationDeliveryError}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {claim.contactName ? (
+                      <div>
+                        <dt className="inline font-medium text-zinc-900">Contact name </dt>
+                        <dd className="inline">{claim.contactName}</dd>
+                      </div>
+                    ) : null}
+                    {claim.notes ? (
+                      <div className="sm:col-span-2">
+                        <dt className="inline font-medium text-zinc-900">Notes </dt>
+                        <dd className="inline">{claim.notes}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

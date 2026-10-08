@@ -4,7 +4,7 @@
  * Returns null only when Job Flow is off or the session lacks authority.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   isDepartmentJobFlowEnabled,
   isDepartmentOperationalEvidenceEnabled,
@@ -48,7 +48,7 @@ import { loadFrontlineEmployeeAssignments } from "./load-assignments";
 import type { EmployeeRuntimeFlow } from "./types";
 
 export type LoadEmployeeRuntimeFlowInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   employeeId: string;

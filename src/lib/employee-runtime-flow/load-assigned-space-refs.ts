@@ -4,7 +4,7 @@
  * Does not infer rooms from Operational Type or UnitType.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
 import { formatRoomDisplayName } from "@/lib/facility-builder/load-facility-hierarchy";
 import { collectNeighborhoodActionableSpaces } from "@/lib/unit-workspace/neighborhood/collect-spaces";
@@ -17,7 +17,7 @@ import type { PrismaClient } from "@prisma/client";
 import { assignmentScopeKind, spaceRefsFromAssignmentLocations } from "./assigned-spaces";
 
 export async function loadAssignedEmployeeSpaceRefs(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   departmentLabel?: string | null;

@@ -1,10 +1,10 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
  * Operational employee id for the signed-in actor (PIN = employee id; User = roster row match by email).
  */
-export async function getOperationalEmployeeIdForSession(session: AppJwtPayload): Promise<string | null> {
+export async function getOperationalEmployeeIdForSession(session: FacilitySession): Promise<string | null> {
   if (session.authKind === "harbor_staff") {
     return null;
   }

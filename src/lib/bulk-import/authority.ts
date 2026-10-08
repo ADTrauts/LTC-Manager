@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { requireAtLeastRole, type AppRole } from "@/lib/access";
 
 /**
@@ -6,7 +6,7 @@ import { requireAtLeastRole, type AppRole } from "@/lib/access";
  * Quick PIN is RUN-only and must never authorize imports.
  */
 export function requireBulkImportAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   minRole: AppRole,
 ): void {
   if (session.authMethod === "QUICK_PIN") {

@@ -5,7 +5,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { formatAssetLocationLabel } from "@/lib/asset-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
@@ -198,7 +198,7 @@ function snapshotLocation(wo: {
   });
 }
 
-export async function loadPlantRunDepartment(session: AppJwtPayload, client: DbClient = prisma) {
+export async function loadPlantRunDepartment(session: FacilitySession, client: DbClient = prisma) {
   const department = await client.department.findFirst({
     where: { facilityId: session.facilityId, key: "PLANT", isActive: true },
     select: { id: true, key: true, name: true },
@@ -254,7 +254,7 @@ async function occurrenceToRow(
 }
 
 export async function loadPmRunBoard(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -398,7 +398,7 @@ export async function loadPmRunBoard(
 }
 
 export async function loadPmOccurrenceDetail(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

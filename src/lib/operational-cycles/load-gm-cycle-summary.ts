@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -31,7 +31,7 @@ export type GmCycleSummary = {
  * Does not redesign the GM dashboard.
  */
 export async function loadGmCycleSummary(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   now?: Date;

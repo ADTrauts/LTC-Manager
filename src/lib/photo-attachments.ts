@@ -1,7 +1,7 @@
 import type { AttachmentParentKind, Prisma, PrismaClient } from "@prisma/client";
 import path from "path";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   registerAttachmentMetadata,
   type AttachmentListItem,
@@ -111,7 +111,7 @@ export function assertPhotoCount(existingCount: number, incomingCount: number, m
   }
 }
 
-export function attachmentActorFromSession(session: AppJwtPayload): {
+export function attachmentActorFromSession(session: FacilitySession): {
   createdByUserId: string | null;
   createdByEmployeeId: string | null;
 } {
@@ -127,7 +127,7 @@ export async function savePhotosFromFormData(input: {
   parentKind: Extract<AttachmentParentKind, "ASSET" | "REPAIR">;
   assetId?: string | null;
   repairId?: string | null;
-  session: AppJwtPayload;
+  session: FacilitySession;
   maxCount: number;
   existingCount?: number;
   client?: DbClient;

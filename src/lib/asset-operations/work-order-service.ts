@@ -13,7 +13,7 @@ import type {
   WorkOrderKind,
 } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requesterVisibleStatusLabel } from "@/lib/operational-requests/types";
@@ -245,14 +245,14 @@ export type CreateWorkOrderDirectInput = {
 
 /** Canonical create alias. Persistence remains Repair. */
 export async function createWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: CreateWorkOrderDirectInput & { client?: DbClient; now?: Date },
 ) {
   return createWorkOrderDirect(session, input);
 }
 
 export async function createWorkOrderDirect(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: CreateWorkOrderDirectInput & { client?: DbClient; now?: Date },
 ) {
   const client = input.client ?? prisma;
@@ -383,7 +383,7 @@ export async function createWorkOrderDirect(
 }
 
 export async function createWorkOrderFromIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -485,7 +485,7 @@ export async function createWorkOrderFromIssue(
  * Dual-writes AssetIssue.workOrderId only when it is still empty (first WO).
  */
 export async function linkWorkOrderToIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -542,7 +542,7 @@ export async function linkWorkOrderToIssue(
 }
 
 export async function updateWorkOrderStatus(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -596,7 +596,7 @@ export async function updateWorkOrderStatus(
 }
 
 export async function assignVendor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -651,7 +651,7 @@ export async function assignVendor(
 }
 
 export async function assignResponsibleEmployee(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -726,7 +726,7 @@ export async function assignResponsibleEmployee(
  * Does NOT resolve Issue or Request. Asset condition changes only on explicit review.
  */
 export async function completeWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -756,7 +756,7 @@ export async function completeWorkOrder(
  * Never automatic. Completing the WO does not close the Request or mutate Asset status.
  */
 export async function createWorkOrderFromOperationalRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -905,7 +905,7 @@ export async function createWorkOrderFromOperationalRequest(
  * Completing does NOT change Asset status and does NOT auto-close Request / AssetIssue.
  */
 export async function technicianUpdateWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1029,7 +1029,7 @@ export async function technicianUpdateWorkOrder(
 
 /** Flag only — does not mutate Asset status. */
 export async function markReturnToServiceReady(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1071,7 +1071,7 @@ export async function markReturnToServiceReady(
 }
 
 export async function loadWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: { facilityId: string; departmentId: string; repairId: string; client?: DbClient },
 ) {
   const client = input.client ?? prisma;
@@ -1103,7 +1103,7 @@ export async function loadWorkOrder(
 }
 
 export async function listWorkOrders(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: { facilityId: string; departmentId: string; take?: number; client?: DbClient },
 ) {
   const client = input.client ?? prisma;
@@ -1137,7 +1137,7 @@ export async function listWorkOrders(
 }
 
 export async function holdWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1155,7 +1155,7 @@ export async function holdWorkOrder(
 }
 
 export async function linkEvidenceToWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

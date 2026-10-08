@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -54,7 +54,7 @@ async function appendTemplateEvent(
 }
 
 async function assertManage(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ) {
@@ -129,7 +129,7 @@ const templateDetailInclude = {
 } as const;
 
 export async function createDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -185,7 +185,7 @@ export async function createDraft(
 }
 
 export async function updateDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -260,7 +260,7 @@ export async function updateDraft(
 }
 
 export async function publishTemplate(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -380,7 +380,7 @@ export async function publishTemplate(
 }
 
 export async function retireTemplate(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -426,7 +426,7 @@ export async function retireTemplate(
 }
 
 export async function createDraftFromPreset(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -449,7 +449,7 @@ export async function createDraftFromPreset(
 }
 
 export async function loadBuilderTemplates(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
 }) {
@@ -482,7 +482,7 @@ export async function loadBuilderTemplates(input: {
 }
 
 export async function loadTemplateDetail(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   templateId: string;

@@ -7,7 +7,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { getLocationFunctionByKey } from "@/lib/department-products/location-functions";
 import { prisma } from "@/lib/prisma";
 
@@ -61,7 +61,7 @@ async function appendPlanEvent(
 }
 
 async function assertManage(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ) {
@@ -218,7 +218,7 @@ async function enrichProcedureTitles(
 }
 
 export async function createDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -274,7 +274,7 @@ export async function createDraft(
 }
 
 export async function updateDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -350,7 +350,7 @@ export async function updateDraft(
 }
 
 export async function duplicateWorkPlan(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -426,7 +426,7 @@ export async function duplicateWorkPlan(
 }
 
 export async function publishWorkPlan(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -508,7 +508,7 @@ export async function publishWorkPlan(
 }
 
 export async function createSuccessorDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -587,7 +587,7 @@ export async function createSuccessorDraft(
 }
 
 export async function retireWorkPlan(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -634,7 +634,7 @@ export async function retireWorkPlan(
 }
 
 export async function createDraftFromPreset(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -712,7 +712,7 @@ export async function loadPublishedWorkPlansForDate(input: {
 }
 
 export async function loadBuilderWorkPlans(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
 }) {
@@ -745,7 +745,7 @@ export async function loadBuilderWorkPlans(input: {
 }
 
 export async function loadWorkPlanDetail(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   workPlanId: string;
@@ -784,7 +784,7 @@ export async function loadWorkPlanDetail(input: {
  * Uses the same resolve path as Runtime when a published snapshot is provided.
  */
 export async function previewWorkPlanRequirements(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   workPlanId: string;

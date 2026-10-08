@@ -3,7 +3,7 @@
  * Hierarchy loaded once; OA + shifts loaded for the whole week range.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import type { HierarchyWalkUnit } from "@/lib/department-administration/department-locations";
 import { collectDepartmentActionableLocations } from "@/lib/department-administration/department-locations";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
@@ -136,7 +136,7 @@ export async function loadDepartmentWeekLocationCoverage(input: {
   facilityId: string;
   departmentId: string;
   anchorDate: string;
-  session?: AppJwtPayload | null;
+  session?: FacilitySession | null;
 }): Promise<DepartmentWeekLocationCoverageProjection> {
   const week = buildScheduleWeekRange({ anchorDate: input.anchorDate });
   const { start, end } = weekWindow(week);

@@ -7,7 +7,7 @@
 
 import { cookies } from "next/headers";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getEmployeeAllowedUnitIdSet } from "@/lib/employee-units";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
@@ -102,7 +102,7 @@ export function emptyProjectedLocationView(
 }
 
 async function resolvePrincipalAccess(
-  session: AppJwtPayload,
+  session: FacilitySession,
   overrides: LoadProjectedLocationOptions,
 ): Promise<{
   allowedUnitIds: readonly string[] | "ALL";
@@ -160,7 +160,7 @@ async function resolvePrincipalAccess(
  * One Projection Runtime resolve for the session (shared by Locations/Sidebar/UW).
  */
 export async function resolveSessionProjection(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadProjectedLocationOptions,
 ): Promise<ResolveSessionProjectionResult> {
   const facilityId = session.facilityId ?? "";
@@ -238,7 +238,7 @@ export async function resolveSessionProjection(
  * Fail closed: never returns a broad legacy location set.
  */
 export async function loadProjectedLocationView(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadProjectedLocationOptions,
 ): Promise<LoadProjectedLocationResult> {
   const facilityId = session.facilityId ?? "";

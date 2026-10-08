@@ -8,7 +8,7 @@
  * + presentSupervisorEvidenceAttention (Phase 6N).
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { prisma } from "@/lib/prisma";
 
@@ -20,7 +20,7 @@ import type { SupervisorOperationsViewModel } from "./supervisor-operations/type
 import type { SupervisorOperationsBoard } from "./types";
 
 export type LoadSupervisorOperationsBoardInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   now?: Date;

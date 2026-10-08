@@ -1,10 +1,10 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import type { ServeryMilestoneActor } from "@/lib/servery";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
 /** Assemble the Milestone actor from a validated session — shared by Server Actions and sync APIs. */
-export async function resolveMilestoneActor(session: AppJwtPayload): Promise<ServeryMilestoneActor> {
+export async function resolveMilestoneActor(session: FacilitySession): Promise<ServeryMilestoneActor> {
   return {
     userId: sessionUserIdForFk(session),
     employeeId: await getOperationalEmployeeIdForSession(session),
@@ -14,6 +14,6 @@ export async function resolveMilestoneActor(session: AppJwtPayload): Promise<Ser
 }
 
 /** Opaque actor reference for offline bundle attribution — never a session token. */
-export function actorRefForSession(session: AppJwtPayload): string {
+export function actorRefForSession(session: FacilitySession): string {
   return `${session.authKind}:${session.uid}`;
 }

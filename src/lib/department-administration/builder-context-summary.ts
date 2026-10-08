@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership";
@@ -50,7 +50,7 @@ export type DepartmentBuilderContextSummary = {
 };
 
 export async function loadDepartmentBuilderContextSummary(
-  session: NonNullable<AppJwtPayload>,
+  session: FacilitySession,
   departmentId: string,
 ): Promise<DepartmentBuilderContextSummary | null> {
   const facilityId = session.facilityId;

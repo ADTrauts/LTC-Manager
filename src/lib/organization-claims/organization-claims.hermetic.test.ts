@@ -17,6 +17,7 @@ import {
   rejectOrganizationClaim,
   requestOrganizationClaim,
   revokeOrganizationClaim,
+  rotateOrganizationClaimInvitationToken,
 } from "./index";
 import {
   deriveInvitationDisplayStatus,
@@ -126,6 +127,9 @@ type Claim = {
   revokedAt: Date | null;
   acceptedByUserId: string | null;
   acceptedAt: Date | null;
+  lastInvitationDeliveredAt: Date | null;
+  lastInvitationDeliveryStatus: string | null;
+  lastInvitationDeliveryError: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -304,6 +308,9 @@ function makeDb(state: {
           revokedAt: data.revokedAt ?? null,
           acceptedByUserId: data.acceptedByUserId ?? null,
           acceptedAt: data.acceptedAt ?? null,
+          lastInvitationDeliveredAt: data.lastInvitationDeliveredAt ?? null,
+          lastInvitationDeliveryStatus: data.lastInvitationDeliveryStatus ?? null,
+          lastInvitationDeliveryError: data.lastInvitationDeliveryError ?? null,
           createdAt: now,
           updatedAt: now,
         };
@@ -1022,6 +1029,66 @@ test("facility isolation contract: claim/membership grant zero Facility access",
   assert.doesNotMatch(service, /grantUserFacilityAccess|UserFacilityAccess|PartnerUserFacilityAccess/);
   assert.doesNotMatch(service, /DepartmentOperatorRelationship/);
   assert.match(service, /revokeSessions:\s*false/);
+});
+
+test("resend rotates token hash and invalidates prior plaintext", async () => {
+  const db = makeDb({
+    organizations: [{ id: "org_metz", name: "Metz" }],
+    users: [
+      {
+        id: "u_fa",
+        email: "fa@tv.example",
+        displayName: "FA",
+        isActive: true,
+        facilityId: "fac_tv",
+        roleId: "r1",
+      },
+      {
+        id: "u_admin",
+        email: "admin@metz.example",
+        displayName: "Admin",
+        isActive: true,
+        facilityId: null,
+        roleId: null,
+        passwordHash: "h1",
+      },
+    ],
+    partnerships: [
+      {
+        id: "p1",
+        facilityId: "fac_tv",
+        organizationId: "org_metz",
+        endedAt: null,
+        accessPeriods: [{ startsAt: new Date("2027-01-01T00:00:00.000Z"), endsAt: null }],
+      },
+    ],
+  });
+
+  const requested = await requestOrganizationClaim(db as never, {
+    organizationId: "org_metz",
+    facilityId: "fac_tv",
+    requestedByUserId: "u_fa",
+    targetEmail: "admin@metz.example",
+  });
+  const { rawToken: firstToken } = await approveOrganizationClaim(db as never, {
+    claimId: requested.id,
+    platformStaffId: "staff_1",
+  });
+  const { rawToken: secondToken } = await rotateOrganizationClaimInvitationToken(db as never, {
+    claimId: requested.id,
+    platformStaffId: "staff_1",
+  });
+  assert.notEqual(firstToken, secondToken);
+  assert.equal(await findClaimableInvitationByRawToken(db as never, firstToken), null);
+  const claimable = await findClaimableInvitationByRawToken(db as never, secondToken);
+  assert.ok(claimable);
+  assert.equal(claimable?.id, requested.id);
+
+  await acceptOrganizationClaim(db as never, {
+    rawToken: secondToken,
+    authenticatedUserId: "u_admin",
+  });
+  assert.equal((db as { _periods: RolePeriod[] })._periods[0]?.role, "ORG_ADMIN");
 });
 
 test("claim routes and docs exist without Phase 2B3 invitation surfaces", () => {

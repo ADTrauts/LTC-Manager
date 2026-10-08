@@ -7,7 +7,7 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { rowsToCsv } from "@/lib/bulk-import/csv";
 import {
   FACILITY_STRUCTURE_CSV_HEADERS,
@@ -38,19 +38,20 @@ function cuidLike() {
 }
 
 function session(
-  overrides: Partial<AppJwtPayload> & Pick<AppJwtPayload, "facilityId" | "role">,
-): AppJwtPayload {
+  overrides: Partial<FacilitySession> & Pick<FacilitySession, "facilityId" | "role">,
+): FacilitySession {
   return {
     uid: overrides.uid ?? `user_${cuidLike()}`,
     authKind: "user",
     authMethod: "PASSWORD",
+    scopeKind: "facility",
     role: overrides.role,
     name: overrides.name ?? "Bulk Import Tester",
     email: overrides.email ?? "bulk-import@example.com",
     facilityId: overrides.facilityId,
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 function buildFacilityCsv(): string {
@@ -277,7 +278,7 @@ test(
 
       const actor = session({
         facilityId: facility.id,
-        role: manager.role.key as AppJwtPayload["role"],
+        role: (manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
         uid: manager.id,
         email: manager.email,
         name: manager.displayName,

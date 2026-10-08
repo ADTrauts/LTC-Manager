@@ -11,7 +11,7 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listAttachmentsForAsset } from "@/lib/attachments";
@@ -144,7 +144,7 @@ export type CreateAssetInput = {
 };
 
 export async function createAsset(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: CreateAssetInput & { client?: DbClient },
 ) {
   const client = input.client ?? prisma;
@@ -260,7 +260,7 @@ export type UpdateAssetIdentityInput = {
 };
 
 export async function updateAssetIdentity(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: UpdateAssetIdentityInput & { client?: DbClient },
 ) {
   const client = input.client ?? prisma;
@@ -388,7 +388,7 @@ export async function updateAssetIdentity(
 }
 
 export async function changeAssetStatus(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: ChangeAssetStatusInput & {
     facilityId: string;
     departmentId: string;
@@ -463,7 +463,7 @@ export async function changeAssetStatus(
 
 /** Explicit return-to-service — never called automatically from Work Order complete. */
 export async function returnAssetToService(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -490,7 +490,7 @@ export async function returnAssetToService(
 }
 
 export async function retireAsset(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -513,7 +513,7 @@ export async function retireAsset(
 }
 
 export async function listAssetsForFacility(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -587,7 +587,7 @@ export async function listAssetsForFacility(
 }
 
 export async function getAssetProfile(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

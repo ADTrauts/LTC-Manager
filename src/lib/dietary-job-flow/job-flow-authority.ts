@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -92,7 +92,7 @@ export function decideJobFlowAuthority(input: {
  * Facility Administrator role alone does not grant Supervisor Board.
  */
 export async function resolveJobFlowAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<JobFlowAuthorityDecision> {

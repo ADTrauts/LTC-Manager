@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -126,7 +126,7 @@ export function decideEvidenceAuthority(input: {
  * Facility Administrator role alone does not grant Dietary evidence management.
  */
 export async function resolveEvidenceAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<EvidenceAuthorityDecision> {

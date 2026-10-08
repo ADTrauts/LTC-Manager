@@ -472,6 +472,10 @@ model OrganizationClaimInvitation {
   acceptedByUserId           String?
   acceptedByUser             User?                   @relation("OrganizationClaimAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
   acceptedAt                 DateTime?
+  /// Last invitation email attempt result for Harbor visibility (not authority).
+  lastInvitationDeliveredAt  DateTime?
+  lastInvitationDeliveryStatus String?
+  lastInvitationDeliveryError  String?
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
 

@@ -5,7 +5,7 @@
  * When flag off, callers use legacy getSidebarUnitsForSession (no mix).
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   resolveFacilityVocabulary,
   type FacilityVocabulary,
@@ -68,7 +68,7 @@ async function loadFacilityVocabulary(
  * Flag off → enabled false, no Projection call, no legacy mix.
  */
 export async function loadSidebarProjection(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadSidebarProjectionOptions = {},
 ): Promise<LoadSidebarProjectionResult> {
   if (!isProjectionSidebarEnabled()) {

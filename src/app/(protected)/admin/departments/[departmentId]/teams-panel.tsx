@@ -1,5 +1,5 @@
 import { TeamsWorkspace } from "@/app/(protected)/admin/departments/[departmentId]/teams-workspace";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import {
   loadDepartmentRootCycleOptions,
@@ -13,7 +13,7 @@ import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "
 import { prisma } from "@/lib/prisma";
 
 type Props = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   departmentName: string;

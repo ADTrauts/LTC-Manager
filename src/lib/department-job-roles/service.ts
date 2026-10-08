@@ -7,7 +7,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership/department";
 import { prisma } from "@/lib/prisma";
 
@@ -46,7 +46,7 @@ export type DepartmentJobRoleView = {
 };
 
 export async function resolveJobRoleAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<JobRoleAuthorityDecision> {
@@ -216,7 +216,7 @@ export async function loadActiveJobRolesForFacilityDepartments(
 }
 
 export async function createDepartmentJobRole(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -267,7 +267,7 @@ export async function createDepartmentJobRole(
 }
 
 export async function updateDepartmentJobRole(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     roleId: string;
@@ -317,7 +317,7 @@ export async function updateDepartmentJobRole(
 }
 
 export async function archiveDepartmentJobRole(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: { facilityId: string; roleId: string },
 ): Promise<void> {
   const existing = await prisma.departmentJobRole.findFirst({
@@ -437,7 +437,7 @@ export async function reconcileJobRolesAfterDepartmentRemoval(
   });
 }
 
-export function sessionMayManageJobRoles(session: AppJwtPayload): boolean {
+export function sessionMayManageJobRoles(session: FacilitySession): boolean {
   return (
     session.authMethod !== "QUICK_PIN" && hasAtLeastRole(session.role as AppRole, "MANAGER")
   );

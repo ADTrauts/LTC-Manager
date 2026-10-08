@@ -221,17 +221,6 @@ function makeDb(state: {
         return o ? orgSelect(o.id) : null;
       },
     },
-    department: {
-      findFirst: async ({
-        where,
-      }: {
-        where: { id: string; facilityId: string };
-      }) => {
-        const d = deptById.get(where.id);
-        if (!d || d.facilityId !== where.facilityId) return null;
-        return { id: d.id, name: d.name, key: d.key, isActive: d.isActive ?? true };
-      },
-    },
     facilityPartnerOrganization: {
       findUnique: async ({
         where,
@@ -370,7 +359,7 @@ function makeDb(state: {
         if (!d || d.facilityId !== where.facilityId) return null;
         return { id: d.id, name: d.name, key: d.key, isActive: d.isActive ?? true };
       },
-      findMany: async ({ where }: { where: { facilityId: string } }) =>
+      findMany: async ({ where }: { where: { facilityId: string; isActive?: boolean } }) =>
         state.departments
           .filter((d) => d.facilityId === where.facilityId)
           .map((d) => ({
@@ -383,31 +372,10 @@ function makeDb(state: {
             showInEmployeeApp: true,
           })),
     },
-    $transaction: async <T>(fn: (tx: typeof db) => Promise<T>) => fn(db),
+    $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
     _partnerships: partnerships,
     _accessPeriods: accessPeriods,
     _scopes: scopes,
-  };
-
-  // Fix duplicate department key — merge findFirst into single department object
-  db.department = {
-    findFirst: async ({ where }: { where: { id: string; facilityId: string } }) => {
-      const d = deptById.get(where.id);
-      if (!d || d.facilityId !== where.facilityId) return null;
-      return { id: d.id, name: d.name, key: d.key, isActive: d.isActive ?? true };
-    },
-    findMany: async ({ where }: { where: { facilityId: string } }) =>
-      state.departments
-        .filter((d) => d.facilityId === where.facilityId)
-        .map((d) => ({
-          id: d.id,
-          facilityId: d.facilityId,
-          key: d.key,
-          name: d.name,
-          isActive: d.isActive ?? true,
-          sortOrder: 100,
-          showInEmployeeApp: true,
-        })),
   };
 
   return db;

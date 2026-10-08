@@ -1,5 +1,5 @@
 import { CoverageWorkspace } from "@/app/(protected)/admin/departments/[departmentId]/coverage-workspace";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   loadCoverageCatalog,
@@ -8,7 +8,7 @@ import {
 } from "@/lib/scheduling/coverage-expectations";
 
 type Props = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   departmentName: string;

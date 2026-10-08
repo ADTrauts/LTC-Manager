@@ -10,7 +10,7 @@ import {
   type RepairStatus,
 } from "@prisma/client";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
@@ -141,14 +141,14 @@ function assertActiveWorkOrder(status: RepairStatus, action: string) {
   }
 }
 
-function assertSupervisorPlus(session: AppJwtPayload, message: string) {
+function assertSupervisorPlus(session: FacilitySession, message: string) {
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
     throw new Error(message);
   }
 }
 
 async function resolveActor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
   repairId: string,
@@ -156,12 +156,12 @@ async function resolveActor(
   return resolveWorkOrderActorAuthority(session, facilityId, departmentId, { repairId });
 }
 
-async function operationalEmployeeId(session: AppJwtPayload) {
+async function operationalEmployeeId(session: FacilitySession) {
   return getOperationalEmployeeIdForSession(session);
 }
 
 function technicianOwnsLabor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   actor: WorkOrderActor,
   repairAssignedEmployeeId: string | null,
   laborEmployeeId: string,
@@ -178,7 +178,7 @@ function technicianOwnsLabor(
 }
 
 export async function addWorkOrderLabor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -279,7 +279,7 @@ export async function addWorkOrderLabor(
 }
 
 export async function updateWorkOrderLabor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -343,7 +343,7 @@ export async function updateWorkOrderLabor(
 }
 
 export async function removeWorkOrderLabor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -395,7 +395,7 @@ export async function removeWorkOrderLabor(
 }
 
 export async function addWorkOrderPart(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -470,7 +470,7 @@ export async function addWorkOrderPart(
 }
 
 export async function updateWorkOrderPart(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -548,7 +548,7 @@ export async function updateWorkOrderPart(
 }
 
 export async function removeWorkOrderPart(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -598,7 +598,7 @@ export async function removeWorkOrderPart(
 }
 
 export async function setWorkOrderExternalCost(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -666,7 +666,7 @@ export async function setWorkOrderExternalCost(
 }
 
 export async function addWorkOrderRecordRequirement(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -732,7 +732,7 @@ export async function addWorkOrderRecordRequirement(
 }
 
 export async function removeWorkOrderRecordRequirement(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -762,7 +762,7 @@ export async function removeWorkOrderRecordRequirement(
 }
 
 export async function satisfyWorkOrderRecordRequirement(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -851,7 +851,7 @@ export async function satisfyWorkOrderRecordRequirement(
 }
 
 export async function waiveWorkOrderRecordRequirement(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -914,7 +914,7 @@ export async function loadWorkOrderCloseout(client: DbClient, repairId: string) 
 }
 
 export async function applyWorkOrderCloseoutCompletion(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

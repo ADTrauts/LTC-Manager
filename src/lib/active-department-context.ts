@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { parseOperationalDepartmentKey } from "@/lib/department-admission";
 import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
 import {
@@ -27,7 +27,7 @@ export type ActiveDepartmentNavResolution = {
 
 type AccessContext = Awaited<ReturnType<typeof loadFacilityDepartmentAccessContext>>;
 
-function departmentHasInternalAccess(session: AppJwtPayload, productKey: string): boolean {
+function departmentHasInternalAccess(session: FacilitySession, productKey: string): boolean {
   return hasInternalDepartmentProductAccess({
     authKind: session.authKind,
     productKey,
@@ -35,7 +35,7 @@ function departmentHasInternalAccess(session: AppJwtPayload, productKey: string)
 }
 
 function departmentIsProductEligible(
-  session: AppJwtPayload,
+  session: FacilitySession,
   department: Pick<FacilityDepartmentAccessRow, "key" | "isActive">,
   context: AccessContext,
 ): boolean {
@@ -53,7 +53,7 @@ function departmentIsProductEligible(
 }
 
 async function userMaySelectDepartment(
-  session: AppJwtPayload,
+  session: FacilitySession,
   departmentId: string,
   facilityId: string,
   isFacilityAdmin: boolean,
@@ -98,7 +98,7 @@ async function userMaySelectDepartment(
 
 /** Core resolver; `rawCookie` from `NextRequest` or `cookies().get(...)`. */
 async function resolveNavWithRawCookie(
-  session: AppJwtPayload,
+  session: FacilitySession,
   rawCookie: string | undefined,
 ): Promise<ActiveDepartmentNavResolution> {
   const facilityId = session.facilityId;
@@ -194,14 +194,14 @@ async function resolveNavWithRawCookie(
 
 export async function resolveActiveDepartmentForNav(
   request: NextRequest,
-  session: AppJwtPayload,
+  session: FacilitySession,
 ): Promise<ActiveDepartmentNavResolution> {
   const raw = request.cookies.get(ACTIVE_DEPARTMENT_COOKIE)?.value;
   return resolveNavWithRawCookie(session, raw);
 }
 
 export async function resolveActiveDepartmentForShell(
-  session: AppJwtPayload,
+  session: FacilitySession,
   cookieStore: { get: (name: string) => { value: string } | undefined },
 ): Promise<ActiveDepartmentNavResolution> {
   const raw = cookieStore.get(ACTIVE_DEPARTMENT_COOKIE)?.value;
@@ -218,7 +218,7 @@ export type SelectableDepartment = { id: string; name: string };
  * departments including DEVELOPMENT products (Console work session).
  */
 export async function resolveSelectableDepartmentsForSession(
-  session: AppJwtPayload,
+  session: FacilitySession,
 ): Promise<SelectableDepartment[]> {
   const facilityId = session.facilityId;
   if (session.authKind === "harbor_staff") {
@@ -255,7 +255,7 @@ export async function resolveSelectableDepartmentsForSession(
 }
 
 /** Validates a deliberate department picker choice (cookie / API body). */
-export async function validateActiveDepartmentPick(session: AppJwtPayload, pick: string): Promise<boolean> {
+export async function validateActiveDepartmentPick(session: FacilitySession, pick: string): Promise<boolean> {
   const trimmed = pick.trim();
   if (trimmed === "") {
     return true;
@@ -269,7 +269,7 @@ export async function validateActiveDepartmentPick(session: AppJwtPayload, pick:
 }
 
 export async function assertCustomerDepartmentContext(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   departmentId: string;
 }): Promise<{
   allowed: boolean;

@@ -8,7 +8,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { presentAssetLifecycleAndCondition } from "@/lib/asset-operations/lifecycle-presentation";
 import { listMaintenanceCategories } from "@/lib/asset-operations/maintenance-categories";
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
@@ -252,7 +252,7 @@ export async function loadPmBuilderOptions(
 }
 
 export async function loadPmPlanList(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -374,7 +374,7 @@ export async function loadPmPlanList(
 }
 
 export async function loadPmPlanEditor(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -507,7 +507,7 @@ export async function loadPmPlanEditor(
  * Does not use customer Marketplace entitlement while Plant remains DEVELOPMENT.
  */
 export async function loadPlantPmBuilderDepartment(
-  session: AppJwtPayload,
+  session: FacilitySession,
   departmentId: string,
 ) {
   const department = await prisma.department.findFirst({

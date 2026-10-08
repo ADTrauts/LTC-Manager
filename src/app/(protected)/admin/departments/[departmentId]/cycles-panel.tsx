@@ -17,7 +17,7 @@ import {
   CompactCycleReadonlyList,
   CompactDraftList,
 } from "@/app/(protected)/admin/departments/[departmentId]/cycles-tree-list";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   buildDietaryStarterPreview,
   departmentHasCycleConfiguration,
@@ -49,7 +49,7 @@ import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "
 import { prisma } from "@/lib/prisma";
 
 type Props = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   departmentName: string;

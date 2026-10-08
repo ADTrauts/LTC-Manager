@@ -5,7 +5,7 @@
 
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
@@ -99,7 +99,7 @@ export function decidePmPlanAuthority(input: {
 }
 
 export async function resolvePmPlanAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
   client: DbClient = prisma,

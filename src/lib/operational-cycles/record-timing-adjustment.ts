@@ -6,7 +6,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { hasPlatformCapability } from "@/lib/platform-capability";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +16,7 @@ import { validateTimingAdjustment } from "./cycle-canonical";
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export type RecordTimingAdjustmentInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   cycleId: string;
   serviceDate: Date;
   adjustedStartLocal?: string | null;

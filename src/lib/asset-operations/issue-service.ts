@@ -16,7 +16,7 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -101,7 +101,7 @@ async function loadIssueScoped(
   return issue;
 }
 
-function actorIds(session: AppJwtPayload, employeeId: string | null) {
+function actorIds(session: FacilitySession, employeeId: string | null) {
   return {
     userId: sessionUserIdForFk(session),
     employeeId: session.authKind === "employee" ? session.uid : employeeId,
@@ -186,7 +186,7 @@ async function snapshotIssueLocation(
  * Does not create a Request or Work Order.
  */
 export async function reportIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: ReportIssueInput & {
     allowUnitScopeOverride?: boolean;
     client?: DbClient;
@@ -359,7 +359,7 @@ export async function reportIssue(
  * Dietary / Asset-ops report path. Asset remains required at this layer.
  */
 export async function reportAssetIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: ReportAssetIssueInput & {
     allowUnitScopeOverride?: boolean;
     client?: DbClient;
@@ -375,7 +375,7 @@ export async function reportAssetIssue(
  * Does not rewrite Request execution status.
  */
 export async function createIssueFromRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -480,7 +480,7 @@ export async function createIssueFromRequest(
  * Does not mutate Issue location.
  */
 export async function linkRequestToIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -533,7 +533,7 @@ export async function linkRequestToIssue(
 }
 
 export async function getIssueWorkOrders(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: { facilityId: string; departmentId: string; issueId: string },
 ) {
   const authority = await resolveAssetOperationsAuthority(
@@ -572,7 +572,7 @@ export async function getIssueWorkOrders(
 }
 
 async function transitionIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -649,7 +649,7 @@ async function transitionIssue(
 }
 
 export async function acknowledgeIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -667,7 +667,7 @@ export async function acknowledgeIssue(
 }
 
 export async function triageIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -687,7 +687,7 @@ export async function triageIssue(
 }
 
 export async function markMonitoring(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -705,7 +705,7 @@ export async function markMonitoring(
 }
 
 export async function resolveIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -728,7 +728,7 @@ export async function resolveIssue(
 }
 
 export async function closeIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -748,7 +748,7 @@ export async function closeIssue(
 }
 
 export async function cancelIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -768,7 +768,7 @@ export async function cancelIssue(
 }
 
 export async function reopenIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -800,7 +800,7 @@ export async function reopenIssue(
 }
 
 export async function linkEvidenceToIssue(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -852,7 +852,7 @@ export async function linkEvidenceToIssue(
 }
 
 export async function listIssuesForDepartment(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -934,7 +934,7 @@ export async function listIssuesForDepartment(
 }
 
 export async function getIssueDetail(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

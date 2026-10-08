@@ -5,7 +5,7 @@
 import type { Prisma, PrismaClient, RepairStatus } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
@@ -29,7 +29,7 @@ export function newWorkOrderCuid() {
 }
 
 export async function resolveWorkOrderActorAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
   opts?: { repairId?: string },

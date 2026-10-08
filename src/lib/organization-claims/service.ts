@@ -45,6 +45,9 @@ const claimSelect = {
   revokedAt: true,
   acceptedByUserId: true,
   acceptedAt: true,
+  lastInvitationDeliveredAt: true,
+  lastInvitationDeliveryStatus: true,
+  lastInvitationDeliveryError: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -520,6 +523,61 @@ export async function revokeOrganizationClaim(
   });
 
   return toClaimInvitationView(updated, now);
+}
+
+/**
+ * Rotate the claim token hash + expiry and return a new plaintext token for resend.
+ * Prior plaintext becomes invalid immediately. Does not store plaintext.
+ */
+export async function rotateOrganizationClaimInvitationToken(
+  db: DbClient,
+  input: {
+    claimId: string;
+    platformStaffId: string;
+    now?: Date;
+  },
+): Promise<{ claim: OrganizationClaimInvitationView; rawToken: string }> {
+  const now = input.now ?? new Date();
+  const claim = await db.organizationClaimInvitation.findUnique({
+    where: { id: input.claimId },
+    select: claimSelect,
+  });
+  if (!claim) {
+    throw new OrganizationClaimError("CLAIM_NOT_FOUND", "Claim invitation not found.");
+  }
+  if (claim.status !== "APPROVED" || claim.acceptedAt) {
+    throw new OrganizationClaimError(
+      "CLAIM_NOT_APPROVED",
+      "Only approved, unaccepted claims can be resent.",
+    );
+  }
+  if (claim.revokedAt) {
+    throw new OrganizationClaimError("CLAIM_REVOKED", "Revoked claims cannot be resent.");
+  }
+
+  const minted = mintOrganizationClaimToken();
+  const updated = await db.organizationClaimInvitation.update({
+    where: { id: claim.id },
+    data: {
+      tokenHash: minted.tokenHash,
+      expiresAt: minted.expiresAt,
+    },
+    select: claimSelect,
+  });
+
+  await trackEvent("organization_claim.invitation_rotated", {
+    organizationId: claim.organizationId,
+    claimId: claim.id,
+    facilityId: claim.requestedFromFacilityId,
+    actorType: "platform_staff",
+    actorId: input.platformStaffId,
+    targetEmailNormalized: claim.targetEmailNormalized,
+  });
+
+  return {
+    claim: toClaimInvitationView(updated, now),
+    rawToken: minted.rawToken,
+  };
 }
 
 export async function findClaimableInvitationByRawToken(

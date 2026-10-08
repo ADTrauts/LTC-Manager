@@ -5,7 +5,7 @@
  * cycles, or assets. Does not recalculate domain truth.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { hasAtLeastRole } from "@/lib/access";
 import { locationProgramIsAttached } from "@/lib/department-administration/location-program";
 import { presentExceptionFirstLocationCard } from "@/lib/locations/exception-first";
@@ -75,7 +75,7 @@ export function departmentLocationsConfigureHref(departmentId: string): string {
 }
 
 export function resolveSpaceWorkspaceViewer(
-  session: Pick<AppJwtPayload, "role" | "authMethod" | "authKind" | "uid">,
+  session: Pick<FacilitySession, "role" | "authMethod" | "authKind" | "uid">,
 ): SpaceWorkspaceViewer {
   const pin = session.authMethod === "QUICK_PIN" || session.authKind === "employee";
   if (pin || !hasAtLeastRole(session.role, "SUPERVISOR")) {

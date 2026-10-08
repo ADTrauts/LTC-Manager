@@ -4,7 +4,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { loadEvidenceRecordDetail } from "@/lib/operational-evidence";
 import { toServiceDateKey } from "@/lib/operational-time";
@@ -93,7 +93,7 @@ function rangeFromSnapshotField(field: {
 
 export async function loadRunLogRecordView(input: {
   client: PrismaClient;
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   recordId: string;
 }): Promise<RunLogRecordView | null> {

@@ -5,7 +5,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import type { AppJwtPayload, AuthKind } from "@/lib/auth";
+import type { FacilitySession, AuthKind } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -45,7 +45,7 @@ export function decideAdjustDayExpectationAuthority(input: {
 }
 
 export type AdjustDayExpectationInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   expectationId: string;
   /** Incremental delay in minutes. Preferred quick action is +5. */
   addMinutes?: number;

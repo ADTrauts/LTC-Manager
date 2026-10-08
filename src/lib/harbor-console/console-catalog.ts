@@ -502,14 +502,19 @@ async function loadDepartmentProductItems(client: Db): Promise<ConsoleCatalogIte
         }),
   ]);
 
-  const administratorRows: FacilityAdministratorRow[] = administrators.map((row) => ({
-    id: row.id,
-    facilityId: row.facilityId,
-    email: row.email,
-    isActive: row.isActive,
-    emailVerifiedAt: row.emailVerifiedAt,
-    roleKey: row.role.key,
-  }));
+  const administratorRows: FacilityAdministratorRow[] = administrators.flatMap((row) => {
+    if (!row.facilityId || !row.role?.key) return [];
+    return [
+      {
+        id: row.id,
+        facilityId: row.facilityId,
+        email: row.email,
+        isActive: row.isActive,
+        emailVerifiedAt: row.emailVerifiedAt,
+        roleKey: row.role.key,
+      },
+    ];
+  });
 
   const usersByProduct = new Map<string, number>();
   for (const product of products) usersByProduct.set(product.productKey, 0);

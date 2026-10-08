@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   getFacilityServiceDate,
@@ -34,7 +34,7 @@ type Db = PrismaClient;
 
 export async function loadFacilityRunLogRequirements(input: {
   client: Db;
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   /** Null = facility-wide (All Departments). */
   departmentId: string | null;
@@ -374,7 +374,7 @@ export async function loadFacilityRunLogRequirements(input: {
 
 export async function loadRunLogRequirementByKey(input: {
   client: Db;
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   attachmentId: string;
   requirementKey: string;

@@ -12,7 +12,7 @@ import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { adjustMealServiceDayExpectation } from "./adjust-day-expectation";
 import { expectedTodayTime } from "./day-expectation";
 import { materializeMealServiceDayExpectations } from "./materialize-day-expectations";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 
 const databaseUrl = process.env.OPERATIONAL_CYCLES_TEST_DATABASE_URL;
 const skipReason = databaseUrl
@@ -117,11 +117,14 @@ test(
       });
       assert.ok(manager);
 
-      const session: AppJwtPayload = {
+      const roleKey = manager.role?.key;
+      assert.ok(roleKey);
+      const session: FacilitySession = {
         uid: manager.id,
         authKind: "user",
         authMethod: "PASSWORD",
-        role: manager.role.key as AppJwtPayload["role"],
+        scopeKind: "facility",
+        role: roleKey,
         name: "Test",
         email: "test@example.com",
         facilityId: facility.id,

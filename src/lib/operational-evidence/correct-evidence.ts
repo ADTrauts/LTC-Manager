@@ -1,7 +1,7 @@
 import type { OperationalEvidenceRecordStatus, Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -114,7 +114,7 @@ function resolveRecordStatus(input: {
  * Stores previous values on OperationalEvidenceCorrection; never silently overwrites history.
  */
 export async function correctEvidenceRecord(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: CorrectEvidenceInput & {
     actorUserId?: string | null;
     client?: DbClient;

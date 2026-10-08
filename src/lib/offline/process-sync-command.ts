@@ -1,6 +1,6 @@
 import type { OperationalTemplateScheduleKind, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { reportAssetIssue } from "@/lib/asset-operations";
 import {
   isDepartmentAssetOperationsEnabled,
@@ -60,7 +60,7 @@ function milestoneProjectionFromResult(input: {
 }
 
 export type ProcessSyncCommandInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   command: OfflineCommandEnvelope;
   deviceFacilityId: string;
   deviceBoundUnitId: string | null;

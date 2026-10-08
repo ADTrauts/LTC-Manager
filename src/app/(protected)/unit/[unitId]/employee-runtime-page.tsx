@@ -11,7 +11,7 @@ import { WorkCompletionPanel } from "@/components/department-work/work-completio
 import { EvidenceEntryForm } from "@/components/operational-evidence/evidence-entry-form";
 import { EmployeeRuntimeExperience } from "@/components/unit-workspace/employee-runtime-experience";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import {
@@ -33,7 +33,7 @@ function firstSearchValue(value: string | string[] | undefined): string | null {
 }
 
 export async function tryRenderEmployeeRuntimeExperience(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   unitId: string;
   spaceId?: string | null;
   query?: {

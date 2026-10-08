@@ -6,7 +6,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { loadFacilityTimezone } from "@/lib/operational-time";
 import { hasPlatformCapability } from "@/lib/platform-capability";
@@ -26,7 +26,7 @@ import {
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export type AdjustKeyTimeDayExpectationInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   expectationId: string;
   addMinutes?: number;
   adjustedDueLocal?: string;
@@ -117,7 +117,7 @@ export type CompleteKeyTimeDayExpectationDenial =
   | "CORRECTION_REASON_REQUIRED";
 
 export type CompleteKeyTimeDayExpectationInput = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   expectationId: string;
   /** Optional absolute actual time (HH:mm). Defaults to now in facility TZ. */
   actualDueLocal?: string;

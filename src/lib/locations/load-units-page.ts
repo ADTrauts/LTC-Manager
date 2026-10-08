@@ -5,7 +5,7 @@
  * When disabled: legacy operationalUnitWhere (rollback path only).
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
@@ -120,7 +120,7 @@ async function loadSupportingData(facilityId: string, unitIds: readonly string[]
  * No second eligibility pass.
  */
 export async function loadUnitsPageData(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadLocationsViewOptions & {
     includeTemplates?: boolean;
   } = {},

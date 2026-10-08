@@ -6,7 +6,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { WAIVE_REASON_MIN_LENGTH } from "@/lib/asset-operations/work-order-closeout-gate";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +19,7 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 export const SKIP_REASON_MIN_LENGTH = WAIVE_REASON_MIN_LENGTH;
 
 export async function skipPmOccurrence(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

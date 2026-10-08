@@ -14,7 +14,7 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { createWorkOrderFromOperationalRequest } from "@/lib/asset-operations/work-order-service";
 import { prisma } from "@/lib/prisma";
@@ -119,7 +119,7 @@ export async function detectObviousDuplicates(input: {
 }
 
 export async function createRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: CreateOperationalRequestInput & { client?: DbClient; now?: Date },
 ) {
   const client = input.client ?? prisma;
@@ -267,7 +267,7 @@ async function loadRequestScoped(
 }
 
 export async function acknowledgeRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -311,7 +311,7 @@ export async function acknowledgeRequest(
 }
 
 export async function triageRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -370,7 +370,7 @@ export async function triageRequest(
 }
 
 export async function rerouteRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -424,7 +424,7 @@ export async function rerouteRequest(
 }
 
 export async function linkAsset(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -483,7 +483,7 @@ export async function linkAsset(
 }
 
 export async function createWorkOrderFromRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -531,7 +531,7 @@ export async function createWorkOrderFromRequest(
 }
 
 export async function resolveWithoutWorkOrder(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -575,7 +575,7 @@ export async function resolveWithoutWorkOrder(
 }
 
 export async function reopenRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -620,7 +620,7 @@ export async function reopenRequest(
 }
 
 export async function closeRequest(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -664,7 +664,7 @@ export async function closeRequest(
 }
 
 export async function linkEvidence(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -711,7 +711,7 @@ export async function linkEvidence(
  * Requester-visible status — strips triage notes, vendor details, and private history.
  */
 export async function loadRequesterVisibleStatus(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     requestingDepartmentId: string;

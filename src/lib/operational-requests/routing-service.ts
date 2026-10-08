@@ -6,7 +6,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 
@@ -40,7 +40,7 @@ export async function listActiveRoutesForRequestingDepartment(
 }
 
 export async function listRoutesForFacility(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   plantDepartmentId: string,
 ) {
@@ -66,7 +66,7 @@ export async function listRoutesForFacility(
 }
 
 export async function upsertRequestRoute(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     plantDepartmentId: string;
@@ -131,7 +131,7 @@ export async function validateRoute(input: {
   requestingDepartmentId: string;
   responsibleDepartmentId: string;
   client?: DbClient;
-  session?: AppJwtPayload | null;
+  session?: FacilitySession | null;
 }): Promise<{ ok: true } | { ok: false; reason: string }> {
   const client = input.client ?? prisma;
 

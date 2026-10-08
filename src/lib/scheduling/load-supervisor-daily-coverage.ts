@@ -4,7 +4,7 @@
  * Applies Team viewer scope to location aggregations (not employee presence).
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import type { HierarchyWalkUnit } from "@/lib/department-administration/department-locations";
 import { collectDepartmentActionableLocations } from "@/lib/department-administration/department-locations";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
@@ -137,7 +137,7 @@ export async function loadSupervisorDailyCoverage(input: {
   facilityId: string;
   departmentId: string;
   serviceDate: string;
-  session?: AppJwtPayload | null;
+  session?: FacilitySession | null;
   now?: Date;
 }): Promise<SupervisorDailyCoverageProjection> {
   const now = input.now ?? new Date();

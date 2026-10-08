@@ -1,18 +1,16 @@
 import { redirect } from "next/navigation";
 
 import { type AppRole, hasAtLeastRole } from "@/lib/access";
-import { getSession } from "@/lib/auth";
+import { getSession, type FacilitySession } from "@/lib/auth";
 
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 
-export async function assertFacilityAdministratorPage(): Promise<
-  Exclude<Awaited<ReturnType<typeof getSession>>, null>
-> {
+export async function assertFacilityAdministratorPage(): Promise<FacilitySession> {
   const session = await getSession();
-  if (!session?.facilityId) {
+  if (!session) {
     redirect("/login");
   }
-  if (!isFacilityAdministratorRole(session.role as AppRole)) {
+  if (!isFacilityAdministratorRole(session.role)) {
     redirect("/dashboard");
   }
   return session;

@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -143,7 +143,7 @@ export function decideAssetOperationsAuthority(input: {
 }
 
 export async function resolveAssetOperationsAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<AssetOperationsAuthorityDecision> {

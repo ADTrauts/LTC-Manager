@@ -12,7 +12,7 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
@@ -239,7 +239,7 @@ async function validatePublishableVersion(
 }
 
 export async function createPmPlanWithDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -306,7 +306,7 @@ export async function createPmPlanWithDraft(
 }
 
 export async function updatePmPlanDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -385,7 +385,7 @@ export async function updatePmPlanDraft(
 }
 
 export async function publishPmPlanVersion(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -498,7 +498,7 @@ export async function publishPmPlanVersion(
 }
 
 export async function createPmPlanSuccessorDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -572,7 +572,7 @@ export async function createPmPlanSuccessorDraft(
 }
 
 export async function retirePmPlan(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

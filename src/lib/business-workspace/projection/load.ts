@@ -6,7 +6,7 @@
  * Server Components only (client customize imports the barrel).
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { isProjectionBusinessWorkspaceEnabled } from "@/lib/feature-flags";
 import {
@@ -53,7 +53,7 @@ export type AssembledBusinessWorkspace = {
  * Resolve Projection eligibility for Business Workspace (purpose BUSINESS_WORKSPACE).
  */
 export async function loadBusinessWorkspaceProjection(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadBusinessWorkspaceProjectionOptions = {},
 ): Promise<{
   enabled: boolean;
@@ -125,7 +125,7 @@ export async function loadBusinessWorkspaceProjection(
  * (no broad facility input load).
  */
 export async function assembleProjectedBusinessWorkspace(
-  session: AppJwtPayload,
+  session: FacilitySession,
   workspaceInput: LoadBusinessWorkspaceInput,
   options: LoadBusinessWorkspaceProjectionOptions = {},
 ): Promise<AssembledBusinessWorkspace> {

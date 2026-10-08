@@ -1,7 +1,7 @@
 import type { OperationalEvidenceRecordStatus, Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -114,7 +114,7 @@ function resolveRecordStatus(input: {
  * Idempotent on clientCommandId within facility+department.
  */
 export async function submitEvidenceRecord(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: SubmitEvidenceInput & {
     actorUserId?: string | null;
     client?: DbClient;

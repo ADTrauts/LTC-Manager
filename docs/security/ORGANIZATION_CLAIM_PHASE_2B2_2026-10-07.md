@@ -104,3 +104,17 @@ Never include plaintext claim tokens.
 ## Operator / partner independence
 
 Department operator relationships and Facility partner / department scope rows are **not** modified by claim request, approval, or acceptance. Operator status does not auto-create or auto-approve claims.
+
+---
+
+## Invitation delivery (closeout)
+
+Sequence:
+
+1. Harbor approve commits claim `APPROVED` + token hash + expiry (Serializable).
+2. After commit, attempt email delivery (never holds the DB transaction open).
+3. Persist Harbor-visible delivery fields: `lastInvitationDeliveredAt`, `lastInvitationDeliveryStatus` (`SENT` | `FAILED` | `NOT_CONFIGURED`), `lastInvitationDeliveryError`.
+
+Delivery path: Postmark template alias `organization-claim` when available; otherwise transactional HTML/text fallback with organization name, expiry, and secure claim link only.
+
+Failed delivery does **not** roll back approval. Harbor may **Resend**: rotate token hash + expiry (prior plaintext invalid), then attempt delivery again. Plaintext tokens are never stored.

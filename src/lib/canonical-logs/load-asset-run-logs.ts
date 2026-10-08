@@ -4,7 +4,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 
 import {
   loadTargetRunLogs,
@@ -16,7 +16,7 @@ export type AssetRunLogsView = TargetRunLogsView;
 
 export async function loadAssetRunLogs(input: {
   client: PrismaClient;
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   assetId: string;
   historyDays?: number;

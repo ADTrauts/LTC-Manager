@@ -12,7 +12,7 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -142,7 +142,7 @@ async function upsertOpenOccurrence(
 }
 
 export async function completeExplicit(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -244,7 +244,7 @@ export async function completeExplicit(
 }
 
 export async function markNotRequired(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -304,7 +304,7 @@ export async function markNotRequired(
 }
 
 export async function reopenOccurrence(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -357,7 +357,7 @@ export async function reopenOccurrence(
 }
 
 export async function reassignOccurrence(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -435,7 +435,7 @@ export async function reassignOccurrence(
 }
 
 export async function createOneOff(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     work: OneOffWorkInput;
     actor: WorkOccurrenceActor;
@@ -545,7 +545,7 @@ export async function createOneOff(
 }
 
 export async function cancelOneOff(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

@@ -7,7 +7,7 @@
 import { randomBytes } from "node:crypto";
 import type { AssetStatus, Prisma, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { createAsset } from "@/lib/asset-operations/asset-service";
 import type { AssetOperationalStatus } from "@/lib/asset-operations";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
@@ -158,7 +158,7 @@ function isLiveDuplicate(catalog: AssetImportCatalog, row: AssetImportRowPlan): 
  * Create assets for confirmed plan rows inside one DB transaction.
  */
 export async function executeAssetImportPlan(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   plan: AssetImportPlan,
   client: PrismaClient,

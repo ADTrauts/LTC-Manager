@@ -7,7 +7,7 @@ import test from "node:test";
 import { PrismaClient, type SpaceType } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import {
   completeExplicit,
   createDraft,
@@ -36,19 +36,20 @@ function cuidLike() {
 }
 
 function session(
-  overrides: Partial<AppJwtPayload> & Pick<AppJwtPayload, "facilityId" | "role">,
-): AppJwtPayload {
+  overrides: Partial<FacilitySession> & Pick<FacilitySession, "facilityId" | "role">,
+): FacilitySession {
   return {
     uid: overrides.uid ?? `user_${cuidLike()}`,
     authKind: overrides.authKind ?? "user",
     authMethod: overrides.authMethod ?? "PASSWORD",
+    scopeKind: "facility",
     role: overrides.role,
     name: overrides.name ?? "EVS Test",
     email: overrides.email ?? "evs-test@example.com",
     facilityId: overrides.facilityId,
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 async function loadEvsFixture(prisma: PrismaClient) {
@@ -281,7 +282,7 @@ test(
       const fx = await loadEvsFixture(prisma);
       const mgr = session({
         facilityId: fx.facility.id,
-        role: fx.manager.role.key as AppJwtPayload["role"],
+        role: (fx.manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
         uid: fx.manager.id,
         primaryDepartmentId: fx.evs.id,
       });
@@ -397,7 +398,7 @@ test(
       const fx = await loadEvsFixture(prisma);
       const mgr = session({
         facilityId: fx.facility.id,
-        role: fx.manager.role.key as AppJwtPayload["role"],
+        role: (fx.manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
         uid: fx.manager.id,
         primaryDepartmentId: fx.evs.id,
       });
@@ -459,7 +460,7 @@ test(
       const fx = await loadEvsFixture(prisma);
       const mgr = session({
         facilityId: fx.facility.id,
-        role: fx.manager.role.key as AppJwtPayload["role"],
+        role: (fx.manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
         uid: fx.manager.id,
         primaryDepartmentId: fx.evs.id,
       });

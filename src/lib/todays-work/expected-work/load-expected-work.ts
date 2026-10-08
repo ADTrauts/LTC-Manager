@@ -3,7 +3,7 @@
  * Does not require Job Flow, Operational Assignments, evidence, or canonical logs.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { resolveWorkAuthority } from "@/lib/department-work/authority";
 import { resolveUnitWorkRequirements } from "@/lib/department-work/load-runtime-work";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
@@ -25,7 +25,7 @@ function employeeDisplayName(employee: { firstName: string; lastName: string }):
 }
 
 export async function loadTodaysExpectedWork(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   runPresentation: RunDepartmentOperationPresentation | null;

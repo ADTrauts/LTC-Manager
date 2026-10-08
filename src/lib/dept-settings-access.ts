@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
@@ -6,7 +6,7 @@ import { RoleKey } from "@prisma/client";
 
 /** Facility admin, recorded department head, or department-scoped GM (primary dept match). */
 export async function canManageDepartmentHeadSettings(
-  session: AppJwtPayload,
+  session: FacilitySession,
   departmentId: string,
 ): Promise<boolean> {
   if (isFacilityAdministratorRole(session.role)) {

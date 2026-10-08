@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { archiveDepartmentTeam, createDepartmentTeam } from "@/lib/department-teams";
 import { resolveViewerTeamScopes } from "./viewer-team-scope";
 
@@ -26,18 +26,19 @@ function cuidLike() {
 
 function session(
   overrides: Partial<AppJwtPayload> & Pick<AppJwtPayload, "facilityId" | "role" | "uid">,
-): AppJwtPayload {
+): FacilitySession {
   return {
     uid: overrides.uid,
     authKind: overrides.authKind ?? "employee",
     authMethod: overrides.authMethod ?? "QUICK_PIN",
+    scopeKind: "facility",
     role: overrides.role,
     name: overrides.name ?? "Scope Test",
     email: overrides.email ?? "scope-test@example.com",
     facilityId: overrides.facilityId,
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 test(

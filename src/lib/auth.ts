@@ -45,49 +45,58 @@ function resolveScopeKind(
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
-export type AppJwtPayload = JWTPayload & {
+type AppJwtCommon = JWTPayload & {
   uid: string;
   authKind: AuthKind;
-  /** Credential surface used at login. Authorization still derives from relationships. */
   authMethod: AuthMethod;
-  /** Discriminates Facility vs Organization session context. */
-  scopeKind: SessionScopeKind;
-  /**
-   * Facility RoleKey for facility-scoped sessions.
-   * Absent on organization-scoped sessions (ORG_* roles are not RoleKeys).
-   */
-  role?: AppRole;
   name: string;
   email: string;
-  /** Active Facility for facility-scoped sessions. Not home Facility. */
-  facilityId?: string;
-  /** Selected Organization for organization-scoped sessions (selection context, not sole authority). */
-  organizationId?: string;
   activeUnitId?: string | null;
-  /** When set, department-scoped lists default to this department (user or employee primary). */
   primaryDepartmentId?: string | null;
-  /** Set when PIN login used a unit-locked tablet the employee is not assigned to (see `EmployeeUnitAccess`). */
   kioskUnitAccessWarning?: boolean;
-  /**
-   * The identity's `sessionVersion` when this token was issued.
-   *
-   * Compared against current server state on every protected request, so a material authority
-   * change ends the session before its expiry rather than after it. Absent on tokens minted before
-   * this claim existed, which fail closed rather than being assumed current.
-   */
   sessionVersion?: number;
 };
 
+/**
+ * Active Facility session. `facilityId` is the active (session) Facility, not home Facility.
+ * Facility RoleKey is required.
+ */
+export type FacilitySession = AppJwtCommon & {
+  scopeKind: "facility";
+  role: AppRole;
+  facilityId: string;
+  organizationId?: string;
+};
+
+/** Organization-scoped session. No Facility RoleKey; authority is membership periods. */
+export type OrganizationSessionPayload = AppJwtCommon & {
+  scopeKind: "organization";
+  organizationId: string;
+  role?: undefined;
+  facilityId?: undefined;
+};
+
+export type AppJwtPayload = FacilitySession | OrganizationSessionPayload;
+
 export function isFacilityScopedSession(
-  session: Pick<AppJwtPayload, "scopeKind" | "facilityId">,
-): boolean {
-  return session.scopeKind === "facility" && Boolean(session.facilityId);
+  session: Pick<AppJwtPayload, "scopeKind" | "facilityId" | "role">,
+): session is FacilitySession {
+  return (
+    session.scopeKind === "facility" &&
+    typeof session.facilityId === "string" &&
+    session.facilityId.length > 0 &&
+    session.role != null
+  );
 }
 
 export function isOrganizationScopedSession(
   session: Pick<AppJwtPayload, "scopeKind" | "organizationId">,
-): boolean {
-  return session.scopeKind === "organization" && Boolean(session.organizationId);
+): session is OrganizationSessionPayload {
+  return (
+    session.scopeKind === "organization" &&
+    typeof session.organizationId === "string" &&
+    session.organizationId.length > 0
+  );
 }
 
 function getJwtSecret() {
@@ -191,24 +200,42 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
   const role =
     typeof p.role === "string" && p.role.length > 0 ? (p.role as AppRole) : undefined;
 
-  return {
+  const common = {
     ...payload,
     uid: String(p.uid ?? ""),
     authKind,
     authMethod: resolveAuthMethod(p.authMethod, authKind),
-    scopeKind,
-    role,
     name: String(p.name ?? ""),
     email: String(p.email ?? ""),
-    facilityId,
-    organizationId,
     activeUnitId: (p.activeUnitId as string | undefined) ?? undefined,
     primaryDepartmentId: (p.primaryDepartmentId as string | undefined) ?? undefined,
     kioskUnitAccessWarning: p.kioskUnitAccessWarning === true,
     // Left undefined rather than defaulted when absent, so `validateSessionAuthority` can tell a
     // pre-Phase-4 token apart from one legitimately issued at version zero.
     sessionVersion: typeof p.sessionVersion === "number" ? p.sessionVersion : undefined,
-  } as AppJwtPayload;
+  };
+
+  if (scopeKind === "organization") {
+    if (!organizationId) {
+      throw new Error("Organization session requires organizationId.");
+    }
+    return {
+      ...common,
+      scopeKind: "organization",
+      organizationId,
+    };
+  }
+
+  if (!facilityId || !role) {
+    throw new Error("Facility session requires facilityId and role.");
+  }
+  return {
+    ...common,
+    scopeKind: "facility",
+    facilityId,
+    role,
+    organizationId,
+  };
 }
 
 /**
@@ -222,7 +249,11 @@ export function sessionUserIdForFk(session: AppJwtPayload): string | null {
   return session.uid;
 }
 
-export async function getSession(): Promise<AppJwtPayload | null> {
+/**
+ * Any authenticated app session (Facility or Organization).
+ * Prefer `getSession` for Facility App code paths.
+ */
+export async function getAppSession(): Promise<AppJwtPayload | null> {
   const jar = await cookies();
 
   try {
@@ -231,7 +262,7 @@ export async function getSession(): Promise<AppJwtPayload | null> {
     if (workSession) {
       const { validateSessionForRequest } = await import("@/lib/session-revocation");
       const authority = await validateSessionForRequest(workSession);
-      if (authority.valid) {
+      if (authority.valid && isFacilityScopedSession(workSession)) {
         return {
           ...workSession,
           authKind: "harbor_staff",
@@ -252,20 +283,28 @@ export async function getSession(): Promise<AppJwtPayload | null> {
 
   try {
     const payload = await verifySessionToken(raw);
-    if (payload.scopeKind === "facility" && !payload.facilityId) {
+    if (payload.scopeKind === "facility" && !isFacilityScopedSession(payload)) {
       return null;
     }
-    if (payload.scopeKind === "organization" && !payload.organizationId) {
+    if (payload.scopeKind === "organization" && !isOrganizationScopedSession(payload)) {
       return null;
     }
 
-    // Every caller of `getSession` — pages, API routes, and Server Actions alike — reaches current
+    // Every caller of `getAppSession` — pages, API routes, and Server Actions alike — reaches current
     // authority through this one check, so a revoked session cannot be used to read or write
     // protected data even on a path that never passes through the proxy. Memoized per request.
     const { validateSessionForRequest } = await import("@/lib/session-revocation");
     const authority = await validateSessionForRequest(payload);
     if (!authority.valid) {
       return null;
+    }
+
+    if (payload.scopeKind === "organization") {
+      return {
+        ...payload,
+        authKind: payload.authKind ?? "user",
+        primaryDepartmentId: undefined,
+      };
     }
 
     return {
@@ -277,6 +316,19 @@ export async function getSession(): Promise<AppJwtPayload | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Facility App session helper.
+ * Returns null for missing/invalid sessions and for Organization-scoped sessions so Facility
+ * runtime code can rely on required `facilityId` + Facility RoleKey without unsafe assertions.
+ */
+export async function getSession(): Promise<FacilitySession | null> {
+  const session = await getAppSession();
+  if (!session || !isFacilityScopedSession(session)) {
+    return null;
+  }
+  return session;
 }
 
 export function getCookieOptions() {

@@ -11,7 +11,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { configuredTeamSpaceIds } from "@/lib/department-teams/team-operational-type-applicability";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import {
@@ -224,11 +224,11 @@ export function keyTimeSpaceFilterFromTeamScope(
 }
 
 export async function resolveViewerTeamScopes(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departments: readonly { id: string; label: string }[];
   db?: ViewerTeamScopeDb;
-  resolveEmployeeId?: (session: AppJwtPayload) => Promise<string | null>;
+  resolveEmployeeId?: (session: FacilitySession) => Promise<string | null>;
 }): Promise<Map<string, ViewerTeamScope>> {
   const scopes = new Map<string, ViewerTeamScope>();
   if (input.departments.length === 0) return scopes;

@@ -25,7 +25,7 @@ export async function issueAndSendAccountInvite(input: {
       facility: { select: { displayName: true } },
     },
   });
-  if (!user?.isActive || !user.email || user.passwordHash) {
+  if (!user?.isActive || !user.email || user.passwordHash || !user.facility) {
     return { sent: false, reason: "not_eligible" };
   }
 

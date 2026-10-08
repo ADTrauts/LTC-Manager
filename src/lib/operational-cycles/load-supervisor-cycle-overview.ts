@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import {
   facilityLocalDateToServiceDate,
@@ -137,7 +137,7 @@ const EXCEPTION_RANK: Record<string, number> = {
  * Meal times come from materialized day expectations, not UnitMealTime.
  */
 export async function loadSupervisorCycleOverview(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   now?: Date;

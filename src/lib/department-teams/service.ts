@@ -10,7 +10,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { loadDepartmentLocationsView } from "@/lib/department-administration/load-department-admin";
 import { listFacilityRoomTypes } from "@/lib/facility-builder/facility-room-types";
 import { prisma } from "@/lib/prisma";
@@ -36,7 +36,7 @@ import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export async function resolveTeamAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<TeamAuthorityDecision> {
@@ -469,7 +469,7 @@ async function nextDisplayOrder(
 }
 
 export async function createDepartmentTeam(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -529,7 +529,7 @@ export async function createDepartmentTeam(
 }
 
 export async function updateDepartmentTeam(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     teamId: string;
@@ -604,7 +604,7 @@ export async function updateDepartmentTeam(
 }
 
 export async function archiveDepartmentTeam(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: { facilityId: string; teamId: string },
 ): Promise<void> {
   const existing = await prisma.departmentTeam.findFirst({

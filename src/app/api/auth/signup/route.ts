@@ -163,13 +163,19 @@ export async function POST(request: Request) {
   await resetAuthRateLimitBucket(accountBucketKey);
 
   if (!mailConfigured || created.user.emailVerifiedAt) {
+    if (!created.user.role?.key || !created.user.facilityId) {
+      return NextResponse.json(
+        { error: "Account could not be activated. Contact support." },
+        { status: 500 },
+      );
+    }
     const token = await createSessionToken({
       uid: created.user.id,
       authKind: "user",
       role: created.user.role.key,
       name: created.user.displayName,
       email: created.user.email,
-      facilityId: created.user.facilityId,
+      facilityId: created.facility.id,
       sessionVersion: created.user.sessionVersion,
     });
 

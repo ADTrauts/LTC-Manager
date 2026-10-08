@@ -1,9 +1,7 @@
-import {
-  getSession,
-  isFacilityScopedSession,
-  type AppJwtPayload,
-} from "@/lib/auth";
+import { getSession, type FacilitySession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+export type { FacilitySession };
 
 /** Matches migration seed id so seed and local DB stay aligned. */
 export const SEED_FACILITY_ID = "cmfacseed0000000000000001";
@@ -11,23 +9,17 @@ export const SEED_FACILITY_ID = "cmfacseed0000000000000001";
 /** Seed Organization for Terrace View (Wave 11). */
 export const SEED_ORGANIZATION_ID = "cmorgseed0000000000000001";
 
-export type FacilitySession = AppJwtPayload & {
-  scopeKind: "facility";
-  facilityId: string;
-  role: NonNullable<AppJwtPayload["role"]>;
-};
-
 export async function requireFacilitySession(): Promise<FacilitySession> {
   const session = await getSession();
-  if (!session || !isFacilityScopedSession(session) || !session.facilityId || !session.role) {
+  if (!session) {
     throw new Error("Unauthorized.");
   }
-  return session as FacilitySession;
+  return session;
 }
 
 export async function getFacilityForSession() {
   const session = await getSession();
-  if (!session?.facilityId) return null;
+  if (!session) return null;
   return prisma.facility.findUnique({
     where: { id: session.facilityId },
     select: {

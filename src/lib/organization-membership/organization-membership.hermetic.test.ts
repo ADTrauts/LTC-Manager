@@ -49,7 +49,11 @@ test("identity shape rejects mixed facility/role nullability", () => {
 
 test("session scope helpers distinguish facility vs organization", () => {
   assert.equal(
-    isFacilityScopedSession({ scopeKind: "facility", facilityId: "fac_1" }),
+    isFacilityScopedSession({
+      scopeKind: "facility",
+      facilityId: "fac_1",
+      role: "STAFF",
+    }),
     true,
   );
   assert.equal(
@@ -57,7 +61,15 @@ test("session scope helpers distinguish facility vs organization", () => {
     true,
   );
   assert.equal(
-    isFacilityScopedSession({ scopeKind: "organization", facilityId: undefined }),
+    isFacilityScopedSession({
+      scopeKind: "facility",
+      facilityId: "fac_1",
+      role: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    isFacilityScopedSession({ scopeKind: "organization", facilityId: undefined, role: undefined }),
     false,
   );
 });
@@ -241,7 +253,7 @@ function makeDb(state: { organizations: Org[]; users: User[] }) {
       findMany: async ({ where }: { where: { membershipId: string } }) =>
         periods.filter((p) => p.membershipId === where.membershipId),
     },
-    $transaction: async <T>(fn: (tx: typeof db) => Promise<T>) => fn(db),
+    $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
     _memberships: memberships,
     _periods: periods,
   };

@@ -6,7 +6,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import {
   createDraftFromPreset as createWorkDraftFromPreset,
@@ -102,7 +102,7 @@ export async function loadPlantStarterState(input: {
 }
 
 export async function installPlantStarterConfiguration(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

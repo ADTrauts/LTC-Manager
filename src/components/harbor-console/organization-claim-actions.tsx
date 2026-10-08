@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import {
   approveOrganizationClaimAction,
   rejectOrganizationClaimAction,
+  resendOrganizationClaimAction,
   revokeOrganizationClaimAction,
   type HarborClaimActionResult,
 } from "@/app/console/(staff)/organization-claims/actions";
@@ -13,10 +14,12 @@ export function HarborOrganizationClaimActions({
   claimId,
   status,
   displayStatus,
+  deliveryStatus,
 }: {
   claimId: string;
   status: string;
   displayStatus: string;
+  deliveryStatus: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<HarborClaimActionResult | null>(null);
@@ -28,6 +31,14 @@ export function HarborOrganizationClaimActions({
       setResult(await action(formData));
     });
   }
+
+  const showResend =
+    status === "APPROVED" &&
+    displayStatus !== "EXPIRED" &&
+    (deliveryStatus === "FAILED" ||
+      deliveryStatus === "NOT_CONFIGURED" ||
+      deliveryStatus === "SENT" ||
+      deliveryStatus == null);
 
   return (
     <div className="space-y-2" data-testid={`harbor-claim-actions-${claimId}`}>
@@ -53,18 +64,33 @@ export function HarborOrganizationClaimActions({
           </>
         ) : null}
         {status === "APPROVED" && displayStatus !== "EXPIRED" ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(revokeOrganizationClaimAction)}
-            className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-800 disabled:opacity-60"
-          >
-            Revoke invitation
-          </button>
+          <>
+            {showResend ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(resendOrganizationClaimAction)}
+                className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-800 disabled:opacity-60"
+              >
+                Resend invitation
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => run(revokeOrganizationClaimAction)}
+              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-800 disabled:opacity-60"
+            >
+              Revoke invitation
+            </button>
+          </>
         ) : null}
       </div>
       {result ? (
-        <p className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-700"}`}>
+        <p
+          className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-700"}`}
+          role="status"
+        >
           {result.message}
         </p>
       ) : null}

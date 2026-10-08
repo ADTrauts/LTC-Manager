@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { resolveDepartmentMembershipIds } from "@/lib/employee-membership";
 import { prisma } from "@/lib/prisma";
 
@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  * Department IDs to use when filtering department-scoped data (logs, templates).
  * `null` means no filter — show all departments (typical for GM / unset home department).
  */
-export async function departmentFilterIdsForSession(session: AppJwtPayload): Promise<string[] | null> {
+export async function departmentFilterIdsForSession(session: FacilitySession): Promise<string[] | null> {
   if (session.authKind === "harbor_staff") {
     return null;
   }

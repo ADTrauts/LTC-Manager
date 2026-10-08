@@ -7,7 +7,7 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import {
   createRequest,
   listActiveRoutesForRequestingDepartment,
@@ -33,19 +33,20 @@ function cuidLike() {
 }
 
 function session(
-  overrides: Partial<AppJwtPayload> & Pick<AppJwtPayload, "facilityId" | "role">,
-): AppJwtPayload {
+  overrides: Partial<FacilitySession> & Pick<FacilitySession, "facilityId" | "role">,
+): FacilitySession {
   return {
     uid: overrides.uid ?? `user_${cuidLike()}`,
     authKind: overrides.authKind ?? "user",
     authMethod: overrides.authMethod ?? "PASSWORD",
+    scopeKind: "facility",
     role: overrides.role,
     name: overrides.name ?? "Plant 12A Test",
     email: overrides.email ?? "plant-12a@example.com",
     facilityId: overrides.facilityId,
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 async function loadFixture(prisma: PrismaClient) {
@@ -171,13 +172,13 @@ test(
       const fx = await loadFixture(prisma);
       const mgr = session({
         facilityId: fx.facility.id,
-        role: (fx.manager.role?.key as AppJwtPayload["role"]) ?? "MANAGER",
+        role: (fx.manager.role?.key as FacilitySession["role"]) ?? "MANAGER",
         uid: fx.manager.id,
         primaryDepartmentId: fx.plant.id,
       });
       const dietaryStaff = session({
         facilityId: fx.facility.id,
-        role: (fx.staff?.role?.key as AppJwtPayload["role"]) ?? "STAFF",
+        role: (fx.staff?.role?.key as FacilitySession["role"]) ?? "STAFF",
         uid: fx.staff?.id ?? fx.manager.id,
         primaryDepartmentId: fx.dietary.id,
       });

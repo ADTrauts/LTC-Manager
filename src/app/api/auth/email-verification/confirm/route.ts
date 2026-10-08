@@ -42,6 +42,12 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
   }
+  if (!user.facilityId || !user.role?.key) {
+    return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
+  }
+
+  const facilityId = user.facilityId;
+  const roleKey = user.role.key;
 
   if (!user.emailVerifiedAt) {
     await markEmailVerified(prisma, { userId: user.id, tokenId: token.id });
@@ -55,20 +61,20 @@ export async function POST(request: Request) {
   const sessionToken = await createSessionToken({
     uid: user.id,
     authKind: "user",
-    role: user.role.key,
+    role: roleKey,
     name: user.displayName,
     email: user.email,
-    facilityId: user.facilityId,
+    facilityId,
     sessionVersion: user.sessionVersion,
   });
 
   await trackEvent("signup.email_verified", {
-    facilityId: user.facilityId,
+    facilityId,
     userId: user.id,
   });
 
   const response = NextResponse.json({ ok: true, nextPath: ONBOARDING_ENTRY_PATH });
   response.cookies.set(SESSION_COOKIE, sessionToken, getCookieOptions());
-  response.cookies.set(DEVICE_FACILITY_COOKIE, user.facilityId, getDeviceCookieOptions());
+  response.cookies.set(DEVICE_FACILITY_COOKIE, facilityId, getDeviceCookieOptions());
   return response;
 }

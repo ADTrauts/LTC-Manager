@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 
@@ -19,7 +19,7 @@ export type AssignmentAuthorityDecision = {
  * Facility Administrator role alone does not grant Dietary Assignment management.
  */
 export async function resolveAssignmentAuthority(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   departmentId: string;
   facilityId: string;
 }): Promise<AssignmentAuthorityDecision> {

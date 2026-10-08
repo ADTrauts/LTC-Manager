@@ -11,6 +11,7 @@ import {
   createHarborOrganizationClaimRequest,
   rejectOrganizationClaim,
   revokeOrganizationClaim,
+  rotateOrganizationClaimInvitationToken,
 } from "@/lib/organization-claims";
 import { deliverOrganizationClaimInvitation } from "@/lib/organization-claims/send";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,18 @@ function requestOrigin(headerStore: Headers): string {
   const proto = headerStore.get("x-forwarded-proto") ?? "http";
   if (host) return `${proto}://${host}`;
   return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
+}
+
+function deliveryMessage(delivery: {
+  sent: boolean;
+  reason?: string;
+  deliveryStatus: string;
+}): string {
+  if (delivery.sent) return "Invitation email sent.";
+  if (delivery.reason === "not_configured" || delivery.deliveryStatus === "NOT_CONFIGURED") {
+    return "Email delivery is not configured in this environment.";
+  }
+  return "Invitation email could not be sent. Use Resend after fixing delivery.";
 }
 
 export async function approveOrganizationClaimAction(
@@ -51,22 +64,52 @@ export async function approveOrganizationClaimAction(
     if (delivery.sent) {
       return { ok: true, message: "Claim approved and invitation email sent." };
     }
-    if (delivery.reason === "not_configured") {
-      return {
-        ok: true,
-        message:
-          "Claim approved. Email delivery is not configured in this environment — use the secure claim URL from your mail/dev inspection path.",
-      };
-    }
     return {
       ok: true,
-      message: "Claim approved. Invitation email could not be sent; retry delivery from ops if needed.",
+      message: `Claim approved. ${deliveryMessage(delivery)}`,
     };
   } catch (error) {
     if (error instanceof OrganizationClaimError) {
       return { ok: false, message: error.message };
     }
     return { ok: false, message: "Could not approve claim." };
+  }
+}
+
+export async function resendOrganizationClaimAction(
+  formData: FormData,
+): Promise<HarborClaimActionResult> {
+  const session = await requireHarborStaff();
+  const claimId = String(formData.get("claimId") ?? "");
+  if (!z.string().cuid().safeParse(claimId).success) {
+    return { ok: false, message: "Invalid claim." };
+  }
+
+  try {
+    const { claim, rawToken } = await rotateOrganizationClaimInvitationToken(prisma, {
+      claimId,
+      platformStaffId: session.uid,
+    });
+    const headerStore = await headers();
+    const delivery = await deliverOrganizationClaimInvitation({
+      claimId: claim.id,
+      rawToken,
+      origin: requestOrigin(headerStore),
+    });
+
+    revalidatePath("/console/organization-claims");
+    if (delivery.sent) {
+      return { ok: true, message: "Invitation resent with a new secure link." };
+    }
+    return {
+      ok: false,
+      message: `Token rotated, but delivery failed. ${deliveryMessage(delivery)}`,
+    };
+  } catch (error) {
+    if (error instanceof OrganizationClaimError) {
+      return { ok: false, message: error.message };
+    }
+    return { ok: false, message: "Could not resend claim invitation." };
   }
 }
 
@@ -116,11 +159,8 @@ export async function revokeOrganizationClaimAction(
   }
 }
 
-export async function createHarborClaimRequestFormAction(formData: FormData): Promise<void> {
-  await createHarborClaimRequestAction(formData);
-}
-
 export async function createHarborClaimRequestAction(
+  _prev: HarborClaimActionResult | null,
   formData: FormData,
 ): Promise<HarborClaimActionResult> {
   const session = await requireHarborStaff();

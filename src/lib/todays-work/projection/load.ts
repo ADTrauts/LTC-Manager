@@ -2,7 +2,7 @@
  * Wave 15I — Today's Work Projection loader + assembled view.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
 import {
@@ -72,7 +72,7 @@ export type AssembledTodaysWorkHandoffs = {
  * Load Projection eligibility for Today's Work (purpose TODAYS_WORK).
  */
 export async function loadTodaysWorkProjection(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadTodaysWorkProjectionOptions = {},
 ): Promise<LoadTodaysWorkProjectionResult> {
   if (!isProjectionTodaysWorkEnabled()) {
@@ -131,7 +131,7 @@ export async function loadTodaysWorkProjection(
  * Projection + walk + call-downs. Never mixes legacy broad lists when enabled.
  */
 export async function assembleProjectedTodaysWorkHub(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadTodaysWorkProjectionOptions = {},
 ): Promise<AssembledTodaysWork | { enabled: false } | { error: string; enabled: true }> {
   const loaded = await loadTodaysWorkProjection(session, options);
@@ -178,7 +178,7 @@ export async function assembleProjectedTodaysWorkHub(
 }
 
 export async function assembleProjectedTodaysWorkWalk(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadTodaysWorkProjectionOptions = {},
 ): Promise<
   | { enabled: false }
@@ -215,7 +215,7 @@ export async function assembleProjectedTodaysWorkWalk(
 }
 
 export async function assembleProjectedTodaysWorkHandoffs(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadTodaysWorkProjectionOptions = {},
 ): Promise<
   | { enabled: false }

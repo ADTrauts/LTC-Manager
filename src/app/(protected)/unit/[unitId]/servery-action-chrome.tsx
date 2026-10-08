@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 
 import { OfflineConflictReview } from "@/components/offline/offline-conflict-review";
 import { OfflineServeryControls } from "@/components/offline/offline-servery-controls";
-import { sessionUserIdForFk, type AppJwtPayload } from "@/lib/auth";
+import { sessionUserIdForFk, type AppJwtPayload } from "@/lib/auth"
+import type { FacilitySession } from "@/lib/auth";
 import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { getFacilityServiceDate, toServiceDateKey } from "@/lib/operational-time";
@@ -22,7 +23,7 @@ import {
 } from "@/lib/operational-cycles";
 
 export async function renderServeryActionChrome(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   unitId: string;
   timezone: string;
   now: Date;

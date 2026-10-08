@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { getEmployeeAllowedUnitIdSet } from "@/lib/employee-units";
 import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +30,7 @@ export async function getActiveSidebarUnits(facilityId: string): Promise<Sidebar
  * Wave 15G: AppShell uses this **only** when `PROJECTION_SIDEBAR_ENABLED` is off.
  * When the flag is on, Sidebar eligibility comes exclusively from Projection Runtime.
  */
-export async function getSidebarUnitsForSession(session: AppJwtPayload): Promise<SidebarUnit[]> {
+export async function getSidebarUnitsForSession(session: FacilitySession): Promise<SidebarUnit[]> {
   noStore();
 
   const base = await getActiveSidebarUnits(session.facilityId);

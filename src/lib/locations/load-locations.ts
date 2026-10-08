@@ -4,7 +4,7 @@
  * Delegates eligibility to the shared projected-location loader (purpose LOCATIONS).
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import type {
   ProjectionRuntimeMemo,
@@ -40,7 +40,7 @@ export type LoadLocationsViewResult = {
  * Single resolve; reuses request-scoped memoization when provided.
  */
 export async function loadLocationsView(
-  session: AppJwtPayload,
+  session: FacilitySession,
   options: LoadLocationsViewOptions = {},
 ): Promise<LoadLocationsViewResult> {
   if (!isProjectionLocationsEnabled()) {

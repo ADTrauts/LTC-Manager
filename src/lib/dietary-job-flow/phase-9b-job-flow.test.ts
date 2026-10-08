@@ -7,7 +7,7 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 
 import { decideJobFlowAuthority } from "./job-flow-authority";
@@ -23,19 +23,20 @@ function cuidLike() {
 }
 
 function session(
-  overrides: Partial<AppJwtPayload> & Pick<AppJwtPayload, "facilityId" | "role">,
-): AppJwtPayload {
+  overrides: Partial<FacilitySession> & Pick<FacilitySession, "facilityId" | "role">,
+): FacilitySession {
   return {
     uid: overrides.uid ?? `user_${cuidLike()}`,
     authKind: "user",
     authMethod: overrides.authMethod ?? "PASSWORD",
+    scopeKind: "facility",
     role: overrides.role,
     name: "Test",
     email: "test@example.com",
     facilityId: overrides.facilityId,
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 test("phase9b sql: FA denied board; cross-facility denied", { skip: skipReason }, async () => {
@@ -181,7 +182,7 @@ test(
       const mgrSession = session({
         uid: manager.id,
         facilityId: facility.id,
-        role: manager.role.key as AppJwtPayload["role"],
+        role: (manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
         primaryDepartmentId: dietary.id,
       });
       const actor = { userId: manager.id, label: manager.displayName ?? "Manager" };

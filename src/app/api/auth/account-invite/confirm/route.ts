@@ -49,12 +49,22 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "This invite link is invalid or expired." }, { status: 400 });
   }
+  // Account invites are Facility-native only. Organization claim acceptance is a separate flow.
+  if (!user.facilityId || !user.role?.key) {
+    return NextResponse.json(
+      { error: "This invite link is invalid or expired." },
+      { status: 400 },
+    );
+  }
   if (user.passwordHash) {
     return NextResponse.json(
       { error: "This account already has a password. Sign in or reset your password." },
       { status: 400 },
     );
   }
+
+  const facilityId = user.facilityId;
+  const roleKey = user.role.key;
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   const now = new Date();
@@ -80,20 +90,20 @@ export async function POST(request: Request) {
   const sessionToken = await createSessionToken({
     uid: user.id,
     authKind: "user",
-    role: user.role.key,
+    role: roleKey,
     name: user.displayName,
     email: user.email,
-    facilityId: user.facilityId,
+    facilityId,
     sessionVersion: user.sessionVersion,
   });
 
   await trackEvent("account.invite_accepted", {
-    facilityId: user.facilityId,
+    facilityId,
     userId: user.id,
   });
 
   const response = NextResponse.json({ ok: true, nextPath: "/dashboard" });
   response.cookies.set(SESSION_COOKIE, sessionToken, getCookieOptions());
-  response.cookies.set(DEVICE_FACILITY_COOKIE, user.facilityId, getDeviceCookieOptions());
+  response.cookies.set(DEVICE_FACILITY_COOKIE, facilityId, getDeviceCookieOptions());
   return response;
 }

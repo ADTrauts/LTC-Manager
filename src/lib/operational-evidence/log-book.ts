@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -31,7 +31,7 @@ function clampPageSize(pageSize: number | undefined): number {
  * STAFF/LEAD (canViewOwn only) are limited to their own records.
  */
 export async function searchEvidenceRecords(
-  session: AppJwtPayload,
+  session: FacilitySession,
   filters: EvidenceLogBookFilters,
 ) {
   const authority = await resolveEvidenceAuthority(
@@ -134,7 +134,7 @@ export async function searchEvidenceRecords(
  * Load one Evidence Record with field values and append-preserving corrections history.
  */
 export async function loadEvidenceRecordDetail(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   recordId: string;

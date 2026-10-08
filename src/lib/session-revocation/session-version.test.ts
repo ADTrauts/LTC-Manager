@@ -11,7 +11,7 @@ import test, { after } from "node:test";
 
 import type { PrismaClient } from "@prisma/client";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 
 const TEST_DATABASE_URL = process.env.SESSION_REVOCATION_TEST_DATABASE_URL;
 const skip = TEST_DATABASE_URL
@@ -123,17 +123,18 @@ async function makeEmployee(f: Fixture, overrides: { facilityId?: string } = {})
   return employee;
 }
 
-function userSession(f: Fixture, uid: string, sessionVersion: number | undefined): AppJwtPayload {
+function userSession(f: Fixture, uid: string, sessionVersion: number | undefined): FacilitySession {
   return {
     uid,
     authKind: "user",
     authMethod: "PASSWORD",
+    scopeKind: "facility",
     role: "STAFF",
     name: "Revocation Test User",
     email: "revocation@example.test",
     facilityId: f.facilityId,
     sessionVersion,
-  } as AppJwtPayload;
+  };
 }
 
 function pinSession(
@@ -141,11 +142,12 @@ function pinSession(
   uid: string,
   sessionVersion: number | undefined,
   overrides: { primaryDepartmentId?: string | null } = {},
-): AppJwtPayload {
+): FacilitySession {
   return {
     uid,
     authKind: "employee",
     authMethod: "QUICK_PIN",
+    scopeKind: "facility",
     role: "STAFF",
     name: "Revocation Tester",
     email: "",
@@ -155,7 +157,7 @@ function pinSession(
         ? f.dietaryDepartmentId
         : overrides.primaryDepartmentId,
     sessionVersion,
-  } as AppJwtPayload;
+  };
 }
 
 after(async () => {
@@ -248,7 +250,10 @@ test("a password session fails when facility access is removed", { skip }, async
   if (!f) return;
   const user = await makeUser(f);
   // Session into a facility the user does not call home and holds no grant for.
-  const session = { ...userSession(f, user.id, user.sessionVersion), facilityId: f.otherFacilityId };
+  const session: FacilitySession = {
+    ...userSession(f, user.id, user.sessionVersion),
+    facilityId: f.otherFacilityId,
+  };
 
   const result = await f.lib.validateSessionAuthority(session, f.db);
   assert.equal(result.valid, false);
@@ -262,7 +267,10 @@ test("a password session keeps a facility it holds an active grant for", { skip 
   await f.db.userFacilityAccess.create({
     data: { userId: user.id, facilityId: f.otherFacilityId, isActive: true },
   });
-  const session = { ...userSession(f, user.id, user.sessionVersion), facilityId: f.otherFacilityId };
+  const session: FacilitySession = {
+    ...userSession(f, user.id, user.sessionVersion),
+    facilityId: f.otherFacilityId,
+  };
 
   assert.equal((await f.lib.validateSessionAuthority(session, f.db)).valid, true);
 

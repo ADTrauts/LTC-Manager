@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { isDepartmentOperationalCyclesEnabled } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -134,7 +134,7 @@ export function decideCycleAuthority(input: {
  * Facility Administrator may manage cycles facility-wide from Department Builder (password).
  */
 export async function resolveCycleAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<CycleAuthorityDecision> {

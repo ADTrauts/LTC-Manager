@@ -1,6 +1,6 @@
 import { HarborAuthFrame } from "@/components/harbor-auth-frame";
 import { OrganizationClaimAcceptForm } from "@/components/organization-claim-accept-form";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
 import { findClaimableInvitationByRawToken } from "@/lib/organization-claims";
 import { organizationDisplayLabel } from "@/lib/organization-membership";
@@ -51,7 +51,7 @@ export default async function OrganizationClaimAcceptPage({ params }: PageProps)
     where: { email: claim.targetEmailNormalized },
     select: { id: true, email: true, passwordHash: true, isActive: true },
   });
-  const session = await getSession();
+  const session = await getAppSession();
   const sessionEmail =
     session?.authKind === "user" ? normalizeAccountIdentifier(session.email ?? "") : null;
 

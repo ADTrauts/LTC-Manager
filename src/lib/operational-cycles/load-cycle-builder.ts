@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { loadDepartmentLocationsView } from "@/lib/department-administration/load-department-admin";
 import { listFacilityRoomTypes } from "@/lib/facility-builder/facility-room-types";
 import {
@@ -47,7 +47,7 @@ export type CycleBuilderCatalog = {
  * plus a day preview for a representative operational date.
  */
 export async function loadCycleBuilder(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   previewDateKey: string;

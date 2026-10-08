@@ -1,4 +1,4 @@
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import type { AppRole } from "@/lib/access";
 import { EmployeeStatus, EmploymentType, RoleKey } from "@prisma/client";
@@ -26,7 +26,7 @@ function rosterRoleTypeForEmailUser(role: AppRole): RoleKey | null {
 }
 
 /** Ensures FACILITY_ADMINISTRATOR and GM hub accounts appear on the employee roster when missing (legacy installs). */
-export async function ensureGmEmployeeRosterRow(session: AppJwtPayload): Promise<void> {
+export async function ensureGmEmployeeRosterRow(session: FacilitySession): Promise<void> {
   const rosterRoleType = rosterRoleTypeForEmailUser(session.role);
   if (session.authKind !== "user" || !rosterRoleType || !session.facilityId) {
     return;

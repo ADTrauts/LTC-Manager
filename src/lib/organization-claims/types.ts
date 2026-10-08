@@ -32,11 +32,19 @@ export type OrganizationClaimInvitationView = {
   revokedAt: Date | null;
   acceptedByUserId: string | null;
   acceptedAt: Date | null;
+  lastInvitationDeliveredAt: Date | null;
+  lastInvitationDeliveryStatus: string | null;
+  lastInvitationDeliveryError: string | null;
   createdAt: Date;
   updatedAt: Date;
   /** True when status is APPROVED, not expired, not revoked, not accepted. */
   isClaimable: boolean;
 };
+
+export type OrganizationClaimDeliveryStatus =
+  | "SENT"
+  | "FAILED"
+  | "NOT_CONFIGURED";
 
 export type OrganizationClaimStateView = {
   organizationId: string;
@@ -104,5 +112,20 @@ export function organizationClaimInvitationStatusLabel(
       return "Accepted";
     case "EXPIRED":
       return "Expired";
+  }
+}
+
+export function organizationClaimDeliveryStatusLabel(
+  status: string | null | undefined,
+): string | null {
+  switch (status) {
+    case "SENT":
+      return "Invitation sent";
+    case "FAILED":
+      return "Delivery failed";
+    case "NOT_CONFIGURED":
+      return "Delivery not configured";
+    default:
+      return null;
   }
 }

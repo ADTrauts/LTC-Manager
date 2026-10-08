@@ -15,10 +15,10 @@ import {
 import { mapCycleRow } from "@/lib/operational-cycles/load-published-cycles";
 import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 
 type Props = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   departmentKey?: string;

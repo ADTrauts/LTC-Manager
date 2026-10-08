@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 
 import { validateSessionAuthority, type PrismaLike } from "./session-version";
 
@@ -15,7 +15,7 @@ function userSession(role: AppJwtPayload["role"] = "MANAGER"): AppJwtPayload {
     email: "manager@example.test",
     facilityId: "facility-1",
     sessionVersion: 3,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 function employeeSession(role: AppJwtPayload["role"] = "STAFF"): AppJwtPayload {
@@ -28,7 +28,7 @@ function employeeSession(role: AppJwtPayload["role"] = "STAFF"): AppJwtPayload {
     email: "",
     facilityId: "facility-1",
     sessionVersion: 4,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 function userDb(currentRole: AppJwtPayload["role"], roleActive = true): PrismaLike {

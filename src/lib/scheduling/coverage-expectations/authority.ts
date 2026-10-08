@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { AppJwtPayload, AuthMethod } from "@/lib/auth";
+import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export type CoverageAuthorityDecision = {
@@ -48,7 +48,7 @@ export function requireCoverageManage(decision: CoverageAuthorityDecision): void
 }
 
 export async function resolveCoverageAuthority(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ): Promise<CoverageAuthorityDecision> {

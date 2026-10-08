@@ -7,7 +7,7 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { getDepartmentProduct } from "@/lib/department-products";
 import {
   addWorkOrderLabor,
@@ -46,19 +46,20 @@ function cuidLike() {
 }
 
 function session(
-  overrides: Partial<AppJwtPayload> & Pick<AppJwtPayload, "facilityId" | "role">,
-): AppJwtPayload {
+  overrides: Partial<FacilitySession> & Pick<FacilitySession, "facilityId" | "role">,
+): FacilitySession {
   return {
     uid: overrides.uid ?? `user_${cuidLike()}`,
     authKind: overrides.authKind ?? "user",
     authMethod: overrides.authMethod ?? "PASSWORD",
+    scopeKind: "facility",
     role: overrides.role,
     name: overrides.name ?? "Phase 4D Test",
     email: overrides.email ?? "phase4d@example.com",
     facilityId: overrides.facilityId,
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
-  } as AppJwtPayload;
+  } as FacilitySession;
 }
 
 async function ensureRole(prisma: PrismaClient, key: "MANAGER" | "STAFF" | "SUPERVISOR") {
@@ -250,7 +251,7 @@ async function publishedSopAndTemplate(
 async function publishPlan(
   prisma: PrismaClient,
   fx: Awaited<ReturnType<typeof createFacilityFixture>>,
-  mgr: AppJwtPayload,
+  mgr: FacilitySession,
   input: {
     name: string;
     now: Date;

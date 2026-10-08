@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -431,7 +431,7 @@ async function appendCycleEvent(
 }
 
 async function assertManage(
-  session: AppJwtPayload,
+  session: FacilitySession,
   facilityId: string,
   departmentId: string,
 ) {
@@ -493,7 +493,7 @@ async function loadPublishedOverlapPeers(
 }
 
 export async function createDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -623,7 +623,7 @@ export async function createDraft(
 }
 
 export async function updateDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -780,7 +780,7 @@ export async function updateDraft(
  * Published windows are immutable — change via duplicate + publish.
  */
 export async function duplicateCycle(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -894,7 +894,7 @@ export async function duplicateCycle(
 }
 
 export async function reorderDrafts(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -951,7 +951,7 @@ export async function reorderDrafts(
  * Published rows are never mutated — callers must pass draft ids only.
  */
 export async function applyDraftTreeMove(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1021,7 +1021,7 @@ export async function applyDraftTreeMove(
 }
 
 export async function publishCycle(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1247,7 +1247,7 @@ export function orderDraftSubtreeForDelete(
  * of the same stableKey.
  */
 export async function deleteDraft(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1296,7 +1296,7 @@ export async function deleteDraft(
  * Leaves published Current / Scheduled / History untouched.
  */
 export async function discardAllDrafts(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1350,7 +1350,7 @@ export async function discardAllDrafts(
  * by this configuration; tomorrow and later no longer resolve it.
  */
 export async function retireCycle(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1428,7 +1428,7 @@ export async function retireCycle(
  * Idempotent when there are no drafts left to schedule.
  */
 export async function scheduleDraftPublications(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1539,7 +1539,7 @@ export async function scheduleDraftPublications(
  * Skips stableKeys that already exist as DRAFT or PUBLISHED (no duplicates).
  */
 export async function generateDietaryDefaultsDrafts(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1610,7 +1610,7 @@ export async function generateDietaryDefaultsDrafts(
  * A second call skips stable keys that already exist.
  */
 export async function prepareDietaryMealTimingUpgrade(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;
@@ -1709,7 +1709,7 @@ export async function prepareDietaryMealTimingUpgrade(
  * Skips stableKeys that already exist as DRAFT or PUBLISHED.
  */
 export async function generateEvsDefaultsDrafts(
-  session: AppJwtPayload,
+  session: FacilitySession,
   input: {
     facilityId: string;
     departmentId: string;

@@ -5,7 +5,7 @@
  * Operational facts: Runtime Location State (SPACE grain), aggregated for cards.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import {
   loadProjectedLocationView,
@@ -33,7 +33,7 @@ import {
 import type { OperatingLocationBoard, OperatingLocationStatus } from "./types";
 
 export type LoadOperatingLocationBoardOptions = {
-  session: AppJwtPayload;
+  session: FacilitySession;
   activeDepartmentKey?: OperationalDepartmentKey | null;
   activeDepartmentId?: string | null;
   memo?: ProjectionRuntimeMemo<ProjectionRuntimeResult>;

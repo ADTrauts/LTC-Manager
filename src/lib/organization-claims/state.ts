@@ -24,6 +24,9 @@ type ClaimRow = {
   revokedAt: Date | null;
   acceptedByUserId: string | null;
   acceptedAt: Date | null;
+  lastInvitationDeliveredAt: Date | null;
+  lastInvitationDeliveryStatus: string | null;
+  lastInvitationDeliveryError: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -90,6 +93,9 @@ export function toClaimInvitationView(
     revokedAt: row.revokedAt,
     acceptedByUserId: row.acceptedByUserId,
     acceptedAt: row.acceptedAt,
+    lastInvitationDeliveredAt: row.lastInvitationDeliveredAt,
+    lastInvitationDeliveryStatus: row.lastInvitationDeliveryStatus,
+    lastInvitationDeliveryError: row.lastInvitationDeliveryError,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     isClaimable: isClaimableInvitation(row, now),

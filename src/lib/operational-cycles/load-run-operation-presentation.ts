@@ -3,7 +3,7 @@
  * Materializes missing today's Key Time rows; never deletes completed actuals.
  */
 
-import type { AppJwtPayload } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import {
   getFacilityServiceDate,
@@ -215,7 +215,7 @@ export async function resolveSelectedRoomForUnit(input: {
 }
 
 export async function loadLocationRunPresentation(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   spaceId: string;
@@ -259,7 +259,7 @@ export async function loadLocationRunPresentation(input: {
 }
 
 export async function loadDepartmentRunPresentation(input: {
-  session: AppJwtPayload;
+  session: FacilitySession;
   facilityId: string;
   departmentId: string;
   now?: Date;

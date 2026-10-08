@@ -4,8 +4,8 @@ import { z } from "zod";
 
 import {
   createOrganizationSessionToken,
+  getAppSession,
   getCookieOptions,
-  getSession,
   SESSION_COOKIE,
 } from "@/lib/auth";
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await getSession();
+  const session = await getAppSession();
   const existingUser = await prisma.user.findUnique({
     where: { email: claim.targetEmailNormalized },
     select: {
