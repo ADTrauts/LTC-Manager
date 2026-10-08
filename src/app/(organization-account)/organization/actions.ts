@@ -14,6 +14,7 @@ import { requireOrganizationSession } from "@/lib/organization-context";
 import {
   listCurrentOrganizationMembershipsForUser,
   OrganizationMembershipError,
+  resolveSelectableOrganizationMembership,
 } from "@/lib/organization-membership";
 import {
   changeOrganizationMemberRole,
@@ -189,13 +190,7 @@ export async function switchOrganizationAction(formData: FormData): Promise<void
   const memberships = await listCurrentOrganizationMembershipsForUser(prisma, {
     userId: session.uid,
   });
-  const selected = memberships.find((row) => row.organizationId === organizationId);
-  if (!selected) {
-    throw new OrganizationMemberInvitationError(
-      "FORBIDDEN",
-      "That Organization is not an active membership.",
-    );
-  }
+  const selected = resolveSelectableOrganizationMembership(memberships, organizationId);
   const user = await prisma.user.findUnique({
     where: { id: session.uid },
     select: { id: true, email: true, displayName: true, sessionVersion: true, facilityId: true, roleId: true },

@@ -15,13 +15,23 @@ Organization member invitation is how that administrator manages people afterwar
 
 Neither role grants Facility access, partner assignment, or Facility RoleKey.
 
-## Last administrator
+## Last Administrator Invariant
 
-Normal administration cannot leave an active Organization with zero current `ORG_ADMIN`.
+Normal Organization membership administration may never leave an active Organization without a current Organization Administrator.
 
-Demotion or membership end of the only current administrator is denied inside the membership transaction (`LAST_ORG_ADMIN`). If every administrator disappears through an abnormal path, derived claim state returns to `UNCLAIMED` and Harbor bootstrap may run again. An `ORG_MEMBER` is never auto-promoted.
+Demotion and membership end of an `ORG_ADMIN` run inside a transaction that first takes `SELECT ... FOR UPDATE` on the Organization row, then recounts current administrator periods. The lock is mandatory. A client that cannot lock the row fails closed. Concurrent demotions serialize: one may succeed, and the other must fail with `LAST_ORG_ADMIN`. The final current administrator count stays at least 1.
 
-Role changes and membership end set `revokeSessions: true`, which increments `User.sessionVersion` and signs the user out of active sessions, including unrelated ones. That is the current safe tradeoff.
+Role changes and membership end increment `User.sessionVersion`. That signs the user out of every active session, including sessions for other Organizations. That global invalidation is the accepted Phase 2B tradeoff.
+
+## Membership rejoin
+
+Rejoining reuses the durable User↔Organization relationship and creates a new role period. Historical periods are not rewritten.
+
+## Facility boundary
+
+Organization membership, including Organization Administrator status, grants no Facility access.
+
+Phase 2C partner Facility assignment is not implemented.
 
 ## Tokens
 

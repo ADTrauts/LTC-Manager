@@ -12,10 +12,12 @@ import {
   endOrganizationMembership,
   getOrganizationMembershipAt,
   getUserOrganizationMembership,
+  listCurrentOrganizationMembershipsForUser,
   OrganizationMembershipError,
   organizationMembershipGrantsFacilityAccess,
   periodContainsInstant,
   rejoinOrganizationMembership,
+  resolveSelectableOrganizationMembership,
 } from "@/lib/organization-membership";
 import { isFacilityScopedSession, isOrganizationScopedSession } from "@/lib/auth";
 
@@ -294,6 +296,7 @@ function makeDb(state: { organizations: Org[]; users: User[] }) {
         periods.filter((p) => p.membershipId === where.membershipId),
     },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
+    $queryRaw: async () => [{ id: "locked" }],
     _memberships: memberships,
     _periods: periods,
   };
@@ -474,6 +477,43 @@ test("multi-org memberships stay independent", async () => {
   });
   assert.equal(metz?.currentRole, "ORG_ADMIN");
   assert.equal(other?.currentRole, "ORG_MEMBER");
+
+  const selectable = await listCurrentOrganizationMembershipsForUser(db as never, {
+    userId: "u_jane",
+    now: new Date("2027-02-01T00:00:00.000Z"),
+  });
+  assert.deepEqual(
+    selectable.map((row) => row.organizationId).sort(),
+    ["org_metz", "org_other"],
+  );
+  assert.equal(
+    resolveSelectableOrganizationMembership(selectable, "org_other").currentRole,
+    "ORG_MEMBER",
+  );
+  assert.throws(
+    () => resolveSelectableOrganizationMembership(selectable, "org_missing"),
+    (error: unknown) =>
+      error instanceof OrganizationMembershipError && error.code === "NOT_ACTIVE_MEMBER",
+  );
+
+  await endOrganizationMembership(db as never, {
+    userId: "u_jane",
+    organizationId: "org_other",
+    endsAt: new Date("2027-03-01T00:00:00.000Z"),
+  });
+  const afterEnd = await listCurrentOrganizationMembershipsForUser(db as never, {
+    userId: "u_jane",
+    now: new Date("2027-03-02T00:00:00.000Z"),
+  });
+  assert.deepEqual(
+    afterEnd.map((row) => row.organizationId),
+    ["org_metz"],
+  );
+  assert.throws(
+    () => resolveSelectableOrganizationMembership(afterEnd, "org_other"),
+    (error: unknown) =>
+      error instanceof OrganizationMembershipError && error.code === "NOT_ACTIVE_MEMBER",
+  );
 });
 
 test("organization-only account create sets null facility and role", async () => {

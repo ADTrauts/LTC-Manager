@@ -1,4 +1,4 @@
-import type { OrganizationMembershipRole, Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type OrganizationMembershipRole, type PrismaClient } from "@prisma/client";
 
 import { revokeUserSessions } from "@/lib/session-revocation";
 import { trackEvent } from "@/lib/telemetry";
@@ -501,23 +501,38 @@ export async function assertOrganizationAdmin(
 }
 
 /**
- * Lock the Organization row when the client supports it, then refuse a mutation
- * that would leave zero current ORG_ADMIN.
+ * Serialize administrator-removing mutations on one Organization.
+ * PostgreSQL row lock is mandatory; callers without `$queryRaw` fail closed.
+ */
+async function lockOrganizationForAdminMutation(
+  db: DbClient,
+  organizationId: string,
+): Promise<void> {
+  const client = db as PrismaClient;
+  if (typeof client.$queryRaw !== "function") {
+    throw new OrganizationMembershipError(
+      "INVALID_INPUT",
+      "Organization administrator mutations require a client that can lock the Organization row.",
+    );
+  }
+  const rows = await client.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`,
+  );
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw new OrganizationMembershipError("ORGANIZATION_NOT_FOUND", "Organization not found.");
+  }
+}
+
+/**
+ * Refuse a mutation that would leave zero current ORG_ADMIN.
+ * The Organization row lock is acquired before the count so concurrent demotions serialize.
  */
 async function assertNotLastOrgAdmin(
   db: DbClient,
   organizationId: string,
   now: Date,
 ): Promise<void> {
-  const org = db.organization as unknown as {
-    update?: (args: {
-      where: { id: string };
-      data: { updatedAt: Date };
-    }) => Promise<unknown>;
-  };
-  if (typeof org.update === "function") {
-    await org.update({ where: { id: organizationId }, data: { updatedAt: now } });
-  }
+  await lockOrganizationForAdminMutation(db, organizationId);
   const rows = await db.userOrganizationMembership.findMany({
     where: { organizationId },
     include: {
@@ -536,6 +551,22 @@ async function assertNotLastOrgAdmin(
       "An active Organization must keep at least one Organization Administrator.",
     );
   }
+}
+
+export function resolveSelectableOrganizationMembership(
+  memberships: OrganizationMembershipView[],
+  organizationId: string,
+): OrganizationMembershipView {
+  const selected = memberships.find(
+    (membership) => membership.organizationId === organizationId && membership.currentRole != null,
+  );
+  if (!selected) {
+    throw new OrganizationMembershipError(
+      "NOT_ACTIVE_MEMBER",
+      "That Organization is not a current membership.",
+    );
+  }
+  return selected;
 }
 
 /** Phase 2B1: membership never authorizes Facility entry. */

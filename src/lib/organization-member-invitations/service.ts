@@ -360,11 +360,18 @@ export async function acceptOrganizationMemberInvitation(
       },
     });
     let createdUser = false;
-    if (input.authenticatedUserId && user && user.id !== input.authenticatedUserId) {
-      throw new OrganizationMemberInvitationError(
-        "EMAIL_MISMATCH",
-        "Signed-in account does not match this invitation.",
-      );
+    if (input.authenticatedUserId) {
+      const authenticated = await tx.user.findUnique({
+        where: { id: input.authenticatedUserId },
+        select: { id: true, email: true, isActive: true, facilityId: true, roleId: true },
+      });
+      if (!authenticated || authenticated.email !== invitation.targetEmailNormalized) {
+        throw new OrganizationMemberInvitationError(
+          "EMAIL_MISMATCH",
+          "Signed-in account does not match this invitation.",
+        );
+      }
+      user = authenticated;
     }
     if (!user) {
       const created = await createOrganizationOnlyUserAccount(tx, {

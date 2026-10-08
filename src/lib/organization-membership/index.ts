@@ -21,6 +21,7 @@ export {
   listCurrentOrganizationMembershipsForUser,
   organizationMembershipGrantsFacilityAccess,
   rejoinOrganizationMembership,
+  resolveSelectableOrganizationMembership,
 } from "./service";
 export {
   OrganizationMembershipError,
