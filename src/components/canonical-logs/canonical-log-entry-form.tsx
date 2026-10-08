@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { submitCanonicalRunLogAction } from "@/app/(protected)/staffing/logs/actions";
+import { submitPartnerCanonicalLogAction } from "@/app/partner/logs/actions";
 import type { RunLogRequirementView } from "@/lib/canonical-logs/run-presentation";
 
 type FieldDef = RunLogRequirementView["fields"][number];
@@ -29,6 +30,8 @@ type Props = {
   adHoc?: boolean;
   readOnly?: boolean;
   cancelHref: string;
+  /** Partner submits do not send Facility or Department as authority. */
+  audience?: "facility" | "partner";
 };
 
 function rangeLabel(field: FieldDef): string | null {
@@ -120,20 +123,36 @@ export function CanonicalLogEntryForm(props: Props) {
     }
 
     startTransition(async () => {
-      const result = await submitCanonicalRunLogAction({
-        facilityId: props.facilityId,
-        departmentId: props.departmentId,
-        logAttachmentId: props.attachmentId,
-        requirementKey: props.requirementKey,
-        operationalDateKey: props.operationalDateKey,
-        cycleStableKey: props.cycleStableKey,
-        cycleLabel: props.cycleLabel,
-        windowStartLocal: props.windowStartLocal,
-        windowEndLocal: props.windowEndLocal,
-        values: buildPayload(),
-        correctiveActionText: outOfStandard ? correctiveActionText : null,
-        adHoc: props.adHoc === true,
-      });
+      const values = buildPayload();
+      const corrective = outOfStandard ? correctiveActionText : null;
+      const result =
+        props.audience === "partner"
+          ? await submitPartnerCanonicalLogAction({
+              logAttachmentId: props.attachmentId,
+              requirementKey: props.requirementKey,
+              operationalDateKey: props.operationalDateKey,
+              cycleStableKey: props.cycleStableKey,
+              cycleLabel: props.cycleLabel,
+              windowStartLocal: props.windowStartLocal,
+              windowEndLocal: props.windowEndLocal,
+              values,
+              correctiveActionText: corrective,
+              adHoc: props.adHoc === true,
+            })
+          : await submitCanonicalRunLogAction({
+              facilityId: props.facilityId,
+              departmentId: props.departmentId,
+              logAttachmentId: props.attachmentId,
+              requirementKey: props.requirementKey,
+              operationalDateKey: props.operationalDateKey,
+              cycleStableKey: props.cycleStableKey,
+              cycleLabel: props.cycleLabel,
+              windowStartLocal: props.windowStartLocal,
+              windowEndLocal: props.windowEndLocal,
+              values,
+              correctiveActionText: corrective,
+              adHoc: props.adHoc === true,
+            });
       if (!result.ok) {
         setError(result.error);
         if (result.existingRecordId) setExistingRecordId(result.existingRecordId);
@@ -172,7 +191,7 @@ export function CanonicalLogEntryForm(props: Props) {
           <p>{error}</p>
           {existingRecordId ? (
             <Link
-              href={`/staffing/logs/records/${existingRecordId}`}
+              href={`${props.audience === "partner" ? "/partner/logs/records" : "/staffing/logs/records"}/${existingRecordId}`}
               className="mt-1 inline-block font-medium underline underline-offset-2"
             >
               View record

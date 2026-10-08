@@ -33,6 +33,7 @@ export type RunLogRecordView = {
   correctiveActionText: string | null;
   amendments: Array<{ id: string; reason: string; atLabel: string; byLabel: string | null }>;
   fields: Array<{
+    fieldKey: string;
     label: string;
     displayValue: string;
     rangeLabel: string | null;
@@ -293,6 +294,7 @@ async function composeRunLogRecordView(input: {
   const fields = input.values.map((v) => {
     const snapField = fieldByKey.get(v.fieldKey);
     return {
+      fieldKey: v.fieldKey,
       label: v.label,
       displayValue: fieldDisplayValue({
         ...v,

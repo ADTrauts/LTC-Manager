@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
+import { PartnerLogCorrectionForm } from "@/components/partner/partner-log-correction-form";
 import { loadPartnerRunLogRecord } from "@/lib/canonical-logs/partner-log-read";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { canPartner } from "@/lib/partner-user-access";
 import { requirePartnerOperationalContext } from "@/lib/partner-operational-context";
 import { prisma } from "@/lib/prisma";
 
@@ -44,6 +46,9 @@ export default async function PartnerLogRecordPage({ params }: Props) {
             <p className="font-medium">Corrective action</p>
             <p className="mt-1">{view.correctiveActionText}</p>
           </div>
+        ) : null}
+        {canPartner(context.effectiveRole, "logs.correct") ? (
+          <PartnerLogCorrectionForm recordId={view.id} fields={view.fields} />
         ) : null}
         <ul className="divide-y divide-zinc-100 border-t border-zinc-100">
           {view.fields.map((field) => (

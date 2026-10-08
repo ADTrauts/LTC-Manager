@@ -330,7 +330,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "partner-facility-session",
     requiresDownstreamAuthorization: true,
     notes:
-      "Canonical RUN Log read for the active partner Department. Does not open /staffing/logs or Log writes.",
+      "Canonical RUN Logs for the active partner Department. Writes stay on partner actions.",
+  },
+  {
+    pattern: "/partner/logs/open",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes: "Partner canonical Log entry. Facility and Department come from the live partner context.",
   },
   {
     pattern: "/partner/logs/records/[recordId]",

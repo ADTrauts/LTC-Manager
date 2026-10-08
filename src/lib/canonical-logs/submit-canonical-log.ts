@@ -156,9 +156,16 @@ export type SubmitCanonicalLogInput = {
   adHoc?: boolean;
 };
 
+export type CanonicalLogActor = {
+  userId: string | null;
+  label: string | null;
+  employeeId: string | null;
+};
+
 /**
  * Submit an Attachment-backed canonical Log into OperationalEvidenceRecord.
  * Snapshot is built server-side. Client must not supply templateSnapshotJson.
+ * This entry is internal Facility authorization. Partner sessions stay denied here.
  */
 export async function submitCanonicalLogSubmission(
   session: FacilitySession,
@@ -175,13 +182,38 @@ export async function submitCanonicalLogSubmission(
     throw new Error("Canonical Logs are not enabled (CANONICAL_LOGS_ENABLED).");
   }
 
-  const client = input.client ?? (await import("@/lib/prisma")).prisma;
   const authority = await resolveEvidenceAuthority(
     session,
     input.facilityId,
     input.departmentId,
   );
   requireEvidenceSubmit(authority);
+
+  return performCanonicalLogSubmission(
+    {
+      userId: input.actorUserId !== undefined ? input.actorUserId : sessionUserIdForFk(session),
+      label: input.recordedByLabel ?? session.name ?? null,
+      employeeId: input.recordedByEmployeeId ?? null,
+    },
+    input,
+  );
+}
+
+/**
+ * Canonical evidence write. Callers must already have authorized the actor and the target.
+ */
+export async function performCanonicalLogSubmission(
+  actor: CanonicalLogActor,
+  input: SubmitCanonicalLogInput & {
+    client?: Db;
+    now?: Date;
+  },
+) {
+  if (!isCanonicalLogsEnabled()) {
+    throw new Error("Canonical Logs are not enabled (CANONICAL_LOGS_ENABLED).");
+  }
+
+  const client = input.client ?? (await import("@/lib/prisma")).prisma;
 
   const clientCommandId = input.clientCommandId?.trim() || null;
   if (clientCommandId) {
@@ -362,8 +394,7 @@ export async function submitCanonicalLogSubmission(
     correctiveActionText,
     allowNeedsReview: input.allowNeedsReview === true,
   });
-  const recordedByUserId =
-    input.actorUserId !== undefined ? input.actorUserId : sessionUserIdForFk(session);
+  const recordedByUserId = actor.userId;
 
   const purposeType = catalog.purposeType as OperationalTemplatePurposeType;
 
@@ -403,9 +434,7 @@ export async function submitCanonicalLogSubmission(
         correctiveActionText,
         correctiveActionAt: correctiveActionText ? now : null,
         correctiveActionByUserId: correctiveActionText ? recordedByUserId : null,
-        correctiveActionByEmployeeId: correctiveActionText
-          ? (input.recordedByEmployeeId ?? null)
-          : null,
+        correctiveActionByEmployeeId: correctiveActionText ? actor.employeeId : null,
         occurredAt,
         recordedAt: now,
         synchronizedAt: recordedOnline ? now : null,
@@ -413,8 +442,8 @@ export async function submitCanonicalLogSubmission(
         clientCommandId,
         deviceBoundUnitId: input.deviceBoundUnitId ?? null,
         recordedByUserId,
-        recordedByEmployeeId: input.recordedByEmployeeId ?? null,
-        recordedByLabel: input.recordedByLabel ?? session.name ?? null,
+        recordedByEmployeeId: actor.employeeId,
+        recordedByLabel: actor.label,
         templateSnapshotJson: snapshotToPrismaJson(
           legacyCompatibleTemplateFields(snapshot) as unknown as ReturnType<
             typeof buildCanonicalLogSubmissionSnapshot

@@ -124,13 +124,35 @@ export async function correctEvidenceRecord(
   if (session.accessKind === "partner" || !session.role) {
     throw new Error("Partner sessions cannot correct canonical Logs.");
   }
-  const client = input.client ?? prisma;
   const authority = await resolveEvidenceAuthority(
     session,
     input.facilityId,
     input.departmentId,
   );
   requireEvidenceCorrect(authority);
+
+  return performCanonicalEvidenceCorrection(
+    {
+      userId: input.actorUserId !== undefined ? input.actorUserId : sessionUserIdForFk(session),
+      label: input.correctedByLabel ?? session.name ?? null,
+      employeeId: input.correctedByEmployeeId ?? null,
+    },
+    input,
+  );
+}
+
+/**
+ * Append-preserving canonical correction. Callers authorize the actor and the record first.
+ * Previous values stay on OperationalEvidenceCorrection. The record is not deleted or moved.
+ */
+export async function performCanonicalEvidenceCorrection(
+  actor: { userId: string | null; label: string | null; employeeId: string | null },
+  input: CorrectEvidenceInput & {
+    client?: DbClient;
+    now?: Date;
+  },
+) {
+  const client = input.client ?? prisma;
 
   const reason = input.reason?.trim();
   if (!reason) {
@@ -168,10 +190,7 @@ export async function correctEvidenceRecord(
   }
 
   const now = input.now ?? new Date();
-  const correctedByUserId =
-    input.actorUserId !== undefined
-      ? input.actorUserId
-      : sessionUserIdForFk(session);
+  const correctedByUserId = actor.userId;
   const previous = previousValuesPayload(existing);
   const status = resolveRecordStatus({
     outOfStandard: validation.outOfStandard,
@@ -187,8 +206,8 @@ export async function correctEvidenceRecord(
       previousStatus: existing.status,
       previousCorrectiveActionText: existing.correctiveActionText,
       correctedByUserId,
-      correctedByEmployeeId: input.correctedByEmployeeId ?? null,
-      correctedByLabel: input.correctedByLabel ?? session.name ?? null,
+      correctedByEmployeeId: actor.employeeId,
+      correctedByLabel: actor.label,
       createdAt: now,
     },
   });
@@ -206,7 +225,7 @@ export async function correctEvidenceRecord(
       correctiveActionAt: correctiveActionText ? now : null,
       correctiveActionByUserId: correctiveActionText ? correctedByUserId : null,
       correctiveActionByEmployeeId: correctiveActionText
-        ? (input.correctedByEmployeeId ?? existing.correctiveActionByEmployeeId)
+        ? (actor.employeeId ?? existing.correctiveActionByEmployeeId)
         : null,
       values: {
         create: buildValueRows(fields, input.values, validation.fieldOutOfStandard),

@@ -26,6 +26,6 @@ Internal Logs may still pass a null Department for All Departments. The partner 
 
 ## Read-only phase
 
-Partner pages omit Open, Start, and Build actions. `submitCanonicalLogSubmission` and `correctEvidenceRecord` reject a partner session before evidence authority. `logs.submit` and `logs.correct` do not open those operations. Phase 2D3 certifies writes.
+Phase 2D2 omitted write controls. Phase 2D3 adds partner submit and the certified correction. See `PARTNER_CANONICAL_LOG_WRITES_PHASE_2D3_2026-10-08.md`. `submitCanonicalLogSubmission` and `correctEvidenceRecord` still reject a partner session.
 
 Switching Department from Logs returns to `/partner/logs` when that path is proposed. Other return values stay on `/partner`.

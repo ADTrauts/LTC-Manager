@@ -28,11 +28,23 @@ function assertPartnerLogRead(context: PartnerOperationalContext): string {
   return departmentId;
 }
 
-function partnerReadLinks(requirement: RunLogRequirementView): RunLogRequirementView {
+function partnerReadLinks(
+  requirement: RunLogRequirementView,
+  canSubmit: boolean,
+): RunLogRequirementView {
+  const openable =
+    canSubmit &&
+    (requirement.productState === "DUE" ||
+      requirement.productState === "OVERDUE" ||
+      requirement.productState === "UPCOMING");
+  const params = new URLSearchParams({
+    attachmentId: requirement.attachmentId,
+    requirementKey: requirement.requirementKey,
+  });
   return {
     ...requirement,
-    openHref: null,
-    primaryActionLabel: null,
+    openHref: openable ? `/partner/logs/open?${params.toString()}` : null,
+    primaryActionLabel: openable ? "Open log" : null,
     buildSettingsHref: null,
     viewRecordHref: requirement.recordId ? `/partner/logs/records/${requirement.recordId}` : null,
   };
@@ -48,6 +60,7 @@ export async function loadPartnerRunLogRequirements(input: {
   now?: Date;
 }): Promise<PartnerRunLogRead> {
   const departmentId = assertPartnerLogRead(input.context);
+  const canSubmit = canPartner(input.context.effectiveRole, "logs.submit");
   const bundle = await loadFacilityRunLogRequirements({
     client: input.client,
     facilityId: input.context.facilityId,
@@ -57,7 +70,7 @@ export async function loadPartnerRunLogRequirements(input: {
   });
   return {
     operationalDateKey: bundle.operationalDateKey,
-    requirements: bundle.requirements.map(partnerReadLinks),
+    requirements: bundle.requirements.map((row) => partnerReadLinks(row, canSubmit)),
     adHocAttachments: bundle.adHocAttachments.map((row) => ({ ...row, startHref: null })),
     upcoming: bundle.upcoming,
     timezone: bundle.timezone,
