@@ -32,21 +32,44 @@ import { describeAttachmentStart } from "./effective-from";
 
 type Db = PrismaClient;
 
-export async function loadFacilityRunLogRequirements(input: {
-  client: Db;
-  session: FacilitySession;
-  facilityId: string;
-  /** Null = facility-wide (All Departments). */
-  departmentId: string | null;
-  now?: Date;
-}): Promise<{
+type RunLogLoadResult = {
   operationalDateKey: string;
   requirements: RunLogRequirementView[];
   adHocAttachments: RunAdHocAttachmentView[];
   upcoming: UpcomingRunLogView[];
   otherDepartmentNames: string[];
   timezone: string;
-}> {
+};
+
+type RunLogLoadCommon = {
+  client: Db;
+  facilityId: string;
+  now?: Date;
+};
+
+/**
+ * Internal callers may pass `departmentId: null` for All Departments.
+ * Partner reads must use `{ partnerRead: true, departmentId: string }`.
+ * A missing Department on that branch throws. It does not mean the whole Facility.
+ */
+export async function loadFacilityRunLogRequirements(
+  input: RunLogLoadCommon &
+    (
+      | {
+          session: FacilitySession;
+          departmentId: string | null;
+          partnerRead?: false;
+        }
+      | {
+          departmentId: string;
+          partnerRead: true;
+        }
+    ),
+): Promise<RunLogLoadResult> {
+  if (input.partnerRead && !input.departmentId) {
+    throw new Error("Partner Log reads require a Department.");
+  }
+
   if (!isCanonicalLogsEnabled()) {
     return {
       operationalDateKey: toServiceDateKey(new Date()),
@@ -61,7 +84,7 @@ export async function loadFacilityRunLogRequirements(input: {
   const now = input.now ?? new Date();
   const timezone = await loadFacilityTimezone(input.client, input.facilityId);
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
-  const isManager = hasAtLeastRole(input.session.role, "MANAGER");
+  const isManager = input.partnerRead ? false : hasAtLeastRole(input.session.role, "MANAGER");
   const todayDate = new Date(`${operationalDateKey}T00:00:00.000Z`);
 
   const attachments = await input.client.logAttachment.findMany({
@@ -341,6 +364,7 @@ export async function loadFacilityRunLogRequirements(input: {
 
   let otherDepartmentNames: string[] = [];
   if (
+    !input.partnerRead &&
     input.departmentId &&
     requirements.length === 0 &&
     adHocAttachments.length === 0 &&

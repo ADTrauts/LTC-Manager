@@ -154,12 +154,14 @@ export function RunLogRequirementList({
                   <p className="text-xs text-zinc-600">{item.targetLabel}</p>
                   <p className="text-xs font-medium text-zinc-600">As needed</p>
                 </div>
-                <Link
-                  href={item.startHref}
-                  className="inline-flex min-h-11 min-w-[7rem] items-center justify-center rounded-md border border-zinc-900 bg-zinc-900 px-3 text-sm font-medium text-white"
-                >
-                  Start log
-                </Link>
+                {item.startHref ? (
+                  <Link
+                    href={item.startHref}
+                    className="inline-flex min-h-11 min-w-[7rem] items-center justify-center rounded-md border border-zinc-900 bg-zinc-900 px-3 text-sm font-medium text-white"
+                  >
+                    Start log
+                  </Link>
+                ) : null}
               </li>
             ))}
           </ul>

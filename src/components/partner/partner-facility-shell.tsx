@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { leavePartnerFacilityAction, switchPartnerDepartmentAction } from "@/app/partner/actions";
+import { leavePartnerFacilityAction } from "@/app/partner/actions";
+import { PartnerDepartmentSwitch } from "@/components/partner/partner-department-switch";
 import { partnerRoleLabel } from "@/lib/partner-user-access";
 import type { PartnerFacilityShellModel } from "@/lib/partner-operational-context";
 
@@ -31,34 +32,21 @@ export function PartnerFacilityShell({
       </header>
       <div className="mx-auto grid max-w-3xl gap-8 px-6 py-8 md:grid-cols-[12rem_1fr]">
         <nav className="space-y-4 text-sm" aria-label="Partner">
-            <Link href="/partner" className="font-medium text-zinc-900">
-              Partner Home
-            </Link>
+            <div className="flex flex-col gap-2">
+              <Link href="/partner" className="font-medium text-zinc-900">
+                Partner Home
+              </Link>
+              <Link href="/partner/logs" className="font-medium text-zinc-900">
+                Logs
+              </Link>
+            </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Department</p>
             {shell.departments.length > 1 ? (
-              <form action={switchPartnerDepartmentAction} className="mt-2 space-y-2">
-                <label className="block">
-                  <span className="sr-only">Active department</span>
-                  <select
-                    name="departmentId"
-                    defaultValue={shell.context.activeDepartmentId}
-                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5"
-                  >
-                    {shell.departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="submit"
-                  className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white"
-                >
-                  Switch
-                </button>
-              </form>
+              <PartnerDepartmentSwitch
+                departments={shell.departments}
+                activeDepartmentId={shell.context.activeDepartmentId}
+              />
             ) : (
               <p className="mt-1 text-zinc-800">{active?.name ?? "Department"}</p>
             )}

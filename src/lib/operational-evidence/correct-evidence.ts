@@ -121,6 +121,9 @@ export async function correctEvidenceRecord(
     now?: Date;
   },
 ) {
+  if (session.accessKind === "partner" || !session.role) {
+    throw new Error("Partner sessions cannot correct canonical Logs.");
+  }
   const client = input.client ?? prisma;
   const authority = await resolveEvidenceAuthority(
     session,

@@ -53,7 +53,7 @@ export type RunAdHocAttachmentView = {
   displayName: string;
   catalogDefinitionName: string;
   targetLabel: string;
-  startHref: string;
+  startHref: string | null;
 };
 
 /** Assigned in BUILD, not required until a later service day. */

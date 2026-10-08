@@ -19,6 +19,7 @@ import {
   listSelectablePartnerDepartments,
   PARTNER_ACTIVE_DEPARTMENT_COOKIE,
   partnerDepartmentSwitch,
+  partnerShellReturnPath,
 } from "@/lib/partner-operational-context";
 import { resolvePartnerAuthorizationForPrismaRequest } from "@/lib/partner-path-request";
 import { prisma } from "@/lib/prisma";
@@ -110,11 +111,12 @@ export async function switchPartnerDepartmentAction(formData: FormData): Promise
     facilityId: session.facilityId,
     allowedDepartmentIds: resolved.authorization.allowedDepartmentIds,
   });
+  const returnTo = partnerShellReturnPath(String(formData.get("returnTo") ?? ""));
   const decision = partnerDepartmentSwitch(departments, requestedDepartmentId);
   if (!decision.ok) {
-    redirect("/partner");
+    redirect(returnTo);
   }
   const jar = await cookies();
   jar.set(PARTNER_ACTIVE_DEPARTMENT_COOKIE, decision.departmentId, getCookieOptions());
-  redirect("/partner");
+  redirect(returnTo);
 }

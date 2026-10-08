@@ -2,7 +2,7 @@
 
 Date: 2026-10-08
 
-Phase 2D1 adds the request-local boundary future partner surfaces will use. It does not open operational records.
+Phase 2D1 adds the request-local boundary future partner surfaces will use. It does not open operational records. Phase 2D2 later opens canonical Log reads on this boundary. See `PARTNER_CANONICAL_LOG_READS_PHASE_2D2_2026-10-08.md`.
 
 ## PartnerOperationalContext
 

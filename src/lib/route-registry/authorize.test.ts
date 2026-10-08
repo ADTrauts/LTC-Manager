@@ -355,7 +355,7 @@ test("feature gate — disabling Today's Work withdraws the route independently 
   assert.equal(roleMayAccessRoute("/workspace", "SUPERVISOR", flags), true);
 });
 
-test("partner session may open only the holding surface", () => {
+test("partner session may open home and canonical log reads", () => {
   const denied = [
     "/dashboard",
     "/operations",
@@ -363,6 +363,8 @@ test("partner session may open only the holding surface", () => {
     "/today",
     "/units",
     "/logs",
+    "/staffing/logs",
+    "/staffing/logs/records/rec",
     "/assets",
     "/employees",
     "/reports",
@@ -393,6 +395,22 @@ test("partner session may open only the holding surface", () => {
     featureFlags: FLAGS,
   });
   assert.equal(holding.outcome, "ALLOW");
+  for (const pathname of ["/partner/logs", "/partner/logs/records/rec"]) {
+    const decision = authorizeRoute({
+      pathname,
+      role: null,
+      sessionScope: "partner",
+      featureFlags: FLAGS,
+    });
+    assert.equal(decision.outcome, "ALLOW", pathname);
+    const internal = authorizeRoute({
+      pathname,
+      role: "FACILITY_ADMINISTRATOR",
+      sessionScope: "facility",
+      featureFlags: FLAGS,
+    });
+    assert.equal(internal.outcome, "DENY", pathname);
+  }
   const exit = authorizeRoute({
     pathname: "/partner/exit",
     role: null,

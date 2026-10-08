@@ -139,6 +139,107 @@ export async function loadRunLogRecordView(input: {
     return null;
   }
 
+  return composeRunLogRecordView({
+    client: input.client,
+    facilityId: input.facilityId,
+    stub,
+    values: detail.record.values,
+    corrections: detail.record.corrections,
+  });
+}
+
+export async function loadDepartmentScopedRunLogRecordView(input: {
+  client: PrismaClient;
+  facilityId: string;
+  departmentId: string;
+  recordId: string;
+}): Promise<RunLogRecordView | null> {
+  if (!input.departmentId) {
+    throw new Error("Partner Log reads require a Department.");
+  }
+  if (!isCanonicalLogsEnabled()) return null;
+
+  const row = await input.client.operationalEvidenceRecord.findFirst({
+    where: {
+      id: input.recordId,
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+    },
+    select: {
+      id: true,
+      departmentId: true,
+      logAttachmentId: true,
+      templateName: true,
+      templateVersion: true,
+      status: true,
+      outOfStandard: true,
+      correctiveActionText: true,
+      occurredAt: true,
+      recordedAt: true,
+      recordedByLabel: true,
+      operationalDate: true,
+      cycleLabel: true,
+      windowStartLocal: true,
+      windowEndLocal: true,
+      unitId: true,
+      spaceId: true,
+      assetId: true,
+      templateSnapshotJson: true,
+      department: { select: { name: true } },
+      values: { orderBy: { fieldKey: "asc" } },
+      corrections: { orderBy: { createdAt: "desc" } },
+    },
+  });
+  if (!row) return null;
+  return composeRunLogRecordView({
+    client: input.client,
+    facilityId: input.facilityId,
+    stub: row,
+    values: row.values,
+    corrections: row.corrections,
+  });
+}
+
+async function composeRunLogRecordView(input: {
+  client: PrismaClient;
+  facilityId: string;
+  stub: {
+    id: string;
+    templateName: string;
+    templateVersion: number | null;
+    status: string;
+    outOfStandard: boolean;
+    correctiveActionText: string | null;
+    occurredAt: Date;
+    recordedByLabel: string | null;
+    operationalDate: Date;
+    cycleLabel: string | null;
+    windowStartLocal: string | null;
+    windowEndLocal: string | null;
+    unitId: string | null;
+    spaceId: string | null;
+    assetId: string | null;
+    templateSnapshotJson: unknown;
+    department: { name: string };
+  };
+  values: Array<{
+    fieldKey: string;
+    label: string;
+    fieldType: string;
+    valueText: string | null;
+    valueNumber: number | null;
+    valueBoolean: boolean | null;
+    valueSelections: string[];
+    outOfStandard: boolean;
+  }>;
+  corrections: Array<{
+    id: string;
+    reason: string;
+    createdAt: Date;
+    correctedByLabel: string | null;
+  }>;
+}): Promise<RunLogRecordView> {
+  const stub = input.stub;
   const snapshot = parseSnapshot(stub.templateSnapshotJson);
   const catalogName = snapshot?.catalog.name ?? stub.templateName;
   const displayName =
@@ -189,7 +290,7 @@ export async function loadRunLogRecordView(input: {
   const snapFields = snapshot?.catalog.fields ?? [];
   const fieldByKey = new Map(snapFields.map((f) => [f.fieldKey, f]));
 
-  const fields = detail.record.values.map((v) => {
+  const fields = input.values.map((v) => {
     const snapField = fieldByKey.get(v.fieldKey);
     return {
       label: v.label,
@@ -219,7 +320,7 @@ export async function loadRunLogRecordView(input: {
     catalogInstructions: snapshot?.catalog.instructions ?? null,
     localInstructions: snapshot?.attachment.localInstructions ?? null,
     correctiveActionText: stub.correctiveActionText,
-    amendments: detail.record.corrections.map((c) => ({
+    amendments: input.corrections.map((c) => ({
       id: c.id,
       reason: c.reason,
       atLabel: c.createdAt.toLocaleString(),

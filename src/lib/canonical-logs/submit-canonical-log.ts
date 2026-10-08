@@ -168,6 +168,9 @@ export async function submitCanonicalLogSubmission(
     now?: Date;
   },
 ) {
+  if (session.accessKind === "partner" || !session.role) {
+    throw new Error("Partner sessions cannot submit canonical Logs.");
+  }
   if (!isCanonicalLogsEnabled()) {
     throw new Error("Canonical Logs are not enabled (CANONICAL_LOGS_ENABLED).");
   }

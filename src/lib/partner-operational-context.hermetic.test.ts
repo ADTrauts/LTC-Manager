@@ -78,5 +78,6 @@ test("partner operational context stays off the internal department path", () =>
   assert.equal(action.includes("ltc_active_department"), false);
   assert.equal(action.includes("primaryDepartmentId"), false);
   assert.equal(action.includes("employeeDepartment"), false);
-  assert.equal(routes.includes('pattern: "/partner/logs"'), false);
+  assert.match(routes, /pattern: "\/partner\/logs"/);
+  assert.match(routes, /pattern: "\/staffing\/logs"/);
 });
