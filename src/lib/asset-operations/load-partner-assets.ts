@@ -1,5 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { partnerAssetWhere } from "@/lib/asset-operations/partner-asset-where";
+
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export type PartnerAssetListItem = {
@@ -25,21 +27,11 @@ export async function loadPartnerAssets(input: {
   facilityId: string;
   departmentId: string;
 }): Promise<PartnerAssetListItem[]> {
-  const departmentId = input.departmentId.trim();
-  const facilityId = input.facilityId.trim();
-  if (!departmentId) {
-    throw new Error("Partner Assets require one Department.");
-  }
-  if (!facilityId) {
-    throw new Error("Partner Assets require a Facility.");
-  }
-
   const rows = await input.client.asset.findMany({
-    where: {
-      departmentId,
-      status: { not: "RETIRED" },
-      unit: { facilityId },
-    },
+    where: partnerAssetWhere({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+    }),
     orderBy: [{ name: "asc" }, { assetCode: "asc" }],
     select: {
       id: true,
@@ -96,23 +88,16 @@ export async function loadPartnerAssetDetail(input: {
   departmentId: string;
   assetId: string;
 }): Promise<PartnerAssetDetail | null> {
-  const departmentId = input.departmentId.trim();
-  const facilityId = input.facilityId.trim();
   const assetId = input.assetId.trim();
-  if (!departmentId) {
-    throw new Error("Partner Assets require one Department.");
-  }
-  if (!facilityId) {
-    throw new Error("Partner Assets require a Facility.");
-  }
   if (!assetId) return null;
 
   const row = await input.client.asset.findFirst({
     where: {
       id: assetId,
-      departmentId,
-      status: { not: "RETIRED" },
-      unit: { facilityId },
+      ...partnerAssetWhere({
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
     },
     select: {
       id: true,

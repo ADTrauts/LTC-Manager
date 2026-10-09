@@ -311,7 +311,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
   },
 
-  // ── Partner Facility holding surface (Phase 2C2) ──────────────────────────
+  // ── Partner Facility Dashboard (Phase 2D7) ────────────────────────────────
   {
     pattern: "/partner",
     match: "EXACT",
@@ -320,7 +320,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "partner-facility-session",
     requiresDownstreamAuthorization: true,
     notes:
-      "Partner Facility home. Live Path B is rechecked. Logs and Review are the certified operational reads.",
+      "Active Department Dashboard. Composes certified Review evidence, Log requirement states, and partner Asset status counts.",
   },
   {
     pattern: "/partner/logs",

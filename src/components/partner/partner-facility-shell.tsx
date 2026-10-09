@@ -22,6 +22,9 @@ export function PartnerFacilityShell({
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Partner access</p>
             <h1 className="mt-1 text-xl font-semibold tracking-tight">{shell.facilityDisplayName}</h1>
             <p className="mt-1 text-sm text-zinc-600">{shell.partnerOrganizationName}</p>
+            <p className="mt-1 text-sm text-zinc-600" data-testid="partner-effective-role">
+              {partnerRoleLabel(shell.context.effectiveRole)}
+            </p>
           </div>
           <form action={leavePartnerFacilityAction}>
             <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
@@ -34,7 +37,7 @@ export function PartnerFacilityShell({
         <nav className="space-y-4 text-sm" aria-label="Partner">
             <div className="flex flex-col gap-2">
               <Link href="/partner" className="font-medium text-zinc-900">
-                Partner Home
+                Dashboard
               </Link>
               <Link href="/partner/logs" className="font-medium text-zinc-900">
                 Logs
@@ -61,44 +64,8 @@ export function PartnerFacilityShell({
             )}
           </div>
         </nav>
-        <main data-testid="partner-holding">{children}</main>
+        <main>{children}</main>
       </div>
-    </div>
-  );
-}
-
-export function PartnerHomeStatus({ shell }: { shell: PartnerFacilityShellModel }) {
-  const active = shell.departments.find((department) => department.id === shell.context.activeDepartmentId);
-  return (
-    <div className="space-y-4">
-      <dl className="space-y-2 text-sm text-zinc-800">
-        <div>
-          <dt className="inline font-medium">Partner role </dt>
-          <dd className="inline" data-testid="partner-effective-role">
-            {partnerRoleLabel(shell.context.effectiveRole)}
-          </dd>
-        </div>
-        <div>
-          <dt className="inline font-medium">Active department </dt>
-          <dd className="inline" data-testid="partner-active-department">
-            {active?.name ?? "Department"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">Authorized departments</dt>
-          <dd data-testid="partner-departments">
-            <ul className="mt-1 list-disc pl-5">
-              {shell.departments.map((department) => (
-                <li key={department.id}>{department.name}</li>
-              ))}
-            </ul>
-          </dd>
-        </div>
-      </dl>
-      <p className="text-sm text-zinc-700">Your partner access is active.</p>
-      <p className="text-sm text-zinc-600">
-        Operational screens will become available as they are enabled for partner access.
-      </p>
     </div>
   );
 }

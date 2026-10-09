@@ -397,6 +397,14 @@ test("partner session may open home and canonical log reads", () => {
     featureFlags: FLAGS,
   });
   assert.equal(holding.outcome, "ALLOW");
+  assert.equal(outcome("/partner", null), "REQUIRE_AUTHENTICATION");
+  const organizationHome = authorizeRoute({
+    pathname: "/partner",
+    role: null,
+    sessionScope: "organization",
+    featureFlags: FLAGS,
+  });
+  assert.equal(organizationHome.outcome, "DENY");
   for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations", "/partner/assets", "/partner/assets/ast"]) {
     const decision = authorizeRoute({
       pathname,
