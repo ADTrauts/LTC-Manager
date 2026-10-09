@@ -1,5 +1,6 @@
 import { Prisma, type OrganizationMembershipRole, type PrismaClient } from "@prisma/client";
 
+import { closeCurrentPartnerAssignmentsForOrganizationMembership } from "@/lib/partner-user-access/service";
 import { revokeUserSessions } from "@/lib/session-revocation";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -255,6 +256,7 @@ export async function createOrganizationMembership(
   }
 
   await runInTransaction(db, async (tx) => {
+    await lockOrganizationForAdminMutation(tx, input.organizationId);
     let membership = await tx.userOrganizationMembership.findUnique({
       where: {
         userId_organizationId: {
@@ -329,6 +331,7 @@ export async function changeOrganizationRole(
   const at = input.at ?? new Date();
 
   await runInTransaction(db, async (tx) => {
+    await lockOrganizationForAdminMutation(tx, input.organizationId);
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -409,6 +412,7 @@ export async function endOrganizationMembership(
   const endsAt = input.endsAt ?? new Date();
 
   await runInTransaction(db, async (tx) => {
+    await lockOrganizationForAdminMutation(tx, input.organizationId);
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -423,8 +427,29 @@ export async function endOrganizationMembership(
     if (current.role === "ORG_ADMIN") {
       await assertNotLastOrgAdmin(tx, input.organizationId, endsAt);
     }
+    await closeCurrentPartnerAssignmentsForOrganizationMembership(tx, {
+      userId: input.userId,
+      organizationId: input.organizationId,
+      endsAt,
+      actorUserId: input.actorUserId ?? null,
+    });
+    const stillCurrent = findPeriodContainingInstant(
+      (
+        await loadMembershipRow(tx, {
+          userId: input.userId,
+          organizationId: input.organizationId,
+        })
+      ).rolePeriods,
+      endsAt,
+    );
+    if (!stillCurrent) {
+      throw new OrganizationMembershipError(
+        "NOT_ACTIVE_MEMBER",
+        "User is not currently a member of this Organization.",
+      );
+    }
     await tx.userOrganizationRolePeriod.update({
-      where: { id: current.id },
+      where: { id: stillCurrent.id },
       data: { endsAt, endedByUserId: input.actorUserId ?? null },
     });
   });

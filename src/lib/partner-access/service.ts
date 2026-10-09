@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { loadCurrentDepartmentOperator } from "@/lib/department-operators";
@@ -96,6 +96,29 @@ function toScopeView(row: {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+/**
+ * Partnership topology changes serialize on the Organization row.
+ * Membership end holds this same lock before it enumerates Facility partnerships.
+ */
+async function lockOrganizationForPartnershipTopology(
+  db: DbClient,
+  organizationId: string,
+): Promise<void> {
+  const client = db as PrismaClient;
+  if (typeof client.$queryRaw !== "function") {
+    throw new FacilityPartnerError(
+      "ORGANIZATION_NOT_FOUND",
+      "Creating a Facility partnership requires a client that can lock the Organization row.",
+    );
+  }
+  const rows = await client.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`,
+  );
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw new FacilityPartnerError("ORGANIZATION_NOT_FOUND", "Organization not found.");
+  }
 }
 
 async function runInTransaction<T>(
@@ -230,32 +253,35 @@ export async function createFacilityPartner(
     throw new FacilityPartnerError("ORGANIZATION_INACTIVE", "Organization is inactive.");
   }
 
-  const existing = await db.facilityPartnerOrganization.findUnique({
-    where: {
-      facilityId_organizationId: {
-        facilityId: input.facilityId,
-        organizationId: input.organizationId,
+  const created = await runInTransaction(db, async (tx) => {
+    await lockOrganizationForPartnershipTopology(tx, organization.id);
+    const existing = await tx.facilityPartnerOrganization.findUnique({
+      where: {
+        facilityId_organizationId: {
+          facilityId: input.facilityId,
+          organizationId: input.organizationId,
+        },
       },
-    },
-    select: { id: true, endedAt: true },
-  });
-  if (existing) {
-    throw new FacilityPartnerError(
-      "PARTNERSHIP_EXISTS",
-      existing.endedAt
-        ? "An ended partnership already exists for this Organization. Historical partnerships cannot be replaced in Phase 2A."
-        : "A partnership with this Organization already exists.",
-    );
-  }
+      select: { id: true, endedAt: true },
+    });
+    if (existing) {
+      throw new FacilityPartnerError(
+        "PARTNERSHIP_EXISTS",
+        existing.endedAt
+          ? "An ended partnership already exists for this Organization. Historical partnerships cannot be replaced in Phase 2A."
+          : "A partnership with this Organization already exists.",
+      );
+    }
 
-  const created = await db.facilityPartnerOrganization.create({
-    data: {
-      facilityId: input.facilityId,
-      organizationId: organization.id,
-      notes: input.notes?.trim() || null,
-      createdByUserId: input.createdByUserId ?? null,
-    },
-    select: { id: true },
+    return tx.facilityPartnerOrganization.create({
+      data: {
+        facilityId: input.facilityId,
+        organizationId: organization.id,
+        notes: input.notes?.trim() || null,
+        createdByUserId: input.createdByUserId ?? null,
+      },
+      select: { id: true },
+    });
   });
 
   await trackEvent("facility_partner.created", {

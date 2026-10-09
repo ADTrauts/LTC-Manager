@@ -26,6 +26,15 @@ export type PartnerAssignmentMutationAuthority =
   | { kind: "facility_admin" }
   | { kind: "partner_org_admin"; organizationId: string };
 
+export const PARTNER_ROLE_PERIOD_END_REASONS = [
+  "ROLE_CHANGED",
+  "ASSIGNMENT_ENDED",
+  "FACILITY_BLOCKED",
+  "ORGANIZATION_MEMBERSHIP_ENDED",
+] as const;
+
+export type PartnerUserRolePeriodEndReason = (typeof PARTNER_ROLE_PERIOD_END_REASONS)[number];
+
 export type PartnerRolePeriodView = {
   id: string;
   partnerUserFacilityAccessId: string;
@@ -38,6 +47,8 @@ export type PartnerRolePeriodView = {
   createdByOrganizationId: string | null;
   endedByAuthorityKind: PartnerAssignmentAuthorityKind | null;
   endedByOrganizationId: string | null;
+  /** Null while the period is open, and on closed periods whose cause was never recorded. */
+  endReason: PartnerUserRolePeriodEndReason | null;
 };
 
 export type RoleCeilingPeriodView = {

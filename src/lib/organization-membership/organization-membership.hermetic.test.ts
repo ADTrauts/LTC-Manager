@@ -295,6 +295,12 @@ function makeDb(state: { organizations: Org[]; users: User[] }) {
       findMany: async ({ where }: { where: { membershipId: string } }) =>
         periods.filter((p) => p.membershipId === where.membershipId),
     },
+    facilityPartnerOrganization: {
+      findMany: async () => [],
+    },
+    partnerUserFacilityAccess: {
+      findMany: async () => [],
+    },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
     $queryRaw: async () => [{ id: "locked" }],
     _memberships: memberships,

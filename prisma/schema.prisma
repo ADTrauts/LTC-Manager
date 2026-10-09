@@ -56,6 +56,15 @@ enum PartnerAssignmentAuthorityKind {
   partner_org_admin
 }
 
+/// Why a partner role period closed. Separate from who had authority to close it.
+/// Null on open periods, and on closed periods written before this reason was recorded.
+enum PartnerUserRolePeriodEndReason {
+  ROLE_CHANGED
+  ASSIGNMENT_ENDED
+  FACILITY_BLOCKED
+  ORGANIZATION_MEMBERSHIP_ENDED
+}
+
 /// Platform role reference data: identity, display name, and the User relation.
 ///
 /// A role's *capabilities* are not stored here. What each role may reach is defined in
@@ -495,6 +504,9 @@ model PartnerUserRolePeriod {
   endedByAuthorityKind       PartnerAssignmentAuthorityKind?
   /// Snapshot of the acting Organization when the period ended. Null for facility_admin.
   endedByOrganizationId      String?
+  /// Null while open. Null on closed periods that predate explicit reasons: the cause was not recorded.
+  /// New closures must set a reason. Do not infer one by comparing timestamps.
+  endReason                  PartnerUserRolePeriodEndReason?
   createdAt                  DateTime                 @default(now())
   updatedAt                  DateTime                 @updatedAt
 

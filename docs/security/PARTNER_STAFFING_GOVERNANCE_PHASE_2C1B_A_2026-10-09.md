@@ -40,7 +40,19 @@ Organization-created and Facility-created role periods are the same assignment. 
 
 Organization administrators cannot enable or disable delegation, and they cannot block or unblock. A current restriction denies their assignment and role change. Only a Facility Administrator can unblock.
 
-The assignment transaction re-reads Organization membership after locking the partnership. Membership rows are not locked by that same statement, so a membership end that commits on the other table can still race. Path B then fails closed because it reads the membership period at request time. Losing `ORG_ADMIN` does not end a personal partner assignment.
+A partner assignment is valid only while the User belongs to the partner Organization. Ending that membership, in the same transaction, closes every current `PartnerUserRolePeriod` for that User through every `FacilityPartnerOrganization` of that Organization. Other Organizations are left alone. The close does not depend on staffing delegation, and it does not matter whether the assignment was created by `facility_admin` or `partner_org_admin`. The assignment row and earlier role periods stay. No `FacilityPartnerUserRestrictionPeriod` is opened. A restriction that already exists stays current through membership end and a later rejoin, so reassignment remains `USER_RESTRICTED` until a Facility Administrator unblocks.
+
+Demotion from `ORG_ADMIN` to `ORG_MEMBER` does not close assignments. The User is still a member.
+
+Rejoining Organization membership opens a new membership role period only. It does not reopen Facility assignments. Client Access stays empty until a new `assignPartnerUser` creates another role period on the same assignment identity.
+
+`PartnerUserRolePeriod.endReason` records why that period closed: `ROLE_CHANGED`, `ASSIGNMENT_ENDED`, `FACILITY_BLOCKED`, or `ORGANIZATION_MEMBERSHIP_ENDED`. Authority kind stays a separate fact. Periods closed before this column existed keep `endReason` null, which means the cause was not recorded. New application closures always write a reason. There is no database check tying `endsAt` to `endReason`, because those historical rows are closed without a reason.
+
+Membership end locks the Organization row, rejects `LAST_ORG_ADMIN` before any close, locks that Organization's partnership rows in `id` order, re-reads membership and current assignments, closes those role periods with `ORGANIZATION_MEMBERSHIP_ENDED` at the same instant as the membership period, then closes the membership period. Provenance is the acting User, `partner_org_admin`, and the Organization id. `createFacilityPartner` takes the same Organization row lock before inserting `FacilityPartnerOrganization`. No application path deletes that partnership row; ending a partnership closes access periods and leaves the row. Assignment mutations lock the partnership only, so they do not deadlock with membership end.
+
+The assignment transaction still re-reads Organization membership after locking the partnership. If membership end commits first, a later assignment is denied. If the assignment commits first, membership end closes it. Path B then fails closed. Losing `ORG_ADMIN` without leaving the Organization does not end a personal partner assignment.
+
+One `sessionVersion` increment still happens after a membership end that requests session revocation. Closed Facility assignments do not each increment it.
 
 Policy and restriction periods use the same Facility provenance on create and end.
 

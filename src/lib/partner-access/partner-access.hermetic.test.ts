@@ -372,6 +372,14 @@ function makeDb(state: {
             showInEmployeeApp: true,
           })),
     },
+    $queryRaw: async (query: { strings?: string[]; values?: unknown[] }) => {
+      const text = (query.strings ?? []).join(" ");
+      const id = String(query.values?.[0] ?? "");
+      if (text.includes('"Organization"')) {
+        return orgById.has(id) ? [{ id }] : [];
+      }
+      return [];
+    },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
     _partnerships: partnerships,
     _accessPeriods: accessPeriods,

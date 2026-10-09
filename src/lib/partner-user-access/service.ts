@@ -21,6 +21,7 @@ import {
   type PartnerRoleHistoryRow,
   type PartnerRolePeriodView,
   type PartnerUserAccessAdminView,
+  type PartnerUserRolePeriodEndReason,
   type RoleCeilingPeriodView,
 } from "./types";
 
@@ -204,11 +205,18 @@ function toRolePeriodView(row: {
   createdByOrganizationId: string | null;
   endedByAuthorityKind: PartnerAssignmentAuthorityKind | null;
   endedByOrganizationId: string | null;
+  endReason?: PartnerUserRolePeriodEndReason | null;
 }): PartnerRolePeriodView {
   if (row.endsAt && !row.endedByAuthorityKind) {
     throw new PartnerUserAccessError(
       "INVALID_INPUT",
       "A closed partner role period must record ending authority.",
+    );
+  }
+  if (!row.endsAt && row.endReason) {
+    throw new PartnerUserAccessError(
+      "INVALID_INPUT",
+      "An open partner role period cannot record an end reason.",
     );
   }
   return {
@@ -223,7 +231,84 @@ function toRolePeriodView(row: {
     createdByOrganizationId: row.createdByOrganizationId,
     endedByAuthorityKind: row.endedByAuthorityKind,
     endedByOrganizationId: row.endedByOrganizationId,
+    endReason: row.endReason ?? null,
   };
+}
+
+/**
+ * Close one current partner role period.
+ * Does not check staffing policy, ceiling, scope, partnership access, or restrictions,
+ * and does not delete the assignment identity or open a Facility restriction.
+ */
+async function closeCurrentPartnerUserRolePeriod(
+  db: DbClient,
+  input: {
+    rolePeriodId: string;
+    endsAt: Date;
+    endedByUserId: string | null;
+    endedByAuthorityKind: PartnerAssignmentAuthorityKind;
+    endedByOrganizationId: string | null;
+    endReason: PartnerUserRolePeriodEndReason;
+  },
+) {
+  return db.partnerUserRolePeriod.update({
+    where: { id: input.rolePeriodId },
+    data: {
+      endsAt: input.endsAt,
+      endedByUserId: input.endedByUserId,
+      endedByAuthorityKind: input.endedByAuthorityKind,
+      endedByOrganizationId: input.endedByOrganizationId,
+      endReason: input.endReason,
+    },
+  });
+}
+
+/**
+ * Close every current personal assignment for one User through one Organization.
+ * Caller must already hold the Organization row lock. This locks that Organization's
+ * partnership rows in id order, then closes open role periods at the membership instant.
+ */
+export async function closeCurrentPartnerAssignmentsForOrganizationMembership(
+  db: DbClient,
+  input: {
+    userId: string;
+    organizationId: string;
+    endsAt: Date;
+    actorUserId: string | null;
+  },
+): Promise<void> {
+  const client = db as PrismaClient;
+  if (typeof client.$queryRaw !== "function") {
+    throw new PartnerUserAccessError(
+      "INVALID_INPUT",
+      "Organization membership cleanup requires a client that can lock partnership rows.",
+    );
+  }
+  const locked = await client.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT "id" FROM "FacilityPartnerOrganization" WHERE "organizationId" = ${input.organizationId} ORDER BY "id" FOR UPDATE`,
+  );
+  const partnershipIds = Array.isArray(locked) ? locked.map((row) => row.id) : [];
+  if (partnershipIds.length === 0) return;
+
+  const assignments = await db.partnerUserFacilityAccess.findMany({
+    where: {
+      userId: input.userId,
+      facilityPartnerOrganizationId: { in: partnershipIds },
+    },
+    include: { rolePeriods: true },
+  });
+  for (const assignment of assignments) {
+    const current = findPeriodContainingInstant(assignment.rolePeriods, input.endsAt);
+    if (!current) continue;
+    await closeCurrentPartnerUserRolePeriod(db, {
+      rolePeriodId: current.id,
+      endsAt: input.endsAt,
+      endedByUserId: input.actorUserId,
+      endedByAuthorityKind: "partner_org_admin",
+      endedByOrganizationId: input.organizationId,
+      endReason: "ORGANIZATION_MEMBERSHIP_ENDED",
+    });
+  }
 }
 
 async function ceilingPeriods(db: DbClient, partnershipId: string) {
@@ -634,9 +719,11 @@ export async function changePartnerUserRole(
     if (current.partnerRole === input.partnerRole) {
       return toRolePeriodView(current);
     }
-    await tx.partnerUserRolePeriod.update({
-      where: { id: current.id },
-      data: { endsAt: at, ...endingProvenance(input, partnership.organizationId) },
+    await closeCurrentPartnerUserRolePeriod(tx, {
+      rolePeriodId: current.id,
+      endsAt: at,
+      ...endingProvenance(input, partnership.organizationId),
+      endReason: "ROLE_CHANGED",
     });
     const created = await tx.partnerUserRolePeriod.create({
       data: {
@@ -703,9 +790,11 @@ export async function endPartnerUserAssignment(
         "This user does not have a current partner assignment.",
       );
     }
-    const updated = await tx.partnerUserRolePeriod.update({
-      where: { id: current.id },
-      data: { endsAt: at, ...endingProvenance(input, partnership.organizationId) },
+    const updated = await closeCurrentPartnerUserRolePeriod(tx, {
+      rolePeriodId: current.id,
+      endsAt: at,
+      ...endingProvenance(input, partnership.organizationId),
+      endReason: "ASSIGNMENT_ENDED",
     });
     return toRolePeriodView(updated);
   });
@@ -828,9 +917,11 @@ export async function blockPartnerUser(
       ? findPeriodContainingInstant(assignment.rolePeriods, at)
       : null;
     if (currentRole) {
-      await tx.partnerUserRolePeriod.update({
-        where: { id: currentRole.id },
-        data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
+      await closeCurrentPartnerUserRolePeriod(tx, {
+        rolePeriodId: currentRole.id,
+        endsAt: at,
+        ...facilityEndedAuthority(input.actorUserId),
+        endReason: "FACILITY_BLOCKED",
       });
     }
     const already = findPeriodContainingInstant(restrictions, at);

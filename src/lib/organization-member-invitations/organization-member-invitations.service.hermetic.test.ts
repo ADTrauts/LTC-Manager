@@ -272,6 +272,9 @@ function makeDb(seed: { organizations: Org[]; users: User[] }) {
         throw new Error("Facility access must not be created by organization invitation.");
       },
     },
+    partnerUserFacilityAccess: {
+      findMany: async () => [],
+    },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
     $queryRaw: async () => [{ id: "locked" }],
     _users: users,
