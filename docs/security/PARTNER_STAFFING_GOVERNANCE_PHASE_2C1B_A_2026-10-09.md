@@ -1,6 +1,6 @@
 # Partner staffing governance — Phase 2C1b-A
 
-Facility-controlled delegation and veto. Organization administrators still cannot assign, change, or end partner users.
+Facility-controlled delegation and veto. A current Organization Administrator may manage the same assignment model only while a staffing-policy period is current.
 
 ## Staffing delegation
 
@@ -30,11 +30,17 @@ Unblock closes the restriction period. It does not open an assignment. The user 
 
 Each `PartnerUserRolePeriod` records `createdByAuthorityKind` and, when closed, `endedByAuthorityKind`.
 
-`facility_admin` stores a null Organization id. `partner_org_admin` will store the partnership Organization id as an immutable snapshot, not a cascading foreign key.
+`facility_admin` stores a null Organization id. `partner_org_admin` stores the partnership Organization id as an immutable snapshot, not a cascading foreign key.
 
 Rows that existed before this migration were written only by Facility Administrators. Creation authority is backfilled to `facility_admin`. Closed rows also receive `endedByAuthorityKind = facility_admin`.
 
-Phase 2C1b-A accepts only `facility_admin` at runtime. Naming `partner_org_admin` does not enable that writer.
+`assignPartnerUser`, `changePartnerUserRole`, and `endPartnerUserAssignment` are the only assignment mutations. Facility Administrator callers omit authority or pass `facility_admin` and do not need a staffing-policy period. `partner_org_admin` passes the signed Organization id. After the partnership row lock, that id must equal the partnership Organization, the actor must be an active current `ORG_ADMIN` of that Organization, and a staffing-policy period must contain the mutation instant. A partner operational role, including Partner Manager held by an Organization Member, is not staffing authority.
+
+Organization-created and Facility-created role periods are the same assignment. Origin does not decide who may edit them and does not change Path B. While delegation is current, either writer may change or end the current role. Disabling delegation leaves those assignments in place and stops further Organization mutations. Facility Administrators can still change, end, and block them.
+
+Organization administrators cannot enable or disable delegation, and they cannot block or unblock. A current restriction denies their assignment and role change. Only a Facility Administrator can unblock.
+
+The assignment transaction re-reads Organization membership after locking the partnership. Membership rows are not locked by that same statement, so a membership end that commits on the other table can still race. Path B then fails closed because it reads the membership period at request time. Losing `ORG_ADMIN` does not end a personal partner assignment.
 
 Policy and restriction periods use the same Facility provenance on create and end.
 

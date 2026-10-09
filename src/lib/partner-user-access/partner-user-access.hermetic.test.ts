@@ -1738,9 +1738,6 @@ test("facility staffing policy and user restrictions govern assignment writers w
     authority: { kind: "partner_org_admin" as const, organizationId: "metz" },
   };
   for (const attempt of [
-    () => assignPartnerUser(world.db, { ...orgActor, userId: "john", partnerRole: "PARTNER_VIEWER" as const }),
-    () => changePartnerUserRole(world.db, { ...orgActor, userId: "jane", partnerRole: "PARTNER_VIEWER" as const }),
-    () => endPartnerUserAssignment(world.db, { ...orgActor, userId: "jane" }),
     () => enablePartnerStaffingDelegation(world.db, orgActor),
     () => disablePartnerStaffingDelegation(world.db, orgActor),
     () => blockPartnerUser(world.db, { ...orgActor, userId: "jane" }),
@@ -1886,4 +1883,348 @@ test("facility staffing policy and user restrictions govern assignment writers w
   assert.equal(after.authorization.path, "partner");
   assert.equal(historicalJane.rolePeriod.endsAt, null);
   assert.equal(historical.rolePeriods[0]?.endsAt, null);
+});
+
+test("delegated organization administrators staff the same assignment model", async () => {
+  const org = {
+    actorUserId: "john",
+    partnershipId: "partnership",
+    facilityId: "fac",
+    authority: { kind: "partner_org_admin" as const, organizationId: "metz" },
+  };
+
+  const denied = createWorld();
+  await setFacilityPartnerRoleCeiling(denied.db, {
+    ...denied.actor,
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await assignPartnerUser(denied.db, {
+    ...denied.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-01-02T00:00:00.000Z"),
+  });
+  for (const attempt of [
+    () => assignPartnerUser(denied.db, { ...org, userId: "john", partnerRole: "PARTNER_VIEWER" }),
+    () => changePartnerUserRole(denied.db, { ...org, userId: "jane", partnerRole: "PARTNER_OPERATOR" }),
+    () => endPartnerUserAssignment(denied.db, { ...org, userId: "jane" }),
+  ]) {
+    await assert.rejects(
+      attempt,
+      (error: unknown) => error instanceof PartnerUserAccessError && error.code === "PARTNER_STAFFING_NOT_ENABLED",
+    );
+  }
+
+  const world = createWorld();
+  await setFacilityPartnerRoleCeiling(world.db, {
+    ...world.actor,
+    maxPartnerRole: "PARTNER_OPERATOR",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await enablePartnerStaffingDelegation(world.db, { ...world.actor, at: at("2026-01-02T00:00:00.000Z") });
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        actorUserId: "jane",
+        partnershipId: "partnership",
+        facilityId: "fac",
+        userId: "john",
+        partnerRole: "PARTNER_VIEWER",
+        authority: { kind: "partner_org_admin", organizationId: "metz" },
+      }),
+    (error: unknown) =>
+      error instanceof PartnerUserAccessError && error.code === "NOT_ORGANIZATION_ADMINISTRATOR",
+  );
+  world.memberships.find((row) => row.userId === "former")!.rolePeriods[0]!.endsAt = at("2026-01-03T00:00:00.000Z");
+  await assert.rejects(
+    () => assignPartnerUser(world.db, { ...org, userId: "former", partnerRole: "PARTNER_VIEWER", at: at("2026-02-01T00:00:00.000Z") }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "NOT_CURRENT_MEMBER",
+  );
+  world.organizations.push({ id: "otherco", isActive: true });
+  world.memberships.push({
+    id: "mem_stranger",
+    userId: "stranger",
+    organizationId: "otherco",
+    createdAt: at("2020-01-01T00:00:00.000Z"),
+    rolePeriods: [
+      { id: "mem_stranger_period", role: "ORG_ADMIN", startsAt: at("2020-01-01T00:00:00.000Z"), endsAt: null },
+    ],
+  });
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        actorUserId: "stranger",
+        partnershipId: "partnership",
+        facilityId: "fac",
+        userId: "jane",
+        partnerRole: "PARTNER_VIEWER",
+        authority: { kind: "partner_org_admin", organizationId: "otherco" },
+      }),
+    (error: unknown) =>
+      error instanceof PartnerUserAccessError && error.code === "NOT_ORGANIZATION_ADMINISTRATOR",
+  );
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        ...org,
+        userId: "jane",
+        partnerRole: "PARTNER_MANAGER",
+        at: at("2026-02-02T00:00:00.000Z"),
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "ROLE_ABOVE_CEILING",
+  );
+
+  const facilityJane = await assignPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-02-02T00:00:00.000Z"),
+  });
+  assert.equal(facilityJane.rolePeriod.createdByAuthorityKind, "facility_admin");
+  assert.equal(facilityJane.rolePeriod.createdByOrganizationId, null);
+  const changed = await changePartnerUserRole(world.db, {
+    ...org,
+    userId: "jane",
+    partnerRole: "PARTNER_OPERATOR",
+    at: at("2026-02-03T00:00:00.000Z"),
+  });
+  const closedByOrg = world.rolePeriods.find((period) => period.id === facilityJane.rolePeriod.id);
+  assert.equal(closedByOrg?.endedByAuthorityKind, "partner_org_admin");
+  assert.equal(closedByOrg?.endedByOrganizationId, "metz");
+  assert.equal(changed.createdByAuthorityKind, "partner_org_admin");
+  assert.equal(changed.createdByOrganizationId, "metz");
+  const endedByOrg = await endPartnerUserAssignment(world.db, {
+    ...org,
+    userId: "jane",
+    at: at("2026-02-04T00:00:00.000Z"),
+  });
+  assert.equal(endedByOrg.endedByAuthorityKind, "partner_org_admin");
+  assert.equal(endedByOrg.endedByOrganizationId, "metz");
+
+  const self = await assignPartnerUser(world.db, {
+    ...org,
+    userId: "john",
+    partnerRole: "PARTNER_OPERATOR",
+    at: at("2026-02-05T00:00:00.000Z"),
+  });
+  assert.equal(self.rolePeriod.createdByUserId, "john");
+  assert.equal(self.rolePeriod.createdByAuthorityKind, "partner_org_admin");
+  assert.equal(self.rolePeriod.createdByOrganizationId, "metz");
+  const facilityEdit = await changePartnerUserRole(world.db, {
+    ...world.actor,
+    userId: "john",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-02-06T00:00:00.000Z"),
+  });
+  assert.equal(facilityEdit.createdByAuthorityKind, "facility_admin");
+  assert.equal(facilityEdit.createdByOrganizationId, null);
+
+  const janeAgain = await assignPartnerUser(world.db, {
+    ...org,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-02-07T00:00:00.000Z"),
+  });
+  const janePath = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-02-08T00:00:00.000Z"),
+  });
+  const johnPath = await resolveFacilityAuthorization(world.db, {
+    userId: "john",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-02-08T00:00:00.000Z"),
+  });
+  assert.equal(janePath.authorization.path, "partner");
+  assert.equal(johnPath.authorization.path, "partner");
+  if (janePath.authorization.path === "partner" && johnPath.authorization.path === "partner") {
+    assert.equal(janePath.authorization.effectiveRole, johnPath.authorization.effectiveRole);
+    assert.equal(janeAgain.rolePeriod.createdByAuthorityKind, "partner_org_admin");
+    assert.equal(facilityEdit.createdByAuthorityKind, "facility_admin");
+  }
+
+  await blockPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    at: at("2026-02-09T00:00:00.000Z"),
+  });
+  const blockedPath = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-02-10T00:00:00.000Z"),
+  });
+  assert.equal(blockedPath.authorization.path, "none");
+  const restrictionsBefore = world.restrictions.length;
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        ...org,
+        userId: "jane",
+        partnerRole: "PARTNER_VIEWER",
+        at: at("2026-02-11T00:00:00.000Z"),
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "USER_RESTRICTED",
+  );
+  assert.equal(world.restrictions.length, restrictionsBefore);
+  await unblockPartnerUser(world.db, { ...world.actor, userId: "jane", at: at("2026-02-12T00:00:00.000Z") });
+  const unassigned = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-02-13T00:00:00.000Z"),
+  });
+  assert.equal(unassigned.authorization.path, "none");
+  await assignPartnerUser(world.db, {
+    ...org,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-02-14T00:00:00.000Z"),
+  });
+
+  const openBeforeDisable = world.rolePeriods.filter((period) => period.endsAt === null).length;
+  await disablePartnerStaffingDelegation(world.db, {
+    ...world.actor,
+    at: at("2026-03-01T00:00:00.000Z"),
+  });
+  assert.equal(world.rolePeriods.filter((period) => period.endsAt === null).length, openBeforeDisable);
+  await assert.rejects(
+    () =>
+      endPartnerUserAssignment(world.db, { ...org, userId: "jane", at: at("2026-03-02T00:00:00.000Z") }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "PARTNER_STAFFING_NOT_ENABLED",
+  );
+  await endPartnerUserAssignment(world.db, {
+    ...world.actor,
+    userId: "jane",
+    at: at("2026-03-02T00:00:00.000Z"),
+  });
+
+  world.memberships.find((row) => row.userId === "john")!.rolePeriods[0]!.endsAt = at("2026-03-03T00:00:00.000Z");
+  world.memberships.find((row) => row.userId === "john")!.rolePeriods.push({
+    id: "mem_john_member",
+    role: "ORG_MEMBER",
+    startsAt: at("2026-03-03T00:00:00.000Z"),
+    endsAt: null,
+  });
+  assert.equal(self.rolePeriod.createdByAuthorityKind, "partner_org_admin");
+  assert.equal(self.rolePeriod.createdByOrganizationId, "metz");
+  await enablePartnerStaffingDelegation(world.db, { ...world.actor, at: at("2026-03-04T00:00:00.000Z") });
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        ...org,
+        userId: "jane",
+        partnerRole: "PARTNER_VIEWER",
+        at: at("2026-03-05T00:00:00.000Z"),
+      }),
+    (error: unknown) =>
+      error instanceof PartnerUserAccessError && error.code === "NOT_ORGANIZATION_ADMINISTRATOR",
+  );
+  const historicalSelf = world.rolePeriods.find((period) => period.id === self.rolePeriod.id);
+  assert.equal(historicalSelf?.createdByAuthorityKind, "partner_org_admin");
+  assert.equal(historicalSelf?.createdByOrganizationId, "metz");
+  assert.equal(
+    world.rolePeriods.some(
+      (period) => period.partnerUserFacilityAccessId === self.assignmentId && period.endsAt === null,
+    ),
+    true,
+  );
+
+  const empty = createWorld();
+  await setFacilityPartnerRoleCeiling(empty.db, {
+    ...empty.actor,
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await enablePartnerStaffingDelegation(empty.db, { ...empty.actor, at: at("2026-01-02T00:00:00.000Z") });
+  empty.scopes[0]!.endsAt = at("2026-01-03T00:00:00.000Z");
+  await assert.rejects(
+    () =>
+      assignPartnerUser(empty.db, {
+        ...org,
+        userId: "jane",
+        partnerRole: "PARTNER_VIEWER",
+        at: at("2026-02-01T00:00:00.000Z"),
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "SCOPE_EMPTY",
+  );
+  empty.scopes[0]!.endsAt = null;
+  empty.accessPeriods[0]!.endsAt = at("2026-01-04T00:00:00.000Z");
+  await assert.rejects(
+    () =>
+      assignPartnerUser(empty.db, {
+        ...org,
+        userId: "jane",
+        partnerRole: "PARTNER_VIEWER",
+        at: at("2026-02-01T00:00:00.000Z"),
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "PARTNERSHIP_INACTIVE",
+  );
+
+  const split = createWorld();
+  split.facilityAccesses.push({
+    id: "fa_hp",
+    userId: "actor",
+    facilityId: "hp",
+    isActive: true,
+    revokedAt: null,
+  });
+  split.partnerships.push({
+    id: "hp_partnership",
+    facilityId: "hp",
+    organizationId: "metz",
+    endedAt: null,
+  });
+  split.accessPeriods.push({
+    id: "hp_access",
+    facilityPartnerOrganizationId: "hp_partnership",
+    startsAt: at("2020-01-01T00:00:00.000Z"),
+    endsAt: null,
+  });
+  split.departments.push({ id: "dietary_hp", facilityId: "hp", isActive: true });
+  split.scopes.push({
+    id: "scope_hp",
+    facilityPartnerOrganizationId: "hp_partnership",
+    departmentId: "dietary_hp",
+    startsAt: at("2020-01-01T00:00:00.000Z"),
+    endsAt: null,
+  });
+  await setFacilityPartnerRoleCeiling(split.db, {
+    ...split.actor,
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await setFacilityPartnerRoleCeiling(split.db, {
+    actorUserId: "actor",
+    partnershipId: "hp_partnership",
+    facilityId: "hp",
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  await enablePartnerStaffingDelegation(split.db, { ...split.actor, at: at("2026-01-02T00:00:00.000Z") });
+  await assignPartnerUser(split.db, {
+    ...org,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-01-03T00:00:00.000Z"),
+  });
+  await assert.rejects(
+    () =>
+      assignPartnerUser(split.db, {
+        ...org,
+        partnershipId: "hp_partnership",
+        facilityId: "hp",
+        userId: "john",
+        partnerRole: "PARTNER_VIEWER",
+        at: at("2026-01-03T00:00:00.000Z"),
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "PARTNER_STAFFING_NOT_ENABLED",
+  );
 });

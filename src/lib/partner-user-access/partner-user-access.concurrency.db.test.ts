@@ -13,7 +13,10 @@ import {
   assignPartnerUser,
   blockPartnerUser,
   changePartnerUserRole,
+  disablePartnerStaffingDelegation,
   enablePartnerStaffingDelegation,
+  endPartnerUserAssignment,
+  minPartnerRole,
   setFacilityPartnerRoleCeiling,
   unblockPartnerUser,
 } from "@/lib/partner-user-access";
@@ -35,6 +38,8 @@ test(
     const facilityId = `fac_partner_${suffix}`;
     const actorId = `user_fa_${suffix}`;
     const memberId = `user_member_${suffix}`;
+    const adminId = `user_org_admin_${suffix}`;
+    const hireId = `user_hire_${suffix}`;
     const departmentId = `dept_${suffix}`;
     let partnershipId = "";
     let roleId = "";
@@ -72,11 +77,45 @@ test(
             roleId: null,
             emailVerifiedAt: new Date(),
           },
+          {
+            id: adminId,
+            email: `admin-${suffix}@partner-lock.example`,
+            displayName: "Org Admin",
+            facilityId: null,
+            roleId: null,
+            emailVerifiedAt: new Date(),
+          },
+          {
+            id: hireId,
+            email: `hire-${suffix}@partner-lock.example`,
+            displayName: "Hire",
+            facilityId: null,
+            roleId: null,
+            emailVerifiedAt: new Date(),
+          },
         ],
       });
       await prisma.userOrganizationMembership.create({
         data: {
           userId: memberId,
+          organizationId: partnerId,
+          rolePeriods: {
+            create: { role: "ORG_MEMBER", startsAt: new Date("2020-01-01T00:00:00.000Z") },
+          },
+        },
+      });
+      await prisma.userOrganizationMembership.create({
+        data: {
+          userId: adminId,
+          organizationId: partnerId,
+          rolePeriods: {
+            create: { role: "ORG_ADMIN", startsAt: new Date("2020-01-01T00:00:00.000Z") },
+          },
+        },
+      });
+      await prisma.userOrganizationMembership.create({
+        data: {
+          userId: hireId,
           organizationId: partnerId,
           rolePeriods: {
             create: { role: "ORG_MEMBER", startsAt: new Date("2020-01-01T00:00:00.000Z") },
@@ -230,6 +269,173 @@ test(
       });
       assert.ok(afterRace.filter((period) => period.endsAt === null).length <= 1);
       assert.equal(hasOverlap(afterRace), false);
+
+      const orgAuthority = {
+        kind: "partner_org_admin" as const,
+        organizationId: partnerId,
+      };
+      const memberRestriction = await prisma.facilityPartnerUserRestrictionPeriod.findFirst({
+        where: { userId: memberId, facilityPartnerOrganizationId: partnershipId, endsAt: null },
+      });
+      if (memberRestriction) {
+        await unblockPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+        });
+      }
+      const memberOpen = await prisma.partnerUserRolePeriod.findFirst({
+        where: { partnerUserFacilityAccess: { userId: memberId, facilityPartnerOrganizationId: partnershipId }, endsAt: null },
+      });
+      if (!memberOpen) {
+        await assignPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+          partnerRole: "PARTNER_VIEWER",
+        });
+      }
+      await setFacilityPartnerRoleCeiling(prisma, {
+        actorUserId: actorId,
+        partnershipId,
+        facilityId,
+        maxPartnerRole: "PARTNER_MANAGER",
+      });
+      const roleAgainstBlock = await Promise.allSettled([
+        changePartnerUserRole(prisma, {
+          actorUserId: adminId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+          partnerRole: "PARTNER_MANAGER",
+          authority: orgAuthority,
+        }),
+        blockPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+        }),
+      ]);
+      assert.ok(roleAgainstBlock.some((result) => result.status === "fulfilled"));
+      const memberAfterBlock = await prisma.facilityPartnerUserRestrictionPeriod.findMany({
+        where: { userId: memberId, facilityPartnerOrganizationId: partnershipId },
+      });
+      assert.equal(memberAfterBlock.filter((period) => period.endsAt === null).length, 1);
+      const memberAssignment = await prisma.partnerUserFacilityAccess.findUnique({
+        where: {
+          userId_facilityPartnerOrganizationId: {
+            userId: memberId,
+            facilityPartnerOrganizationId: partnershipId,
+          },
+        },
+        include: { rolePeriods: true },
+      });
+      assert.equal(memberAssignment?.rolePeriods.filter((period) => period.endsAt === null).length ?? 0, 0);
+
+      const assignAgainstBlock = await Promise.allSettled([
+        assignPartnerUser(prisma, {
+          actorUserId: adminId,
+          partnershipId,
+          facilityId,
+          userId: hireId,
+          partnerRole: "PARTNER_VIEWER",
+          authority: orgAuthority,
+        }),
+        blockPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: hireId,
+        }),
+      ]);
+      assert.ok(assignAgainstBlock.some((result) => result.status === "fulfilled"));
+      const hireRestrictions = await prisma.facilityPartnerUserRestrictionPeriod.findMany({
+        where: { userId: hireId, facilityPartnerOrganizationId: partnershipId },
+      });
+      assert.equal(hireRestrictions.filter((period) => period.endsAt === null).length, 1);
+      assert.equal(hasOverlap(hireRestrictions), false);
+
+      await assignPartnerUser(prisma, {
+        actorUserId: actorId,
+        partnershipId,
+        facilityId,
+        userId: adminId,
+        partnerRole: "PARTNER_VIEWER",
+      });
+      const ceilingRace = await Promise.allSettled([
+        changePartnerUserRole(prisma, {
+          actorUserId: adminId,
+          partnershipId,
+          facilityId,
+          userId: adminId,
+          partnerRole: "PARTNER_MANAGER",
+          authority: orgAuthority,
+        }),
+        setFacilityPartnerRoleCeiling(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          maxPartnerRole: "PARTNER_OPERATOR",
+        }),
+      ]);
+      assert.ok(ceilingRace.some((result) => result.status === "fulfilled"));
+      const ceilingNow = await prisma.facilityPartnerRoleCeilingPeriod.findFirst({
+        where: { facilityPartnerOrganizationId: partnershipId, endsAt: null },
+      });
+      const adminAssignment = await prisma.partnerUserFacilityAccess.findUniqueOrThrow({
+        where: {
+          userId_facilityPartnerOrganizationId: {
+            userId: adminId,
+            facilityPartnerOrganizationId: partnershipId,
+          },
+        },
+        include: { rolePeriods: true },
+      });
+      const openAdminRole = adminAssignment.rolePeriods.find((period) => period.endsAt === null);
+      assert.ok(openAdminRole);
+      assert.ok(ceilingNow);
+      assert.equal(
+        minPartnerRole(openAdminRole.partnerRole, ceilingNow.maxPartnerRole) === "PARTNER_MANAGER" &&
+          ceilingNow.maxPartnerRole !== "PARTNER_MANAGER",
+        false,
+      );
+
+      await setFacilityPartnerRoleCeiling(prisma, {
+        actorUserId: actorId,
+        partnershipId,
+        facilityId,
+        maxPartnerRole: "PARTNER_MANAGER",
+      });
+      await endPartnerUserAssignment(prisma, {
+        actorUserId: actorId,
+        partnershipId,
+        facilityId,
+        userId: adminId,
+      });
+      const disableRace = await Promise.allSettled([
+        assignPartnerUser(prisma, {
+          actorUserId: adminId,
+          partnershipId,
+          facilityId,
+          userId: adminId,
+          partnerRole: "PARTNER_VIEWER",
+          authority: orgAuthority,
+        }),
+        disablePartnerStaffingDelegation(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+        }),
+      ]);
+      assert.ok(disableRace.some((result) => result.status === "fulfilled"));
+      const policyAfter = await prisma.facilityPartnerStaffingPolicyPeriod.findMany({
+        where: { facilityPartnerOrganizationId: partnershipId },
+      });
+      assert.equal(policyAfter.filter((period) => period.endsAt === null).length, 0);
+      assert.equal(hasOverlap(policyAfter), false);
     } finally {
       if (partnershipId) {
         await prisma.facilityPartnerUserRestrictionPeriod.deleteMany({
@@ -260,7 +466,7 @@ test(
       });
       await prisma.userOrganizationMembership.deleteMany({ where: { organizationId: partnerId } });
       await prisma.department.deleteMany({ where: { id: departmentId } });
-      await prisma.user.deleteMany({ where: { id: { in: [actorId, memberId] } } });
+      await prisma.user.deleteMany({ where: { id: { in: [actorId, memberId, adminId, hireId] } } });
       await prisma.facility.deleteMany({ where: { id: facilityId } });
       await prisma.organization.deleteMany({ where: { id: { in: [parentId, partnerId] } } });
       if (roleId) {

@@ -18,8 +18,9 @@ export const PARTNER_ASSIGNMENT_AUTHORITIES = ["facility_admin", "partner_org_ad
 export type PartnerAssignmentAuthorityKind = (typeof PARTNER_ASSIGNMENT_AUTHORITIES)[number];
 
 /**
- * Phase 2C1b-A accepts only Facility administrator writes.
- * Partner organization authority is named so Phase B can add a writer without a second assignment model.
+ * Explicit writer for the shared assignment mutation.
+ * `actorUserId` stays on the mutation input. `organizationId` is the signed acting
+ * Organization and must match the partnership Organization.
  */
 export type PartnerAssignmentMutationAuthority =
   | { kind: "facility_admin" }
@@ -141,6 +142,7 @@ export class PartnerUserAccessError extends Error {
     | "ASSIGNMENT_NOT_CURRENT"
     | "OVERLAPPING_PERIOD"
     | "INVALID_INPUT"
+    | "NOT_ORGANIZATION_ADMINISTRATOR"
     | "PARTNER_STAFFING_NOT_ENABLED"
     | "POLICY_ALREADY_ENABLED"
     | "POLICY_NOT_ENABLED"

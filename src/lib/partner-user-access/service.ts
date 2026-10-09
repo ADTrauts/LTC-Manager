@@ -31,7 +31,8 @@ type ActorContext = {
   partnershipId: string;
   facilityId: string;
   /**
-   * Omitted callers are Facility administrators. partner_org_admin is rejected in this phase.
+   * Omitted callers are Facility administrators.
+   * partner_org_admin is accepted only for assignment mutations, and only inside the locked transaction.
    */
   authority?: PartnerAssignmentMutationAuthority;
 };
@@ -49,11 +50,32 @@ function facilityEndedAuthority(actorUserId: string) {
   };
 }
 
-function assertPhaseAWriter(authority: PartnerAssignmentMutationAuthority | undefined) {
+function creationProvenance(input: ActorContext, organizationId: string) {
+  if (input.authority?.kind === "partner_org_admin") {
+    return {
+      createdByAuthorityKind: "partner_org_admin" as const,
+      createdByOrganizationId: organizationId,
+    };
+  }
+  return FACILITY_CREATED_AUTHORITY;
+}
+
+function endingProvenance(input: ActorContext, organizationId: string) {
+  if (input.authority?.kind === "partner_org_admin") {
+    return {
+      endedByUserId: input.actorUserId,
+      endedByAuthorityKind: "partner_org_admin" as const,
+      endedByOrganizationId: organizationId,
+    };
+  }
+  return facilityEndedAuthority(input.actorUserId);
+}
+
+function assertFacilityOnlyWriter(authority: PartnerAssignmentMutationAuthority | undefined) {
   if (authority?.kind === "partner_org_admin") {
     throw new PartnerUserAccessError(
       "PARTNER_STAFFING_NOT_ENABLED",
-      "Organization administrators cannot manage partner assignments yet.",
+      "Organization administrators cannot change Facility staffing policy or user restrictions.",
     );
   }
 }
@@ -258,6 +280,73 @@ async function membershipRoleAt(
   return findPeriodContainingInstant(membership.rolePeriods, input.instant);
 }
 
+async function assertPartnershipAvailable(
+  db: DbClient,
+  partnership: Awaited<ReturnType<typeof loadPartnership>>,
+  instant: Date,
+) {
+  if (partnership.endedAt && partnership.endedAt.getTime() <= instant.getTime()) {
+    throw new PartnerUserAccessError("PARTNERSHIP_ENDED", "This partner relationship has ended.");
+  }
+  if (!partnership.organization.isActive) {
+    throw new PartnerUserAccessError("ORGANIZATION_INACTIVE", "The partner Organization is inactive.");
+  }
+  const access = await db.facilityPartnerAccessPeriod.findMany({
+    where: { facilityPartnerOrganizationId: partnership.id },
+  });
+  if (!findPeriodContainingInstant(access, instant)) {
+    throw new PartnerUserAccessError(
+      "PARTNERSHIP_INACTIVE",
+      "The partner relationship is not authorized at this time.",
+    );
+  }
+}
+
+/**
+ * Facility writes do not require a staffing-policy period.
+ * Organization writes require a current policy and a current ORG_ADMIN membership
+ * in the partnership Organization. Both are evaluated after the partnership lock.
+ */
+async function assertAssignmentAuthority(
+  db: DbClient,
+  input: ActorContext,
+  partnership: Awaited<ReturnType<typeof loadPartnership>>,
+  instant: Date,
+) {
+  if (input.authority?.kind !== "partner_org_admin") {
+    await assertFacilityAdministrator(db, input);
+    return;
+  }
+  if (input.authority.organizationId !== partnership.organizationId) {
+    throw new PartnerUserAccessError(
+      "NOT_ORGANIZATION_ADMINISTRATOR",
+      "Staffing authority is limited to the partnership Organization.",
+    );
+  }
+  const actor = await db.user.findUnique({
+    where: { id: input.actorUserId },
+    select: { isActive: true },
+  });
+  const membership = await membershipRoleAt(db, {
+    userId: input.actorUserId,
+    organizationId: partnership.organizationId,
+    instant,
+  });
+  if (!actor?.isActive || membership?.role !== "ORG_ADMIN") {
+    throw new PartnerUserAccessError(
+      "NOT_ORGANIZATION_ADMINISTRATOR",
+      "Only a current Organization Administrator of this partner Organization may manage assignments.",
+    );
+  }
+  const delegated = findPeriodContainingInstant(await policyPeriods(db, partnership.id), instant);
+  if (!delegated) {
+    throw new PartnerUserAccessError(
+      "PARTNER_STAFFING_NOT_ENABLED",
+      "This Facility has not delegated partner staffing to the Organization.",
+    );
+  }
+}
+
 async function assertAssignable(
   db: DbClient,
   input: {
@@ -446,11 +535,10 @@ export async function assignPartnerUser(
   },
 ): Promise<{ assignmentId: string; rolePeriod: PartnerRolePeriodView }> {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
   const assigned = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
-    await assertFacilityAdministrator(tx, input);
     const partnership = await loadPartnership(tx, input);
+    await assertAssignmentAuthority(tx, input, partnership, at);
     await assertAssignable(tx, {
       partnership,
       userId: input.userId,
@@ -487,7 +575,7 @@ export async function assignPartnerUser(
         partnerRole: input.partnerRole,
         startsAt: at,
         createdByUserId: input.actorUserId,
-        ...FACILITY_CREATED_AUTHORITY,
+        ...creationProvenance(input, partnership.organizationId),
       },
     });
     const periods = [
@@ -519,11 +607,10 @@ export async function changePartnerUserRole(
   },
 ): Promise<PartnerRolePeriodView> {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
   const next = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
-    await assertFacilityAdministrator(tx, input);
     const partnership = await loadPartnership(tx, input);
+    await assertAssignmentAuthority(tx, input, partnership, at);
     await assertNotRestricted(tx, partnership.id, input.userId, at);
     await assertAssignable(tx, {
       partnership,
@@ -549,7 +636,7 @@ export async function changePartnerUserRole(
     }
     await tx.partnerUserRolePeriod.update({
       where: { id: current.id },
-      data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
+      data: { endsAt: at, ...endingProvenance(input, partnership.organizationId) },
     });
     const created = await tx.partnerUserRolePeriod.create({
       data: {
@@ -557,7 +644,7 @@ export async function changePartnerUserRole(
         partnerRole: input.partnerRole,
         startsAt: at,
         createdByUserId: input.actorUserId,
-        ...FACILITY_CREATED_AUTHORITY,
+        ...creationProvenance(input, partnership.organizationId),
       },
     });
     const periods = assignment.rolePeriods.map((period) =>
@@ -584,11 +671,25 @@ export async function endPartnerUserAssignment(
   input: ActorContext & { userId: string; at?: Date },
 ): Promise<PartnerRolePeriodView> {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
   const closed = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
-    await assertFacilityAdministrator(tx, input);
     const partnership = await loadPartnership(tx, input);
+    await assertAssignmentAuthority(tx, input, partnership, at);
+    if (input.authority?.kind === "partner_org_admin") {
+      await assertPartnershipAvailable(tx, partnership, at);
+      await assertNotRestricted(tx, partnership.id, input.userId, at);
+      const membership = await membershipRoleAt(tx, {
+        userId: input.userId,
+        organizationId: partnership.organizationId,
+        instant: at,
+      });
+      if (!membership) {
+        throw new PartnerUserAccessError(
+          "NOT_CURRENT_MEMBER",
+          "Only a current member of the partner Organization can have an assignment ended by the Organization.",
+        );
+      }
+    }
     const assignment = await loadAssignment(tx, {
       userId: input.userId,
       partnershipId: partnership.id,
@@ -604,7 +705,7 @@ export async function endPartnerUserAssignment(
     }
     const updated = await tx.partnerUserRolePeriod.update({
       where: { id: current.id },
-      data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
+      data: { endsAt: at, ...endingProvenance(input, partnership.organizationId) },
     });
     return toRolePeriodView(updated);
   });
@@ -631,7 +732,7 @@ export async function enablePartnerStaffingDelegation(
   input: ActorContext & { at?: Date },
 ) {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
+  assertFacilityOnlyWriter(input.authority);
   return runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
     await assertFacilityAdministrator(tx, input);
@@ -664,7 +765,7 @@ export async function disablePartnerStaffingDelegation(
   input: ActorContext & { at?: Date },
 ) {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
+  assertFacilityOnlyWriter(input.authority);
   return runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
     await assertFacilityAdministrator(tx, input);
@@ -698,7 +799,7 @@ export async function blockPartnerUser(
   input: ActorContext & { userId: string; note?: string | null; at?: Date },
 ) {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
+  assertFacilityOnlyWriter(input.authority);
   const note = input.note?.trim() ? input.note.trim() : null;
   return runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
@@ -768,7 +869,7 @@ export async function unblockPartnerUser(
   input: ActorContext & { userId: string; at?: Date },
 ) {
   const at = input.at ?? new Date();
-  assertPhaseAWriter(input.authority);
+  assertFacilityOnlyWriter(input.authority);
   return runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
     await assertFacilityAdministrator(tx, input);
