@@ -17,7 +17,9 @@ export function PartnerDepartmentSwitch({
     ? "/partner/logs"
     : pathname.startsWith("/partner/reports")
       ? "/partner/reports"
-      : "/partner";
+      : pathname.startsWith("/partner/locations")
+        ? "/partner/locations"
+        : "/partner";
 
   return (
     <form action={switchPartnerDepartmentAction} className="mt-2 space-y-2">

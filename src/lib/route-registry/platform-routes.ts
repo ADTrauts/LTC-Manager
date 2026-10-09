@@ -352,6 +352,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Department-scoped canonical Review for the active partner Department. Read only.",
   },
   {
+    pattern: "/partner/locations",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Current Department-scoped location hierarchy from explicit responsibility. Read only. Location responsibility is not Asset authorization.",
+  },
+  {
     pattern: "/partner/logs/records/[recordId]",
     match: "EXACT",
     surface: "PAGE",
