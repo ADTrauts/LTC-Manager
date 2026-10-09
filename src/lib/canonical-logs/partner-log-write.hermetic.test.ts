@@ -9,7 +9,7 @@ import {
   submitPartnerCanonicalLog,
 } from "@/lib/canonical-logs/partner-log-write";
 import { loadPartnerRunLogRecord } from "@/lib/canonical-logs/partner-log-read";
-import { submitCanonicalLogSubmission } from "@/lib/canonical-logs/submit-canonical-log";
+import { performCanonicalLogSubmission, submitCanonicalLogSubmission } from "@/lib/canonical-logs/submit-canonical-log";
 import { correctEvidenceRecord } from "@/lib/operational-evidence/correct-evidence";
 import type { PartnerOperationalContext } from "@/lib/partner-operational-context";
 
@@ -87,6 +87,7 @@ function matchesAttachment(row: { id: string; facilityId: string; departmentId: 
 function world() {
   const created: Array<Record<string, unknown>> = [];
   const corrections: Array<Record<string, unknown>> = [];
+  const updates: Array<Record<string, unknown>> = [];
   const evidence = [
     {
       id: "food-rec",
@@ -198,6 +199,7 @@ function world() {
         return row;
       },
       update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        updates.push(data);
         const row = evidence.find((item) => item.id === where.id) ?? created.find((item) => item.id === where.id);
         return { ...(row ?? { id: where.id }), ...data, corrections };
       },
@@ -212,7 +214,7 @@ function world() {
     unitSpace: { findFirst: async () => null },
   };
 
-  return { client: client as never, created, corrections, evidence };
+  return { client: client as never, created, corrections, updates, evidence };
 }
 
 const submitBase = {
@@ -248,6 +250,10 @@ test("partner submit follows role and active department", async () => {
     assert.equal(record.recordedByEmployeeId, null);
     assert.equal(record.facilityId, "terrace");
     assert.equal(record.departmentId, "food");
+    assert.equal(record.actingAccessKind, "partner");
+    assert.equal(record.actingPartnerOrganizationId, "metz");
+    assert.equal(record.actingFacilityPartnerOrganizationId, "metz-terrace");
+    assert.equal(record.actingEffectivePartnerRole, effectiveRole);
     assert.equal(created.length, 1);
     const viewed = await loadPartnerRunLogRecord({
       client,
@@ -334,6 +340,10 @@ test("partner correction is manager-only and stays on the active department reco
   assert.equal(manager.corrections.length, 1);
   assert.equal(manager.corrections[0]?.correctedByUserId, "jane");
   assert.equal(manager.corrections[0]?.correctedByEmployeeId, null);
+  assert.equal(manager.corrections[0]?.actingAccessKind, "partner");
+  assert.equal(manager.corrections[0]?.actingPartnerOrganizationId, "metz");
+  assert.equal(manager.corrections[0]?.actingFacilityPartnerOrganizationId, "metz-terrace");
+  assert.equal(manager.corrections[0]?.actingEffectivePartnerRole, "PARTNER_MANAGER");
   assert.equal(manager.corrections[0]?.reason, "Retest");
   assert.equal((manager.corrections[0]?.previousValuesJson as { status: string }).status, "COMPLETED");
 
@@ -364,6 +374,57 @@ test("partner correction is manager-only and stays on the active department reco
       /Log not found/,
     );
   }
+});
+
+test("acting context stays on the action that created it", async () => {
+  const { client, created, corrections, updates } = world();
+  const submitted = await submitPartnerCanonicalLog({
+    ...submitBase,
+    client,
+    context: context({ effectiveRole: "PARTNER_OPERATOR", assignedRole: "PARTNER_OPERATOR" }),
+  });
+  await correctPartnerCanonicalLog({
+    client,
+    context: context({ effectiveRole: "PARTNER_MANAGER", assignedRole: "PARTNER_MANAGER" }),
+    actorLabel: "Jane Smith",
+    recordId: "food-rec",
+    reason: "Retest",
+    values: [{ fieldKey: "note", valueText: "41" }],
+  });
+  assert.equal(submitted.actingEffectivePartnerRole, "PARTNER_OPERATOR");
+  assert.equal(created[0]?.actingEffectivePartnerRole, "PARTNER_OPERATOR");
+  assert.equal(corrections[0]?.actingEffectivePartnerRole, "PARTNER_MANAGER");
+  assert.equal(updates.some((row) => "actingAccessKind" in row), false);
+  assert.equal(created[0]?.actingEffectivePartnerRole, "PARTNER_OPERATOR");
+
+  await performCanonicalLogSubmission(
+    { userId: "jane", label: "Jane Smith", employeeId: "should-not-matter" },
+    {
+      client,
+      facilityId: "terrace",
+      departmentId: "food",
+      logAttachmentId: "cooler",
+      requirementKey: "req-internal",
+      operationalDateKey: "2026-10-08",
+      occurredAt: new Date("2026-10-08T16:00:00.000Z"),
+      values: [],
+      recordedByEmployeeId: "employee-jane",
+    },
+  );
+  const internal = created[1];
+  assert.equal(internal?.recordedByUserId, "jane");
+  assert.equal(internal?.actingAccessKind, undefined);
+  assert.equal(internal?.actingPartnerOrganizationId, undefined);
+  assert.equal(internal?.actingFacilityPartnerOrganizationId, undefined);
+  assert.equal(internal?.actingEffectivePartnerRole, undefined);
+
+  const migration = readFileSync(
+    join(process.cwd(), "prisma/migrations/20261008200000_canonical_log_acting_context/migration.sql"),
+    "utf8",
+  );
+  assert.equal(migration.includes("REFERENCES"), false);
+  assert.equal(migration.includes("ON DELETE"), false);
+  assert.equal(submitted.actingPartnerOrganizationId, "metz");
 });
 
 test("partner sessions still cannot use the internal mutation entry", async () => {

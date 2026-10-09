@@ -12,9 +12,26 @@ Partner users can submit and correct canonical RUN Logs only inside the active a
 
 `correctPartnerCanonicalLog` requires `logs.correct`. Only Partner Manager may use it. The certified operation is the existing canonical correction: append an `OperationalEvidenceCorrection` with the previous values, status, reason, time, and User actor, then replace the current field values. It does not delete the record, change its Department, edit the Log definition, or waive the requirement.
 
-## Actor identity
+## Canonical actor
 
 `recordedByUserId` and `correctedByUserId` are the partner User id. `recordedByEmployeeId` and `correctedByEmployeeId` stay null. No Employee row is created. The label is the session display name already used by canonical evidence.
+
+## Acting context
+
+`trackEvent` is console telemetry, not a durable audit record. Canonical Log submit and correction therefore store acting context on the action row itself:
+
+- submission: `OperationalEvidenceRecord.actingAccessKind`, `actingPartnerOrganizationId`, `actingFacilityPartnerOrganizationId`, `actingEffectivePartnerRole`
+- correction: the same columns on `OperationalEvidenceCorrection`
+
+A partner action stores `actingAccessKind = partner` plus the Organization, partnership, and effective role that were true when the action ran. Those values are not foreign keys. Ending the assignment or partnership does not rewrite or delete them. A null acting context means an internal action, or a row written before this provenance existed. Internal canonical writes do not receive partner Organization metadata. A later correction does not replace the submission's acting context.
+
+## Data ownership
+
+Partner-created Logs remain Facility operational evidence. The partner Organization is the actor's authority context, not the data tenant.
+
+## Historical truth
+
+An Operator submission keeps `PARTNER_OPERATOR` after that person later corrects as `PARTNER_MANAGER`. The correction row stores `PARTNER_MANAGER`. Current assignment state is not used to reinterpret either row.
 
 ## Reauthorization
 

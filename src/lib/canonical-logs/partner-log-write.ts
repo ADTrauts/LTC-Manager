@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
+import type { PartnerActingContext } from "@/lib/operational-evidence/acting-context";
 import { performCanonicalEvidenceCorrection } from "@/lib/operational-evidence/correct-evidence";
 import type { EvidenceFieldValueInput } from "@/lib/operational-evidence/types";
 import { canPartner } from "@/lib/partner-user-access";
@@ -10,6 +11,15 @@ import { performCanonicalLogSubmission, type SubmitCanonicalLogInput } from "./s
 type Db = PrismaClient;
 
 const NOT_FOUND = "Log not found.";
+
+function actingContext(context: PartnerOperationalContext): PartnerActingContext {
+  return {
+    accessKind: "partner",
+    partnerOrganizationId: context.partnerOrganizationId,
+    facilityPartnerOrganizationId: context.facilityPartnerOrganizationId,
+    effectivePartnerRole: context.effectiveRole,
+  };
+}
 
 function activeDepartment(context: PartnerOperationalContext): string {
   const departmentId = context.activeDepartmentId;
@@ -77,6 +87,7 @@ export async function submitPartnerCanonicalLog(input: PartnerCanonicalLogSubmit
   return performCanonicalLogSubmission(
     { userId: input.context.userId, label: input.actorLabel, employeeId: null },
     submission,
+    actingContext(input.context),
   );
 }
 
@@ -121,5 +132,6 @@ export async function correctPartnerCanonicalLog(input: {
       correctedByEmployeeId: null,
       now: input.now,
     },
+    actingContext(input.context),
   );
 }

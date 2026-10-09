@@ -16,6 +16,7 @@ import type {
   TemplateSnapshotJson,
 } from "./types";
 import { validateEvidenceSubmission } from "./validate-evidence-submission";
+import { partnerActingColumns, type PartnerActingContext } from "./acting-context";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -151,6 +152,7 @@ export async function performCanonicalEvidenceCorrection(
     client?: DbClient;
     now?: Date;
   },
+  actingContext?: PartnerActingContext,
 ) {
   const client = input.client ?? prisma;
 
@@ -209,6 +211,7 @@ export async function performCanonicalEvidenceCorrection(
       correctedByEmployeeId: actor.employeeId,
       correctedByLabel: actor.label,
       createdAt: now,
+      ...(actingContext ? partnerActingColumns(actingContext) : {}),
     },
   });
 

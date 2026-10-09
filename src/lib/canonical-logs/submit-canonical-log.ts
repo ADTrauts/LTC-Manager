@@ -21,6 +21,7 @@ import {
 } from "./snapshot";
 import { normalizeAttachmentTarget } from "./attachment-validate";
 import { followUpRecordDecision, recordPurposeRejection } from "./record-engine";
+import { partnerActingColumns, type PartnerActingContext } from "@/lib/operational-evidence/acting-context";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -208,6 +209,7 @@ export async function performCanonicalLogSubmission(
     client?: Db;
     now?: Date;
   },
+  actingContext?: PartnerActingContext,
 ) {
   if (!isCanonicalLogsEnabled()) {
     throw new Error("Canonical Logs are not enabled (CANONICAL_LOGS_ENABLED).");
@@ -444,6 +446,7 @@ export async function performCanonicalLogSubmission(
         recordedByUserId,
         recordedByEmployeeId: actor.employeeId,
         recordedByLabel: actor.label,
+        ...(actingContext ? partnerActingColumns(actingContext) : {}),
         templateSnapshotJson: snapshotToPrismaJson(
           legacyCompatibleTemplateFields(snapshot) as unknown as ReturnType<
             typeof buildCanonicalLogSubmissionSnapshot

@@ -4585,6 +4585,12 @@ model OperationalEvidenceRecord {
   recordedByEmployeeId         String?
   recordedByEmployee           Employee?                       @relation("EvidenceRecordedByEmployee", fields: [recordedByEmployeeId], references: [id], onDelete: SetNull)
   recordedByLabel              String?
+  /// Acting authority at submit time. Null means this row predates provenance or was an internal action.
+  /// Partner values are historical facts. They are not foreign keys, so a later partnership end does not erase them.
+  actingAccessKind                    String?
+  actingPartnerOrganizationId         String?
+  actingFacilityPartnerOrganizationId String?
+  actingEffectivePartnerRole          OrganizationPartnerRole?
   /// Later measurement. The originating Record stays unchanged.
   followsRecordId              String?
   followsRecord                OperationalEvidenceRecord?  @relation("EvidenceFollowUp", fields: [followsRecordId], references: [id], onDelete: SetNull)
@@ -4650,6 +4656,11 @@ model OperationalEvidenceCorrection {
   correctedByEmployeeId        String?
   correctedByEmployee          Employee?                       @relation("EvidenceCorrectedByEmployee", fields: [correctedByEmployeeId], references: [id], onDelete: SetNull)
   correctedByLabel             String?
+  /// Acting authority for this correction only. Does not replace the submission's acting context.
+  actingAccessKind                    String?
+  actingPartnerOrganizationId         String?
+  actingFacilityPartnerOrganizationId String?
+  actingEffectivePartnerRole          OrganizationPartnerRole?
   createdAt                    DateTime                        @default(now())
 
   @@index([recordId, createdAt])
