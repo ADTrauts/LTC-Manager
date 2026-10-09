@@ -39,6 +39,9 @@ export function PartnerFacilityShell({
               <Link href="/partner/logs" className="font-medium text-zinc-900">
                 Logs
               </Link>
+              <Link href="/partner/reports" className="font-medium text-zinc-900">
+                Review
+              </Link>
             </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Department</p>

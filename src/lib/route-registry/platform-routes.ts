@@ -320,7 +320,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "partner-facility-session",
     requiresDownstreamAuthorization: true,
     notes:
-      "Partner Facility home. Live Path B is rechecked. Canonical Logs are the only operational read.",
+      "Partner Facility home. Live Path B is rechecked. Logs and Review are the certified operational reads.",
   },
   {
     pattern: "/partner/logs",
@@ -340,6 +340,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "partner-facility-session",
     requiresDownstreamAuthorization: true,
     notes: "Partner canonical Log entry. Facility and Department come from the live partner context.",
+  },
+  {
+    pattern: "/partner/reports",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Department-scoped canonical Review for the active partner Department. Read only.",
   },
   {
     pattern: "/partner/logs/records/[recordId]",

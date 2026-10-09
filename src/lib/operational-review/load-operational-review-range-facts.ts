@@ -27,6 +27,7 @@ import {
   mapReviewEvidenceRecords,
   mapReviewServeryEvents,
 } from "./review-fact-maps";
+import { operationalReviewSpaceWhere } from "./review-space-scope";
 import { addServiceDateKey } from "./service-date-range";
 import type { OperationalReviewDayFacts, ReviewOtBindingFact, ReviewProfileFact } from "./types";
 
@@ -51,11 +52,16 @@ export async function loadOperationalReviewRangeFacts(input: {
   keys: string[];
   departmentId?: string | null;
   now?: Date;
+  /** Partner Review omits facts that have no Department owner. */
+  omitFacilityWideFacts?: boolean;
 }): Promise<{
   todayKey: string;
   timezone: string;
   factsByDate: Map<string, OperationalReviewDayFacts>;
 }> {
+  if (input.omitFacilityWideFacts && !input.departmentId) {
+    throw new Error("Partner Review requires one Department.");
+  }
   const now = input.now ?? new Date();
   const timezone = resolveFacilityTimezone(
     await loadFacilityTimezone(input.client as PrismaClient, input.facilityId),
@@ -79,7 +85,7 @@ export async function loadOperationalReviewRangeFacts(input: {
       orderBy: { sortOrder: "asc" },
     }),
     input.client.unitSpace.findMany({
-      where: { facilityId: input.facilityId, isActive: true },
+      where: operationalReviewSpaceWhere(input.facilityId, input.departmentId),
       select: {
         id: true,
         name: true,
@@ -224,7 +230,9 @@ export async function loadOperationalReviewRangeFacts(input: {
           employee: { select: { firstName: true, lastName: true } },
         },
       }),
-      input.client.assignmentOverride.findMany({
+      input.omitFacilityWideFacts
+        ? Promise.resolve([])
+        : input.client.assignmentOverride.findMany({
         where: {
           date: { gte: startDate, lt: endExclusive },
           employee: { facilityId: input.facilityId },
@@ -239,7 +247,9 @@ export async function loadOperationalReviewRangeFacts(input: {
           employee: { select: { firstName: true, lastName: true } },
         },
       }),
-      input.client.serveryMealServiceEvent.findMany({
+      input.omitFacilityWideFacts
+        ? Promise.resolve([])
+        : input.client.serveryMealServiceEvent.findMany({
         where: {
           serviceDate: { gte: startDate, lt: endExclusive },
           unit: { facilityId: input.facilityId },
@@ -312,7 +322,9 @@ export async function loadOperationalReviewRangeFacts(input: {
           observedAt: true,
         },
       }),
-      input.client.logSubmission.findMany({
+      input.omitFacilityWideFacts
+        ? Promise.resolve([])
+        : input.client.logSubmission.findMany({
         where: {
           submittedAt: { gte: startDate, lt: endExclusive },
           unit: { facilityId: input.facilityId },

@@ -24,6 +24,7 @@ export async function loadOperationalReviewDay(input: {
   serviceDate?: string | null;
   departmentId?: string | null;
   now?: Date;
+  omitFacilityWideFacts?: boolean;
 }): Promise<{
   facts: OperationalReviewDayFacts;
   model: OperationalReviewDayViewModel;
@@ -42,6 +43,7 @@ export async function loadOperationalReviewDay(input: {
     serviceDate,
     departmentId: input.departmentId,
     now: input.now,
+    omitFacilityWideFacts: input.omitFacilityWideFacts,
   });
 
   return {

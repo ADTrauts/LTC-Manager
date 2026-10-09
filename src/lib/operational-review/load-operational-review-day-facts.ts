@@ -18,6 +18,7 @@ import {
   toServiceDateKey,
 } from "@/lib/operational-time";
 
+import { operationalReviewSpaceWhere } from "./review-space-scope";
 import type {
   OperationalReviewDayFacts,
   ReviewAttachmentSegmentFact,
@@ -43,7 +44,12 @@ export async function loadOperationalReviewDayFacts(input: {
   serviceDate: string;
   departmentId?: string | null;
   now?: Date;
+  /** Partner Review omits facts that have no Department owner. */
+  omitFacilityWideFacts?: boolean;
 }): Promise<OperationalReviewDayFacts> {
+  if (input.omitFacilityWideFacts && !input.departmentId) {
+    throw new Error("Partner Review requires one Department.");
+  }
   const now = input.now ?? new Date();
   const timezone = resolveFacilityTimezone(
     await loadFacilityTimezone(input.client as PrismaClient, input.facilityId),
@@ -66,7 +72,7 @@ export async function loadOperationalReviewDayFacts(input: {
       orderBy: { sortOrder: "asc" },
     }),
     input.client.unitSpace.findMany({
-      where: { facilityId: input.facilityId, isActive: true },
+      where: operationalReviewSpaceWhere(input.facilityId, input.departmentId),
       select: {
         id: true,
         name: true,
@@ -216,7 +222,9 @@ export async function loadOperationalReviewDayFacts(input: {
         employee: { select: { firstName: true, lastName: true } },
       },
     }),
-    input.client.assignmentOverride.findMany({
+    input.omitFacilityWideFacts
+      ? Promise.resolve([])
+      : input.client.assignmentOverride.findMany({
       where: {
         date: serviceDate,
         employee: { facilityId: input.facilityId },
@@ -230,7 +238,9 @@ export async function loadOperationalReviewDayFacts(input: {
         employee: { select: { firstName: true, lastName: true } },
       },
     }),
-    input.client.serveryMealServiceEvent.findMany({
+    input.omitFacilityWideFacts
+      ? Promise.resolve([])
+      : input.client.serveryMealServiceEvent.findMany({
       where: {
         serviceDate,
         unit: { facilityId: input.facilityId },
@@ -303,15 +313,17 @@ export async function loadOperationalReviewDayFacts(input: {
         observedAt: true,
       },
     }),
-    input.client.logSubmission.count({
-      where: {
-        submittedAt: {
-          gte: serviceDate,
-          lt: new Date(serviceDate.getTime() + 24 * 60 * 60 * 1000),
-        },
-        unit: { facilityId: input.facilityId },
-      },
-    }),
+    input.omitFacilityWideFacts
+      ? Promise.resolve(0)
+      : input.client.logSubmission.count({
+          where: {
+            submittedAt: {
+              gte: serviceDate,
+              lt: new Date(serviceDate.getTime() + 24 * 60 * 60 * 1000),
+            },
+            unit: { facilityId: input.facilityId },
+          },
+        }),
   ]);
 
   const assignmentIds = assignments.map((row) => row.id);

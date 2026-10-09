@@ -27,6 +27,7 @@ export async function loadOperationalReviewRange(input: {
   endServiceDate?: string | null;
   departmentId?: string | null;
   now?: Date;
+  omitFacilityWideFacts?: boolean;
 }): Promise<
   | { ok: true; model: OperationalReviewRangeViewModel }
   | { ok: false; validation: Extract<ReviewRangeValidation, { ok: false }>; todayKey: string }
@@ -68,6 +69,7 @@ export async function loadOperationalReviewRange(input: {
     keys: validation.keys,
     departmentId: input.departmentId,
     now: input.now,
+    omitFacilityWideFacts: input.omitFacilityWideFacts,
   });
 
   const days = validation.keys.map((serviceDate) => {

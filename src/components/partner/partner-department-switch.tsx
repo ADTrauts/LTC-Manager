@@ -13,7 +13,11 @@ export function PartnerDepartmentSwitch({
   activeDepartmentId: string;
 }) {
   const pathname = usePathname();
-  const returnTo = pathname.startsWith("/partner/logs") ? "/partner/logs" : "/partner";
+  const returnTo = pathname.startsWith("/partner/logs")
+    ? "/partner/logs"
+    : pathname.startsWith("/partner/reports")
+      ? "/partner/reports"
+      : "/partner";
 
   return (
     <form action={switchPartnerDepartmentAction} className="mt-2 space-y-2">
