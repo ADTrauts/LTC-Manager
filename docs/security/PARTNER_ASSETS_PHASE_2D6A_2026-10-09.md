@@ -1,0 +1,27 @@
+# Partner Assets — Phase 2D6A
+
+Partner Asset authorization is the current row:
+
+```text
+Asset.unit.facilityId
+AND
+Asset.departmentId
+```
+
+`departmentId` must equal the active partner Department. Null is invisible. It is not shared, Facility-wide, or all Departments.
+
+## Location
+
+The Unit and Room names on an authorized Asset are display context. Location responsibility does not authorize an Asset, and an authorized Asset does not add its Room to partner Locations.
+
+## Current state
+
+The registry follows the current `departmentId`. Reassignment and clearing the Department take effect on the next request. There is no Department ownership history.
+
+## Related domains
+
+Work orders, issues, preventive maintenance, evidence, status history, and attachments are not loaded with the partner list. Asset visibility does not authorize them.
+
+## Internal behavior
+
+Internal Asset lists still include a null Department when a Department lens is selected. That helper is not used by the partner loader.

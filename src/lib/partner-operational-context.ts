@@ -12,7 +12,7 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 /** Presentation preference only. Never read as authorization. */
 export const PARTNER_ACTIVE_DEPARTMENT_COOKIE = "ltc_partner_active_department";
 
-const PARTNER_SHELL_RETURN_PATHS = ["/partner", "/partner/logs", "/partner/reports", "/partner/locations"] as const;
+const PARTNER_SHELL_RETURN_PATHS = ["/partner", "/partner/logs", "/partner/reports", "/partner/locations", "/partner/assets"] as const;
 
 export type PartnerShellReturnPath = (typeof PARTNER_SHELL_RETURN_PATHS)[number];
 

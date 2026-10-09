@@ -395,7 +395,7 @@ test("partner session may open home and canonical log reads", () => {
     featureFlags: FLAGS,
   });
   assert.equal(holding.outcome, "ALLOW");
-  for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations"]) {
+  for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations", "/partner/assets"]) {
     const decision = authorizeRoute({
       pathname,
       role: null,

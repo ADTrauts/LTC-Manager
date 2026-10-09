@@ -45,6 +45,9 @@ export function PartnerFacilityShell({
               <Link href="/partner/locations" className="font-medium text-zinc-900">
                 Locations
               </Link>
+              <Link href="/partner/assets" className="font-medium text-zinc-900">
+                Assets
+              </Link>
             </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Department</p>

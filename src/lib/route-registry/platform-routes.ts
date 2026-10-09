@@ -362,6 +362,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Current Department-scoped location hierarchy from explicit responsibility. Read only. Location responsibility is not Asset authorization.",
   },
   {
+    pattern: "/partner/assets",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Current non-retired Assets for the active partner Department. Read only. Asset.departmentId is the access rule.",
+  },
+  {
     pattern: "/partner/logs/records/[recordId]",
     match: "EXACT",
     surface: "PAGE",
