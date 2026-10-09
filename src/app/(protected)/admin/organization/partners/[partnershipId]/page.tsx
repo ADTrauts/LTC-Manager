@@ -144,6 +144,9 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
         <PartnerUserAccessPanel
           partnershipId={partner.id}
           partnershipEnded={partner.lifecycleState === "ENDED"}
+          facilityDisplayName={partnerUsers.facilityDisplayName}
+          organizationDisplayName={partnerOrganizationLabel(partner.organization)}
+          staffingDelegationEnabled={partnerUsers.staffingDelegationEnabled}
           ceiling={partnerUsers.currentCeiling?.maxPartnerRole ?? null}
           unassigned={partnerUsers.members
             .filter((member) => member.assignedRole === null)
@@ -151,6 +154,8 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
               userId: member.userId,
               displayName: member.displayName,
               organizationRole: member.organizationRole,
+              restricted: member.restricted,
+              restrictionNote: member.restrictionNote,
             }))}
           current={partnerUsers.members.flatMap((member) =>
             member.assignedRole
@@ -161,6 +166,7 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
                     organizationRole: member.organizationRole,
                     assignedRole: member.assignedRole,
                     effectiveRole: member.effectiveRole,
+                    createdByAuthorityKind: member.createdByAuthorityKind,
                   },
                 ]
               : [],
@@ -170,6 +176,7 @@ export default async function AdminOrganizationPartnerDetailPage({ params }: Pag
             displayName: period.displayName,
             partnerRole: period.partnerRole,
             range: `${formatTimestamp(period.startsAt)} → ${formatTimestamp(period.endsAt)}`,
+            createdByAuthorityKind: period.createdByAuthorityKind,
           }))}
         />
       </section>

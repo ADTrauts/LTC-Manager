@@ -13,6 +13,18 @@ export const UNVERSIONED_AUTHORIZATION_FACTS = [
 
 export type UnversionedAuthorizationFact = (typeof UNVERSIONED_AUTHORIZATION_FACTS)[number];
 
+export const PARTNER_ASSIGNMENT_AUTHORITIES = ["facility_admin", "partner_org_admin"] as const;
+
+export type PartnerAssignmentAuthorityKind = (typeof PARTNER_ASSIGNMENT_AUTHORITIES)[number];
+
+/**
+ * Phase 2C1b-A accepts only Facility administrator writes.
+ * Partner organization authority is named so Phase B can add a writer without a second assignment model.
+ */
+export type PartnerAssignmentMutationAuthority =
+  | { kind: "facility_admin" }
+  | { kind: "partner_org_admin"; organizationId: string };
+
 export type PartnerRolePeriodView = {
   id: string;
   partnerUserFacilityAccessId: string;
@@ -21,6 +33,10 @@ export type PartnerRolePeriodView = {
   endsAt: Date | null;
   createdByUserId: string | null;
   endedByUserId: string | null;
+  createdByAuthorityKind: PartnerAssignmentAuthorityKind;
+  createdByOrganizationId: string | null;
+  endedByAuthorityKind: PartnerAssignmentAuthorityKind | null;
+  endedByOrganizationId: string | null;
 };
 
 export type RoleCeilingPeriodView = {
@@ -81,6 +97,10 @@ export type PartnerAssignmentMemberView = {
   assignmentId: string | null;
   assignedRole: OrganizationPartnerRole | null;
   effectiveRole: OrganizationPartnerRole | null;
+  restricted: boolean;
+  /** Facility-private. Do not copy this onto Organization-safe payloads. */
+  restrictionNote: string | null;
+  createdByAuthorityKind: PartnerAssignmentAuthorityKind | null;
 };
 
 export type AuthorizedPartnerFacility = {
@@ -96,6 +116,8 @@ export type PartnerUserAccessAdminView = {
   partnershipId: string;
   facilityId: string;
   organizationId: string;
+  facilityDisplayName: string;
+  staffingDelegationEnabled: boolean;
   currentCeiling: RoleCeilingPeriodView | null;
   ceilingPeriods: RoleCeilingPeriodView[];
   members: PartnerAssignmentMemberView[];
@@ -118,7 +140,13 @@ export class PartnerUserAccessError extends Error {
     | "ALREADY_ASSIGNED"
     | "ASSIGNMENT_NOT_CURRENT"
     | "OVERLAPPING_PERIOD"
-    | "INVALID_INPUT";
+    | "INVALID_INPUT"
+    | "PARTNER_STAFFING_NOT_ENABLED"
+    | "POLICY_ALREADY_ENABLED"
+    | "POLICY_NOT_ENABLED"
+    | "USER_RESTRICTED"
+    | "ALREADY_RESTRICTED"
+    | "RESTRICTION_NOT_CURRENT";
 
   constructor(code: PartnerUserAccessError["code"], message: string) {
     super(message);

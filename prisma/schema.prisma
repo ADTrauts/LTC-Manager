@@ -49,6 +49,13 @@ enum OrganizationPartnerRole {
   PARTNER_MANAGER
 }
 
+/// Authority under which a partner assignment, staffing policy, or user restriction was written.
+/// Organization ids are immutable snapshots, not cascading foreign keys.
+enum PartnerAssignmentAuthorityKind {
+  facility_admin
+  partner_org_admin
+}
+
 /// Platform role reference data: identity, display name, and the User relation.
 ///
 /// A role's *capabilities* are not stored here. What each role may reach is defined in
@@ -371,6 +378,10 @@ model FacilityPartnerOrganization {
   roleCeilingPeriods FacilityPartnerRoleCeilingPeriod[]
   /// Personal partner assignments. Does not grant UserFacilityAccess or a Facility session.
   partnerUserAccesses PartnerUserFacilityAccess[]
+  /// Facility delegation allowing the partner Organization to manage personal assignments later.
+  staffingPolicyPeriods FacilityPartnerStaffingPolicyPeriod[]
+  /// Facility vetoes of one User under this partnership. Stronger than assignment state.
+  userRestrictionPeriods FacilityPartnerUserRestrictionPeriod[]
 
   @@unique([facilityId, organizationId])
   @@index([facilityId])
@@ -476,11 +487,75 @@ model PartnerUserRolePeriod {
   createdByUser              User?                    @relation("PartnerUserRolePeriodCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   endedByUserId              String?
   endedByUser                User?                    @relation("PartnerUserRolePeriodEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  /// Required. Existing rows are backfilled as facility_admin because that was the only writer.
+  createdByAuthorityKind     PartnerAssignmentAuthorityKind
+  /// Snapshot of the acting Organization. Null for facility_admin. Not a foreign key.
+  createdByOrganizationId    String?
+  /// Null only while the period is open. Closed periods record who ended them.
+  endedByAuthorityKind       PartnerAssignmentAuthorityKind?
+  /// Snapshot of the acting Organization when the period ended. Null for facility_admin.
+  endedByOrganizationId      String?
   createdAt                  DateTime                 @default(now())
   updatedAt                  DateTime                 @updatedAt
 
   @@index([partnerUserFacilityAccessId, startsAt], map: "PartnerUserRolePeriod_access_startsAt_idx")
   @@index([partnerUserFacilityAccessId, endsAt], map: "PartnerUserRolePeriod_access_endsAt_idx")
+  @@index([createdByUserId])
+  @@index([endedByUserId])
+}
+
+/// Historical Facility authorization for a partner Organization to manage its own assignments.
+/// A current period means delegation is enabled. No current period means Facility-managed staffing.
+/// Half-open: startsAt <= instant < endsAt. Disabling this does not end assignments.
+model FacilityPartnerStaffingPolicyPeriod {
+  id                            String                         @id @default(cuid())
+  facilityPartnerOrganizationId String
+  facilityPartnerOrganization   FacilityPartnerOrganization    @relation(fields: [facilityPartnerOrganizationId], references: [id], onDelete: Cascade)
+  startsAt                      DateTime
+  endsAt                        DateTime?
+  createdByUserId               String?
+  createdByUser                 User?                          @relation("FacilityPartnerStaffingPolicyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId                 String?
+  endedByUser                   User?                          @relation("FacilityPartnerStaffingPolicyEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdByAuthorityKind        PartnerAssignmentAuthorityKind
+  createdByOrganizationId       String?
+  endedByAuthorityKind          PartnerAssignmentAuthorityKind?
+  endedByOrganizationId         String?
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+
+  @@index([facilityPartnerOrganizationId, startsAt], map: "FacilityPartnerStaffingPolicyPeriod_partner_startsAt_idx")
+  @@index([facilityPartnerOrganizationId, endsAt], map: "FacilityPartnerStaffingPolicyPeriod_partner_endsAt_idx")
+  @@index([createdByUserId])
+  @@index([endedByUserId])
+}
+
+/// Historical Facility veto of one User under one partnership.
+/// Does not require PartnerUserFacilityAccess. A current period denies Path B even if a role period is open.
+/// Half-open: startsAt <= instant < endsAt. The note is Facility-private.
+model FacilityPartnerUserRestrictionPeriod {
+  id                            String                         @id @default(cuid())
+  userId                        String
+  user                          User                           @relation("FacilityPartnerUserRestrictionSubject", fields: [userId], references: [id], onDelete: Restrict)
+  facilityPartnerOrganizationId String
+  facilityPartnerOrganization   FacilityPartnerOrganization    @relation(fields: [facilityPartnerOrganizationId], references: [id], onDelete: Cascade)
+  startsAt                      DateTime
+  endsAt                        DateTime?
+  note                          String?
+  createdByUserId               String?
+  createdByUser                 User?                          @relation("FacilityPartnerUserRestrictionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId                 String?
+  endedByUser                   User?                          @relation("FacilityPartnerUserRestrictionEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdByAuthorityKind        PartnerAssignmentAuthorityKind
+  createdByOrganizationId       String?
+  endedByAuthorityKind          PartnerAssignmentAuthorityKind?
+  endedByOrganizationId         String?
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+
+  @@index([facilityPartnerOrganizationId, userId, startsAt], map: "FacilityPartnerUserRestrictionPeriod_partner_user_startsAt_idx")
+  @@index([facilityPartnerOrganizationId, userId, endsAt], map: "FacilityPartnerUserRestrictionPeriod_partner_user_endsAt_idx")
+  @@index([userId])
   @@index([createdByUserId])
   @@index([endedByUserId])
 }
@@ -931,6 +1006,11 @@ model User {
   partnerUserFacilityAccessesCreated     PartnerUserFacilityAccess[] @relation("PartnerUserFacilityAccessCreatedBy")
   partnerUserRolePeriodsCreated          PartnerUserRolePeriod[] @relation("PartnerUserRolePeriodCreatedBy")
   partnerUserRolePeriodsEnded            PartnerUserRolePeriod[] @relation("PartnerUserRolePeriodEndedBy")
+  facilityPartnerStaffingPoliciesCreated FacilityPartnerStaffingPolicyPeriod[] @relation("FacilityPartnerStaffingPolicyCreatedBy")
+  facilityPartnerStaffingPoliciesEnded   FacilityPartnerStaffingPolicyPeriod[] @relation("FacilityPartnerStaffingPolicyEndedBy")
+  facilityPartnerUserRestrictions        FacilityPartnerUserRestrictionPeriod[] @relation("FacilityPartnerUserRestrictionSubject")
+  facilityPartnerUserRestrictionsCreated FacilityPartnerUserRestrictionPeriod[] @relation("FacilityPartnerUserRestrictionCreatedBy")
+  facilityPartnerUserRestrictionsEnded   FacilityPartnerUserRestrictionPeriod[] @relation("FacilityPartnerUserRestrictionEndedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 

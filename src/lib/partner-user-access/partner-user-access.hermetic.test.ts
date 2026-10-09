@@ -26,16 +26,21 @@ import { getCurrentOrganizationRole } from "@/lib/organization-membership";
 import { authorizeRoute } from "@/lib/route-registry/authorize";
 import {
   assignPartnerUser,
+  blockPartnerUser,
   changePartnerUserRole,
   comparePartnerRoles,
+  disablePartnerStaffingDelegation,
+  enablePartnerStaffingDelegation,
   endPartnerUserAssignment,
   isPartnerRoleAtOrBelow,
+  isPartnerStaffingDelegated,
   listAuthorizedPartnerFacilities,
   minPartnerRole,
   PartnerUserAccessError,
   partnerRoleRank,
   resolveFacilityAuthorization,
   setFacilityPartnerRoleCeiling,
+  unblockPartnerUser,
   UNVERSIONED_AUTHORIZATION_FACTS,
 } from "@/lib/partner-user-access";
 import { validateSessionAuthority } from "@/lib/session-revocation";
@@ -734,6 +739,36 @@ function createWorld() {
     endsAt: Date | null;
     createdByUserId: string | null;
     endedByUserId: string | null;
+    createdByAuthorityKind: "facility_admin" | "partner_org_admin";
+    createdByOrganizationId: string | null;
+    endedByAuthorityKind: "facility_admin" | "partner_org_admin" | null;
+    endedByOrganizationId: string | null;
+  }> = [];
+  const policies: Array<{
+    id: string;
+    facilityPartnerOrganizationId: string;
+    startsAt: Date;
+    endsAt: Date | null;
+    createdByUserId: string | null;
+    endedByUserId: string | null;
+    createdByAuthorityKind: "facility_admin" | "partner_org_admin";
+    createdByOrganizationId: string | null;
+    endedByAuthorityKind: "facility_admin" | "partner_org_admin" | null;
+    endedByOrganizationId: string | null;
+  }> = [];
+  const restrictions: Array<{
+    id: string;
+    userId: string;
+    facilityPartnerOrganizationId: string;
+    startsAt: Date;
+    endsAt: Date | null;
+    note: string | null;
+    createdByUserId: string | null;
+    endedByUserId: string | null;
+    createdByAuthorityKind: "facility_admin" | "partner_org_admin";
+    createdByOrganizationId: string | null;
+    endedByAuthorityKind: "facility_admin" | "partner_org_admin" | null;
+    endedByOrganizationId: string | null;
   }> = [];
   const facilityAccesses: Array<{ id: string; userId: string; facilityId: string; isActive: boolean; revokedAt: Date | null }> = [];
 
@@ -900,17 +935,81 @@ function createWorld() {
       },
     },
     partnerUserRolePeriod: {
-      create: async ({ data }: { data: Omit<(typeof rolePeriods)[number], "id" | "endsAt" | "endedByUserId"> }) => {
-        const row = { id: nextId("role"), endsAt: null, endedByUserId: null, ...data };
+      create: async ({ data }: { data: Omit<(typeof rolePeriods)[number], "id" | "endsAt" | "endedByUserId" | "endedByAuthorityKind" | "endedByOrganizationId"> }) => {
+        const row = {
+          id: nextId("role"),
+          endsAt: null,
+          endedByUserId: null,
+          endedByAuthorityKind: null,
+          endedByOrganizationId: null,
+          ...data,
+        };
         rolePeriods.push(row);
         return row;
       },
-      update: async ({ where, data }: { where: { id: string }; data: { endsAt?: Date; endedByUserId?: string } }) => {
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
         const row = rolePeriods.find((item) => item.id === where.id);
         if (!row) throw new Error("missing role period");
         Object.assign(row, data);
         return row;
       },
+    },
+    facilityPartnerStaffingPolicyPeriod: {
+      findMany: async ({ where }: { where: { facilityPartnerOrganizationId: string } }) =>
+        policies
+          .filter((row) => row.facilityPartnerOrganizationId === where.facilityPartnerOrganizationId)
+          .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime()),
+      create: async ({ data }: { data: Omit<(typeof policies)[number], "id" | "endsAt" | "endedByUserId" | "endedByAuthorityKind" | "endedByOrganizationId"> }) => {
+        const row = {
+          id: nextId("policy"),
+          endsAt: null,
+          endedByUserId: null,
+          endedByAuthorityKind: null,
+          endedByOrganizationId: null,
+          ...data,
+        };
+        policies.push(row);
+        return row;
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        const row = policies.find((item) => item.id === where.id);
+        if (!row) throw new Error("missing policy");
+        Object.assign(row, data);
+        return row;
+      },
+    },
+    facilityPartnerUserRestrictionPeriod: {
+      findMany: async ({
+        where,
+      }: {
+        where: { facilityPartnerOrganizationId: string; userId?: string };
+      }) =>
+        restrictions
+          .filter((row) => row.facilityPartnerOrganizationId === where.facilityPartnerOrganizationId)
+          .filter((row) => !where.userId || row.userId === where.userId)
+          .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime()),
+      create: async ({ data }: { data: Omit<(typeof restrictions)[number], "id" | "endsAt" | "endedByUserId" | "endedByAuthorityKind" | "endedByOrganizationId" | "note"> & { note?: string | null } }) => {
+        const row = {
+          id: nextId("restriction"),
+          endsAt: null,
+          endedByUserId: null,
+          endedByAuthorityKind: null,
+          endedByOrganizationId: null,
+          note: null,
+          ...data,
+        };
+        restrictions.push(row);
+        return row;
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        const row = restrictions.find((item) => item.id === where.id);
+        if (!row) throw new Error("missing restriction");
+        Object.assign(row, data);
+        return row;
+      },
+    },
+    facility: {
+      findUnique: async () => ({ id: "fac", displayName: "Terrace View" }),
     },
   };
 
@@ -926,6 +1025,8 @@ function createWorld() {
     ceilings,
     assignments,
     rolePeriods,
+    policies,
+    restrictions,
     facilityAccesses,
     memberships,
   };
@@ -1553,4 +1654,236 @@ test("invalid partner recovery stays on /partner/exit and validation stays side-
     authorizeRoute({ pathname: "/dashboard", role: null, sessionScope: "partner", featureFlags: flags }).outcome,
     "DENY",
   );
+});
+
+test("facility staffing policy and user restrictions govern assignment writers without changing Path B policy", async () => {
+  const service = readFileSync(join(root, "src/lib/partner-user-access/service.ts"), "utf8");
+  const migration = readFileSync(
+    join(root, "prisma/migrations/20261009030000_partner_staffing_governance/migration.sql"),
+    "utf8",
+  );
+  const partnerFn = service.slice(
+    service.indexOf("async function resolvePartner"),
+    service.indexOf("export async function resolveFacilityAuthorization"),
+  );
+  assert.equal(partnerFn.includes("StaffingPolicy"), false);
+  assert.match(partnerFn, /restrictionPeriods/);
+  assert.equal(service.includes("sessionVersion"), false);
+  assert.match(migration, /"createdByAuthorityKind" = 'facility_admin'/);
+  assert.match(migration, /"endedByAuthorityKind" = 'facility_admin'/);
+  assert.equal(migration.includes('INSERT INTO "FacilityPartnerStaffingPolicyPeriod"'), false);
+  assert.equal(migration.includes('INSERT INTO "FacilityPartnerUserRestrictionPeriod"'), false);
+
+  const world = createWorld();
+  await setFacilityPartnerRoleCeiling(world.db, {
+    ...world.actor,
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  assert.equal(await isPartnerStaffingDelegated(world.db, { partnershipId: "partnership" }), false);
+
+  const jane = await assignPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_OPERATOR",
+    at: at("2026-05-02T00:00:00.000Z"),
+  });
+  assert.equal(jane.rolePeriod.createdByAuthorityKind, "facility_admin");
+  assert.equal(jane.rolePeriod.createdByOrganizationId, null);
+  const beforeDisable = world.rolePeriods.length;
+  await enablePartnerStaffingDelegation(world.db, {
+    ...world.actor,
+    at: at("2026-10-08T00:00:00.000Z"),
+  });
+  assert.equal(
+    await isPartnerStaffingDelegated(world.db, {
+      partnershipId: "partnership",
+      instant: at("2026-10-20T00:00:00.000Z"),
+    }),
+    true,
+  );
+  await disablePartnerStaffingDelegation(world.db, {
+    ...world.actor,
+    at: at("2026-11-03T00:00:00.000Z"),
+  });
+  assert.equal(world.rolePeriods.length, beforeDisable);
+  assert.equal(
+    world.rolePeriods.find((period) => period.id === jane.rolePeriod.id)?.endsAt,
+    null,
+  );
+  assert.equal(
+    await isPartnerStaffingDelegated(world.db, {
+      partnershipId: "partnership",
+      instant: at("2026-11-10T00:00:00.000Z"),
+    }),
+    false,
+  );
+  await enablePartnerStaffingDelegation(world.db, {
+    ...world.actor,
+    at: at("2026-12-01T00:00:00.000Z"),
+  });
+  assert.equal(overlapping(world.policies), false);
+  assert.equal(
+    await isPartnerStaffingDelegated(world.db, {
+      partnershipId: "partnership",
+      instant: at("2026-12-02T00:00:00.000Z"),
+    }),
+    true,
+  );
+
+  const orgActor = {
+    actorUserId: "john",
+    partnershipId: "partnership",
+    facilityId: "fac",
+    authority: { kind: "partner_org_admin" as const, organizationId: "metz" },
+  };
+  for (const attempt of [
+    () => assignPartnerUser(world.db, { ...orgActor, userId: "john", partnerRole: "PARTNER_VIEWER" as const }),
+    () => changePartnerUserRole(world.db, { ...orgActor, userId: "jane", partnerRole: "PARTNER_VIEWER" as const }),
+    () => endPartnerUserAssignment(world.db, { ...orgActor, userId: "jane" }),
+    () => enablePartnerStaffingDelegation(world.db, orgActor),
+    () => disablePartnerStaffingDelegation(world.db, orgActor),
+    () => blockPartnerUser(world.db, { ...orgActor, userId: "jane" }),
+    () => unblockPartnerUser(world.db, { ...orgActor, userId: "jane" }),
+  ]) {
+    await assert.rejects(attempt, (error: unknown) => {
+      return error instanceof PartnerUserAccessError && error.code === "PARTNER_STAFFING_NOT_ENABLED";
+    });
+  }
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        actorUserId: "john",
+        partnershipId: "partnership",
+        facilityId: "fac",
+        userId: "john",
+        partnerRole: "PARTNER_VIEWER",
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "NOT_FACILITY_ADMINISTRATOR",
+  );
+
+  const ended = await endPartnerUserAssignment(world.db, {
+    ...world.actor,
+    userId: "jane",
+    at: at("2026-12-02T00:00:00.000Z"),
+  });
+  assert.equal(ended.endedByAuthorityKind, "facility_admin");
+  assert.equal(ended.endedByOrganizationId, null);
+  assert.equal(world.restrictions.length, 0);
+  await assignPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_VIEWER",
+    at: at("2026-12-03T00:00:00.000Z"),
+  });
+
+  const assignmentsBeforeBlock = world.assignments.length;
+  await blockPartnerUser(world.db, {
+    ...world.actor,
+    userId: "john",
+    note: "private facility note",
+    at: at("2026-12-04T00:00:00.000Z"),
+  });
+  assert.equal(world.assignments.length, assignmentsBeforeBlock);
+  assert.equal(world.restrictions.filter((row) => row.userId === "john" && row.endsAt === null).length, 1);
+
+  await blockPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    note: "assigned block",
+    at: at("2026-12-05T00:00:00.000Z"),
+  });
+  assert.equal(
+    world.rolePeriods.filter((period) => period.endsAt === null && period.partnerUserFacilityAccessId === jane.assignmentId).length,
+    0,
+  );
+  const blocked = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-12-06T00:00:00.000Z"),
+  });
+  assert.equal(blocked.authorization.path, "none");
+  await assert.rejects(
+    () =>
+      assignPartnerUser(world.db, {
+        ...world.actor,
+        userId: "jane",
+        partnerRole: "PARTNER_VIEWER",
+        at: at("2026-12-07T00:00:00.000Z"),
+      }),
+    (error: unknown) => error instanceof PartnerUserAccessError && error.code === "USER_RESTRICTED",
+  );
+
+  await unblockPartnerUser(world.db, {
+    ...world.actor,
+    userId: "jane",
+    at: at("2026-12-08T00:00:00.000Z"),
+  });
+  assert.equal(
+    world.rolePeriods.filter((period) => period.endsAt === null && period.partnerUserFacilityAccessId === jane.assignmentId).length,
+    0,
+  );
+  const unblocked = await resolveFacilityAuthorization(world.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-12-09T00:00:00.000Z"),
+  });
+  assert.equal(unblocked.authorization.path, "none");
+
+  const historical = createWorld();
+  await setFacilityPartnerRoleCeiling(historical.db, {
+    ...historical.actor,
+    maxPartnerRole: "PARTNER_MANAGER",
+    at: at("2026-01-01T00:00:00.000Z"),
+  });
+  const historicalJane = await assignPartnerUser(historical.db, {
+    ...historical.actor,
+    userId: "jane",
+    partnerRole: "PARTNER_OPERATOR",
+    at: at("2026-01-02T00:00:00.000Z"),
+  });
+  historical.restrictions.push({
+    id: "restriction_hist",
+    userId: "jane",
+    facilityPartnerOrganizationId: "partnership",
+    startsAt: at("2026-10-08T00:00:00.000Z"),
+    endsAt: at("2026-11-03T00:00:00.000Z"),
+    note: "private",
+    createdByUserId: "actor",
+    endedByUserId: "actor",
+    createdByAuthorityKind: "facility_admin",
+    createdByOrganizationId: null,
+    endedByAuthorityKind: "facility_admin",
+    endedByOrganizationId: null,
+  });
+  const before = await resolveFacilityAuthorization(historical.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-10-01T00:00:00.000Z"),
+  });
+  const during = await resolveFacilityAuthorization(historical.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-10-15T00:00:00.000Z"),
+  });
+  const after = await resolveFacilityAuthorization(historical.db, {
+    userId: "jane",
+    facilityId: "fac",
+    accessKind: "partner",
+    facilityPartnerOrganizationId: "partnership",
+    instant: at("2026-11-10T00:00:00.000Z"),
+  });
+  assert.equal(before.authorization.path, "partner");
+  assert.equal(during.authorization.path, "none");
+  assert.equal(after.authorization.path, "partner");
+  assert.equal(historicalJane.rolePeriod.endsAt, null);
+  assert.equal(historical.rolePeriods[0]?.endsAt, null);
 });

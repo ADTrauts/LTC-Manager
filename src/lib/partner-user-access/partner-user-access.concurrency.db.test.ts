@@ -11,8 +11,11 @@ import { PrismaClient } from "@prisma/client";
 import { periodsOverlap } from "@/lib/partner-access";
 import {
   assignPartnerUser,
+  blockPartnerUser,
   changePartnerUserRole,
+  enablePartnerStaffingDelegation,
   setFacilityPartnerRoleCeiling,
+  unblockPartnerUser,
 } from "@/lib/partner-user-access";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -164,8 +167,77 @@ test(
       assert.equal(hasOverlap(assignment.rolePeriods), false);
       const grants = await prisma.userFacilityAccess.count({ where: { userId: memberId } });
       assert.equal(grants, 0);
+
+      const enables = await Promise.allSettled([
+        enablePartnerStaffingDelegation(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+        }),
+        enablePartnerStaffingDelegation(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+        }),
+      ]);
+      assert.equal(enables.filter((result) => result.status === "fulfilled").length, 1);
+      const policies = await prisma.facilityPartnerStaffingPolicyPeriod.findMany({
+        where: { facilityPartnerOrganizationId: partnershipId },
+      });
+      assert.equal(policies.filter((period) => period.endsAt === null).length, 1);
+      assert.equal(hasOverlap(policies), false);
+
+      const blockAndChange = await Promise.allSettled([
+        blockPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+          note: "race",
+        }),
+        changePartnerUserRole(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+          partnerRole: "PARTNER_OPERATOR",
+        }),
+      ]);
+      assert.ok(blockAndChange.some((result) => result.status === "fulfilled"));
+      const restrictions = await prisma.facilityPartnerUserRestrictionPeriod.findMany({
+        where: { facilityPartnerOrganizationId: partnershipId, userId: memberId },
+      });
+      assert.ok(restrictions.filter((period) => period.endsAt === null).length <= 1);
+      assert.equal(hasOverlap(restrictions), false);
+
+      const unblockAndBlock = await Promise.allSettled([
+        unblockPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+        }),
+        blockPartnerUser(prisma, {
+          actorUserId: actorId,
+          partnershipId,
+          facilityId,
+          userId: memberId,
+        }),
+      ]);
+      assert.equal(unblockAndBlock.length, 2);
+      const afterRace = await prisma.facilityPartnerUserRestrictionPeriod.findMany({
+        where: { facilityPartnerOrganizationId: partnershipId, userId: memberId },
+      });
+      assert.ok(afterRace.filter((period) => period.endsAt === null).length <= 1);
+      assert.equal(hasOverlap(afterRace), false);
     } finally {
       if (partnershipId) {
+        await prisma.facilityPartnerUserRestrictionPeriod.deleteMany({
+          where: { facilityPartnerOrganizationId: partnershipId },
+        });
+        await prisma.facilityPartnerStaffingPolicyPeriod.deleteMany({
+          where: { facilityPartnerOrganizationId: partnershipId },
+        });
         await prisma.partnerUserRolePeriod.deleteMany({
           where: { partnerUserFacilityAccess: { facilityPartnerOrganizationId: partnershipId } },
         });

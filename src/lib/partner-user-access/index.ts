@@ -9,19 +9,26 @@ export {
 } from "./roles";
 export {
   assignPartnerUser,
+  blockPartnerUser,
   changePartnerUserRole,
+  disablePartnerStaffingDelegation,
+  enablePartnerStaffingDelegation,
   endPartnerUserAssignment,
   getPartnerUserAccessAdminView,
+  isPartnerStaffingDelegated,
   listAuthorizedPartnerFacilities,
   resolveFacilityAuthorization,
   setFacilityPartnerRoleCeiling,
+  unblockPartnerUser,
 } from "./service";
 export { PartnerUserAccessError, UNVERSIONED_AUTHORIZATION_FACTS } from "./types";
 export type {
   FacilityAuthorization,
   FacilityAuthorizationResult,
   InternalFacilityAuthorization,
+  PartnerAssignmentAuthorityKind,
   PartnerAssignmentMemberView,
+  PartnerAssignmentMutationAuthority,
   AuthorizedPartnerFacility,
   PartnerFacilityAuthorization,
   PartnerRoleHistoryRow,

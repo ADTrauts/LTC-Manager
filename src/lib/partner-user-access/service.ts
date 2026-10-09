@@ -14,7 +14,9 @@ import {
   UNVERSIONED_AUTHORIZATION_FACTS,
   type FacilityAuthorizationResult,
   type InternalFacilityAuthorization,
+  type PartnerAssignmentAuthorityKind,
   type PartnerAssignmentMemberView,
+  type PartnerAssignmentMutationAuthority,
   type PartnerFacilityAuthorization,
   type PartnerRoleHistoryRow,
   type PartnerRolePeriodView,
@@ -28,7 +30,33 @@ type ActorContext = {
   actorUserId: string;
   partnershipId: string;
   facilityId: string;
+  /**
+   * Omitted callers are Facility administrators. partner_org_admin is rejected in this phase.
+   */
+  authority?: PartnerAssignmentMutationAuthority;
 };
+
+const FACILITY_CREATED_AUTHORITY = {
+  createdByAuthorityKind: "facility_admin" as const,
+  createdByOrganizationId: null,
+};
+
+function facilityEndedAuthority(actorUserId: string) {
+  return {
+    endedByUserId: actorUserId,
+    endedByAuthorityKind: "facility_admin" as const,
+    endedByOrganizationId: null,
+  };
+}
+
+function assertPhaseAWriter(authority: PartnerAssignmentMutationAuthority | undefined) {
+  if (authority?.kind === "partner_org_admin") {
+    throw new PartnerUserAccessError(
+      "PARTNER_STAFFING_NOT_ENABLED",
+      "Organization administrators cannot manage partner assignments yet.",
+    );
+  }
+}
 
 function runInTransaction<T>(
   db: DbClient,
@@ -150,7 +178,17 @@ function toRolePeriodView(row: {
   endsAt: Date | null;
   createdByUserId: string | null;
   endedByUserId: string | null;
+  createdByAuthorityKind: PartnerAssignmentAuthorityKind;
+  createdByOrganizationId: string | null;
+  endedByAuthorityKind: PartnerAssignmentAuthorityKind | null;
+  endedByOrganizationId: string | null;
 }): PartnerRolePeriodView {
+  if (row.endsAt && !row.endedByAuthorityKind) {
+    throw new PartnerUserAccessError(
+      "INVALID_INPUT",
+      "A closed partner role period must record ending authority.",
+    );
+  }
   return {
     id: row.id,
     partnerUserFacilityAccessId: row.partnerUserFacilityAccessId,
@@ -159,6 +197,10 @@ function toRolePeriodView(row: {
     endsAt: row.endsAt,
     createdByUserId: row.createdByUserId,
     endedByUserId: row.endedByUserId,
+    createdByAuthorityKind: row.createdByAuthorityKind,
+    createdByOrganizationId: row.createdByOrganizationId,
+    endedByAuthorityKind: row.endedByAuthorityKind,
+    endedByOrganizationId: row.endedByOrganizationId,
   };
 }
 
@@ -357,6 +399,44 @@ async function loadAssignment(
   });
 }
 
+async function restrictionPeriods(
+  db: DbClient,
+  input: { partnershipId: string; userId: string },
+) {
+  return db.facilityPartnerUserRestrictionPeriod.findMany({
+    where: {
+      facilityPartnerOrganizationId: input.partnershipId,
+      userId: input.userId,
+    },
+    orderBy: { startsAt: "asc" },
+  });
+}
+
+async function assertNotRestricted(
+  db: DbClient,
+  partnershipId: string,
+  userId: string,
+  instant: Date,
+) {
+  const current = findPeriodContainingInstant(
+    await restrictionPeriods(db, { partnershipId, userId }),
+    instant,
+  );
+  if (current) {
+    throw new PartnerUserAccessError(
+      "USER_RESTRICTED",
+      "This Facility has restricted this user from partner access.",
+    );
+  }
+}
+
+async function policyPeriods(db: DbClient, partnershipId: string) {
+  return db.facilityPartnerStaffingPolicyPeriod.findMany({
+    where: { facilityPartnerOrganizationId: partnershipId },
+    orderBy: { startsAt: "asc" },
+  });
+}
+
 export async function assignPartnerUser(
   db: DbClient,
   input: ActorContext & {
@@ -366,6 +446,7 @@ export async function assignPartnerUser(
   },
 ): Promise<{ assignmentId: string; rolePeriod: PartnerRolePeriodView }> {
   const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
   const assigned = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
     await assertFacilityAdministrator(tx, input);
@@ -389,6 +470,7 @@ export async function assignPartnerUser(
         "This user already has a current partner assignment. Change the role or end it first.",
       );
     }
+    await assertNotRestricted(tx, partnership.id, input.userId, at);
     if (!assignment) {
       assignment = await tx.partnerUserFacilityAccess.create({
         data: {
@@ -405,6 +487,7 @@ export async function assignPartnerUser(
         partnerRole: input.partnerRole,
         startsAt: at,
         createdByUserId: input.actorUserId,
+        ...FACILITY_CREATED_AUTHORITY,
       },
     });
     const periods = [
@@ -436,10 +519,12 @@ export async function changePartnerUserRole(
   },
 ): Promise<PartnerRolePeriodView> {
   const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
   const next = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
     await assertFacilityAdministrator(tx, input);
     const partnership = await loadPartnership(tx, input);
+    await assertNotRestricted(tx, partnership.id, input.userId, at);
     await assertAssignable(tx, {
       partnership,
       userId: input.userId,
@@ -464,7 +549,7 @@ export async function changePartnerUserRole(
     }
     await tx.partnerUserRolePeriod.update({
       where: { id: current.id },
-      data: { endsAt: at, endedByUserId: input.actorUserId },
+      data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
     });
     const created = await tx.partnerUserRolePeriod.create({
       data: {
@@ -472,6 +557,7 @@ export async function changePartnerUserRole(
         partnerRole: input.partnerRole,
         startsAt: at,
         createdByUserId: input.actorUserId,
+        ...FACILITY_CREATED_AUTHORITY,
       },
     });
     const periods = assignment.rolePeriods.map((period) =>
@@ -498,6 +584,7 @@ export async function endPartnerUserAssignment(
   input: ActorContext & { userId: string; at?: Date },
 ): Promise<PartnerRolePeriodView> {
   const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
   const closed = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
     await assertFacilityAdministrator(tx, input);
@@ -517,7 +604,7 @@ export async function endPartnerUserAssignment(
     }
     const updated = await tx.partnerUserRolePeriod.update({
       where: { id: current.id },
-      data: { endsAt: at, endedByUserId: input.actorUserId },
+      data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
     });
     return toRolePeriodView(updated);
   });
@@ -528,6 +615,194 @@ export async function endPartnerUserAssignment(
     userId: input.userId,
   });
   return closed;
+}
+
+export async function isPartnerStaffingDelegated(
+  db: DbClient,
+  input: { partnershipId: string; instant?: Date },
+): Promise<boolean> {
+  const instant = input.instant ?? new Date();
+  const current = findPeriodContainingInstant(await policyPeriods(db, input.partnershipId), instant);
+  return current !== null;
+}
+
+export async function enablePartnerStaffingDelegation(
+  db: DbClient,
+  input: ActorContext & { at?: Date },
+) {
+  const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
+  return runInTransaction(db, async (tx) => {
+    await lockPartnership(tx, input.partnershipId);
+    await assertFacilityAdministrator(tx, input);
+    const partnership = await loadPartnership(tx, input);
+    const periods = await policyPeriods(tx, partnership.id);
+    if (findPeriodContainingInstant(periods, at)) {
+      throw new PartnerUserAccessError(
+        "POLICY_ALREADY_ENABLED",
+        "Organization staffing delegation is already enabled.",
+      );
+    }
+    const created = await tx.facilityPartnerStaffingPolicyPeriod.create({
+      data: {
+        facilityPartnerOrganizationId: partnership.id,
+        startsAt: at,
+        createdByUserId: input.actorUserId,
+        ...FACILITY_CREATED_AUTHORITY,
+      },
+    });
+    assertNoOverlap(
+      [...periods, created].map((period) => ({ startsAt: period.startsAt, endsAt: period.endsAt })),
+      "Staffing policy periods must not overlap.",
+    );
+    return created;
+  });
+}
+
+export async function disablePartnerStaffingDelegation(
+  db: DbClient,
+  input: ActorContext & { at?: Date },
+) {
+  const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
+  return runInTransaction(db, async (tx) => {
+    await lockPartnership(tx, input.partnershipId);
+    await assertFacilityAdministrator(tx, input);
+    const partnership = await loadPartnership(tx, input);
+    const periods = await policyPeriods(tx, partnership.id);
+    const current = findPeriodContainingInstant(periods, at);
+    if (!current) {
+      throw new PartnerUserAccessError(
+        "POLICY_NOT_ENABLED",
+        "Organization staffing delegation is not enabled.",
+      );
+    }
+    const closed = await tx.facilityPartnerStaffingPolicyPeriod.update({
+      where: { id: current.id },
+      data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
+    });
+    assertNoOverlap(
+      periods.map((period) =>
+        period.id === current.id
+          ? { startsAt: period.startsAt, endsAt: at }
+          : { startsAt: period.startsAt, endsAt: period.endsAt },
+      ),
+      "Staffing policy periods must not overlap.",
+    );
+    return closed;
+  });
+}
+
+export async function blockPartnerUser(
+  db: DbClient,
+  input: ActorContext & { userId: string; note?: string | null; at?: Date },
+) {
+  const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
+  const note = input.note?.trim() ? input.note.trim() : null;
+  return runInTransaction(db, async (tx) => {
+    await lockPartnership(tx, input.partnershipId);
+    await assertFacilityAdministrator(tx, input);
+    const partnership = await loadPartnership(tx, input);
+    const assignment = await loadAssignment(tx, {
+      userId: input.userId,
+      partnershipId: partnership.id,
+    });
+    const membership = await membershipRoleAt(tx, {
+      userId: input.userId,
+      organizationId: partnership.organizationId,
+      instant: at,
+    });
+    if (!membership && !assignment) {
+      throw new PartnerUserAccessError(
+        "NOT_CURRENT_MEMBER",
+        "Only a current Organization member, or a user with assignment history under this partnership, can be restricted.",
+      );
+    }
+    const restrictions = await restrictionPeriods(tx, {
+      partnershipId: partnership.id,
+      userId: input.userId,
+    });
+    const currentRole = assignment
+      ? findPeriodContainingInstant(assignment.rolePeriods, at)
+      : null;
+    if (currentRole) {
+      await tx.partnerUserRolePeriod.update({
+        where: { id: currentRole.id },
+        data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
+      });
+    }
+    const already = findPeriodContainingInstant(restrictions, at);
+    if (already) {
+      if (!currentRole) {
+        throw new PartnerUserAccessError(
+          "ALREADY_RESTRICTED",
+          "This user is already restricted by the Facility.",
+        );
+      }
+      return already;
+    }
+    const created = await tx.facilityPartnerUserRestrictionPeriod.create({
+      data: {
+        userId: input.userId,
+        facilityPartnerOrganizationId: partnership.id,
+        startsAt: at,
+        note,
+        createdByUserId: input.actorUserId,
+        ...FACILITY_CREATED_AUTHORITY,
+      },
+    });
+    assertNoOverlap(
+      [...restrictions, created].map((period) => ({
+        startsAt: period.startsAt,
+        endsAt: period.endsAt,
+      })),
+      "User restriction periods must not overlap.",
+    );
+    return created;
+  });
+}
+
+export async function unblockPartnerUser(
+  db: DbClient,
+  input: ActorContext & { userId: string; at?: Date },
+) {
+  const at = input.at ?? new Date();
+  assertPhaseAWriter(input.authority);
+  return runInTransaction(db, async (tx) => {
+    await lockPartnership(tx, input.partnershipId);
+    await assertFacilityAdministrator(tx, input);
+    const partnership = await loadPartnership(tx, input);
+    const restrictions = await restrictionPeriods(tx, {
+      partnershipId: partnership.id,
+      userId: input.userId,
+    });
+    const current = findPeriodContainingInstant(restrictions, at);
+    if (!current) {
+      throw new PartnerUserAccessError(
+        "RESTRICTION_NOT_CURRENT",
+        "This user is not currently restricted.",
+      );
+    }
+    const closed = await tx.facilityPartnerUserRestrictionPeriod.update({
+      where: { id: current.id },
+      data: { endsAt: at, ...facilityEndedAuthority(input.actorUserId) },
+    });
+    const assignment = await loadAssignment(tx, {
+      userId: input.userId,
+      partnershipId: partnership.id,
+    });
+    const stillAssigned = assignment
+      ? findPeriodContainingInstant(assignment.rolePeriods, at)
+      : null;
+    if (stillAssigned) {
+      throw new PartnerUserAccessError(
+        "INVALID_INPUT",
+        "Unblock must not leave or create a partner assignment.",
+      );
+    }
+    return closed;
+  });
 }
 
 export async function getPartnerUserAccessAdminView(
@@ -555,6 +830,15 @@ export async function getPartnerUserAccessAdminView(
     },
   });
   const assignmentByUser = new Map(assignments.map((row) => [row.userId, row]));
+  const restrictions = await db.facilityPartnerUserRestrictionPeriod.findMany({
+    where: { facilityPartnerOrganizationId: partnership.id },
+    orderBy: { startsAt: "asc" },
+  });
+  const policies = await policyPeriods(db, partnership.id);
+  const facility = await db.facility.findUnique({
+    where: { id: partnership.facilityId },
+    select: { displayName: true },
+  });
   const members: PartnerAssignmentMemberView[] = [];
   for (const membership of memberships) {
     if (!membership.user.isActive || !membership.organization.isActive) continue;
@@ -564,6 +848,10 @@ export async function getPartnerUserAccessAdminView(
     const assigned = assignment
       ? findPeriodContainingInstant(assignment.rolePeriods, now)
       : null;
+    const restriction = findPeriodContainingInstant(
+      restrictions.filter((period) => period.userId === membership.userId),
+      now,
+    );
     members.push({
       userId: membership.user.id,
       email: membership.user.email,
@@ -575,6 +863,9 @@ export async function getPartnerUserAccessAdminView(
         assigned && currentCeiling
           ? minPartnerRole(assigned.partnerRole, currentCeiling.maxPartnerRole)
           : null,
+      restricted: restriction !== null,
+      restrictionNote: restriction?.note ?? null,
+      createdByAuthorityKind: assigned?.createdByAuthorityKind ?? null,
     });
   }
   const rolePeriods: PartnerRoleHistoryRow[] = assignments.flatMap((assignment) =>
@@ -587,6 +878,8 @@ export async function getPartnerUserAccessAdminView(
     partnershipId: partnership.id,
     facilityId: partnership.facilityId,
     organizationId: partnership.organizationId,
+    facilityDisplayName: facility?.displayName ?? "Facility",
+    staffingDelegationEnabled: findPeriodContainingInstant(policies, now) !== null,
     currentCeiling,
     ceilingPeriods: ceilings,
     members,
@@ -701,6 +994,14 @@ async function resolvePartner(
     if (!partnership.organization.isActive) continue;
     const rolePeriod = findPeriodContainingInstant(assignment.rolePeriods, input.instant);
     if (!rolePeriod) continue;
+    const restricted = findPeriodContainingInstant(
+      await restrictionPeriods(db, {
+        partnershipId: partnership.id,
+        userId: input.userId,
+      }),
+      input.instant,
+    );
+    if (restricted) continue;
     const membership = await membershipRoleAt(db, {
       userId: input.userId,
       organizationId: partnership.organizationId,
