@@ -372,6 +372,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Current non-retired Assets for the active partner Department. Read only. Asset.departmentId is the access rule.",
   },
   {
+    pattern: "/partner/assets/[assetId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Safe identity for one non-retired Asset in the active partner Department. A miss is not found.",
+  },
+  {
     pattern: "/partner/logs/records/[recordId]",
     match: "EXACT",
     surface: "PAGE",

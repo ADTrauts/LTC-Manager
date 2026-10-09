@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { PartnerAssetListItem } from "@/lib/asset-operations/load-partner-assets";
 
 export function PartnerAssetList({
@@ -19,7 +21,11 @@ export function PartnerAssetList({
         <ul className="space-y-3">
           {assets.map((asset) => (
             <li key={asset.id} className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm">
-              <p className="font-medium text-zinc-900">{asset.name}</p>
+              <p className="font-medium text-zinc-900">
+                <Link href={`/partner/assets/${asset.id}`} className="underline-offset-2 hover:underline">
+                  {asset.name}
+                </Link>
+              </p>
               <p className="text-zinc-600">
                 {asset.assetCode}
                 {asset.facilityAssetNumber ? ` · ${asset.facilityAssetNumber}` : ""}

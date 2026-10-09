@@ -366,6 +366,8 @@ test("partner session may open home and canonical log reads", () => {
     "/staffing/logs",
     "/staffing/logs/records/rec",
     "/assets",
+    "/assets/builder",
+    "/assets/ast",
     "/employees",
     "/reports",
     "/menus",
@@ -395,7 +397,7 @@ test("partner session may open home and canonical log reads", () => {
     featureFlags: FLAGS,
   });
   assert.equal(holding.outcome, "ALLOW");
-  for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations", "/partner/assets"]) {
+  for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations", "/partner/assets", "/partner/assets/ast"]) {
     const decision = authorizeRoute({
       pathname,
       role: null,
@@ -410,6 +412,13 @@ test("partner session may open home and canonical log reads", () => {
       featureFlags: FLAGS,
     });
     assert.equal(internal.outcome, "DENY", pathname);
+    const organization = authorizeRoute({
+      pathname,
+      role: null,
+      sessionScope: "organization",
+      featureFlags: FLAGS,
+    });
+    assert.equal(organization.outcome, "DENY", pathname);
   }
   const exit = authorizeRoute({
     pathname: "/partner/exit",

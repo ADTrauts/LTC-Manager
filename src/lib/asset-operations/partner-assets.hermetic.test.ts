@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { loadPartnerAssets } from "@/lib/asset-operations/load-partner-assets";
+import { loadPartnerAssetDetail, loadPartnerAssets } from "@/lib/asset-operations/load-partner-assets";
 import { canPartner, PARTNER_CAPABILITIES } from "@/lib/partner-user-access";
 import { partnerShellReturnPath } from "@/lib/partner-operational-context";
 
@@ -58,6 +58,12 @@ test("partner asset capability is read-only", () => {
   }
   assert.equal(PARTNER_CAPABILITIES.includes("assets.update" as never), false);
   assert.equal(partnerShellReturnPath("/partner/assets"), "/partner/assets");
+  const departmentSwitch = readFileSync(
+    join(process.cwd(), "src/components/partner/partner-department-switch.tsx"),
+    "utf8",
+  );
+  assert.match(departmentSwitch, /pathname\.startsWith\("\/partner\/assets"\)/);
+  assert.match(departmentSwitch, /\? "\/partner\/assets"/);
   assert.equal(partnerShellReturnPath("/assets"), "/partner");
 });
 
@@ -118,4 +124,119 @@ test("blank department fails closed", async () => {
     () => loadPartnerAssets({ client: { asset: { findMany: async () => [] } } as never, facilityId: "terrace", departmentId: " " }),
     /one Department/,
   );
+});
+
+type DetailRow = Row & {
+  manufacturer: string | null;
+  model: string | null;
+  roomNumber: string | null;
+};
+
+function detailClient(rows: DetailRow[]) {
+  return {
+    asset: {
+      findFirst: async (args: {
+        where: { id: string; departmentId: string; status: { not: string }; unit: { facilityId: string } };
+      }) => {
+        const where = args.where;
+        assert.equal("OR" in where, false);
+        return (
+          rows.find(
+            (row) =>
+              row.id === where.id &&
+              row.departmentId === where.departmentId &&
+              row.status !== where.status.not &&
+              row.unit.facilityId === where.unit.facilityId,
+          ) ?? null
+        );
+      },
+    },
+  };
+}
+
+function detailAsset(partial: Partial<DetailRow> & Pick<DetailRow, "id" | "name" | "departmentId">): DetailRow {
+  return {
+    ...asset(partial),
+    manufacturer: partial.manufacturer ?? "True",
+    model: partial.model ?? "T-49",
+    roomNumber: partial.roomNumber ?? null,
+    ...partial,
+  };
+}
+
+test("partner asset detail allows only the active department asset", async () => {
+  const rows = [
+    detailAsset({ id: "cooler", name: "Cooler", departmentId: "food", space: { name: "EVS Storage" }, roomNumber: "101" }),
+    detailAsset({ id: "scrubber", name: "Floor Scrubber", departmentId: "evs" }),
+    detailAsset({ id: "shelf", name: "Shelf", departmentId: null }),
+    detailAsset({
+      id: "hp",
+      name: "HighPointe Cooler",
+      departmentId: "food",
+      unit: { facilityId: "highpointe", name: "Kitchen" },
+    }),
+    detailAsset({ id: "retired", name: "Old Brewer", departmentId: "food", status: "RETIRED" }),
+  ];
+  const client = detailClient(rows) as never;
+  const food = await loadPartnerAssetDetail({ client, facilityId: "terrace", departmentId: "food", assetId: "cooler" });
+  assert.equal(food?.name, "Cooler");
+  assert.equal(food?.roomName, "EVS Storage");
+  assert.equal(food?.manufacturer, "True");
+  assert.deepEqual(Object.keys(food ?? {}).sort(), [
+    "assetCode",
+    "criticality",
+    "equipmentType",
+    "facilityAssetNumber",
+    "id",
+    "manufacturer",
+    "model",
+    "name",
+    "roomName",
+    "roomNumber",
+    "serialNumber",
+    "status",
+    "unitName",
+  ]);
+  for (const id of ["scrubber", "shelf", "hp", "retired", "missing"]) {
+    assert.equal(
+      await loadPartnerAssetDetail({ client, facilityId: "terrace", departmentId: "food", assetId: id }),
+      null,
+      id,
+    );
+  }
+});
+
+test("partner asset detail follows reassignment to another department or null", async () => {
+  const cooler = detailAsset({ id: "cooler", name: "Cooler", departmentId: "food" });
+  const client = detailClient([cooler]) as never;
+  assert.equal(
+    (await loadPartnerAssetDetail({ client, facilityId: "terrace", departmentId: "food", assetId: "cooler" }))?.name,
+    "Cooler",
+  );
+  cooler.departmentId = "evs";
+  assert.equal(
+    await loadPartnerAssetDetail({ client, facilityId: "terrace", departmentId: "food", assetId: "cooler" }),
+    null,
+  );
+  assert.equal(
+    (await loadPartnerAssetDetail({ client, facilityId: "terrace", departmentId: "evs", assetId: "cooler" }))?.name,
+    "Cooler",
+  );
+  cooler.departmentId = null;
+  assert.equal(
+    await loadPartnerAssetDetail({ client, facilityId: "terrace", departmentId: "evs", assetId: "cooler" }),
+    null,
+  );
+});
+
+test("partner asset list links only to the partner detail route", () => {
+  const list = readFileSync(join(process.cwd(), "src/components/partner/partner-asset-list.tsx"), "utf8");
+  const detail = readFileSync(join(process.cwd(), "src/components/partner/partner-asset-detail.tsx"), "utf8");
+  const loader = readFileSync(join(process.cwd(), "src/lib/asset-operations/load-partner-assets.ts"), "utf8");
+  assert.match(list, /\/partner\/assets\/\$\{asset\.id\}/);
+  assert.equal(list.includes('href="/assets/'), false);
+  assert.match(detail, /href="\/partner\/assets"/);
+  for (const forbidden of ["getAssetProfile", "assetResponsibleDepartmentWhere", "repair", "assetIssue", "notes", "vendor"]) {
+    assert.equal(loader.includes(forbidden), false, forbidden);
+  }
 });
