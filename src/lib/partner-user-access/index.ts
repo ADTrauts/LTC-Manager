@@ -22,6 +22,18 @@ export {
   setFacilityPartnerRoleCeiling,
   unblockPartnerUser,
 } from "./service";
+export {
+  assignOrganizationClientMember,
+  changeOrganizationClientMemberRole,
+  endOrganizationClientMemberAccess,
+  listOrganizationClientStaffing,
+  organizationClientStaffingErrorMessage,
+} from "./organization-clients";
+export type {
+  OrganizationClientAssignment,
+  OrganizationClientMember,
+  OrganizationClientStaffing,
+} from "./organization-clients";
 export { PartnerUserAccessError, UNVERSIONED_AUTHORIZATION_FACTS } from "./types";
 export type {
   FacilityAuthorization,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { enterPartnerFacilityAction } from "@/app/partner/actions";
+import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import {
   getOrganizationMembers,
@@ -49,6 +50,11 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
 
   return (
     <div className="space-y-6" data-testid="organization-home-detail">
+      <OrganizationWorkspaceNav
+        organizationId={organizationId}
+        current="home"
+        isAdmin={membership.currentRole === "ORG_ADMIN"}
+      />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
           {organizationDisplayLabel(membership.organization)}
@@ -67,19 +73,9 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
           </p>
         ) : null}
         <p className="mt-2 text-xs text-zinc-500">
-          Organization membership does not grant access to customer Facilities. Client access below
+          Organization membership does not grant access to customer Facilities. My client access
           lists only your current personal partner assignments.
         </p>
-        {membership.currentRole === "ORG_ADMIN" ? (
-          <p className="mt-3">
-            <Link
-              href={`/organization/${organizationId}/members`}
-              className="text-sm font-medium underline-offset-2 hover:underline"
-            >
-              Manage members
-            </Link>
-          </p>
-        ) : null}
       </div>
 
       <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
@@ -105,7 +101,7 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
       </section>
 
       <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="client-access">
-        <h2 className="text-sm font-semibold text-zinc-900">Client access</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">My client access</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Enter a client Facility only when you mean to work there as this Organization.
         </p>

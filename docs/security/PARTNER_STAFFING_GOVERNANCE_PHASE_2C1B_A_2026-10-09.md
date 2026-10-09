@@ -54,6 +54,18 @@ The assignment transaction still re-reads Organization membership after locking 
 
 One `sessionVersion` increment still happens after a membership end that requests session revocation. Closed Facility assignments do not each increment it.
 
+## Organization Clients
+
+`/organization/[organizationId]/clients` is the Organization-side staffing surface for a live `ORG_ADMIN` in an Organization session. It lists client Facility relationships for that Organization: Department scope, maximum partner role, whether the Organization may manage assignments, current assignments, and members the Facility has restricted. It is not a portfolio and does not show operational metrics.
+
+My client access, on Organization Home, answers where the signed-in person can enter. Clients answers where the Organization has relationships and where an administrator may manage staffing.
+
+Staffing actions call `assignPartnerUser`, `changePartnerUserRole`, and `endPartnerUserAssignment` with `partner_org_admin` authority taken from the signed Organization session. The form does not choose the Organization or the authority kind. `ORG_MEMBER` receives neither the page nor a successful action. There is no Organization control for block, unblock, Department scope, role ceiling, staffing delegation, or partnership suspension.
+
+Facility restriction notes stay on the Facility admin view. The Organization payload says only that the member is restricted by the facility.
+
+Rejoining Organization membership does not restore previous Facility assignments. The Clients page shows that person as a current member who is not assigned, and My client access stays empty until a new assignment.
+
 Policy and restriction periods use the same Facility provenance on create and end.
 
 ## Runtime

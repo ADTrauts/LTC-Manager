@@ -392,6 +392,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Organization member administration. ORG_ADMIN authority is re-checked server-side. Grants no Facility access.",
   },
   {
+    pattern: "/organization/[organizationId]/clients",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Organization client staffing. Live ORG_ADMIN is re-checked server-side. Not a Facility or partner session route.",
+  },
+  {
     pattern: "/organization/members/invite/[token]",
     match: "EXACT",
     surface: "PAGE",
