@@ -11,8 +11,7 @@ import {
   signupAccountBucketKey,
   signupIpBucketKey,
 } from "@/lib/auth-rate-limit";
-import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
-import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
+import { internalFacilityContextKey } from "@/lib/available-contexts";
 import { isEmailConfigured, sendSignupEmailVerification } from "@/lib/email";
 import {
   buildEmailVerificationUrl,
@@ -20,12 +19,13 @@ import {
   issueEmailVerificationToken,
 } from "@/lib/email-verification/tokens";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
-import {
-  internalRoleKeyAsAppRole,
-  resolveInternalFacilitySessionRole,
-} from "@/lib/facility-access/internal-facility-role";
 import { createOrganizationForNewFacility } from "@/lib/organization";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
+import {
+  applyAuthenticatedUserLandingCookies,
+  enterGrantedContext,
+  PostAuthRoutingError,
+} from "@/lib/post-auth-routing";
 import { initialFacilityCreatorRoles } from "@/lib/signup-facility-creator";
 import { prisma } from "@/lib/prisma";
 import { rosterNameFromSignupDisplayName } from "@/lib/roster-name";
@@ -141,13 +141,12 @@ export async function POST(request: Request) {
         // When outbound mail is off (local/dev), skip the verify gate so signup stays usable.
         emailVerifiedAt: mailConfigured ? null : new Date(),
       },
-      include: { role: true },
     });
 
     await ensureUserFacilityAccessGrant(tx, {
       userId: user.id,
       facilityId: facility.id,
-      roleKey: user.role?.key ?? creatorUserRole.key,
+      roleKey: creatorUserRole.key,
     });
 
     await tx.employee.create({
@@ -169,42 +168,35 @@ export async function POST(request: Request) {
   await resetAuthRateLimitBucket(accountBucketKey);
 
   if (!mailConfigured || created.user.emailVerifiedAt) {
-    if (!created.user.role?.key || !created.user.facilityId) {
+    const refreshed = await prisma.user.findUnique({
+      where: { id: created.user.id },
+      select: { sessionVersion: true, isActive: true },
+    });
+    if (!refreshed?.isActive) {
       return NextResponse.json(
-        { error: "Account could not be activated. Contact support." },
-        { status: 500 },
+        { ok: true, nextPath: "/login", sessionPending: true },
       );
     }
-    const resolved = await resolveInternalFacilitySessionRole(prisma, {
-      userId: created.user.id,
-      facilityId: created.facility.id,
-      fallbackRoleKey: created.user.role.key,
-    });
-    if (!resolved) {
-      return NextResponse.json(
-        { error: "Account could not be activated. Contact support." },
-        { status: 500 },
-      );
+
+    try {
+      const landing = await enterGrantedContext(prisma, {
+        userId: created.user.id,
+        contextKey: internalFacilityContextKey(created.facility.id),
+        sessionVersion: refreshed.sessionVersion,
+      });
+      await trackEvent("signup.completed", {
+        facilityId: created.facility.id,
+        userId: created.user.id,
+      });
+      const response = NextResponse.json({ ok: true, nextPath: ONBOARDING_ENTRY_PATH });
+      applyAuthenticatedUserLandingCookies(response.cookies, landing);
+      return response;
+    } catch (error) {
+      if (error instanceof PostAuthRoutingError) {
+        return NextResponse.json({ ok: true, nextPath: "/login", sessionPending: true });
+      }
+      return NextResponse.json({ ok: true, nextPath: "/login", sessionPending: true });
     }
-    const token = await createSessionToken({
-      uid: created.user.id,
-      authKind: "user",
-      role: internalRoleKeyAsAppRole(resolved.roleKey),
-      name: created.user.displayName,
-      email: created.user.email,
-      facilityId: created.facility.id,
-      sessionVersion: created.user.sessionVersion,
-    });
-
-    await trackEvent("signup.completed", {
-      facilityId: created.facility.id,
-      userId: created.user.id,
-    });
-
-    const response = NextResponse.json({ ok: true, nextPath: ONBOARDING_ENTRY_PATH });
-    response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
-    response.cookies.set(DEVICE_FACILITY_COOKIE, created.facility.id, getDeviceCookieOptions());
-    return response;
   }
 
   const issued = await issueEmailVerificationToken(prisma, created.user.id);

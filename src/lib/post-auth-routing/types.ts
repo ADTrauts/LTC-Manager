@@ -13,6 +13,7 @@ export type AuthenticatedUserLanding =
       token: string;
       redirectPath: "/access";
       contextCount: number;
+      fallbackToAccount?: boolean;
     }
   | {
       kind: "context";

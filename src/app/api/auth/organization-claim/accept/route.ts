@@ -2,18 +2,19 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  createOrganizationSessionToken,
-  getAppSession,
-  getCookieOptions,
-  SESSION_COOKIE,
-} from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
+import { organizationContextKey } from "@/lib/available-contexts";
 import {
   OrganizationClaimError,
   acceptOrganizationClaim,
   findClaimableInvitationByRawToken,
 } from "@/lib/organization-claims";
+import {
+  applyAuthenticatedUserLandingCookies,
+  enterGrantedContext,
+  PostAuthRoutingError,
+} from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
 
 const acceptSchema = z.object({
@@ -67,8 +68,7 @@ export async function POST(request: Request) {
   }
 
   let passwordHash: string | null | undefined;
-  const needsPassword =
-    !existingUser || !existingUser.passwordHash;
+  const needsPassword = !existingUser || !existingUser.passwordHash;
 
   if (needsPassword) {
     if (!parsed.data.password || !parsed.data.confirmPassword) {
@@ -82,7 +82,6 @@ export async function POST(request: Request) {
     }
     passwordHash = await bcrypt.hash(parsed.data.password, 12);
   } else if (!session || session.authKind !== "user") {
-    // Existing User with password must authenticate first.
     return NextResponse.json(
       {
         error: "Sign in with the invited email, then return to this claim link to accept.",
@@ -104,29 +103,25 @@ export async function POST(request: Request) {
       where: { id: result.userId },
       select: {
         id: true,
-        email: true,
-        displayName: true,
         sessionVersion: true,
+        isActive: true,
       },
     });
-    if (!user) {
+    if (!user?.isActive) {
       return NextResponse.json({ error: "Account missing after claim acceptance." }, { status: 500 });
     }
 
-    const token = await createOrganizationSessionToken({
-      uid: user.id,
-      authMethod: "PASSWORD",
-      name: user.displayName,
-      email: user.email,
-      organizationId: result.organizationId,
+    const landing = await enterGrantedContext(prisma, {
+      userId: user.id,
+      contextKey: organizationContextKey(result.organizationId),
       sessionVersion: user.sessionVersion,
     });
 
     const response = NextResponse.json({
       ok: true,
-      nextPath: `/organization/${result.organizationId}`,
+      nextPath: landing.redirectPath,
     });
-    response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
+    applyAuthenticatedUserLandingCookies(response.cookies, landing);
     return response;
   } catch (error) {
     if (error instanceof OrganizationClaimError) {
@@ -137,6 +132,9 @@ export async function POST(request: Request) {
             ? 409
             : 400;
       return NextResponse.json({ error: error.message, code: error.code }, { status });
+    }
+    if (error instanceof PostAuthRoutingError) {
+      return NextResponse.json({ error: "Unable to accept this claim." }, { status: 401 });
     }
     return NextResponse.json({ error: "Unable to accept this claim." }, { status: 500 });
   }

@@ -2,14 +2,14 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { findValidAccountInviteToken } from "@/lib/account-invite/tokens";
-import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
-import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import { internalFacilityContextKey } from "@/lib/available-contexts";
 import {
-  internalRoleKeyAsAppRole,
-  resolveInternalFacilitySessionRole,
-} from "@/lib/facility-access/internal-facility-role";
+  applyAuthenticatedUserLandingCookies,
+  enterGrantedContext,
+  PostAuthRoutingError,
+  routeAuthenticatedUser,
+} from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -48,18 +48,10 @@ export async function POST(request: Request) {
       facilityId: true,
       passwordHash: true,
       sessionVersion: true,
-      role: { select: { key: true } },
     },
   });
   if (!user) {
     return NextResponse.json({ error: "This invite link is invalid or expired." }, { status: 400 });
-  }
-  // Account invites are Facility-native only. Organization claim acceptance is a separate flow.
-  if (!user.facilityId || !user.role?.key) {
-    return NextResponse.json(
-      { error: "This invite link is invalid or expired." },
-      { status: 400 },
-    );
   }
   if (user.passwordHash) {
     return NextResponse.json(
@@ -67,9 +59,6 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-
-  const facilityId = user.facilityId;
-  const roleKey = user.role.key;
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   const now = new Date();
@@ -92,37 +81,41 @@ export async function POST(request: Request) {
     });
   });
 
-  await ensureUserFacilityAccessGrant(prisma, {
-    userId: user.id,
-    facilityId,
-    roleKey,
+  const refreshed = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, facilityId: true, sessionVersion: true, isActive: true },
   });
-  const resolved = await resolveInternalFacilitySessionRole(prisma, {
-    userId: user.id,
-    facilityId,
-    fallbackRoleKey: roleKey,
-  });
-  if (!resolved) {
+  if (!refreshed?.isActive) {
     return NextResponse.json({ error: "This invite link is invalid or expired." }, { status: 400 });
   }
 
-  const sessionToken = await createSessionToken({
-    uid: user.id,
-    authKind: "user",
-    role: internalRoleKeyAsAppRole(resolved.roleKey),
-    name: user.displayName,
-    email: user.email,
-    facilityId,
-    sessionVersion: user.sessionVersion,
-  });
+  try {
+    const landing = refreshed.facilityId
+      ? await enterGrantedContext(prisma, {
+          userId: refreshed.id,
+          contextKey: internalFacilityContextKey(refreshed.facilityId),
+          sessionVersion: refreshed.sessionVersion,
+        })
+      : await routeAuthenticatedUser(prisma, {
+          userId: refreshed.id,
+          sessionVersion: refreshed.sessionVersion,
+        });
 
-  await trackEvent("account.invite_accepted", {
-    facilityId,
-    userId: user.id,
-  });
+    await trackEvent("account.invite_accepted", {
+      facilityId: refreshed.facilityId,
+      userId: refreshed.id,
+    });
 
-  const response = NextResponse.json({ ok: true, nextPath: "/dashboard" });
-  response.cookies.set(SESSION_COOKIE, sessionToken, getCookieOptions());
-  response.cookies.set(DEVICE_FACILITY_COOKIE, facilityId, getDeviceCookieOptions());
-  return response;
+    const response = NextResponse.json({
+      ok: true,
+      nextPath: landing.redirectPath,
+    });
+    applyAuthenticatedUserLandingCookies(response.cookies, landing);
+    return response;
+  } catch (error) {
+    if (error instanceof PostAuthRoutingError) {
+      return NextResponse.json({ error: "This invite link is invalid or expired." }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Unable to complete this invite." }, { status: 500 });
+  }
 }

@@ -9,6 +9,7 @@ import { listAvailableContexts } from "@/lib/available-contexts";
 import { isAccountSession, verifySessionToken } from "@/lib/auth";
 import { ContextEntryError, enterContext } from "@/lib/context-entry";
 
+import { enterGrantedContext } from "./enter-granted";
 import { routeAuthenticatedUser } from "./route";
 import { PostAuthRoutingError } from "./types";
 
@@ -841,19 +842,15 @@ test("Harbor login does not use User context routing", () => {
   assert.equal(harbor.includes("enterContext"), false);
 });
 
-test("signup, verification, and invites remain deferred from the post-auth router", () => {
-  const deferred = [
-    "src/app/api/auth/signup/route.ts",
-    "src/app/api/auth/email-verification/confirm/route.ts",
-    "src/app/api/auth/account-invite/confirm/route.ts",
-    "src/app/api/auth/organization-member-invitation/accept/route.ts",
-    "src/app/api/auth/organization-claim/accept/route.ts",
-    "src/app/api/auth/employee-link/accept/route.ts",
-  ];
-  for (const relative of deferred) {
-    const source = readFileSync(join(process.cwd(), relative), "utf8");
-    assert.equal(source.includes("routeAuthenticatedUser"), false, relative);
-  }
+test("employee-link acceptance stays identity-only and does not land a workspace", () => {
+  const source = readFileSync(join(process.cwd(), "src/app/api/auth/employee-link/accept/route.ts"), "utf8");
+  assert.equal(source.includes("routeAuthenticatedUser"), false);
+  assert.equal(source.includes("enterGrantedContext"), false);
+  assert.equal(source.includes("enterContext"), false);
+  assert.equal(source.includes("enterAccountContext"), false);
+  assert.equal(source.includes("createSessionToken"), false);
+  assert.equal(source.includes("createOrganizationSessionToken"), false);
+  assert.equal(source.includes("createAccountSessionToken"), false);
 });
 
 test("login client follows server redirectPath and does not count contexts", () => {
@@ -904,3 +901,86 @@ test("CONTEXT_NOT_AVAILABLE from enterContext does not retry another key", async
   assert.equal(landing.kind, "account");
   assert.equal(landing.redirectPath, "/access");
 });
+
+test("enterGrantedContext enters the exact key and uses the period role", async () => {
+  const world = createWorld();
+  seedFacilities(world);
+  addActiveUser(world, { id: "granted", facilityId: "terrace", roleId: "MANAGER" });
+  world.addGrant({ userId: "granted", facilityId: "terrace", roleKey: "STAFF" });
+  const landing = await enterGrantedContext(world.db, {
+    userId: "granted",
+    contextKey: "facility_internal:terrace",
+    sessionVersion: 1,
+    now: NOW,
+  });
+  assert.equal(landing.kind, "context");
+  assert.equal(landing.kind === "context" && landing.role, "STAFF");
+  assert.equal(landing.kind === "context" && landing.contextKey, "facility_internal:terrace");
+  const session = await verifySessionToken(landing.token);
+  assert.equal(session.role, "STAFF");
+  assert.notEqual(session.role, "MANAGER");
+});
+
+test("enterGrantedContext does not list available contexts", async () => {
+  const source = readFileSync(join(process.cwd(), "src/lib/post-auth-routing/enter-granted.ts"), "utf8");
+  assert.ok(source.includes("enterContext"));
+  assert.ok(source.includes("enterAccountContext"));
+  assert.equal(source.includes("listAvailableContexts"), false);
+});
+
+test("enterGrantedContext falls back to account when the exact context disappeared", async () => {
+  const world = createWorld();
+  seedFacilities(world);
+  addActiveUser(world, { id: "lost" });
+  const landing = await enterGrantedContext(world.db, {
+    userId: "lost",
+    contextKey: "facility_internal:terrace",
+    sessionVersion: 1,
+    now: NOW,
+  });
+  assert.equal(landing.kind, "account");
+  assert.equal(landing.redirectPath, "/access");
+  assert.equal(landing.kind === "account" && landing.fallbackToAccount, true);
+  const session = await verifySessionToken(landing.token);
+  assert.ok(isAccountSession(session));
+});
+
+test("enterGrantedContext does not recover identity failure to account", async () => {
+  const world = createWorld();
+  seedFacilities(world);
+  addActiveUser(world, { id: "gone" });
+  world.addGrant({ userId: "gone", facilityId: "terrace", roleKey: "MANAGER" });
+  world.deactivateUser("gone");
+  await assert.rejects(
+    () =>
+      enterGrantedContext(world.db, {
+        userId: "gone",
+        contextKey: "facility_internal:terrace",
+        sessionVersion: 1,
+        now: NOW,
+      }),
+    (error: unknown) =>
+      error instanceof PostAuthRoutingError && error.code === "USER_INACTIVE",
+  );
+});
+
+test("explicit Organization acceptance enters that Organization even when other contexts exist", async () => {
+  const world = createWorld();
+  seedFacilities(world);
+  addActiveUser(world, { id: "sarah", facilityId: "terrace" });
+  world.addGrant({ userId: "sarah", facilityId: "terrace", roleKey: "MANAGER" });
+  world.addGrant({ userId: "sarah", facilityId: "hospital", roleKey: "STAFF" });
+  world.addMembership({ userId: "sarah", organizationId: "metz", role: "ORG_MEMBER" });
+  const landing = await enterGrantedContext(world.db, {
+    userId: "sarah",
+    contextKey: "organization:metz",
+    sessionVersion: 1,
+    now: NOW,
+  });
+  assert.equal(landing.kind, "context");
+  assert.equal(landing.redirectPath, "/organization/metz");
+  const session = await verifySessionToken(landing.token);
+  assert.equal(session.scopeKind, "organization");
+  assert.equal(session.organizationId, "metz");
+});
+

@@ -47,6 +47,5 @@ export {
   ensureCurrentInternalFacilityRole,
   listCurrentInternalFacilityRoles,
   resolveCurrentInternalFacilityRole,
-  resolveInternalFacilitySessionRole,
   type InternalFacilityRoleResolution,
 } from "./internal-facility-role";

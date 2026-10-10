@@ -77,7 +77,13 @@ export function OrganizationClaimAcceptForm({
       setError(payload.error ?? "Could not accept this claim.");
       return;
     }
-    router.replace(payload.nextPath ?? "/organization");
+    const nextPath = payload.nextPath?.trim();
+    if (!nextPath) {
+      setLoading(false);
+      setError("Could not accept this claim.");
+      return;
+    }
+    router.replace(nextPath);
     router.refresh();
   }
 

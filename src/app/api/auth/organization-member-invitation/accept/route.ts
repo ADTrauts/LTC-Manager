@@ -2,18 +2,19 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  createOrganizationSessionToken,
-  getAppSession,
-  getCookieOptions,
-  SESSION_COOKIE,
-} from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
+import { organizationContextKey } from "@/lib/available-contexts";
 import {
   OrganizationMemberInvitationError,
   acceptOrganizationMemberInvitation,
   findAcceptableMemberInvitationByRawToken,
 } from "@/lib/organization-member-invitations";
+import {
+  applyAuthenticatedUserLandingCookies,
+  enterGrantedContext,
+  PostAuthRoutingError,
+} from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
 
 const acceptSchema = z.object({
@@ -78,28 +79,29 @@ export async function POST(request: Request) {
     });
     const user = await prisma.user.findUnique({
       where: { id: result.userId },
-      select: { id: true, email: true, displayName: true, sessionVersion: true },
+      select: { id: true, sessionVersion: true, isActive: true },
     });
-    if (!user) {
+    if (!user?.isActive) {
       return NextResponse.json({ error: "Account missing after acceptance." }, { status: 500 });
     }
-    const token = await createOrganizationSessionToken({
-      uid: user.id,
-      authMethod: "PASSWORD",
-      name: user.displayName,
-      email: user.email,
-      organizationId: result.organizationId,
+
+    const landing = await enterGrantedContext(prisma, {
+      userId: user.id,
+      contextKey: organizationContextKey(result.organizationId),
       sessionVersion: user.sessionVersion,
     });
     const response = NextResponse.json({
       ok: true,
-      nextPath: `/organization/${result.organizationId}`,
+      nextPath: landing.redirectPath,
     });
-    response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
+    applyAuthenticatedUserLandingCookies(response.cookies, landing);
     return response;
   } catch (error) {
     if (error instanceof OrganizationMemberInvitationError) {
       return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
+    }
+    if (error instanceof PostAuthRoutingError) {
+      return NextResponse.json({ error: "Could not accept invitation." }, { status: 401 });
     }
     return NextResponse.json({ error: "Could not accept invitation." }, { status: 500 });
   }

@@ -122,21 +122,6 @@ export async function resolveCurrentInternalFacilityRole(
   };
 }
 
-/** Login / invite mint helper: resolve the grant role, repairing a missing current period from fallback. */
-export async function resolveInternalFacilitySessionRole(
-  db: DbClient,
-  input: { userId: string; facilityId: string; fallbackRoleKey?: RoleKey | null },
-): Promise<InternalFacilityRoleResolution | null> {
-  return (
-    (await resolveCurrentInternalFacilityRole(db, input)) ??
-    (await ensureCurrentInternalFacilityRole(db, {
-      userId: input.userId,
-      facilityId: input.facilityId,
-      roleKey: input.fallbackRoleKey,
-    }))
-  );
-}
-
 export async function listCurrentInternalFacilityRoles(
   db: DbClient,
   input: { userId: string; instant?: Date },

@@ -28,7 +28,13 @@ export function AcceptInviteForm({ token }: { token: string }) {
       return;
     }
     const payload = (await res.json()) as { nextPath?: string };
-    router.replace(payload.nextPath ?? "/dashboard");
+    const nextPath = payload.nextPath?.trim();
+    if (!nextPath) {
+      setLoading(false);
+      setError("Could not accept this invite.");
+      return;
+    }
+    router.replace(nextPath);
     router.refresh();
   }
 

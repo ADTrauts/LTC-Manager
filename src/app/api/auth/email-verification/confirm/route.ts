@@ -1,24 +1,44 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
-import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
+import { internalFacilityContextKey } from "@/lib/available-contexts";
 import {
   findValidEmailVerificationToken,
   markEmailVerified,
 } from "@/lib/email-verification/tokens";
-import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/internal-facility-role";
+import { isOnboardingComplete, ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import {
-  internalRoleKeyAsAppRole,
-  resolveInternalFacilitySessionRole,
-} from "@/lib/facility-access/internal-facility-role";
-import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
+  applyAuthenticatedUserLandingCookies,
+  enterGrantedContext,
+  PostAuthRoutingError,
+  routeAuthenticatedUser,
+} from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
 const confirmSchema = z.object({
   token: z.string().trim().min(20).max(200),
 });
+
+const INVITE_PENDING_MESSAGE =
+  "Accept the invite email we sent to set your password before signing in.";
+
+async function loadCurrentUser(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      facilityId: true,
+      passwordHash: true,
+      emailVerifiedAt: true,
+      sessionVersion: true,
+      isActive: true,
+    },
+  });
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -32,27 +52,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: token.userId, isActive: true },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      facilityId: true,
-      emailVerifiedAt: true,
-      sessionVersion: true,
-      role: { select: { key: true } },
-    },
-  });
-  if (!user) {
+  const user = await loadCurrentUser(token.userId);
+  if (!user?.isActive) {
     return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
   }
-  if (!user.facilityId || !user.role?.key) {
-    return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
-  }
-
-  const facilityId = user.facilityId;
-  const roleKey = user.role.key;
 
   if (!user.emailVerifiedAt) {
     await markEmailVerified(prisma, { userId: user.id, tokenId: token.id });
@@ -63,37 +66,66 @@ export async function POST(request: Request) {
     });
   }
 
-  await ensureUserFacilityAccessGrant(prisma, {
-    userId: user.id,
-    facilityId,
-    roleKey,
-  });
-  const resolved = await resolveInternalFacilitySessionRole(prisma, {
-    userId: user.id,
-    facilityId,
-    fallbackRoleKey: roleKey,
-  });
-  if (!resolved) {
+  if (!user.passwordHash) {
+    return NextResponse.json(
+      {
+        error: INVITE_PENDING_MESSAGE,
+        code: "INVITE_PENDING",
+      },
+      { status: 403 },
+    );
+  }
+
+  const refreshed = await loadCurrentUser(user.id);
+  if (!refreshed?.isActive) {
     return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
   }
 
-  const sessionToken = await createSessionToken({
-    uid: user.id,
-    authKind: "user",
-    role: internalRoleKeyAsAppRole(resolved.roleKey),
-    name: user.displayName,
-    email: user.email,
-    facilityId,
-    sessionVersion: user.sessionVersion,
-  });
+  try {
+    const homeFacilityId = refreshed.facilityId;
+    const homeRole = homeFacilityId
+      ? await resolveCurrentInternalFacilityRole(prisma, {
+          userId: refreshed.id,
+          facilityId: homeFacilityId,
+        })
+      : null;
 
-  await trackEvent("signup.email_verified", {
-    facilityId,
-    userId: user.id,
-  });
+    let landing;
+    let nextPath: string;
+    if (homeFacilityId && homeRole) {
+      landing = await enterGrantedContext(prisma, {
+        userId: refreshed.id,
+        contextKey: internalFacilityContextKey(homeFacilityId),
+        sessionVersion: refreshed.sessionVersion,
+      });
+      const facility = await prisma.facility.findUnique({
+        where: { id: homeFacilityId },
+        select: { onboardingCompletedAt: true },
+      });
+      nextPath =
+        landing.kind === "context" && facility && !isOnboardingComplete(facility)
+          ? ONBOARDING_ENTRY_PATH
+          : landing.redirectPath;
+    } else {
+      landing = await routeAuthenticatedUser(prisma, {
+        userId: refreshed.id,
+        sessionVersion: refreshed.sessionVersion,
+      });
+      nextPath = landing.redirectPath;
+    }
 
-  const response = NextResponse.json({ ok: true, nextPath: ONBOARDING_ENTRY_PATH });
-  response.cookies.set(SESSION_COOKIE, sessionToken, getCookieOptions());
-  response.cookies.set(DEVICE_FACILITY_COOKIE, facilityId, getDeviceCookieOptions());
-  return response;
+    await trackEvent("signup.email_verified", {
+      facilityId: homeFacilityId,
+      userId: refreshed.id,
+    });
+
+    const response = NextResponse.json({ ok: true, nextPath });
+    applyAuthenticatedUserLandingCookies(response.cookies, landing);
+    return response;
+  } catch (error) {
+    if (error instanceof PostAuthRoutingError) {
+      return NextResponse.json({ error: "This verification link is invalid or expired." }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Unable to complete verification." }, { status: 500 });
+  }
 }
