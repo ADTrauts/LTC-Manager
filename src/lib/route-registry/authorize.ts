@@ -1,4 +1,5 @@
 import type { AppRole } from "@/lib/access";
+import type { AuthKind } from "@/lib/auth";
 import { isApiPathname, matchPlatformRoute } from "@/lib/route-registry/match";
 import type { PlatformRoute, RouteSurface } from "@/lib/route-registry/types";
 
@@ -19,8 +20,10 @@ export type RouteAuthorizationInput = {
   pathname: string;
   /** The caller's Facility RoleKey, or `null` when there is no facility RoleKey session. */
   role: AppRole | null;
-  /** Explicit session context. Organization and partner sessions do not carry a Facility RoleKey. */
-  sessionScope?: "facility" | "organization" | "partner" | null;
+  /** Explicit session context. Organization, partner, and account sessions do not carry a Facility RoleKey. */
+  sessionScope?: "facility" | "organization" | "partner" | "account" | null;
+  /** Required for USER_SESSION / ACCOUNT_SESSION. PIN and Harbor must pass their own kind. */
+  authKind?: AuthKind | null;
   featureFlags: RouteFeatureFlags;
 };
 
@@ -86,9 +89,23 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
   }
 
   if (input.sessionScope === "partner") {
-    return route.access.kind === "PARTNER_SESSION"
-      ? { outcome: "ALLOW", route }
-      : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+    if (route.access.kind === "PARTNER_SESSION") {
+      return { outcome: "ALLOW", route };
+    }
+    if (route.access.kind === "USER_SESSION" && input.authKind === "user") {
+      return { outcome: "ALLOW", route };
+    }
+    return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+  }
+
+  if (input.sessionScope === "account") {
+    if (
+      (route.access.kind === "ACCOUNT_SESSION" || route.access.kind === "USER_SESSION") &&
+      input.authKind === "user"
+    ) {
+      return { outcome: "ALLOW", route };
+    }
+    return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
   }
 
   const hasFacilityRole = Boolean(input.role);
@@ -111,6 +128,14 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
       return isOrganizationSession
         ? { outcome: "ALLOW", route }
         : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+
+    case "USER_SESSION":
+      return input.authKind === "user"
+        ? { outcome: "ALLOW", route }
+        : { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
+
+    case "ACCOUNT_SESSION":
+      return { outcome: "DENY", route, surface: route.surface, reason: "ROLE_NOT_APPROVED" };
 
     case "AUTHENTICATED":
     case "HANDLER_AUTHORIZED_API":

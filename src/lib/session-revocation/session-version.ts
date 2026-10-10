@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
+import { isAccountSession } from "@/lib/auth";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/internal-facility-role";
 
@@ -43,6 +44,26 @@ export type SessionValidation =
       effectiveDepartmentId: string | null;
     }
   | { valid: false; reason: SessionRejection };
+
+/**
+ * Identity failures end the session entirely.
+ * Context failures may recover into an account session when the User is still valid.
+ */
+export type SessionRejectionClass = "identity" | "context";
+
+export function classifySessionRejection(reason: SessionRejection): SessionRejectionClass {
+  switch (reason) {
+    case "IDENTITY_NOT_FOUND":
+    case "IDENTITY_INACTIVE":
+    case "VERSION_CLAIM_MISSING":
+    case "VERSION_STALE":
+    case "AUTH_METHOD_NOT_ALLOWED":
+      return "identity";
+    case "ROLE_STALE":
+    case "FACILITY_ACCESS_REVOKED":
+      return "context";
+  }
+}
 
 /**
  * Validate a signature-valid session against current server-owned state.
@@ -106,6 +127,9 @@ async function validateUserSession(
   session: AppJwtPayload,
   client: PrismaLike,
 ): Promise<SessionValidation> {
+  if (session.scopeKind === "account" || isAccountSession(session)) {
+    return validateAccountUserSession(session, client);
+  }
   if (session.scopeKind === "organization") {
     return validateOrganizationUserSession(session, client);
   }
@@ -147,6 +171,30 @@ async function validateUserSession(
   }
 
   return { valid: true, effectiveDepartmentId: user.primaryDepartmentId };
+}
+
+/**
+ * Account sessions prove only that this User is still the authenticated identity.
+ * No Organization, Facility, or partner relationship is required.
+ */
+async function validateAccountUserSession(
+  session: AppJwtPayload,
+  client: PrismaLike,
+): Promise<SessionValidation> {
+  const user = await client.user.findUnique({
+    where: { id: session.uid },
+    select: { isActive: true, sessionVersion: true },
+  });
+  if (!user) {
+    return { valid: false, reason: "IDENTITY_NOT_FOUND" };
+  }
+  if (!user.isActive) {
+    return { valid: false, reason: "IDENTITY_INACTIVE" };
+  }
+  if (user.sessionVersion !== session.sessionVersion) {
+    return { valid: false, reason: "VERSION_STALE" };
+  }
+  return { valid: true, effectiveDepartmentId: null };
 }
 
 async function validateOrganizationUserSession(

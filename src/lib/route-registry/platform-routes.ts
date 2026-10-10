@@ -477,6 +477,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
 
   // ── Authenticated, guarded downstream ─────────────────────────────────────
   {
+    pattern: "/access",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "USER_SESSION" },
+    module: "access",
+    notes:
+      "My Access holding surface. Any User-authenticated session may view it. PIN and Harbor cannot. Not the context chooser.",
+  },
+  {
     pattern: "/setup",
     match: "EXACT",
     surface: "PAGE",

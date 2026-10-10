@@ -10,6 +10,7 @@ function userSession(role: AppJwtPayload["role"] = "MANAGER"): AppJwtPayload {
     uid: "user-1",
     authKind: "user",
     authMethod: "PASSWORD",
+    scopeKind: "facility",
     role,
     name: "Manager",
     email: "manager@example.test",
@@ -23,6 +24,7 @@ function employeeSession(role: AppJwtPayload["role"] = "STAFF"): AppJwtPayload {
     uid: "employee-1",
     authKind: "employee",
     authMethod: "QUICK_PIN",
+    scopeKind: "facility",
     role,
     name: "Employee",
     email: "",
@@ -37,11 +39,28 @@ function userDb(currentRole: AppJwtPayload["role"], roleActive = true): PrismaLi
       findUnique: async () => ({
         isActive: true,
         sessionVersion: 3,
-        facilityId: "facility-1",
         primaryDepartmentId: null,
-        role: { key: currentRole, isActive: roleActive },
-        facilityAccesses: [],
       }),
+    },
+    userFacilityAccess: {
+      findFirst: async () => ({
+        id: "access-1",
+        facilityId: "facility-1",
+        rolePeriods: [
+          {
+            id: "period-1",
+            roleKey: currentRole,
+            startsAt: new Date("2020-01-01T00:00:00.000Z"),
+            endsAt: null,
+          },
+        ],
+      }),
+    },
+    role: {
+      findFirst: async ({ where }: { where: { key: string; isActive: boolean } }) =>
+        where.key === currentRole && where.isActive === roleActive && roleActive
+          ? { id: "role-1" }
+          : null,
     },
   } as unknown as PrismaLike;
 }
@@ -68,7 +87,7 @@ test("password session fails closed when its database role changed", async () =>
 
 test("password session fails closed when its database role is inactive", async () => {
   const result = await validateSessionAuthority(userSession("MANAGER"), userDb("MANAGER", false));
-  assert.deepEqual(result, { valid: false, reason: "IDENTITY_INACTIVE" });
+  assert.deepEqual(result, { valid: false, reason: "FACILITY_ACCESS_REVOKED" });
 });
 
 test("PIN session fails closed when its database role changed", async () => {

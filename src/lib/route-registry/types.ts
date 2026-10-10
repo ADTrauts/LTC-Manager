@@ -15,6 +15,16 @@ export const ROUTE_ACCESS_KINDS = [
   "ORGANIZATION_SESSION",
   /** Partner Facility session. Internal Facility RoleKey sessions cannot use these routes. */
   "PARTNER_SESSION",
+  /**
+   * Neutral authenticated User — `authKind: "user"` and `scopeKind: "account"`.
+   * No Organization, Facility, partner, or workforce authority.
+   */
+  "ACCOUNT_SESSION",
+  /**
+   * Any User-authenticated session: account, Organization, internal Facility, or partner.
+   * Does not satisfy Facility, Organization, partner, Admin, or Build policies.
+   */
+  "USER_SESSION",
   /** Only the explicitly listed roles. */
   "ROLE_RESTRICTED",
   /** Session required at the proxy; the handler remains responsible for role and object checks. */
@@ -34,6 +44,8 @@ export type RouteAccess =
   | { kind: "AUTHENTICATED" }
   | { kind: "ORGANIZATION_SESSION" }
   | { kind: "PARTNER_SESSION" }
+  | { kind: "ACCOUNT_SESSION" }
+  | { kind: "USER_SESSION" }
   | { kind: "ROLE_RESTRICTED"; allowedRoles: readonly AppRole[] }
   | { kind: "HANDLER_AUTHORIZED_API" }
   | {

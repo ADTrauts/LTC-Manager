@@ -19,6 +19,7 @@ import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-
 import { hasAtLeastRole } from "@/lib/access";
 import {
   getAppSession,
+  isAccountSession,
   getSession,
   isOrganizationScopedSession,
   sessionUserIdForFk,
@@ -72,6 +73,9 @@ export async function AppShell({ children }: AppShellProps) {
       redirect("/console");
     }
     redirect("/login");
+  }
+  if (isAccountSession(anySession)) {
+    redirect("/access");
   }
   if (isOrganizationScopedSession(anySession)) {
     redirect(`/organization/${anySession.organizationId}`);

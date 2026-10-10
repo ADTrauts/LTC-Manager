@@ -447,6 +447,93 @@ test("partner session may open home and canonical log reads", () => {
   assert.equal(outcome("/partner", "FACILITY_ADMINISTRATOR"), "DENY");
 });
 
+test("user session — /access is allowed from every User context and denied to PIN", () => {
+  assert.equal(outcome("/access", null), "REQUIRE_AUTHENTICATION");
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: null,
+      sessionScope: "account",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: "MANAGER",
+      sessionScope: "facility",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: null,
+      sessionScope: "organization",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: null,
+      sessionScope: "partner",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: "STAFF",
+      sessionScope: "facility",
+      authKind: "employee",
+      featureFlags: FLAGS,
+    }).outcome,
+    "DENY",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: "FACILITY_ADMINISTRATOR",
+      sessionScope: "facility",
+      authKind: "harbor_staff",
+      featureFlags: FLAGS,
+    }).outcome,
+    "DENY",
+  );
+});
+
+test("account session — workspace and Facility /account stay denied", () => {
+  for (const pathname of ["/workspace", "/partner", "/organization", "/organization/metz", "/account"]) {
+    const decision = authorizeRoute({
+      pathname,
+      role: null,
+      sessionScope: "account",
+      authKind: "user",
+      featureFlags: FLAGS,
+    });
+    assert.equal(decision.outcome, "DENY", pathname);
+  }
+  assert.equal(
+    authorizeRoute({
+      pathname: "/account",
+      role: "MANAGER",
+      sessionScope: "facility",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+});
+
 test("internal — framework and static asset paths pass through", () => {
   for (const path of ["/_next/data/x.json", "/favicon.ico", "/next.svg", "/window.svg"]) {
     assert.equal(outcome(path, null), "ALLOW", path);

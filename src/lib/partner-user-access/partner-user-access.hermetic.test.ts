@@ -1842,16 +1842,17 @@ test("partner operational context uses live allowed departments and ignores a st
   assert.equal(world.users.find((user) => user.id === "jane")?.facilityId, null);
 });
 
-test("invalid partner recovery stays on /partner/exit and validation stays side-effect free", () => {
+test("invalid partner context recovers to account session; explicit leave stays on /partner/exit", () => {
   const proxy = readFileSync(join(root, "src/proxy.ts"), "utf8");
   const validation = readFileSync(join(root, "src/lib/session-revocation/session-version.ts"), "utf8");
   const resolver = readFileSync(join(root, "src/lib/partner-user-access/service.ts"), "utf8");
   const transition = readFileSync(join(root, "src/lib/partner-facility-session.ts"), "utf8");
-  const start = proxy.indexOf("if (isPartnerFacilitySession(session))");
-  const branch = proxy.slice(start, proxy.indexOf('session.scopeKind === "organization"', start));
-  assert.match(branch, /\/partner\/exit/);
-  assert.equal(branch.includes("/dashboard"), false);
-  assert.equal(branch.includes("defaultHome"), false);
+  const leave = readFileSync(join(root, "src/app/partner/actions.ts"), "utf8");
+  assert.match(proxy, /recoverInvalidUserContext/);
+  assert.match(proxy, /createAccountSessionToken/);
+  assert.match(proxy, /\/access/);
+  assert.equal(leave.includes("enterAccountContext"), false);
+  assert.match(leave, /completePartnerFacilityTransition/);
   assert.match(proxy, /anonymousDecision\.outcome === "ALLOW"/);
   assert.equal(validation.includes("cookies("), false);
   assert.equal(validation.includes("createOrganizationSessionToken"), false);
@@ -1864,6 +1865,16 @@ test("invalid partner recovery stays on /partner/exit and validation stays side-
   assert.equal(
     authorizeRoute({ pathname: "/dashboard", role: null, sessionScope: "partner", featureFlags: flags }).outcome,
     "DENY",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access",
+      role: null,
+      sessionScope: "partner",
+      authKind: "user",
+      featureFlags: flags,
+    }).outcome,
+    "ALLOW",
   );
 });
 

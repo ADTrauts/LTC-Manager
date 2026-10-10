@@ -2,10 +2,24 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { AppRole } from "@/lib/access";
 import type { AppJwtPayload } from "@/lib/auth";
-import { isPartnerFacilitySession, SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import {
+  createAccountSessionToken,
+  createSessionToken,
+  getCookieOptions,
+  isAccountSession,
+  isFacilityScopedSession,
+  isPartnerFacilitySession,
+  SESSION_COOKIE,
+  verifySessionToken,
+} from "@/lib/auth";
+import { applyAccountSessionCookies } from "@/lib/context-entry";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { resolveActiveDepartmentForNav } from "@/lib/active-department-context";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
+import {
+  internalRoleKeyAsAppRole,
+  resolveCurrentInternalFacilityRole,
+} from "@/lib/facility-access/internal-facility-role";
 import { isCanonicalLogsEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
@@ -13,7 +27,11 @@ import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { authorizeHarborRequest, authorizeHarborWorkFacilityRequest } from "@/lib/harbor-console/proxy-gate";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
-import { validateSessionAuthority } from "@/lib/session-revocation";
+import {
+  classifySessionRejection,
+  validateSessionAuthority,
+  type SessionRejection,
+} from "@/lib/session-revocation";
 
 function routeFeatureFlags() {
   return {
@@ -50,6 +68,9 @@ function resolveLockedUnitId(session: AppJwtPayload, deviceUnitId: string | unde
 }
 
 function defaultHomePath(session: AppJwtPayload, lockedUnitId?: string) {
+  if (session.scopeKind === "account") {
+    return "/access";
+  }
   if (session.scopeKind === "organization" && session.organizationId) {
     return `/organization/${session.organizationId}`;
   }
@@ -59,6 +80,102 @@ function defaultHomePath(session: AppJwtPayload, lockedUnitId?: string) {
     activeUnitId: session.activeUnitId,
     lockedUnitId,
   });
+}
+
+function identityFailureResponse(request: NextRequest, surface: "PAGE" | "API" | "INTERNAL") {
+  const response = unauthenticatedResponse(request, surface);
+  response.cookies.delete(SESSION_COOKIE);
+  return response;
+}
+
+async function recoverInvalidUserContext(
+  request: NextRequest,
+  session: AppJwtPayload,
+  reason: SessionRejection,
+): Promise<NextResponse> {
+  const surface = isApiPathname(request.nextUrl.pathname) ? "API" : "PAGE";
+
+  if (session.authKind !== "user" || classifySessionRejection(reason) === "identity") {
+    return identityFailureResponse(request, surface);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.uid },
+    select: {
+      id: true,
+      isActive: true,
+      sessionVersion: true,
+      displayName: true,
+      email: true,
+    },
+  });
+  if (
+    !user?.isActive ||
+    !user.email ||
+    typeof session.sessionVersion !== "number" ||
+    user.sessionVersion !== session.sessionVersion
+  ) {
+    return identityFailureResponse(request, surface);
+  }
+
+  const token = await createAccountSessionToken({
+    uid: user.id,
+    name: user.displayName,
+    email: user.email,
+    sessionVersion: user.sessionVersion,
+  });
+  const response =
+    surface === "API"
+      ? NextResponse.json({ error: "Forbidden." }, { status: 403 })
+      : NextResponse.redirect(new URL("/access", request.url));
+  applyAccountSessionCookies(response.cookies, token);
+  return response;
+}
+
+async function remintStaleInternalRole(
+  session: AppJwtPayload,
+): Promise<{ token: string; role: AppRole } | null> {
+  if (!isFacilityScopedSession(session) || session.authKind !== "user") {
+    return null;
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: session.uid },
+    select: {
+      id: true,
+      isActive: true,
+      sessionVersion: true,
+      displayName: true,
+      email: true,
+    },
+  });
+  if (
+    !user?.isActive ||
+    !user.email ||
+    typeof session.sessionVersion !== "number" ||
+    user.sessionVersion !== session.sessionVersion
+  ) {
+    return null;
+  }
+  const resolved = await resolveCurrentInternalFacilityRole(prisma, {
+    userId: user.id,
+    facilityId: session.facilityId,
+  });
+  if (!resolved) {
+    return null;
+  }
+  const role = internalRoleKeyAsAppRole(resolved.roleKey);
+  const token = await createSessionToken({
+    uid: user.id,
+    authKind: "user",
+    role,
+    name: user.displayName,
+    email: user.email,
+    facilityId: session.facilityId,
+    activeUnitId: session.activeUnitId,
+    primaryDepartmentId: session.primaryDepartmentId,
+    sessionVersion: user.sessionVersion,
+  });
+  return { token, role };
 }
 
 function defaultHomeRedirect(request: NextRequest, session: AppJwtPayload, lockedUnitId?: string) {
@@ -96,6 +213,60 @@ function respondToDecision(
   }
 }
 
+async function continueFacilityRequest(
+  request: NextRequest,
+  session: AppJwtPayload,
+  featureFlags: ReturnType<typeof routeFeatureFlags>,
+): Promise<NextResponse> {
+  const { pathname } = request.nextUrl;
+  const facility = await prisma.facility.findUnique({
+    where: { id: session.facilityId! },
+    select: { onboardingCompletedAt: true },
+  });
+  const onboardingComplete = Boolean(facility?.onboardingCompletedAt);
+  const onSetupRoute =
+    pathname === ONBOARDING_ENTRY_PATH ||
+    pathname.startsWith(`${ONBOARDING_ENTRY_PATH}/`) ||
+    pathname.startsWith("/api/onboarding") ||
+    pathname.startsWith("/api/billing");
+
+  const role = session.role as AppRole;
+  const isFa = isFacilityAdministratorRole(role);
+  const deviceUnitId = request.cookies.get(DEVICE_UNIT_COOKIE)?.value;
+  const lockedUnitId = resolveLockedUnitId(session, deviceUnitId);
+
+  if (!onboardingComplete && isFa && session.authKind !== "harbor_staff" && !onSetupRoute) {
+    return NextResponse.redirect(new URL(ONBOARDING_ENTRY_PATH, request.url));
+  }
+  if (onboardingComplete && pathname === ONBOARDING_ENTRY_PATH) {
+    return defaultHomeRedirect(request, session, lockedUnitId);
+  }
+
+  const decision = authorizeRoute({
+    pathname,
+    role,
+    sessionScope: "facility",
+    authKind: session.authKind,
+    featureFlags,
+  });
+  const denial = respondToDecision(request, decision, session, lockedUnitId);
+  if (denial) {
+    return denial;
+  }
+
+  const deptCtx = await resolveActiveDepartmentForNav(request, session);
+  if (!deptCtx.showAllDepartmentNav) {
+    const key = deptCtx.activeOperationalDepartmentKey;
+    if (!pathnameAllowedForDepartmentKey(pathname, key)) {
+      return isApiPathname(pathname)
+        ? NextResponse.json({ error: "Forbidden." }, { status: 403 })
+        : defaultHomeRedirect(request, session, lockedUnitId);
+    }
+  }
+
+  return NextResponse.next();
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const featureFlags = routeFeatureFlags();
@@ -131,7 +302,7 @@ export async function proxy(request: NextRequest) {
   try {
     const sessionRaw = await verifySessionToken(token);
     const session = sessionRaw as AppJwtPayload;
-    if (session.scopeKind === "facility" && !session.facilityId) {
+    if (session.scopeKind === "facility" && !session.facilityId && !isAccountSession(session)) {
       const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
       response.cookies.delete(SESSION_COOKIE);
       return response;
@@ -146,17 +317,31 @@ export async function proxy(request: NextRequest) {
     // authority it was issued under. Termination, a role change, or a password reset must take
     // effect now rather than when the token happens to expire.
     const authority = await validateSessionAuthority(session, prisma);
-    if (isPartnerFacilitySession(session)) {
-      if (!authority.valid) {
-        if (isApiPathname(pathname)) {
-          return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    if (!authority.valid) {
+      if (
+        authority.reason === "ROLE_STALE" &&
+        session.authKind === "user" &&
+        isFacilityScopedSession(session)
+      ) {
+        const reminted = await remintStaleInternalRole(session);
+        if (reminted) {
+          session.role = reminted.role;
+          const continued = await continueFacilityRequest(request, session, featureFlags);
+          continued.cookies.set(SESSION_COOKIE, reminted.token, getCookieOptions());
+          return continued;
         }
-        return NextResponse.redirect(new URL("/partner/exit", request.url));
       }
+      return recoverInvalidUserContext(request, session, authority.reason);
+    }
+    // Department authority the identity no longer holds is dropped before it can reach nav scoping.
+    session.primaryDepartmentId = authority.effectiveDepartmentId ?? undefined;
+
+    if (isPartnerFacilitySession(session)) {
       const decision = authorizeRoute({
         pathname,
         role: null,
         sessionScope: "partner",
+        authKind: "user",
         featureFlags,
       });
       if (decision.outcome === "ALLOW") {
@@ -170,19 +355,13 @@ export async function proxy(request: NextRequest) {
       }
       return NextResponse.redirect(new URL("/partner", request.url));
     }
-    if (!authority.valid) {
-      const response = unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
-      response.cookies.delete(SESSION_COOKIE);
-      return response;
-    }
-    // Department authority the identity no longer holds is dropped before it can reach nav scoping.
-    session.primaryDepartmentId = authority.effectiveDepartmentId ?? undefined;
 
-    if (session.scopeKind === "organization") {
+    if (session.scopeKind === "account") {
       const decision = authorizeRoute({
         pathname,
         role: null,
-        sessionScope: "organization",
+        sessionScope: "account",
+        authKind: "user",
         featureFlags,
       });
       const denial = respondToDecision(request, decision, session);
@@ -192,51 +371,22 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    const facility = await prisma.facility.findUnique({
-      where: { id: session.facilityId! },
-      select: { onboardingCompletedAt: true },
-    });
-    const onboardingComplete = Boolean(facility?.onboardingCompletedAt);
-    const onSetupRoute =
-      pathname === ONBOARDING_ENTRY_PATH ||
-      pathname.startsWith(`${ONBOARDING_ENTRY_PATH}/`) ||
-      pathname.startsWith("/api/onboarding") ||
-      pathname.startsWith("/api/billing");
-
-    const role = session.role as AppRole;
-    const isFa = isFacilityAdministratorRole(role);
-    const deviceUnitId = request.cookies.get(DEVICE_UNIT_COOKIE)?.value;
-    const lockedUnitId = resolveLockedUnitId(session, deviceUnitId);
-
-    if (!onboardingComplete && isFa && session.authKind !== "harbor_staff" && !onSetupRoute) {
-      return NextResponse.redirect(new URL(ONBOARDING_ENTRY_PATH, request.url));
-    }
-    if (onboardingComplete && pathname === ONBOARDING_ENTRY_PATH) {
-      return defaultHomeRedirect(request, session, lockedUnitId);
-    }
-
-    const decision = authorizeRoute({
-      pathname,
-      role,
-      sessionScope: "facility",
-      featureFlags,
-    });
-    const denial = respondToDecision(request, decision, session, lockedUnitId);
-    if (denial) {
-      return denial;
-    }
-
-    const deptCtx = await resolveActiveDepartmentForNav(request, session);
-    if (!deptCtx.showAllDepartmentNav) {
-      const key = deptCtx.activeOperationalDepartmentKey;
-      if (!pathnameAllowedForDepartmentKey(pathname, key)) {
-        return isApiPathname(pathname)
-          ? NextResponse.json({ error: "Forbidden." }, { status: 403 })
-          : defaultHomeRedirect(request, session, lockedUnitId);
+    if (session.scopeKind === "organization") {
+      const decision = authorizeRoute({
+        pathname,
+        role: null,
+        sessionScope: "organization",
+        authKind: session.authKind,
+        featureFlags,
+      });
+      const denial = respondToDecision(request, decision, session);
+      if (denial) {
+        return denial;
       }
+      return NextResponse.next();
     }
 
-    return NextResponse.next();
+    return continueFacilityRequest(request, session, featureFlags);
   } catch (error) {
     // JWT/session failures → sign-in. Infrastructure failures (e.g. Prisma) must not
     // clear the session cookie or Next server actions get an HTML /login response.

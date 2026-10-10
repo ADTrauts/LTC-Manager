@@ -12,11 +12,12 @@ export const authMethodValues = ["PASSWORD", "QUICK_PIN"] as const;
 export type AuthMethod = (typeof authMethodValues)[number];
 
 /**
- * Explicit session context discriminant (Phase 2B1).
+ * Explicit session context discriminant (Phase 2B1 / 2E5).
  * Facility sessions carry Facility RoleKey + active Facility.
  * Organization sessions carry selected Organization context only — authority is re-checked server-side.
+ * Account sessions carry global User identity only — no workspace authority.
  */
-export type SessionScopeKind = "facility" | "organization";
+export type SessionScopeKind = "facility" | "organization" | "account";
 
 /**
  * Cookies issued before the `authMethod` claim existed do not carry it. Those sessions are read
@@ -35,6 +36,7 @@ function resolveScopeKind(
   facilityId: string | undefined,
   organizationId: string | undefined,
 ): SessionScopeKind {
+  if (raw === "account") return "account";
   if (raw === "organization") return "organization";
   if (raw === "facility") return "facility";
   // Pre-2B1 tokens: facilityId present ⇒ facility scope.
@@ -94,7 +96,28 @@ export type OrganizationSessionPayload = AppJwtCommon & {
   facilityId?: undefined;
 };
 
-export type AppJwtPayload = FacilitySession | OrganizationSessionPayload | PartnerFacilitySession;
+/**
+ * Authenticated global User. Identity and display only — no Organization, Facility,
+ * Department, partner, or workforce authority.
+ */
+export type AccountSession = AppJwtCommon & {
+  authKind: "user";
+  scopeKind: "account";
+  role?: undefined;
+  facilityId?: undefined;
+  organizationId?: undefined;
+  accessKind?: undefined;
+  partnerOrganizationId?: undefined;
+  facilityPartnerOrganizationId?: undefined;
+  activeUnitId?: undefined;
+  primaryDepartmentId?: undefined;
+};
+
+export type AppJwtPayload =
+  | FacilitySession
+  | OrganizationSessionPayload
+  | PartnerFacilitySession
+  | AccountSession;
 
 export function isFacilityScopedSession(
   session: Pick<AppJwtPayload, "scopeKind" | "facilityId" | "role">,
@@ -137,6 +160,28 @@ export function isOrganizationScopedSession(
     session.scopeKind === "organization" &&
     typeof session.organizationId === "string" &&
     session.organizationId.length > 0
+  );
+}
+
+export function isAccountSession(
+  session: Pick<AppJwtPayload, "scopeKind" | "authKind"> & {
+    facilityId?: string;
+    organizationId?: string;
+    role?: AppRole;
+    accessKind?: string;
+    partnerOrganizationId?: string;
+    facilityPartnerOrganizationId?: string;
+  },
+): session is AccountSession {
+  return (
+    session.scopeKind === "account" &&
+    session.authKind === "user" &&
+    session.role == null &&
+    session.accessKind == null &&
+    !session.facilityId &&
+    !session.organizationId &&
+    !session.partnerOrganizationId &&
+    !session.facilityPartnerOrganizationId
   );
 }
 
@@ -238,6 +283,34 @@ export async function createPartnerFacilitySessionToken(payload: {
     .sign(getJwtSecret());
 }
 
+/** Mint an account-scoped session. Authenticated User identity only — no workspace claims. */
+export async function createAccountSessionToken(payload: {
+  uid: string;
+  name: string;
+  email: string;
+  sessionVersion: number;
+  authMethod?: AuthMethod;
+}) {
+  if (!payload.uid.trim()) {
+    throw new Error("Account session requires a user.");
+  }
+  const body: Record<string, unknown> = {
+    uid: payload.uid,
+    authKind: "user",
+    authMethod: resolveAuthMethod(payload.authMethod, "user"),
+    scopeKind: "account",
+    name: payload.name,
+    email: payload.email,
+    sessionVersion: payload.sessionVersion,
+  };
+
+  return new SignJWT(body)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .sign(getJwtSecret());
+}
+
 /** Mint an organization-scoped session (organization-only Users). No Facility RoleKey. */
 export async function createOrganizationSessionToken(payload: {
   uid: string;
@@ -297,6 +370,35 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
     // pre-Phase-4 token apart from one legitimately issued at version zero.
     sessionVersion: typeof p.sessionVersion === "number" ? p.sessionVersion : undefined,
   };
+
+  if (scopeKind === "account") {
+    if (authKind !== "user") {
+      throw new Error("Account session requires a user.");
+    }
+    if (facilityId || organizationId || role || p.accessKind === "partner") {
+      throw new Error("Account session cannot carry workspace claims.");
+    }
+    const partnerOrganizationId =
+      typeof p.partnerOrganizationId === "string" ? p.partnerOrganizationId.trim() : "";
+    const facilityPartnerOrganizationId =
+      typeof p.facilityPartnerOrganizationId === "string"
+        ? p.facilityPartnerOrganizationId.trim()
+        : "";
+    if (partnerOrganizationId || facilityPartnerOrganizationId) {
+      throw new Error("Account session cannot carry workspace claims.");
+    }
+    return {
+      uid: common.uid,
+      authKind: "user",
+      authMethod: common.authMethod,
+      name: common.name,
+      email: common.email,
+      sessionVersion: common.sessionVersion,
+      iat: payload.iat,
+      exp: payload.exp,
+      scopeKind: "account",
+    };
+  }
 
   if (scopeKind === "organization") {
     if (!organizationId) {
@@ -409,6 +511,9 @@ export async function getAppSession(): Promise<AppJwtPayload | null> {
     if (payload.scopeKind === "organization" && !isOrganizationScopedSession(payload)) {
       return null;
     }
+    if (payload.scopeKind === "account" && !isAccountSession(payload)) {
+      return null;
+    }
 
     // Every caller of `getAppSession` — pages, API routes, and Server Actions alike — reaches current
     // authority through this one check, so a revoked session cannot be used to read or write
@@ -434,6 +539,20 @@ export async function getAppSession(): Promise<AppJwtPayload | null> {
         facilityId: payload.facilityId,
         partnerOrganizationId: payload.partnerOrganizationId,
         facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
+      };
+    }
+
+    if (payload.scopeKind === "account") {
+      return {
+        uid: payload.uid,
+        authKind: "user",
+        authMethod: payload.authMethod,
+        name: payload.name,
+        email: payload.email,
+        sessionVersion: payload.sessionVersion,
+        iat: payload.iat,
+        exp: payload.exp,
+        scopeKind: "account",
       };
     }
 

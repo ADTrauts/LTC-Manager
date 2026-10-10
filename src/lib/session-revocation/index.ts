@@ -5,8 +5,10 @@ export {
   revokeUserSessions,
   revokeUserSessionsMany,
   validateSessionAuthority,
+  classifySessionRejection,
   type PrismaLike,
   type SessionRejection,
+  type SessionRejectionClass,
   type SessionValidation,
 } from "./session-version";
 
