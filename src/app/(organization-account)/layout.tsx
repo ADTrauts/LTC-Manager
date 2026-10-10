@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { OrganizationSwitcher } from "@/components/organization-switcher";
@@ -41,14 +42,22 @@ export default async function OrganizationAccountLayout({ children }: Props) {
             </p>
             <p className="text-sm font-semibold text-zinc-900">{session.name}</p>
           </div>
-          <form action="/api/auth/logout" method="post">
-            <button
-              type="submit"
+          <div className="flex items-center gap-4">
+            <Link
+              href="/access"
               className="text-sm font-medium text-zinc-700 underline underline-offset-2"
             >
-              Sign out
-            </button>
-          </form>
+              My Access
+            </Link>
+            <form action="/api/auth/logout" method="post">
+              <button
+                type="submit"
+                className="text-sm font-medium text-zinc-700 underline underline-offset-2"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
         {memberships.length > 1 ? (
           <div className="mx-auto max-w-3xl px-4 pb-4">

@@ -483,7 +483,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "USER_SESSION" },
     module: "access",
     notes:
-      "My Access holding surface. Any User-authenticated session may view it. PIN and Harbor cannot. Not the context chooser.",
+      "My Access chooser. Any User-authenticated session may view it. PIN and Harbor cannot. Rows come from listAvailableContexts; Open calls enterContext.",
   },
   {
     pattern: "/setup",

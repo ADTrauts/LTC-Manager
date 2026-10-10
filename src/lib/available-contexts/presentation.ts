@@ -4,8 +4,15 @@ import { partnerRoleLabel } from "@/lib/partner-user-access";
 
 import type {
   AvailableContextPresentation,
+  AvailableContextPresentationGroup,
   AvailableContextRecord,
 } from "./types";
+
+const PRESENTATION_GROUPS: readonly AvailableContextPresentationGroup[] = [
+  "Organizations",
+  "Internal Facilities",
+  "Client Facilities",
+];
 
 const INTERNAL_ROLE_LABEL: Record<RoleKey, string> = {
   FACILITY_ADMINISTRATOR: "Facility Administrator",
@@ -116,4 +123,14 @@ export function presentAvailableContexts(
       departmentSummary: departmentSummary(record.departmentNames),
     };
   });
+}
+
+/** Non-empty presentation groups in canonical order. Empty groups are omitted. */
+export function groupAvailableContextPresentations(
+  items: readonly AvailableContextPresentation[],
+): Array<{ group: AvailableContextPresentationGroup; items: AvailableContextPresentation[] }> {
+  return PRESENTATION_GROUPS.map((group) => ({
+    group,
+    items: items.filter((item) => item.group === group),
+  })).filter((entry) => entry.items.length > 0);
 }

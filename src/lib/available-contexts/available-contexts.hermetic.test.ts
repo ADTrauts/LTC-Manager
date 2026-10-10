@@ -582,6 +582,7 @@ test("available-context source does not treat Employee, PIN, or Harbor as contex
     "user.ts",
     "keys.ts",
     "for-request.ts",
+    "current-key.ts",
   ];
   for (const file of files) {
     const source = readFileSync(join(process.cwd(), "src/lib/available-contexts", file), "utf8");

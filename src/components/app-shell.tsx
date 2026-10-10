@@ -252,6 +252,7 @@ export async function AppShell({ children }: AppShellProps) {
             <AccountMenu
               showUnbind={showGmUnbind}
               showChangePassword={authKind === "user"}
+              showMyAccess={authKind === "user"}
               menuLabel={session.name}
               runHomeHref={menuRunHomeHref}
               showBuild={menuShowBuild}

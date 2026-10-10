@@ -73,6 +73,6 @@ Persona RoleKey labels (Team Member, Lead Team Member). Organization: Administra
 
 ## Later work
 
-- 2E5 — account session + neutral `enterContext`
-- My Access UI
+- 2E5 — account session + neutral `enterContext` (done)
+- 2E6 — My Access UI (done)
 - 0/1/many login routing

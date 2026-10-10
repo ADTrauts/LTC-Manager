@@ -26,11 +26,16 @@ export function PartnerFacilityShell({
               {partnerRoleLabel(shell.context.effectiveRole)}
             </p>
           </div>
-          <form action={leavePartnerFacilityAction}>
-            <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
-              Return to {shell.partnerOrganizationName}
-            </button>
-          </form>
+          <div className="flex flex-col items-end gap-2">
+            <Link href="/access" className="text-sm font-medium underline-offset-2 hover:underline">
+              My Access
+            </Link>
+            <form action={leavePartnerFacilityAction}>
+              <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
+                Return to {shell.partnerOrganizationName}
+              </button>
+            </form>
+          </div>
         </div>
       </header>
       <div className="mx-auto grid max-w-3xl gap-8 px-6 py-8 md:grid-cols-[12rem_1fr]">

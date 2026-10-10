@@ -49,7 +49,7 @@ Exactly one Organization, internal Facility, or partner Facility context. Entry 
 
 `/access` is the global User surface. Product name: **My Access**.
 
-Phase 2E5 is a holding page only. Route policy is `USER_SESSION`: any User-authenticated context may view it. PIN and Harbor may not. Viewing My Access does not require switching into an account session first.
+Route policy is `USER_SESSION`: any User-authenticated context may view it. PIN and Harbor may not. Viewing My Access does not require switching into an account session first. Phase 2E6 renders the certified context directory here.
 
 Existing `/account` remains the Facility password/support page (`AUTHENTICATED`). Account sessions are denied there.
 
@@ -118,5 +118,5 @@ PIN and Harbor are excluded from account recovery, `enterContext`, `enterAccount
 
 ## Later work
 
-- 2E6 — My Access UI
+- 2E6 — My Access UI (done)
 - 2E7 — 0/1/many login routing

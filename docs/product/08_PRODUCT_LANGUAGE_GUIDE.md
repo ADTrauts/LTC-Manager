@@ -46,7 +46,7 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Available Context** | A current enterable Organization, internal Facility, or partner Facility relationship for one User | Treating Employee, PIN, Harbor, or a Department as a workspace; merging internal and partner at the same Facility |
 | **Account Session** | Authenticated User with no workspace authority | Treating account as Organization/Facility permission; a second identity cookie |
 | **Context Session** | The one selected Organization, internal Facility, or partner Facility workspace | Merging contexts; inferring partner vs internal from Facility id alone |
-| **My Access** | Global User surface (`/access`) available across User session types | Facility `/account`; PIN or Harbor entry; the 2E5 holding page as a chooser |
+| **My Access** | User-facing directory of current enterable contexts at `/access`. Open live-revalidates through `enterContext`. | Facility `/account`; PIN or Harbor entry; inventing rows from topology or home Facility |
 | **enterContext** | Live target revalidation and exclusive session mint from any User session | Listing every context then trusting a posted role; silent fallback to another workspace |
 | **Client Facility** | Partner Facility workspace entered via a partnership | Inferring personal partner access from Organization topology |
 | **Facility operated / Contracted** | Derived operating model (operator org == / != Facility parent org) | Persisted SELF_OPERATED / CONTRACTED enum *(prefer derivation)* |

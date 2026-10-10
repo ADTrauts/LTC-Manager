@@ -22,6 +22,8 @@ type AccountMenuProps = {
   showBuild?: boolean;
   /** Whether this session may reach ADMIN governance. Presentation only — never grants authority. */
   showAdmin?: boolean;
+  /** User-authenticated sessions only. PIN must not see My Access. */
+  showMyAccess?: boolean;
 };
 
 async function postLogoutAndRedirect(form: HTMLFormElement) {
@@ -132,6 +134,7 @@ export function AccountMenu({
   runHomeHref = "/workspace",
   showBuild = false,
   showAdmin = false,
+  showMyAccess = false,
 }: AccountMenuProps) {
   const pathname = usePathname();
   const activeMode = resolveProductModeForPath(pathname ?? "/");
@@ -248,6 +251,16 @@ export function AccountMenu({
               <div className="mx-3 my-1 border-t border-zinc-100" role="separator" />
               <p className={SECTION_HEADING_CLASS}>Account</p>
             </>
+          ) : null}
+          {showMyAccess ? (
+            <Link
+              href="/access"
+              className={MENU_ITEM_CLASS}
+              data-testid="account-menu-my-access"
+              onClick={() => setOpen(false)}
+            >
+              My Access
+            </Link>
           ) : null}
           {showChangePassword ? (
             <Link
