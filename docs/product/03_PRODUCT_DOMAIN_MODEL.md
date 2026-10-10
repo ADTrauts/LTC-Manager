@@ -23,8 +23,8 @@
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
 | **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
-| **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email `User` may be facility-native (`facilityId` + `roleId`) or organization-only (both null). |
-| **User home Facility** | Optional `User.facilityId` — facility-native home affiliation. Not the active Facility. |
+| **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
+| **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
 | **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
 | **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |

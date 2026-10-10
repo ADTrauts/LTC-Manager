@@ -581,10 +581,7 @@ test("account session validator live-checks User only", async () => {
   assert.deepEqual(stale, { valid: false, reason: "VERSION_STALE" });
 });
 
-test("login and explicit partner leave are unchanged by account recovery", () => {
-  const login = readFileSync(join(process.cwd(), "src/app/api/auth/login/route.ts"), "utf8");
-  assert.equal(login.includes("createAccountSessionToken"), false);
-  assert.equal(login.includes("enterContext"), false);
+test("explicit partner leave remains org-return, not account recovery", () => {
   const leave = readFileSync(join(process.cwd(), "src/app/partner/actions.ts"), "utf8");
   assert.ok(leave.includes("leavePartnerFacilityAction"));
   assert.ok(leave.includes("completePartnerFacilityTransition"));

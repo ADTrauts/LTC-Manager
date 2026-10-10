@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 
 import { LoginGate } from "@/components/login-gate";
-import { getAppSession, isFacilityScopedSession, isOrganizationScopedSession } from "@/lib/auth";
+import {
+  getAppSession,
+  isAccountSession,
+  isFacilityScopedSession,
+  isOrganizationScopedSession,
+  isPartnerFacilitySession,
+} from "@/lib/auth";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
 
@@ -10,6 +16,12 @@ export default async function LoginPage() {
   if (session) {
     if (isOrganizationScopedSession(session)) {
       redirect(`/organization/${session.organizationId}`);
+    }
+    if (isPartnerFacilitySession(session)) {
+      redirect("/partner");
+    }
+    if (isAccountSession(session)) {
+      redirect("/access");
     }
     if (isFacilityScopedSession(session)) {
       redirect(

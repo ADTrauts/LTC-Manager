@@ -45,7 +45,12 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
     }
 
     const payload = (await res.json().catch(() => null)) as { redirectPath?: string } | null;
-    router.push(payload?.redirectPath?.trim() || "/dashboard");
+    const redirectPath = payload?.redirectPath?.trim();
+    if (!redirectPath) {
+      setState({ loading: false, error: "Sign-in failed." });
+      return;
+    }
+    router.push(redirectPath);
     router.refresh();
   }
 

@@ -41,12 +41,14 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Partner Organization** | External Organization with an explicit Facility partnership | Inferring partnership from operators, vendors, or parent Organization |
 | **Partner Department Scope** | Departments explicitly authorized under a partnership (timestamp periods) | Auto-syncing from Operating Organization; undated permanent rows |
 | **Organization member / Organization administrator** | `ORG_MEMBER` / `ORG_ADMIN` on membership role periods | Facility Administrator; Vendor admin; putting ORG_* on RoleKey |
-| **Home Facility** | Optional `User.facilityId` for facility-native Users | Active Facility; rewriting home on Facility switch |
+| **Home Facility** | Optional `User.facilityId` presentation marker | Active Facility; login or session authority; rewriting home on Facility switch |
 | **Active Facility** | Session/JWT Facility context | Persisting active Facility by mutating `User.facilityId` |
 | **Available Context** | A current enterable Organization, internal Facility, or partner Facility relationship for one User | Treating Employee, PIN, Harbor, or a Department as a workspace; merging internal and partner at the same Facility |
 | **Account Session** | Authenticated User with no workspace authority | Treating account as Organization/Facility permission; a second identity cookie |
 | **Context Session** | The one selected Organization, internal Facility, or partner Facility workspace | Merging contexts; inferring partner vs internal from Facility id alone |
 | **My Access** | User-facing directory of current enterable contexts at `/access`. Open live-revalidates through `enterContext`. | Facility `/account`; PIN or Harbor entry; inventing rows from topology or home Facility |
+| **Password login** | Credentials authenticate the User. Post-auth routing uses available-context count. | Facility-native vs organization-only identity class; repairing grants from `User.facilityId` / `User.roleId` |
+| **routeAuthenticatedUser** | Canonical 0 / 1 / many landing after User authentication | A second context engine inside login; auto-picking home, first, or highest role |
 | **enterContext** | Live target revalidation and exclusive session mint from any User session | Listing every context then trusting a posted role; silent fallback to another workspace |
 | **Client Facility** | Partner Facility workspace entered via a partnership | Inferring personal partner access from Organization topology |
 | **Facility operated / Contracted** | Derived operating model (operator org == / != Facility parent org) | Persisted SELF_OPERATED / CONTRACTED enum *(prefer derivation)* |

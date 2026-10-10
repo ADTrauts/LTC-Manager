@@ -10,26 +10,9 @@ import {
   registerAuthFailure,
   resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
-import {
-  createOrganizationSessionToken,
-  createSessionToken,
-  getCookieOptions,
-  SESSION_COOKIE,
-} from "@/lib/auth";
-import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
-import {
-  ensureUserFacilityAccessGrant,
-  listActiveFacilityAccesses,
-  userHasActiveFacilityAccess,
-} from "@/lib/facility-access";
-import {
-  ensureCurrentInternalFacilityRole,
-  internalRoleKeyAsAppRole,
-  resolveCurrentInternalFacilityRole,
-} from "@/lib/facility-access/internal-facility-role";
-import { listCurrentOrganizationMembershipsForUser } from "@/lib/organization-membership";
+import { applyAccountSessionCookies, applyContextTransitionCookies } from "@/lib/context-entry";
+import { PostAuthRoutingError, routeAuthenticatedUser } from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
-import { INITIAL_SESSION_VERSION } from "@/lib/session-revocation";
 
 const loginSchema = z.object({
   email: z.string().email().max(200),
@@ -81,11 +64,7 @@ export async function POST(request: Request) {
       passwordHash: true,
       isActive: true,
       emailVerifiedAt: true,
-      facilityId: true,
-      roleId: true,
-      primaryDepartmentId: true,
       sessionVersion: true,
-      role: { select: { key: true, isActive: true } },
     },
   });
 
@@ -127,124 +106,40 @@ export async function POST(request: Request) {
 
   await resetAuthRateLimitBucket(accountBucketKey);
 
-  const isFacilityNative = Boolean(user.facilityId && user.roleId && user.role);
-  const isOrganizationOnly = !user.facilityId && !user.roleId;
-
-  if (!isFacilityNative && !isOrganizationOnly) {
-    return NextResponse.json(
-      { error: "Account identity is incomplete. Contact support." },
-      { status: 403 },
-    );
-  }
-
-  if (isOrganizationOnly) {
-    const memberships = await listCurrentOrganizationMembershipsForUser(prisma, {
-      userId: user.id,
-    });
-    if (memberships.length === 0) {
-      return NextResponse.json({ error: "No organization membership." }, { status: 403 });
-    }
-    const selected = memberships[0]!;
-    const redirectPath =
-      memberships.length === 1
-        ? `/organization/${selected.organizationId}`
-        : "/organization";
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    const token = await createOrganizationSessionToken({
-      uid: user.id,
-      authMethod: "PASSWORD",
-      name: user.displayName,
-      email: user.email,
-      organizationId: selected.organizationId,
-      sessionVersion: user.sessionVersion ?? INITIAL_SESSION_VERSION,
-    });
-
-    const response = NextResponse.json({
-      ok: true,
-      redirectPath,
-    });
-    response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
-    return response;
-  }
-
-  if (!user.role?.isActive) {
-    await registerAuthFailure(buckets);
-    return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
-  }
-
-  const homeFacilityId = user.facilityId!;
-  let activeFacilityId = homeFacilityId;
-  const hasHomeAccess = await userHasActiveFacilityAccess(prisma, user.id, homeFacilityId);
-  if (!hasHomeAccess) {
-    // Compat repair: ensure home facility grant, else fall back to another active grant.
-    // Fallback changes active session context only — home User.facilityId is not rewritten.
-    await ensureUserFacilityAccessGrant(prisma, {
-      userId: user.id,
-      facilityId: homeFacilityId,
-      reactivate: false,
-      roleKey: user.role.key,
-    });
-    const stillMissing = !(await userHasActiveFacilityAccess(prisma, user.id, homeFacilityId));
-    if (stillMissing) {
-      const accesses = await listActiveFacilityAccesses(prisma, user.id);
-      const fallback = accesses[0];
-      if (!fallback) {
-        return NextResponse.json({ error: "No facility access." }, { status: 403 });
-      }
-      activeFacilityId = fallback.facilityId;
-    }
-  }
-
   await prisma.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
   });
 
-  // Ensure grant exists for the facility we will session into.
-  await ensureUserFacilityAccessGrant(prisma, {
-    userId: user.id,
-    facilityId: activeFacilityId,
-    roleKey: user.role.key,
-  });
-
-  const resolved =
-    (await resolveCurrentInternalFacilityRole(prisma, {
+  let landing;
+  try {
+    landing = await routeAuthenticatedUser(prisma, {
       userId: user.id,
-      facilityId: activeFacilityId,
-    })) ??
-    (await ensureCurrentInternalFacilityRole(prisma, {
-      userId: user.id,
-      facilityId: activeFacilityId,
-      roleKey: user.role.key,
-    }));
-  if (!resolved) {
-    return NextResponse.json({ error: "No facility access." }, { status: 403 });
+      sessionVersion: user.sessionVersion,
+    });
+  } catch (error) {
+    if (error instanceof PostAuthRoutingError) {
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Unable to complete sign-in." }, { status: 500 });
   }
 
-  const refreshed = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { primaryDepartmentId: true, sessionVersion: true },
+  const response = NextResponse.json({
+    ok: true,
+    redirectPath: landing.redirectPath,
   });
 
-  const token = await createSessionToken({
-    uid: user.id,
-    authKind: "user",
-    authMethod: "PASSWORD",
-    role: internalRoleKeyAsAppRole(resolved.roleKey),
-    name: user.displayName,
-    email: user.email,
-    facilityId: activeFacilityId,
-    primaryDepartmentId: refreshed?.primaryDepartmentId ?? user.primaryDepartmentId,
-    sessionVersion: refreshed?.sessionVersion ?? INITIAL_SESSION_VERSION,
-  });
+  if (landing.kind === "account") {
+    applyAccountSessionCookies(response.cookies, landing.token);
+  } else {
+    applyContextTransitionCookies(response.cookies, {
+      kind: landing.destinationKind,
+      token: landing.token,
+      facilityId: landing.facilityId,
+      facilityPartnerOrganizationId: landing.facilityPartnerOrganizationId,
+      allowedDepartmentIds: landing.allowedDepartmentIds,
+    });
+  }
 
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE, token, getCookieOptions());
-  response.cookies.set(DEVICE_FACILITY_COOKIE, activeFacilityId, getDeviceCookieOptions());
   return response;
 }
