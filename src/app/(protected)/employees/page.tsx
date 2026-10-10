@@ -80,7 +80,7 @@ function toEmployeeCardProps(
       note: string | null;
     }[];
   },
-  hasAppLogin: boolean,
+  accountLink: EmployeeForManagementCard["accountLink"],
 ): EmployeeForManagementCard {
   const disciplineEntries = employee.disciplinePointEntries.map((e) => ({
     id: e.id,
@@ -96,7 +96,8 @@ function toEmployeeCardProps(
     firstName: employee.firstName,
     lastName: employee.lastName,
     email: employee.email,
-    hasAppLogin,
+    accountLink,
+    hasAppLogin: accountLink === "linked" || accountLink === "pending",
     phone: employee.phone,
     roleType: employee.roleType,
     employmentType: employee.employmentType,
@@ -197,6 +198,7 @@ export default async function EmployeesPage({
         firstName: true,
         lastName: true,
         email: true,
+        userId: true,
         phone: true,
         roleType: true,
         status: true,
@@ -301,26 +303,33 @@ export default async function EmployeesPage({
     departmentIds: jobRoleDepartmentIds,
   });
 
-  const distinctEmails = [
-    ...new Set(
-      employees
-        .map((e) => e.email?.trim().toLowerCase())
-        .filter((e): e is string => Boolean(e)),
-    ),
-  ];
-  const appLoginEmailSet = new Set<string>();
-  if (distinctEmails.length > 0) {
-    const users = await prisma.user.findMany({
-      where: {
-        facilityId,
-        isActive: true,
-        email: { in: distinctEmails },
-      },
-      select: { email: true },
-    });
-    for (const u of users) {
-      appLoginEmailSet.add(u.email.toLowerCase());
-    }
+  const linkedUserIds = [...new Set(employees.map((e) => e.userId).filter((id): id is string => Boolean(id)))];
+  const grants =
+    linkedUserIds.length === 0
+      ? []
+      : await prisma.userFacilityAccess.findMany({
+          where: {
+            userId: { in: linkedUserIds },
+            facilityId,
+            isActive: true,
+            revokedAt: null,
+          },
+          select: { userId: true },
+        });
+  const grantedUserIds = new Set(grants.map((row) => row.userId));
+  const pendingInvites = await prisma.employeeUserLinkInvitation.findMany({
+    where: {
+      employeeId: { in: employees.map((e) => e.id) },
+      status: "PENDING",
+      expiresAt: { gt: new Date() },
+    },
+    select: { employeeId: true },
+  });
+  const pendingEmployeeIds = new Set(pendingInvites.map((row) => row.employeeId));
+  function accountLinkFor(employee: { id: string; userId: string | null }) {
+    if (employee.userId && grantedUserIds.has(employee.userId)) return "linked" as const;
+    if (pendingEmployeeIds.has(employee.id)) return "pending" as const;
+    return "none" as const;
   }
 
   return (
@@ -384,13 +393,7 @@ export default async function EmployeesPage({
         {employees.map((employee) => (
           <EmployeeManagementCard
             key={employee.id}
-            employee={toEmployeeCardProps(
-              employee,
-              Boolean(
-                employee.email?.trim() &&
-                  appLoginEmailSet.has(employee.email.trim().toLowerCase()),
-              ),
-            )}
+            employee={toEmployeeCardProps(employee, accountLinkFor(employee))}
             units={units}
             departments={departments}
             jobTitles={jobTitles}

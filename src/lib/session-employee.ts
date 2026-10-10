@@ -1,24 +1,25 @@
 import type { FacilitySession } from "@/lib/auth";
+import { findEmployeeForUserFacility } from "@/lib/employee-identity/lookup";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Operational employee id for the signed-in actor (PIN = employee id; User = roster row match by email).
+ * Operational employee id for the signed-in actor.
+ * PIN = Employee.id. Internal User = Employee.userId + selected Facility.
+ * Partner / Harbor / Organization sessions do not invent an Employee.
  */
 export async function getOperationalEmployeeIdForSession(session: FacilitySession): Promise<string | null> {
-  if (session.authKind === "harbor_staff") {
-    return null;
-  }
+  if (session.authKind === "harbor_staff") return null;
   if (session.authKind === "employee") {
     return session.uid ?? null;
   }
-  const email = session.email.trim().toLowerCase();
-  if (!email || !session.facilityId) return null;
-  const emp = await prisma.employee.findFirst({
-    where: {
-      facilityId: session.facilityId,
-      email: { equals: email, mode: "insensitive" },
-    },
-    select: { id: true },
+  if (session.authKind !== "user") return null;
+  if (session.accessKind === "partner" || session.scopeKind === "organization") {
+    return null;
+  }
+  if (!session.uid || !session.facilityId) return null;
+  const employee = await findEmployeeForUserFacility(prisma, {
+    userId: session.uid,
+    facilityId: session.facilityId,
   });
-  return emp?.id ?? null;
+  return employee?.id ?? null;
 }

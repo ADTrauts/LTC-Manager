@@ -205,6 +205,7 @@ model Facility {
   unitSpaces                     UnitSpace[]
   facilityRoomTypes              FacilityRoomType[]
   employees                      Employee[]
+  employeeUserLinkInvitations    EmployeeUserLinkInvitation[]
   logTemplates                   LogTemplate[]
   vendors                        Vendor[]
   facilityOrganizations          FacilityOrganization[]
@@ -962,6 +963,9 @@ model User {
   facilityAccessesGranted        UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
   facilityRolePeriodsCreated     UserFacilityRolePeriod[]        @relation("UserFacilityRolePeriodCreatedBy")
   facilityRolePeriodsEnded       UserFacilityRolePeriod[]        @relation("UserFacilityRolePeriodEndedBy")
+  employees                      Employee[]                      @relation("EmployeeUser")
+  employeeLinkInvitationsInvited EmployeeUserLinkInvitation[]    @relation("EmployeeUserLinkInvitationInvitedBy")
+  employeeLinkInvitationsAccepted EmployeeUserLinkInvitation[]   @relation("EmployeeUserLinkInvitationAcceptedBy")
   workspacePreferences           WorkspacePreference[]
   assetsCreated                  Asset[]                         @relation("AssetCreatedByUser")
   assetsLastChanged              Asset[]                         @relation("AssetLastChangedByUser")
@@ -2215,6 +2219,11 @@ model Employee {
   lastName                       String
   phone                          String?
   email                          String?
+  /// Global person identity. Null for PIN-only / unlinked workforce records.
+  /// Termination keeps this link. At most one Employee per User per Facility.
+  userId                         String?
+  user                           User?                           @relation("EmployeeUser", fields: [userId], references: [id], onDelete: Restrict)
+  linkInvitations                EmployeeUserLinkInvitation[]
   /// HMAC digest for 6-digit PIN lookup; unique per facility when set (see `lib/pin.ts`).
   pinDigest                      String?
   /// Default unit focus for PIN sessions (must be allowed, or any unit when access list is empty).
@@ -2295,13 +2304,49 @@ model Employee {
   updatedAt                      DateTime                        @updatedAt
 
   @@unique([facilityId, pinDigest])
+  @@unique([facilityId, userId])
   @@index([status, roleType])
   @@index([facilityId])
+  @@index([userId])
   @@index([primaryUnitId])
   @@index([primaryDepartmentId])
   @@index([jobTitleId])
   @@index([facilityId, unionMember])
   @@index([birthMonth, birthDay])
+}
+
+enum EmployeeUserLinkInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+/// Facility HR may invite an existing User to claim a workforce Employee.
+/// The User must accept. HR cannot assign Employee.userId directly.
+model EmployeeUserLinkInvitation {
+  id                    String                            @id @default(cuid())
+  employeeId            String
+  employee              Employee                          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  facilityId            String
+  facility              Facility                          @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  targetEmailNormalized String
+  intendedRoleKey       RoleKey
+  /// SHA-256 of the raw token. Never store plaintext.
+  tokenHash             String                            @unique
+  expiresAt             DateTime
+  status                EmployeeUserLinkInvitationStatus  @default(PENDING)
+  invitedByUserId       String
+  invitedByUser         User                              @relation("EmployeeUserLinkInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedByUserId      String?
+  acceptedByUser        User?                             @relation("EmployeeUserLinkInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  acceptedAt            DateTime?
+  createdAt             DateTime                          @default(now())
+  updatedAt             DateTime                          @updatedAt
+
+  @@index([employeeId, status])
+  @@index([facilityId, status])
+  @@index([targetEmailNormalized, status])
+  @@index([status, expiresAt])
 }
 
 model EmployeeWorkStation {

@@ -43,7 +43,9 @@ export type EmployeeForManagementCard = {
   firstName: string;
   lastName: string;
   email: string | null;
-  /** True when an active `User` exists at this facility with the same email (case-insensitive). */
+  /** Explicit identity/access: linked User + current Facility grant, pending invite, or none. */
+  accountLink: "linked" | "pending" | "none";
+  /** True when a linked/pending account should block creating another User. */
   hasAppLogin: boolean;
   phone: string | null;
   roleType: RoleKey;
@@ -524,9 +526,11 @@ export function EmployeeManagementCard({
               <div className="rounded-md border border-zinc-100 bg-zinc-50/80 px-3 py-3 text-sm text-zinc-700">
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Email login</p>
                 <p className="mt-1">
-                  {employee.hasAppLogin
-                    ? `Available${employee.email ? ` (${employee.email})` : ""}`
-                    : "Not configured"}
+                  {employee.accountLink === "linked"
+                    ? `Linked account${employee.email ? ` (${employee.email})` : ""}`
+                    : employee.accountLink === "pending"
+                      ? "Invitation pending"
+                      : "Not configured"}
                 </p>
               </div>
               {showPinManagement ? (

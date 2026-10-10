@@ -80,6 +80,22 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Accept an admin-created account invite and set a password.",
   },
   {
+    pattern: "/account-link/accept",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "auth",
+    notes: "Existing User accepts a Facility Employee identity-link invitation.",
+  },
+  {
+    pattern: "/api/auth/employee-link/accept",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "auth",
+    notes: "Accept an Employee↔User link invitation. Handler requires the invited User session.",
+  },
+  {
     pattern: "/organization/claim/[token]",
     match: "EXACT",
     surface: "PAGE",

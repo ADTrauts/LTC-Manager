@@ -31,14 +31,14 @@ const baseInput = {
   email: "manager@example.test",
 };
 
-test("employee demotion updates the linked User role and revokes password sessions", async () => {
+test("employee demotion updates home-default User.roleId without global session revocation", async () => {
   const { client, updates } = fakeClient("role-staff");
   const result = await syncLinkedUserAuthority(client, {
     ...baseInput,
     nextEmployeeRole: RoleKey.STAFF,
   });
 
-  assert.deepEqual(result, { roleChanged: true, terminated: false, sessionsRevoked: true });
+  assert.deepEqual(result, { roleChanged: true, terminated: false, sessionsRevoked: false });
   assert.deepEqual(updates, [
     {
       where: { id: "user-1" },
@@ -46,28 +46,25 @@ test("employee demotion updates the linked User role and revokes password sessio
         displayName: "Updated Manager",
         email: "manager@example.test",
         roleId: "role-staff",
-        sessionVersion: { increment: 1 },
       },
     },
   ]);
 });
 
-test("employee termination deactivates the linked User and revokes password sessions", async () => {
+test("employee termination does not disable the linked User", async () => {
   const { client, updates } = fakeClient();
   const result = await syncLinkedUserAuthority(client, {
     ...baseInput,
     nextEmployeeStatus: EmployeeStatus.TERMINATED,
   });
 
-  assert.deepEqual(result, { roleChanged: false, terminated: true, sessionsRevoked: true });
+  assert.deepEqual(result, { roleChanged: false, terminated: true, sessionsRevoked: false });
   assert.deepEqual(updates, [
     {
       where: { id: "user-1" },
       data: {
         displayName: "Updated Manager",
         email: "manager@example.test",
-        isActive: false,
-        sessionVersion: { increment: 1 },
       },
     },
   ]);

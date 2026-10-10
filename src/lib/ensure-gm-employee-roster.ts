@@ -3,6 +3,7 @@ import { sessionUserIdForFk } from "@/lib/auth";
 import type { AppRole } from "@/lib/access";
 import { EmployeeStatus, EmploymentType, RoleKey } from "@prisma/client";
 
+import { findEmployeeForUserFacility } from "@/lib/employee-identity";
 import { prisma } from "@/lib/prisma";
 import { rosterNameFromSignupDisplayName } from "@/lib/roster-name";
 
@@ -15,9 +16,8 @@ function displayNameSourceForRoster(displayName: string, email: string): string 
 }
 
 /**
- * FACILITY_ADMINISTRATOR and GM hub accounts (`User`) should always have a matching `Employee` row for the roster,
- * staffing, and HR flows.
- * Self-serve signup creates both; this covers legacy accounts and any missed backfills.
+ * FACILITY_ADMINISTRATOR and GM hub accounts should have a matching Employee row
+ * for roster/staffing/HR. Link is explicit via Employee.userId.
  */
 function rosterRoleTypeForEmailUser(role: AppRole): RoleKey | null {
   if (role === "FACILITY_ADMINISTRATOR") return RoleKey.FACILITY_ADMINISTRATOR;
@@ -25,7 +25,6 @@ function rosterRoleTypeForEmailUser(role: AppRole): RoleKey | null {
   return null;
 }
 
-/** Ensures FACILITY_ADMINISTRATOR and GM hub accounts appear on the employee roster when missing (legacy installs). */
 export async function ensureGmEmployeeRosterRow(session: FacilitySession): Promise<void> {
   const rosterRoleType = rosterRoleTypeForEmailUser(session.role);
   if (session.authKind !== "user" || !rosterRoleType || !session.facilityId) {
@@ -34,23 +33,34 @@ export async function ensureGmEmployeeRosterRow(session: FacilitySession): Promi
   const userId = sessionUserIdForFk(session);
   if (!userId) return;
 
-  const email = session.email.trim().toLowerCase();
-  if (!email) return;
-
-  const existing = await prisma.employee.findFirst({
-    where: {
-      facilityId: session.facilityId,
-      email: { equals: email, mode: "insensitive" },
-    },
-    select: { id: true },
+  const existing = await findEmployeeForUserFacility(prisma, {
+    userId,
+    facilityId: session.facilityId,
   });
   if (existing) return;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { displayName: true, facilityId: true, email: true },
+    select: {
+      displayName: true,
+      email: true,
+      isActive: true,
+      facility: { select: { organizationId: true } },
+      facilityAccesses: {
+        where: { facilityId: session.facilityId, isActive: true, revokedAt: null },
+        select: { id: true },
+      },
+    },
   });
-  if (!user || user.facilityId !== session.facilityId) return;
+  if (!user?.isActive) return;
+
+  const facility = await prisma.facility.findUnique({
+    where: { id: session.facilityId },
+    select: { organizationId: true },
+  });
+  if (!facility) return;
+  const sameOrg = user.facility?.organizationId === facility.organizationId;
+  if (!sameOrg && user.facilityAccesses.length === 0) return;
 
   const source = displayNameSourceForRoster(user.displayName, user.email);
   const { firstName, lastName } = rosterNameFromSignupDisplayName(source);
@@ -58,6 +68,7 @@ export async function ensureGmEmployeeRosterRow(session: FacilitySession): Promi
   await prisma.employee.create({
     data: {
       facilityId: session.facilityId,
+      userId,
       firstName,
       lastName,
       email: user.email.trim().toLowerCase(),

@@ -1087,7 +1087,6 @@ async function resolveInternal(
     where: { id: input.userId },
     select: {
       isActive: true,
-      email: true,
     },
   });
   if (!user?.isActive) return null;
@@ -1109,7 +1108,7 @@ async function resolveInternal(
     const employee = await db.employee.findFirst({
       where: {
         facilityId: input.facilityId,
-        email: { equals: user.email, mode: "insensitive" },
+        userId: input.userId,
       },
       select: {
         employeeDepartments: {

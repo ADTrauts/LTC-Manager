@@ -11,6 +11,7 @@ import {
   roleChangeInvalidatesPin,
 } from "@/lib/employee-pin-invalidation";
 import { buildTerminationSnapshotJson } from "@/lib/hr-audit";
+import { revokeInternalAccessForEmploymentEnd } from "@/lib/employee-identity";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
 import {
@@ -280,6 +281,13 @@ export async function importEmployeesFromCsvAction(formData: FormData): Promise<
             hasPin: before.pinDigest != null && !clearsPin,
           },
         );
+        if (transitionToTerminated && before.userId) {
+          await revokeInternalAccessForEmploymentEnd(tx, {
+            userId: before.userId,
+            facilityId,
+            actorUserId: uid ?? null,
+          });
+        }
         if (revocations.length > 0) {
           await revokeEmployeeSessions(tx, employeeId);
           for (const reason of revocations) {

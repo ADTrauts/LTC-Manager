@@ -156,6 +156,7 @@ export async function POST(request: Request) {
         firstName,
         lastName,
         email,
+        userId: user.id,
         roleType: creatorRoles.employeeRoleType,
         status: EmployeeStatus.ACTIVE,
         employmentType: EmploymentType.FULL_TIME,

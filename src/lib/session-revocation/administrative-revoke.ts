@@ -58,7 +58,7 @@ export async function revokeEmployeeSessionsAdministratively(
     where: { id: input.targetEmployeeId, facilityId: input.actorFacilityId },
     select: {
       id: true,
-      email: true,
+      userId: true,
       primaryDepartmentId: true,
       employeeDepartments: { select: { departmentId: true } },
     },
@@ -78,24 +78,13 @@ export async function revokeEmployeeSessionsAdministratively(
     }
   }
 
-  const email = target.email?.trim().toLowerCase() ?? null;
-
   return client.$transaction(async (tx) => {
     await revokeEmployeeSessions(tx, target.id);
 
     let revokedUser = false;
-    if (email) {
-      const linkedUser = await tx.user.findFirst({
-        where: {
-          facilityId: input.actorFacilityId,
-          email: { equals: email, mode: "insensitive" },
-        },
-        select: { id: true },
-      });
-      if (linkedUser) {
-        await revokeUserSessions(tx, linkedUser.id);
-        revokedUser = true;
-      }
+    if (target.userId) {
+      await revokeUserSessions(tx, target.userId);
+      revokedUser = true;
     }
 
     await tx.employeeHrAuditLog.create({

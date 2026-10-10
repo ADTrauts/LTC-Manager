@@ -23,12 +23,9 @@ export type LinkedUserAuthorityInput = {
 };
 
 /**
- * Keep the password identity aligned with the Employee identity in the same transaction as the
- * Employee profile update. Session invalidation is part of the User update so authority cannot
- * change while a password session issued under the old role remains current.
- *
- * Primary department sync does not revoke sessions; FA / manager resolvers that need a live
- * primary reload it from User (see resolveWorkAuthority).
+ * Keep display/home-default fields aligned with a linked Employee.
+ * Does not disable the User on termination and does not bump User.sessionVersion
+ * for a Facility workforce role change — Path A uses the Facility role period.
  */
 export async function syncLinkedUserAuthority(
   client: LinkedUserAuthorityClient,
@@ -49,20 +46,17 @@ export async function syncLinkedUserAuthority(
     throw new Error("Role configuration is missing for this facility.");
   }
 
-  const sessionsRevoked = roleChanged || terminated;
   await client.user.update({
     where: { id: input.userId },
     data: {
       displayName: input.displayName,
       ...(input.email ? { email: input.email } : {}),
       ...(roleRow && input.updateHomeRole !== false ? { roleId: roleRow.id } : {}),
-      ...(terminated ? { isActive: false } : {}),
-      ...(sessionsRevoked ? { sessionVersion: { increment: 1 } } : {}),
       ...(input.primaryDepartmentId !== undefined
         ? { primaryDepartmentId: input.primaryDepartmentId }
         : {}),
     },
   });
 
-  return { roleChanged, terminated, sessionsRevoked };
+  return { roleChanged, terminated, sessionsRevoked: false };
 }
