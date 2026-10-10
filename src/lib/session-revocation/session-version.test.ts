@@ -103,6 +103,33 @@ async function makeUser(f: Fixture, overrides: { roleId?: string; isActive?: boo
     select: { id: true, sessionVersion: true },
   });
   createdUserIds.push(user.id);
+  const role = await f.db.role.findUnique({
+    where: { id: overrides.roleId ?? f.roleStaffId },
+    select: { key: true },
+  });
+  if (role) {
+    await f.db.userFacilityAccess.upsert({
+      where: { userId_facilityId: { userId: user.id, facilityId: f.facilityId } },
+      create: { userId: user.id, facilityId: f.facilityId, isActive: true },
+      update: { isActive: true, revokedAt: null },
+    });
+    const access = await f.db.userFacilityAccess.findUniqueOrThrow({
+      where: { userId_facilityId: { userId: user.id, facilityId: f.facilityId } },
+      select: { id: true },
+    });
+    const open = await f.db.userFacilityRolePeriod.findFirst({
+      where: { userFacilityAccessId: access.id, endsAt: null },
+    });
+    if (!open) {
+      await f.db.userFacilityRolePeriod.create({
+        data: {
+          userFacilityAccessId: access.id,
+          roleKey: role.key,
+          startsAt: new Date(),
+        },
+      });
+    }
+  }
   return user;
 }
 
@@ -217,7 +244,40 @@ test("a password session fails after a role change", { skip }, async () => {
   assert.equal(result.valid === false && result.reason, "VERSION_STALE");
 });
 
-test("a password session fails closed when role changes without explicit revocation", { skip }, async () => {
+test("a password session fails closed when the Facility role period changes without explicit revocation", { skip }, async () => {
+  const f = await getFixture();
+  if (!f) return;
+  const user = await makeUser(f);
+  const session = userSession(f, user.id, user.sessionVersion);
+
+  const access = await f.db.userFacilityAccess.findUniqueOrThrow({
+    where: { userId_facilityId: { userId: user.id, facilityId: f.facilityId } },
+    select: { id: true },
+  });
+  const current = await f.db.userFacilityRolePeriod.findFirstOrThrow({
+    where: { userFacilityAccessId: access.id, endsAt: null },
+  });
+  const now = new Date();
+  await f.db.$transaction([
+    f.db.userFacilityRolePeriod.update({
+      where: { id: current.id },
+      data: { endsAt: now },
+    }),
+    f.db.userFacilityRolePeriod.create({
+      data: {
+        userFacilityAccessId: access.id,
+        roleKey: "GM",
+        startsAt: now,
+      },
+    }),
+  ]);
+
+  const result = await f.lib.validateSessionAuthority(session, f.db);
+  assert.equal(result.valid, false);
+  assert.equal(result.valid === false && result.reason, "ROLE_STALE");
+});
+
+test("User.roleId drift does not stale an otherwise valid Facility session", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
   const user = await makeUser(f);
@@ -226,8 +286,7 @@ test("a password session fails closed when role changes without explicit revocat
   await f.db.user.update({ where: { id: user.id }, data: { roleId: f.roleGmId } });
 
   const result = await f.lib.validateSessionAuthority(session, f.db);
-  assert.equal(result.valid, false);
-  assert.equal(result.valid === false && result.reason, "ROLE_STALE");
+  assert.equal(result.valid, true);
 });
 
 test("a password session fails once the user is deactivated", { skip }, async () => {

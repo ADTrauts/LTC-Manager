@@ -910,7 +910,9 @@ model User {
   /// (active Facility lives only in session/JWT). Null for organization-only Users.
   facilityId                     String?
   facility                       Facility?                       @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  /// Optional internal Facility RoleKey for facility-native authorization. Null for
+  /// Compatibility HOME / default Facility RoleKey for facility-native Users.
+  /// Not active Facility authority after Phase 2E1 — current RoleKey lives on
+  /// UserFacilityRolePeriod for the selected UserFacilityAccess. Null for
   /// organization-only Users. Never stores ORG_ADMIN / ORG_MEMBER.
   roleId                         String?
   role                           Role?                           @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -958,6 +960,8 @@ model User {
   knowledgeArticleVersionsCreated KnowledgeArticleVersion[]      @relation("KnowledgeArticleVersionCreatedBy")
   facilityAccesses               UserFacilityAccess[]            @relation("UserFacilityAccessUser")
   facilityAccessesGranted        UserFacilityAccess[]            @relation("UserFacilityAccessGrantedBy")
+  facilityRolePeriodsCreated     UserFacilityRolePeriod[]        @relation("UserFacilityRolePeriodCreatedBy")
+  facilityRolePeriodsEnded       UserFacilityRolePeriod[]        @relation("UserFacilityRolePeriodEndedBy")
   workspacePreferences           WorkspacePreference[]
   assetsCreated                  Asset[]                         @relation("AssetCreatedByUser")
   assetsLastChanged              Asset[]                         @relation("AssetLastChangedByUser")
@@ -1096,7 +1100,7 @@ model WorkspacePreference {
 }
 
 /// Explicit multi-facility access grant. Shared Organization alone never authorizes a facility.
-/// Role remains on User for Wave 11 M2 (per-facility role deferred).
+/// Current internal RoleKey lives on UserFacilityRolePeriod, not User.roleId.
 model UserFacilityAccess {
   id              String    @id @default(cuid())
   userId          String
@@ -1110,11 +1114,36 @@ model UserFacilityAccess {
   revokedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  rolePeriods     UserFacilityRolePeriod[]
 
   @@unique([userId, facilityId])
   @@index([userId, isActive])
   @@index([facilityId, isActive])
   @@index([grantedByUserId])
+}
+
+/// Timestamp period of internal Facility RoleKey under one UserFacilityAccess.
+/// Half-open: startsAt <= instant < endsAt. An open period is the current role.
+/// Exactly one current period per active access is the write invariant
+/// (SQL partial unique index UserFacilityRolePeriod_access_current_uidx).
+model UserFacilityRolePeriod {
+  id                   String             @id @default(cuid())
+  userFacilityAccessId String
+  userFacilityAccess   UserFacilityAccess @relation(fields: [userFacilityAccessId], references: [id], onDelete: Cascade)
+  roleKey              RoleKey
+  startsAt             DateTime
+  endsAt               DateTime?
+  createdByUserId      String?
+  createdByUser        User?              @relation("UserFacilityRolePeriodCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  endedByUserId        String?
+  endedByUser          User?              @relation("UserFacilityRolePeriodEndedBy", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([userFacilityAccessId, startsAt], map: "UserFacilityRolePeriod_access_startsAt_idx")
+  @@index([userFacilityAccessId, endsAt], map: "UserFacilityRolePeriod_access_endsAt_idx")
+  @@index([createdByUserId])
+  @@index([endedByUserId])
 }
 
 enum UnitType {

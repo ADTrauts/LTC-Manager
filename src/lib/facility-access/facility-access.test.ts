@@ -23,6 +23,14 @@ type AccessRow = {
   grantedByUserId: string | null;
 };
 
+type RolePeriodRow = {
+  id: string;
+  userFacilityAccessId: string;
+  roleKey: "FACILITY_ADMINISTRATOR" | "GM" | "MANAGER" | "SUPERVISOR" | "LEAD_TEAM_MEMBER" | "STAFF";
+  startsAt: Date;
+  endsAt: Date | null;
+};
+
 function createMemoryDb(seed: {
   facilities: Array<{ id: string; displayName: string; organizationId: string }>;
   users: Array<{
@@ -41,6 +49,7 @@ function createMemoryDb(seed: {
   }>;
 }) {
   const accesses: AccessRow[] = [...(seed.accesses ?? [])];
+  const rolePeriods: RolePeriodRow[] = [];
   const users = seed.users.map((u) => ({
     ...u,
     isActive: u.isActive ?? true,
@@ -66,7 +75,15 @@ function createMemoryDb(seed: {
             a.isActive === args.where.isActive &&
             a.revokedAt === null,
         );
-        return row ? { id: row.id } : null;
+        return row
+          ? {
+              id: row.id,
+              facilityId: row.facilityId,
+              rolePeriods: rolePeriods
+                .filter((period) => period.userFacilityAccessId === row.id)
+                .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime()),
+            }
+          : null;
       },
       findUnique: async (args: {
         where: { userId_facilityId: { userId: string; facilityId: string } } | { id: string };
@@ -174,7 +191,7 @@ function createMemoryDb(seed: {
               const fac = facilities.find((f) => f.id === a.facilityId)!;
               return { facility: { organizationId: fac.organizationId } };
             }),
-          role: { key: "FACILITY_ADMINISTRATOR" as const },
+          role: { key: "FACILITY_ADMINISTRATOR" as const, isActive: true },
         };
       },
       update: async (args: {
@@ -190,6 +207,41 @@ function createMemoryDb(seed: {
         return u;
       },
     },
+    userFacilityRolePeriod: {
+      create: async (args: {
+        data: {
+          userFacilityAccessId: string;
+          roleKey: RolePeriodRow["roleKey"];
+          startsAt: Date;
+          endsAt: Date | null;
+          createdByUserId?: string | null;
+        };
+        select?: { id: true; roleKey: true };
+      }) => {
+        const row: RolePeriodRow = {
+          id: `p${idSeq++}`,
+          userFacilityAccessId: args.data.userFacilityAccessId,
+          roleKey: args.data.roleKey,
+          startsAt: args.data.startsAt,
+          endsAt: args.data.endsAt,
+        };
+        rolePeriods.push(row);
+        return { id: row.id, roleKey: row.roleKey };
+      },
+      findMany: async (args: { where: { userFacilityAccessId: string } }) =>
+        rolePeriods.filter((period) => period.userFacilityAccessId === args.where.userFacilityAccessId),
+      update: async (args: { where: { id: string }; data: { endsAt?: Date; endedByUserId?: string | null } }) => {
+        const row = rolePeriods.find((period) => period.id === args.where.id);
+        if (!row) throw new Error("missing period");
+        if (args.data.endsAt !== undefined) row.endsAt = args.data.endsAt;
+        return row;
+      },
+    },
+    role: {
+      findFirst: async (args: { where: { key: string; isActive: boolean } }) =>
+        args.where.isActive ? { id: `role_${args.where.key}` } : null,
+    },
+    $queryRaw: async () => [{ id: "locked" }],
     department: {
       findUnique: async (args: { where: { id: string } }) => {
         const d = departments.find((x) => x.id === args.where.id);

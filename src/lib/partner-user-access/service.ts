@@ -2,9 +2,9 @@ import {
   Prisma,
   type OrganizationPartnerRole,
   type PrismaClient,
-  type RoleKey,
 } from "@prisma/client";
 
+import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/internal-facility-role";
 import { findPeriodContainingInstant, periodContainsInstant, periodsOverlap } from "@/lib/partner-access";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -1087,23 +1087,18 @@ async function resolveInternal(
     where: { id: input.userId },
     select: {
       isActive: true,
-      facilityId: true,
       email: true,
-      role: { select: { key: true, isActive: true } },
-      facilityAccesses: {
-        where: { facilityId: input.facilityId, isActive: true, revokedAt: null },
-        select: { id: true },
-        take: 1,
-      },
     },
   });
-  if (!user?.isActive || !user.role?.isActive || !user.role.key) return null;
-  const home = user.facilityId === input.facilityId;
-  const grant = user.facilityAccesses.length > 0;
-  if (!home && !grant) return null;
+  if (!user?.isActive) return null;
+  const resolved = await resolveCurrentInternalFacilityRole(db, {
+    userId: input.userId,
+    facilityId: input.facilityId,
+  });
+  if (!resolved) return null;
 
   let allowedDepartmentIds: string[] = [];
-  if (user.role.key === "FACILITY_ADMINISTRATOR") {
+  if (resolved.roleKey === "FACILITY_ADMINISTRATOR") {
     const departments = await db.department.findMany({
       where: { facilityId: input.facilityId, isActive: true },
       select: { id: true },
@@ -1134,7 +1129,7 @@ async function resolveInternal(
   return {
     path: "internal",
     facilityId: input.facilityId,
-    facilityRole: user.role.key as RoleKey,
+    facilityRole: resolved.roleKey,
     allowedDepartmentIds,
   };
 }

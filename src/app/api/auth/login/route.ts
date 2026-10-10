@@ -22,6 +22,11 @@ import {
   listActiveFacilityAccesses,
   userHasActiveFacilityAccess,
 } from "@/lib/facility-access";
+import {
+  ensureCurrentInternalFacilityRole,
+  internalRoleKeyAsAppRole,
+  resolveCurrentInternalFacilityRole,
+} from "@/lib/facility-access/internal-facility-role";
 import { listCurrentOrganizationMembershipsForUser } from "@/lib/organization-membership";
 import { prisma } from "@/lib/prisma";
 import { INITIAL_SESSION_VERSION } from "@/lib/session-revocation";
@@ -182,6 +187,7 @@ export async function POST(request: Request) {
       userId: user.id,
       facilityId: homeFacilityId,
       reactivate: false,
+      roleKey: user.role.key,
     });
     const stillMissing = !(await userHasActiveFacilityAccess(prisma, user.id, homeFacilityId));
     if (stillMissing) {
@@ -203,7 +209,22 @@ export async function POST(request: Request) {
   await ensureUserFacilityAccessGrant(prisma, {
     userId: user.id,
     facilityId: activeFacilityId,
+    roleKey: user.role.key,
   });
+
+  const resolved =
+    (await resolveCurrentInternalFacilityRole(prisma, {
+      userId: user.id,
+      facilityId: activeFacilityId,
+    })) ??
+    (await ensureCurrentInternalFacilityRole(prisma, {
+      userId: user.id,
+      facilityId: activeFacilityId,
+      roleKey: user.role.key,
+    }));
+  if (!resolved) {
+    return NextResponse.json({ error: "No facility access." }, { status: 403 });
+  }
 
   const refreshed = await prisma.user.findUnique({
     where: { id: user.id },
@@ -214,7 +235,7 @@ export async function POST(request: Request) {
     uid: user.id,
     authKind: "user",
     authMethod: "PASSWORD",
-    role: user.role.key,
+    role: internalRoleKeyAsAppRole(resolved.roleKey),
     name: user.displayName,
     email: user.email,
     facilityId: activeFacilityId,

@@ -21,7 +21,7 @@ Login prefers home Facility when still authorized; otherwise falls back to anoth
 
 ## Session scopes
 
-- `scopeKind = facility` — requires Facility RoleKey + active Facility authority (home or `UserFacilityAccess`)
+- `scopeKind = facility` — requires a current `UserFacilityRolePeriod` on an active `UserFacilityAccess` for the selected Facility (Phase 2E1). `User.roleId` is home/default compatibility only.
 - `scopeKind = organization` — requires current `UserOrganizationRolePeriod` for selected `organizationId`; no Facility RoleKey
 
 Organization authority is re-checked server-side from membership periods, not trusted from JWT org-role claims (none are stored as RoleKey).

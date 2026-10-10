@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
+import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/internal-facility-role";
 
 /**
  * Any Prisma surface that can increment a session version — the client itself or a transaction
@@ -51,8 +52,8 @@ export type SessionValidation =
  * role change, or a password reset must take effect before the token's twelve-hour expiry rather
  * than after it.
  *
- * Reads exactly one row per request (see `loadSessionAuthority`), so this is a single indexed
- * primary-key lookup rather than a per-call cost.
+ * Internal Facility sessions resolve the current grant role after the User identity
+ * lookup. Organization and partner sessions keep their own membership/assignment reads.
  */
 export async function validateSessionAuthority(
   session: AppJwtPayload,
@@ -117,42 +118,32 @@ async function validateUserSession(
     select: {
       isActive: true,
       sessionVersion: true,
-      facilityId: true,
       primaryDepartmentId: true,
-      role: { select: { key: true, isActive: true } },
-      facilityAccesses: {
-        where: {
-          facilityId: session.facilityId ?? "__missing__",
-          isActive: true,
-          revokedAt: null,
-        },
-        select: { id: true },
-        take: 1,
-      },
     },
   });
 
   if (!user) {
     return { valid: false, reason: "IDENTITY_NOT_FOUND" };
   }
-  if (!user.isActive || !user.role?.isActive) {
+  if (!user.isActive) {
     return { valid: false, reason: "IDENTITY_INACTIVE" };
   }
   if (user.sessionVersion !== session.sessionVersion) {
     return { valid: false, reason: "VERSION_STALE" };
   }
-  if (!session.role || !user.role || user.role.key !== session.role) {
-    return { valid: false, reason: "ROLE_STALE" };
-  }
   if (!session.facilityId) {
     return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
   }
 
-  // Active Facility is session context. Home Facility or an active Path A grant both authorize it.
-  const hasFacility =
-    user.facilityId === session.facilityId || user.facilityAccesses.length > 0;
-  if (!hasFacility) {
+  const resolved = await resolveCurrentInternalFacilityRole(client, {
+    userId: session.uid,
+    facilityId: session.facilityId,
+  });
+  if (!resolved) {
     return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
+  }
+  if (!session.role || resolved.roleKey !== session.role) {
+    return { valid: false, reason: "ROLE_STALE" };
   }
 
   return { valid: true, effectiveDepartmentId: user.primaryDepartmentId };

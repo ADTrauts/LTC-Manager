@@ -1,9 +1,14 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, RoleKey } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import { trackEvent } from "@/lib/telemetry";
 import { revokeUserSessions } from "@/lib/session-revocation";
+
+import {
+  closeCurrentInternalFacilityRole,
+  ensureCurrentInternalFacilityRole,
+} from "./internal-facility-role";
 
 type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
@@ -64,6 +69,7 @@ export async function ensureUserFacilityAccessGrant(
     facilityId: string;
     grantedByUserId?: string | null;
     reactivate?: boolean;
+    roleKey?: RoleKey | null;
   },
 ): Promise<{ id: string; created: boolean }> {
   const existing = await db.userFacilityAccess.findUnique({
@@ -75,6 +81,12 @@ export async function ensureUserFacilityAccessGrant(
 
   if (existing) {
     if (existing.isActive && !existing.revokedAt) {
+      await ensureCurrentInternalFacilityRole(db, {
+        userId: input.userId,
+        facilityId: input.facilityId,
+        roleKey: input.roleKey,
+        createdByUserId: input.grantedByUserId,
+      });
       return { id: existing.id, created: false };
     }
     if (input.reactivate) {
@@ -86,6 +98,12 @@ export async function ensureUserFacilityAccessGrant(
           grantedByUserId: input.grantedByUserId ?? null,
           grantedAt: new Date(),
         },
+      });
+      await ensureCurrentInternalFacilityRole(db, {
+        userId: input.userId,
+        facilityId: input.facilityId,
+        roleKey: input.roleKey,
+        createdByUserId: input.grantedByUserId,
       });
       return { id: existing.id, created: false };
     }
@@ -100,6 +118,12 @@ export async function ensureUserFacilityAccessGrant(
       grantedByUserId: input.grantedByUserId ?? null,
     },
     select: { id: true },
+  });
+  await ensureCurrentInternalFacilityRole(db, {
+    userId: input.userId,
+    facilityId: input.facilityId,
+    roleKey: input.roleKey,
+    createdByUserId: input.grantedByUserId,
   });
   return { id: created.id, created: true };
 }
@@ -171,11 +195,17 @@ export async function grantUserFacilityAccess(
     throw new Error("Target user is not eligible for this Organization.");
   }
 
+  const targetRole = await db.user.findUnique({
+    where: { id: input.targetUserId },
+    select: { role: { select: { key: true, isActive: true } } },
+  });
+
   const result = await ensureUserFacilityAccessGrant(db, {
     userId: input.targetUserId,
     facilityId: input.targetFacilityId,
     grantedByUserId: input.actorUserId,
     reactivate: true,
+    roleKey: targetRole?.role?.isActive ? targetRole.role.key : null,
   });
 
   await trackEvent("facility_access.granted", {
@@ -251,6 +281,12 @@ export async function revokeUserFacilityAccess(
     throw new Error("Cannot revoke your own current facility access.");
   }
 
+  await closeCurrentInternalFacilityRole(db, {
+    userId: input.targetUserId,
+    facilityId: input.targetFacilityId,
+    actorUserId: input.actorUserId,
+  });
+
   await db.userFacilityAccess.update({
     where: { id: grant.id },
     data: { isActive: false, revokedAt: new Date() },
@@ -259,7 +295,7 @@ export async function revokeUserFacilityAccess(
   // A session already scoped into the revoked facility would otherwise keep working until its
   // token expired. Request-time validation catches that on its own, but incrementing here ends
   // the session immediately and records the change through the same code path as every other
-  // revocation.
+  // revocation. This does not deactivate the User.
   await revokeUserSessions(db, input.targetUserId);
 
   await trackEvent("facility_access.revoked", {

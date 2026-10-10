@@ -10,7 +10,8 @@
  * - Updates device facility cookie
  * - Remaps or clears department cookie by department key (session/cookie only)
  *
- * Per-facility role on UserFacilityAccess is deferred; User.role remains authoritative for Path A.
+ * Internal RoleKey is historically effective on UserFacilityRolePeriod for the selected grant.
+ * User.roleId is compatibility/home default only — not active Facility authority.
  * Organization membership never grants Facility access.
  */
 
@@ -40,3 +41,12 @@ export {
 } from "./switch-active-facility";
 
 export { loadOrganizationFacilitySummaries } from "./organization-facility-summary";
+
+export {
+  changeInternalFacilityRole,
+  ensureCurrentInternalFacilityRole,
+  listCurrentInternalFacilityRoles,
+  resolveCurrentInternalFacilityRole,
+  resolveInternalFacilitySessionRole,
+  type InternalFacilityRoleResolution,
+} from "./internal-facility-role";

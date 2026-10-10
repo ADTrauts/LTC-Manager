@@ -7,6 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
 import { assertUserFacilityAccess } from "./assert-user-facility-access";
+import {
+  ensureCurrentInternalFacilityRole,
+  internalRoleKeyAsAppRole,
+  resolveCurrentInternalFacilityRole,
+} from "./internal-facility-role";
 
 type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
@@ -14,11 +19,31 @@ export type SwitchActiveFacilityResult = {
   facilityId: string;
   facilityName: string;
   organizationId: string;
+  role: AppRole;
   primaryDepartmentId: string | null;
   /** Department cookie value to set, or null to clear. */
   departmentCookieValue: string | null;
   redirectPath: string;
 };
+
+async function resolveSwitchRole(
+  db: DbClient,
+  input: { userId: string; facilityId: string },
+): Promise<AppRole> {
+  const resolved =
+    (await resolveCurrentInternalFacilityRole(db, {
+      userId: input.userId,
+      facilityId: input.facilityId,
+    })) ??
+    (await ensureCurrentInternalFacilityRole(db, {
+      userId: input.userId,
+      facilityId: input.facilityId,
+    }));
+  if (!resolved) {
+    throw new Error("Facility access denied.");
+  }
+  return internalRoleKeyAsAppRole(resolved.roleKey);
+}
 
 /**
  * Preserve operational department lens across facilities only when the same
@@ -99,15 +124,20 @@ export async function switchActiveFacility(
       },
     });
     if (!facility) throw new Error("Facility not found.");
+    const role = await resolveSwitchRole(db, {
+      userId: input.userId,
+      facilityId: facility.id,
+    });
     return {
       facilityId: facility.id,
       facilityName: facility.displayName,
       organizationId: facility.organizationId,
+      role,
       primaryDepartmentId: input.sourceDepartmentId ?? null,
       departmentCookieValue: input.sourceDepartmentId ?? null,
       redirectPath: resolveDefaultHomePath({
         authKind: "user",
-        role: input.role,
+        role,
       }),
     };
   }
@@ -144,6 +174,11 @@ export async function switchActiveFacility(
     sourceDepartmentKey: input.sourceDepartmentKey,
   });
 
+  const role = await resolveSwitchRole(db, {
+    userId: input.userId,
+    facilityId: destination.id,
+  });
+
   await trackEvent("facility_access.switched", {
     actorUserId: input.userId,
     sourceFacilityId: input.sourceFacilityId,
@@ -155,11 +190,12 @@ export async function switchActiveFacility(
     facilityId: destination.id,
     facilityName: destination.displayName,
     organizationId: destination.organizationId,
+    role,
     primaryDepartmentId: carry.primaryDepartmentId,
     departmentCookieValue: carry.departmentCookieValue,
     redirectPath: resolveDefaultHomePath({
       authKind: "user",
-      role: input.role,
+      role,
     }),
   };
 }

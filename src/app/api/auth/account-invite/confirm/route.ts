@@ -5,6 +5,11 @@ import { z } from "zod";
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { findValidAccountInviteToken } from "@/lib/account-invite/tokens";
 import { DEVICE_FACILITY_COOKIE, getDeviceCookieOptions } from "@/lib/device-cookie";
+import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import {
+  internalRoleKeyAsAppRole,
+  resolveInternalFacilitySessionRole,
+} from "@/lib/facility-access/internal-facility-role";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -87,10 +92,24 @@ export async function POST(request: Request) {
     });
   });
 
+  await ensureUserFacilityAccessGrant(prisma, {
+    userId: user.id,
+    facilityId,
+    roleKey,
+  });
+  const resolved = await resolveInternalFacilitySessionRole(prisma, {
+    userId: user.id,
+    facilityId,
+    fallbackRoleKey: roleKey,
+  });
+  if (!resolved) {
+    return NextResponse.json({ error: "This invite link is invalid or expired." }, { status: 400 });
+  }
+
   const sessionToken = await createSessionToken({
     uid: user.id,
     authKind: "user",
-    role: roleKey,
+    role: internalRoleKeyAsAppRole(resolved.roleKey),
     name: user.displayName,
     email: user.email,
     facilityId,

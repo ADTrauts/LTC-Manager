@@ -182,7 +182,7 @@ test("facility administrator assignment preserves history and denies broken link
     at: at("2026-05-02T00:00:00.000Z"),
   });
   assert.notEqual(jane.assignmentId, john.assignmentId);
-  assert.equal(world.facilityAccesses.length, 0);
+  assert.equal(world.facilityAccesses.filter((grant) => grant.userId === "jane").length, 0);
   assert.equal(world.users.find((user) => user.id === "jane")?.facilityId, null);
   assert.equal(world.users.find((user) => user.id === "jane")?.roleId, null);
 
@@ -410,6 +410,21 @@ test("path A and path B stay separate", async () => {
     facilityId: "fac",
     roleId: "role_fa",
     role: { key: "FACILITY_ADMINISTRATOR", isActive: true },
+  });
+  world.facilityAccesses.push({
+    id: "fa_sarah",
+    userId: "sarah",
+    facilityId: "fac",
+    isActive: true,
+    revokedAt: null,
+    rolePeriods: [
+      {
+        id: "fa_sarah_role",
+        roleKey: "FACILITY_ADMINISTRATOR",
+        startsAt: at("2020-01-01T00:00:00.000Z"),
+        endsAt: null,
+      },
+    ],
   });
   world.memberships.push({
     id: "mem_sarah",
@@ -785,7 +800,30 @@ function createWorld() {
     endedByAuthorityKind: "facility_admin" | "partner_org_admin" | null;
     endedByOrganizationId: string | null;
   }> = [];
-  const facilityAccesses: Array<{ id: string; userId: string; facilityId: string; isActive: boolean; revokedAt: Date | null }> = [];
+  const facilityAccesses: Array<{
+    id: string;
+    userId: string;
+    facilityId: string;
+    isActive: boolean;
+    revokedAt: Date | null;
+    rolePeriods?: Array<{ id: string; roleKey: string; startsAt: Date; endsAt: Date | null }>;
+  }> = [
+    {
+      id: "fa_actor",
+      userId: "actor",
+      facilityId: "fac",
+      isActive: true,
+      revokedAt: null,
+      rolePeriods: [
+        {
+          id: "fa_actor_role",
+          roleKey: "FACILITY_ADMINISTRATOR",
+          startsAt: at("2020-01-01T00:00:00.000Z"),
+          endsAt: null,
+        },
+      ],
+    },
+  ];
 
   const db = {
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
@@ -815,6 +853,32 @@ function createWorld() {
           ),
         };
       },
+    },
+    userFacilityAccess: {
+      findFirst: async ({
+        where,
+      }: {
+        where: { userId: string; facilityId: string; isActive: boolean; revokedAt: null };
+      }) => {
+        const row = facilityAccesses.find(
+          (grant) =>
+            grant.userId === where.userId &&
+            grant.facilityId === where.facilityId &&
+            grant.isActive === where.isActive &&
+            grant.revokedAt === null,
+        );
+        return row
+          ? {
+              id: row.id,
+              facilityId: row.facilityId,
+              rolePeriods: row.rolePeriods ?? [],
+            }
+          : null;
+      },
+    },
+    role: {
+      findFirst: async ({ where }: { where: { key: string; isActive: boolean } }) =>
+        where.isActive ? { id: `role_${where.key}` } : null,
     },
     department: {
       findMany: async ({

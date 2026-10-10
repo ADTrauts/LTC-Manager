@@ -11,6 +11,11 @@ export type LinkedUserAuthorityInput = {
   displayName: string;
   email?: string;
   /**
+   * When true, User.roleId is rewritten for home-default compatibility.
+   * Facility-specific authority is the grant role period, not this field.
+   */
+  updateHomeRole?: boolean;
+  /**
    * Employee primary department is the operational home for password login scoping
    * (Work Plans, Cycles, nav). Always written onto the linked User when provided.
    */
@@ -50,7 +55,7 @@ export async function syncLinkedUserAuthority(
     data: {
       displayName: input.displayName,
       ...(input.email ? { email: input.email } : {}),
-      ...(roleRow ? { roleId: roleRow.id } : {}),
+      ...(roleRow && input.updateHomeRole !== false ? { roleId: roleRow.id } : {}),
       ...(terminated ? { isActive: false } : {}),
       ...(sessionsRevoked ? { sessionVersion: { increment: 1 } } : {}),
       ...(input.primaryDepartmentId !== undefined

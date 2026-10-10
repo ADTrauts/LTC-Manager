@@ -81,7 +81,7 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Facility Plant Operations** | Department Product for maintaining the built facility environment | Generic Maintenance as the Product name; treating manufacturing/fleet/biomedical maintenance as this Product; using the local Department name as the Product name |
 | **Plant Operations** | Default local Department name for an installed Facility Plant Operations Product | Official Product name |
 | **Employee** | Roster person | User *(User = app login identity)* |
-| **User.role** | Platform authorization (session) | Employee.roleType, job title, Department Manager |
+| **User.role** | Compatibility / home-default Facility RoleKey only. Active internal authority is the current `UserFacilityRolePeriod` for the selected Facility grant. | Treating `User.roleId` as the RoleKey at every Facility; Employee.roleType; job title |
 | **Facility Administrator** | Facility-scoped administrative authority | Equating GM with FA |
 | **Call-down** | Coverage change needing attention | Call-off *(synonym risk — pick Call-down in product)* |
 

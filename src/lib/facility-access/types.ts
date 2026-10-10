@@ -5,7 +5,7 @@ export type AccessibleFacility = {
   facilityName: string;
   organizationId: string;
   organizationName: string;
-  /** User.role remains authoritative in M2; echoed for UI consistency. */
+  /** Current internal RoleKey for this Facility grant. */
   role: AppRole;
 };
 

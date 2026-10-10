@@ -20,7 +20,8 @@ const bodySchema = z.object({
 
 /**
  * Switch active facility for email-authenticated users with an explicit grant.
- * Re-issues session JWT and updates User.facilityId. PIN sessions are rejected.
+ * Re-issues session JWT from the destination Facility relationship role.
+ * Does not rewrite User.facilityId or User.roleId. PIN sessions are rejected.
  */
 export async function POST(request: Request) {
   const session = await getSession();
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     const token = await createSessionToken({
       uid: userId,
       authKind: "user",
-      role: session.role,
+      role: result.role,
       name: session.name,
       email: session.email,
       facilityId: result.facilityId,

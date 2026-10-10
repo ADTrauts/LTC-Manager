@@ -20,6 +20,10 @@ import {
   issueEmailVerificationToken,
 } from "@/lib/email-verification/tokens";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import {
+  internalRoleKeyAsAppRole,
+  resolveInternalFacilitySessionRole,
+} from "@/lib/facility-access/internal-facility-role";
 import { createOrganizationForNewFacility } from "@/lib/organization";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { initialFacilityCreatorRoles } from "@/lib/signup-facility-creator";
@@ -143,6 +147,7 @@ export async function POST(request: Request) {
     await ensureUserFacilityAccessGrant(tx, {
       userId: user.id,
       facilityId: facility.id,
+      roleKey: user.role?.key ?? creatorUserRole.key,
     });
 
     await tx.employee.create({
@@ -169,10 +174,21 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
+    const resolved = await resolveInternalFacilitySessionRole(prisma, {
+      userId: created.user.id,
+      facilityId: created.facility.id,
+      fallbackRoleKey: created.user.role.key,
+    });
+    if (!resolved) {
+      return NextResponse.json(
+        { error: "Account could not be activated. Contact support." },
+        { status: 500 },
+      );
+    }
     const token = await createSessionToken({
       uid: created.user.id,
       authKind: "user",
-      role: created.user.role.key,
+      role: internalRoleKeyAsAppRole(resolved.roleKey),
       name: created.user.displayName,
       email: created.user.email,
       facilityId: created.facility.id,

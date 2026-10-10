@@ -45,6 +45,10 @@ import {
 import { sessionUserIdForFk } from "@/lib/auth";
 import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import {
+  changeInternalFacilityRole,
+  resolveCurrentInternalFacilityRole,
+} from "@/lib/facility-access/internal-facility-role";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { syncLinkedUserAuthority } from "@/lib/linked-user-authority";
 import {
@@ -424,6 +428,7 @@ export async function createEmployeeAction(formData: FormData) {
         await ensureUserFacilityAccessGrant(tx, {
           userId: createdUser.id,
           facilityId: session.facilityId,
+          roleKey: parsed.roleType,
         });
         invitedUserId = createdUser.id;
       }
@@ -519,6 +524,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         select: {
           id: true,
           isActive: true,
+          facilityId: true,
           role: { select: { key: true } },
         },
       })
@@ -714,6 +720,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         await ensureUserFacilityAccessGrant(tx, {
           userId: createdUser.id,
           facilityId: session.facilityId,
+          roleKey: effectiveRoleType,
         });
         invitedUserId = createdUser.id;
       } catch (e) {
@@ -726,6 +733,24 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       if (!existingUserForEmail.role?.key) {
         throw new Error("Linked app account is missing a Facility role.");
       }
+      const currentFacilityRole = await resolveCurrentInternalFacilityRole(tx, {
+        userId: existingUserForEmail.id,
+        facilityId: session.facilityId,
+      });
+      if (!currentFacilityRole) {
+        await ensureUserFacilityAccessGrant(tx, {
+          userId: existingUserForEmail.id,
+          facilityId: session.facilityId,
+          roleKey: effectiveRoleType,
+        });
+      } else if (currentFacilityRole.roleKey !== effectiveRoleType) {
+        await changeInternalFacilityRole(tx, {
+          userId: existingUserForEmail.id,
+          facilityId: session.facilityId,
+          roleKey: effectiveRoleType,
+          actorUserId: session.uid,
+        });
+      }
       await syncLinkedUserAuthority(tx, {
         userId: existingUserForEmail.id,
         currentUserRole: existingUserForEmail.role.key,
@@ -734,6 +759,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         nextEmployeeStatus: parsed.status,
         displayName: `${parsed.firstName} ${parsed.lastName}`,
         email: normalizedProfileEmail,
+        updateHomeRole: existingUserForEmail.facilityId === session.facilityId,
       });
     }
 
