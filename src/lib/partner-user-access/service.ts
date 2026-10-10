@@ -1261,15 +1261,17 @@ export async function resolveFacilityAuthorization(
   };
 }
 
-export async function listAuthorizedPartnerFacilities(
+async function evaluateAuthorizedPartnerAssignments(
   db: DbClient,
-  input: { userId: string; organizationId: string; now?: Date },
-): Promise<import("./types").AuthorizedPartnerFacility[]> {
+  input: { userId: string; organizationId?: string; now?: Date },
+): Promise<import("./types").AuthorizedPartnerFacilityForUser[]> {
   const now = input.now ?? new Date();
   const assignments = await db.partnerUserFacilityAccess.findMany({
     where: {
       userId: input.userId,
-      facilityPartnerOrganization: { organizationId: input.organizationId },
+      ...(input.organizationId
+        ? { facilityPartnerOrganization: { organizationId: input.organizationId } }
+        : {}),
     },
     include: {
       facilityPartnerOrganization: {
@@ -1278,11 +1280,13 @@ export async function listAuthorizedPartnerFacilities(
           facilityId: true,
           organizationId: true,
           facility: { select: { displayName: true } },
+          organization: { select: { name: true, displayName: true } },
         },
       },
     },
   });
-  const rows: import("./types").AuthorizedPartnerFacility[] = [];
+
+  const rows: import("./types").AuthorizedPartnerFacilityForUser[] = [];
   for (const assignment of assignments) {
     const partnership = assignment.facilityPartnerOrganization;
     const resolved = await resolveFacilityAuthorization(db, {
@@ -1293,7 +1297,12 @@ export async function listAuthorizedPartnerFacilities(
       instant: now,
     });
     if (resolved.authorization.path !== "partner") continue;
-    if (resolved.authorization.partnerOrganizationId !== input.organizationId) continue;
+    if (
+      input.organizationId &&
+      resolved.authorization.partnerOrganizationId !== input.organizationId
+    ) {
+      continue;
+    }
     const departments = await db.department.findMany({
       where: {
         id: { in: resolved.authorization.allowedDepartmentIds },
@@ -1303,15 +1312,56 @@ export async function listAuthorizedPartnerFacilities(
       select: { name: true },
       orderBy: { name: "asc" },
     });
+    const organization = partnership.organization;
     rows.push({
       facilityId: partnership.facilityId,
       facilityDisplayName: partnership.facility.displayName,
       facilityPartnerOrganizationId: partnership.id,
       partnerOrganizationId: partnership.organizationId,
+      partnerOrganizationName:
+        organization?.displayName?.trim() || organization?.name || partnership.organizationId,
       effectiveRole: resolved.authorization.effectiveRole,
+      allowedDepartmentIds: resolved.authorization.allowedDepartmentIds,
       departmentNames: departments.map((department) => department.name),
     });
   }
+  return rows;
+}
+
+export async function listAuthorizedPartnerFacilities(
+  db: DbClient,
+  input: { userId: string; organizationId: string; now?: Date },
+): Promise<import("./types").AuthorizedPartnerFacility[]> {
+  const rows = await evaluateAuthorizedPartnerAssignments(db, input);
   rows.sort((left, right) => left.facilityDisplayName.localeCompare(right.facilityDisplayName));
+  return rows.map((row) => ({
+    facilityId: row.facilityId,
+    facilityDisplayName: row.facilityDisplayName,
+    facilityPartnerOrganizationId: row.facilityPartnerOrganizationId,
+    partnerOrganizationId: row.partnerOrganizationId,
+    effectiveRole: row.effectiveRole,
+    departmentNames: row.departmentNames,
+  }));
+}
+
+/**
+ * User-global Path B listing. Does not filter by a source Organization session.
+ * Eligibility is still the live partner resolver for each assignment.
+ */
+export async function listAuthorizedPartnerFacilitiesForUser(
+  db: DbClient,
+  input: { userId: string; now?: Date },
+): Promise<import("./types").AuthorizedPartnerFacilityForUser[]> {
+  const rows = await evaluateAuthorizedPartnerAssignments(db, {
+    userId: input.userId,
+    now: input.now,
+  });
+  rows.sort((left, right) => {
+    const byOrg = left.partnerOrganizationName.localeCompare(right.partnerOrganizationName);
+    if (byOrg !== 0) return byOrg;
+    const byFacility = left.facilityDisplayName.localeCompare(right.facilityDisplayName);
+    if (byFacility !== 0) return byFacility;
+    return left.facilityPartnerOrganizationId.localeCompare(right.facilityPartnerOrganizationId);
+  });
   return rows;
 }

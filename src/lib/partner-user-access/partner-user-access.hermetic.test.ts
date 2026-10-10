@@ -42,6 +42,7 @@ import {
   isPartnerRoleAtOrBelow,
   isPartnerStaffingDelegated,
   listAuthorizedPartnerFacilities,
+  listAuthorizedPartnerFacilitiesForUser,
   listOrganizationClientStaffing,
   organizationClientStaffingErrorMessage,
   minPartnerRole,
@@ -1115,7 +1116,11 @@ function createWorld() {
               user,
               facilityPartnerOrganization: {
                 ...partnership,
-                organization: { isActive: organization?.isActive ?? false },
+                organization: {
+                  isActive: organization?.isActive ?? false,
+                  name: organization?.id === "metz" ? "Metz Culinary Management" : organization?.id ?? partnership.organizationId,
+                  displayName: organization?.id === "metz" ? "Metz" : null,
+                },
                 facility: {
                   displayName:
                     partnership.facilityId === "fac"
@@ -1375,6 +1380,11 @@ test("partner entry, live revalidation, and client list stay on Path B", async (
   assert.equal(listed[0]?.facilityDisplayName, "Terrace View");
   assert.deepEqual(listed[0]?.departmentNames, ["Food & Nutrition"]);
   assert.equal(listed[0]?.effectiveRole, "PARTNER_MANAGER");
+  const listedForUser = await listAuthorizedPartnerFacilitiesForUser(world.db, { userId: "jane" });
+  assert.equal(listedForUser.length, 1);
+  assert.equal(listedForUser[0]?.facilityPartnerOrganizationId, listed[0]?.facilityPartnerOrganizationId);
+  assert.equal(listedForUser[0]?.partnerOrganizationId, "metz");
+  assert.deepEqual(listedForUser[0]?.allowedDepartmentIds, ["dietary"]);
   const john = await listAuthorizedPartnerFacilities(world.db, { userId: "john", organizationId: "metz" });
   assert.equal(john.length, 0);
   await assignPartnerUser(world.db, {

@@ -61,4 +61,5 @@ Termination preserves `Employee.userId`. Operational actor rows keep their origi
 
 - Every Employee eventually a User (blocked by required unique `User.email`)
 - User-owned PIN
+- Available Context Resolver (2E4)
 - Global `/account` and context chooser

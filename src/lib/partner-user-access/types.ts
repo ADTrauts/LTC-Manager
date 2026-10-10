@@ -124,6 +124,12 @@ export type AuthorizedPartnerFacility = {
   departmentNames: string[];
 };
 
+/** User-global Path B listing. Same eligibility as the Organization-scoped list. */
+export type AuthorizedPartnerFacilityForUser = AuthorizedPartnerFacility & {
+  allowedDepartmentIds: string[];
+  partnerOrganizationName: string;
+};
+
 export type PartnerUserAccessAdminView = {
   partnershipId: string;
   facilityId: string;
