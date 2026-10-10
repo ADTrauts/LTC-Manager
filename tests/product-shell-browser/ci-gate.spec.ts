@@ -625,7 +625,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
     }
   });
 
-  test("scenario-20: Change password is not a top-level header button but lives in the account menu @ci-gate", async () => {
+  test("scenario-20: My Account is not a top-level header button but lives in the account menu @ci-gate", async () => {
     const fx = loadFixtures();
     const { context, page } = await openPersistent("mgr-account-menu");
     try {
@@ -633,11 +633,11 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await page.goto("/workspace", { waitUntil: "domcontentloaded" });
       const trigger = page.getByTestId("account-menu-trigger");
       await expect(trigger).toBeVisible({ timeout: 30_000 });
-      // Change password is not exposed as a permanent top-level control before opening the menu.
-      await expect(page.getByTestId("account-menu-change-password")).toBeHidden();
-      // Opening the account menu reveals Change password and Sign out together.
+      // My Account is not exposed as a permanent top-level control before opening the menu.
+      await expect(page.getByTestId("account-menu-my-account")).toBeHidden();
+      // Opening the account menu reveals My Account and Sign out together.
       await trigger.click();
-      await expect(page.getByTestId("account-menu-change-password")).toBeVisible();
+      await expect(page.getByTestId("account-menu-my-account")).toBeVisible();
       await expect(page.getByTestId("account-menu-sign-out")).toBeVisible();
     } finally {
       await context.close();
@@ -768,7 +768,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(panel.getByTestId("account-menu-workspace-group")).toBeVisible();
       await expect(panel.getByTestId("account-menu-run")).toHaveAttribute("data-mode-active", "true");
       await expect(panel.getByTestId("account-menu-build")).toBeVisible();
-      await expect(panel.getByTestId("account-menu-change-password")).toBeVisible();
+      await expect(panel.getByTestId("account-menu-my-account")).toBeVisible();
       await expect(panel.getByTestId("account-menu-sign-out")).toBeVisible();
     } finally {
       await context.close();

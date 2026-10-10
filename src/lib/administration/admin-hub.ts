@@ -64,12 +64,6 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
         description: "Configure application roles and control which areas each role may access.",
         href: "/admin/permissions",
       },
-      {
-        id: "account",
-        label: "Account",
-        description: "Your sign-in, password, and device security for this facility.",
-        href: "/account",
-      },
     ],
   },
 ] as const;

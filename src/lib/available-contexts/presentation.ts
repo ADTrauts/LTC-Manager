@@ -23,7 +23,11 @@ const INTERNAL_ROLE_LABEL: Record<RoleKey, string> = {
   STAFF: "Team Member",
 };
 
-function organizationRoleLabel(role: OrganizationMembershipRole): string {
+export function internalFacilityRoleLabel(role: RoleKey): string {
+  return INTERNAL_ROLE_LABEL[role];
+}
+
+export function organizationContextRoleLabel(role: OrganizationMembershipRole): string {
   switch (role) {
     case "ORG_ADMIN":
       return "Administrator";
@@ -85,7 +89,7 @@ export function presentAvailableContexts(
   return sortRecords(records).map((record): AvailableContextPresentation => {
     const { context } = record;
     if (context.kind === "organization") {
-      const roleLabel = organizationRoleLabel(context.organizationRole);
+      const roleLabel = organizationContextRoleLabel(context.organizationRole);
       return {
         contextKey: context.contextKey,
         kind: context.kind,
@@ -98,7 +102,7 @@ export function presentAvailableContexts(
       };
     }
     if (context.kind === "facility_internal") {
-      const roleLabel = INTERNAL_ROLE_LABEL[context.role];
+      const roleLabel = internalFacilityRoleLabel(context.role);
       return {
         contextKey: context.contextKey,
         kind: context.kind,

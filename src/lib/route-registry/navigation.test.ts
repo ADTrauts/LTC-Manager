@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { APP_ROLES, type AppRole } from "@/lib/access";
-import { roleMayAccessRoute } from "@/lib/route-registry/authorize";
+import { authorizeRoute, roleMayAccessRoute } from "@/lib/route-registry/authorize";
 import { platformNavItemsForRole } from "@/lib/route-registry/navigation";
 import { PLATFORM_ROUTES } from "@/lib/route-registry/platform-routes";
 
@@ -69,11 +69,22 @@ test("navigation — Procedures is a Build door and leftover /admin/knowledge st
 
 test("navigation — absence from navigation does not deny access", () => {
   // /dashboard, /operations, /account, /help and the dynamic detail routes are intentionally hidden.
-  // They stay reachable by URL for the roles the registry approves.
-  for (const path of ["/dashboard", "/operations", "/account", "/help"]) {
+  // Facility RoleKey reachability still applies to AUTHENTICATED surfaces. /account is USER_SESSION.
+  for (const path of ["/dashboard", "/operations", "/help"]) {
     assert.equal(hrefsFor("STAFF").includes(path), false, `${path} should be hidden`);
     assert.equal(roleMayAccessRoute(path, "STAFF", FLAGS), true, `${path} should stay reachable`);
   }
+  assert.equal(hrefsFor("STAFF").includes("/account"), false);
+  assert.equal(
+    authorizeRoute({
+      pathname: "/account",
+      role: "STAFF",
+      sessionScope: "facility",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
   // The Operations Center dashboard stays reachable by URL but is not offered in nav.
   assert.equal(hrefsFor("SUPERVISOR").includes("/dashboard"), false);
   assert.equal(roleMayAccessRoute("/dashboard", "SUPERVISOR", FLAGS), true);

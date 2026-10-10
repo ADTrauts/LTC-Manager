@@ -139,7 +139,7 @@ export function authorizeRoute(input: RouteAuthorizationInput): RouteAuthorizati
 
     case "AUTHENTICATED":
     case "HANDLER_AUTHORIZED_API":
-      // Organization sessions may use a narrow authenticated set (account/help); facility routes stay RoleKey-gated.
+      // Organization sessions may use a narrow authenticated set (help); facility routes stay RoleKey-gated.
       if (isOrganizationSession) {
         return route.module === "account"
           ? { outcome: "ALLOW", route }

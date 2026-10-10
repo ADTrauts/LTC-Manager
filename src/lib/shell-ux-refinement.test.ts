@@ -49,19 +49,19 @@ test("V1 refinement — the canonical Build Home card set is present for a Facil
   assert.equal(hrefs.includes("/admin/knowledge"), false);
 });
 
-test("V1 refinement — the account menu contains Change password, Help & Support, and Sign out", () => {
+test("V1 refinement — the account menu contains My Access, My Account, Help & Support, and Sign out", () => {
   const source = readFileSync(join(process.cwd(), "src/components/sign-out-controls.tsx"), "utf8");
-  assert.match(source, /account-menu-change-password/);
+  assert.match(source, /GlobalUserNavLinks/);
   assert.match(source, /account-menu-help/);
   assert.match(source, /account-menu-sign-out/);
-  assert.match(source, /Change password/);
   assert.match(source, /Help & Support/);
   assert.match(source, /Sign out/);
+  assert.equal(source.includes("Change password"), false);
 });
 
-test("V1 refinement — Change password and individual builders are not permanent header buttons", () => {
+test("V1 refinement — My Account and individual builders are not permanent header buttons", () => {
   const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
-  // The shell composes the account menu (holding Change password) rather than a top-level button.
+  // The shell composes the account menu (holding My Account) rather than a top-level button.
   assert.match(shell, /AccountMenu/);
   // Facility/Department Builder links are never hardcoded into the global header.
   assert.doesNotMatch(shell, /href="\/admin\/facility\/builder"/);

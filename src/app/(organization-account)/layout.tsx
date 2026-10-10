@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { GlobalUserMenu } from "@/components/global-user-menu";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
+import { presentCurrentContextFromSession } from "@/lib/available-contexts";
 import { getAppSession, isOrganizationScopedSession } from "@/lib/auth";
 import {
   listCurrentOrganizationMembershipsForUser,
@@ -31,6 +32,9 @@ export default async function OrganizationAccountLayout({ children }: Props) {
   const memberships = await listCurrentOrganizationMembershipsForUser(prisma, {
     userId: session.uid,
   });
+  const currentMembership = memberships.find(
+    (membership) => membership.organizationId === session.organizationId,
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
@@ -42,22 +46,15 @@ export default async function OrganizationAccountLayout({ children }: Props) {
             </p>
             <p className="text-sm font-semibold text-zinc-900">{session.name}</p>
           </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/access"
-              className="text-sm font-medium text-zinc-700 underline underline-offset-2"
-            >
-              My Access
-            </Link>
-            <form action="/api/auth/logout" method="post">
-              <button
-                type="submit"
-                className="text-sm font-medium text-zinc-700 underline underline-offset-2"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          <GlobalUserMenu
+            menuLabel={session.name}
+            currentContext={presentCurrentContextFromSession(session, {
+              organizationName: currentMembership
+                ? organizationDisplayLabel(currentMembership.organization)
+                : null,
+              organizationRole: currentMembership?.currentRole,
+            })}
+          />
         </div>
         {memberships.length > 1 ? (
           <div className="mx-auto max-w-3xl px-4 pb-4">

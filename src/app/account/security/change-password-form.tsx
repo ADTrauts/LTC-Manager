@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 
-import { changeOwnPasswordAction } from "@/app/(protected)/account/actions";
-import { initialChangePasswordState } from "@/app/(protected)/account/change-password-state";
+import { changeOwnPasswordAction } from "@/app/account/security/actions";
+import { initialChangePasswordState } from "@/app/account/security/change-password-state";
 
 export function ChangePasswordForm() {
   const [state, formAction, pending] = useActionState(

@@ -498,9 +498,19 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     pattern: "/account",
     match: "EXACT",
     surface: "PAGE",
-    access: { kind: "AUTHENTICATED" },
+    access: { kind: "USER_SESSION" },
     module: "account",
-    notes: "Every authenticated role manages its own account here.",
+    notes:
+      "Global User profile. Any User-authenticated session may view it. PIN and Harbor cannot. Display name and email are read-only.",
+  },
+  {
+    pattern: "/account/security",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "USER_SESSION" },
+    module: "account",
+    notes:
+      "Global User password change. Operates on User.id and increments User.sessionVersion. PIN and Harbor cannot.",
   },
   {
     pattern: "/help",

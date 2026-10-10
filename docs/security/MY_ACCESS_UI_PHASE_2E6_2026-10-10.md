@@ -39,4 +39,4 @@ Empty groups are omitted. Zero contexts still render an active-account empty sta
 
 ## Navigation
 
-My Access is a link (`/access`) from the internal User menu, Organization header, and partner header. PIN does not see it. Partner **Return to Organization** is unchanged.
+My Access is a link (`/access`) from the shared User menu on Internal, Organization, partner, and the global User layout. PIN does not see it. Partner **Return to Organization** is unchanged. Global profile lives at `/account` (Phase 2E8A) and is not a second chooser.

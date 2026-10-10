@@ -20,7 +20,7 @@ test("admin hub is Organization and Access only", () => {
   );
 });
 
-test("admin hub cards are Organization, Departments, Billing, Access, and Account", () => {
+test("admin hub cards are Organization, Departments, Billing, and Access", () => {
   const byId = new Map(flattenAdminHubLinks().map((link) => [link.id, link]));
 
   assert.equal(byId.get("organization_settings")?.label, "Organization");
@@ -38,13 +38,11 @@ test("admin hub cards are Organization, Departments, Billing, Access, and Accoun
 
   assert.equal(byId.get("roles_permissions")?.label, "Access");
   assert.equal(byId.get("roles_permissions")?.href, "/admin/permissions");
-
-  assert.equal(byId.get("account")?.label, "Account");
-  assert.equal(byId.get("account")?.href, "/account");
+  assert.equal(byId.has("account"), false);
 
   assert.deepEqual(
     flattenAdminHubLinks().map((link) => link.id),
-    ["organization_settings", "departments", "billing", "roles_permissions", "account"],
+    ["organization_settings", "departments", "billing", "roles_permissions"],
   );
 });
 
@@ -55,7 +53,7 @@ test("builders are not primary admin hub cards", () => {
   }
   assert.deepEqual(
     [...hrefs],
-    ["/admin/organization", "/admin/departments", "/admin/billing", "/admin/permissions", "/account"],
+    ["/admin/organization", "/admin/departments", "/admin/billing", "/admin/permissions"],
   );
 });
 
@@ -68,7 +66,7 @@ test("visible admin hub matches the catalog", () => {
 
 test("department and access hub copy does not imply licensing", () => {
   const text = flattenAdminHubLinks()
-    .filter((link) => link.id === "roles_permissions" || link.id === "account")
+    .filter((link) => link.id === "roles_permissions")
     .map((l) => `${l.label} ${l.description}`)
     .join("\n")
     .toLowerCase();

@@ -237,11 +237,76 @@ test("role policy — /staffing keeps its Supervisor floor", () => {
   assert.equal(roleMayAccessRoute("/staffing/operations", "STAFF", FLAGS), false);
 });
 
-test("role policy — /account stays available to every authenticated role", () => {
-  for (const role of APP_ROLES) {
-    assert.equal(roleMayAccessRoute("/account", role, FLAGS), true, `${role} at /account`);
+test("user session — /account and /account/security are global User surfaces", () => {
+  for (const pathname of ["/account", "/account/security"]) {
+    assert.equal(outcome(pathname, null), "REQUIRE_AUTHENTICATION", pathname);
+    assert.equal(
+      authorizeRoute({
+        pathname,
+        role: null,
+        sessionScope: "account",
+        authKind: "user",
+        featureFlags: FLAGS,
+      }).outcome,
+      "ALLOW",
+      `account session ${pathname}`,
+    );
+    assert.equal(
+      authorizeRoute({
+        pathname,
+        role: "MANAGER",
+        sessionScope: "facility",
+        authKind: "user",
+        featureFlags: FLAGS,
+      }).outcome,
+      "ALLOW",
+      `internal ${pathname}`,
+    );
+    assert.equal(
+      authorizeRoute({
+        pathname,
+        role: null,
+        sessionScope: "organization",
+        authKind: "user",
+        featureFlags: FLAGS,
+      }).outcome,
+      "ALLOW",
+      `organization ${pathname}`,
+    );
+    assert.equal(
+      authorizeRoute({
+        pathname,
+        role: null,
+        sessionScope: "partner",
+        authKind: "user",
+        featureFlags: FLAGS,
+      }).outcome,
+      "ALLOW",
+      `partner ${pathname}`,
+    );
+    assert.equal(
+      authorizeRoute({
+        pathname,
+        role: "STAFF",
+        sessionScope: "facility",
+        authKind: "employee",
+        featureFlags: FLAGS,
+      }).outcome,
+      "DENY",
+      `PIN ${pathname}`,
+    );
+    assert.equal(
+      authorizeRoute({
+        pathname,
+        role: "FACILITY_ADMINISTRATOR",
+        sessionScope: "facility",
+        authKind: "harbor_staff",
+        featureFlags: FLAGS,
+      }).outcome,
+      "DENY",
+      `Harbor ${pathname}`,
+    );
   }
-  assert.equal(outcome("/account", null), "REQUIRE_AUTHENTICATION");
 });
 
 test("role policy — /help stays available to every authenticated role", () => {
@@ -511,8 +576,8 @@ test("user session — /access is allowed from every User context and denied to 
   );
 });
 
-test("account session — workspace and Facility /account stay denied", () => {
-  for (const pathname of ["/workspace", "/partner", "/organization", "/organization/metz", "/account"]) {
+test("account session — workspace stays denied while global account is allowed", () => {
+  for (const pathname of ["/workspace", "/partner", "/organization", "/organization/metz"]) {
     const decision = authorizeRoute({
       pathname,
       role: null,
@@ -525,8 +590,8 @@ test("account session — workspace and Facility /account stay denied", () => {
   assert.equal(
     authorizeRoute({
       pathname: "/account",
-      role: "MANAGER",
-      sessionScope: "facility",
+      role: null,
+      sessionScope: "account",
       authKind: "user",
       featureFlags: FLAGS,
     }).outcome,

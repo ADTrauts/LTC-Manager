@@ -17,6 +17,7 @@ import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
 import { TopNav } from "@/components/top-nav";
 import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
 import { hasAtLeastRole } from "@/lib/access";
+import { presentCurrentContextFromSession } from "@/lib/available-contexts";
 import {
   getAppSession,
   isAccountSession,
@@ -251,8 +252,14 @@ export async function AppShell({ children }: AppShellProps) {
             <ShellOfflineIndicator />
             <AccountMenu
               showUnbind={showGmUnbind}
-              showChangePassword={authKind === "user"}
               showMyAccess={authKind === "user"}
+              currentContext={
+                authKind === "user"
+                  ? presentCurrentContextFromSession(session, {
+                      facilityName: facility?.displayName,
+                    })
+                  : null
+              }
               menuLabel={session.name}
               runHomeHref={menuRunHomeHref}
               showBuild={menuShowBuild}

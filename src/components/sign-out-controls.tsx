@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { CurrentContextHeader, GlobalUserNavLinks } from "@/components/global-user-menu";
 import { OPEN_ACCOUNT_MENU_EVENT } from "@/components/shell-mode-cue";
 import { CUSTOMER_SUPPORT_HREF } from "@/lib/customer-support";
 import { AppIcons } from "@/lib/design-system";
@@ -13,7 +14,8 @@ import { resolveProductModeForPath, type ProductMode } from "@/lib/product-mode"
 
 type AccountMenuProps = {
   showUnbind: boolean;
-  showChangePassword?: boolean;
+  /** Display-only current workspace. User sessions only. */
+  currentContext?: { title: string; subtitle: string } | null;
   /** Display label for the menu trigger (user/context label — no longer just "Account"). */
   menuLabel?: string;
   /** Canonical RUN home for this session (managers → Dashboard, supervisors → Today's Work, …). */
@@ -129,7 +131,7 @@ function WorkspaceLink({
  */
 export function AccountMenu({
   showUnbind,
-  showChangePassword = false,
+  currentContext = null,
   menuLabel = "Menu",
   runHomeHref = "/workspace",
   showBuild = false,
@@ -246,31 +248,17 @@ export function AccountMenu({
         ) : null}
 
         <div>
-          {showWorkspaceGroup || showAdmin ? (
+          {showWorkspaceGroup || showAdmin || showMyAccess ? (
             <>
               <div className="mx-3 my-1 border-t border-zinc-100" role="separator" />
               <p className={SECTION_HEADING_CLASS}>Account</p>
             </>
           ) : null}
           {showMyAccess ? (
-            <Link
-              href="/access"
-              className={MENU_ITEM_CLASS}
-              data-testid="account-menu-my-access"
-              onClick={() => setOpen(false)}
-            >
-              My Access
-            </Link>
-          ) : null}
-          {showChangePassword ? (
-            <Link
-              href="/account"
-              className={MENU_ITEM_CLASS}
-              data-testid="account-menu-change-password"
-              onClick={() => setOpen(false)}
-            >
-              Change password
-            </Link>
+            <>
+              <CurrentContextHeader currentContext={currentContext} />
+              <GlobalUserNavLinks onNavigate={() => setOpen(false)} />
+            </>
           ) : null}
           <Link
             href={CUSTOMER_SUPPORT_HREF}

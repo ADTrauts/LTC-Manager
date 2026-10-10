@@ -586,8 +586,8 @@ test("explicit partner leave remains org-return, not account recovery", () => {
   assert.ok(leave.includes("leavePartnerFacilityAction"));
   assert.ok(leave.includes("completePartnerFacilityTransition"));
   assert.equal(leave.includes("enterAccountContext"), false);
-  const accountPage = readFileSync(join(process.cwd(), "src/app/(protected)/account/page.tsx"), "utf8");
-  assert.ok(accountPage.length > 0);
+  const accountPage = readFileSync(join(process.cwd(), "src/app/account/page.tsx"), "utf8");
+  assert.equal(accountPage.includes("enterAccountContext"), false);
 });
 
 test("enterContext does not call listAvailableContexts", () => {

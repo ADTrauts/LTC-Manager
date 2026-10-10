@@ -249,7 +249,7 @@ test("My Access page uses certified resolver and posts only contextKey", () => {
   assert.equal(card.includes("resolveFacilityAuthorization"), false);
   assert.equal(layout.includes("AppShell"), false);
   assert.equal(layout.includes("OrganizationSwitcher"), false);
-  assert.match(layout, /\/api\/auth\/logout/);
+  assert.match(layout, /GlobalUserLayout/);
   assert.equal(layout.includes("enterAccountContext"), false);
 });
 
@@ -269,13 +269,14 @@ test("AccountMenu shows My Access only when opted in; PIN stays hidden", () => {
   const menu = readFileSync(join(process.cwd(), "src/components/sign-out-controls.tsx"), "utf8");
   const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
   assert.match(menu, /showMyAccess/);
-  assert.match(menu, /account-menu-my-access/);
-  assert.match(menu, /href="\/access"/);
+  assert.match(menu, /GlobalUserNavLinks/);
   assert.match(shell, /showMyAccess=\{authKind === "user"\}/);
   assert.equal(shell.includes('showMyAccess={true}'), false);
+  assert.equal(menu.includes("listAvailableContexts"), false);
+  assert.equal(shell.includes("listAvailableContexts"), false);
 });
 
-test("Organization and partner shells link to My Access without replacing leave behavior", () => {
+test("Organization and partner shells use the shared User menu without replacing leave behavior", () => {
   const organization = readFileSync(
     join(process.cwd(), "src/app/(organization-account)/layout.tsx"),
     "utf8",
@@ -284,11 +285,12 @@ test("Organization and partner shells link to My Access without replacing leave 
     join(process.cwd(), "src/components/partner/partner-facility-shell.tsx"),
     "utf8",
   );
-  assert.match(organization, /href="\/access"/);
-  assert.match(organization, /My Access/);
-  assert.match(partner, /href="\/access"/);
-  assert.match(partner, /My Access/);
+  assert.match(organization, /GlobalUserMenu/);
+  assert.match(organization, /OrganizationSwitcher/);
+  assert.equal(organization.includes("listAvailableContexts"), false);
+  assert.match(partner, /GlobalUserMenu/);
   assert.match(partner, /leavePartnerFacilityAction/);
   assert.match(partner, /Return to \{shell\.partnerOrganizationName\}/);
   assert.equal(partner.includes("enterAccountContext"), false);
+  assert.equal(partner.includes("listAvailableContexts"), false);
 });

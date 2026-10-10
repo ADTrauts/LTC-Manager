@@ -51,7 +51,7 @@ Exactly one Organization, internal Facility, or partner Facility context. Entry 
 
 Route policy is `USER_SESSION`: any User-authenticated context may view it. PIN and Harbor may not. Viewing My Access does not require switching into an account session first. Phase 2E6 renders the certified context directory here.
 
-Existing `/account` remains the Facility password/support page (`AUTHENTICATED`). Account sessions are denied there.
+`/account` is now the global User profile (`USER_SESSION`). See Phase 2E8A.
 
 ## enterAccountContext
 

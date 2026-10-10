@@ -70,7 +70,6 @@ test("product-mode — governance surfaces resolve to ADMIN", () => {
     "/admin/departments/dept-1/manage",
     "/admin/permissions",
     "/admin/billing",
-    "/account",
     "/help",
   ]) {
     assert.equal(resolveProductModeForPath(path), "ADMIN", path);
@@ -91,6 +90,13 @@ test("product-mode — longest-prefix wins so BUILD tools override the RUN /staf
 test("product-mode — unknown paths default to RUN (never hides a surface behind a mode)", () => {
   assert.equal(resolveProductModeForPath("/totally-unknown"), "RUN");
   assert.equal(resolveProductModeForPath("/"), "RUN");
+});
+
+test("product-mode — global /account is not a Facility ADMIN surface", () => {
+  assert.notEqual(resolveProductModeForPath("/account"), "ADMIN");
+  assert.notEqual(resolveProductModeForPath("/account/security"), "ADMIN");
+  assert.notEqual(resolveProductModeForPath("/account"), "BUILD");
+  assert.equal(resolveProductAreaLabel("/account"), null);
 });
 
 test("product-mode — area label is available for the mode indicator", () => {

@@ -39,21 +39,17 @@ test("customer support — mailto uses support@vssyl.com and the default subject
   );
 });
 
-test("customer support — Help & Support lives in the account menu and settings", () => {
+test("customer support — Help & Support lives in the Internal account menu", () => {
   const menu = source("src/components/sign-out-controls.tsx");
   assert.match(menu, /account-menu-help/);
   assert.match(menu, /Help & Support/);
   assert.match(menu, /CUSTOMER_SUPPORT_HREF/);
-
-  const account = source("src/app/(protected)/account/page.tsx");
-  assert.match(account, /account-support-section/);
-  assert.match(account, /account-support-link/);
-  assert.match(account, /CUSTOMER_SUPPORT_HREF/);
-  assert.match(account, /Support/);
   assert.doesNotMatch(menu, /reply\.vssyl\.com/);
-  assert.doesNotMatch(account, /reply\.vssyl\.com/);
   assert.doesNotMatch(menu, /console\/tickets/);
-  assert.doesNotMatch(account, /console\/tickets/);
+
+  const account = source("src/app/account/page.tsx");
+  assert.doesNotMatch(account, /account-support-section/);
+  assert.doesNotMatch(account, /CUSTOMER_SUPPORT_HREF/);
 });
 
 test("customer support — the help surface is mailto-only and does not expose Console tickets", () => {

@@ -1,15 +1,20 @@
 import Link from "next/link";
 
 import { leavePartnerFacilityAction } from "@/app/partner/actions";
+import { GlobalUserMenu } from "@/components/global-user-menu";
 import { PartnerDepartmentSwitch } from "@/components/partner/partner-department-switch";
-import { partnerRoleLabel } from "@/lib/partner-user-access";
+import type { PartnerFacilitySession } from "@/lib/auth";
+import { presentCurrentContextFromSession } from "@/lib/available-contexts";
 import type { PartnerFacilityShellModel } from "@/lib/partner-operational-context";
+import { partnerRoleLabel } from "@/lib/partner-user-access";
 
 export function PartnerFacilityShell({
   shell,
+  session,
   children,
 }: {
   shell: PartnerFacilityShellModel;
+  session: PartnerFacilitySession;
   children: React.ReactNode;
 }) {
   const active = shell.departments.find((department) => department.id === shell.context.activeDepartmentId);
@@ -27,9 +32,14 @@ export function PartnerFacilityShell({
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Link href="/access" className="text-sm font-medium underline-offset-2 hover:underline">
-              My Access
-            </Link>
+            <GlobalUserMenu
+              menuLabel={session.name}
+              currentContext={presentCurrentContextFromSession(session, {
+                facilityName: shell.facilityDisplayName,
+                partnerOrganizationName: shell.partnerOrganizationName,
+                partnerRole: shell.context.effectiveRole,
+              })}
+            />
             <form action={leavePartnerFacilityAction}>
               <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
                 Return to {shell.partnerOrganizationName}
