@@ -93,10 +93,30 @@ test("password action is User-gated and does not remint the current session", ()
   const action = source("src/app/account/security/actions.ts");
   const helper = source("src/lib/account-security/change-own-password.ts");
   assert.match(action, /requireAuthenticatedUserSession/);
+  assert.match(action, /Password changed. Please sign in again/);
   assert.equal(action.includes("requireFacilitySession"), false);
   assert.equal(action.includes("facilityId"), false);
   assert.match(helper, /revokeUserSessions/);
   assert.equal(helper.includes("createAccountSessionToken"), false);
   assert.equal(helper.includes("enterContext"), false);
   assert.equal(helper.includes("employee"), false);
+});
+
+test("sign out everywhere revokes User sessions only and clears this cookie", () => {
+  const action = source("src/app/account/security/actions.ts");
+  const form = source("src/app/account/security/sign-out-everywhere-form.tsx");
+  assert.match(action, /signOutEverywhereAction/);
+  assert.match(action, /revokeOwnSessions/);
+  assert.match(action, /kind: "user"/);
+  assert.match(action, /SESSION_COOKIE/);
+  assert.match(action, /redirect\("\/login"\)/);
+  assert.equal(action.includes("revokeEmployeeSessions"), false);
+  assert.equal(action.includes("harbor_session"), false);
+  assert.equal(action.includes("HARBOR_"), false);
+  assert.match(form, /Sign out everywhere/);
+  assert.match(form, /window.confirm/);
+  assert.equal(form.includes("Sign out other sessions"), false);
+  assert.equal(action.includes("employee.sessionVersion"), false);
+  assert.equal(action.includes("Employee.sessionVersion"), false);
+  assert.equal(action.includes("revokeEmployeeSessions"), false);
 });

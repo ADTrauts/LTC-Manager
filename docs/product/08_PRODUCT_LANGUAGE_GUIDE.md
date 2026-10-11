@@ -48,6 +48,10 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Context Session** | The one selected Organization, internal Facility, or partner Facility workspace | Merging contexts; inferring partner vs internal from Facility id alone |
 | **My Access** | Where I can work — User-facing directory of current enterable contexts at `/access`. Open live-revalidates through `enterContext`. | Facility `/account`; PIN or Harbor entry; inventing rows from topology or home Facility; a second header chooser |
 | **My Account** | Who I am and how I sign in — global User profile at `/account` and password/security at `/account/security`. | Facility Admin; Employee HR; Home Facility as identity; PIN management |
+| **Display name** | Global User presentation field `User.displayName`. A change remints the current session and does not increment `sessionVersion`. | Employee first/last name; Home Facility; treating name as authority |
+| **Sign out** | Clears this browser's `ltc_session`. | Sign out everywhere |
+| **Sign out everywhere** | Increments `User.sessionVersion` and clears this cookie. All User JWTs die. PIN and Harbor stay. | Sign out other sessions; a device/session inventory |
+| **PIN** | Separate Employee-authenticated session plane (`Employee.sessionVersion`) | Signing PIN out by changing User password or Sign out everywhere |
 | **Current context** | The workspace I am presently acting within. Displayed from the live session. | Treating a stale available-context list row as authority; exposing scopeKind / Path A / Path B |
 | **Password login** | Credentials authenticate the User. Post-auth routing uses available-context count. | Facility-native vs organization-only identity class; repairing grants from `User.facilityId` / `User.roleId` |
 | **routeAuthenticatedUser** | Canonical 0 / 1 / many landing after generic User authentication | A second context engine inside login; auto-picking home, first, or highest role; forcing invites through 0/1/many |

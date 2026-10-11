@@ -1,10 +1,14 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import type { ChangePasswordState } from "@/app/account/security/change-password-state";
 import { changeOwnUserPassword } from "@/lib/account-security/change-own-password";
+import { getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revokeOwnSessions } from "@/lib/session-revocation";
 import { requireAuthenticatedUserSession } from "@/lib/user-session";
 
 const changePasswordSchema = z
@@ -46,5 +50,14 @@ export async function changeOwnPasswordAction(
   }
 
   console.info("password_change_success", { userId: session.uid, scopeKind: session.scopeKind });
-  return { status: "success", message: "Password updated." };
+  return { status: "success", message: "Password changed. Please sign in again." };
+}
+
+export async function signOutEverywhereAction(): Promise<void> {
+  const session = await requireAuthenticatedUserSession();
+  await revokeOwnSessions(prisma, { kind: "user", id: session.uid });
+
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, "", { ...getCookieOptions(), maxAge: 0 });
+  redirect("/login");
 }

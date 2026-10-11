@@ -10,22 +10,28 @@ function source(relativePath: string): string {
 const ACCOUNT_FILES = [
   "src/app/account/page.tsx",
   "src/app/account/layout.tsx",
+  "src/app/account/actions.ts",
+  "src/app/account/profile-form.tsx",
   "src/app/account/security/page.tsx",
   "src/app/account/security/actions.ts",
+  "src/app/account/security/sign-out-everywhere-form.tsx",
   "src/components/global-user-layout.tsx",
   "src/components/global-user-menu.tsx",
 ];
 
 test("global account pages are User-session profile and security, not Facility AppShell", () => {
   const profile = source("src/app/account/page.tsx");
+  const form = source("src/app/account/profile-form.tsx");
   const security = source("src/app/account/security/page.tsx");
   const layout = source("src/app/account/layout.tsx");
   const accessLayout = source("src/app/access/layout.tsx");
 
   assert.match(profile, /getAuthenticatedUserSession/);
-  assert.match(profile, /displayName/);
-  assert.match(profile, /user\.email/);
+  assert.match(profile, /ProfileForm/);
   assert.match(profile, /href="\/account\/security"/);
+  assert.match(form, /name="displayName"/);
+  assert.match(form, /Email changes are not currently available/);
+  assert.equal(form.includes("name=\"email\""), false);
   assert.equal(profile.includes("requireFacilitySession"), false);
   assert.equal(profile.includes("AppShell"), false);
   assert.equal(profile.includes("facilityId"), false);
@@ -34,7 +40,9 @@ test("global account pages are User-session profile and security, not Facility A
   assert.equal(profile.includes("enterAccountContext"), false);
 
   assert.match(security, /ChangePasswordForm/);
+  assert.match(security, /SignOutEverywhereForm/);
   assert.match(security, /signs you out of Vssyl on all devices, including this one/);
+  assert.match(security, /This does not sign out PIN sign-in at a facility/);
   assert.equal(security.includes("sign out other sessions"), false);
   assert.equal(security.includes("requireFacilitySession"), false);
 
@@ -68,5 +76,7 @@ test("global account surfaces do not import Employee, PIN, or topology authority
     assert.equal(text.includes("PlatformStaff"), false, file);
     assert.equal(text.includes("listAvailableContexts"), false, file);
     assert.equal(text.includes("User.facilityId"), false, file);
+    assert.equal(text.includes("Employee.sessionVersion"), false, file);
+    assert.equal(text.includes("harbor_session"), false, file);
   }
 });

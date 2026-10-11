@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-10  
 **Scope:** Shared lightweight User navigation and global `/account` / `/account/security` ownership.  
-**Does not include:** display-name editing, email editing, stay-signed-in password remint, a dedicated Sign out everywhere button, PIN on User, MFA / SSO, last-used context, inline context directory, Organization Portfolio.
+**Does not include:** email editing, stay-signed-in password remint, PIN on User, MFA / SSO, last-used context, inline context directory, Organization Portfolio. Display-name editing and Sign out everywhere are Phase 2E8B.
 
 ---
 
@@ -47,7 +47,7 @@ Viewing My Account does not call `enterAccountContext()`. The current workspace 
 
 ## Profile
 
-Read-only `User.displayName` and `User.email`. No Employee, Home Facility, Facility role, Organization role, or partner role fields.
+2E8A shipped read-only `User.displayName` and `User.email`. Phase 2E8B makes display name self-service. Email stays read-only. No Employee, Home Facility, Facility role, Organization role, or partner role fields.
 
 ## Security
 

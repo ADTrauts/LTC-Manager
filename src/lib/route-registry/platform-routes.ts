@@ -501,7 +501,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "USER_SESSION" },
     module: "account",
     notes:
-      "Global User profile. Any User-authenticated session may view it. PIN and Harbor cannot. Display name and email are read-only.",
+      "Global User profile. Any User-authenticated session may view it. PIN and Harbor cannot. Display name is self-service; email is read-only.",
   },
   {
     pattern: "/account/security",
@@ -510,7 +510,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "USER_SESSION" },
     module: "account",
     notes:
-      "Global User password change. Operates on User.id and increments User.sessionVersion. PIN and Harbor cannot.",
+      "Global User password change and Sign out everywhere. Operates on User.id and increments User.sessionVersion. PIN and Harbor cannot.",
   },
   {
     pattern: "/help",

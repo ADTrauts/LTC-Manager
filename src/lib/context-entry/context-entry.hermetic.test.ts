@@ -6,7 +6,12 @@ import test from "node:test";
 import { jwtVerify } from "jose";
 import type { OrganizationPartnerRole, RoleKey } from "@prisma/client";
 
-import { isAccountSession, isPartnerFacilitySession, verifySessionToken } from "@/lib/auth";
+import {
+  isAccountSession,
+  isPartnerFacilitySession,
+  verifySessionToken,
+  type AppJwtPayload,
+} from "@/lib/auth";
 import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
 import { DEVICE_FACILITY_COOKIE } from "@/lib/device-cookie";
 import { PARTNER_ACTIVE_DEPARTMENT_COOKIE } from "@/lib/partner-operational-context";
@@ -14,6 +19,7 @@ import { classifySessionRejection, validateSessionAuthority } from "@/lib/sessio
 
 import { applyContextTransitionCookies } from "./cookies";
 import { enterAccountContext, enterContext } from "./enter";
+import { remintCurrentUserSession } from "./remint-current";
 import { parseContextKey } from "./parse";
 import { ContextEntryError } from "./types";
 
@@ -893,4 +899,114 @@ test("cookie transition clears incompatible department cookies and never copies 
   assert.ok(
     writes.some((row) => row.name === PARTNER_ACTIVE_DEPARTMENT_COOKIE && row.value === "dept-terrace"),
   );
+});
+
+function remintSession(overrides: Partial<AppJwtPayload> = {}): AppJwtPayload {
+  return {
+    uid: "sarah",
+    authKind: "user",
+    authMethod: "PASSWORD",
+    name: "Sarah",
+    email: "sarah@example.com",
+    sessionVersion: 3,
+    scopeKind: "account",
+    ...overrides,
+  } as AppJwtPayload;
+}
+
+test("remint after displayName change keeps sessionVersion and picks live SUPERVISOR", async () => {
+  const world = sarahWorld();
+  const user = (await world.db.user.findUnique({ where: { id: "sarah" } })) as {
+    displayName: string;
+    sessionVersion: number;
+  };
+  user.displayName = "Andrew Trautman";
+  world.changeGrantRole(world.terraceGrantId, "SUPERVISOR");
+
+  const result = await remintCurrentUserSession(world.db, {
+    now: NOW,
+    session: remintSession({
+      scopeKind: "facility",
+      facilityId: "terrace",
+      role: "MANAGER",
+    }),
+  });
+  assert.equal(result.kind, "facility_internal");
+  assert.equal(result.fallbackToAccount, false);
+  assert.equal(user.sessionVersion, 3);
+  const session = await verifySessionToken(result.token);
+  assert.equal(session.name, "Andrew Trautman");
+  assert.equal(session.role, "SUPERVISOR");
+  assert.equal(session.sessionVersion, 3);
+  assert.equal(session.facilityId, "terrace");
+});
+
+test("remint falls back to account after Organization membership loss without rolling back displayName", async () => {
+  const world = sarahWorld();
+  const user = (await world.db.user.findUnique({ where: { id: "sarah" } })) as {
+    displayName: string;
+    sessionVersion: number;
+  };
+  user.displayName = "New Name";
+  world.endMembership("sarah", "metz");
+
+  const result = await remintCurrentUserSession(world.db, {
+    now: NOW,
+    session: remintSession({ scopeKind: "organization", organizationId: "metz" }),
+  });
+  assert.equal(result.kind, "account");
+  assert.equal(result.fallbackToAccount, true);
+  assert.equal(user.displayName, "New Name");
+  assert.equal(user.sessionVersion, 3);
+  const session = await verifySessionToken(result.token);
+  assert.equal(session.scopeKind, "account");
+  assert.equal(session.name, "New Name");
+  assert.equal(session.sessionVersion, 3);
+});
+
+test("remint falls back to account after partner authority loss without preserving stale partner JWT", async () => {
+  const world = sarahWorld();
+  const user = (await world.db.user.findUnique({ where: { id: "sarah" } })) as {
+    displayName: string;
+    sessionVersion: number;
+  };
+  user.displayName = "Partner Name";
+  world.restrict("sarah", "metz-terrace");
+
+  const result = await remintCurrentUserSession(world.db, {
+    now: NOW,
+    session: remintSession({
+      scopeKind: "facility",
+      accessKind: "partner",
+      facilityId: "terrace",
+      partnerOrganizationId: "metz",
+      facilityPartnerOrganizationId: "metz-terrace",
+    }),
+  });
+  assert.equal(result.kind, "account");
+  assert.equal(result.fallbackToAccount, true);
+  assert.equal(user.displayName, "Partner Name");
+  const session = await verifySessionToken(result.token);
+  assert.equal(session.scopeKind, "account");
+  assert.equal(isPartnerFacilitySession(session), false);
+  assert.equal(session.name, "Partner Name");
+});
+
+test("account remint stays account and uses the current displayName", async () => {
+  const world = sarahWorld();
+  const user = (await world.db.user.findUnique({ where: { id: "sarah" } })) as {
+    displayName: string;
+    sessionVersion: number;
+  };
+  user.displayName = "Account Name";
+
+  const result = await remintCurrentUserSession(world.db, {
+    session: remintSession({ scopeKind: "account" }),
+  });
+  assert.equal(result.kind, "account");
+  assert.equal(result.fallbackToAccount, false);
+  assert.equal(user.sessionVersion, 3);
+  const session = await verifySessionToken(result.token);
+  assert.ok(isAccountSession(session));
+  assert.equal(session.name, "Account Name");
 });

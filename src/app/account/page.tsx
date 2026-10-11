@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ProfileForm } from "@/app/account/profile-form";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 import { typeClasses } from "@/lib/design-system";
 import { prisma } from "@/lib/prisma";
@@ -28,29 +29,20 @@ export default async function AccountPage() {
 
       <section className="mt-8 space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
         <h2 className="text-lg font-semibold text-zinc-900">Profile</h2>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Display name</p>
-          <p className="mt-1 text-sm text-zinc-900" data-testid="account-display-name">
-            {user.displayName}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Email</p>
-          <p className="mt-1 text-sm text-zinc-900" data-testid="account-email">
-            {user.email}
-          </p>
-        </div>
+        <ProfileForm displayName={user.displayName} email={user.email} />
       </section>
 
-      <div className="mt-6">
+      <section className="mt-6 space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Security</h2>
+        <p className="text-sm text-zinc-600">Password and sessions</p>
         <Link
           href="/account/security"
           className={`inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 ${FOCUS_RING_CLASS}`}
           data-testid="account-security-link"
         >
-          Security
+          Manage security
         </Link>
-      </div>
+      </section>
     </main>
   );
 }
