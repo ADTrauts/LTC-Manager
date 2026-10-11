@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { OrganizationInvitationControls, OrganizationMemberAdminControls } from "@/components/organization-member-admin-controls";
 import { OrganizationInviteForm } from "@/components/organization-invite-form";
+import { OrganizationMemberClientAssignments } from "@/components/organization-member-client-assignments";
 import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import {
@@ -64,23 +65,29 @@ export default async function OrganizationMembersPage({ params }: PageProps) {
         <h2 className="text-sm font-semibold">Current members</h2>
         <ul className="mt-3 divide-y divide-zinc-100">
           {members.map(({ user, membership: row }) => (
-            <li key={row.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
-              <div>
-                <p className="text-sm font-medium text-zinc-900">{user.displayName}</p>
-                <p className="text-xs text-zinc-500">
-                  {user.email}
-                  {row.currentRole ? ` · ${organizationMembershipRoleLabel(row.currentRole)}` : ""}
-                  {" · Active"}
-                </p>
+            <li key={row.id} className="py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">{user.displayName}</p>
+                  <p className="text-xs text-zinc-500">
+                    {user.email}
+                    {row.currentRole ? ` · ${organizationMembershipRoleLabel(row.currentRole)}` : ""}
+                    {" · Active"}
+                  </p>
+                </div>
+                {row.currentRole === "ORG_ADMIN" || row.currentRole === "ORG_MEMBER" ? (
+                  <OrganizationMemberAdminControls
+                    organizationId={organizationId}
+                    targetUserId={user.id}
+                    currentRole={row.currentRole}
+                    isSelf={user.id === session.uid}
+                  />
+                ) : null}
               </div>
-              {row.currentRole === "ORG_ADMIN" || row.currentRole === "ORG_MEMBER" ? (
-                <OrganizationMemberAdminControls
-                  organizationId={organizationId}
-                  targetUserId={user.id}
-                  currentRole={row.currentRole}
-                  isSelf={user.id === session.uid}
-                />
-              ) : null}
+              <OrganizationMemberClientAssignments
+                targetUserId={user.id}
+                displayName={user.displayName}
+              />
             </li>
           ))}
         </ul>

@@ -55,6 +55,7 @@ const STAFFING_COPY: Partial<Record<PartnerUserAccessError["code"], string>> = {
   PARTNERSHIP_INACTIVE: "This client relationship is not open for staffing.",
   PARTNERSHIP_ENDED: "This client relationship is not open for staffing.",
   CEILING_ABSENT: "Personal facility access is not currently enabled by the facility.",
+  SCOPE_EMPTY: "This client relationship has no current department scope.",
   ASSIGNMENT_NOT_CURRENT: "This member does not have a current assignment at this facility.",
 };
 

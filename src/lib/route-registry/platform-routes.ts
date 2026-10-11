@@ -445,7 +445,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "organization-membership",
     requiresDownstreamAuthorization: true,
     notes:
-      "Organization member administration. ORG_ADMIN authority is re-checked server-side. Grants no Facility access.",
+      "Organization member administration and person-first client assignments. ORG_ADMIN authority is re-checked server-side. Grants no Facility access. Client assignments reuse partner staffing services.",
   },
   {
     pattern: "/organization/[organizationId]/clients",

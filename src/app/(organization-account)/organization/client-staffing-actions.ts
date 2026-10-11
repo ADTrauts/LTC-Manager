@@ -9,12 +9,18 @@ import {
   assignOrganizationClientMember,
   changeOrganizationClientMemberRole,
   endOrganizationClientMemberAccess,
+  listOrganizationMemberClientAssignments,
   organizationClientStaffingErrorMessage,
   PartnerUserAccessError,
+  type OrganizationMemberClientAssignments,
 } from "@/lib/partner-user-access";
 import { prisma } from "@/lib/prisma";
 
 export type OrganizationClientStaffingActionResult = { ok: true } | { ok: false; message: string };
+
+export type OrganizationMemberClientAssignmentsResult =
+  | { ok: true; data: OrganizationMemberClientAssignments }
+  | { ok: false; message: string };
 
 const ROLES = ["PARTNER_VIEWER", "PARTNER_OPERATOR", "PARTNER_MANAGER"] as const;
 
@@ -62,8 +68,7 @@ export async function assignOrganizationClientAction(
       targetUserId: target.targetUserId,
       partnerRole,
     });
-    revalidatePath(`/organization/${admin.session.organizationId}/clients`);
-    revalidatePath(`/organization/${admin.session.organizationId}`);
+    revalidateStaffingPaths(admin.session.organizationId);
     return { ok: true };
   } catch (error) {
     if (error instanceof PartnerUserAccessError) {
@@ -91,8 +96,7 @@ export async function changeOrganizationClientRoleAction(
       targetUserId: target.targetUserId,
       partnerRole,
     });
-    revalidatePath(`/organization/${admin.session.organizationId}/clients`);
-    revalidatePath(`/organization/${admin.session.organizationId}`);
+    revalidateStaffingPaths(admin.session.organizationId);
     return { ok: true };
   } catch (error) {
     return { ok: false, message: organizationClientStaffingErrorMessage(error) };
@@ -113,10 +117,35 @@ export async function endOrganizationClientAccessAction(
       partnershipId: target.partnershipId,
       targetUserId: target.targetUserId,
     });
-    revalidatePath(`/organization/${admin.session.organizationId}/clients`);
-    revalidatePath(`/organization/${admin.session.organizationId}`);
+    revalidateStaffingPaths(admin.session.organizationId);
     return { ok: true };
   } catch (error) {
     return { ok: false, message: organizationClientStaffingErrorMessage(error) };
   }
+}
+
+export async function loadOrganizationMemberClientAssignmentsAction(input: {
+  targetUserId: string;
+}): Promise<OrganizationMemberClientAssignmentsResult> {
+  const admin = await requireStaffingAdmin();
+  if (!admin.ok) return admin;
+  const targetUserId = input.targetUserId.trim();
+  if (!targetUserId) {
+    return { ok: false, message: "Choose a member." };
+  }
+  try {
+    const data = await listOrganizationMemberClientAssignments(prisma, {
+      organizationId: admin.session.organizationId,
+      userId: targetUserId,
+    });
+    return { ok: true, data };
+  } catch {
+    return { ok: false, message: "Client assignments could not be loaded." };
+  }
+}
+
+function revalidateStaffingPaths(organizationId: string) {
+  revalidatePath(`/organization/${organizationId}/members`);
+  revalidatePath(`/organization/${organizationId}/clients`);
+  revalidatePath(`/organization/${organizationId}`);
 }

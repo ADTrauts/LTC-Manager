@@ -40,7 +40,9 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Operating Organization** | Organization responsible for operating a Department (date-effective) | Management company string on Facility; Vendor; FacilityOrganization; Partner Organization *(different concept)* |
 | **Partner Organization** | External Organization with an explicit Facility partnership | Inferring partnership from operators, vendors, or parent Organization |
 | **Partner Department Scope** | Departments explicitly authorized under a partnership (timestamp periods) | Auto-syncing from Operating Organization; undated permanent rows |
-| **Organization member / Organization administrator** | `ORG_MEMBER` / `ORG_ADMIN` on membership role periods | Facility Administrator; Vendor admin; putting ORG_* on RoleKey |
+| **Organization member / Organization administrator** | `ORG_MEMBER` / `ORG_ADMIN` on membership role periods | Facility Administrator; Vendor admin; putting ORG_* on RoleKey; inferring a partner Facility role |
+| **Client assignment** | Organization-governed partner Facility access for a current Organization member when the Facility has delegated staffing | Organization membership; My Access; permissions; treating Portfolio visibility as assignment |
+| **Client assignments** | Person-first list of current client relationships for one member at `/organization/<id>/members` | A new Assignments or Staffing tab; a second assignment engine |
 | **Home Facility** | Optional `User.facilityId` presentation marker | Active Facility; login or session authority; rewriting home on Facility switch |
 | **Active Facility** | Session/JWT Facility context | Persisting active Facility by mutating `User.facilityId` |
 | **Available Context** | A current enterable Organization, internal Facility, or partner Facility relationship for one User | Treating Employee, PIN, Harbor, or a Department as a workspace; merging internal and partner at the same Facility |

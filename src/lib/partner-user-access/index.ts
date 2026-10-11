@@ -35,6 +35,11 @@ export type {
   OrganizationClientMember,
   OrganizationClientStaffing,
 } from "./organization-clients";
+export { listOrganizationMemberClientAssignments } from "./organization-member-clients";
+export type {
+  OrganizationMemberClientAssignment,
+  OrganizationMemberClientAssignments,
+} from "./organization-member-clients";
 export { PartnerUserAccessError, UNVERSIONED_AUTHORIZATION_FACTS } from "./types";
 export type {
   FacilityAuthorization,
