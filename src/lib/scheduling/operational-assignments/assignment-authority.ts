@@ -1,6 +1,7 @@
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
-import type { FacilitySession } from "@/lib/auth";
+import { isPartnerFacilitySession, type FacilitySession } from "@/lib/auth";
+import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 
@@ -14,14 +15,29 @@ export type AssignmentAuthorityDecision = {
   reason: string | null;
 };
 
+type AssignmentAuthorityStore = {
+  department: {
+    findFirst(args: {
+      where: { id: string; facilityId: string; isActive: true };
+      select: { id: true; key: true };
+    }): Promise<{ id: string; key: string } | null>;
+  };
+};
+
+const FA_DIETARY_REASON =
+  "Facility Administrator status alone does not grant Dietary Assignment authority.";
+
 /**
  * Canonical Phase 7A Assignment authority.
  * Facility Administrator role alone does not grant Dietary Assignment management.
+ * FA "here" is the current Facility session role. The Dietary relationship is the
+ * current Facility's HFN Department, not User home metadata.
  */
 export async function resolveAssignmentAuthority(input: {
   session: FacilitySession;
   departmentId: string;
   facilityId: string;
+  db?: AssignmentAuthorityStore;
 }): Promise<AssignmentAuthorityDecision> {
   const role = input.session.role as AppRole;
   const denied: AssignmentAuthorityDecision = {
@@ -34,12 +50,21 @@ export async function resolveAssignmentAuthority(input: {
     reason: "Insufficient Assignment authority.",
   };
 
+  if (isPartnerFacilitySession(input.session)) {
+    return { ...denied, canViewOwn: false, reason: "Partner Assignment access denied." };
+  }
+
   if (input.session.facilityId !== input.facilityId) {
     return { ...denied, canViewOwn: false, reason: "Cross-facility Assignment access denied." };
   }
 
-  const department = await prisma.department.findFirst({
-    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+  const store = input.db ?? prisma;
+  const department = await store.department.findFirst({
+    where: {
+      id: input.departmentId,
+      facilityId: input.facilityId,
+      isActive: true,
+    },
     select: { id: true, key: true },
   });
   if (!department) {
@@ -59,18 +84,12 @@ export async function resolveAssignmentAuthority(input: {
     };
   }
 
-  // Facility Administrator requires an operational department relationship.
   if (isFacilityAdministratorRole(role)) {
-    const user = await prisma.user.findFirst({
-      where: { id: input.session.uid, facilityId: input.facilityId, isActive: true },
-      select: { primaryDepartmentId: true },
-    });
-    if (!user || user.primaryDepartmentId !== input.departmentId) {
-      return {
-        ...denied,
-        reason:
-          "Facility Administrator status alone does not grant Dietary Assignment authority.",
-      };
+    if (input.session.authKind !== "user") {
+      return { ...denied, reason: FA_DIETARY_REASON };
+    }
+    if (!hasDietaryDomainCapabilities(department.key)) {
+      return { ...denied, reason: FA_DIETARY_REASON };
     }
   }
 
