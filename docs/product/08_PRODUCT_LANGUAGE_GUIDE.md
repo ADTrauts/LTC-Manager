@@ -47,6 +47,9 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Account Session** | Authenticated User with no workspace authority | Treating account as Organization/Facility permission; a second identity cookie |
 | **Context Session** | The one selected Organization, internal Facility, or partner Facility workspace | Merging contexts; inferring partner vs internal from Facility id alone |
 | **My Access** | Where I can work — User-facing directory of current enterable contexts at `/access`. Open live-revalidates through `enterContext`. | Facility `/account`; PIN or Harbor entry; inventing rows from topology or home Facility; a second header chooser |
+| **Organization Portfolio** | Facilities and operating relationships visible to the current Organization at `/organization/<id>`. | A second My Access; a cross-Facility Run dashboard; treating org visibility as Facility authority |
+| **Owned Facility** | Facility whose parent is this Organization (`Facility.organizationId`) | Inferring ownership from partnership or Department operation |
+| **Portfolio visibility** | Organization-level relationship visibility. Not personal Facility authority. | Synthesizing Open or Path A/B from membership or ownership |
 | **My Account** | Who I am and how I sign in — global User profile at `/account` and password/security at `/account/security`. | Facility Admin; Employee HR; Home Facility as identity; PIN management |
 | **Display name** | Global User presentation field `User.displayName`. A change remints the current session and does not increment `sessionVersion`. | Employee first/last name; Home Facility; treating name as authority |
 | **Sign out** | Clears this browser's `ltc_session`. | Sign out everywhere |
@@ -57,7 +60,7 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **routeAuthenticatedUser** | Canonical 0 / 1 / many landing after generic User authentication | A second context engine inside login; auto-picking home, first, or highest role; forcing invites through 0/1/many |
 | **enterGrantedContext** | Enter one explicit created/accepted context; missing target recovers to account `/access` | Listing every context first; minting from `User.facilityId` / `User.roleId` |
 | **enterContext** | Live target revalidation and exclusive session mint from any User session | Listing every context then trusting a posted role; silent fallback to another workspace |
-| **Client Facility** | Partner Facility workspace entered via a partnership | Inferring personal partner access from Organization topology |
+| **Client Facility** | Current `FacilityPartnerOrganization` relationship, or a partner Facility workspace entered via that partnership | Inferring partnership from operators, vendors, or parent Organization; treating org visibility as personal entry |
 | **Facility operated / Contracted** | Derived operating model (operator org == / != Facility parent org) | Persisted SELF_OPERATED / CONTRACTED enum *(prefer derivation)* |
 | **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Facility Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name; generic **Maintenance** as a Product name |
 | **Department** | Facility-installed instance / operational ownership | Line of business |

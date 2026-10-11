@@ -558,14 +558,16 @@ test("switchActiveFacility source proves home Facility is not rewritten", async 
   assert.match(source, /Does NOT rewrite User\.facilityId/);
 });
 
-test("Organization Home routes exist and deny partner assignment concepts", () => {
+test("Organization Portfolio routes exist and deny partner assignment concepts", () => {
   const page = readFileSync(
     join(process.cwd(), "src/app/(organization-account)/organization/[organizationId]/page.tsx"),
     "utf8",
   );
   assert.match(page, /requireOrganizationSession/);
-  assert.match(page, /does not grant access to customer Facilities/i);
+  assert.match(page, /listOrganizationPortfolio/);
+  assert.match(page, /does not grant Facility access/);
   assert.doesNotMatch(page, /PartnerUserFacilityAccess|PARTNER_MANAGER/);
+  assert.doesNotMatch(page, /enterPartnerFacilityAction/);
 });
 
 test("facility switch home preservation regression via switchActiveFacility helper", async () => {

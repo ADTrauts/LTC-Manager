@@ -6,11 +6,11 @@ export function OrganizationWorkspaceNav({
   isAdmin,
 }: {
   organizationId: string;
-  current: "home" | "clients" | "members";
+  current: "portfolio" | "clients" | "members";
   isAdmin: boolean;
 }) {
   const links = [
-    { href: `/organization/${organizationId}`, label: "Home", key: "home" as const },
+    { href: `/organization/${organizationId}`, label: "Portfolio", key: "portfolio" as const },
     ...(isAdmin
       ? [
           { href: `/organization/${organizationId}/clients`, label: "Clients", key: "clients" as const },

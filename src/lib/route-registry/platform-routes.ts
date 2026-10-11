@@ -435,7 +435,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "organization-membership",
     requiresDownstreamAuthorization: true,
     notes:
-      "Organization Home for one membership. Server verifies current role period.",
+      "Organization Portfolio for one membership. Server verifies current role period and matching session organizationId. Visibility is not Facility authority.",
   },
   {
     pattern: "/organization/[organizationId]/members",

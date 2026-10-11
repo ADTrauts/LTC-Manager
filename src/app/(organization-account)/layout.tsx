@@ -17,8 +17,8 @@ type Props = {
 };
 
 /**
- * Minimal chrome for organization-scoped account sessions.
- * Not the Facility AppShell and not a corporate portfolio.
+ * Minimal chrome for organization-scoped sessions.
+ * `/organization/[organizationId]` is the Organization Portfolio. Not a Facility AppShell.
  */
 export default async function OrganizationAccountLayout({ children }: Props) {
   const session = await getAppSession();
@@ -39,7 +39,7 @@ export default async function OrganizationAccountLayout({ children }: Props) {
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Organization account
@@ -57,7 +57,7 @@ export default async function OrganizationAccountLayout({ children }: Props) {
           />
         </div>
         {memberships.length > 1 ? (
-          <div className="mx-auto max-w-3xl px-4 pb-4">
+          <div className="mx-auto max-w-5xl px-4 pb-4">
             <OrganizationSwitcher
               currentOrganizationId={session.organizationId}
               options={memberships.map((membership) => ({
@@ -68,7 +68,7 @@ export default async function OrganizationAccountLayout({ children }: Props) {
           </div>
         ) : null}
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
     </div>
   );
 }

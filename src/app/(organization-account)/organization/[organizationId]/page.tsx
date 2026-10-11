@@ -1,22 +1,18 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { enterPartnerFacilityAction } from "@/app/partner/actions";
+import { OrganizationPortfolioView } from "@/components/organization-portfolio";
 import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
+import { typeClasses } from "@/lib/design-system";
 import { requireOrganizationSession } from "@/lib/organization-context";
-import {
-  getOrganizationMembers,
-  organizationDisplayLabel,
-  organizationMembershipRoleLabel,
-} from "@/lib/organization-membership";
-import { listAuthorizedPartnerFacilities, partnerRoleLabel } from "@/lib/partner-user-access";
+import { organizationDisplayLabel } from "@/lib/organization-membership";
+import { listOrganizationPortfolio } from "@/lib/organization-portfolio";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
   params: Promise<{ organizationId: string }>;
 };
 
-export default async function OrganizationHomeDetailPage({ params }: PageProps) {
+export default async function OrganizationPortfolioPage({ params }: PageProps) {
   const { organizationId } = await params;
 
   let session;
@@ -30,146 +26,32 @@ export default async function OrganizationHomeDetailPage({ params }: PageProps) 
   }
 
   if (session.organizationId !== organizationId) {
-    // Multi-org: allow opening another membership by minting selection via redirect to index
-    // when the selected session org differs. Detail requires matching session organizationId.
     redirect("/organization");
   }
-
   if (membership.organizationId !== organizationId) {
     notFound();
   }
 
-  const members =
-    membership.currentRole === "ORG_ADMIN"
-      ? await getOrganizationMembers(prisma, { organizationId })
-      : [];
-  const clientAccess = await listAuthorizedPartnerFacilities(prisma, {
-    userId: session.uid,
+  const portfolio = await listOrganizationPortfolio(prisma, {
     organizationId,
+    userId: session.uid,
   });
 
   return (
-    <div className="space-y-6" data-testid="organization-home-detail">
+    <div className="space-y-6" data-testid="organization-portfolio">
       <OrganizationWorkspaceNav
         organizationId={organizationId}
-        current="home"
+        current="portfolio"
         isAdmin={membership.currentRole === "ORG_ADMIN"}
       />
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          {organizationDisplayLabel(membership.organization)}
-        </h1>
+        <h1 className={typeClasses.pageTitle}>{organizationDisplayLabel(membership.organization)}</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Your organization role:{" "}
-          <span className="font-medium text-zinc-900">
-            {membership.currentRole
-              ? organizationMembershipRoleLabel(membership.currentRole)
-              : "None"}
-          </span>
-        </p>
-        {membership.currentRole === "ORG_ADMIN" ? (
-          <p className="mt-2 text-sm font-medium text-zinc-800" data-testid="org-admin-banner">
-            You are an Organization Administrator.
-          </p>
-        ) : null}
-        <p className="mt-2 text-xs text-zinc-500">
-          Organization membership does not grant access to customer Facilities. My client access
-          lists only your current personal partner assignments.
+          Facilities and operating relationships visible to this Organization. Portfolio visibility
+          does not grant Facility access.
         </p>
       </div>
-
-      <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Organization identity</h2>
-        <dl className="mt-2 space-y-1 text-sm text-zinc-700">
-          <div>
-            <dt className="inline font-medium text-zinc-900">Name </dt>
-            <dd className="inline">{membership.organization.name}</dd>
-          </div>
-          {membership.organization.displayName ? (
-            <div>
-              <dt className="inline font-medium text-zinc-900">Display name </dt>
-              <dd className="inline">{membership.organization.displayName}</dd>
-            </div>
-          ) : null}
-          {membership.organization.organizationType ? (
-            <div>
-              <dt className="inline font-medium text-zinc-900">Type </dt>
-              <dd className="inline">{membership.organization.organizationType}</dd>
-            </div>
-          ) : null}
-        </dl>
-      </section>
-
-      <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="client-access">
-        <h2 className="text-sm font-semibold text-zinc-900">My client access</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          Enter a client Facility only when you mean to work there as this Organization.
-        </p>
-        {clientAccess.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">No current client assignments.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-zinc-100">
-            {clientAccess.map((client) => (
-              <li key={client.facilityPartnerOrganizationId} className="flex items-center justify-between gap-4 py-3">
-                <div className="text-sm">
-                  <p className="font-medium text-zinc-900">{client.facilityDisplayName}</p>
-                  <p className="text-xs text-zinc-500">
-                    {client.departmentNames.join(", ") || "No departments"}
-                    {" · "}
-                    {partnerRoleLabel(client.effectiveRole)}
-                  </p>
-                </div>
-                <form action={enterPartnerFacilityAction}>
-                  <input type="hidden" name="facilityId" value={client.facilityId} />
-                  <input
-                    type="hidden"
-                    name="facilityPartnerOrganizationId"
-                    value={client.facilityPartnerOrganizationId}
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-                  >
-                    Enter
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {membership.currentRole === "ORG_ADMIN" ? (
-        <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4">
-          <h2 className="text-sm font-semibold text-zinc-900">Members</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Organization membership does not grant Facility access.
-          </p>
-          {members.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">No current members.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-zinc-100">
-              {members.map(({ user, membership: row }) => (
-                <li key={row.id} className="py-2 text-sm">
-                  <p className="font-medium text-zinc-900">{user.displayName}</p>
-                  <p className="text-xs text-zinc-500">
-                    {user.email}
-                    {row.currentRole
-                      ? ` · ${organizationMembershipRoleLabel(row.currentRole)}`
-                      : null}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ) : null}
-
-      <p className="text-sm">
-        <Link href="/organization" className="font-medium underline-offset-2 hover:underline">
-          All Organizations
-        </Link>
-      </p>
+      <OrganizationPortfolioView portfolio={portfolio} />
     </div>
   );
 }
