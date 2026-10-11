@@ -32,11 +32,12 @@ export function setupPathLabel(path: "SELF_SERVE" | "ASSISTED" | null | undefine
 export function departmentKeyLabel(key: string): string {
   switch (key) {
     case "DIETARY":
-      return "Dietary";
+    case "HEALTHCARE_FOOD_NUTRITION":
+      return "Healthcare Food & Nutrition";
     case "EVS":
-      return "EVS";
+      return "Environmental Services";
     case "PLANT":
-      return "Plant";
+      return "Facility Plant Operations";
     default:
       return key;
   }

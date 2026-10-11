@@ -85,6 +85,10 @@ US charges need Stripe Tax with an **active registration** before `automatic_tax
 
 ---
 
+## Local mirror and Console diagnostics
+
+Stripe owns monetary subscription state. `FacilityBilling` and `FacilityDepartmentEntitlement` are Vssyl’s local access mirror. Stripe webhooks are the normal synchronization path. Vssyl Console **Sync from Stripe** is a manual recovery path that reuses the same Stripe → Vssyl reconciliation logic; Console does not edit subscriptions, set billing status by hand, or replace Stripe Dashboard. See [Console billing diagnostics certification](../console/CONSOLE_BILLING_DIAGNOSTICS_CERTIFICATION_2026-10-07.md).
+
 ## Enforcement
 
 Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Healthcare Food & Nutrition behind purchase until that flag is an explicit product launch.

@@ -20,7 +20,9 @@ export default async function HarborCustomersPage({
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Every facility. Read-only.</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            Every facility. Billing money stays in Stripe; open a facility for diagnostics and sync.
+          </p>
         </div>
         <form className="flex gap-2" action="/console/customers">
           <input

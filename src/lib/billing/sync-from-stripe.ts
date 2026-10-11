@@ -1,10 +1,18 @@
 import type Stripe from "stripe";
 
 import { applyFacilitySubscription } from "./apply-stripe-event";
-import { billingStatusFromStripeSubscription, checkoutSelectionFromMetadata } from "./status";
+import { persistDefaultPaymentMethod } from "./persist-default-payment-method";
+import { checkoutSelectionFromMetadata } from "./status";
 import { prisma } from "@/lib/prisma";
 import { getStripeServerClient, isStripeSecretConfigured } from "@/lib/stripe";
 import { trackEvent } from "@/lib/telemetry";
+
+export {
+  applyResolvedStripeSubscription,
+  syncFacilityBillingFromStripe,
+  type FacilityStripeSyncCode,
+  type FacilityStripeSyncResult,
+} from "./reconcile-from-stripe";
 
 export async function applyCompletedCheckoutSession(session: Stripe.Checkout.Session): Promise<void> {
   if (session.mode !== "subscription") return;
@@ -46,66 +54,6 @@ export async function applyCompletedCheckoutSession(session: Stripe.Checkout.Ses
   });
 }
 
-export async function syncFacilityBillingFromStripe(facilityId: string): Promise<void> {
-  if (!isStripeSecretConfigured()) return;
-
-  const stripe = getStripeServerClient();
-  const facility = await prisma.facility.findUnique({
-    where: { id: facilityId },
-    select: { stripeCustomerId: true },
-  });
-
-  let customerId = facility?.stripeCustomerId ?? null;
-  if (!customerId) {
-    try {
-      const matches = await stripe.customers.search({
-        query: `metadata['facilityId']:'${facilityId}'`,
-        limit: 1,
-      });
-      customerId = matches.data[0]?.id ?? null;
-    } catch {
-      return;
-    }
-    if (!customerId) return;
-    await prisma.facility.update({
-      where: { id: facilityId },
-      data: { stripeCustomerId: customerId },
-    });
-  }
-
-  const subscriptions = await stripe.subscriptions.list({
-    customer: customerId,
-    status: "all",
-    limit: 10,
-  });
-  const current =
-    subscriptions.data.find((row) => row.status === "active" || row.status === "trialing") ??
-    subscriptions.data.find((row) => row.status === "past_due") ??
-    subscriptions.data[0];
-  if (!current) return;
-
-  const status = billingStatusFromStripeSubscription(current.status);
-  if (!status || status === "UNMANAGED") return;
-
-  const selection = checkoutSelectionFromMetadata({
-    facilityId,
-    departmentKeys: current.metadata?.departmentKeys,
-    interval: current.metadata?.interval,
-    setupPath: current.metadata?.setupPath,
-  });
-
-  await applyFacilitySubscription({
-    facilityId,
-    status,
-    stripeSubscriptionId: current.id,
-    ...(current.metadata?.interval ? { interval: selection.interval } : {}),
-    ...(current.metadata?.setupPath ? { setupPath: selection.setupPath } : {}),
-    ...(selection.departmentKeys.length > 0 ? { departmentKeys: selection.departmentKeys } : {}),
-  });
-
-  await persistDefaultPaymentMethod(facilityId, current.id, customerId);
-}
-
 export async function applyCheckoutSessionId(input: {
   checkoutSessionId: string;
   expectedFacilityId: string;
@@ -117,37 +65,4 @@ export async function applyCheckoutSessionId(input: {
   if (facilityId !== input.expectedFacilityId) return false;
   await applyCompletedCheckoutSession(session);
   return true;
-}
-
-async function persistDefaultPaymentMethod(
-  facilityId: string,
-  subscriptionId: string | null,
-  customerId: string | null,
-): Promise<void> {
-  const stripe = getStripeServerClient();
-  let paymentMethodId: string | null = null;
-
-  if (subscriptionId) {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    paymentMethodId = idFromExpandable(subscription.default_payment_method);
-  }
-
-  if (!paymentMethodId && customerId) {
-    const customer = await stripe.customers.retrieve(customerId);
-    if (!customer.deleted) {
-      paymentMethodId = idFromExpandable(customer.invoice_settings.default_payment_method);
-    }
-  }
-
-  if (!paymentMethodId) return;
-
-  await prisma.facility.update({
-    where: { id: facilityId },
-    data: { stripeDefaultPaymentMethodId: paymentMethodId },
-  });
-}
-
-function idFromExpandable(value: string | { id: string } | null | undefined): string | null {
-  if (!value) return null;
-  return typeof value === "string" ? value : value.id;
 }

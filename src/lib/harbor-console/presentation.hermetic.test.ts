@@ -42,7 +42,8 @@ test("onboarding label prefers Live once complete", () => {
 });
 
 test("department and billing labels stay readable", () => {
-  assert.equal(departmentKeyLabel("DIETARY"), "Dietary");
+  assert.equal(departmentKeyLabel("DIETARY"), "Healthcare Food & Nutrition");
+  assert.equal(departmentKeyLabel("PLANT"), "Facility Plant Operations");
   assert.equal(billingStatusLabel("PAST_DUE"), "Past due");
   assert.equal(billingStatusLabel(null), "No billing record");
 });

@@ -1,12 +1,12 @@
 import type Stripe from "stripe";
 
 import { applyFacilitySubscription } from "./apply-stripe-event";
-import { applyCompletedCheckoutSession } from "./sync-from-stripe";
 import {
-  billingStatusFromStripeSubscription,
-  checkoutSelectionFromMetadata,
-  subscriptionIdFromStripeInvoice,
-} from "./status";
+  applyResolvedStripeSubscription,
+  resolveFacilityIdFromSubscription,
+} from "./reconcile-from-stripe";
+import { applyCompletedCheckoutSession } from "./sync-from-stripe";
+import { subscriptionIdFromStripeInvoice } from "./status";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -54,33 +54,22 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent): Prom
 }
 
 async function handleSubscriptionChanged(subscription: Stripe.Subscription): Promise<void> {
-  const status = billingStatusFromStripeSubscription(subscription.status);
-  if (!status || status === "UNMANAGED") return;
-
   const facilityId = await resolveFacilityIdFromSubscription(subscription);
   if (!facilityId) return;
 
-  const selection = checkoutSelectionFromMetadata({
+  const reconciled = await applyResolvedStripeSubscription({
     facilityId,
-    departmentKeys: subscription.metadata?.departmentKeys,
-    interval: subscription.metadata?.interval,
-    setupPath: subscription.metadata?.setupPath,
+    subscription,
   });
 
-  await applyFacilitySubscription({
-    facilityId,
-    status,
-    stripeSubscriptionId: subscription.id,
-    ...(subscription.metadata?.interval ? { interval: selection.interval } : {}),
-    ...(subscription.metadata?.setupPath ? { setupPath: selection.setupPath } : {}),
-    ...(selection.departmentKeys.length > 0 ? { departmentKeys: selection.departmentKeys } : {}),
-  });
-
-  await trackEvent("billing.subscription.updated", {
-    facilityId,
-    stripeSubscriptionId: subscription.id,
-    status,
-  });
+  if (reconciled.code === "SYNCHRONIZED" || reconciled.code === "ALREADY_MATCHES") {
+    await trackEvent("billing.subscription.updated", {
+      facilityId,
+      stripeSubscriptionId: subscription.id,
+      status: subscription.status,
+      reconcileCode: reconciled.code,
+    });
+  }
 }
 
 async function handleInvoiceStatus(
@@ -101,27 +90,4 @@ async function handleInvoiceStatus(
     status,
     stripeSubscriptionId: subscriptionId,
   });
-}
-
-async function resolveFacilityIdFromSubscription(
-  subscription: Stripe.Subscription,
-): Promise<string | null> {
-  const fromMetadata = subscription.metadata?.facilityId?.trim();
-  if (fromMetadata) return fromMetadata;
-
-  const existing = await prisma.facilityBilling.findFirst({
-    where: { stripeSubscriptionId: subscription.id },
-    select: { facilityId: true },
-  });
-  if (existing) return existing.facilityId;
-
-  const customerId =
-    typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
-  if (!customerId) return null;
-
-  const facility = await prisma.facility.findFirst({
-    where: { stripeCustomerId: customerId },
-    select: { id: true },
-  });
-  return facility?.id ?? null;
 }

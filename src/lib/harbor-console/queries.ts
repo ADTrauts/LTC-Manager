@@ -8,6 +8,10 @@ import {
   onboardingLabel,
   setupPathLabel,
 } from "@/lib/harbor-console/presentation";
+import {
+  listDepartmentProducts,
+  type DepartmentProduct,
+} from "@/lib/department-products";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -17,12 +21,17 @@ const facilitySelect = {
   billingEmail: true,
   onboardingCurrentStep: true,
   onboardingCompletedAt: true,
-  organization: { select: { name: true, displayName: true } },
+  organizationId: true,
+  stripeCustomerId: true,
+  organization: { select: { id: true, name: true, displayName: true } },
   billing: {
     select: {
       status: true,
       interval: true,
       setupPath: true,
+      stripeSubscriptionId: true,
+      licensedDepartmentCount: true,
+      updatedAt: true,
       entitlements: {
         where: { status: "ACTIVE" },
         select: { departmentKey: true },
@@ -44,6 +53,27 @@ export type HarborFacilityRow = {
   licensedDepartments: string[];
   stuckSetup: boolean;
   paymentProblem: boolean;
+};
+
+export type HarborLicensingRow = {
+  productKey: string;
+  name: string;
+  installationKey: string;
+  licensed: boolean;
+};
+
+export type HarborFacilityDetail = HarborFacilityRow & {
+  organizationId: string;
+  isLive: boolean;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  billingInterval: string | null;
+  billingUpdatedAt: Date | null;
+  billingSource: string;
+  hasBillingRecord: boolean;
+  licensing: HarborLicensingRow[];
+  primaryAdmin: { name: string; email: string; role: string } | null;
+  users: Array<{ name: string; email: string; role: string }>;
 };
 
 function toRow(
@@ -68,6 +98,37 @@ function toRow(
     stuckSetup: isStuckSetup(facility.onboardingCompletedAt),
     paymentProblem: isPaymentProblem(facility.billing?.status ?? null),
   };
+}
+
+function licensingRows(
+  products: readonly DepartmentProduct[],
+  activeKeys: readonly string[],
+): HarborLicensingRow[] {
+  const licensed = new Set(activeKeys);
+  return products.map((product) => ({
+    productKey: product.productKey,
+    name: product.name,
+    installationKey: product.installationKey,
+    licensed: licensed.has(product.installationKey) || licensed.has(product.productKey),
+  }));
+}
+
+function billingSourceLabel(input: {
+  hasBillingRecord: boolean;
+  status: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+}): string {
+  if (!input.hasBillingRecord) {
+    return input.stripeCustomerId ? "Stripe customer only" : "No billing record";
+  }
+  if (input.status === "UNMANAGED") {
+    return "Unmanaged (grandfathered / not sold)";
+  }
+  if (input.stripeSubscriptionId || input.stripeCustomerId) {
+    return "Stripe-managed";
+  }
+  return "Local mirror only";
 }
 
 export async function listHarborFacilities(client: Db, query?: string): Promise<HarborFacilityRow[]> {
@@ -99,7 +160,10 @@ export async function loadHarborToday(client: Db) {
   };
 }
 
-export async function loadHarborFacility(client: Db, facilityId: string) {
+export async function loadHarborFacility(
+  client: Db,
+  facilityId: string,
+): Promise<HarborFacilityDetail | null> {
   const facility = await client.facility.findUnique({
     where: { id: facilityId },
     select: {
@@ -119,12 +183,40 @@ export async function loadHarborFacility(client: Db, facilityId: string) {
   if (!facility) {
     return null;
   }
+
+  const users = facility.users.flatMap((user) => {
+    if (!user.role?.key) return [];
+    return [
+      {
+        name: user.displayName,
+        email: user.email,
+        role: user.role.key,
+      },
+    ];
+  });
+  const primaryAdmin =
+    users.find((user) => user.role === "FACILITY_ADMINISTRATOR") ?? users[0] ?? null;
+
+  const activeKeys = (facility.billing?.entitlements ?? []).map((row) => row.departmentKey);
+  const hasBillingRecord = Boolean(facility.billing);
+
   return {
     ...toRow(facility),
-    users: facility.users.map((user) => ({
-      name: user.displayName,
-      email: user.email,
-      role: user.role.key,
-    })),
+    organizationId: facility.organizationId,
+    isLive: facility.onboardingCompletedAt != null,
+    stripeCustomerId: facility.stripeCustomerId,
+    stripeSubscriptionId: facility.billing?.stripeSubscriptionId ?? null,
+    billingInterval: facility.billing?.interval ?? null,
+    billingUpdatedAt: facility.billing?.updatedAt ?? null,
+    billingSource: billingSourceLabel({
+      hasBillingRecord,
+      status: facility.billing?.status ?? null,
+      stripeCustomerId: facility.stripeCustomerId,
+      stripeSubscriptionId: facility.billing?.stripeSubscriptionId ?? null,
+    }),
+    hasBillingRecord,
+    licensing: licensingRows(listDepartmentProducts(), activeKeys),
+    primaryAdmin,
+    users,
   };
 }
