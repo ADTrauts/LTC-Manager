@@ -19,8 +19,8 @@ export default async function EmployeesImportPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Import employees (CSV)</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Bulk-create or update roster fields from a comma-separated file. PINs and per-card edits stay in the
-          Employees directory.
+          Update existing employee roster fields from a comma-separated file. CSV cannot create new employees —
+          add those from Add employee. PINs and per-card edits stay in the Employees directory.
         </p>
       </header>
 
