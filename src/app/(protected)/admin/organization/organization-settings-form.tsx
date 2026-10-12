@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ORGANIZATION_TYPE_OPTIONS } from "@/lib/organization";
+import { ORGANIZATION_TYPE_OPTIONS } from "@/lib/organization/types";
 
 import { updateOrganizationSettingsAction } from "./actions";
 

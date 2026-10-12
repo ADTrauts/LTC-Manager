@@ -17,9 +17,9 @@ import type { OrganizationMembershipRole, OrganizationPartnerRole } from "@prism
 import {
   partnerRoleLabel,
   partnerRolesAtOrBelow,
-  type PartnerAssignmentAuthorityKind,
-} from "@/lib/partner-user-access";
-import { organizationMembershipRoleLabel } from "@/lib/organization-membership";
+} from "@/lib/partner-user-access/roles";
+import type { PartnerAssignmentAuthorityKind } from "@/lib/partner-user-access/types";
+import { organizationMembershipRoleLabel } from "@/lib/organization-membership/types";
 
 export type PartnerUserAccessPanelProps = {
   partnershipId: string;

@@ -9,12 +9,12 @@ import {
   changeOrganizationClientRoleAction,
   endOrganizationClientAccessAction,
 } from "@/app/(organization-account)/organization/client-staffing-actions";
-import { organizationMembershipRoleLabel } from "@/lib/organization-membership";
+import { organizationMembershipRoleLabel } from "@/lib/organization-membership/types";
 import {
   partnerRoleLabel,
   partnerRolesAtOrBelow,
-  type OrganizationClientStaffing,
-} from "@/lib/partner-user-access";
+} from "@/lib/partner-user-access/roles";
+import type { OrganizationClientStaffing } from "@/lib/partner-user-access/organization-clients";
 
 function choiceLabel(role: OrganizationPartnerRole) {
   switch (role) {

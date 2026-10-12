@@ -12,8 +12,8 @@ import {
   ORGANIZATION_TYPE_OPTIONS,
   organizationTypeLabel,
   type OrganizationTypeValue,
-} from "@/lib/organization";
-import { DEFAULT_FACILITY_TIMEZONE, FACILITY_TIMEZONE_OPTIONS } from "@/lib/facility-provisioning";
+} from "@/lib/organization/types";
+import { DEFAULT_FACILITY_TIMEZONE, FACILITY_TIMEZONE_OPTIONS } from "@/lib/facility-provisioning/timezones";
 
 export type HarborOrganizationOption = {
   id: string;

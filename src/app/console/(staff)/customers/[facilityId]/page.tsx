@@ -74,7 +74,7 @@ export default async function HarborCustomerPage({
           </p>
         ) : null}
         {provisionQuery.invite === "failed" && facility.primaryAdmin?.invitePending ? (
-          <form action={resendHarborProvisionInviteAction} className="mt-3">
+          <form action={resendAdministratorInviteFormAction} className="mt-3">
             <input type="hidden" name="facilityId" value={facility.id} />
             <input type="hidden" name="userId" value={facility.primaryAdmin.id} />
             <button
@@ -268,6 +268,10 @@ export default async function HarborCustomerPage({
       ) : null}
     </div>
   );
+}
+
+async function resendAdministratorInviteFormAction(formData: FormData): Promise<void> {
+  await resendHarborProvisionInviteAction(formData);
 }
 
 function Field({

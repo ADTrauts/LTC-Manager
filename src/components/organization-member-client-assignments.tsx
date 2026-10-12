@@ -11,9 +11,11 @@ import {
 import {
   partnerRoleLabel,
   partnerRolesAtOrBelow,
-  type OrganizationMemberClientAssignment,
-  type OrganizationMemberClientAssignments,
-} from "@/lib/partner-user-access";
+} from "@/lib/partner-user-access/roles";
+import type {
+  OrganizationMemberClientAssignment,
+  OrganizationMemberClientAssignments,
+} from "@/lib/partner-user-access/organization-member-clients";
 
 type Filter = "all" | "assigned" | "unassigned";
 

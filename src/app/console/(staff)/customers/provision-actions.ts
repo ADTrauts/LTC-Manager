@@ -183,7 +183,7 @@ export async function resendHarborProvisionInviteAction(formData: FormData): Pro
       id: userId,
       isActive: true,
       passwordHash: null,
-      userFacilityAccesses: { some: { facilityId, isActive: true, revokedAt: null } },
+      facilityAccesses: { some: { facilityId, isActive: true, revokedAt: null } },
     },
     select: { id: true },
   });

@@ -444,6 +444,7 @@ test("signup and Harbor share bootstrap and do not install products or claims", 
   const bootstrap = source("src/lib/facility-provisioning/bootstrap.ts");
   const harbor = source("src/lib/facility-provisioning/harbor.ts");
   const actions = source("src/app/console/(staff)/customers/provision-actions.ts");
+  const form = source("src/components/harbor-console/provision-facility-form.tsx");
   const detail = source("src/app/console/(staff)/customers/[facilityId]/page.tsx");
   const proxy = source("src/proxy.ts");
   assert.match(signup, /bootstrapFacilityCustomer/);
@@ -462,6 +463,14 @@ test("signup and Harbor share bootstrap and do not install products or claims", 
   assert.match(detail, /Facility created\. Administrator invite could not be delivered/);
   assert.match(detail, /resendHarborProvisionInviteAction/);
   assert.doesNotMatch(actions, /createHarborWorkToken|WORK_SESSION_START/);
+  assert.match(form, /from \"@\/lib\/facility-provisioning\/timezones\"/);
+  assert.doesNotMatch(form, /from \"@\/lib\/facility-provisioning\"/);
+  assert.doesNotMatch(form, /from \"@\/lib\/organization\"/);
+  assert.match(form, /from \"@\/lib\/organization\/types\"/);
+  const partnerPanel = source("src/components/facility-partners/partner-user-access-panel.tsx");
+  assert.match(partnerPanel, /from \"@\/lib\/organization-membership\/types\"/);
+  assert.doesNotMatch(partnerPanel, /from \"@\/lib\/organization-membership\"/);
+  assert.doesNotMatch(partnerPanel, /from \"@\/lib\/partner-user-access\"/);
   assert.match(proxy, /onboardingCompletedAt/);
   assert.match(proxy, /ONBOARDING_ENTRY_PATH/);
   assert.match(proxy, /isFacilityAdministratorRole/);
