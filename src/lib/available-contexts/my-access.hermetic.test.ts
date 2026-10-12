@@ -290,7 +290,7 @@ test("Organization and partner shells use the shared User menu without replacing
   assert.equal(organization.includes("listAvailableContexts"), false);
   assert.match(partner, /GlobalUserMenu/);
   assert.match(partner, /leavePartnerFacilityAction/);
-  assert.match(partner, /Return to \{shell\.partnerOrganizationName\}/);
+  assert.match(partner, /Return to \{organizationName\}/);
   assert.equal(partner.includes("enterAccountContext"), false);
   assert.equal(partner.includes("listAvailableContexts"), false);
 });

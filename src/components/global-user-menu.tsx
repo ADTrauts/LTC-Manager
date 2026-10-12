@@ -63,9 +63,11 @@ export function GlobalUserNavLinks({
 export function GlobalUserMenu({
   menuLabel,
   currentContext,
+  compactTrigger = false,
 }: {
   menuLabel: string;
   currentContext: GlobalUserMenuCurrentContext | null;
+  compactTrigger?: boolean;
 }) {
   const rootRef = useRef<HTMLDetailsElement>(null);
   const [open, setOpen] = useState(false);
@@ -113,8 +115,14 @@ export function GlobalUserMenu({
         data-testid="global-user-menu-trigger"
       >
         <UserIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-        <span className="hidden truncate lg:inline">{menuLabel}</span>
-        <AppIcons.chevronDown className="hidden h-4 w-4 shrink-0 opacity-70 sm:inline" />
+        {compactTrigger ? (
+          <span className="sr-only">{menuLabel}</span>
+        ) : (
+          <>
+            <span className="truncate">{menuLabel}</span>
+            <AppIcons.chevronDown className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+          </>
+        )}
       </summary>
       <div className="absolute right-0 top-full z-50 mt-1 max-w-[calc(100vw-1.5rem)] min-w-[15rem] rounded-md border border-zinc-200 bg-white py-1 shadow-lg ring-1 ring-black/5">
         <CurrentContextHeader currentContext={currentContext} />

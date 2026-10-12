@@ -17,6 +17,18 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 
 ---
 
+## Operating Workspace (shell)
+
+| Use this | Do not use as synonym |
+|----------|----------------------|
+| **Workspace** | The active operating context: Internal Facility, Organization, or Partner Facility |
+| **Mode** | Run, Build, or Admin. Never call these Workspaces |
+| **Department** | Subordinate operational lens under a Facility or Partner Facility workspace |
+
+Do not label Run / Build / Admin as Workspace. Do not treat Department, My Account, My Access, Harbor, or Quick PIN as a Workspace. **Business Workspace** and **Unit Workspace** remain existing product homes; they are not the shell Workspace selector.
+
+Interactive Switch Workspace is not implemented yet. The shell shows the current context only.
+
 ## Homes and zones
 
 | Use this | Do not use as synonym |

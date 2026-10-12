@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
 import { OrganizationClientStaffingList } from "@/components/organization-client-staffing";
-import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import { organizationDisplayLabel } from "@/lib/organization-membership";
 import { listOrganizationClientStaffing } from "@/lib/partner-user-access";
@@ -27,7 +26,6 @@ export default async function OrganizationClientsPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6" data-testid="organization-clients-page">
-      <OrganizationWorkspaceNav organizationId={organizationId} current="clients" isAdmin />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Clients</h1>
         <p className="mt-1 text-sm text-zinc-600">

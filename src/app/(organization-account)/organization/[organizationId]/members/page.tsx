@@ -4,7 +4,6 @@ import { notFound, redirect } from "next/navigation";
 import { OrganizationInvitationControls, OrganizationMemberAdminControls } from "@/components/organization-member-admin-controls";
 import { OrganizationInviteForm } from "@/components/organization-invite-form";
 import { OrganizationMemberClientAssignments } from "@/components/organization-member-client-assignments";
-import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import {
   getOrganizationMembers,
@@ -43,7 +42,6 @@ export default async function OrganizationMembersPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6" data-testid="organization-members-page">
-      <OrganizationWorkspaceNav organizationId={organizationId} current="members" isAdmin />
       <div>
         <p className="text-xs text-zinc-500">
           <Link href={`/organization/${organizationId}`} className="underline-offset-2 hover:underline">

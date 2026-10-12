@@ -1,24 +1,26 @@
 import { VssylLockup } from "@/components/brand/vssyl-lockup";
+import { VssylMark } from "@/components/brand/vssyl-mark";
 
 type ShellBrandBlockProps = {
-  facilityName: string;
+  /** Compact header: mark only. Desktop rail: full lockup. */
+  compact?: boolean;
 };
 
 /**
- * Product lockup + facility context in the shell header.
- * Account control owns signed-in identity; this block is name only.
+ * Product brand in the shell. Active workspace is a separate region.
  */
-export function ShellBrandBlock({ facilityName }: ShellBrandBlockProps) {
+export function ShellBrandBlock({ compact = false }: ShellBrandBlockProps) {
+  if (compact) {
+    return (
+      <span className="inline-flex shrink-0" role="img" aria-label="Vssyl">
+        <VssylMark tone="brand" className="h-7 w-7" />
+      </span>
+    );
+  }
+
   return (
-    <div className="flex min-w-0 max-w-[9rem] shrink flex-col justify-center gap-0.5 sm:max-w-[12rem] lg:max-w-[15rem] lg:shrink-0">
+    <div className="flex min-w-0 items-center">
       <VssylLockup tone="brand" size="header" />
-      <p
-        className="truncate text-xs font-medium leading-snug text-zinc-600"
-        title={facilityName}
-        aria-label={`Facility: ${facilityName}`}
-      >
-        {facilityName}
-      </p>
     </div>
   );
 }

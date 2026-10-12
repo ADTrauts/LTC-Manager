@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 
 import { GlobalUserMenu } from "@/components/global-user-menu";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
+import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
+import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { CompactWorkspaceMenu } from "@/components/shell/compact-workspace-menu";
+import { CurrentWorkspaceRegion } from "@/components/shell/current-workspace-region";
+import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import { presentCurrentContextFromSession } from "@/lib/available-contexts";
 import { getAppSession, isOrganizationScopedSession } from "@/lib/auth";
 import {
@@ -17,8 +22,8 @@ type Props = {
 };
 
 /**
- * Minimal chrome for organization-scoped sessions.
- * `/organization/[organizationId]` is the Organization Portfolio. Not a Facility AppShell.
+ * Organization workspace chrome. Session remains organization-scoped.
+ * OrganizationSwitcher stays available until the Workspace selector ACT.
  */
 export default async function OrganizationAccountLayout({ children }: Props) {
   const session = await getAppSession();
@@ -35,40 +40,58 @@ export default async function OrganizationAccountLayout({ children }: Props) {
   const currentMembership = memberships.find(
     (membership) => membership.organizationId === session.organizationId,
   );
+  const currentWorkspace = presentCurrentContextFromSession(session, {
+    organizationName: currentMembership
+      ? organizationDisplayLabel(currentMembership.organization)
+      : null,
+    organizationRole: currentMembership?.currentRole,
+  });
+  const isAdmin = currentMembership?.currentRole === "ORG_ADMIN";
+
+  const switcherNode = () =>
+    memberships.length > 1 ? (
+      <OrganizationSwitcher
+        currentOrganizationId={session.organizationId}
+        options={memberships.map((membership) => ({
+          organizationId: membership.organizationId,
+          label: organizationDisplayLabel(membership.organization),
+        }))}
+      />
+    ) : null;
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Organization account
-            </p>
-            <p className="text-sm font-semibold text-zinc-900">{session.name}</p>
+    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
+      <header className="border-b border-zinc-200 bg-white xl:hidden">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <CompactWorkspaceMenu>
+            <div className="space-y-4">
+              <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
+              {switcherNode()}
+            </div>
+          </CompactWorkspaceMenu>
+          <ShellBrandBlock compact />
+          <div className="min-w-0 flex-1">
+            <CurrentWorkspaceRegion current={currentWorkspace} compact />
           </div>
           <GlobalUserMenu
             menuLabel={session.name}
-            currentContext={presentCurrentContextFromSession(session, {
-              organizationName: currentMembership
-                ? organizationDisplayLabel(currentMembership.organization)
-                : null,
-              organizationRole: currentMembership?.currentRole,
-            })}
+            currentContext={currentWorkspace}
+            compactTrigger
           />
         </div>
-        {memberships.length > 1 ? (
-          <div className="mx-auto max-w-5xl px-4 pb-4">
-            <OrganizationSwitcher
-              currentOrganizationId={session.organizationId}
-              options={memberships.map((membership) => ({
-                organizationId: membership.organizationId,
-                label: organizationDisplayLabel(membership.organization),
-              }))}
-            />
-          </div>
-        ) : null}
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <div className="mx-auto flex min-h-0 w-full flex-1">
+        <WorkspaceShellRail
+          brand={<ShellBrandBlock />}
+          workspace={<CurrentWorkspaceRegion current={currentWorkspace} />}
+          destinations={
+            <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
+          }
+          compatibility={switcherNode()}
+          account={<GlobalUserMenu menuLabel={session.name} currentContext={null} />}
+        />
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
+      </div>
     </div>
   );
 }

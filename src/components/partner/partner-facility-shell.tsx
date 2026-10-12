@@ -1,12 +1,33 @@
-import Link from "next/link";
-
 import { leavePartnerFacilityAction } from "@/app/partner/actions";
 import { GlobalUserMenu } from "@/components/global-user-menu";
 import { PartnerDepartmentSwitch } from "@/components/partner/partner-department-switch";
+import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { CompactWorkspaceMenu } from "@/components/shell/compact-workspace-menu";
+import { CurrentWorkspaceRegion } from "@/components/shell/current-workspace-region";
+import { WorkspaceOwnedNav } from "@/components/shell/workspace-owned-nav";
+import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import type { PartnerFacilitySession } from "@/lib/auth";
 import { presentCurrentContextFromSession } from "@/lib/available-contexts";
 import type { PartnerFacilityShellModel } from "@/lib/partner-operational-context";
 import { partnerRoleLabel } from "@/lib/partner-user-access";
+
+const PARTNER_DESTINATIONS = [
+  { href: "/partner", label: "Dashboard" },
+  { href: "/partner/logs", label: "Logs" },
+  { href: "/partner/reports", label: "Audit / Reports" },
+  { href: "/partner/locations", label: "Locations" },
+  { href: "/partner/assets", label: "Assets" },
+] as const;
+
+function PartnerLeave({ organizationName }: { organizationName: string }) {
+  return (
+    <form action={leavePartnerFacilityAction}>
+      <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
+        Return to {organizationName}
+      </button>
+    </form>
+  );
+}
 
 export function PartnerFacilityShell({
   shell,
@@ -18,68 +39,68 @@ export function PartnerFacilityShell({
   children: React.ReactNode;
 }) {
   const active = shell.departments.find((department) => department.id === shell.context.activeDepartmentId);
+  const currentWorkspace = presentCurrentContextFromSession(session, {
+    facilityName: shell.facilityDisplayName,
+    partnerOrganizationName: shell.partnerOrganizationName,
+    partnerRole: shell.context.effectiveRole,
+  });
+
+  const departmentNode = () =>
+    shell.departments.length > 1 ? (
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Department</p>
+        <PartnerDepartmentSwitch
+          departments={shell.departments}
+          activeDepartmentId={shell.context.activeDepartmentId}
+        />
+      </div>
+    ) : (
+      <p className="text-sm text-zinc-800">
+        <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          Department
+        </span>
+        {active?.name ?? "Department"}
+      </p>
+    );
+
+  const destinationsNode = () => (
+    <WorkspaceOwnedNav items={PARTNER_DESTINATIONS} label="Partner" />
+  );
+  const leaveNode = () => <PartnerLeave organizationName={shell.partnerOrganizationName} />;
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-start justify-between gap-4 px-6 py-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Partner access</p>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight">{shell.facilityDisplayName}</h1>
-            <p className="mt-1 text-sm text-zinc-600">{shell.partnerOrganizationName}</p>
-            <p className="mt-1 text-sm text-zinc-600" data-testid="partner-effective-role">
-              {partnerRoleLabel(shell.context.effectiveRole)}
-            </p>
+    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
+      <header className="border-b border-zinc-200 bg-white xl:hidden">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <CompactWorkspaceMenu>
+            <div className="space-y-4">
+              {departmentNode()}
+              {destinationsNode()}
+              {leaveNode()}
+            </div>
+          </CompactWorkspaceMenu>
+          <ShellBrandBlock compact />
+          <div className="min-w-0 flex-1">
+            <CurrentWorkspaceRegion current={currentWorkspace} compact />
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <GlobalUserMenu
-              menuLabel={session.name}
-              currentContext={presentCurrentContextFromSession(session, {
-                facilityName: shell.facilityDisplayName,
-                partnerOrganizationName: shell.partnerOrganizationName,
-                partnerRole: shell.context.effectiveRole,
-              })}
-            />
-            <form action={leavePartnerFacilityAction}>
-              <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
-                Return to {shell.partnerOrganizationName}
-              </button>
-            </form>
-          </div>
+          <GlobalUserMenu menuLabel={session.name} currentContext={currentWorkspace} compactTrigger />
         </div>
       </header>
-      <div className="mx-auto grid max-w-3xl gap-8 px-6 py-8 md:grid-cols-[12rem_1fr]">
-        <nav className="space-y-4 text-sm" aria-label="Partner">
-            <div className="flex flex-col gap-2">
-              <Link href="/partner" className="font-medium text-zinc-900">
-                Dashboard
-              </Link>
-              <Link href="/partner/logs" className="font-medium text-zinc-900">
-                Logs
-              </Link>
-              <Link href="/partner/reports" className="font-medium text-zinc-900">
-                Review
-              </Link>
-              <Link href="/partner/locations" className="font-medium text-zinc-900">
-                Locations
-              </Link>
-              <Link href="/partner/assets" className="font-medium text-zinc-900">
-                Assets
-              </Link>
-            </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Department</p>
-            {shell.departments.length > 1 ? (
-              <PartnerDepartmentSwitch
-                departments={shell.departments}
-                activeDepartmentId={shell.context.activeDepartmentId}
-              />
-            ) : (
-              <p className="mt-1 text-zinc-800">{active?.name ?? "Department"}</p>
-            )}
-          </div>
-        </nav>
-        <main>{children}</main>
+      <div className="mx-auto flex min-h-0 w-full flex-1">
+        <WorkspaceShellRail
+          brand={<ShellBrandBlock />}
+          workspace={<CurrentWorkspaceRegion current={currentWorkspace} />}
+          department={departmentNode()}
+          destinations={destinationsNode()}
+          compatibility={leaveNode()}
+          account={<GlobalUserMenu menuLabel={session.name} currentContext={null} />}
+        />
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">
+          <p className="sr-only" data-testid="partner-effective-role">
+            {partnerRoleLabel(shell.context.effectiveRole)}
+          </p>
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
 import { OrganizationPortfolioView } from "@/components/organization-portfolio";
-import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
 import { typeClasses } from "@/lib/design-system";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import { organizationDisplayLabel } from "@/lib/organization-membership";
@@ -39,11 +38,6 @@ export default async function OrganizationPortfolioPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6" data-testid="organization-portfolio">
-      <OrganizationWorkspaceNav
-        organizationId={organizationId}
-        current="portfolio"
-        isAdmin={membership.currentRole === "ORG_ADMIN"}
-      />
       <div>
         <h1 className={typeClasses.pageTitle}>{organizationDisplayLabel(membership.organization)}</h1>
         <p className="mt-1 text-sm text-zinc-600">

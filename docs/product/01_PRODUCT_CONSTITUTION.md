@@ -80,6 +80,29 @@ A Product existing in the Vssyl registry does not make it customer-visible. Cust
 
 **Audit / Reports:** manager-facing name. Review is not a workspace. The route may remain `/reports`. Internal code may still say Review.
 
+### Operating Workspace (shell)
+
+**Workspace** is where the User is operating. Supported types in this phase: Internal Facility, Organization, and Partner Facility.
+
+```text
+Global identity
+  → Workspace
+  → Workspace-owned navigation
+  → Mode / governance
+  → Department lens
+  → Locations / operational content
+```
+
+**Run / Build / Admin** are modes (or governance) inside an authorized Facility context. They are not Workspaces.
+
+**Department** is a subordinate operational lens inside a Facility or Partner Facility workspace. It is not a Workspace.
+
+**My Account** and **My Access** are global User surfaces, not Workspaces.
+
+**Harbor / Vssyl Console** is excluded from this shell. Quick PIN sessions do not receive a global Workspace selector.
+
+The shell currently reserves a display-only current-Workspace region. Interactive global Workspace switching (and retiring FacilitySwitcher / OrganizationSwitcher) is a later phase. Existing switchers remain compatibility controls.
+
 ---
 
 ## Purpose of this constitution

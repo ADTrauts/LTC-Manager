@@ -306,7 +306,9 @@ test("partner asset scope stays exact and dashboard links stay on partner routes
   const loader = readFileSync(join(process.cwd(), "src/lib/partner-dashboard/load-partner-dashboard.ts"), "utf8");
   const shell = readFileSync(join(process.cwd(), "src/components/partner/partner-facility-shell.tsx"), "utf8");
   const assetsLoader = readFileSync(join(process.cwd(), "src/lib/asset-operations/load-partner-assets.ts"), "utf8");
-  assert.match(shell, />\s*Dashboard\s*</);
+  assert.match(shell, /label: "Dashboard"/);
+  assert.match(shell, /label: "Audit \/ Reports"/);
+  assert.equal(shell.includes('label: "Review"'), false);
   assert.equal(shell.includes("Partner Home"), false);
   assert.equal(shell.includes("Operational screens will become available"), false);
   assert.match(assetsLoader, /partnerAssetWhere/);

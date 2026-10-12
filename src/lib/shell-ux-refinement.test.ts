@@ -100,10 +100,34 @@ test("V1 refinement — shell brand block presents Vssyl, not LTC Manager", () =
 test("V1 refinement — AppShell switches the left rail via ShellSidebar (Build vs Locations)", () => {
   const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), "utf8");
   assert.match(shell, /ShellSidebar/);
+  assert.match(shell, /WorkspaceShellRail/);
   assert.match(shell, /buildSidebarNavItems/);
   assert.match(shell, /buildNavItems/);
   // Builders are not hardcoded into the shell; they come from the BUILD nav projection.
   assert.doesNotMatch(shell, /href="\/admin\/facility\/builder"/);
+});
+
+test("V1 refinement — brand lockup has no Facility subtitle", () => {
+  const brand = readFileSync(join(process.cwd(), "src/components/shell-brand-block.tsx"), "utf8");
+  assert.match(brand, /VssylLockup/);
+  assert.match(brand, /VssylMark/);
+  assert.doesNotMatch(brand, /facilityName|displayName/);
+});
+
+test("V1 refinement — account menu is identity-only; modes live in ShellModeNav", () => {
+  const menu = readFileSync(join(process.cwd(), "src/components/sign-out-controls.tsx"), "utf8");
+  const cue = readFileSync(join(process.cwd(), "src/components/shell-mode-cue.tsx"), "utf8");
+  const modeNav = readFileSync(join(process.cwd(), "src/components/shell/shell-mode-nav.tsx"), "utf8");
+  assert.match(menu, /My Access|GlobalUserNavLinks/);
+  assert.match(menu, /Help & Support/);
+  assert.match(menu, /Sign out/);
+  assert.doesNotMatch(menu, /account-menu-workspace-group/);
+  assert.doesNotMatch(menu, /account-menu-run/);
+  assert.doesNotMatch(menu, />Workspace</);
+  assert.match(cue, /Current mode:/);
+  assert.doesNotMatch(cue, /Current workspace:/);
+  assert.match(modeNav, /aria-label="Mode"/);
+  assert.match(modeNav, /shell-mode-run/);
 });
 
 test("V1 refinement — BuildPageHeader is title chrome only (shell owns Build / area trail)", () => {

@@ -5,6 +5,9 @@ import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { FacilitySwitcher } from "@/components/facility-switcher";
 import { ProductModeBanner } from "@/components/product-mode-banner";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { CurrentWorkspaceRegion } from "@/components/shell/current-workspace-region";
+import { ShellModeNav } from "@/components/shell/shell-mode-nav";
+import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import { ShellModeCue } from "@/components/shell-mode-cue";
 import { ShellModeFrame } from "@/components/shell-mode-frame";
 import { ShellSidebar } from "@/components/shell-sidebar";
@@ -14,7 +17,6 @@ import { ActiveDepartmentRouteSync } from "@/components/active-department-route-
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
 import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
 import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
-import { TopNav } from "@/components/top-nav";
 import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
 import { hasAtLeastRole } from "@/lib/access";
 import { presentCurrentContextFromSession } from "@/lib/available-contexts";
@@ -63,8 +65,8 @@ type AppShellProps = {
 /**
  * Application shell.
  *
- * Desktop (lg+): persistent left rail + full top nav.
- * Compact (&lt;lg): rails off-canvas via ResponsiveShellNav drawers; main owns full width.
+ * Desktop (xl+): workspace rail owns destinations, department, and mode.
+ * Compact (&lt;xl): Menu / brand / current workspace / avatar.
  */
 export async function AppShell({ children }: AppShellProps) {
   const anySession = await getAppSession();
@@ -203,15 +205,56 @@ export async function AppShell({ children }: AppShellProps) {
     : undefined;
   const projectionUnavailable = Boolean(projectionSidebar && sidebarProjection.error);
 
+  const currentWorkspace =
+    authKind === "user"
+      ? presentCurrentContextFromSession(session, {
+          facilityName: facility?.displayName,
+        })
+      : null;
+
+  const facilitySwitcherNode = () =>
+    authKind === "user" && facilityAccess && facilityAccess.accessibleFacilities.length > 1 ? (
+      <FacilitySwitcher
+        facilities={facilityAccess.accessibleFacilities.map((f) => ({
+          facilityId: f.facilityId,
+          facilityName: f.facilityName,
+        }))}
+        activeFacilityId={facilityAccess.activeFacilityId}
+      />
+    ) : null;
+
+  const departmentSwitcherNode = () =>
+    scopeDepartments.length > 0 ? (
+      <DepartmentScopeSwitcher
+        departments={scopeDepartments}
+        selectedDepartmentId={shellSelectedDepartmentId}
+        isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
+      />
+    ) : null;
+
+  const modeNavNode = () => (
+    <ShellModeNav
+      runHomeHref={menuRunHomeHref}
+      showBuild={menuShowBuild}
+      showAdmin={menuShowAdmin}
+    />
+  );
+
   return (
     <ShellModeFrame brandColor={facility?.brandColor ?? "#0f766e"}>
+      {scopeDepartments.length > 0 ? (
+        <ActiveDepartmentRouteSync
+          selectedDepartmentId={shellSelectedDepartmentId}
+          selectableDepartmentIds={scopeDepartments.map((d) => d.id)}
+        />
+      ) : null}
       <header
         className="shell-header shrink-0 border-b border-zinc-200 bg-white"
         role="banner"
         data-shell-region="header"
       >
         <div
-          className={`mx-auto flex w-full min-w-0 ${shellClasses.maxWidth} flex-nowrap items-center gap-1.5 overflow-x-clip px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2 lg:gap-3 lg:overflow-visible lg:px-6`}
+          className={`mx-auto flex w-full min-w-0 ${shellClasses.maxWidth} flex-nowrap items-center gap-1.5 overflow-x-clip px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2 xl:justify-end`}
         >
           <ResponsiveShellNav
             navItems={navItems}
@@ -220,51 +263,35 @@ export async function AppShell({ children }: AppShellProps) {
             projectionSections={projectionSections}
             projectionUnavailable={projectionUnavailable}
             lockedUnitId={lockedUnitId}
+            department={departmentSwitcherNode()}
+            modeNav={modeNavNode()}
+            compatibility={facilitySwitcherNode()}
           />
-          <ShellBrandBlock facilityName={facility?.displayName ?? "Facility"} />
-          {authKind === "user" &&
-          facilityAccess &&
-          facilityAccess.accessibleFacilities.length > 1 ? (
-            <FacilitySwitcher
-              facilities={facilityAccess.accessibleFacilities.map((f) => ({
-                facilityId: f.facilityId,
-                facilityName: f.facilityName,
-              }))}
-              activeFacilityId={facilityAccess.activeFacilityId}
-            />
-          ) : null}
-          {scopeDepartments.length > 0 ? (
-            <>
-              <ActiveDepartmentRouteSync
-                selectedDepartmentId={shellSelectedDepartmentId}
-                selectableDepartmentIds={scopeDepartments.map((d) => d.id)}
-              />
-              <DepartmentScopeSwitcher
-                departments={scopeDepartments}
-                selectedDepartmentId={shellSelectedDepartmentId}
-                isFacilityAdministrator={isFacilityAdministratorRole(session.role)}
-              />
-            </>
-          ) : null}
-          <TopNav items={navItems} />
+          <div className="xl:hidden">
+            <ShellBrandBlock compact />
+          </div>
+          <div className="min-w-0 flex-1 xl:hidden">
+            {authKind === "user" ? (
+              <CurrentWorkspaceRegion current={currentWorkspace} compact />
+            ) : (
+              <p className="truncate text-sm font-medium text-zinc-700">
+                {facility?.displayName ?? "Facility"}
+              </p>
+            )}
+          </div>
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <ShellModeCue />
+            <span className="hidden xl:inline-flex">
+              <ShellModeCue />
+            </span>
             <ShellOfflineIndicator />
-            <AccountMenu
-              showUnbind={showGmUnbind}
-              showMyAccess={authKind === "user"}
-              currentContext={
-                authKind === "user"
-                  ? presentCurrentContextFromSession(session, {
-                      facilityName: facility?.displayName,
-                    })
-                  : null
-              }
-              menuLabel={session.name}
-              runHomeHref={menuRunHomeHref}
-              showBuild={menuShowBuild}
-              showAdmin={menuShowAdmin}
-            />
+            <div className="xl:hidden">
+              <AccountMenu
+                showUnbind={showGmUnbind}
+                showMyAccess={authKind === "user"}
+                menuLabel={session.name}
+                compactTrigger
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -273,19 +300,35 @@ export async function AppShell({ children }: AppShellProps) {
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 
-      {/*
-        Body: never stack the rail above content on compact widths.
-        Desktop (lg+): row with persistent rail. Compact: content full width; nav is drawers.
-      */}
       <div
         className={`mx-auto flex min-h-0 w-full min-w-0 ${shellClasses.maxWidth} flex-1 overflow-hidden`}
       >
-        <ShellSidebar
-          units={sidebarUnits}
-          projectionSections={projectionSections}
-          projectionUnavailable={projectionUnavailable}
-          lockedUnitId={lockedUnitId}
-          buildNavItems={buildNavItems}
+        <WorkspaceShellRail
+          brand={<ShellBrandBlock />}
+          workspace={
+            authKind === "user" ? <CurrentWorkspaceRegion current={currentWorkspace} /> : null
+          }
+          department={departmentSwitcherNode()}
+          destinations={
+            <ShellSidebar
+              navItems={navItems}
+              buildNavItems={buildNavItems}
+              units={sidebarUnits}
+              projectionSections={projectionSections}
+              projectionUnavailable={projectionUnavailable}
+              lockedUnitId={lockedUnitId}
+            />
+          }
+          mode={modeNavNode()}
+          compatibility={facilitySwitcherNode()}
+          account={
+            <AccountMenu
+              showUnbind={showGmUnbind}
+              showMyAccess={authKind === "user"}
+              menuLabel={session.name}
+              menuAlign="up"
+            />
+          }
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <ShellZoneIndicator />
@@ -294,9 +337,6 @@ export async function AppShell({ children }: AppShellProps) {
           </main>
         </div>
       </div>
-      <footer className="hidden shrink-0 border-t border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-500 xl:block xl:px-6">
-        Operations workspace.
-      </footer>
     </ShellModeFrame>
   );
 }

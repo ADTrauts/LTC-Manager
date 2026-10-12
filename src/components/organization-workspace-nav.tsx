@@ -1,4 +1,8 @@
-import Link from "next/link";
+"use client";
+
+import { usePathname } from "next/navigation";
+
+import { WorkspaceOwnedNav } from "@/components/shell/workspace-owned-nav";
 
 export function OrganizationWorkspaceNav({
   organizationId,
@@ -6,34 +10,34 @@ export function OrganizationWorkspaceNav({
   isAdmin,
 }: {
   organizationId: string;
-  current: "portfolio" | "clients" | "members";
+  current?: "portfolio" | "clients" | "members";
   isAdmin: boolean;
 }) {
-  const links = [
-    { href: `/organization/${organizationId}`, label: "Portfolio", key: "portfolio" as const },
+  const pathname = usePathname() ?? "";
+  const resolved =
+    current ??
+    (pathname.endsWith("/members")
+      ? "members"
+      : pathname.endsWith("/clients")
+        ? "clients"
+        : "portfolio");
+
+  const items = [
+    { href: `/organization/${organizationId}`, label: "Portfolio" },
     ...(isAdmin
       ? [
-          { href: `/organization/${organizationId}/clients`, label: "Clients", key: "clients" as const },
-          { href: `/organization/${organizationId}/members`, label: "Members", key: "members" as const },
+          { href: `/organization/${organizationId}/clients`, label: "Clients" },
+          { href: `/organization/${organizationId}/members`, label: "Members" },
         ]
       : []),
   ];
+
   return (
-    <nav className="flex gap-4 text-sm" aria-label="Organization">
-      {links.map((link) => (
-        <Link
-          key={link.key}
-          href={link.href}
-          className={
-            link.key === current
-              ? "font-semibold text-zinc-900"
-              : "font-medium text-zinc-600 underline-offset-2 hover:underline"
-          }
-          aria-current={link.key === current ? "page" : undefined}
-        >
-          {link.label}
-        </Link>
-      ))}
-    </nav>
+    <div data-testid="organization-workspace-nav">
+      <WorkspaceOwnedNav items={items} label="Organization" />
+      <span className="sr-only" data-current={resolved}>
+        {resolved}
+      </span>
+    </div>
   );
 }

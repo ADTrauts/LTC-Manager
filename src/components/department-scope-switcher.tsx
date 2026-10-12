@@ -57,11 +57,11 @@ export function DepartmentScopeSwitcher({
     const only = departments[0];
     return (
       <div
-        className="flex w-[6.5rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[8.5rem] lg:w-[10.5rem]"
+        className="flex w-full min-w-0 flex-col justify-center gap-0.5"
         data-testid="department-context"
         data-department-context="single"
       >
-        <span className="sr-only lg:not-sr-only lg:text-[11px] lg:font-semibold lg:uppercase lg:tracking-wider lg:text-zinc-500">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
           Department
         </span>
         <div
@@ -113,12 +113,12 @@ export function DepartmentScopeSwitcher({
 
   return (
     <div
-      className="flex w-[6.75rem] shrink-0 flex-col justify-center gap-0.5 sm:w-[9rem] lg:w-[11.5rem]"
+      className="flex w-full min-w-0 flex-col justify-center gap-0.5"
       data-testid="department-context"
       data-department-context="multi"
     >
       <label
-        className="sr-only lg:not-sr-only lg:text-[11px] lg:font-semibold lg:uppercase lg:tracking-wider lg:text-zinc-500"
+        className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
         htmlFor="department-context-select"
       >
         Department
