@@ -5376,6 +5376,7 @@ enum HarborAuditAction {
   CATALOG_DRAFT_SUCCESSOR
   TICKET_OPEN
   TICKET_REPLY
+  PROVISION_FACILITY
 }
 
 enum ConsoleTicketStatus {

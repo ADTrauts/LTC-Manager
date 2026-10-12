@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSessionToken } from "@/lib/auth";
+import { isHarborOwnerSession } from "@/lib/harbor-console/auth";
 import {
   createHarborSessionToken,
   HARBOR_TOKEN_USE,
@@ -32,4 +33,9 @@ test("Harbor tokens are distinct from facility sessions", async () => {
     sessionVersion: 0,
   });
   await assert.rejects(() => verifyHarborSessionToken(facility), /Not a Harbor session/);
+});
+
+test("Harbor OWNER is distinct from MEMBER", () => {
+  assert.equal(isHarborOwnerSession({ staffRole: "OWNER" }), true);
+  assert.equal(isHarborOwnerSession({ staffRole: "MEMBER" }), false);
 });

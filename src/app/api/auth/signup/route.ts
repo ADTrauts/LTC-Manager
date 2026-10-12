@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import { EmployeeStatus, EmploymentType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -18,17 +17,14 @@ import {
   EMAIL_VERIFICATION_EXPIRES_HOURS,
   issueEmailVerificationToken,
 } from "@/lib/email-verification/tokens";
-import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
-import { createOrganizationForNewFacility } from "@/lib/organization";
+import { bootstrapFacilityCustomer } from "@/lib/facility-provisioning";
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import {
   applyAuthenticatedUserLandingCookies,
   enterGrantedContext,
   PostAuthRoutingError,
 } from "@/lib/post-auth-routing";
-import { initialFacilityCreatorRoles } from "@/lib/signup-facility-creator";
 import { prisma } from "@/lib/prisma";
-import { rosterNameFromSignupDisplayName } from "@/lib/roster-name";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -100,69 +96,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
   }
 
-  const creatorRoles = initialFacilityCreatorRoles();
-  const creatorUserRole = await prisma.role.findUnique({
-    where: { key: creatorRoles.userRoleKey },
-    select: { id: true, key: true },
-  });
-  if (!creatorUserRole) {
-    return NextResponse.json({ error: "System roles are not initialized yet." }, { status: 500 });
-  }
-
   const passwordHash = await bcrypt.hash(data.password, 12);
-  const { firstName, lastName } = rosterNameFromSignupDisplayName(data.adminName);
   const mailConfigured = isEmailConfigured();
 
   const created = await prisma.$transaction(async (tx) => {
-    const organization = await createOrganizationForNewFacility(tx, {
-      facilityName: data.facilityName,
-      managementCompanyName,
-    });
-
-    const facility = await tx.facility.create({
-      data: {
-        displayName: data.facilityName,
+    const provisioned = await bootstrapFacilityCustomer(tx, {
+      organization: {
+        mode: "create",
+        facilityName: data.facilityName,
         managementCompanyName,
-        organizationId: organization.id,
-        billingEmail: email,
-        onboardingStartedAt: new Date(),
-        onboardingCurrentStep: "facility",
       },
-    });
-
-    const user = await tx.user.create({
-      data: {
-        facilityId: facility.id,
-        roleId: creatorUserRole.id,
-        displayName: data.adminName,
+      facility: {
+        displayName: data.facilityName,
+        billingEmail: email,
+        managementCompanyName,
+      },
+      administrator: {
+        mode: "create",
         email,
+        displayName: data.adminName,
         passwordHash,
-        isActive: true,
-        // When outbound mail is off (local/dev), skip the verify gate so signup stays usable.
         emailVerifiedAt: mailConfigured ? null : new Date(),
       },
     });
-
-    await ensureUserFacilityAccessGrant(tx, {
-      userId: user.id,
-      facilityId: facility.id,
-      roleKey: creatorUserRole.key,
-    });
-
-    await tx.employee.create({
-      data: {
-        facilityId: facility.id,
-        firstName,
-        lastName,
-        email,
-        userId: user.id,
-        roleType: creatorRoles.employeeRoleType,
-        status: EmployeeStatus.ACTIVE,
-        employmentType: EmploymentType.FULL_TIME,
+    return {
+      facility: { id: provisioned.facility.id },
+      user: {
+        id: provisioned.user.id,
+        email: provisioned.user.email,
+        displayName: provisioned.user.displayName,
+        emailVerifiedAt: mailConfigured ? null : new Date(),
       },
-    });
-
-    return { facility, user };
+    };
   });
 
   await resetAuthRateLimitBucket(accountBucketKey);

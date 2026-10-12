@@ -33,7 +33,8 @@ test("signup uses enterGrantedContext and keeps /setup", () => {
   assert.ok(text.includes("internalFacilityContextKey"));
   assert.ok(text.includes("ONBOARDING_ENTRY_PATH"));
   assert.ok(text.includes("applyAuthenticatedUserLandingCookies"));
-  assert.ok(text.includes("ensureUserFacilityAccessGrant"));
+  assert.ok(text.includes("bootstrapFacilityCustomer"));
+  assert.ok(source("src/lib/facility-provisioning/bootstrap.ts").includes("ensureUserFacilityAccessGrant"));
   assert.equal(text.includes("resolveInternalFacilitySessionRole"), false);
   assert.equal(text.includes("createSessionToken"), false);
   assert.equal(text.includes("user.role"), false);

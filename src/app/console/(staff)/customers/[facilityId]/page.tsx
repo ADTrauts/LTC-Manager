@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CustomerBillingSyncForm } from "@/components/harbor-console/customer-billing-sync-form";
 import { SupportHistoryPanel } from "@/components/harbor-console/support-history-panel";
+import { resendHarborProvisionInviteAction } from "../provision-actions";
 import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborFacility } from "@/lib/harbor-console/queries";
 import {
@@ -14,11 +15,14 @@ import { loadSupportFacilityHistory, supportContactHref } from "@/lib/support/hi
 
 export default async function HarborCustomerPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ facilityId: string }>;
+  searchParams?: Promise<{ provisioned?: string; invite?: string; user?: string; replayed?: string }>;
 }) {
   const session = await requireHarborStaff();
   const { facilityId } = await params;
+  const provisionQuery = searchParams ? await searchParams : {};
   const [facility, activeWorkFacilityId] = await Promise.all([
     loadHarborFacility(prisma, facilityId),
     peekHarborWorkFacilityId(),
@@ -56,6 +60,31 @@ export default async function HarborCustomerPage({
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{facility.displayName}</h1>
         <p className="text-sm text-[var(--text-secondary)]">{facility.organizationName}</p>
         <p className="mt-2 text-sm font-medium">{facility.isLive ? "Live" : facility.onboarding}</p>
+        {provisionQuery.provisioned === "1" ? (
+          <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm">
+            {provisionQuery.replayed === "1"
+              ? "Existing Facility reused. No new tenancy was created."
+              : provisionQuery.user === "existing"
+                ? "Facility provisioned. Existing Vssyl account received Facility Administrator access."
+                : provisionQuery.invite === "sent"
+                  ? "Facility provisioned. Administrator invite sent."
+                  : provisionQuery.invite === "failed"
+                    ? "Facility created. Administrator invite could not be delivered."
+                    : "Facility provisioned."}
+          </p>
+        ) : null}
+        {provisionQuery.invite === "failed" && facility.primaryAdmin?.invitePending ? (
+          <form action={resendHarborProvisionInviteAction} className="mt-3">
+            <input type="hidden" name="facilityId" value={facility.id} />
+            <input type="hidden" name="userId" value={facility.primaryAdmin.id} />
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--border-strong)] bg-white px-4 text-sm font-semibold"
+            >
+              Resend administrator invite
+            </button>
+          </form>
+        ) : null}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {workingHere ? (
             <>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireHarborStaff } from "@/lib/harbor-console/auth";
+import { isHarborOwnerSession, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { listHarborFacilities } from "@/lib/harbor-console/queries";
 import { prisma } from "@/lib/prisma";
 
@@ -11,9 +11,10 @@ export default async function HarborCustomersPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requireHarborStaff();
+  const session = await requireHarborStaff();
   const query = (await searchParams).q?.trim() ?? "";
   const rows = await listHarborFacilities(prisma, query);
+  const canProvision = isHarborOwnerSession(session);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -24,6 +25,14 @@ export default async function HarborCustomersPage({
             Every facility. Billing money stays in Stripe; open a facility for diagnostics and sync.
           </p>
         </div>
+        {canProvision ? (
+          <Link
+            href="/console/customers/new"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
+          >
+            New customer
+          </Link>
+        ) : null}
         <form className="flex gap-2" action="/console/customers">
           <input
             type="search"

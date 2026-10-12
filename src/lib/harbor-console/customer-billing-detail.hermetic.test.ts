@@ -22,18 +22,37 @@ type FacilityRow = {
     entitlements: Array<{ departmentKey: string }>;
   } | null;
   users: Array<{
+    id: string;
     displayName: string;
     email: string;
+    passwordHash: string | null;
     role: { key: string };
   }>;
 };
 
-function mockClient(facility: FacilityRow | null) {
+function mockClient(
+  facility: FacilityRow | null,
+  accesses: Array<{
+    user: {
+      id: string;
+      displayName: string;
+      email: string;
+      isActive: boolean;
+      passwordHash: string | null;
+    };
+    rolePeriods: Array<{ roleKey: string; startsAt: Date; endsAt: Date | null }>;
+  }> = [],
+) {
   return {
     facility: {
       async findUnique({ where }: { where: { id: string } }) {
         if (!facility || facility.id !== where.id) return null;
         return facility;
+      },
+    },
+    userFacilityAccess: {
+      async findMany() {
+        return accesses;
       },
     },
   };
@@ -62,8 +81,10 @@ test("authorized detail load presents billing and entitlement mirror", async () 
       },
       users: [
         {
+          id: "user_ada",
           displayName: "Ada Admin",
           email: "ada@example.com",
+          passwordHash: "hash",
           role: { key: "FACILITY_ADMINISTRATOR" },
         },
       ],
@@ -119,4 +140,41 @@ test("missing billing record is presented neutrally", async () => {
   assert.equal(detail.stripeCustomerId, null);
   assert.equal(detail.stripeSubscriptionId, null);
   assert.equal(detail.isLive, false);
+});
+
+test("existing-user FA grant appears even when home Facility is elsewhere", async () => {
+  const detail = await loadHarborFacility(
+    mockClient(
+      {
+        id: "fac_x",
+        displayName: "Facility X",
+        billingEmail: "billing@ecmc.example",
+        onboardingCurrentStep: "facility",
+        onboardingCompletedAt: null,
+        organizationId: "org_ecmc",
+        stripeCustomerId: null,
+        organization: { id: "org_ecmc", name: "ECMC", displayName: "ECMC" },
+        billing: null,
+        users: [],
+      },
+      [
+        {
+          user: {
+            id: "user_sarah",
+            displayName: "Sarah",
+            email: "sarah@example.com",
+            isActive: true,
+            passwordHash: "existing",
+          },
+          rolePeriods: [
+            { roleKey: "FACILITY_ADMINISTRATOR", startsAt: new Date("2020-01-01"), endsAt: null },
+          ],
+        },
+      ],
+    ) as never,
+    "fac_x",
+  );
+  assert.equal(detail?.primaryAdmin?.email, "sarah@example.com");
+  assert.equal(detail?.primaryAdmin?.invitePending, false);
+  assert.equal(detail?.onboarding, "Setup: facility");
 });

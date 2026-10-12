@@ -138,6 +138,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
   },
   {
+    pattern: "/console/customers/new",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor OWNER provisions a Facility shell. Page re-checks OWNER; MEMBER is redirected.",
+  },
+  {
     pattern: "/console/customers/[facilityId]",
     match: "EXACT",
     surface: "PAGE",

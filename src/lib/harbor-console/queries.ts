@@ -72,8 +72,8 @@ export type HarborFacilityDetail = HarborFacilityRow & {
   billingSource: string;
   hasBillingRecord: boolean;
   licensing: HarborLicensingRow[];
-  primaryAdmin: { name: string; email: string; role: string } | null;
-  users: Array<{ name: string; email: string; role: string }>;
+  primaryAdmin: { id: string; name: string; email: string; role: string; invitePending: boolean } | null;
+  users: Array<{ id: string; name: string; email: string; role: string; invitePending: boolean }>;
 };
 
 function toRow(
@@ -171,8 +171,10 @@ export async function loadHarborFacility(
       users: {
         where: { isActive: true },
         select: {
+          id: true,
           displayName: true,
           email: true,
+          passwordHash: true,
           role: { select: { key: true } },
         },
         orderBy: { createdAt: "asc" },
@@ -184,16 +186,55 @@ export async function loadHarborFacility(
     return null;
   }
 
-  const users = facility.users.flatMap((user) => {
-    if (!user.role?.key) return [];
-    return [
-      {
-        name: user.displayName,
-        email: user.email,
-        role: user.role.key,
+  const now = new Date();
+  const accesses = await client.userFacilityAccess.findMany({
+    where: { facilityId: facility.id, isActive: true, revokedAt: null },
+    select: {
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+          isActive: true,
+          passwordHash: true,
+        },
       },
-    ];
+      rolePeriods: {
+        select: { roleKey: true, startsAt: true, endsAt: true },
+      },
+    },
+    take: 24,
   });
+
+  const usersByEmail = new Map<
+    string,
+    { id: string; name: string; email: string; role: string; invitePending: boolean }
+  >();
+  for (const user of facility.users) {
+    if (!user.role?.key) continue;
+    usersByEmail.set(user.email, {
+      id: user.id,
+      name: user.displayName,
+      email: user.email,
+      role: user.role.key,
+      invitePending: user.passwordHash == null,
+    });
+  }
+  for (const access of accesses) {
+    if (!access.user?.isActive) continue;
+    const current = access.rolePeriods.find(
+      (period) => period.startsAt <= now && (period.endsAt == null || period.endsAt > now),
+    );
+    if (!current) continue;
+    usersByEmail.set(access.user.email, {
+      id: access.user.id,
+      name: access.user.displayName,
+      email: access.user.email,
+      role: current.roleKey,
+      invitePending: access.user.passwordHash == null,
+    });
+  }
+  const users = [...usersByEmail.values()];
   const primaryAdmin =
     users.find((user) => user.role === "FACILITY_ADMINISTRATOR") ?? users[0] ?? null;
 
@@ -219,4 +260,19 @@ export async function loadHarborFacility(
     primaryAdmin,
     users,
   };
+}
+
+export async function listHarborOrganizations(client: Db) {
+  return client.organization.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      legalName: true,
+      displayName: true,
+      organizationType: true,
+      _count: { select: { facilities: true } },
+    },
+    orderBy: { name: "asc" },
+  });
 }

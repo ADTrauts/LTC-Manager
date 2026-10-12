@@ -89,6 +89,8 @@ US charges need Stripe Tax with an **active registration** before `automatic_tax
 
 Stripe owns monetary subscription state. `FacilityBilling` and `FacilityDepartmentEntitlement` are Vssyl’s local access mirror. Stripe webhooks are the normal synchronization path. Vssyl Console **Sync from Stripe** is a manual recovery path that reuses the same Stripe → Vssyl reconciliation logic; Console does not edit subscriptions, set billing status by hand, or replace Stripe Dashboard. See [Console billing diagnostics certification](../console/CONSOLE_BILLING_DIAGNOSTICS_CERTIFICATION_2026-10-07.md).
 
+Production onboarding is operator-assisted. Harbor OWNER **provisions a Facility shell**; the Facility Administrator completes `/setup`, product selection, and checkout. See [Assisted Facility Provisioning](../console/ASSISTED_FACILITY_PROVISIONING_2026-10-11.md). Public signup stays off in production unless explicitly enabled.
+
 ## Enforcement
 
 Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Healthcare Food & Nutrition behind purchase until that flag is an explicit product launch.

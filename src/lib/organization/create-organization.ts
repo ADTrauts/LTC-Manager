@@ -16,17 +16,19 @@ export async function createOrganizationForNewFacility(
     facilityName: string;
     managementCompanyName?: string | null;
     organizationType?: OrganizationType | null;
+    organizationName?: string | null;
   },
 ): Promise<{ id: string; name: string }> {
   const resolved = resolveOrganizationCreateName({
     facilityName: input.facilityName,
     managementCompanyName: input.managementCompanyName,
   });
+  const name = input.organizationName?.trim() || resolved.name;
 
   const organization = await db.organization.create({
     data: {
-      name: resolved.name,
-      displayName: resolved.name,
+      name,
+      displayName: name,
       organizationType: input.organizationType ?? resolved.organizationType,
       isActive: true,
     },

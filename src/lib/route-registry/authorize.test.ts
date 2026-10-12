@@ -112,6 +112,7 @@ test("harbor console — facility roles never enter /console", () => {
   for (const path of [
     "/console",
     "/console/customers",
+    "/console/customers/new",
     "/console/tickets",
     "/console/tickets/new",
     "/console/tickets/saved-replies",

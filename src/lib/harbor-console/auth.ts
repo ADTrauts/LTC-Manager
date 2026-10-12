@@ -76,6 +76,20 @@ export async function requireHarborStaff() {
   return session;
 }
 
+export function isHarborOwnerSession(
+  session: Pick<HarborJwtPayload, "staffRole"> | null | undefined,
+): boolean {
+  return session?.staffRole === "OWNER";
+}
+
+export async function requireHarborOwner() {
+  const session = await requireHarborStaff();
+  if (!isHarborOwnerSession(session)) {
+    redirect("/console/customers");
+  }
+  return session;
+}
+
 export async function peekHarborWorkFacilityId(): Promise<string | null> {
   const jar = await cookies();
   const raw = jar.get(HARBOR_WORK_COOKIE)?.value;
