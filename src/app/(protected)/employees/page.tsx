@@ -5,6 +5,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { CreateEmployeeDrawer } from "@/components/create-employee-drawer";
+import { presentEmployeeAccountState, type EmployeeAccountPresentation } from "@/lib/employee-identity";
 import { EmployeesFiltersCollapsible } from "@/components/employees-filters-collapsible";
 import { EmployeesFiltersForm } from "@/components/employees-filters";
 import { EmployeeManagementCard, type EmployeeForManagementCard } from "@/components/employee-management-card";
@@ -81,6 +82,7 @@ function toEmployeeCardProps(
     }[];
   },
   accountLink: EmployeeForManagementCard["accountLink"],
+  accountState: EmployeeAccountPresentation,
 ): EmployeeForManagementCard {
   const disciplineEntries = employee.disciplinePointEntries.map((e) => ({
     id: e.id,
@@ -97,7 +99,8 @@ function toEmployeeCardProps(
     lastName: employee.lastName,
     email: employee.email,
     accountLink,
-    hasAppLogin: accountLink === "linked" || accountLink === "pending",
+    accountState,
+    hasAppLogin: accountState.kind !== "unlinked",
     phone: employee.phone,
     roleType: employee.roleType,
     employmentType: employee.employmentType,
@@ -304,6 +307,20 @@ export default async function EmployeesPage({
   });
 
   const linkedUserIds = [...new Set(employees.map((e) => e.userId).filter((id): id is string => Boolean(id)))];
+  const linkedUsers =
+    linkedUserIds.length === 0
+      ? []
+      : await prisma.user.findMany({
+          where: { id: { in: linkedUserIds } },
+          select: {
+            id: true,
+            isActive: true,
+            passwordHash: true,
+            emailVerifiedAt: true,
+            createdAt: true,
+          },
+        });
+  const linkedUserById = new Map(linkedUsers.map((user) => [user.id, user]));
   const grants =
     linkedUserIds.length === 0
       ? []
@@ -331,6 +348,20 @@ export default async function EmployeesPage({
     if (pendingEmployeeIds.has(employee.id)) return "pending" as const;
     return "none" as const;
   }
+  function accountStateFor(employee: { userId: string | null }): EmployeeAccountPresentation {
+    if (!employee.userId) return presentEmployeeAccountState(null);
+    return presentEmployeeAccountState(linkedUserById.get(employee.userId) ?? null);
+  }
+
+  const facility = await prisma.facility.findUnique({
+    where: { id: facilityId },
+    select: { displayName: true },
+  });
+  const notice = {
+    added: typeof sp.added === "string" ? sp.added : undefined,
+    invite: typeof sp.invite === "string" ? sp.invite : undefined,
+    existing: typeof sp.existing === "string" ? sp.existing : undefined,
+  };
 
   return (
     <section className="space-y-4">
@@ -359,6 +390,7 @@ export default async function EmployeesPage({
           ) : null}
           {showManagerTools ? (
             <CreateEmployeeDrawer
+              facilityDisplayName={facility?.displayName ?? "this Facility"}
               units={units}
               departments={departmentsForCreate}
               jobTitles={jobTitles}
@@ -389,11 +421,23 @@ export default async function EmployeesPage({
         />
       </EmployeesFiltersCollapsible>
 
+      {typeof notice.added === "string" || typeof notice.invite === "string" ? (
+        <p className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
+          {notice.invite === "failed"
+            ? "Employee added. Account activation email could not be delivered."
+            : notice.invite === "sent"
+              ? "Employee added. Account activation email sent."
+              : notice.existing === "active"
+                ? "Employee added. Existing Vssyl account received Facility access."
+                : "Employee added."}
+        </p>
+      ) : null}
+
       <div className="space-y-3">
         {employees.map((employee) => (
           <EmployeeManagementCard
             key={employee.id}
-            employee={toEmployeeCardProps(employee, accountLinkFor(employee))}
+            employee={toEmployeeCardProps(employee, accountLinkFor(employee), accountStateFor(employee))}
             units={units}
             departments={departments}
             jobTitles={jobTitles}

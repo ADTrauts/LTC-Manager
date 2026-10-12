@@ -167,43 +167,11 @@ export async function importEmployeesFromCsvAction(formData: FormData): Promise<
       }
 
       if (match === null) {
-        if (row.status === EmployeeStatus.TERMINATED) {
-          errors.push({
-            row: rowNum,
-            message:
-              "Cannot create a new employee as TERMINATED. Use ACTIVE or OFF, then terminate in the app or re-import with an update row.",
-          });
-          continue;
-        }
-
-        await prisma.$transaction(async (tx) => {
-          const emp = await tx.employee.create({
-            data: {
-              facilityId,
-              firstName: row.firstName,
-              lastName: row.lastName,
-              email: row.email,
-              phone: row.phone,
-              roleType: row.roleType,
-              employmentType: row.employmentType,
-              status: row.status,
-              unionMember: row.unionMember,
-              onLeave: row.onLeave,
-              hireDate: row.hireDate,
-              birthMonth: row.birthMonth,
-              birthDay: row.birthDay,
-              jobClassification: row.jobClassification,
-              chrcStatus: row.chrcStatus,
-              chrcClearedAt: row.chrcClearedAt,
-              chrcNotes: row.chrcNotes,
-              shirtSize: row.shirtSize,
-              hrNotes: row.hrNotes,
-              primaryUnitId: primary.primaryUnitId ?? null,
-            } as Prisma.EmployeeUncheckedCreateInput,
-          });
-          await syncWorkStationsTx(tx, emp.id, row.workStations);
+        // Phase A fallback: refuse new creates so CSV cannot mint unlinked PIN-only Employees.
+        errors.push({
+          row: rowNum,
+          message: "Add new employees from Add employee. CSV cannot create new employees.",
         });
-        created++;
         continue;
       }
 

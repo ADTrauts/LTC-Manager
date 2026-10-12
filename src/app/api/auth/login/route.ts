@@ -11,6 +11,7 @@ import {
   resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
 import { applyAccountSessionCookies, applyContextTransitionCookies } from "@/lib/context-entry";
+import { isGlobalAccountActivated } from "@/lib/employee-identity";
 import { PostAuthRoutingError, routeAuthenticatedUser } from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
 
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  if (!user.emailVerifiedAt) {
+  if (!isGlobalAccountActivated(user)) {
     return NextResponse.json(
       {
         error: "Verify your email before signing in. Check your inbox for the link we sent.",

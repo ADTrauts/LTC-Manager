@@ -56,7 +56,12 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Display name** | Global User presentation field `User.displayName`. A change remints the current session and does not increment `sessionVersion`. | Employee first/last name; Home Facility; treating name as authority |
 | **Sign out** | Clears this browser's `ltc_session`. | Sign out everywhere |
 | **Sign out everywhere** | Increments `User.sessionVersion` and clears this cookie. All User JWTs die. PIN and Harbor stay. | Sign out other sessions; a device/session inventory |
-| **PIN** | Separate Employee-authenticated session plane (`Employee.sessionVersion`) | Signing PIN out by changing User password or Sign out everywhere |
+| **PIN / PIN access** | Workplace authentication for one Employee context (`Employee.sessionVersion`). Not a separate human identity. | Treating PIN-only as a person without a Vssyl account; signing PIN out by changing User password or Sign out everywhere |
+| **Vssyl account** | Persistent global person identity (`User`) used to sign in and hold contexts | Global User in customer copy; “full account” vs “PIN-only user” |
+| **Account activation** | Setting a password and verifying email so the Vssyl account can sign in globally | Per-Facility activation; treating invite resend as a new 30-day clock |
+| **Account active** | Vssyl account is activated (`isActive` + password + verified email) | Linked, identity link, UserFacilityAccess |
+| **Activation pending** | Vssyl account exists but is not yet activated; PIN access still works during the 30-day grace | Invitation pending as the customer status for a linked User |
+| **Activation overdue** | 30-day activation grace from account creation has ended; PIN access is blocked until activation | Employment ended; Invalid PIN; Access revoked |
 | **Current context** | The workspace I am presently acting within. Displayed from the live session. | Treating a stale available-context list row as authority; exposing scopeKind / Path A / Path B |
 | **Password login** | Credentials authenticate the User. Post-auth routing uses available-context count. | Facility-native vs organization-only identity class; repairing grants from `User.facilityId` / `User.roleId` |
 | **routeAuthenticatedUser** | Canonical 0 / 1 / many landing after generic User authentication | A second context engine inside login; auto-picking home, first, or highest role; forcing invites through 0/1/many |
@@ -100,7 +105,7 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Asset condition** | Observed operating condition, updated from work and inspection facts | Treating condition restore as an automatic Work Order closeout |
 | **Facility Plant Operations** | Department Product for maintaining the built facility environment | Generic Maintenance as the Product name; treating manufacturing/fleet/biomedical maintenance as this Product; using the local Department name as the Product name |
 | **Plant Operations** | Default local Department name for an installed Facility Plant Operations Product | Official Product name |
-| **Employee** | Facility-specific workforce/employment record. One User may have many Employees; at most one Employee per User per Facility. Linked by `Employee.userId`. | Treating Employee as the global person identity; inferring User from email |
+| **Employee** | Facility-specific workforce/employment record. One Vssyl account may have many Employees; at most one Employee per account per Facility. New Employees are always account-backed. | Treating Employee as the global person identity; inferring identity from email; PIN-only as a permanent person type |
 | **User.role** | Compatibility / home-default Facility RoleKey only. Active internal authority is the current `UserFacilityRolePeriod` for the selected Facility grant. | Treating `User.roleId` as the RoleKey at every Facility; Employee.roleType; job title |
 | **Facility Administrator** | Facility-scoped administrative authority | Equating GM with FA |
 | **Call-down** | Coverage change needing attention | Call-off *(synonym risk — pick Call-down in product)* |

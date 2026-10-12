@@ -55,6 +55,7 @@ function memoryDb() {
   const grants: Grant[] = [];
   const employees: Employee[] = [];
   const invitations: Invitation[] = [];
+  const inviteTokens: Array<{ userId: string; usedAt: Date | null }> = [];
   const memberships: Array<{ userId: string; organizationId: string; active: boolean }> = [];
   const partners: Array<{ userId: string; facilityId: string; active: boolean }> = [];
   let seq = 1;
@@ -105,6 +106,12 @@ function memoryDb() {
           if (where.status && row.status !== where.status) return false;
           return true;
         }) ?? null,
+      count: async ({ where }: { where: { userId: string; status?: { not: EmployeeStatus } } }) =>
+        employees.filter((row) => {
+          if (row.userId !== where.userId) return false;
+          if (where.status?.not && row.status === where.status.not) return false;
+          return true;
+        }).length,
       findUnique: async ({ where }: { where: { id: string } }) =>
         employees.find((row) => row.id === where.id) ?? null,
       update: async ({
@@ -138,6 +145,13 @@ function memoryDb() {
             (where.isActive === undefined || row.isActive === where.isActive) &&
             (where.revokedAt === undefined || row.revokedAt === where.revokedAt),
         ) ?? null,
+      count: async ({ where }: { where: { userId: string; isActive?: boolean; revokedAt?: null } }) =>
+        grants.filter(
+          (row) =>
+            row.userId === where.userId &&
+            (where.isActive === undefined || row.isActive === where.isActive) &&
+            (where.revokedAt === undefined || row.revokedAt === where.revokedAt),
+        ).length,
       update: async ({ where, data }: { where: { id: string }; data: Partial<Grant> }) => {
         const row = grants.find((item) => item.id === where.id);
         if (!row) throw new Error("missing grant");
@@ -188,6 +202,24 @@ function memoryDb() {
         return row;
       },
     },
+    accountInviteToken: {
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { userId: string; usedAt: null };
+        data: { usedAt: Date };
+      }) => {
+        let count = 0;
+        for (const token of inviteTokens) {
+          if (token.userId === where.userId && token.usedAt === null) {
+            token.usedAt = data.usedAt;
+            count += 1;
+          }
+        }
+        return { count };
+      },
+    },
     $queryRaw: async () => [],
   };
 
@@ -232,6 +264,7 @@ function memoryDb() {
     grants,
     employees,
     invitations,
+    inviteTokens,
     memberships,
     partners,
     addUser,
@@ -291,6 +324,29 @@ test("termination keeps userId, revokes only that Facility grant, and leaves Use
   assert.equal(f.employees[1]?.status, EmployeeStatus.ACTIVE);
   assert.equal(f.memberships[0]?.active, true);
   assert.equal(f.partners[0]?.active, true);
+});
+
+test("ending the last relationship keeps the User and revokes unused account invites", async () => {
+  const f = memoryDb();
+  f.addUser({ id: "pending", email: "pending@example.com", facilityId: "terrace" });
+  f.addFacility("terrace", "ecmc");
+  f.addGrant("pending", "terrace", "STAFF");
+  f.addEmployee({
+    id: "emp_pending",
+    facilityId: "terrace",
+    userId: "pending",
+    email: "pending@example.com",
+    status: EmployeeStatus.ACTIVE,
+  });
+  f.inviteTokens.push({ userId: "pending", usedAt: null });
+
+  await endEmployeeEmployment(f.db as never, {
+    employeeId: "emp_pending",
+    facilityId: "terrace",
+  });
+
+  assert.equal(f.users.get("pending")?.isActive, true);
+  assert.ok(f.inviteTokens[0]?.usedAt);
 });
 
 test("independent grant revoke does not terminate Employee", async () => {

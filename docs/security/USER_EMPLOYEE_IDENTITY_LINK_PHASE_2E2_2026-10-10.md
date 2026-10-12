@@ -31,6 +31,18 @@ Safe backfill requires unique email at the Facility, unique User email, and home
 
 PIN-only Employees may remain unlinked.
 
+## Amendment — Universal Employee Identity Phase A (2026-10-12)
+
+Original 2E2: existing User accepted a link invitation before `Employee.userId` was set.
+
+Universal Employee Identity Phase A: new Employee creation may directly link a server-resolved existing User after employer confirmation. The employing Facility grants Employee + Facility authority at that Facility only. It does not gain authority over the User's other contexts.
+
+Historical unlinked Employee linking continues to use the old invitation/remediation path until Phase B.
+
+PIN JWT identity is unchanged: `uid = Employee.id`, `authKind = employee`, `authMethod = QUICK_PIN`, `role = Employee.roleType`.
+
+Account invite tokens remain 7-day TTLs and refresh on resend. PIN activation grace is 30 days from `User.createdAt` and is not refreshed by resend.
+
 ## Employment termination
 
 Ends that Facility's workforce relationship and, if linked, that Facility's internal grant.
@@ -59,7 +71,7 @@ Termination preserves `Employee.userId`. Operational actor rows keep their origi
 
 ## Later work
 
-- Every Employee eventually a User (blocked by required unique `User.email`)
+- Historical unlinked Employee migration (Universal Employee Identity Phase B)
 - User-owned PIN
-- Available Context Resolver (2E4)
-- Global `/account` and context chooser
+- Available Context Resolver (2E4) — sealed separately
+- Global `/account` and context chooser — sealed separately

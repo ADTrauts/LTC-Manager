@@ -14,6 +14,10 @@ import {
 import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import {
+  ACCOUNT_ACTIVATION_REQUIRED_MESSAGE,
+  pinActivationDenied,
+} from "@/lib/employee-identity";
+import {
   DEVICE_FACILITY_COOKIE,
   DEVICE_UNIT_COOKIE,
   getDeviceCookieOptions,
@@ -130,6 +134,7 @@ export async function POST(request: Request) {
       roleType: true,
       primaryUnitId: true,
       primaryDepartmentId: true,
+      userId: true,
     },
   });
 
@@ -143,6 +148,21 @@ export async function POST(request: Request) {
   if (!mayAuthenticateWithQuickPin(employee.roleType)) {
     await registerAuthFailure(buckets);
     return NextResponse.json({ error: GENERIC_PIN_FAILURE }, { status: 401 });
+  }
+
+  if (employee.userId) {
+    const linkedUser = await prisma.user.findUnique({
+      where: { id: employee.userId },
+      select: {
+        isActive: true,
+        passwordHash: true,
+        emailVerifiedAt: true,
+        createdAt: true,
+      },
+    });
+    if (pinActivationDenied(employee.userId, linkedUser)) {
+      return NextResponse.json({ error: ACCOUNT_ACTIVATION_REQUIRED_MESSAGE }, { status: 403 });
+    }
   }
 
   // Clears only the bucket this credential owns. The facility-wide bucket is left intact so one

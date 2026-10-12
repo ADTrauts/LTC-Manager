@@ -13,9 +13,11 @@ import { useState } from "react";
 import type { DisciplineEntryForCard } from "@/app/(protected)/employees/employee-discipline-section";
 import {
   clearEmployeePinAction,
+  resendEmployeeActivationAction,
   setEmployeePinAction,
   updateEmployeeProfileAction,
 } from "@/app/(protected)/employees/actions";
+import type { EmployeeAccountPresentation } from "@/lib/employee-identity";
 import {
   AUTHORITY_LABEL,
   employeeStatusLabel,
@@ -45,6 +47,7 @@ export type EmployeeForManagementCard = {
   email: string | null;
   /** Explicit identity/access: linked User + current Facility grant, pending invite, or none. */
   accountLink: "linked" | "pending" | "none";
+  accountState: EmployeeAccountPresentation;
   /** True when a linked/pending account should block creating another User. */
   hasAppLogin: boolean;
   phone: string | null;
@@ -524,14 +527,16 @@ export function EmployeeManagementCard({
             >
               <h3 className="text-sm font-medium text-zinc-900">Access</h3>
               <div className="rounded-md border border-zinc-100 bg-zinc-50/80 px-3 py-3 text-sm text-zinc-700">
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Email login</p>
-                <p className="mt-1">
-                  {employee.accountLink === "linked"
-                    ? `Linked account${employee.email ? ` (${employee.email})` : ""}`
-                    : employee.accountLink === "pending"
-                      ? "Invitation pending"
-                      : "Not configured"}
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Vssyl account</p>
+                <p className="mt-1">{employee.accountState.label}</p>
+                {employee.accountState.kind === "pending" || employee.accountState.kind === "overdue" ? (
+                  <form action={resendEmployeeActivationAction} className="mt-2">
+                    <input type="hidden" name="employeeId" value={employee.id} />
+                    <button type="submit" className="text-sm font-medium text-teal-800 underline">
+                      Resend activation
+                    </button>
+                  </form>
+                ) : null}
               </div>
               {showPinManagement ? (
                 <EmployeePinSection

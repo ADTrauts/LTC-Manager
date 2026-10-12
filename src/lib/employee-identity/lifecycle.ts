@@ -75,9 +75,30 @@ export async function endEmployeeEmployment(
       facilityId: input.facilityId,
       actorUserId: input.actorUserId,
     });
+    await revokeUnusedAccountInvitesIfDormant(db, employee.userId);
   }
 
   return { userId: employee.userId, accessRevoked };
+}
+
+export async function revokeUnusedAccountInvitesIfDormant(
+  db: DbClient,
+  userId: string,
+): Promise<boolean> {
+  const [activeEmployees, activeGrants] = await Promise.all([
+    db.employee.count({
+      where: { userId, status: { not: EmployeeStatus.TERMINATED } },
+    }),
+    db.userFacilityAccess.count({
+      where: { userId, isActive: true, revokedAt: null },
+    }),
+  ]);
+  if (activeEmployees > 0 || activeGrants > 0) return false;
+  await db.accountInviteToken.updateMany({
+    where: { userId, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  return true;
 }
 
 export async function restoreInternalAccessForRehire(

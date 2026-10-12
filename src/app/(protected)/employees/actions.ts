@@ -33,7 +33,6 @@ import { issueAndSendAccountInvite } from "@/lib/account-invite/send";
 import { requireAtLeastRole } from "@/lib/access";
 import { resolveRequestOrigin } from "@/lib/billing/request-origin";
 import {
-  accessMethodValues,
   mayAuthenticateWithQuickPin,
   requirePasswordSession,
   requiresEmailPasswordAccount,
@@ -45,8 +44,12 @@ import {
 import { sessionUserIdForFk } from "@/lib/auth";
 import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
 import {
+  EmployeeIdentityError,
   findExistingUserByEmail,
   issueAndSendEmployeeUserLinkInvitation,
+  isGlobalAccountActivated,
+  onboardFacilityEmployee,
+  previewEmployeeAccount,
   restoreInternalAccessForRehire,
   revokeInternalAccessForEmploymentEnd,
 } from "@/lib/employee-identity";
@@ -111,28 +114,30 @@ const chrcStatusValues = [
 const createEmployeeSchema = z.object({
   firstName: z.string().trim().min(2).max(60),
   lastName: z.string().trim().min(2).max(60),
-  email: z.string().trim().email().max(120).optional(),
+  email: z.string().trim().email().max(120),
   phone: z.string().trim().max(30).optional(),
   roleType: z.enum(roleKeyValues),
   employmentType: z.enum(employmentValues),
   status: z.enum(statusValues),
-  accessMethod: z.enum(accessMethodValues),
+  pin: z.string().trim().max(6).optional(),
+  confirmPin: z.string().trim().max(6).optional(),
+  confirmExistingUser: z.enum(["0", "1"]).optional(),
 }).superRefine((value, ctx) => {
-  if (requiresEmailPasswordAccount(value.roleType) && value.accessMethod !== "EMAIL_PASSWORD") {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["accessMethod"],
-      message: "GM, Manager, and Supervisor require email and password sign-in.",
-    });
-  }
-  if (value.accessMethod !== "EMAIL_PASSWORD") {
+  if (!mayAuthenticateWithQuickPin(value.roleType)) {
     return;
   }
-  if (!value.email) {
+  if (!value.pin || !isValidPinFormat(value.pin)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["email"],
-      message: "Email is required when creating an email/password sign-in.",
+      path: ["pin"],
+      message: "PIN must be exactly 6 digits.",
+    });
+  }
+  if (value.pin !== value.confirmPin) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["confirmPin"],
+      message: "PINs do not match.",
     });
   }
 });
@@ -347,14 +352,15 @@ export async function createEmployeeAction(formData: FormData) {
     roleType: formData.get("roleType"),
     employmentType: formData.get("employmentType"),
     status: formData.get("status"),
-    accessMethod: formData.get("accessMethod"),
+    pin: toOptional(formData.get("pin")),
+    confirmPin: toOptional(formData.get("confirmPin")),
+    confirmExistingUser: String(formData.get("confirmExistingUser") ?? "0") === "1" ? "1" : "0",
   });
   const hr = parseHrProfileFields(formData);
   const organization = parseEmployeeOrganizationForm(formData);
   if (!organization.primaryDepartmentId) {
     throw new Error("Primary Department is required.");
   }
-  const normalizedEmail = parsed.email?.toLowerCase();
 
   const primaryUnitId = unitAccessSubmitted
     ? await validatePrimaryUnitId(
@@ -365,78 +371,51 @@ export async function createEmployeeAction(formData: FormData) {
       )
     : null;
 
-  let invitedUserId: string | null = null;
-  let linkInvite: { employeeId: string; email: string } | null = null;
+  let result;
   try {
-    await prisma.$transaction(async (tx) => {
-      let emp =
-        normalizedEmail
-          ? await tx.employee.findFirst({
-              where: {
-                facilityId: session.facilityId,
-                email: { equals: normalizedEmail, mode: "insensitive" },
-              },
-              select: { id: true, status: true, userId: true },
-            })
-          : null;
-      if (emp?.status === EmployeeStatus.ACTIVE) {
-        throw new Error("An employee with this email already exists at this Facility.");
-      }
-      const employeeData = {
+    result = await prisma.$transaction(async (tx) => {
+      const onboarded = await onboardFacilityEmployee(tx, {
         facilityId: session.facilityId,
+        actorUserId: session.uid,
         firstName: parsed.firstName,
         lastName: parsed.lastName,
-        email: normalizedEmail,
+        email: parsed.email,
         phone: parsed.phone,
         roleType: parsed.roleType,
         employmentType: parsed.employmentType,
-        status: parsed.status === EmployeeStatus.TERMINATED ? EmployeeStatus.ACTIVE : parsed.status,
-        primaryUnitId,
-        unionMember: hr.unionMember,
-        onLeave: hr.onLeave,
-        hireDate: hr.hireDate,
-        birthMonth: hr.birthMonth,
-        birthDay: hr.birthDay,
-        jobClassification: hr.jobClassification,
-        chrcStatus: hr.chrcStatus,
-        chrcClearedAt: hr.chrcClearedAt,
-        chrcNotes: hr.chrcNotes,
-        shirtSize: hr.shirtSize,
-        hrNotes: hr.hrNotes,
-        terminationDate: null,
-      } as Prisma.EmployeeUncheckedCreateInput;
-      if (emp) {
-        emp = await tx.employee.update({
-          where: { id: emp.id },
-          data: employeeData,
-          select: { id: true, status: true, userId: true },
-        });
-        if (emp.userId) {
-          await restoreInternalAccessForRehire(tx, {
-            userId: emp.userId,
-            facilityId: session.facilityId,
-            roleKey: parsed.roleType,
-            grantedByUserId: session.uid,
-          });
-        }
-      } else {
-        emp = await tx.employee.create({
-          data: employeeData,
-          select: { id: true, status: true, userId: true },
-        });
-      }
+        status: parsed.status,
+        pinDigest:
+          mayAuthenticateWithQuickPin(parsed.roleType) && parsed.pin
+            ? pinDigestForFacility(session.facilityId, parsed.pin)
+            : null,
+        confirmExistingUser: parsed.confirmExistingUser === "1",
+        extras: {
+          primaryUnitId,
+          unionMember: hr.unionMember,
+          onLeave: hr.onLeave,
+          hireDate: hr.hireDate,
+          birthMonth: hr.birthMonth,
+          birthDay: hr.birthDay,
+          jobClassification: hr.jobClassification,
+          chrcStatus: hr.chrcStatus,
+          chrcClearedAt: hr.chrcClearedAt,
+          chrcNotes: hr.chrcNotes,
+          shirtSize: hr.shirtSize,
+          hrNotes: hr.hrNotes,
+        },
+      });
       if (unitAccessSubmitted) {
         await syncEmployeeUnitAccessTx(
           tx as unknown as UnitAccessTransaction,
-          emp.id,
+          onboarded.employeeId,
           session.facilityId,
           mode,
           allowedUnitIds,
         );
       }
-      await syncEmployeeWorkStationsTx(tx, emp.id, hr.workStations);
+      await syncEmployeeWorkStationsTx(tx, onboarded.employeeId, hr.workStations);
       await syncEmployeeOrganization(tx, {
-        employeeId: emp.id,
+        employeeId: onboarded.employeeId,
         facilityId: session.facilityId,
         primaryDepartmentId: organization.primaryDepartmentId,
         additionalDepartmentIds: organization.additionalDepartmentIds,
@@ -444,74 +423,75 @@ export async function createEmployeeAction(formData: FormData) {
         teamMemberships: organization.teamMemberships,
         jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
       });
-
-      if (parsed.accessMethod === "EMAIL_PASSWORD") {
-        const role = await tx.role.findFirst({
-          where: { key: parsed.roleType, isActive: true },
-          select: { id: true },
-        });
-        if (!role || !normalizedEmail) {
-          throw new Error("Unable to create email/password sign-in for this employee.");
-        }
-        const existingUser = await findExistingUserByEmail(tx, normalizedEmail);
-        if (existingUser) {
-          if (emp.userId && emp.userId !== existingUser.id) {
-            throw new Error("This employee is already connected to a different account.");
-          }
-          if (!emp.userId) {
-            linkInvite = { employeeId: emp.id, email: normalizedEmail };
-          }
-        } else {
-          const createdUser = await tx.user.create({
-            data: {
-              email: normalizedEmail,
-              displayName: `${parsed.firstName} ${parsed.lastName}`,
-              passwordHash: null,
-              facilityId: session.facilityId,
-              roleId: role.id,
-              isActive: true,
-              emailVerifiedAt: null,
-            },
-          });
-          await ensureUserFacilityAccessGrant(tx, {
-            userId: createdUser.id,
-            facilityId: session.facilityId,
-            roleKey: parsed.roleType,
-          });
-          await tx.employee.update({
-            where: { id: emp.id },
-            data: { userId: createdUser.id },
-          });
-          invitedUserId = createdUser.id;
-        }
-      }
+      return onboarded;
     });
   } catch (e) {
+    if (e instanceof EmployeeIdentityError) {
+      throw new Error(e.message);
+    }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      throw new Error(
-        "A Vssyl account already exists for this email. Send an invitation to connect this employee record to that account.",
-      );
+      throw new Error("That PIN is already assigned at this facility.");
     }
     throw e;
   }
 
   const origin = await resolveRequestOrigin();
-  if (invitedUserId) {
-    await issueAndSendAccountInvite({ userId: invitedUserId, origin });
-  }
-  if (linkInvite) {
-    await issueAndSendEmployeeUserLinkInvitation({
-      employeeId: linkInvite.employeeId,
-      facilityId: session.facilityId,
-      targetEmail: linkInvite.email,
-      intendedRoleKey: parsed.roleType,
-      invitedByUserId: session.uid,
-      origin,
-    });
+  let invite: "sent" | "failed" | "skipped" = "skipped";
+  if (result.userCreated) {
+    const delivery = await issueAndSendAccountInvite({ userId: result.userId, origin });
+    invite = delivery.sent ? "sent" : "failed";
   }
 
   revalidateEmployeeViews();
-  redirect("/employees");
+  const params = new URLSearchParams({ added: "1", invite });
+  if (result.reusedExistingUser) params.set("existing", result.userActivated ? "active" : "pending");
+  redirect(`/employees?${params.toString()}`);
+}
+
+export async function previewEmployeeAccountAction(
+  email: string,
+): Promise<{ exists: boolean; activated: boolean; displayName: string; email: string } | { error: string }> {
+  const session = await requireFacilitySession();
+  requirePasswordSession(session);
+  requireAtLeastRole(session.role, "MANAGER");
+  try {
+    return await previewEmployeeAccount(prisma, email);
+  } catch (error) {
+    if (error instanceof EmployeeIdentityError) {
+      return { error: error.message };
+    }
+    return { error: "Unable to look up that account." };
+  }
+}
+
+export async function resendEmployeeActivationAction(formData: FormData): Promise<void> {
+  const session = await requireFacilitySession();
+  requirePasswordSession(session);
+  requireAtLeastRole(session.role, "MANAGER");
+  const employeeId = String(formData.get("employeeId") ?? "").trim();
+  if (!employeeId) {
+    throw new Error("Employee not found.");
+  }
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, facilityId: session.facilityId },
+    select: {
+      user: {
+        select: {
+          id: true,
+          isActive: true,
+          passwordHash: true,
+          emailVerifiedAt: true,
+        },
+      },
+    },
+  });
+  if (!employee?.user || isGlobalAccountActivated(employee.user)) {
+    throw new Error("That employee is not waiting on account activation.");
+  }
+  const origin = await resolveRequestOrigin();
+  const delivery = await issueAndSendAccountInvite({ userId: employee.user.id, origin });
+  revalidateEmployeeViews();
+  redirect(`/employees?invite=${delivery.sent ? "sent" : "failed"}`);
 }
 
 export async function updateEmployeeProfileAction(formData: FormData) {

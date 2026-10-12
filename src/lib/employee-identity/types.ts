@@ -9,6 +9,7 @@ export class EmployeeIdentityError extends Error {
       | "CROSS_ORGANIZATION"
       | "EMPLOYEE_INACTIVE"
       | "EMPLOYEE_NOT_FOUND"
+      | "EXISTING_USER"
       | "INVITATION_INVALID"
       | "USER_INACTIVE"
       | "WRONG_USER",
