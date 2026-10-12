@@ -112,6 +112,7 @@ export async function applyRemintedUserSessionCookies(
     const carry = await resolveDepartmentCarryoverForFacilitySwitch(db, {
       destinationFacilityId: result.facilityId,
       sourceDepartmentId: jar.get(ACTIVE_DEPARTMENT_COOKIE)?.value ?? source.primaryDepartmentId,
+      sourceDepartmentKey: null,
     });
     internalDepartmentCarryover = carry.departmentCookieValue;
   }

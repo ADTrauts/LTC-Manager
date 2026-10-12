@@ -218,8 +218,8 @@ export async function ensureCurrentInternalFacilityRole(
       at,
     });
 
-  if (typeof db.$transaction === "function") {
-    return (db as PrismaClient).$transaction((tx) => open(tx));
+  if ("$transaction" in db) {
+    return db.$transaction((tx) => open(tx));
   }
   return open(db);
 }

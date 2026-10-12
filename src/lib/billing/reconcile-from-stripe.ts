@@ -147,7 +147,7 @@ export function planStripeSubscriptionReconciliation(input: {
  */
 export async function applyResolvedStripeSubscription(input: {
   facilityId: string;
-  subscription: Stripe.Subscription;
+  subscription: Pick<Stripe.Subscription, "id" | "status" | "metadata">;
 }): Promise<FacilityStripeSyncResult> {
   const local = await loadLocalBillingMirror(input.facilityId);
   const plan = planStripeSubscriptionReconciliation({
@@ -256,7 +256,7 @@ export async function syncFacilityBillingFromStripe(
 }
 
 export function selectSubscriptionForFacilitySync(
-  subscriptions: ReadonlyArray<Pick<Stripe.Subscription, "id" | "status">>,
+  subscriptions: ReadonlyArray<Pick<Stripe.Subscription, "id" | "status" | "metadata">>,
 ):
   | { ok: true; subscription: (typeof subscriptions)[number] }
   | { ok: false; code: "NO_SUBSCRIPTION" | "CONFLICTING_SUBSCRIPTIONS" } {

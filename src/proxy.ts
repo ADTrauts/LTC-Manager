@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { AppRole } from "@/lib/access";
-import type { AppJwtPayload } from "@/lib/auth";
+import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import {
   createAccountSessionToken,
   createSessionToken,
@@ -215,12 +215,12 @@ function respondToDecision(
 
 async function continueFacilityRequest(
   request: NextRequest,
-  session: AppJwtPayload,
+  session: FacilitySession,
   featureFlags: ReturnType<typeof routeFeatureFlags>,
 ): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const facility = await prisma.facility.findUnique({
-    where: { id: session.facilityId! },
+    where: { id: session.facilityId },
     select: { onboardingCompletedAt: true },
   });
   const onboardingComplete = Boolean(facility?.onboardingCompletedAt);
@@ -386,6 +386,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
+    if (!isFacilityScopedSession(session)) {
+      return unauthenticatedResponse(request, isApiPathname(pathname) ? "API" : "PAGE");
+    }
     return continueFacilityRequest(request, session, featureFlags);
   } catch (error) {
     // JWT/session failures → sign-in. Infrastructure failures (e.g. Prisma) must not

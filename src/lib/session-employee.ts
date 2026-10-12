@@ -13,7 +13,7 @@ export async function getOperationalEmployeeIdForSession(session: FacilitySessio
     return session.uid ?? null;
   }
   if (session.authKind !== "user") return null;
-  if (session.accessKind === "partner" || session.scopeKind === "organization") {
+  if (session.accessKind === "partner") {
     return null;
   }
   if (!session.uid || !session.facilityId) return null;

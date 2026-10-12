@@ -34,23 +34,14 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    ".next-evs-assignment-browser/types/**/*.ts",
-    ".next-evs-assignment-browser/dev/types/**/*.ts",
-    ".next-plant-browser/types/**/*.ts",
-    ".next-plant-browser/dev/types/**/*.ts",
-    ".next-product-shell-browser/types/**/*.ts",
-    ".next-product-shell-browser/dev/types/**/*.ts",
-    ".next-evs-browser/types/**/*.ts",
-    ".next-evs-browser/dev/types/**/*.ts",
-    ".next-workplans-browser/types/**/*.ts",
-    ".next-workplans-browser/dev/types/**/*.ts",
-    ".next-phase3d-browser/types/**/*.ts",
-    ".next-phase3d-browser/dev/types/**/*.ts"
+    "**/*.mts"
   ],
   "exclude": [
     "node_modules",
     "**/* 2.ts",
-    "**/* 2.tsx"
+    "**/* 2.tsx",
+    "**/*.test.ts",
+    "**/*.hermetic.test.ts",
+    "**/*.db.test.ts"
   ]
 }

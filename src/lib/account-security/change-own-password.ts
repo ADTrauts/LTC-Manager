@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
+import type { PrismaClient } from "@prisma/client";
 
-import { revokeUserSessions, type PrismaLike } from "@/lib/session-revocation";
+import { revokeUserSessions } from "@/lib/session-revocation";
 
 export type ChangeOwnUserPasswordResult =
   | { ok: true }
@@ -8,10 +9,10 @@ export type ChangeOwnUserPasswordResult =
 
 type PasswordClient = {
   user: {
-    findFirst: PrismaLike["user"]["findFirst"];
-    update: PrismaLike["user"]["update"];
+    findFirst: PrismaClient["user"]["findFirst"];
+    update: PrismaClient["user"]["update"];
   };
-  $transaction: PrismaLike["$transaction"];
+  $transaction: PrismaClient["$transaction"];
 };
 
 /**

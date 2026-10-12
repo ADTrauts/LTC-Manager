@@ -92,6 +92,7 @@ export async function enterContextAction(formData: FormData): Promise<void> {
     const carry = await resolveDepartmentCarryoverForFacilitySwitch(prisma, {
       destinationFacilityId: result.facilityId,
       sourceDepartmentId: jar.get(ACTIVE_DEPARTMENT_COOKIE)?.value ?? source.primaryDepartmentId,
+      sourceDepartmentKey: null,
     });
     internalDepartmentCarryover = carry.departmentCookieValue;
   }
