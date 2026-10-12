@@ -1,13 +1,15 @@
-import { leavePartnerFacilityAction } from "@/app/partner/actions";
 import { GlobalUserMenu } from "@/components/global-user-menu";
 import { PartnerDepartmentSwitch } from "@/components/partner/partner-department-switch";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { CompactWorkspaceMenu } from "@/components/shell/compact-workspace-menu";
-import { CurrentWorkspaceRegion } from "@/components/shell/current-workspace-region";
+import { WorkspaceSelector } from "@/components/shell/workspace-selector";
 import { WorkspaceOwnedNav } from "@/components/shell/workspace-owned-nav";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import type { PartnerFacilitySession } from "@/lib/auth";
-import { presentCurrentContextFromSession } from "@/lib/available-contexts";
+import {
+  loadWorkspaceSelectorModel,
+  presentCurrentContextFromSession,
+} from "@/lib/available-contexts";
 import type { PartnerFacilityShellModel } from "@/lib/partner-operational-context";
 import { partnerRoleLabel } from "@/lib/partner-user-access";
 
@@ -19,17 +21,7 @@ const PARTNER_DESTINATIONS = [
   { href: "/partner/assets", label: "Assets" },
 ] as const;
 
-function PartnerLeave({ organizationName }: { organizationName: string }) {
-  return (
-    <form action={leavePartnerFacilityAction}>
-      <button type="submit" className="text-sm font-medium underline-offset-2 hover:underline">
-        Return to {organizationName}
-      </button>
-    </form>
-  );
-}
-
-export function PartnerFacilityShell({
+export async function PartnerFacilityShell({
   shell,
   session,
   children,
@@ -44,6 +36,7 @@ export function PartnerFacilityShell({
     partnerOrganizationName: shell.partnerOrganizationName,
     partnerRole: shell.context.effectiveRole,
   });
+  const workspaceSelector = await loadWorkspaceSelectorModel(session);
 
   const departmentNode = () =>
     shell.departments.length > 1 ? (
@@ -66,7 +59,16 @@ export function PartnerFacilityShell({
   const destinationsNode = () => (
     <WorkspaceOwnedNav items={PARTNER_DESTINATIONS} label="Partner" />
   );
-  const leaveNode = () => <PartnerLeave organizationName={shell.partnerOrganizationName} />;
+
+  const workspaceNode = (compact = false) =>
+    workspaceSelector ? (
+      <WorkspaceSelector
+        current={currentWorkspace}
+        currentContextKey={workspaceSelector.currentContextKey}
+        items={workspaceSelector.items}
+        compact={compact}
+      />
+    ) : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
@@ -76,23 +78,19 @@ export function PartnerFacilityShell({
             <div className="space-y-4">
               {departmentNode()}
               {destinationsNode()}
-              {leaveNode()}
             </div>
           </CompactWorkspaceMenu>
           <ShellBrandBlock compact />
-          <div className="min-w-0 flex-1">
-            <CurrentWorkspaceRegion current={currentWorkspace} compact />
-          </div>
+          <div className="min-w-0 flex-1">{workspaceNode(true)}</div>
           <GlobalUserMenu menuLabel={session.name} currentContext={currentWorkspace} compactTrigger />
         </div>
       </header>
       <div className="mx-auto flex min-h-0 w-full flex-1">
         <WorkspaceShellRail
           brand={<ShellBrandBlock />}
-          workspace={<CurrentWorkspaceRegion current={currentWorkspace} />}
+          workspace={workspaceNode()}
           department={departmentNode()}
           destinations={destinationsNode()}
-          compatibility={leaveNode()}
           account={<GlobalUserMenu menuLabel={session.name} currentContext={null} />}
         />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">

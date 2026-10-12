@@ -27,7 +27,9 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 
 Do not label Run / Build / Admin as Workspace. Do not treat Department, My Account, My Access, Harbor, or Quick PIN as a Workspace. **Business Workspace** and **Unit Workspace** remain existing product homes; they are not the shell Workspace selector.
 
-Interactive Switch Workspace is not implemented yet. The shell shows the current context only.
+**Switch workspace** is the shell chooser. It lists current enterable Workspaces from the available-context directory and enters one `contextKey` through `enterContext`. It is not My Access and does not create authority.
+
+**My Access** remains the detailed inventory at `/access`. The selector includes View My Access. Quick PIN never sees Switch workspace. Harbor is out of scope.
 
 ## Homes and zones
 

@@ -2,10 +2,9 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
-import { FacilitySwitcher } from "@/components/facility-switcher";
 import { ProductModeBanner } from "@/components/product-mode-banner";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
-import { CurrentWorkspaceRegion } from "@/components/shell/current-workspace-region";
+import { WorkspaceSelector } from "@/components/shell/workspace-selector";
 import { ShellModeNav } from "@/components/shell/shell-mode-nav";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import { ShellModeCue } from "@/components/shell-mode-cue";
@@ -19,13 +18,15 @@ import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indica
 import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
 import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
 import { hasAtLeastRole } from "@/lib/access";
-import { presentCurrentContextFromSession } from "@/lib/available-contexts";
+import {
+  loadWorkspaceSelectorModel,
+  presentCurrentContextFromSession,
+} from "@/lib/available-contexts";
 import {
   getAppSession,
   isAccountSession,
   getSession,
   isOrganizationScopedSession,
-  sessionUserIdForFk,
 } from "@/lib/auth";
 import { getHarborSession } from "@/lib/harbor-console/auth";
 import {
@@ -36,7 +37,6 @@ import { buildSidebarNavItems } from "@/lib/build-hub";
 import { rewriteDepartmentBuilderNavHref } from "@/lib/department-administration";
 import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
-import { loadFacilityAccessContext } from "@/lib/facility-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
@@ -111,11 +111,10 @@ export async function AppShell({ children }: AppShellProps) {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const emailUserId = sessionUserIdForFk(session);
   const projectionSidebar = isProjectionSidebarEnabled();
   const memo = projectionSidebar ? createProjectionRuntimeRequestScope() : undefined;
 
-  const [legacyUnits, sidebarProjection, facility, facilityAccess] =
+  const [legacyUnits, sidebarProjection, facility, workspaceSelector] =
     await Promise.all([
       projectionSidebar
         ? Promise.resolve([])
@@ -131,13 +130,7 @@ export async function AppShell({ children }: AppShellProps) {
             metrics: null,
           }),
       getFacilityForSession(),
-      emailUserId && session.authKind === "user"
-        ? loadFacilityAccessContext({
-            userId: emailUserId,
-            activeFacilityId: session.facilityId,
-            role: session.role,
-          })
-        : Promise.resolve(null),
+      loadWorkspaceSelectorModel(session),
     ]);
 
   const deviceUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value;
@@ -212,14 +205,13 @@ export async function AppShell({ children }: AppShellProps) {
         })
       : null;
 
-  const facilitySwitcherNode = () =>
-    authKind === "user" && facilityAccess && facilityAccess.accessibleFacilities.length > 1 ? (
-      <FacilitySwitcher
-        facilities={facilityAccess.accessibleFacilities.map((f) => ({
-          facilityId: f.facilityId,
-          facilityName: f.facilityName,
-        }))}
-        activeFacilityId={facilityAccess.activeFacilityId}
+  const workspaceSelectorNode = (compact = false) =>
+    workspaceSelector ? (
+      <WorkspaceSelector
+        current={currentWorkspace}
+        currentContextKey={workspaceSelector.currentContextKey}
+        items={workspaceSelector.items}
+        compact={compact}
       />
     ) : null;
 
@@ -265,14 +257,13 @@ export async function AppShell({ children }: AppShellProps) {
             lockedUnitId={lockedUnitId}
             department={departmentSwitcherNode()}
             modeNav={modeNavNode()}
-            compatibility={facilitySwitcherNode()}
           />
           <div className="xl:hidden">
             <ShellBrandBlock compact />
           </div>
           <div className="min-w-0 flex-1 xl:hidden">
             {authKind === "user" ? (
-              <CurrentWorkspaceRegion current={currentWorkspace} compact />
+              workspaceSelectorNode(true)
             ) : (
               <p className="truncate text-sm font-medium text-zinc-700">
                 {facility?.displayName ?? "Facility"}
@@ -305,9 +296,7 @@ export async function AppShell({ children }: AppShellProps) {
       >
         <WorkspaceShellRail
           brand={<ShellBrandBlock />}
-          workspace={
-            authKind === "user" ? <CurrentWorkspaceRegion current={currentWorkspace} /> : null
-          }
+          workspace={authKind === "user" ? workspaceSelectorNode() : null}
           department={departmentSwitcherNode()}
           destinations={
             <ShellSidebar
@@ -320,7 +309,6 @@ export async function AppShell({ children }: AppShellProps) {
             />
           }
           mode={modeNavNode()}
-          compatibility={facilitySwitcherNode()}
           account={
             <AccountMenu
               showUnbind={showGmUnbind}

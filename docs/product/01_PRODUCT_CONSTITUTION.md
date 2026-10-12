@@ -101,7 +101,7 @@ Global identity
 
 **Harbor / Vssyl Console** is excluded from this shell. Quick PIN sessions do not receive a global Workspace selector.
 
-The shell currently reserves a display-only current-Workspace region. Interactive global Workspace switching (and retiring FacilitySwitcher / OrganizationSwitcher) is a later phase. Existing switchers remain compatibility controls.
+**Switch workspace** is the shell control for moving between current enterable Workspaces. Rows come from `listAvailableContexts` / `presentAvailableContexts`. Selection posts `contextKey` to `enterContext`, which live-revalidates and replaces the session. Same-Facility internal and partner hats are distinct rows. Organization visibility is not Facility authority. **My Access** remains the detailed inventory. FacilitySwitcher / OrganizationSwitcher are no longer shell chrome.
 
 ---
 

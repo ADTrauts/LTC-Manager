@@ -1,18 +1,20 @@
-import type { CurrentContextPresentation } from "@/lib/available-contexts";
+import type { CurrentContextPresentation } from "@/lib/available-contexts/current-presentation";
 
 type CurrentWorkspaceRegionProps = {
   current: CurrentContextPresentation | null;
   compact?: boolean;
+  /** When false, the parent trigger owns the accessible name. */
+  announce?: boolean;
 };
 
 /**
- * Reserved shell slot for the active operating workspace.
- * Display-only. The next ACT replaces this with Switch workspace.
+ * Closed current-workspace chrome. Interactive switching lives in WorkspaceSelector.
  * Omit entirely for PIN / sessions with no User workspace.
  */
 export function CurrentWorkspaceRegion({
   current,
   compact = false,
+  announce = true,
 }: CurrentWorkspaceRegionProps) {
   if (!current) return null;
 
@@ -20,7 +22,7 @@ export function CurrentWorkspaceRegion({
     <div
       data-testid="current-workspace-region"
       data-workspace-slot="reserved"
-      aria-label={`Current workspace: ${current.title}. ${current.subtitle}`}
+      aria-label={announce ? `Current workspace: ${current.title}. ${current.subtitle}` : undefined}
       className={compact ? "min-w-0 max-w-[11rem] sm:max-w-[14rem]" : "min-w-0"}
     >
       {compact ? null : (

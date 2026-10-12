@@ -40,7 +40,7 @@ test("facility desktop — RUN destinations live in the workspace rail, not TopN
   const sidebar = source("src/components/shell-sidebar.tsx");
   assert.doesNotMatch(shell, /TopNav/);
   assert.match(shell, /WorkspaceShellRail/);
-  assert.match(shell, /CurrentWorkspaceRegion/);
+  assert.match(shell, /WorkspaceSelector/);
   assert.match(shell, /ShellModeNav/);
   assert.match(sidebar, /headerNavItemsForMode\("RUN"/);
   assert.match(sidebar, /isFacilityLocationsPath/);
@@ -103,19 +103,19 @@ test("account menu is identity/account; modes are application navigation", () =>
   assert.match(shell, /mode=\{modeNavNode\(\)\}/);
 });
 
-test("Build and Admin keep their existing chrome; compatibility switchers remain", () => {
+test("Build and Admin keep their existing chrome; shell switching is the Workspace selector", () => {
   const sidebar = source("src/components/shell-sidebar.tsx");
   const shell = source("src/components/app-shell.tsx");
   const org = source("src/app/(organization-account)/layout.tsx");
   const partner = source("src/components/partner/partner-facility-shell.tsx");
   assert.match(sidebar, /BuildSidebar/);
   assert.match(sidebar, /href: "\/admin"/);
-  assert.match(shell, /FacilitySwitcher/);
-  assert.match(org, /OrganizationSwitcher/);
-  assert.match(partner, /leavePartnerFacilityAction/);
-  assert.doesNotMatch(shell, /switchWorkspace|enterContext/);
-  assert.doesNotMatch(org, /enterContext/);
-  assert.doesNotMatch(partner, /enterContext|listAvailableContexts/);
+  assert.match(shell, /WorkspaceSelector/);
+  assert.match(org, /WorkspaceSelector/);
+  assert.match(partner, /WorkspaceSelector/);
+  assert.doesNotMatch(shell, /FacilitySwitcher/);
+  assert.doesNotMatch(org, /OrganizationSwitcher/);
+  assert.doesNotMatch(partner, /leavePartnerFacilityAction|Return to/);
 });
 
 test("Partner chrome uses partner destinations and Audit / Reports", () => {
@@ -128,7 +128,7 @@ test("Partner chrome uses partner destinations and Audit / Reports", () => {
   assert.doesNotMatch(partner, /Today's Work|Employees|\/build|\/admin/);
   assert.match(partner, /presentCurrentContextFromSession/);
   assert.match(partner, /PartnerDepartmentSwitch/);
-  assert.match(partner, /CurrentWorkspaceRegion/);
+  assert.match(partner, /WorkspaceSelector/);
 });
 
 test("Organization chrome uses Portfolio / Clients / Members and keeps org session", () => {
@@ -149,7 +149,7 @@ test("compact chrome is Menu / mark / workspace / avatar below xl", () => {
   assert.match(compact, /xl:hidden/);
   assert.match(compact, /Open navigation/);
   assert.match(shell, /ShellBrandBlock compact/);
-  assert.match(shell, /CurrentWorkspaceRegion current=\{currentWorkspace\} compact/);
+  assert.match(shell, /workspaceSelectorNode\(true\)/);
   assert.match(shell, /compactTrigger/);
   assert.match(shell, /department=\{departmentSwitcherNode\(\)\}/);
 });
@@ -158,12 +158,13 @@ test("PIN omits the User workspace region and My Access", () => {
   const shell = source("src/components/app-shell.tsx");
   assert.match(shell, /authKind === "user" \? \(/);
   assert.match(shell, /showMyAccess=\{authKind === "user"\}/);
-  assert.match(shell, /authKind === "user" \? <CurrentWorkspaceRegion/);
+  assert.match(shell, /authKind === "user" \? workspaceSelectorNode\(\) : null/);
 });
 
-test("workspace region is reserved and display-only", () => {
+test("closed workspace chrome stays display-only; switching lives in WorkspaceSelector", () => {
   const region = source("src/components/shell/current-workspace-region.tsx");
   assert.match(region, /data-workspace-slot="reserved"/);
-  assert.match(region, /presentational|Display-only|next ACT/i);
-  assert.doesNotMatch(region, /enterContext|switchWorkspace|listAvailableContexts/);
+  assert.doesNotMatch(region, /enterContext|listAvailableContexts/);
+  const selector = source("src/components/shell/workspace-selector.tsx");
+  assert.match(selector, /enterContextAction/);
 });

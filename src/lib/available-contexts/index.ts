@@ -18,6 +18,16 @@ export {
   organizationContextRoleLabel,
   presentAvailableContexts,
 } from "./presentation";
+export {
+  filterWorkspacePresentations,
+  groupWorkspaceSelectorPresentations,
+  workspaceRowAccessibleName,
+  workspaceRowProvenance,
+  workspaceSelectorCanSwitch,
+} from "./selector-groups";
+export type { WorkspaceSelectorGroup, WorkspaceSelectorGroupId } from "./selector-groups";
+export { loadWorkspaceSelectorModel } from "./selector-model";
+export type { WorkspaceSelectorModel } from "./selector-model";
 export { AvailableContextError } from "./types";
 export type {
   AvailableContext,

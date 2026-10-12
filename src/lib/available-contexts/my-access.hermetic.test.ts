@@ -273,10 +273,10 @@ test("AccountMenu shows My Access only when opted in; PIN stays hidden", () => {
   assert.match(shell, /showMyAccess=\{authKind === "user"\}/);
   assert.equal(shell.includes('showMyAccess={true}'), false);
   assert.equal(menu.includes("listAvailableContexts"), false);
-  assert.equal(shell.includes("listAvailableContexts"), false);
+  assert.match(shell, /loadWorkspaceSelectorModel/);
 });
 
-test("Organization and partner shells use the shared User menu without replacing leave behavior", () => {
+test("Organization and partner shells use the shared User menu and canonical Workspace selector", () => {
   const organization = readFileSync(
     join(process.cwd(), "src/app/(organization-account)/layout.tsx"),
     "utf8",
@@ -286,11 +286,12 @@ test("Organization and partner shells use the shared User menu without replacing
     "utf8",
   );
   assert.match(organization, /GlobalUserMenu/);
-  assert.match(organization, /OrganizationSwitcher/);
-  assert.equal(organization.includes("listAvailableContexts"), false);
+  assert.match(organization, /WorkspaceSelector/);
+  assert.match(organization, /loadWorkspaceSelectorModel/);
+  assert.equal(organization.includes("OrganizationSwitcher"), false);
   assert.match(partner, /GlobalUserMenu/);
-  assert.match(partner, /leavePartnerFacilityAction/);
-  assert.match(partner, /Return to \{organizationName\}/);
+  assert.match(partner, /WorkspaceSelector/);
+  assert.equal(partner.includes("leavePartnerFacilityAction"), false);
+  assert.equal(partner.includes("Return to"), false);
   assert.equal(partner.includes("enterAccountContext"), false);
-  assert.equal(partner.includes("listAvailableContexts"), false);
 });
