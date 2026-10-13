@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -22,8 +23,13 @@ import {
   isDietaryWorkPlansEnabled,
   isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
+import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { roleMayAccessRoute } from "@/lib/route-registry";
+import {
+  resolveWorkspaceHomeHref,
+  workspaceHomeBackLabel,
+} from "@/lib/shell/workspace-home";
 
 /**
  * Identity surfaces (My Access, My Account) keep the global header:
@@ -44,6 +50,8 @@ export async function GlobalUserLayout({ children }: { children: ReactNode }) {
     ? { title: directoryCurrent.title, subtitle: directoryCurrent.subtitle }
     : presentCurrentContextFromSession(session);
 
+  const homeHref = resolveWorkspaceHomeHref(session);
+  const backLabel = workspaceHomeBackLabel(session);
   const facilitySession = isFacilityScopedSession(session) ? session : null;
   const navFeatureFlags = {
     todaysWorkEnabled: isTodaysWorkEnabled(),
@@ -68,7 +76,7 @@ export async function GlobalUserLayout({ children }: { children: ReactNode }) {
   return (
     <ShellModeFrame brandColor="#0f766e">
       <WorkspaceShellHeader
-        brand={<ShellBrandBlock />}
+        brand={<ShellBrandBlock href={homeHref} />}
         workspace={
           workspaceSelector ? (
             <WorkspaceSelector
@@ -95,6 +103,17 @@ export async function GlobalUserLayout({ children }: { children: ReactNode }) {
         }
       />
       <div data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        {backLabel ? (
+          <div className="mx-auto max-w-3xl px-4 pt-6 -mb-4">
+            <Link
+              href={homeHref}
+              data-testid="back-to-workspace"
+              className={`text-sm font-medium text-zinc-700 underline underline-offset-2 ${FOCUS_RING_CLASS}`}
+            >
+              {backLabel}
+            </Link>
+          </div>
+        ) : null}
         {children}
       </div>
     </ShellModeFrame>

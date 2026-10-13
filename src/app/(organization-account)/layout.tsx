@@ -54,6 +54,7 @@ export default async function OrganizationAccountLayout({ children }: Props) {
     organizationRole: currentMembership?.currentRole,
   });
   const isAdmin = currentMembership?.currentRole === "ORG_ADMIN";
+  const homeHref = `/organization/${session.organizationId}`;
 
   const workspaceNode = () =>
     workspaceSelector ? (
@@ -72,7 +73,7 @@ export default async function OrganizationAccountLayout({ children }: Props) {
             <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
           </CompactWorkspaceMenu>
         }
-        brand={<ShellBrandBlock />}
+        brand={<ShellBrandBlock href={homeHref} />}
         workspace={workspaceNode()}
         account={
           <GlobalUserMenu menuLabel={session.name} currentContext={null} compactTrigger />

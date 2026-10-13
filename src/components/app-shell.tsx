@@ -225,6 +225,7 @@ export async function AppShell({ children }: AppShellProps) {
       />
     ) : null;
 
+  const homeHref = menuRunHomeHref;
   const modeNavNode = () => (
     <ShellModeNav
       runHomeHref={menuRunHomeHref}
@@ -254,7 +255,7 @@ export async function AppShell({ children }: AppShellProps) {
             modeNav={modeNavNode()}
           />
         }
-        brand={<ShellBrandBlock />}
+        brand={<ShellBrandBlock href={homeHref} />}
         workspace={
           authKind === "user" ? (
             workspaceSelectorNode()

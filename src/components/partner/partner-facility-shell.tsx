@@ -70,6 +70,7 @@ export async function PartnerFacilityShell({
         items={workspaceSelector.items}
       />
     ) : null;
+  const homeHref = "/partner";
 
   return (
     <ShellModeFrame brandColor="#0f766e">
@@ -82,7 +83,7 @@ export async function PartnerFacilityShell({
             </div>
           </CompactWorkspaceMenu>
         }
-        brand={<ShellBrandBlock />}
+        brand={<ShellBrandBlock href={homeHref} />}
         workspace={workspaceNode()}
         account={<GlobalUserMenu menuLabel={session.name} currentContext={null} compactTrigger />}
       />
