@@ -58,6 +58,20 @@ test("workspace home — Facility Dashboard, partner Dashboard, org Portfolio, a
     } as AppJwtPayload),
     "/access",
   );
+  assert.equal(
+    resolveWorkspaceHomeHref({
+      uid: "emp-1",
+      authKind: "employee",
+      authMethod: "QUICK_PIN",
+      name: "Pat",
+      email: "",
+      sessionVersion: 1,
+      scopeKind: "facility",
+      facilityId: "fac-1",
+      role: "STAFF",
+    } as AppJwtPayload),
+    "/logs",
+  );
 });
 
 test("workspace home — identity pages offer Back to Dashboard only with a workspace", () => {

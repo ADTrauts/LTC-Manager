@@ -28,13 +28,6 @@ export function resolveWorkspaceHomeHref(session: AppJwtPayload): string {
       activeUnitId: session.activeUnitId,
     });
   }
-  if (session.authKind === "employee") {
-    return resolveDefaultHomePath({
-      authKind: session.authKind,
-      role: session.role ?? "STAFF",
-      activeUnitId: session.activeUnitId,
-    });
-  }
   return "/access";
 }
 
