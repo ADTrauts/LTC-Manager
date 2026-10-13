@@ -6,6 +6,7 @@ import { ProductModeBanner } from "@/components/product-mode-banner";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { WorkspaceSelector } from "@/components/shell/workspace-selector";
 import { ShellModeNav } from "@/components/shell/shell-mode-nav";
+import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import { ShellModeCue } from "@/components/shell-mode-cue";
 import { ShellModeFrame } from "@/components/shell-mode-frame";
@@ -65,8 +66,9 @@ type AppShellProps = {
 /**
  * Application shell.
  *
- * Desktop (xl+): workspace rail owns destinations, department, and mode.
- * Compact (&lt;xl): Menu / brand / current workspace / avatar.
+ * Desktop (xl+): global bar owns Vssyl, Workspace, Mode, and identity.
+ * Compact (&lt;xl): Menu / brand / Workspace / avatar; Mode and Department live in Menu.
+ * The rail owns Workspace/Mode destinations only.
  */
 export async function AppShell({ children }: AppShellProps) {
   const anySession = await getAppSession();
@@ -205,13 +207,12 @@ export async function AppShell({ children }: AppShellProps) {
         })
       : null;
 
-  const workspaceSelectorNode = (compact = false) =>
+  const workspaceSelectorNode = () =>
     workspaceSelector ? (
       <WorkspaceSelector
         current={currentWorkspace}
         currentContextKey={workspaceSelector.currentContextKey}
         items={workspaceSelector.items}
-        compact={compact}
       />
     ) : null;
 
@@ -240,14 +241,8 @@ export async function AppShell({ children }: AppShellProps) {
           selectableDepartmentIds={scopeDepartments.map((d) => d.id)}
         />
       ) : null}
-      <header
-        className="shell-header shrink-0 border-b border-zinc-200 bg-white"
-        role="banner"
-        data-shell-region="header"
-      >
-        <div
-          className={`mx-auto flex w-full min-w-0 ${shellClasses.maxWidth} flex-nowrap items-center gap-1.5 overflow-x-clip px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2 xl:justify-end`}
-        >
+      <WorkspaceShellHeader
+        menu={
           <ResponsiveShellNav
             navItems={navItems}
             buildNavItems={buildNavItems}
@@ -258,34 +253,34 @@ export async function AppShell({ children }: AppShellProps) {
             department={departmentSwitcherNode()}
             modeNav={modeNavNode()}
           />
-          <div className="xl:hidden">
-            <ShellBrandBlock compact />
-          </div>
-          <div className="min-w-0 flex-1 xl:hidden">
-            {authKind === "user" ? (
-              workspaceSelectorNode(true)
-            ) : (
-              <p className="truncate text-sm font-medium text-zinc-700">
-                {facility?.displayName ?? "Facility"}
-              </p>
-            )}
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <span className="hidden xl:inline-flex">
-              <ShellModeCue />
-            </span>
-            <ShellOfflineIndicator />
-            <div className="xl:hidden">
-              <AccountMenu
-                showUnbind={showGmUnbind}
-                showMyAccess={authKind === "user"}
-                menuLabel={session.name}
-                compactTrigger
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+        }
+        brand={<ShellBrandBlock />}
+        workspace={
+          authKind === "user" ? (
+            workspaceSelectorNode()
+          ) : (
+            <p className="truncate text-sm font-medium text-zinc-700">
+              {facility?.displayName ?? "Facility"}
+            </p>
+          )
+        }
+        mode={
+          <ShellModeCue
+            runHomeHref={menuRunHomeHref}
+            showBuild={menuShowBuild}
+            showAdmin={menuShowAdmin}
+          />
+        }
+        trailing={<ShellOfflineIndicator />}
+        account={
+          <AccountMenu
+            showUnbind={showGmUnbind}
+            showMyAccess={authKind === "user"}
+            menuLabel={session.name}
+            compactTrigger
+          />
+        }
+      />
 
       <ProductModeBanner />
 
@@ -295,8 +290,6 @@ export async function AppShell({ children }: AppShellProps) {
         className={`mx-auto flex min-h-0 w-full min-w-0 ${shellClasses.maxWidth} flex-1 overflow-hidden`}
       >
         <WorkspaceShellRail
-          brand={<ShellBrandBlock />}
-          workspace={authKind === "user" ? workspaceSelectorNode() : null}
           department={departmentSwitcherNode()}
           destinations={
             <ShellSidebar
@@ -308,19 +301,13 @@ export async function AppShell({ children }: AppShellProps) {
               lockedUnitId={lockedUnitId}
             />
           }
-          mode={modeNavNode()}
-          account={
-            <AccountMenu
-              showUnbind={showGmUnbind}
-              showMyAccess={authKind === "user"}
-              menuLabel={session.name}
-              menuAlign="up"
-            />
-          }
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <ShellZoneIndicator />
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
+          <main
+            data-shell-main
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6"
+          >
             {children}
           </main>
         </div>

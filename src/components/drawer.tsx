@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -56,6 +57,7 @@ export function Drawer({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const [backdropLive, setBackdropLive] = useState(false);
 
   const trapFocus = useCallback((event: KeyboardEvent) => {
     if (event.key !== "Tab" || !panelRef.current) return;
@@ -75,10 +77,14 @@ export function Drawer({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setBackdropLive(false);
+      return;
+    }
 
     previouslyFocused.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const armBackdrop = window.setTimeout(() => setBackdropLive(true), 50);
 
     const onKey = (e: KeyboardEvent) => {
       const focusInsidePanel =
@@ -105,6 +111,7 @@ export function Drawer({
     }, 0);
 
     return () => {
+      window.clearTimeout(armBackdrop);
       window.clearTimeout(focusTimer);
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
@@ -131,8 +138,8 @@ export function Drawer({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        className={`absolute inset-0 bg-black/40 ${backdropLive ? "" : "pointer-events-none"}`}
+        onClick={backdropLive ? onClose : undefined}
         aria-label="Close"
         data-testid="drawer-backdrop"
       />

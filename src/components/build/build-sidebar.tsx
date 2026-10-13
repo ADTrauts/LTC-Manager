@@ -76,7 +76,7 @@ export function BuildSidebar({
 
   if (presentation === "panel") {
     return (
-      <div data-testid="build-nav-panel" className="space-y-2">
+      <div data-testid="build-sidebar" data-build-nav="panel" className="space-y-2">
         {nav}
       </div>
     );

@@ -454,6 +454,16 @@ async function main() {
       primaryDepartmentId: null,
     });
     await ensureInternalGrant(db, {
+      userId: manager.id,
+      facilityId: facility.id,
+      roleKey: "MANAGER",
+    });
+    await ensureInternalGrant(db, {
+      userId: supervisor.id,
+      facilityId: facility.id,
+      roleKey: "SUPERVISOR",
+    });
+    await ensureInternalGrant(db, {
       userId: fa.id,
       facilityId: facility.id,
       roleKey: "FACILITY_ADMINISTRATOR",
@@ -478,6 +488,11 @@ async function main() {
       roleKey: "STAFF",
       facilityId: facility.id,
       primaryDepartmentId: dietary.id,
+    });
+    await ensureInternalGrant(db, {
+      userId: staff.id,
+      facilityId: facility.id,
+      roleKey: "STAFF",
     });
     const staffEmp = await ensureEmployee(db, {
       facilityId: facility.id,

@@ -126,6 +126,8 @@ test("V1 refinement — account menu is identity-only; modes live in ShellModeNa
   assert.doesNotMatch(menu, />Workspace</);
   assert.match(cue, /Current mode:/);
   assert.doesNotMatch(cue, /Current workspace:/);
+  assert.match(cue, /shell-mode-picker-trigger/);
+  assert.match(cue, /pointerup/);
   assert.match(modeNav, /aria-label="Mode"/);
   assert.match(modeNav, /shell-mode-run/);
 });

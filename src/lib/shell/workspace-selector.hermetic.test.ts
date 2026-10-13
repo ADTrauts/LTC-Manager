@@ -173,7 +173,8 @@ test("current Workspace is keyed by contextKey, not Facility id", () => {
 
   const items = presentAvailableContexts(MULTI_HAT);
   assert.equal(workspaceSelectorCanSwitch(items, internal), true);
-  assert.equal(workspaceSelectorCanSwitch(items.slice(0, 1), "organization:metz"), false);
+  assert.equal(workspaceSelectorCanSwitch(items.slice(0, 1), "organization:metz"), true);
+  assert.equal(workspaceSelectorCanSwitch([], "organization:metz"), false);
   assert.equal(
     currentContextKeyFromSession(
       userSession({
@@ -200,7 +201,11 @@ test("selector posts only contextKey to enterContextAction", () => {
   assert.match(selector, /fullscreen/);
   assert.match(selector, /sheet/);
   assert.match(selector, /createPortal/);
+  assert.match(selector, /pointerup/);
+  assert.match(selector, /position: "fixed"/);
   assert.match(selector, /max-h-\[min\(32rem/);
+  assert.match(selector, /28 \* 16/);
+  assert.match(selector, /w-fit min-w-0/);
   assert.doesNotMatch(selector, /facilityId/);
   assert.doesNotMatch(selector, /switch-facility/);
   assert.doesNotMatch(selector, /switchOrganizationAction/);
@@ -219,7 +224,8 @@ test("shells load the request-cached directory and omit PIN from the selector", 
   assert.match(model, /listAvailableContextsForRequest/);
   assert.match(model, /authKind !== "user"/);
   assert.match(shell, /authKind === "user" \? \(/);
-  assert.match(shell, /workspaceSelectorNode\(true\)/);
+  assert.match(shell, /workspaceSelectorNode\(\)/);
+  assert.match(shell, /WorkspaceShellHeader/);
   assert.doesNotMatch(shell, /FacilitySwitcher/);
   assert.doesNotMatch(org, /OrganizationSwitcher/);
   assert.doesNotMatch(partner, /Return to/);

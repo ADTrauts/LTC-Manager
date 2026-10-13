@@ -26,7 +26,7 @@ export function ShellModeFrame({
     <div
       data-shell-root
       data-product-mode={mode}
-      className="flex h-dvh min-h-0 flex-col overflow-hidden"
+      className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden"
       style={{ "--brand-accent": brandColor } as CSSProperties}
     >
       {children}

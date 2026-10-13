@@ -26,14 +26,23 @@ type WorkspaceSelectorProps = {
 
 type OverlayKind = "popover" | "sheet" | "fullscreen";
 
-function useCompactOverlay(): Exclude<OverlayKind, "popover"> {
-  const [kind, setKind] = useState<Exclude<OverlayKind, "popover">>("fullscreen");
+function useOverlayKind(): OverlayKind {
+  const [kind, setKind] = useState<OverlayKind>("popover");
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const sync = () => setKind(media.matches ? "sheet" : "fullscreen");
+    const desktop = window.matchMedia("(min-width: 1280px)");
+    const tablet = window.matchMedia("(min-width: 768px)");
+    const sync = () => {
+      if (desktop.matches) setKind("popover");
+      else if (tablet.matches) setKind("sheet");
+      else setKind("fullscreen");
+    };
     sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    desktop.addEventListener("change", sync);
+    tablet.addEventListener("change", sync);
+    return () => {
+      desktop.removeEventListener("change", sync);
+      tablet.removeEventListener("change", sync);
+    };
   }, []);
   return kind;
 }
@@ -226,26 +235,36 @@ function Overlay({
       const anchor = anchorRef.current;
       if (!anchor || kind !== "popover") return;
       const rect = anchor.getBoundingClientRect();
-      const width = Math.min(Math.max(rect.width, 22 * 16), window.innerWidth - 16);
+      const width = Math.min(Math.max(rect.width, 22 * 16), Math.min(28 * 16, window.innerWidth - 16));
       const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
       setPopoverBox({ top: Math.min(rect.bottom + 4, window.innerHeight - 16), left, width });
     };
     window.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("resize", syncPopover);
     window.addEventListener("scroll", syncPopover, true);
     syncPopover();
     const previousOverflow = document.body.style.overflow;
     if (kind !== "popover") document.body.style.overflow = "hidden";
-    const timer = window.setTimeout(() => {
+    let armed = false;
+    const arm = () => {
+      armed = true;
+    };
+    const onArmedPointerDown = (event: PointerEvent) => {
+      if (!armed) return;
+      onPointerDown(event);
+    };
+    window.addEventListener("pointerup", arm, true);
+    document.addEventListener("pointerdown", onArmedPointerDown, true);
+    const focusTimer = window.setTimeout(() => {
       panelRef.current
         ?.querySelector<HTMLElement>("[data-workspace-initial-focus]")
         ?.focus();
     }, 0);
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("pointerup", arm, true);
       window.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointerdown", onArmedPointerDown, true);
       window.removeEventListener("resize", syncPopover);
       window.removeEventListener("scroll", syncPopover, true);
       document.body.style.overflow = previousOverflow;
@@ -265,12 +284,12 @@ function Overlay({
       data-testid="workspace-selector-panel"
       data-workspace-surface={kind}
       style={
-        kind === "popover" && popoverBox
+        kind === "popover"
           ? {
               position: "fixed",
-              top: popoverBox.top,
-              left: popoverBox.left,
-              width: popoverBox.width,
+              top: popoverBox?.top ?? 56,
+              left: popoverBox?.left ?? 8,
+              width: popoverBox?.width ?? 22 * 16,
             }
           : undefined
       }
@@ -324,9 +343,8 @@ export function WorkspaceSelector({
   const headingId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const compactOverlay = useCompactOverlay();
+  const overlay = useOverlayKind();
   const canSwitch = workspaceSelectorCanSwitch(items, currentContextKey);
-  const overlay: OverlayKind = compact ? compactOverlay : "popover";
 
   if (!current && items.length === 0) return null;
 
@@ -347,7 +365,11 @@ export function WorkspaceSelector({
     : "Switch workspace";
 
   return (
-    <div ref={rootRef} className="relative min-w-0" data-testid="workspace-selector">
+    <div
+      ref={rootRef}
+      className="relative w-fit min-w-0 max-w-[11rem] sm:max-w-[14rem] xl:max-w-[22rem]"
+      data-testid="workspace-selector"
+    >
       <button
         type="button"
         aria-expanded={open}
@@ -355,9 +377,7 @@ export function WorkspaceSelector({
         aria-label={label}
         data-testid="workspace-selector-trigger"
         onClick={() => setOpen((value) => !value)}
-        className={`flex w-full min-w-0 items-center gap-2 rounded-md text-left hover:bg-zinc-50 ${FOCUS_RING_CLASS} ${
-          compact ? "max-w-[11rem] px-1 py-0.5 sm:max-w-[14rem]" : "px-1 py-1"
-        }`}
+        className={`flex min-w-0 max-w-[11rem] items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-zinc-50 sm:max-w-[14rem] xl:max-w-[22rem] xl:px-1.5 xl:py-1 ${FOCUS_RING_CLASS}`}
       >
         <span className="min-w-0 flex-1">{closed}</span>
         <AppIcons.chevronDown className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />

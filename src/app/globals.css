@@ -224,9 +224,27 @@ select option {
 /**
  * Shell canvas. Explicit CSS so the background is not a Tailwind arbitrary
  * value that can disagree between the server HTML and the client bundle.
+ * Viewport ownership: the document does not scroll; the main pane does.
  */
+html:has([data-shell-root]),
+body:has([data-shell-root]) {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
 [data-shell-root] {
   background: var(--background);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+[data-shell-main] {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 /**

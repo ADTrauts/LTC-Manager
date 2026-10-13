@@ -58,9 +58,14 @@ export function groupWorkspaceSelectorPresentations(
   ).filter((entry) => entry.items.length > 0);
 }
 
+/**
+ * The Workspace control stays interactive whenever the User has at least one listed
+ * Workspace — including a single current Workspace. Opening it is discoverability;
+ * the current row remains a no-op. Empty lists stay static (My Access / listing failure).
+ */
 export function workspaceSelectorCanSwitch(
   items: readonly AvailableContextPresentation[],
-  currentContextKey: string | null,
+  _currentContextKey?: string | null,
 ): boolean {
-  return items.some((item) => item.contextKey !== currentContextKey);
+  return items.length > 0;
 }

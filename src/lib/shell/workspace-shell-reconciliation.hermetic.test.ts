@@ -38,10 +38,13 @@ test("brand — Vssyl lockup has no Facility subtitle", () => {
 test("facility desktop — RUN destinations live in the workspace rail, not TopNav", () => {
   const shell = source("src/components/app-shell.tsx");
   const sidebar = source("src/components/shell-sidebar.tsx");
+  const header = source("src/components/shell/workspace-shell-header.tsx");
   assert.doesNotMatch(shell, /TopNav/);
   assert.match(shell, /WorkspaceShellRail/);
+  assert.match(shell, /WorkspaceShellHeader/);
   assert.match(shell, /WorkspaceSelector/);
   assert.match(shell, /ShellModeNav/);
+  assert.match(header, /data-testid="workspace-shell-header"/);
   assert.match(sidebar, /headerNavItemsForMode\("RUN"/);
   assert.match(sidebar, /isFacilityLocationsPath/);
 });
@@ -84,11 +87,13 @@ test("Locations is a destination; the tree is not the shell parent", () => {
 
 test("Department is subordinate to the workspace region", () => {
   const rail = source("src/components/shell/workspace-shell-rail.tsx");
+  const header = source("src/components/shell/workspace-shell-header.tsx");
   const shell = source("src/components/app-shell.tsx");
   const compact = source("src/components/responsive-shell-nav.tsx");
-  assert.match(rail, /workspace/);
+  assert.match(header, /workspace/);
   assert.match(rail, /department/);
-  assert.ok(rail.indexOf("workspace") < rail.indexOf("department"));
+  assert.match(rail, /workspace-rail-department/);
+  assert.doesNotMatch(rail, /brand:|workspace:|mode:|account:/);
   assert.match(shell, /department=\{departmentSwitcherNode\(\)\}/);
   assert.match(compact, /compact-department-slot/);
 });
@@ -96,11 +101,15 @@ test("Department is subordinate to the workspace region", () => {
 test("account menu is identity/account; modes are application navigation", () => {
   const menu = source("src/components/sign-out-controls.tsx");
   const shell = source("src/components/app-shell.tsx");
+  const cue = source("src/components/shell-mode-cue.tsx");
   assert.match(menu, /GlobalUserNavLinks/);
   assert.match(menu, /Help & Support/);
   assert.match(menu, /Sign out/);
   assert.match(shell, /showMyAccess=\{authKind === "user"\}/);
-  assert.match(shell, /mode=\{modeNavNode\(\)\}/);
+  assert.match(shell, /ShellModeCue/);
+  assert.match(cue, /shell-mode-picker-trigger/);
+  assert.match(cue, /pointerup/);
+  assert.doesNotMatch(shell, /mode=\{modeNavNode\(\)\}/);
 });
 
 test("Build and Admin keep their existing chrome; shell switching is the Workspace selector", () => {
@@ -146,10 +155,12 @@ test("Organization chrome uses Portfolio / Clients / Members and keeps org sessi
 test("compact chrome is Menu / mark / workspace / avatar below xl", () => {
   const shell = source("src/components/app-shell.tsx");
   const compact = source("src/components/responsive-shell-nav.tsx");
+  const header = source("src/components/shell/workspace-shell-header.tsx");
   assert.match(compact, /xl:hidden/);
   assert.match(compact, /Open navigation/);
-  assert.match(shell, /ShellBrandBlock compact/);
-  assert.match(shell, /workspaceSelectorNode\(true\)/);
+  assert.match(shell, /ShellBrandBlock/);
+  assert.match(header, /hidden xl:flex/);
+  assert.match(shell, /workspaceSelectorNode\(\)/);
   assert.match(shell, /compactTrigger/);
   assert.match(shell, /department=\{departmentSwitcherNode\(\)\}/);
 });
@@ -158,7 +169,35 @@ test("PIN omits the User workspace region and My Access", () => {
   const shell = source("src/components/app-shell.tsx");
   assert.match(shell, /authKind === "user" \? \(/);
   assert.match(shell, /showMyAccess=\{authKind === "user"\}/);
-  assert.match(shell, /authKind === "user" \? workspaceSelectorNode\(\) : null/);
+  assert.match(shell, /workspaceSelectorNode\(\)/);
+});
+
+test("global chrome lives in the header; the rail is destinations only", () => {
+  const shell = source("src/components/app-shell.tsx");
+  const rail = source("src/components/shell/workspace-shell-rail.tsx");
+  const header = source("src/components/shell/workspace-shell-header.tsx");
+  const frame = source("src/components/shell-mode-frame.tsx");
+  const css = source("src/app/globals.css");
+  assert.match(header, /data-testid="workspace-shell-header"/);
+  assert.match(shell, /ShellBrandBlock/);
+  assert.match(shell, /WorkspaceSelector/);
+  assert.match(shell, /ShellModeCue/);
+  assert.match(shell, /AccountMenu/);
+  assert.match(rail, /destinations/);
+  assert.match(rail, /department/);
+  assert.doesNotMatch(rail, /ShellBrandBlock|WorkspaceSelector|ShellModeNav|AccountMenu/);
+  assert.match(frame, /h-dvh max-h-dvh/);
+  assert.match(shell, /data-shell-main/);
+  assert.match(css, /html:has\(\[data-shell-root\]\)/);
+  assert.match(css, /\[data-shell-main\]/);
+});
+
+test("one listed Workspace still opens the Switch workspace control", () => {
+  const selector = source("src/components/shell/workspace-selector.tsx");
+  const groups = source("src/lib/available-contexts/selector-groups.ts");
+  assert.match(groups, /items.length > 0/);
+  assert.match(selector, /workspaceSelectorCanSwitch/);
+  assert.match(selector, /workspace-selector-trigger/);
 });
 
 test("closed workspace chrome stays display-only; switching lives in WorkspaceSelector", () => {

@@ -23,13 +23,8 @@ export function CurrentWorkspaceRegion({
       data-testid="current-workspace-region"
       data-workspace-slot="reserved"
       aria-label={announce ? `Current workspace: ${current.title}. ${current.subtitle}` : undefined}
-      className={compact ? "min-w-0 max-w-[11rem] sm:max-w-[14rem]" : "min-w-0"}
+      className={compact ? "min-w-0 max-w-[11rem] sm:max-w-[14rem] xl:max-w-[22rem]" : "min-w-0"}
     >
-      {compact ? null : (
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-          Workspace
-        </p>
-      )}
       <p className="truncate text-sm font-semibold leading-snug text-zinc-900">{current.title}</p>
       <p className="truncate text-xs leading-snug text-zinc-600">{current.subtitle}</p>
     </div>

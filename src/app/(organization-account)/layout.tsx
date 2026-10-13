@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { GlobalUserMenu } from "@/components/global-user-menu";
 import { OrganizationWorkspaceNav } from "@/components/organization-workspace-nav";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { ShellModeFrame } from "@/components/shell-mode-frame";
 import { CompactWorkspaceMenu } from "@/components/shell/compact-workspace-menu";
 import { WorkspaceSelector } from "@/components/shell/workspace-selector";
+import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import {
   loadWorkspaceSelectorModel,
@@ -53,43 +55,39 @@ export default async function OrganizationAccountLayout({ children }: Props) {
   });
   const isAdmin = currentMembership?.currentRole === "ORG_ADMIN";
 
-  const workspaceNode = (compact = false) =>
+  const workspaceNode = () =>
     workspaceSelector ? (
       <WorkspaceSelector
         current={currentWorkspace}
         currentContextKey={workspaceSelector.currentContextKey}
         items={workspaceSelector.items}
-        compact={compact}
       />
     ) : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white xl:hidden">
-        <div className="flex items-center gap-3 px-4 py-3">
+    <ShellModeFrame brandColor="#0f766e">
+      <WorkspaceShellHeader
+        menu={
           <CompactWorkspaceMenu>
             <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
           </CompactWorkspaceMenu>
-          <ShellBrandBlock compact />
-          <div className="min-w-0 flex-1">{workspaceNode(true)}</div>
-          <GlobalUserMenu
-            menuLabel={session.name}
-            currentContext={currentWorkspace}
-            compactTrigger
-          />
-        </div>
-      </header>
-      <div className="mx-auto flex min-h-0 w-full flex-1">
+        }
+        brand={<ShellBrandBlock />}
+        workspace={workspaceNode()}
+        account={
+          <GlobalUserMenu menuLabel={session.name} currentContext={null} compactTrigger />
+        }
+      />
+      <div className="mx-auto flex min-h-0 w-full flex-1 overflow-hidden">
         <WorkspaceShellRail
-          brand={<ShellBrandBlock />}
-          workspace={workspaceNode()}
           destinations={
             <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
           }
-          account={<GlobalUserMenu menuLabel={session.name} currentContext={null} />}
         />
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
+        <main data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+          {children}
+        </main>
       </div>
-    </div>
+    </ShellModeFrame>
   );
 }

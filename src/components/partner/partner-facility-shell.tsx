@@ -1,9 +1,11 @@
 import { GlobalUserMenu } from "@/components/global-user-menu";
 import { PartnerDepartmentSwitch } from "@/components/partner/partner-department-switch";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { ShellModeFrame } from "@/components/shell-mode-frame";
 import { CompactWorkspaceMenu } from "@/components/shell/compact-workspace-menu";
 import { WorkspaceSelector } from "@/components/shell/workspace-selector";
 import { WorkspaceOwnedNav } from "@/components/shell/workspace-owned-nav";
+import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import type { PartnerFacilitySession } from "@/lib/auth";
 import {
@@ -60,46 +62,39 @@ export async function PartnerFacilityShell({
     <WorkspaceOwnedNav items={PARTNER_DESTINATIONS} label="Partner" />
   );
 
-  const workspaceNode = (compact = false) =>
+  const workspaceNode = () =>
     workspaceSelector ? (
       <WorkspaceSelector
         current={currentWorkspace}
         currentContextKey={workspaceSelector.currentContextKey}
         items={workspaceSelector.items}
-        compact={compact}
       />
     ) : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white xl:hidden">
-        <div className="flex items-center gap-3 px-4 py-3">
+    <ShellModeFrame brandColor="#0f766e">
+      <WorkspaceShellHeader
+        menu={
           <CompactWorkspaceMenu>
             <div className="space-y-4">
               {departmentNode()}
               {destinationsNode()}
             </div>
           </CompactWorkspaceMenu>
-          <ShellBrandBlock compact />
-          <div className="min-w-0 flex-1">{workspaceNode(true)}</div>
-          <GlobalUserMenu menuLabel={session.name} currentContext={currentWorkspace} compactTrigger />
-        </div>
-      </header>
-      <div className="mx-auto flex min-h-0 w-full flex-1">
-        <WorkspaceShellRail
-          brand={<ShellBrandBlock />}
-          workspace={workspaceNode()}
-          department={departmentNode()}
-          destinations={destinationsNode()}
-          account={<GlobalUserMenu menuLabel={session.name} currentContext={null} />}
-        />
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">
+        }
+        brand={<ShellBrandBlock />}
+        workspace={workspaceNode()}
+        account={<GlobalUserMenu menuLabel={session.name} currentContext={null} compactTrigger />}
+      />
+      <div className="mx-auto flex min-h-0 w-full flex-1 overflow-hidden">
+        <WorkspaceShellRail department={departmentNode()} destinations={destinationsNode()} />
+        <main data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           <p className="sr-only" data-testid="partner-effective-role">
             {partnerRoleLabel(shell.context.effectiveRole)}
           </p>
           {children}
         </main>
       </div>
-    </div>
+    </ShellModeFrame>
   );
 }
