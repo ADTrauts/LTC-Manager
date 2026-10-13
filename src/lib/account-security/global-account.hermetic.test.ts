@@ -55,6 +55,7 @@ test("global account pages are User-session profile and security, not Facility A
 test("shared User menu is links plus current-context display, not a second chooser", () => {
   const menu = source("src/components/global-user-menu.tsx");
   const layout = source("src/components/global-user-layout.tsx");
+  const accountMenu = source("src/components/sign-out-controls.tsx");
   assert.match(menu, /My Access/);
   assert.match(menu, /My Account/);
   assert.match(menu, /Sign out/);
@@ -62,9 +63,13 @@ test("shared User menu is links plus current-context display, not a second choos
   assert.match(menu, /href="\/account"/);
   assert.equal(menu.includes("listAvailableContexts"), false);
   assert.equal(menu.includes("enterContext"), false);
-  assert.match(layout, /My Access/);
-  assert.match(layout, /My Account/);
-  assert.match(layout, /Sign out/);
+  assert.match(layout, /WorkspaceShellHeader/);
+  assert.match(layout, /ShellBrandBlock/);
+  assert.match(layout, /AccountMenu/);
+  assert.match(layout, /showMyAccess/);
+  assert.doesNotMatch(layout, /global-user-nav-access/);
+  assert.doesNotMatch(layout, /global-user-nav-account/);
+  assert.match(accountMenu, /My Access|GlobalUserNavLinks/);
   assert.equal(layout.includes("listAvailableContexts"), false);
 });
 

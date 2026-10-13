@@ -250,6 +250,10 @@ test("My Access page uses certified resolver and posts only contextKey", () => {
   assert.equal(layout.includes("AppShell"), false);
   assert.equal(layout.includes("OrganizationSwitcher"), false);
   assert.match(layout, /GlobalUserLayout/);
+  const chrome = readFileSync(join(process.cwd(), "src/components/global-user-layout.tsx"), "utf8");
+  assert.match(chrome, /WorkspaceShellHeader/);
+  assert.match(chrome, /AccountMenu/);
+  assert.doesNotMatch(chrome, /global-user-nav-access/);
   assert.equal(layout.includes("enterAccountContext"), false);
 });
 

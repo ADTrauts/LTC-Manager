@@ -1,60 +1,102 @@
-"use client";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
-
-const NAV_LINK_CLASS = `text-sm font-medium underline-offset-2 hover:underline ${FOCUS_RING_CLASS}`;
-
-function navClass(active: boolean): string {
-  return `${NAV_LINK_CLASS} ${active ? "text-zinc-900 underline" : "text-zinc-700"}`;
-}
+import { ShellBrandBlock } from "@/components/shell-brand-block";
+import { ShellModeCue } from "@/components/shell-mode-cue";
+import { ShellModeFrame } from "@/components/shell-mode-frame";
+import { WorkspaceSelector } from "@/components/shell/workspace-selector";
+import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header";
+import { AccountMenu } from "@/components/sign-out-controls";
+import { hasAtLeastRole } from "@/lib/access";
+import {
+  loadWorkspaceSelectorModel,
+  presentCurrentContextFromSession,
+} from "@/lib/available-contexts";
+import {
+  getAppSession,
+  isFacilityScopedSession,
+} from "@/lib/auth";
+import {
+  isCanonicalLogsEnabled,
+  isDietaryOperationalEvidenceEnabled,
+  isDietaryWorkPlansEnabled,
+  isTodaysWorkEnabled,
+} from "@/lib/feature-flags";
+import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { roleMayAccessRoute } from "@/lib/route-registry";
 
 /**
- * Neutral chrome for global User surfaces: My Access and My Account.
- * Not a Facility, Organization, or partner workspace shell.
+ * Identity surfaces (My Access, My Account) keep the global header:
+ * Vssyl, Workspace, Mode when applicable, and the account menu.
+ * My Access and My Account are account-menu destinations, not a second top bar.
  */
-export function GlobalUserLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() ?? "";
-  const accessActive = pathname === "/access";
-  const accountActive = pathname === "/account" || pathname.startsWith("/account/");
+export async function GlobalUserLayout({ children }: { children: ReactNode }) {
+  const session = await getAppSession();
+  if (!session || session.authKind !== "user") {
+    redirect("/login");
+  }
+
+  const workspaceSelector = await loadWorkspaceSelectorModel(session);
+  const directoryCurrent = workspaceSelector?.items.find(
+    (item) => item.contextKey === workspaceSelector.currentContextKey,
+  );
+  const currentWorkspace = directoryCurrent
+    ? { title: directoryCurrent.title, subtitle: directoryCurrent.subtitle }
+    : presentCurrentContextFromSession(session);
+
+  const facilitySession = isFacilityScopedSession(session) ? session : null;
+  const navFeatureFlags = {
+    todaysWorkEnabled: isTodaysWorkEnabled(),
+    dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
+    dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    canonicalLogsEnabled: isCanonicalLogsEnabled(),
+  };
+  const runHomeHref = facilitySession
+    ? resolveDefaultHomePath({
+        authKind: session.authKind,
+        role: facilitySession.role,
+        activeUnitId: session.activeUnitId,
+      })
+    : undefined;
+  const showBuild = Boolean(
+    facilitySession && roleMayAccessRoute("/build", facilitySession.role, navFeatureFlags),
+  );
+  const showAdmin = Boolean(
+    facilitySession && roleMayAccessRoute("/admin", facilitySession.role, navFeatureFlags),
+  );
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
-          <p className="text-sm font-semibold tracking-tight text-zinc-900">Vssyl</p>
-          <nav className="flex items-center gap-4" aria-label="Account">
-            <Link
-              href="/access"
-              className={navClass(accessActive)}
-              aria-current={accessActive ? "page" : undefined}
-              data-testid="global-user-nav-access"
-            >
-              My Access
-            </Link>
-            <Link
-              href="/account"
-              className={navClass(accountActive)}
-              aria-current={accountActive ? "page" : undefined}
-              data-testid="global-user-nav-account"
-            >
-              My Account
-            </Link>
-          </nav>
-          <form action="/api/auth/logout" method="post">
-            <button
-              type="submit"
-              className={`text-sm font-medium text-zinc-700 underline underline-offset-2 ${FOCUS_RING_CLASS}`}
-              data-testid="global-user-nav-sign-out"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
-      {children}
-    </div>
+    <ShellModeFrame brandColor="#0f766e">
+      <WorkspaceShellHeader
+        brand={<ShellBrandBlock />}
+        workspace={
+          workspaceSelector ? (
+            <WorkspaceSelector
+              current={currentWorkspace}
+              currentContextKey={workspaceSelector.currentContextKey}
+              items={workspaceSelector.items}
+            />
+          ) : null
+        }
+        mode={
+          runHomeHref ? (
+            <ShellModeCue runHomeHref={runHomeHref} showBuild={showBuild} showAdmin={showAdmin} />
+          ) : null
+        }
+        account={
+          <AccountMenu
+            showUnbind={Boolean(
+              facilitySession && hasAtLeastRole(facilitySession.role, "FACILITY_ADMINISTRATOR"),
+            )}
+            showMyAccess
+            menuLabel={session.name}
+            compactTrigger
+          />
+        }
+      />
+      <div data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        {children}
+      </div>
+    </ShellModeFrame>
   );
 }
