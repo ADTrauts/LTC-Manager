@@ -52,6 +52,19 @@ type Fixtures = {
     supervisor: { email: string; password: string };
     fa: { email: string; password: string };
     staff: { email: string; password: string };
+    workspace?: { email: string; password: string };
+  };
+  workspaceSelector?: {
+    terraceInternalKey: string;
+    terracePartnerKey: string;
+    highpointePartnerKey: string;
+    cedarInternalKey: string;
+    metzOrgKey: string;
+    terraceName: string;
+    highpointeName: string;
+    cedarName: string;
+    metzName: string;
+    metzOrganizationId: string;
   };
 };
 
@@ -78,6 +91,45 @@ const DESKTOP_VIEWPORT: Viewport = { width: 1360, height: 900 };
 const TABLET_LANDSCAPE_VIEWPORT: Viewport = { width: 1024, height: 768 };
 /** iPad portrait — the shell stacks the locations rail above content below the lg breakpoint. */
 const TABLET_PORTRAIT_VIEWPORT: Viewport = { width: 820, height: 1180 };
+/** Phone — Switch workspace must open a full-screen picker, not the desktop popover. */
+const PHONE_VIEWPORT: Viewport = { width: 390, height: 844 };
+
+function workspaceSelectorFixtures(fx: Fixtures) {
+  if (!fx.users.workspace || !fx.workspaceSelector) {
+    return null;
+  }
+  return { user: fx.users.workspace, keys: fx.workspaceSelector };
+}
+
+function visibleWorkspaceTrigger(page: Page) {
+  return page.getByTestId("workspace-selector-trigger").filter({ visible: true });
+}
+
+function visibleCurrentWorkspace(page: Page) {
+  return page.getByTestId("current-workspace-region").filter({ visible: true });
+}
+
+async function openWorkspaceSelector(page: Page) {
+  const trigger = visibleWorkspaceTrigger(page);
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  const panel = page.getByTestId("workspace-selector-panel");
+  if (!(await panel.isVisible().catch(() => false))) {
+    await trigger.click();
+  }
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+async function selectWorkspaceRow(page: Page, contextKey: string) {
+  const panel = await openWorkspaceSelector(page);
+  const row = panel.locator(`[data-testid="workspace-selector-row"][data-context-key="${contextKey}"]`);
+  await expect(row).toBeVisible();
+  if ((await row.getAttribute("data-current")) === "true") {
+    return { alreadyCurrent: true as const };
+  }
+  await row.click();
+  return { alreadyCurrent: false as const };
+}
 
 async function openPersistent(
   suffix: string,
@@ -108,9 +160,9 @@ function banner(page: Page) {
 }
 
 async function openAccountMenu(page: Page) {
-  const trigger = page.getByTestId("account-menu-trigger");
+  const trigger = page.getByTestId("account-menu-trigger").filter({ visible: true });
   await expect(trigger).toBeVisible({ timeout: 30_000 });
-  const panel = page.getByTestId("account-menu-panel");
+  const panel = page.getByTestId("account-menu-panel").filter({ visible: true });
   if (!(await panel.isVisible().catch(() => false))) {
     await trigger.click();
   }
@@ -776,6 +828,185 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       await expect(panel.getByTestId("account-menu-sign-out")).toBeVisible();
       await expect(page.getByTestId("shell-mode-run")).toHaveAttribute("data-mode-active", "true");
       await expect(page.getByTestId("shell-mode-build")).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  // ── Global Switch workspace (2026-10-12) ─────────────────────────────────
+
+  test("scenario-27: desktop selector opens, groups multi-hat rows, and current is a no-op @ci-gate", async () => {
+    const fx = loadFixtures();
+    const ws = workspaceSelectorFixtures(fx);
+    test.skip(!ws, "workspace selector fixtures were not seeded");
+    const { context, page } = await openPersistent("ws-desktop");
+    try {
+      await loginPassword(page, ws!.user.email, ws!.user.password);
+      await page.goto("/access", { waitUntil: "domcontentloaded" });
+      await page
+        .locator(`form:has([name="contextKey"][value="${ws!.keys.terraceInternalKey}"])`)
+        .getByRole("button")
+        .click();
+      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+
+      await expect(visibleWorkspaceTrigger(page)).toBeVisible();
+      await expect(page.getByTestId("facility-switcher")).toHaveCount(0);
+      await expect(page.getByText("Return to", { exact: false })).toHaveCount(0);
+      const panel = await openWorkspaceSelector(page);
+      await expect(panel).toHaveAttribute("data-workspace-surface", "popover");
+      await expect(panel.getByRole("heading", { name: "Facilities" })).toBeVisible();
+      await expect(panel.getByRole("heading", { name: "Organizations" })).toBeVisible();
+      await expect(panel.getByTestId("workspace-selector-search")).toBeVisible();
+      await expect(panel.getByTestId("workspace-selector-my-access")).toBeVisible();
+
+      const internal = panel.locator(
+        `[data-testid="workspace-selector-row"][data-context-key="${ws!.keys.terraceInternalKey}"]`,
+      );
+      const partner = panel.locator(
+        `[data-testid="workspace-selector-row"][data-context-key="${ws!.keys.terracePartnerKey}"]`,
+      );
+      await expect(internal).toHaveAttribute("data-current", "true");
+      await expect(internal).toContainText("Current");
+      await expect(partner).toContainText("via Metz Culinary Management");
+      expect(ws!.keys.terraceInternalKey).not.toBe(ws!.keys.terracePartnerKey);
+
+      const currentUrl = page.url();
+      await internal.click();
+      await page.waitForTimeout(500);
+      expect(page.url()).toBe(currentUrl);
+      await expect(page.locator("[data-shell-root], [data-product-mode='RUN']").first()).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-28: workspace switching replaces authority across internal, partner, and organization @ci-gate", async () => {
+    const fx = loadFixtures();
+    const ws = workspaceSelectorFixtures(fx);
+    test.skip(!ws, "workspace selector fixtures were not seeded");
+    const { context, page } = await openPersistent("ws-switch");
+    try {
+      await loginPassword(page, ws!.user.email, ws!.user.password);
+      await page.goto("/access", { waitUntil: "domcontentloaded" });
+      await page
+        .locator(`form:has([name="contextKey"][value="${ws!.keys.terraceInternalKey}"])`)
+        .getByRole("button")
+        .click();
+      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+
+      // Internal → Internal
+      await selectWorkspaceRow(page, ws!.keys.cedarInternalKey);
+      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      await expect(visibleCurrentWorkspace(page)).toContainText(ws!.keys.cedarName);
+      await expect(visibleCurrentWorkspace(page)).toContainText("Internal · Manager");
+      await expect(page.getByTestId("workspace-owned-nav").getByRole("link", { name: "Dashboard" })).toBeVisible();
+      await expect(page.getByTestId("organization-workspace-nav")).toHaveCount(0);
+
+      // Internal → Partner
+      await selectWorkspaceRow(page, ws!.keys.highpointePartnerKey);
+      await page.waitForURL((u) => u.pathname === "/partner", { timeout: 30_000 });
+      await expect(visibleCurrentWorkspace(page)).toContainText("HighPointe");
+      await expect(visibleCurrentWorkspace(page)).toContainText("Via Metz Culinary Management");
+      await expect(page.getByTestId("workspace-owned-nav").getByRole("link", { name: "Dashboard" })).toBeVisible();
+      await expect(page.getByTestId("shell-mode-build")).toHaveCount(0);
+      await expect(page.getByTestId("shell-mode-admin")).toHaveCount(0);
+
+      // Partner → Organization
+      await selectWorkspaceRow(page, ws!.keys.metzOrgKey);
+      await page.waitForURL((u) => u.pathname === `/organization/${ws!.keys.metzOrganizationId}`, { timeout: 30_000 });
+      await expect(visibleCurrentWorkspace(page)).toContainText(ws!.keys.metzName);
+      await expect(page.getByTestId("organization-workspace-nav")).toBeVisible();
+      await expect(page.getByRole("link", { name: "Portfolio", exact: true })).toBeVisible();
+      await expect(page.getByTestId("shell-mode-run")).toHaveCount(0);
+
+      // Organization → Partner
+      await selectWorkspaceRow(page, ws!.keys.highpointePartnerKey);
+      await page.waitForURL((u) => u.pathname === "/partner", { timeout: 30_000 });
+      await expect(page.getByTestId("organization-workspace-nav")).toHaveCount(0);
+
+      // Organization → Internal is covered by returning through partner then:
+      await selectWorkspaceRow(page, ws!.keys.terraceInternalKey);
+      await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      await expect(visibleCurrentWorkspace(page)).toContainText("Facility Administrator");
+      await expect(page.getByTestId("shell-mode-run")).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("scenario-29: phone uses a full-screen picker and tablet uses a sheet @ci-gate", async () => {
+    const fx = loadFixtures();
+    const ws = workspaceSelectorFixtures(fx);
+    test.skip(!ws, "workspace selector fixtures were not seeded");
+
+    const { context: phoneCtx, page: phone } = await openPersistent("ws-phone", PHONE_VIEWPORT);
+    try {
+      await loginPassword(phone, ws!.user.email, ws!.user.password);
+      await phone.goto("/access", { waitUntil: "domcontentloaded" });
+      await phone.locator(`[name="contextKey"][value="${ws!.keys.terraceInternalKey}"]`).locator("..").getByRole("button").click();
+      await phone.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      await expect(phone.getByTestId("compact-shell-nav")).toBeVisible();
+      const phonePanel = await openWorkspaceSelector(phone);
+      await expect(phonePanel).toHaveAttribute("data-workspace-surface", "fullscreen");
+      await expect(phonePanel.getByRole("heading", { name: "Facilities" })).toBeVisible();
+      await phone.keyboard.press("Escape");
+      await expect(phonePanel).toHaveCount(0);
+    } finally {
+      await phoneCtx.close();
+    }
+
+    const { context: tabletCtx, page: tablet } = await openPersistent("ws-tablet", TABLET_LANDSCAPE_VIEWPORT);
+    try {
+      await loginPassword(tablet, ws!.user.email, ws!.user.password);
+      await tablet.goto("/access", { waitUntil: "domcontentloaded" });
+      await tablet.locator(`[name="contextKey"][value="${ws!.keys.terraceInternalKey}"]`).locator("..").getByRole("button").click();
+      await tablet.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
+      await expect(tablet.getByTestId("compact-shell-nav")).toBeVisible();
+      const tabletPanel = await openWorkspaceSelector(tablet);
+      await expect(tabletPanel).toHaveAttribute("data-workspace-surface", "sheet");
+      await expect(tablet.getByTestId("shell-nav-run-menu").filter({ visible: true })).toBeVisible();
+    } finally {
+      await tabletCtx.close();
+    }
+  });
+
+  test("scenario-30: Quick PIN has no Switch workspace control @ci-gate", async () => {
+    const fx = loadFixtures();
+    const { context, page } = await openPersistent("pin-no-selector");
+    try {
+      await context.clearCookies();
+      await loginPassword(page, fx.users.fa.email, fx.users.fa.password);
+      await page.goto("/workspace", { waitUntil: "domcontentloaded" });
+      const bindStatus = await page.evaluate(async (unitId) => {
+        const r = await fetch("/api/auth/bind-device", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ unitId }),
+          credentials: "include",
+        });
+        return r.status;
+      }, fx.unitId);
+      expect(bindStatus).toBe(200);
+      await page.evaluate(() =>
+        fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {}),
+      );
+      const pinStatus = await page.evaluate(async (pin) => {
+        const r = await fetch("/api/auth/pin-login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pin }),
+          credentials: "include",
+        });
+        return r.status;
+      }, staffPin());
+      expect(pinStatus).toBe(200);
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+      await expect(page.getByTestId("workspace-selector")).toHaveCount(0);
+      await expect(page.getByTestId("workspace-selector-trigger")).toHaveCount(0);
+      await expect(page.getByTestId("current-workspace-region")).toHaveCount(0);
+      await openAccountMenu(page);
+      await expect(page.getByTestId("account-menu-my-access")).toHaveCount(0);
     } finally {
       await context.close();
     }

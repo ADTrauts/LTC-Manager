@@ -375,7 +375,8 @@ test("Portfolio page posts only contextKey to enterContextAction", () => {
   assert.match(page, /requireOrganizationSession/);
   assert.match(page, /listOrganizationPortfolio/);
   assert.match(page, /session.organizationId !== organizationId/);
-  assert.match(view, /enterContextAction/);
+  assert.match(view, /\/access\/enter/);
+  assert.equal(view.includes("enterContextAction"), false);
   assert.match(view, /name="contextKey"/);
   assert.match(view, /Open Facility/);
   assert.match(view, /No personal workspace access/);

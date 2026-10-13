@@ -59,7 +59,10 @@ export async function enterAccountContextAction(): Promise<void> {
 }
 
 export async function enterContextAction(formData: FormData): Promise<void> {
-  const contextKey = String(formData.get("contextKey") ?? "");
+  const contextKey = String(formData.get("contextKey") ?? "").trim();
+  if (!contextKey) {
+    redirect("/access?error=INVALID_CONTEXT_KEY");
+  }
   const identity = await readAuthenticatedUserIdentity();
   if (!identity.ok) {
     identityFailureRedirect(identity.reason);

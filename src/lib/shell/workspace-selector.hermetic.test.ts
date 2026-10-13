@@ -190,14 +190,17 @@ test("current Workspace is keyed by contextKey, not Facility id", () => {
 
 test("selector posts only contextKey to enterContextAction", () => {
   const selector = source("src/components/shell/workspace-selector.tsx");
-  assert.match(selector, /enterContextAction/);
+  assert.match(selector, /\/access\/enter/);
   assert.match(selector, /name="contextKey"/);
+  assert.doesNotMatch(selector, /enterContextAction/);
   assert.match(selector, /Switch workspace/);
   assert.match(selector, /View My Access/);
   assert.match(selector, /data-workspace-surface/);
   assert.match(selector, /popover/);
   assert.match(selector, /fullscreen/);
   assert.match(selector, /sheet/);
+  assert.match(selector, /createPortal/);
+  assert.match(selector, /max-h-\[min\(32rem/);
   assert.doesNotMatch(selector, /facilityId/);
   assert.doesNotMatch(selector, /switch-facility/);
   assert.doesNotMatch(selector, /switchOrganizationAction/);
@@ -232,6 +235,11 @@ test("account menu stays identity-only; My Access remains a global surface", () 
   assert.match(access, /ContextCard/);
   assert.match(card, /OpenContextButton/);
   assert.match(entry, /enterContext\(/);
+  assert.match(entry, /INVALID_CONTEXT_KEY/);
+  const requestValidation = source("src/lib/session-revocation/request-validation.ts");
+  assert.match(requestValidation, /facilityPartnerOrganizationId/);
+  assert.match(requestValidation, /accessKind/);
+  assert.match(entry, /if \(!contextKey\)/);
   assert.match(entry, /resolveDepartmentCarryoverForFacilitySwitch/);
   assert.match(entry, /applyContextTransitionCookies/);
   assert.match(access, /CONTEXT_NOT_AVAILABLE/);

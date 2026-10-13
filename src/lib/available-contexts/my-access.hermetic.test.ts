@@ -235,9 +235,9 @@ test("My Access page uses certified resolver and posts only contextKey", () => {
   assert.match(page, /Your account is still active/);
   assert.match(page, /Choose where you would like to work/);
 
-  assert.match(button, /enterContextAction/);
+  assert.match(button, /\/access\/enter/);
   assert.match(button, /name="contextKey"/);
-  assert.match(button, /Opening…/);
+  assert.match(button, /Open/);
   assert.equal(button.includes("name=\"role\""), false);
   assert.equal(button.includes("organizationRole"), false);
   assert.equal(button.includes("facilityId"), false);

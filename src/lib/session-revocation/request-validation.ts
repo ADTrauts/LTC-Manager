@@ -33,6 +33,9 @@ const validateForRequest = cache(
     claimedVersion: number | undefined,
     claimedRole: AppJwtPayload["role"],
     claimedDepartmentId: string | null,
+    accessKind: AppJwtPayload["accessKind"],
+    partnerOrganizationId: string | undefined,
+    facilityPartnerOrganizationId: string | undefined,
   ): Promise<SessionValidation> =>
     validateSessionAuthority(
       {
@@ -45,6 +48,9 @@ const validateForRequest = cache(
         sessionVersion: claimedVersion,
         role: claimedRole,
         primaryDepartmentId: claimedDepartmentId,
+        accessKind,
+        partnerOrganizationId,
+        facilityPartnerOrganizationId,
       } as AppJwtPayload,
       prisma,
     ),
@@ -64,6 +70,9 @@ export async function validateSessionForRequest(
     session.sessionVersion,
     session.role,
     session.primaryDepartmentId ?? null,
+    session.accessKind,
+    session.partnerOrganizationId,
+    session.facilityPartnerOrganizationId,
   );
 }
 

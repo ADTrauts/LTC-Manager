@@ -495,6 +495,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "My Access chooser. Any User-authenticated session may view it. PIN and Harbor cannot. Rows come from listAvailableContexts; Open calls enterContext.",
   },
   {
+    pattern: "/access/enter",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "USER_SESSION" },
+    module: "access",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Native form POST for enterContext. Same User-session gate as /access; avoids cookie-less server-action replays.",
+  },
+  {
     pattern: "/setup",
     match: "EXACT",
     surface: "PAGE",

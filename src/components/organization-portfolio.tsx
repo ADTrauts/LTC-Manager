@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 
-import { enterContextAction } from "@/app/access/actions";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 import type {
   OrganizationPortfolio,
@@ -24,7 +23,7 @@ function PersonalAccessCell({ personal }: { personal: PersonalAccess }) {
 function OpenFacilityButton({ personal }: { personal: PersonalAccess }) {
   if (!personal.enterable) return null;
   return (
-    <form action={enterContextAction}>
+    <form action="/access/enter" method="post">
       <input type="hidden" name="contextKey" value={personal.contextKey} />
       <button
         type="submit"

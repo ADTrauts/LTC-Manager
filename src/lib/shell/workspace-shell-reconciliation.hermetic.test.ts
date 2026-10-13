@@ -166,5 +166,5 @@ test("closed workspace chrome stays display-only; switching lives in WorkspaceSe
   assert.match(region, /data-workspace-slot="reserved"/);
   assert.doesNotMatch(region, /enterContext|listAvailableContexts/);
   const selector = source("src/components/shell/workspace-selector.tsx");
-  assert.match(selector, /enterContextAction/);
+  assert.match(selector, /\/access\/enter/);
 });

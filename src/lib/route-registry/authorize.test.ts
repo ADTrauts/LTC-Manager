@@ -557,6 +557,26 @@ test("user session — /access is allowed from every User context and denied to 
   );
   assert.equal(
     authorizeRoute({
+      pathname: "/access/enter",
+      role: null,
+      sessionScope: "account",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/access/enter",
+      role: "STAFF",
+      sessionScope: "facility",
+      authKind: "employee",
+      featureFlags: FLAGS,
+    }).outcome,
+    "DENY",
+  );
+  assert.equal(
+    authorizeRoute({
       pathname: "/access",
       role: "STAFF",
       sessionScope: "facility",

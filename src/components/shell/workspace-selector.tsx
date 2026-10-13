@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { useFormStatus } from "react-dom";
 
-import { enterContextAction } from "@/app/access/actions";
 import { CurrentWorkspaceRegion } from "@/components/shell/current-workspace-region";
 import type { CurrentContextPresentation } from "@/lib/available-contexts/current-presentation";
 import {
@@ -40,23 +38,12 @@ function useCompactOverlay(): Exclude<OverlayKind, "popover"> {
   return kind;
 }
 
-function SwitchSubmit({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <span className="sr-only" aria-live="polite">
-      {pending ? "Switching workspace" : label}
-    </span>
-  );
-}
-
 function WorkspaceRow({
   item,
   isCurrent,
-  onClose,
 }: {
   item: AvailableContextPresentation;
   isCurrent: boolean;
-  onClose: () => void;
 }) {
   const via = workspaceRowProvenance(item);
   const name = workspaceRowAccessibleName(item);
@@ -67,7 +54,7 @@ function WorkspaceRow({
           {isCurrent ? "✓" : ""}
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-zinc-900">{item.title}</span>
+          <span className="block text-sm font-semibold text-zinc-900 break-words">{item.title}</span>
           <span className="block text-xs text-zinc-600">{item.roleLabel}</span>
           {via ? <span className="block text-xs text-zinc-500">via {via}</span> : null}
         </span>
@@ -101,7 +88,7 @@ function WorkspaceRow({
   }
 
   return (
-    <form action={enterContextAction}>
+    <form action="/access/enter" method="post">
       <input type="hidden" name="contextKey" value={item.contextKey} />
       <button
         type="submit"
@@ -111,10 +98,9 @@ function WorkspaceRow({
         data-testid="workspace-selector-row"
         data-context-key={item.contextKey}
         data-context-kind={item.kind}
-        onClick={onClose}
         className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-zinc-100 ${FOCUS_RING_CLASS}`}
       >
-        <SwitchSubmit label={`Switch to ${name}`} />
+        <span className="sr-only">Switch to {name}</span>
         {body}
       </button>
     </form>
@@ -178,7 +164,6 @@ function SelectorPanel({
                     key={item.contextKey}
                     item={item}
                     isCurrent={item.contextKey === currentContextKey}
-                    onClose={onClose}
                   />
                 ))}
               </div>
@@ -205,16 +190,21 @@ function Overlay({
   open,
   onClose,
   labelledBy,
+  anchorRef,
   children,
 }: {
   kind: OverlayKind;
   open: boolean;
   onClose: () => void;
   labelledBy: string;
+  anchorRef: RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const [popoverBox, setPopoverBox] = useState<{ top: number; left: number; width: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -225,7 +215,26 @@ function Overlay({
         onClose();
       }
     };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panelRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      onClose();
+    };
+    const syncPopover = () => {
+      const anchor = anchorRef.current;
+      if (!anchor || kind !== "popover") return;
+      const rect = anchor.getBoundingClientRect();
+      const width = Math.min(Math.max(rect.width, 22 * 16), window.innerWidth - 16);
+      const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+      setPopoverBox({ top: Math.min(rect.bottom + 4, window.innerHeight - 16), left, width });
+    };
     window.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("resize", syncPopover);
+    window.addEventListener("scroll", syncPopover, true);
+    syncPopover();
     const previousOverflow = document.body.style.overflow;
     if (kind !== "popover") document.body.style.overflow = "hidden";
     const timer = window.setTimeout(() => {
@@ -236,12 +245,16 @@ function Overlay({
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("resize", syncPopover);
+      window.removeEventListener("scroll", syncPopover, true);
       document.body.style.overflow = previousOverflow;
       previousFocus.current?.focus?.();
     };
-  }, [open, onClose, kind]);
+  }, [open, onClose, kind, anchorRef]);
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
   const panel = (
     <div
@@ -251,9 +264,19 @@ function Overlay({
       aria-labelledby={labelledBy}
       data-testid="workspace-selector-panel"
       data-workspace-surface={kind}
+      style={
+        kind === "popover" && popoverBox
+          ? {
+              position: "fixed",
+              top: popoverBox.top,
+              left: popoverBox.left,
+              width: popoverBox.width,
+            }
+          : undefined
+      }
       className={
         kind === "popover"
-          ? "absolute left-0 top-full z-50 mt-1 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+          ? "z-[80] flex max-h-[min(32rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
           : kind === "sheet"
             ? "relative z-[80] flex max-h-[min(40rem,90dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
             : "relative z-[80] flex h-dvh w-full flex-col overflow-hidden bg-white"
@@ -274,19 +297,20 @@ function Overlay({
     </div>
   );
 
-  if (kind === "popover") return panel;
-
-  if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 md:p-6">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        aria-label="Close"
-        onClick={onClose}
-      />
-      {panel}
-    </div>,
+    kind === "popover" ? (
+      panel
+    ) : (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 md:p-6">
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/40"
+          aria-label="Close"
+          onClick={onClose}
+        />
+        {panel}
+      </div>
+    ),
     document.body,
   );
 }
@@ -303,18 +327,6 @@ export function WorkspaceSelector({
   const compactOverlay = useCompactOverlay();
   const canSwitch = workspaceSelectorCanSwitch(items, currentContextKey);
   const overlay: OverlayKind = compact ? compactOverlay : "popover";
-
-  useEffect(() => {
-    if (!open || overlay !== "popover") return;
-    function onPointerDown(event: PointerEvent) {
-      const root = rootRef.current;
-      if (!root) return;
-      if (event.target instanceof Node && root.contains(event.target)) return;
-      setOpen(false);
-    }
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [open, overlay]);
 
   if (!current && items.length === 0) return null;
 
@@ -350,7 +362,13 @@ export function WorkspaceSelector({
         <span className="min-w-0 flex-1">{closed}</span>
         <AppIcons.chevronDown className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
       </button>
-      <Overlay kind={overlay} open={open} onClose={() => setOpen(false)} labelledBy={headingId}>
+      <Overlay
+        kind={overlay}
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledBy={headingId}
+        anchorRef={rootRef}
+      >
         <SelectorPanel
           items={items}
           currentContextKey={currentContextKey}
