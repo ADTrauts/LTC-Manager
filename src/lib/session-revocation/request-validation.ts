@@ -22,6 +22,10 @@ import {
  * Keyed on the identity and the claimed version rather than the token, so nothing derived from the
  * credential is held in memory beyond the request.
  */
+function partnerAccessKind(session: AppJwtPayload): "partner" | undefined {
+  return session.accessKind === "partner" ? "partner" : undefined;
+}
+
 const validateForRequest = cache(
   async (
     uid: string,
@@ -33,11 +37,13 @@ const validateForRequest = cache(
     claimedVersion: number | undefined,
     claimedRole: AppJwtPayload["role"],
     claimedDepartmentId: string | null,
-    accessKind: AppJwtPayload["accessKind"],
+    accessKind: "partner" | undefined,
     partnerOrganizationId: string | undefined,
     facilityPartnerOrganizationId: string | undefined,
   ): Promise<SessionValidation> =>
     validateSessionAuthority(
+      // React `cache` keys must be primitives, so the request-scoped wrapper
+      // rebuilds the session bag. Authority validation does not use name/email.
       {
         uid,
         authKind,
@@ -51,7 +57,7 @@ const validateForRequest = cache(
         accessKind,
         partnerOrganizationId,
         facilityPartnerOrganizationId,
-      } as AppJwtPayload,
+      } as unknown as AppJwtPayload,
       prisma,
     ),
 );
@@ -70,9 +76,11 @@ export async function validateSessionForRequest(
     session.sessionVersion,
     session.role,
     session.primaryDepartmentId ?? null,
-    session.accessKind,
-    session.partnerOrganizationId,
-    session.facilityPartnerOrganizationId,
+    partnerAccessKind(session),
+    typeof session.partnerOrganizationId === "string" ? session.partnerOrganizationId : undefined,
+    typeof session.facilityPartnerOrganizationId === "string"
+      ? session.facilityPartnerOrganizationId
+      : undefined,
   );
 }
 
