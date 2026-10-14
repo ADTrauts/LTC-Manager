@@ -128,9 +128,6 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
           Start free setup
         </Link>
       ) : null}
-      <p className="text-xs text-[var(--text-muted)]">
-        Seeded admin for development: <code>admin@terraceview.local</code>
-      </p>
     </form>
   );
 }
