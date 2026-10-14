@@ -1,0 +1,9 @@
+# Uploaded to Vercel but never needed at build or runtime.
+# Leaving them out keeps Function Storage from packing docs/tests into every deploy.
+docs
+.agents
+.codex
+tests
+playwright-report
+test-results
+coverage

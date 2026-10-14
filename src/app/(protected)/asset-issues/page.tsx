@@ -6,6 +6,7 @@ import {
   createIssueFromRecordAction,
   reportDirectIssueAction,
 } from "@/app/(protected)/asset-issues/actions";
+import { OpenIssueCreateButton } from "@/components/asset-operations/open-issue-create-button";
 import { MaintenanceSubNav } from "@/components/maintenance-sub-nav";
 import { EmptyState } from "@/components/design-system";
 import {
@@ -86,6 +87,8 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
     }),
   ]);
 
+  const unfilteredEmpty = issues.length === 0 && !q && !unitId && view === "OPEN";
+
   return (
     <section className="space-y-4" data-testid="issues-index">
       <header className="space-y-3">
@@ -117,6 +120,7 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
         })}
       </nav>
 
+      {unfilteredEmpty ? null : (
       <form method="get" className="flex flex-wrap gap-2" role="search">
         {view !== "OPEN" ? <input type="hidden" name="view" value={view} /> : null}
         <input
@@ -137,9 +141,28 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
           Filter
         </button>
       </form>
+      )}
+
+      {issues.length === 0 ? (
+        <EmptyState
+          icon="warning"
+          title={unfilteredEmpty ? "No Issues yet" : "No Issues in this view"}
+          description={
+            unfilteredEmpty
+              ? "An Issue is a known problem or condition. It can belong to a location, such as a ceiling leak, or to an Asset. Most Issues start when Plant accepts a maintenance Request."
+              : "Nothing matches this status, search, or location. Clear the filter to see the rest of the Issue queue."
+          }
+          action={unfilteredEmpty && authority.canReportIssue ? <OpenIssueCreateButton /> : undefined}
+          data-testid="issues-empty"
+        />
+      ) : null}
 
       {authority.canReportIssue ? (
-        <details className="rounded-xl border border-zinc-200 bg-white p-3" data-testid="direct-issue-create">
+        <details
+          id="create-issue"
+          className="rounded-xl border border-zinc-200 bg-white p-3"
+          data-testid="direct-issue-create"
+        >
           <summary className="cursor-pointer text-sm font-medium">Create Issue</summary>
           <form action={reportDirectIssueAction} className="mt-3 grid gap-2 sm:grid-cols-2">
             <input type="hidden" name="departmentId" value={departmentId} />
@@ -162,8 +185,12 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
               </select>
             </label>
             <label className="text-sm">
-              Asset ID (optional)
-              <input name="assetId" className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" />
+              Asset (optional)
+              <input
+                name="assetId"
+                placeholder="Leave blank for a location-only Issue"
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"
+              />
             </label>
             <button type="submit" className="rounded-md bg-zinc-900 px-3 py-2 text-sm text-white sm:col-span-2">
               Create Issue
@@ -184,13 +211,7 @@ export default async function IssuesIndexPage({ searchParams }: Props) {
         </details>
       ) : null}
 
-      {issues.length === 0 ? (
-        <EmptyState
-          icon="warning"
-          title="No Issues in this view"
-          description="An Issue is a known problem or condition. Asset is optional — a location-only Issue is valid. Plant triages Requests into Issues when that is the right next step."
-        />
-      ) : (
+      {issues.length === 0 ? null : (
         <ul className="space-y-2">
           {issues.map((issue) => (
             <li key={issue.id} className="rounded-xl border border-zinc-200 bg-white p-3 text-sm">

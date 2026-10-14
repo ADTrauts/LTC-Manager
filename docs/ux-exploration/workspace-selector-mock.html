@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vssyl workspace selector — UX exploration</title>
+  <style>
+    :root {
+      --zinc-50: #fafafa;
+      --zinc-100: #f4f4f5;
+      --zinc-200: #e4e4e7;
+      --zinc-300: #d4d4d8;
+      --zinc-400: #a1a1aa;
+      --zinc-500: #71717a;
+      --zinc-600: #52525b;
+      --zinc-700: #3f3f46;
+      --zinc-800: #27272a;
+      --zinc-900: #18181b;
+      --white: #ffffff;
+      --brand: #0b3d3a;
+      --accent: #0f766e;
+      --page: #f4f4f5;
+      --sidebar-w: 288px;
+      --header-h: 52px;
+      --focus: 2px solid #18181b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--page);
+      color: var(--zinc-900);
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .explorer {
+      border-bottom: 1px solid var(--zinc-200);
+      background: var(--white);
+      padding: 10px 16px 12px;
+    }
+    .explorer h1 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+    .explorer p {
+      margin: 2px 0 10px;
+      font-size: 12px;
+      color: var(--zinc-600);
+    }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; }
+    .control { display: flex; flex-direction: column; gap: 4px; }
+    .control span {
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--zinc-500);
+    }
+    .seg { display: flex; border: 1px solid var(--zinc-300); border-radius: 6px; overflow: hidden; background: var(--white); }
+    .seg button {
+      border: 0;
+      background: transparent;
+      color: var(--zinc-700);
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 550;
+    }
+    .seg button + button { border-left: 1px solid var(--zinc-200); }
+    .seg button[aria-pressed="true"] { background: var(--zinc-900); color: var(--white); }
+    .seg button:focus-visible { outline: var(--focus); outline-offset: -2px; }
+
+    .stage-wrap {
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .device {
+      background: var(--white);
+      border: 1px solid var(--zinc-200);
+      overflow: hidden;
+      position: relative;
+    }
+    .device[data-vp="desktop"] { width: 1280px; height: 800px; }
+    .device[data-vp="tablet"] { width: 768px; height: 900px; }
+    .device[data-vp="phone"] { width: 390px; height: 844px; }
+
+    .shell { display: flex; flex-direction: column; height: 100%; background: var(--page); }
+    .shell-header {
+      height: var(--header-h);
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      background: var(--white);
+      border-bottom: 1px solid var(--zinc-200);
+    }
+    .shell-body { display: flex; min-height: 0; flex: 1; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--brand);
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    .brand svg { width: 22px; height: 22px; flex: 0 0 auto; }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      flex: 0 0 var(--sidebar-w);
+      background: var(--white);
+      border-right: 1px solid var(--zinc-200);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .sidebar-top { padding: 14px 12px 8px; }
+    .sidebar-nav { padding: 8px 10px 16px; overflow: auto; flex: 1; }
+    .sidebar-bottom {
+      border-top: 1px solid var(--zinc-200);
+      padding: 10px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--zinc-700);
+    }
+    .nav-item[data-active="true"] {
+      background: var(--zinc-900);
+      color: var(--white);
+      font-weight: 600;
+    }
+    .nav-section {
+      margin: 14px 10px 6px;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--zinc-500);
+    }
+    .nav-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.45;
+      flex: 0 0 auto;
+    }
+
+    .ws-slot { position: relative; }
+    .ws-trigger {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      text-align: left;
+      color: inherit;
+    }
+    .ws-trigger:hover,
+    .ws-trigger[aria-expanded="true"] { background: var(--zinc-100); }
+    .ws-trigger:focus-visible { outline: var(--focus); outline-offset: 2px; }
+    .ws-trigger-copy { min-width: 0; flex: 1; }
+    .ws-name {
+      display: block;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--zinc-900);
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ws-meta {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--zinc-600);
+      line-height: 1.35;
+    }
+    .chevron {
+      flex: 0 0 auto;
+      margin-top: 3px;
+      color: var(--zinc-500);
+    }
+
+    .header-card {
+      margin: 4px 2px 2px;
+      padding: 10px 8px 8px;
+      border: 1px solid var(--zinc-200);
+      border-radius: 8px;
+      background: var(--zinc-50);
+    }
+    .header-card .brand { margin: 0 2px 8px; }
+
+    .ws-panel {
+      position: absolute;
+      z-index: 30;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      background: var(--white);
+      border: 1px solid var(--zinc-300);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .ws-slot { z-index: 20; }
+    .ws-panel[data-from="bottom"] {
+      top: auto;
+      bottom: calc(100% + 4px);
+    }
+    .ws-panel-head {
+      padding: 10px 12px 8px;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--zinc-500);
+    }
+    .ws-search {
+      margin: 0 10px 8px;
+      width: calc(100% - 20px);
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--zinc-200);
+      border-radius: 6px;
+      background: var(--zinc-50);
+      color: var(--zinc-900);
+    }
+    .ws-search:focus {
+      outline: none;
+      border-color: var(--zinc-900);
+      background: var(--white);
+    }
+    .ws-group {
+      margin: 6px 0 2px;
+      padding: 8px 12px 4px;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--zinc-500);
+    }
+    .ws-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 8px;
+      align-items: start;
+      padding: 8px 12px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+    }
+    .ws-row:hover { background: var(--zinc-50); }
+    .ws-row:focus-visible { outline: var(--focus); outline-offset: -2px; }
+    .ws-row[aria-current="true"] {
+      background: var(--zinc-50);
+      box-shadow: inset 3px 0 0 var(--zinc-900);
+    }
+    .ws-row-name { font-size: 13px; font-weight: 650; color: var(--zinc-900); line-height: 1.25; }
+    .ws-row-role { font-size: 12px; color: var(--zinc-700); margin-top: 1px; }
+    .ws-row-via { font-size: 11px; color: var(--zinc-500); margin-top: 1px; }
+    .ws-check { font-size: 13px; font-weight: 700; color: var(--zinc-900); line-height: 1.2; }
+    .ws-current {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--zinc-500);
+      margin-top: 2px;
+    }
+    .ws-footer {
+      border-top: 1px solid var(--zinc-200);
+      padding: 8px;
+    }
+    .ws-footer button {
+      width: 100%;
+      min-height: 36px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--zinc-800);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: left;
+      padding: 0 10px;
+    }
+    .ws-footer button:hover { background: var(--zinc-50); }
+    .ws-footer button:focus-visible { outline: var(--focus); }
+
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .page { padding: 20px 24px; }
+    .page h2 { margin: 0; font-size: 20px; font-weight: 650; }
+    .page .lede { margin: 6px 0 16px; font-size: 13px; color: var(--zinc-600); }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--zinc-200);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 650; }
+    .card p { margin: 0; font-size: 12px; color: var(--zinc-600); }
+
+    .dept-chip, .account-btn, .menu-btn {
+      min-height: 36px;
+      border: 1px solid var(--zinc-300);
+      border-radius: 6px;
+      background: var(--white);
+      color: var(--zinc-700);
+      font-size: 13px;
+      font-weight: 550;
+      padding: 0 10px;
+    }
+    .dept-chip { color: var(--zinc-800); background: var(--zinc-50); border-color: var(--zinc-200); }
+    .account-btn { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+    .account-btn:focus-visible, .menu-btn:focus-visible, .dept-chip:focus-visible { outline: var(--focus); outline-offset: 2px; }
+    .avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: var(--zinc-800);
+      color: var(--white);
+      display: grid;
+      place-items: center;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .account-menu {
+      position: absolute;
+      right: 12px;
+      top: 48px;
+      z-index: 40;
+      width: 240px;
+      background: var(--white);
+      border: 1px solid var(--zinc-200);
+      border-radius: 8px;
+      padding: 6px 0;
+    }
+    .account-menu p { margin: 0; padding: 8px 12px 4px; font-size: 13px; font-weight: 650; }
+    .account-menu button, .account-menu .link {
+      display: block;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 550;
+      color: var(--zinc-700);
+    }
+    .account-menu button:hover, .account-menu .link:hover { background: var(--zinc-50); }
+
+    .compact-ws {
+      min-width: 0;
+      max-width: 220px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .compact-ws:hover, .compact-ws[aria-expanded="true"] { background: var(--zinc-100); }
+    .compact-ws:focus-visible { outline: var(--focus); outline-offset: 2px; }
+
+    .sheet {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: var(--white);
+      display: flex;
+      flex-direction: column;
+    }
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 16px 8px;
+      border-bottom: 1px solid var(--zinc-200);
+    }
+    .sheet-head h2 { margin: 0; font-size: 16px; font-weight: 650; }
+    .sheet-close {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--zinc-300);
+      border-radius: 6px;
+      background: var(--white);
+      font-size: 13px;
+      font-weight: 550;
+    }
+    .sheet-close:focus-visible { outline: var(--focus); outline-offset: 2px; }
+    .sheet .ws-search { width: calc(100% - 32px); margin: 12px 16px 4px; min-height: 44px; }
+    .sheet-list { flex: 1; overflow: auto; padding: 8px 0 16px; }
+    .sheet .ws-row { min-height: 56px; padding: 10px 16px; }
+    .sheet .ws-footer { padding: 12px 16px 20px; }
+
+    .header-brand-block { min-width: 0; }
+    .header-brand-block .sub {
+      margin: 3px 0 0;
+      font-size: 11px;
+      font-weight: 550;
+      color: var(--zinc-600);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pin-note {
+      font-size: 12px;
+      color: var(--zinc-600);
+    }
+
+    [hidden] { display: none !important; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+    }
+
+    body[data-chrome="0"] .explorer { display: none; }
+    body[data-chrome="0"] .stage-wrap { padding: 0; }
+    body[data-chrome="0"] .device { border: 0; width: 100vw !important; height: 100vh !important; }
+
+    .device[data-vp="tablet"] .cards,
+    .device[data-vp="phone"] .cards { grid-template-columns: 1fr; }
+    .device[data-vp="tablet"] .sidebar,
+    .device[data-vp="phone"] .sidebar { display: none; }
+    .device[data-vp="desktop"] .compact-only { display: none; }
+  </style>
+</head>
+<body>
+  <div class="explorer" id="explorer">
+    <h1>Workspace selector UX exploration</h1>
+    <p>Static mock only. No authorization, session, or production shell changes. Label is <strong>Switch workspace</strong>.</p>
+    <div class="controls">
+      <div class="control">
+        <span>Variation</span>
+        <div class="seg" id="var-seg"></div>
+      </div>
+      <div class="control">
+        <span>Viewport</span>
+        <div class="seg" id="vp-seg"></div>
+      </div>
+      <div class="control">
+        <span>Active workspace</span>
+        <div class="seg" id="ws-seg"></div>
+      </div>
+      <div class="control">
+        <span>Selector</span>
+        <div class="seg" id="open-seg"></div>
+      </div>
+      <div class="control">
+        <span>Account menu</span>
+        <div class="seg" id="acct-seg"></div>
+      </div>
+      <div class="control">
+        <span>Session</span>
+        <div class="seg" id="pin-seg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="device" id="device" data-vp="desktop" aria-label="Application shell mock"></div>
+  </div>
+
+  <script>
+    const WORKSPACES = [
+      {
+        id: "tv-internal",
+        group: "Facilities",
+        name: "Terrace View",
+        role: "Facility Administrator",
+        via: null,
+        kind: "facility",
+      },
+      {
+        id: "hp-partner",
+        group: "Facilities",
+        name: "HighPointe",
+        role: "Manager",
+        via: "Metz Culinary Management",
+        kind: "facility",
+      },
+      {
+        id: "tv-partner",
+        group: "Facilities",
+        name: "Terrace View",
+        role: "Manager",
+        via: "Metz Culinary Management",
+        kind: "facility",
+      },
+      {
+        id: "metz-org",
+        group: "Organizations",
+        name: "Metz Culinary Management",
+        role: "Organization Administrator",
+        via: null,
+        kind: "organization",
+      },
+    ];
+
+    const FACILITY_NAV = [
+      { label: "Dashboard", active: true },
+      { label: "Today's Work" },
+      { label: "Locations" },
+      { label: "Employees" },
+      { label: "Assets" },
+      { label: "Log Book" },
+      { label: "Audit / Reports" },
+    ];
+    const FACILITY_SECONDARY = ["Build", "Admin"];
+    const ORG_NAV = [
+      { label: "Portfolio", active: true },
+      { label: "Clients" },
+      { label: "Members" },
+    ];
+
+    const state = {
+      variation: "a",
+      viewport: "desktop",
+      workspaceId: "tv-internal",
+      open: false,
+      account: false,
+      pin: false,
+      search: "",
+    };
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("v")) state.variation = params.get("v");
+    if (params.get("vp")) state.viewport = params.get("vp");
+    if (params.get("ws")) state.workspaceId = params.get("ws");
+    if (params.get("open") === "1") state.open = true;
+    if (params.get("account") === "1") state.account = true;
+    if (params.get("pin") === "1") state.pin = true;
+    if (params.get("chrome") === "0") document.body.dataset.chrome = "0";
+
+    function markSvg() {
+      return `<svg viewBox="0 0 64 64" aria-hidden="true">
+        <polygon fill="#148f85" points="8,8 24,8 26.5,20 12.5,20"/>
+        <polygon fill="#0f766e" points="12.5,20 26.5,20 29,32 15,32"/>
+        <polygon fill="#0c5f58" points="15,32 29,32 31.5,44 17.5,44"/>
+        <polygon fill="#0b3d3a" points="17.5,44 31.5,44 34,56 22,56"/>
+        <polygon fill="#0b3d3a" points="40,8 56,8 36,56 26,56"/>
+      </svg>`;
+    }
+
+    function currentWs() {
+      return WORKSPACES.find((w) => w.id === state.workspaceId) || WORKSPACES[0];
+    }
+
+    function closedMeta(ws) {
+      return ws.via ? `${ws.role} · via ${ws.via}` : ws.role;
+    }
+
+    function filteredWorkspaces() {
+      const q = state.search.trim().toLowerCase();
+      if (!q) return WORKSPACES;
+      return WORKSPACES.filter((w) =>
+        [w.name, w.role, w.via || ""].join(" ").toLowerCase().includes(q)
+      );
+    }
+
+    function chevron() {
+      return `<svg class="chevron" width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    function navItems(ws) {
+      const items = ws.kind === "organization" ? ORG_NAV : FACILITY_NAV;
+      return items.map((item) =>
+        `<div class="nav-item" data-active="${item.active ? "true" : "false"}">
+          <span class="nav-dot"></span><span>${item.label}</span>
+        </div>`
+      ).join("");
+    }
+
+    function secondaryNav(ws) {
+      if (ws.kind === "organization") return "";
+      return `<div class="nav-section">Tools</div>${FACILITY_SECONDARY.map((label) =>
+        `<div class="nav-item"><span class="nav-dot"></span><span>${label}</span></div>`
+      ).join("")}`;
+    }
+
+    function workspaceRows() {
+      const groups = ["Facilities", "Organizations"];
+      return groups.map((group) => {
+        const items = filteredWorkspaces().filter((w) => w.group === group);
+        if (!items.length) return "";
+        return `<div class="ws-group">${group}</div>` + items.map((w) => {
+          const current = w.id === state.workspaceId;
+          return `<button class="ws-row" type="button" data-ws="${w.id}"${current ? ' aria-current="true"' : ""}>
+            <span class="ws-check">${current ? "✓" : ""}</span>
+            <span>
+              <span class="ws-row-name">${w.name}</span>
+              <span class="ws-row-role">${w.role}</span>
+              ${w.via ? `<span class="ws-row-via">via ${w.via}</span>` : ""}
+            </span>
+            <span class="ws-current">${current ? "Current" : ""}</span>
+          </button>`;
+        }).join("");
+      }).join("");
+    }
+
+    function picker(fromBottom) {
+      return `<div class="ws-panel" data-from="${fromBottom ? "bottom" : "top"}" role="dialog" aria-label="Switch workspace">
+        <div class="ws-panel-head">Switch workspace</div>
+        <label class="sr-only" for="ws-search">Search workspaces</label>
+        <input id="ws-search" class="ws-search" placeholder="Search workspaces…" value="${escapeAttr(state.search)}" />
+        ${workspaceRows()}
+        <div class="ws-footer">
+          <button type="button" data-action="access">View My Access</button>
+        </div>
+      </div>`;
+    }
+
+    function sheet() {
+      return `<div class="sheet" role="dialog" aria-modal="true" aria-label="Switch workspace">
+        <div class="sheet-head">
+          <h2>Switch workspace</h2>
+          <button type="button" class="sheet-close" data-action="close">Close</button>
+        </div>
+        <label class="sr-only" for="ws-search">Search workspaces</label>
+        <input id="ws-search" class="ws-search" placeholder="Search workspaces…" value="${escapeAttr(state.search)}" />
+        <div class="sheet-list">${workspaceRows()}</div>
+        <div class="ws-footer">
+          <button type="button" data-action="access">View My Access</button>
+        </div>
+      </div>`;
+    }
+
+    function accountMenu() {
+      if (!state.account || state.pin) return "";
+      return `<div class="account-menu" role="menu" aria-label="Account">
+        <p>Andrew Trautman</p>
+        <button type="button">My Account</button>
+        <button type="button">My Access</button>
+        <button type="button">Help &amp; Support</button>
+        <button type="button">Sign out</button>
+      </div>`;
+    }
+
+    function trigger(ws, compact) {
+      const cls = compact ? "compact-ws" : "ws-trigger";
+      return `<button type="button" class="${cls}" aria-expanded="${state.open}" aria-haspopup="dialog" data-action="toggle">
+        <span class="ws-trigger-copy">
+          <span class="ws-name">${ws.name}</span>
+          <span class="ws-meta">${closedMeta(ws)}</span>
+        </span>
+        ${chevron()}
+      </button>`;
+    }
+
+    function page(ws) {
+      if (state.pin) {
+        return `<div class="page">
+          <h2>Today's Work</h2>
+          <p class="lede">Terrace View · Unit 2 East. Shared-device session. No workspace selector.</p>
+          <div class="cards">
+            <div class="card"><h3>Assigned work</h3><p>Only this unit. Other workplaces are not listed.</p></div>
+            <div class="card"><h3>Log Book</h3><p>Record work for the locked unit.</p></div>
+            <div class="card"><h3>Device</h3><p>Quick PIN stays on this facility and unit.</p></div>
+          </div>
+        </div>`;
+      }
+      if (ws.kind === "organization") {
+        return `<div class="page">
+          <h2>Organization portfolio</h2>
+          <p class="lede">${ws.name} · ${ws.role}</p>
+          <div class="cards">
+            <div class="card"><h3>Client facilities</h3><p>HighPointe and Terrace View appear here as clients, not as this workspace.</p></div>
+            <div class="card"><h3>Members</h3><p>Organization access is managed here. It is not a global workspace.</p></div>
+            <div class="card"><h3>Operating note</h3><p>Switching to a facility workspace changes the navigation under the selector.</p></div>
+          </div>
+        </div>`;
+      }
+      const via = ws.via ? ` Partner access via ${ws.via}.` : " Internal facility access.";
+      return `<div class="page">
+        <h2>Dashboard</h2>
+        <p class="lede">${ws.name} · ${ws.role}.${via}</p>
+        <div class="cards">
+          <div class="card"><h3>Today</h3><p>Work for this operating workspace only.</p></div>
+          <div class="card"><h3>Coverage</h3><p>People and assignments in ${ws.name}.</p></div>
+          <div class="card"><h3>Open issues</h3><p>Assets and repairs stay inside this workspace.</p></div>
+        </div>
+      </div>`;
+    }
+
+    function sidebar(ws) {
+      if (state.pin) {
+        return `<aside class="sidebar" aria-label="Navigation">
+          <div class="sidebar-top"><div class="brand">${markSvg()}<span>VSSYL</span></div></div>
+          <div class="sidebar-nav">${navItems(ws)}</div>
+        </aside>`;
+      }
+
+      const selector = `<div class="ws-slot">
+        ${trigger(ws, false)}
+        ${state.open && state.viewport === "desktop" ? picker(state.variation === "c") : ""}
+      </div>`;
+
+      if (state.variation === "b") {
+        return `<aside class="sidebar" aria-label="Navigation">
+          <div class="sidebar-top">
+            <div class="header-card">
+              <div class="brand">${markSvg()}<span>VSSYL</span></div>
+              ${selector}
+            </div>
+          </div>
+          <div class="sidebar-nav">${navItems(ws)}${secondaryNav(ws)}</div>
+        </aside>`;
+      }
+
+      if (state.variation === "c") {
+        return `<aside class="sidebar" aria-label="Navigation">
+          <div class="sidebar-top"><div class="brand">${markSvg()}<span>VSSYL</span></div></div>
+          <div class="sidebar-nav">${navItems(ws)}${secondaryNav(ws)}</div>
+          <div class="sidebar-bottom">
+            ${selector}
+            <button type="button" class="account-btn" style="margin:8px 0 0;width:100%" data-action="account">
+              <span class="avatar">AT</span> Andrew Trautman
+            </button>
+          </div>
+        </aside>`;
+      }
+
+      return `<aside class="sidebar" aria-label="Navigation">
+        <div class="sidebar-top">
+          <div class="brand">${markSvg()}<span>VSSYL</span></div>
+          <div style="height:10px"></div>
+          ${selector}
+        </div>
+        <div class="sidebar-nav">${navItems(ws)}${secondaryNav(ws)}</div>
+      </aside>`;
+    }
+
+    function header(ws) {
+      const compact = state.viewport !== "desktop";
+      const showDept = !state.pin && ws.kind === "facility";
+      const showHeaderAccount = state.variation !== "c" || compact;
+      const compactSelector = compact && !state.pin
+        ? trigger(ws, true)
+        : compact && state.pin
+          ? `<p class="pin-note">${ws.name}</p>`
+          : "";
+
+      return `<header class="shell-header">
+        ${compact ? `<button class="menu-btn compact-only" type="button">Menu</button>` : ""}
+        ${compact
+          ? `<div class="header-brand-block"><div class="brand">${markSvg()}<span>VSSYL</span></div></div>`
+          : `<div class="header-brand-block"><strong style="font-size:14px">${pageTitle(ws)}</strong><div class="sub">${ws.name}</div></div>`}
+        ${compactSelector}
+        ${showDept ? `<span class="dept-chip" title="Department is a lens, not a workspace">Dietary</span>` : ""}
+        ${state.pin ? `<span class="pin-note">Unit 2 East · shared device</span>` : ""}
+        ${showHeaderAccount ? `<button type="button" class="account-btn" data-action="account" aria-expanded="${state.account}">
+          <span class="avatar">${state.pin ? "JR" : "AT"}</span>
+          <span>${state.pin ? "J. Reyes" : "Andrew Trautman"}</span>
+        </button>` : `<span style="margin-left:auto"></span>`}
+        ${accountMenu()}
+      </header>`;
+    }
+
+    function renderSeg(id, options, key) {
+      document.getElementById(id).innerHTML = options.map(([value, label]) =>
+        `<button type="button" aria-pressed="${state[key] === value}" data-set="${key}" data-value="${value}">${label}</button>`
+      ).join("");
+    }
+
+    function renderControls() {
+      renderSeg("var-seg", [["a", "A · Top"], ["b", "B · Card"], ["c", "C · Bottom"]], "variation");
+      renderSeg("vp-seg", [["desktop", "Desktop"], ["tablet", "Tablet"], ["phone", "Phone"]], "viewport");
+      renderSeg("ws-seg", [
+        ["tv-internal", "TV internal"],
+        ["hp-partner", "HighPointe"],
+        ["tv-partner", "TV partner"],
+        ["metz-org", "Organization"],
+      ], "workspaceId");
+      renderSeg("open-seg", [[false, "Closed"], [true, "Open"]], "open");
+      renderSeg("acct-seg", [[false, "Closed"], [true, "Open"]], "account");
+      renderSeg("pin-seg", [[false, "Global User"], [true, "Quick PIN"]], "pin");
+    }
+
+    function pageTitle(ws) {
+      if (state.pin) return "Today's Work";
+      return ws.kind === "organization" ? "Portfolio" : "Dashboard";
+    }
+
+    function render() {
+      if (state.pin) state.open = false;
+      const ws = currentWs();
+      const device = document.getElementById("device");
+      device.dataset.vp = state.viewport;
+      device.innerHTML = `<div class="shell">
+        ${header(ws)}
+        <div class="shell-body">
+          ${state.viewport === "desktop" ? sidebar(ws) : ""}
+          <main class="main">${page(ws)}</main>
+        </div>
+        ${state.open && state.viewport !== "desktop" && !state.pin ? sheet() : ""}
+      </div>`;
+      const search = document.getElementById("ws-search");
+      if (search) {
+        search.addEventListener("input", (e) => {
+          state.search = e.target.value;
+          const active = document.activeElement === search;
+          render();
+          if (active) {
+            const next = document.getElementById("ws-search");
+            if (next) {
+              next.focus();
+              next.setSelectionRange(state.search.length, state.search.length);
+            }
+          }
+        });
+      }
+      renderControls();
+      syncUrl();
+    }
+
+    function syncUrl() {
+      const next = new URLSearchParams();
+      next.set("v", state.variation);
+      next.set("vp", state.viewport);
+      next.set("ws", state.workspaceId);
+      if (state.open) next.set("open", "1");
+      if (state.account) next.set("account", "1");
+      if (state.pin) next.set("pin", "1");
+      if (document.body.dataset.chrome === "0") next.set("chrome", "0");
+      history.replaceState(null, "", `?${next.toString()}`);
+    }
+
+    function escapeAttr(value) {
+      return String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+    }
+
+    document.addEventListener("click", (event) => {
+      const setBtn = event.target.closest("[data-set]");
+      if (setBtn) {
+        const key = setBtn.dataset.set;
+        let value = setBtn.dataset.value;
+        if (value === "true") value = true;
+        if (value === "false") value = false;
+        state[key] = value;
+        if (key === "pin" && value) state.open = false;
+        if (key === "open" && value) state.account = false;
+        if (key === "account" && value) state.open = false;
+        render();
+        return;
+      }
+      const action = event.target.closest("[data-action]");
+      if (action) {
+        const name = action.dataset.action;
+        if (name === "toggle") {
+          state.open = !state.open;
+          state.account = false;
+        }
+        if (name === "close") state.open = false;
+        if (name === "account") {
+          state.account = !state.account;
+          state.open = false;
+        }
+        if (name === "access") state.open = false;
+        render();
+        return;
+      }
+      const row = event.target.closest("[data-ws]");
+      if (row) {
+        state.workspaceId = row.dataset.ws;
+        state.open = false;
+        render();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        state.open = false;
+        state.account = false;
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
