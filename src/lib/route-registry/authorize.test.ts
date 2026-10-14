@@ -635,7 +635,7 @@ test("role policy — /menus and /menus/[menuId] keep the Supervisor floor", () 
 });
 
 test("internal — framework and static asset paths pass through", () => {
-  for (const path of ["/_next/data/x.json", "/favicon.ico", "/next.svg", "/window.svg"]) {
+  for (const path of ["/_next/data/x.json", "/favicon.ico", "/icon.svg", "/next.svg", "/window.svg"]) {
     assert.equal(outcome(path, null), "ALLOW", path);
   }
 });

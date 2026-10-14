@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useOptimistic, useState, useTransition } from "react";
+import { useId, useOptimistic, useState, useTransition } from "react";
 
 import { hrefAfterActiveDepartmentChange } from "@/lib/active-department-navigation";
 import { departmentContextPresentation } from "@/lib/department-context";
@@ -39,6 +39,8 @@ export function DepartmentScopeSwitcher({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const selectId = useId();
+  const hintId = useId();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const DeptIcon = AppIcons.facility;
@@ -119,7 +121,7 @@ export function DepartmentScopeSwitcher({
     >
       <label
         className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-        htmlFor="department-context-select"
+        htmlFor={selectId}
       >
         Department
       </label>
@@ -134,12 +136,13 @@ export function DepartmentScopeSwitcher({
           <DeptIcon className="h-4 w-4" />
         </span>
         <select
-          id="department-context-select"
+          id={selectId}
+          name={selectId}
           className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1.5 py-1.5 text-sm text-zinc-800 focus:outline-none disabled:opacity-60 sm:px-2"
           disabled={pending}
           value={value}
           onChange={(e) => void commit(e.target.value)}
-          aria-describedby="department-context-hint"
+          aria-describedby={hintId}
           aria-label="Department"
           title={CONTEXT_HINT}
         >
@@ -155,7 +158,7 @@ export function DepartmentScopeSwitcher({
           ))}
         </select>
       </div>
-      <p id="department-context-hint" className="sr-only">
+      <p id={hintId} className="sr-only">
         {CONTEXT_HINT}
       </p>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}

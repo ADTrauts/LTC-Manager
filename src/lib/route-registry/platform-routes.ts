@@ -1569,6 +1569,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "framework",
   },
   {
+    pattern: "/icon.svg",
+    match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+    notes: "Next.js App Router metadata icon from src/app/icon.svg.",
+  },
+  {
     pattern: "/file.svg",
     match: "EXACT",
     surface: "INTERNAL",

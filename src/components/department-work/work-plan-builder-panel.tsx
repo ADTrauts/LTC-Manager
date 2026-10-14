@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 
 import {
   createWorkPlanDraftAction,
@@ -174,6 +174,7 @@ export function WorkPlanBuilderPanel({
   operationalTypeOptions,
 }: Props) {
   const router = useRouter();
+  const fieldId = useId();
   const [pending, startTransition] = useTransition();
   const starting =
     (initialPlanId ? plans.find((p) => p.id === initialPlanId) : null) ?? plans[0] ?? null;
@@ -324,9 +325,11 @@ export function WorkPlanBuilderPanel({
         ) : null}
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium" htmlFor={`${fieldId}-name`}>
             Name
             <input
+              id={`${fieldId}-name`}
+              name={`${fieldId}-name`}
               className="mt-1 w-full rounded-md border px-3 py-2"
               data-testid="work-plan-name"
               value={draft.name}
@@ -334,9 +337,11 @@ export function WorkPlanBuilderPanel({
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
           </label>
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium" htmlFor={`${fieldId}-description`}>
             Description
             <textarea
+              id={`${fieldId}-description`}
+              name={`${fieldId}-description`}
               className="mt-1 w-full rounded-md border px-3 py-2"
               data-testid="work-plan-description"
               value={draft.description ?? ""}
@@ -362,6 +367,8 @@ export function WorkPlanBuilderPanel({
               data-testid={`work-plan-item-${index}`}
             >
               <input
+                id={`${fieldId}-item-${index}-label`}
+                name={`${fieldId}-item-${index}-label`}
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 data-testid={`work-plan-item-label-${index}`}
                 value={item.label}
@@ -373,9 +380,11 @@ export function WorkPlanBuilderPanel({
                 }}
               />
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="text-xs">
+                <label className="text-xs" htmlFor={`${fieldId}-item-${index}-completion`}>
                   Completion
                   <select
+                    id={`${fieldId}-item-${index}-completion`}
+                    name={`${fieldId}-item-${index}-completion`}
                     className="mt-1 w-full rounded-md border px-2 py-1.5"
                     data-testid={`work-plan-item-completion-${index}`}
                     value={item.completionMode ?? "EXPLICIT_CONFIRMATION"}
@@ -393,9 +402,11 @@ export function WorkPlanBuilderPanel({
                     <option value="LINKED_EVIDENCE">Linked evidence</option>
                   </select>
                 </label>
-                <label className="text-xs">
+                <label className="text-xs" htmlFor={`${fieldId}-item-${index}-responsibility`}>
                   Responsibility
                   <select
+                    id={`${fieldId}-item-${index}-responsibility`}
+                    name={`${fieldId}-item-${index}-responsibility`}
                     className="mt-1 w-full rounded-md border px-2 py-1.5"
                     data-testid={`work-plan-item-responsibility-${index}`}
                     value={item.responsibilityMode ?? "UNIT_SHARED"}
@@ -416,9 +427,11 @@ export function WorkPlanBuilderPanel({
                     </option>
                   </select>
                 </label>
-                <label className="text-xs">
+                <label className="text-xs" htmlFor={`${fieldId}-item-${index}-procedure`}>
                   Procedure
                   <select
+                    id={`${fieldId}-item-${index}-procedure`}
+                    name={`${fieldId}-item-${index}-procedure`}
                     className="mt-1 w-full rounded-md border px-2 py-1.5"
                     data-testid={`work-plan-item-procedure-${index}`}
                     value={item.knowledgeArticleId ?? ""}
@@ -440,9 +453,11 @@ export function WorkPlanBuilderPanel({
                     ))}
                   </select>
                 </label>
-                <label className="text-xs">
+                <label className="text-xs" htmlFor={`${fieldId}-item-${index}-template`}>
                   Linked template
                   <select
+                    id={`${fieldId}-item-${index}-template`}
+                    name={`${fieldId}-item-${index}-template`}
                     className="mt-1 w-full rounded-md border px-2 py-1.5"
                     data-testid={`work-plan-item-template-${index}`}
                     value={item.linkedTemplateStableKey ?? ""}
@@ -468,9 +483,11 @@ export function WorkPlanBuilderPanel({
                 </label>
                 <fieldset className="text-xs sm:col-span-2">
                   <legend className="mb-1">Operating periods</legend>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2" htmlFor={`${fieldId}-item-${index}-once`}>
                     <input
                       type="checkbox"
+                      id={`${fieldId}-item-${index}-once`}
+                      name={`${fieldId}-item-${index}-once`}
                       data-testid={`work-plan-item-once-${index}`}
                       checked={(item.cycleStableKeys ?? []).length === 0}
                       disabled={!canManage || !isDraft || pending}
@@ -493,9 +510,15 @@ export function WorkPlanBuilderPanel({
                     {cycleOptions.map((c) => {
                       const selected = (item.cycleStableKeys ?? []).includes(c.stableKey);
                       return (
-                        <label key={c.stableKey} className="flex items-center gap-2">
+                        <label
+                          key={c.stableKey}
+                          className="flex items-center gap-2"
+                          htmlFor={`${fieldId}-item-${index}-cycle-${c.stableKey}`}
+                        >
                           <input
                             type="checkbox"
+                            id={`${fieldId}-item-${index}-cycle-${c.stableKey}`}
+                            name={`${fieldId}-item-${index}-cycle-${c.stableKey}`}
                             data-testid={`work-plan-item-cycle-${index}-${c.stableKey}`}
                             checked={selected}
                             disabled={!canManage || !isDraft || pending}
@@ -522,9 +545,15 @@ export function WorkPlanBuilderPanel({
                     {(item.cycleStableKeys ?? [])
                       .filter((key) => !cycleOptions.some((c) => c.stableKey === key))
                       .map((key) => (
-                        <label key={key} className="flex items-center gap-2 text-slate-600">
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 text-slate-600"
+                          htmlFor={`${fieldId}-item-${index}-orphan-cycle-${key}`}
+                        >
                           <input
                             type="checkbox"
+                            id={`${fieldId}-item-${index}-orphan-cycle-${key}`}
+                            name={`${fieldId}-item-${index}-orphan-cycle-${key}`}
                             checked
                             disabled={!canManage || !isDraft || pending}
                             onChange={() => {
@@ -768,6 +797,7 @@ function WorkPlanAppliesToEditor({
   disabled: boolean;
   onChange: (applicabilities: NonNullable<WorkPlanDraftInput["applicabilities"]>) => void;
 }) {
+  const fieldId = useId();
   const apps = draft.applicabilities ?? [{ kind: "DEPARTMENT_UNIT" }];
   const app = apps[0] ?? { kind: "DEPARTMENT_UNIT" };
   const multiple = apps.length > 1;
@@ -791,7 +821,9 @@ function WorkPlanAppliesToEditor({
 
   return (
     <div className="space-y-2" data-testid="work-plan-applies-to">
-      <p className="text-sm font-medium">Applies to</p>
+      <label className="text-sm font-medium" htmlFor={`${fieldId}-kind`}>
+        Applies to
+      </label>
       {editorKind === "OTHER" ? (
         <p className="text-sm text-slate-600" data-testid="work-plan-applies-to-custom">
           {multiple
@@ -804,6 +836,8 @@ function WorkPlanAppliesToEditor({
         </p>
       ) : null}
       <select
+        id={`${fieldId}-kind`}
+        name={`${fieldId}-kind`}
         className="w-full rounded-md border px-2 py-1.5 text-sm"
         data-testid="work-plan-applies-to-kind"
         value={editorKind === "OTHER" ? "DEPARTMENT_UNIT" : editorKind}
@@ -844,6 +878,8 @@ function WorkPlanAppliesToEditor({
       </select>
       {app.kind === "SPECIFIC_UNIT" ? (
         <select
+          id={`${fieldId}-unit`}
+          name={`${fieldId}-unit`}
           className="w-full rounded-md border px-2 py-1.5 text-sm"
           data-testid="work-plan-applies-to-unit"
           value={app.unitId ?? ""}
@@ -862,6 +898,8 @@ function WorkPlanAppliesToEditor({
       ) : null}
       {app.kind === "OPERATIONAL_TYPE" ? (
         <select
+          id={`${fieldId}-operational-type`}
+          name={`${fieldId}-operational-type`}
           className="w-full rounded-md border px-2 py-1.5 text-sm"
           data-testid="work-plan-applies-to-operational-type"
           value={app.operationalTypeKey ?? ""}
@@ -885,6 +923,8 @@ function WorkPlanAppliesToEditor({
       ) : null}
       {app.kind === "SPACE_TYPE" ? (
         <select
+          id={`${fieldId}-space-type`}
+          name={`${fieldId}-space-type`}
           className="w-full rounded-md border px-2 py-1.5 text-sm"
           data-testid="work-plan-applies-to-space-type"
           value={app.spaceType ?? ""}
