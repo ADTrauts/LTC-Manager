@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 
@@ -40,6 +40,7 @@ import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
 import { RunAssetLogsSection } from "@/components/canonical-logs/run-asset-logs-section";
+import { EmptyState } from "@/components/design-system";
 import { PhotoFileField } from "@/components/photos/photo-file-field";
 import { PhotoGallery, PhotoThumb } from "@/components/photos/photo-gallery";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
@@ -54,6 +55,33 @@ import { MAX_ASSET_PHOTOS } from "@/lib/photo-attachments";
 type Props = {
   params: Promise<{ assetId: string }>;
 };
+
+function AssetProfileUnavailable({
+  title,
+  description,
+  backHref,
+  backLabel,
+}: {
+  title: string;
+  description: string;
+  backHref: string;
+  backLabel: string;
+}) {
+  return (
+    <section className="space-y-4" data-testid="asset-profile-unavailable">
+      <EmptyState
+        icon="assets"
+        title={title}
+        description={description}
+        action={
+          <Link href={backHref} className="text-sm font-medium underline underline-offset-2">
+            {backLabel}
+          </Link>
+        }
+      />
+    </section>
+  );
+}
 
 export default async function AssetProfilePage({ params }: Props) {
   noStore();
@@ -73,7 +101,16 @@ export default async function AssetProfilePage({ params }: Props) {
       department: { select: { id: true, key: true } },
     },
   });
-  if (!assetRow) notFound();
+  if (!assetRow) {
+    return (
+      <AssetProfileUnavailable
+        title="This equipment isn't here"
+        description="It may have been moved, retired, or it belongs to another facility."
+        backHref="/assets"
+        backLabel="Back to Maintenance"
+      />
+    );
+  }
 
   const departmentId =
     assetRow.departmentId ??
@@ -98,7 +135,33 @@ export default async function AssetProfilePage({ params }: Props) {
       })
     )?.id;
   if (!departmentId) {
-    redirect("/assets");
+    return (
+      <AssetProfileUnavailable
+        title="This asset has no department yet"
+        description="Assign a responsible department in Asset Builder before opening its records."
+        backHref="/assets/builder"
+        backLabel="Open Asset Builder"
+      />
+    );
+  }
+
+  const authority = await resolveAssetOperationsAuthority(
+    session,
+    session.facilityId,
+    departmentId,
+  );
+  if (!authority.canViewRuntime && !authority.canManageAssets) {
+    return (
+      <AssetProfileUnavailable
+        title="You can't open this asset"
+        description={
+          authority.reason ??
+          "This department's asset records are not available to your role."
+        }
+        backHref={assetRow.unitId ? `/unit/${assetRow.unitId}` : "/assets"}
+        backLabel={assetRow.unitId ? "Back to the location" : "Back to Maintenance"}
+      />
+    );
   }
 
   let profile;
@@ -109,14 +172,15 @@ export default async function AssetProfilePage({ params }: Props) {
       assetId,
     });
   } catch {
-    notFound();
+    return (
+      <AssetProfileUnavailable
+        title="This equipment isn't here"
+        description="It may have been moved, retired, or it belongs to another facility."
+        backHref="/assets"
+        backLabel="Back to Maintenance"
+      />
+    );
   }
-
-  const authority = await resolveAssetOperationsAuthority(
-    session,
-    session.facilityId,
-    departmentId,
-  );
 
   const [units, spaces, vendors, organizations, departments, facility, pmPlans] = await Promise.all([
     prisma.unit.findMany({

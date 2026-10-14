@@ -110,7 +110,7 @@ test("MANAGER may manage Assets, Vendors, and Work Orders", () => {
   assert.doesNotThrow(() => requireAssetStatusChange(d));
 });
 
-test("FA alone without primaryDepartment match is denied", () => {
+test("FA alone without primaryDepartment match may view but not manage", () => {
   const d = decideAssetOperationsAuthority({
     flagEnabled: true,
     role: "FACILITY_ADMINISTRATOR",
@@ -122,6 +122,7 @@ test("FA alone without primaryDepartment match is denied", () => {
     departmentKey: "DIETARY",
     primaryDepartmentId: "other",
   });
+  assert.equal(d.canViewRuntime, true);
   assert.equal(d.canReportIssue, false);
   assert.equal(d.canManageAssets, false);
   assert.match(d.reason ?? "", /Facility Administrator/);

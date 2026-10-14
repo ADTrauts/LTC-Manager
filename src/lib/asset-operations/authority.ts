@@ -35,7 +35,8 @@ const DENIED: AssetOperationsAuthorityDecision = {
 /**
  * Pure authority decision for Asset Operations (Phase 10A / 11B / 12A).
  * Quick PIN may report scoped Issues; never grants Asset Builder / Vendor / Work Order manage.
- * Facility Administrator alone is denied unless primaryDepartment matches scope.
+ * Facility Administrator may view facility Asset runtime (profiles and attached
+ * Records). Manage / Work Order authority still requires primaryDepartment match.
  */
 export function decideAssetOperationsAuthority(input: {
   flagEnabled: boolean;
@@ -73,6 +74,7 @@ export function decideAssetOperationsAuthority(input: {
     if (input.primaryDepartmentId !== input.departmentId) {
       return {
         ...DENIED,
+        canViewRuntime: true,
         reason:
           "Facility Administrator status alone does not grant Asset or Work Order authority.",
       };
