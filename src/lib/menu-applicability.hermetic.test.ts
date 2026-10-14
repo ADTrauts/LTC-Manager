@@ -11,8 +11,10 @@ import {
   expandRoomsByOperationalType,
   expandRoomsUnderNeighborhood,
   isEligibleMenuCycleIdentity,
+  cycleAssignmentsFromPeriods,
   menuLocationMatches,
   menuLocationTargetKey,
+  offerSelectRemainingRoomsOfType,
   normalizeMenuLocationTarget,
   overlappingActiveMenus,
   resolveMenuPeriodKeys,
@@ -364,6 +366,72 @@ test("bulk helpers write explicit current IDs and do not invent a live rule", ()
     false,
   );
   assert.equal(expandRoomsByOperationalType([...actionable, later], "archetype:servery").length, 2);
+});
+
+test("first room of a type offers remaining rooms even when only the label matches", () => {
+  const labeledOnly = location({
+    id: "naval-servery",
+    kind: "room",
+    displayName: "Naval Park Servery",
+    roomTypeKey: "servery",
+    roomTypeLabel: "Servery",
+  });
+  const chosenKey = menuLocationTargetKey({ unitId: null, spaceId: servery.id });
+  const offer = offerSelectRemainingRoomsOfType({
+    locations: [...actionable, labeledOnly],
+    chosen: servery,
+    selectedKeys: new Set([chosenKey]),
+  });
+  assert.equal(offer?.label, "Servery");
+  assert.deepEqual(offer?.remaining, [{ unitId: null, spaceId: "naval-servery" }]);
+});
+
+test("second room of a type does not offer select-all again", () => {
+  const labeledOnly = location({
+    id: "naval-servery",
+    kind: "room",
+    displayName: "Naval Park Servery",
+    roomTypeLabel: "Servery",
+  });
+  const offer = offerSelectRemainingRoomsOfType({
+    locations: [...actionable, labeledOnly],
+    chosen: labeledOnly,
+    selectedKeys: new Set([
+      menuLocationTargetKey({ unitId: null, spaceId: servery.id }),
+      menuLocationTargetKey({ unitId: null, spaceId: labeledOnly.id }),
+    ]),
+  });
+  assert.equal(offer, null);
+});
+
+test("period cycle bindings become explicit cycle assignments", () => {
+  assert.deepEqual(
+    cycleAssignmentsFromPeriods([
+      { key: "BRUNCH", label: "Brunch", categories: ["Items"], cycleStableKey: "breakfast" },
+      { key: "LUNCH", label: "Lunch", categories: ["Items"] },
+    ]),
+    [{ cycleStableKey: "breakfast", menuPeriodKey: "BRUNCH" }],
+  );
+});
+
+test("untyped rooms and neighborhoods do not offer a type expansion", () => {
+  const unlabeled = location({ id: "storage", kind: "room", displayName: "Storage" });
+  assert.equal(
+    offerSelectRemainingRoomsOfType({
+      locations: [...actionable, unlabeled],
+      chosen: unlabeled,
+      selectedKeys: new Set([menuLocationTargetKey({ unitId: null, spaceId: unlabeled.id })]),
+    }),
+    null,
+  );
+  assert.equal(
+    offerSelectRemainingRoomsOfType({
+      locations: actionable,
+      chosen: botanical,
+      selectedKeys: new Set([menuLocationTargetKey({ unitId: botanical.id, spaceId: null })]),
+    }),
+    null,
+  );
 });
 
 test("two ACTIVE menus may share a location and cycle; overlap is flagged not blocked", () => {

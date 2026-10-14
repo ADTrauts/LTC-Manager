@@ -75,7 +75,7 @@ export function ResponsiveShellNav({
             lockedUnitId={lockedUnitId}
             onNavigate={close}
           />
-          {modeNav}
+          {modeNav ? <div data-testid="compact-mode-nav">{modeNav}</div> : null}
           {compatibility ? (
             <div data-testid="compact-compatibility-switcher">{compatibility}</div>
           ) : null}

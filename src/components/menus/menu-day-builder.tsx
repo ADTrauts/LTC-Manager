@@ -4,6 +4,8 @@ import { MenuItemEntryType } from "@prisma/client";
 import { useEffect, useState } from "react";
 
 import { saveMenuCategoryItemsAction } from "@/app/(protected)/menus/actions";
+import { MenuPeriodDialog } from "@/components/menus/menu-period-dialog";
+import type { EligibleMenuOperationalCycle } from "@/lib/menu-applicability";
 import type { MenuPeriodConfig } from "@/lib/menu-cycle";
 import type { MenuItemCycleRow } from "@/lib/menu-db";
 
@@ -11,7 +13,11 @@ type Props = {
   menuId: string;
   selectedWeek: number;
   selectedDayIndex: number;
+  cycleLengthWeeks: 3 | 4;
+  weekStartsOn: "SUNDAY" | "MONDAY";
+  cycleAnchorDate: string;
   periods: MenuPeriodConfig[];
+  eligibleCycles: EligibleMenuOperationalCycle[];
   menuItems: MenuItemCycleRow[];
   disabled: boolean;
 };
@@ -60,10 +66,15 @@ export function MenuDayBuilder({
   menuId,
   selectedWeek,
   selectedDayIndex,
+  cycleLengthWeeks,
+  weekStartsOn,
+  cycleAnchorDate,
   periods,
+  eligibleCycles,
   menuItems,
   disabled,
 }: Props) {
+  const [periodEditor, setPeriodEditor] = useState<string | "new" | null>(null);
   const [linesByKey, setLinesByKey] = useState<Record<string, MenuRowDraft[]>>(() =>
     Object.fromEntries(
       periods.flatMap((period) =>
@@ -91,11 +102,37 @@ export function MenuDayBuilder({
     );
   }, [menuItems, periods, selectedDayIndex, selectedWeek]);
 
+  const cycleLabel = (period: MenuPeriodConfig) =>
+    eligibleCycles.find((cycle) => cycle.stableKey === period.cycleStableKey)?.label ?? null;
+
   return (
     <fieldset disabled={disabled} className="space-y-4 border-0 p-0">
+      {periods.length === 0 ? (
+        <p className="text-sm text-zinc-600">
+          No meal periods yet. Add one to start writing this day&apos;s menu.
+        </p>
+      ) : null}
       {periods.map((period) => (
-        <div key={period.key} className="rounded border border-zinc-200 p-3">
-          <p className="text-sm font-semibold text-zinc-800">{period.label}</p>
+        <div key={period.key} className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-zinc-800">{period.label}</p>
+              {cycleLabel(period) ? (
+                <p className="text-xs text-zinc-500">{cycleLabel(period)}</p>
+              ) : (
+                <p className="text-xs text-zinc-400">Not attached to an Operational Cycle</p>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label={`Edit ${period.label}`}
+              disabled={disabled}
+              onClick={() => setPeriodEditor(period.key)}
+              className="rounded px-2 py-1 text-lg leading-none text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+            >
+              ···
+            </button>
+          </div>
           <div className="mt-2 grid gap-3 lg:grid-cols-2">
             {period.categories.map((category) => {
               const rowKey = keyFor(period.key, category);
@@ -103,7 +140,7 @@ export function MenuDayBuilder({
               const payload = rows.filter((row) => row.itemName.trim().length > 0);
 
               return (
-                <form key={rowKey} action={saveMenuCategoryItemsAction} className="space-y-2 rounded-md border border-zinc-200 p-3">
+                <form key={rowKey} action={saveMenuCategoryItemsAction} className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
                   <input type="hidden" name="menuId" value={menuId} />
                   <input type="hidden" name="weekNumber" value={selectedWeek} />
                   <input type="hidden" name="dayIndex" value={selectedDayIndex} />
@@ -123,7 +160,7 @@ export function MenuDayBuilder({
                               [rowKey]: rows.map((r, i) => (i === idx ? { ...r, itemName: e.target.value } : r)),
                             }))
                           }
-                          className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm"
                           placeholder="Menu item or choice label"
                         />
                         <button
@@ -163,6 +200,27 @@ export function MenuDayBuilder({
           </div>
         </div>
       ))}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setPeriodEditor("new")}
+        className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+      >
+        Add meal period
+      </button>
+      {periodEditor !== null ? (
+        <MenuPeriodDialog
+          menuId={menuId}
+          cycleLengthWeeks={cycleLengthWeeks}
+          weekStartsOn={weekStartsOn}
+          cycleAnchorDate={cycleAnchorDate}
+          periods={periods}
+          eligibleCycles={eligibleCycles}
+          editingKey={periodEditor === "new" ? null : periodEditor}
+          disabled={disabled}
+          onClose={() => setPeriodEditor(null)}
+        />
+      ) : null}
     </fieldset>
   );
 }

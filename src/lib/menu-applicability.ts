@@ -7,7 +7,7 @@
 import type { MealType, MenuStatus } from "@prisma/client";
 
 import type { DepartmentActionableLocation } from "@/lib/department-administration";
-import { ensureMenuSettingsDefaults, menuPeriodKeyForMealType, type MenuPeriodConfig } from "@/lib/menu-cycle";
+import { menuPeriodKeyForMealType, storedMenuPeriodConfigs, type MenuPeriodConfig } from "@/lib/menu-cycle";
 import { isRootCycle } from "@/lib/operational-cycles/cycle-canonical";
 
 export type MenuLocationTarget = {
@@ -98,7 +98,33 @@ export function menuLocationMatches(
 }
 
 export function resolveMenuPeriodKeys(periodConfigJson: unknown): string[] {
-  return ensureMenuSettingsDefaults({ periodConfigJson }).periods.map((period) => period.key);
+  return storedMenuPeriodConfigs(periodConfigJson).map((period) => period.key);
+}
+
+export function cycleAssignmentsFromPeriods(
+  periods: readonly MenuPeriodConfig[],
+): MenuCycleAssignment[] {
+  return uniqueMenuCycleAssignments(
+    periods
+      .filter((period) => Boolean(period.cycleStableKey?.trim()))
+      .map((period) => ({
+        cycleStableKey: period.cycleStableKey!.trim(),
+        menuPeriodKey: period.key,
+      })),
+  );
+}
+
+export function bindPeriodsToCycles(
+  periods: readonly MenuPeriodConfig[],
+  cycles: readonly MenuCycleAssignment[],
+): MenuPeriodConfig[] {
+  return periods.map((period) => ({
+    ...period,
+    cycleStableKey:
+      period.cycleStableKey?.trim() ||
+      cycles.find((row) => row.menuPeriodKey === period.key)?.cycleStableKey ||
+      null,
+  }));
 }
 
 export function suggestMenuPeriodKey(input: {
@@ -220,6 +246,53 @@ export function expandRoomsUnderNeighborhood(
       .filter((location) => location.kind === "room" && location.parentNeighborhoodId === neighborhoodId)
       .map(locationTargetFromActionable),
   );
+}
+
+function visibleRoomTypeLabel(location: DepartmentActionableLocation): string | null {
+  const label = location.roomTypeLabel?.trim() || location.patternLabel?.trim() || "";
+  return label || null;
+}
+
+function roomsShareDisplayedType(
+  chosen: DepartmentActionableLocation,
+  candidate: DepartmentActionableLocation,
+): boolean {
+  if (chosen.kind !== "room" || candidate.kind !== "room") return false;
+  if (chosen.roomTypeKey && chosen.roomTypeKey === candidate.roomTypeKey) return true;
+  if (chosen.patternKey && chosen.patternKey === candidate.patternKey) return true;
+  const chosenLabel = visibleRoomTypeLabel(chosen);
+  const candidateLabel = visibleRoomTypeLabel(candidate);
+  return Boolean(chosenLabel && candidateLabel && chosenLabel.toLowerCase() === candidateLabel.toLowerCase());
+}
+
+/**
+ * After the first room of a displayed type is selected, offer the remaining
+ * rooms that share that facility room type, operational pattern, or label.
+ * Does not invent a type when the room has none.
+ */
+export function offerSelectRemainingRoomsOfType(input: {
+  locations: readonly DepartmentActionableLocation[];
+  chosen: DepartmentActionableLocation;
+  selectedKeys: ReadonlySet<string>;
+}): { label: string; remaining: MenuLocationTarget[] } | null {
+  const label = visibleRoomTypeLabel(input.chosen);
+  if (!label || input.chosen.kind !== "room") return null;
+
+  const peers = input.locations.filter(
+    (location) =>
+      location.id !== input.chosen.id && roomsShareDisplayedType(input.chosen, location),
+  );
+  if (peers.some((peer) => selectedKeysHas(input.selectedKeys, peer))) return null;
+  const remaining = uniqueMenuLocationTargets(peers.map(locationTargetFromActionable));
+  if (remaining.length === 0) return null;
+  return { label, remaining };
+}
+
+function selectedKeysHas(
+  selectedKeys: ReadonlySet<string>,
+  location: DepartmentActionableLocation,
+): boolean {
+  return selectedKeys.has(menuLocationTargetKey(locationTargetFromActionable(location)));
 }
 
 function actionableByKey(locations: readonly DepartmentActionableLocation[]): Map<string, DepartmentActionableLocation> {

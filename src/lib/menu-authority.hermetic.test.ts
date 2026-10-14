@@ -78,7 +78,7 @@ test("menu writes require an authorized Menu id and never upsert by facility sin
 
 test("builder forms submit menuId instead of a facility singleton", () => {
   const day = source("src/components/menus/menu-day-builder.tsx");
-  const settings = source("src/components/menus/menu-period-settings-form.tsx");
+  const settings = source("src/components/menus/menu-overview-form.tsx");
   assert.match(day, /name="menuId"/);
   assert.match(settings, /name="menuId"/);
 });

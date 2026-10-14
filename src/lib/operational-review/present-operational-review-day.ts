@@ -337,7 +337,7 @@ function menuFindingPresentation(finding: ReviewMenuFinding): {
       return {
         message: `${finding.cycleLabel} is mapped to a Menu period that is no longer configured.`,
         href: finding.menuId ? `/menus/${finding.menuId}?tab=applicability` : "/menus",
-        hrefLabel: "Review applicability",
+        hrefLabel: "Review locations",
       };
     case "MENU_MULTIPLE_CONFIGURED":
       return {

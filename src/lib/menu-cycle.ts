@@ -18,6 +18,7 @@ export type MenuPeriodConfig = {
   key: string;
   label: string;
   categories: string[];
+  cycleStableKey?: string | null;
 };
 
 export const DEFAULT_MENU_PERIODS: MenuPeriodConfig[] = [
@@ -53,10 +54,19 @@ function cleanPeriodConfig(value: unknown): MenuPeriodConfig[] {
   return value
     .map((item): MenuPeriodConfig | null => {
       if (!item || typeof item !== "object") return null;
-      const raw = item as { key?: unknown; label?: unknown; categories?: unknown };
+      const raw = item as {
+        key?: unknown;
+        label?: unknown;
+        categories?: unknown;
+        cycleStableKey?: unknown;
+      };
       const key = typeof raw.key === "string" ? raw.key.trim().toUpperCase() : "";
       const label = typeof raw.label === "string" ? raw.label.trim() : "";
       const normalizedLabel = label.toLowerCase();
+      const cycleStableKey =
+        typeof raw.cycleStableKey === "string" && raw.cycleStableKey.trim().length > 0
+          ? raw.cycleStableKey.trim()
+          : null;
       const categoriesRaw = Array.isArray(raw.categories)
         ? raw.categories.map((c) => (typeof c === "string" ? c.trim() : "")).filter(Boolean)
         : [];
@@ -67,14 +77,30 @@ function cleanPeriodConfig(value: unknown): MenuPeriodConfig[] {
       if (seenKeys.has(key) || seenLabels.has(normalizedLabel)) return null;
       seenKeys.add(key);
       seenLabels.add(normalizedLabel);
-      return { key, label, categories };
+      return { key, label, categories, cycleStableKey };
     })
     .filter((row): row is MenuPeriodConfig => row !== null);
 }
 
 function parsePeriodConfig(value: unknown): MenuPeriodConfig[] {
-  const cleaned = cleanPeriodConfig(value);
-  return cleaned.length > 0 ? cleaned : DEFAULT_MENU_PERIODS;
+  return cleanPeriodConfig(value);
+}
+
+export function periodKeyFromLabel(label: string, takenKeys: readonly string[] = []): string {
+  const taken = new Set(takenKeys.map((key) => key.toUpperCase()));
+  const base =
+    label
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 32) || "PERIOD";
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 1000; n += 1) {
+    const next = `${base.slice(0, 28)}_${n}`;
+    if (!taken.has(next)) return next;
+  }
+  return `${base.slice(0, 24)}_${Date.now().toString(36).toUpperCase()}`.slice(0, 32);
 }
 
 /**

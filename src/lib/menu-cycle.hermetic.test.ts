@@ -8,6 +8,7 @@ import {
   ensureMenuSettingsDefaults,
   menuForDate,
   menuPeriodKeyForMealType,
+  periodKeyFromLabel,
   rotationForServiceDateKey,
   storedMenuPeriodConfigs,
   usableMenuRuntimeCycleSettings,
@@ -31,10 +32,10 @@ test("dayIndexForDate uses Sunday-first or Monday-first numbering", () => {
   assert.equal(dayIndexForDate(sunday, "MONDAY"), 6);
 });
 
-test("ensureMenuSettingsDefaults restores Breakfast/Lunch/Dinner when JSON is missing or empty", () => {
+test("ensureMenuSettingsDefaults does not invent Breakfast/Lunch/Dinner", () => {
   const fromNull = ensureMenuSettingsDefaults(null);
   assert.equal(fromNull.cycleLengthWeeks, 3);
-  assert.deepEqual(fromNull.periods, DEFAULT_MENU_PERIODS);
+  assert.deepEqual(fromNull.periods, []);
 
   const fromEmpty = ensureMenuSettingsDefaults({
     cycleLengthWeeks: 4,
@@ -44,7 +45,12 @@ test("ensureMenuSettingsDefaults restores Breakfast/Lunch/Dinner when JSON is mi
   });
   assert.equal(fromEmpty.cycleLengthWeeks, 4);
   assert.equal(fromEmpty.weekStartsOn, "MONDAY");
-  assert.deepEqual(fromEmpty.periods, DEFAULT_MENU_PERIODS);
+  assert.deepEqual(fromEmpty.periods, []);
+});
+
+test("periodKeyFromLabel slugs a name and avoids collisions", () => {
+  assert.equal(periodKeyFromLabel("Late tray"), "LATE_TRAY");
+  assert.equal(periodKeyFromLabel("Breakfast", ["BREAKFAST"]), "BREAKFAST_2");
 });
 
 test("menuForDate groups one menu's items for the computed week and day", () => {
@@ -129,4 +135,14 @@ test("storedMenuPeriodConfigs and usable settings do not fabricate Build default
   assert.deepEqual(storedMenuPeriodConfigs([]), []);
   assert.equal(usableMenuRuntimeCycleSettings(null), null);
   assert.equal(usableMenuRuntimeCycleSettings({ cycleLengthWeeks: 2, weekStartsOn: "SUNDAY", cycleAnchorDate: new Date() }), null);
+});
+
+test("two meal periods may share an Operational Cycle", () => {
+  const periods = storedMenuPeriodConfigs([
+    { key: "BREAKFAST", label: "Breakfast", categories: ["Entrees"], cycleStableKey: "cycle.breakfast" },
+    { key: "SNACK", label: "Snack cart", categories: ["Items"], cycleStableKey: "cycle.breakfast" },
+  ]);
+  assert.equal(periods.length, 2);
+  assert.equal(periods[0]?.cycleStableKey, "cycle.breakfast");
+  assert.equal(periods[1]?.cycleStableKey, "cycle.breakfast");
 });

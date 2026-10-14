@@ -56,8 +56,6 @@ export const BUILD_PAGE_INTROS: Record<string, string> = {
     "Manage people, employment records, department assignment, and HR configuration.",
   "/assets/builder":
     "Register equipment identity, normal location, and responsible department.",
-  "/menus":
-    "Open a menu to edit its rotating content. Menus belong to a Department.",
   "/staffing/templates":
     "Phase 9C template builder (compatibility). Canonical Catalog Attachments live under Logs.",
   "/build/logs":

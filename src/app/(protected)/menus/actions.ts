@@ -20,8 +20,12 @@ import {
   loadMenuApplicability,
   replaceMenuApplicability,
 } from "@/lib/menu-applicability-db";
-import { normalizeMenuLocationTarget, resolveMenuPeriodKeys } from "@/lib/menu-applicability";
-import { DEFAULT_MENU_PERIODS } from "@/lib/menu-cycle";
+import {
+  cycleAssignmentsFromPeriods,
+  normalizeMenuLocationTarget,
+  resolveMenuPeriodKeys,
+} from "@/lib/menu-applicability";
+import { storedMenuPeriodConfigs } from "@/lib/menu-cycle";
 import { assertPrismaMenuReady, isMenuInfrastructureUnavailableError } from "@/lib/menu-db";
 import { prisma } from "@/lib/prisma";
 
@@ -84,6 +88,7 @@ type PeriodPayload = {
   key: string;
   label: string;
   categories: string[];
+  cycleStableKey: string | null;
 };
 
 function revalidateMenuPages(menuId?: string) {
@@ -104,11 +109,20 @@ function normalizePeriodPayload(value: unknown): Prisma.InputJsonValue {
   const cleaned: PeriodPayload[] = [];
   for (const row of value) {
     if (!row || typeof row !== "object") continue;
-    const raw = row as { key?: unknown; label?: unknown; categories?: unknown };
+    const raw = row as {
+      key?: unknown;
+      label?: unknown;
+      categories?: unknown;
+      cycleStableKey?: unknown;
+    };
     const key = typeof raw.key === "string" ? raw.key.trim().toUpperCase() : "";
     const label = typeof raw.label === "string" ? raw.label.trim() : "";
     const normalizedLabel = label.toLowerCase();
     if (!key || !label || seenKeys.has(key) || seenLabels.has(normalizedLabel)) continue;
+    const cycleStableKey =
+      typeof raw.cycleStableKey === "string" && raw.cycleStableKey.trim().length > 0
+        ? raw.cycleStableKey.trim()
+        : null;
     const categoriesRaw = Array.isArray(raw.categories)
       ? raw.categories.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)
       : [];
@@ -122,10 +136,7 @@ function normalizePeriodPayload(value: unknown): Prisma.InputJsonValue {
     if (categories.length === 0) continue;
     seenKeys.add(key);
     seenLabels.add(normalizedLabel);
-    cleaned.push({ key, label, categories });
-  }
-  if (cleaned.length === 0) {
-    throw new Error("Add at least one meal period with one category.");
+    cleaned.push({ key, label, categories, cycleStableKey });
   }
   return cleaned as Prisma.InputJsonValue;
 }
@@ -176,7 +187,7 @@ export async function createMenuAction(formData: FormData) {
           cycleLengthWeeks: 3,
           weekStartsOn: "SUNDAY",
           cycleAnchorDate: new Date(new Date().toDateString()),
-          periodConfigJson: DEFAULT_MENU_PERIODS as unknown as Prisma.InputJsonValue,
+          periodConfigJson: [] as unknown as Prisma.InputJsonValue,
         },
       });
       return menu;
@@ -216,6 +227,11 @@ export async function updateMenuAction(formData: FormData) {
   }
 
   revalidateMenuPages(menu.id);
+}
+
+export async function saveMenuOverviewAction(formData: FormData) {
+  await updateMenuAction(formData);
+  await saveMenuSettingsAction(formData);
 }
 
 export async function saveMenuSettingsAction(formData: FormData) {
@@ -263,6 +279,31 @@ export async function saveMenuSettingsAction(formData: FormData) {
         periodConfigJson,
       },
     });
+    if (periodConfigJson !== undefined) {
+      const [existing, departmentLocations, eligible] = await Promise.all([
+        loadMenuApplicability(prisma, menu.id),
+        loadDepartmentMenuLocations({
+          facilityId: session.facilityId,
+          departmentId: menu.departmentId,
+        }),
+        loadEligibleMenuOperationalCycles({
+          facilityId: session.facilityId,
+          departmentId: menu.departmentId,
+        }),
+      ]);
+      if (!departmentLocations) {
+        throw new Error("Department locations are not available for this Menu.");
+      }
+      await replaceMenuApplicability({
+        menuId: menu.id,
+        locations: existing.locations,
+        cycles: cycleAssignmentsFromPeriods(storedMenuPeriodConfigs(periodConfigJson)),
+        existing,
+        actionable: departmentLocations.locations,
+        eligible,
+        periodKeys: resolveMenuPeriodKeys(periodConfigJson),
+      });
+    }
   } catch (error) {
     infrastructureError(error);
   }

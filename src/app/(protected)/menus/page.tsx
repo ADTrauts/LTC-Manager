@@ -5,7 +5,6 @@ import Link from "next/link";
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { CreateMenuForm } from "@/components/menus/create-menu-form";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
-import { buildPageIntro } from "@/lib/build-hub";
 import { departmentProductOffersMenus } from "@/lib/department-products";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { resolveMenuListDepartmentScope } from "@/lib/menu-authority";
@@ -58,7 +57,7 @@ export default async function MenusPage({ searchParams }: MenusPageProps) {
 
   return (
     <section className="space-y-4">
-      <BuildPageHeader title="Menus" subtitle={buildPageIntro("/menus")} />
+      <BuildPageHeader title="Menus" />
       {menuList.unavailableReason ? (
         <div className="max-w-3xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           {menuList.unavailableReason}

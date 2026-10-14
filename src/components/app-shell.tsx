@@ -228,6 +228,7 @@ export async function AppShell({ children }: AppShellProps) {
   const homeHref = menuRunHomeHref;
   const modeNavNode = () => (
     <ShellModeNav
+      key="shell-mode-nav"
       runHomeHref={menuRunHomeHref}
       showBuild={menuShowBuild}
       showAdmin={menuShowAdmin}
@@ -245,6 +246,7 @@ export async function AppShell({ children }: AppShellProps) {
       <WorkspaceShellHeader
         menu={
           <ResponsiveShellNav
+            key="compact-shell-nav"
             navItems={navItems}
             buildNavItems={buildNavItems}
             units={sidebarUnits}
@@ -255,7 +257,7 @@ export async function AppShell({ children }: AppShellProps) {
             modeNav={modeNavNode()}
           />
         }
-        brand={<ShellBrandBlock href={homeHref} />}
+        brand={<ShellBrandBlock key="shell-brand" href={homeHref} />}
         workspace={
           authKind === "user" ? (
             workspaceSelectorNode()
@@ -272,9 +274,10 @@ export async function AppShell({ children }: AppShellProps) {
             showAdmin={menuShowAdmin}
           />
         }
-        trailing={<ShellOfflineIndicator />}
+        trailing={<ShellOfflineIndicator key="shell-offline" />}
         account={
           <AccountMenu
+            key="account-menu"
             showUnbind={showGmUnbind}
             showMyAccess={authKind === "user"}
             menuLabel={session.name}
