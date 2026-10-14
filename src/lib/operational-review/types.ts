@@ -5,6 +5,7 @@
 
 import type { LogAttachmentForResolve, PublishedCycleForLogs } from "@/lib/canonical-logs/resolve-log-requirements";
 import type { LogHistorySubmission } from "@/lib/canonical-logs/expectation-history";
+import type { MenuRuntimeCandidateFact, MenuRuntimeItemFact } from "@/lib/menu-runtime";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 import type {
   CoverageAssignmentActual,
@@ -22,7 +23,8 @@ export type ReviewUnavailableReason =
   | "coverage_interval_ambiguous"
   | "unsupported_work_history"
   | "historical_catalog_unresolvable"
-  | "no_historical_cycle_version";
+  | "no_historical_cycle_version"
+  | "unsupported_menu_history";
 
 export type ReviewDomainAvailability = {
   status: ReviewDomainStatus;
@@ -148,6 +150,28 @@ export type ReviewAssetImpact = {
   observedAt: string;
 };
 
+export type ReviewMenuFindingCode =
+  | "MENU_NOT_CONFIGURED"
+  | "MENU_CONTENT_MISSING"
+  | "MENU_ROTATION_UNCONFIGURED"
+  | "MENU_PERIOD_MAPPING_BROKEN"
+  | "MENU_MULTIPLE_CONFIGURED";
+
+export type ReviewMenuFinding = {
+  code: ReviewMenuFindingCode;
+  serviceDateKey: string;
+  departmentId: string;
+  spaceId: string | null;
+  unitId: string | null;
+  cycleStableKey: string;
+  cycleLabel: string;
+  menuId: string | null;
+  menuName: string | null;
+  peerMenuNames: string[];
+  weekNumber: number | null;
+  dayIndex: number | null;
+};
+
 export type OperationalReviewDayViewModel = {
   facilityId: string;
   facilityLabel: string;
@@ -185,6 +209,10 @@ export type OperationalReviewDayViewModel = {
     availability: ReviewDomainAvailability;
     impacts: ReviewAssetImpact[];
   };
+  menu: {
+    availability: ReviewDomainAvailability;
+    findings: ReviewMenuFinding[];
+  };
 };
 
 export type OperationalReviewRangeTotals = {
@@ -212,6 +240,9 @@ export type OperationalReviewRangeTotals = {
   assetImpactDays: number;
   scheduledPresence: number;
   presenceExceptions: number;
+  menuFindings: number;
+  menuEvaluatedDays: number;
+  menuUnavailableDays: number;
 };
 
 export type OperationalReviewRangeViewModel = {
@@ -279,7 +310,9 @@ export type ReviewPlanFact = {
   status: string;
 };
 
-export type ReviewCycleFact = OperationalCycleDefinition;
+export type ReviewCycleFact = OperationalCycleDefinition & {
+  departmentId?: string;
+};
 
 export type ReviewServeryMilestoneActual = {
   unitId: string;
@@ -354,6 +387,12 @@ export type OperationalReviewDayFacts = {
     string,
     { status: "evaluated" | "unavailable"; reason: ReviewUnavailableReason | null }
   >;
+  /** Departments whose Product offers Menus. Empty on past dates. */
+  menuDepartmentIds?: string[];
+  /** ACTIVE Menu applicability facts for today only. */
+  menuCandidates?: MenuRuntimeCandidateFact[];
+  /** MenuItems for those ACTIVE Menus. Loaded once, not per context. */
+  menuItems?: MenuRuntimeItemFact[];
 };
 
 export type CoverageExpectationStatusForReview = CoverageExpectationStatus;

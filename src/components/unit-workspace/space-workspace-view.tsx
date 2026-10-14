@@ -11,10 +11,13 @@ import {
   type SpaceWorkspaceViewModel,
 } from "@/lib/unit-workspace/space";
 import { SpaceWorkspaceFocus } from "@/components/unit-workspace/space-workspace-focus";
+import { TodaysMenuBlock } from "@/components/unit-workspace/todays-menu-block";
+import type { MenuResolutionResult } from "@/lib/menu-runtime";
 
 type Props = {
   view: SpaceWorkspaceViewModel;
   extras?: Partial<Record<SpaceWorkspaceSectionId, ReactNode>>;
+  todaysMenu?: MenuResolutionResult | null;
 };
 
 function Card({
@@ -61,7 +64,13 @@ function sectionOrderClass(
   }
 }
 
-function Overview({ view }: { view: SpaceWorkspaceViewModel }) {
+function Overview({
+  view,
+  todaysMenu,
+}: {
+  view: SpaceWorkspaceViewModel;
+  todaysMenu?: MenuResolutionResult | null;
+}) {
   const card = view.card;
   const hierarchy = view.identity.breadcrumbs.map((row) => row.label).join(" → ");
   const happeningLine = [card.happeningLabel, card.cycleLabel]
@@ -132,6 +141,8 @@ function Overview({ view }: { view: SpaceWorkspaceViewModel }) {
           ))}
         </ul>
       ) : null}
+
+      <TodaysMenuBlock result={todaysMenu ?? null} />
     </section>
   );
 }
@@ -362,7 +373,7 @@ function Today({ view }: { view: SpaceWorkspaceViewModel }) {
   );
 }
 
-export function SpaceWorkspaceView({ view, extras }: Props) {
+export function SpaceWorkspaceView({ view, extras, todaysMenu }: Props) {
   const employee = view.sectionOrder[1] === "evidence";
   const present = new Set(view.sections.filter((row) => row.present).map((row) => row.id));
   const focusId =
@@ -401,7 +412,7 @@ export function SpaceWorkspaceView({ view, extras }: Props) {
           case "overview":
             return (
               <div key={id} className={className}>
-                <Overview view={view} />
+                <Overview view={view} todaysMenu={todaysMenu} />
               </div>
             );
           case "coverage":

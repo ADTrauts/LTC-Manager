@@ -20,7 +20,7 @@ BUILD should feel like configuring one product. It intentionally has a **small**
 | **Employee Builder** | `/employees` | Manager+ | Workforce configuration: person/employment, department membership, job role, employment settings, HR. |
 | **Operational Templates** | `/staffing/templates` | Supervisor+ | The authoritative unified LOG / CHECKLIST / INSPECTION builder (Phase 9C). |
 | **Work Plans** | `/staffing/work-plans` | Manager+ | Department Work Plan builder (Phase 11A). |
-| **Menu Building** | `/menus` | Supervisor+ (Dietary) | Menu cycle / period / item configuration. |
+| **Menus** | `/menus` | Supervisor+ (product offers Menus) | Department-owned Menu library. Open `/menus/[menuId]` for Overview, Menu content, and Applicability (locations + Operational Cycles). |
 | **Procedures & Resources** | `/admin/knowledge` | Facility Administrator | Operational knowledge / procedure library (relabeled from "Operational Knowledge"). |
 
 ## Facility Builder (Section G)
@@ -71,7 +71,7 @@ Operational builders carry registry feature flags so their nav link disappears w
 - Operational Templates → `DIETARY_OPERATIONAL_EVIDENCE_ENABLED`
 - Work Plans → `DIETARY_WORK_PLANS_ENABLED`
 
-With all department flags off (default), BUILD still offers Facility Builder, Department Builder, Employee Builder, Menu Building, and Procedures & Resources to authorized roles. `OPERATION_ENGINE_ENABLED` and `TASK_SYNC_ENABLED` remain **false** and are unaffected.
+With all department flags off (default), BUILD still offers Facility Builder, Department Builder, Employee Builder, Menus, and Procedures & Resources to authorized roles. `OPERATION_ENGINE_ENABLED` and `TASK_SYNC_ENABLED` remain **false** and are unaffected.
 
 ## Authority in BUILD
 

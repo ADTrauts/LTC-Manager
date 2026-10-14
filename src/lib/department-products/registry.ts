@@ -81,6 +81,8 @@ export type DepartmentProductStarterRefs = {
   jobRoleTiers?: "generic";
   /** Facility Builder responsibility presets — configuration-time. */
   responsibilityPresets?: true;
+  /** Department may own first-class Menus. Not a Menu schema hard-code. */
+  menus?: true;
 };
 
 export type DepartmentProduct = {
@@ -140,6 +142,7 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       assignmentRoles: true,
       jobRoleTiers: "generic",
       responsibilityPresets: true,
+      menus: true,
     },
     versionLabel: null,
     releasedOn: null,
@@ -384,4 +387,12 @@ export function isDepartmentProductCommerciallyRecognized(product: {
   status: DepartmentProductReleaseStatus;
 }): boolean {
   return product.status === "AVAILABLE" || product.status === "RETIRED";
+}
+
+/**
+ * Whether this Department's installed Product offers Menus.
+ * Resolves DIETARY → Healthcare Food & Nutrition. Not a Menu-table hard-code.
+ */
+export function departmentProductOffersMenus(departmentKey: string | null | undefined): boolean {
+  return getDepartmentProduct(departmentKey)?.starters.menus === true;
 }

@@ -25,6 +25,7 @@ import {
   catalogDefinitionForHistory,
   groupAttachmentLineages,
 } from "./historical-attachment";
+import { composeReviewMenuDomain } from "./compose-menu-review";
 import {
   historicalOtAssignmentsFromBindings,
   selectHistoricalProfileForServiceDate,
@@ -458,5 +459,10 @@ export function composeOperationalReviewDay(
         observedAt: row.observedAt.toISOString(),
       })),
     },
+    menu: composeReviewMenuDomain({
+      facts,
+      locations,
+      otByDepartment,
+    }),
   };
 }

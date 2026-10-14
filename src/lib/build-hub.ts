@@ -28,7 +28,7 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
     "Workforce configuration — people, employment, department, job role, and HR records.",
   "/assets/builder":
     "Equipment configuration — register assets and set identity, location, responsible department, criticality, and retirement. Operational condition and repairs live under RUN Assets.",
-  "/menus": "Dietary menu building — cycles, periods, and menu items.",
+  "/menus": "Create and edit department-owned menus.",
   "/build/logs":
     "Install published logs, checklists, inspections, and procedures onto this facility, then place them on rooms, assets, units, or departments.",
   "/build/knowledge":
@@ -57,7 +57,7 @@ export const BUILD_PAGE_INTROS: Record<string, string> = {
   "/assets/builder":
     "Register equipment identity, normal location, and responsible department.",
   "/menus":
-    "Build menu cycles and keep daily meal items aligned with servery operations.",
+    "Open a menu to edit its rotating content. Menus belong to a Department.",
   "/staffing/templates":
     "Phase 9C template builder (compatibility). Canonical Catalog Attachments live under Logs.",
   "/build/logs":

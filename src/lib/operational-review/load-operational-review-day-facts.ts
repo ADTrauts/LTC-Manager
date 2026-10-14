@@ -10,6 +10,7 @@ import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-
 import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import { loadPublishedCyclesForLogsOnDate } from "@/lib/canonical-logs/load-published-cycles-for-logs";
+import { loadReviewMenuFacts } from "@/lib/menu-runtime-db";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -68,7 +69,7 @@ export async function loadOperationalReviewDayFacts(input: {
         isActive: true,
         ...(input.departmentId ? { id: input.departmentId } : {}),
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, key: true },
       orderBy: { sortOrder: "asc" },
     }),
     input.client.unitSpace.findMany({
@@ -478,9 +479,11 @@ export async function loadOperationalReviewDayFacts(input: {
   const publishedCyclesForLogs = [];
   for (const departmentId of departmentIds) {
     cycleRows.push(
-      ...(await loadPublishedCyclesForDate(input.facilityId, departmentId, input.serviceDate, input.client, {
-        includeKeyTimes: true,
-      })),
+      ...(
+        await loadPublishedCyclesForDate(input.facilityId, departmentId, input.serviceDate, input.client, {
+          includeKeyTimes: true,
+        })
+      ).map((cycle) => ({ ...cycle, departmentId })),
     );
     publishedCyclesForLogs.push(
       ...(await loadPublishedCyclesForLogsOnDate({
@@ -492,6 +495,14 @@ export async function loadOperationalReviewDayFacts(input: {
       })),
     );
   }
+
+  const menuFacts = await loadReviewMenuFacts({
+    client: input.client,
+    facilityId: input.facilityId,
+    departments,
+    serviceDate: input.serviceDate,
+    todayKey,
+  });
 
   const serveryMilestoneActuals = selectAuthoritativeLegacyMilestones(
     serveryEvents.flatMap((event) => {
@@ -598,5 +609,8 @@ export async function loadOperationalReviewDayFacts(input: {
         observedAt: row.observedAt,
       })),
     legacySubmissionPresent: legacyCount > 0,
+    menuDepartmentIds: menuFacts.menuDepartmentIds,
+    menuCandidates: menuFacts.menuCandidates,
+    menuItems: menuFacts.menuItems,
   };
 }

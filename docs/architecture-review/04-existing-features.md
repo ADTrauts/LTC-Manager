@@ -133,7 +133,7 @@ Maturity scale:
 | Menu cycle settings | **Production-ready** | Cycle length, anchor, week start |
 | Menu day builder | **Production-ready** | Week/day/meal period grid |
 | Portions on items | **Production-ready** | `portionValue`, `portionUnit` |
-| Menu on unit dashboard | **Production-ready** | Today's menu display |
+| Menu on unit dashboard | **Updated 2026-10-13** | Space workspace Overview shows Today's Menu via `resolveApplicableMenus` when an ACTIVE current Operational Cycle exists. Build library remains `/menus`. `/today` and `/logs` are not on this resolver. |
 | Production forecasting | **Stub** | Not implemented |
 
 ---

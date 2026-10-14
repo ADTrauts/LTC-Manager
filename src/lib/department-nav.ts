@@ -1,7 +1,5 @@
-import {
-  hasDietaryDomainCapabilities,
-  parseOperationalDepartmentKey,
-} from "@/lib/department-admission";
+import { parseOperationalDepartmentKey } from "@/lib/department-admission";
+import { departmentProductOffersMenus } from "@/lib/department-products";
 import type { NavRouteItem } from "@/lib/nav-zones";
 
 /** Cookie stores facility department cuid (operational scope). */
@@ -16,7 +14,7 @@ export type OperationalDepartmentKey = string;
 type NavDeptRule = { pathPrefix: string } & (
   | { visibility: "shared" }
   | { visibility: "sharedOperational" }
-  | { visibility: "dietaryDomain" }
+  | { visibility: "menusCapability" }
 );
 
 /**
@@ -34,7 +32,7 @@ export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/today", visibility: "shared" },
   { pathPrefix: "/reports", visibility: "shared" },
   { pathPrefix: "/department", visibility: "shared" },
-  { pathPrefix: "/menus", visibility: "dietaryDomain" },
+  { pathPrefix: "/menus", visibility: "menusCapability" },
   { pathPrefix: "/assets", visibility: "sharedOperational" },
   { pathPrefix: "/asset-issues", visibility: "sharedOperational" },
   { pathPrefix: "/repairs", visibility: "sharedOperational" },
@@ -83,7 +81,7 @@ export function pathnameAllowedForDepartmentKey(
   if (rule.visibility === "sharedOperational") {
     return true;
   }
-  return hasDietaryDomainCapabilities(key);
+  return departmentProductOffersMenus(key);
 }
 
 export function filterNavItemsForDepartmentScope(

@@ -96,6 +96,10 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system |
 | **Participating location** | Room explicitly attached to a cycle | Department-responsible room *(responsibility ≠ participation)* |
 | **Work applicability** | Where a Work Plan’s expected Work may exist | Assignment, cycle participation, department responsibility *(each is separate)* |
+| **Menu** | Department-owned food offering identity plus its content | Facility singleton, Operational Cycle, recipe catalog |
+| **Menu applicability** | Explicit Department locations and canonical Operational Cycles where a Menu may be used, including the Menu period mapped to each Cycle | Live “all locations” rules, neighborhood inheritance, binding a published cycle row id |
+| **Menu Runtime resolution** | Exact location + date-effective root Operational Cycle occurrence + facility service date + ACTIVE applicability + stored `menuPeriodKey` + rotation | Winner/priority, location inheritance, MealType matching, wall-clock “current meal”, historical snapshots, temperature/log integration |
+| **Menu rotation** | Week / day position inside `MenuCycleSettings` | Operational Cycle timing |
 | **Healthy quiet** | Rhythm and participation exist; no operation is active now | Not configured, missing rooms, idle, complete |
 | **Make live** | Publish configured cycles so Run can use them | Review & Publish, Submit for Review |
 | **Room / Space** | Area within a unit; model is `UnitSpace` | Location *(reserve for section level; see `docs/location-architecture/`)* |

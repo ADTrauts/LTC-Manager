@@ -55,7 +55,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/department/settings", mode: "BUILD", label: "Department Settings" },
     { pathPrefix: "/employees", mode: "BUILD", label: "Employee Builder" },
     { pathPrefix: "/assets/builder", mode: "BUILD", label: "Asset Builder" },
-    { pathPrefix: "/menus", mode: "BUILD", label: "Menu Building" },
+    { pathPrefix: "/menus", mode: "BUILD", label: "Menus" },
     { pathPrefix: "/build/logs", mode: "BUILD", label: "Logs" },
     { pathPrefix: "/staffing/templates", mode: "BUILD", label: "Operational Templates" },
     { pathPrefix: "/staffing/work-plans", mode: "BUILD", label: "Work" },

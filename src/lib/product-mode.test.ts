@@ -53,6 +53,7 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
     "/employees/import",
     "/assets/builder",
     "/menus",
+    "/menus/menu-1",
     "/staffing/templates",
     "/staffing/work-plans",
     "/staffing/work-plans/wp-1",

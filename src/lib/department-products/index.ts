@@ -13,6 +13,7 @@ export {
   DEPARTMENT_PRODUCT_RELEASE_STATUSES,
   LEGACY_DEPARTMENT_PRODUCT_ALIASES,
   canonicalizeDepartmentProductKey,
+  departmentProductOffersMenus,
   departmentProductKeysBelongToSameLineage,
   departmentProductLineageKeys,
   getCommittedDepartmentProductStatus,

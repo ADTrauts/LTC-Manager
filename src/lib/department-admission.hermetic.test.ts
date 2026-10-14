@@ -163,9 +163,11 @@ describe("department admission — shared engines vs domain capabilities", () =>
     assert.equal(parseOperationalDepartmentKey(""), null);
   });
 
-  it("shows shared assets nav and hides Dietary menus for a custom department", () => {
+  it("shows shared assets nav and hides Menus unless the Product offers Menus", () => {
     assert.equal(pathnameAllowedForDepartmentKey("/menus", AQUATICS), false);
     assert.equal(pathnameAllowedForDepartmentKey("/menus", "DIETARY"), true);
+    assert.equal(pathnameAllowedForDepartmentKey("/menus", "PLANT"), false);
+    assert.equal(pathnameAllowedForDepartmentKey("/menus/menu_1", "DIETARY"), true);
     assert.equal(pathnameAllowedForDepartmentKey("/assets", AQUATICS), true);
     assert.equal(pathnameAllowedForDepartmentKey("/asset-issues", AQUATICS), true);
     assert.equal(pathnameAllowedForDepartmentKey("/repairs", AQUATICS), true);

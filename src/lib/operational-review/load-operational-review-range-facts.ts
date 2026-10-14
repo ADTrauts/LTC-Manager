@@ -9,6 +9,7 @@ import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-
 import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesForLogsOnDate } from "@/lib/canonical-logs/load-published-cycles-for-logs";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
+import { loadReviewMenuFacts } from "@/lib/menu-runtime-db";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -81,7 +82,7 @@ export async function loadOperationalReviewRangeFacts(input: {
         isActive: true,
         ...(input.departmentId ? { id: input.departmentId } : {}),
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, key: true },
       orderBy: { sortOrder: "asc" },
     }),
     input.client.unitSpace.findMany({
@@ -395,13 +396,15 @@ export async function loadOperationalReviewRangeFacts(input: {
     input.keys.flatMap((serviceDate) =>
       departmentIds.map(async (departmentId) => ({
         serviceDate,
-        cycles: await loadPublishedCyclesForDate(
-          input.facilityId,
-          departmentId,
-          serviceDate,
-          input.client,
-          { includeKeyTimes: true },
-        ),
+        cycles: (
+          await loadPublishedCyclesForDate(
+            input.facilityId,
+            departmentId,
+            serviceDate,
+            input.client,
+            { includeKeyTimes: true },
+          )
+        ).map((cycle) => ({ ...cycle, departmentId })),
         publishedCyclesForLogs: await loadPublishedCyclesForLogsOnDate({
           client: input.client as PrismaClient,
           facilityId: input.facilityId,
@@ -413,6 +416,14 @@ export async function loadOperationalReviewRangeFacts(input: {
     ),
   );
   const cyclesByDate = groupByDateKey(cycleLoads, (row) => row.serviceDate);
+
+  const todayMenuFacts = await loadReviewMenuFacts({
+    client: input.client,
+    facilityId: input.facilityId,
+    departments,
+    serviceDate: todayKey,
+    todayKey,
+  });
 
   const factsByDate = new Map<string, OperationalReviewDayFacts>();
   for (const serviceDate of input.keys) {
@@ -478,6 +489,9 @@ export async function loadOperationalReviewRangeFacts(input: {
           observedAt: row.observedAt,
         })),
       legacySubmissionPresent: (legacyByDate.get(serviceDate) ?? []).length > 0,
+      menuDepartmentIds: serviceDate === todayKey ? todayMenuFacts.menuDepartmentIds : [],
+      menuCandidates: serviceDate === todayKey ? todayMenuFacts.menuCandidates : [],
+      menuItems: serviceDate === todayKey ? todayMenuFacts.menuItems : [],
     });
   }
 

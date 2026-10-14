@@ -138,7 +138,7 @@ These must pass after **every** wave:
 |----|----------|
 | W3-01 | PIN user completes log from unit page |
 | W3-02 | Servery meal ready/started from unit |
-| W3-03 | Today's menu displays for dietary unit |
+| W3-03 | **STALE (2026-10-13)** — Runtime does not show today's menu on the unit. Do not restore as current. |
 | W3-04 | Open issues visible on unit with open repair |
 | W3-05 | Kiosk locked unit — cannot switch location without FA |
 

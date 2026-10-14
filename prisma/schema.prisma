@@ -211,7 +211,8 @@ model Facility {
   facilityOrganizations          FacilityOrganization[]
   employeeHrAuditLogs            EmployeeHrAuditLog[]
   employeeTerminationRecords     EmployeeTerminationRecord[]
-  menuSettings                   MenuSettings?
+  menus                          Menu[]
+  menuCycleSettings              MenuCycleSettings[]
   menuItems                      MenuItem[]
   kioskUnitPinLoginEvents        KioskUnitPinLoginEvent[]
   onboardingManagerInvites       OnboardingManagerInvite[]
@@ -304,6 +305,7 @@ model Department {
   logAttachments                 LogAttachment[]                 @relation("LogAttachmentOwningDepartment")
   logAttachmentsAsTarget         LogAttachment[]                 @relation("LogAttachmentTargetDepartment")
   assetIssues                    AssetIssue[]
+  menus                          Menu[]
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
@@ -869,9 +871,39 @@ model OperationInstance {
   @@index([workShiftId])
 }
 
-model MenuSettings {
+enum MenuStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Department-owned Menu identity. Cycle/rotation fields live on MenuCycleSettings.
+model Menu {
+  id             String             @id @default(cuid())
+  facilityId     String
+  facility       Facility           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId   String
+  department     Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name           String
+  status         MenuStatus         @default(ACTIVE)
+  cycleSettings                   MenuCycleSettings?
+  items                           MenuItem[]
+  locationApplicability           MenuLocationApplicability[]
+  operationalCycleApplicability   MenuOperationalCycleApplicability[]
+  createdAt                       DateTime           @default(now())
+  updatedAt                       DateTime           @updatedAt
+
+  @@index([facilityId, departmentId, status])
+  @@index([departmentId, status])
+  @@index([facilityId, status, name])
+}
+
+/// Rotating-cycle configuration for one Menu. Not Menu identity.
+/// Legacy unmigrated rows may have facilityId and a null menuId during the compatibility window.
+model MenuCycleSettings {
   id               String           @id @default(cuid())
-  facilityId       String           @unique
+  menuId           String?          @unique
+  menu             Menu?            @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  facilityId       String
   facility         Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   cycleLengthWeeks Int              @default(3)
   weekStartsOn     MenuWeekStartDay @default(SUNDAY)
@@ -879,10 +911,14 @@ model MenuSettings {
   periodConfigJson Json?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  @@index([facilityId])
 }
 
 model MenuItem {
   id            String            @id @default(cuid())
+  menuId        String?
+  menu          Menu?             @relation(fields: [menuId], references: [id], onDelete: Cascade)
   facilityId    String
   facility      Facility          @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   weekNumber    Int
@@ -897,8 +933,42 @@ model MenuItem {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
+  @@index([menuId, weekNumber, dayIndex, mealPeriodKey])
+  @@index([menuId, weekNumber, dayIndex, mealPeriodKey, category])
   @@index([facilityId, weekNumber, dayIndex, mealPeriodKey])
   @@index([facilityId, weekNumber, dayIndex, mealPeriodKey, category])
+}
+
+/// Exact Department location where a Menu may be used.
+/// Neighborhoods use unitId; rooms use spaceId. No hierarchy inheritance.
+model MenuLocationApplicability {
+  id        String     @id @default(cuid())
+  menuId    String
+  menu      Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  spaceId   String?
+  space     UnitSpace? @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([menuId, unitId])
+  @@unique([menuId, spaceId])
+  @@index([unitId])
+  @@index([spaceId])
+}
+
+/// Canonical Operational Cycle identity where a Menu may be used, plus the
+/// Menu period that holds content for that Cycle. Bind stableKey, never cycle row id.
+model MenuOperationalCycleApplicability {
+  id             String   @id @default(cuid())
+  menuId         String
+  menu           Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  cycleStableKey String
+  menuPeriodKey  String
+  createdAt      DateTime @default(now())
+
+  @@unique([menuId, cycleStableKey])
+  @@index([cycleStableKey])
 }
 
 model User {
@@ -1611,6 +1681,7 @@ model Unit {
   operationalAssignments     OperationalAssignment[]
   assignmentTemplateItems    OperationalAssignmentTemplateItem[]
   operationalCycleLocations       DepartmentOperationalCycleLocation[]
+  menuLocationApplicability       MenuLocationApplicability[]
   operationalCycleMilestoneTimes  DepartmentOperationalCycleMilestoneTime[]
   cycleDayExpectations            OperationalCycleDayExpectation[]
   operationalEvidenceRecords      OperationalEvidenceRecord[]
@@ -1717,6 +1788,7 @@ model UnitSpace {
   logSuppressions                    DepartmentLocationLogSuppression[]
   assignmentLocations                OperationalAssignmentLocation[]
   operationalCycleLocations          DepartmentOperationalCycleLocation[]
+  menuLocationApplicability          MenuLocationApplicability[]
   keyTimeGroupRooms                  DepartmentOperationalCycleKeyTimeGroupRoom[]
   keyTimeDayExpectations             OperationalCycleKeyTimeDayExpectation[]
   createdAt                          DateTime                            @default(now())

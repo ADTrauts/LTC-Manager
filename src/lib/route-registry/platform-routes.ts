@@ -944,8 +944,17 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "menus",
     legacyArea: { key: "menus", label: "Menus", navOrder: 60, navVisible: true, critical: false },
-    // BUILD · Menu Building — Dietary menu cycle/period/item configuration.
-    nav: { label: "Menu Building", order: 235 },
+    // BUILD · Menus — department-owned Menu library.
+    nav: { label: "Menus", order: 235 },
+  },
+  {
+    pattern: "/menus/[menuId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "menus",
+    requiresDownstreamAuthorization: true,
+    notes: "BUILD · one Menu workspace. Downstream authority scopes Facility + Department ownership.",
   },
   {
     pattern: "/assets",

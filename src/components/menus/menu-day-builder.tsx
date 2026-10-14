@@ -8,6 +8,7 @@ import type { MenuPeriodConfig } from "@/lib/menu-cycle";
 import type { MenuItemCycleRow } from "@/lib/menu-db";
 
 type Props = {
+  menuId: string;
   selectedWeek: number;
   selectedDayIndex: number;
   periods: MenuPeriodConfig[];
@@ -56,6 +57,7 @@ function rowsFromDb(
 }
 
 export function MenuDayBuilder({
+  menuId,
   selectedWeek,
   selectedDayIndex,
   periods,
@@ -102,6 +104,7 @@ export function MenuDayBuilder({
 
               return (
                 <form key={rowKey} action={saveMenuCategoryItemsAction} className="space-y-2 rounded-md border border-zinc-200 p-3">
+                  <input type="hidden" name="menuId" value={menuId} />
                   <input type="hidden" name="weekNumber" value={selectedWeek} />
                   <input type="hidden" name="dayIndex" value={selectedDayIndex} />
                   <input type="hidden" name="mealPeriodKey" value={period.key} />

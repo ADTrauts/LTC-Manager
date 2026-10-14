@@ -45,11 +45,11 @@ import {
 } from "@/lib/department-administration/plant-getting-started";
 import {
   canPurchaseDepartmentProducts,
+  departmentProductOffersMenus,
   findCatalogItemForDepartmentKey,
   getDepartmentProduct,
   loadFacilityDepartmentCatalog,
 } from "@/lib/department-products";
-import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
 import { prisma } from "@/lib/prisma";
 
@@ -127,7 +127,7 @@ export default async function DepartmentBuilderPage({
     locationsEnabled: true,
     workEnabled,
     recordsEnabled: canonicalLogsEnabled,
-    menusEnabled: hasDietaryDomainCapabilities(view.department.key),
+    menusEnabled: departmentProductOffersMenus(view.department.key),
     maintenanceEnabled: view.department.key === "PLANT",
   });
   const tab = resolveDepartmentAdminTab(query.tab, {
@@ -353,7 +353,7 @@ export default async function DepartmentBuilderPage({
             />
           </section>
         ) : null}
-        {tab === "menus" ? <DepartmentMenusPanel /> : null}
+        {tab === "menus" ? <DepartmentMenusPanel departmentId={view.department.id} /> : null}
       </div>
     </div>
   );

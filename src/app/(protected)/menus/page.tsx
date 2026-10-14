@@ -1,211 +1,134 @@
+import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
+import Link from "next/link";
 
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
-import { MenuDayBuilder } from "@/components/menus/menu-day-builder";
-import { MenuPeriodSettingsForm } from "@/components/menus/menu-period-settings-form";
+import { CreateMenuForm } from "@/components/menus/create-menu-form";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { buildPageIntro } from "@/lib/build-hub";
+import { departmentProductOffersMenus } from "@/lib/department-products";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { dayLabelsForWeekStart, ensureMenuSettingsDefaults, menuForCycleSlot, menuForDate } from "@/lib/menu-cycle";
-import { loadFacilityMenuData } from "@/lib/menu-db";
+import { resolveMenuListDepartmentScope } from "@/lib/menu-authority";
+import { listMenus } from "@/lib/menu-db";
 import { prisma } from "@/lib/prisma";
 
 type MenusPageProps = {
-  searchParams?: Promise<{ week?: string; tab?: string; day?: string }>;
+  searchParams?: Promise<{ department?: string }>;
 };
+
+function formatCycleSummary(cycleLengthWeeks: number | null): string | null {
+  if (cycleLengthWeeks === 3 || cycleLengthWeeks === 4) {
+    return `${cycleLengthWeeks}-week cycle`;
+  }
+  return null;
+}
 
 export default async function MenusPage({ searchParams }: MenusPageProps) {
   noStore();
   const session = await requireFacilitySession();
   const params = searchParams ? await searchParams : undefined;
-  const tab = params?.tab === "settings" ? "settings" : "builder";
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
 
-  const menuData = await loadFacilityMenuData(prisma, session.facilityId, {
-    menuItemsOrderBy: [{ weekNumber: "asc" }, { dayIndex: "asc" }, { mealPeriodKey: "asc" }, { displayOrder: "asc" }],
+  const scopedDepartmentId = resolveMenuListDepartmentScope({
+    showAllDepartmentNav: deptNav.showAllDepartmentNav,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    requestedDepartmentId: typeof params?.department === "string" ? params.department : null,
   });
-  const { settingsRaw, menuItems, unavailableReason: menuUnavailableReason } = menuData;
-  const settings = ensureMenuSettingsDefaults(settingsRaw);
 
-  const requestedWeek = Number.parseInt(params?.week ?? "", 10);
-  const selectedWeek =
-    Number.isFinite(requestedWeek) && requestedWeek >= 1 && requestedWeek <= settings.cycleLengthWeeks ? requestedWeek : 1;
-  const dayLabels = dayLabelsForWeekStart(settings.weekStartsOn);
-  const requestedDay = Number.parseInt(params?.day ?? "", 10);
-  const selectedDayIndex = Number.isFinite(requestedDay) && requestedDay >= 0 && requestedDay <= 6 ? requestedDay : 0;
+  const [menuList, departments] = await Promise.all([
+    listMenus(prisma, {
+      facilityId: session.facilityId,
+      departmentId: scopedDepartmentId,
+    }),
+    prisma.department.findMany({
+      where: { facilityId: session.facilityId, isActive: true },
+      select: { id: true, name: true, key: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  const todayMenu = menuForDate({
-    date: new Date(),
-    settings,
-    periods: settings.periods,
-    menuItems,
-  });
-  const selectedDayMenu = menuForCycleSlot({
-    weekNumber: selectedWeek,
-    dayIndex: selectedDayIndex,
-    periods: settings.periods,
-    menuItems,
-  });
+  const createDepartments = departments
+    .filter((department) => departmentProductOffersMenus(department.key))
+    .filter((department) => deptNav.showAllDepartmentNav || department.id === deptNav.activeDepartmentId)
+    .map((department) => ({ id: department.id, name: department.name }));
+
+  const active = menuList.menus.filter((menu) => menu.status === "ACTIVE");
+  const inactive = menuList.menus.filter((menu) => menu.status === "INACTIVE");
 
   return (
     <section className="space-y-4">
-      <BuildPageHeader
-        title="Menu Building"
-        subtitle={buildPageIntro("/menus")}
-      />
-      {menuUnavailableReason ? (
+      <BuildPageHeader title="Menus" subtitle={buildPageIntro("/menus")} />
+      {menuList.unavailableReason ? (
         <div className="max-w-3xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {menuUnavailableReason}
+          {menuList.unavailableReason}
         </div>
       ) : null}
 
-      <nav className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3" aria-label="Menu sections">
-        <a
-          href={`/menus?tab=builder&week=${selectedWeek}&day=${selectedDayIndex}`}
-          className={`rounded-md px-3 py-2 text-sm font-medium ${
-            tab === "builder"
-              ? "bg-zinc-900 text-white shadow-sm"
-              : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
-          }`}
-          aria-current={tab === "builder" ? "page" : undefined}
-        >
-          Builder
-        </a>
-        <a
-          href="/menus?tab=settings"
-          className={`rounded-md px-3 py-2 text-sm font-medium ${
-            tab === "settings"
-              ? "bg-zinc-900 text-white shadow-sm"
-              : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
-          }`}
-          aria-current={tab === "settings" ? "page" : undefined}
-        >
-          Settings
-        </a>
-      </nav>
+      <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-zinc-900">Create menu</h2>
+        <div className="mt-3">
+          <CreateMenuForm
+            departments={createDepartments}
+            defaultDepartmentId={deptNav.activeDepartmentId}
+            disabled={Boolean(menuList.unavailableReason)}
+          />
+        </div>
+      </article>
 
-      {tab === "settings" ? (
-        <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-900">Menu cycle settings</h2>
-          <div className="mt-3">
-            <MenuPeriodSettingsForm
-              cycleLengthWeeks={settings.cycleLengthWeeks}
-              weekStartsOn={settings.weekStartsOn}
-              cycleAnchorDate={settings.cycleAnchorDate.toISOString().slice(0, 10)}
-              periods={settings.periods}
-              disabled={Boolean(menuUnavailableReason)}
-            />
-          </div>
-        </article>
-      ) : null}
-
-      {tab === "builder" ? (
-        <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <fieldset disabled={Boolean(menuUnavailableReason)} className="min-w-0 border-0 p-0">
-            <legend className="sr-only">Menu cycle by week and day</legend>
-            <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-3">
-              {Array.from({ length: settings.cycleLengthWeeks }, (_, idx) => idx + 1).map((week) => (
-                <a
-                  key={week}
-                  href={`/menus?tab=builder&week=${week}&day=${selectedDayIndex}`}
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
-                    selectedWeek === week
-                      ? "bg-zinc-900 text-white shadow-sm"
-                      : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
-                  }`}
-                >
-                  Week {week}
-                </a>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-3">
-              {dayLabels.map((dayLabel, dayIndex) => (
-                <a
-                  key={`${dayLabel}-${dayIndex}`}
-                  href={`/menus?tab=builder&week=${selectedWeek}&day=${dayIndex}`}
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
-                    selectedDayIndex === dayIndex
-                      ? "bg-zinc-900 text-white shadow-sm"
-                      : "border-2 border-zinc-300 bg-white font-semibold text-zinc-800 hover:bg-zinc-100"
-                  }`}
-                  aria-current={selectedDayIndex === dayIndex ? "page" : undefined}
-                >
-                  {dayLabel}
-                </a>
-              ))}
-            </div>
-            <div className="mt-4 space-y-5">
-              <div className="rounded-lg border border-zinc-200 p-3">
-                <h3 className="text-base font-semibold text-zinc-900">{dayLabels[selectedDayIndex]}</h3>
-                <div className="mt-3">
-                  <MenuDayBuilder
-                    key={`${selectedWeek}-${selectedDayIndex}`}
-                    selectedWeek={selectedWeek}
-                    selectedDayIndex={selectedDayIndex}
-                    periods={settings.periods}
-                    menuItems={menuItems}
-                    disabled={Boolean(menuUnavailableReason)}
-                  />
-                </div>
-              </div>
-            </div>
-          </fieldset>
-        </article>
-      ) : null}
-
-      {tab === "builder" ? (
-        <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-900">Live menu preview</h2>
-          {menuUnavailableReason ? (
-            <p className="mt-2 text-sm text-zinc-600">Preview is unavailable until menu data can load.</p>
-          ) : (
-            <>
-              <p className="mt-1 text-sm text-zinc-600">
-                Selected editor view: Week {selectedWeek} · {dayLabels[selectedDayIndex]}
-              </p>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                {settings.periods.map((period) => (
-                  <div key={period.key} className="rounded border border-zinc-200 p-3">
-                    <p className="text-sm font-semibold text-zinc-900">{period.label}</p>
-                    <div className="mt-2 space-y-2 text-sm text-zinc-700">
-                      {period.categories.map((category) => {
-                        const values = selectedDayMenu[period.key]?.[category] ?? [];
-                        return (
-                          <div key={category}>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{category}</p>
-                            <p>{values.length > 0 ? values.join(", ") : "Not set"}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-4 text-sm text-zinc-600">
-                Cycle week {todayMenu.weekNumber} · {dayLabels[todayMenu.dayIndex]}
-              </p>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                {settings.periods.map((period) => (
-                  <div key={period.key} className="rounded border border-zinc-200 p-3">
-                    <p className="text-sm font-semibold text-zinc-900">{period.label}</p>
-                    <div className="mt-2 space-y-2 text-sm text-zinc-700">
-                      {period.categories.map((category) => {
-                        const values = todayMenu.grouped[period.key]?.[category] ?? [];
-                        return (
-                          <div key={category}>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{category}</p>
-                            <p>{values.length > 0 ? values.join(", ") : "Not set"}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </article>
-      ) : null}
+      <MenuSection title="Active" menus={active} empty="No active menus." />
+      <MenuSection title="Inactive" menus={inactive} empty="No inactive menus." />
     </section>
   );
 }
 
+function MenuSection({
+  title,
+  menus,
+  empty,
+}: {
+  title: string;
+  menus: Array<{
+    id: string;
+    name: string;
+    status: "ACTIVE" | "INACTIVE";
+    updatedAt: Date;
+    department: { name: string };
+    cycleLengthWeeks: number | null;
+  }>;
+  empty: string;
+}) {
+  return (
+    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
+      {menus.length === 0 ? (
+        <p className="mt-2 text-sm text-zinc-600">{empty}</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-zinc-200">
+          {menus.map((menu) => {
+            const cycle = formatCycleSummary(menu.cycleLengthWeeks);
+            return (
+              <li key={menu.id}>
+                <Link
+                  href={`/menus/${menu.id}?tab=menu`}
+                  className="flex flex-wrap items-baseline justify-between gap-2 py-3 hover:bg-zinc-50"
+                >
+                  <div>
+                    <p className="font-medium text-zinc-900">{menu.name}</p>
+                    <p className="text-sm text-zinc-600">
+                      {menu.department.name}
+                      {cycle ? ` · ${cycle}` : ""}
+                    </p>
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    {menu.status === "ACTIVE" ? "Active" : "Inactive"}
+                  </p>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </article>
+  );
+}

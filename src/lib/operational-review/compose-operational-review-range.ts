@@ -36,6 +36,9 @@ function emptyTotals(): OperationalReviewRangeTotals {
     assetImpactDays: 0,
     scheduledPresence: 0,
     presenceExceptions: 0,
+    menuFindings: 0,
+    menuEvaluatedDays: 0,
+    menuUnavailableDays: 0,
   };
 }
 
@@ -104,6 +107,13 @@ export function aggregateOperationalReviewDays(
     if (day.assets.impacts.length > 0) totals.assetImpactDays += 1;
     totals.scheduledPresence += day.presence.scheduled.length;
     totals.presenceExceptions += day.presence.exceptions.length;
+
+    if (day.menu.availability.status === "unavailable") {
+      totals.menuUnavailableDays += 1;
+    } else {
+      totals.menuEvaluatedDays += 1;
+      totals.menuFindings += day.menu.findings.length;
+    }
   }
   return totals;
 }

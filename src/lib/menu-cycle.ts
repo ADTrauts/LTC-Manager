@@ -3,8 +3,16 @@ import {
   MenuItemEntryType,
   MenuWeekStartDay,
   type MenuItem,
-  type MenuSettings,
 } from "@prisma/client";
+
+import { facilityLocalDateToServiceDate, toServiceDateKey } from "@/lib/operational-time";
+
+export type MenuCycleSettingsInput = {
+  cycleLengthWeeks?: number | null;
+  weekStartsOn?: MenuWeekStartDay | null;
+  cycleAnchorDate?: Date | null;
+  periodConfigJson?: unknown;
+};
 
 export type MenuPeriodConfig = {
   key: string;
@@ -25,7 +33,7 @@ export function dayLabelsForWeekStart(weekStartsOn: MenuWeekStartDay) {
   return weekStartsOn === "MONDAY" ? DAYS_MONDAY_FIRST : DAYS_SUNDAY_FIRST;
 }
 
-export function ensureMenuSettingsDefaults(settings: Partial<MenuSettings> | null): {
+export function ensureMenuSettingsDefaults(settings: MenuCycleSettingsInput | null): {
   cycleLengthWeeks: 3 | 4;
   weekStartsOn: MenuWeekStartDay;
   cycleAnchorDate: Date;
@@ -38,11 +46,11 @@ export function ensureMenuSettingsDefaults(settings: Partial<MenuSettings> | nul
   return { cycleLengthWeeks, weekStartsOn, cycleAnchorDate, periods };
 }
 
-function parsePeriodConfig(value: unknown): MenuPeriodConfig[] {
-  if (!Array.isArray(value)) return DEFAULT_MENU_PERIODS;
+function cleanPeriodConfig(value: unknown): MenuPeriodConfig[] {
+  if (!Array.isArray(value)) return [];
   const seenKeys = new Set<string>();
   const seenLabels = new Set<string>();
-  const cleaned = value
+  return value
     .map((item): MenuPeriodConfig | null => {
       if (!item || typeof item !== "object") return null;
       const raw = item as { key?: unknown; label?: unknown; categories?: unknown };
@@ -62,7 +70,19 @@ function parsePeriodConfig(value: unknown): MenuPeriodConfig[] {
       return { key, label, categories };
     })
     .filter((row): row is MenuPeriodConfig => row !== null);
+}
+
+function parsePeriodConfig(value: unknown): MenuPeriodConfig[] {
+  const cleaned = cleanPeriodConfig(value);
   return cleaned.length > 0 ? cleaned : DEFAULT_MENU_PERIODS;
+}
+
+/**
+ * Runtime period authority from stored JSON only.
+ * Does not substitute Breakfast/Lunch/Dinner defaults.
+ */
+export function storedMenuPeriodConfigs(value: unknown): MenuPeriodConfig[] {
+  return cleanPeriodConfig(value);
 }
 
 export function startOfDay(value: Date): Date {
@@ -86,6 +106,57 @@ export function dayIndexForDate(date: Date, weekStartsOn: MenuWeekStartDay): num
   const day = date.getDay();
   if (weekStartsOn === "SUNDAY") return day;
   return (day + 6) % 7;
+}
+
+export type MenuRuntimeCycleSettings = {
+  cycleLengthWeeks: number;
+  weekStartsOn: MenuWeekStartDay;
+  cycleAnchorDate: Date;
+};
+
+/**
+ * Usable Runtime rotation settings. Missing or invalid values stay null —
+ * Runtime does not fabricate 3-week / Sunday / today defaults.
+ */
+export function usableMenuRuntimeCycleSettings(
+  settings: {
+    cycleLengthWeeks?: number | null;
+    weekStartsOn?: MenuWeekStartDay | null;
+    cycleAnchorDate?: Date | null;
+  } | null,
+): { cycleLengthWeeks: 3 | 4; weekStartsOn: MenuWeekStartDay; cycleAnchorDate: Date } | null {
+  if (!settings) return null;
+  const cycleLengthWeeks = settings.cycleLengthWeeks === 4 ? 4 : settings.cycleLengthWeeks === 3 ? 3 : null;
+  const weekStartsOn = settings.weekStartsOn === "MONDAY" || settings.weekStartsOn === "SUNDAY" ? settings.weekStartsOn : null;
+  const cycleAnchorDate = settings.cycleAnchorDate;
+  if (!cycleLengthWeeks || !weekStartsOn || !cycleAnchorDate || Number.isNaN(cycleAnchorDate.getTime())) {
+    return null;
+  }
+  return { cycleLengthWeeks, weekStartsOn, cycleAnchorDate };
+}
+
+/**
+ * Civil-date-safe Menu week/day for a facility service date key (YYYY-MM-DD).
+ * Uses UTC calendar parts only. Do not pass the key through host-timezone Date#getDay.
+ */
+export function rotationForServiceDateKey(
+  serviceDateKey: string,
+  settings: MenuRuntimeCycleSettings,
+): { weekNumber: number; dayIndex: number } {
+  const usable = usableMenuRuntimeCycleSettings(settings);
+  if (!usable) {
+    throw new Error("Menu Runtime rotation requires usable cycle settings.");
+  }
+  const serviceDate = facilityLocalDateToServiceDate(serviceDateKey);
+  const anchorDate = facilityLocalDateToServiceDate(toServiceDateKey(usable.cycleAnchorDate));
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const totalDays = usable.cycleLengthWeeks * 7;
+  const diffDays = Math.round((serviceDate.getTime() - anchorDate.getTime()) / oneDayMs);
+  const normalized = ((diffDays % totalDays) + totalDays) % totalDays;
+  const weekNumber = Math.floor(normalized / 7) + 1;
+  const utcDay = serviceDate.getUTCDay();
+  const dayIndex = usable.weekStartsOn === "SUNDAY" ? utcDay : (utcDay + 6) % 7;
+  return { weekNumber, dayIndex };
 }
 
 export function formatMenuLineDisplay(item: {

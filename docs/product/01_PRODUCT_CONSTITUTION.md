@@ -72,7 +72,7 @@ A Product existing in the Vssyl registry does not make it customer-visible. Cust
 
 ### Product workspaces
 
-**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Healthcare Food & Nutrition also has Menus. Assets and Procedures appear only where a real configurable capability exists.
+**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Healthcare Food & Nutrition also has Menus. Menus are first-class Department-owned records listed at `/menus` and edited at `/menus/[menuId]`. A Menu is identity plus content. Applicability is separate configuration: explicit Department locations and canonical Operational Cycle identities, each mapped to an existing Menu period. Menu rotation is not Operational Cycle timing. They are not a facility singleton. Runtime Menu resolution is `resolveApplicableMenus`: exact location + date-effective root Operational Cycle occurrence + ACTIVE applicability + stored cycle→period mapping + Menu rotation. The first Run consumer is a read-only Today's Menu block on the Space workspace when an ACTIVE current Operational Cycle exists. Temperature/log integration and historical Menu snapshots are not implemented. Assets and Procedures appear only where a real configurable capability exists.
 
 **Facility Builder:** physical structure only.
 

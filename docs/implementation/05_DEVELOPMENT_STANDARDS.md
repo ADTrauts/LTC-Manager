@@ -100,7 +100,7 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 - **Never edit applied migrations** — forward-only new migrations
 - **Never suggest `prisma migrate reset`** on shared/production databases
 - After schema change: `prisma generate` + restart dev server
-- Menu reads: use `loadFacilityMenuData` from `menu-db.ts` (see AGENTS.md)
+- Menu Builder reads: use `listMenus` / `loadMenu` from `menu-db.ts`. Applicability writes go through `replaceMenuApplicability`. Runtime reads use `resolveApplicableMenus` in `menu-runtime-db.ts`. `loadFacilityMenuData` is `/logs` compatibility only (see AGENTS.md)
 - Scope new unique constraints per `facilityId` when adding codes (learn from global `assetCode` debt)
 
 ### API routes

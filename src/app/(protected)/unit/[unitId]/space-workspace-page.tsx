@@ -16,6 +16,7 @@ import {
   resolveSelectedRoomForUnit,
 } from "@/lib/operational-cycles";
 import { prisma } from "@/lib/prisma";
+import { resolveApplicableMenus } from "@/lib/menu-runtime-db";
 import { loadRuntimeLocationState } from "@/lib/runtime-location-state";
 import {
   presentSpaceWorkspace,
@@ -117,6 +118,19 @@ export async function SpaceWorkspacePage({
   const reportAsset = firstSearchValue(query?.reportAsset);
   const reportProblem = firstSearchValue(query?.reportProblem);
   const showRequestIntake = Boolean(reportAsset || reportProblem);
+  const currentOperation =
+    loaded.operation.state === "ACTIVE" ? loaded.operation.current : null;
+  const todaysMenu = currentOperation
+    ? await resolveApplicableMenus({
+        facilityId: session.facilityId,
+        departmentId: department.id,
+        serviceDateKey: loaded.asOf.operationalDateKey,
+        location: { unitId: null, spaceId },
+        cycleStableKey: currentOperation.cycleStableKey,
+        operationalTypeKey: loaded.program.operationalType.key,
+      })
+    : null;
+
   const extras = {
     assets: showRequestIntake
       ? (
@@ -145,5 +159,5 @@ export async function SpaceWorkspacePage({
       : null,
   };
 
-  return <SpaceWorkspaceView view={view} extras={extras} />;
+  return <SpaceWorkspaceView view={view} extras={extras} todaysMenu={todaysMenu} />;
 }

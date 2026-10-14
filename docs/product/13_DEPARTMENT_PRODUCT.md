@@ -93,7 +93,7 @@ Department Builder is the post-install configuration home:
 
 Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
 
-Healthcare Food & Nutrition also has Menus. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
+Healthcare Food & Nutrition also has Menus. Menus are Department-owned identity records (`Menu`) with optional rotating-cycle content (`MenuCycleSettings` + `MenuItem`). Applicability is explicit: `MenuLocationApplicability` consumes canonical Department locations, and `MenuOperationalCycleApplicability` stores a root Operational Cycle `stableKey` plus a `menuPeriodKey` mapping to existing Menu content. They are not Cycles, Records, or Work, and they are not a facility-wide singleton. Runtime Menu resolution is implemented as `resolveApplicableMenus` in `menu-runtime.ts` / `menu-runtime-db.ts`. It answers which ACTIVE Menus apply at an exact location during a canonical root Operational Cycle on a facility service date, then loads that slot's content. It does not choose a winner, inherit neighborhood rooms, match MealType, bind `DepartmentOperationalCycle.id`, or snapshot historical Menu configuration. The first Run consumer is Today's Menu on the Space workspace Overview. Temperature/log integration is not implemented. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
 
 Configuration readiness is derived from those operational facts. Do not persist `CONFIGURED` / `UNCONFIGURED` / `SETUP_COMPLETE` on Department.
 
@@ -138,9 +138,10 @@ Marketplace and Admin installed-product context project from `deriveFacilityDepa
 - AVAILABLE products (DEVELOPMENT hidden; RETIRED not offered)
 - installed products (Department rows)
 - licensed products (ACTIVE entitlements)
-- grandfathered UNMANAGED installs of AVAILABLE products while `BILLING_ENTITLEMENTS_ENABLED` is off
-- available-to-add (`!installed && !licensed`)
+- grandfathered installed AVAILABLE products while `BILLING_ENTITLEMENTS_ENABLED` is off, including facilities already billed for another Product
+- available-to-add (`!licensed && !operable`)
 - operable (`released + entitled + installed + active`)
+- Marketplace **Installed** means operable — the same customer meaning as Admin → Departments, not merely that a Department row exists
 
 No second catalog table. No installation status table. Adding Departments belongs in Admin → Departments → Marketplace, not the Department picker.
 

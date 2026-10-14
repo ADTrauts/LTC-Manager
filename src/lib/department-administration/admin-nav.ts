@@ -1,7 +1,7 @@
 /**
  * Department Builder — local navigation.
  * Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
- * Menus appear only for a Dietary product.
+ * Menus appear only when the Department Product offers Menus.
  *
  * Retired tab ids still resolve so old links land on the owning section.
  */
@@ -45,7 +45,7 @@ export const DEPARTMENT_ADMIN_TABS = [
   {
     id: "menus",
     label: "Menus",
-    description: "Dietary menus",
+    description: "Department menus",
   },
 ] as const;
 
@@ -124,7 +124,7 @@ export function departmentAdminTabsForFlags(input: {
   workEnabled?: boolean;
   /** Canonical Record requirements. Omit when the record engine is off. */
   recordsEnabled?: boolean;
-  /** Dietary menus. Omit for other products. */
+  /** Product-offered Menus. Omit for other products. */
   menusEnabled?: boolean;
   /** Plant Preventive Maintenance builder. Omit for other products. */
   maintenanceEnabled?: boolean;

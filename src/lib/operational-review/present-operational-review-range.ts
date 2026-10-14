@@ -89,6 +89,10 @@ function filterDayToSpace(
       ...day.assets,
       impacts: day.assets.impacts.filter((row) => row.spaceId === spaceId),
     },
+    menu: {
+      ...day.menu,
+      findings: day.menu.findings.filter((row) => !row.spaceId || row.spaceId === spaceId),
+    },
   };
 }
 

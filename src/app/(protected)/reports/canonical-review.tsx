@@ -408,6 +408,40 @@ export function CanonicalReview({
       </ReviewCard>
       )}
 
+      {presentation.menu.unavailableMessage || presentation.menu.rows.length > 0 ? (
+        <ReviewCard
+          title="Menu"
+          subtitle="Expected service occurrences versus configured Menu content."
+          testId="review-menu"
+        >
+          {presentation.menu.unavailableMessage ? (
+            <UnavailableBanner message={presentation.menu.unavailableMessage} />
+          ) : (
+            <ul className="space-y-4" data-testid="review-menu-findings">
+              {presentation.menu.rows.map((row, index) => (
+                <li
+                  key={`${row.code}-${row.spaceId ?? "none"}-${row.cycleLabel}-${row.menuName ?? "none"}-${index}`}
+                  className="space-y-1"
+                >
+                  <p className="text-sm font-semibold text-zinc-900">
+                    {row.locationLabel} · {row.cycleLabel}
+                  </p>
+                  <p className="text-sm text-zinc-700">{row.message}</p>
+                  {row.peerNames.length > 0 ? (
+                    <p className="text-sm text-zinc-600">{row.peerNames.join(" · ")}</p>
+                  ) : null}
+                  <p>
+                    <Link href={row.href} className="text-sm underline underline-offset-2">
+                      {row.hrefLabel}
+                    </Link>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </ReviewCard>
+      ) : null}
+
       {presentation.assets.rows.length > 0 ? (
         <ReviewCard title="Asset impact" subtitle="Issues that affected operation that day." testId="review-assets">
           <ReviewTable caption="Asset operational impacts" columns={["Impact", "Location", "Observed", "Record"]}>

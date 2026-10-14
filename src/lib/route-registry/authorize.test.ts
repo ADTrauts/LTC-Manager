@@ -439,6 +439,7 @@ test("partner session may open home and canonical log reads", () => {
     "/employees",
     "/reports",
     "/menus",
+    "/menus/menu_1",
     "/build",
     "/admin",
     "/admin/billing",
@@ -618,6 +619,19 @@ test("account session — workspace stays denied while global account is allowed
     }).outcome,
     "ALLOW",
   );
+});
+
+test("role policy — /menus and /menus/[menuId] keep the Supervisor floor", () => {
+  const supervisorPlus: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER", "SUPERVISOR"];
+  for (const path of ["/menus", "/menus/menu_1"]) {
+    for (const role of APP_ROLES) {
+      assert.equal(
+        roleMayAccessRoute(path, role, FLAGS),
+        supervisorPlus.includes(role),
+        `${role} at ${path}`,
+      );
+    }
+  }
 });
 
 test("internal — framework and static asset paths pass through", () => {

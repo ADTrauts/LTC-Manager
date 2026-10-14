@@ -6,6 +6,7 @@ import { saveMenuSettingsAction } from "@/app/(protected)/menus/actions";
 import type { MenuPeriodConfig } from "@/lib/menu-cycle";
 
 type Props = {
+  menuId: string;
   cycleLengthWeeks: 3 | 4;
   weekStartsOn: "SUNDAY" | "MONDAY";
   cycleAnchorDate: string;
@@ -20,6 +21,7 @@ type PeriodDraft = {
 };
 
 export function MenuPeriodSettingsForm({
+  menuId,
   cycleLengthWeeks,
   weekStartsOn,
   cycleAnchorDate,
@@ -31,6 +33,7 @@ export function MenuPeriodSettingsForm({
 
   return (
     <form action={saveMenuSettingsAction} className="space-y-4">
+      <input type="hidden" name="menuId" value={menuId} />
       <input type="hidden" name="periodConfigJson" value={payload} />
       <fieldset disabled={disabled} className="grid gap-3 md:grid-cols-3">
         <select name="cycleLengthWeeks" defaultValue={String(cycleLengthWeeks)} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">

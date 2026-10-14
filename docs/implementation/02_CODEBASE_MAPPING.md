@@ -131,7 +131,7 @@ These artifacts are touched lightly in most waves:
 | File | Change |
 |------|--------|
 | `src/lib/servery-meal-service.ts` | Active meal period helper |
-| `src/lib/menu-db.ts`, `src/lib/menu-cycle.ts` | Today's menu context (optional card) |
+| `src/lib/menu-db.ts`, `src/lib/menu-cycle.ts`, `src/lib/menu-applicability.ts`, `src/lib/menu-runtime.ts`, `src/lib/menu-runtime-db.ts` | **Updated 2026-10-13:** `listMenus` / `loadMenu` for Build. Applicability is `MenuLocationApplicability` + `MenuOperationalCycleApplicability`. Runtime is `resolveApplicableMenus`. `loadFacilityMenuData` is `/logs` compatibility only. Temperature/log integration is not implemented. |
 | **New** `src/lib/operations-center/` | Card data aggregators |
 
 ### Related pages (drill-down targets)

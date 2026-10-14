@@ -7,6 +7,8 @@ export type {
   ReviewEvidenceOccurrence,
   ReviewEvidenceState,
   ReviewLocationEntry,
+  ReviewMenuFinding,
+  ReviewMenuFindingCode,
   ReviewUnavailableReason,
 } from "./types";
 export type {
@@ -35,7 +37,9 @@ export {
   presentOperationalReviewDay,
   unavailableExplanation,
   type OperationalReviewDayPresentation,
+  type PresentedMenuRow,
 } from "./present-operational-review-day";
+export { composeReviewMenuDomain, translateMenuResolutionToReviewFindings } from "./compose-menu-review";
 export {
   historicalOtAssignmentsFromBindings,
   profileCoversServiceDate,

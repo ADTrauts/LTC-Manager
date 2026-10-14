@@ -13,6 +13,7 @@ import type {
   ReviewEvidenceOccurrence,
   ReviewEvidenceState,
   ReviewLocationEntry,
+  ReviewMenuFinding,
   ReviewMilestoneItem,
   ReviewUnavailableReason,
 } from "./types";
@@ -95,6 +96,20 @@ export type PresentedAssetRow = {
   href: string;
 };
 
+export type PresentedMenuRow = {
+  code: ReviewMenuFinding["code"];
+  spaceId: string | null;
+  locationLabel: string;
+  cycleLabel: string;
+  menuName: string | null;
+  peerNames: string[];
+  message: string;
+  attention: true;
+  statusKind: "alert" | "progress";
+  href: string;
+  hrefLabel: string;
+};
+
 export type LocationFilterOption = {
   spaceId: string;
   displayLabel: string;
@@ -134,6 +149,11 @@ export type OperationalReviewDayPresentation = {
   assets: {
     rows: PresentedAssetRow[];
   };
+  menu: {
+    availability: ReviewDomainAvailability;
+    unavailableMessage: string | null;
+    rows: PresentedMenuRow[];
+  };
 };
 
 const SERVICE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -148,6 +168,8 @@ export function unavailableExplanation(reason: ReviewUnavailableReason | null): 
       return "Historical expectation unavailable for this date.";
     case "unsupported_work_history":
       return "Historical Work data is not yet available.";
+    case "unsupported_menu_history":
+      return "Historical Menu configuration is not available for this date.";
     default:
       return "The configuration effective for this date cannot be reconstructed reliably.";
   }
@@ -259,6 +281,71 @@ function evidenceAttention(state: ReviewEvidenceState): boolean {
 
 function coverageAttention(state: ReviewCoverageState): boolean {
   return state === "at_risk" || state === "uncovered" || state === "unavailable";
+}
+
+function presentMenuFinding(
+  finding: ReviewMenuFinding,
+  locations: readonly ReviewLocationEntry[],
+): PresentedMenuRow {
+  const locationLabel = locationLabelFor(finding.spaceId, locations);
+  const hrefAndMessage = menuFindingPresentation(finding);
+  return {
+    code: finding.code,
+    spaceId: finding.spaceId,
+    locationLabel,
+    cycleLabel: finding.cycleLabel,
+    menuName: finding.menuName,
+    peerNames: finding.peerMenuNames,
+    message: hrefAndMessage.message,
+    attention: true,
+    statusKind: finding.code === "MENU_MULTIPLE_CONFIGURED" ? "progress" : "alert",
+    href: hrefAndMessage.href,
+    hrefLabel: hrefAndMessage.hrefLabel,
+  };
+}
+
+function menuFindingPresentation(finding: ReviewMenuFinding): {
+  message: string;
+  href: string;
+  hrefLabel: string;
+} {
+  switch (finding.code) {
+    case "MENU_NOT_CONFIGURED":
+      return {
+        message: "No menu is configured for this service.",
+        href: "/menus",
+        hrefLabel: "Configure menu",
+      };
+    case "MENU_CONTENT_MISSING":
+      return {
+        message: `${finding.menuName ?? "This menu"} has no items for today's ${finding.cycleLabel}.`,
+        href:
+          finding.menuId && finding.weekNumber !== null && finding.dayIndex !== null
+            ? `/menus/${finding.menuId}?tab=menu&week=${finding.weekNumber}&day=${finding.dayIndex}`
+            : finding.menuId
+              ? `/menus/${finding.menuId}?tab=menu`
+              : "/menus",
+        hrefLabel: "Open menu",
+      };
+    case "MENU_ROTATION_UNCONFIGURED":
+      return {
+        message: `${finding.menuName ?? "This menu"} cannot be rotated for this service. Cycle settings need configuration.`,
+        href: finding.menuId ? `/menus/${finding.menuId}?tab=overview` : "/menus",
+        hrefLabel: "Open menu",
+      };
+    case "MENU_PERIOD_MAPPING_BROKEN":
+      return {
+        message: `${finding.cycleLabel} is mapped to a Menu period that is no longer configured.`,
+        href: finding.menuId ? `/menus/${finding.menuId}?tab=applicability` : "/menus",
+        hrefLabel: "Review applicability",
+      };
+    case "MENU_MULTIPLE_CONFIGURED":
+      return {
+        message: "Multiple menus were configured for this service.",
+        href: "/menus",
+        hrefLabel: "Review menus",
+      };
+  }
 }
 
 function milestoneKindLabel(kind: ReviewMilestoneItem["kind"]): string {
@@ -416,6 +503,10 @@ export function presentOperationalReviewDay(
       href: `/asset-issues/${row.issueId}`,
     }));
 
+  const menuRows = model.menu.findings
+    .filter((row) => matchesSpace(row.spaceId))
+    .map((row) => presentMenuFinding(row, model.locations));
+
   const missed = countBy(evidenceRows, (row) => row.state === "not_complete");
   const corrective = countBy(evidenceRows, (row) => row.state === "completed_with_corrective_action");
   const evidenceUnavailable = countBy(evidenceRows, (row) => row.state === "unavailable");
@@ -490,6 +581,14 @@ export function presentOperationalReviewDay(
       label: `${assets.length} asset operational impact${assets.length === 1 ? "" : "s"}`,
     });
   }
+  if (menuRows.length > 0) {
+    summaryItems.push({
+      id: "menu-exceptions",
+      name: "Menu exceptions",
+      count: menuRows.length,
+      label: `${menuRows.length} menu exception${menuRows.length === 1 ? "" : "s"}`,
+    });
+  }
 
   const unavailableDomains: ReviewSummaryItem[] = [];
   const pushUnavailable = (id: string, domain: string, availability: ReviewDomainAvailability) => {
@@ -504,15 +603,18 @@ export function presentOperationalReviewDay(
   pushUnavailable("evidence-domain", "Evidence", model.evidence.availability);
   pushUnavailable("coverage-domain", "Coverage", model.coverage.availability);
   pushUnavailable("service-domain", "Service", model.milestones.availability);
+  pushUnavailable("menu-domain", "Menu", model.menu.availability);
 
   const presentedLocations: PresentedLocationRow[] = locations.map((location) => {
     const locationEvidence = evidenceRows.filter((row) => row.spaceId === location.spaceId);
     const locationCoverage = coverageSlots.filter((row) => row.spaceId === location.spaceId);
     const locationAssets = assets.filter((row) => row.spaceId === location.spaceId);
+    const locationMenu = menuRows.filter((row) => row.spaceId === location.spaceId);
     const exceptionCount =
       countBy(locationEvidence, (row) => row.attention) +
       countBy(locationCoverage, (row) => row.attention) +
-      locationAssets.length;
+      locationAssets.length +
+      locationMenu.length;
     const notes: string[] = [];
     if (locationEvidence.some((row) => row.state === "unavailable")) {
       notes.push("Historical evidence expectation unavailable");
@@ -546,6 +648,7 @@ export function presentOperationalReviewDay(
     model.presence.scheduled.length > 0 ||
     model.presence.exceptions.length > 0 ||
     assets.length > 0 ||
+    menuRows.length > 0 ||
     unavailableDomains.length > 0;
 
   return {
@@ -584,6 +687,11 @@ export function presentOperationalReviewDay(
       cycles,
     },
     assets: { rows: assets },
+    menu: {
+      availability: model.menu.availability,
+      unavailableMessage: domainUnavailable(model.menu.availability),
+      rows: menuRows,
+    },
   };
 }
 

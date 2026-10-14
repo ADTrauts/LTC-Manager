@@ -137,6 +137,10 @@ function model(overrides?: Partial<OperationalReviewDayViewModel>): OperationalR
       availability: { status: "evaluated", reason: null },
       impacts: [],
     },
+    menu: {
+      availability: { status: "evaluated", reason: null },
+      findings: [],
+    },
     ...overrides,
   };
 }

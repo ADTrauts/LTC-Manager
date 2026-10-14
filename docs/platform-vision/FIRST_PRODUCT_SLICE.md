@@ -72,7 +72,7 @@ flowchart LR
 | Meal period selection (B/L/D) | **Production-ready** — `ServeryMealServiceControls`, daypart auto-select | **Preserve** — center on unit dashboard |
 | Meal ready / started timestamps | **Production-ready** — `ServeryMealServiceEvent` | **Preserve** |
 | Scheduled meal times per unit | **Production-ready** — `UnitMealTime` | **Preserve** — show on unit board |
-| Today's menu at unit | **Production-ready** — menu cycle + unit dashboard | **Preserve** |
+| Today's menu at unit | **Updated 2026-10-13** — Space workspace Overview shows Today's Menu when an ACTIVE current Operational Cycle exists. `/today` and supervisor displays are not implemented. | **Preserve the Space surface; do not treat `/today` as current** |
 | Operation entity | Missing | **Defer** — compose from meal type + date in UI |
 
 **Slice deliverable (conceptual):** A **"Today" dietary header** on global dashboard and unit dashboard: current meal period, countdown to scheduled service times, ready/started status per servery.

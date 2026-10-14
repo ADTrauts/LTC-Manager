@@ -21,6 +21,7 @@ import { getRolesForDepartment } from "@/lib/scheduling/assignment-roles";
 
 import {
   DepartmentProductInstallError,
+  departmentProductOffersMenus,
   getDepartmentProduct,
   installDepartmentProduct,
   installDepartmentProductForInternalDevelopment,
@@ -121,6 +122,7 @@ describe("Department Product registry", () => {
     assert.equal(dietary.sortOrder, 10);
     assert.equal(dietary.domainCapability, "dietary");
     assert.equal(dietary.starters.cycleStarter, "dietary");
+    assert.equal(dietary.starters.menus, true);
 
     const evs = getDepartmentProduct("EVS");
     assert.ok(evs);
@@ -333,6 +335,17 @@ describe("Department Product installation", () => {
     assert.equal(isDepartmentWorkPlansEnabled("TEST_SHARED"), true);
     assert.equal(isDepartmentAssetOperationsEnabled("TEST_SHARED"), true);
     assert.equal(getDepartmentProduct("TEST_SHARED"), null);
+  });
+});
+
+describe("Department Product Menus capability", () => {
+  it("offers Menus for Healthcare Food & Nutrition without encoding Menu ownership as DIETARY", () => {
+    assert.equal(departmentProductOffersMenus("DIETARY"), true);
+    assert.equal(departmentProductOffersMenus("HEALTHCARE_FOOD_NUTRITION"), true);
+    assert.equal(departmentProductOffersMenus("PLANT"), false);
+    assert.equal(departmentProductOffersMenus("EVS"), false);
+    assert.equal(departmentProductOffersMenus(AQUATICS), false);
+    assert.equal(departmentProductOffersMenus("DIETARY_2"), false);
   });
 });
 
