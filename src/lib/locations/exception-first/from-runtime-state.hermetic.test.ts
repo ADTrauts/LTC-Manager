@@ -320,8 +320,9 @@ test("ready active room is quiet; idle programmed room stays after at-risk", () 
   assert.equal(idle.responsibleLabel, "Culinary");
 });
 
-test("board sorts at_risk, then on_time, ready, idle, then unprogrammed", () => {
+test("board follows navigation hierarchy regardless of name, runtime load order, or status", () => {
   const board = presentExceptionFirstLocationBoard({
+    spaceOrder: ["store-1", "retail-1", "kitchen-1", "terminal-1", "cafe-1"],
     states: [
       emptyState({ spaceId: "retail-1", name: "Retail", attached: false }),
       emptyState({ spaceId: "store-1", name: "Dry Store" }),
@@ -376,13 +377,14 @@ test("board sorts at_risk, then on_time, ready, idle, then unprogrammed", () => 
 
   assert.deepEqual(
     board.cards.map((card) => card.name),
-    ["Main Kitchen", "Cafe", "Central Terminal", "Dry Store", "Retail"],
+    ["Dry Store", "Retail", "Main Kitchen", "Central Terminal", "Cafe"],
   );
   assert.deepEqual(
     board.cards.map((card) => card.pace),
-    ["at_risk", "on_time", "ready", "idle", "idle"],
+    ["idle", "idle", "at_risk", "ready", "on_time"],
   );
-  assert.equal(board.cards[4]!.happeningState, "unprogrammed");
+  assert.equal(board.cards[1]!.happeningState, "unprogrammed");
+  assert.equal(board.cards[2]!.emphasized, true);
   assert.equal(board.spaceCount, 5);
   assert.equal(board.attentionCount, 1);
 });

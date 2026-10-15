@@ -14,13 +14,6 @@ import {
   type ExceptionFirstPaceBadge,
 } from "./types";
 
-const PACE_RANK: Record<ExceptionFirstLocationCardView["pace"], number> = {
-  at_risk: 0,
-  on_time: 1,
-  ready: 2,
-  idle: 3,
-};
-
 function placeLine(state: RuntimeLocationState): string | null {
   const facilityType =
     state.program.locationProgram.location.facilityTypeLabel ??
@@ -130,16 +123,15 @@ export function presentExceptionFirstLocationCard(
 
 export function presentExceptionFirstLocationBoard(input: {
   states: readonly RuntimeLocationState[];
+  /** Visible rooms in the same depth-first hierarchy order as location navigation. */
+  spaceOrder: readonly string[];
 }): ExceptionFirstLocationBoardView {
+  const orderIndex = new Map(input.spaceOrder.map((id, index) => [id, index]));
   const cards = input.states
     .map((state) => presentExceptionFirstLocationCard(state))
     .sort((a, b) => {
-      const happeningRank =
-        (a.happeningState === "unprogrammed" ? 1 : 0) -
-        (b.happeningState === "unprogrammed" ? 1 : 0);
-      if (a.pace !== b.pace) return PACE_RANK[a.pace] - PACE_RANK[b.pace];
-      if (happeningRank !== 0) return happeningRank;
-      return a.name.localeCompare(b.name);
+      return (orderIndex.get(a.spaceId) ?? Number.MAX_SAFE_INTEGER) -
+        (orderIndex.get(b.spaceId) ?? Number.MAX_SAFE_INTEGER);
     });
 
   return {

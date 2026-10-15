@@ -84,7 +84,7 @@ export function ExceptionFirstLocationsBoard({
       <PageHeader
         icon="locations"
         title="Locations"
-        subtitle="What needs attention now. Open a card for the full location."
+        subtitle="Locations in building order. Open a card for the full location."
         status={
           <>
             {lensSummary ? <StatusBadge variant="neutral">{lensSummary}</StatusBadge> : null}

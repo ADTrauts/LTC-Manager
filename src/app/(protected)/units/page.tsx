@@ -87,6 +87,7 @@ export default async function UnitsPage() {
       : { states: [] };
   const board = presentExceptionFirstLocationBoard({
     states: runtime.states,
+    spaceOrder: collected.refs.map((ref) => ref.spaceId),
   });
 
   const view = loaded.view ?? {

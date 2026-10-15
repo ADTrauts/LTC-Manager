@@ -67,6 +67,7 @@ export function ResponsiveShellNav({
         <div className="flex flex-col gap-4">
           {department ? <div data-testid="compact-department-slot">{department}</div> : null}
           <ShellSidebar
+            compact
             navItems={navItems}
             buildNavItems={buildNavItems}
             units={units}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { useNavPathname } from "@/hooks/use-nav-pathname";
 import { navIconClassName, resolveNavIcon } from "@/lib/design-system";
@@ -40,12 +41,14 @@ type WorkspaceOwnedNavProps = {
   items: readonly WorkspaceOwnedNavItem[];
   label?: string;
   onNavigate?: () => void;
+  renderItem?: (item: WorkspaceOwnedNavItem, link: ReactNode) => ReactNode;
 };
 
 export function WorkspaceOwnedNav({
   items,
   label = "Workspace navigation",
   onNavigate,
+  renderItem,
 }: WorkspaceOwnedNavProps) {
   const pathname = useNavPathname() ?? "/";
 
@@ -57,29 +60,32 @@ export function WorkspaceOwnedNav({
         {items.map((item) => {
           const active = destIsActive(pathname, item.href);
           const Icon = resolveNavIcon(item.href);
+          const link = (
+            <Link
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              data-nav-active={active ? "true" : undefined}
+              onClick={() => onNavigate?.()}
+              className={
+                active
+                  ? `flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white ${FOCUS_RING_CLASS}`
+                  : `flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 ${FOCUS_RING_CLASS}`
+              }
+            >
+              {Icon ? (
+                <Icon
+                  className={
+                    active ? "h-4 w-4 shrink-0 text-white" : navIconClassName(false)
+                  }
+                  aria-hidden
+                />
+              ) : null}
+              <span>{item.label}</span>
+            </Link>
+          );
           return (
             <li key={item.href}>
-              <Link
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                data-nav-active={active ? "true" : undefined}
-                onClick={() => onNavigate?.()}
-                className={
-                  active
-                    ? `flex min-h-11 items-center gap-2.5 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white ${FOCUS_RING_CLASS}`
-                    : `flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 ${FOCUS_RING_CLASS}`
-                }
-              >
-                {Icon ? (
-                  <Icon
-                    className={
-                      active ? "h-4 w-4 shrink-0 text-white" : navIconClassName(false)
-                    }
-                    aria-hidden
-                  />
-                ) : null}
-                <span>{item.label}</span>
-              </Link>
+              {renderItem ? renderItem(item, link) : link}
             </li>
           );
         })}

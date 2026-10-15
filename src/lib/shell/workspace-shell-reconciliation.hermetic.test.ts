@@ -46,7 +46,7 @@ test("facility desktop — RUN destinations live in the workspace rail, not TopN
   assert.match(shell, /ShellModeNav/);
   assert.match(header, /data-testid="workspace-shell-header"/);
   assert.match(sidebar, /headerNavItemsForMode\("RUN"/);
-  assert.match(sidebar, /isFacilityLocationsPath/);
+  assert.match(sidebar, /LocationsQuickAccess/);
 });
 
 test("facility RUN nav is the registry projection, not a second hardcoded list", () => {
@@ -76,13 +76,14 @@ test("facility RUN nav is the registry projection, not a second hardcoded list",
   assert.equal(labels.includes("Repairs"), false);
 });
 
-test("Locations is a destination; the tree is not the shell parent", () => {
+test("Locations is a destination with an on-demand hierarchy", () => {
   const owned = source("src/components/shell/workspace-owned-nav.tsx");
   const sidebar = source("src/components/shell-sidebar.tsx");
   const compact = source("src/components/responsive-shell-nav.tsx");
   assert.match(owned, /href === "\/units"/);
   assert.match(owned, /pathname.startsWith\("\/unit\/"\)/);
-  assert.match(sidebar, /isFacilityLocationsPath\(pathname\) \?/);
+  assert.match(sidebar, /item.href === "\/units"/);
+  assert.doesNotMatch(sidebar, /<LeftSidebar|isFacilityLocationsPath/);
   assert.doesNotMatch(compact, /shell-nav-locations/);
 });
 
