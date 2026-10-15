@@ -1,10 +1,12 @@
 /**
- * Phase 9C Dietary Operational Evidence — core library.
+ * Phase 9C Dietary Operational Evidence — compatibility library.
  *
- * Requirements are derived for an operational date (not persisted).
- * Records are durable with templateSnapshotJson.
- * Legacy LogTemplate / InspectionDefinition are untouched.
- * OPERATION_ENGINE_ENABLED stays false; use DIETARY_OPERATIONAL_EVIDENCE_ENABLED.
+ * Forward Records are CatalogLogDefinition → FacilityCatalogInstall → LogAttachment
+ * → derived requirement → OperationalEvidenceRecord. OperationalTemplate is the
+ * previous facility-owned definition engine, not the next layer after Catalog.
+ * Writers and template-backed submitEvidenceRecord are fenced when
+ * CANONICAL_LOGS_ENABLED is on. Historical rows stay readable.
+ * OPERATION_ENGINE_ENABLED stays false.
  */
 
 export type {

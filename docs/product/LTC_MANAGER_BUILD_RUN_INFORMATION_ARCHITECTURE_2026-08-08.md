@@ -1,6 +1,8 @@
 # LTC Manager — Build / Run Information Architecture
 
 > **Superseded for architecture (2026-10-02).** Current authority is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). This file remains the 2026-08-08 shell record. Department Builder sections, Location Functions, Records, and Audit / Reports in that constitution replace the workspace map below where they differ.
+>
+> **Phase 0 amendment (2026-10-14):** the Logs table below is a shell history. Forward Records are `CatalogLogDefinition` → `FacilityCatalogInstall` → `LogAttachment` → derived requirement → `OperationalEvidenceRecord`. Manager configuration is `/build/logs`. Due work is `/staffing/logs`. Log Book is history. Legacy `/logs` is compatibility while `CANONICAL_LOGS_ENABLED` is off. `/staffing/templates` is Phase 9C compatibility, not the next layer after Catalog. See [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md).
 
 **Phase:** Product Phase 13 — Build / Run Product Shell, Information Architecture, and UX Consolidation
 **Date:** 2026-08-08

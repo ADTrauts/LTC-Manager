@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { submitCanonicalLogSubmission } from "@/lib/canonical-logs";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import type { EvidenceMediaInput } from "@/lib/canonical-logs/evidence-media";
 import type { EvidenceFieldValueInput } from "@/lib/operational-evidence/types";
 import { prisma } from "@/lib/prisma";
 
@@ -30,8 +31,22 @@ export async function submitCanonicalRunLogAction(input: {
   values: EvidenceFieldValueInput[];
   correctiveActionText?: string | null;
   adHoc?: boolean;
+  followsRecordId?: string | null;
+  media?: readonly EvidenceMediaInput[];
   clientCommandId?: string | null;
   deviceBoundUnitId?: string | null;
+  repeatRows?: Array<{
+    groupKey: string;
+    rowKey: string;
+    rowSequence: number;
+    cells: Array<{
+      columnKey: string;
+      valueText?: string | null;
+      valueNumber?: number | null;
+      valueBoolean?: boolean | null;
+      valueSelections?: string[];
+    }>;
+  }>;
 }): Promise<SubmitCanonicalRunLogResult> {
   if (!isCanonicalLogsEnabled()) {
     return { ok: false, error: "Canonical Logs are not enabled." };
@@ -58,6 +73,9 @@ export async function submitCanonicalRunLogAction(input: {
       values: input.values,
       correctiveActionText: input.correctiveActionText,
       adHoc: input.adHoc === true,
+      followsRecordId: input.followsRecordId,
+      media: input.media,
+      repeatRows: input.repeatRows,
       clientCommandId: input.clientCommandId,
       deviceBoundUnitId: input.deviceBoundUnitId,
       recordedByEmployeeId:

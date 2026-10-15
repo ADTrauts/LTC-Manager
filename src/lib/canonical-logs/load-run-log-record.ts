@@ -9,7 +9,10 @@ import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { loadEvidenceRecordDetail } from "@/lib/operational-evidence";
 import { toServiceDateKey } from "@/lib/operational-time";
 
-import type { LogSubmissionSnapshotV2 } from "./snapshot";
+import { evidenceCanCreateIssue } from "./evidence-rules";
+import { scoreInspectionSnapshot, type InspectionScore } from "./inspection-score";
+import { formatEvidenceFieldDisplay } from "./evidence-field-display";
+import { parseLogSubmissionSnapshot, type LogSubmissionSnapshotV2 } from "./snapshot";
 import { productStatusFromEvidenceStatus } from "./run-presentation";
 import { formatLocalTime12h } from "./timing-display";
 import { resolveAttachmentTargetLabel } from "./target-labels";
@@ -31,7 +34,36 @@ export type RunLogRecordView = {
   catalogInstructions: string | null;
   localInstructions: string | null;
   correctiveActionText: string | null;
+  inspection: InspectionScore | null;
+  departmentId: string;
+  logAttachmentId: string | null;
+  assetId: string | null;
+  unitId: string | null;
+  canCreateIssue: boolean;
+  followsRecordId: string | null;
+  canRecheck: boolean;
+  followsRecordSummary: {
+    id: string;
+    label: string;
+    displayValue: string;
+    atLabel: string;
+  } | null;
+  followUps: Array<{
+    id: string;
+    displayValue: string;
+    atLabel: string;
+    statusLabel: string;
+  }>;
   amendments: Array<{ id: string; reason: string; atLabel: string; byLabel: string | null }>;
+  attachments: Array<{
+    id: string;
+    fieldKey: string | null;
+    kind: string;
+    originalFilename: string | null;
+    contentType: string;
+    uploadedByLabel: string | null;
+    createdAtLabel: string;
+  }>;
   fields: Array<{
     fieldKey: string;
     label: string;
@@ -42,12 +74,7 @@ export type RunLogRecordView = {
 };
 
 function parseSnapshot(raw: unknown): LogSubmissionSnapshotV2 | null {
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
-  if (obj.kind === "CANONICAL_LOG" && obj.snapshotSchemaVersion === 2) {
-    return raw as LogSubmissionSnapshotV2;
-  }
-  return null;
+  return parseLogSubmissionSnapshot(raw);
 }
 
 function fieldDisplayValue(value: {
@@ -58,24 +85,7 @@ function fieldDisplayValue(value: {
   valueSelections: string[];
   unitLabel?: string | null;
 }): string {
-  if (value.fieldType === "TEMPERATURE" || value.fieldType === "NUMBER") {
-    if (value.valueNumber == null) return "—";
-    const unit = value.unitLabel?.trim() ? ` ${value.unitLabel.trim()}` : "";
-    return `${value.valueNumber}${unit}`;
-  }
-  if (value.fieldType === "PASS_NEEDS_ATTENTION") {
-    if (value.valueText === "PASS") return "Pass";
-    if (value.valueText === "NEEDS_ATTENTION") return "Needs attention";
-    return value.valueText ?? "—";
-  }
-  if (value.fieldType === "YES_NO") {
-    if (value.valueText === "YES") return "Yes";
-    if (value.valueText === "NO") return "No";
-    return value.valueText ?? "—";
-  }
-  if (value.valueSelections.length > 0) return value.valueSelections.join(", ");
-  if (value.valueBoolean != null) return value.valueBoolean ? "Yes" : "No";
-  return value.valueText?.trim() || "—";
+  return formatEvidenceFieldDisplay(value);
 }
 
 function rangeFromSnapshotField(field: {
@@ -121,6 +131,7 @@ export async function loadRunLogRecordView(input: {
       unitId: true,
       spaceId: true,
       assetId: true,
+      followsRecordId: true,
       templateSnapshotJson: true,
       department: { select: { name: true } },
     },
@@ -185,6 +196,7 @@ export async function loadDepartmentScopedRunLogRecordView(input: {
       unitId: true,
       spaceId: true,
       assetId: true,
+      followsRecordId: true,
       templateSnapshotJson: true,
       department: { select: { name: true } },
       values: { orderBy: { fieldKey: "asc" } },
@@ -206,6 +218,8 @@ async function composeRunLogRecordView(input: {
   facilityId: string;
   stub: {
     id: string;
+    departmentId: string;
+    logAttachmentId: string | null;
     templateName: string;
     templateVersion: number | null;
     status: string;
@@ -220,6 +234,7 @@ async function composeRunLogRecordView(input: {
     unitId: string | null;
     spaceId: string | null;
     assetId: string | null;
+    followsRecordId: string | null;
     templateSnapshotJson: unknown;
     department: { name: string };
   };
@@ -291,19 +306,116 @@ async function composeRunLogRecordView(input: {
   const snapFields = snapshot?.catalog.fields ?? [];
   const fieldByKey = new Map(snapFields.map((f) => [f.fieldKey, f]));
 
-  const fields = input.values.map((v) => {
-    const snapField = fieldByKey.get(v.fieldKey);
+  const attachmentRows = await input.client.operationalEvidenceAttachment.findMany({
+    where: { facilityId: input.facilityId, recordId: stub.id },
+    orderBy: { displaySequence: "asc" },
+    select: {
+      id: true,
+      fieldKey: true,
+      kind: true,
+      originalFilename: true,
+      contentType: true,
+      uploadedByLabel: true,
+      createdAt: true,
+    },
+  });
+
+  const followUpRows = await input.client.operationalEvidenceRecord.findMany({
+    where: { facilityId: input.facilityId, followsRecordId: stub.id },
+    select: {
+      id: true,
+      status: true,
+      outOfStandard: true,
+      occurredAt: true,
+      values: {
+        orderBy: { fieldKey: "asc" },
+        take: 1,
+        select: {
+          fieldType: true,
+          valueText: true,
+          valueNumber: true,
+          valueBoolean: true,
+          valueSelections: true,
+        },
+      },
+    },
+    orderBy: { recordedAt: "asc" },
+  });
+  const followUps = followUpRows.map((row) => {
+    const value = row.values[0];
+    const status = productStatusFromEvidenceStatus(row.status, row.outOfStandard);
     return {
-      fieldKey: v.fieldKey,
-      label: v.label,
-      displayValue: fieldDisplayValue({
-        ...v,
-        unitLabel: snapField?.unitLabel ?? null,
-      }),
-      rangeLabel: snapField ? rangeFromSnapshotField(snapField) : null,
-      outOfStandard: v.outOfStandard,
+      id: row.id,
+      displayValue: value ? fieldDisplayValue(value) : "Recorded",
+      atLabel: row.occurredAt.toLocaleString(),
+      statusLabel: row.outOfStandard ? status.label : "In standard",
     };
   });
+
+  const activeAttachment = stub.logAttachmentId
+    ? await input.client.logAttachment.findFirst({
+        where: {
+          id: stub.logAttachmentId,
+          facilityId: input.facilityId,
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      })
+    : null;
+
+  let followsRecordSummary: RunLogRecordView["followsRecordSummary"] = null;
+  if (stub.followsRecordId) {
+    const origin = await input.client.operationalEvidenceRecord.findFirst({
+      where: { id: stub.followsRecordId, facilityId: input.facilityId },
+      select: {
+        id: true,
+        templateName: true,
+        occurredAt: true,
+        templateSnapshotJson: true,
+        values: {
+          orderBy: { fieldKey: "asc" },
+          take: 1,
+          select: {
+            fieldType: true,
+            valueText: true,
+            valueNumber: true,
+            valueBoolean: true,
+            valueSelections: true,
+          },
+        },
+      },
+    });
+    if (origin) {
+      const originSnapshot = parseSnapshot(origin.templateSnapshotJson);
+      const value = origin.values[0];
+      followsRecordSummary = {
+        id: origin.id,
+        label: originSnapshot?.catalog.name ?? origin.templateName,
+        displayValue: value ? fieldDisplayValue(value) : "Recorded",
+        atLabel: origin.occurredAt.toLocaleString(),
+      };
+    }
+  }
+
+  const fields = [...input.values]
+    .sort((a, b) => {
+      const aSeq = fieldByKey.get(a.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER;
+      const bSeq = fieldByKey.get(b.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER;
+      return aSeq - bSeq;
+    })
+    .map((v) => {
+      const snapField = fieldByKey.get(v.fieldKey);
+      return {
+        fieldKey: v.fieldKey,
+        label: "groupKey" in v && v.groupKey ? `Row ${("rowSequence" in v ? v.rowSequence : "")} · ${v.label}` : v.label,
+        displayValue: fieldDisplayValue({
+          ...v,
+          unitLabel: snapField?.unitLabel ?? null,
+        }),
+        rangeLabel: snapField ? rangeFromSnapshotField(snapField) : null,
+        outOfStandard: v.outOfStandard,
+      };
+    });
 
   return {
     id: stub.id,
@@ -322,11 +434,41 @@ async function composeRunLogRecordView(input: {
     catalogInstructions: snapshot?.catalog.instructions ?? null,
     localInstructions: snapshot?.attachment.localInstructions ?? null,
     correctiveActionText: stub.correctiveActionText,
+    inspection: scoreInspectionSnapshot({
+      snapshot,
+      values: input.values
+        .filter((value) => !("groupKey" in value) || !value.groupKey)
+        .map((value) => ({
+        fieldKey: value.fieldKey,
+        valueText: value.valueText,
+        valueNumber: value.valueNumber,
+        valueBoolean: value.valueBoolean,
+        valueSelections: value.valueSelections,
+      })),
+    }),
+    departmentId: stub.departmentId,
+    logAttachmentId: stub.logAttachmentId,
+    assetId: stub.assetId,
+    unitId: stub.unitId,
+    canCreateIssue: evidenceCanCreateIssue(stub),
+    followsRecordId: stub.followsRecordId,
+    canRecheck: Boolean(activeAttachment && stub.outOfStandard),
+    followsRecordSummary,
+    followUps,
     amendments: input.corrections.map((c) => ({
       id: c.id,
       reason: c.reason,
       atLabel: c.createdAt.toLocaleString(),
       byLabel: c.correctedByLabel,
+    })),
+    attachments: attachmentRows.map((row) => ({
+      id: row.id,
+      fieldKey: row.fieldKey,
+      kind: row.kind,
+      originalFilename: row.originalFilename,
+      contentType: row.contentType,
+      uploadedByLabel: row.uploadedByLabel,
+      createdAtLabel: row.createdAt.toLocaleString(),
     })),
     fields,
   };

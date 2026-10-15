@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
+import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -128,6 +129,14 @@ const templateDetailInclude = {
   schedules: true,
 } as const;
 
+async function assertOperationalTemplateWritesAllowed(facilityId: string, departmentId: string) {
+  const { departmentUsesCanonicalRecords } = await import("@/lib/canonical-logs/record-engine-store");
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await departmentUsesCanonicalRecords({ facilityId, departmentId }),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
+}
+
 export async function createDraft(
   session: FacilitySession,
   input: {
@@ -138,6 +147,7 @@ export async function createDraft(
     client?: DbClient;
   },
 ) {
+  await assertOperationalTemplateWritesAllowed(input.facilityId, input.departmentId);
   const client = input.client ?? prisma;
   await assertManage(session, input.facilityId, input.departmentId);
 
@@ -195,6 +205,7 @@ export async function updateDraft(
     client?: DbClient;
   },
 ) {
+  await assertOperationalTemplateWritesAllowed(input.facilityId, input.departmentId);
   const client = input.client ?? prisma;
   await assertManage(session, input.facilityId, input.departmentId);
 
@@ -269,6 +280,7 @@ export async function publishTemplate(
     client?: DbClient;
   },
 ) {
+  await assertOperationalTemplateWritesAllowed(input.facilityId, input.departmentId);
   const client = input.client ?? prisma;
   const authority = await resolveEvidenceAuthority(session, input.facilityId, input.departmentId);
   requireEvidencePublish(authority);
@@ -389,6 +401,7 @@ export async function retireTemplate(
     client?: DbClient;
   },
 ) {
+  await assertOperationalTemplateWritesAllowed(input.facilityId, input.departmentId);
   const client = input.client ?? prisma;
   await assertManage(session, input.facilityId, input.departmentId);
 

@@ -85,7 +85,17 @@ export default async function HarborCatalogDetailPage({
             initialPurposeType={draft.purposeType}
             initialCategory={draft.category}
             initialCadence={draft.recommendedCadence}
+            initialScheduleKind={draft.recommendedScheduleKind}
+            initialDaypartLabels={draft.recommendedDaypartLabels}
+            initialFixedWindows={draft.recommendedFixedWindows}
+            initialSuggestions={draft.suggestions}
             initialFields={draft.fields}
+            initialRules={draft.rules}
+            initialPassingScore={draft.passingScore}
+            initialCriticalFailureForcesFailure={draft.criticalFailureForcesFailure}
+            initialSections={draft.sections}
+            initialGroups={draft.repeatingGroups}
+            initialCalculations={draft.calculations}
             primaryAction={saveHarborCatalogDraftAction}
             secondaryAction={saveAndPublishHarborCatalogAction}
           />

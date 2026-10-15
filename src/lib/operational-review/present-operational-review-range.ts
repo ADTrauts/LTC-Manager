@@ -2,6 +2,13 @@
  * Pure Range Review presenter. Aggregates daily presentations.
  */
 
+import {
+  formatOccurrenceSummaryLine,
+  occurrenceContributesInspectionScore,
+  occurrenceFromReviewEvidenceState,
+  summarizeOperationalOccurrences,
+} from "@/lib/operational-occurrence/classify-operational-requirement";
+
 import { composeOperationalReviewRange } from "./compose-operational-review-range";
 import {
   formatServiceDateLabel,
@@ -152,6 +159,97 @@ export function presentOperationalReviewRange(
     }));
 
   const summaryItems: ReviewSummaryItem[] = [];
+  const inspectionRows = scopedDays.flatMap((day) =>
+    day.evidence.occurrences.filter((row) => {
+      const state = occurrenceFromReviewEvidenceState(row.state);
+      return row.inspection && state != null && occurrenceContributesInspectionScore(state);
+    }),
+  );
+  const inspectionScored = inspectionRows.filter((row) => row.inspection?.percentage != null);
+  if (inspectionRows.length > 0) {
+    const average =
+      inspectionScored.length === 0
+        ? null
+        : Math.round(
+            (inspectionScored.reduce((sum, row) => sum + (row.inspection?.percentage ?? 0), 0) /
+              inspectionScored.length) *
+              10,
+          ) / 10;
+    const failed = inspectionRows.filter((row) => row.inspection?.outcome === "FAIL").length;
+    const critical = inspectionRows.filter((row) => (row.inspection?.criticalFailureCount ?? 0) > 0).length;
+    summaryItems.push({
+      id: "inspection-completed",
+      name: "Inspections completed",
+      count: inspectionRows.length,
+      label: `${inspectionRows.length} inspection${inspectionRows.length === 1 ? "" : "s"} completed`,
+    });
+    if (average != null) {
+      summaryItems.push({
+        id: "inspection-average",
+        name: "Average inspection score",
+        count: average,
+        label: `Average score ${average}%`,
+      });
+    }
+    if (failed > 0) {
+      summaryItems.push({
+        id: "inspection-failed",
+        name: "Failed inspections",
+        count: failed,
+        label: `${failed} failed inspection${failed === 1 ? "" : "s"}`,
+      });
+    }
+    if (critical > 0) {
+      summaryItems.push({
+        id: "inspection-critical",
+        name: "Critical failures",
+        count: critical,
+        label: `${critical} inspection${critical === 1 ? "" : "s"} with critical failures`,
+      });
+    }
+  }
+  const byTemplate = new Map<
+    string,
+    {
+      label: string;
+      states: Array<NonNullable<ReturnType<typeof occurrenceFromReviewEvidenceState>>>;
+      scoreSum: number;
+      scored: number;
+      failed: number;
+    }
+  >();
+  for (const day of scopedDays) {
+    for (const row of day.evidence.occurrences) {
+      const state = occurrenceFromReviewEvidenceState(row.state);
+      if (!state) continue;
+      const current = byTemplate.get(row.catalogStableKey) ?? {
+        label: row.slotLabel || row.catalogStableKey,
+        states: [],
+        scoreSum: 0,
+        scored: 0,
+        failed: 0,
+      };
+      current.states.push(state);
+      if (occurrenceContributesInspectionScore(state) && row.inspection?.percentage != null) {
+        current.scoreSum += row.inspection.percentage;
+        current.scored += 1;
+      }
+      if (occurrenceContributesInspectionScore(state) && row.inspection?.outcome === "FAIL") current.failed += 1;
+      byTemplate.set(row.catalogStableKey, current);
+    }
+  }
+  for (const [key, row] of [...byTemplate.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label))) {
+    const summary = summarizeOperationalOccurrences(row.states);
+    if (summary.expected === 0) continue;
+    const average = row.scored === 0 ? "" : ` · average ${Math.round((row.scoreSum / row.scored) * 10) / 10}%`;
+    const failed = row.failed > 0 ? ` · failed ${row.failed}` : "";
+    summaryItems.push({
+      id: `template-${key}`,
+      name: row.label,
+      count: summary.completed,
+      label: formatOccurrenceSummaryLine(row.label, summary, `${average}${failed}`),
+    });
+  }
   if (totals.evidenceMissed > 0) {
     summaryItems.push({
       id: "evidence-missed",

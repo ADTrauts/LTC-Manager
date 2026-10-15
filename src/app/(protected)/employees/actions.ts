@@ -151,7 +151,7 @@ const setDefaultAssignmentSchema = z.object({
 
 const setEmployeePinSchema = z
   .object({
-    employeeId: z.string().cuid(),
+    employeeId: z.string().trim().min(1).max(128),
     pin: z.string().trim().min(6).max(6),
     confirmPin: z.string().trim().min(6).max(6),
   })

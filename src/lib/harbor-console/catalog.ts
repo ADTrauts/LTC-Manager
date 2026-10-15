@@ -2,9 +2,30 @@ import type {
   CatalogLogCategory,
   CatalogLogPurposeType,
   CatalogRecommendedCadence,
+  OperationalTemplateScheduleKind,
   Prisma,
   PrismaClient,
 } from "@prisma/client";
+
+import {
+  parseRecommendedFixedWindows,
+  type CatalogRecommendedFixedWindow,
+} from "@/lib/canonical-logs/catalog-authoring";
+import {
+  parseCatalogEvidenceRules,
+  type CatalogEvidenceRule,
+} from "@/lib/canonical-logs/evidence-rules";
+import {
+  parseInspectionSections,
+  type InspectionSectionDefinition,
+} from "@/lib/canonical-logs/inspection-score";
+import {
+  parseCalculations,
+  parseRepeatingGroups,
+  type CalculationDefinition,
+  type RepeatingGroupDefinition,
+} from "@/lib/canonical-logs/template-structure";
+import { parseCatalogSuggestions, type CatalogSuggestions } from "@/lib/canonical-logs/suggestions";
 
 import {
   catalogCategoryLabel,
@@ -30,7 +51,17 @@ const versionSelect = {
   purposeType: true,
   category: true,
   recommendedCadence: true,
-  publishedAt: true,
+  recommendedScheduleKind: true,
+  recommendedDaypartLabels: true,
+  recommendedFixedWindowsJson: true,
+  suggestionsJson: true,
+      rulesJson: true,
+      passingScore: true,
+      criticalFailureForcesFailure: true,
+      sectionsJson: true,
+      repeatingGroupsJson: true,
+      calculationsJson: true,
+      publishedAt: true,
   retiredAt: true,
   updatedAt: true,
   fields: {
@@ -48,6 +79,10 @@ const versionSelect = {
       allowedSelections: true,
       correctiveActionTrigger: true,
       correctiveActionRequired: true,
+      sectionKey: true,
+      scoreWeight: true,
+      critical: true,
+      creditValues: true,
     },
   },
 } satisfies Prisma.CatalogLogDefinitionSelect;
@@ -75,6 +110,10 @@ export type HarborCatalogField = {
   allowedSelections: string[];
   correctiveActionTrigger: boolean;
   correctiveActionRequired: boolean;
+  sectionKey: string | null;
+  scoreWeight: number | null;
+  critical: boolean;
+  creditValues: string[];
 };
 
 export type HarborCatalogVersion = {
@@ -91,7 +130,17 @@ export type HarborCatalogVersion = {
   categoryLabel: string;
   cadenceLabel: string;
   recommendedCadence: CatalogRecommendedCadence | null;
+  recommendedScheduleKind: OperationalTemplateScheduleKind | null;
+  recommendedDaypartLabels: string[];
+  recommendedFixedWindows: CatalogRecommendedFixedWindow[];
+  suggestions: CatalogSuggestions;
   fields: HarborCatalogField[];
+  rules: CatalogEvidenceRule[];
+  passingScore: number | null;
+  criticalFailureForcesFailure: boolean;
+  sections: InspectionSectionDefinition[];
+  repeatingGroups: RepeatingGroupDefinition[];
+  calculations: CalculationDefinition[];
 };
 
 export type HarborCatalogDetail = {
@@ -124,6 +173,10 @@ function toField(
     allowedSelections: field.allowedSelections,
     correctiveActionTrigger: field.correctiveActionTrigger,
     correctiveActionRequired: field.correctiveActionRequired,
+    sectionKey: field.sectionKey,
+    scoreWeight: field.scoreWeight,
+    critical: field.critical,
+    creditValues: field.creditValues,
   };
 }
 
@@ -143,8 +196,18 @@ function toVersion(
     category: row.category,
     categoryLabel: catalogCategoryLabel(row.category),
     recommendedCadence: row.recommendedCadence,
+    recommendedScheduleKind: row.recommendedScheduleKind,
+    recommendedDaypartLabels: row.recommendedDaypartLabels,
+    recommendedFixedWindows: parseRecommendedFixedWindows(row.recommendedFixedWindowsJson),
+    suggestions: parseCatalogSuggestions(row.suggestionsJson),
     cadenceLabel: catalogCadenceLabel(row.recommendedCadence),
     fields: row.fields.map(toField),
+    rules: parseCatalogEvidenceRules(row.rulesJson),
+    passingScore: row.passingScore,
+    criticalFailureForcesFailure: row.criticalFailureForcesFailure,
+    sections: parseInspectionSections(row.sectionsJson),
+    repeatingGroups: parseRepeatingGroups(row.repeatingGroupsJson),
+    calculations: parseCalculations(row.calculationsJson),
   };
 }
 

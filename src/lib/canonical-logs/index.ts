@@ -1,6 +1,6 @@
 /**
- * Canonical Logs foundation (Phase 3).
- * Catalog (platform) → Facility install → Attachment (place) → LogRequirement (derived) → Evidence.
+ * Canonical Logs foundation.
+ * CatalogLogDefinition → FacilityCatalogInstall → LogAttachment → derived requirement → OperationalEvidenceRecord.
  */
 
 export { isCanonicalLogsEnabled } from "@/lib/feature-flags";
@@ -22,6 +22,24 @@ export {
   type CatalogFieldInput,
   type CatalogWriteOptions,
 } from "./catalog-service";
+
+export {
+  CANONICAL_EVIDENCE_FIELD_TYPES,
+  resolveCatalogFieldKeys,
+  validateCatalogForPublish,
+  parseRecommendedFixedWindows,
+} from "./catalog-authoring";
+
+export {
+  evaluateEvidenceRules,
+  parseCatalogEvidenceRules,
+  validateCatalogEvidenceRules,
+  evidenceCanCreateIssue,
+  recordStatusFromException,
+  type CatalogEvidenceRule,
+} from "./evidence-rules";
+
+export { formatEvidenceFieldDisplay, serializeEvidenceFieldForCsv } from "./evidence-field-display";
 
 export {
   CATALOG_SEED_DEFINITIONS,
@@ -193,3 +211,9 @@ export {
 } from "./submit-canonical-log";
 
 export { mapTimingModeToScheduleKind } from "./schedule-kind";
+
+export {
+  RECORD_ENGINE_AUTHORITY,
+  assertLegacyRecordWriteAllowed,
+  legacyRecordWriteDecision,
+} from "./record-engine";

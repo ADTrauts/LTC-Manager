@@ -6,7 +6,28 @@ import { useMemo, useState, useTransition } from "react";
 
 import { submitCanonicalRunLogAction } from "@/app/(protected)/staffing/logs/actions";
 import { submitPartnerCanonicalLogAction } from "@/app/partner/logs/actions";
+import {
+  CanonicalEvidenceFieldControl,
+  expectedRangeLabel,
+} from "@/components/canonical-logs/canonical-evidence-field-control";
+import type { EvidenceMediaInput } from "@/lib/canonical-logs/evidence-media";
+import {
+  dropHiddenFieldValues,
+  evaluateEvidenceRules,
+  formAnswersToValues,
+  type CatalogEvidenceRule,
+} from "@/lib/canonical-logs/evidence-rules";
+import { evaluateInspectionScore } from "@/lib/canonical-logs/inspection-score";
 import type { RunLogRequirementView } from "@/lib/canonical-logs/run-presentation";
+import {
+  evaluateCalculations,
+  validateRepeatSubmission,
+  type CalculationDefinition,
+  type RepeatRowInput,
+  type RepeatingGroupDefinition,
+} from "@/lib/canonical-logs/template-structure";
+import { CanonicalRepeatGroupControl } from "@/components/canonical-logs/canonical-repeat-group-control";
+import type { TemplateFieldSnapshot } from "@/lib/operational-evidence/types";
 
 type FieldDef = RunLogRequirementView["fields"][number];
 
@@ -22,6 +43,12 @@ type Props = {
   catalogInstructions: string | null;
   localInstructions: string | null;
   fields: FieldDef[];
+  purposeType?: string;
+  sections?: Array<{ sectionKey: string; label: string; description?: string | null; displaySequence: number }>;
+  passingScore?: number | null;
+  criticalFailureForcesFailure?: boolean;
+  repeatingGroups?: RepeatingGroupDefinition[];
+  calculations?: CalculationDefinition[];
   requirementKey: string | null;
   cycleStableKey: string | null;
   cycleLabel: string | null;
@@ -32,98 +59,97 @@ type Props = {
   cancelHref: string;
   /** Partner submits do not send Facility or Department as authority. */
   audience?: "facility" | "partner";
+  rules?: CatalogEvidenceRule[];
+  followsRecordId?: string | null;
 };
 
-function rangeLabel(field: FieldDef): string | null {
-  if (field.minNumber == null && field.maxNumber == null) return null;
-  const unit = field.unitLabel?.trim() ?? "";
-  if (field.minNumber != null && field.maxNumber != null) {
-    return `${field.minNumber}${unit}–${field.maxNumber}${unit}`;
-  }
-  if (field.minNumber != null) return `≥ ${field.minNumber}${unit}`;
-  return `≤ ${field.maxNumber}${unit}`;
-}
-
-function fieldOutOfRange(field: FieldDef, raw: string): boolean {
-  if (!field.correctiveActionTrigger) return false;
-  if (field.fieldType === "TEMPERATURE" || field.fieldType === "NUMBER") {
-    const n = Number(raw);
-    if (!Number.isFinite(n) || raw.trim() === "") return false;
-    if (field.minNumber != null && n < field.minNumber) return true;
-    if (field.maxNumber != null && n > field.maxNumber) return true;
-  }
-  if (field.fieldType === "PASS_NEEDS_ATTENTION") return raw === "NEEDS_ATTENTION";
-  if (field.fieldType === "YES_NO") return raw === "NO";
-  return false;
+function asSnapshots(fields: FieldDef[]): TemplateFieldSnapshot[] {
+  return fields.map((field) => ({
+    fieldKey: field.fieldKey,
+    label: field.label,
+    fieldType: field.fieldType as TemplateFieldSnapshot["fieldType"],
+    isRequired: field.isRequired,
+    displaySequence: field.displaySequence,
+    helpText: field.helpText,
+    unitLabel: field.unitLabel,
+    minNumber: field.minNumber,
+    maxNumber: field.maxNumber,
+    allowedSelections: field.allowedSelections,
+    correctiveActionTrigger: field.correctiveActionTrigger,
+    correctiveActionRequired: field.correctiveActionRequired,
+  }));
 }
 
 export function CanonicalLogEntryForm(props: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [values, setValues] = useState<Record<string, string>>({});
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
+  const [media, setMedia] = useState<Record<string, EvidenceMediaInput>>({});
   const [correctiveActionText, setCorrectiveActionText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [existingRecordId, setExistingRecordId] = useState<string | null>(null);
+  const [repeatRows, setRepeatRows] = useState<RepeatRowInput[]>([]);
   const [offlineNote, setOfflineNote] = useState<string | null>(null);
-
-  const outOfStandard = useMemo(
-    () => props.fields.some((f) => fieldOutOfRange(f, values[f.fieldKey] ?? "")),
-    [props.fields, values],
+  const clientCommandId = useMemo(
+    () => `canon-log-${props.requirementKey ?? props.attachmentId}-${crypto.randomUUID()}`,
+    [props.requirementKey, props.attachmentId],
   );
 
-  const correctiveRequired = props.fields.some(
-    (f) => f.correctiveActionRequired && f.correctiveActionTrigger,
+  const evaluation = useMemo(
+    () =>
+      evaluateEvidenceRules({
+        fields: asSnapshots(props.fields),
+        rules: props.rules ?? [],
+        values: formAnswersToValues(props.fields, values, selections),
+      }),
+    [props.fields, props.rules, values, selections],
   );
+  const visible = new Set(evaluation.visibleFieldKeys);
+  const required = new Set(evaluation.requiredFieldKeys);
+  const repeat = validateRepeatSubmission({ groups: props.repeatingGroups ?? [], rows: repeatRows });
+  const calculated = evaluateCalculations({ calculations: props.calculations ?? [], rows: repeatRows });
+  const outOfStandard = evaluation.outOfStandardFieldKeys.length > 0 || repeat.outOfStandard;
+  const correctiveRequired = evaluation.correctiveActionRequired || repeat.correctiveActionRequired;
 
   function setValue(fieldKey: string, value: string) {
     setValues((prev) => ({ ...prev, [fieldKey]: value }));
   }
 
+  function setFieldSelections(fieldKey: string, next: string[]) {
+    setSelections((prev) => ({ ...prev, [fieldKey]: next }));
+  }
+
   function buildPayload() {
-    return props.fields.map((field) => {
-      const raw = values[field.fieldKey] ?? "";
-      if (field.fieldType === "NUMBER" || field.fieldType === "TEMPERATURE") {
-        return { fieldKey: field.fieldKey, valueNumber: raw === "" ? null : Number(raw) };
-      }
-      if (
-        field.fieldType === "YES_NO" ||
-        field.fieldType === "PASS_NEEDS_ATTENTION" ||
-        field.fieldType === "ATTESTATION"
-      ) {
-        return { fieldKey: field.fieldKey, valueText: raw || null };
-      }
-      if (field.fieldType === "MULTI_SELECT") {
-        return {
-          fieldKey: field.fieldKey,
-          valueSelections: raw
-            ? raw
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : [],
-        };
-      }
-      return { fieldKey: field.fieldKey, valueText: raw || null };
-    });
+    const all = formAnswersToValues(props.fields, values, selections);
+    return dropHiddenFieldValues(all, evaluation.visibleFieldKeys);
   }
 
   function submit() {
     setError(null);
     setExistingRecordId(null);
     if (outOfStandard && correctiveRequired && !correctiveActionText.trim()) {
-      setError("Corrective action is required for out-of-range results.");
+      const reason = evaluation.triggeringFields[0]?.reason;
+      setError(
+        reason
+          ? `Corrective action is required: ${reason}.`
+          : "Corrective action is required for out-of-standard results.",
+      );
       return;
     }
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setOfflineNote(
-        "You appear offline. Open this Log online first, or use a Unit Workspace offline bundle when available.",
+        (props.repeatingGroups?.length ?? 0) > 0
+          ? "You appear offline. Repeating readings and calculations submit online. Open this Log when you are connected."
+          : "You appear offline. Photos, files, and signatures need a connection. Open this Log online to submit.",
       );
       return;
     }
 
     startTransition(async () => {
       const values = buildPayload();
+      const mediaPayload = Object.values(media).filter((item) => visible.has(item.fieldKey));
       const corrective = outOfStandard ? correctiveActionText : null;
       const result =
         props.audience === "partner"
@@ -138,6 +164,10 @@ export function CanonicalLogEntryForm(props: Props) {
               values,
               correctiveActionText: corrective,
               adHoc: props.adHoc === true,
+              clientCommandId,
+              followsRecordId: props.followsRecordId,
+              media: mediaPayload,
+              repeatRows,
             })
           : await submitCanonicalRunLogAction({
               facilityId: props.facilityId,
@@ -152,6 +182,10 @@ export function CanonicalLogEntryForm(props: Props) {
               values,
               correctiveActionText: corrective,
               adHoc: props.adHoc === true,
+              clientCommandId,
+              followsRecordId: props.followsRecordId,
+              media: mediaPayload,
+              repeatRows,
             });
       if (!result.ok) {
         setError(result.error);
@@ -205,11 +239,50 @@ export function CanonicalLogEntryForm(props: Props) {
         </p>
       ) : null}
 
+      {props.purposeType === "INSPECTION" ? (
+        <InspectionAttention
+          fields={props.fields}
+          values={values}
+          visibleFieldKeys={[...visible]}
+          sections={props.sections ?? []}
+          passingScore={props.passingScore ?? null}
+          criticalFailureForcesFailure={props.criticalFailureForcesFailure === true}
+        />
+      ) : null}
+
+      <CanonicalRepeatGroupControl
+        groups={props.repeatingGroups ?? []}
+        rows={repeatRows}
+        onChange={setRepeatRows}
+        readOnly={props.readOnly}
+      />
+      {calculated.length > 0 ? (
+        <ul className="text-sm text-zinc-700">
+          {calculated.map((row) => (
+            <li key={row.calculationKey}>
+              {row.label}: {row.display}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       <div className="space-y-4">
-        {props.fields.map((field) => {
+        {groupInspectionFields(
+          props.fields.filter((field) => visible.has(field.fieldKey)),
+          props.sections ?? [],
+        ).map((group) => (
+          <div key={group.key} className="space-y-4">
+            {group.title ? (
+              <div className="space-y-1 border-b border-zinc-200 pb-1">
+                <h2 className="text-sm font-semibold text-zinc-900">{group.title}</h2>
+                {group.description ? <p className="text-xs text-zinc-600">{group.description}</p> : null}
+              </div>
+            ) : null}
+            {group.fields.map((field) => {
           const raw = values[field.fieldKey] ?? "";
-          const oos = fieldOutOfRange(field, raw);
-          const expected = rangeLabel(field);
+          const oos = evaluation.fieldOutOfStandard[field.fieldKey] === true;
+          const expected = expectedRangeLabel(field);
+          const reason = evaluation.triggeringFields.find((row) => row.fieldKey === field.fieldKey)?.reason;
           const inRange =
             (field.fieldType === "TEMPERATURE" || field.fieldType === "NUMBER") &&
             raw.trim() !== "" &&
@@ -219,125 +292,43 @@ export function CanonicalLogEntryForm(props: Props) {
             <div key={field.fieldKey} className="space-y-1.5" data-testid={`log-field-${field.fieldKey}`}>
               <label className="block text-sm font-medium text-zinc-900" htmlFor={field.fieldKey}>
                 {field.label}
-                {field.isRequired ? <span className="text-zinc-500"> *</span> : null}
+                {required.has(field.fieldKey) ? <span className="text-zinc-500"> *</span> : null}
               </label>
               {field.helpText ? <p className="text-xs text-zinc-500">{field.helpText}</p> : null}
-
-              {field.fieldType === "TEMPERATURE" || field.fieldType === "NUMBER" ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    id={field.fieldKey}
-                    inputMode="decimal"
-                    value={raw}
-                    disabled={props.readOnly}
-                    onChange={(e) => setValue(field.fieldKey, e.target.value)}
-                    className="min-h-12 w-32 rounded-md border border-zinc-300 px-3 text-base"
-                  />
-                  {field.unitLabel ? (
-                    <span className="text-sm text-zinc-600">{field.unitLabel}</span>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {field.fieldType === "YES_NO" ? (
-                <div className="flex flex-wrap gap-2">
-                  {(["YES", "NO"] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={props.readOnly}
-                      onClick={() => setValue(field.fieldKey, opt)}
-                      className={`min-h-12 min-w-[5.5rem] rounded-md border px-3 text-sm font-medium ${
-                        raw === opt
-                          ? "border-zinc-900 bg-zinc-900 text-white"
-                          : "border-zinc-300 bg-white text-zinc-800"
-                      }`}
-                    >
-                      {opt === "YES" ? "Yes" : "No"}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {field.fieldType === "PASS_NEEDS_ATTENTION" ? (
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    [
-                      { value: "PASS", label: "Pass" },
-                      { value: "NEEDS_ATTENTION", label: "Needs attention" },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      disabled={props.readOnly}
-                      onClick={() => setValue(field.fieldKey, opt.value)}
-                      className={`min-h-12 rounded-md border px-3 text-sm font-medium ${
-                        raw === opt.value
-                          ? "border-zinc-900 bg-zinc-900 text-white"
-                          : "border-zinc-300 bg-white text-zinc-800"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {field.fieldType === "SINGLE_SELECT" ? (
-                <select
-                  id={field.fieldKey}
-                  value={raw}
-                  disabled={props.readOnly}
-                  onChange={(e) => setValue(field.fieldKey, e.target.value)}
-                  className="min-h-12 w-full max-w-md rounded-md border border-zinc-300 px-3 text-sm"
-                >
-                  <option value="">Select…</option>
-                  {field.allowedSelections.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-
-              {field.fieldType === "SHORT_TEXT" ||
-              field.fieldType === "LONG_TEXT" ||
-              field.fieldType === "OPTIONAL_COMMENT" ||
-              field.fieldType === "ATTESTATION" ? (
-                field.fieldType === "SHORT_TEXT" ? (
-                  <input
-                    id={field.fieldKey}
-                    value={raw}
-                    disabled={props.readOnly}
-                    onChange={(e) => setValue(field.fieldKey, e.target.value)}
-                    className="min-h-12 w-full max-w-md rounded-md border border-zinc-300 px-3 text-sm"
-                  />
-                ) : (
-                  <textarea
-                    id={field.fieldKey}
-                    value={raw}
-                    disabled={props.readOnly}
-                    rows={field.fieldType === "ATTESTATION" ? 2 : 3}
-                    onChange={(e) => setValue(field.fieldKey, e.target.value)}
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  />
-                )
-              ) : null}
-
+              <CanonicalEvidenceFieldControl
+                field={field}
+                fieldId={field.fieldKey}
+                raw={raw}
+                selections={selections[field.fieldKey] ?? []}
+                disabled={props.readOnly}
+                onChange={(next) => {
+                  if (next.raw !== undefined) setValue(field.fieldKey, next.raw);
+                  if (next.selections) setFieldSelections(field.fieldKey, next.selections);
+                  if (next.media !== undefined) {
+                    setMedia((prev) => {
+                      const copy = { ...prev };
+                      if (next.media) copy[field.fieldKey] = next.media;
+                      else delete copy[field.fieldKey];
+                      return copy;
+                    });
+                  }
+                }}
+              />
               {expected ? (
                 <p className="text-xs text-zinc-500">Expected: {expected}</p>
               ) : null}
               {inRange ? <p className="text-xs text-zinc-600">Within range</p> : null}
               {oos ? (
                 <p className="text-sm font-medium text-amber-950" data-testid="out-of-range">
-                  Outside expected range
-                  {expected ? <span className="font-normal"> · Expected {expected}</span> : null}
+                  {reason ?? "Outside expected range"}
+                  {expected && !reason ? <span className="font-normal"> · Expected {expected}</span> : null}
                 </p>
               ) : null}
             </div>
           );
-        })}
+            })}
+          </div>
+        ))}
       </div>
 
       {outOfStandard ? (
@@ -347,7 +338,8 @@ export function CanonicalLogEntryForm(props: Props) {
             {correctiveRequired ? <span className="text-zinc-500"> *</span> : null}
           </label>
           <p className="text-xs text-zinc-500">
-            Describe what you did in response to this result.
+            {evaluation.triggeringFields.map((row) => row.reason).join(" ") ||
+              "Describe what you did in response to this result."}
           </p>
           <textarea
             id="corrective-action"
@@ -379,5 +371,68 @@ export function CanonicalLogEntryForm(props: Props) {
         </Link>
       </div>
     </section>
+  );
+}
+
+function groupInspectionFields(
+  fields: FieldDef[],
+  sections: Array<{ sectionKey: string; label: string; description?: string | null; displaySequence: number }>,
+) {
+  if (sections.length === 0 && fields.every((field) => !field.sectionKey)) {
+    return [{ key: "all", title: null as string | null, description: null as string | null, fields }];
+  }
+  const groups: Array<{ key: string; title: string | null; description: string | null; fields: FieldDef[] }> = [];
+  const byKey = new Map<string, FieldDef[]>();
+  for (const field of fields) {
+    const key = field.sectionKey?.trim() || "";
+    const list = byKey.get(key) ?? [];
+    list.push(field);
+    byKey.set(key, list);
+  }
+  const ordered = [...sections].sort((a, b) => a.displaySequence - b.displaySequence);
+  for (const section of ordered) {
+    const rows = byKey.get(section.sectionKey);
+    if (!rows || rows.length === 0) continue;
+    groups.push({
+      key: section.sectionKey,
+      title: section.label,
+      description: section.description ?? null,
+      fields: rows,
+    });
+    byKey.delete(section.sectionKey);
+  }
+  for (const [key, rows] of byKey) {
+    if (rows.length === 0) continue;
+    groups.push({ key: key || "general", title: key ? key : null, description: null, fields: rows });
+  }
+  return groups;
+}
+
+function InspectionAttention(props: {
+  fields: FieldDef[];
+  values: Record<string, string>;
+  visibleFieldKeys: string[];
+  sections: Array<{ sectionKey: string; label: string; description?: string | null; displaySequence: number }>;
+  passingScore: number | null;
+  criticalFailureForcesFailure: boolean;
+}) {
+  const score = evaluateInspectionScore({
+    purposeType: "INSPECTION",
+    passingScore: props.passingScore,
+    criticalFailureForcesFailure: props.criticalFailureForcesFailure,
+    sections: props.sections,
+    fields: props.fields,
+    values: formAnswersToValues(props.fields, props.values),
+    visibleFieldKeys: props.visibleFieldKeys,
+  });
+  if (!score) return null;
+  const attention = score.exceptions.length;
+  const critical = score.criticalFailures.length;
+  if (attention === 0 && critical === 0) return null;
+  return (
+    <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+      {attention} item{attention === 1 ? "" : "s"} need attention
+      {critical > 0 ? ` · ${critical} critical item${critical === 1 ? "" : "s"} failed` : ""}
+    </p>
   );
 }

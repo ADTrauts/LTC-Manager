@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getPartnerFacilitySession } from "@/lib/auth";
 import { correctPartnerCanonicalLog, submitPartnerCanonicalLog } from "@/lib/canonical-logs/partner-log-write";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import type { EvidenceMediaInput } from "@/lib/canonical-logs/evidence-media";
 import type { EvidenceFieldValueInput } from "@/lib/operational-evidence/types";
 import { requirePartnerOperationalContext } from "@/lib/partner-operational-context";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,21 @@ export async function submitPartnerCanonicalLogAction(input: {
   values: EvidenceFieldValueInput[];
   correctiveActionText?: string | null;
   adHoc?: boolean;
+  followsRecordId?: string | null;
+  media?: readonly EvidenceMediaInput[];
+  clientCommandId?: string | null;
+  repeatRows?: Array<{
+    groupKey: string;
+    rowKey: string;
+    rowSequence: number;
+    cells: Array<{
+      columnKey: string;
+      valueText?: string | null;
+      valueNumber?: number | null;
+      valueBoolean?: boolean | null;
+      valueSelections?: string[];
+    }>;
+  }>;
 }): Promise<PartnerLogMutationResult> {
   if (!isCanonicalLogsEnabled()) return { ok: false, error: "Canonical Logs are not enabled." };
   const session = await getPartnerFacilitySession();
@@ -45,6 +61,10 @@ export async function submitPartnerCanonicalLogAction(input: {
       values: input.values,
       correctiveActionText: input.correctiveActionText,
       adHoc: input.adHoc === true,
+      followsRecordId: input.followsRecordId,
+      media: input.media,
+      repeatRows: input.repeatRows,
+      clientCommandId: input.clientCommandId,
     });
     revalidatePath("/partner/logs");
     return { ok: true, recordId: record.id, redirectTo: `/partner/logs/records/${record.id}` };

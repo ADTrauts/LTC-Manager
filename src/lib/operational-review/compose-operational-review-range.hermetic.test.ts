@@ -591,7 +591,12 @@ test("current-day inclusion still uses the historical day model", () => {
     todayKey: "2026-09-15",
   });
   assert.equal(range.days[0]?.serviceDate, "2026-09-15");
-  assert.ok(range.days[0]?.evidence.occurrences.every((row) => row.state === "not_complete"));
+  assert.deepEqual(
+    range.days[0]?.evidence.occurrences.map((row) => row.state).sort(),
+    ["due", "overdue"],
+  );
+  assert.equal(range.totals.evidenceMissed, 0);
+  assert.equal(range.totals.evidenceOverdue, 1);
   const presented = presentOperationalReviewRange(range);
   assert.equal(presented.days[0]?.href, "/reports?date=2026-09-15");
 });

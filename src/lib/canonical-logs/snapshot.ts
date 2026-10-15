@@ -26,6 +26,14 @@ export type LogSubmissionSnapshotV2 = {
     purposeType: CatalogLogPurposeType;
     category: CatalogLogCategory;
     recommendedCadence: CatalogRecommendedCadence | null;
+    passingScore?: number | null;
+    criticalFailureForcesFailure?: boolean;
+    sections?: Array<{
+      sectionKey: string;
+      label: string;
+      description?: string | null;
+      displaySequence: number;
+    }>;
     fields: Array<{
       fieldKey: string;
       label: string;
@@ -39,6 +47,45 @@ export type LogSubmissionSnapshotV2 = {
       allowedSelections: string[];
       correctiveActionTrigger: boolean;
       correctiveActionRequired: boolean;
+      sectionKey?: string | null;
+      scoreWeight?: number | null;
+      critical?: boolean;
+      creditValues?: string[];
+    }>;
+    rules: Array<{
+      ruleKey: string;
+      sourceFieldKey: string;
+      operator: string;
+      compareValue?: string | number | boolean | null;
+      actions: Array<{ kind: string; targetFieldKey?: string | null }>;
+    }>;
+    repeatingGroups?: Array<{
+      groupKey: string;
+      label: string;
+      helpText?: string | null;
+      sectionKey?: string | null;
+      minRows?: number;
+      maxRows?: number;
+      displaySequence: number;
+      columns: Array<{
+        columnKey: string;
+        label: string;
+        fieldType: string;
+        isRequired?: boolean;
+        displaySequence: number;
+        unitLabel?: string | null;
+        minNumber?: number | null;
+        maxNumber?: number | null;
+        correctiveActionTrigger?: boolean;
+        correctiveActionRequired?: boolean;
+      }>;
+    }>;
+    calculations?: Array<{
+      calculationKey: string;
+      label: string;
+      unitLabel?: string | null;
+      decimalPrecision?: number | null;
+      expression: unknown;
     }>;
   };
   attachment: {
@@ -88,7 +135,13 @@ export function buildCanonicalLogSubmissionSnapshot(input: {
     purposeType: CatalogLogPurposeType;
     category: CatalogLogCategory;
     recommendedCadence: CatalogRecommendedCadence | null;
+    passingScore?: number | null;
+    criticalFailureForcesFailure?: boolean;
+    sections?: LogSubmissionSnapshotV2["catalog"]["sections"];
     fields: LogSubmissionSnapshotV2["catalog"]["fields"];
+    rules?: LogSubmissionSnapshotV2["catalog"]["rules"];
+    repeatingGroups?: LogSubmissionSnapshotV2["catalog"]["repeatingGroups"];
+    calculations?: LogSubmissionSnapshotV2["catalog"]["calculations"];
   };
   attachment: {
     id: string;
@@ -118,6 +171,10 @@ export function buildCanonicalLogSubmissionSnapshot(input: {
     catalog: {
       ...input.catalog,
       fields: input.catalog.fields.map((f) => ({ ...f })),
+      rules: (input.catalog.rules ?? []).map((rule) => ({
+        ...rule,
+        actions: rule.actions.map((action) => ({ ...action })),
+      })),
     },
     attachment: {
       ...input.attachment,
@@ -127,6 +184,17 @@ export function buildCanonicalLogSubmissionSnapshot(input: {
     timingContext: { ...input.timingContext },
     effectiveInstructions,
   };
+}
+
+export function parseLogSubmissionSnapshot(raw: unknown): LogSubmissionSnapshotV2 | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (obj.kind !== "CANONICAL_LOG" || obj.snapshotSchemaVersion !== LOG_SUBMISSION_SNAPSHOT_VERSION) {
+    return null;
+  }
+  const catalog = obj.catalog;
+  if (!catalog || typeof catalog !== "object") return null;
+  return raw as LogSubmissionSnapshotV2;
 }
 
 export function snapshotToPrismaJson(

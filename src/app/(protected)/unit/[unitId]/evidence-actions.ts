@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession } from "@/lib/auth";
+import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
 import {
   submitEvidenceRecord,
@@ -31,6 +33,14 @@ export async function submitUnitEvidenceAction(input: {
   if (!isDietaryOperationalEvidenceEnabled()) {
     throw new Error("Dietary Operational Evidence is not enabled.");
   }
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await departmentUsesCanonicalRecords({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      serviceDate: input.operationalDateKey,
+    }),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
 

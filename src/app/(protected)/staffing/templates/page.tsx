@@ -186,10 +186,14 @@ export default async function OperationalTemplateBuilderPage() {
           data-testid="phase9c-templates-compatibility-note"
           role="status"
         >
-          <p className="font-medium">Legacy templates</p>
+          <p className="font-medium">Compatibility surface</p>
           <p className="text-xs text-zinc-600">
-            New requirements are Records in Department Builder. This page keeps historical
-            Operational Templates readable. It does not start a second record system.
+            Marketplace Records are CatalogLogDefinition → install → LogAttachment, configured at{" "}
+            <Link href="/build/logs" className="underline-offset-2 hover:underline">
+              BUILD · Logs
+            </Link>
+            . OperationalTemplate is the previous facility-owned definition engine. This page
+            keeps historical templates readable. It is not the next layer after Catalog.
           </p>
         </div>
       ) : null}

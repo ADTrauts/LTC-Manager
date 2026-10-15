@@ -149,6 +149,18 @@ export async function generateDueInspectionWork(
     let maxGenerated: Date | null = null;
 
     for (const serviceDate of serviceDates) {
+      if (isCanonicalLogsEnabled() && definition.departmentId) {
+        const { departmentUsesCanonicalRecords } = await import("@/lib/canonical-logs/record-engine-store");
+        if (
+          await departmentUsesCanonicalRecords({
+            facilityId: definition.facilityId,
+            departmentId: definition.departmentId,
+            serviceDate: toServiceDateKey(serviceDate),
+          })
+        ) {
+          continue;
+        }
+      }
       if (
         !doesCadenceMatchServiceDate(
           {
@@ -305,9 +317,6 @@ export async function generateDueInspectionWorkForFacilities(
   } = {},
   deps: TaskSyncDeps & { db?: GenerateDueInspectionWorkDb & Pick<PrismaClient, "facility"> } = {},
 ): Promise<GenerateDueInspectionWorkResult[]> {
-  // Product Record operation does not pre-create InspectionOccurrence rows.
-  // Direct generateDueInspectionWork remains the historical library.
-  if (isCanonicalLogsEnabled()) return [];
   const db = deps.db ?? defaultPrisma;
   if (input.facilityId) {
     return [await generateDueInspectionWork({ ...input, facilityId: input.facilityId }, deps)];

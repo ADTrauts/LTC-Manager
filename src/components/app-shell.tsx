@@ -51,6 +51,7 @@ import {
 } from "@/lib/feature-flags";
 import { applyMaintenanceNavRewrite } from "@/lib/asset-operations/maintenance-nav";
 import { applyCanonicalLogsNavRewrite } from "@/lib/canonical-logs/run-nav";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
@@ -182,8 +183,14 @@ export async function AppShell({ children }: AppShellProps) {
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
     activeOperationalDepartmentKey: deptNav.activeOperationalDepartmentKey,
   });
+  const canonicalForDepartment = deptNav.activeDepartmentId
+    ? await departmentUsesCanonicalRecords({
+        facilityId: session.facilityId,
+        departmentId: deptNav.activeDepartmentId,
+      })
+    : false;
   const navItems = applyMaintenanceNavRewrite(
-    applyCanonicalLogsNavRewrite(navItemsRaw, isCanonicalLogsEnabled(), {
+    applyCanonicalLogsNavRewrite(navItemsRaw, canonicalForDepartment, {
       canViewLogBook: hasAtLeastRole(session.role, "SUPERVISOR"),
     }),
     { canViewAssets: hasAtLeastRole(session.role, "SUPERVISOR") },

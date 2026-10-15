@@ -16,7 +16,8 @@ import {
   resolveLogRequirementsForAttachment,
   type PublishedCycleForLogs,
 } from "@/lib/canonical-logs/resolve-log-requirements";
-import { toHistorySlotState, type LogHistorySlotState } from "@/lib/logs-architecture/history-slot-state";
+import type { LogHistorySlotState } from "@/lib/logs-architecture/history-slot-state";
+import { classifyOperationalRequirement } from "@/lib/operational-occurrence/classify-operational-requirement";
 import { nextOperationalDayKey } from "@/lib/operational-cycles/cycle-lifecycle";
 import {
   historicalOtAssignmentsFromBindings,
@@ -45,6 +46,8 @@ export type AuditRecordFact = {
   recordedByLabel: string | null;
   placeLabelSnapshot: string | null;
   status: string;
+  inspection?: AuditRecordSlot["inspection"];
+  repeatResponses?: AuditRecordSlot["repeatResponses"];
   corrections: Array<{
     previousValue: string | null;
     reason: string;
@@ -104,6 +107,36 @@ export type AuditRecordSlot = {
     occurredAt: string | null;
     recordedAt: string | null;
     recordedByLabel: string | null;
+    outOfStandard: boolean;
+  }>;
+  inspection?: {
+    percentage: number | null;
+    outcome: string | null;
+    criticalFailureCount: number;
+    questions: Array<{
+      field: string;
+      response: string;
+      notApplicable: boolean;
+      outOfStandard: boolean;
+      section?: string | null;
+      scoreWeight?: number | null;
+      earned?: number | null;
+      critical?: boolean;
+    }>;
+    sectionScores?: Array<{
+      sectionKey: string;
+      label: string;
+      earnedPoints: number;
+      possiblePoints: number;
+      percentage: number | null;
+    }>;
+  } | null;
+  repeatResponses?: Array<{
+    group: string;
+    row: string;
+    column: string;
+    value: string;
+    unit: string;
     outOfStandard: boolean;
   }>;
   corrections: AuditRecordFact["corrections"];
@@ -303,6 +336,8 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
               : null,
             waiverAllowed: waiverBySegment.get(segment.id) === true,
             source: "CANONICAL_RECORD",
+            inspection: record?.inspection ?? null,
+            repeatResponses: record?.repeatResponses ?? [],
           });
         }
       }
@@ -350,22 +385,15 @@ function slotStateFor(input: {
   record: AuditRecordFact | null;
   waiver: AuditWaiverFact | null;
 }): AuditSlotState {
-  if (input.record) {
-    return toHistorySlotState({
-      liveState: input.liveState,
-      operationalDateKey: input.serviceDate,
-      todayKey: input.todayKey,
-      hasSubmission: true,
-      submissionHasCorrectiveAction: Boolean(input.record.correctiveActionText?.trim()),
-    });
-  }
-  if (input.waiver) return "WAIVED";
-  return toHistorySlotState({
+  return classifyOperationalRequirement({
     liveState: input.liveState,
-    operationalDateKey: input.serviceDate,
+    serviceDate: input.serviceDate,
     todayKey: input.todayKey,
-    hasSubmission: false,
-    submissionHasCorrectiveAction: false,
+    hasEvidence: input.record != null,
+    evidenceStatus: input.record?.status ?? null,
+    outOfStandard: input.record?.outOfStandard === true,
+    hasCorrectiveAction: Boolean(input.record?.correctiveActionText?.trim()),
+    hasWaiver: input.waiver != null,
   });
 }
 
@@ -418,6 +446,13 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
     "correctiveAction",
     "followUp",
     "source",
+    "auditScore",
+    "auditOutcome",
+    "criticalFailureCount",
+    "field",
+    "response",
+    "notApplicable",
+    "occurrenceState",
   ];
   const lines = [header.join(",")];
   for (const slot of slots) {
@@ -425,29 +460,40 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
       .map((row) => row.valueNumber ?? "")
       .filter((value) => value !== "")
       .join("|");
-    lines.push(
-      [
-        slot.serviceDate,
-        slot.departmentId,
-        csv(slot.definitionLabel),
-        slot.recordForm,
-        String(slot.catalogVersion),
-        slot.requirementSegmentId,
-        csv(slot.placeLabel ?? ""),
-        slot.locationFunctionKey ?? "",
-        slot.windowStartLocal ?? "",
-        slot.windowEndLocal ?? "",
-        slot.cycleStableKey ?? "",
-        slot.slotState,
-        slot.record?.valueNumber ?? slot.record?.valueText ?? "",
-        slot.record?.recordedAt ?? "",
-        csv(slot.record?.recordedByLabel ?? slot.waiver?.actorLabel ?? ""),
-        slot.record ? String(slot.record.outOfStandard) : "",
-        csv(slot.record?.correctiveActionText ?? ""),
-        followUp,
-        slot.source,
-      ].join(","),
-    );
+    const questions = slot.inspection?.questions ?? [];
+    const bodies = questions.length > 0 ? questions : [null];
+    for (const question of bodies) {
+      lines.push(
+        [
+          slot.serviceDate,
+          slot.departmentId,
+          csv(slot.definitionLabel),
+          slot.recordForm,
+          String(slot.catalogVersion),
+          slot.requirementSegmentId,
+          csv(slot.placeLabel ?? ""),
+          slot.locationFunctionKey ?? "",
+          slot.windowStartLocal ?? "",
+          slot.windowEndLocal ?? "",
+          slot.cycleStableKey ?? "",
+          slot.slotState,
+          question ? question.response : (slot.record?.valueNumber ?? slot.record?.valueText ?? ""),
+          slot.record?.recordedAt ?? "",
+          csv(slot.record?.recordedByLabel ?? slot.waiver?.actorLabel ?? ""),
+          question ? String(question.outOfStandard) : slot.record ? String(slot.record.outOfStandard) : "",
+          csv(slot.record?.correctiveActionText ?? ""),
+          followUp,
+          slot.source,
+          slot.inspection?.percentage ?? "",
+          slot.inspection?.outcome ?? "",
+          slot.inspection ? String(slot.inspection.criticalFailureCount) : "",
+          csv(question?.field ?? ""),
+          csv(question?.response ?? ""),
+          question ? String(question.notApplicable) : "",
+          slot.slotState,
+        ].join(","),
+      );
+    }
   }
   return lines.join("\n");
 }

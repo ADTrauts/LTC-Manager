@@ -32,6 +32,7 @@ export function resolveAttachTimingProposal(input: {
   recommendedCadence: CatalogRecommendedCadence;
   recommendedScheduleKind: string | null;
   recommendedDaypartLabels: string[];
+  recommendedFixedWindows?: Array<{ startLocal: string; endLocal: string }>;
   publishedCycleStableKeys: readonly string[];
   cycleLabelByKey: ReadonlyMap<string, string>;
   /** Optional overrides from Customize. */
@@ -51,7 +52,7 @@ export function resolveAttachTimingProposal(input: {
       recommendedCadence: input.recommendedCadence,
       recommendedScheduleKind: input.recommendedScheduleKind as never,
       recommendedDaypartLabels: input.recommendedDaypartLabels,
-      recommendedFixedWindows: [],
+      recommendedFixedWindows: input.recommendedFixedWindows ?? [],
     },
     publishedCycleStableKeys: input.publishedCycleStableKeys,
   });

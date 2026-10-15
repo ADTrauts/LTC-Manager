@@ -80,6 +80,10 @@ export type CatalogLogFieldDefinition = {
   allowedSelections: string[];
   correctiveActionTrigger: boolean;
   correctiveActionRequired: boolean;
+  sectionKey?: string | null;
+  scoreWeight?: number | null;
+  critical?: boolean;
+  creditValues?: string[];
 };
 
 /**

@@ -63,7 +63,7 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 | **Goals** | Execute unit work + light lead tasks without admin noise. |
 | **Responsibilities** | Logs, servery marks, report issues, unit inspections as assigned. |
 | **Decisions** | Completing queue items in priority order. |
-| **Primary workspace** | **Unit Workspace** (or `/logs` if no unit). |
+| **Primary workspace** | **Unit Workspace** (or due Logs if no unit: `/staffing/logs` when canonical Logs are on, otherwise legacy `/logs`). |
 | **Primary workflows** | Unit work queue; PIN/device bind when kiosk; no Business Workspace home. |
 
 ---
@@ -75,7 +75,7 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 | **Goals** | Finish due logs and local tasks quickly and correctly. |
 | **Responsibilities** | Submit assigned logs; meal ready/started where permitted; raise issues. |
 | **Decisions** | Minimal — follow queue and prompts. |
-| **Primary workspace** | **Unit Workspace** / logs. |
+| **Primary workspace** | **Unit Workspace** / due Logs. |
 | **Primary workflows** | Tablet PIN → unit → submit; never Admin or Workspace. |
 
 ---
@@ -112,4 +112,4 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 |---------|----------------|
 | FA / GM / Manager | `/workspace` |
 | Supervisor | `/today` (when Today's Work enabled) |
-| Lead / Staff / PIN | `/unit/{id}` or `/logs` |
+| Lead / Staff / PIN | `/unit/{id}` or due Logs (`/staffing/logs` when `CANONICAL_LOGS_ENABLED`; otherwise legacy `/logs`) |

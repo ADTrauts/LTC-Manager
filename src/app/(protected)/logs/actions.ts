@@ -10,7 +10,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 
-import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { activeDepartmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
@@ -100,7 +100,7 @@ function revalidateLogPaths() {
 
 export async function createLogTemplateAction(formData: FormData) {
   assertLegacyRecordWriteAllowed({
-    productRecordEngine: isCanonicalLogsEnabled(),
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
     writer: "LOG_TEMPLATE",
   });
   const session = await requireFacilitySession();
@@ -137,6 +137,10 @@ export async function createLogTemplateAction(formData: FormData) {
 }
 
 export async function addTemplateFieldAction(formData: FormData) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
+    writer: "LOG_TEMPLATE",
+  });
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -187,7 +191,7 @@ export async function addTemplateFieldAction(formData: FormData) {
 
 export async function createLogAssignmentAction(formData: FormData) {
   assertLegacyRecordWriteAllowed({
-    productRecordEngine: isCanonicalLogsEnabled(),
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
     writer: "LOG_ASSIGNMENT",
   });
   const session = await requireFacilitySession();
@@ -233,6 +237,10 @@ export async function createLogAssignmentAction(formData: FormData) {
 }
 
 export async function toggleLogAssignmentAction(formData: FormData) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
+    writer: "LOG_ASSIGNMENT",
+  });
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -259,7 +267,7 @@ export async function toggleLogAssignmentAction(formData: FormData) {
 
 export async function submitLogAction(formData: FormData) {
   assertLegacyRecordWriteAllowed({
-    productRecordEngine: isCanonicalLogsEnabled(),
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
     writer: "LOG_SUBMISSION",
   });
   const session = await requireFacilitySession();

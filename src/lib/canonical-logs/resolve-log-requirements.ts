@@ -41,6 +41,8 @@ export type ExistingLogEvidenceForResolve = {
   requirementKey: string;
   logRequirementKey: string | null;
   status: OperationalEvidenceRecordStatus;
+  /** Follow-up evidence never satisfies a scheduled slot. */
+  followsRecordId?: string | null;
 };
 
 export type LogAttachmentForResolve = {
@@ -136,7 +138,11 @@ function matchRecord(
   requirementKey: string,
 ): ExistingLogEvidenceForResolve | null {
   return (
-    records.find((r) => r.logRequirementKey === requirementKey || r.requirementKey === requirementKey) ??
+    records.find(
+      (r) =>
+        !r.followsRecordId &&
+        (r.logRequirementKey === requirementKey || r.requirementKey === requirementKey),
+    ) ??
     null
   );
 }

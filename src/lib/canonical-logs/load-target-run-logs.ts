@@ -10,6 +10,7 @@ import type { LogAttachmentTargetKind, PrismaClient } from "@prisma/client";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { parseInspectionSections } from "@/lib/canonical-logs/inspection-score";
 import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
 import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
@@ -138,6 +139,10 @@ function catalogForResolve(def: {
     allowedSelections: string[];
     correctiveActionTrigger: boolean;
     correctiveActionRequired: boolean;
+    sectionKey?: string | null;
+    scoreWeight?: number | null;
+    critical?: boolean;
+    creditValues?: string[];
   }>;
 }): LogAttachmentForResolve["catalogDefinition"] {
   return {
@@ -159,6 +164,10 @@ function catalogForResolve(def: {
       allowedSelections: f.allowedSelections,
       correctiveActionTrigger: f.correctiveActionTrigger,
       correctiveActionRequired: f.correctiveActionRequired,
+      sectionKey: f.sectionKey,
+      scoreWeight: f.scoreWeight,
+      critical: f.critical,
+      creditValues: f.creditValues,
     })),
   };
 }
@@ -259,6 +268,7 @@ export async function loadTargetRunLogs(input: {
   const isManager = hasAtLeastRole(input.session.role, "MANAGER");
   const todayDate = new Date(`${todayKey}T00:00:00.000Z`);
   const coveringToday = rows.filter((row) => {
+    if (row.status === "RETIRED") return false;
     const from = toServiceDateKey(row.effectiveFrom);
     const to = row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null;
     return from <= todayKey && (!to || todayKey <= to);
@@ -347,6 +357,9 @@ export async function loadTargetRunLogs(input: {
     localDisplayLabel: string | null;
     localInstructions: string | null;
     catalogInstructions: string | null;
+    sections: ReturnType<typeof parseInspectionSections>;
+    passingScore: number | null;
+    criticalFailureForcesFailure: boolean;
   }> = [];
   const adHocAttachments: RunAdHocAttachmentView[] = [];
 
@@ -390,6 +403,9 @@ export async function loadTargetRunLogs(input: {
         localDisplayLabel: attachment.localDisplayLabel,
         localInstructions: attachment.localInstructions,
         catalogInstructions: attachment.catalogDefinition.instructions,
+        sections: parseInspectionSections(attachment.catalogDefinition.sectionsJson),
+        passingScore: attachment.catalogDefinition.passingScore,
+        criticalFailureForcesFailure: attachment.catalogDefinition.criticalFailureForcesFailure,
       });
     }
   }

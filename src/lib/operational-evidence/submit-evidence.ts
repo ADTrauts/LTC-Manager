@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
+import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -121,6 +122,14 @@ export async function submitEvidenceRecord(
     now?: Date;
   },
 ) {
+  const { departmentUsesCanonicalRecords } = await import("@/lib/canonical-logs/record-engine-store");
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await departmentUsesCanonicalRecords({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+    }),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   const client = input.client ?? prisma;
   const authority = await resolveEvidenceAuthority(
     session,

@@ -11,6 +11,8 @@ import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
+import { formatInspectionLogBookLine, scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
+import { repeatLogBookSummary } from "@/lib/canonical-logs/template-structure";
 import { searchEvidenceRecords, resolveEvidenceAuthority } from "@/lib/operational-evidence";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
@@ -22,6 +24,25 @@ import {
 import { prisma } from "@/lib/prisma";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function inspectionLine(row: {
+  templateSnapshotJson: unknown;
+  values: Array<{
+    fieldKey: string;
+    valueText?: string | null;
+    valueNumber?: number | null;
+    valueBoolean?: boolean | null;
+    valueSelections?: string[];
+  }>;
+}): string {
+  const line = formatInspectionLogBookLine(
+    scoreInspectionSnapshotJson({
+      templateSnapshotJson: row.templateSnapshotJson,
+      values: row.values.filter((value) => !("groupKey" in value) || !value.groupKey),
+    }),
+  );
+  return line ? ` · ${line}` : "";
+}
 
 function one(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -257,7 +278,7 @@ export default async function EvidenceLogBookPage({
         </label>
         <label className="flex items-end gap-2 text-xs text-zinc-700">
           <input type="checkbox" name="corrective" value="1" defaultChecked={correctiveOnly} />
-          Corrective action only
+          Exceptions and corrective action
         </label>
         <div className="flex items-end">
           <button
@@ -306,7 +327,20 @@ export default async function EvidenceLogBookPage({
                       {row.synchronizedAt ? ` · Synced ${row.synchronizedAt.toISOString()}` : ""}
                       {row.recordedOnline ? " · Online" : " · Offline"}
                       {row._count.corrections > 0 ? " · Corrected" : ""}
-                      {row.outOfStandard ? " · Out of standard" : ""}
+                      {row._count.attachments > 0
+                        ? ` · ${row._count.attachments} attachment${row._count.attachments === 1 ? "" : "s"}`
+                        : ""}
+                      {row.followsRecordId ? " · Follow-up / recheck" : ""}
+                      {inspectionLine(row)}
+                      {row.outOfStandard ? " · Out of standard" : row.followsRecordId ? " · In standard" : ""}
+                      {(() => {
+                        const rows = new Set(row.values.filter((value) => value.groupKey).map((value) => value.rowKey));
+                        const exceptions = new Set(
+                          row.values.filter((value) => value.groupKey && value.outOfStandard).map((value) => value.rowKey),
+                        );
+                        const summary = repeatLogBookSummary({ rowCount: rows.size, exceptionCount: exceptions.size });
+                        return summary ? ` · ${summary}` : "";
+                      })()}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

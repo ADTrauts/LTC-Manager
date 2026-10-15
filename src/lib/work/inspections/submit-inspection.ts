@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
+import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { completeScheduledInspectionOccurrence } from "@/lib/work/inspections/complete-scheduled-occurrence";
 import { determineInspectionResult } from "@/lib/work/inspections/determine-inspection-result";
@@ -100,6 +101,20 @@ export async function submitInspection(
   deps: TaskSyncDeps & { db?: InspectionSubmitDb } = {},
 ): Promise<SubmitInspectionResult> {
   const db = deps.db ?? defaultPrisma;
+  const definition = await db.inspectionDefinition.findFirst({
+    where: { id: input.definitionId, facilityId: input.facilityId },
+    select: { departmentId: true },
+  });
+  const { departmentUsesCanonicalRecords } = await import("@/lib/canonical-logs/record-engine-store");
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: definition?.departmentId
+      ? await departmentUsesCanonicalRecords({
+          facilityId: input.facilityId,
+          departmentId: definition.departmentId,
+        })
+      : false,
+    writer: "INSPECTION_SUBMISSION",
+  });
   const occurrenceId =
     typeof input.occurrenceId === "string" && input.occurrenceId.trim().length > 0
       ? input.occurrenceId.trim()

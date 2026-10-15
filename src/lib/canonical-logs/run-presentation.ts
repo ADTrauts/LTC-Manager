@@ -4,6 +4,7 @@
  */
 
 import type { LogRequirement, LogRequirementProductState } from "@/lib/logs-architecture/types";
+import type { CatalogEvidenceRule } from "./evidence-rules";
 import { formatLocalTime12h } from "./timing-display";
 
 export type RunLogGroupId =
@@ -44,6 +45,17 @@ export type RunLogRequirementView = {
   windowEndsAt: string | null;
   recordId: string | null;
   fields: LogRequirement["fields"];
+  rules: CatalogEvidenceRule[];
+  sections: Array<{
+    sectionKey: string;
+    label: string;
+    description?: string | null;
+    displaySequence: number;
+  }>;
+  passingScore: number | null;
+  criticalFailureForcesFailure: boolean;
+  repeatingGroups: import("./template-structure").RepeatingGroupDefinition[];
+  calculations: import("./template-structure").CalculationDefinition[];
   isAdHoc: boolean;
 };
 
@@ -66,7 +78,7 @@ export type UpcomingRunLogView = {
 function stateLabelFor(state: LogRequirementProductState): string {
   switch (state) {
     case "DUE":
-      return "Due";
+      return "Due now";
     case "UPCOMING":
       return "Upcoming";
     case "OVERDUE":
@@ -127,6 +139,12 @@ export function presentRunLogRequirement(input: {
   catalogInstructions: string | null;
   targetLabel: string;
   isManager: boolean;
+  rules?: CatalogEvidenceRule[];
+  sections?: RunLogRequirementView["sections"];
+  passingScore?: number | null;
+  criticalFailureForcesFailure?: boolean;
+  repeatingGroups?: import("./template-structure").RepeatingGroupDefinition[];
+  calculations?: import("./template-structure").CalculationDefinition[];
 }): RunLogRequirementView {
   const req = input.requirement;
   const displayName = input.localDisplayLabel?.trim() || input.catalogDefinitionName;
@@ -168,7 +186,9 @@ export function presentRunLogRequirement(input: {
     req.productState === "OVERDUE" ||
     req.productState === "UPCOMING"
   ) {
-    primaryActionLabel = "Open log";
+    primaryActionLabel = req.fields.some((field) => field.fieldType === "TEMPERATURE")
+      ? "Record temperature"
+      : "Open log";
     const params = new URLSearchParams({
       attachmentId: req.attachmentId,
       requirementKey: req.requirementKey,
@@ -205,6 +225,12 @@ export function presentRunLogRequirement(input: {
     windowEndsAt: req.windowEndsAt?.toISOString() ?? null,
     recordId: req.recordId,
     fields: req.fields,
+    rules: input.rules ?? [],
+    sections: input.sections ?? [],
+    passingScore: input.passingScore ?? null,
+    criticalFailureForcesFailure: input.criticalFailureForcesFailure === true,
+    repeatingGroups: input.repeatingGroups ?? [],
+    calculations: input.calculations ?? [],
     isAdHoc: false,
   };
 }

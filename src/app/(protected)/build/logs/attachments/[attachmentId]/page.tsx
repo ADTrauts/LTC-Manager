@@ -103,6 +103,8 @@ export default async function AttachmentEditPage({ params }: Props) {
       targetTitle={target?.title ?? null}
       allowAdHoc={row.allowAdHoc}
       hasBecomeEffective={effectiveFromKey <= todayKey}
+      effectiveFromKey={effectiveFromKey}
+      todayKey={todayKey}
       updateAvailable={latest != null && latest.version > row.catalogVersion}
       latestCatalogVersion={latest?.version ?? null}
     />

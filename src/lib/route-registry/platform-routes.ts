@@ -676,7 +676,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // BUILD · Operational Templates — Phase 9C compatibility surface (not Canonical Catalog UI).
     nav: { label: "Operational Templates", order: 245 },
     notes:
-      "Unified Operational Template Builder (Phase 9C). Page enforces DIETARY_OPERATIONAL_EVIDENCE_ENABLED. Not the facility Canonical Logs Catalog.",
+      "Phase 9C OperationalTemplate builder. Compatibility/historical when CANONICAL_LOGS_ENABLED. Not the Marketplace Catalog or the next layer after CatalogLogDefinition. Canonical configuration is /build/logs.",
   },
   {
     pattern: "/build/logs",
@@ -687,7 +687,8 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     featureFlag: "CANONICAL_LOGS",
     // BUILD · Logs — Catalog browse + Attachments index (Phase 4A).
     nav: { label: "Logs", order: 236 },
-    notes: "Canonical Logs Catalog and Attachments. Page enforces CANONICAL_LOGS_ENABLED.",
+    notes:
+      "Forward manager configuration for Catalog, Library, and Attachments. Page enforces CANONICAL_LOGS_ENABLED. Not /staffing/templates.",
   },
   {
     pattern: "/build/logs/catalog/[stableKey]",
@@ -769,7 +770,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // app-shell injects this item when CANONICAL_LOGS_ENABLED even if evidence is off.
     nav: { label: "Log Book", order: 50 },
     notes:
-      "Dietary Operational Evidence Log Book (Phase 9C). Also the Canonical Logs history destination. Page allows DIETARY_OPERATIONAL_EVIDENCE_ENABLED or CANONICAL_LOGS_ENABLED.",
+      "Log Book is the historical projection over OperationalEvidenceRecord. Distinct from due Logs at /staffing/logs. Page allows DIETARY_OPERATIONAL_EVIDENCE_ENABLED or CANONICAL_LOGS_ENABLED.",
   },
   {
     pattern: "/staffing/log-book/[recordId]",
@@ -786,8 +787,10 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "staffing",
     featureFlag: "CANONICAL_LOGS",
+    // RUN · Logs — due operational Records (what must be recorded now).
+    nav: { label: "Logs", order: 45 },
     notes:
-      "Canonical RUN Logs for Attachment-derived requirements. Page enforces CANONICAL_LOGS_ENABLED. Not a top-nav item — due work lives on the room; Log Book is the history destination.",
+      "Canonical RUN due Logs for Attachment-derived requirements. Distinct from Log Book history. Page enforces CANONICAL_LOGS_ENABLED.",
   },
   {
     pattern: "/staffing/logs/open",
@@ -812,6 +815,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
     module: "staffing",
     featureFlag: "CANONICAL_LOGS",
+  },
+  {
+    pattern: "/staffing/logs/records/[recordId]/recheck",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    module: "staffing",
+    featureFlag: "CANONICAL_LOGS",
+    notes:
+      "Unscheduled follow-up against an existing OperationalEvidenceRecord. Uses the originating attachment and pinned Catalog snapshot. Does not require AD_HOC timing.",
   },
   {
     pattern: "/staffing/logs/targets/space/[spaceId]",
@@ -935,7 +948,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // RUN · legacy Logs. Hidden from nav when CANONICAL_LOGS_ENABLED (app-shell rewrite).
     nav: { label: "Logs", order: 70 },
     notes:
-      "Legacy LogTemplate / LogAssignment / LogSubmission surface. Remains fully writable. Canonical RUN Logs live at /staffing/logs when CANONICAL_LOGS_ENABLED.",
+      "Legacy LogTemplate / LogAssignment / LogSubmission surface. Live compatibility authority only while CANONICAL_LOGS_ENABLED is off. Writers are fenced when canonical Logs are on. Historical submissions stay readable. Canonical due Logs are /staffing/logs.",
   },
   {
     pattern: "/menus",
@@ -1463,6 +1476,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "offline",
     requiresDownstreamAuthorization: true,
     notes: "Synchronizes bounded offline Milestone command batches with authority revalidation.",
+  },
+  {
+    pattern: "/api/evidence-attachments/[id]",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HANDLER_AUTHORIZED_API" },
+    module: "staffing",
+    requiresDownstreamAuthorization: true,
+    featureFlag: "CANONICAL_LOGS",
+    notes: "Serves a facility-scoped OperationalEvidenceAttachment. Handler checks session facilityId. No public listing.",
   },
   {
     pattern: "/api/attachments/[id]",

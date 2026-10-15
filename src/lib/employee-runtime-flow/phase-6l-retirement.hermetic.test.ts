@@ -50,9 +50,9 @@ test("offline sync keeps produce-new / consume-old dual path", () => {
 
 test("Harbor submit still stores catalog stable key on templateStableKey", () => {
   const submitSrc = read("src/lib/canonical-logs/submit-canonical-log.ts");
-  assert.match(submitSrc, /templateStableKey:\s*catalog\.stableKey/);
+  assert.match(submitSrc, /templateStableKey:\s*governing\.stableKey/);
   assert.match(submitSrc, /logAttachmentId:\s*attachment\.id/);
-  assert.match(submitSrc, /catalogDefinitionId:\s*catalog\.id/);
+  assert.match(submitSrc, /catalogDefinitionId:\s*governing\.id/);
 });
 
 test("feature flag defaults remain independent and off", () => {

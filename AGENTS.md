@@ -14,6 +14,8 @@ Current authority is `docs/product/01_PRODUCT_CONSTITUTION.md`. Vocabulary is `d
 
 Manager language is Location Function, Operational Cycle, Phase, Key Point, Records, Audit / Reports, Work, and People & Coverage. Facility Plant Operations remains DEVELOPMENT. Do not implement that Product, create migrations, or change its release status unless explicitly asked.
 
+Forward Records (when `CANONICAL_LOGS_ENABLED=true`): `CatalogLogDefinition` → `FacilityCatalogInstall` → `LogAttachment` → derived requirement → `OperationalEvidenceRecord`. Log Book and Review are projections, not fact stores. `OperationalTemplate` is not the next layer after Catalog. Legacy `/logs` is compatibility while the flag is off. Do not add a parallel template, requirement, or evidence model.
+
 ## Prisma migrations (guardrails)
 
 - **Never edit migration files that are already applied** (or that exist under `prisma/migrations/` in a shared repo) to “fix” drift, typos, or shadow-database failures. Changing them breaks checksums and makes `prisma migrate dev` report modified migrations / drift.

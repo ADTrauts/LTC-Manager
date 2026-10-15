@@ -86,11 +86,18 @@ export default async function OpenCanonicalLogPage({
         catalogInstructions={view.catalogInstructions}
         localInstructions={view.localInstructions}
         fields={view.fields}
+        purposeType={view.purposeType}
+        sections={view.sections}
+        repeatingGroups={view.repeatingGroups}
+        calculations={view.calculations}
+        passingScore={view.passingScore}
+        criticalFailureForcesFailure={view.criticalFailureForcesFailure}
         requirementKey={view.requirementKey}
         cycleStableKey={view.cycleStableKey}
         cycleLabel={view.cycleLabel}
         windowStartLocal={view.windowStartLocal}
         windowEndLocal={view.windowEndLocal}
+        rules={view.rules}
         cancelHref="/staffing/logs"
       />
     </section>

@@ -5,6 +5,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
 import { catalogPurposeForResolve } from "@/lib/operational-review/review-fact-maps";
 import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-canonical";
 import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
@@ -150,8 +151,15 @@ export async function loadOperationalReviewDayFacts(input: {
         occurredAt: true,
         recordedAt: true,
         outOfStandard: true,
+        templateSnapshotJson: true,
         values: {
-          select: { valueNumber: true, fieldKey: true },
+          select: {
+            fieldKey: true,
+            valueNumber: true,
+            valueText: true,
+            valueBoolean: true,
+            valueSelections: true,
+          },
           orderBy: { fieldKey: "asc" },
         },
       },
@@ -450,6 +458,19 @@ export async function loadOperationalReviewDayFacts(input: {
       valueNumber: numeric?.valueNumber ?? null,
       unitLabel: null,
       outOfStandard: row.outOfStandard,
+      inspection: (() => {
+        const score = scoreInspectionSnapshotJson({
+          templateSnapshotJson: row.templateSnapshotJson,
+          values: row.values,
+        });
+        if (!score) return null;
+        return {
+          percentage: score.percentage,
+          outcome: score.outcome,
+          criticalFailureCount: score.criticalFailures.length,
+          exceptionCount: score.exceptions.length,
+        };
+      })(),
       logAttachmentId: row.logAttachmentId,
       attachmentStableKey: row.attachmentStableKey,
       catalogStableKey: row.catalogDefinition?.stableKey ?? null,
@@ -537,6 +558,15 @@ export async function loadOperationalReviewDayFacts(input: {
     cycleRows,
   );
 
+  const waiverRows = await input.client.operationalRecordWaiver.findMany({
+    where: {
+      facilityId: input.facilityId,
+      operationalDate: serviceDate,
+      ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+    },
+    select: { requirementKey: true, reason: true },
+  });
+
   return {
     facilityId: facility.id,
     facilityLabel: facility.displayName,
@@ -556,6 +586,11 @@ export async function loadOperationalReviewDayFacts(input: {
     otBindings: bindings,
     attachmentSegments,
     evidenceRecords,
+    waivers: waiverRows.map((row) => ({
+      requirementKey: row.requirementKey,
+      operationalDateKey: input.serviceDate,
+      reason: row.reason,
+    })),
     coverageTemplates: templates.map((row) => ({
       id: row.id,
       stableKey: row.stableKey,

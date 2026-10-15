@@ -98,6 +98,10 @@ export type TemplateFieldSnapshot = {
   allowedSelections: string[];
   correctiveActionTrigger: boolean;
   correctiveActionRequired: boolean;
+  sectionKey?: string | null;
+  scoreWeight?: number | null;
+  critical?: boolean;
+  creditValues?: string[];
 };
 
 export type TemplateSnapshotJson = {
@@ -257,4 +261,7 @@ export type EvidenceSubmissionValidationResult = {
   outOfStandard: boolean;
   correctiveActionRequired: boolean;
   fieldOutOfStandard: Record<string, boolean>;
+  needsReview: boolean;
+  visibleFieldKeys: string[];
+  triggeringFields: Array<{ fieldKey: string; label: string; reason: string }>;
 };

@@ -187,13 +187,21 @@ export function isPlantOperationsEnabled(): boolean {
 }
 
 /**
- * Defaults to disabled — Canonical Logs (platform Catalog + facility Attachment).
- * Enable only in a controlled local/dev or named test facility context:
- *   CANONICAL_LOGS_ENABLED=true
- * Do not default-on for production. Legacy `/logs` remains independent.
- * Typical local activation:
- *   DIETARY_OPERATIONAL_CYCLES_ENABLED=true
- *   DIETARY_OPERATIONAL_EVIDENCE_ENABLED=true
+ * Canonical Logs — platform Catalog + facility Attachment Record engine.
+ * Default remains **false**. Do not flip this on for production until Phase 1
+ * Cooler Temperature Log certification is complete.
+ *
+ * Flag OFF, or no department rollout:
+ *   Legacy `/logs` remains the live path. A stored CANONICAL row does not
+ *   activate while this gate is off, and the stored row is not rewritten.
+ *
+ * Flag ON:
+ *   The deployment can run canonical Records. A department uses them only on
+ *   service dates covered by a RecordEngineRollout of CANONICAL. Other
+ *   departments stay on the previous engine. There is no dual-write and no
+ *   silent fallback into LogSubmission.
+ *
+ * Enable only in a controlled local/dev or named test facility:
  *   CANONICAL_LOGS_ENABLED=true
  */
 export function isCanonicalLogsEnabled(): boolean {

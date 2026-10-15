@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import type { PartnerActingContext } from "@/lib/operational-evidence/acting-context";
 import { performCanonicalEvidenceCorrection } from "@/lib/operational-evidence/correct-evidence";
+import type { EvidenceMediaInput } from "./evidence-media";
 import type { EvidenceFieldValueInput } from "@/lib/operational-evidence/types";
 import { canPartner } from "@/lib/partner-user-access";
 import type { PartnerOperationalContext } from "@/lib/partner-operational-context";
@@ -43,6 +44,10 @@ export type PartnerCanonicalLogSubmitInput = {
   values: EvidenceFieldValueInput[];
   correctiveActionText?: string | null;
   adHoc?: boolean;
+  followsRecordId?: string | null;
+  media?: readonly EvidenceMediaInput[];
+  clientCommandId?: string | null;
+  repeatRows?: SubmitCanonicalLogInput["repeatRows"];
   now?: Date;
 };
 
@@ -80,6 +85,10 @@ export async function submitPartnerCanonicalLog(input: PartnerCanonicalLogSubmit
     values: input.values,
     correctiveActionText: input.correctiveActionText,
     adHoc: input.adHoc === true,
+    followsRecordId: input.followsRecordId,
+    media: input.media,
+    repeatRows: input.repeatRows,
+    clientCommandId: input.clientCommandId,
     recordedByEmployeeId: null,
     now: input.now,
   };

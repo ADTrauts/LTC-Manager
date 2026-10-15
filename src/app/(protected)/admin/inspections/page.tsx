@@ -72,8 +72,12 @@ export default async function AdminInspectionsPage({ searchParams }: AdminInspec
 
       {canonicalRecords ? (
         <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700" role="status">
-          Inspections are Records. Configure them in Department Builder → Records. This page keeps
-          historical inspection definitions and submissions readable.
+          Inspections are Records. Configure them as Catalog definitions placed with Log Attachments
+          at{" "}
+          <Link href="/build/logs" className="font-medium text-zinc-800 underline">
+            BUILD · Logs
+          </Link>
+          . This page keeps historical inspection definitions and submissions readable.
         </p>
       ) : (
       <section className="space-y-3">

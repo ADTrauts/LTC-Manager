@@ -14,12 +14,26 @@ These stores and names stay. They are readable. They are not the canonical forwa
 |--------|------------------|------------|
 | Legacy meal milestone stores (`READY` / `SERVICE_STARTED` on the older milestone path) | Historical Dietary timing compatibility | Not the timing source when a service date already has `OperationalCycleKeyPointActual` |
 | `UnitMealTime` | Older unit meal clock | Not the Dietary Key Point actual |
-| `LogTemplate` / `LogSubmission` | Legacy log capture and history | Fenced when canonical Records are enabled |
-| Legacy Inspection engine | Legacy inspection definitions, occurrences, and submissions | Fenced when canonical Records are enabled. Inspection as a Record form is the forward path |
-| `OperationalTemplate` | Earlier unified template layer | Not the Record definition. Catalog definitions and facility requirement segments are |
-| Review-named internal infrastructure | Loaders and types that still say Review | Not a workspace. Manager surface is Audit / Reports at `/reports` |
+| `LogTemplate` / `LogAssignment` / `LogSubmission` | Legacy log capture and history. Live compatibility authority **only while `CANONICAL_LOGS_ENABLED` is off**. | Fenced when canonical Records are enabled. Not the forward Record engine. |
+| Legacy Inspection engine | Legacy inspection definitions, occurrences, and submissions | Fenced when canonical Records are enabled. Inspection as a Catalog Record form + `LogAttachment` is the forward path |
+| `OperationalTemplate` | Previous facility-owned definition + applicability + schedule engine (Phase 9C). Remaining callers: `/staffing/templates` (historical/private), PM `PreventiveMaintenancePlanRecordRequirement`, WO `RepairRecordRequirement`, compatibility runtime when canonical is off, offline template sync (fenced when canonical is on). | Not the Record definition and **not** the next layer after `CatalogLogDefinition`. Writers and template-backed `submitEvidenceRecord` are fenced when canonical Records are enabled. |
+| Review-named internal infrastructure | Loaders and types that still say Review | Not a workspace and not a submitted-evidence store. Manager surface is Audit / Reports at `/reports` |
 | Legacy physical-type applicability | Older readers that match room type or unit type | Not used for canonical Product Location Functions, Cycles, Work, or Records |
 | Legacy Operational Type terminology and `DepartmentRoomArchetype` rows | Persistence for Location Functions, including historical keys such as `servery` | Canonical identity is the Product `functionKey`. Display labels and room names are not identity |
+
+### Forward Record engine (Phase 0)
+
+```text
+CatalogLogDefinition
+  → FacilityCatalogInstall
+  → LogAttachment
+  → derived requirement
+  → OperationalEvidenceRecord
+```
+
+Log Book (`/staffing/log-book`) and Audit / Reports (`/reports`) read that fact. They do not own it.
+
+`CANONICAL_LOGS_ENABLED` defaults **false**. Do not describe `/logs` as the long-term Record authority. While the flag is off, `/logs` is **legacy compatibility authority**. When the flag is on, due work is `/staffing/logs` and manager configuration is `/build/logs`.
 
 No historical rows are rewritten to make these systems disappear.
 
@@ -56,8 +70,8 @@ The table below governed duplicate routes during the Build / Run shell. It remai
 
 | # | Route | Current class | Authoritative replacement | Rationale | Decision |
 |---|-------|---------------|---------------------------|-----------|----------|
-| 1 | `/admin/inspections` | **LEGACY READ-ONLY / HIDDEN FROM NAVIGATION** | `/staffing/templates` (Operational Templates) | Unified Operational Template architecture (Phase 9C) supersedes legacy inspection configuration. | Hide from nav; keep reachable & read-authoritative for FA; retire when no active dependency. No data deleted. |
-| 2 | `/logs` | **ACTIVE AUTHORITY** (frontline) | — | Frontline STAFF logging entry point; distinct from the Operational Evidence Log Book. Not a duplicate of `/staffing/log-book`. | Keep in RUN nav. Re-evaluate once Operational Evidence is the exclusive logging path facility-wide. |
+| 1 | `/admin/inspections` | **LEGACY READ-ONLY / HIDDEN FROM NAVIGATION** | `/build/logs` (Catalog INSPECTION + Attachment) | Inspection as a Catalog Record form is the forward path. `/staffing/templates` is Phase 9C compatibility, not the Catalog. | Hide from nav; keep reachable & read-authoritative for FA; writes fenced when `CANONICAL_LOGS_ENABLED`. No data deleted. |
+| 2 | `/logs` | **LEGACY COMPATIBILITY AUTHORITY** while `CANONICAL_LOGS_ENABLED` is off | `/staffing/logs` (due work) + `/staffing/log-book` (history) | Frontline STAFF logging while the canonical flag is off. Not the forward Record engine. Distinct from Log Book. | Keep reachable for historical `LogSubmission` reads. Hide from nav and fence writers when canonical Logs are on. |
 | 3 | `/dashboard`, `/operations` | **REDIRECT (RETIRED — RUN surface rationalization 2026-08-09)** | Role-aware canonical RUN home (`/workspace` Dashboard, `/today` Today's Work, or unit/logs) | Operations Center overlapped Dashboard and Today's Work and displayed stale/retired locations. Retired as a peer RUN destination; both routes now render nothing and redirect via `resolveDefaultHomePath`. Kept reachable by all roles (STAFF+) so bookmarks/deep links and internal "home" fallbacks never dead-end. No historical records deleted. | Redirect; reachable by URL (STAFF+); absent from all navigation. |
 | 4 | `/staffing` (as "Today's Work" label) | **ACTIVE AUTHORITY** (relabeled) | — | Repurposed as RUN **Employees** (today's workforce ops). Old label retired. | Keep; product label = Employees. |
 | 5 | `/employees` (as top-level "Employees") | **ACTIVE AUTHORITY** (reclassified) | — | Reclassified from RUN people-ops to BUILD **Employee Builder** (workforce configuration). | Keep; mode = BUILD. |

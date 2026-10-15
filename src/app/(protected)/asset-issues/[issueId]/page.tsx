@@ -25,6 +25,7 @@ import {
   workOrderStatusLabel,
 } from "@/lib/asset-operations";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { prisma } from "@/lib/prisma";
@@ -104,6 +105,13 @@ export default async function AssetIssueDetailPage({ params }: Props) {
 
   return (
     <section className="space-y-6" data-testid="asset-issue-detail">
+      {isCanonicalLogsEnabled() && detail.originEvidenceRecordId ? (
+        <p className="text-sm">
+          <Link href={`/staffing/logs/records/${detail.originEvidenceRecordId}`} className="underline">
+            View originating evidence
+          </Link>
+        </p>
+      ) : null}
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           {detail.asset ? (

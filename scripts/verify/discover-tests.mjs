@@ -55,6 +55,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/dietary-job-flow/phase-9b-job-flow.test.ts",
   "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
   "src/lib/canonical-logs/phase-3-canonical-logs.test.ts",
+  "src/lib/canonical-logs/phase-1-cooler-e2e.test.ts",
   "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
   "src/lib/department-work/phase-11a-department-work.test.ts",
   "src/lib/evs/phase-11b-evs-operations.test.ts",

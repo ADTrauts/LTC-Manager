@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
-import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { activeDepartmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import {
   createDraft,
   createDraftFromPreset,
@@ -37,7 +37,7 @@ export async function createEvidenceTemplateDraftAction(input: {
   draft: TemplateDraftInput;
 }) {
   assertLegacyRecordWriteAllowed({
-    productRecordEngine: isCanonicalLogsEnabled(),
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
     writer: "OPERATIONAL_TEMPLATE",
   });
   await requireEvidence(input.departmentId);
@@ -59,7 +59,7 @@ export async function createEvidencePresetDraftAction(input: {
   presetKey: string;
 }) {
   assertLegacyRecordWriteAllowed({
-    productRecordEngine: isCanonicalLogsEnabled(),
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
     writer: "OPERATIONAL_TEMPLATE",
   });
   await requireEvidence(input.departmentId);
@@ -84,6 +84,10 @@ export async function updateEvidenceTemplateDraftAction(input: {
   templateId: string;
   draft: TemplateDraftInput;
 }) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
@@ -102,6 +106,10 @@ export async function publishEvidenceTemplateAction(input: {
   departmentId: string;
   templateId: string;
 }) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
@@ -120,6 +128,10 @@ export async function retireEvidenceTemplateAction(input: {
   departmentId: string;
   templateId: string;
 }) {
+  assertLegacyRecordWriteAllowed({
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
+    writer: "OPERATIONAL_TEMPLATE",
+  });
   await requireEvidence(input.departmentId);
   const session = await getSession();
   if (!session) throw new Error("Authentication required.");
@@ -142,7 +154,7 @@ export async function createEvidenceSuccessorDraftAction(input: {
   templateId: string;
 }) {
   assertLegacyRecordWriteAllowed({
-    productRecordEngine: isCanonicalLogsEnabled(),
+    productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
     writer: "OPERATIONAL_TEMPLATE",
   });
   await requireEvidence(input.departmentId);

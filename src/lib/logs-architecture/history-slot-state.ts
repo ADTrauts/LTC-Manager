@@ -1,19 +1,15 @@
 /**
- * Historical expected-slot presentation states.
- *
- * Live RUN continues to use LogRequirementProductState (Upcoming / Due / Overdue).
- * Closed history must not keep calling an unsubmitted past slot "Overdue" or "Missed".
+ * Historical expected-slot states.
+ * Classification lives in classifyOperationalRequirement.
+ * A closed service date is NOT_COMPLETE. The same day still open is OVERDUE.
  */
 
-export type LogHistorySlotState =
-  | "UPCOMING"
-  | "DUE"
-  | "OVERDUE"
-  | "COMPLETE"
-  | "COMPLETE_WITH_CORRECTIVE_ACTION"
-  | "NOT_COMPLETE"
-  | "NOT_REQUIRED"
-  | "NEEDS_SETUP";
+import {
+  classifyOperationalRequirement,
+  type OperationalOccurrenceState,
+} from "@/lib/operational-occurrence/classify-operational-requirement";
+
+export type LogHistorySlotState = OperationalOccurrenceState;
 
 export function historySlotStateLabel(state: LogHistorySlotState): string {
   switch (state) {
@@ -27,8 +23,12 @@ export function historySlotStateLabel(state: LogHistorySlotState): string {
       return "Complete";
     case "COMPLETE_WITH_CORRECTIVE_ACTION":
       return "Complete with corrective action";
+    case "NEEDS_REVIEW":
+      return "Needs review";
     case "NOT_COMPLETE":
       return "Not complete";
+    case "WAIVED":
+      return "Waived";
     case "NOT_REQUIRED":
       return "Not required";
     case "NEEDS_SETUP":
@@ -38,11 +38,7 @@ export function historySlotStateLabel(state: LogHistorySlotState): string {
 
 /**
  * Map a live requirement onto history presentation.
- *
- * Past unsubmitted slots → Not complete (never Missed).
- * Today keeps Due / Upcoming / Overdue while the service date is still live.
- * Future stays Upcoming.
- * Needs setup is not an expected operable slot in history grids.
+ * Delegates to classifyOperationalRequirement. This path has no waiver.
  */
 export function toHistorySlotState(input: {
   liveState: string;
@@ -51,23 +47,16 @@ export function toHistorySlotState(input: {
   hasSubmission: boolean;
   submissionHasCorrectiveAction: boolean;
 }): LogHistorySlotState {
-  if (input.hasSubmission) {
-    return input.submissionHasCorrectiveAction
-      ? "COMPLETE_WITH_CORRECTIVE_ACTION"
-      : "COMPLETE";
-  }
-
-  if (input.liveState === "NEEDS_SETUP") return "NEEDS_SETUP";
-  if (input.liveState === "NOT_APPLICABLE") return "NOT_REQUIRED";
-
-  if (input.operationalDateKey > input.todayKey) return "UPCOMING";
-
-  if (input.operationalDateKey === input.todayKey) {
-    if (input.liveState === "UPCOMING") return "UPCOMING";
-    if (input.liveState === "DUE") return "DUE";
-    if (input.liveState === "OVERDUE") return "OVERDUE";
-    return "DUE";
-  }
-
-  return "NOT_COMPLETE";
+  return classifyOperationalRequirement({
+    liveState: input.liveState,
+    serviceDate: input.operationalDateKey,
+    todayKey: input.todayKey,
+    hasEvidence: input.hasSubmission,
+    evidenceStatus: input.hasSubmission
+      ? input.submissionHasCorrectiveAction
+        ? "COMPLETED_WITH_CORRECTIVE_ACTION"
+        : "COMPLETED"
+      : null,
+    hasWaiver: false,
+  });
 }

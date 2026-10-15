@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 let prismaSingleton: PrismaClient | undefined;
 
 /** Bump when schema relations must force a fresh client after `prisma generate`. */
-const PRISMA_CLIENT_EPOCH = "support-ticket-v1";
+const PRISMA_CLIENT_EPOCH = "record-engine-rollout-v1";
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -44,6 +44,7 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "passwordResetToken",
     "emailVerificationToken",
     "accountInviteToken",
+    "recordEngineRollout",
   ] as const;
   return required.filter((key) => typeof c[key]?.findMany !== "function");
 }

@@ -30,6 +30,8 @@ import {
   historicalOtAssignmentsFromBindings,
   selectHistoricalProfileForServiceDate,
 } from "./historical-operational-type";
+import { reviewEvidenceStateFromOccurrence } from "@/lib/operational-occurrence/classify-operational-requirement";
+
 import type {
   OperationalReviewDayFacts,
   OperationalReviewDayViewModel,
@@ -54,18 +56,7 @@ function unavailable(reason: ReviewUnavailableReason): ReviewDomainAvailability 
 }
 
 function mapEvidenceState(state: LogExpectationHistorySlot["state"]): ReviewEvidenceState {
-  switch (state) {
-    case "COMPLETE":
-      return "completed";
-    case "COMPLETE_WITH_CORRECTIVE_ACTION":
-      return "completed_with_corrective_action";
-    case "NOT_REQUIRED":
-      return "not_required";
-    case "NEEDS_SETUP":
-      return "unavailable";
-    default:
-      return "not_complete";
-  }
+  return reviewEvidenceStateFromOccurrence(state);
 }
 
 function mapCoverageState(state: CanonicalCoverageState): ReviewCoverageState {
@@ -212,6 +203,12 @@ export function composeOperationalReviewDay(
         facilityTimezone: facts.timezone,
         publishedCycles: facts.publishedCyclesForLogs,
         submissions,
+        waivers: (facts.waivers ?? [])
+          .filter((waiver) => waiver.operationalDateKey === facts.serviceDate)
+          .map((waiver) => ({
+            requirementKey: waiver.requirementKey,
+            operationalDateKey: waiver.operationalDateKey,
+          })),
       });
       if (!day) continue;
       for (const slot of day.slots) {
@@ -234,6 +231,7 @@ export function composeOperationalReviewDay(
           occurredAt: record?.occurredAt.toISOString() ?? null,
           recordedAt: record?.recordedAt.toISOString() ?? null,
           operationalDateKey: slot.operationalDateKey,
+          inspection: record?.inspection ?? null,
         });
       }
     }

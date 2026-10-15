@@ -3,7 +3,13 @@
  * No Prisma. No current-config × day-count math.
  */
 
-import { milestoneVarianceLabel } from "./present-operational-review-day";
+import {
+  occurrenceFromReviewEvidenceState,
+  summarizeOperationalOccurrences,
+  type OperationalOccurrenceState,
+} from "@/lib/operational-occurrence/classify-operational-requirement";
+
+import { milestoneVarianceLabel } from "./milestone-variance";
 import type {
   OperationalReviewDayViewModel,
   OperationalReviewRangeTotals,
@@ -15,6 +21,10 @@ function emptyTotals(): OperationalReviewRangeTotals {
     evidenceExpected: 0,
     evidenceCompleted: 0,
     evidenceMissed: 0,
+    evidenceOverdue: 0,
+    evidenceWaived: 0,
+    evidenceUpcoming: 0,
+    evidenceNeedsReview: 0,
     evidenceCorrective: 0,
     evidenceUnavailableOccurrences: 0,
     evidenceUnavailableDays: 0,
@@ -54,18 +64,24 @@ export function aggregateOperationalReviewDays(
       ).length;
     } else {
       totals.evidenceEvaluatedDays += 1;
+      const states: OperationalOccurrenceState[] = [];
       for (const row of day.evidence.occurrences) {
-        if (row.state === "unavailable" || row.state === "not_required") {
-          if (row.state === "unavailable") totals.evidenceUnavailableOccurrences += 1;
+        if (row.state === "unavailable") {
+          totals.evidenceUnavailableOccurrences += 1;
           continue;
         }
-        totals.evidenceExpected += 1;
-        if (row.state === "completed" || row.state === "completed_with_corrective_action") {
-          totals.evidenceCompleted += 1;
-        }
-        if (row.state === "not_complete") totals.evidenceMissed += 1;
-        if (row.state === "completed_with_corrective_action") totals.evidenceCorrective += 1;
+        const state = occurrenceFromReviewEvidenceState(row.state);
+        if (state) states.push(state);
       }
+      const summary = summarizeOperationalOccurrences(states);
+      totals.evidenceExpected += summary.expected;
+      totals.evidenceCompleted += summary.completed;
+      totals.evidenceMissed += summary.missed;
+      totals.evidenceOverdue += summary.overdue;
+      totals.evidenceWaived += summary.waived;
+      totals.evidenceUpcoming += summary.upcoming + summary.due;
+      totals.evidenceNeedsReview += summary.needsReview;
+      totals.evidenceCorrective += summary.exceptions;
     }
 
     if (day.coverage.availability.status === "unavailable") {

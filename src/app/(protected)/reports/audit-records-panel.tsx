@@ -29,11 +29,23 @@ export function AuditRecordsPanel({
       testId="record-audit"
     >
       {exportHref ? (
-        <p className="mb-3 text-sm">
-          <a href={exportHref} className="font-medium text-zinc-900 underline underline-offset-2">
-            Export CSV
+        <p className="mb-3 flex flex-wrap gap-3 text-sm">
+          <a href={`${exportHref}&format=pdf`} className="font-medium text-zinc-900 underline underline-offset-2">
+            PDF report
+          </a>
+          <a href={`${exportHref}&format=xlsx`} className="font-medium text-zinc-900 underline underline-offset-2">
+            Excel workbook
+          </a>
+          <a href={`${exportHref}&format=csv&mode=slots`} className="font-medium text-zinc-900 underline underline-offset-2">
+            CSV records
+          </a>
+          <a href={`${exportHref}&format=csv&mode=responses`} className="font-medium text-zinc-900 underline underline-offset-2">
+            CSV responses
           </a>
         </p>
+      ) : null}
+      {exportHref ? (
+        <p className="mb-3 text-xs text-zinc-500">PDF packets cover up to 93 service days. Excel and CSV cover a longer range.</p>
       ) : null}
       {slots.length === 0 ? (
         <p className="text-sm text-zinc-600">No expected Record slots for this range.</p>

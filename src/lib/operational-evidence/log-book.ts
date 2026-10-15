@@ -112,7 +112,7 @@ export async function searchEvidenceRecords(
       where,
       include: {
         values: { orderBy: { fieldKey: "asc" } },
-        _count: { select: { corrections: true } },
+        _count: { select: { corrections: true, attachments: true } },
       },
       orderBy: [{ operationalDate: "desc" }, { recordedAt: "desc" }, { id: "desc" }],
       skip,

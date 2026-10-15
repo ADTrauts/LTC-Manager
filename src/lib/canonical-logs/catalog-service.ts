@@ -4,12 +4,29 @@ import type {
   CatalogLogStatus,
   CatalogRecommendedCadence,
   OperationalEvidenceFieldType,
-  Prisma,
+  OperationalTemplateScheduleKind,
   PrismaClient,
 } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+
+import {
+  normalizeCatalogRulesForPersist,
+  parseRecommendedFixedWindows,
+  resolveCatalogFieldKeys,
+  serializeRecommendedFixedWindows,
+  slugCatalogToken,
+  validateCatalogForPublish,
+  type CatalogRecommendedFixedWindow,
+} from "./catalog-authoring";
+import type { CatalogEvidenceRule } from "./evidence-rules";
+import { parseInspectionSections } from "./inspection-score";
+import { parseRepeatingGroups } from "./template-structure";
+import { parseCatalogSuggestions, type CatalogSuggestions } from "./suggestions";
+
+export { slugCatalogToken };
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -26,6 +43,7 @@ export type CatalogWriteOptions = {
 };
 
 export type CatalogFieldInput = {
+  fieldKey?: string | null;
   label: string;
   fieldType: OperationalEvidenceFieldType;
   isRequired?: boolean;
@@ -36,6 +54,10 @@ export type CatalogFieldInput = {
   allowedSelections?: string[];
   correctiveActionTrigger?: boolean;
   correctiveActionRequired?: boolean;
+  sectionKey?: string | null;
+  scoreWeight?: number | null;
+  critical?: boolean;
+  creditValues?: string[];
 };
 
 export type CatalogDefinitionInput = {
@@ -45,7 +67,22 @@ export type CatalogDefinitionInput = {
   purposeType: CatalogLogPurposeType;
   category: CatalogLogCategory;
   recommendedCadence?: CatalogRecommendedCadence | null;
+  recommendedScheduleKind?: OperationalTemplateScheduleKind | null;
+  recommendedDaypartLabels?: string[];
+  recommendedFixedWindows?: CatalogRecommendedFixedWindow[];
+  suggestions?: Partial<CatalogSuggestions> | null;
   fields: CatalogFieldInput[];
+  rules?: CatalogEvidenceRule[] | unknown;
+  passingScore?: number | null;
+  criticalFailureForcesFailure?: boolean;
+  sections?: Array<{
+    sectionKey: string;
+    label: string;
+    description?: string | null;
+    displaySequence: number;
+  }>;
+  repeatingGroups?: unknown;
+  calculations?: unknown;
 };
 
 function cuidLike() {
@@ -63,38 +100,14 @@ function maybeRequireFlag(options?: CatalogWriteOptions) {
   requireFlag();
 }
 
-export function slugCatalogToken(input: string): string {
-  const slug = input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return slug.slice(0, 64) || "untitled";
-}
-
-function uniqueFieldKeys(fields: readonly CatalogFieldInput[]): string[] {
-  const used = new Set<string>();
-  return fields.map((field, index) => {
-    const base = slugCatalogToken(field.label) || `field_${index + 1}`;
-    let key = base;
-    let n = 2;
-    while (used.has(key)) {
-      key = `${base}_${n}`;
-      n += 1;
-    }
-    used.add(key);
-    return key;
-  });
-}
-
 function fieldCreates(fields: readonly CatalogFieldInput[]) {
-  const keys = uniqueFieldKeys(fields);
+  const keys = resolveCatalogFieldKeys(fields);
   return fields.map((field, index) => ({
     id: cuidLike(),
     fieldKey: keys[index]!,
     label: field.label.trim(),
     fieldType: field.fieldType,
-    isRequired: field.isRequired !== false,
+    isRequired: field.fieldType === "OPTIONAL_COMMENT" ? false : field.isRequired !== false,
     displaySequence: (index + 1) * 10,
     helpText: field.helpText?.trim() || null,
     unitLabel: field.unitLabel?.trim() || null,
@@ -103,7 +116,34 @@ function fieldCreates(fields: readonly CatalogFieldInput[]) {
     allowedSelections: field.allowedSelections ?? [],
     correctiveActionTrigger: field.correctiveActionTrigger === true,
     correctiveActionRequired: field.correctiveActionRequired === true,
+    sectionKey: field.sectionKey?.trim() || null,
+    scoreWeight:
+      field.scoreWeight != null && Number.isFinite(field.scoreWeight) && field.scoreWeight > 0
+        ? Math.round(field.scoreWeight)
+        : null,
+    critical: field.critical === true,
+    creditValues: (field.creditValues ?? []).map((value) => value.trim()).filter(Boolean),
   }));
+}
+
+function recommendationData(input: CatalogDefinitionInput) {
+  const suggestions = parseCatalogSuggestions(input.suggestions ?? {});
+  const windows = serializeRecommendedFixedWindows(input.recommendedFixedWindows ?? []);
+  return {
+    recommendedCadence: input.recommendedCadence ?? null,
+    recommendedScheduleKind: input.recommendedScheduleKind ?? null,
+    recommendedDaypartLabels: (input.recommendedDaypartLabels ?? []).map((label) => label.trim()).filter(Boolean),
+    recommendedFixedWindowsJson:
+      windows.length > 0 ? (windows as Prisma.InputJsonValue) : Prisma.DbNull,
+    suggestionsJson: suggestions as Prisma.InputJsonValue,
+    rulesJson: normalizeCatalogRulesForPersist(input.rules ?? []) as Prisma.InputJsonValue,
+    passingScore:
+      input.passingScore != null && Number.isFinite(input.passingScore) ? Math.round(input.passingScore) : null,
+    criticalFailureForcesFailure: input.criticalFailureForcesFailure === true,
+    sectionsJson: (input.sections ?? []) as Prisma.InputJsonValue,
+    repeatingGroupsJson: (input.repeatingGroups ?? []) as Prisma.InputJsonValue,
+    calculationsJson: (input.calculations ?? []) as Prisma.InputJsonValue,
+  };
 }
 
 async function allocateStableKey(client: Db, name: string): Promise<string> {
@@ -156,7 +196,24 @@ export async function publishCatalogDefinition(
   if (!row) throw new Error("Catalog definition not found.");
   if (row.status === "PUBLISHED") return row;
   if (row.status === "RETIRED") throw new Error("Cannot publish a retired Catalog definition.");
-  if (row.fields.length === 0) throw new Error("Cannot publish a Catalog definition with no fields.");
+  if (row.fields.length === 0 && parseRepeatingGroups(row.repeatingGroupsJson).length === 0) {
+    throw new Error("Cannot publish a Catalog definition with no fields.");
+  }
+  const publishCheck = validateCatalogForPublish({
+    name: row.name,
+    purposeType: row.purposeType,
+    fields: row.fields,
+    recommendedScheduleKind: row.recommendedScheduleKind,
+    recommendedFixedWindows: parseRecommendedFixedWindows(row.recommendedFixedWindowsJson),
+    rules: row.rulesJson,
+    passingScore: row.passingScore,
+    sections: parseInspectionSections(row.sectionsJson),
+    repeatingGroups: row.repeatingGroupsJson,
+    calculations: row.calculationsJson,
+  });
+  if (!publishCheck.valid) {
+    throw new Error(publishCheck.errors[0]?.message ?? "Catalog definition is not ready to publish.");
+  }
 
   return client.catalogLogDefinition.update({
     where: { id: definitionId },
@@ -235,6 +292,12 @@ export async function createCatalogDraftSuccessor(
       recommendedDaypartLabels: source.recommendedDaypartLabels,
       recommendedFixedWindowsJson: source.recommendedFixedWindowsJson ?? undefined,
       suggestionsJson: source.suggestionsJson ?? {},
+      rulesJson: source.rulesJson ?? [],
+      passingScore: source.passingScore,
+      criticalFailureForcesFailure: source.criticalFailureForcesFailure,
+      sectionsJson: source.sectionsJson ?? [],
+      repeatingGroupsJson: source.repeatingGroupsJson ?? [],
+      calculationsJson: source.calculationsJson ?? [],
       fields: {
         create: source.fields.map((f) => ({
           id: cuidLike(),
@@ -250,6 +313,10 @@ export async function createCatalogDraftSuccessor(
           allowedSelections: f.allowedSelections,
           correctiveActionTrigger: f.correctiveActionTrigger,
           correctiveActionRequired: f.correctiveActionRequired,
+          sectionKey: f.sectionKey,
+          scoreWeight: f.scoreWeight,
+          critical: f.critical,
+          creditValues: f.creditValues,
         })),
       },
     },
@@ -278,7 +345,7 @@ export async function createCatalogDefinition(
       instructions: input.instructions?.trim() || null,
       purposeType: input.purposeType,
       category: input.category,
-      recommendedCadence: input.recommendedCadence ?? null,
+      ...recommendationData(input),
       fields: { create: fieldCreates(fields) },
     },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
@@ -311,7 +378,7 @@ export async function updateCatalogDraft(
       instructions: input.instructions?.trim() || null,
       purposeType: input.purposeType,
       category: input.category,
-      recommendedCadence: input.recommendedCadence ?? null,
+      ...recommendationData(input),
       fields: { create: fieldCreates(fields) },
     },
     include: { fields: { orderBy: { displaySequence: "asc" } } },

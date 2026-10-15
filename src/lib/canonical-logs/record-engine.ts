@@ -1,12 +1,39 @@
 /**
  * One operational Record engine.
  *
- * Product definition is CatalogLogDefinition.
- * Facility requirement is an effective-dated LogAttachment segment.
- * Expected slots are derived. The fact is OperationalEvidenceRecord.
+ * Forward authority (CANONICAL_LOGS_ENABLED=true):
+ *
+ *   CatalogLogDefinition          Vssyl-published product definition
+ *     → FacilityCatalogInstall    facility adopted that definition/version (reference, not a copy)
+ *     → LogAttachment             facility requirement segment (where / when / local overlay / pinned version)
+ *     → derived requirement       resolveLogRequirementsForAttachment + buildLogRequirementKey
+ *     → OperationalEvidenceRecord submitted fact (OperationalEvidenceFieldValue = answers)
+ *
+ * Log Book is a projection over OperationalEvidenceRecord (searchEvidenceRecords).
+ * Review / Audit CSV are derived expected-vs-actual layers. Neither is a fact store.
+ *
+ * OperationalTemplate is NOT the next layer after CatalogLogDefinition.
+ * It is the previous facility-owned definition + applicability + schedule engine
+ * (Phase 9C). Remaining dependencies: facility-private templates, PM/WO
+ * RecordRequirement pins, compatibility runtime when the flag is off.
+ *
+ * LogTemplate / LogAssignment / LogSubmission and InspectionDefinition /
+ * InspectionSubmission are legacy compatibility. Writers are fenced while the
+ * product Record engine is on. Historical rows stay readable.
+ *
  * PROCEDURE is knowledge, not a submitted Record.
  * Waiver rows are deferred. LogAttachment.waiverAllowed only declares policy.
  */
+
+export const RECORD_ENGINE_AUTHORITY = {
+  definition: "CatalogLogDefinition",
+  install: "FacilityCatalogInstall",
+  requirementSegment: "LogAttachment",
+  expectedSlots: "derived",
+  fact: "OperationalEvidenceRecord",
+  logBook: "projection",
+  review: "derived",
+} as const;
 
 export type RecordForm =
   | "READING"

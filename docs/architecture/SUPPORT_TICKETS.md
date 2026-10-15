@@ -635,8 +635,7 @@ Base host is on `private.blob.vercel-storage.com`. `BLOB_READ_WRITE_TOKEN` is bo
 and Preview. Development is intentionally unset so local Next.js keeps using `.env`
 (`127.0.0.1/ltc_manager`) and tests keep using the in-memory store.
 
-`@vercel/blob` `^2.8.0` puts and gets with `access: "private"`. Keys are
-`support/{ticketId}/{messageId}/{attachmentId}`. Blobs are never public and URLs are never shown.
+`@vercel/blob` `^2.8.0` puts and gets with `access: "private"` through `src/lib/storage/private-object-store.ts`. Support keys are `support/{ticketId}/{messageId}/{attachmentId}`. Operational Evidence uses the same private store with keys `evidence/{facilityId}/{recordId}/{attachmentId}.ext`. Blobs are never public and URLs are never stored. `uploads/` facility helpers remain for asset, repair, and handbook files only.
 
 A new production deploy is required before the running app sees the token. Local `.env.local`
 must not override `DATABASE_URL` with Neon.

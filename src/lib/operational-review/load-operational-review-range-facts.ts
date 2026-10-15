@@ -380,6 +380,22 @@ export async function loadOperationalReviewRangeFacts(input: {
   const attachmentSegments = mapReviewAttachmentSegments(attachments);
   const coverageTemplates = mapReviewCoverageTemplates(templates);
   const evidenceByDate = groupByDateKey(mapReviewEvidenceRecords(evidence), (row) => row.operationalDateKey);
+  const waiverRows = await input.client.operationalRecordWaiver.findMany({
+    where: {
+      facilityId: input.facilityId,
+      operationalDate: { gte: startDate, lt: endExclusive },
+      ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+    },
+    select: { requirementKey: true, operationalDate: true, reason: true },
+  });
+  const waiversByDate = groupByDateKey(
+    waiverRows.map((row) => ({
+      requirementKey: row.requirementKey,
+      operationalDateKey: toServiceDateKey(row.operationalDate),
+      reason: row.reason,
+    })),
+    (row) => row.operationalDateKey,
+  );
   const plansByDate = groupByDateKey(plans, (row) => toServiceDateKey(row.serviceDate));
   const assignmentsByDate = groupByDateKey(assignments, (row) => toServiceDateKey(row.serviceDate));
   const scheduleByDate = groupByDateKey(scheduleEntries, (row) => toServiceDateKey(row.date));
@@ -444,6 +460,7 @@ export async function loadOperationalReviewRangeFacts(input: {
       otBindings: bindings,
       attachmentSegments,
       evidenceRecords: evidenceByDate.get(serviceDate) ?? [],
+      waivers: waiversByDate.get(serviceDate) ?? [],
       coverageTemplates,
       assignments: mapReviewAssignments(dayAssignments, changedAssignmentIds),
       plans: (plansByDate.get(serviceDate) ?? []).map((row) => ({

@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
+import { parseRecommendedFixedWindows } from "./catalog-authoring";
 import { parseRecommendedWeekdays } from "@/lib/logs-architecture/recommended-weekdays";
 import { targetIdentityKey } from "@/lib/logs-architecture/attachment-rules";
 import {
@@ -122,11 +123,19 @@ export async function createLogAttachment(client: Db, input: CreateLogAttachment
 
   let dailyWindows = input.dailyWindows ?? [];
   if (timingMode === "DAILY_WINDOWS" && dailyWindows.length === 0) {
-    dailyWindows = daypartWindowsForCadence(catalog.recommendedCadence).map((w) => ({
-      label: w.label,
-      startLocal: w.startLocal,
-      endLocal: w.endLocal,
-    }));
+    const recommendedWindows = parseRecommendedFixedWindows(catalog.recommendedFixedWindowsJson);
+    dailyWindows =
+      recommendedWindows.length > 0
+        ? recommendedWindows.map((window, index) => ({
+            label: window.label || catalog.recommendedDaypartLabels[index] || `Window ${index + 1}`,
+            startLocal: window.startLocal,
+            endLocal: window.endLocal,
+          }))
+        : daypartWindowsForCadence(catalog.recommendedCadence).map((w) => ({
+            label: w.label,
+            startLocal: w.startLocal,
+            endLocal: w.endLocal,
+          }));
   }
 
   const cycleStableKeys = input.cycleStableKeys ?? [];
@@ -397,6 +406,9 @@ export async function updateLogAttachment(
   if (!existing) throw new Error("Attachment not found.");
 
   const todayKey = await resolveTodayKey(client, input.facilityId, input.todayKey, input.now);
+  if (input.effectiveFromKey && input.effectiveFromKey < todayKey) {
+    throw new Error("A Log cannot start before the current service date.");
+  }
   const existingFromKey = effectiveFromKeyFromDate(existing.effectiveFrom);
   const existingToKey = existing.effectiveTo ? effectiveFromKeyFromDate(existing.effectiveTo) : null;
 

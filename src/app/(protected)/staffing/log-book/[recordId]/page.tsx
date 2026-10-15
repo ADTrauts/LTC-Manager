@@ -115,7 +115,7 @@ export default async function EvidenceLogBookRecordPage({
           </div>
         ) : null}
         <ul className="divide-y divide-zinc-100 border border-zinc-100 rounded-md">
-          {record.values.map((value) => (
+          {record.values.filter((value) => !value.groupKey).map((value) => (
             <li key={value.id} className="px-3 py-2 text-sm">
               <span className="font-medium text-zinc-800">{value.label}</span>
               <span className="ml-2 text-zinc-700">
@@ -135,6 +135,25 @@ export default async function EvidenceLogBookRecordPage({
             </li>
           ))}
         </ul>
+        {record.values.some((value) => value.groupKey) ? (
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-800">
+            {[...new Set(record.values.filter((value) => value.groupKey).map((value) => value.rowKey))].map((rowKey) => {
+              const cells = record.values
+                .filter((value) => value.rowKey === rowKey)
+                .sort((a, b) => a.fieldKey.localeCompare(b.fieldKey));
+              return (
+                <li key={rowKey}>
+                  {cells
+                    .map((cell) => {
+                      const shown = cell.valueNumber ?? cell.valueText ?? "";
+                      return `${shown}${cell.outOfStandard ? " — Out of standard" : cell.valueNumber != null ? " — In standard" : ""}`;
+                    })
+                    .join(" — ")}
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
         {record.corrections.length > 0 ? (
           <div data-testid="evidence-correction-history">
             <h3 className="text-sm font-semibold text-zinc-900">Correction history</h3>

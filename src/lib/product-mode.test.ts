@@ -21,6 +21,7 @@ test("product-mode — operational surfaces resolve to RUN", () => {
     "/staffing/assignments",
     "/staffing/log-book",
     "/staffing/log-book/rec-1",
+    "/staffing/logs",
     "/logs",
     "/assets",
     "/assets/asset-1",
@@ -54,6 +55,7 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
     "/assets/builder",
     "/menus",
     "/menus/menu-1",
+    "/build/logs",
     "/staffing/templates",
     "/staffing/work-plans",
     "/staffing/work-plans/wp-1",
@@ -107,6 +109,9 @@ test("product-mode — area label is available for the mode indicator", () => {
   assert.equal(resolveProductAreaLabel("/build/departments"), "Department Builder");
   assert.equal(resolveProductAreaLabel("/admin/billing"), "Billing");
   assert.equal(resolveProductAreaLabel("/staffing/log-book"), "Log Book");
+  assert.equal(resolveProductAreaLabel("/staffing/logs"), "Logs");
+  assert.equal(resolveProductAreaLabel("/build/logs"), "Logs");
+  assert.equal(resolveProductAreaLabel("/logs"), "Legacy Logs");
   assert.equal(resolveProductAreaLabel("/help"), "Help & Support");
 });
 

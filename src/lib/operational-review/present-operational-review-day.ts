@@ -3,7 +3,13 @@
  * No Prisma. No scores. No readiness.
  */
 
-import { parseFacilityLocalScheduledStart } from "@/lib/operational-time";
+import { milestoneVarianceLabel } from "@/lib/operational-review/milestone-variance";
+
+import {
+  occurrenceFromReviewEvidenceState,
+  operationalOccurrenceLabel,
+  summarizeOperationalOccurrences,
+} from "@/lib/operational-occurrence/classify-operational-requirement";
 
 import type {
   OperationalReviewDayViewModel,
@@ -176,18 +182,9 @@ export function unavailableExplanation(reason: ReviewUnavailableReason | null): 
 }
 
 export function evidenceStateLabel(state: ReviewEvidenceState): string {
-  switch (state) {
-    case "completed":
-      return "Completed";
-    case "not_complete":
-      return "Missed";
-    case "completed_with_corrective_action":
-      return "Completed with corrective action";
-    case "unavailable":
-      return "Unavailable";
-    case "not_required":
-      return "Not required";
-  }
+  if (state === "unavailable") return "Unavailable";
+  const occurrence = occurrenceFromReviewEvidenceState(state);
+  return occurrence ? operationalOccurrenceLabel(occurrence) : state;
 }
 
 export function coverageStateLabel(state: ReviewCoverageState): string {
@@ -274,6 +271,9 @@ function countBy<T>(rows: readonly T[], predicate: (row: T) => boolean): number 
 function evidenceAttention(state: ReviewEvidenceState): boolean {
   return (
     state === "not_complete" ||
+    state === "overdue" ||
+    state === "waived" ||
+    state === "needs_review" ||
     state === "completed_with_corrective_action" ||
     state === "unavailable"
   );
@@ -359,27 +359,7 @@ function milestoneKindLabel(kind: ReviewMilestoneItem["kind"]): string {
   }
 }
 
-export function milestoneVarianceLabel(input: {
-  serviceDate: string;
-  timezone: string;
-  expectedTimeLocal: string | null;
-  actualOccurredAt: string | null;
-}): string | null {
-  if (!input.expectedTimeLocal || !input.actualOccurredAt) return null;
-  const probe = new Date(`${input.serviceDate}T17:00:00.000Z`);
-  const expected = parseFacilityLocalScheduledStart(
-    input.expectedTimeLocal,
-    probe,
-    input.timezone,
-  );
-  if (!expected) return null;
-  const actual = new Date(input.actualOccurredAt);
-  if (Number.isNaN(actual.getTime())) return null;
-  const minutes = Math.round((actual.getTime() - expected.getTime()) / 60_000);
-  if (minutes === 0) return "On time";
-  if (minutes > 0) return `${minutes} min late`;
-  return `${Math.abs(minutes)} min early`;
-}
+export { milestoneVarianceLabel } from "@/lib/operational-review/milestone-variance";
 
 function presentEvidence(
   row: ReviewEvidenceOccurrence,
@@ -507,8 +487,13 @@ export function presentOperationalReviewDay(
     .filter((row) => matchesSpace(row.spaceId))
     .map((row) => presentMenuFinding(row, model.locations));
 
-  const missed = countBy(evidenceRows, (row) => row.state === "not_complete");
-  const corrective = countBy(evidenceRows, (row) => row.state === "completed_with_corrective_action");
+  const daySummary = summarizeOperationalOccurrences(
+    evidenceRows
+      .map((row) => occurrenceFromReviewEvidenceState(row.state))
+      .filter((state): state is NonNullable<typeof state> => state != null),
+  );
+  const missed = daySummary.missed;
+  const corrective = daySummary.exceptions;
   const evidenceUnavailable = countBy(evidenceRows, (row) => row.state === "unavailable");
   const coverageGaps = countBy(coverageSlots, (row) => row.state === "uncovered" || row.state === "at_risk");
   const missingMilestones = countBy(

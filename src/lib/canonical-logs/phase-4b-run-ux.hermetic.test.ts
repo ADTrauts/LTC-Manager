@@ -232,8 +232,8 @@ test("RUN card presentation prefers local label and Due copy", () => {
   });
   assert.equal(view.displayName, "Walk-In #2 Temperature");
   assert.equal(view.catalogDefinitionName, "Cooler Temperature Log");
-  assert.equal(view.stateLabel, "Due");
-  assert.equal(view.primaryActionLabel, "Open log");
+  assert.equal(view.stateLabel, "Due now");
+  assert.equal(view.primaryActionLabel, "Record temperature");
   assert.match(view.timingContextLabel, /Morning/);
   assert.doesNotMatch(view.timingContextLabel, /DAILY_WINDOWS|MealType/);
 });

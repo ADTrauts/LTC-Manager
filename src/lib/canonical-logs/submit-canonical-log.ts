@@ -13,13 +13,32 @@ import type { EvidenceFieldValueInput, TemplateFieldSnapshot } from "@/lib/opera
 import { facilityLocalDateToServiceDate, toServiceDateKey } from "@/lib/operational-time";
 
 import { loadLogAttachmentForFacility } from "./attachment-service";
+import {
+  dropHiddenFieldValues,
+  parseCatalogEvidenceRules,
+  recordStatusFromException,
+} from "./evidence-rules";
+import {
+  evidenceMediaStorageKey,
+  getEvidenceMediaStore,
+  isEvidenceMediaFieldType,
+  newEvidenceAttachmentId,
+  prepareEvidenceMedia,
+  putEvidenceObjects,
+  EVIDENCE_STORAGE_UNAVAILABLE,
+  type EvidenceMediaInput,
+  type EvidenceMediaStore,
+} from "./evidence-media";
 import { mapTimingModeToScheduleKind } from "./schedule-kind";
 import {
   buildCanonicalLogSubmissionSnapshot,
   legacyCompatibleTemplateFields,
+  parseLogSubmissionSnapshot,
   snapshotToPrismaJson,
 } from "./snapshot";
 import { normalizeAttachmentTarget } from "./attachment-validate";
+import { parseInspectionSections } from "./inspection-score";
+import { parseRepeatingGroups, validateRepeatSubmission } from "./template-structure";
 import { followUpRecordDecision, recordPurposeRejection } from "./record-engine";
 import { partnerActingColumns, type PartnerActingContext } from "@/lib/operational-evidence/acting-context";
 
@@ -52,10 +71,7 @@ function resolveRecordStatus(input: {
   correctiveActionText: string | null | undefined;
   allowNeedsReview: boolean;
 }): "COMPLETED" | "COMPLETED_WITH_CORRECTIVE_ACTION" | "NEEDS_REVIEW" {
-  if (!input.outOfStandard) return "COMPLETED";
-  if (input.correctiveActionText?.trim()) return "COMPLETED_WITH_CORRECTIVE_ACTION";
-  if (input.allowNeedsReview) return "NEEDS_REVIEW";
-  return "COMPLETED_WITH_CORRECTIVE_ACTION";
+  return recordStatusFromException(input);
 }
 
 function mapFields(
@@ -98,6 +114,23 @@ function buildValueRows(
   const byKey = new Map(values.map((v) => [v.fieldKey, v]));
   return fields.map((field) => {
     const value = byKey.get(field.fieldKey);
+    let valueText = value?.valueText?.trim() || null;
+    let valueBoolean = value?.valueBoolean ?? null;
+    if (field.fieldType === "YES_NO") {
+      if (valueBoolean == null && valueText) {
+        const text = valueText.toUpperCase();
+        if (text === "YES") valueBoolean = true;
+        if (text === "NO") valueBoolean = false;
+      }
+      valueText = null;
+    }
+    if (field.fieldType === "ATTESTATION") {
+      if (valueBoolean == null && valueText) {
+        const text = valueText.toUpperCase();
+        if (text === "YES" || text === "TRUE" || text === "CONFIRMED") valueBoolean = true;
+      }
+      valueText = valueBoolean == null ? valueText : null;
+    }
     const selections =
       value?.valueSelections && value.valueSelections.length > 0
         ? value.valueSelections
@@ -118,9 +151,9 @@ function buildValueRows(
       fieldKey: field.fieldKey,
       label: field.label,
       fieldType: field.fieldType,
-      valueText: value?.valueText?.trim() || null,
+      valueText,
       valueNumber: value?.valueNumber ?? null,
-      valueBoolean: value?.valueBoolean ?? null,
+      valueBoolean,
       valueDateTime,
       valueSelections: selections,
       outOfStandard: fieldOutOfStandard[field.fieldKey] === true,
@@ -155,6 +188,20 @@ export type SubmitCanonicalLogInput = {
   followsRecordId?: string | null;
   /** When true, allows submit without a scheduled requirement key (ad hoc). */
   adHoc?: boolean;
+  media?: readonly EvidenceMediaInput[];
+  mediaStore?: EvidenceMediaStore;
+  repeatRows?: Array<{
+    groupKey: string;
+    rowKey: string;
+    rowSequence: number;
+    cells: Array<{
+      columnKey: string;
+      valueText?: string | null;
+      valueNumber?: number | null;
+      valueBoolean?: boolean | null;
+      valueSelections?: string[];
+    }>;
+  }>;
 };
 
 export type CanonicalLogActor = {
@@ -214,6 +261,17 @@ export async function performCanonicalLogSubmission(
   if (!isCanonicalLogsEnabled()) {
     throw new Error("Canonical Logs are not enabled (CANONICAL_LOGS_ENABLED).");
   }
+  const { departmentUsesCanonicalRecords } = await import("./record-engine-store");
+  if (
+    !(await departmentUsesCanonicalRecords({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      serviceDate: input.operationalDateKey,
+      client: input.client,
+    }))
+  ) {
+    throw new Error("This department is not using canonical Records for this service date.");
+  }
 
   const client = input.client ?? (await import("@/lib/prisma")).prisma;
 
@@ -256,30 +314,133 @@ export async function performCanonicalLogSubmission(
   if (purposeRejection) throw new Error(purposeRejection);
 
   const followsRecordId = input.followsRecordId?.trim() || null;
+  let governing = {
+    id: catalog.id,
+    stableKey: catalog.stableKey,
+    version: catalog.version,
+    name: catalog.name,
+    description: catalog.description,
+    instructions: catalog.instructions,
+    purposeType: catalog.purposeType,
+    category: catalog.category,
+    recommendedCadence: catalog.recommendedCadence,
+    fields: catalog.fields,
+    rulesJson: "rulesJson" in catalog ? (catalog as { rulesJson?: unknown }).rulesJson : [],
+    passingScore: "passingScore" in catalog ? (catalog as { passingScore?: number | null }).passingScore ?? null : null,
+    criticalFailureForcesFailure:
+      "criticalFailureForcesFailure" in catalog
+        ? (catalog as { criticalFailureForcesFailure?: boolean }).criticalFailureForcesFailure === true
+        : false,
+    sections: "sectionsJson" in catalog ? (catalog as { sectionsJson?: unknown }).sectionsJson : [],
+    repeatingGroups:
+      "repeatingGroupsJson" in catalog ? (catalog as { repeatingGroupsJson?: unknown }).repeatingGroupsJson : [],
+    calculations: "calculationsJson" in catalog ? (catalog as { calculationsJson?: unknown }).calculationsJson : [],
+  };
   if (followsRecordId) {
     const origin = await client.operationalEvidenceRecord.findFirst({
       where: { id: followsRecordId, facilityId: input.facilityId },
-      select: { id: true, templateStableKey: true },
+      select: {
+        id: true,
+        departmentId: true,
+        logAttachmentId: true,
+        catalogDefinitionId: true,
+        templateStableKey: true,
+        templateSnapshotJson: true,
+      },
     });
     if (!origin) throw new Error("The originating Record was not found.");
+    if (!origin.logAttachmentId || origin.logAttachmentId !== attachment.id) {
+      throw new Error("A recheck uses the originating Log attachment.");
+    }
+    if (origin.departmentId !== attachment.departmentId) {
+      throw new Error("A recheck stays in the originating department.");
+    }
+    const pinned = parseLogSubmissionSnapshot(origin.templateSnapshotJson);
+    if (!pinned) throw new Error("The originating Record has no pinned definition.");
     const link = followUpRecordDecision({
       originStableKey: origin.templateStableKey,
-      nextStableKey: catalog.stableKey,
+      nextStableKey: pinned.catalog.stableKey,
       originId: origin.id,
       nextId: "new",
     });
     if (!link.ok) throw new Error(link.reason);
+    governing = {
+      id: origin.catalogDefinitionId ?? pinned.catalog.id,
+      stableKey: pinned.catalog.stableKey,
+      version: pinned.catalog.version,
+      name: pinned.catalog.name,
+      description: pinned.catalog.description,
+      instructions: pinned.catalog.instructions,
+      purposeType: pinned.catalog.purposeType,
+      category: pinned.catalog.category,
+      recommendedCadence: pinned.catalog.recommendedCadence,
+      fields: pinned.catalog.fields as typeof catalog.fields,
+      rulesJson: pinned.catalog.rules,
+      passingScore: pinned.catalog.passingScore ?? null,
+      criticalFailureForcesFailure: pinned.catalog.criticalFailureForcesFailure === true,
+      sections: pinned.catalog.sections ?? [],
+      repeatingGroups: pinned.catalog.repeatingGroups ?? [],
+      calculations: pinned.catalog.calculations ?? [],
+    };
   }
 
-  const fields = mapFields(catalog.fields);
+  const fields = mapFields(governing.fields);
+  const rules = parseCatalogEvidenceRules(governing.rulesJson);
+  const provisional = validateEvidenceSubmission({
+    fields,
+    values: input.values,
+    correctiveActionText: input.correctiveActionText,
+    rules,
+  });
+  const visibleForMedia = new Set(
+    fields
+      .filter(
+        (field) =>
+          provisional.visibleFieldKeys.includes(field.fieldKey) &&
+          isEvidenceMediaFieldType(field.fieldType),
+      )
+      .map((field) => field.fieldKey),
+  );
+  const preparedMedia = prepareEvidenceMedia(
+    (input.media ?? []).filter((item) => visibleForMedia.has(item.fieldKey)),
+    visibleForMedia,
+  );
+  if (!preparedMedia.ok) throw new Error(preparedMedia.message);
+  for (const item of preparedMedia.items) {
+    const field = fields.find((row) => row.fieldKey === item.fieldKey);
+    if (field && field.fieldType !== item.kind) {
+      throw new Error("An attachment does not match its field type.");
+    }
+  }
   const validation = validateEvidenceSubmission({
     fields,
     values: input.values,
     correctiveActionText: input.correctiveActionText,
+    rules,
+    providedMediaFieldKeys: preparedMedia.items.map((item) => item.fieldKey),
   });
   if (!validation.valid) {
     throw new Error(validation.errors.map((e) => e.message).join(" "));
   }
+  const repeat = validateRepeatSubmission({
+    groups: parseRepeatingGroups(governing.repeatingGroups),
+    rows: input.repeatRows ?? [],
+  });
+  if (repeat.errors.length > 0) throw new Error(repeat.errors.join(" "));
+  if (repeat.correctiveActionRequired && !input.correctiveActionText?.trim()) {
+    throw new Error(repeat.reasons[0] ? `Corrective action is required: ${repeat.reasons[0]}` : "Corrective action is required.");
+  }
+  const recordOutOfStandard = validation.outOfStandard || repeat.outOfStandard;
+  const visibleValues = dropHiddenFieldValues(input.values, validation.visibleFieldKeys);
+  for (const item of preparedMedia.items) {
+    if (!visibleValues.some((value) => value.fieldKey === item.fieldKey)) {
+      visibleValues.push({
+        fieldKey: item.fieldKey,
+        valueText: item.kind === "SIGNATURE" ? "Signature" : item.originalFilename,
+      });
+    }
+  }
+  const visibleFields = fields.filter((field) => validation.visibleFieldKeys.includes(field.fieldKey));
 
   const target = normalizeAttachmentTarget({
     kind: attachment.targetKind,
@@ -325,16 +486,19 @@ export async function performCanonicalLogSubmission(
 
   const snapshot = buildCanonicalLogSubmissionSnapshot({
     catalog: {
-      id: catalog.id,
-      stableKey: catalog.stableKey,
-      version: catalog.version,
-      name: catalog.name,
-      description: catalog.description,
-      instructions: catalog.instructions,
-      purposeType: catalog.purposeType,
-      category: catalog.category,
-      recommendedCadence: catalog.recommendedCadence,
-      fields: catalog.fields.map((f) => ({
+      id: governing.id,
+      stableKey: governing.stableKey,
+      version: governing.version,
+      name: governing.name,
+      description: governing.description,
+      instructions: governing.instructions,
+      purposeType: governing.purposeType,
+      category: governing.category,
+      recommendedCadence: governing.recommendedCadence,
+      passingScore: governing.passingScore,
+      criticalFailureForcesFailure: governing.criticalFailureForcesFailure,
+      sections: parseInspectionSections(governing.sections),
+      fields: governing.fields.map((f) => ({
         fieldKey: f.fieldKey,
         label: f.label,
         fieldType: f.fieldType,
@@ -347,7 +511,14 @@ export async function performCanonicalLogSubmission(
         allowedSelections: f.allowedSelections,
         correctiveActionTrigger: f.correctiveActionTrigger,
         correctiveActionRequired: f.correctiveActionRequired,
+        sectionKey: "sectionKey" in f ? (f.sectionKey ?? null) : null,
+        scoreWeight: "scoreWeight" in f ? (f.scoreWeight ?? null) : null,
+        critical: "critical" in f ? f.critical === true : false,
+        creditValues: "creditValues" in f ? (f.creditValues ?? []) : [],
       })),
+      rules,
+      repeatingGroups: parseRepeatingGroups(governing.repeatingGroups),
+      calculations: Array.isArray(governing.calculations) ? governing.calculations : [],
     },
     attachment: {
       id: attachment.id,
@@ -379,11 +550,11 @@ export async function performCanonicalLogSubmission(
     },
     timingContext: {
       scheduleKind,
-      cycleStableKey: input.cycleStableKey ?? null,
-      cycleLabel: input.cycleLabel ?? null,
-      windowStartLocal: input.windowStartLocal ?? null,
-      windowEndLocal: input.windowEndLocal ?? null,
-      windowOrdinal: input.windowOrdinal ?? null,
+      cycleStableKey: isFollowUp ? null : (input.cycleStableKey ?? null),
+      cycleLabel: isFollowUp ? null : (input.cycleLabel ?? null),
+      windowStartLocal: isFollowUp ? null : (input.windowStartLocal ?? null),
+      windowEndLocal: isFollowUp ? null : (input.windowEndLocal ?? null),
+      windowOrdinal: isFollowUp ? null : (input.windowOrdinal ?? null),
     },
   });
 
@@ -392,36 +563,63 @@ export async function performCanonicalLogSubmission(
   const recordedOnline = input.recordedOnline !== false;
   const correctiveActionText = input.correctiveActionText?.trim() || null;
   const status = resolveRecordStatus({
-    outOfStandard: validation.outOfStandard,
+    outOfStandard: recordOutOfStandard,
     correctiveActionText,
-    allowNeedsReview: input.allowNeedsReview === true,
+    allowNeedsReview: input.allowNeedsReview === true || validation.needsReview,
   });
   const recordedByUserId = actor.userId;
 
-  const purposeType = catalog.purposeType as OperationalTemplatePurposeType;
+  const purposeType = governing.purposeType as OperationalTemplatePurposeType;
+  const recordId = cuidLike();
+  const mediaStore = input.mediaStore ?? getEvidenceMediaStore();
+  if (preparedMedia.items.length > 0 && !mediaStore) {
+    throw new Error(EVIDENCE_STORAGE_UNAVAILABLE);
+  }
+  let storedKeys: string[] = [];
+  const attachmentRows = preparedMedia.items.map((item, index) => {
+    const id = newEvidenceAttachmentId();
+    const storageKey = evidenceMediaStorageKey({
+      facilityId: input.facilityId,
+      recordId,
+      attachmentId: id,
+      extension: item.extension,
+    });
+    return { id, item, storageKey, displaySequence: (index + 1) * 10 };
+  });
 
   try {
+    if (attachmentRows.length > 0) {
+      if (!mediaStore) throw new Error(EVIDENCE_STORAGE_UNAVAILABLE);
+      storedKeys = await putEvidenceObjects(
+        mediaStore,
+        attachmentRows.map((row) => ({
+          storageKey: row.storageKey,
+          bytes: row.item.bytes,
+          contentType: row.item.contentType,
+        })),
+      );
+    }
     return await client.operationalEvidenceRecord.create({
       data: {
-        id: cuidLike(),
+        id: recordId,
         facilityId: input.facilityId,
         departmentId: input.departmentId,
         templateId: null,
         logAttachmentId: attachment.id,
         attachmentStableKey: attachment.stableKey,
-        catalogDefinitionId: catalog.id,
-        templateStableKey: catalog.stableKey,
-        templateVersion: catalog.version,
-        templateName: attachment.localDisplayLabel?.trim() || catalog.name,
+        catalogDefinitionId: governing.id,
+        templateStableKey: governing.stableKey,
+        templateVersion: governing.version,
+        templateName: attachment.localDisplayLabel?.trim() || governing.name,
         purposeType,
         requirementKey,
         logRequirementKey: isAdHoc ? null : requirementKey,
         operationalDate: facilityLocalDateToServiceDate(input.operationalDateKey),
         scheduleKind,
-        cycleStableKey: input.cycleStableKey ?? null,
-        cycleLabel: input.cycleLabel ?? null,
-        windowStartLocal: input.windowStartLocal ?? null,
-        windowEndLocal: input.windowEndLocal ?? null,
+        cycleStableKey: isFollowUp ? null : (input.cycleStableKey ?? null),
+        cycleLabel: isFollowUp ? null : (input.cycleLabel ?? null),
+        windowStartLocal: isFollowUp ? null : (input.windowStartLocal ?? null),
+        windowEndLocal: isFollowUp ? null : (input.windowEndLocal ?? null),
         unitId: target.unitId,
         spaceId: boundSpaceId ?? target.spaceId,
         placeLabelSnapshot: await placeLabelAtSubmission(client, {
@@ -432,7 +630,7 @@ export async function performCanonicalLogSubmission(
         assetId: target.assetId,
         followsRecordId,
         status,
-        outOfStandard: validation.outOfStandard,
+        outOfStandard: recordOutOfStandard,
         correctiveActionText,
         correctiveActionAt: correctiveActionText ? now : null,
         correctiveActionByUserId: correctiveActionText ? recordedByUserId : null,
@@ -453,12 +651,49 @@ export async function performCanonicalLogSubmission(
           >,
         ),
         values: {
-          create: buildValueRows(fields, input.values, validation.fieldOutOfStandard),
+          create: [
+            ...buildValueRows(visibleFields, visibleValues, validation.fieldOutOfStandard),
+            ...repeat.rows.flatMap((row) =>
+              row.cells.map((cell) => ({
+                fieldKey: cell.columnKey,
+                label: cell.label,
+                fieldType: cell.fieldType as TemplateFieldSnapshot["fieldType"],
+                valueText: cell.valueText,
+                valueNumber: cell.valueNumber,
+                valueBoolean: cell.valueBoolean,
+                valueDateTime: null,
+                valueSelections: cell.valueSelections,
+                outOfStandard: cell.outOfStandard,
+                groupKey: row.groupKey,
+                rowKey: row.rowKey,
+                rowSequence: row.rowSequence,
+              })),
+            ),
+          ],
+        },
+        attachments: {
+          create: attachmentRows.map((row) => ({
+            id: row.id,
+            facilityId: input.facilityId,
+            fieldKey: row.item.fieldKey,
+            kind: row.item.kind,
+            storageKey: row.storageKey,
+            originalFilename: row.item.originalFilename,
+            contentType: row.item.contentType,
+            sizeBytes: row.item.sizeBytes,
+            displaySequence: row.displaySequence,
+            uploadedByUserId: recordedByUserId,
+            uploadedByEmployeeId: actor.employeeId,
+            uploadedByLabel: actor.label,
+          })),
         },
       },
       include: { values: true, corrections: true },
     });
   } catch (err) {
+    if (mediaStore) {
+      await Promise.all(storedKeys.map((storageKey) => mediaStore.remove(storageKey)));
+    }
     if (clientCommandId && isUniqueViolation(err)) {
       const again = await client.operationalEvidenceRecord.findFirst({
         where: {

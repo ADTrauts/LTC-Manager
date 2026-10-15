@@ -20,6 +20,9 @@ import {
   expandOperationalTypeSpaces,
 } from "./log-operational-type-applicability";
 import { loadPublishedCyclesForLogsOnDate } from "./load-published-cycles-for-logs";
+import { parseCatalogEvidenceRules } from "./evidence-rules";
+import { parseInspectionSections } from "./inspection-score";
+import { parseCalculations, parseRepeatingGroups } from "./template-structure";
 import { resolveLogRequirementsForAttachment } from "./resolve-log-requirements";
 import { resolveAttachmentTargetLabel } from "./target-labels";
 import {
@@ -91,6 +94,7 @@ export async function loadFacilityRunLogRequirements(
     where: {
       facilityId: input.facilityId,
       ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+      status: { not: "RETIRED" },
       effectiveFrom: { lte: todayDate },
       OR: [{ effectiveTo: null }, { effectiveTo: { gte: todayDate } }],
     },
@@ -155,6 +159,12 @@ export async function loadFacilityRunLogRequirements(
     localInstructions: string | null;
     catalogInstructions: string | null;
     targetLabel: string;
+    rules: ReturnType<typeof parseCatalogEvidenceRules>;
+    sections: ReturnType<typeof parseInspectionSections>;
+    passingScore: number | null;
+    criticalFailureForcesFailure: boolean;
+    repeatingGroups: ReturnType<typeof parseRepeatingGroups>;
+    calculations: ReturnType<typeof parseCalculations>;
   }> = [];
   const spaceLabels = new Map<string, string>();
   const runtimeAssignmentsByDepartment = new Map<
@@ -204,6 +214,10 @@ export async function loadFacilityRunLogRequirements(
         allowedSelections: f.allowedSelections,
         correctiveActionTrigger: f.correctiveActionTrigger,
         correctiveActionRequired: f.correctiveActionRequired,
+        sectionKey: f.sectionKey,
+        scoreWeight: f.scoreWeight,
+        critical: f.critical,
+        creditValues: f.creditValues,
       })),
     };
   }
@@ -263,6 +277,12 @@ export async function loadFacilityRunLogRequirements(
             localInstructions: attachment.localInstructions,
             catalogInstructions: attachment.catalogDefinition.instructions,
             targetLabel: spaceLabels.get(spaceId) ?? targetLabel,
+            rules: parseCatalogEvidenceRules(attachment.catalogDefinition.rulesJson),
+            sections: parseInspectionSections(attachment.catalogDefinition.sectionsJson),
+            passingScore: attachment.catalogDefinition.passingScore,
+            criticalFailureForcesFailure: attachment.catalogDefinition.criticalFailureForcesFailure,
+            repeatingGroups: parseRepeatingGroups(attachment.catalogDefinition.repeatingGroupsJson),
+            calculations: parseCalculations(attachment.catalogDefinition.calculationsJson),
           });
         }
       }
@@ -295,6 +315,12 @@ export async function loadFacilityRunLogRequirements(
           localInstructions: attachment.localInstructions,
           catalogInstructions: attachment.catalogDefinition.instructions,
           targetLabel: spaceId ? (spaceLabels.get(spaceId) ?? targetLabel) : targetLabel,
+          rules: parseCatalogEvidenceRules(attachment.catalogDefinition.rulesJson),
+          sections: parseInspectionSections(attachment.catalogDefinition.sectionsJson),
+          passingScore: attachment.catalogDefinition.passingScore,
+          criticalFailureForcesFailure: attachment.catalogDefinition.criticalFailureForcesFailure,
+          repeatingGroups: parseRepeatingGroups(attachment.catalogDefinition.repeatingGroupsJson),
+          calculations: parseCalculations(attachment.catalogDefinition.calculationsJson),
         });
       }
     }
@@ -312,6 +338,12 @@ export async function loadFacilityRunLogRequirements(
         catalogInstructions: item.catalogInstructions,
         targetLabel: item.targetLabel,
         isManager,
+        rules: item.rules,
+        sections: item.sections,
+        passingScore: item.passingScore,
+        criticalFailureForcesFailure: item.criticalFailureForcesFailure,
+        repeatingGroups: item.repeatingGroups,
+        calculations: item.calculations,
       }),
     );
   }

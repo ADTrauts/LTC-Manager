@@ -13,6 +13,7 @@ import {
 } from "./log-operational-type-applicability";
 
 import { logicalAttachmentsForBuildList, groupLogicalLogAttachments } from "./logical-attachment";
+import { parseRecommendedFixedWindows } from "./catalog-authoring";
 import { catalogMatchesTarget, parseCatalogSuggestions, type CatalogSuggestions } from "./suggestions";
 import {
   resolveAttachTimingProposal,
@@ -130,6 +131,7 @@ export async function loadCatalogAssignView(input: {
       recommendedCadence: true,
       recommendedScheduleKind: true,
       recommendedDaypartLabels: true,
+      recommendedFixedWindowsJson: true,
       suggestionsJson: true,
     },
   });
@@ -251,11 +253,13 @@ export async function loadCatalogAssignView(input: {
   const recommendedCadence = catalog.recommendedCadence ?? "AD_HOC";
   const recommendedScheduleKind = catalog.recommendedScheduleKind;
   const recommendedDaypartLabels = catalog.recommendedDaypartLabels;
+  const recommendedFixedWindows = parseRecommendedFixedWindows(catalog.recommendedFixedWindowsJson);
 
   const displayTiming = resolveAttachTimingProposal({
     recommendedCadence,
     recommendedScheduleKind,
     recommendedDaypartLabels,
+    recommendedFixedWindows,
     publishedCycleStableKeys: [...cycleLabelByKey.keys()],
     cycleLabelByKey,
   });
@@ -266,6 +270,7 @@ export async function loadCatalogAssignView(input: {
       recommendedCadence,
       recommendedScheduleKind,
       recommendedDaypartLabels,
+      recommendedFixedWindows,
       publishedCycleStableKeys: keys,
       cycleLabelByKey,
     });
@@ -542,6 +547,7 @@ export async function applyCatalogAssignSelection(input: {
       recommendedCadence: true,
       recommendedScheduleKind: true,
       recommendedDaypartLabels: true,
+      recommendedFixedWindowsJson: true,
     },
   });
   if (!catalog) throw new Error("Published Catalog Log not found.");
@@ -563,6 +569,7 @@ export async function applyCatalogAssignSelection(input: {
       recommendedCadence: catalog!.recommendedCadence ?? "AD_HOC",
       recommendedScheduleKind: catalog!.recommendedScheduleKind,
       recommendedDaypartLabels: catalog!.recommendedDaypartLabels,
+      recommendedFixedWindows: parseRecommendedFixedWindows(catalog!.recommendedFixedWindowsJson),
       publishedCycleStableKeys: cached.keys,
       cycleLabelByKey: cached.labelByKey,
     });

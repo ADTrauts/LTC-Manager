@@ -15,7 +15,7 @@ import {
 } from "@/lib/repair-routing";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
-import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { activeDepartmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
 import { submitInspection } from "@/lib/work/inspections";
@@ -169,7 +169,7 @@ export async function submitUnitInspectionAction(
 ): Promise<SubmitUnitInspectionActionResult> {
   try {
     assertLegacyRecordWriteAllowed({
-      productRecordEngine: isCanonicalLogsEnabled(),
+      productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
       writer: "INSPECTION_SUBMISSION",
     });
   } catch (error) {

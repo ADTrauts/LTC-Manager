@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { DepartmentMenusPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-menus-panel";
+import { RecordEnginePanel } from "@/app/(protected)/admin/departments/[departmentId]/record-engine-panel";
 import { DepartmentWorkPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-work-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
 import { LocationsPanel } from "@/app/(protected)/admin/departments/[departmentId]/locations-panel";
@@ -281,11 +282,19 @@ export default async function DepartmentBuilderPage({
 
       <div className={`min-w-0 ${contentMaxWidth}`.trim()}>
         {tab === "overview" ? (
-          <OverviewPanel
-            department={view.department}
-            locationCoverage={view.locationCoverage}
-            settings={settings}
-          />
+          <div className="space-y-4">
+            <RecordEnginePanel
+              session={session}
+              facilityId={session.facilityId}
+              departmentId={view.department.id}
+              departmentName={view.department.name}
+            />
+            <OverviewPanel
+              department={view.department}
+              locationCoverage={view.locationCoverage}
+              settings={settings}
+            />
+          </div>
         ) : null}
         {tab === "locations" ? (
           <LocationsPanel

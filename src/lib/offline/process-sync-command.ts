@@ -10,6 +10,7 @@ import {
 import { completeExplicit } from "@/lib/department-work";
 import type { WorkRequirement } from "@/lib/department-work/types";
 import { submitCanonicalLogSubmission } from "@/lib/canonical-logs";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -281,6 +282,16 @@ async function processEvidenceCommand(
 
   if (!isDepartmentOperationalEvidenceEnabled(departmentKey)) {
     return reject(command.clientCommandId, "EVIDENCE_FLAG_DISABLED");
+  }
+  if (
+    await departmentUsesCanonicalRecords({
+      facilityId: command.facilityId,
+      departmentId: command.departmentId,
+      serviceDate: command.operationalDate,
+      client,
+    })
+  ) {
+    return reject(command.clientCommandId, "LEGACY_TEMPLATE_EVIDENCE_FENCED");
   }
   if (!payload.templateId) {
     return reject(command.clientCommandId, "EVIDENCE_PAYLOAD_INVALID");

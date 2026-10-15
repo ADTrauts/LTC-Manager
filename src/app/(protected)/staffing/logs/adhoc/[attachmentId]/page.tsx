@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { CanonicalLogEntryForm } from "@/components/canonical-logs/canonical-log-entry-form";
+import { parseCatalogEvidenceRules } from "@/lib/canonical-logs/evidence-rules";
+import { parseInspectionSections } from "@/lib/canonical-logs/inspection-score";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { resolveAttachmentTargetLabel } from "@/lib/canonical-logs/target-labels";
@@ -13,7 +15,9 @@ import {
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
-type Props = { params: Promise<{ attachmentId: string }> };
+type Props = {
+  params: Promise<{ attachmentId: string }>;
+};
 
 export default async function AdHocCanonicalLogPage({ params }: Props) {
   noStore();
@@ -80,13 +84,22 @@ export default async function AdHocCanonicalLogPage({ params }: Props) {
           allowedSelections: f.allowedSelections,
           correctiveActionTrigger: f.correctiveActionTrigger,
           correctiveActionRequired: f.correctiveActionRequired,
+          sectionKey: f.sectionKey,
+          scoreWeight: f.scoreWeight,
+          critical: f.critical,
+          creditValues: f.creditValues,
         }))}
+        purposeType={attachment.catalogDefinition.purposeType}
+        sections={parseInspectionSections(attachment.catalogDefinition.sectionsJson)}
+        passingScore={attachment.catalogDefinition.passingScore}
+        criticalFailureForcesFailure={attachment.catalogDefinition.criticalFailureForcesFailure}
         requirementKey={null}
         cycleStableKey={null}
         cycleLabel={null}
         windowStartLocal={null}
         windowEndLocal={null}
         adHoc
+        rules={parseCatalogEvidenceRules(attachment.catalogDefinition.rulesJson)}
         cancelHref="/staffing/logs"
       />
     </section>

@@ -192,7 +192,7 @@ Published **Operational Cycles** are the current Run rhythm. **Phases** are one-
 
 **Work.** Product Work presets copy into facility drafts when a manager applies them. They are never auto-published. A published Work Plan determines expected Work. Work may bind to a Cycle or Phase stable key. It does not bind to Key Points. An empty Cycle binding means not configured. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when used), then cycle participation when the item is cycle-bound. Assignment does not create Work. Occurrences stay sparse.
 
-**Records.** One engine. A Product Record definition becomes a facility requirement segment. Expected slots are derived. The fact is `OperationalEvidenceRecord`. A permitted waiver, correction, and follow-up stay distinct from the Record. Run projects Location Function requirements through the same ACTIVE bindings Cycles and Work use.
+**Records.** One engine. A Vssyl Catalog definition (`CatalogLogDefinition`) is installed (`FacilityCatalogInstall`) and placed as a facility requirement segment (`LogAttachment`). Expected slots are derived. The fact is `OperationalEvidenceRecord`. A permitted waiver, correction, and follow-up stay distinct from the Record. Run projects Location Function requirements through the same ACTIVE bindings Cycles and Work use. `OperationalTemplate` is compatibility, not the Catalog install path.
 
 Today’s Work combines the current Cycle with expected Work. Audit / Reports answers a service date. It is not a second Run.
 

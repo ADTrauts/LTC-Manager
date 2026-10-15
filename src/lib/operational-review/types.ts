@@ -35,6 +35,12 @@ export type ReviewEvidenceState =
   | "completed"
   | "not_complete"
   | "completed_with_corrective_action"
+  | "needs_review"
+  | "overdue"
+  | "waived"
+  | "upcoming"
+  | "due"
+  | "needs_setup"
   | "unavailable"
   | "not_required";
 
@@ -69,6 +75,12 @@ export type ReviewEvidenceOccurrence = {
   occurredAt: string | null;
   recordedAt: string | null;
   operationalDateKey: string;
+  inspection?: {
+    percentage: number | null;
+    outcome: "PASS" | "PASS_WITH_EXCEPTIONS" | "FAIL" | null;
+    criticalFailureCount: number;
+    exceptionCount: number;
+  } | null;
 };
 
 export type ReviewCoverageSlot = {
@@ -219,6 +231,10 @@ export type OperationalReviewRangeTotals = {
   evidenceExpected: number;
   evidenceCompleted: number;
   evidenceMissed: number;
+  evidenceOverdue: number;
+  evidenceWaived: number;
+  evidenceUpcoming: number;
+  evidenceNeedsReview: number;
   evidenceCorrective: number;
   evidenceUnavailableOccurrences: number;
   evidenceUnavailableDays: number;
@@ -287,6 +303,12 @@ export type ReviewAttachmentSegmentFact = LogAttachmentForResolve & {
   createdAt: Date;
 };
 
+export type ReviewWaiverFact = {
+  requirementKey: string;
+  operationalDateKey: string;
+  reason: string;
+};
+
 export type ReviewEvidenceRecordFact = LogHistorySubmission & {
   logAttachmentId: string | null;
   attachmentStableKey: string | null;
@@ -295,6 +317,12 @@ export type ReviewEvidenceRecordFact = LogHistorySubmission & {
   unitId: string | null;
   occurredAt: Date;
   recordedAt: Date;
+  inspection?: {
+    percentage: number | null;
+    outcome: "PASS" | "PASS_WITH_EXCEPTIONS" | "FAIL" | null;
+    criticalFailureCount: number;
+    exceptionCount: number;
+  } | null;
 };
 
 export type ReviewCoverageTemplateFact = CoverageTemplateVersionRow;
@@ -371,6 +399,8 @@ export type OperationalReviewDayFacts = {
   otBindings: ReviewOtBindingFact[];
   attachmentSegments: ReviewAttachmentSegmentFact[];
   evidenceRecords: ReviewEvidenceRecordFact[];
+  /** Sparse administrative excuses. Evidence on the same requirement wins. */
+  waivers?: ReviewWaiverFact[];
   coverageTemplates: ReviewCoverageTemplateFact[];
   assignments: ReviewAssignmentFact[];
   plans: ReviewPlanFact[];

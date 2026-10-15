@@ -576,9 +576,13 @@ test("legacy writers are blocked only while the product record engine is on", ()
   });
   assert.equal(blocked.allowed, false);
   assert.match(source("src/app/(protected)/logs/actions.ts"), /LOG_SUBMISSION/);
+  assert.match(source("src/app/(protected)/logs/actions.ts"), /addTemplateFieldAction[\s\S]*LOG_TEMPLATE/);
   assert.match(source("src/app/(protected)/unit/[unitId]/actions.ts"), /INSPECTION_SUBMISSION/);
+  assert.match(source("src/lib/work/inspections/submit-inspection.ts"), /INSPECTION_SUBMISSION/);
   assert.match(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /isCanonicalLogsEnabled/);
   assert.match(source("src/app/(protected)/staffing/templates/actions.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.match(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.match(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
 });
 
 test("historical log and inspection models stay in place", () => {

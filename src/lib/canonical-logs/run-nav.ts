@@ -1,21 +1,38 @@
 /**
- * Canonical Logs RUN nav: hide legacy /logs and keep a Logs destination in the header.
+ * Canonical Logs RUN nav.
  *
- * SUPERVISOR+ get Log Book (history). STAFF keep today's due Logs at /staffing/logs,
- * because Log Book is SUPERVISOR-gated. Due work still lives on the room either way.
+ * Due Logs (`/staffing/logs`) and Log Book (`/staffing/log-book`) are distinct:
+ *   Logs     — what must be recorded now
+ *   Log Book — what has already been recorded
+ *
+ * SUPERVISOR+ keep both. STAFF keep due Logs only (Log Book is SUPERVISOR-gated).
+ * Legacy `/logs` is hidden while canonical logs are enabled.
+ * `/staffing/templates` is not the canonical Build surface (`/build/logs` is).
  */
 
 export type CanonicalLogsNavRewriteOptions = {
-  /** When false, STAFF keep a Logs tab instead of Log Book. Default true. */
+  /** When false, STAFF keep a Logs tab and Log Book is omitted. Default true. */
   canViewLogBook?: boolean;
 };
 
 const LEGACY_LOGS_HREF = "/logs";
 const DUE_LOGS_HREF = "/staffing/logs";
 const LOG_BOOK_HREF = "/staffing/log-book";
+const PHASE_9C_TEMPLATES_HREF = "/staffing/templates";
 
 function withHrefLabel<T extends { href: string }>(template: T, href: string, label: string): T {
   return { ...template, href, ...("label" in template ? { label } : {}) } as T;
+}
+
+function injectIfMissing<T extends { href: string }>(
+  items: T[],
+  source: readonly T[],
+  href: string,
+  label: string,
+): void {
+  if (items.some((item) => item.href === href)) return;
+  const template = items[0] ?? source[0];
+  if (template) items.push(withHrefLabel(template, href, label));
 }
 
 export function applyCanonicalLogsNavRewrite<T extends { href: string }>(
@@ -26,34 +43,39 @@ export function applyCanonicalLogsNavRewrite<T extends { href: string }>(
   if (!canonicalLogsEnabled) return [...items];
 
   const canViewLogBook = options?.canViewLogBook !== false;
-  const canonicalHref = canViewLogBook ? LOG_BOOK_HREF : DUE_LOGS_HREF;
-  const canonicalLabel = canViewLogBook ? "Log Book" : "Logs";
-
   const result: T[] = [];
-  let placed = items.some((item) => item.href === canonicalHref);
+  let placedDue = false;
+  let placedBook = false;
 
   for (const item of items) {
-    if (item.href === "/staffing/templates") {
-      continue;
-    }
-    if (item.href === LEGACY_LOGS_HREF || item.href === DUE_LOGS_HREF) {
-      if (!placed) {
-        result.push(withHrefLabel(item, canonicalHref, canonicalLabel));
-        placed = true;
+    if (item.href === PHASE_9C_TEMPLATES_HREF) continue;
+    if (item.href === LEGACY_LOGS_HREF) {
+      if (!placedDue) {
+        result.push(withHrefLabel(item, DUE_LOGS_HREF, "Logs"));
+        placedDue = true;
       }
       continue;
     }
-    if (!canViewLogBook && item.href === LOG_BOOK_HREF) {
+    if (item.href === DUE_LOGS_HREF) {
+      if (!placedDue) {
+        result.push(withHrefLabel(item, DUE_LOGS_HREF, "Logs"));
+        placedDue = true;
+      }
+      continue;
+    }
+    if (item.href === LOG_BOOK_HREF) {
+      if (canViewLogBook && !placedBook) {
+        result.push(withHrefLabel(item, LOG_BOOK_HREF, "Log Book"));
+        placedBook = true;
+      }
       continue;
     }
     result.push(item);
   }
 
-  if (!placed) {
-    const template = result[0] ?? items[0];
-    if (template) {
-      result.push(withHrefLabel(template, canonicalHref, canonicalLabel));
-    }
+  injectIfMissing(result, items, DUE_LOGS_HREF, "Logs");
+  if (canViewLogBook) {
+    injectIfMissing(result, items, LOG_BOOK_HREF, "Log Book");
   }
 
   return result;

@@ -13,6 +13,7 @@ import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
@@ -51,6 +52,15 @@ export default async function CanonicalRunLogsPage() {
       select: { id: true, name: true },
     });
     departmentId = fallback?.id ?? null;
+  }
+  if (
+    !facilityWide &&
+    !(await departmentUsesCanonicalRecords({
+      facilityId: session.facilityId,
+      departmentId,
+    }))
+  ) {
+    redirect("/logs");
   }
 
   if (!facilityWide && !departmentId) {

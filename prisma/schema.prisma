@@ -219,6 +219,7 @@ model Facility {
   operationDefinitions           OperationDefinition[]
   operationInstances             OperationInstance[]
   departments                    Department[]
+  recordEngineRollouts           RecordEngineRollout[]
   jobTitles                      JobTitle[]
   workShifts                     WorkShift[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
@@ -302,6 +303,7 @@ model Department {
   keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
   operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
+  recordEngineRollouts           RecordEngineRollout[]
   logAttachments                 LogAttachment[]                 @relation("LogAttachmentOwningDepartment")
   logAttachmentsAsTarget         LogAttachment[]                 @relation("LogAttachmentTargetDepartment")
   assetIssues                    AssetIssue[]
@@ -4620,6 +4622,17 @@ enum OperationalEvidenceFieldType {
   TIME
   ATTESTATION
   OPTIONAL_COMMENT
+  PHOTO
+  FILE
+  SIGNATURE
+  /// Compliant / Non-compliant / N/A. N/A is a submitted response, not an empty answer.
+  COMPLIANCE
+}
+
+enum OperationalEvidenceAttachmentKind {
+  PHOTO
+  FILE
+  SIGNATURE
 }
 
 enum OperationalTemplateApplicabilityKind {
@@ -4837,6 +4850,7 @@ model OperationalEvidenceRecord {
   /// Attachment-backed records use snapshotSchemaVersion >= 2 (LogSubmissionSnapshot).
   templateSnapshotJson         Json
   values                       OperationalEvidenceFieldValue[]
+  attachments                  OperationalEvidenceAttachment[]
   corrections                  OperationalEvidenceCorrection[]
   assetIssueLinks              AssetIssueEvidenceLink[]
   originatedIssues             AssetIssue[]                    @relation("AssetIssueOriginEvidence")
@@ -4861,6 +4875,29 @@ model OperationalEvidenceRecord {
   @@index([status])
 }
 
+/// Supporting photo, file, or signature for one OperationalEvidenceRecord.
+/// Bytes live in facility-scoped storage. This row is the auditable reference.
+model OperationalEvidenceAttachment {
+  id                   String                            @id @default(cuid())
+  facilityId           String
+  recordId             String
+  record               OperationalEvidenceRecord         @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  fieldKey             String?
+  kind                 OperationalEvidenceAttachmentKind
+  storageKey           String
+  originalFilename     String?
+  contentType          String
+  sizeBytes            Int
+  displaySequence      Int                               @default(0)
+  uploadedByUserId     String?
+  uploadedByEmployeeId String?
+  uploadedByLabel      String?
+  createdAt            DateTime                          @default(now())
+
+  @@index([recordId, displaySequence])
+  @@index([facilityId, recordId])
+}
+
 model OperationalEvidenceFieldValue {
   id              String                       @id @default(cuid())
   recordId        String
@@ -4874,9 +4911,13 @@ model OperationalEvidenceFieldValue {
   valueDateTime   DateTime?
   valueSelections String[]                     @default([])
   outOfStandard   Boolean                      @default(false)
+  /// Empty for scalar fields. Repeating evidence sets the group and a stable row key.
+  groupKey        String                       @default("")
+  rowKey          String                       @default("")
+  rowSequence     Int                          @default(0)
   createdAt       DateTime                     @default(now())
 
-  @@unique([recordId, fieldKey])
+  @@unique([recordId, fieldKey, groupKey, rowKey])
   @@index([recordId])
 }
 
@@ -5213,6 +5254,12 @@ enum CatalogLogStatus {
   RETIRED
 }
 
+/// Which Record engine owns new work for a facility department on and after a service date.
+enum RecordEngineMode {
+  LEGACY
+  CANONICAL
+}
+
 enum CatalogLogPurposeType {
   LOG
   CHECKLIST
@@ -5290,6 +5337,18 @@ model CatalogLogDefinition {
   recommendedFixedWindowsJson Json?
   /// Discovery hints: { assetTypes, spaceTypes, departmentKeys, keywords }. Suggestion only.
   suggestionsJson             Json                            @default("{}")
+  /// Constrained WHEN/THEN exception and visibility rules. Data only; never executable code.
+  rulesJson                   Json                            @default("[]")
+  /// Inspection passing percentage. Null means no numeric threshold.
+  passingScore                Int?
+  /// When true, any critical scored miss fails the inspection even above the threshold.
+  criticalFailureForcesFailure Boolean                        @default(false)
+  /// Stable section identity: [{ sectionKey, label, description, displaySequence }].
+  sectionsJson                Json                            @default("[]")
+  /// Repeating groups and typed columns. Copied into the submission snapshot.
+  repeatingGroupsJson         Json                            @default("[]")
+  /// Structured calculations. Not executable code. Copied into the submission snapshot.
+  calculationsJson            Json                            @default("[]")
   publishedAt                 DateTime?
   retiredAt                   DateTime?
   fields                      CatalogLogField[]
@@ -5322,12 +5381,56 @@ model CatalogLogField {
   allowedSelections        String[]                     @default([])
   correctiveActionTrigger  Boolean                      @default(false)
   correctiveActionRequired Boolean                      @default(false)
+  /// Stable section key. Display titles live on the definition sections.
+  sectionKey               String?
+  /// Positive points. Null means the field does not affect the score.
+  scoreWeight              Int?
+  critical                 Boolean                      @default(false)
+  /// Response tokens that earn full credit. Empty uses the field-type default.
+  creditValues             String[]                     @default([])
   createdAt                DateTime                     @default(now())
   updatedAt                DateTime                     @updatedAt
 
   @@unique([definitionId, fieldKey])
   @@unique([definitionId, displaySequence])
   @@index([definitionId])
+}
+
+/// Append-only Record-engine authority for one facility department.
+/// The row effective on a service date is the latest effectiveFromServiceDate on or before that date.
+/// CANONICAL_LOGS_ENABLED remains the deployment capability gate and does not rewrite these rows.
+model RecordEngineRollout {
+  id                        String           @id @default(cuid())
+  facilityId                String
+  facility                  Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId              String
+  department                Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  mode                      RecordEngineMode
+  effectiveFromServiceDate  String
+  actorUserId               String?
+  actorLabel                String?
+  createdAt                 DateTime         @default(now())
+
+  @@unique([facilityId, departmentId, effectiveFromServiceDate], map: "RecordEngineRollout_scope_date_key")
+  @@index([facilityId, departmentId, effectiveFromServiceDate], map: "RecordEngineRollout_scope_date_idx")
+}
+
+/// Harbor authoring library. Inserting a component copies its structure into a draft.
+/// Runtime evidence does not read this table.
+model CatalogSectionComponent {
+  id            String           @id @default(cuid())
+  stableKey     String
+  version       Int              @default(1)
+  status        CatalogLogStatus @default(DRAFT)
+  name          String
+  description   String?
+  structureJson Json             @default("{}")
+  publishedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([stableKey, version])
+  @@index([stableKey, status])
 }
 
 /// Facility adopted a published Harbor Catalog LOG/CHECKLIST. Place (attach) is local.

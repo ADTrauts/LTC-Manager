@@ -475,7 +475,7 @@ Rules that remain binding:
 
 **Recurring Work presets** (shared Work Plan drafts): Mechanical Room Round; Building Walkthrough; Exterior / Grounds Walkthrough; Generator Visual Check.
 
-**Record templates** (canonical `OperationalTemplate` drafts): Equipment Condition Inspection; Mechanical Room Inspection; Generator Inspection; Basic Equipment Reading; Post-Work Order Verification.
+**Record templates** (compatibility `OperationalTemplate` drafts, not CatalogLogDefinition): Equipment Condition Inspection; Mechanical Room Inspection; Generator Inspection; Basic Equipment Reading; Post-Work Order Verification. Forward Records remain Catalog → install → `LogAttachment`. These drafts are facility-private / PM-WO pin compatibility, not Marketplace definitions.
 
 **PM cadence presets** are UI-only in the existing PM Plan editor: Monthly (1), Quarterly (3), Semiannual (6), Annual (12), with `generationLeadDays = 7` and Routine priority. The user must select a real Facility Asset and review the Plan before save/publish. Presets are not manufacturer recommendations.
 

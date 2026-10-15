@@ -50,6 +50,8 @@ type Props = {
   targetTitle?: string | null;
   allowAdHoc: boolean;
   hasBecomeEffective: boolean;
+  effectiveFromKey: string;
+  todayKey: string;
   updateAvailable: boolean;
   latestCatalogVersion: number | null;
 };
@@ -81,6 +83,7 @@ export function AttachmentEditForm(props: Props) {
   const [dueTime, setDueTime] = useState(props.calendarDueTimeLocal ?? "");
   const [localLabel, setLocalLabel] = useState(props.localDisplayLabel ?? "");
   const [localInstructions, setLocalInstructions] = useState(props.localInstructions ?? "");
+  const [startsOn, setStartsOn] = useState(props.effectiveFromKey);
   const [status, setStatus] = useState(props.status);
 
   function save() {
@@ -99,6 +102,7 @@ export function AttachmentEditForm(props: Props) {
         localDisplayLabel: localLabel.trim() || null,
         localInstructions: localInstructions.trim() || null,
         status,
+        effectiveFromKey: props.hasBecomeEffective ? undefined : startsOn,
       });
       if (!result.ok) {
         setError(result.error);
@@ -347,6 +351,22 @@ export function AttachmentEditForm(props: Props) {
           records only.
         </p>
       ) : null}
+
+      {props.hasBecomeEffective ? null : (
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+          Starts
+          <input
+            type="date"
+            min={props.todayKey}
+            value={startsOn}
+            onChange={(event) => setStartsOn(event.target.value)}
+            className="min-h-9 rounded-md border border-zinc-300 px-2 text-sm"
+          />
+          <span className="font-normal text-zinc-500">
+            Choose the current service date when this day must be included.
+          </span>
+        </label>
+      )}
 
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
         Local label (optional)

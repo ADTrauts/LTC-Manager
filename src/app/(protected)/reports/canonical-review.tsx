@@ -25,8 +25,10 @@ import { ReviewDateForm } from "./review-date-form";
 import { ReviewModeNav } from "./review-mode-nav";
 
 function evidenceStatusKind(state: PresentedEvidenceRow["state"]) {
-  if (state === "not_complete") return "alert" as const;
-  if (state === "completed_with_corrective_action") return "progress" as const;
+  if (state === "not_complete" || state === "overdue") return "alert" as const;
+  if (state === "completed_with_corrective_action" || state === "needs_review" || state === "waived") {
+    return "progress" as const;
+  }
   if (state === "unavailable") return "neutral" as const;
   return "ok" as const;
 }

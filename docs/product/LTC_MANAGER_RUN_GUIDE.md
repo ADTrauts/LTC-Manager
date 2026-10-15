@@ -17,11 +17,12 @@ RUN is where the operation happens **today**. It is the default mode for every r
 | **Today's Work** | `/today` | Supervisor | Exception-first motion: walk list, coverage / call-downs, handoffs. Default home for Supervisor. |
 | **Locations** | `/units` → `/unit/[id]` | Supervisor+ / scoped | Facility hierarchy (Floor → Neighborhood/Unit → Room/Space). Structural nodes expand; actionable nodes open runtime. |
 | **Employees** | `/staffing` | Supervisor+ | Today's workforce: schedule visibility, attendance, assignments, coverage. *Not* workforce configuration. |
-| **Log Book** | `/staffing/log-book` | Supervisor+ | Historical operational evidence and records (LOG / CHECKLIST / INSPECTION submissions). |
+| **Logs** | `/staffing/logs` when `CANONICAL_LOGS_ENABLED`; otherwise legacy `/logs` | Staff+ | Due operational Records — what must be recorded now. |
+| **Log Book** | `/staffing/log-book` | Supervisor+ | Historical projection over `OperationalEvidenceRecord`. Not the due-work queue. |
 | **Assets** | `/assets` | Supervisor+ / scoped | Operational asset view: status, evidence, issues, requests, work orders. Vendors sub-tab. |
 | **Repairs** | `/repairs` | Staff+ / scoped | Repair / work-order runtime. |
-| **Review** | `/reports` | Manager+ | Historical / secondary reporting. |
-| **Logs** | `/logs` | Staff+ | Frontline logging entry point. |
+| **Review** | `/reports` | Manager+ | Derived expected-versus-actual analysis. Not a submitted-evidence store. |
+| **Legacy Logs** | `/logs` | Staff+ | Compatibility while canonical Logs are off. Historical `LogSubmission` reads remain when the flag is on. |
 
 Plus role-scoped runtime: Operations Center (`/dashboard`, exception glance, linked from Dashboard), Supervisor Operations, Operational Cycles, Requests, Issues, Asset Issues — all reachable in context.
 

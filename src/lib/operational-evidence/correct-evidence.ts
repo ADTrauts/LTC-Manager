@@ -29,6 +29,12 @@ function snapshotFields(snapshot: TemplateSnapshotJson | null): TemplateFieldSna
   return snapshot.fields;
 }
 
+function snapshotRules(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== "object") return [];
+  const obj = snapshot as { catalog?: { rules?: unknown }; rules?: unknown };
+  return obj.catalog?.rules ?? obj.rules ?? [];
+}
+
 function previousValuesPayload(record: {
   status: OperationalEvidenceRecordStatus;
   correctiveActionText: string | null;
@@ -186,6 +192,7 @@ export async function performCanonicalEvidenceCorrection(
     fields,
     values: input.values,
     correctiveActionText,
+    rules: snapshotRules(existing.templateSnapshotJson),
   });
   if (!validation.valid) {
     throw new Error(validation.errors.map((e) => e.message).join(" "));

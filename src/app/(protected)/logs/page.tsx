@@ -6,7 +6,9 @@ import { MealType } from "@prisma/client";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
-import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { cookies } from "next/headers";
 import {
   loadContextualKnowledge,
   toContextualKnowledgeClientArticles,
@@ -50,8 +52,17 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   if (!session?.facilityId) {
     redirect("/login");
   }
-  if (isCanonicalLogsEnabled() && activeTab === "assignments") {
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  const canonicalDepartment = await departmentUsesCanonicalRecords({
+    facilityId: session.facilityId,
+    departmentId: deptNav.activeDepartmentId,
+  });
+  if (canonicalDepartment && activeTab === "assignments") {
     redirect("/build/logs");
+  }
+  if (canonicalDepartment && (activeTab === "templates" || activeTab === "submit")) {
+    redirect("/staffing/logs");
   }
   const facilityId = session.facilityId;
   const deptFilter = await departmentFilterIdsForSession(session);
@@ -215,7 +226,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
         </p>
       </header>
 
-      {isCanonicalLogsEnabled() ? (
+      {canonicalDepartment ? (
         <div
           className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
           data-testid="legacy-logs-banner"
@@ -223,15 +234,15 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
         >
           <p className="font-medium">Legacy Logs</p>
           <p className="text-xs text-zinc-600">
-            This surface remains fully writable for compatibility. Today&apos;s Catalog Logs are on{" "}
+            Historical LogTemplate submissions stay readable here. New Records are due Logs on{" "}
             <Link href="/staffing/logs" className="font-medium underline underline-offset-2">
               Logs
             </Link>
-            ; Catalog Attachments are configured under{" "}
+            ; Catalog, Library, and Attachments are configured under{" "}
             <Link href="/build/logs" className="font-medium underline underline-offset-2">
               BUILD · Logs
             </Link>
-            .
+            . Legacy writes are fenced while canonical Logs are enabled.
           </p>
         </div>
       ) : null}

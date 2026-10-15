@@ -14,9 +14,9 @@ import { nextOperationalDayKey } from "@/lib/operational-cycles/cycle-lifecycle"
 import { toServiceDateKey } from "@/lib/operational-time";
 import {
   historySlotStateLabel,
-  toHistorySlotState,
   type LogHistorySlotState,
 } from "@/lib/logs-architecture/history-slot-state";
+import { classifyOperationalRequirement } from "@/lib/operational-occurrence/classify-operational-requirement";
 
 import {
   resolveLogRequirementsForAttachment,
@@ -76,6 +76,7 @@ export type ProjectLogExpectationHistoryInput = {
   publishedCyclesByDate?: Readonly<Record<string, readonly PublishedCycleForLogs[]>>;
   publishedCycles?: readonly PublishedCycleForLogs[];
   submissions: readonly LogHistorySubmission[];
+  waivers?: readonly { requirementKey: string; operationalDateKey: string }[];
 };
 
 export function enumerateServiceDateKeys(fromKey: string, toKey: string): string[] {
@@ -148,7 +149,7 @@ function formatNumber(value: number): string {
 }
 
 function submissionHasCorrectiveAction(status: LogHistorySubmission["status"]): boolean {
-  return status === "COMPLETED_WITH_CORRECTIVE_ACTION" || status === "NEEDS_REVIEW";
+  return status === "COMPLETED_WITH_CORRECTIVE_ACTION";
 }
 
 /**
@@ -201,16 +202,21 @@ export function projectLogExpectationHistory(
         const record =
           dateSubmissions.find(
             (row) =>
-              row.logRequirementKey === req.requirementKey || row.requirementKey === req.requirementKey,
+              !row.followsRecordId &&
+              (row.logRequirementKey === req.requirementKey || row.requirementKey === req.requirementKey),
           ) ?? null;
-        const state = toHistorySlotState({
+        const state = classifyOperationalRequirement({
           liveState: req.productState,
-          operationalDateKey,
+          serviceDate: operationalDateKey,
           todayKey: input.todayKey,
-          hasSubmission: record != null,
-          submissionHasCorrectiveAction: record
-            ? submissionHasCorrectiveAction(record.status)
-            : false,
+          hasEvidence: record != null,
+          evidenceStatus: record?.status ?? null,
+          outOfStandard: record?.outOfStandard === true,
+          hasCorrectiveAction: record ? submissionHasCorrectiveAction(record.status) : false,
+          hasWaiver: (input.waivers ?? []).some(
+            (waiver) =>
+              waiver.operationalDateKey === operationalDateKey && waiver.requirementKey === req.requirementKey,
+          ),
         });
         return {
           operationalDateKey,
