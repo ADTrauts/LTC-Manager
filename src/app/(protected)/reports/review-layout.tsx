@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
 import { AppCard, StatusBadge, type StatusBadgeProps } from "@/components/design-system";
 import type { ReviewSummaryItem } from "@/lib/operational-review/present-operational-review-day";
@@ -31,8 +31,8 @@ export function ReviewTable({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
+    <div className="min-w-0 overflow-x-auto">
+      <table role="table" className="review-table min-w-full text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-zinc-200 text-zinc-500">
@@ -43,18 +43,27 @@ export function ReviewTable({
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody role="rowgroup">{Children.map(children, (child) => isValidElement(child)
+          ? cloneElement(child as ReactElement<{ labels?: readonly string[] }>, { labels: columns })
+          : child)}</tbody>
       </table>
     </div>
   );
 }
 
-export function ReviewTableRow({ children }: { children: ReactNode }) {
-  return <tr className="border-b border-zinc-100 align-top last:border-b-0">{children}</tr>;
+export function ReviewTableRow({ children, labels }: { children: ReactNode; labels?: readonly string[] }) {
+  return <tr role="row" className="border-b border-zinc-100 align-top last:border-b-0">{
+    Children.map(children, (child, index) => isValidElement(child)
+      ? cloneElement(child as ReactElement<{ label?: string }>, { label: labels?.[index] })
+      : child)
+  }</tr>;
 }
 
-export function ReviewCell({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <td className={`py-2 pr-3 text-zinc-800 last:pr-0 ${className}`.trim()}>{children}</td>;
+export function ReviewCell({ children, className = "", label }: { children: ReactNode; className?: string; label?: string }) {
+  return <td role="cell" className={`py-2 pr-3 text-zinc-800 last:pr-0 ${className}`.trim()}>
+    {label ? <span className="review-cell-label" aria-hidden>{label}</span> : null}
+    <div className="min-w-0">{children}</div>
+  </td>;
 }
 
 export function ReviewCountList({ items }: { items: readonly ReviewSummaryItem[] }) {

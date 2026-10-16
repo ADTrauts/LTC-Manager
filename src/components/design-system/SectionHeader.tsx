@@ -27,11 +27,11 @@ export function SectionHeader({
 
   return (
     <div className={`flex flex-wrap items-end justify-between gap-3 ${className}`.trim()}>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         {eyebrow ? <p className={eyebrowClass}>{eyebrow}</p> : null}
         {title ? (
           <h2
-            className={`font-semibold text-zinc-900 ${prominent ? "text-xl tracking-tight" : "text-lg"} ${
+            className={`font-semibold text-zinc-900 ${prominent ? "text-lg tracking-tight sm:text-xl" : "text-base sm:text-lg"} ${
               eyebrow ? "mt-1" : ""
             }`}
           >

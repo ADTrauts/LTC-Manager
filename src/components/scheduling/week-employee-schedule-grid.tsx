@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Button } from "@/components/design-system/Button";
+import { FilterPanel } from "@/components/design-system/FilterPanel";
 
 import {
   copyCanonicalShiftAction,
@@ -105,26 +107,31 @@ export function WeekEmployeeScheduleGrid({
         </div>
       ) : null}
 
-      <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+      <form method="get" className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 rounded-lg border border-zinc-200 bg-white p-3 lg:flex">
         <input type="hidden" name="date" value={anchorDate} />
         <input type="hidden" name="view" value="employee" />
         <input type="hidden" name="mode" value="week" />
-        <label className="text-xs text-zinc-600">
+        <label className="min-w-0 text-xs text-zinc-600 lg:w-48 lg:shrink-0">
           Search
           <input
             type="search"
             name="q"
             defaultValue={filters.search ?? ""}
             placeholder="Employee…"
-            className="mt-0.5 block w-40 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+            className="mt-1 block min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm xl:min-h-10"
           />
         </label>
+        <Button type="submit" variant="secondary">Apply</Button>
+        <FilterPanel className="col-span-2 lg:flex-1" summary={
+          [filters.team, filters.jobRole, filters.scheduled].filter(Boolean).join(" · ") || "All employees"
+        }>
+        <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs text-zinc-600">
           Team
           <select
             name="team"
             defaultValue={filters.team ?? ""}
-            className="mt-0.5 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+            className="mt-1 block min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm xl:min-h-10"
           >
             <option value="">All teams</option>
             {projection.filterOptions.teams.map((t) => (
@@ -139,7 +146,7 @@ export function WeekEmployeeScheduleGrid({
           <select
             name="jobRole"
             defaultValue={filters.jobRole ?? ""}
-            className="mt-0.5 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+            className="mt-1 block min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm xl:min-h-10"
           >
             <option value="">All roles</option>
             {projection.filterOptions.jobRoles.map((r) => (
@@ -154,21 +161,18 @@ export function WeekEmployeeScheduleGrid({
           <select
             name="scheduled"
             defaultValue={filters.scheduled ?? ""}
-            className="mt-0.5 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+            className="mt-1 block min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm xl:min-h-10"
           >
             <option value="">All</option>
             <option value="scheduled">Scheduled this week</option>
             <option value="unscheduled">No shifts this week</option>
           </select>
         </label>
-        <button
-          type="submit"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100"
-        >
-          Apply
-        </button>
-        {!readOnly ? <div className="ml-auto self-center">{weekSummary}</div> : null}
+        </div>
+        </FilterPanel>
       </form>
+      {!readOnly ? weekSummary : null}
+
 
       {projection.summary.employeeCount === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-8 text-center">
@@ -186,11 +190,13 @@ export function WeekEmployeeScheduleGrid({
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div>
+          <p className="mb-2 text-xs text-zinc-600 xl:hidden">Scroll across to see the full week. Employee names stay visible.</p>
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white" tabIndex={0} role="region" aria-label="Weekly employee schedule">
           <table className="min-w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-                <th className="sticky left-0 z-10 bg-zinc-50 px-3 py-2 font-medium">Employee</th>
+                <th className="sticky left-0 z-10 min-w-40 bg-zinc-50 px-3 py-2 font-medium">Employee</th>
                 {week.days.map((day) => (
                   <th key={day} className="min-w-[7.5rem] px-2 py-2 font-medium">
                     <Link
@@ -216,7 +222,7 @@ export function WeekEmployeeScheduleGrid({
                 const name = `${row.employeeFirstName} ${row.employeeLastName}`;
                 return (
                   <tr key={row.employeeId} data-testid={`week-emp-row-${row.employeeId}`}>
-                    <td className="sticky left-0 z-10 bg-white px-3 py-2 align-top">
+                    <td className="sticky left-0 z-10 min-w-40 bg-white px-3 py-2 align-top">
                       <p className="font-medium text-zinc-900">{name}</p>
                       <p className="text-xs text-zinc-500">
                         {[row.teamDisplayName, row.jobRoleDisplayName ?? "No Job Role"]
@@ -439,6 +445,7 @@ export function WeekEmployeeScheduleGrid({
               })}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 

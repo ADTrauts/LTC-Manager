@@ -49,7 +49,7 @@ export function ResponsiveShellNav({
           onClick={() => setOpen(true)}
           aria-label="Open navigation"
           data-testid="shell-nav-run-menu"
-          className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 ${FOCUS_RING_CLASS}`}
+          className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 ${FOCUS_RING_CLASS}`}
         >
           <AppIcons.menu className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
           <span>Menu</span>
@@ -64,7 +64,9 @@ export function ResponsiveShellNav({
         size="nav"
         data-testid="shell-run-nav-drawer"
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4" onClickCapture={(event) => {
+          if (event.target instanceof Element && event.target.closest("a[href]")) close();
+        }}>
           {department ? <div data-testid="compact-department-slot">{department}</div> : null}
           <ShellSidebar
             compact

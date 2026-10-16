@@ -6,14 +6,11 @@ import { redirect } from "next/navigation";
 
 import { CreateEmployeeDrawer } from "@/components/create-employee-drawer";
 import { presentEmployeeAccountState, type EmployeeAccountPresentation } from "@/lib/employee-identity";
-import { EmployeesFiltersCollapsible } from "@/components/employees-filters-collapsible";
 import { EmployeesFiltersForm } from "@/components/employees-filters";
 import { EmployeeManagementCard, type EmployeeForManagementCard } from "@/components/employee-management-card";
 import {
   buildEmployeeOrderBy,
   buildEmployeeWhere,
-  countNonDefaultEmployeeFilters,
-  hasNonDefaultEmployeeFilters,
   type EmployeeDirectoryQuery,
 } from "@/lib/employee-directory-filters";
 import { hasAtLeastRole } from "@/lib/access";
@@ -401,14 +398,7 @@ export default async function EmployeesPage({
         </div>
       </header>
 
-      <EmployeesFiltersCollapsible
-        defaultExpanded={hasNonDefaultEmployeeFilters(directoryQuery)}
-        filterCount={countNonDefaultEmployeeFilters({
-          ...directoryQuery,
-          // Shell dept scope is not a "filter chip" — omit from count.
-          dept: undefined,
-        })}
-      >
+      <div className="rounded-lg border border-zinc-200 bg-white p-3">
         <EmployeesFiltersForm
           current={{ ...directoryQuery, dept: undefined }}
           embedded
@@ -419,7 +409,7 @@ export default async function EmployeesPage({
             departmentName: team.department.name,
           }))}
         />
-      </EmployeesFiltersCollapsible>
+      </div>
 
       {typeof notice.added === "string" || typeof notice.invite === "string" ? (
         <p className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">

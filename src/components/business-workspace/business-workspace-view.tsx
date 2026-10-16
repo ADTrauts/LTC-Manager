@@ -82,7 +82,7 @@ function DashboardOverview({ runtime }: { runtime: DashboardWorkspaceViewModel }
             : null}
         </li>
         <li data-testid="dashboard-runtime-pace">{paceSummary(runtime)}</li>
-        <li data-testid="dashboard-runtime-attention">
+        <li className={runtime.attentionCount === 0 ? "hidden sm:list-item" : undefined} data-testid="dashboard-runtime-attention">
           {runtime.attentionCount === 0
             ? "No locations currently need attention"
             : runtime.attentionCount === 1
@@ -561,19 +561,15 @@ export function BusinessWorkspaceScreen({ view }: { view: WorkspaceViewModel }) 
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-1 py-2 sm:px-2" data-testid="business-workspace">
+    <div className="mx-auto max-w-6xl space-y-4 px-1 py-1 sm:space-y-6 sm:px-2 sm:py-2" data-testid="business-workspace">
       <PageHeader
         icon="operationsCenter"
         title="Business Workspace"
         subtitle={`${header.facilityName} · ${header.departmentLabel}`}
         below={
-          <div className="mt-3 space-y-1 text-sm text-zinc-600">
-            <p className="text-lg font-medium text-zinc-900">{header.greeting}</p>
-            {view.data.dashboardRuntime ? (
-              <p data-testid="dashboard-runtime-header-operation">
-                {view.data.dashboardRuntime.operation.label}
-              </p>
-            ) : isCurrentPeriodModel(header.runPresentation?.provenance) &&
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-zinc-600">
+            <p className="font-medium text-zinc-900">{header.greeting}</p>
+            {view.data.dashboardRuntime ? null : isCurrentPeriodModel(header.runPresentation?.provenance) &&
               header.runPresentation ? (
               <TodaysWorkRunOperationBanner presentation={header.runPresentation} />
             ) : header.runPresentation?.provenance === "LEGACY_MEAL_SERVICE" ? (

@@ -31,13 +31,13 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASS: Record<ButtonSize, string> = {
-  compact: "min-h-9 gap-1.5 px-2.5 text-xs",
-  default: "min-h-10 gap-2 px-3.5 text-sm",
+  compact: "min-h-11 gap-1.5 px-2.5 text-sm xl:min-h-9 xl:text-xs",
+  default: "min-h-11 gap-2 px-3.5 text-sm xl:min-h-10",
 };
 
 /**
  * Canonical button primitive. Prove on a few surfaces before global rewrite.
- * Touch target: default ≥ 40px (min-h-10); compact ≥ 36px for dense toolbars.
+ * Touch target: ≥ 44px; fine-pointer desktop toolbars can use the compact size.
  */
 export function Button({
   variant = "primary",

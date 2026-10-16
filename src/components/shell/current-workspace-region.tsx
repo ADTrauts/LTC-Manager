@@ -25,7 +25,7 @@ export function CurrentWorkspaceRegion({
       aria-label={announce ? `Current workspace: ${current.title}. ${current.subtitle}` : undefined}
       className={compact ? "min-w-0 max-w-[11rem] sm:max-w-[14rem] xl:max-w-[22rem]" : "min-w-0"}
     >
-      <p className="truncate text-sm font-semibold leading-snug text-zinc-900">{current.title}</p>
+      <p className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-900 sm:truncate" title={current.title}>{current.title}</p>
       <p className="truncate text-xs leading-snug text-zinc-600">{current.subtitle}</p>
     </div>
   );
