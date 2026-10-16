@@ -15,6 +15,7 @@ import { createLogAttachment, setLogAttachmentStatus, updateLogAttachment } from
 import { createCatalogDraftSuccessor, publishCatalogDefinition } from "./catalog-service";
 import { resolveLogRequirementsForAttachment } from "./resolve-log-requirements";
 import { submitCanonicalLogSubmission } from "./submit-canonical-log";
+import { departmentUsesCanonicalRecords, scheduleRecordEngineChange } from "./record-engine-store";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 
 const databaseUrl =
@@ -129,6 +130,15 @@ test(
       });
       assert.equal(attachment.timingMode, "DAILY_WINDOWS");
       assert.equal(attachment.dailyWindows.length, 2);
+
+      assert.equal(await departmentUsesCanonicalRecords({
+        client: prisma, facilityId: facility.id, departmentId: department.id, serviceDate: "2026-09-13",
+      }), false, "capability alone must not cut over a Department");
+      await scheduleRecordEngineChange({
+        client: prisma, facilityId: facility.id, departmentId: department.id, mode: "CANONICAL",
+        effectiveFromServiceDate: "2026-09-13", todayKey: "2026-09-13", activeAttachmentCount: 1,
+        actorUserId: recordingUser.id, actorLabel: "SQL acceptance fixture",
+      });
 
       await assert.rejects(
         () =>

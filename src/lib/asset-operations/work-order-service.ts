@@ -16,6 +16,7 @@ import type {
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withRepairCode } from "@/lib/repair-code";
 import { requesterVisibleStatusLabel } from "@/lib/operational-requests/types";
 import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
 
@@ -88,19 +89,7 @@ const ALLOWED_WO_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
   CLOSED: [],
 };
 
-export async function nextRepairCode(client: DbClient): Promise<string> {
-  const count = await client.repair.count();
-  let candidate = `R-${String(count + 1).padStart(5, "0")}`;
-  for (let i = 0; i < 8; i += 1) {
-    const clash = await client.repair.findFirst({
-      where: { repairCode: candidate },
-      select: { id: true },
-    });
-    if (!clash) return candidate;
-    candidate = `R-${String(count + 1 + i + 1).padStart(5, "0")}`;
-  }
-  return `R-${cuidLike().slice(1, 9).toUpperCase()}`;
-}
+export { nextRepairCode } from "@/lib/repair-code";
 
 function assertTransition(from: RepairStatus, to: RepairStatus) {
   const allowed = ALLOWED_WO_TRANSITIONS[from] ?? [];
@@ -338,10 +327,9 @@ export async function createWorkOrderDirect(
 
   const actorUserId = sessionUserIdForFk(session);
   const now = input.now ?? new Date();
-  const repairCode = await nextRepairCode(client);
   const initialStatus: RepairStatus = input.assignedEmployeeId ? "ASSIGNED" : "OPEN";
 
-  const created = await client.repair.create({
+  const created = await withRepairCode(client, (tx, repairCode) => tx.repair.create({
     data: {
       id: cuidLike(),
       repairCode,
@@ -377,7 +365,7 @@ export async function createWorkOrderDirect(
         },
       },
     },
-  });
+  }));
 
   return created;
 }
@@ -821,7 +809,6 @@ export async function createWorkOrderFromOperationalRequest(
 
   const actorUserId = sessionUserIdForFk(session);
   const now = input.now ?? new Date();
-  const repairCode = await nextRepairCode(client);
   const initialStatus: RepairStatus = input.assignedEmployeeId ? "ASSIGNED" : "OPEN";
 
   const location = await snapshotWorkOrderLocation(client, {
@@ -836,7 +823,7 @@ export async function createWorkOrderFromOperationalRequest(
     repairTrade: requestTrade,
   });
 
-  const created = await client.repair.create({
+  const created = await withRepairCode(client, (tx, repairCode) => tx.repair.create({
     data: {
       id: cuidLike(),
       repairCode,
@@ -868,7 +855,7 @@ export async function createWorkOrderFromOperationalRequest(
         },
       },
     },
-  });
+  }));
 
   const nextRequestStatus =
     request.status === "UNDER_REVIEW" ||

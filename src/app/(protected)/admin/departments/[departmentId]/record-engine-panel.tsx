@@ -78,7 +78,7 @@ export async function RecordEnginePanel(props: {
         Earlier Records stay where they were submitted. This does not copy history.
       </p>
       <p className="text-sm text-zinc-700">
-        Pilot acceptance: {pilot.pilotStatus === "PILOT_READY" ? "pilot ready" : "not pilot ready"}.
+        Pilot readiness (Cooler + Checklist): {pilot.pilotStatus === "PILOT_READY" ? "pilot ready" : "not pilot ready"}.
       </p>
       {pilot.blockers.length > 0 ? (
         <ul className="list-disc pl-5 text-sm text-amber-900">

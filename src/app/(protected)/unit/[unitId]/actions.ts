@@ -9,6 +9,7 @@ import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { resolveMilestoneActor } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
+import { withRepairCode } from "@/lib/repair-code";
 import {
   defaultRepairTradeForIssueType,
   suggestRepairDepartmentIds,
@@ -380,10 +381,7 @@ export async function createUnitIssueAction(
     description = `${description}\nQuantity / urgency: ${parsed.quantityNote}`;
   }
 
-  const existingCount = await prisma.repair.count();
-  const repairCode = `R-${String(existingCount + 1).padStart(5, "0")}`;
-
-  const repair = await prisma.repair.create({
+  const repair = await withRepairCode(prisma, (tx, repairCode) => tx.repair.create({
     data: {
       repairCode,
       unitId: unit.id,
@@ -413,7 +411,7 @@ export async function createUnitIssueAction(
       completedAt: true,
       unit: { select: { facilityId: true } },
     },
-  });
+  }));
 
   await syncRepairRecordToTask({
     id: repair.id,

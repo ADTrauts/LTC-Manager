@@ -1,3 +1,4 @@
+import { withRepairCode } from "@/lib/repair-code";
 /**
  * Internal Preventive Work Order construction.
  * No session. System created-by is null. Reuses canonical Location snapshot helpers.
@@ -21,7 +22,6 @@ import { Prisma, type PrismaClient, type Repair } from "@prisma/client";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import {
-  nextRepairCode,
   snapshotWorkOrderLocation,
 } from "@/lib/asset-operations/work-order-service";
 import { newWorkOrderCuid, type DbClient } from "@/lib/asset-operations/work-order-access";
@@ -274,9 +274,8 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
     });
     const dueAt = civilDateToUtcMidnight(scheduledDate);
     const initialStatus = assignedEmployeeId ? "ASSIGNED" : "OPEN";
-    const repairCode = await nextRepairCode(tx);
 
-    const created = await tx.repair.create({
+    const created = await withRepairCode(tx, (codeTx, repairCode) => codeTx.repair.create({
       data: {
         id: newWorkOrderCuid(),
         repairCode,
@@ -323,7 +322,7 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
           })),
         },
       },
-    });
+    }));
     return { repair: created, created: true };
   };
 

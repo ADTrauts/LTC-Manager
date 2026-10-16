@@ -19,6 +19,7 @@ import { randomBytes } from "node:crypto";
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withIssueCode } from "@/lib/issue-code";
 import {
   requireTriage,
   resolvePlantOperationsAuthority,
@@ -46,20 +47,6 @@ function cuidLike() {
 
 function normalizeSummary(summary: string): string {
   return summary.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-async function nextIssueCode(client: DbClient): Promise<string> {
-  const count = await client.assetIssue.count();
-  let candidate = `AI-${String(count + 1).padStart(5, "0")}`;
-  for (let i = 0; i < 8; i += 1) {
-    const clash = await client.assetIssue.findFirst({
-      where: { issueCode: candidate },
-      select: { id: true },
-    });
-    if (!clash) return candidate;
-    candidate = `AI-${String(count + 1 + i + 1).padStart(5, "0")}`;
-  }
-  return `AI-${cuidLike().slice(1, 9).toUpperCase()}`;
 }
 
 async function appendIssueUpdate(
@@ -298,10 +285,9 @@ export async function reportIssue(
   const employeeId = await getOperationalEmployeeIdForSession(session);
   const actors = actorIds(session, employeeId);
   const now = input.now ?? new Date();
-  const issueCode = await nextIssueCode(client);
   const priority: RepairPriority = input.priority ?? "MEDIUM";
 
-  const created = await client.assetIssue.create({
+  const created = await withIssueCode(client, (tx, issueCode) => tx.assetIssue.create({
     data: {
       id: cuidLike(),
       issueCode,
@@ -350,7 +336,7 @@ export async function reportIssue(
         : {}),
     },
     include: { updates: { orderBy: { updatedAt: "asc" }, take: 20 } },
-  });
+  }));
 
   return { issue: created, duplicateOf: null as string | null, idempotent: false };
 }
@@ -420,11 +406,10 @@ export async function createIssueFromRequest(
   const employeeId = await getOperationalEmployeeIdForSession(session);
   const actors = actorIds(session, employeeId);
   const now = input.now ?? new Date();
-  const issueCode = await nextIssueCode(client);
   const summary = (input.summary?.trim() || request.summary).trim();
   const description = (input.description?.trim() || request.description).trim();
 
-  const issue = await client.assetIssue.create({
+  const issue = await withIssueCode(client, (tx, issueCode) => tx.assetIssue.create({
     data: {
       id: cuidLike(),
       issueCode,
@@ -455,7 +440,7 @@ export async function createIssueFromRequest(
       },
     },
     include: { updates: { orderBy: { updatedAt: "asc" }, take: 20 } },
-  });
+  }));
 
   const updatedRequest = await client.operationalRequest.update({
     where: { id: request.id },

@@ -24,8 +24,9 @@ test("legacy unit issue action persists Repair, not canonical Issue", () => {
     "utf8",
   );
   assert.match(source, /Persists as Repair \(Work Order\), not AssetIssue/);
-  assert.match(source, /prisma\.repair\.create/);
-  assert.doesNotMatch(source, /prisma\.assetIssue\.create/);
+  assert.match(source, /withRepairCode\(prisma/);
+  assert.match(source, /tx\.repair\.create/);
+  assert.doesNotMatch(source, /(?:prisma|tx)\.assetIssue\.create/);
 });
 
 test("/issues compatibility path is not Issue domain authority", () => {

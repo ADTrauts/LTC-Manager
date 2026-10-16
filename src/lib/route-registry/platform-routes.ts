@@ -1185,9 +1185,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     pattern: "/preventive-maintenance/[occurrenceId]",
     match: "EXACT",
     surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "operations",
-    notes: "Preventive Maintenance occurrence execution.",
+    notes: "Supervisor+ Preventive Maintenance occurrence detail. STAFF execute assigned PREVENTIVE Work Orders on /repairs.",
   },
   {
     pattern: "/admin/facility/builder",

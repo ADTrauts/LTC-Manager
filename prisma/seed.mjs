@@ -225,24 +225,18 @@ async function main() {
   const unitIdByName = {};
 
   for (const unit of starterUnits) {
-    const savedUnit = await prisma.unit.upsert({
-      where: {
-        facilityId_name: {
-          facilityId: facility.id,
-          name: unit.name,
-        },
-      },
-      update: {
-        unitType: unit.unitType,
-        displayOrder: unit.displayOrder,
-      },
-      create: {
-        facilityId: facility.id,
-        name: unit.name,
-        unitType: unit.unitType,
-        displayOrder: unit.displayOrder,
-      },
+    // Root names are unique through a partial index, not a Prisma compound key.
+    // Match the root explicitly so a same-named child never becomes the seed Unit.
+    const existingUnit = await prisma.unit.findFirst({
+      where: { facilityId: facility.id, parentUnitId: null, name: unit.name },
+      select: { id: true },
     });
+    const fields = { unitType: unit.unitType, displayOrder: unit.displayOrder };
+    const savedUnit = existingUnit
+      ? await prisma.unit.update({ where: { id: existingUnit.id }, data: fields })
+      : await prisma.unit.create({
+          data: { facilityId: facility.id, name: unit.name, ...fields },
+        });
 
     await prisma.unitMealTime.deleteMany({ where: { unitId: savedUnit.id } });
     for (const mealTime of unit.mealTimes) {

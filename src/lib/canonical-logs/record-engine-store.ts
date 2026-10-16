@@ -16,9 +16,10 @@ import {
 } from "./record-engine-rollout";
 
 type Db = PrismaClient | Prisma.TransactionClient;
+type RecordEngineReadDb = Pick<Db, "recordEngineRollout" | "facility">;
 
 export async function listRecordEngineRollouts(
-  client: Db,
+  client: Pick<Db, "recordEngineRollout">,
   facilityId: string,
   departmentId: string,
 ): Promise<RecordEngineRollout[]> {
@@ -39,7 +40,7 @@ export async function effectiveRecordEngine(input: {
   facilityId: string;
   departmentId: string;
   serviceDate: string;
-  client?: Db;
+  client?: RecordEngineReadDb;
 }): Promise<RecordEngineMode> {
   const client = input.client ?? prisma;
   const rollouts = await listRecordEngineRollouts(client, input.facilityId, input.departmentId);
@@ -56,7 +57,7 @@ export async function departmentUsesCanonicalRecords(input: {
   facilityId: string;
   departmentId: string | null;
   serviceDate?: string | null;
-  client?: Db;
+  client?: RecordEngineReadDb;
 }): Promise<boolean> {
   if (!input.departmentId || !isCanonicalLogsEnabled()) return false;
   const client = input.client ?? prisma;

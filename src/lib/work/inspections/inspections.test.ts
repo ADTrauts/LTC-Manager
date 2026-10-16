@@ -309,7 +309,10 @@ test("submitInspection writes atomically and respects idempotency + flag", async
   >();
 
   const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
     inspectionDefinition: {
+      findFirst: async () => ({ departmentId: definition.departmentId }),
       findUnique: async () => ({
         id: definition.id,
         facilityId: definition.facilityId,
@@ -512,7 +515,10 @@ test("submitInspection writes atomically and respects idempotency + flag", async
 
 test("Task sync failure does not invalidate inspection submission", async () => {
   const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
     inspectionDefinition: {
+      findFirst: async () => ({ departmentId: definition.departmentId }),
       findUnique: async () => ({
         id: definition.id,
         facilityId: definition.facilityId,
@@ -621,7 +627,10 @@ test("submitInspection creates follow-up Tasks only for qualifying failed items"
   };
 
   const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
     inspectionDefinition: {
+      findFirst: async () => ({ departmentId: definition.departmentId }),
       findUnique: async () => ({
         ...multiDefinition,
         items: multiDefinition.items,

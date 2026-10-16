@@ -16,6 +16,7 @@ import { z } from "zod";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import { withRepairCode } from "@/lib/repair-code";
 import {
   defaultRepairTradeForIssueType,
   suggestRepairDepartmentIds,
@@ -172,10 +173,7 @@ export async function createRepairAction(formData: FormData) {
     sessionPrimaryDepartmentId: session.primaryDepartmentId,
   });
 
-  const existingCount = await prisma.repair.count();
-  const repairCode = `R-${String(existingCount + 1).padStart(5, "0")}`;
-
-  const repair = await prisma.repair.create({
+  const repair = await withRepairCode(prisma, (tx, repairCode) => tx.repair.create({
     data: {
       repairCode,
       unitId: parsed.unitId,
@@ -205,7 +203,7 @@ export async function createRepairAction(formData: FormData) {
       completedAt: true,
       unit: { select: { facilityId: true } },
     },
-  });
+  }));
 
   // Additive Work Engine projection — guarded; never fails repair create.
   await syncRepairRecordToTask({

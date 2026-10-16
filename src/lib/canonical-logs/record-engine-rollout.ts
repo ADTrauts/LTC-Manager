@@ -115,6 +115,8 @@ export function evaluatePilotAcceptanceReadiness(input: {
   rolloutConfigured: boolean;
   placed: Partial<Record<PilotAcceptanceWorkflow, boolean>>;
   staffAccess: boolean;
+  /** Full four-template acceptance can opt in; controlled release starts with Wave A. */
+  requiredWorkflows?: readonly PilotAcceptanceWorkflow[];
 }): {
   pilotStatus: "PILOT_READY" | "NOT_PILOT_READY";
   blockers: string[];
@@ -124,7 +126,7 @@ export function evaluatePilotAcceptanceReadiness(input: {
   if (!input.rolloutConfigured) {
     blockers.push("Canonical Records are not saved for this department and service date.");
   }
-  for (const workflow of PILOT_ACCEPTANCE_WORKFLOWS) {
+  for (const workflow of input.requiredWorkflows ?? ["cooler", "checklist"] as const) {
     if (!input.placed[workflow]) blockers.push(`Place a ${PILOT_WORKFLOW_LABEL[workflow]}.`);
   }
   if (!input.staffAccess) blockers.push("A frontline staff account is not available for this department.");

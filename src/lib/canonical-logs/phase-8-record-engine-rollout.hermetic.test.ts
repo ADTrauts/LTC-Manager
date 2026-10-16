@@ -138,3 +138,16 @@ test("pilot authority stays scoped and the runbook exists", () => {
   assert.match(runbook, /Previous Logs/);
   assert.match(runbook, /does not write both/);
 });
+
+
+test("controlled Wave A readiness requires Cooler and Checklist without activating Wave B", () => {
+  const engine = { status: "READY" as const, blockers: [], warnings: [] };
+  const base = { engine, rolloutConfigured: true, staffAccess: true };
+  const waveA = { cooler: true, checklist: true };
+  assert.equal(evaluatePilotAcceptanceReadiness({ ...base, placed: waveA }).pilotStatus, "PILOT_READY");
+  assert.equal(evaluatePilotAcceptanceReadiness({ ...base, placed: { cooler: true } }).pilotStatus, "NOT_PILOT_READY");
+  assert.equal(evaluatePilotAcceptanceReadiness({ ...base, placed: waveA, staffAccess: false }).pilotStatus, "NOT_PILOT_READY");
+  assert.equal(evaluatePilotAcceptanceReadiness({ ...base, placed: waveA, rolloutConfigured: false }).pilotStatus, "NOT_PILOT_READY");
+  assert.equal(evaluatePilotAcceptanceReadiness({ ...base, placed: waveA, engine: { ...engine, status: "BLOCKED", blockers: ["setup error"] } }).pilotStatus, "NOT_PILOT_READY");
+  assert.equal(evaluatePilotAcceptanceReadiness({ ...base, placed: waveA, requiredWorkflows: ["cooler", "checklist", "inspection", "repeating"] }).pilotStatus, "NOT_PILOT_READY");
+});

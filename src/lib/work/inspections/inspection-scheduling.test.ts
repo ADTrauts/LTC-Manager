@@ -156,6 +156,7 @@ test("generator creates one occurrence+Task and is idempotent", async () => {
   };
 
   const db = {
+    recordEngineRollout: { findMany: async () => [] },
     facility: {
       findUnique: async () => ({ timezone: "America/New_York" }),
       findMany: async () => [{ id: "fac_1" }],

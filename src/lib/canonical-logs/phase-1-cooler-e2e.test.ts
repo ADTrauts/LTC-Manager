@@ -16,6 +16,7 @@ import { toServiceDateKey } from "@/lib/operational-time";
 import { createLogAttachment } from "./attachment-service";
 import { upsertPublishedCatalogSeeds } from "./catalog-seed";
 import { installPublishedCatalog } from "./facility-catalog-install";
+import { departmentUsesCanonicalRecords, scheduleRecordEngineChange } from "./record-engine-store";
 import { resolveLogRequirementsForAttachment } from "./resolve-log-requirements";
 import { performCanonicalLogSubmission } from "./submit-canonical-log";
 
@@ -144,6 +145,15 @@ test(
       assert.equal(attachment.dailyWindows.length, 2);
       assert.equal(attachment.dailyWindows[0]?.label, "Morning");
       assert.equal(attachment.dailyWindows[1]?.label, "Afternoon");
+
+      assert.equal(await departmentUsesCanonicalRecords({
+        client: prisma, facilityId: facility.id, departmentId: department.id, serviceDate: "2026-10-14",
+      }), false, "capability alone must not cut over a Department");
+      await scheduleRecordEngineChange({
+        client: prisma, facilityId: facility.id, departmentId: department.id, mode: "CANONICAL",
+        effectiveFromServiceDate: "2026-10-14", todayKey: "2026-10-14", activeAttachmentCount: 1,
+        actorUserId: recordingUser.id, actorLabel: "SQL acceptance fixture",
+      });
 
       const reqs = resolveLogRequirementsForAttachment({
         attachment: {
