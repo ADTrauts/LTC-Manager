@@ -97,6 +97,7 @@ select option {
   box-shadow: none;
 }
 
+@layer components {
 .app-input {
   min-height: 2.5rem;
   border: 1px solid var(--border-strong);
@@ -118,6 +119,47 @@ select option {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--foreground);
+}
+}
+
+/* Form values stay readable and tappable in compact and touch layouts. */
+@media (max-width: 1279px), (pointer: coarse) {
+  [data-shell-root] input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  [data-shell-root] select,
+  [data-shell-root] textarea {
+    min-height: 44px;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  [data-shell-root] button,
+  [data-shell-root] summary,
+  [role="dialog"] button,
+  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+  [role="dialog"] select {
+    min-height: 44px;
+  }
+
+  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+  [role="dialog"] select,
+  [role="dialog"] textarea {
+    font-size: 16px;
+  }
+}
+
+.review-cell-label { display: none; }
+
+/* One set of report facts, shown as labeled records when columns stop being readable. */
+@media (max-width: 767px) {
+  .review-table,
+  .review-table tbody,
+  .review-table tr,
+  .review-table td { display: block; width: 100%; }
+  .review-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .review-table tr { padding: 12px 0; }
+  .review-table td { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr); gap: 12px; padding: 6px 0; overflow-wrap: anywhere; }
+  .review-cell-label { display: block; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
 }
 
 .app-accent-divider {

@@ -211,7 +211,7 @@ function Overlay({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
-  const [popoverBox, setPopoverBox] = useState<{ top: number; left: number; width: number } | null>(
+  const [popoverBox, setPopoverBox] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(
     null,
   );
 
@@ -222,6 +222,15 @@ function Overlay({
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+      } else if (event.key === "Tab" && panelRef.current) {
+        const focusable = [...panelRef.current.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), [tabindex="0"]')];
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first?.focus();
+        }
       }
     };
     const onPointerDown = (event: PointerEvent) => {
@@ -237,7 +246,8 @@ function Overlay({
       const rect = anchor.getBoundingClientRect();
       const width = Math.min(Math.max(rect.width, 22 * 16), Math.min(28 * 16, window.innerWidth - 16));
       const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
-      setPopoverBox({ top: Math.min(rect.bottom + 4, window.innerHeight - 16), left, width });
+      const top = Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 96));
+      setPopoverBox({ top, left, width, maxHeight: window.innerHeight - top - 8 });
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", syncPopover);
@@ -290,6 +300,7 @@ function Overlay({
               top: popoverBox?.top ?? 56,
               left: popoverBox?.left ?? 8,
               width: popoverBox?.width ?? 22 * 16,
+              maxHeight: popoverBox?.maxHeight ?? "calc(100dvh - 4rem)",
             }
           : undefined
       }

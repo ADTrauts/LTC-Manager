@@ -38,10 +38,10 @@ export function PageHeader({
 
   return (
     <Root
-      className={`border-b border-zinc-200 ${compact ? "space-y-2.5 pb-4" : "space-y-3 pb-5"} ${className}`.trim()}
+      className={`border-b border-zinc-200 ${compact ? "space-y-2 pb-3 sm:pb-4" : "space-y-2 pb-3 sm:space-y-3 sm:pb-5"} ${className}`.trim()}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+        <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
           {Icon ? (
             <span
               className={`flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 ${
@@ -67,7 +67,7 @@ export function PageHeader({
             ) : null}
           </div>
         </div>
-        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
       {below ? <div className="space-y-3 pt-1">{below}</div> : null}
     </Root>

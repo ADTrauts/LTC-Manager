@@ -219,7 +219,7 @@ export default async function TodaysWorkHubPage() {
   const teamUnconfigured = isTeamUnconfiguredScope(operating.teamScope);
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6" data-testid="todays-work-hub">
+    <section className="mx-auto max-w-5xl space-y-4 sm:space-y-6" data-testid="todays-work-hub">
       <PageHeader
         icon="todaysWork"
         eyebrow="Today's Work"

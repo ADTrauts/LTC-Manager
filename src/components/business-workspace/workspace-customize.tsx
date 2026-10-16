@@ -30,7 +30,7 @@ export function WorkspaceCollapsibleSection({
   return (
     <section
       id={`workspace-section-${sectionId}`}
-      className="space-y-4"
+      className="space-y-3 sm:space-y-4"
       data-testid={`workspace-section-${sectionId}`}
       data-collapsed={collapsed ? "true" : "false"}
     >
@@ -115,13 +115,13 @@ export function WorkspaceCustomizePanel({
 
   return (
     <details
-      className="rounded-xl border border-zinc-200 bg-white p-4"
+      className="group rounded-md"
       data-testid="workspace-customize"
     >
-      <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
+      <summary className="w-fit cursor-pointer rounded-md px-1 py-2 text-sm font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700">
         Customize Workspace
       </summary>
-      <div className="mt-4 space-y-6">
+      <div className="mt-2 space-y-6 rounded-lg border border-zinc-200 bg-white p-4">
         <form
           className="space-y-3"
           action={(formData) => {

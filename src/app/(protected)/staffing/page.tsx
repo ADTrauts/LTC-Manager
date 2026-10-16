@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScheduleToolbar } from "@/components/scheduling/schedule-toolbar";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -45,14 +46,6 @@ function firstSearchParam(raw: string | string[] | undefined): string | null {
   return null;
 }
 
-function staffingHref(params: Record<string, string | undefined | null>) {
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v) qs.set(k, v);
-  }
-  const s = qs.toString();
-  return s ? `/staffing?${s}` : "/staffing";
-}
 
 type StaffingPageProps = {
   searchParams?: Promise<{
@@ -160,208 +153,20 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
   const selectedDateLabel = scheduleWeekdayLongLabel(selectedDateIso);
 
   return (
-    <section className="space-y-6" data-testid="department-scheduler">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Schedule</h1>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2" role="tablist" aria-label="Schedule view">
-            <Link
-              href={staffingHref({
-                date: selectedDateIso,
-                view: "employee",
-                mode,
-                q: filters.search,
-                team: filters.team,
-                jobRole: filters.jobRole,
-                scheduled: filters.scheduled,
-              })}
-              role="tab"
-              aria-selected={view === "employee"}
-              className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                view === "employee"
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"
-              }`}
-              data-testid="view-toggle-employee"
-            >
-              Employee View
-            </Link>
-            <Link
-              href={staffingHref({
-                date: selectedDateIso,
-                view: "location",
-                mode: "week",
-                floor: floorFilter,
-                rooms: showRooms ? "1" : undefined,
-              })}
-              role="tab"
-              aria-selected={view === "location"}
-              className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                view === "location"
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"
-              }`}
-              data-testid="view-toggle-location"
-            >
-              Location View
-            </Link>
-            <span className="mx-1 hidden h-5 w-px bg-zinc-300 sm:inline-block" aria-hidden />
-            <Link
-              href={staffingHref({
-                date: selectedDateIso,
-                view,
-                mode: "week",
-                q: filters.search,
-                team: filters.team,
-                jobRole: filters.jobRole,
-                scheduled: filters.scheduled,
-                floor: floorFilter,
-              })}
-              className={`rounded-md border px-3 py-1.5 text-sm ${
-                mode === "week"
-                  ? "border-zinc-400 bg-zinc-100 font-medium text-zinc-900"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-              }`}
-              data-testid="mode-week"
-            >
-              Week
-            </Link>
-            <Link
-              href={staffingHref({
-                date: selectedDateIso,
-                view: "employee",
-                mode: "day",
-              })}
-              className={`rounded-md border px-3 py-1.5 text-sm ${
-                mode === "day"
-                  ? "border-zinc-400 bg-zinc-100 font-medium text-zinc-900"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-              }`}
-              data-testid="mode-day"
-            >
-              Day roster
-            </Link>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900">
-              {mode === "week" ? weekLabel : selectedDateLabel}
-            </span>
-            {mode === "week" ? (
-              <>
-                <Link
-                  href={staffingHref({
-                    date: prevWeek.weekStart,
-                    view,
-                    mode: "week",
-                    q: filters.search,
-                    team: filters.team,
-                    jobRole: filters.jobRole,
-                    scheduled: filters.scheduled,
-                    floor: floorFilter,
-                    rooms: showRooms ? "1" : undefined,
-                  })}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-                >
-                  Previous week
-                </Link>
-                <Link
-                  href={staffingHref({
-                    date: todayIso,
-                    view,
-                    mode: "week",
-                    q: filters.search,
-                    team: filters.team,
-                    jobRole: filters.jobRole,
-                    scheduled: filters.scheduled,
-                    floor: floorFilter,
-                    rooms: showRooms ? "1" : undefined,
-                  })}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-                >
-                  This week
-                </Link>
-                <Link
-                  href={staffingHref({
-                    date: nextWeek.weekStart,
-                    view,
-                    mode: "week",
-                    q: filters.search,
-                    team: filters.team,
-                    jobRole: filters.jobRole,
-                    scheduled: filters.scheduled,
-                    floor: floorFilter,
-                    rooms: showRooms ? "1" : undefined,
-                  })}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-                >
-                  Next week
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  href={staffingHref({ date: prevDay, view: "employee", mode: "day" })}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-                >
-                  Previous
-                </Link>
-                <Link
-                  href={staffingHref({ date: nextDay, view: "employee", mode: "day" })}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-                >
-                  Next
-                </Link>
-                <Link
-                  href={staffingHref({ date: todayIso, view: "employee", mode: "day" })}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-                >
-                  Today
-                </Link>
-              </>
-            )}
-            <form action="/staffing" method="get" className="inline-flex items-center gap-1">
-              <input type="hidden" name="view" value={view} />
-              <input type="hidden" name="mode" value={mode} />
-              <input
-                type="date"
-                name="date"
-                defaultValue={selectedDateIso}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-              />
-              <button
-                type="submit"
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
-              >
-                Go
-              </button>
-            </form>
-            {isOperationalAssignmentsEnabled() ? (
-              <Link
-                href={`/staffing/assignments?date=${selectedDateIso}`}
-                className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-800 hover:bg-indigo-100"
-              >
-                Daily Assignments
-              </Link>
-            ) : null}
-            {isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey) ? (
-              <Link
-                href="/staffing/cycles"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-              >
-                Cycle overview
-              </Link>
-            ) : null}
-            <Link
-              href={`/staffing/legacy?date=${selectedDateIso}`}
-              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100"
-            >
-              Legacy unit staffing
-            </Link>
-          </div>
-        </div>
-      </header>
+    <section className="space-y-4 sm:space-y-6" data-testid="department-scheduler">
+      <ScheduleToolbar
+        date={selectedDateIso}
+        label={mode === "week" ? weekLabel : selectedDateLabel}
+        view={view}
+        mode={mode}
+        previousDate={mode === "week" ? prevWeek.weekStart : prevDay}
+        nextDate={mode === "week" ? nextWeek.weekStart : nextDay}
+        today={todayIso}
+        filters={{ q: filters.search, team: filters.team, jobRole: filters.jobRole,
+          scheduled: filters.scheduled, floor: floorFilter, rooms: showRooms ? "1" : undefined }}
+        showAssignments={isOperationalAssignmentsEnabled()}
+        showCycles={isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey)}
+      />
 
       {actionError ? (
         <p
@@ -387,8 +192,7 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
             Select a Department to manage its schedule
           </h2>
           <p className="mt-1 text-sm text-amber-900">
-            Use the Department selector in the shell. Facility-wide read view is shown below when All
-            departments is active. Shift creation is disabled until a Department is selected.
+            Showing all departments. Choose a department in Menu to create or edit shifts.
           </p>
           {mode === "week" ? (
             facilityWeekSchedules.length === 0 ? (

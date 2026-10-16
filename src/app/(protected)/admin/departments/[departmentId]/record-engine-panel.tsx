@@ -70,8 +70,12 @@ export async function RecordEnginePanel(props: {
   });
 
   return (
-    <section className="space-y-3 rounded-md border border-zinc-200 p-4" data-testid="record-engine-panel">
-      <h2 className="text-sm font-semibold text-zinc-900">Record engine</h2>
+    <details className="group rounded-md border border-zinc-200 bg-white p-3" data-testid="record-engine-panel">
+      <summary className="cursor-pointer text-sm font-medium text-zinc-800">
+        Record engine: {mode === "CANONICAL" ? "Canonical Records" : "Previous Logs"}
+        <span className="ml-2 text-xs font-normal text-zinc-600">Settings & readiness</span>
+      </summary>
+      <div className="space-y-3 pt-3">
       <p className="text-sm text-zinc-700">
         {props.departmentName} is using {mode === "CANONICAL" ? "canonical Records" : "the previous Logs"} on {todayKey}.
         Earlier Records stay where they were submitted. This does not copy history.
@@ -125,6 +129,7 @@ export async function RecordEnginePanel(props: {
           Save Record engine
         </button>
       </form>
-    </section>
+      </div>
+    </details>
   );
 }

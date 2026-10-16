@@ -15,7 +15,7 @@ export function ProductModeBanner() {
     <div
       data-testid="product-mode-banner"
       data-shell-region="mode-banner"
-      className="shrink-0 border-b border-orange-900/30 bg-[#3b1408] px-3 py-2 text-sm text-orange-50 sm:px-4 lg:px-6"
+      className="hidden shrink-0 border-b border-orange-900/30 bg-[#3b1408] px-3 py-1.5 text-sm text-orange-50 md:block md:px-4 lg:px-6"
       role="status"
     >
       <span className="font-semibold">Build mode</span>

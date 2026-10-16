@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
+import { AppIcons } from "@/lib/design-system/icons";
 
 export type SubNavItem = {
   id: string;
@@ -92,23 +93,23 @@ export function SubNav({
     >
       <div className="relative min-w-0 flex-1">
         {canScrollLeft ? (
-          <div
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white from-30% to-transparent"
-            aria-hidden
-            data-testid="subnav-fade-left"
-          />
+          <button type="button" aria-label={`Previous ${ariaLabel} sections`}
+            onClick={() => scrollerRef.current?.scrollBy({ left: -scrollerRef.current.clientWidth * 0.7, behavior: "smooth" })}
+            className={`absolute inset-y-0 left-0 z-10 flex w-11 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 ${FOCUS_RING_CLASS}`}>
+            <AppIcons.chevronDown className="h-4 w-4 rotate-90" aria-hidden />
+          </button>
         ) : null}
         {canScrollRight ? (
-          <div
-            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white from-30% to-transparent"
-            aria-hidden
-            data-testid="subnav-fade-right"
-          />
+          <button type="button" aria-label={`More ${ariaLabel} sections`}
+            onClick={() => scrollerRef.current?.scrollBy({ left: scrollerRef.current.clientWidth * 0.7, behavior: "smooth" })}
+            className={`absolute inset-y-0 right-0 z-10 flex w-11 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 ${FOCUS_RING_CLASS}`}>
+            <AppIcons.chevronDown className="h-4 w-4 -rotate-90" aria-hidden />
+          </button>
         ) : null}
         <nav
           ref={scrollerRef}
           aria-label={ariaLabel}
-          className="shell-nav-scroller -mb-px flex min-w-0 gap-0.5 overflow-x-auto overscroll-x-contain"
+          className={`shell-nav-scroller -mb-px flex min-w-0 gap-0.5 overflow-x-auto overscroll-x-contain ${canScrollLeft ? "pl-11" : ""} ${canScrollRight ? "pr-11" : ""}`}
           style={{ scrollPaddingInline: "0.75rem" }}
         >
           {items.map((item) => {
@@ -118,7 +119,7 @@ export function SubNav({
                 key={item.id}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`shrink-0 rounded-md px-3 py-2 text-sm transition-colors ${FOCUS_RING_CLASS} ${
+                className={`inline-flex min-h-11 shrink-0 items-center rounded-md px-3 py-2 text-sm transition-colors ${FOCUS_RING_CLASS} ${
                   active
                     ? "bg-zinc-900 font-medium text-white"
                     : "font-medium text-zinc-700 hover:bg-zinc-100"

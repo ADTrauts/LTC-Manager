@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/design-system/Button";
+import { ActionMenu } from "@/components/design-system/ActionMenu";
 import { Drawer } from "@/components/drawer";
 import { GuardedModal } from "@/components/guarded-modal";
 import { FACILITY_BASE_TYPES } from "@/lib/facility-builder/facility-base-types";
@@ -143,12 +144,7 @@ function useBuilderCopy(): BuilderCopy {
   return useContext(BuilderCopyContext);
 }
 
-function builderKindIcon(kind: BuilderNodeDisplayKind) {
-  if (kind === "building") return Building2;
-  if (kind === "floor") return Layers;
-  if (kind === "neighborhood") return LayoutGrid;
-  return MapPin;
-}
+const BUILDER_KIND_ICONS = { building: Building2, floor: Layers, neighborhood: LayoutGrid };
 
 const FacilityRoomTypesContext = createContext<FacilityRoomTypeView[]>([]);
 
@@ -1387,17 +1383,6 @@ function ContextMenuOverlay({
   onToggleExpand: (id: string) => void;
 }) {
   const copy = useBuilderCopy();
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (menuRef.current) {
-      const rect = menuRef.current.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      if (rect.right > vw) menuRef.current.style.left = `${x - rect.width}px`;
-      if (rect.bottom > vh) menuRef.current.style.top = `${y - rect.height}px`;
-    }
-  }, [x, y]);
 
   const isUnit = target.type === "unit";
   const isExpanded = isUnit && expanded.has(target.unit.id);
@@ -1405,12 +1390,7 @@ function ContextMenuOverlay({
   const displayKind = isUnit ? resolveBuilderNodeDisplayKind(target.unit) : null;
 
   return (
-    <div
-      ref={menuRef}
-      className="fixed z-50 min-w-[200px] rounded-lg border border-zinc-200 bg-white py-1 shadow-xl"
-      style={{ left: x, top: y }}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <ActionMenu x={x} y={y} label="Place actions" onClose={onClose}>
       <ContextMenuItem icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => onRename(target)}>
         Rename
       </ContextMenuItem>
@@ -1550,7 +1530,7 @@ function ContextMenuOverlay({
       >
         Delete
       </ContextMenuItem>
-    </div>
+    </ActionMenu>
   );
 }
 
@@ -1568,8 +1548,10 @@ function ContextMenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
+      tabIndex={-1}
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors ${
+      className={`flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-teal-700 ${
         destructive
           ? "text-red-600 hover:bg-red-50"
           : "text-zinc-700 hover:bg-zinc-50"
@@ -1652,7 +1634,8 @@ function TreeUnitNode({
   const showAddNeighborhood = canAddNeighborhood(displayKind);
   const showAddRoom = canAddRoom(displayKind);
 
-  const KindIcon = builderKindIcon(displayKind);
+  const KindIcon = displayKind in BUILDER_KIND_ICONS
+    ? BUILDER_KIND_ICONS[displayKind as keyof typeof BUILDER_KIND_ICONS] : MapPin;
 
   void isPending;
 
@@ -2138,7 +2121,8 @@ function UnitEditor({
   const label = displayKindLabel(displayKind, copy);
   const totalRooms = countSpaces(unit);
   void allUnits;
-  const KindIcon = builderKindIcon(displayKind);
+  const KindIcon = displayKind in BUILDER_KIND_ICONS
+    ? BUILDER_KIND_ICONS[displayKind as keyof typeof BUILDER_KIND_ICONS] : MapPin;
 
   const summaryParts: string[] = [];
   if (displayKind === "building") {
