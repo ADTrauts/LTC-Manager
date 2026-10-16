@@ -5,6 +5,20 @@ import { platformNavItemsForRole } from "@/lib/route-registry";
 
 import { applyCanonicalLogsNavRewrite } from "./run-nav";
 
+test("a legacy department retains previous Logs when deployment canonical capability is on", () => {
+  const items = applyCanonicalLogsNavRewrite(
+    platformNavItemsForRole("MANAGER", {
+      canonicalLogsEnabled: true,
+      dietaryOperationalEvidenceEnabled: true,
+    }),
+    false,
+  );
+  assert.equal(items.some((item) => item.href === "/staffing/logs"), false);
+  assert.equal(items.filter((item) => item.href === "/logs").length, 1);
+  assert.equal(items.some((item) => item.href === "/build/logs"), true);
+  assert.equal(items.some((item) => item.href === "/staffing/templates"), true);
+});
+
 test("canonical RUN nav hides Legacy Logs and keeps due Logs plus Log Book", () => {
   const items = applyCanonicalLogsNavRewrite(
     [

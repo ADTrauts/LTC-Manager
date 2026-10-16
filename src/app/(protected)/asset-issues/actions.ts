@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { AssetOperationalImpact, RepairPriority } from "@prisma/client";
 import { z } from "zod";
 
@@ -224,6 +225,9 @@ export async function createIssueFromRecordAction(formData: FormData) {
     evidenceRecordId,
   });
   revalidateIssueViews(result.issue.id);
+  if (formData.get("openCreatedIssue") === "1") {
+    redirect(`/asset-issues/${result.issue.id}`);
+  }
 }
 
 export async function closeAssetIssueAction(formData: FormData) {

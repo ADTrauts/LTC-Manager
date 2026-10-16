@@ -33,11 +33,11 @@ import {
   serializeEmployeeRuntimeWorkContext,
 } from "@/lib/employee-runtime-flow";
 import {
-  isCanonicalLogsEnabled,
   isOperationalAssignmentsEnabled,
   isPlantOperationsEnabled,
 } from "@/lib/feature-flags";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
@@ -530,7 +530,12 @@ export async function buildRuntimeBundle(
   let workContext: OfflineRuntimeBundle["workContext"] = null;
   const jobFlowEnabled = isDepartmentJobFlowEnabled(dietary.key);
   const oaEnabled = isOperationalAssignmentsEnabled();
-  const canonicalLogsEnabled = isCanonicalLogsEnabled();
+  const canonicalLogsEnabled = await departmentUsesCanonicalRecords({
+    facilityId: input.session.facilityId,
+    departmentId: dietary.id,
+    serviceDate: serviceDateKey,
+    client,
+  });
 
   if (jobFlowEnabled && actor.employeeId) {
     const assignments = oaEnabled

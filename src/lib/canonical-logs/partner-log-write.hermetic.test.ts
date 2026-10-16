@@ -149,11 +149,18 @@ function world() {
   ];
 
   const client = {
+    operationalEvidenceAttachment: { findMany: async () => [] },
+    recordEngineRollout: {
+      findMany: async ({ where }: { where: { facilityId: string; departmentId: string } }) => [{
+        ...where, mode: "CANONICAL", effectiveFromServiceDate: "2026-10-01",
+      }],
+    },
     logAttachment: {
       findFirst: async ({ where }: { where: Record<string, unknown> }) =>
         attachments.find((row) => matchesAttachment(row, where)) ?? null,
     },
     operationalEvidenceRecord: {
+      findMany: async () => [],
       findFirst: async ({ where }: { where: Record<string, unknown> }) => {
         const rows = [...evidence, ...created] as Array<Record<string, unknown>>;
         if (typeof where.id === "string") {

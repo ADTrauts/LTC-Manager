@@ -4,6 +4,7 @@
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { resolveRecordEngine } from "@/lib/canonical-logs/record-engine-rollout";
 
 import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-canonical";
 import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
@@ -71,7 +72,7 @@ export async function loadOperationalReviewRangeFacts(input: {
   const startDate = facilityLocalDateToServiceDate(input.startServiceDate);
   const endExclusive = facilityLocalDateToServiceDate(addServiceDateKey(input.endServiceDate, 1));
 
-  const [facility, departments, spaces] = await Promise.all([
+  const [facility, departments, spaces, rollouts] = await Promise.all([
     input.client.facility.findFirst({
       where: { id: input.facilityId },
       select: { id: true, displayName: true, timezone: true },
@@ -94,6 +95,10 @@ export async function loadOperationalReviewRangeFacts(input: {
         unit: { select: { id: true, name: true } },
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    input.client.recordEngineRollout.findMany({
+      where: { facilityId: input.facilityId, ...(input.departmentId ? { departmentId: input.departmentId } : {}) },
+      select: { facilityId: true, departmentId: true, mode: true, effectiveFromServiceDate: true },
     }),
   ]);
 
@@ -156,8 +161,15 @@ export async function loadOperationalReviewRangeFacts(input: {
           occurredAt: true,
           recordedAt: true,
           outOfStandard: true,
+          templateSnapshotJson: true,
           values: {
-            select: { valueNumber: true, fieldKey: true },
+            select: {
+              valueNumber: true,
+              fieldKey: true,
+              valueText: true,
+              valueBoolean: true,
+              valueSelections: true,
+            },
             orderBy: { fieldKey: "asc" },
           },
         },
@@ -458,7 +470,9 @@ export async function loadOperationalReviewRangeFacts(input: {
       spaces: spaceFacts,
       profiles: profileFacts,
       otBindings: bindings,
-      attachmentSegments,
+      attachmentSegments: attachmentSegments.filter((row) =>
+        resolveRecordEngine({ capabilityEnabled: true, facilityId: input.facilityId, departmentId: row.departmentId, serviceDate, rollouts }) === "CANONICAL",
+      ),
       evidenceRecords: evidenceByDate.get(serviceDate) ?? [],
       waivers: waiversByDate.get(serviceDate) ?? [],
       coverageTemplates,

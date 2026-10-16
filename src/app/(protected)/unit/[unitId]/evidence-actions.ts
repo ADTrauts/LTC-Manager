@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
+import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
+import { prisma } from "@/lib/prisma";
 import {
   submitEvidenceRecord,
   type EvidenceFieldValueInput,
@@ -30,8 +31,14 @@ export async function submitUnitEvidenceAction(input: {
   occurredAt?: string | null;
   clientCommandId?: string | null;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
+  const session = await getSession();
+  if (!session || session.facilityId !== input.facilityId) throw new Error("Authentication required.");
+  const department = await prisma.department.findFirst({
+    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
+    select: { key: true },
+  });
+  if (!department || !(await isDepartmentEngineEnabledForFacility(input.facilityId, "evidence", department.key, session))) {
+    throw new Error("Operational Evidence is not enabled for this department.");
   }
   assertLegacyRecordWriteAllowed({
     productRecordEngine: await departmentUsesCanonicalRecords({
@@ -41,9 +48,6 @@ export async function submitUnitEvidenceAction(input: {
     }),
     writer: "OPERATIONAL_TEMPLATE",
   });
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-
   const record = await submitEvidenceRecord(session, {
     facilityId: input.facilityId,
     departmentId: input.departmentId,

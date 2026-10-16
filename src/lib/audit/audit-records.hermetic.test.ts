@@ -7,7 +7,7 @@ import type { LogExpectationHistorySegment } from "@/lib/canonical-logs/expectat
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 import type { ReviewOtBindingFact, ReviewProfileFact } from "@/lib/operational-review/types";
 
-import { auditOperationalRecords, auditRecordsToCsv, type AuditRecordFact } from "./audit-records";
+import { AuditExpectationUnavailableError, auditOperationalRecords, auditRecordsToCsv, type AuditRecordFact } from "./audit-records";
 import { ASSET_HISTORY_SOURCES } from "./history-boundaries";
 import { resolvePlaceLabel } from "./place-name";
 import { composeOperationalTimingAudit } from "./timing-audit";
@@ -195,6 +195,34 @@ test("September cooler audit uses each day's cadence and location binding", () =
       .filter((slot) => slot.serviceDate === "2026-09-12")
       .map((slot) => [slot.requirementKey, slot.slotState]),
   );
+});
+
+test("formal audit refuses an ambiguous placement day rather than choosing a catalog version", () => {
+  const overlapping = segment({ ...twice, id: "overlap", effectiveFrom: twice.effectiveFrom });
+  assert.throws(() => audit({ segments: [twice, overlapping] }), AuditExpectationUnavailableError);
+  // A different definition remains exportable even when another lineage needs repair.
+  assert.equal(audit({ segments: [twice, overlapping], catalogStableKey: "another_log" }).slots.length, 0);
+});
+
+test("rollback dates derive no canonical requirements and earlier canonical dates keep their slots", () => {
+  const result = audit({
+    fromDateKey: "2026-09-14", toDateKey: "2026-09-16",
+    canonicalServiceDates: ["2026-09-14", "2026-09-16"],
+  });
+  assert.ok(result.slots.some((row) => row.serviceDate === "2026-09-14"));
+  assert.equal(result.slots.some((row) => row.serviceDate === "2026-09-15"), false);
+  assert.ok(result.slots.some((row) => row.serviceDate === "2026-09-16"));
+});
+
+test("asset audit rows identify the cooler and distinguish an untracked current name", () => {
+  const result = audit({
+    fromDateKey: "2026-09-14", toDateKey: "2026-09-14", locationFunctionKey: null,
+    segments: [segment({ id: "asset-check", effectiveFrom: new Date("2026-09-01"), targetKind: "ASSET", assetId: "cooler-1", operationalTypeKey: null })],
+    assets: [{ assetId: "cooler-1", currentLabel: "Walk-in Cooler" }],
+  });
+  assert.equal(result.slots[0].placeLabel, "Walk-in Cooler (current asset name)");
+  assert.equal(result.slots[0].placeLabelCertainty, "CURRENT_LABEL");
+  assert.match(auditRecordsToCsv(result.slots), /Walk-in Cooler/);
 });
 
 test("a closed slot with no Record and no waiver is not complete, and nothing is persisted", () => {

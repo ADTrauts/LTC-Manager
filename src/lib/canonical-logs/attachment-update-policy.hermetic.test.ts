@@ -231,3 +231,13 @@ test("successor ranges do not overlap: old through today, new from tomorrow", ()
     true,
   );
 });
+
+test("a cancelled future placement does not block a later replacement", () => {
+  const cancelled = { fromKey: "2026-10-16", toKey: "2026-10-15" };
+  const replacement = { fromKey: "2026-10-15", toKey: null };
+  assert.equal(attachmentRangesOverlap(cancelled, replacement), false);
+  assert.equal(attachmentRangesOverlap(replacement, cancelled), false);
+  assert.equal(attachmentRangesOverlap(
+    { fromKey: "2026-10-15", toKey: "2026-10-15" }, replacement,
+  ), true);
+});

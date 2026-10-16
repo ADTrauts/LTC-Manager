@@ -4,9 +4,9 @@
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { resolveRecordEngine } from "@/lib/canonical-logs/record-engine-rollout";
 
-import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
-import { catalogPurposeForResolve } from "@/lib/operational-review/review-fact-maps";
+import { catalogPurposeForResolve, mapReviewEvidenceRecords } from "@/lib/operational-review/review-fact-maps";
 import { projectReviewKeyTimeOccurrences } from "@/lib/operational-cycles/cycle-canonical";
 import { selectAuthoritativeLegacyMilestones } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
@@ -33,6 +33,7 @@ import type {
 type Db = PrismaClient | Prisma.TransactionClient;
 
 const ATTACHMENT_INCLUDE = {
+  asset: { select: { name: true } },
   dailyWindows: { orderBy: { displaySequence: "asc" as const } },
   cycleSelections: { orderBy: { displaySequence: "asc" as const } },
   catalogDefinition: {
@@ -59,7 +60,7 @@ export async function loadOperationalReviewDayFacts(input: {
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const serviceDate = facilityLocalDateToServiceDate(input.serviceDate);
 
-  const [facility, departments, spaces] = await Promise.all([
+  const [facility, departments, spaces, rollouts] = await Promise.all([
     input.client.facility.findFirst({
       where: { id: input.facilityId },
       select: { id: true, displayName: true, timezone: true },
@@ -82,6 +83,10 @@ export async function loadOperationalReviewDayFacts(input: {
         unit: { select: { id: true, name: true } },
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    input.client.recordEngineRollout.findMany({
+      where: { facilityId: input.facilityId, ...(input.departmentId ? { departmentId: input.departmentId } : {}) },
+      select: { facilityId: true, departmentId: true, mode: true, effectiveFromServiceDate: true },
     }),
   ]);
 
@@ -387,7 +392,10 @@ export async function loadOperationalReviewDayFacts(input: {
           archetypeIsActive: row.archetype.isActive,
         }));
 
-  const attachmentSegments: ReviewAttachmentSegmentFact[] = attachments.map((row) => ({
+  // Reconstruct the saved authority for that date, even if capability is off today.
+  const attachmentSegments: ReviewAttachmentSegmentFact[] = attachments.filter((row) =>
+    resolveRecordEngine({ capabilityEnabled: true, facilityId: input.facilityId, departmentId: row.departmentId, serviceDate: input.serviceDate, rollouts }) === "CANONICAL",
+  ).map((row) => ({
     id: row.id,
     stableKey: row.stableKey,
     facilityId: row.facilityId,
@@ -407,6 +415,7 @@ export async function loadOperationalReviewDayFacts(input: {
     localInstructions: row.localInstructions,
     targetKind: row.targetKind,
     assetId: row.assetId,
+    targetLabel: row.asset ? `${row.asset.name} (current asset name)` : null,
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
@@ -446,40 +455,7 @@ export async function loadOperationalReviewDayFacts(input: {
     createdAt: row.createdAt,
   }));
 
-  const evidenceRecords: ReviewEvidenceRecordFact[] = evidence.map((row) => {
-    const numeric = row.values.find((value) => value.valueNumber != null);
-    return {
-      id: row.id,
-      requirementKey: row.requirementKey,
-      logRequirementKey: row.logRequirementKey,
-      status: row.status,
-      operationalDateKey: toServiceDateKey(row.operationalDate),
-      catalogVersion: row.templateVersion,
-      valueNumber: numeric?.valueNumber ?? null,
-      unitLabel: null,
-      outOfStandard: row.outOfStandard,
-      inspection: (() => {
-        const score = scoreInspectionSnapshotJson({
-          templateSnapshotJson: row.templateSnapshotJson,
-          values: row.values,
-        });
-        if (!score) return null;
-        return {
-          percentage: score.percentage,
-          outcome: score.outcome,
-          criticalFailureCount: score.criticalFailures.length,
-          exceptionCount: score.exceptions.length,
-        };
-      })(),
-      logAttachmentId: row.logAttachmentId,
-      attachmentStableKey: row.attachmentStableKey,
-      catalogStableKey: row.catalogDefinition?.stableKey ?? null,
-      spaceId: row.spaceId,
-      unitId: row.unitId,
-      occurredAt: row.occurredAt,
-      recordedAt: row.recordedAt,
-    };
-  });
+  const evidenceRecords: ReviewEvidenceRecordFact[] = mapReviewEvidenceRecords(evidence);
 
   const assignmentFacts: ReviewAssignmentFact[] = assignments.map((row) => ({
     id: row.id,

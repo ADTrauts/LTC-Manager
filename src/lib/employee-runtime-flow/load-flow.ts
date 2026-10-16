@@ -23,7 +23,8 @@ import type {
   JobFlowLocationSequence,
   JobFlowScopeSummary,
 } from "@/lib/dietary-job-flow/types";
-import { isCanonicalLogsEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -188,7 +189,12 @@ export async function loadEmployeeRuntimeFlow(
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
   const oaEnabled = isOperationalAssignmentsEnabled();
-  const canonicalLogsEnabled = isCanonicalLogsEnabled();
+  const canonicalLogsEnabled = await departmentUsesCanonicalRecords({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    serviceDate: operationalDateKey,
+    client: prisma,
+  });
 
   const assignments = oaEnabled
     ? await loadFrontlineEmployeeAssignments({

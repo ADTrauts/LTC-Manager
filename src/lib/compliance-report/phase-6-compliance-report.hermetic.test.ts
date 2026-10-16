@@ -61,6 +61,27 @@ const metadata: ComplianceReportMetadata = {
   filters: ["All locations"],
 };
 
+test("checklist workbook and response CSV retain a failed answer after a passing first answer", async () => {
+  const report = composeComplianceReport({ metadata, slots: [slot({
+    serviceDate: "2026-10-15", slotState: "COMPLETE_WITH_CORRECTIVE_ACTION", recordForm: "Checklist",
+    record: { id: "checklist", occurredAt: null, recordedAt: null, recordedByLabel: "Staff", valueNumber: null, valueText: "Yes", outOfStandard: true, correctiveActionText: "Repaired and retested", templateVersion: 2, status: "COMPLETED_WITH_CORRECTIVE_ACTION" },
+    scalarResponses: [
+      { column: "Area ready", value: "Yes", unit: "", outOfStandard: false },
+      { column: "Equipment ready", value: "No", unit: "", outOfStandard: true },
+      { column: "Work notes", value: "Repaired and retested", unit: "", outOfStandard: false },
+    ],
+  })] });
+  assert.equal(report.summary.expected, 1);
+  assert.equal(report.responses.length, 3);
+  assert.match(renderComplianceCsv(report, "responses"), /Equipment ready,No,,false,true/);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await renderComplianceWorkbook(report));
+  const responses = workbook.getWorksheet("Responses")!;
+  assert.equal(responses.rowCount, 4);
+  assert.equal(responses.getRow(3).getCell(6).value, "No");
+  assert.equal(responses.getRow(3).getCell(9).value, true);
+});
+
 test("cooler packet counts scheduled checks without the recheck", async () => {
   const report = composeComplianceReport({
     metadata,
@@ -209,6 +230,10 @@ test("inspection packet reuses the derived 61.5% failure across renderers", asyn
   const response = book.getWorksheet("Responses");
   const texts = response?.getSheetValues().flat().map(String) ?? [];
   assert.ok(texts.includes("N/A"));
+  assert.equal(response?.getCell("H3").value, true);
+  assert.equal(response?.getCell("I4").value, true);
+  assert.equal(response?.getCell("H2").value, false);
+  assert.equal(renderComplianceCsv(audit, "slots").split("\n").length, 2);
   const csv = renderComplianceCsv(audit, "responses");
   assert.match(csv, /61\.5,FAIL/);
   assert.match(csv, /N\/A/);

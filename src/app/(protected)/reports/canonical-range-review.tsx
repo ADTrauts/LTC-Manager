@@ -29,6 +29,7 @@ export function CanonicalRangeReview({
   definition = "",
   locationFunction = "",
   auditSlots = null,
+  auditUnavailable,
   timingRows = null,
   departmentId = "",
 }: {
@@ -41,6 +42,7 @@ export function CanonicalRangeReview({
   definition?: string;
   locationFunction?: string;
   auditSlots?: readonly AuditRecordSlot[] | null;
+  auditUnavailable?: string;
   timingRows?: readonly TimingAuditRow[] | null;
   departmentId?: string | null;
 }) {
@@ -75,6 +77,7 @@ export function CanonicalRangeReview({
       {auditSlots && departmentId ? (
         <AuditRecordsPanel
           slots={auditSlots}
+          unavailable={auditUnavailable}
           departmentId={departmentId}
           exportHref={
             definition

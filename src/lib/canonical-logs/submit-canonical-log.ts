@@ -30,6 +30,7 @@ import {
   type EvidenceMediaStore,
 } from "./evidence-media";
 import { mapTimingModeToScheduleKind } from "./schedule-kind";
+import { resolveRecordUnitContext } from "./record-unit-context";
 import {
   buildCanonicalLogSubmissionSnapshot,
   legacyCompatibleTemplateFields,
@@ -452,6 +453,11 @@ export async function performCanonicalLogSubmission(
   });
   const boundSpaceId =
     target.targetKind === "OPERATIONAL_TYPE" ? input.boundSpaceId?.trim() || null : null;
+  const recordUnitId = await resolveRecordUnitContext(client, {
+    facilityId: input.facilityId,
+    assetId: target.assetId,
+    unitId: target.unitId,
+  });
 
   const scheduleKind = mapTimingModeToScheduleKind(attachment.timingMode);
   const isFollowUp = Boolean(followsRecordId);
@@ -620,7 +626,7 @@ export async function performCanonicalLogSubmission(
         cycleLabel: isFollowUp ? null : (input.cycleLabel ?? null),
         windowStartLocal: isFollowUp ? null : (input.windowStartLocal ?? null),
         windowEndLocal: isFollowUp ? null : (input.windowEndLocal ?? null),
-        unitId: target.unitId,
+        unitId: recordUnitId,
         spaceId: boundSpaceId ?? target.spaceId,
         placeLabelSnapshot: await placeLabelAtSubmission(client, {
           facilityId: input.facilityId,

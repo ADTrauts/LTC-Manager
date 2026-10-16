@@ -40,7 +40,7 @@ export function applyCanonicalLogsNavRewrite<T extends { href: string }>(
   canonicalLogsEnabled: boolean,
   options?: CanonicalLogsNavRewriteOptions,
 ): T[] {
-  if (!canonicalLogsEnabled) return [...items];
+  if (!canonicalLogsEnabled) return items.filter((item) => item.href !== DUE_LOGS_HREF);
 
   const canViewLogBook = options?.canViewLogBook !== false;
   const result: T[] = [];

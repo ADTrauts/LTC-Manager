@@ -11,7 +11,7 @@ import {
 } from "@/lib/canonical-logs/log-operational-type-applicability";
 import { presentRecordForm } from "@/lib/canonical-logs/record-engine";
 import { attachmentLineageKey } from "@/lib/canonical-logs/attachment-update-policy";
-import { selectSegmentForDate, type LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
+import { segmentCoversDate, selectSegmentForDate, type LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
 import {
   resolveLogRequirementsForAttachment,
   type PublishedCycleForLogs,
@@ -48,6 +48,7 @@ export type AuditRecordFact = {
   status: string;
   inspection?: AuditRecordSlot["inspection"];
   repeatResponses?: AuditRecordSlot["repeatResponses"];
+  scalarResponses?: AuditRecordSlot["scalarResponses"];
   corrections: Array<{
     previousValue: string | null;
     reason: string;
@@ -131,6 +132,12 @@ export type AuditRecordSlot = {
       percentage: number | null;
     }>;
   } | null;
+  scalarResponses?: Array<{
+    column: string;
+    value: string;
+    unit: string;
+    outOfStandard: boolean;
+  }>;
   repeatResponses?: Array<{
     group: string;
     row: string;
@@ -152,6 +159,13 @@ export type AuditRecordResult = {
   legacyDates: string[];
 };
 
+export class AuditExpectationUnavailableError extends Error {
+  constructor(serviceDate: string, definitionLabel: string) {
+    super(`Record expectations are unavailable for ${definitionLabel} on ${serviceDate}: placement dates overlap. Review the placement history before exporting.`);
+    this.name = "AuditExpectationUnavailableError";
+  }
+}
+
 export type AuditOperationalRecordsInput = {
   fromDateKey: string;
   toDateKey: string;
@@ -165,12 +179,15 @@ export type AuditOperationalRecordsInput = {
   profiles: readonly ReviewProfileFact[];
   bindings: readonly ReviewOtBindingFact[];
   spaces: readonly AuditSpaceFact[];
+  assets?: readonly { assetId: string; currentLabel: string }[];
   placeNames: readonly PlaceNameChangeFact[];
   records: readonly AuditRecordFact[];
   waivers: readonly AuditWaiverFact[];
   publishedCyclesByDate?: Readonly<Record<string, readonly PublishedCycleForLogs[]>>;
   /** Dates whose expectation came from legacy logs, not LogAttachment segments. */
   legacyLogDates?: readonly string[];
+  /** Persisted rollout authority for the date; the current capability gate does not rewrite history. */
+  canonicalServiceDates?: readonly string[];
 };
 
 function dateKeys(fromKey: string, toKey: string): string[] {
@@ -213,12 +230,19 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
   }
 
   const spaceLabels = new Map(input.spaces.map((space) => [space.spaceId, space.currentLabel]));
+  const assetLabels = new Map(input.assets?.map((asset) => [asset.assetId, asset.currentLabel]));
   const waiverBySegment = new Map(segments.map((row) => [row.id, row.waiverAllowed === true]));
   const slots: AuditRecordSlot[] = [];
   const canonicalDates = new Set<string>();
 
   for (const serviceDate of keys) {
+    if (input.canonicalServiceDates && !input.canonicalServiceDates.includes(serviceDate)) continue;
     for (const group of lineages.values()) {
+      if (input.catalogStableKey && group[0]?.catalogStableKey !== input.catalogStableKey) continue;
+      if (input.locationFunctionKey && group[0]?.operationalTypeKey !== input.locationFunctionKey) continue;
+      if (group.filter((row) => segmentCoversDate(row, serviceDate)).length > 1) {
+        throw new AuditExpectationUnavailableError(serviceDate, group[0]!.catalogDefinition.name);
+      }
       const segment = selectSegmentForDate(group, serviceDate);
       if (!segment) continue;
       if (input.catalogStableKey && segment.catalogStableKey !== input.catalogStableKey) continue;
@@ -274,7 +298,11 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             record,
             waiver,
           });
-          const currentLabel = target.spaceId ? spaceLabels.get(target.spaceId) ?? null : null;
+          const currentLabel = target.spaceId
+            ? spaceLabels.get(target.spaceId) ?? null
+            : segment.assetId
+              ? assetLabels.get(segment.assetId) ?? `Asset ${segment.assetId}`
+              : null;
           const place = currentLabel
             ? resolvePlaceLabel({
                 serviceDateKey: serviceDate,
@@ -302,7 +330,9 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             windowEndLocal: bound.windowEndLocal,
             requirementKey,
             slotState,
-            placeLabel: place?.label ?? null,
+            placeLabel: place?.certainty === "CURRENT_LABEL" && segment.assetId
+              ? `${place.label} (current asset name)`
+              : place?.label ?? null,
             placeLabelCertainty: place?.certainty ?? null,
             record: record
               ? {
@@ -338,6 +368,7 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             source: "CANONICAL_RECORD",
             inspection: record?.inspection ?? null,
             repeatResponses: record?.repeatResponses ?? [],
+            scalarResponses: record?.scalarResponses ?? [],
           });
         }
       }

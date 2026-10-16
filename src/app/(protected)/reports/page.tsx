@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 
 import { loadAuditOperationalRecords } from "@/lib/audit/load-audit-records";
 import { loadOperationalTimingAudit } from "@/lib/audit/load-timing-audit";
-import type { AuditRecordSlot } from "@/lib/audit/audit-records";
+import { AuditExpectationUnavailableError, type AuditRecordSlot } from "@/lib/audit/audit-records";
 import type { TimingAuditRow } from "@/lib/audit/timing-audit";
 import { PageHeader } from "@/components/design-system";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -52,7 +52,7 @@ async function loadRecordAudit(input: {
   toDateKey: string;
   catalogStableKey: string;
   locationFunctionKey: string;
-}): Promise<AuditRecordSlot[] | null> {
+}): Promise<{ slots: AuditRecordSlot[]; unavailable?: string } | null> {
   if (!input.departmentId || !input.catalogStableKey) return null;
   try {
     const result = await loadAuditOperationalRecords(prisma, {
@@ -63,8 +63,9 @@ async function loadRecordAudit(input: {
       catalogStableKey: input.catalogStableKey,
       locationFunctionKey: input.locationFunctionKey || null,
     });
-    return result.slots;
+    return { slots: result.slots };
   } catch (error) {
+    if (error instanceof AuditExpectationUnavailableError) return { slots: [], unavailable: error.message };
     if (typeof error === "object" && error !== null && "code" in error && error.code === "P2021") {
       return null;
     }
@@ -171,7 +172,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         todayKey={loaded.model.todayKey}
         definition={definition}
         locationFunction={locationFunction}
-        auditSlots={auditSlots}
+        auditSlots={auditSlots?.slots}
+        auditUnavailable={auditSlots?.unavailable}
         timingRows={timingRows}
         departmentId={deptNav.activeDepartmentId}
       />
@@ -238,7 +240,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     <CanonicalReview
       definition={definition}
       locationFunction={locationFunction}
-      auditSlots={auditSlots}
+      auditSlots={auditSlots?.slots}
+      auditUnavailable={auditSlots?.unavailable}
       timingRows={timingRows}
       departmentId={deptNav.activeDepartmentId}
       presentation={{

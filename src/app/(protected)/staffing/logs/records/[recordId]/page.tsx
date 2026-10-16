@@ -5,6 +5,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { createIssueFromRecordAction } from "@/app/(protected)/asset-issues/actions";
 import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
+import { resolveAssetOperationsAuthority } from "@/lib/asset-operations/authority";
 import { getSession } from "@/lib/auth";
 import { loadRunLogRecordView } from "@/lib/canonical-logs/load-run-log-record";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
@@ -32,6 +33,11 @@ export default async function CanonicalLogRecordPage({ params, searchParams }: P
     recordId,
   });
   if (!view) notFound();
+  const canCreateIssue =
+    view.canCreateIssue &&
+    hasAtLeastRole(session.role, "SUPERVISOR") &&
+    (await resolveAssetOperationsAuthority(session, session.facilityId, view.departmentId))
+      .canReportIssue;
 
   return (
     <section
@@ -69,18 +75,12 @@ export default async function CanonicalLogRecordPage({ params, searchParams }: P
           {view.isException ? (
             <>
               <p className="font-medium">Complete with corrective action</p>
-              {view.fields[0]?.displayValue ? (
-                <p className="text-xs">{view.fields[0].displayValue} recorded</p>
-              ) : (
-                <p className="text-xs">Your corrective action was recorded.</p>
-              )}
+              <p className="text-xs">{view.completionSummary}</p>
             </>
           ) : (
             <>
               <p className="font-medium">Complete</p>
-              {view.fields[0]?.displayValue ? (
-                <p className="text-xs">{view.fields[0].displayValue} recorded</p>
-              ) : null}
+              <p className="text-xs">{view.completionSummary}</p>
             </>
           )}
         </div>
@@ -202,8 +202,9 @@ export default async function CanonicalLogRecordPage({ params, searchParams }: P
           </p>
         ) : null}
 
-        {view.canCreateIssue && hasAtLeastRole(session.role, "SUPERVISOR") ? (
+        {canCreateIssue ? (
           <form action={createIssueFromRecordAction}>
+            <input type="hidden" name="openCreatedIssue" value="1" />
             <input type="hidden" name="departmentId" value={view.departmentId} />
             <input type="hidden" name="evidenceRecordId" value={view.id} />
             <button
@@ -266,9 +267,23 @@ export default async function CanonicalLogRecordPage({ params, searchParams }: P
           </ul>
         ) : null}
 
+        {view.calculations.length > 0 ? (
+          <section className="space-y-2 text-sm" aria-label="Calculated results" data-testid="record-calculations">
+            <h3 className="font-medium text-zinc-900">Calculated results</h3>
+            <dl className="grid gap-3 sm:grid-cols-3">
+              {view.calculations.map((result) => (
+                <div key={result.calculationKey}>
+                  <dt className="text-zinc-600">{result.label}</dt>
+                  <dd className="font-medium text-zinc-900">{result.display}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
         <ul className="divide-y divide-zinc-100 rounded-md border border-zinc-100">
           {view.fields.map((field) => (
-            <li key={field.label} className="px-3 py-2">
+            <li key={field.valueKey} className="px-3 py-2">
               <p className="text-sm font-medium text-zinc-900">{field.label}</p>
               <p className="text-sm text-zinc-800">{field.displayValue}</p>
               {field.rangeLabel ? (

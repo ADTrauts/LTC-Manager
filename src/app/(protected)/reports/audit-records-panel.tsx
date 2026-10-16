@@ -1,4 +1,5 @@
 import type { AuditRecordSlot } from "@/lib/audit/audit-records";
+import { inspectionOutcomeLabel } from "@/lib/canonical-logs/inspection-score";
 
 import { createRecordWaiverAction } from "./waiver-action";
 import { ReviewCard, ReviewCell, ReviewStatus, ReviewTable, ReviewTableRow } from "./review-layout";
@@ -16,11 +17,16 @@ export function AuditRecordsPanel({
   slots,
   departmentId,
   exportHref,
+  unavailable,
 }: {
   slots: readonly AuditRecordSlot[];
   departmentId: string;
   exportHref?: string | null;
+  unavailable?: string;
 }) {
+  if (unavailable) {
+    return <ReviewCard title="Record audit" testId="record-audit"><p role="alert" className="text-sm text-amber-900">{unavailable}</p></ReviewCard>;
+  }
   const waiveable = slots.filter((slot) => slot.slotState === "NOT_COMPLETE" && slot.waiverAllowed);
   return (
     <ReviewCard
@@ -69,7 +75,9 @@ export function AuditRecordsPanel({
                 <ReviewStatus kind={statusKind(slot.slotState)}>{slot.slotState.replaceAll("_", " ")}</ReviewStatus>
               </ReviewCell>
               <ReviewCell>
-                {slot.record?.valueNumber ?? slot.record?.valueText ?? "—"}
+                {slot.inspection
+                  ? `${slot.inspection.percentage == null ? "—" : `${slot.inspection.percentage}%`} · ${inspectionOutcomeLabel(slot.inspection.outcome as Parameters<typeof inspectionOutcomeLabel>[0])}`
+                  : slot.record?.valueNumber ?? slot.record?.valueText ?? "—"}
                 {slot.record?.outOfStandard ? <span className="mt-1 block text-xs">Out of range</span> : null}
                 {slot.record?.correctiveActionText ? (
                   <span className="mt-1 block text-xs">{slot.record.correctiveActionText}</span>

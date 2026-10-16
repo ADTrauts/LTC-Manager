@@ -103,6 +103,7 @@ export function CanonicalReview({
   definition = "",
   locationFunction = "",
   auditSlots = null,
+  auditUnavailable,
   timingRows = null,
   departmentId = "",
 }: {
@@ -112,6 +113,7 @@ export function CanonicalReview({
   definition?: string;
   locationFunction?: string;
   auditSlots?: readonly AuditRecordSlot[] | null;
+  auditUnavailable?: string;
   timingRows?: readonly TimingAuditRow[] | null;
   departmentId?: string | null;
 }) {
@@ -153,6 +155,7 @@ export function CanonicalReview({
       {auditSlots && departmentId ? (
         <AuditRecordsPanel
           slots={auditSlots}
+          unavailable={auditUnavailable}
           departmentId={departmentId}
           exportHref={
             definition

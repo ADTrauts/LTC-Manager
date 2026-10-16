@@ -3,6 +3,8 @@
  */
 
 import type { LogAttachmentForResolve } from "@/lib/canonical-logs/resolve-log-requirements";
+import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
+import type { EvidenceFieldValueInput } from "@/lib/operational-evidence/types";
 
 import { toServiceDateKey } from "@/lib/operational-time";
 
@@ -15,6 +17,7 @@ import type {
 } from "./types";
 
 export const REVIEW_ATTACHMENT_INCLUDE = {
+  asset: { select: { name: true } },
   dailyWindows: { orderBy: { displaySequence: "asc" as const } },
   cycleSelections: { orderBy: { displaySequence: "asc" as const } },
   catalogDefinition: {
@@ -57,6 +60,7 @@ export function mapReviewAttachmentSegments(
     localInstructions: string | null;
     targetKind: ReviewAttachmentSegmentFact["targetKind"];
     assetId: string | null;
+    asset?: { name: string } | null;
     spaceId: string | null;
     unitId: string | null;
     targetDepartmentId: string | null;
@@ -95,6 +99,7 @@ export function mapReviewAttachmentSegments(
     localInstructions: row.localInstructions,
     targetKind: row.targetKind,
     assetId: row.assetId,
+    targetLabel: row.asset ? `${row.asset.name} (current asset name)` : null,
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
@@ -130,11 +135,15 @@ export function mapReviewEvidenceRecords(
     unitId: string | null;
     occurredAt: Date;
     recordedAt: Date;
-    values: Array<{ valueNumber: number | null; fieldKey: string }>;
+    templateSnapshotJson?: unknown;
+    values: EvidenceFieldValueInput[];
   }>,
 ): ReviewEvidenceRecordFact[] {
   return evidence.map((row) => {
     const numeric = row.values.find((value) => value.valueNumber != null);
+    const score = row.templateSnapshotJson
+      ? scoreInspectionSnapshotJson({ templateSnapshotJson: row.templateSnapshotJson, values: row.values })
+      : null;
     return {
       id: row.id,
       requirementKey: row.requirementKey,
@@ -145,6 +154,14 @@ export function mapReviewEvidenceRecords(
       valueNumber: numeric?.valueNumber ?? null,
       unitLabel: null,
       outOfStandard: row.outOfStandard,
+      inspection: score
+        ? {
+            percentage: score.percentage,
+            outcome: score.outcome,
+            criticalFailureCount: score.criticalFailures.length,
+            exceptionCount: score.exceptions.length,
+          }
+        : null,
       logAttachmentId: row.logAttachmentId,
       attachmentStableKey: row.attachmentStableKey,
       catalogStableKey: row.catalogDefinition?.stableKey ?? null,

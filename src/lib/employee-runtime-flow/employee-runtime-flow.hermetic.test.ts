@@ -744,7 +744,7 @@ test("loader/composer/adapter source contract: shared composer, no ScheduleEntry
   assert.equal(existsSync(leftoverPanel), false);
   assert.match(flowLoadSrc, /composeEmployeeRuntimeFlow/);
   assert.match(flowLoadSrc, /loadRuntimeLocationStates/);
-  assert.match(flowLoadSrc, /isCanonicalLogsEnabled/);
+  assert.match(flowLoadSrc, /departmentUsesCanonicalRecords/);
   assert.match(bundleSrc, /composeEmployeeRuntimeFlow/);
   assert.match(bundleSrc, /serializeEmployeeRuntimeEvidenceContext/);
   assert.match(bundleSrc, /adaptEmployeeRuntimeFlowToJobFlow/);

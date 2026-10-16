@@ -112,7 +112,9 @@ function fakeClient(attachments: ReturnType<typeof attachment>[], records: Retur
   const wheres: unknown[] = [];
   const client = {
     facility: { findUnique: async () => ({ timezone: "UTC" }) },
+    operationalEvidenceAttachment: { findMany: async () => [] },
     logAttachment: {
+      findFirst: async () => null,
       findMany: async ({ where }: { where?: Record<string, unknown> }) => {
         wheres.push(where);
         return attachments.filter((row) => matches(row, where));

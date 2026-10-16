@@ -155,6 +155,8 @@ export function composeOperationalReviewDay(
       anyUnreliableEvidence = true;
       const covering = lineageSegments[0]!;
       occurrences.push({
+        targetLabel: covering.targetLabel,
+        definitionLabel: covering.catalogDefinition.name,
         spaceId: covering.spaceId,
         parentUnitId: covering.unitId,
         requirementKey: `${covering.stableKey}:unavailable`,
@@ -214,6 +216,8 @@ export function composeOperationalReviewDay(
       for (const slot of day.slots) {
         const record = facts.evidenceRecords.find((row) => row.id === slot.recordId) ?? null;
         occurrences.push({
+          targetLabel: reliability.covering.targetLabel,
+          definitionLabel: historical.catalogDefinition.name,
           spaceId,
           parentUnitId: historical.unitId,
           requirementKey: slot.requirementKey,

@@ -58,6 +58,8 @@ export type ReviewLocationEntry = {
 };
 
 export type ReviewEvidenceOccurrence = {
+  targetLabel?: string | null;
+  definitionLabel?: string;
   spaceId: string | null;
   parentUnitId: string | null;
   requirementKey: string;
@@ -299,6 +301,7 @@ export type ReviewSpaceFact = {
 };
 
 export type ReviewAttachmentSegmentFact = LogAttachmentForResolve & {
+  targetLabel?: string | null;
   updatedAt: Date;
   createdAt: Date;
 };

@@ -19,6 +19,16 @@ import type {
 
 const TZ = "America/New_York";
 
+test("asset evidence identifies the cooler and its definition instead of an unassigned room", () => {
+  const presented = presentOperationalReviewDay(model({ evidence: {
+    availability: { status: "evaluated", reason: null },
+    occurrences: [evidence({ requirementKey: "asset-check", state: "completed_with_corrective_action", spaceId: null,
+      targetLabel: "1A Servery Cooler (current asset name)", definitionLabel: "Cooler Temperature Log", slotLabel: "Morning" })],
+  } }));
+  assert.equal(presented.evidence.attention[0].locationLabel, "1A Servery Cooler (current asset name)");
+  assert.equal(presented.evidence.attention[0].requirementLabel, "Cooler Temperature Log · Morning");
+});
+
 function location(): ReviewLocationEntry {
   return {
     spaceId: "space-1",

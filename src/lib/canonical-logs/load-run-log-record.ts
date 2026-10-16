@@ -10,12 +10,14 @@ import { loadEvidenceRecordDetail } from "@/lib/operational-evidence";
 import { toServiceDateKey } from "@/lib/operational-time";
 
 import { evidenceCanCreateIssue } from "./evidence-rules";
-import { scoreInspectionSnapshot, type InspectionScore } from "./inspection-score";
+import { formatInspectionLogBookLine, scoreInspectionSnapshot, type InspectionScore } from "./inspection-score";
 import { formatEvidenceFieldDisplay } from "./evidence-field-display";
 import { parseLogSubmissionSnapshot, type LogSubmissionSnapshotV2 } from "./snapshot";
 import { productStatusFromEvidenceStatus } from "./run-presentation";
 import { formatLocalTime12h } from "./timing-display";
 import { resolveAttachmentTargetLabel } from "./target-labels";
+import { presentRecordValues } from "./record-values";
+import { repeatLogBookSummary, type CalculatedResult } from "./template-structure";
 
 export type RunLogRecordView = {
   id: string;
@@ -35,6 +37,8 @@ export type RunLogRecordView = {
   localInstructions: string | null;
   correctiveActionText: string | null;
   inspection: InspectionScore | null;
+  calculations: CalculatedResult[];
+  completionSummary: string;
   departmentId: string;
   logAttachmentId: string | null;
   assetId: string | null;
@@ -65,6 +69,7 @@ export type RunLogRecordView = {
     createdAtLabel: string;
   }>;
   fields: Array<{
+    valueKey: string;
     fieldKey: string;
     label: string;
     displayValue: string;
@@ -86,20 +91,6 @@ function fieldDisplayValue(value: {
   unitLabel?: string | null;
 }): string {
   return formatEvidenceFieldDisplay(value);
-}
-
-function rangeFromSnapshotField(field: {
-  minNumber: number | null;
-  maxNumber: number | null;
-  unitLabel: string | null;
-}): string | null {
-  if (field.minNumber == null && field.maxNumber == null) return null;
-  const unit = field.unitLabel?.trim() ?? "";
-  if (field.minNumber != null && field.maxNumber != null) {
-    return `${field.minNumber}${unit}–${field.maxNumber}${unit}`;
-  }
-  if (field.minNumber != null) return `≥ ${field.minNumber}${unit}`;
-  return `≤ ${field.maxNumber}${unit}`;
 }
 
 export async function loadRunLogRecordView(input: {
@@ -247,6 +238,9 @@ async function composeRunLogRecordView(input: {
     valueBoolean: boolean | null;
     valueSelections: string[];
     outOfStandard: boolean;
+    groupKey?: string | null;
+    rowKey?: string | null;
+    rowSequence?: number | null;
   }>;
   corrections: Array<{
     id: string;
@@ -303,8 +297,6 @@ async function composeRunLogRecordView(input: {
       : snapshot?.timingContext.cycleLabel ?? "";
 
   const status = productStatusFromEvidenceStatus(stub.status, stub.outOfStandard);
-  const snapFields = snapshot?.catalog.fields ?? [];
-  const fieldByKey = new Map(snapFields.map((f) => [f.fieldKey, f]));
 
   const attachmentRows = await input.client.operationalEvidenceAttachment.findMany({
     where: { facilityId: input.facilityId, recordId: stub.id },
@@ -397,25 +389,19 @@ async function composeRunLogRecordView(input: {
     }
   }
 
-  const fields = [...input.values]
-    .sort((a, b) => {
-      const aSeq = fieldByKey.get(a.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER;
-      const bSeq = fieldByKey.get(b.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER;
-      return aSeq - bSeq;
-    })
-    .map((v) => {
-      const snapField = fieldByKey.get(v.fieldKey);
-      return {
-        fieldKey: v.fieldKey,
-        label: "groupKey" in v && v.groupKey ? `Row ${("rowSequence" in v ? v.rowSequence : "")} · ${v.label}` : v.label,
-        displayValue: fieldDisplayValue({
-          ...v,
-          unitLabel: snapField?.unitLabel ?? null,
-        }),
-        rangeLabel: snapField ? rangeFromSnapshotField(snapField) : null,
-        outOfStandard: v.outOfStandard,
-      };
-    });
+  const answers = presentRecordValues(snapshot?.catalog, input.values);
+  const inspection = scoreInspectionSnapshot({
+    snapshot,
+    values: input.values.filter((value) => !value.groupKey),
+  });
+  const inspectionLine = formatInspectionLogBookLine(inspection);
+  const repeatLine = repeatLogBookSummary({ rowCount: answers.rowCount, exceptionCount: answers.exceptionRowCount });
+  const measurement = input.values.length === 1 && ["TEMPERATURE", "NUMBER"].includes(input.values[0].fieldType);
+  const completionSummary = inspectionLine ? `Inspection recorded · ${inspectionLine}`
+    : repeatLine ? `${repeatLine} recorded`
+      : measurement ? `${answers.fields[0].displayValue} recorded`
+        : snapshot?.catalog.purposeType === "CHECKLIST" ? "Checklist recorded."
+          : "Your responses were recorded.";
 
   return {
     id: stub.id,
@@ -434,18 +420,9 @@ async function composeRunLogRecordView(input: {
     catalogInstructions: snapshot?.catalog.instructions ?? null,
     localInstructions: snapshot?.attachment.localInstructions ?? null,
     correctiveActionText: stub.correctiveActionText,
-    inspection: scoreInspectionSnapshot({
-      snapshot,
-      values: input.values
-        .filter((value) => !("groupKey" in value) || !value.groupKey)
-        .map((value) => ({
-        fieldKey: value.fieldKey,
-        valueText: value.valueText,
-        valueNumber: value.valueNumber,
-        valueBoolean: value.valueBoolean,
-        valueSelections: value.valueSelections,
-      })),
-    }),
+    inspection,
+    calculations: answers.calculations,
+    completionSummary,
     departmentId: stub.departmentId,
     logAttachmentId: stub.logAttachmentId,
     assetId: stub.assetId,
@@ -470,6 +447,6 @@ async function composeRunLogRecordView(input: {
       uploadedByLabel: row.uploadedByLabel,
       createdAtLabel: row.createdAt.toLocaleString(),
     })),
-    fields,
+    fields: answers.fields,
   };
 }

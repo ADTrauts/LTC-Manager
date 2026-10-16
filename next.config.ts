@@ -25,6 +25,12 @@ const CONTENT_SECURITY_POLICY = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // PDFKit loads standard fonts through package imports at runtime. Keep its
+  // Node package boundary and include those dynamically loaded modules in Vercel.
+  serverExternalPackages: ["pdfkit"],
+  outputFileTracingIncludes: {
+    "/reports/export": ["./node_modules/pdfkit/js/standard-fonts/*.cjs"],
+  },
   // VERIFY/browser gates may set NEXT_DIST_DIR to isolate from concurrent `.next` wipes.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {

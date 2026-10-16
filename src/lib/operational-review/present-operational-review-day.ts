@@ -372,8 +372,8 @@ function presentEvidence(
   return {
     requirementKey: row.requirementKey,
     spaceId: row.spaceId,
-    locationLabel: locationLabelFor(row.spaceId, locations),
-    requirementLabel: row.slotLabel.trim() || humanizeKey(row.catalogStableKey),
+    locationLabel: row.targetLabel ?? locationLabelFor(row.spaceId, locations),
+    requirementLabel: [row.definitionLabel, row.slotLabel.trim()].filter(Boolean).join(" · ") || humanizeKey(row.catalogStableKey),
     windowLabel:
       row.windowStartLocal && row.windowEndLocal
         ? `${formatClock(row.windowStartLocal)}–${formatClock(row.windowEndLocal)}`

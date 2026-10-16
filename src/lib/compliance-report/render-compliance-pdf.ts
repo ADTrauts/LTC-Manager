@@ -79,6 +79,11 @@ export async function renderCompliancePdf(
         doc.text(`  ${mark}  ${question.field}: ${question.response}`);
       }
     }
+    if (!slot.inspection) {
+      for (const answer of slot.scalarResponses ?? []) {
+        doc.text(`  ${answer.column}: ${answer.value}${answer.unit ? ` ${answer.unit}` : ""}${answer.outOfStandard ? " · Out of standard" : ""}`);
+      }
+    }
     for (const repeat of slot.repeatResponses ?? []) {
       const mark = repeat.outOfStandard ? "Out of standard" : "In standard";
       const rowLabel = repeat.row ? ` ${repeat.row}` : "";

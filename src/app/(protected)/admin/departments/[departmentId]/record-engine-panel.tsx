@@ -3,6 +3,9 @@ import type { FacilitySession } from "@/lib/auth";
 import { evaluateCanonicalCutoverReadiness, evaluatePilotAcceptanceReadiness, resolveRecordEngine } from "@/lib/canonical-logs/record-engine-rollout";
 import { listRecordEngineRollouts } from "@/lib/canonical-logs/record-engine-store";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { segmentCoversDate } from "@/lib/canonical-logs/expectation-history";
+import { groupAttachmentLineages } from "@/lib/operational-review/historical-attachment";
+import { mapReviewAttachmentSegments, REVIEW_ATTACHMENT_INCLUDE } from "@/lib/operational-review/review-fact-maps";
 import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -25,15 +28,13 @@ export async function RecordEnginePanel(props: {
     serviceDate: todayKey,
     rollouts,
   });
-  const activeAttachmentCount = await prisma.logAttachment.count({
-    where: { facilityId: props.facilityId, departmentId: props.departmentId, status: "ACTIVE" },
+  const history = await prisma.logAttachment.findMany({
+    where: { facilityId: props.facilityId, departmentId: props.departmentId },
+    include: REVIEW_ATTACHMENT_INCLUDE,
   });
-  const attachments = await prisma.logAttachment.findMany({
-    where: { facilityId: props.facilityId, departmentId: props.departmentId, status: "ACTIVE" },
-    select: {
-      catalogDefinition: { select: { name: true, purposeType: true, repeatingGroupsJson: true } },
-    },
-  });
+  const attachments = history.filter((row) => row.status === "ACTIVE" && segmentCoversDate(row, todayKey));
+  const overlappingLineages = [...groupAttachmentLineages(mapReviewAttachmentSegments(history)).values()]
+    .filter((segments) => segments.filter((row) => segmentCoversDate(row, todayKey)).length > 1).length;
   const names = attachments.map((row) => row.catalogDefinition.name.toLowerCase());
   const placed = {
     cooler: names.some((name) => name.includes("cooler") || name.includes("temperature")),
@@ -58,8 +59,8 @@ export async function RecordEnginePanel(props: {
     departmentExists: true,
     effectiveFromServiceDate: todayKey,
     todayKey,
-    activeAttachmentCount,
-    attachmentSetupErrorCount: 0,
+    activeAttachmentCount: attachments.length,
+    attachmentSetupErrorCount: overlappingLineages,
     pmUsesOperationalTemplate: true,
   });
   const pilot = evaluatePilotAcceptanceReadiness({

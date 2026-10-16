@@ -411,6 +411,9 @@ export async function updateLogAttachment(
   }
   const existingFromKey = effectiveFromKeyFromDate(existing.effectiveFrom);
   const existingToKey = existing.effectiveTo ? effectiveFromKeyFromDate(existing.effectiveTo) : null;
+  if (input.effectiveFromKey && input.effectiveFromKey !== existingFromKey && existingFromKey <= todayKey) {
+    throw new Error("An effective Log's start date cannot be changed. Create a prospective successor instead.");
+  }
 
   if (existing.status !== "ACTIVE" && existingToKey && input.status !== "ACTIVE") {
     throw new Error("This Attachment segment is closed. Edit the current configuration.");
@@ -592,6 +595,34 @@ export async function updateLogAttachment(
     }
 
     const nextStatus = input.status ?? existing.status;
+    // Future configuration may move in place, but must obey the same inclusive
+    // interval rule as a new placement. Closed segments still own their dates.
+    if (input.effectiveFromKey || input.target || departmentId !== existing.departmentId) {
+      const sameTarget = await tx.logAttachment.findMany({
+        where: {
+          id: { not: existing.id },
+          facilityId: input.facilityId,
+          catalogStableKey,
+          targetKind,
+          assetId,
+          spaceId,
+          unitId,
+          targetDepartmentId,
+          operationalTypeKey,
+          ...(targetKind === "OPERATIONAL_TYPE" ? { departmentId } : {}),
+        },
+        select: { effectiveFrom: true, effectiveTo: true },
+      });
+      if (sameTarget.some((row) => attachmentRangesOverlap(
+        {
+          fromKey: toServiceDateKey(row.effectiveFrom),
+          toKey: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
+        },
+        { fromKey: input.effectiveFromKey ?? existingFromKey, toKey: existingToKey },
+      ))) {
+        throw new Error("Another Log placement already covers these service dates on this target.");
+      }
+    }
     const timingChanged =
       existingSnap.timingMode !== nextSnap.timingMode ||
       JSON.stringify(existingSnap.dailyWindows) !== JSON.stringify(nextSnap.dailyWindows) ||

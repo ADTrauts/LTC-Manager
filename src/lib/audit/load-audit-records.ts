@@ -9,6 +9,9 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { serializeEvidenceFieldForCsv, formatEvidenceFieldDisplay } from "@/lib/canonical-logs/evidence-field-display";
 import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
 import { parseLogSubmissionSnapshot } from "@/lib/canonical-logs/snapshot";
+import { projectScalarRecordResponses } from "@/lib/canonical-logs/record-values";
+import { resolveRecordEngine } from "@/lib/canonical-logs/record-engine-rollout";
+import { enumerateServiceDateKeys } from "@/lib/canonical-logs/expectation-history";
 import { parseRepeatingGroups, evaluateCalculations, parseCalculations, type RepeatRowInput } from "@/lib/canonical-logs/template-structure";
 import { mapReviewAttachmentSegments } from "@/lib/operational-review/review-fact-maps";
 import {
@@ -44,7 +47,7 @@ export async function loadAuditOperationalRecords(
   const startDate = facilityLocalDateToServiceDate(input.fromDateKey);
   const endExclusive = facilityLocalDateToServiceDate(shiftDate(input.toDateKey, 1));
 
-  const [profiles, attachments, records, waivers, placeNames, spaces] = await Promise.all([
+  const [profiles, attachments, records, waivers, placeNames, spaces, rollouts] = await Promise.all([
     client.departmentOperationalProfile.findMany({
       where: {
         facilityId: input.facilityId,
@@ -66,6 +69,7 @@ export async function loadAuditOperationalRecords(
         dailyWindows: { orderBy: { displaySequence: "asc" } },
         cycleSelections: { orderBy: { displaySequence: "asc" } },
         catalogDefinition: { include: { fields: { orderBy: { displaySequence: "asc" } } } },
+        asset: { select: { id: true, name: true } },
       },
     }),
     client.operationalEvidenceRecord.findMany({
@@ -92,6 +96,10 @@ export async function loadAuditOperationalRecords(
     client.unitSpace.findMany({
       where: { facilityId: input.facilityId },
       select: { id: true, name: true },
+    }),
+    client.recordEngineRollout.findMany({
+      where: { facilityId: input.facilityId, departmentId: input.departmentId },
+      select: { facilityId: true, departmentId: true, mode: true, effectiveFromServiceDate: true },
     }),
   ]);
 
@@ -140,6 +148,7 @@ export async function loadAuditOperationalRecords(
       valueText: scalar?.valueText ?? (csvValue || null),
       correctiveActionText: row.correctiveActionText,
       inspection: inspectionExport(row.templateSnapshotJson, row.values),
+      scalarResponses: projectScalarRecordResponses(parseLogSubmissionSnapshot(row.templateSnapshotJson)?.catalog, row.values),
       repeatResponses: projectRepeatResponses(row.templateSnapshotJson, row.values),
       occurredAt: row.occurredAt?.toISOString() ?? null,
       recordedAt: row.recordedAt?.toISOString() ?? null,
@@ -156,6 +165,9 @@ export async function loadAuditOperationalRecords(
   });
 
   return auditOperationalRecords({
+    canonicalServiceDates: enumerateServiceDateKeys(input.fromDateKey, input.toDateKey).filter((serviceDate) =>
+      resolveRecordEngine({ capabilityEnabled: true, facilityId: input.facilityId, departmentId: input.departmentId, serviceDate, rollouts }) === "CANONICAL",
+    ),
     fromDateKey: input.fromDateKey,
     toDateKey: input.toDateKey,
     todayKey,
@@ -177,6 +189,7 @@ export async function loadAuditOperationalRecords(
       archetypeIsActive: row.archetype.isActive,
     })),
     spaces: spaces.map((space) => ({ spaceId: space.id, currentLabel: space.name })),
+    assets: attachments.flatMap((row) => row.asset ? [{ assetId: row.asset.id, currentLabel: row.asset.name }] : []),
     placeNames: placeFacts,
     records: recordFacts,
     waivers: waivers.map((row) => ({

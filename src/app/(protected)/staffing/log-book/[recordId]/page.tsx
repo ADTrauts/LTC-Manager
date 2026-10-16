@@ -8,6 +8,7 @@ import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { loadEvidenceRecordDetail } from "@/lib/operational-evidence";
 import { toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -24,7 +25,10 @@ export default async function EvidenceLogBookRecordPage({
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) redirect("/workspace");
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  if (!isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey)) {
+  if (
+    !isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey) &&
+    !isCanonicalLogsEnabled()
+  ) {
     redirect("/staffing");
   }
 
@@ -54,6 +58,9 @@ export default async function EvidenceLogBookRecordPage({
       : {};
   const isCanonical =
     snapshotRaw.kind === "CANONICAL_LOG" || snapshotRaw.snapshotSchemaVersion === 2;
+  if (isCanonical) {
+    redirect(`/staffing/logs/records/${record.id}`);
+  }
   const snapshot = snapshotRaw as { name?: string; version?: number; instructions?: string };
 
   return (
@@ -63,25 +70,13 @@ export default async function EvidenceLogBookRecordPage({
     >
       <PageHeader
         title={record.templateName}
-        subtitle={
-          isCanonical
-            ? `Log record · Catalog version ${record.templateVersion}`
-            : `Version ${record.templateVersion} · ${record.purposeType}`
-        }
+        subtitle={`Version ${record.templateVersion} · ${record.purposeType}`}
         compact
         actions={
           <div className="flex gap-3 text-sm print:hidden">
             <Link href="/staffing/log-book" className="underline-offset-2 hover:underline">
               Back to Log Book
             </Link>
-            {isCanonical ? (
-              <Link
-                href={`/staffing/logs/records/${record.id}`}
-                className="underline-offset-2 hover:underline"
-              >
-                Canonical view
-              </Link>
-            ) : null}
             <span className="text-zinc-500">Use browser Print for printable view</span>
           </div>
         }

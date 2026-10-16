@@ -1,4 +1,5 @@
 import { loadAuditOperationalRecords } from "@/lib/audit/load-audit-records";
+import { AuditExpectationUnavailableError } from "@/lib/audit/audit-records";
 import { complianceReportAccessDecision } from "@/lib/compliance-report/authorize-compliance-report";
 import { complianceReportDayCount, composeComplianceReport } from "@/lib/compliance-report/compose-compliance-report";
 import { renderComplianceCsv } from "@/lib/compliance-report/render-compliance-csv";
@@ -65,18 +66,24 @@ export async function GET(request: Request): Promise<Response> {
   });
   const timezone = await loadFacilityTimezone(prisma, session.facilityId);
   const locationFunction = url.searchParams.get("locationFunction");
-  const loaded = await Promise.all(
-    access.departmentIds.map((departmentId) =>
-      loadAuditOperationalRecords(prisma, {
-        facilityId: session.facilityId,
-        departmentId,
-        fromDateKey: from,
-        toDateKey: to,
-        catalogStableKey: definition,
-        locationFunctionKey: locationFunction,
-      }),
-    ),
-  );
+  let loaded: Awaited<ReturnType<typeof loadAuditOperationalRecords>>[];
+  try {
+    loaded = await Promise.all(
+      access.departmentIds.map((departmentId) =>
+        loadAuditOperationalRecords(prisma, {
+          facilityId: session.facilityId,
+          departmentId,
+          fromDateKey: from,
+          toDateKey: to,
+          catalogStableKey: definition,
+          locationFunctionKey: locationFunction,
+        }),
+      ),
+    );
+  } catch (error) {
+    if (error instanceof AuditExpectationUnavailableError) return new Response(error.message, { status: 409 });
+    throw error;
+  }
   const slots = loaded.flatMap((result) => result.slots);
   const recordIds = slots.map((slot) => slot.record?.id).filter((id): id is string => Boolean(id));
   const [attachmentRows, issueRows] = await Promise.all([
