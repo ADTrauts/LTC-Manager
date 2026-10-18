@@ -26,6 +26,10 @@
   --run-surface: #e8f4f2;
   --run-surface-strong: #d5f5f0;
   --run-border: #99d5cc;
+  /* Header stays Harbor teal, at a much lower intensity than the sidebar wash. */
+  --run-header: #f7fbfa;
+  --run-header-strong: #f1f7f6;
+  --run-header-border: #d7e8e4;
   --run-aside: #0b3d3a;
   --run-aside-fg: #e7f7f4;
   --run-aside-muted: #9ecac3;
@@ -292,18 +296,19 @@ body:has([data-shell-root]) {
 /**
  * Locked product-mode chrome accents.
  *
- * RUN = Harbor teal (operate today).
+ * RUN = Harbor teal (operate today). The header is a quiet wash; the sidebar
+ * keeps the stronger surface so the mode still reads as green.
  * BUILD = orange (configure operations).
  * Driven from data-product-mode on ShellModeFrame; color reinforces visible labels.
  */
 [data-product-mode="RUN"] [data-shell-region="header"] {
-  background-color: var(--run-surface);
-  border-bottom-color: var(--run-border);
+  background-color: var(--run-header);
+  border-bottom-color: var(--run-header-border);
 }
 
 [data-product-mode="RUN"] [data-shell-region="mode-indicator"] {
-  background-color: var(--run-surface-strong);
-  border-bottom-color: var(--run-border);
+  background-color: var(--run-header-strong);
+  border-bottom-color: var(--run-header-border);
 }
 
 [data-product-mode="RUN"] [data-shell-region="sidebar"] {
