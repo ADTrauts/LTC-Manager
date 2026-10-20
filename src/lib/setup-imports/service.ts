@@ -127,7 +127,7 @@ export async function confirmImport(db: PrismaClient, session: FacilitySession, 
           assertReview(review,await liveActor(tx,session,session.facilityId,review.dataset));
           await append(tx,batch.id,row,outcome.status,outcome.message,outcome.targetIds,hash({ plan: review.planDigest, confirmedAccount: row.requiresAccountConfirmation ? row.row : null }));
           await tx.setupImportBatch.update({ where: { id: batch.id }, data: { leaseExpiresAt: new Date(Date.now()+60_000) } });
-        },{ timeout: 25_000, maxWait: 30_000 });
+        },{ timeout: 25_000, maxWait: 30_000, diagnostics: { batchId: batch.id, row: row.row, stage: "row_execution" } });
       } catch (error) {
         const failure = error as { code?: unknown; meta?: { code?: unknown } } | null;
         await trackEvent("onboarding.import.row_error", { batchId: batch.id, row: row.row,

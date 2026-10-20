@@ -70,3 +70,25 @@ test("persistent raw-lock rollback still stops at five attempts", async () => {
   await assert.rejects(() => importTransaction(db, async () => "never", options), e => e === error);
   assert.equal(attempts, 5);
 });
+
+test("scoped retry diagnostics count transactions that fail before the domain callback", async () => {
+  let attempts = 0, callbacks = 0;
+  const events: Array<{ event: string; payload: Record<string, unknown> }> = [];
+  const originalInfo = console.info;
+  const db = { $transaction: async (work: (tx: unknown) => Promise<void>) => {
+    attempts++;
+    if (attempts === 1) throw conflict();
+    return work({ $executeRaw: async () => 0 });
+  } } as unknown as PrismaClient;
+  try {
+    console.info = (value: unknown) => { events.push(JSON.parse(String(value))); originalInfo(value); };
+    await assert.rejects(() => importTransaction(db, async () => { callbacks++; throw conflict(); }, {
+      ...options, diagnostics: { batchId: "scoped-test-batch", row: 2, stage: "row_execution" },
+    }), e => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2034");
+  } finally { console.info = originalInfo; }
+  assert.equal(attempts, 5);
+  assert.equal(callbacks, 4);
+  assert.deepEqual(events.map(e => e.payload.attempt), [1, 2, 3, 4]);
+  assert.ok(events.every(e => e.event === "onboarding.import.transaction_retry"
+    && e.payload.batchId === "scoped-test-batch" && e.payload.row === 2 && e.payload.stage === "row_execution"));
+});

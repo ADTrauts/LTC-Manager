@@ -17,8 +17,9 @@ export function confirmedRollback(error: unknown): boolean {
 export async function importTransaction<T>(
   db: PrismaClient,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
-  options: { timeout: number; maxWait: number },
+  options: { timeout: number; maxWait: number; diagnostics?: { batchId: string; row: number; stage: "row_execution" } },
 ): Promise<T> {
+  const { diagnostics, ...transactionOptions } = options;
   for (let attempt = 0; ; attempt++) {
     try {
       return await db.$transaction(async tx => {
@@ -29,12 +30,12 @@ export async function importTransaction<T>(
         // a plan preference, never an isolation/concurrency/authorization change.
         await tx.$executeRaw`SET LOCAL enable_seqscan = off`;
         return work(tx);
-      }, { ...options, isolationLevel: "Serializable" });
+      }, { ...transactionOptions, isolationLevel: "Serializable" });
     } catch (error) {
       // Prisma extensions/bundles can carry a different constructor instance.
       // The known-request code identifies a rollback; arbitrary errors do not.
       if (!confirmedRollback(error) || attempt >= 4) throw error;
-      await trackEvent("onboarding.import.transaction_retry", { attempt: attempt + 1, code: (error as { code: string }).code });
+      await trackEvent("onboarding.import.transaction_retry", { ...diagnostics, attempt: attempt + 1, code: (error as { code: string }).code });
       await new Promise(resolve => setTimeout(resolve, 50 * 3 ** attempt + Math.floor(Math.random() * 100)));
     }
   }

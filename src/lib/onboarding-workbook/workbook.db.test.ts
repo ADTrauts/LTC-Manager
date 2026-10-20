@@ -103,8 +103,21 @@ test("SQL workbook: repeatedly failed early rows cannot starve unattempted work 
  const total=(counts:Record<string,number>)=>Object.values(counts).reduce((a,b)=>a+b,0);
  const first=await f.confirm(p,bytes,[],faulty);
  assert.equal(first.rows.filter(r=>r.status==="failed").length,25);assert.equal(first.rows[25]!.status,"unknown");assert.equal(total(await counters()),25);
- const second=await f.confirm(p,undefined,[],faulty),childId=second.rows[25]!.childBatchId!;
- assert.equal(second.rows[25]!.status,"failed");assert.equal(rollbackAttempts,5);assert.equal(second.mapping["workforce:p26"],undefined);assert.equal(total(await counters()),50);
+ // Count actual row transactions, including serialization failures before the
+ // Employee.create callback. Keep exact five-attempt proof, not a weaker bound.
+ const retries:Array<{batchId:string;attempt:number;stage:string}>=[],originalInfo=console.info;
+ let second:Awaited<ReturnType<typeof f.confirm>>;
+ try{
+   console.info=(...args:unknown[])=>{
+     try{const event=JSON.parse(String(args[0]));if(event.event==="onboarding.import.transaction_retry")retries.push(event.payload);}catch{/* Preserve non-JSON diagnostics. */}
+     originalInfo(...args);
+   };
+   second=await f.confirm(p,undefined,[],faulty);
+ }finally{console.info=originalInfo;}
+ const childId=second.rows[25]!.childBatchId!;
+ const rowRetries=retries.filter(r=>r.batchId===childId&&r.stage==="row_execution");
+ assert.deepEqual(rowRetries.map(r=>r.attempt),[1,2,3,4]);assert.equal(rowRetries.length+1,5);
+ assert.equal(second.rows[25]!.status,"failed");assert.equal(second.mapping["workforce:p26"],undefined);assert.equal(total(await counters()),50);
  assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:{startsWith:"success-"}}}),0);
  assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"failed"}}),1);
  const third=await f.confirm(p,undefined,[],faulty);
