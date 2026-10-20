@@ -47,7 +47,7 @@ test("projection — department only", () => {
   assert.equal(departmentDisplayLabel(p.department), "Dietary");
   assert.equal(
     departmentDisplayLabel({ id: "p1", name: "Plant Operations", key: "PLANT" }),
-    "Not assigned",
+    "Plant Operations",
   );
   assert.equal(responsibleOrganizationDisplayLabel(p.responsibleOrganization), "Not assigned");
   assert.equal(preferredRepairProviderDisplayLabel(p.preferredRepairProvider), "No preferred vendor");

@@ -157,6 +157,7 @@ export function assertDisposableDatabaseUrl(url: string | undefined | null): {
  * receive the shared VERIFY_DATABASE_URL).
  */
 export const SQL_BACKED_DATABASE_ENV_KEYS = [
+  "ONBOARDING_TEST_DATABASE_URL",
   "AUTH_RATE_LIMIT_TEST_DATABASE_URL",
   "SERVERY_MILESTONE_TEST_DATABASE_URL",
   "SESSION_REVOCATION_TEST_DATABASE_URL",

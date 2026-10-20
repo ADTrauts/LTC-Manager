@@ -521,7 +521,7 @@ describe("Projection pipeline — focused stages", () => {
     const production = snapshot.experiences.find(
       (experience) => experience.reference.experienceKey === "PRODUCTION",
     );
-    assert.ok(production);
+    assert.ok(production, JSON.stringify(snapshot.diagnostics));
     assert.deepEqual(production.provenance, ["ROOM_EXCEPTION"]);
     assert.deepEqual(production.configurationByLocation["loc:servery"], {
       localMode: "servery",

@@ -43,6 +43,8 @@ export async function startBillingCheckoutAction(
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
+  if (formData.get("expectedFacilityId") && formData.get("expectedFacilityId") !== session.facilityId) return { error: "Facility changed. Reload setup before purchasing." };
+
   const parsed = checkoutSchema.safeParse({
     departmentKeys: formData.getAll("departmentKey").map(String),
     interval: formData.get("interval"),
@@ -66,11 +68,15 @@ export async function startBillingCheckoutAction(
     return { error: "Facility not found." };
   }
 
-  if (
-    facility.billing?.stripeSubscriptionId &&
-    (facility.billing.status === "ACTIVE" || facility.billing.status === "PAST_DUE")
-  ) {
-    return { error: "This facility already has a subscription. Use Manage billing to update payment." };
+  if (facility.billing?.stripeSubscriptionId) {
+    try {
+      const current = await getStripeServerClient().subscriptions.retrieve(facility.billing.stripeSubscriptionId);
+      if (current.status !== "canceled" && current.status !== "incomplete_expired") {
+        return { error: "This facility already has a subscription. Use Manage billing to resolve payment or resume it before purchasing departments." };
+      }
+    } catch {
+      return { error: "Could not verify the existing subscription. Retry synchronization before starting another checkout." };
+    }
   }
 
   let publishedKeys: string[];
@@ -155,6 +161,8 @@ export async function addBillingDepartmentsAction(
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
+  if (formData.get("expectedFacilityId") && formData.get("expectedFacilityId") !== session.facilityId) return { error: "Facility changed. Reload setup before purchasing." };
+
   let departmentKeys: string[];
   try {
     departmentKeys = resolvePublishedDepartmentProductKeys(formData.getAll("departmentKey").map(String));
@@ -171,6 +179,7 @@ export async function addBillingDepartmentsAction(
       departmentKeysToAdd: departmentKeys,
     });
     const returnTo = formData.get("returnTo");
+    if (returnTo === "setup") redirect("/setup?checkout=updated");
     if (returnTo === "departments") {
       redirect("/admin/departments");
     }

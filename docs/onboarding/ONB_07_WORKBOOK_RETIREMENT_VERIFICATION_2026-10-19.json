@@ -1,0 +1,404 @@
+{
+  "date": "2026-10-19",
+  "scope": "ONB-07 R07-01A, user-approved D23 retirement only",
+  "head": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "onb07": "INCOMPLETE; no actual pilot acceptance",
+  "sourceFingerprint": {
+    "manifest": {
+      "path": "tmp/onb07-r07a-retirement/source-fingerprints.json",
+      "sha256": "83cd22243d83cdb0722e96ce5e19d390f34f22ea669f382026a2c337dd8c4bfc"
+    },
+    "combinedSha256": "9aeec76e3ffe1ec3ce5d79b0fb0a6eaf88e6155817789bc3ffbf851d864b5a96"
+  },
+  "owners": {
+    "src/lib/onboarding-workbook/planning.ts": {
+      "initialSha256": "4cb7297bbe6c60a3a6d0b2bd654717c7182f6fe1a5d5919f74a5e0cc288048af",
+      "currentSha256": "60abec241c91998b1dc9addf3bd06c3c17683d6ff710aa59cd4555876235355c",
+      "changedThisFollowup": true
+    },
+    "src/lib/onboarding-workbook/service.ts": {
+      "initialSha256": "93b2b9f84d73a37d3254e61d1035d8d293fd2bd28a6aa2da50fe859b6a95d411",
+      "currentSha256": "d75a35b2d8889619415e151a9816c1de562d2a59af458707ed4806e056db3071",
+      "changedThisFollowup": true
+    },
+    "src/lib/onboarding-workbook/workbook.hermetic.test.ts": {
+      "initialSha256": "38107131690c37b13ae62932e37660db57902261b217b2ebba874c3b75043b46",
+      "currentSha256": "aad014beabd48b8d498c88d9a70e5a48d9bf5b739a27a04a49f6dd718bebc6ba",
+      "changedThisFollowup": true
+    },
+    "src/lib/onboarding-workbook/workbook.db.test.ts": {
+      "initialSha256": "21258f70255532c2c27c06193809815d631ba07d47f926a966bef07d91e6105b",
+      "currentSha256": "b34cefe03ea6cd4e5d97d954806a2d2f54eea2866bf5974092d76c1d7d33a073",
+      "changedThisFollowup": true
+    },
+    "src/lib/setup-imports/service.ts": {
+      "initialSha256": "513ebc67040105c1fc703366b2fcb9ab4e54ed86cc1e8ebec0f57377bc482ce2",
+      "currentSha256": "513ebc67040105c1fc703366b2fcb9ab4e54ed86cc1e8ebec0f57377bc482ce2",
+      "changedThisFollowup": false
+    },
+    "src/lib/setup-imports/catalog.ts": {
+      "initialSha256": "9472ec785d99a2c7125de5c31b9fa66b772c489988603d1ee74df66fc82edcce",
+      "currentSha256": "9472ec785d99a2c7125de5c31b9fa66b772c489988603d1ee74df66fc82edcce",
+      "changedThisFollowup": false
+    },
+    "src/lib/setup-imports/authority.ts": {
+      "initialSha256": "31279a3e6ee858b3ad62a22d9e1f5353cb809278655c5aef4c601917480b9387",
+      "currentSha256": "31279a3e6ee858b3ad62a22d9e1f5353cb809278655c5aef4c601917480b9387",
+      "changedThisFollowup": false
+    },
+    "src/lib/setup-imports/transaction.ts": {
+      "initialSha256": "2384289a71d6cff997704f7f006ca458c2ec2775a664efe553a0e551af7ccf57",
+      "currentSha256": "2384289a71d6cff997704f7f006ca458c2ec2775a664efe553a0e551af7ccf57",
+      "changedThisFollowup": false
+    },
+    "src/components/onboarding-workbook-workspace.tsx": {
+      "initialSha256": "898491ab0c60338ca5831aeb34d9418ae59cb9f05ff71851d6eb6fe4f6a19a2f",
+      "currentSha256": "898491ab0c60338ca5831aeb34d9418ae59cb9f05ff71851d6eb6fe4f6a19a2f",
+      "changedThisFollowup": false
+    },
+    "tests/workbook-browser/workbook.spec.ts": {
+      "initialSha256": "50c01dbe1acd4b5e1bb649b33ec868eab868f1f7827e9dcdb843ff420b58f134",
+      "currentSha256": "50c01dbe1acd4b5e1bb649b33ec868eab868f1f7827e9dcdb843ff420b58f134",
+      "changedThisFollowup": false
+    }
+  },
+  "environment": {
+    "node": "24.19.0",
+    "postgresql": "14.18",
+    "databasePort": 55471,
+    "integratedTarget": "ltc_ci_onb07_r07a_retirement_final_20261019",
+    "browserTarget": "ltc_ci_onb07_followup_offline",
+    "browserPort": 55529,
+    "providers": "Stripe/mail/Blob credentials blank; synthetic isolated data only; signup disabled/unmodified",
+    "concurrency": "Normal default cross-file concurrency; five rollback attempts and 25 attempted rows unchanged",
+    "sleep": "caffeinate inhibits idle sleep without changing leases or system preferences"
+  },
+  "verification": [
+    {
+      "check": "Focused workbook contract/planner",
+      "status": "run",
+      "result": "PASS",
+      "totals": {
+        "tests": 13,
+        "pass": 13,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/hermetic-final.log",
+        "sha256": "3f13c97b8d13fcd6568716c0a0a26b4e00bf8843f0343a46acd18a4a3ff85bba"
+      }
+    },
+    {
+      "check": "Representative workbook/CSV/service concurrency",
+      "status": "run",
+      "result": "PASS",
+      "totals": {
+        "tests": 60,
+        "pass": 59,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/representative-final.log",
+        "sha256": "2e62cc07dc5ccf3d8588f1aa86a6f85c02905c98f6b0810c013fab7cb85a6811"
+      }
+    },
+    {
+      "check": "Required integrated database gate",
+      "status": "run",
+      "result": "PASS",
+      "totals": {
+        "tests": 3691,
+        "pass": 3684,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7
+      },
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/integrated-final.log",
+        "sha256": "758b768d00fb908dbb1c6b8ccacdcb0e503fdafb95efe2dd92606e7006ffdbcc"
+      }
+    },
+    {
+      "check": "Changed workbook desktop/tablet browser",
+      "status": "run",
+      "report": {
+        "path": "tmp/onb07-r07a-retirement/browser/results.json",
+        "sha256": "809123dd16f214fa9115b7962225498a040cf5848fb071a7ccd6e4ab21d859fb"
+      },
+      "stats": {
+        "startTime": "2026-10-19T22:53:37.365Z",
+        "duration": 73997.682,
+        "expected": 8,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "check": "Production build including TypeScript",
+      "status": "run",
+      "result": "PASS",
+      "buildId": "5S9jh0r0wyAcpcoCpYyXY",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/build.log",
+        "sha256": "65700fb41df2a5259ea28d9882b8757d17d802fd39beec3aac91c52c94adbfd1"
+      }
+    },
+    {
+      "check": "Four changed source/test files lint",
+      "status": "run",
+      "result": "PASS; 0 errors/warnings",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/lint-final.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "check": "Migration integrity",
+      "status": "run",
+      "result": "PASS; 150 migrations; unchanged documented historical exception",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/migration-integrity.log",
+        "sha256": "f357f76e520e9339545fb5c0e04893ecdc2d62c69f52ff575795ccaab76f1f89"
+      }
+    },
+    {
+      "check": "Test discovery",
+      "status": "run",
+      "result": "PASS; 446 files / 57 SQL-backed suites",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/discovery.log",
+        "sha256": "5a285dac2afe622f497357ac30fc87c2af9407c1787da729ff399f45c04c6cf1"
+      }
+    },
+    {
+      "check": "Normal tracked-file hygiene: PASS, 2,612 tracked entries",
+      "status": "run",
+      "result": "PASS",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/hygiene.log",
+        "sha256": "f9cd7cb2784d9f4a28f110204e41d810435aed7e2ed804d1f7471461fdebc880"
+      }
+    },
+    {
+      "check": "Working-tree diff whitespace: PASS",
+      "status": "run",
+      "result": "PASS",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/diff-check.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "check": "Staged diff whitespace: PASS",
+      "status": "run",
+      "result": "PASS",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/cached-diff-check.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "failedOrIntermediateAttempts": [
+    {
+      "check": "First checkpoint regressions",
+      "result": "2 pass / 1 fail; signed version downgrade escaped validation when no row eligible; fixed at parent claim",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/focused.log",
+        "sha256": "a3a5cb683f8be392fefb61313e233805d1881f9ed8db3d0ebb5d709e1580b126"
+      }
+    },
+    {
+      "check": "First representative concurrent group",
+      "result": "57 pass / 1 fail / 1 skip; workbook partial recovery exhausted five User row retries; retained receipt and PG/Prisma correlation; not attributed as solved by alias correction",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/representative.log",
+        "sha256": "0fb6a7c45da2b9a18d409dd9e0f2fc38a7c372f8de9b3142225525b370613a57"
+      },
+      "state": {
+        "path": "tmp/onb07-r07a-retirement/representative-failure-state.json",
+        "sha256": "27a08d08e7cf755202052a65927f1100174ddf01179d27f4eb4427b77d3cdb9b"
+      },
+      "correlation": {
+        "path": "tmp/onb07-r07a-retirement/intermediate-partial-failure-correlation.json",
+        "sha256": "01227615970a1b5fe4697faf47df5690af3363a26ae9703b4897d22ad5f48bad"
+      }
+    },
+    {
+      "check": "Intermediate integrated candidate",
+      "result": "INTERRUPTED intentionally after pending literal-consumer review finding; no full gate result; database retained",
+      "log": {
+        "path": "tmp/onb07-r07a-retirement/integrated.log",
+        "sha256": "e2ca207c51d688d415f8351b3210f1ac194b85201b45ed7c3d4e207ac5d0de64"
+      },
+      "processes": {
+        "path": "tmp/onb07-r07a-retirement/interrupted-integrated-processes.json",
+        "sha256": "f98e011aa2df45fe463a5b12127f4d53ceb49457e56b3277e6c3e2c0fda5eec0"
+      }
+    }
+  ],
+  "diagnostic": {
+    "result": "Read-only projection of retained failed 28-row source, explicitly rolled back. Catalog 27\u219217 queries / 56\u219224 SIREAD locks / User heap predicates 5\u21920. Not a complete SSI graph or production performance claim. Historical failed parent never resumed.",
+    "projection": {
+      "path": "tmp/onb07-r07a-retirement/catalog-probe.json",
+      "sha256": "abd6cd1e9c694f0a0d3d45135dbfdac5a5225c94bed5a5351bf2acfcf0843374"
+    },
+    "log": {
+      "path": "tmp/onb07-r07a-retirement/catalog-probe.log",
+      "sha256": "bae2ace4949f3cb8b2c09208287334975db8b87f1bde7425a994030a8924985b"
+    },
+    "status": "run on intermediate projection before literal-alias correction; not relabelled a final-source probe"
+  },
+  "reused": [
+    {
+      "check": "Canonical SPACE offline, real PIN and unchanged Dietary browser evidence",
+      "status": "reused",
+      "inventory": "docs/onboarding/ONB_07_SPACE_OFFLINE_VERIFICATION_2026-10-19.json",
+      "build": "eYn2LNGJB_kx6ATlH7XPy",
+      "evidence": "20 focused database/contract checks, 18 offline browser checks, 2 final real PIN journeys, 8 unchanged Dietary cases within original limits",
+      "ownerComparison": {
+        "path": "tmp/onb07-r07a-retirement/reused-space-all-manifest-comparison.json",
+        "sha256": "c50229be22fe5ea65625f24cba67b60c18b0e76ffed8e80e5df8e9d828bded43"
+      },
+      "reason": "286-file manifest compared: only workbook/CSV owners listed differ since that evidence; no offline/shared transaction/timing/assignment/scanning/schema owner changes this follow-up."
+    }
+  ],
+  "notRun": [
+    "Remote CI Node20/PostgreSQL16",
+    "Standalone whole-repository hermetic/static rerun; integrated gate includes all current tests with SQL environment, not equivalent to standalone hermetic mode",
+    "Unchanged offline/browser comprehensive replay",
+    "Production scanner/key infrastructure and intended-target certification",
+    "Actual customer pilot, deployment and all live operations"
+  ],
+  "migrationHistory": {
+    "path": "tmp/onb07-r07a-retirement/applied-history.json",
+    "sha256": "29a9f1c0324d38972433739439439fa27bec84c5e7a50770a14aadb43624c51f"
+  },
+  "preservation": {
+    "path": "tmp/onb07-r07a-retirement/preservation.json",
+    "sha256": "b36270f00b3ca6ec042fbb084f9c67ceb8a374739aeb5638cb2308cf7d4e9df2"
+  },
+  "logs": {
+    "tmp/onb07-r07a-retirement/browser.log": {
+      "path": "tmp/onb07-r07a-retirement/browser.log",
+      "sha256": "25c8c6fedd308656dbee863a86f5ae683e936c9fb558246dd5afc96c6787ec97"
+    },
+    "tmp/onb07-r07a-retirement/build.log": {
+      "path": "tmp/onb07-r07a-retirement/build.log",
+      "sha256": "65700fb41df2a5259ea28d9882b8757d17d802fd39beec3aac91c52c94adbfd1"
+    },
+    "tmp/onb07-r07a-retirement/cached-diff-check.log": {
+      "path": "tmp/onb07-r07a-retirement/cached-diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tmp/onb07-r07a-retirement/capture-final-db.log": {
+      "path": "tmp/onb07-r07a-retirement/capture-final-db.log",
+      "sha256": "373b40f7e0d46f7fef34f06add5f5d1fdef69d669543018372af0302893a123f"
+    },
+    "tmp/onb07-r07a-retirement/catalog-probe.log": {
+      "path": "tmp/onb07-r07a-retirement/catalog-probe.log",
+      "sha256": "bae2ace4949f3cb8b2c09208287334975db8b87f1bde7425a994030a8924985b"
+    },
+    "tmp/onb07-r07a-retirement/cluster-cleanup.log": {
+      "path": "tmp/onb07-r07a-retirement/cluster-cleanup.log",
+      "sha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d"
+    },
+    "tmp/onb07-r07a-retirement/diff-check.log": {
+      "path": "tmp/onb07-r07a-retirement/diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tmp/onb07-r07a-retirement/discovery.log": {
+      "path": "tmp/onb07-r07a-retirement/discovery.log",
+      "sha256": "5a285dac2afe622f497357ac30fc87c2af9407c1787da729ff399f45c04c6cf1"
+    },
+    "tmp/onb07-r07a-retirement/focused.log": {
+      "path": "tmp/onb07-r07a-retirement/focused.log",
+      "sha256": "a3a5cb683f8be392fefb61313e233805d1881f9ed8db3d0ebb5d709e1580b126"
+    },
+    "tmp/onb07-r07a-retirement/hermetic-final.log": {
+      "path": "tmp/onb07-r07a-retirement/hermetic-final.log",
+      "sha256": "3f13c97b8d13fcd6568716c0a0a26b4e00bf8843f0343a46acd18a4a3ff85bba"
+    },
+    "tmp/onb07-r07a-retirement/hermetic.log": {
+      "path": "tmp/onb07-r07a-retirement/hermetic.log",
+      "sha256": "eef7cd088e9587b2318348856080d08e4db6716c23640fb007cdb195951b4c24"
+    },
+    "tmp/onb07-r07a-retirement/hygiene.log": {
+      "path": "tmp/onb07-r07a-retirement/hygiene.log",
+      "sha256": "f9cd7cb2784d9f4a28f110204e41d810435aed7e2ed804d1f7471461fdebc880"
+    },
+    "tmp/onb07-r07a-retirement/inspect-failure.log": {
+      "path": "tmp/onb07-r07a-retirement/inspect-failure.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tmp/onb07-r07a-retirement/integrated-final.log": {
+      "path": "tmp/onb07-r07a-retirement/integrated-final.log",
+      "sha256": "758b768d00fb908dbb1c6b8ccacdcb0e503fdafb95efe2dd92606e7006ffdbcc"
+    },
+    "tmp/onb07-r07a-retirement/integrated.log": {
+      "path": "tmp/onb07-r07a-retirement/integrated.log",
+      "sha256": "e2ca207c51d688d415f8351b3210f1ac194b85201b45ed7c3d4e207ac5d0de64"
+    },
+    "tmp/onb07-r07a-retirement/lint-final.log": {
+      "path": "tmp/onb07-r07a-retirement/lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tmp/onb07-r07a-retirement/lint.log": {
+      "path": "tmp/onb07-r07a-retirement/lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tmp/onb07-r07a-retirement/migration-integrity.log": {
+      "path": "tmp/onb07-r07a-retirement/migration-integrity.log",
+      "sha256": "f357f76e520e9339545fb5c0e04893ecdc2d62c69f52ff575795ccaab76f1f89"
+    },
+    "tmp/onb07-r07a-retirement/postgres.log": {
+      "path": "tmp/onb07-r07a-retirement/postgres.log",
+      "sha256": "a2d559b4d59be08b9955d0776f99e71fb551abd73c794979687d8510667d1950"
+    },
+    "tmp/onb07-r07a-retirement/remaining-clients.log": {
+      "path": "tmp/onb07-r07a-retirement/remaining-clients.log",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "tmp/onb07-r07a-retirement/representative-final.log": {
+      "path": "tmp/onb07-r07a-retirement/representative-final.log",
+      "sha256": "2e62cc07dc5ccf3d8588f1aa86a6f85c02905c98f6b0810c013fab7cb85a6811"
+    },
+    "tmp/onb07-r07a-retirement/representative.log": {
+      "path": "tmp/onb07-r07a-retirement/representative.log",
+      "sha256": "0fb6a7c45da2b9a18d409dd9e0f2fc38a7c372f8de9b3142225525b370613a57"
+    },
+    "tmp/onb07-r07a-retirement/server.log": {
+      "path": "tmp/onb07-r07a-retirement/server.log",
+      "sha256": "c38886a47d066ae72cb3df21f66c3cf998a29e38fe7b1cff875db3921a1cc5c7"
+    },
+    "tmp/onb07-r07a-retirement/typecheck.log": {
+      "path": "tmp/onb07-r07a-retirement/typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "r07a": "LOCAL PASS; required integrated database checkpoint and affected browser recovery gates satisfied",
+  "release": "HOLD; mandatory remote CI, production prerequisites and actual pilot acceptance pending",
+  "finalDatabaseEvidence": {
+    "path": "tmp/onb07-r07a-retirement/integrated-final-workbook-state.json",
+    "description": "Both 28-row cases: 28 mappings/28 parent successes/28 distinct children/28 child successes; 27 Facility Employees including administrator, one physical Space. Deliberate failed claim receipt retained in one case.",
+    "sha256": "319c73587b626069c5659d2bd9b6c73120f63f49d58b060686b7c88956500be5"
+  },
+  "commands": {
+    "hermetic": "Node24 --import tsx --test src/lib/onboarding-workbook/workbook.hermetic.test.ts",
+    "representative": "Node24 tmp/onb07-r07a/run-db.mjs src/lib/onboarding-workbook/workbook.db.test.ts src/lib/setup-imports/setup-imports.db.test.ts src/lib/implementation/implementation.db.test.ts; normal concurrency; final log representative-final.log",
+    "integrated": "caffeinate -i /bin/zsh tmp/onb07-r07a-retirement/run-integrated-final.sh \u2192 node scripts/verify/verify-db.mjs; fresh retained target, VERIFY_MANAGE_DATABASE empty",
+    "build": "caffeinate -i /bin/zsh tmp/onb07-r07a-retirement/build.sh \u2192 node scripts/verify/verify-build.mjs",
+    "browser": "Node24 node_modules/@playwright/test/cli.js test --config tmp/onb07-r07a-retirement/playwright.config.ts; isolated workbook artifact directory",
+    "lint": "Node24 node_modules/eslint/bin/eslint.js src/lib/onboarding-workbook/{planning.ts,service.ts,workbook.hermetic.test.ts,workbook.db.test.ts}",
+    "governance": "Node24 scripts/verify/{migration-integrity.mjs,test-discovery-sentinel.mjs,repository-hygiene.mjs}; git diff --check"
+  },
+  "intermittentFindings": "Earlier Partner membership-end, PM replacement and intermediate partial-recovery failures retained. All pass final integrated checkpoint; no owner fix or assertion that all contention/intermittence is eliminated.",
+  "historicalFailedParent": {
+    "path": "tmp/onb07-r07a-retirement/historical-failed-parent-preserved.json",
+    "sha256": "95630cd1f20080ade1ebb560b7bc9aca3b9e0d7b4506055c589e87b6d9c05170"
+  }
+}

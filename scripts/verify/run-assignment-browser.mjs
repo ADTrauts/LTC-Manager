@@ -115,7 +115,7 @@ async function main() {
     ALLOW_DEMO_SEED_PASSWORD: "1",
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
-    DIETARY_JOB_FLOW_ENABLED: "",
+    DIETARY_JOB_FLOW_ENABLED: "true",
   };
 
   try {

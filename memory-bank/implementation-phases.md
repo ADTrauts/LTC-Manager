@@ -1,5 +1,7 @@
 # Implementation phases — facility, org profile, roles, PIN
 
+**Historical facility/PIN phase record.** Current Vssyl architecture is the [Product Constitution](../docs/product/01_PRODUCT_CONSTITUTION.md). The accepted October 2026 onboarding program is tracked only in [docs/onboarding/PHASE_TRACKER.md](../docs/onboarding/PHASE_TRACKER.md); its ONB identifiers do not renumber the phases below. The older identity/authentication statements here do not override the current User/Employee and effective Facility-role contracts.
+
 This document turns the agreed product direction into **sequenced phases**. Run work **one phase at a time**. After **each** phase completes, run the **phase quality gate** before starting the next.
 
 ---

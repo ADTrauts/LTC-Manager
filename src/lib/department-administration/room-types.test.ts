@@ -1,3 +1,4 @@
+import { DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT } from "@/lib/department-administration/admin-nav";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -235,7 +236,8 @@ describe("Department Room Types projection", () => {
       "utf8",
     );
     assert.equal(/RoomTypesPanel/.test(page), false);
-    assert.match(page, /requestedTab === "room-types"/);
+    assert.match(page, /isDepartmentAdminRetiredTabId/);
+    assert.equal(DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT["room-types"], "locations");
   });
 
   it("department-use save redirects preserve roomType after DRAFT fork", () => {

@@ -1,0 +1,182 @@
+{
+  "date": "2026-10-19",
+  "scope": "Final review/reconciliation and subsequent commit/PR/CI handoff only",
+  "head": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "verdict": "Review package prepared; FR-01 open before final corrected-candidate freeze. Release HOLD; ONB-07 incomplete.",
+  "applicationChanged": false,
+  "indexChanged": false,
+  "preservation": {
+    "path": "tmp/onb07-final-review/preservation.json",
+    "sha256": "146737453dc0691e726596fd7fc7772c92b33c593066de53d1ea59d3e0a760bc"
+  },
+  "inclusionManifest": {
+    "path": "docs/onboarding/ONB_07_CANDIDATE_INCLUSION_2026-10-19.json",
+    "sha256": "94b9c01d453fcdc2a2d3167238c5a998c4b6f6381544fedc3ccd5764bb018cf7"
+  },
+  "handoff": {
+    "path": "docs/onboarding/ONB_07_FINAL_REVIEW_HANDOFF_2026-10-19.md",
+    "sha256": "b339ec0c4a292e1effc9163682faf5b667bcfe5869b94aa2b5c186b17c9c95ad"
+  },
+  "reviewedOwners": {
+    "src/lib/employee-csv-update/service.ts": "700c122c85f68ea1e7e1ca7dfba23730769186d501b9dcd5c402e0fe8d153bc4",
+    "src/lib/setup-imports/authority.ts": "31279a3e6ee858b3ad62a22d9e1f5353cb809278655c5aef4c601917480b9387",
+    "src/lib/setup-imports/planner.ts": "0352cb28b6c57958f5c3410fe0182db4b382b46b4a40fce3e91fc7237c873741",
+    "src/lib/setup-imports/service.ts": "513ebc67040105c1fc703366b2fcb9ab4e54ed86cc1e8ebec0f57377bc482ce2",
+    "src/lib/setup-imports/execute.ts": "ed43a681f12c8f9175e803830b8dcb2bd8543c013264d6d8345837fec0793cf7",
+    "src/lib/setup-imports/activation.ts": "0264e9528bf6ed1f67792a546ed401126be6c913a9ae32f4f8971b98b0115c53",
+    "src/lib/setup-imports/transaction.ts": "2384289a71d6cff997704f7f006ca458c2ec2775a664efe553a0e551af7ccf57",
+    "src/lib/employee-identity/onboard.ts": "59425ddeaa022c0271b68113b8f8b80f52cfc87ef25d6731a4bd8cb77e2e940c",
+    "src/lib/account-invite/activate.ts": "a47d715bd4bd98b5bc8d295b8eb255774dd4693223946c5e23a52643745a2644",
+    "src/lib/onboarding/manager-invitations.ts": "fdc1bf26b0c1cf79bd6bea6bc51f6f0d2cd4199baa8363f1710c1d175904d948",
+    "src/lib/department-products/load-facility-catalog.ts": "6bfde4ce7f971213ee502688085bec4a5901311482295ee6d911f356c019ab87",
+    "src/lib/department-products/eligibility.ts": "99721e2216489e661882818b5535f1b4f8bb9da9133c16268f73d58811d140aa",
+    "src/lib/billing/apply-stripe-event.ts": "bfb19afe271a133ab4b71add78991d3a971090fd8161afd66bf65c306ccf1cd7",
+    "src/lib/billing/status.ts": "63b0e1f4f80efaafd47dfe01dd37f54788cfeb582ed7e8d1292426c386ceb0b4",
+    "src/lib/billing/checkout-items.ts": "23428eecdf9321c122719a6e8c2bee8e25fa75197e0680a335475b435ada9cf0",
+    "src/lib/billing/implementation-payment.ts": "e8da51bda9af31472dd4ed3e1d4f7b06a2513230c73585e0929e4f548a4c6eca",
+    "src/lib/implementation/authority.ts": "886d7144bf426003cb50b0eb155deabdf010736ec3b07e7ba89943bb1f724347",
+    "src/lib/implementation/contract.ts": "7b3f77e00c2e5903bc6c85097df0231821c9a5b3719152f612f44023d773b309",
+    "src/lib/implementation/service.ts": "c6553486d9ee7b61ebbca4ba7f90cc47bdc61ac5b44aff6a33306e65df4d8fb0",
+    "src/lib/onboarding-workbook/planning.ts": "60abec241c91998b1dc9addf3bd06c3c17683d6ff710aa59cd4555876235355c",
+    "src/lib/onboarding-workbook/service.ts": "d75a35b2d8889619415e151a9816c1de562d2a59af458707ed4806e056db3071",
+    "src/lib/offline/space/keys.ts": "c2457ed21b7aac58d5572ca904e575c7859eaf7f438ee562490af175f69bb034",
+    "src/lib/offline/space/service.ts": "982d3605e8e16ea8c51ce0a1f37164b9593c321724a4daa98a6b3a9737ae44c2",
+    "src/lib/offline/space/http.ts": "1ea6b56dfdfd7c31e4c291d832bb2f504c6d52a17150b90e541890d47fd1ef5a",
+    "src/lib/offline/space/body.ts": "c47d5ac86eab2b53418114c4b73a81f6e0ad7c38550b347c49b5532c76f1fe43",
+    "public/space-offline-store.js": "50a0e3bfceb38839d8b6c0f2827ce0f664d2016282ed3e5253b2a6f7cd01c3cb",
+    "public/space-offline.js": "4c3aafa0500c35d4f59cc263357e35fbe474313acbf0f611ec5b7861801c48a3",
+    "public/sw.js": "0eeb4d3d3d6fffa8dad7fcaf18a1a39f52685c4eaa424db66b10b336c26e52e0",
+    "src/lib/support/attachment-scanner.ts": "ec19dc628efb387113905035da784e5220bb3e5e5b598cd68c296bd56414665c",
+    "src/lib/support/scan-pending-attachments.ts": "60f8d35969cc604d3a0abe7184cb3ee1bab8ee932ed7bd1e22cf089a1ef7e767",
+    "src/app/api/console/support-attachments/[attachmentId]/route.ts": "901f240999150c06b75333b3ae716deacc881d7c01c7e3614edda1087c9e11d7",
+    "src/app/api/console/implementation/[engagementId]/attachments/[attachmentId]/route.ts": "f0a78534cacd54285cdfdb0b2ddbcce05ffbafb4c50f895c89e1b275ae10d563",
+    "workers/support-attachment-scanner/worker.py": "242e1bd137e9bf281d8668756623b32bcdb001da75e2e243ee88e67698f7e3fb",
+    "workers/support-attachment-scanner/clamd.conf": "9a39d08144c2ec22b0b8a906410ff79bdcff0c70ba195ef5e9fd8e6d4188d2ca",
+    ".github/workflows/verify.yml": "dfbcaa23e10c6d5b833924b3679f01dbfba89e7c1843bec7924406f410579e92"
+  },
+  "findings": [
+    {
+      "id": "FR-01",
+      "blocker": "R07-07",
+      "severity": "P2",
+      "status": "OPEN; not implemented",
+      "owner": "public/space-offline.js:136-142; existing validation in public/space-offline-store.js",
+      "behavior": "Idle content/wrapping secret survives Facility-local date boundary before lease expiration; an on-demand read rejects and locks. No server-write authorization defect demonstrated.",
+      "evidence": {
+        "path": "tmp/onb07-final-review/date-boundary-probe.json",
+        "sha256": "a869405bb51b56f3a27d940e0a28b5947a026b29e815895f8aa4e3cf6e1011b6"
+      },
+      "probeSource": {
+        "path": "tmp/onb07-final-review/date-boundary-probe.mjs",
+        "sha256": "f3da1c540818921a053214d3b57ba4f93d5f16bfc20c269791db167b390e5ef3"
+      },
+      "log": {
+        "path": "tmp/onb07-final-review/date-boundary-probe.log",
+        "sha256": "fa56ba2d03c285d9e916c70a58ab016113529cb17588096daf919749cf0f80eb"
+      },
+      "limitations": "Isolated Chromium renderer probe, synthetic manifest/data, intercepted HTTP. Not a real customer/server preparation journey or replacement certification. Reachability supported by optional assignment end and server lease calculation.",
+      "next": "Bounded existing-guard idle/foreground correction; preserve encrypted pending intent; SW cache version; focused and affected desktop/tablet verification; refresh manifest."
+    },
+    {
+      "id": "FR-02",
+      "severity": "P2 documentation drift",
+      "status": "CORRECTED",
+      "behavior": "Pilot checklist referred to five migrations and lacked explicit offline-key/mixed-timing-writer preflight; now ten migrations/150 total and required preconditions. Runtime unchanged."
+    }
+  ],
+  "newChecks": [
+    {
+      "check": "Targeted Facility-date boundary probe",
+      "status": "run",
+      "result": "CONFIRMED FR-01; expectation of idle lock is unmet; positive on-demand denial retained",
+      "log": {
+        "path": "tmp/onb07-final-review/date-boundary-probe.log",
+        "sha256": "fa56ba2d03c285d9e916c70a58ab016113529cb17588096daf919749cf0f80eb"
+      }
+    },
+    {
+      "check": "Exact inclusion, status/provenance, frozen source, evidence hashes and index preservation",
+      "status": "run",
+      "result": "PASS",
+      "details": {
+        "path": "tmp/onb07-final-review/evidence-reuse.json",
+        "sha256": "84f194212192bb5be38eacd0b2bcef38cf4105da8b949657076f6b1ec5854a53"
+      }
+    },
+    {
+      "check": "Normal migration integrity",
+      "status": "run",
+      "result": "PASS; 150 migrations; unchanged documented historical exception",
+      "log": {
+        "path": "tmp/onb07-final-review/migration-integrity.log",
+        "sha256": "f357f76e520e9339545fb5c0e04893ecdc2d62c69f52ff575795ccaab76f1f89"
+      }
+    },
+    {
+      "check": "Discovery",
+      "status": "run",
+      "result": "PASS; 446 files / 57 SQL suites",
+      "log": {
+        "path": "tmp/onb07-final-review/discovery.log",
+        "sha256": "5a285dac2afe622f497357ac30fc87c2af9407c1787da729ff399f45c04c6cf1"
+      }
+    },
+    {
+      "check": "Tracked-file hygiene",
+      "status": "run",
+      "result": "PASS; 2612 tracked entries; three handoff artifacts intentionally untracked",
+      "log": {
+        "path": "tmp/onb07-final-review/hygiene.log",
+        "sha256": "f9cd7cb2784d9f4a28f110204e41d810435aed7e2ed804d1f7471461fdebc880"
+      }
+    },
+    {
+      "check": "Diff/JSON/local links",
+      "status": "run",
+      "result": "PASS",
+      "logs": [
+        {
+          "path": "tmp/onb07-final-review/diff-check.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tmp/onb07-final-review/cached-diff-check.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tmp/onb07-final-review/document-checks.log",
+          "sha256": "cbe59334f02610084d23b882dae459cd0e0d344ed52ac5bbc841bebf4d329609"
+        }
+      ]
+    }
+  ],
+  "reused": [
+    {
+      "inventory": "docs/onboarding/ONB_07_WORKBOOK_RETIREMENT_VERIFICATION_2026-10-19.json",
+      "result": "3684/0/7 integrated DB, 8 workbook browser, 59/0/1 concurrency,13 pure; build/typecheck/selected lint; 150 migrations/seed twice",
+      "build": "5S9jh0r0wyAcpcoCpYyXY",
+      "status": "reused; all 286 source hashes match; not a new run; FR-01 outside asserted coverage"
+    },
+    {
+      "inventory": "docs/onboarding/ONB_07_SPACE_OFFLINE_VERIFICATION_2026-10-19.json",
+      "result": "20 affected,18 offline browser,2 real-PIN;8 Dietary cases from earlier run within original limits",
+      "build": "eYn2LNGJB_kx6ATlH7XPy",
+      "status": "reused; no novel owner difference beyond known later workbook/CSV changes; FR-01 remains new counterevidence for idle-date scope"
+    },
+    {
+      "inventory": "docs/onboarding/ONB_05_VERIFICATION_2026-10-18.json",
+      "result": "Real local ClamAV original-file proof, within recorded engine/signature/test scope",
+      "status": "historical reused; selected scanner/download owners byte-identical; no production or current signatures claim"
+    }
+  ],
+  "intermittentFindings": "Partner membership-end, PM replacement and intermediate partial-recovery exhaustion retained. Final integrated assertions pass; no causal fix or baseline exception inferred. No new investigation warranted by this review.",
+  "notRun": [
+    "Unchanged full repository/build/database/browser replay",
+    "Remote Node20/PostgreSQL16 CI",
+    "Application correction/verification for FR-01",
+    "Production provisioning, intended-target migration/scanner/key verification",
+    "Actual pilot acceptance or any live operations"
+  ],
+  "proposedHandoff": "One integrated commit/one draft integration PR after FR-01 and explicit authorization;349 exact paths in three review groups. No blanket staging; final worktree fixes included; initial index untouched.",
+  "limits": "Focused source/contract review, not exhaustive security audit. Remote CI, production infrastructure/cutover and actual pilot acceptance remain required. No commit/push/PR/deployment/charge/customer-data/message/activation."
+}

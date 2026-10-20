@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import {
   HarborAuthFrame,
@@ -11,6 +12,9 @@ import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
 
 export default async function SignupPage() {
+  // This launch flag is runtime configuration. Do not cache a build-time 404
+  // before getSession() reaches request-bound cookies.
+  await connection();
   if (!isPublicSignupEnabled()) {
     notFound();
   }

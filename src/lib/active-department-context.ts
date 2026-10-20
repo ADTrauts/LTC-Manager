@@ -1,3 +1,4 @@
+import { getDepartmentProduct, matchEntitlementStatusForProduct } from "@/lib/department-products/registry";
 import type { FacilitySession } from "@/lib/auth";
 import { parseOperationalDepartmentKey } from "@/lib/department-admission";
 import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
@@ -42,11 +43,12 @@ function departmentIsProductEligible(
   if (departmentHasInternalAccess(session, department.key)) {
     return department.isActive;
   }
-  const entitlement = context.entitlements.find((row) => row.departmentKey === department.key);
+  const product = getDepartmentProduct(department.key);
+  const entitlementStatus = product ? matchEntitlementStatusForProduct(context.entitlements, product) : null;
   return isDepartmentRowCustomerOperable({
     key: department.key,
     isActive: department.isActive,
-    entitlementStatus: entitlement?.status ?? null,
+    entitlementStatus,
     billingStatus: context.billingStatus,
     entitlementsEnforced: context.entitlementsEnforced,
   });
@@ -165,7 +167,7 @@ async function resolveNavWithRawCookie(
             where: { id: membershipPrimary, facilityId, isActive: true },
             select: { id: true },
           });
-          if (installed) departmentId = installed.id;
+          if (installed && await userMaySelectDepartment(session, installed.id, facilityId, isFacilityAdmin, context)) departmentId = installed.id;
         }
       }
     }
@@ -293,11 +295,12 @@ export async function assertCustomerDepartmentContext(input: {
     return { allowed: true, reason: "internal", departmentKey: department.key };
   }
   const context = await loadFacilityDepartmentAccessContext(prisma, input.session.facilityId);
-  const entitlement = context.entitlements.find((row) => row.departmentKey === department.key);
+  const product = getDepartmentProduct(department.key);
+  const entitlementStatus = product ? matchEntitlementStatusForProduct(context.entitlements, product) : null;
   const operable = isDepartmentRowCustomerOperable({
     key: department.key,
     isActive: department.isActive,
-    entitlementStatus: entitlement?.status ?? null,
+    entitlementStatus,
     billingStatus: context.billingStatus,
     entitlementsEnforced: context.entitlementsEnforced,
   });

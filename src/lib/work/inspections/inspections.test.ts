@@ -250,6 +250,8 @@ test("TASK_SYNC_ENABLED=true upserts one INSPECTION Task and is idempotent", asy
   const upsertArgs: unknown[] = [];
   await withEnv("TASK_SYNC_ENABLED", "true", async () => {
     const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
       task: {
         upsert: async (args: unknown) => {
           upsertArgs.push(args);
@@ -309,7 +311,10 @@ test("submitInspection writes atomically and respects idempotency + flag", async
   >();
 
   const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
     inspectionDefinition: {
+      findFirst: async () => ({ departmentId: definition.departmentId }),
       findUnique: async () => ({
         id: definition.id,
         facilityId: definition.facilityId,
@@ -512,7 +517,10 @@ test("submitInspection writes atomically and respects idempotency + flag", async
 
 test("Task sync failure does not invalidate inspection submission", async () => {
   const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
     inspectionDefinition: {
+      findFirst: async () => ({ departmentId: definition.departmentId }),
       findUnique: async () => ({
         id: definition.id,
         facilityId: definition.facilityId,
@@ -621,7 +629,10 @@ test("submitInspection creates follow-up Tasks only for qualifying failed items"
   };
 
   const db = {
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [] },
     inspectionDefinition: {
+      findFirst: async () => ({ departmentId: definition.departmentId }),
       findUnique: async () => ({
         ...multiDefinition,
         items: multiDefinition.items,
@@ -724,4 +735,22 @@ test("submitInspection creates follow-up Tasks only for qualifying failed items"
     assert.equal(followUpCreates, 1);
     assert.equal(findingTasks.get("sub_multi_item_1")?.status, "OPEN");
   });
+});
+
+
+test("injected canonical department blocks legacy inspection before any transaction", async () => {
+  let writes = 0;
+  const db = {
+    inspectionDefinition: { findFirst: async ({ where }: { where: { facilityId: string } }) => {
+      assert.equal(where.facilityId, "fac_1");
+      return { departmentId: "dept_1" };
+    } },
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    recordEngineRollout: { findMany: async () => [{ facilityId: "fac_1", departmentId: "dept_1", mode: "CANONICAL", effectiveFromServiceDate: "2020-01-01" }] },
+    $transaction: async () => { writes++; throw new Error("must not write"); },
+  };
+  await withEnv("CANONICAL_LOGS_ENABLED", "true", async () => {
+    await assert.rejects(submitInspection({ facilityId: "fac_1", definitionId: "def_1", answers: [] } as never, { db: db as never }), /canonical|Catalog|Record/i);
+  });
+  assert.equal(writes, 0);
 });

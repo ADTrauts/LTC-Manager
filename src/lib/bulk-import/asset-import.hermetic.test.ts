@@ -39,6 +39,7 @@ function catalog(overrides?: Partial<AssetImportCatalog>): AssetImportCatalog {
     departments: [
       { id: "d1", name: "Dietary", key: "DIETARY", isActive: true },
     ],
+    responsibilities: [{ unitId: "n1", departmentId: "d1", kind: "PRIMARY" }],
     assets: [],
     assetOpsEnabled: true,
     ...overrides,
@@ -46,12 +47,11 @@ function catalog(overrides?: Partial<AssetImportCatalog>): AssetImportCatalog {
 }
 
 describe("asset import CSV parse", () => {
-  it("parses template", () => {
+  it("template has headers only; sample rows require explicit upload", () => {
+    assert.equal(ASSET_CSV_TEMPLATE.trim().split("\n").length, 1);
     const parsed = parseAssetImportCsv(ASSET_CSV_TEMPLATE);
-    assert.equal(parsed.ok, true);
-    if (!parsed.ok) return;
-    assert.ok(parsed.rows.length >= 1);
-    assert.equal(parsed.rows[0]!.name, "Walk-in Cooler");
+    assert.equal(parsed.ok, false);
+    if (!parsed.ok) assert.match(parsed.error, /data rows/);
   });
 });
 
@@ -162,6 +162,23 @@ B,Fridge,Floor 1,1A - Naval Park,OPERATIONAL,NoSuchDept
     const plan = planAssetImport(parsed.rows, catalog());
     assert.ok(plan.issues.some((i) => i.field === "status"));
     assert.ok(plan.issues.some((i) => i.field === "department"));
+  });
+
+  it("previews missing/ambiguous defaults, Plant preference and conflicting stable identifiers", () => {
+    const parsed=parseAssetImportCsv("name,equipmentType,floor,neighborhood,assetCode,serialNumber\nCooler,Fridge,Floor 1,1A - Naval Park,COOL-1,SN-1\n");
+    assert.ok(parsed.ok);if(!parsed.ok)return;
+    assert.equal(planAssetImport(parsed.rows,catalog({responsibilities:[]})).rows[0]!.action,"none");
+    const departments=[...catalog().departments,{id:"d2",key:"CUSTOM",name:"Other",isActive:true}];
+    const responsibilities=[{unitId:"n1",departmentId:"d1",kind:"PRIMARY"},{unitId:"n1",departmentId:"d2",kind:"PRIMARY"}];
+    assert.equal(planAssetImport(parsed.rows,catalog({departments,responsibilities})).rows[0]!.action,"none");
+    departments[1]!.key="PLANT";
+    assert.equal(planAssetImport(parsed.rows,catalog({departments,responsibilities})).rows[0]!.departmentId,"d2");
+    assert.equal(planAssetImport(parsed.rows,catalog({foreignAssetCodes:["COOL-1"]})).rows[0]!.action,"none");
+    const a={id:"a1",assetCode:"COOL-1",name:"Cooler",equipmentType:"Fridge",serialNumber:null,facilityAssetNumber:null,unitId:"n1",spaceId:null,status:"OPERATIONAL"};
+    const b={...a,id:"a2",assetCode:"OTHER",serialNumber:"SN-1"};
+    assert.match(planAssetImport(parsed.rows,catalog({assets:[a]})).rows[0]!.errors.map(x=>x.reason).join(" "),/stable identifiers disagree/);
+    assert.match(planAssetImport(parsed.rows,catalog({assets:[a,b]})).rows[0]!.errors.map(x=>x.reason).join(" "),/different Assets/);
+    assert.match(planAssetImport(parsed.rows,catalog({assets:[{...a,departmentId:"d2"}]})).rows[0]!.errors.map(x=>x.reason).join(" "),/different Department/);
   });
 
   it("same-file duplicate asset codes skip safely", () => {

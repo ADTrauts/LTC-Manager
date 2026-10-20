@@ -325,7 +325,7 @@ test("transaction rollback leaves no orphan User or grant from a new-employee cr
 test("new-employee create no longer offers PIN-only and CSV cannot create unlinked rows", () => {
   const create = source("src/app/(protected)/employees/actions.ts");
   const drawer = source("src/components/create-employee-drawer.tsx");
-  const csv = source("src/app/(protected)/employees/csv-import-actions.ts");
+  const csv = source("src/lib/employee-csv-update/service.ts");
   const pin = source("src/app/api/auth/pin-login/route.ts");
   const login = source("src/app/api/auth/login/route.ts");
   const invite = source("src/app/api/auth/account-invite/confirm/route.ts");
@@ -351,8 +351,10 @@ test("new-employee create no longer offers PIN-only and CSV cannot create unlink
   );
   assert.match(login, /isGlobalAccountActivated/);
   assert.match(login, /INVITE_PENDING/);
-  assert.match(invite, /passwordHash,/);
-  assert.match(invite, /emailVerifiedAt: now/);
+  assert.match(invite, /if \(user\.passwordHash\)/);
+  assert.match(readFileSync("src/lib/account-invite/activate.ts", "utf8"), /passwordHash, emailVerifiedAt: now/);
+  assert.match(invite, /activateInvitedAccount/);
+  assert.match(readFileSync("src/lib/account-invite/activate.ts", "utf8"), /emailVerifiedAt: now/);
   assert.doesNotMatch(invite, /pinDigest/);
   const resend = create.slice(create.indexOf("resendEmployeeActivationAction"));
   assert.match(resend, /issueAndSendAccountInvite/);

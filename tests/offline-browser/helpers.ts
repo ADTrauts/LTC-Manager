@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 
+import type { CanonicalOfflineFixture } from "./canonical-journey";
+
 export type BrowserFixtures = {
+  canonical: CanonicalOfflineFixture;
   facilityId: string;
   facilityName: string;
   facilityTimezone: string;
@@ -254,11 +257,14 @@ export async function waitForBundle(page: Page) {
     .toBe(true);
 }
 
+const offlineNetworkSessions = new WeakMap<Page, import("@playwright/test").CDPSession>();
+
 export async function setNetworkOffline(context: BrowserContext, offline: boolean, page?: Page) {
   await context.setOffline(offline);
   if (page) {
     try {
-      const client = await context.newCDPSession(page);
+      let client = offlineNetworkSessions.get(page);
+      if (!client) { client = await context.newCDPSession(page); offlineNetworkSessions.set(page, client); }
       await client.send("Network.enable");
       await client.send("Network.emulateNetworkConditions", {
         offline,

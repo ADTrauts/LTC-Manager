@@ -378,12 +378,15 @@ export default async function EmployeesPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {showManagerTools ? (
+            <>
             <Link
               href="/employees/import"
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
               Import
             </Link>
+            <Link className="app-button" href="/employees/bulk-setup">Bulk setup (CSV)</Link>
+            </>
           ) : null}
           {showManagerTools ? (
             <CreateEmployeeDrawer

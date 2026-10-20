@@ -6,6 +6,7 @@ Use it to keep operational context so future sessions do not drift.
 
 ## Files
 
+- Current onboarding program: [docs/onboarding/README.md](../docs/onboarding/README.md), with its single phase tracker and decision log. The phased plan and audit are saved there; do not duplicate ONB status in older phase checklists.
 - `project-overview.md`: product scope. Current architecture is `docs/product/01_PRODUCT_CONSTITUTION.md`. The module list is the earlier MVP inventory.
 - `architecture-decisions.md`: key technical decisions, including the certified platform mechanisms.
 - `progress-log.md`: phase-by-phase implementation history, quality gates, and notable post-phase fixes.

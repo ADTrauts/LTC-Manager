@@ -5,6 +5,7 @@
  */
 
 import type {
+  DepartmentWorkOccurrence,
   DepartmentWorkEventType,
   DepartmentWorkOccurrenceStatus,
   Prisma,
@@ -156,9 +157,15 @@ export async function completeExplicit(
     evidenceRecordId?: string | null;
     client?: DbClient;
   },
-) {
+): Promise<{ occurrence: DepartmentWorkOccurrence; deduplicated: boolean }> {
   const client = input.client ?? prisma;
-  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId);
+  if ("$transaction" in client) return client.$transaction(tx => completeExplicit(session, { ...input, client: tx }));
+  await client.$queryRaw`SELECT "id" FROM "Facility" WHERE "id"=${input.facilityId} FOR UPDATE`;
+  // Natural identity exists even before the sparse occurrence row. Online and
+  // offline completions serialize absence checks through the canonical owner.
+  const lock = `work:${input.facilityId}:${input.departmentId}:${input.requirement.occurrenceKey}`;
+  await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lock}))`;
+  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId, client);
   requireWorkComplete(authority);
 
   const byCommand = await findByClientCommandId(
@@ -256,7 +263,7 @@ export async function markNotRequired(
   },
 ) {
   const client = input.client ?? prisma;
-  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId);
+  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId, client);
   if (!authority.canMarkNotRequired) {
     requireWorkSupervisorAction(authority);
   }
@@ -314,7 +321,7 @@ export async function reopenOccurrence(
   },
 ) {
   const client = input.client ?? prisma;
-  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId);
+  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId, client);
   if (!authority.canReopen) {
     requireWorkSupervisorAction(authority);
   }
@@ -369,7 +376,7 @@ export async function reassignOccurrence(
   },
 ) {
   const client = input.client ?? prisma;
-  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId);
+  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId, client);
   if (!authority.canReassign) {
     requireWorkSupervisorAction(authority);
   }
@@ -556,7 +563,7 @@ export async function cancelOneOff(
   },
 ) {
   const client = input.client ?? prisma;
-  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId);
+  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId, client);
   requireWorkSupervisorAction(authority);
 
   const existing = await client.departmentWorkOccurrence.findFirst({

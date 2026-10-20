@@ -202,7 +202,7 @@ Department Products that exist today:
 |---------|-------------|--------------|
 | **Healthcare Food & Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. Healthcare-scoped. | — |
 | **Environmental Services** | `resident_care`, `service_support`. Morning / Afternoon / Evening Operations. | A second location tree |
-| **Facility Plant Operations** | Platform Assets and repairs remain shared. Phase 12A reference intake/triage exists behind `PLANT_OPERATIONS_ENABLED`. | Customer-visible Product. Runtime Work Orders, PM Plans, starter content, and AVAILABLE release. Architecture is locked in [14](./14_FACILITY_PLANT_OPERATIONS.md). |
+| **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
 
 When Vssyl-authored Work belongs to a Phase, the preset binds that Work to the Phase stable key. Changing a preset affects future drafts only.
 

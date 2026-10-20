@@ -438,7 +438,8 @@ describe("Cross-surface eligibility authority", () => {
   it("installs only after billing writes entitlements, and never from a failed update", () => {
     const add = source("src/lib/billing/add-departments.ts");
     assert.match(add, /stripe\.subscriptions\.update/);
-    assert.match(add, /applyFacilitySubscription/);
+    assert.match(add, /syncStripeSubscriptionById/);
+    assert.doesNotMatch(add, /applyFacilitySubscription\(/);
     const apply = source("src/lib/billing/apply-stripe-event.ts");
     assert.match(apply, /isDepartmentProductCommerciallyRecognized/);
     assert.match(apply, /installDepartmentsForActiveEntitlements/);

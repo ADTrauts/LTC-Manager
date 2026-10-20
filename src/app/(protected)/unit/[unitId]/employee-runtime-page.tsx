@@ -1,3 +1,4 @@
+import { CanonicalSpacePanel } from "@/components/offline/canonical-space-panel";
 /**
  * Phase 6K — Employee / Quick PIN execution on existing Neighborhood and SPACE routes.
  * Supervisors and managers never enter this path.
@@ -87,6 +88,7 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
   const reportAsset = firstSearchValue(input.query?.reportAsset);
   const reportProblem = firstSearchValue(input.query?.reportProblem);
   const extras: ReactNode[] = [];
+  if(view.showExecution && input.spaceId && department) extras.push(<CanonicalSpacePanel key="space-offline" scope={{facilityId:input.session.facilityId,departmentId:department.id,unitId:input.unitId,spaceId:input.spaceId}} session={input.session}/>);
 
   if (
     view.showExecution &&
@@ -122,6 +124,7 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
           departmentId={department.id}
           unitId={input.unitId}
           requirement={requirement}
+          canonicalOffline={Boolean(input.spaceId)}
           deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
           deviceBoundUnitId={deviceBoundUnitId}
           actorRef={actorRefForSession(input.session)}

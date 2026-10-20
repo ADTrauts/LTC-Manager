@@ -24,6 +24,7 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
   projects: [
+    { name: "tablet", use: { ...devices["iPad (gen 7) landscape"], defaultBrowserType: "chromium", serviceWorkers: "allow" } },
     {
       name: "chromium",
       use: {

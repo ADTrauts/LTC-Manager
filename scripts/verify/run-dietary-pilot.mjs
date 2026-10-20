@@ -3,6 +3,7 @@
  * Dietary V1 integrated pilot browser certification orchestrator.
  * Requires disposable VERIFY_DATABASE_URL. Refuses ltc_manager.
  */
+import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -106,6 +107,9 @@ async function main() {
   if (!process.env.SEED_DEMO_PASSWORD) {
     process.env.SEED_DEMO_PASSWORD = "DietaryPilotSeed!ChangeMe";
   }
+  // Ephemeral test-only escrow configuration; production has no fallback.
+  process.env.OFFLINE_RECOVERY_KEYS ||= JSON.stringify({ verification: randomBytes(32).toString("base64") });
+  process.env.OFFLINE_RECOVERY_ACTIVE_KEY ||= "verification";
   process.env.ALLOW_DEMO_SEED_PASSWORD = "1";
 
   mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -127,7 +131,8 @@ async function main() {
     ALLOW_DEMO_SEED_PASSWORD: "1",
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
-    DIETARY_JOB_FLOW_ENABLED: "",
+    DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "true",
+    DIETARY_JOB_FLOW_ENABLED: "true",
   };
 
   try {

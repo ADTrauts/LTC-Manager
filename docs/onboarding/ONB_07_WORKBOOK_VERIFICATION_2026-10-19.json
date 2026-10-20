@@ -1,0 +1,414 @@
+{
+  "date": "2026-10-19",
+  "scope": "ONB-07 R07-01A only",
+  "status": "R07-01A BLOCKED; ONB-07 incomplete / release HOLD",
+  "head": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "sourceFingerprint": {
+    "manifest": {
+      "path": "tmp/onb07-r07a/source-fingerprints.json",
+      "sha256": "4286753b657feba941e5e652b7e6890838784093c7f4f6a7ea98de84fb8f6fd5"
+    },
+    "combinedSha256": "87ebeeb780e023ea218da62b977bd92ce70419a90ce2c28fd594b4330186347f"
+  },
+  "build": {
+    "distDir": ".next-onb07-r07a-reviewed-build",
+    "id": "J8PaXDPOzqYzA_n01cjyP",
+    "result": "PASS including TypeScript",
+    "log": {
+      "path": "tmp/onb07-r07a/build-reviewed.log",
+      "sha256": "713de4e415a00005380edd69b491ff1521d2c20c52500a106d0c02ac403c55da"
+    }
+  },
+  "owners": {
+    "src/lib/setup-imports/service.ts": {
+      "initialSha256": "1d3536ec61cbe880c5ee7acc57044fcb259b4248312dae0d200e765235a3f005",
+      "currentSha256": "513ebc67040105c1fc703366b2fcb9ab4e54ed86cc1e8ebec0f57377bc482ce2"
+    },
+    "src/lib/setup-imports/setup-imports.db.test.ts": {
+      "initialSha256": "0ea3523e49f9792c7cab017182b235c0059ae9c695f6567afcbbf5e460c308f8",
+      "currentSha256": "28dce2b1611a24bed2b708297e97c03fb8be809a8691f169b92ac554f88cd77c"
+    },
+    "src/lib/onboarding-workbook/service.ts": {
+      "initialSha256": "3bdcbcd583e5ad8a7ba27010173d4b4f3ed16c64ddc402853d8937b45a7c7680",
+      "currentSha256": "93b2b9f84d73a37d3254e61d1035d8d293fd2bd28a6aa2da50fe859b6a95d411"
+    },
+    "src/lib/onboarding-workbook/workbook.db.test.ts": {
+      "initialSha256": "3c711966540e190cd9849079543ec5d90e441b7b0f8058c55930059d17743e1e",
+      "currentSha256": "21258f70255532c2c27c06193809815d631ba07d47f926a966bef07d91e6105b"
+    },
+    "src/components/onboarding-workbook-workspace.tsx": {
+      "initialSha256": "d42b64c368a99c77bd7c2cb6e9ebc34b60703b1942a154468ec31ccf55208e02",
+      "currentSha256": "898491ab0c60338ca5831aeb34d9418ae59cb9f05ff71851d6eb6fe4f6a19a2f"
+    },
+    "tests/workbook-browser/workbook.spec.ts": {
+      "initialSha256": "a8a5254411ee37eed031653973ad99f5403f59237280a53f8ba01b6a2d0f02e5",
+      "currentSha256": "50c01dbe1acd4b5e1bb649b33ec868eab868f1f7827e9dcdb843ff420b58f134"
+    }
+  },
+  "environment": {
+    "node": "24.19.0",
+    "postgresql": "14.18",
+    "databasePort": 55471,
+    "browserPort": 55529,
+    "providers": "Stripe/mail/Blob credentials blank; no live provider calls; signup disabled/unmodified",
+    "integratedConcurrency": "Normal scripts/verify/verify-db.mjs and run-tests.mjs db defaults; no concurrency override",
+    "idleSleep": "Inhibited during final group/gates/build/browser without changing system preferences"
+  },
+  "verification": [
+    {
+      "check": "Final representative concurrent workbook/CSV/service group",
+      "status": "run",
+      "result": "PASS",
+      "totals": {
+        "tests": 56,
+        "pass": 55,
+        "fail": 0,
+        "skipped": 1,
+        "cancelled": 0
+      },
+      "log": {
+        "path": "tmp/onb07-r07a/representative-coordinator-only.log",
+        "sha256": "225d438eb62f151326b2e7ae823ebc6bd177ec068d975ff4b78706d746e30670"
+      },
+      "trace": {
+        "path": "tmp/onb07-r07a/coordinator-only-group.jsonl",
+        "sha256": "a60687a08cdb9f847d00e67a138f50f1617868ff37177e75e5fd0fd28088c53f"
+      }
+    },
+    {
+      "check": "Final required integrated database gate: migrate 150 / seed twice / all 446 test files / 57 SQL suites",
+      "status": "run",
+      "result": "FAIL",
+      "totals": {
+        "tests": 3686,
+        "pass": 3676,
+        "fail": 3,
+        "skipped": 7,
+        "cancelled": 0
+      },
+      "log": {
+        "path": "tmp/onb07-r07a/integrated-reviewed.log",
+        "sha256": "e0e7b7e9bc81fbf98e12ad2273629d3fada007cf2ba4ed528450b641e3b09da3"
+      },
+      "trace": {
+        "path": "tmp/onb07-r07a/integrated-reviewed.jsonl",
+        "sha256": "0fbb1d3bbc7a008223f0546b66b53bb34af9f51ed4349c6c679b1ec6e9f9dc35"
+      },
+      "failedTests": [
+        "SQL workbook: bounded 25-row execution resumes committed references across requests",
+        "assignment and role-change races leave no current assignment after membership end",
+        "phase4d sql: run board, skip, config, assignment isolation, scenarios 1-12"
+      ]
+    },
+    {
+      "check": "Changed workbook browser journeys",
+      "status": "run",
+      "result": "PASS",
+      "stats": {
+        "startTime": "2026-10-19T22:18:52.061Z",
+        "duration": 61566.259,
+        "expected": 8,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "report": {
+        "path": "tmp/onb07-r07a/browser/results.json",
+        "sha256": "207f75e41c30d87c7856b3bb3355879dd305bce20a19a829658941f886cf67e2"
+      },
+      "log": {
+        "path": "tmp/onb07-r07a/browser-reviewed.log",
+        "sha256": "d4ff1b50df40138365709cca0344ba4c107fd55de498b64e44b7751b02e3f9f5"
+      },
+      "coverage": "Six existing customer/Console/denial/input/recovery cases plus two bounded 28-row continuation cases at desktop 1280px/tablet 768px. Chromium viewport evidence, not physical-device certification.",
+      "testedSource": {
+        "path": "tmp/onb07-r07a/browser-tested-source.ts",
+        "sha256": "2502276d074665f10b7bcce6285c9797f787ce1090457accedbf6f61fe0515a4"
+      },
+      "afterRunChange": "Only screenshot destination changed to the run-specific artifact directory; assertions unchanged; no browser rerun or rebuild claimed for that artifact-only edit."
+    },
+    {
+      "check": "Selected six-file source/test lint",
+      "status": "run",
+      "result": "PASS, zero errors/warnings",
+      "log": {
+        "path": "tmp/onb07-r07a/lint-handoff.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "check": "Normal Git-aware migration integrity",
+      "status": "run",
+      "result": "PASS 150; one unchanged documented historical exception",
+      "log": {
+        "path": "tmp/onb07-r07a/migration-integrity.log",
+        "sha256": "f357f76e520e9339545fb5c0e04893ecdc2d62c69f52ff575795ccaab76f1f89"
+      }
+    },
+    {
+      "check": "Applied migration history: retained target and both fresh gate targets",
+      "status": "run",
+      "result": "PASS all 150/150, no mismatch/pending/unfinished",
+      "report": {
+        "path": "tmp/onb07-r07a/applied-history.json",
+        "sha256": "d450284a6d09c7272884f282cc93e846e6615a47c0f80e9b6614bcc07956f9a4"
+      }
+    },
+    {
+      "check": "Corrected preview footprint fixture",
+      "status": "run",
+      "result": "PASS",
+      "totals": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      },
+      "log": {
+        "path": "tmp/onb07-r07a/preview-footprint.log",
+        "sha256": "3b20fde338b2dc899bfdbc522ba52917220b0a0e42591978ec17109342e45d1b"
+      },
+      "finalIntegrated": "PASS in integrated-reviewed.log; no full-suite green claim"
+    },
+    {
+      "check": "Final hygiene / diff / documentation / preservation",
+      "status": "run",
+      "result": "See handoff-checks.json; no application rerun",
+      "report": "tmp/onb07-r07a/handoff-checks.json"
+    }
+  ],
+  "failedWorkbook": {
+    "report": {
+      "path": "tmp/onb07-r07a/reviewed-target-receipts.json",
+      "sha256": "08ae42905a83b62c5cc1d3ba09843ddcdff57622dc451ad60d20c1bdac4ea142"
+    },
+    "atomicity": {
+      "path": "tmp/onb07-r07a/failed-row-atomicity.json",
+      "sha256": "d3b92cf9fb94c7b4ff80da21668c88a5f958bdc3c551c64de11093d22024c94a"
+    },
+    "parentId": "eeba6dce-632b-43a3-9675-5b529e2424ce",
+    "committedMappings": 26,
+    "failedRows": 1,
+    "unattemptedDependentRows": 1,
+    "failedChild": "900aa0c1-a9bd-425d-82b1-10b9cf523ca5",
+    "phase": "Row execution during resumption; canonical batch exists; not missing claim or unknown COMMIT",
+    "backend": 46736,
+    "lastFiveRolledBackXids": [
+      "101162",
+      "101175",
+      "101182",
+      "101201",
+      "101223"
+    ],
+    "noFailedTargetUserOrEmployee": true,
+    "earlierCommitsPreserved": true,
+    "retainedFailureNotReplayed": true
+  },
+  "diagnostics": {
+    "historicalAndNewReceiptSnapshots": {
+      "path": "tmp/onb07-r07a/receipt-snapshots.json",
+      "sha256": "27fce349c58bfb5e0a1afed9da5bfbc59516e9daf0cdbd78e3f5ddd6dd930dea"
+    },
+    "firstIntegratedReceiptSnapshot": {
+      "path": "tmp/onb07-r07a/integrated-target-receipts.json",
+      "sha256": "7f2211b7ccc62a22b30d254829ded4055bd900d8e7ebfe47c82f5a15904fd53d"
+    },
+    "catalogPlansAndLocks": {
+      "path": "tmp/onb07-r07a/catalog-probe.json",
+      "sha256": "d30135ac825ca1fe8c26cc7fa5107d9c86d3e44aa617a167a1a5cf09c544250f"
+    },
+    "limits": "Standalone read-only rolled-back probe: 39 plans, 37 SIREAD locks, relation-scoped Role only; not complete SSI graph or an index correction justification. JIT timing did not establish material overhead.",
+    "jit": {
+      "path": "tmp/onb07-r07a/jit-probe-visible.log",
+      "sha256": "dc5b71aebf272021cae4044041ba153369e8e8d3d3fe6f55e19cddc211ee69f4"
+    },
+    "postgres": {
+      "path": "tmp/onb07-r07a/postgres-final.log",
+      "sha256": "08a74a0d33faba7cfe31ea740310dbe628aafb378f29fd51b366399817e6634e"
+    },
+    "actual28RowCatalogPlansAndLocks": {
+      "path": "tmp/onb07-r07a/catalog-28-probe.json",
+      "sha256": "014b6c3e9d80c16dcea7a0dfb63a6dc4f3c5c9737da17401f8fe7fe2d83ab8c6"
+    },
+    "sharedUserHeapPages": {
+      "path": "tmp/onb07-r07a/shared-user-pages.log",
+      "sha256": "e5f91408047fa346d50247085bae5e5376d6f2cb2208629c642b2f91e19438aa"
+    },
+    "actual28RowProbeSummary": "27 plans / 56 SIREAD locks; User page predicates on 5,7,8,9,10. Other-Facility Users created during this workbook share those pages; complete SSI graph remains unproven."
+  },
+  "reusedEvidence": {
+    "status": "reused",
+    "inventory": {
+      "path": "docs/onboarding/ONB_07_SPACE_OFFLINE_VERIFICATION_2026-10-19.json",
+      "sha256": "cf03e742fdd3f69ef597c8369658368e55d824456757c02a77b89c216eebf987"
+    },
+    "buildId": "eYn2LNGJB_kx6ATlH7XPy",
+    "ownerHashesVerifiedUnchanged": {
+      "public/offline.html": "7d4b3a03b63c57c448ad5f284bbb29541d7675ab43c292a6596948d7c457550b",
+      "public/space-offline-store.js": "50a0e3bfceb38839d8b6c0f2827ce0f664d2016282ed3e5253b2a6f7cd01c3cb",
+      "public/space-offline.js": "4c3aafa0500c35d4f59cc263357e35fbe474313acbf0f611ec5b7861801c48a3",
+      "public/sw.js": "0eeb4d3d3d6fffa8dad7fcaf18a1a39f52685c4eaa424db66b10b336c26e52e0",
+      "src/app/api/auth/account-invite/confirm/route.ts": "c876ed6ff95949dcebc88affc59c398780d5ca6499cd5cad9e957663ce23b1bc",
+      "src/app/api/auth/login/route.ts": "016776c4de4cc5f58ced6c96c8284fabcc93c49a20848bbb515a7296c9636cd1",
+      "src/app/api/auth/logout-full/route.ts": "76f6179ee3b7df2628b07a6ccdb539d97bad258c1415cb03171adf0b1857637a",
+      "src/app/api/auth/logout/route.ts": "0bdc0f7931d38cf02863dd00e4b16587f78fd0d8d5625d46e95739761677cb34",
+      "src/app/api/auth/pin-login/route.ts": "bf856e13ba357ab51721d39528ddb172e22acf3af2065c358ebff62de8f1827d",
+      "src/app/api/offline/runtime-bundle/route.ts": "1f900f16747c06bf7595e511922312a1064bb8dacf2c0cc69f8179d2770364a1",
+      "src/app/api/offline/runtime-sync/route.ts": "cb93f32fe62a3e5dadeac5ad6eb2e7a1f2975d55a03709d403ea002ef64327e9",
+      "src/components/offline/canonical-space-panel.tsx": "915f10e3239a19e1ec5b2b4447004534756a5f2c033c17935e88201affc5544c",
+      "src/components/sign-out-controls.tsx": "e929e07914254462c8d9a754cc8f3db79ad5f847a1fd9fb471bc0f67fe78bbda",
+      "src/lib/department-work/authority.ts": "b9f85eb062848a3063847a113c7c0344cafa9599c02f3f2ba25a82ae8ffd7865",
+      "src/lib/department-work/load-runtime-work.ts": "ab8d619ab0a56e70b3d64317b3e61838200fe2cbfa0bb4ef6afa13aba7d2c8d6",
+      "src/lib/department-work/occurrence-service.ts": "95e9ddd5a9c2291baf4fad04b57216792a9f1e8425d3a2f476979556e0848c48",
+      "src/lib/department-work/phase-11a-department-work.test.ts": "f7b5928fbf4b86a4c0177db68b85a2d6afed3245d2bdf04d2861f3c106ed0e93",
+      "src/lib/employee-runtime-flow/load-assignments.ts": "effd18544045262745fc2f23aad9219df8e8ef5d967766b996e390a88e9fd8bc",
+      "src/lib/offline/runtime-api.test.ts": "4eb3a5f9682db0ea8d9bfc5855f98267a100d5f7045f10a4fb8ee626c1d39d49",
+      "src/lib/offline/space/body.hermetic.test.ts": "1eebe7280cf2ee6be93714bcc6d4d91e284f09b6f4bdad3618029c2574c62b1f",
+      "src/lib/offline/space/body.ts": "c47d5ac86eab2b53418114c4b73a81f6e0ad7c38550b347c49b5532c76f1fe43",
+      "src/lib/offline/space/contract.ts": "610abd1f331cacdc302c83e2e83c3ac003c2c1932cc777b10496e11e9c7cb0c2",
+      "src/lib/offline/space/http.ts": "1ea6b56dfdfd7c31e4c291d832bb2f504c6d52a17150b90e541890d47fd1ef5a",
+      "src/lib/offline/space/keys.ts": "c2457ed21b7aac58d5572ca904e575c7859eaf7f438ee562490af175f69bb034",
+      "src/lib/offline/space/service.ts": "982d3605e8e16ea8c51ce0a1f37164b9593c321724a4daa98a6b3a9737ae44c2",
+      "src/lib/offline/space/space.db.test.ts": "bb975411859d82a30709c4547c8a3a262a74610b7343cf9f53a9da6dea17c316",
+      "src/lib/operational-cycles/cycle-authority.ts": "27fb91fdbf55879b415d06467c6bdc11861478d24535c258e15c7afef56f982c",
+      "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts": "5eacd81b42fdae1dacfc24e7f77f1e5059025916cdf6f2c91c9aedd5a293c16a",
+      "src/lib/operational-cycles/day-expectation-runtime.test.ts": "58cf1c1f1362baaf529f705c9bb5a0db955dccdad0d503a650cef2872c8e5239",
+      "src/lib/operational-cycles/key-time-day-actions.ts": "f781a1ff274900ef9ca47324ab191e68a5394832a03065c600b3a1e8b06785a8",
+      "src/lib/operational-cycles/load-operational-type-targets.ts": "33de5a10a88eec487be1cf10f291078519a420cf481f7e08c34b26fc8b2e80a3",
+      "src/lib/operational-cycles/phase-9a-cycles.test.ts": "6644ec02df55a12e2193c1b51843a60ebe4fd6dcb060803e4799abcd864d30ab",
+      "src/lib/operational-cycles/record-timing-adjustment.ts": "b55ec23936ca3e926315f90e92dc82b3c6a81413c68eb12534f86a34ac31f849",
+      "src/lib/setup-imports/transaction.ts": "2384289a71d6cff997704f7f006ca458c2ec2775a664efe553a0e551af7ccf57"
+    },
+    "coverage": "Prior 20 focused checks, 18 offline desktop/tablet journeys and two changed PIN journeys; eight unchanged Dietary cases explicitly reused there. No fresh offline/browser replay. Current normal integrated gate also exercises SPACE SQL, with its actual current results in the log.",
+    "priorBuildNotCurrentWorkbookBuild": true
+  },
+  "historicalAttempts": [
+    {
+      "log": "representative-before.log",
+      "classification": "Setup failure: isolated cluster port omitted; 0 pass/52 fail/1 skip before usable database access, not 52 product regressions"
+    },
+    {
+      "log": "representative-before-connected.log",
+      "classification": "Unchanged-owner small group, 52 pass/0 fail/1 skip; not integrated closure"
+    },
+    {
+      "log": "exhaustion-old.log",
+      "classification": "New regression fixture missing required displayName; not a successful SSI control"
+    },
+    {
+      "log": "exhaustion-old-connected.log",
+      "classification": "Real five-SSI-rollback control fails by escaping child claim; PID 26262 / XIDs 82188/82190/82192/82194/82196"
+    },
+    {
+      "log": "exhaustion-fixed.log",
+      "classification": "First fix advances 25 attempts but resumption fails at absent-child refresh; retained real failed implementation"
+    },
+    {
+      "log": "exhaustion-recovery-fixed.log",
+      "classification": "Focused corrected recovery 1 pass; superseded by final representative and integrated cases"
+    },
+    {
+      "log": "unknown-claim.log",
+      "classification": "Focused uncertain COMMIT recovery 1 pass; later ownership changes covered again in final group/gate"
+    },
+    {
+      "log": "representative-final.log",
+      "classification": "Intermediate 55 total / 53 pass / 1 fail / 1 skip; failed partial-recovery case at location row execution"
+    },
+    {
+      "log": "focused-claim-scope.log",
+      "classification": "Eight focused passes; no integrated closure"
+    },
+    {
+      "log": "representative-claim-scope.log",
+      "classification": "Intermediate 56 total / 53 pass / 2 fail / 1 skip: row recovery and lease expiry after anomalous 1754-second delay near sleep/wake; failed, not waived"
+    },
+    {
+      "log": "integrated.log",
+      "classification": "First migration-150 full checkpoint FAIL: 3686 total / 3676 pass / 3 fail / 7 skip. Workbook 25/28, PM replacement 0/1, global preview User count 238/223. Corrected coordination/fixture afterward justifies final integrated run; no retry or assertion relaxation"
+    },
+    {
+      "log": "browser-setup-failed.log",
+      "classification": "Port collision: unrelated PostgreSQL occupied 55483; no valid application browser proof. Preserved outputs; listener untouched; corrected free port 55529"
+    },
+    {
+      "log": "build.log",
+      "classification": "Passing intermediate build, superseded because relevant owner changed"
+    },
+    {
+      "log": "build-final.log",
+      "classification": "Passing intermediate build, superseded because pending coordination storage changed"
+    },
+    {
+      "log": "working-diff-before-doc-spacing.log",
+      "classification": "Documentation EOF spacing finding; corrected and final diff check passed"
+    },
+    {
+      "log": "catalog-probe.log",
+      "classification": "Diagnostic module parse failure; zero plans collected"
+    },
+    {
+      "log": "integrated-target-state.log",
+      "classification": "Diagnostic SELECT used unsupported jsonb_object_length; corrected receipt inspection follows; no mutation"
+    }
+  ],
+  "artifactPathRecovery": {
+    "path": "tmp/onb07-r07a/artifact-path-recovery.json",
+    "sha256": "858ff493560cc02dfb01b45a55bed56d1afeb8d10c38dfed5a62a49ed1288dfa"
+  },
+  "preservation": {
+    "initialIndexEntries": 2608,
+    "changedOriginalIndexEntries": [],
+    "initialSnapshot": {
+      "path": "tmp/onb07-r07a/before.json",
+      "sha256": "c0ef348d3f00580cb32c05ae041061714558d853a0b45368ede68b933cda5ae6"
+    },
+    "scopeAudit": {
+      "path": "tmp/onb07-r07a/handoff-checks.json",
+      "sha256": "672eca586bf277ad75e88348008722e752329c46d449a0dac38e0fc8a6c3907e"
+    },
+    "appliedSqlChanged": false,
+    "resetOrDrop": false,
+    "tsconfigRestoredExactly": true,
+    "cleanup": "Owned verification server stopped; idle isolated cluster stopped after zero-client check; databases/builds/logs retained. Unrelated PostgreSQL listener untouched."
+  },
+  "gateVerdicts": {
+    "childClaimFailureRegression": "PASS",
+    "representativeConcurrentGroup": "PASS",
+    "browserJourneys": "PASS",
+    "R07-01AIntegratedWorkbookRecovery": "BLOCKED",
+    "normalDatabaseGate": "FAIL, three current failures",
+    "remoteCI": "NOT RUN",
+    "productionInfrastructure": "PENDING",
+    "actualPilot": "PENDING, no authorization",
+    "ONB-07": "INCOMPLETE"
+  },
+  "notRun": [
+    "Another broad SQL rerun after unchanged final failure",
+    "New standalone full hermetic suite",
+    "Unchanged offline/Dietary browser replay",
+    "Remote CI",
+    "Production scanner/key infrastructure",
+    "Live operations or real pilot"
+  ],
+  "nextDecision": {
+    "status": "Requested from user; pending response",
+    "proposal": "Retire completed People facts only when no remaining row consumes them, with versioned compatibility and all pending dependencies/full Facility catalogs protected. This changes review-drift scope; not implemented.",
+    "alternative": "Retain full protection and review protected-read batching/revision fences",
+    "source": "ONB_06_WORKBOOK_CONTRACT.md conservative checkpoint protection / user direction to present genuine broader decisions"
+  },
+  "authorization": {
+    "commit": false,
+    "push": false,
+    "deployment": false,
+    "liveCharges": false,
+    "customerDataOperations": false,
+    "externalMessages": false,
+    "pilotActivation": false
+  },
+  "artifactManifest": {
+    "path": "tmp/onb07-r07a/artifact-manifest.json",
+    "sha256": "cec0e937655f215d3754541c23e1bc86ccd5e114178b5f7e0c72044990e57f0f"
+  }
+}

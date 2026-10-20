@@ -32,10 +32,9 @@ export function billingStatusFromStripeSubscription(
     case "active":
     case "trialing":
       return "ACTIVE";
-    case "past_due":
-    case "unpaid":
-    case "paused":
-      return "PAST_DUE";
+    case "past_due": return "PAST_DUE";
+    case "unpaid": return "UNPAID";
+    case "paused": return "PAUSED";
     case "incomplete":
       return "INCOMPLETE";
     case "canceled":

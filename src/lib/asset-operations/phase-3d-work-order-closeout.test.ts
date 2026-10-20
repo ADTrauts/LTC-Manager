@@ -752,3 +752,54 @@ test(
     }
   },
 );
+
+
+test("repair codes are unique across concurrent allocations and never reused after rollback", { skip: skipReason }, async () => {
+  const db = new PrismaClient({ datasources: { db: { url: databaseUrl! } } });
+  const { nextRepairCode } = await import("./work-order-service");
+  try {
+    const codes = await Promise.all(Array.from({ length: 32 }, () => nextRepairCode(db)));
+    assert.equal(new Set(codes).size, codes.length);
+    assert.ok(codes.every((code) => /^R-\d{5,}$/.test(code)));
+    let rolledBack = "";
+    await assert.rejects(db.$transaction(async (tx) => {
+      rolledBack = await nextRepairCode(tx);
+      throw new Error("injected rollback");
+    }), /injected rollback/);
+    const after = await nextRepairCode(db);
+    assert.notEqual(after, rolledBack);
+    assert.ok(BigInt(after.slice(2)) > BigInt(rolledBack.slice(2)));
+  } finally { await db.$disconnect(); }
+});
+
+
+test("automatic Asset allocation preserves explicit imported codes occupying future sequence values", { skip: skipReason }, async () => {
+  const db = new PrismaClient({ datasources: { db: { url: databaseUrl! } } });
+  const previous = process.env.PLANT_OPERATIONS_ENABLED;
+  process.env.PLANT_OPERATIONS_ENABLED = "true";
+  try {
+    const fx = await createFacilityFixture(db);
+    const mgr = session({ facilityId: fx.facility.id, role: "MANAGER", uid: fx.manager.id, primaryDepartmentId: fx.plant.id });
+    const reserved = BigInt(`9${Date.now()}${randomBytes(2).readUInt16BE()}`);
+    const code = `A-${reserved}`;
+    const imported = await createAsset(mgr, { facilityId: fx.facility.id, departmentId: fx.plant.id,
+      unitId: fx.unit.id, name: "Explicit imported identity", equipmentType: "Refrigerator", assetCode: code, client: db });
+    let forcedCollision = false;
+    const client = new Proxy(db, { get(target, key) {
+      if (key === "$queryRaw") return async (query: TemplateStringsArray, ...values: unknown[]) => {
+        if (!forcedCollision && query.join("").includes("AssetCodeSequence")) { forcedCollision = true; return [{ value: reserved }]; }
+        return target.$queryRaw(query, ...values);
+      };
+      const value = Reflect.get(target, key); return typeof value === "function" ? value.bind(target) : value;
+    } });
+    const automatic = await createAsset(mgr, { facilityId: fx.facility.id, departmentId: fx.plant.id,
+      unitId: fx.unit.id, name: "Automatically allocated identity", equipmentType: "Refrigerator", client });
+    assert.equal(forcedCollision, true);
+    assert.notEqual(automatic.assetCode, code);
+    assert.deepEqual(await db.asset.findUniqueOrThrow({ where: { id: imported.id } }), imported);
+  } finally {
+    if (previous === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
+    else process.env.PLANT_OPERATIONS_ENABLED = previous;
+    await db.$disconnect();
+  }
+});

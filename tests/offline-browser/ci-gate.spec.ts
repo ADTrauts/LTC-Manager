@@ -1,249 +1,183 @@
-import { test, expect, chromium, type BrowserContext, type Page } from "@playwright/test";
-import {
-  ensureDeviceBoundAsAdmin,
-  expectOfflineControlsReady,
-  fetchBundleViaApi,
-  gotoUnitWorkspace,
-  inspectCaches,
-  inspectIndexedDb,
-  loadFixtures,
-  loginPassword,
-  recordServeryReadyOffline,
-  setNetworkOffline,
-  signOut,
-  waitForBundle,
-  waitForOfflineStatus,
-  waitForServiceWorker,
-  waitForServiceWorkerControl,
-  clickRetrySync,
-  prisma,
-} from "./helpers";
-
-const profileDir = process.env.OFFLINE_BROWSER_PROFILE_DIR || "tmp/offline-browser-profile";
-
-async function openPersistent(suffix = "default"): Promise<{ context: BrowserContext; page: Page }> {
-  const dir = `${profileDir}-${suffix}`;
-  const context = await chromium.launchPersistentContext(dir, {
-    headless: true,
-    baseURL: process.env.OFFLINE_BROWSER_BASE_URL,
-    serviceWorkers: "allow",
-  });
-  const page = context.pages()[0] || (await context.newPage());
-  return { context, page };
-}
-
-test.describe.configure({ mode: "default" });
-
-test("scenario-02 @ci-gate: Service worker installs and activates", async () => {
-  const fx = loadFixtures();
-  const { context, page } = await openPersistent("sw");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await waitForServiceWorker(page);
-    const state = await page.evaluate(async () => {
-      const reg = await navigator.serviceWorker.getRegistration("/");
-      return {
-        scope: reg?.scope ?? null,
-        active: reg?.active?.state ?? null,
-      };
-    });
-    expect(state.active).toBe("activated");
-    expect(state.scope).toContain("/");
-  } finally {
-    await context.close();
-  }
+import { test, expect, type Page } from '@playwright/test';
+import { loadFixtures, prisma, loginPassword, signOut, setNetworkOffline, waitForServiceWorkerControl } from './helpers';
+import { prepareCanonicalOfflineEntry, openCanonicalSpaceWork, expectCanonicalOfflinePreparation } from './canonical-journey';
+const date = (tz: string) => new Date().toLocaleDateString('en-CA', { timeZone: tz });
+const index = (project: string) => project === 'tablet' ? 1 : 0;
+async function prepare(page: Page) { const fx = loadFixtures(); await prepareCanonicalOfflineEntry(page, fx.canonical, fx.adminEmail, date(fx.facilityTimezone)); await waitForServiceWorkerControl(page); return fx; }
+async function cached(page: Page) { return page.evaluate(async () => { const s = await import(/* webpackIgnore: true */ String('/space-offline-store.js')); const row = (await s.envelopes()).find((r: {id:string;commands:unknown[]}) => r.id === s.activeId()); return { ...await s.read(row), id: row.id }; }); }
+async function sync(page: Page) { await page.getByTestId('space-offline-sync').click(); }
+test('scenario-02/04 @ci-gate: public code caches; protected HTML, RSC and API responses never cache', async ({ page }) => {
+    const fx = await prepare(page);
+    await page.goto(`/unit/${fx.canonical.unitId}?space=${fx.canonical.spaceId}`);
+    await page.evaluate(() => fetch('/api/offline/runtime-bundle', {cache:'no-store'}));
+    const urls = await page.evaluate(async () => { const urls: string[] = []; for (const name of await caches.keys())
+        for (const request of await (await caches.open(name)).keys())
+            urls.push(request.url); return urls; });
+    expect(urls.some(u => u.endsWith('/offline.html'))).toBe(true);
+    expect(urls.some(u => u.endsWith('/space-offline-store.js'))).toBe(true);
+    expect(urls.filter(u => { const p = new URL(u); return p.pathname.startsWith('/api/') || p.pathname.startsWith('/unit/') || p.pathname === '/login' || p.searchParams.has('_rsc'); })).toEqual([]);
 });
-
-test("scenario-03 @ci-gate: Application shell reloads offline", async () => {
-  const fx = loadFixtures();
-  const { context, page } = await openPersistent("shell");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await page.goto("/offline.html", { waitUntil: "domcontentloaded", timeout: 20_000 });
-    await waitForServiceWorkerControl(page);
-    await page.evaluate(async () => {
-      const cache = await caches.open("ltc-offline-shell-v1");
-      for (const url of [
-        "/offline.html",
-        "/manifest.webmanifest",
-        "/icons/icon-192.svg",
-        "/icons/icon-512.svg",
-      ]) {
-        const res = await fetch(url, { cache: "reload" });
-        if (res.ok) await cache.put(url, res.clone());
-      }
-    });
+test('scenario-03/30 @ci-gate: genuine offline shell with no prepared context exposes no operational data', async ({ page, context }) => {
+    const fx = await prepare(page);
+    await page.getByTestId('space-offline-lock').click();
     await setNetworkOffline(context, true, page);
-    await page.goto("/offline.html", { waitUntil: "domcontentloaded", timeout: 15_000 });
-    await expect(page.locator(".status")).toHaveText(/Offline/i, { timeout: 10_000 });
-    await expect(page.locator("body")).toContainText(/reconnect|offline bundle|saved on this tablet/i);
-  } finally {
-    await setNetworkOffline(context, false, page).catch(() => {});
-    await context.close();
-  }
+    await page.reload();
+    await expect(page.getByTestId('space-offline-status')).toContainText('No unlocked');
+    await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
+    await expect(page.getByTestId('space-key-time-actual')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText(fx.canonical.workLabel);
 });
-
-test("scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB", async () => {
-  const fx = loadFixtures();
-  const { context, page } = await openPersistent("bundle");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await gotoUnitWorkspace(page, fx.serveryUnitId);
-    await expectOfflineControlsReady(page);
-    await fetchBundleViaApi(page, fx.serveryUnitId).catch(async (err) => {
-      // Surface API denial clearly instead of hanging later.
-      throw err;
-    });
-    await waitForBundle(page);
-    const idb = await inspectIndexedDb(page);
-    expect(idb.stores).toEqual(
-      expect.arrayContaining(["meta", "deviceContext", "bundle", "commands", "conflicts"]),
-    );
-    expect(idb.bundle.present).toBe(true);
-    expect(idb.bundle.hasPassword).not.toBe(true);
-    expect(idb.bundle.hasPin).not.toBe(true);
-    expect(idb.bundle.hasJwt).not.toBe(true);
-    expect(idb.bundle.hasAuthSecret).not.toBe(true);
-  } finally {
-    await context.close();
-  }
+test('scenario-05 @ci-gate: exact Space encrypts IndexedDB; a new tab cannot retrieve its key', async ({ page, context }) => {
+    await prepare(page);
+    const data = await cached(page);
+    expect(data.bundle.scope.spaceId).toBe(loadFixtures().canonical.spaceId);
+    const denied = await page.request.post('/api/offline/runtime-bundle', { headers: { origin: 'https://unapproved.example.test', cookie: (await context.cookies()).map(c => `${c.name}=${c.value}`).join('; ') }, data: {protocol:'space/1', action:'prepare', scope:data.bundle.scope} }); expect(denied.status()).toBe(403);
+    const raw = await page.evaluate(async () => { const s = await import(String('/space-offline-store.js')); return JSON.stringify(await s.envelopes()); });
+    expect(raw).not.toContain(data.bundle.label);
+    expect(raw).not.toContain(loadFixtures().canonical.workLabel);
+    expect(raw).not.toContain('password');
+    expect(raw).not.toContain('jwt');
+    expect(raw).not.toContain('pinDigest');
+    const second = await context.newPage();
+    await second.goto(page.url());
+    await expect(second.getByTestId('space-offline-status')).toContainText('No unlocked');
+    expect(await second.evaluate(() => Object.keys(sessionStorage).some(k => k.startsWith('vssyl-space/1/') && k.includes('context')))).toBe(false);
+    await second.close();
 });
-
-test("scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once", async () => {
-  const fx = loadFixtures();
-  const db = prisma();
-  const { context, page } = await openPersistent("queue");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await gotoUnitWorkspace(page, fx.serveryUnitId);
-    await expectOfflineControlsReady(page);
-    await fetchBundleViaApi(page, fx.serveryUnitId);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expectOfflineControlsReady(page);
-    await waitForBundle(page);
-    await waitForOfflineStatus(page, /Online|Synchronized|Offline/i);
-
-    const before = await db.serveryMilestoneEntry.count({
-      where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
-    });
-
-    await setNetworkOffline(context, true, page);
-    await expect(page.getByTestId("offline-runtime-status")).toHaveText(/^Offline/i, {
-      timeout: 15_000,
-    });
-    await page.waitForFunction(() => navigator.onLine === false);
-    // Prove the offline button path is mounted (Ready is not a server-action form submit).
-    const readyBtn = page
-      .getByTestId("servery-meal-service-controls")
-      .getByRole("button", { name: /Servery Ready/i })
-      .first();
-    await expect(readyBtn).toBeVisible();
-    expect(await readyBtn.evaluate((el) => Boolean(el.closest("form")))).toBe(false);
-    const pre = await inspectIndexedDb(page);
-    expect(pre.bundle.present, "bundle must remain available while offline").toBe(true);
-    await recordServeryReadyOffline(page);
-    await expect(page.getByTestId("offline-runtime-status")).not.toContainText("Synchronized");
-    await expect(page.getByTestId("servery-meal-service-controls")).toContainText(
-      /Saved on this tablet/,
-    );
-
-    let idb = await inspectIndexedDb(page);
-    expect(idb.commandCount).toBeGreaterThanOrEqual(1);
-
-    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
-    idb = await inspectIndexedDb(page);
-    expect(idb.commandCount).toBeGreaterThanOrEqual(1);
-
-    await setNetworkOffline(context, false, page);
-    await page.goto(`/unit/${fx.serveryUnitId}?unitTab=overview`);
-    await waitForOfflineStatus(page, /Online|Synchronizing|Synchronized|Unable to Sync/i);
-    await clickRetrySync(page);
-    await expect
-      .poll(
-        async () =>
-          db.serveryMilestoneEntry.count({
-            where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
-          }),
-        { timeout: 60_000 },
-      )
-      .toBe(before + 1);
-
-    await waitForOfflineStatus(page, /Synchronized|Online/i);
-  } finally {
-    await setNetworkOffline(context, false, page).catch(() => {});
-    await context.close();
-    await db.$disconnect();
-  }
-});
-
-test("scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data", async () => {
-  const fx = loadFixtures();
-  const { context, page } = await openPersistent("signout");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await signOut(page);
-    await loginPassword(page, fx.supervisorEmail);
-    await gotoUnitWorkspace(page, fx.serveryUnitId);
-    await waitForBundle(page);
-    await signOut(page);
-    const idb = await inspectIndexedDb(page);
-    expect(idb.bundle.present).toBe(false);
-    await loginPassword(page, fx.managerEmail);
-    await gotoUnitWorkspace(page, fx.serveryUnitId);
-    const after = await inspectIndexedDb(page);
-    if (after.bundle.present && !after.bundle.encrypted) {
-      expect(after.bundle.actorRef).not.toEqual(fx.supervisorUserId);
+test('scenario-07/08/09/11/12/13 @ci-gate: real offline reload, Work/actual queue and interrupted response reconcile exactly once', async ({ page, context }, info) => {
+    await prepare(page); const i = index(info.project.name), db = prisma();
+    try {
+        await setNetworkOffline(context, true, page);
+        await page.reload();
+        await expect(page.getByTestId('space-offline-status')).toContainText('Offline — prepared');
+        await expect(page.getByTestId('space-work-instructions').first()).toHaveText('Verify supplies for this exact Space before confirming completion.');
+        await page.locator(`[data-testid="space-work-complete"][data-target-order="${i}"]`).click();
+        await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
+        await expect(page.getByTestId('space-command-result')).toHaveCount(2);
+        await page.reload();
+        const queued = await cached(page);
+        expect(queued.commands.every((c: {status:string}) => c.status === 'pending')).toBe(true);
+        expect(await db.offlineSyncReceipt.count({ where: { issuanceId: queued.id } })).toBe(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await page.screenshot({ path: info.outputPath('space-offline.png'), fullPage: true });
+        await setNetworkOffline(context, false, page);
+        // The real request commits, then its browser response is lost. Never mint replacement IDs.
+        await page.evaluate(() => { const original = window.fetch; let lose = true; window.fetch = async (...args) => { const response = await original(...args); if (lose && String(args[0]).includes('runtime-sync') && String(args[1]?.body).includes('"action":"sync"')) {
+            lose = false;
+            await response.text();
+            throw Error('synthetic lost response after server COMMIT');
+        } return response; }; });
+        await sync(page);
+        await expect(page.getByTestId('space-offline-status')).toContainText('synthetic lost response');
+        await sync(page);
+        await expect.poll(async () => (await cached(page)).commands.map((c: {status:string}) => c.status)).toEqual(['committed', 'committed']);
+        await sync(page);
+        const receipts = await db.offlineSyncReceipt.findMany({ where: { issuanceId: queued.id } });
+        expect(receipts).toHaveLength(2);
+        expect(receipts.every(r => r.intentDigest && r.authoritativeRecordId && r.outcome)).toBe(true);
+        for (const c of queued.commands) {
+            expect(receipts.filter(r => r.clientCommandId === c.id)).toHaveLength(1);
+            if (c.kind === 'WORK')
+                expect(await db.departmentWorkEvent.count({ where: { occurrenceId: receipts.find(r => r.clientCommandId === c.id)!.authoritativeRecordId!, eventType: 'COMPLETED' } })).toBe(1);
+            else {
+                const k = await db.operationalCycleKeyTimeDayExpectation.findUniqueOrThrow({ where: { id: c.target } });
+                expect(await db.operationalCycleKeyPointActual.count({ where: { cycleId: k.cycleId, spaceId: k.spaceId, serviceDate: k.serviceDate } })).toBe(1);
+            }
+        }
+        await expect(page.getByTestId('space-online-only')).toContainText('corrections and expected-time adjustments are unavailable offline');
     }
-  } finally {
-    await context.close();
-  }
+    finally {
+        await db.$disconnect();
+    }
 });
-
-test("scenario-30 @ci-gate: No offline bundle produces a safe reconnect-required state", async () => {
-  const fx = loadFixtures();
-  const { context, page } = await openPersistent("nobundle");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await page.goto("/offline.html", { waitUntil: "domcontentloaded" });
-    await waitForServiceWorker(page);
-    await page.evaluate(async () => {
-      const cache = await caches.open("ltc-offline-shell-v1");
-      const res = await fetch("/offline.html", { cache: "reload" });
-      if (res.ok) await cache.put("/offline.html", res.clone());
-      await new Promise<void>((resolve, reject) => {
-        const req = indexedDB.deleteDatabase("ltc-offline-runtime");
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-        req.onblocked = () => resolve();
-      });
-    });
+test('scenario-conflict @ci-gate: another authorized actor records the actual; replay shows conflict without correction', async ({ page, context, browser }, info) => {
+    const fx = await prepare(page), i = 2 + index(info.project.name);
     await setNetworkOffline(context, true, page);
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
-    await expect(page.locator("body")).toContainText(/offline|reconnect/i);
-    const idb = await inspectIndexedDb(page);
-    expect(idb.bundle.present).toBe(false);
-    expect(idb.commandCount).toBe(0);
-  } finally {
-    await setNetworkOffline(context, false, page).catch(() => {});
-    await context.close();
-  }
+    await page.reload();
+    await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
+    await page.locator(`[data-testid="space-work-complete"][data-target-order="${10 + index(info.project.name)}"]`).click();
+    const other = await browser.newContext({ baseURL: process.env.OFFLINE_BROWSER_BASE_URL, serviceWorkers: 'allow' });
+    try {
+        const p = await other.newPage();
+        await prepareCanonicalOfflineEntry(p, fx.canonical, fx.adminEmail, date(fx.facilityTimezone));
+        await openCanonicalSpaceWork(p, fx.canonical, fx.canonical.people.secondWorker.email);
+        await expectCanonicalOfflinePreparation(p);
+        await p.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
+        await sync(p);
+        await expect(p.getByTestId('space-command-result')).toContainText('committed');
+        await setNetworkOffline(context, false, page);
+        await sync(page);
+        await expect(page.getByTestId('space-command-result').filter({hasText:'conflict'})).toHaveCount(1);
+        await expect(page.getByTestId('space-command-result').filter({hasText:'committed'})).toHaveCount(1);
+        await expect(page.getByTestId('space-command-result').filter({hasText:'conflict'})).toContainText('Corrections are online-only');
+        const data = await cached(page), db = prisma();
+        try {
+            expect(await db.offlineConflict.count({ where: { clientCommandId: data.commands.find((c:{kind:string})=>c.kind==='KEY_TIME_ACTUAL').id } })).toBe(1);
+            const receipts=await db.offlineSyncReceipt.findMany({where:{issuanceId:data.id}}); expect(receipts).toHaveLength(2);
+            await sync(page); expect(await db.offlineSyncReceipt.count({where:{issuanceId:data.id}})).toBe(2);
+            const work=receipts.find(r=>r.commandType==='space/1:WORK')!;expect(await db.departmentWorkEvent.count({where:{occurrenceId:work.authoritativeRecordId!,eventType:'COMPLETED'}})).toBe(1);
+        }
+        finally {
+            await db.$disconnect();
+        }
+    }
+    finally {
+        await other.close();
+    }
+});
+test('scenario-27 @ci-gate: sign-out seals pending intent; other actor denied; fresh same-actor review recovers', async ({ page, context }, info) => {
+    const fx = await prepare(page);
+    await page.locator(`[data-testid="space-work-complete"][data-target-order="${4 + index(info.project.name)}"]`).click();
+    const before = await cached(page);
+    await signOut(page);
+    expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('vssyl-space/1/') && k !== 'vssyl-space/1/identity'))).toEqual([]);
+    await openCanonicalSpaceWork(page, fx.canonical, fx.canonical.people.secondWorker.email);
+    await expect(page.getByTestId('space-offline-status')).toContainText('No unlocked');
+    await page.getByTestId('space-offline-recovery').click();
+    await expect(page.getByTestId('space-recover-issuance')).toHaveCount(0);
+    const denied = await page.request.post('/api/offline/runtime-bundle', { headers: { cookie: (await context.cookies()).map(c => `${c.name}=${c.value}`).join('; ') }, data: { protocol: 'space/1', action: 'recover', issuanceId: before.id, digest: before.bundle.reviewDigest, review: true } });
+    expect(denied.status()).toBe(403);
+    await openCanonicalSpaceWork(page, fx.canonical);
+    await page.getByTestId('space-offline-recovery').click();
+    await page.getByTestId('space-recover-issuance').filter({ hasText: before.id }).click();
+    await expect(page.getByTestId('space-offline-status')).toContainText('intent review only');
+    await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
+    expect((await cached(page)).commands[0].id).toBe(before.commands[0].id);
+    await sync(page); await expect.poll(async () => (await cached(page)).commands[0].status).toBe('committed');
+});
+test('scenario-expiry/scope @ci-gate: expiry hides data and preserves ciphertext; wrong Space cannot reopen it', async ({ page, context }, info) => {
+    const fx = await prepare(page);
+    await page.locator(`[data-testid="space-work-complete"][data-target-order="${6 + index(info.project.name)}"]`).click();
+    const before = await cached(page);
+    await page.clock.install({ time: Date.now() });
+    await page.clock.setSystemTime(Date.now() + 13 * 3600000);
+    await page.clock.runFor(1100);
+    await expect(page.getByTestId('space-offline-status')).toContainText('expired');
+    await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
+    expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('vssyl-space/1/') && k !== 'vssyl-space/1/identity'))).toEqual([]);
+    const intact = await page.evaluate(async (id) => { const s = await import(String('/space-offline-store.js')); return (await s.envelopes()).find((r: {id:string;commands:unknown[]}) => r.id === id).commands.length; }, before.id);
+    expect(intact).toBe(1);
+    await page.clock.setSystemTime(Date.now());
+    await setNetworkOffline(context, true, page);
+    await page.goto(`/unit/${fx.canonical.unitId}?space=other`);
+    await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
 });
 
-test("scenario-04 @ci-gate: Protected HTML and auth responses are not broadly cached", async () => {
-  const fx = loadFixtures();
-  const { context, page } = await openPersistent("cache");
-  try {
-    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.serveryUnitId);
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await waitForServiceWorker(page);
-    await page.goto(`/unit/${fx.serveryUnitId}?unitTab=overview`, { waitUntil: "domcontentloaded" });
-    const caches = await inspectCaches(page);
-    const allUrls = caches.entries.flatMap((e) => e.urls);
-    expect(allUrls.some((u) => u.startsWith("/api/"))).toBe(false);
-    expect(allUrls.some((u) => u.startsWith("/login"))).toBe(false);
-    expect(allUrls.some((u) => u.startsWith("/unit/"))).toBe(false);
-  } finally {
-    await context.close();
-  }
+test('scenario-capacity @ci-gate: preparation bound refuses overflow and explicit safe cleanup preserves pending intent',async({page})=>{
+ await prepare(page);
+ for(let i=1;i<8;i++)await expectCanonicalOfflinePreparation(page);
+ await page.getByTestId('space-offline-prepare').click();await expect(page.getByTestId('space-offline-status')).toContainText('storage limit reached');
+ await page.locator(`[data-testid="space-work-complete"][data-target-order="${8}"]`).click();const before=await cached(page);
+ await page.getByTestId('space-offline-prune').click();
+ const remaining=await page.evaluate(async()=>{const s=await import(String('/space-offline-store.js'));return(await s.envelopes()).map((r:{id:string;commands:unknown[]})=>({id:r.id,commands:r.commands.length}));});
+ expect(remaining).toEqual([{id:before.id,commands:1}]);
+});
+
+test('scenario-unbind @ci-gate: full unbind discloses sealed pending loss; cancel preserves intent',async({page})=>{
+ const fx=await prepare(page);await page.locator('[data-testid="space-work-complete"][data-target-order="9"]').click();const before=await cached(page);
+ await loginPassword(page,fx.adminEmail);await page.getByTestId('account-menu-trigger').click();
+ const dialog=page.waitForEvent('dialog');await page.getByTestId('account-menu-unbind').click({noWaitAfter:true});const confirm=await dialog;
+ expect(confirm.type()).toBe('confirm');expect(confirm.message()).toContain('1 pending offline actions');await confirm.dismiss();
+ const count=await page.evaluate(async()=>{const s=await import(String('/space-offline-store.js'));return(await s.envelopes()).flatMap((r:{commands:unknown[]})=>r.commands).length;});expect(count).toBe(1);
+ expect(before.commands[0].status).toBe('pending');
 });

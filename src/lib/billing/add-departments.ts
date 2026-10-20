@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-import { applyFacilitySubscription } from "./apply-stripe-event";
+import { syncStripeSubscriptionById } from "./reconcile-from-stripe";
 import { MissingStripePriceError, stripeRecurringLineItemsForQuote } from "./checkout-items";
 import { quoteBilling } from "./quote";
 import { parseCheckoutDepartmentKeys } from "./status";
@@ -133,14 +133,10 @@ export async function addDepartmentsToFacilitySubscription(input: {
     throw new BillingAddDepartmentsError(publicAddDepartmentsError(error));
   }
 
-  await applyFacilitySubscription({
-    facilityId: facility.id,
-    status: "ACTIVE",
-    interval,
-    setupPath,
-    stripeSubscriptionId: subscription.id,
-    departmentKeys: mergedKeys,
-  });
+  const synchronized = await syncStripeSubscriptionById(facility.id, subscription.id);
+  if (!synchronized.ok) {
+    throw new BillingAddDepartmentsError("The subscription update reached Stripe, but licensing or installation is pending. Refresh Billing or use Sync from Stripe; do not submit another purchase.");
+  }
 
   await trackEvent("billing.departments.added", {
     facilityId: facility.id,

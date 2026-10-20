@@ -11,6 +11,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     // Isolated VERIFY/browser distDirs (e.g. .next-workplans-browser)
     ".next-*/**",
+    // Disposable verification artifacts include saved source trees and bundles.
+    "tmp/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

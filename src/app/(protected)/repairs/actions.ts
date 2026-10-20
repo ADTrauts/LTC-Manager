@@ -1,5 +1,7 @@
 "use server";
 
+import { nextRepairCode } from "@/lib/asset-operations/work-order-service";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -172,8 +174,7 @@ export async function createRepairAction(formData: FormData) {
     sessionPrimaryDepartmentId: session.primaryDepartmentId,
   });
 
-  const existingCount = await prisma.repair.count();
-  const repairCode = `R-${String(existingCount + 1).padStart(5, "0")}`;
+  const repairCode = await nextRepairCode(prisma);
 
   const repair = await prisma.repair.create({
     data: {

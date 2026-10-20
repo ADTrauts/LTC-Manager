@@ -40,6 +40,9 @@ export async function resolveOfflineConflictAction(formData: FormData) {
     },
   });
   if (!conflict) return;
+  if ((conflict.commandPayload as {issuanceId?:string}).issuanceId && parsed.resolution === "APPLIED_AS_CORRECTION") {
+    throw new Error("Canonical Space conflicts cannot become legacy corrections. Review Work or Key Time through its online owner.");
+  }
 
   const employeeId = await getOperationalEmployeeIdForSession(session);
   const now = new Date();

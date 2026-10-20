@@ -29,6 +29,7 @@ function mockInstallDb(options: {
 }) {
   const created: Array<Record<string, unknown>> = [];
   const existing = [...(options.existing ?? [])];
+  const operators = new Map<string, { id: string }>();
   const facilityId = options.facilityId === undefined ? "fac_1" : options.facilityId;
   const entitlementLinks: Array<{ departmentKey: string; departmentId: string }> = [];
 
@@ -43,7 +44,21 @@ function mockInstallDb(options: {
           return { id: facilityId };
         },
       },
+      departmentOperatorRelationship: {
+        findFirst: async ({ where }: { where: { departmentId: string } }) => operators.get(where.departmentId) ?? null,
+        create: async ({ data }: { data: { departmentId: string; organizationId: string } }) => {
+          assert.ok(existing.some((row) => row.id === data.departmentId));
+          assert.ok(data.organizationId.startsWith("org_"));
+          const row = { id: `operator_${data.departmentId}` };
+          operators.set(data.departmentId, row);
+          return row;
+        },
+      },
       department: {
+        findFirst: async ({ where }: { where: { id: string; facilityId: string } }) => {
+          const row = existing.find((item) => item.id === where.id && item.facilityId === where.facilityId);
+          return row ? { ...row, facility: { organizationId: `org_${row.facilityId}`, timezone: "America/New_York" } } : null;
+        },
         findUnique: async ({
           where,
         }: {
@@ -221,7 +236,7 @@ describe("Entitlement then install reconciliation", () => {
     assert.equal(shouldInstallLicensedDepartmentProducts("INCOMPLETE"), false);
     assert.equal(shouldInstallLicensedDepartmentProducts("CANCELED"), false);
     assert.equal(shouldInstallLicensedDepartmentProducts("ACTIVE"), true);
-    assert.equal(shouldInstallLicensedDepartmentProducts("PAST_DUE"), true);
+    assert.equal(shouldInstallLicensedDepartmentProducts("PAST_DUE"), false);
   });
 
   it("reconciles an ACTIVE entitlement when the Department row is missing", async () => {
@@ -318,7 +333,8 @@ describe("Purchase authority and customer bootstrap retirement", () => {
       const text = source(relative);
       assert.doesNotMatch(text, /ensureDefaultDepartments/, relative);
     }
-    assert.match(source("src/app/api/onboarding/locations/route.ts"), /loadInstalledBootstrapDepartmentIds/);
+    assert.match(source("src/app/api/onboarding/locations/route.ts"), /status: 410/);
+    assert.doesNotMatch(source("src/app/api/onboarding/locations/route.ts"), /prisma|\.create\(/);
     assert.doesNotMatch(source("src/app/(protected)/admin/departments/page.tsx"), /CreateDepartmentForm/);
     assert.match(source("src/app/(protected)/admin/departments/page.tsx"), /DepartmentMarketplace/);
     assert.match(source("src/app/(protected)/admin/departments/page.tsx"), /add-department-button/);

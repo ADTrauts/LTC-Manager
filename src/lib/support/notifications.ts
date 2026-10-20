@@ -183,7 +183,8 @@ export async function recordSupportStaffNotifications(
     type: input.type,
     ticketId: input.ticket.id,
     messageId: input.messageId ?? null,
-    dedupeKey: supportNotificationDedupeKey(input.type, staffId, input.sourceKey),
+    legacyDedupeKey: supportNotificationDedupeKey(input.type, staffId, input.sourceKey),
+    dedupeKey: `${input.ticket.id}:${supportNotificationDedupeKey(input.type, staffId, input.sourceKey)}`,
     title: copy.title,
     body: copy.body,
     emailStatus,
@@ -210,6 +211,12 @@ export async function recordSupportStaffNotifications(
         ${row.createdAt}
       FROM "PlatformStaff" s
       WHERE s.id = ${row.staffId} AND s."isActive" = true
+        AND NOT EXISTS (
+          SELECT 1 FROM "SupportStaffNotification" old
+          WHERE old."ticketId" = ${row.ticketId} AND old."staffId" = s.id
+            AND old."dedupeKey" = ${row.legacyDedupeKey}
+        )
+      FOR KEY SHARE OF s
       ON CONFLICT ("dedupeKey") DO NOTHING
     `;
   }

@@ -1,3 +1,4 @@
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 /**
  * Preventive Maintenance Build authority.
  * Follows Department Builder governance: Manager+ publish/retire; Quick PIN never builds.
@@ -104,6 +105,9 @@ export async function resolvePmPlanAuthority(
   departmentId: string,
   client: DbClient = prisma,
 ): Promise<PmPlanAuthorityDecision> {
+  if (session.facilityId !== facilityId || !(await isCustomerDepartmentAccessAllowed(client, session, departmentId))) {
+    return { ...DENIED, reason: "Department commercial access is unavailable." };
+  }
   const department = await client.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true, key: true },

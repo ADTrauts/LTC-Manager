@@ -51,7 +51,7 @@ function session(
 
 async function loadFixture(prisma: PrismaClient) {
   const plant = await prisma.department.findFirst({
-    where: { key: "PLANT", isActive: true },
+    where: { facilityId: "cmfacseed0000000000000001", key: "PLANT", isActive: true },
     include: { facility: true },
   });
   assert.ok(plant, "plant department required");
@@ -348,7 +348,7 @@ test(
 );
 
 test(
-  "phase12a sql: plant flag off rejects Plant destination routes",
+  "Plant AVAILABLE remains routable when its legacy rollout flag is off",
   { skip: skipReason },
   async () => {
     assert.ok(databaseUrl);
@@ -363,10 +363,7 @@ test(
         responsibleDepartmentId: fx.plant.id,
         client: prisma,
       });
-      assert.equal(result.ok, false);
-      if (!result.ok) {
-        assert.match(result.reason, /Plant Operations is not enabled|Facility Plant Operations is not enabled/);
-      }
+      assert.equal(result.ok, true);
     } finally {
       if (prev === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
       else process.env.PLANT_OPERATIONS_ENABLED = prev;

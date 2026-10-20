@@ -331,6 +331,10 @@ export function matchEntitlementStatusForProduct(
   entitlements: readonly { departmentKey: string; status: "ACTIVE" | "REVOKED" }[],
   product: { productKey: string; installationKey: string },
 ): "ACTIVE" | "REVOKED" | null {
+  // The persisted installation key is authoritative when legacy alias rows coexist.
+  // A stale alias must not undo an explicit canonical revocation (or vice versa).
+  const canonical = entitlements.find((row) => row.departmentKey === product.installationKey);
+  if (canonical) return canonical.status;
   const lineage = new Set(departmentProductLineageKeys(product));
   const matches = entitlements.filter((row) => lineage.has(row.departmentKey));
   if (matches.some((row) => row.status === "ACTIVE")) return "ACTIVE";

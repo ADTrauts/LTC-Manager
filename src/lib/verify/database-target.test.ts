@@ -7,9 +7,17 @@ import {
   evaluateDatabaseTarget,
   parseDatabaseName,
   redactDatabaseUrl,
+  SQL_BACKED_DATABASE_ENV_KEYS,
 } from "./database-target";
 
 const SECRET = "s3cret-should-never-appear";
+
+test("CLI database isolation covers every runtime suite, including onboarding", async () => {
+  const cli = await import("../../../scripts/verify/lib/database-target.mjs");
+  assert.deepEqual([...cli.SQL_BACKED_DATABASE_ENV_KEYS].sort(), [...SQL_BACKED_DATABASE_ENV_KEYS].sort());
+  assert.ok(cli.SQL_BACKED_DATABASE_ENV_KEYS.includes("ONBOARDING_TEST_DATABASE_URL"));
+  assert.throws(() => cli.assertDisposableDatabaseUrl(url("ltc_manager")));
+});
 
 function url(db: string, extra = ""): string {
   return `postgresql://ltc_admin:${SECRET}@127.0.0.1:5432/${db}${extra}`;

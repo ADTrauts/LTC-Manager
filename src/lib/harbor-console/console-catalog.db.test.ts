@@ -75,6 +75,8 @@ test(
     serial(async () => {
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     try {
+      await prisma.$transaction(async (snapshot) => {
+      const prisma = snapshot as unknown as PrismaClient;
       const beforePlant = await item(prisma, "PLANT");
       const beforeFood = await item(prisma, "HEALTHCARE_FOOD_NUTRITION");
       const beforeEvs = await item(prisma, "EVS");
@@ -285,6 +287,7 @@ test(
       );
       assert.equal(evsItem.usageCount, beforeEvs.usageCount);
       assert.equal(evsItem.facilityInstallCount, beforeEvs.facilityInstallCount + 1);
+      }, { isolationLevel: "RepeatableRead", timeout: 60000 });
     } finally {
       await prisma.$disconnect();
     }
@@ -298,6 +301,8 @@ test(
     serial(async () => {
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     try {
+      await prisma.$transaction(async (snapshot) => {
+      const prisma = snapshot as unknown as PrismaClient;
       const beforeRound = await item(prisma, "MECHANICAL_ROOM_ROUND");
       const beforeCoolerInstalls = await prisma.facilityCatalogInstall.count({
         where: { catalogStableKey: "cooler_temperature_log" },
@@ -533,6 +538,7 @@ test(
         [...new Set(items.map((row) => row.sourceType))].sort(),
         ["CATALOG_RECORD", "DEPARTMENT_PRODUCT", "WORK_PRESET"],
       );
+      }, { isolationLevel: "RepeatableRead", timeout: 60000 });
     } finally {
       await prisma.$disconnect();
     }

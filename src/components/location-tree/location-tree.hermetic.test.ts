@@ -29,7 +29,7 @@ test("Department Locations lists rooms with place as secondary text", () => {
   assert.match(panel, /LocationsProgrammingClient/);
   assert.doesNotMatch(panel, /Rooms on this/);
   assert.match(panel, /Manage responsibility/);
-  assert.match(panel, /Physical places \{view\.department\.name\} is responsible for/);
+  assert.match(panel, /Physical places stay in Facility Builder/);
 });
 
 test("DepartmentLocationTree lists rooms without editable floor or neighborhood rows", () => {

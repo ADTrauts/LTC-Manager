@@ -87,7 +87,7 @@ test("5. Facility Overview — labeled department sections", () => {
   assert.ok(scope.departmentSections.length >= 1);
   assert.ok(
     !scope.departmentSections.some(
-      (s) => s.departmentKey === "EVS" || s.departmentKey === "PLANT",
+      (s) => s.departmentKey === "EVS",
     ),
   );
 });

@@ -1,3 +1,4 @@
+import type { Prisma, PrismaClient } from "@prisma/client";
 /**
  * Load department Operational Types and room assignments.
  *
@@ -88,14 +89,16 @@ export function operationalTypeKeysForSpaces(
 }
 
 export async function loadDepartmentOperationalTypeOptions(input: {
+  client?: PrismaClient | Prisma.TransactionClient;
   facilityId: string;
   departmentId: string;
   perspective: OperationalTypePerspective;
 }): Promise<DepartmentOperationalTypeOption[]> {
+  const client = input.client ?? prisma;
   const profileId = await resolveProfileId(input);
   if (!profileId) return [];
 
-  const rows = await prisma.departmentRoomArchetype.findMany({
+  const rows = await client.departmentRoomArchetype.findMany({
     where: { profileId, isActive: true },
     select: { key: true, name: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -104,15 +107,17 @@ export async function loadDepartmentOperationalTypeOptions(input: {
 }
 
 export async function loadSpaceOperationalTypeAssignments(input: {
+  client?: PrismaClient | Prisma.TransactionClient;
   facilityId: string;
   departmentId: string;
   spaceIds?: readonly string[];
   perspective: OperationalTypePerspective;
 }): Promise<Map<string, SpaceOperationalTypeAssignment>> {
+  const client = input.client ?? prisma;
   const profileId = await resolveProfileId(input);
   if (!profileId) return new Map();
 
-  const bindings = await prisma.departmentRoomArchetypeBinding.findMany({
+  const bindings = await client.departmentRoomArchetypeBinding.findMany({
     where: {
       profileId,
       ...(input.spaceIds && input.spaceIds.length > 0
@@ -129,11 +134,13 @@ export async function loadSpaceOperationalTypeAssignments(input: {
 }
 
 async function resolveProfileId(input: {
+  client?: PrismaClient | Prisma.TransactionClient;
   facilityId: string;
   departmentId: string;
   perspective: OperationalTypePerspective;
 }): Promise<string | null> {
-  const profiles = await prisma.departmentOperationalProfile.findMany({
+  const client = input.client ?? prisma;
+  const profiles = await client.departmentOperationalProfile.findMany({
     where: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,

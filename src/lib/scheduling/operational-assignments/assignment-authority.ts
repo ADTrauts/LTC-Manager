@@ -1,3 +1,5 @@
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import { isPartnerFacilitySession, type FacilitySession } from "@/lib/auth";
@@ -15,14 +17,7 @@ export type AssignmentAuthorityDecision = {
   reason: string | null;
 };
 
-type AssignmentAuthorityStore = {
-  department: {
-    findFirst(args: {
-      where: { id: string; facilityId: string; isActive: true };
-      select: { id: true; key: true };
-    }): Promise<{ id: string; key: string } | null>;
-  };
-};
+type AssignmentAuthorityStore = PrismaClient | Prisma.TransactionClient;
 
 const FA_DIETARY_REASON =
   "Facility Administrator status alone does not grant Dietary Assignment authority.";
@@ -69,6 +64,10 @@ export async function resolveAssignmentAuthority(input: {
   });
   if (!department) {
     return { ...denied, canViewOwn: false, reason: "Department not found." };
+  }
+
+  if (!(await isCustomerDepartmentAccessAllowed(store, input.session, input.departmentId))) {
+    return { ...denied, canViewOwn: false, reason: "Department commercial access is unavailable." };
   }
 
   // Frontline always may view own confirmed Assignment; never manage.

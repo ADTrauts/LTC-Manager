@@ -578,7 +578,7 @@ test("Board presentation source scan: ViewModel only, legacy chips removed, acce
   assert.match(page, /SupervisorOperationsBoardView/);
   assert.match(page, /authMethod === "QUICK_PIN"/);
   assert.match(page, /hasAtLeastRole\(session\.role, "SUPERVISOR"\)/);
-  assert.match(page, /isAnyStaffingOperationalFeatureEnabled\("jobFlow"\)/);
+  assert.match(page, /isAnyStaffingOperationalFeatureEnabled\("jobFlow", deptNav\.activeOperationalDepartmentKey\)/);
   assert.match(page, /prisma\./);
   assert.equal(boardView.includes("prisma"), false);
   assert.equal(presentUi.includes("prisma"), false);

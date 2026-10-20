@@ -104,12 +104,14 @@ test("TemporalStrip applies nowrap and visible-tick filtering", () => {
   assert.match(source, /ResizeObserver/);
 });
 
-test("SubNav communicates horizontal overflow with fades and scrolls active tab", () => {
+test("SubNav communicates horizontal overflow with accessible scroll controls and scrolls active tab", () => {
   const source = readFileSync(
     join(process.cwd(), "src/components/design-system/SubNav.tsx"),
     "utf8",
   );
-  assert.match(source, /subnav-fade-right/);
+  assert.match(source, /More \$\{ariaLabel\} sections/);
+  assert.match(source, /Previous \$\{ariaLabel\} sections/);
+  assert.match(source, /scrollBy/);
   assert.match(source, /scrollIntoView/);
   assert.match(source, /shell-nav-scroller/);
   assert.match(source, /aria-current/);

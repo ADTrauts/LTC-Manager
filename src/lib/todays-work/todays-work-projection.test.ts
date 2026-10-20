@@ -97,9 +97,9 @@ test("Facility Overview — labeled department sections", () => {
   assert.ok(view.sections.length >= 1);
   assert.deepEqual(
     view.sections.map((s) => s.departmentKey),
-    view.sections.filter((s) => s.departmentKey === "DIETARY").map((s) => s.departmentKey),
+    view.sections.filter((s) => s.departmentKey === "DIETARY" || s.departmentKey === "PLANT").map((s) => s.departmentKey),
   );
-  assert.ok(!view.sections.some((s) => s.departmentKey === "EVS" || s.departmentKey === "PLANT"));
+  assert.ok(!view.sections.some((s) => s.departmentKey === "EVS"));
 });
 
 test("Permission narrowing — actions subset", () => {

@@ -60,7 +60,7 @@ function session(
 
 async function loadFixture(prisma: PrismaClient) {
   const dietary = await prisma.department.findFirst({
-    where: { key: "DIETARY", isActive: true },
+    where: { facilityId: "cmfacseed0000000000000001", key: "DIETARY", isActive: true },
     include: { facility: true },
   });
   assert.ok(dietary, "dietary department required");
@@ -234,7 +234,7 @@ test(
               name: "Foreign",
               equipmentType: "Cooler",
             }),
-          /denied|not found|Cross-facility|not enabled/i,
+          /denied|not found|Cross-facility|not enabled|commercial access is unavailable/i,
         );
       }
 

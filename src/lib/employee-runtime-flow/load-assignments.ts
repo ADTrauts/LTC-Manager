@@ -9,7 +9,7 @@ import { isPlanFrontlineVisible } from "@/lib/scheduling/operational-assignments
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 import { resolveCurrentEmployeeAssignment } from "@/lib/scheduling/operational-assignments/resolve-current-assignment";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 export type LoadedFrontlineAssignments = {
   current: JobFlowAssignmentSnapshot | null;
@@ -25,7 +25,7 @@ export async function loadFrontlineEmployeeAssignments(input: {
   departmentId: string;
   serviceDate: Date;
   now: Date;
-  client?: PrismaClient;
+  client?: PrismaClient | Prisma.TransactionClient;
 }): Promise<LoadedFrontlineAssignments> {
   const client = input.client ?? prisma;
   const rows = await client.operationalAssignment.findMany({

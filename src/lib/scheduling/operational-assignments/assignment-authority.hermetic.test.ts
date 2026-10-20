@@ -44,7 +44,10 @@ function departmentStore(
   rows: Array<{ id: string; facilityId: string; key: string; isActive?: boolean }>,
 ) {
   return {
+    facilityBilling: { findUnique: async () => null },
+    facilityDepartmentEntitlement: { findMany: async () => [] },
     department: {
+      findMany: async ({ where }: { where: { facilityId: string } }) => rows.filter((row) => row.facilityId === where.facilityId).map((row) => ({ ...row, name: row.key, sortOrder: 0, isActive: row.isActive !== false, showInEmployeeApp: true })),
       async findFirst(args: {
         where: { id: string; facilityId: string; isActive: true };
         select: { id: true; key: true };
@@ -58,13 +61,13 @@ function departmentStore(
         return match ? { id: match.id, key: match.key } : null;
       },
     },
-  };
+  } as never;
 }
 
 const world = departmentStore([
   { id: DIETARY_A, facilityId: FACILITY_A, key: "DIETARY" },
   { id: DIETARY_B, facilityId: FACILITY_B, key: "DIETARY" },
-  { id: EVS_B, facilityId: FACILITY_B, key: "EVS" },
+  { id: EVS_B, facilityId: FACILITY_B, key: "CUSTOM" },
 ]);
 
 test("STAFF authority decision cannot manage Assignments", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import { applySupportMacroAction } from "@/app/console/(staff)/tickets/actions";
 import { SUPPORT_TICKET_STATUS_LABEL } from "@/lib/support/labels";
@@ -29,6 +29,34 @@ function statusKey(ticketId: string) {
   return `vssyl-support-status-after-reply:${ticketId}`;
 }
 
+// Subscribe to the browser store rather than restoring and saving in competing
+// effects. The server snapshot is empty; each ticket has independent draft keys.
+const DRAFT_CHANGED = "vssyl-support-draft-changed";
+function subscribeDrafts(listener: () => void) {
+  window.addEventListener("storage", listener);
+  window.addEventListener(DRAFT_CHANGED, listener);
+  return () => {
+    window.removeEventListener("storage", listener);
+    window.removeEventListener(DRAFT_CHANGED, listener);
+  };
+}
+const emptyServerDraft = () => null;
+function useSessionDraft(key: string, fallback: string) {
+  const memory = useRef(new Map<string, string>());
+  const read = useCallback(() => {
+    try { return memory.current.get(key) ?? sessionStorage.getItem(key); }
+    catch { return memory.current.get(key) ?? null; }
+  }, [key]);
+  const stored = useSyncExternalStore(subscribeDrafts, read, emptyServerDraft);
+  const write = (value: string | ((previous: string) => string)) => {
+    const next = typeof value === "function" ? value(read() ?? fallback) : value;
+    try { sessionStorage.setItem(key, next); memory.current.delete(key); }
+    catch { memory.current.set(key, next); }
+    window.dispatchEvent(new Event(DRAFT_CHANGED));
+  };
+  return [stored ?? fallback, write] as const;
+}
+
 export function SupportTicketWorkPanel({
   ticketId,
   replies,
@@ -44,34 +72,14 @@ export function SupportTicketWorkPanel({
   replyDefault: string;
   transitions: readonly (keyof typeof SUPPORT_TICKET_STATUS_LABEL)[];
 }) {
-  const [body, setBody] = useState("");
-  const [statusAfterReply, setStatusAfterReply] = useState(replyDefault);
+  const [body, setBody] = useSessionDraft(draftKey(ticketId), "");
+  const [statusAfterReply, setStatusAfterReply] = useSessionDraft(statusKey(ticketId), replyDefault);
   const [selectedReplyId, setSelectedReplyId] = useState("");
   const [selectedMacroId, setSelectedMacroId] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(draftKey(ticketId));
-      if (stored) setBody(stored);
-      const storedStatus = sessionStorage.getItem(statusKey(ticketId));
-      if (storedStatus !== null) setStatusAfterReply(storedStatus);
-    } catch {
-      /* ignore */
-    }
-  }, [ticketId]);
-
-  useEffect(() => {
-    try {
-      if (body) sessionStorage.setItem(draftKey(ticketId), body);
-      else sessionStorage.removeItem(draftKey(ticketId));
-    } catch {
-      /* ignore */
-    }
-  }, [body, ticketId]);
 
   const selectedReply = replies.find((reply) => reply.id === selectedReplyId) ?? null;
   const selectedMacro = useMemo(
@@ -102,21 +110,11 @@ export function SupportTicketWorkPanel({
           const next = !current.trim()
             ? result.draftBody!
             : `${current.replace(/\s+$/, "")}\n\n${result.draftBody}`;
-          try {
-            sessionStorage.setItem(draftKey(ticketId), next);
-          } catch {
-            /* ignore */
-          }
           return next;
         });
       }
       if (result.statusAfterReply) {
         setStatusAfterReply(result.statusAfterReply);
-        try {
-          sessionStorage.setItem(statusKey(ticketId), result.statusAfterReply);
-        } catch {
-          /* ignore */
-        }
       }
       setNotice(result.notice);
       router.refresh();

@@ -19,7 +19,7 @@ type FacilityRow = {
     stripeSubscriptionId: string | null;
     licensedDepartmentCount: number | null;
     updatedAt: Date;
-    entitlements: Array<{ departmentKey: string }>;
+    entitlements: Array<{ departmentKey: string; status: "ACTIVE" | "REVOKED" }>;
   } | null;
   users: Array<{
     id: string;
@@ -77,7 +77,7 @@ test("authorized detail load presents billing and entitlement mirror", async () 
         stripeSubscriptionId: "sub_123",
         licensedDepartmentCount: 1,
         updatedAt,
-        entitlements: [{ departmentKey: "DIETARY" }],
+        entitlements: [{ departmentKey: "DIETARY", status: "ACTIVE" }],
       },
       users: [
         {
@@ -95,7 +95,7 @@ test("authorized detail load presents billing and entitlement mirror", async () 
   assert.ok(detail);
   assert.equal(detail.displayName, "Terrace View Long Term Care");
   assert.equal(detail.organizationId, "org_1");
-  assert.equal(detail.isLive, true);
+  assert.equal(detail.setupAcknowledged, true);
   assert.equal(detail.billingStatus, "Active");
   assert.equal(detail.billingSource, "Stripe-managed");
   assert.equal(detail.stripeCustomerId, "cus_123");
@@ -139,7 +139,7 @@ test("missing billing record is presented neutrally", async () => {
   assert.equal(detail.billingSource, "No billing record");
   assert.equal(detail.stripeCustomerId, null);
   assert.equal(detail.stripeSubscriptionId, null);
-  assert.equal(detail.isLive, false);
+  assert.equal(detail.setupAcknowledged, false);
 });
 
 test("existing-user FA grant appears even when home Facility is elsewhere", async () => {

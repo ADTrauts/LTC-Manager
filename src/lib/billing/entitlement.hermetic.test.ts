@@ -1,102 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import { isDepartmentLicensed } from "./entitlement";
-
+import { isDepartmentLicensed, type FacilityBillingStatus } from "./entitlement";
 const dietary = [{ departmentKey: "DIETARY", status: "ACTIVE" as const }];
 
-test("unenforced entitlements never block a department", () => {
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: false,
-      billingStatus: "CANCELED",
-      entitlements: [],
-      departmentKey: "EVS",
-    }),
-    true,
-  );
-});
-
-test("UNMANAGED facilities stay grandfathered when enforcement is on", () => {
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "UNMANAGED",
-      entitlements: [],
-      departmentKey: "DIETARY",
-    }),
-    true,
-  );
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: null,
-      entitlements: [],
-      departmentKey: "DIETARY",
-    }),
-    true,
-  );
-});
-
-test("ACTIVE subscriptions require an active entitlement row", () => {
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "ACTIVE",
-      entitlements: dietary,
-      departmentKey: "DIETARY",
-    }),
-    true,
-  );
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "ACTIVE",
-      entitlements: dietary,
-      departmentKey: "EVS",
-    }),
-    false,
-  );
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "PAST_DUE",
-      entitlements: dietary,
-      departmentKey: "DIETARY",
-    }),
-    true,
-  );
-});
-
-test("INCOMPLETE and CANCELED block licensed modules", () => {
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "INCOMPLETE",
-      entitlements: dietary,
-      departmentKey: "DIETARY",
-    }),
-    false,
-  );
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "CANCELED",
-      entitlements: dietary,
-      departmentKey: "DIETARY",
-    }),
-    false,
-  );
-});
-
-test("revoked rows do not license the department", () => {
-  assert.equal(
-    isDepartmentLicensed({
-      enforcementEnabled: true,
-      billingStatus: "ACTIVE",
-      entitlements: [{ departmentKey: "EVS", status: "REVOKED" }],
-      departmentKey: "EVS",
-    }),
-    false,
-  );
+test("compatibility licensing delegates to canonical rollout, suspension and release rules", () => {
+  for (const enforcementEnabled of [false, true]) {
+    for (const billingStatus of ["INCOMPLETE", "CANCELED", "UNPAID", "PAUSED"] as FacilityBillingStatus[]) {
+      assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus, entitlements: dietary, departmentKey: "DIETARY", installed: true }), false);
+    }
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "ACTIVE", entitlements: dietary, departmentKey: "DIETARY", installed: true }), true);
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "PAST_DUE", entitlements: dietary, departmentKey: "DIETARY", installed: true }), true);
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "PAST_DUE", entitlements: dietary, departmentKey: "DIETARY", installed: false }), false);
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "ACTIVE", entitlements: [{ departmentKey: "DIETARY", status: "REVOKED" }], departmentKey: "DIETARY", installed: true }), false);
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "ACTIVE", entitlements: [{ departmentKey: "EVS", status: "ACTIVE" }], departmentKey: "EVS", installed: true }), false);
+  }
+  for (const installed of [false, true]) for (const enforcementEnabled of [false, true]) {
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "UNMANAGED", entitlements: [], departmentKey: "DIETARY", installed }), installed && !enforcementEnabled);
+  }
 });

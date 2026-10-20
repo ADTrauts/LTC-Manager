@@ -89,17 +89,10 @@ const ALLOWED_WO_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
 };
 
 export async function nextRepairCode(client: DbClient): Promise<string> {
-  const count = await client.repair.count();
-  let candidate = `R-${String(count + 1).padStart(5, "0")}`;
-  for (let i = 0; i < 8; i += 1) {
-    const clash = await client.repair.findFirst({
-      where: { repairCode: candidate },
-      select: { id: true },
-    });
-    if (!clash) return candidate;
-    candidate = `R-${String(count + 1 + i + 1).padStart(5, "0")}`;
-  }
-  return `R-${cuidLike().slice(1, 9).toUpperCase()}`;
+  const rows = await client.$queryRaw<Array<{ value: bigint }>>`
+    SELECT nextval('"RepairCodeSequence"') AS value
+  `;
+  return `R-${String(rows[0]!.value).padStart(5, "0")}`;
 }
 
 function assertTransition(from: RepairStatus, to: RepairStatus) {

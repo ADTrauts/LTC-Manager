@@ -1,30 +1,24 @@
-export type FacilityBillingStatus = "UNMANAGED" | "INCOMPLETE" | "ACTIVE" | "PAST_DUE" | "CANCELED";
+import { resolveCommercialEntitlement } from "@/lib/department-products/eligibility";
+import { getDepartmentProduct, matchEntitlementStatusForProduct } from "@/lib/department-products/registry";
+export type { FacilityBillingStatus } from "@prisma/client";
+import type { FacilityBillingStatus } from "@prisma/client";
 
-export type DepartmentEntitlementRecord = {
-  departmentKey: string;
-  status: "ACTIVE" | "REVOKED";
-};
+export type DepartmentEntitlementRecord = { departmentKey: string; status: "ACTIVE" | "REVOKED" };
 
-/**
- * Purchase licenses are independent of `showInEmployeeApp` and department
- * feature flags. Those remain visibility / rollout controls.
- */
+/** Compatibility entrypoint delegates to the canonical commercial rule. */
 export function isDepartmentLicensed(input: {
   enforcementEnabled: boolean;
   billingStatus: FacilityBillingStatus | null;
   entitlements: DepartmentEntitlementRecord[];
   departmentKey: string;
+  installed?: boolean;
 }): boolean {
-  if (!input.enforcementEnabled) {
-    return true;
-  }
-  if (!input.billingStatus || input.billingStatus === "UNMANAGED") {
-    return true;
-  }
-  if (input.billingStatus === "INCOMPLETE" || input.billingStatus === "CANCELED") {
-    return false;
-  }
-  return input.entitlements.some(
-    (row) => row.departmentKey === input.departmentKey && row.status === "ACTIVE",
-  );
+  const product = getDepartmentProduct(input.departmentKey);
+  return resolveCommercialEntitlement({
+    releaseStatus: product?.status ?? null,
+    entitlementStatus: product ? matchEntitlementStatusForProduct(input.entitlements, product) : null,
+    billingStatus: input.billingStatus,
+    entitlementsEnforced: input.enforcementEnabled,
+    installed: input.installed ?? false,
+  });
 }

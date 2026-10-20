@@ -1,3 +1,4 @@
+import { credentialProof, PROOF_COOKIE, proofCookieOptions } from "@/lib/offline/space/keys";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -127,6 +128,7 @@ export async function POST(request: Request) {
     },
     select: {
       id: true,
+      sessionVersion: true,
       facilityId: true,
       firstName: true,
       lastName: true,
@@ -227,5 +229,6 @@ export async function POST(request: Request) {
   if (clearStaleUnitCookie) {
     response.cookies.set(DEVICE_UNIT_COOKIE, "", { ...getDeviceCookieOptions(), maxAge: 0 });
   }
+  response.cookies.set(PROOF_COOKIE, credentialProof(`employee:${employee.id}`, employee.sessionVersion), proofCookieOptions());
   return response;
 }

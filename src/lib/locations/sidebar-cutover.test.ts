@@ -101,10 +101,10 @@ test("4. Facility Overview labeled composition", () => {
   assert.equal(view.lensMode, "FACILITY");
   assert.deepEqual(
     view.sections.map((s) => s.departmentKey),
-    ["DIETARY"],
+    ["DIETARY", "PLANT"],
   );
   assert.ok(view.sections.every((s) => s.label != null && s.label.length > 0));
-  assert.ok(!view.sections.some((s) => /EVS|Plant|Environmental/i.test(s.label ?? "")));
+  assert.ok(!view.sections.some((s) => /EVS|Environmental/i.test(s.label ?? "")));
 });
 
 test("5–6. Manager / Supervisor department lens (Dietary golden)", () => {

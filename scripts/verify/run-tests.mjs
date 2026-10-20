@@ -69,6 +69,9 @@ function main() {
         delete env[key];
       }
       delete env.VERIFY_DATABASE_URL;
+      // Empty values also stop Prisma dotenv from restoring a developer DB URL.
+      env.DATABASE_URL = "";
+      env.DIRECT_URL = "";
       console.log(`run-tests: hermetic — ${files.length} files (SQL-backed suites will skip)`);
     } else if (mode === "db") {
       const url = resolveDbUrl();

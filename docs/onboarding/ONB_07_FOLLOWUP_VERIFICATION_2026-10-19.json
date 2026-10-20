@@ -1,0 +1,1634 @@
+{
+  "date": "2026-10-19",
+  "phase": "ONB-07 R07-01A / R07-01B bounded follow-up only",
+  "repository": "ADTrauts/LTC-Manager",
+  "baseHead": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "gate": "HOLD — workbook SQL contention and canonical offline capability remain blocked; remote CI not run; production and actual pilot pending",
+  "verification": [
+    {
+      "check": "Representative concurrent group before corrections",
+      "status": "run",
+      "verdict": "fail",
+      "command": "VERIFY_TRANSACTION_TRACE=<JSONL> node tmp/onb07-stabilization/run-db-focused.mjs src/lib/setup-imports/setup-imports.db.test.ts src/lib/onboarding-workbook/workbook.db.test.ts src/lib/implementation/implementation.db.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/concurrent-before.log",
+        "sha256": "0896a4255d4791a470722d629a108d961f829f88e45bb361bbab3849f91092f9",
+        "modifiedUtc": "2026-10-19T10:50:57.450006+00:00"
+      },
+      "result": {
+        "tests": 51,
+        "pass": 49,
+        "fail": 1,
+        "skipped": 1,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 437872.161883
+      },
+      "sourceState": "before corrections",
+      "limitations": ""
+    },
+    {
+      "check": "Deterministic held-identity-lock old-classifier control",
+      "status": "run",
+      "verdict": "fail",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs --test-name-pattern=\"confirmed existing-account reuse survives\" src/lib/setup-imports/setup-imports.db.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/cross-account-row-control.log",
+        "sha256": "ee95d59d463309c09520104cde06b5a5f50605b57ac57f8e0e05740ce5760a3b",
+        "modifiedUtc": "2026-10-19T10:57:35.846213+00:00"
+      },
+      "result": {
+        "tests": 1,
+        "pass": 0,
+        "fail": 1,
+        "skipped": 0,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 1998.389249
+      },
+      "sourceState": "old classifier temporarily restored under try/finally",
+      "limitations": "Actual failed receipt preserved; an intentionally failing causal control, not a passing current test."
+    },
+    {
+      "check": "Deterministic held-identity-lock corrected owner",
+      "status": "run",
+      "verdict": "pass",
+      "command": "same one-case reproduction with corrected rollback classifier",
+      "evidence": {
+        "path": "tmp/onb07-followup/cross-account-row-fixed.log",
+        "sha256": "caa4a72bf9a814521a372bdaa3adba60e212b7b2ece6ceef5d17c099b82c3675",
+        "modifiedUtc": "2026-10-19T10:57:38.227853+00:00"
+      },
+      "result": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 2146.425655
+      },
+      "sourceState": "after classifier correction; later plan preference also covered by representative/integrated runs",
+      "limitations": ""
+    },
+    {
+      "check": "Exact literal identity / ambiguous case regression",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs --test-name-pattern=\"identity lookup uses exact\" src/lib/setup-imports/setup-imports.db.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/exact-matching.log",
+        "sha256": "facf3d2ff5641b833dd1cb2a96f4139b3c545c3f8433c749353a9f20f86a6f9b",
+        "modifiedUtc": "2026-10-19T11:00:28.887657+00:00"
+      },
+      "result": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 1771.818197
+      },
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    },
+    {
+      "check": "Rollback/reconciliation meaningful pure regressions",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node --import tsx --test src/lib/setup-imports/transaction.hermetic.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/rollback-index-plan.log",
+        "sha256": "b1edfc5b1fbb432008a44feecc86e78b2f3ae30db922f8c16c2f89d00f7c09b2",
+        "modifiedUtc": "2026-10-19T11:10:09.237147+00:00"
+      },
+      "result": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 6396.077945
+      },
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    },
+    {
+      "check": "Representative group after classifier/index correction",
+      "status": "run",
+      "verdict": "pass",
+      "command": "VERIFY_TRANSACTION_TRACE=<JSONL> node tmp/onb07-stabilization/run-db-focused.mjs src/lib/setup-imports/setup-imports.db.test.ts src/lib/onboarding-workbook/workbook.db.test.ts src/lib/implementation/implementation.db.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/concurrent-after.log",
+        "sha256": "766a46a5cfb8f3dff0b41efba53a66a433078ec8ead3cd3d15ff7c8eff61a107",
+        "modifiedUtc": "2026-10-19T10:59:57.816609+00:00"
+      },
+      "result": {
+        "tests": 52,
+        "pass": 51,
+        "fail": 0,
+        "skipped": 1,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 106975.927011
+      },
+      "sourceState": "before transaction-local plan preference",
+      "limitations": ""
+    },
+    {
+      "check": "First complete checkpoint after classifier/index correction",
+      "status": "run",
+      "verdict": "fail",
+      "command": "VERIFY_MANAGE_DATABASE=0 VERIFY_DATABASE_URL=<ltc_ci_onb07_followup_final> VERIFY_TRANSACTION_TRACE=<integrated-transactions.jsonl> node scripts/verify/verify-db.mjs",
+      "evidence": {
+        "path": "tmp/onb07-followup/database-integrated-final.log",
+        "sha256": "60f190b4309e856823ba9fa0f608c92ec45233490b546eaaffae3ee503a4b4e0",
+        "modifiedUtc": "2026-10-19T11:04:15.971932+00:00"
+      },
+      "result": {
+        "tests": 3665,
+        "pass": 3655,
+        "fail": 3,
+        "skipped": 7,
+        "cancelled": 0,
+        "suites": 170,
+        "duration_ms": 192731.397253
+      },
+      "sourceState": "before transaction-local plan preference",
+      "limitations": "148 migrations, seed twice and schema pass; three failures retained, no waiver."
+    },
+    {
+      "check": "Representative group after transaction-local indexed plan preference",
+      "status": "run",
+      "verdict": "pass",
+      "command": "VERIFY_TRANSACTION_TRACE=<JSONL> node tmp/onb07-stabilization/run-db-focused.mjs src/lib/setup-imports/setup-imports.db.test.ts src/lib/onboarding-workbook/workbook.db.test.ts src/lib/implementation/implementation.db.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/concurrent-index-plan.log",
+        "sha256": "b3fe1fd3db265048dd56ef7e127c37072f64768edc3168302e41612f62876e14",
+        "modifiedUtc": "2026-10-19T11:08:48.570953+00:00"
+      },
+      "result": {
+        "tests": 53,
+        "pass": 52,
+        "fail": 0,
+        "skipped": 1,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 86537.320113
+      },
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    },
+    {
+      "check": "Current complete integrated SQL gate",
+      "status": "run",
+      "verdict": "fail",
+      "command": "VERIFY_MANAGE_DATABASE=0 VERIFY_DATABASE_URL=<ltc_ci_onb07_followup_index_final> VERIFY_TRANSACTION_TRACE=<integrated-index-transactions.jsonl> node scripts/verify/verify-db.mjs",
+      "evidence": {
+        "path": "tmp/onb07-followup/database-integrated-index-final.log",
+        "sha256": "d7c27fb44dce5bfab1aa7debd1b2d6148eb00d25b586f95d46d738bba2d0c810",
+        "modifiedUtc": "2026-10-19T11:12:58.245735+00:00"
+      },
+      "result": {
+        "tests": 3665,
+        "pass": 3657,
+        "fail": 1,
+        "skipped": 7,
+        "cancelled": 0,
+        "suites": 170,
+        "duration_ms": 186084.123292
+      },
+      "sourceState": "final application owners; later claim experiment reverted byte-for-byte",
+      "limitations": "148 migrations, seed twice/schema pass. One remaining workbook test fails. No third broad loop."
+    },
+    {
+      "check": "Early insert claim experiment representative group",
+      "status": "run",
+      "verdict": "fail",
+      "command": "VERIFY_TRANSACTION_TRACE=<JSONL> node tmp/onb07-stabilization/run-db-focused.mjs src/lib/setup-imports/setup-imports.db.test.ts src/lib/onboarding-workbook/workbook.db.test.ts src/lib/implementation/implementation.db.test.ts",
+      "evidence": {
+        "path": "tmp/onb07-followup/concurrent-claim.log",
+        "sha256": "d6be3d8b1da39858b5767d36dba9c569648f5ed98e568682c1c7346a5172ea84",
+        "modifiedUtc": "2026-10-19T14:47:42.935633+00:00"
+      },
+      "result": {
+        "tests": 53,
+        "pass": 51,
+        "fail": 1,
+        "skipped": 1,
+        "cancelled": 0,
+        "suites": 0,
+        "duration_ms": 107483.586683
+      },
+      "sourceState": "rejected experiment; NOT final source",
+      "limitations": "51 pass / 1 fail / 1 skip. Reverted; experiment source retained locally, original owner bytes restored."
+    },
+    {
+      "check": "Relevant production build",
+      "status": "run",
+      "verdict": "pass",
+      "command": "NEXT_DIST_DIR=.next-onb07-followup-build node scripts/verify/verify-build.mjs",
+      "evidence": {
+        "path": "tmp/onb07-followup/build-final.log",
+        "sha256": "a7a55c163d29f339a66e9de1c9e54d46f2bd4e8aaca35271fac14c8964a19731",
+        "modifiedUtc": "2026-10-19T11:14:05.518993+00:00"
+      },
+      "result": {},
+      "sourceState": "final application behavior before subsequently reverted claim experiment",
+      "limitations": "Later changes: restored exact pre-experiment owner, test diagnostics/comment and documentation. No fresh browser replay of imports claimed."
+    },
+    {
+      "check": "Standalone final TypeScript",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npx tsc --noEmit",
+      "evidence": {
+        "path": "tmp/onb07-followup/typecheck-final.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modifiedUtc": "2026-10-19T14:48:38.792991+00:00"
+      },
+      "result": {},
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    },
+    {
+      "check": "Selected final changed/new-file lint",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npx eslint <18 selected paths recorded in selectedLintPaths>",
+      "evidence": {
+        "path": "tmp/onb07-followup/lint-final.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modifiedUtc": "2026-10-19T14:48:39.959219+00:00"
+      },
+      "result": {},
+      "sourceState": "final code; later test comment only",
+      "limitations": "Exit 0; empty log means zero reported errors/warnings. Not a new full repository lint invocation."
+    },
+    {
+      "check": "Normal Git-aware migration integrity",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:migrations",
+      "evidence": {
+        "path": "tmp/onb07-followup/migration-integrity-final.log",
+        "sha256": "7a18d0806a44e262e8e1f845919538dedeb01e2a99b6d2509fb8844a55add57e",
+        "modifiedUtc": "2026-10-19T14:51:26.082220+00:00"
+      },
+      "result": {},
+      "sourceState": "new forward migration normally tracked",
+      "limitations": "148 migrations; one pre-existing documented exception unchanged."
+    },
+    {
+      "check": "Read-only isolated checksum and durable receipt evidence",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-followup/evidence-db.mjs",
+      "evidence": {
+        "path": "tmp/onb07-followup/migration-and-receipt-evidence.log",
+        "sha256": "79433ee14f133945ab76a9c9aa834378fb250a6811fff64adc14f9132b60f5b0",
+        "modifiedUtc": "2026-10-19T14:52:01.847780+00:00"
+      },
+      "result": {},
+      "sourceState": "final schema and retained failed receipts",
+      "limitations": "Five isolated targets; not production intended-target certification."
+    },
+    {
+      "check": "Final preservation",
+      "status": "run",
+      "verdict": "pass",
+      "command": "python3 tmp/onb07-followup/preservation-check.py",
+      "evidence": {
+        "path": "tmp/onb07-followup/preservation-final.log",
+        "sha256": "b3de57e851a9e0ab30e171d89fe1f0eeda90e22d0cdc6b0b4eac4e74092d0c07",
+        "modifiedUtc": "2026-10-19T15:47:04.073833+00:00"
+      },
+      "result": {},
+      "sourceState": "packaging",
+      "limitations": "All initial index entries preserved, protected working files and old applied SQL unchanged. New additions only tracked; no commit."
+    },
+    {
+      "check": "Tracking discovery",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:discovery",
+      "evidence": {
+        "path": "tmp/onb07-followup/discovery-final.log",
+        "sha256": "136c1fba36e25ea0c6ca2cafbfa4630a4cac6278149875453b657c498a906775",
+        "modifiedUtc": "2026-10-19T15:42:24.109413+00:00"
+      },
+      "result": {},
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    },
+    {
+      "check": "Tracked repository hygiene",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:hygiene",
+      "evidence": {
+        "path": "tmp/onb07-followup/hygiene-final.log",
+        "sha256": "ffbf9e96e9c91d80abeb4347f2ce070061ea10b1db2bf3513a00d2c12525ab21",
+        "modifiedUtc": "2026-10-19T15:42:29.444981+00:00"
+      },
+      "result": {},
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    },
+    {
+      "check": "Documentation links / JSON / diff checks",
+      "status": "run",
+      "verdict": "pass",
+      "command": "python3 tmp/onb07-followup/documentation-check.py",
+      "evidence": {
+        "path": "tmp/onb07-followup/documentation-final.log",
+        "sha256": "3776a869f11530c20005b79f530c323631ecfa17aa7b1b366a10cdcf3552fb19",
+        "modifiedUtc": "2026-10-19T15:46:25.328951+00:00"
+      },
+      "result": {},
+      "sourceState": "final relevant owners",
+      "limitations": ""
+    }
+  ],
+  "browserRecords": [
+    {
+      "path": "tmp/onb07-followup/dietary-focus/results.json",
+      "sha256": "139aa2ad6f50952a0f4202a195406de4fce740a36473ce162dcda87cf60c1993",
+      "status": "run",
+      "label": "retained failed diagnostic; actual 404 followed by response-body timeout",
+      "stats": {
+        "startTime": "2026-10-19T11:10:05.558Z",
+        "duration": 124798.59899999999,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "failures": [
+        {
+          "title": "quick pin unit workspace ready started offline @ci-gate",
+          "status": "timedOut",
+          "error": "Test timeout of 120000ms exceeded."
+        }
+      ],
+      "command": "npx playwright test --config tests/playwright.dietary-pilot.config.ts --grep \"quick pin\"",
+      "build": "haVQ4OB-TsR3plZufsTuP",
+      "sourceLimit": "Final fixture/route logic; later explanatory comment adds no behavior. Canonical preparation fails before original cache/replay/conflict/isolation obligations."
+    },
+    {
+      "path": "tmp/onb07-followup/dietary-gate/results.json",
+      "sha256": "88bf57b6a2719555eb28b23634d2d89b5ae9abe6f2dc470d5854e11f034ec5e0",
+      "status": "run",
+      "label": "current required Dietary gate; real Quick PIN and assigned canonical SPACE",
+      "stats": {
+        "startTime": "2026-10-19T14:46:21.679Z",
+        "duration": 26381.727,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "failures": [
+        {
+          "title": "quick pin unit workspace ready started offline @ci-gate",
+          "status": "failed",
+          "error": "Error: Canonical SPACE cannot prepare offline work: HTTP 404 (actual Save on this tablet request)\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: true\nReceived: false"
+        }
+      ],
+      "command": "npx playwright test --config tests/playwright.dietary-pilot.config.ts --grep @ci-gate",
+      "build": "haVQ4OB-TsR3plZufsTuP",
+      "sourceLimit": "Final fixture/route logic; later explanatory comment adds no behavior. Canonical preparation fails before original cache/replay/conflict/isolation obligations."
+    },
+    {
+      "path": "tmp/onb07-followup/offline-gate/results.json",
+      "sha256": "bd71c1a603f4ecba8707f78d744b912ea7f194ce2a312811b590af8944f46f5c",
+      "status": "run",
+      "label": "retained FAILED ENVIRONMENT attempt: diagnostic seed password mismatch; no journey certification",
+      "stats": {
+        "startTime": "2026-10-19T14:48:39.377Z",
+        "duration": 25796.854,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 7,
+        "flaky": 0
+      },
+      "failures": [
+        {
+          "title": "scenario-02 @ci-gate: Service worker installs and activates",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        },
+        {
+          "title": "scenario-03 @ci-gate: Application shell reloads offline",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        },
+        {
+          "title": "scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        },
+        {
+          "title": "scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        },
+        {
+          "title": "scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        },
+        {
+          "title": "scenario-30 @ci-gate: No offline bundle produces a safe reconnect-required state",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        },
+        {
+          "title": "scenario-04 @ci-gate: Protected HTML and auth responses are not broadly cached",
+          "status": "failed",
+          "error": "Error: password login failed status=401\n\nexpect(received).toBeTruthy()\n\nReceived: false"
+        }
+      ],
+      "command": "npx playwright test --config tests/playwright.offline.config.ts --grep @ci-gate",
+      "build": "haVQ4OB-TsR3plZufsTuP",
+      "sourceLimit": "Final fixture/route logic; later explanatory comment adds no behavior. Canonical preparation fails before original cache/replay/conflict/isolation obligations."
+    },
+    {
+      "path": "tmp/onb07-followup/offline-final-gate/results.json",
+      "sha256": "463b4b6afcd2c06539c569d6c9d4fb3c02c2228a5ed524e508838d48a2fb11ee",
+      "status": "run",
+      "label": "current required offline gate after corrected isolated seed; three real Save actions 404",
+      "stats": {
+        "startTime": "2026-10-19T14:51:31.438Z",
+        "duration": 29827.198,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 3,
+        "flaky": 0
+      },
+      "failures": [
+        {
+          "title": "scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB",
+          "status": "failed",
+          "error": "Error: Canonical SPACE Save on this tablet returned HTTP 404\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: true\nReceived: false"
+        },
+        {
+          "title": "scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once",
+          "status": "failed",
+          "error": "Error: Canonical SPACE Save on this tablet returned HTTP 404\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: true\nReceived: false"
+        },
+        {
+          "title": "scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data",
+          "status": "failed",
+          "error": "Error: Canonical SPACE Save on this tablet returned HTTP 404\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: true\nReceived: false"
+        }
+      ],
+      "command": "npx playwright test --config tests/playwright.offline.config.ts --grep @ci-gate",
+      "build": "haVQ4OB-TsR3plZufsTuP",
+      "sourceLimit": "Final fixture/route logic; later explanatory comment adds no behavior. Canonical preparation fails before original cache/replay/conflict/isolation obligations."
+    }
+  ],
+  "remainingFailures": {
+    "database": [
+      "SQL workbook: bounded 25-row execution resumes committed references across requests"
+    ],
+    "offline": [
+      "scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB",
+      "scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once",
+      "scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data"
+    ],
+    "dietary": [
+      "quick pin unit workspace ready started offline @ci-gate"
+    ]
+  },
+  "decisionsPending": [
+    "Canonical offline product scope/Key Time command semantics require separate explicit review; no contract/waiver granted.",
+    "Workbook contention closure: narrow protected checkpoint dependencies or reduce canonical claim/guard round trips requires reviewed equivalent safety proof; neither implemented."
+  ],
+  "environment": {
+    "node": "24.19.0",
+    "next": "16.3.5",
+    "prisma": "6.19.2",
+    "postgres": "14.18 loopback 55471",
+    "targets": [
+      "ltc_ci_onb07_20261018",
+      "ltc_ci_onb07_followup_final",
+      "ltc_ci_onb07_followup_index_final",
+      "ltc_ci_onb07_dietary_final",
+      "ltc_ci_onb07_followup_offline"
+    ],
+    "management": "VERIFY_MANAGE_DATABASE=0; all earlier/new databases and logs retained; no resets/drops. New offline target avoided credential mismatch without reseeding history.",
+    "external": "Stripe/Postmark/Blob/OIDC disabled; signup disabled; all fixture accounts/data synthetic; no live operations.",
+    "builds": {
+      ".next-onb07-stabilization-reviewed-build": {
+        "id": "haVQ4OB-TsR3plZufsTuP",
+        "buildIdSha256": "c66595c97d6f7cab77ce9be6db762411a2dca890a64fa2fb2c9054571c6c8a5f",
+        "buildManifestSha256": "3f4fcf54b547563884620d84f2411dc44ce4839c37f8cb55cc63bfcaa5e8edbd"
+      },
+      ".next-onb07-followup-build": {
+        "id": "ubcJytWWYF07S0RqjXqDp",
+        "buildIdSha256": "803bbe9ba716d97d444d294ebb585b42e6b8d6b22c86d31637306bf25d1a77d3",
+        "buildManifestSha256": "9b36cbf3660aa3b99381cf9e91c42bd8a3c2dcc6fc346b04599ce2eb7426a538"
+      }
+    }
+  },
+  "selectedLintPaths": [
+    "src/lib/setup-imports/transaction.ts",
+    "src/lib/setup-imports/transaction.hermetic.test.ts",
+    "src/lib/setup-imports/service.ts",
+    "src/lib/setup-imports/catalog.ts",
+    "src/lib/setup-imports/authority.ts",
+    "src/lib/setup-imports/setup-imports.db.test.ts",
+    "src/lib/onboarding-workbook/workbook.db.test.ts",
+    "src/lib/implementation/implementation.db.test.ts",
+    "src/lib/verify/trace-disposable-transactions.ts",
+    "scripts/verify/canonical-offline-fixtures.mjs",
+    "scripts/verify/offline-browser-fixtures.mjs",
+    "scripts/verify/dietary-pilot-fixtures.mjs",
+    "scripts/verify/run-offline-browser.mjs",
+    "scripts/verify/run-dietary-pilot.mjs",
+    "tests/offline-browser/canonical-journey.ts",
+    "tests/offline-browser/helpers.ts",
+    "tests/offline-browser/ci-gate.spec.ts",
+    "tests/dietary-pilot/ci-gate.spec.ts"
+  ],
+  "sourceFingerprints": {
+    "capturedAtPackagingUtc": "2026-10-19T15:47:04.224582+00:00",
+    "note": "Current source hashes are packaging fingerprints, not retrospective immutable build manifests. Browser build suitability follows unchanged application owners; current SQL owner restored exactly after rejected experiment. Test diagnostics/comment changes after checks are labelled.",
+    "sha256": {
+      ".env.example": "6598f5a7176adad2c1408db10280e24d8c516b188a5951220cd29d6fb77f5639",
+      ".github/workflows/verify.yml": "dfbcaa23e10c6d5b833924b3679f01dbfba89e7c1843bec7924406f410579e92",
+      "AGENTS.md": "d811faae09672de4cf097343b72d381df2ad0388f0d32530edcd8e4059288972",
+      "README.md": "84e69811697b0c5aec3efd84eaddea2c4aa952aaf4c5117a52b2f8b8683846bf",
+      "docs/architecture/SUPPORT_TICKETS.md": "785dca6abeef79da5464af2b82b4b4f3c5272960631b00dad9735cc5b8f217c7",
+      "docs/onboarding/DECISIONS.md": "59ce046cc9bb2e708f66ae6df6dbd3cfae313b5dd51d0d210018a85b776e42d1",
+      "docs/onboarding/ONB_00_BASELINE_2026-10-17.json": "97bd7d191db6f9cf889b1d0a3db4d14786efd3131e6124bee84cc6090711e67c",
+      "docs/onboarding/ONB_01_VERIFICATION_2026-10-17.json": "82512b77be374fc860ac9d009e76996b00cf2ec88f3ee6a98ca4e30ec6c43de1",
+      "docs/onboarding/ONB_02_VERIFICATION_2026-10-17.json": "20977166f3a522b9ce1b31f5136d75032801e4097dc0ddef85eee9b5996ab819",
+      "docs/onboarding/ONB_03_VERIFICATION_2026-10-17.json": "fb0ea0c192981681e7960ac70a5468d136bc11a0af736035042f9d7ce60ac289",
+      "docs/onboarding/ONB_04_CSV_CONTRACT.md": "6602543dec67578b714e37bf46a490202c3e9609c1cb34db1bfcc4802371de45",
+      "docs/onboarding/ONB_04_VERIFICATION_2026-10-18.json": "2b3341c7114147951fd3809b83d533ed0da5471f1e13cc4b8e1d52d174b67677",
+      "docs/onboarding/ONB_05_SERVICE_CONTRACT.md": "96b9e0b6837efa84341bebcf3f8bde0f2e1bdd7257cdd0bb10bd313242022b87",
+      "docs/onboarding/ONB_05_VERIFICATION_2026-10-18.json": "339f4513d3bc649d0cd53bf001613f45f8039e24f5be6e12bee11f56b2cc49e1",
+      "docs/onboarding/ONB_06_VERIFICATION_2026-10-18.json": "a6e4736ce5e403284bd508758543d7523bca0bb97d2dce34d0a3d71b9410b468",
+      "docs/onboarding/ONB_06_WORKBOOK_CONTRACT.md": "fa7c3c8e3febeb6a44a4dbb50736250a2c27f66a4b6aa972e5989b09715cb464",
+      "docs/onboarding/ONB_07_CERTIFICATION_2026-10-18.md": "dd062728fbfe2f04b903c654bccbb877aafb60b0bf7769261e407f1127b050dd",
+      "docs/onboarding/ONB_07_FOLLOWUP_2026-10-19.md": "150a0e48ee4952c853531bccacaa87a478e24fa8e393b6eebe6a8e3e1a746151",
+      "docs/onboarding/ONB_07_PILOT_CHECKLIST.md": "248483b18655e50ab024ee33a83bbe81b6e509e23c3a8d3faabac22705042b87",
+      "docs/onboarding/ONB_07_RELEASE_BLOCKERS.md": "88e6b0aea109b7c713d2e245b4f2306bfdb3ba96eef7c09aa0537b24b5e372f0",
+      "docs/onboarding/ONB_07_STABILIZATION.md": "46b68eaf570fbfde368f6290b228262a0ebfcfe203ef24f0eaa025a88ac36844",
+      "docs/onboarding/ONB_07_STABILIZATION_VERIFICATION_2026-10-19.json": "5887d2a723b318d76332dee4837a91213c35dfd6fd572c22f94e91c9767d8872",
+      "docs/onboarding/ONB_07_VERIFICATION_2026-10-18.json": "43a0ebd5605178b18982dda2f51caaaa43817af5c749fb5bbc2ed6004d6997a3",
+      "docs/onboarding/PHASE_TRACKER.md": "9f97c9da734c394da3124e45880b1c58160c56080a7beab1571e2c4338069056",
+      "docs/onboarding/README.md": "3a8acf7cff9a0b783597e73396ee277fc902d789a044dfed202ff023c06f7c10",
+      "docs/onboarding/REPOSITORY_RENAME_CHECKLIST.md": "393a6770888af75e036bf472512872587a6663b3383e76f66bd9ea45e2441106",
+      "docs/onboarding/VERIFICATION_POLICY.md": "ccc440ccd860545de04f4a69cf501667df0ad5a8e940bb6b34cf2e6120187bd8",
+      "docs/onboarding/VSSYL_ONBOARDING_AUDIT_2026-10-17.md": "228d96d6b8e0ac0a36c38abbab78bb6488e30099336fb9199f04ddf1e28c89e8",
+      "docs/onboarding/VSSYL_ONBOARDING_PHASED_PLAN_2026-10-17.md": "592f91e4ec204a6bafc5e58ee3c420d446344eca29abf8374ca50ae65b167928",
+      "docs/product/01_PRODUCT_CONSTITUTION.md": "1dd152c09caa449fd55c14ef77da34558fef0020da17c31769f2bf1dbff85cee",
+      "docs/product/11_COMMERCIAL_MODEL.md": "a97f6f97cb9616a2007579079d782d3923d9fa29b35c337cfe1fd5fad5434959",
+      "docs/product/13_DEPARTMENT_PRODUCT.md": "b2dd94e6b8426f298dc80a43b4cb4d827ad2f25ad24d02682da03fdb9c5a6c69",
+      "docs/product/README.md": "52e84ce1fe8b9c553024627f4d6cb5188e33a859ec6e61915337e50657f48cff",
+      "eslint.config.mjs": "ab91be17d1bea556e2bcca4b006f4807d0dd436e01b18d689a19a867f801d9bc",
+      "memory-bank/README.md": "701124d918107a38afd3de6eba6245be18b7c91a8c44b02b52af1096c5f7984d",
+      "memory-bank/architecture-decisions.md": "d9cf0fac44ec6e23062fd240f63aaae9dddb6a68aca6d5db3eb075343f9e1289",
+      "memory-bank/employee-hr-source-of-truth.md": "5e4590705eea4c5032a1e7f7ccd7b42fe9831f4460d2039da554c5bbcf56fe6b",
+      "memory-bank/implementation-phases.md": "b7ed65e8555e1eeeade18327d3b7122ccc3638b785f6a1a3823e31684bb12fc0",
+      "memory-bank/progress-log.md": "c42719adac025a1e256e00f7eb80a45fff8e674103d3f2dbe00da42916eeb59f",
+      "next.config.ts": "8085aac4a98e55cd7f3955ecc95148ada5d7f0a4c4d8bdec99e910286ece9cb2",
+      "package-lock.json": "5a353eb5e6c1485d3a183c38a104728fe8538f62e89a988a44d0489b278320d0",
+      "package.json": "ab1a33484784d5d059ca4f810b42a23b4710d324e35fe52a2950a162ed4ffccc",
+      "prisma/migrations/20261017180000_onboarding_commercial_suspension_states/migration.sql": "d775af6e1ab28ac862d9606ac8c59d600a355c30d1f0798e6434067a3255e7c9",
+      "prisma/migrations/20261017230000_guided_setup_entry_and_manager_invitations/migration.sql": "992a5a834ca26f79e676e497b48893911ab64bfcd0f5f8e26cde986038d1aef0",
+      "prisma/migrations/20261018010000_canonical_setup_import_receipts/migration.sql": "cd8743f3f962394f3aacb0a91e0e5dd3b33e6154142fde3c64be836c791fe12d",
+      "prisma/migrations/20261018120000_implementation_service_orders/migration.sql": "d1a72f1143eafca2a7e2a2373d522ee65b588c191d99a836c09ea8349b298916",
+      "prisma/migrations/20261018150000_support_private_attachment_scanning/migration.sql": "036ec5f9234c31d6c332ef3270b2954f4f80140cfcd5e2eff7b696d6dd466887",
+      "prisma/migrations/20261018233500_onb07_repair_code_allocation/migration.sql": "e7831f38bb7238e20a61354c40f3c3c166016c11d07b6f47004a5808bcb8f50b",
+      "prisma/migrations/20261018234500_onb07_asset_issue_code_allocation/migration.sql": "4694b713733eacb0411a0fcf6b7783a4f97bc980eeae1f71905d3e18ab133425",
+      "prisma/migrations/20261019110000_onb07_import_identity_lookup_indexes/migration.sql": "e112c1f2fc742f545fe6721ae21b781015146ec3a64019797aafa0cdbcf17124",
+      "prisma/schema.prisma": "dec64d271f7fd3cfa27829f0f5e566416c1e7c62d8770dbb9a8f44688a5baeec",
+      "prisma/seed.mjs": "ccc8a9d3e5427c3dd3c212010b2d38af75e61e23a872bdfa3bdf3b64b16f8742",
+      "scripts/support/process-pending-attachments.ts": "e22c19b8a94ba394528234bd19a5f7634e6881565e34a119e7074a120bcc1aac",
+      "scripts/verify/assignment-browser-fixtures.mjs": "b4c2104c85273c7b80c636534328417a66cecd6661ecb3531326488f496d88bd",
+      "scripts/verify/canonical-offline-fixtures.mjs": "aa551133672acd2150912427171c45d1c3bfd51b3963f66c03ec3ec28e1d4f23",
+      "scripts/verify/dietary-pilot-fixtures.mjs": "19371a362bef15cb257ac54ec8a5657d372bdd692c93aaeb62ab5381d2bda679",
+      "scripts/verify/discover-tests.mjs": "9c376b8ce718c41c51382d6a3fc0d84cebbe9b9ee8d260999a99be90395fb775",
+      "scripts/verify/fixture-account.mjs": "f9dc5766da48462432fa3e859772ec70563dc52a4153612fb123f5f8e990c95a",
+      "scripts/verify/lib/database-target.mjs": "b9b72d685d159dcdaa1899363a0ee0c62d62e0664caa9a1d095bba5d3270ad76",
+      "scripts/verify/offline-browser-fixtures.mjs": "a1bdfba68e493b388339a6ede1c3ac45743858c2c50f3f604305b2be3d06fff3",
+      "scripts/verify/run-assignment-browser.mjs": "5cb057ec6b134273af069269756ee3d17e577a2715f1a1ae1e83150ecb98f2f0",
+      "scripts/verify/run-dietary-pilot.mjs": "b2b3f8be0254c6cebae1de5467c89ffc12af712bd0376fdfb5d11b1b6c36e77a",
+      "scripts/verify/run-offline-browser.mjs": "25090b6b94f56c32789faac22fe668b0756fe70750e88da2cabd7adb828a8c9f",
+      "scripts/verify/run-tests.mjs": "d85fdbf904d4ab6b8c889105e2c6d8d14a20e1fb0d920d8dafc58d689071b8e0",
+      "src/app/(protected)/admin/billing/actions.ts": "06821a7c6632a43a95cbba449d8b71ead0b4a5998b693e9c832034ddc72c0bcc",
+      "src/app/(protected)/admin/billing/billing-plan-form.tsx": "0f0d303dc3728f52fb23cfc5d7c04039417cad73b93840a59f78d6925332f58f",
+      "src/app/(protected)/admin/billing/implementation/actions.ts": "44a3fb8f58557a2084743e3163ecd25367418a4dfeae5b59a39afd3260befcce",
+      "src/app/(protected)/admin/billing/implementation/page.tsx": "b74b7f9dfc9876c2fb183ded8f6344b5ea940ed6efdafa108d909312a3fec7ce",
+      "src/app/(protected)/admin/billing/page.tsx": "8bfc851891cec38f09820ad75e815b84196604c551f8628d3dd4d4ef5e77acd7",
+      "src/app/(protected)/admin/departments/[departmentId]/actions.ts": "d60e40dce6ec3fcb7ac86963f6ef7c9f8ed0cab9c3c0b557c5e581d3c53a66b4",
+      "src/app/(protected)/admin/departments/[departmentId]/page.tsx": "7c2eacf8d5417ddd339d275dfde46d0aec5f70ffc92c92c98c2d3ce6587eb538",
+      "src/app/(protected)/admin/facility/builder/actions.ts": "c527307f2f68754e238e67c2146b61653b0f2a77ac86be1d30a4a7c341778000",
+      "src/app/(protected)/admin/facility/builder/page.tsx": "b817ed9a4eeebdd4b52e4857ee5c36c4026d6759c1ce748b9526c784721b8313",
+      "src/app/(protected)/assets/builder/asset-bulk-import-panel.tsx": "302c8d9f0cb2ef7f9c9f3cb4b3250495ca450155d61470be4cbc0d85964df25f",
+      "src/app/(protected)/assets/builder/page.tsx": "09270f3bc40d96fbaf439612df5aaa1851a0d7de03fc80682bc45ee9fd467ba9",
+      "src/app/(protected)/assets/import-actions.ts": "3919d4df5986ff99b7a62be26e34beedebfc26cde39bf3ab37bf5b78d645cec1",
+      "src/app/(protected)/employees/bulk-setup/actions.ts": "fa3b64d17ad77f4b78765b100eb5639716d14e9902fe03774ecd6ed1fd810905",
+      "src/app/(protected)/employees/bulk-setup/page.tsx": "018cd44a8e21e106b409139896ed94a30777bc878d2cdb25d2e500ce1c0bf598",
+      "src/app/(protected)/employees/bulk-setup/workbook-actions.ts": "eccc18a9eeaf40c78e9c08f0ff7c2f90e3d6dd61cbc9f368b86072ea4ff35234",
+      "src/app/(protected)/employees/csv-import-actions.ts": "d2fa57a2813efb7df4b88b6b6e0485dcfe508ee3c2e639c783b341ba4990b12b",
+      "src/app/(protected)/employees/import/import-csv-form.tsx": "8ef8cbbb9c21d2d3a624e39f100440618af8b44872ae999772be6d695cfc11ae",
+      "src/app/(protected)/employees/import/page.tsx": "11ad42eef0c44a33d3011849c12bdcf67ea780a1184d61e6c776daaed45062d9",
+      "src/app/(protected)/employees/page.tsx": "bc7e28fbdfabec236865ee48ab87df9e117639310561583c4464a11697bfa99e",
+      "src/app/(protected)/repairs/actions.ts": "072700435ff7e5daf882fbe076c3fa6ebe02bb90352e8eef8db5b93a485fb13f",
+      "src/app/(protected)/unit/[unitId]/employee-runtime-page.tsx": "32004d36064af003984d8550440719b60e3b62da39e13271d064095d6ba5dd9d",
+      "src/app/(protected)/unit/[unitId]/page.tsx": "708d01b1666d678364f0bc6ce007d9e19109ac677faef52741e0f758b7618edd",
+      "src/app/(protected)/unit/[unitId]/servery-action-chrome.tsx": "742662b1857aeab9063446ee45836b648ad8f65a01c4226bce530325a0c0e70b",
+      "src/app/(protected)/unit/[unitId]/space-workspace-page.tsx": "0bd0e57e813b5a669a6c9996050f16c73ebec2c8f9ee552937cd58d0ae10e25c",
+      "src/app/accept-invite/page.tsx": "a1ef1f2b8ab6fa0409939ad294a89163d1ecf7595a28963c54df216b4d4c4af2",
+      "src/app/api/auth/account-invite/confirm/route.ts": "c876ed6ff95949dcebc88affc59c398780d5ca6499cd5cad9e957663ce23b1bc",
+      "src/app/api/billing/payment-method/default/route.ts": "ba6093243388af4ac5f620315c3ffc1ec0d281115a31a5235cbb27dfec88218d",
+      "src/app/api/console/implementation/[engagementId]/attachments/[attachmentId]/route.ts": "f0a78534cacd54285cdfdb0b2ddbcce05ffbafb4c50f895c89e1b275ae10d563",
+      "src/app/api/console/support-attachments/[attachmentId]/route.ts": "901f240999150c06b75333b3ae716deacc881d7c01c7e3614edda1087c9e11d7",
+      "src/app/api/onboarding/locations/route.ts": "078197415530be0782c63d1425956482d7328eca297e6767ed0e35b8fa757c3c",
+      "src/app/api/onboarding/managers/route.ts": "9b52f31be5f2646c3ba4350d997b080080e21bf940f051b596b7ccd084ff1e05",
+      "src/app/api/onboarding/state/route.ts": "f39aaeac9bd9ee67537fd97631ec8f7d9a2f09bef9ab2a51d2204c074df8c6ab",
+      "src/app/console/(staff)/customers/[facilityId]/implementation/actions.ts": "1b9956235dce48ee258faed5e17bc0848a20395fb11d9989cd65decda57cac5f",
+      "src/app/console/(staff)/customers/[facilityId]/implementation/page.tsx": "ea9a0f12c24d61337ac848feb0efee61a5b8fd4661338b91e593f109c19a6ad7",
+      "src/app/console/(staff)/customers/[facilityId]/page.tsx": "4994b9e41f5bdbfd2d78feac671119f53cb65969768c5591acda30c973ffecc9",
+      "src/app/setup/page.tsx": "845fd2cb5bcc687ef417349736cbd8e9d3280a23725057b7694d6fdc4e589360",
+      "src/app/signup/page.tsx": "bded85ae43804b2237aa88f0cf15a59d40222ee3096e4d9f0641d1316b166009",
+      "src/components/department-work/work-completion-panel.tsx": "e36005b30450a14dc7989d21b3eb021346b6ee4e4da44bd3dd3fdb5f942713ed",
+      "src/components/drawer.tsx": "82f9fc3dc415c43f7a2b79b160b0e0f832d768ef984aa1eae044753d2783030b",
+      "src/components/harbor-console/harbor-support-notifications.tsx": "fcc8aa1cfbd10122bf645d27582f1de3705ff6cb708bd39b57f90a480a14298c",
+      "src/components/harbor-console/support-ticket-work-panel.tsx": "0d949ab77251616ffde86bd154097024ab582111a95fa16de4c976fcc863eaa0",
+      "src/components/implementation-workspace.tsx": "266e487f3a24a70a9f9bf37ad5fa3c1c8794290a96793f5ff5e8e380abc71ec9",
+      "src/components/location-tree/location-tree.hermetic.test.ts": "73631624a9a871d2c9076a394d1815a18ad8c6264f9b6343662a3a0d3c1f2f6c",
+      "src/components/manager-invite-accept-form.tsx": "636ab1cf26ce954f1450b636120a56a15d67350f8383c4363e489e6818f2c101",
+      "src/components/onboarding-workbook-workspace.tsx": "d42b64c368a99c77bd7c2cb6e9ebc34b60703b1942a154468ec31ccf55208e02",
+      "src/components/servery-meal-service-controls.tsx": "4c20a8be1e8f59027c29953d84acc84ca4651f7c8a9d995509b06eed3f1214bc",
+      "src/components/setup-import-workspace.tsx": "984c0bb0da8532a56bcbf17e799a3b5edf417dd4217c1a63352f6641e5257052",
+      "src/components/setup-wizard.tsx": "577a610b14e5549bbf95e7640e2287fa093e48d79f3df0ab632c6fd0480dff01",
+      "src/components/setup-workspace-link.tsx": "d1e7ea3024f3bd93d95a3b2a9428b326ac95b234450b6b972f64adaa85c9b7b9",
+      "src/components/unit-workspace/employee-runtime-experience.tsx": "d662cc7d5ce19eb4977991ca8908a602447f4f98aa7929f90850279ac7bff2fd",
+      "src/components/verify-email-client.tsx": "8586e2a4b3bd345c892d660da9d62173d83dd4d5a7b5fcc64c3f238131af77f0",
+      "src/lib/account-invite/activate.ts": "a47d715bd4bd98b5bc8d295b8eb255774dd4693223946c5e23a52643745a2644",
+      "src/lib/active-department-context.ts": "8b6cfab3213a5b656868a21a1dbac9f4a9216b515742a1c7c78f9a78a32665b1",
+      "src/lib/asset-operations/asset-service.ts": "2ae14b1f067184e2091f467577c293c1d430ff1d781ebd78953409b7bfe18a2c",
+      "src/lib/asset-operations/authority.ts": "ddb0bfe3eabaa8c564d31f336c0c2b7f5e4a1eaa8a88da9e811430f6e95ae65d",
+      "src/lib/asset-operations/issue-service.ts": "e72160b996f51bb36fe0e7235726bd1413a250e57cf38a2153c64af001ed9d46",
+      "src/lib/asset-operations/phase-10a-asset-operations.test.ts": "d0f18abf085f24921728a591e5d9aba8943ff143e4285535ce2802a37ce3308d",
+      "src/lib/asset-operations/phase-3d-work-order-closeout.test.ts": "c45d7eb67ae0fc6c9b3002cbe3939a4eef9670f86fa5b10874d3217b69749719",
+      "src/lib/asset-operations/responsibility.hermetic.test.ts": "2889c50cca02db955258faec928e5b6adfa8d23f5636c627b9874072e4cda074",
+      "src/lib/asset-operations/work-order-service.ts": "a34dfc83f0f4bbc70bc89e5071000ecc76da3571b6b66b046567358235fafb45",
+      "src/lib/billing/add-departments.ts": "4f3beb6c002d0d688102574f034b9e9c3b9cbb7e3e941a45a183da58f4e1510d",
+      "src/lib/billing/apply-stripe-event.ts": "bfb19afe271a133ab4b71add78991d3a971090fd8161afd66bf65c306ccf1cd7",
+      "src/lib/billing/checkout-items.hermetic.test.ts": "f60b01c797d020276d29f6ab9fa672aa2ccfdb75895f4c19c98d1e8d538d4858",
+      "src/lib/billing/checkout-items.ts": "23428eecdf9321c122719a6e8c2bee8e25fa75197e0680a335475b435ada9cf0",
+      "src/lib/billing/entitlement.hermetic.test.ts": "95cf066f6be5f70a76a81cabc16221a744bf9e895bba9d21c25fb814f847fb7b",
+      "src/lib/billing/entitlement.ts": "ecef3b93909b9d39b5630c20485aa4d3faa45095fb8c0a88dc6556ae5a94ddcb",
+      "src/lib/billing/implementation-payment.ts": "e8da51bda9af31472dd4ed3e1d4f7b06a2513230c73585e0929e4f548a4c6eca",
+      "src/lib/billing/persist-default-payment-method.hermetic.test.ts": "6065ca45ab767614493f0f3c648094609e3cd7fd8dd619277e58d055eb7c9cfe",
+      "src/lib/billing/reconcile-from-stripe.hermetic.test.ts": "5372c0d1737c6fa26524d572790943b4e65255fc5dfa612eca5a9d0ced756da3",
+      "src/lib/billing/reconcile-from-stripe.ts": "26e4e6ba8052ea4e6f89c0f320e1cde52647cbb2dd9c22ee4eae24b85c3078f3",
+      "src/lib/billing/status.ts": "63b0e1f4f80efaafd47dfe01dd37f54788cfeb582ed7e8d1292426c386ceb0b4",
+      "src/lib/billing/stripe-customer.ts": "34be66e03242335f0a8f1304a718157de8989a42c538ab623c5322b7cb8099a1",
+      "src/lib/billing/stripe-prices.ts": "a35c90930448eab6b61585759437310898573e0a8cf4cf44ac2d14f4f09ea4ff",
+      "src/lib/billing/sync-from-stripe.ts": "94d073ba653770bc51100ac9db4f88847d4ca93879402c7bf698f2e327cd21d1",
+      "src/lib/billing/webhook-handlers.ts": "13d88b0652092b0aad6a2550a5bf95fe569d951de0b35991eb5e8b7f210682ce",
+      "src/lib/bulk-import/asset-import-execute.ts": "bd3d4b81aff21bf8b0c7e4ec31d175d1d8ef6a3e483c540690ae166ebec94484",
+      "src/lib/bulk-import/asset-import.hermetic.test.ts": "5e79b4984e075a26f4b7cba6dda372026f67e7f2a9a0a166a685c393efb6bfdc",
+      "src/lib/bulk-import/asset-import.ts": "92b0784cb7f6ead16273ee6edb457a4ebc484028cf8de9b188141b5e6ad9aef7",
+      "src/lib/bulk-import/bulk-import.scale.db.test.ts": "ca562632ab1da2a8e0872afeab011bb7b1d6f6e2e9dbf4b86790db954d8bf0b8",
+      "src/lib/bulk-import/facility-structure-execute.ts": "2874aff95d4b53b319ade1ce019983095e639e9bccb2c7ed4496cafbceadfd19",
+      "src/lib/business-workspace/business-workspace-projection.test.ts": "074b0533ef654a9a187f48a746a3adcfffc850ba63a9cd6b98ec8279779f1bed",
+      "src/lib/canonical-logs/facility-catalog-install.hermetic.test.ts": "233be961c709399240d57a53aa136998c3609c68159dec4337d9bea8ce8b5f90",
+      "src/lib/canonical-logs/partner-log-read.hermetic.test.ts": "3808573b9778ea45178f01217bc6fa4c883dbb78772d7f84e1b4569b1c8e1746",
+      "src/lib/canonical-logs/partner-log-write.hermetic.test.ts": "06155ee0fd13636b14831243d4ffc9f827a435ecbb77b3fb0a5e96da37af043c",
+      "src/lib/canonical-logs/phase-1-cooler-e2e.test.ts": "00fd20866efe3fc81eb53a4efd6e80adee2f8e5e7a808aba53278cce39251047",
+      "src/lib/canonical-logs/phase-3-canonical-logs.test.ts": "9daf4aa88235878aa7fabf3e13988e05bea4eacda5ec151312383cfdf23c2bba",
+      "src/lib/department-administration/department-locations.test.ts": "7e33557299d89e73591a3fe29e835c2ba435abfd8a40cca523c206a28d3d73c0",
+      "src/lib/department-administration/room-types.test.ts": "6144cdc6cdc5e4d97e64c176b19be8320a9ee716b7199c4e3bdc2dd51e0c5d44",
+      "src/lib/department-products/customer-selection.hermetic.test.ts": "bcf00cfbcb73f6398f0d829fa5087f0b3b2a29f4792a9167c535c8ad3a416ebf",
+      "src/lib/department-products/department-products.hermetic.test.ts": "3b6a69ee7be065aa63a4bafcad9657bc7514e9e47e1fda4564136fb6ac4a18a5",
+      "src/lib/department-products/eligibility.hermetic.test.ts": "2f67000664c8971444ededbfc42e7cb03f7d439e278399ea17836963a11c70e9",
+      "src/lib/department-products/eligibility.ts": "99721e2216489e661882818b5535f1b4f8bb9da9133c16268f73d58811d140aa",
+      "src/lib/department-products/facility-catalog.ts": "a061b315ccfe392e8d52b6e32d67f45b640eeaf7b122a175d2afcf7639ea1096",
+      "src/lib/department-products/healthcare-food-nutrition-identity.hermetic.test.ts": "f89ff6f2ab2224cc2861d3082fe5045d31036bf582a5ac7968e911c544e963b9",
+      "src/lib/department-products/load-facility-catalog.ts": "6bfde4ce7f971213ee502688085bec4a5901311482295ee6d911f356c019ab87",
+      "src/lib/department-products/plant-runtime.ts": "e2e7a729da418c0415feef21680b301506626d6e5028c7a8966365c19b4aa1a1",
+      "src/lib/department-products/reconcile.ts": "f994a1af8d67c69536f16af47321af520a749ff2f9cec5424cb77b3d54e8f904",
+      "src/lib/department-products/registry.ts": "4ebe8b1ec5d4b20e8117ce33a6bc3de90cd3cf54742d409207770f1b5a226f1d",
+      "src/lib/department-work/authority.ts": "1ab9bc157d405483a3afafb84eedc3c4bad46cb2ea72c757090ddc5e67c56f14",
+      "src/lib/department-work/phase-11a-department-work.test.ts": "f7b5928fbf4b86a4c0177db68b85a2d6afed3245d2bdf04d2861f3c106ed0e93",
+      "src/lib/dept-settings-access.ts": "c0c98b5918be0f233db9240851fd89348ca152d6f9400b4e4f62074c1bd5cbf5",
+      "src/lib/design-system/temporal-strip-ticks.hermetic.test.ts": "27f33ad849a48152dfedaefa5f0191f84f3877940a9b4669867c356d76505ae8",
+      "src/lib/dietary-job-flow/job-flow-authority.ts": "dbcc18b0dd0d574fb6a907535fa6ac0c42e340d6094b25d0df6308d6d6103c51",
+      "src/lib/dietary-job-flow/phase-9b-job-flow.test.ts": "7a79a0a3b0b6079c64dec7f45aea6736a614aa991b7197e8e6a65bad9d8f0663",
+      "src/lib/dietary-job-flow/supervisor-operations/present-ui.hermetic.test.ts": "e0ef0e3e4c23da0da428cb61c9c81b1342d041b666db9ea89f74099660633ff7",
+      "src/lib/employee-csv-import.ts": "251c06d717d4cfe24275af3c29149c35cbee659b8b2fabce19b4b6684018c48d",
+      "src/lib/employee-csv-update/employee-csv-update.db.test.ts": "cb6b95145975f12f38f49d93bfd9128d4e11cc1c4fc5f1adc2987060f46690e2",
+      "src/lib/employee-csv-update/employee-csv-update.hermetic.test.ts": "e8044e392001ca0c8ed5a356870f7bd3473cb477c72ebf8c48bc5411cb5ec4b3",
+      "src/lib/employee-csv-update/service.ts": "700c122c85f68ea1e7e1ca7dfba23730769186d501b9dcd5c402e0fe8d153bc4",
+      "src/lib/employee-csv-update/types.ts": "bb0b6dcb21aab329b5a39e340150d90fa9149ef70c351251580001268db75e2e",
+      "src/lib/employee-identity/onboard.hermetic.test.ts": "b56eab6936e5bbb3da5261d402abe32963eb731ad6fde18cda1860602d75f3d6",
+      "src/lib/employee-identity/onboard.ts": "59425ddeaa022c0271b68113b8f8b80f52cfc87ef25d6731a4bd8cb77e2e940c",
+      "src/lib/employee-runtime-flow/assigned-spaces.ts": "a87f4d8c452793afbf2cd11e145b627992fdfaba34d9aa2b3aec73e0be954049",
+      "src/lib/employee-runtime-flow/compose.ts": "7df1a1c05868b4999550b147a61572887e0d1f9acaef6a65f6dd1b04c530945e",
+      "src/lib/employee-runtime-flow/employee-runtime-flow.hermetic.test.ts": "c93e77e86853808c46e62479f8324be0c132990fd8ba0a39520e981845ec7f3d",
+      "src/lib/employee-runtime-flow/evidence.ts": "46f4e08b85a7c9a5fc5da81ea2015844e59db4888d40f093e1417df0939de6ab",
+      "src/lib/employee-runtime-flow/index.ts": "e0e777b6af2e89dcf624ccc45fca5fd9a7034460457305bcd2ddb4fb1b41daf4",
+      "src/lib/employee-runtime-flow/load-assigned-space-refs.ts": "687777f1c9805820c674a8d4bd9062f6047313676fc6ea5d8bd2ac3e90e285aa",
+      "src/lib/employee-runtime-flow/load-assignments.ts": "cf3e146570d8c3b156f602a275c914aeeb99d1f8d9abe74931009614ff705853",
+      "src/lib/employee-runtime-flow/load-flow.ts": "48cb6339a2913c1d1ed5b753cbe46ad89db2dc9a92e0aa6af872cc2bcdc327b4",
+      "src/lib/employee-runtime-flow/next-action.ts": "2ac013af674f8b201e407db6e53bedb66fcb9b76b17fa9088e02bacf4991798a",
+      "src/lib/employee-runtime-flow/operation.ts": "55fe2b9023f0e443ae34a32db60cce32dc0395c707c4d07675217b475f32d977",
+      "src/lib/employee-runtime-flow/phase-6l-retirement.hermetic.test.ts": "27a02601849e7963ed015e1aff16f832f8da11c299170517d49a7599edb6c6b0",
+      "src/lib/employee-runtime-flow/present.hermetic.test.ts": "34c875a24eaa01f4f73ff383e6847747841bf9e796c45121b7f30215eb2652cf",
+      "src/lib/employee-runtime-flow/present.ts": "5c1e82f2717acae9b09e6111dd1624c69f7e298b2596b26abe1cd66468544206",
+      "src/lib/employee-runtime-flow/serialize-offline.ts": "fea518c81ac63fe0e18cf3d359faea00a62e5f6bad1ae051c406af3ea5eda511",
+      "src/lib/employee-runtime-flow/to-job-flow.ts": "ee9ccb169b1cf01783f852d9962338464bc9f5d3f17c47921d4fd4d81a2f7cd0",
+      "src/lib/employee-runtime-flow/types.ts": "29a79315f36f4411896cc088eae1cd0b0b03d59c3ccf1dd263f12a19f7be8f86",
+      "src/lib/evs/phase-11b-evs-operations.test.ts": "1977c364691a7167b05f408cf3cdb6b0a333fc2f204868492b566ee2e68acbe3",
+      "src/lib/facility-builder/responsibility-service.ts": "c419dbc73c6b053bcfa6219f008e30a89d71da61edb3fce9a794e8c756f8b350",
+      "src/lib/facility-provisioning/bootstrap.hermetic.test.ts": "2251fa00a6b2aa1924c07ccdd1f7ab0b43855cddd0e488c1db277e7d63377d2d",
+      "src/lib/facility-provisioning/bootstrap.ts": "15ca413afb45541d0afcd4bf9051c8b35525abce07229b0b4f11373bb8e56541",
+      "src/lib/harbor-console/console-catalog-detail.db.test.ts": "45cb24ee0ed5fbdf3bbcb9c882de9f3881d4e0a01ac3ca55cb8eda9c8f74c444",
+      "src/lib/harbor-console/console-catalog.db.test.ts": "d26c7a68de22c4e156d4b3716583a7ee8fe9d6f5c5cf6b4f21615ead7523595f",
+      "src/lib/harbor-console/console-catalog.ts": "8b5fa022646621a3c70be316b2bef176ea9d2ad57ac90369a639b9c9ed159b97",
+      "src/lib/harbor-console/console-marketplace-v1.db.test.ts": "66952eca93da79c547a0ce7096e0267ddf23651edb30959be22902293a248d14",
+      "src/lib/harbor-console/customer-billing-detail.hermetic.test.ts": "a45ab7dd585d9f8657a8db23e0ebe0cf33205f8d05cf51df7d93620198ffbfbf",
+      "src/lib/harbor-console/presentation.hermetic.test.ts": "0d164a1d12a1d8c2c87debc0c20017286966501d1b70482dca0e286ef53ff156",
+      "src/lib/harbor-console/presentation.ts": "ce75560c7628c5fff8b58cc03593f9b3f85c8136bb8c199cb4c46b9acfd65c51",
+      "src/lib/harbor-console/queries.ts": "f69da7714fc2f0c34e26e985d5dce97a5fdbe9eab16bea7c0ff02f7d3a540ebb",
+      "src/lib/implementation/action.ts": "dd60e35cbdec527af61e2c8ca2c774c9d32984da11e185a761f9be320b1d365e",
+      "src/lib/implementation/authority.ts": "886d7144bf426003cb50b0eb155deabdf010736ec3b07e7ba89943bb1f724347",
+      "src/lib/implementation/contract.hermetic.test.ts": "297e24a0757095a654e89133dd8279306567ae8bb7bcaf8b8c816f2a0056660d",
+      "src/lib/implementation/contract.ts": "7b3f77e00c2e5903bc6c85097df0231821c9a5b3719152f612f44023d773b309",
+      "src/lib/implementation/implementation.db.test.ts": "61478c7cc3c15ba8186c81e274fe07a143f2560963b2b2728466a5a63131a95a",
+      "src/lib/implementation/request-actor.ts": "7c6c9165a0be491a5b863f8dcc96df87168fc15dd3fac38f5dcfa39e31ce15b9",
+      "src/lib/implementation/service.ts": "c6553486d9ee7b61ebbca4ba7f90cc47bdc61ac5b44aff6a33306e65df4d8fb0",
+      "src/lib/locations/location-experience-certification.test.ts": "89ace8a8933bd8ab3dfaecd9d0d5ca234d9ac6999f0794e9bf918798e814076d",
+      "src/lib/locations/locations-cutover.test.ts": "270ae5a97f00e4b7c7a0e251eb34ebcaa064546235abd25e59e4c483f3c7ced3",
+      "src/lib/locations/sidebar-cutover.test.ts": "604659954443b63d3a4ce665953c93cbc7836d299953b5d46fdc08e0610d4934",
+      "src/lib/offline/build-runtime-bundle.ts": "c73e84a8a4ddce0c18297b4a29e764845b5d6c2953b0d01327bade7c556c1ad9",
+      "src/lib/offline/bundle-validation.ts": "94f294c35d06627e295c94afdb459012294a0c8acd6c135541c4bdd37e8d5d8f",
+      "src/lib/offline/connectivity-reducer.ts": "70a6d5bdc3d94b7b9db706a78d50c84ecc007d5afb0ce4fd467ab34608089e74",
+      "src/lib/offline/crypto.ts": "d6c4cec221c53453efd4d3255e611eed6bf572d0cdf6412da822b5819e901ec8",
+      "src/lib/offline/index.ts": "eda7135b83eaf8166cbeeba46bbb45bcb4428499a811e12ea8fc9503427e8568",
+      "src/lib/offline/local-store.ts": "76c7b1327604b128e67f224bd8ec1781106ced3b7cd9be8270fe3f2ef62494dd",
+      "src/lib/offline/offline-hermetic.test.ts": "ba6cbc1cc64340f28f0ac56b1591c70c80a191940cebe75e4650694433ce4c6c",
+      "src/lib/offline/process-sync-command.ts": "1e9031cede7ac94956d6418d248be399fde46838adbd393e241d9848bde4f9ba",
+      "src/lib/offline/queue-policy.ts": "d0cc7d81180c0cd4c36e63d86add402c38da76d76288ae3b0784f52b5227d1f6",
+      "src/lib/offline/resolve-milestone-actor.ts": "cb8e6d4d1505f7e2f7ce020c33f31fa613347089d933fb3d0880573dd0fb1482",
+      "src/lib/offline/runtime-api.test.ts": "4eb3a5f9682db0ea8d9bfc5855f98267a100d5f7045f10a4fb8ee626c1d39d49",
+      "src/lib/offline/sign-out-clearance.hermetic.test.ts": "91e75a71b45fc208712af6a64cf1124341b534b850ab8c29e2169dc158bf379c",
+      "src/lib/offline/sync-engine.ts": "5e5cbdf3e3a3c878667086fa8b62df7767e4cc6cfe5bdbcdab225bddc585cb2b",
+      "src/lib/offline/types.ts": "71bc792b2161bf1d3b39682beb38c9d60204bd3d45f9a24c1772a6c2cea3b2b8",
+      "src/lib/onboarding-workbook/archive.ts": "5f502c81197c1219f4d7474b85c5313b64dd1ae6b0811f7bc0a5227f3409a92c",
+      "src/lib/onboarding-workbook/contract.ts": "0f75767bc295b55c927adff4570a6d29abb13af129a3530bbb993823f9882998",
+      "src/lib/onboarding-workbook/file.ts": "049db033eab15ab6e864894fa35f7a633f740ce4af1f442b14a8edd718f59024",
+      "src/lib/onboarding-workbook/planning.ts": "4cb7297bbe6c60a3a6d0b2bd654717c7182f6fe1a5d5919f74a5e0cc288048af",
+      "src/lib/onboarding-workbook/service.ts": "3bdcbcd583e5ad8a7ba27010173d4b4f3ed16c64ddc402853d8937b45a7c7680",
+      "src/lib/onboarding-workbook/workbook.db.test.ts": "3c711966540e190cd9849079543ec5d90e441b7b0f8058c55930059d17743e1e",
+      "src/lib/onboarding-workbook/workbook.hermetic.test.ts": "38107131690c37b13ae62932e37660db57902261b217b2ebba874c3b75043b46",
+      "src/lib/onboarding/draft.ts": "c3b96c62d8944c883a9cd8b5abd99564595528dcb13767fe260f95c9ab6f2d90",
+      "src/lib/onboarding/manager-invitations.ts": "fdc1bf26b0c1cf79bd6bea6bc51f6f0d2cd4199baa8363f1710c1d175904d948",
+      "src/lib/onboarding/manager-invite-http.ts": "33df300834f95bb66ec886ba976e4fe9c1ddea3094511b8bccb9900f834e5b52",
+      "src/lib/onboarding/onboarding.db.test.ts": "dd94dacf3448c17478d7bb79731380503db1e51221354f49e70dac5dfb24013b",
+      "src/lib/onboarding/onboarding.hermetic.test.ts": "da9792c1f0ce5126b27a40e76c0fe1fbf1e6652d5216f4ff9f08b979dc934570",
+      "src/lib/onboarding/setup-workspace.db.test.ts": "afc74752a528ce7b4fccbfc91b198b1da8d29a31951eb6e57353d936196b1933",
+      "src/lib/onboarding/status.ts": "36c861a3cb89ba4fbfe59ea2adfbb5c255f27ef668a5fef508171800465ef782",
+      "src/lib/onboarding/transitions.ts": "1cf6e6251e9274cae78420b151cc3d706e759d13ced95be5ab86cbcb1cfaa2e4",
+      "src/lib/onboarding/workspace.hermetic.test.ts": "26f315cae2ec52456748943a0ee175d40c9798b313508e56623a82a882c5e8da",
+      "src/lib/onboarding/workspace.ts": "9d76d6d2bea2c686a7ad334f9791745d080e9b599dd2cea41dfacacd8392c0a2",
+      "src/lib/operational-cycles/cycle-authority.ts": "27fb91fdbf55879b415d06467c6bdc11861478d24535c258e15c7afef56f982c",
+      "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts": "5eacd81b42fdae1dacfc24e7f77f1e5059025916cdf6f2c91c9aedd5a293c16a",
+      "src/lib/operational-cycles/day-expectation-runtime.test.ts": "58cf1c1f1362baaf529f705c9bb5a0db955dccdad0d503a650cef2872c8e5239",
+      "src/lib/operational-cycles/phase-9a-cycles.test.ts": "6644ec02df55a12e2193c1b51843a60ebe4fd6dcb060803e4799abcd864d30ab",
+      "src/lib/operational-evidence/evidence-authority.ts": "97feaabb74f7c39f2dda19cc3e97bec687a84bde5790d1c6d0ebd21cc8c537cd",
+      "src/lib/operational-evidence/phase-9c1-template-builder.test.ts": "4ea4f3f8e2687e5f31107ac6ff7e4115ac65d225c3b23225916774cec6321bc1",
+      "src/lib/operational-requests/authority.ts": "6f0203bcc38d4f2ff231ce55d118e080a1fa7a088e6c03ffa53b13706dbb5f67",
+      "src/lib/operational-requests/phase-12a-operational-requests.test.ts": "d7f96c2bef66c4f26fa3a6b4b2be221b54e3f4118931cd41359a5b94c4ec8e4c",
+      "src/lib/organization-claims/organization-claims.hermetic.test.ts": "41cc3fbf7dc5ffd0d3ceeeb00dff0b0da6ce2d63c911b81d808638d2b96ebead",
+      "src/lib/organization-membership/last-admin-concurrency.db.test.ts": "b08f1b86032174cb3592685493ee742f6067c54c1581ee96dbe17c97463c95cf",
+      "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts": "0a5025dc789501accde21d0bec971012f7631e8d9708f877eb14df3e6d03e8ec",
+      "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts": "fa60ba561d4d55648592c3a77abb165bcdd9ed58414969c6e30b27a4476d1a41",
+      "src/lib/plant/phase-12a-plant-operations.test.ts": "30b27cd10a8bd83871e39d91eeca43c95ac10d3ceb48688c60caaeb3f0f8b056",
+      "src/lib/preventive-maintenance/authority.ts": "fb33cedd25ac22d17a83320ae53186999e11c9fcde3d6ac6d50e926a1a7ac8e3",
+      "src/lib/projection/pipeline.ts": "152ed7ac4d61750e48e6b3a043b4a20f5223d6f6cca1c2f3b5ac4f759a9c4a9b",
+      "src/lib/projection/projection-pipeline.test.ts": "ecaf8c6560cb64f9ac931b12b4f25c8f637ac77ffab0c1c7138295496b8fc553",
+      "src/lib/route-registry/authorize.test.ts": "bd619653cf358da3b8c09f42134c7bcb5e05a3998071db1230e7af99f13a62fd",
+      "src/lib/route-registry/match.test.ts": "d6b88d04979730463dce69a4327ed94e284c6f68563712f9f1a4328629227f4f",
+      "src/lib/route-registry/navigation.test.ts": "d43c55ce4a111fc5eb378ad0fbe59e97744a58310c3985cd59419abce4af7297",
+      "src/lib/route-registry/platform-routes.ts": "48f552ac026c683511c052c076870b9147014d5217a6deb8ca6b68250f9c670d",
+      "src/lib/scheduling/coverage-expectations/coverage-expectations.hermetic.test.ts": "36e3dfcc9f2d8ea40fe9a25f881a821b9a705d1049d09d525bc20793e7ef5eca",
+      "src/lib/scheduling/operational-assignments/apply-assignment-template.ts": "fda7943f24cc0ef2adf932af33635eb8a63b3043277294102db77f0a54690d73",
+      "src/lib/scheduling/operational-assignments/assignment-authority.hermetic.test.ts": "ad91b2a4e2d3d93bf87662996e30235c407311966a88efda1d3d12fe6ad21977",
+      "src/lib/scheduling/operational-assignments/assignment-authority.ts": "f8e7502fa996a1c4589e35b0d5c8c86d60de4b61c80cfbbf9e8adf13fc36f70f",
+      "src/lib/scheduling/operational-assignments/assignment-events.ts": "f57612b34355e7409830c123d7e00a6c9eb3adfcf5e38ff73822205fc6de78c0",
+      "src/lib/scheduling/operational-assignments/assignment-plan.ts": "0ca36572ee5a8c24a7b16bd4a4ce7ef97a0f929546aa6fa4593bf1efb8bcf9b0",
+      "src/lib/scheduling/operational-assignments/assignment-status.ts": "070b2626da67945e0eb267f2fd41ff8b9a3b19c9f4f50380645b4a370f234d11",
+      "src/lib/scheduling/operational-assignments/build-assignment-fulfillment.ts": "5ee9d8a62911a35a409c23335ac5483196ddf2461192b6056f9e9fde07fbf782",
+      "src/lib/scheduling/operational-assignments/build-assignment-suggestions.ts": "14958e3f7aa4b3f3dd278775b6a230c7b0e7acc28b9a084c5d5db8503031b134",
+      "src/lib/scheduling/operational-assignments/build-coverage-summary.ts": "ae49f657c4a7d07ae06e3db21719106c9c41dc6e7c9c9e9d1496514555c1e1c7",
+      "src/lib/scheduling/operational-assignments/department-job-role-derivation 2.ts": "895729a83f946fcea6b9a957bb7861c2c78ff8c53dade7a1c44f4f0eecfa12e5",
+      "src/lib/scheduling/operational-assignments/department-job-role-derivation.hermetic.test 2.ts": "72ba5abd31bc23d9d2ec9fcad5a36bbd8c4a62845cf951c4d90ec21a4095ba96",
+      "src/lib/scheduling/operational-assignments/department-job-role-derivation.hermetic.test.ts": "72ba5abd31bc23d9d2ec9fcad5a36bbd8c4a62845cf951c4d90ec21a4095ba96",
+      "src/lib/scheduling/operational-assignments/department-job-role-derivation.ts": "895729a83f946fcea6b9a957bb7861c2c78ff8c53dade7a1c44f4f0eecfa12e5",
+      "src/lib/scheduling/operational-assignments/detect-assignment-conflicts.ts": "1c09580ed304fab8c62c92855094ea2a52f0160905f78b733dfd75f27c7551f9",
+      "src/lib/scheduling/operational-assignments/enforce-overlap.ts": "b753387bc69dc6a902208194e99593be0b2d5a65987c96e9312b3a96e6d23401",
+      "src/lib/scheduling/operational-assignments/index.ts": "eadb635d94b60475b1ded5f5bf9900d6c4ec1eb7b83ff83cb687430219ccca72",
+      "src/lib/scheduling/operational-assignments/load-assignment-form-options.ts": "d34787c5cfc0998de0b033420371127fe63b626c5b05d597e2d33f730b297849",
+      "src/lib/scheduling/operational-assignments/load-assignment-template-preview.ts": "19583c37f91b0f7798cf4dfb5beeb6746ef80028db65443edb49a992146ed68e",
+      "src/lib/scheduling/operational-assignments/load-daily-assignment-board.ts": "d02321f690979a1eec629cfe1aa6a8958cf8a1ec434be725fc7cd157156c1518",
+      "src/lib/scheduling/operational-assignments/load-employee-assignments.ts": "b921516a0d2371cea7f80d5eb1928edd5e389e9d4ffa07f914a9f16343f0a707",
+      "src/lib/scheduling/operational-assignments/load-templates.ts": "48ee9766bc3b9758c1f6972c76ab732ecff960333f59ad8f0fff4119333d462c",
+      "src/lib/scheduling/operational-assignments/location-coverage.ts": "c6609d79778121bebcad0d05a0b30ab6cc65a73cc4790112851fde9358a2fd1b",
+      "src/lib/scheduling/operational-assignments/location-scope/department-room-selection 2.ts": "451947523d115e984d5b8b0f94a2aab519bce9b1defd645e6c13cfaea746263e",
+      "src/lib/scheduling/operational-assignments/location-scope/department-room-selection.hermetic.test 2.ts": "bc113697a16bee5da6f00f45266279a6fa939f581251cd4a00360d132a6bf0d1",
+      "src/lib/scheduling/operational-assignments/location-scope/department-room-selection.hermetic.test.ts": "bc113697a16bee5da6f00f45266279a6fa939f581251cd4a00360d132a6bf0d1",
+      "src/lib/scheduling/operational-assignments/location-scope/department-room-selection.ts": "451947523d115e984d5b8b0f94a2aab519bce9b1defd645e6c13cfaea746263e",
+      "src/lib/scheduling/operational-assignments/location-scope/index.ts": "bee87f217ea3ec70ee0f3d4fbc5c9c6a69241a3c58bb9233b3f42e5232d5cd16",
+      "src/lib/scheduling/operational-assignments/location-sequencing.ts": "eee57676f394b0b6973f9fb3904c51feb24ed7a689a093c27f608217a17072f3",
+      "src/lib/scheduling/operational-assignments/operational-assignments.test.ts": "92946b1a5cc6036d7920edd076ba6ec3f29122456afa3ff76260651262e22a5f",
+      "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts": "d6453e805435abae0e410ddabeb9b9a5a17e585ec347eb12c903c1a42a4df5ee",
+      "src/lib/scheduling/operational-assignments/phase-7a-plan.hermetic.test.ts": "13c057290c096fe2ef1f5a97c18742b87a1ec672c496e1f558e1e6b26ab0b072",
+      "src/lib/scheduling/operational-assignments/resolve-current-assignment.ts": "99b25c54be8726924611b19526a356adb46e8fe7e2a0d995e45d7577495b8527",
+      "src/lib/scheduling/operational-assignments/responsibility-window.ts": "4660306a2f1bc34f8fc5048a2bdf993c07c9d5f83b82b299cb6f1f41e13eafa3",
+      "src/lib/scheduling/operational-assignments/template-types.ts": "7e1561001830bfb1478bcd4120ed9cda95c4d7439fe6a5482afe35c07b81b771",
+      "src/lib/scheduling/operational-assignments/types.ts": "9c4258dbeddaf16346e0b6b2f5ac15dc542ad739d83e5916351b0ce77d656d22",
+      "src/lib/scheduling/operational-assignments/validate-operational-assignment.ts": "20aa4abfe5881d9e8b7786fb04d8ab4ca08b921b3825414f306c3b308d91f44f",
+      "src/lib/session-revocation/session-version.test.ts": "bab7516df54bca7070e499dec69e61f00e82465545f666dffdd64c3cd3b5d222",
+      "src/lib/setup-imports/activation.ts": "0264e9528bf6ed1f67792a546ed401126be6c913a9ae32f4f8971b98b0115c53",
+      "src/lib/setup-imports/authority.ts": "31279a3e6ee858b3ad62a22d9e1f5353cb809278655c5aef4c601917480b9387",
+      "src/lib/setup-imports/catalog.ts": "9472ec785d99a2c7125de5c31b9fa66b772c489988603d1ee74df66fc82edcce",
+      "src/lib/setup-imports/contract.hermetic.test.ts": "5fbe388dcc8d02bda20378b647eb13eca64f5ee596e8c2559dcb058f68685be8",
+      "src/lib/setup-imports/contract.ts": "86b7faba88364fe4cc639a31741aa9906f1bc1c73749a89b0a9c7249031a1dfe",
+      "src/lib/setup-imports/execute.ts": "ed43a681f12c8f9175e803830b8dcb2bd8543c013264d6d8345837fec0793cf7",
+      "src/lib/setup-imports/planner.ts": "0352cb28b6c57958f5c3410fe0182db4b382b46b4a40fce3e91fc7237c873741",
+      "src/lib/setup-imports/public-contract.ts": "dce1f00bf253c97129b13d96c6af2838a1d9eac183ba255ad49d73372eae297b",
+      "src/lib/setup-imports/service.ts": "1d3536ec61cbe880c5ee7acc57044fcb259b4248312dae0d200e765235a3f005",
+      "src/lib/setup-imports/setup-imports.db.test.ts": "0ea3523e49f9792c7cab017182b235c0059ae9c695f6567afcbbf5e460c308f8",
+      "src/lib/setup-imports/transaction.hermetic.test.ts": "433acd2c3d46a266e6093ea7d252b8972dca335345d75b0151196908bf33253c",
+      "src/lib/setup-imports/transaction.ts": "d9f96df79aba068d3bf5b285df83051032976a2e6c5e080a1caaf99613be76d3",
+      "src/lib/shell-ux-refinement.test.ts": "891a151ba157f11d13180740e6f6c5adb5fcd948dc04dd8ff8f3b55735a46229",
+      "src/lib/support/attachment-scanner.db.test.ts": "4e6501de4bc708b4f36a70854bfab5e7bd1b6e67a26b0c4e098e7b17d617231c",
+      "src/lib/support/attachment-scanner.ts": "ec19dc628efb387113905035da784e5220bb3e5e5b598cd68c296bd56414665c",
+      "src/lib/support/fixtures/cleanup-staff.ts": "ebc8743660fc20c7abf336e307d92f6daba51198ab08ecd5ae01a8e2e5e4facd",
+      "src/lib/support/notifications.ts": "8319bc048745729257fa658c0c392f9159bdf4154fa0b207787a80d2fb08501c",
+      "src/lib/support/scan-pending-attachments.ts": "60f8d35969cc604d3a0abe7184cb3ee1bab8ee932ed7bd1e22cf089a1ef7e767",
+      "src/lib/support/support-automation.db.test.ts": "6118c3d70aec666ae40eb6522ec31fcd45ba9bd23ea199a6326fc6b1c5f36f93",
+      "src/lib/support/support-delivery.db.test.ts": "5b38fd3ed38a9910acfc53fc47ecdd001c99fb2fffd240f8bd621286d6cc0e2d",
+      "src/lib/support/support-history.db.test.ts": "339dd18faa0ddedd20f1894c6df9500988c65a6222685eb18a4425fd30941a2d",
+      "src/lib/support/support-inbound.db.test.ts": "72dbf824a16d92de690dd80f0fb99b8df252d1c706bc99ae39d0467baf406ddb",
+      "src/lib/support/support-list.db.test.ts": "d2d2e8b0ba0001d63ac1f0c42051bc3eca2e35378875de065e2eedda37ae13ce",
+      "src/lib/support/support-macros.db.test.ts": "f54d6d58f33d8afd31a78222e4459924af158790e9af340f1abb5735751b0e84",
+      "src/lib/support/support-notifications.db.test.ts": "ab7a247daa74e08337e0e1833a87b685ebd664fd02efcfae1672b863edc62d3c",
+      "src/lib/support/support-saved-replies-tags.db.test.ts": "5eaa6a05eae826c7f475e0a9fe3177a64170febe537639cd8b711d2772c610c9",
+      "src/lib/support/support-tickets.db.test.ts": "25393a38e68ac59e23544593b70019c906636afe4b72c290b55c7789de3287ed",
+      "src/lib/todays-work/todays-work-projection.test.ts": "f771a6cc2ceb750c259a335c59103073c1fcff7301cfa2ed5231fcd49f1cf74a",
+      "src/lib/vercel-function-storage.hermetic.test.ts": "5605feb123d5d14bdff50a50af60d01936c5ca7f16af758cf1268dd6e499ad85",
+      "src/lib/verify/database-target.test.ts": "2a86721118954fcda42e268e55515c2561139d4dba1e7d837464c51eee518617",
+      "src/lib/verify/database-target.ts": "d068b03b6695245519317629ed592b12a0db530a50ee01bff562e7bcdc5fb047",
+      "src/lib/verify/trace-disposable-transactions.ts": "97ceaf4cbce6b5944ef151c85f97426de937993080f39f8b54f76d64e5555135",
+      "src/lib/work/inspections/generate-due-inspection-work.ts": "ecde586b51e59dae9b9a822da7de06123a2adbc3380d0697c30efdc7a3493996",
+      "src/lib/work/inspections/inspection-scheduling.test.ts": "9e62e8f89d9c6d0aa25e8a614651184c17175004a88b6bd1d17d6b3e05a6e310",
+      "src/lib/work/inspections/inspections.test.ts": "ffdeb09b84cd55382daf3827b3945f0e65e51604404ce25b9563c2f08f5f3314",
+      "src/lib/work/inspections/submit-inspection.ts": "d9a86cadf3d8f10a7f1adbcaa5df293635acef895fbcc396c48d87c2511d0cef",
+      "src/proxy.ts": "3d9d5350fb2d961de3adb6c23bd06e035c57d31f3247f21edb8d6b5544bf48fb",
+      "tests/assignment-browser/ci-gate.spec.ts": "5fba2eab0a55ec89174ae9c971a795335032e0b5ec8cdfef66a5c936871fadc8",
+      "tests/bulk-import-browser/ci-gate.spec.ts": "f7e0cf6cfe47cf2dbb727a8822ffd9de55174a4836b538d1576a37d9d59790ee",
+      "tests/dietary-pilot/ci-gate.spec.ts": "3ae804efe066d54853e57c4eaf29f790a1f92b732c84a77dce8a7b82c28d6a3d",
+      "tests/employee-csv-browser/employee-update.spec.ts": "d6776f11010f98be82446553af61cbbc21856230e607c0bc0d5a6b596d434144",
+      "tests/implementation-browser/service.spec.ts": "156651938f8c0fef3d537f99315bade6c34165df63c0b111abb2c515b426c43e",
+      "tests/offline-browser/canonical-journey.ts": "9c973f23b37e1622f05658f29d0b921166cb83333b2a4b44a3adfa8783e78de5",
+      "tests/offline-browser/ci-gate.spec.ts": "99f7aa19f3c712460b71529d5fe5aab383cccd0540dda3ec570f7ac5a9762a2a",
+      "tests/offline-browser/helpers.ts": "2cad954ab80e19e46174ec6a0b9a4dcf0b501190986fd47e27ef1641292fbb37",
+      "tests/onboarding-browser/setup.spec.ts": "74bd6ff43a3b26816e72a21ed9546a5a71eaf79914cf03f618f2c565df3bd718",
+      "tests/onboarding-certification-browser/journey.spec.ts": "1620c7792efdb635bc61f0451a8f71bff1d3c33677969bbbf361a55a8a7f580a",
+      "tests/onboarding-stabilization-browser/ui.spec.ts": "6d129fd599340e7f3f7ae70c1bcb8614206dc9f4fb89dd25be8432fb5596f683",
+      "tests/playwright.employee-csv.config.ts": "2243e2724cf387abcbd362184df9cf71a6abad55ea500dcf0e705e4713a2aff4",
+      "tests/playwright.implementation.config.ts": "91d01b0c2a48ab23ef3db9ab476fa6dcb03de4af41f82dc783f122bdb5a73a2c",
+      "tests/playwright.onboarding-certification.config.ts": "87aefe0cb62c31702e3a7eb737c77d83807b90eacb74145369cb6fd09bdaad1e",
+      "tests/playwright.onboarding-stabilization.config.ts": "cf2e57cc78c89e8d0e491cc6f34360134843b9c6cd95158cee527bb2acc19076",
+      "tests/playwright.onboarding.config.ts": "3cc13d1364af079f5945810dc8a9a580dc2f04cc8c32555e61bcb0c167261f46",
+      "tests/playwright.setup-import.config.ts": "3f5127626f2cb45ef9a4722a98db16e1d9f67f158892fd90be6c781f8184b350",
+      "tests/playwright.setup-workspace.config.ts": "8653c81744819800e91172d2ad33a3e8213c69a9792c07b305d47c94d1c35de3",
+      "tests/playwright.workbook.config.ts": "b3dc96a053bc360e3e7f00ea9dc6b5cdd38eb28db66a50e71e0ea06d0814721b",
+      "tests/setup-import-browser/import.spec.ts": "3173dd0381377da584d9edf0d2fe4a4a3ae84482ba274b525d8aadff03049b45",
+      "tests/setup-workspace-browser/workspace.spec.ts": "92e6753dcfc4aba31da2ce3d041b61a21cf68bb3d41ec5eeb00f1f2dac200beb",
+      "tests/workbook-browser/workbook.spec.ts": "a8a5254411ee37eed031653973ad99f5403f59237280a53f8ba01b6a2d0f02e5",
+      "tsconfig.json": "3c58c0fa76e281d103db2b2555229f9cf16faaa0c0938d8affa616b2255b9613",
+      "workers/support-attachment-scanner/.dockerignore": "2331fb574f28e5644bb54c792ac72c0eb029e065ff6fea018fd88e9a0c5215ce",
+      "workers/support-attachment-scanner/Dockerfile": "84229aa04e2baf5508603d367778193586430082e74bb8a0900abb9f33a0d1fd",
+      "workers/support-attachment-scanner/README.md": "ae11eb6a1a27dd29de0f4e23ade8705749d3620f3758e9948daeb5192025c3c2",
+      "workers/support-attachment-scanner/clamd.conf": "9a39d08144c2ec22b0b8a906410ff79bdcff0c70ba195ef5e9fd8e6d4188d2ca",
+      "workers/support-attachment-scanner/compose.yaml": "e5c2682b95f0b95cdda68f6a471ece393e0025c41091922247edabf82a5ccfce",
+      "workers/support-attachment-scanner/freshclam.conf": "f75a2d66daf8c3e04645243ba894cb00a10ee246a32c5072500ea9021641e010",
+      "workers/support-attachment-scanner/healthcheck.py": "e729d429be3449756b92073149c9640130a0d6af3dad472fed8ae141a2a439e5",
+      "workers/support-attachment-scanner/run.sh": "f6e1576015a2f2f574ed7ef7fbc01c61b918aea37270d004148ee8de65c67a84",
+      "workers/support-attachment-scanner/worker.py": "242e1bd137e9bf281d8668756623b32bcdb001da75e2e243ee88e67698f7e3fb"
+    }
+  },
+  "restoredClaimOwner": {
+    "current": "1d3536ec61cbe880c5ee7acc57044fcb259b4248312dae0d200e765235a3f005",
+    "preExperiment": "1d3536ec61cbe880c5ee7acc57044fcb259b4248312dae0d200e765235a3f005",
+    "rejectedExperiment": "39b093cb45374789185bbe7df27007b9f058d9123c5d67340dc6927f35e43cef"
+  },
+  "evidenceReuse": [
+    {
+      "status": "reused",
+      "source": "docs/onboarding/ONB_07_STABILIZATION_VERIFICATION_2026-10-19.json",
+      "sha256": "5887d2a723b318d76332dee4837a91213c35dfd6fd572c22f94e91c9767d8872",
+      "evidence": "Assignment 6-case browser, hermetic 3416/0/241, static checkpoint",
+      "limits": "Assignment application/fixture/test owners unchanged in this follow-up. Hermetic is an earlier checkpoint supplemented by seven current rollback cases, not a fresh full run. Static/build reuse does not waive SQL/browser blockers."
+    },
+    {
+      "status": "reused",
+      "source": "docs/onboarding/ONB_05_VERIFICATION_2026-10-18.json",
+      "sha256": "339f4513d3bc649d0cd53bf001613f45f8039e24f5be6e12bee11f56b2cc49e1",
+      "evidence": "Local real ClamAV proof",
+      "limits": "Protected scanner/worker sources unchanged; not fresh scanning or certification of production infrastructure."
+    }
+  ],
+  "preservation": {
+    "initialIndexEntries": 2585,
+    "originalIndexEntriesChangedOrMissing": [],
+    "newIndexEntries": [
+      "docs/onboarding/ONB_07_FOLLOWUP_2026-10-19.md",
+      "docs/onboarding/ONB_07_FOLLOWUP_VERIFICATION_2026-10-19.json",
+      "prisma/migrations/20261019110000_onb07_import_identity_lookup_indexes/migration.sql",
+      "scripts/verify/canonical-offline-fixtures.mjs",
+      "src/lib/verify/trace-disposable-transactions.ts",
+      "tests/offline-browser/canonical-journey.ts"
+    ],
+    "initialWorkingFiles": 293,
+    "changedWorkingFiles": [
+      "docs/onboarding/DECISIONS.md",
+      "docs/onboarding/ONB_07_CERTIFICATION_2026-10-18.md",
+      "docs/onboarding/ONB_07_RELEASE_BLOCKERS.md",
+      "docs/onboarding/ONB_07_STABILIZATION.md",
+      "docs/onboarding/PHASE_TRACKER.md",
+      "docs/onboarding/README.md",
+      "scripts/verify/dietary-pilot-fixtures.mjs",
+      "scripts/verify/offline-browser-fixtures.mjs",
+      "scripts/verify/run-dietary-pilot.mjs",
+      "src/lib/implementation/implementation.db.test.ts",
+      "src/lib/onboarding-workbook/workbook.db.test.ts",
+      "src/lib/setup-imports/authority.ts",
+      "src/lib/setup-imports/catalog.ts",
+      "src/lib/setup-imports/service.ts",
+      "src/lib/setup-imports/setup-imports.db.test.ts",
+      "src/lib/setup-imports/transaction.hermetic.test.ts",
+      "src/lib/setup-imports/transaction.ts",
+      "tests/dietary-pilot/ci-gate.spec.ts"
+    ],
+    "changedOutsideAuthorizedPaths": [],
+    "protectedWorkingChanges": [],
+    "appliedHistoricalSqlChangedAgainstHEAD": [],
+    "tsconfigMatchesPreBuild": true
+  },
+  "appliedMigrationAndReceiptChecks": {
+    "ltc_ci_onb07_20261018": {
+      "migrationCount": 148,
+      "diskCount": 148,
+      "mismatches": [],
+      "pending": [],
+      "unfinished": [],
+      "controlFailedReceipt": [
+        {
+          "batchId": "1f9b5adc-d494-432e-abb5-a55607099380",
+          "rowNumber": 2,
+          "status": "failed",
+          "message": "Row failed and no committed receipt exists. Reconcile before retry; a fresh preview may be required.",
+          "targetIds": {}
+        }
+      ]
+    },
+    "ltc_ci_onb07_followup_final": {
+      "migrationCount": 148,
+      "diskCount": 148,
+      "mismatches": [],
+      "pending": [],
+      "unfinished": []
+    },
+    "ltc_ci_onb07_followup_index_final": {
+      "migrationCount": 148,
+      "diskCount": 148,
+      "mismatches": [],
+      "pending": [],
+      "unfinished": [],
+      "workbook28Rows": [
+        {
+          "parentId": "823d4927-d208-493a-b31b-3179150ce3b5",
+          "facilityId": "cmvf5m9vf00bgxwc76pyjt05l",
+          "leaseTokenPresent": false,
+          "mappingCount": 8,
+          "outcomes": [
+            {
+              "row": 2,
+              "childBatchId": "751909ab-b17f-4826-85d0-5f0158d4bd1b",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Canonical Facility hierarchy committed/reused; no duplicate Department-specific place or publication.",
+              "targetIds": {
+                "unitId": "cmvf5mbbo00c5xwc7n3oohxu9",
+                "floorId": "cmvf5mbbh00c3xwc7jzlo3dh3",
+                "spaceId": "cmvf5mbbw00c7xwc7aw6mdp1z",
+                "locationId": "cmvf5mbbw00c7xwc7aw6mdp1z",
+                "locationType": "ROOM"
+              }
+            },
+            {
+              "row": 3,
+              "childBatchId": "c1d05a90-1f70-4c7d-a4ff-b1efc4b108a0",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5mchb00cdxwc7frtedt06",
+                "employeeId": "cmvf5mchg00cfxwc7oz7pg069"
+              }
+            },
+            {
+              "row": 4,
+              "childBatchId": "c3b5fca9-eca1-45fd-aca4-9680f628a4e4",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5mduj00crxwc7s9j2yptv",
+                "employeeId": "cmvf5mdun00ctxwc7ja4xh4eg"
+              }
+            },
+            {
+              "row": 5,
+              "childBatchId": "f4bd08e1-8eaa-44c4-88b6-937b6317af29",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5meve00d3xwc7qfoleub2",
+                "employeeId": "cmvf5mevi00d5xwc7znujxz5j"
+              }
+            },
+            {
+              "row": 6,
+              "childBatchId": "9d6f24b2-72e7-46c4-9d5e-4104781614d4",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5mg6p00dfxwc73tbjfjir",
+                "employeeId": "cmvf5mg6t00dhxwc7h85uf9dq"
+              }
+            },
+            {
+              "row": 7,
+              "childBatchId": "90d6aea8-740d-4888-8319-809d26207054",
+              "batchExists": true,
+              "status": "failed",
+              "message": "Row failed and no committed receipt exists. Reconcile before retry; a fresh preview may be required.",
+              "targetIds": {}
+            },
+            {
+              "row": 8,
+              "childBatchId": "eec7acc5-fdb3-4c50-b1ea-a44634b3f650",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5ml1r00ebxwc78mz9jtzq",
+                "employeeId": "cmvf5ml1v00edxwc7fiw3yrn7"
+              }
+            },
+            {
+              "row": 9,
+              "childBatchId": "d820a5cd-a4de-4cfb-a097-21c596c46680",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5mmha00epxwc704d1xbje",
+                "employeeId": "cmvf5mmhf00erxwc72vo5ofvk"
+              }
+            },
+            {
+              "row": 10,
+              "childBatchId": "b8262628-2e30-4f88-a21c-163c2b0654ca",
+              "batchExists": true,
+              "status": "committed",
+              "message": "Created linked Employee; account activation pending. Eligible PIN enrollment remains separate; no credential generated.",
+              "targetIds": {
+                "userId": "cmvf5mnjq00f1xwc7sbm5vvpr",
+                "employeeId": "cmvf5mnju00f3xwc7r5pnvlbq"
+              }
+            },
+            {
+              "row": 11,
+              "childBatchId": "9732e144-649c-4676-aca7-bd29f633646c",
+              "batchExists": true,
+              "status": "failed",
+              "message": "Row failed and no committed receipt exists. Reconcile before retry; a fresh preview may be required.",
+              "targetIds": {}
+            },
+            {
+              "row": 12,
+              "childBatchId": "6019866a-23c8-43bb-a8be-941053bf4d95",
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 13,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 14,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 15,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 16,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 17,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 18,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 19,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 20,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 21,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 22,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 23,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 24,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 25,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 26,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 27,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 28,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            },
+            {
+              "row": 29,
+              "childBatchId": null,
+              "batchExists": false,
+              "status": "unknown",
+              "message": null,
+              "targetIds": null
+            }
+          ]
+        }
+      ]
+    },
+    "ltc_ci_onb07_dietary_final": {
+      "migrationCount": 148,
+      "diskCount": 148,
+      "mismatches": [],
+      "pending": [],
+      "unfinished": []
+    },
+    "ltc_ci_onb07_followup_offline": {
+      "migrationCount": 148,
+      "diskCount": 148,
+      "mismatches": [],
+      "pending": [],
+      "unfinished": []
+    }
+  },
+  "notRun": [
+    "No further broad SQL run after rejected claim experiment; final owner restored. Prior focused successes do not erase current integrated failure.",
+    "No fresh full repository hermetic/static loop; affected checks and mandatory migration tracking run.",
+    "CSV/XLSX/service customer browser replay after import-owner changes not performed in this bounded follow-up; historical passes are not promoted to current certification. Required offline/Dietary gates were run.",
+    "Remaining canonical offline cache/mutation/replay/conflict/sign-out behavior is blocked before preparation; no substitute API/cache success.",
+    "Remote CI Node20/PostgreSQL16, production infrastructure, deployment, charges, customer operations, signup launch, external messaging and real pilot not run/authorized."
+  ],
+  "cleanup": {
+    "taskServers": "Identified ports 55479/55480/55481; PIDs38254/6687/8393 stopped with SIGTERM.",
+    "database": "Clean pg_ctl fast stop of /tmp/vssyl-onb01-pg.VRtatN/isolated-data; databases retained.",
+    "unrelated": "Pre-existing next-server PID75383 preserved.",
+    "log": {
+      "path": "tmp/onb07-followup/cleanup.log",
+      "sha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d",
+      "modifiedUtc": "2026-10-19T14:56:46.989395+00:00"
+    }
+  },
+  "fullLogs": [
+    {
+      "path": "tmp/onb07-followup/batch-absence-lock-proof.log",
+      "sha256": "c4f4d5f941841d531e6d2eccbbf11284bdcef156c1329af1e7278ee615f1a710",
+      "modifiedUtc": "2026-10-19T14:45:32.906947+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/batch-absence-lock-proof.sql",
+      "sha256": "895c1989048a31b40e9608f9cba67cdc90fb73834672ea89566f7bc51853a65f",
+      "modifiedUtc": "2026-10-19T14:45:17.517571+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/build-final.log",
+      "sha256": "a7a55c163d29f339a66e9de1c9e54d46f2bd4e8aaca35271fac14c8964a19731",
+      "modifiedUtc": "2026-10-19T11:14:05.518993+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/canonical-fixture-fifth.log",
+      "sha256": "054e1c0787258579180e6d2348b583d0decaeee63cddc3360494af8c617cad10",
+      "modifiedUtc": "2026-10-19T11:05:20.403221+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/canonical-fixture-final.log",
+      "sha256": "29c13d10ff24461cc827001e4709af8d030b6dd7e342408cd3579d223e0d95de",
+      "modifiedUtc": "2026-10-19T11:06:28.339218+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/canonical-fixture-first.log",
+      "sha256": "eb17f2803c7d882fdd397fca19a7e79854c908ec1fd2c8d66930d9d54c488b62",
+      "modifiedUtc": "2026-10-19T11:02:35.420639+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/canonical-fixture-fourth.log",
+      "sha256": "364d36618a3d9fea6c51482d82d856b76aba8abd015d6466080f4941c805eb83",
+      "modifiedUtc": "2026-10-19T11:04:21.411823+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/canonical-fixture-second.log",
+      "sha256": "74e858e778998d2876dba9795cbf5a549f0df749b8a6b53183963679463b3c75",
+      "modifiedUtc": "2026-10-19T11:03:05.049495+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/canonical-fixture-third.log",
+      "sha256": "0ff26e3874a5d0a487272eddc4634ac2387fa7aecf935da8ac5c328df08d2b57",
+      "modifiedUtc": "2026-10-19T11:03:46.026544+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cleanup.log",
+      "sha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d",
+      "modifiedUtc": "2026-10-19T14:56:46.989395+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/concurrent-after.log",
+      "sha256": "766a46a5cfb8f3dff0b41efba53a66a433078ec8ead3cd3d15ff7c8eff61a107",
+      "modifiedUtc": "2026-10-19T10:59:57.816609+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/concurrent-before.log",
+      "sha256": "0896a4255d4791a470722d629a108d961f829f88e45bb361bbab3849f91092f9",
+      "modifiedUtc": "2026-10-19T10:50:57.450006+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/concurrent-claim.jsonl",
+      "sha256": "29a5b51d84e7dc874cebbcf8c76359fc92a7a96c3ca1b7da0ca18842cd313ebc",
+      "modifiedUtc": "2026-10-19T14:47:42.774616+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/concurrent-claim.log",
+      "sha256": "d6be3d8b1da39858b5767d36dba9c569648f5ed98e568682c1c7346a5172ea84",
+      "modifiedUtc": "2026-10-19T14:47:42.935633+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/concurrent-index-plan.log",
+      "sha256": "b3fe1fd3db265048dd56ef7e127c37072f64768edc3168302e41612f62876e14",
+      "modifiedUtc": "2026-10-19T11:08:48.570953+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-after.jsonl",
+      "sha256": "653c708ce46bb4f342d385a5e471f6d4b6aaa07f5938db20a4174a25f59e13da",
+      "modifiedUtc": "2026-10-19T10:56:47.854689+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-after.log",
+      "sha256": "13f8d2f413ce0bf745e675c14782cd7a4b6cb78958eafbd62def2a2f88c9743c",
+      "modifiedUtc": "2026-10-19T10:56:47.922677+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-before.jsonl",
+      "sha256": "6aac76147bf2f9d768eb9849f1307400b4403f96c76b5566e574dc7a403b158a",
+      "modifiedUtc": "2026-10-19T10:55:26.896137+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-before.log",
+      "sha256": "a129b6ebba2179413ef6108ec1ba79c74fb2d1d5dbdfeb9fff52ba4e198c8056",
+      "modifiedUtc": "2026-10-19T10:55:26.940818+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-row-control.jsonl",
+      "sha256": "38d19b33155017979e1080f980b953db6bd4de34cc6c29aadb0a1a4ad988a15b",
+      "modifiedUtc": "2026-10-19T10:57:35.779580+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-row-control.log",
+      "sha256": "ee95d59d463309c09520104cde06b5a5f50605b57ac57f8e0e05740ce5760a3b",
+      "modifiedUtc": "2026-10-19T10:57:35.846213+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-row-fixed.jsonl",
+      "sha256": "d150eb8c930d4256fd9cb6d096c5bc0bd11e6dff74023449adc9ccb676518bd3",
+      "modifiedUtc": "2026-10-19T10:57:38.152686+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/cross-account-row-fixed.log",
+      "sha256": "caa4a72bf9a814521a372bdaa3adba60e212b7b2ece6ceef5d17c099b82c3675",
+      "modifiedUtc": "2026-10-19T10:57:38.227853+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/database-integrated-final.log",
+      "sha256": "60f190b4309e856823ba9fa0f608c92ec45233490b546eaaffae3ee503a4b4e0",
+      "modifiedUtc": "2026-10-19T11:04:15.971932+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/database-integrated-index-final.log",
+      "sha256": "d7c27fb44dce5bfab1aa7debd1b2d6148eb00d25b586f95d46d738bba2d0c810",
+      "modifiedUtc": "2026-10-19T11:12:58.245735+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/dietary-canonical-focus.log",
+      "sha256": "03a2b6f2b3fdfbbdc1ee11e9e62b4f8485befe8cc768b3f6c2e5d53d77b814b3",
+      "modifiedUtc": "2026-10-19T11:12:10.356490+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/dietary-gate.log",
+      "sha256": "601a8f7c8ee4a7c0a416065ccdc6ec2f4cdcd1424f64d9f8ef787f3377d67b33",
+      "modifiedUtc": "2026-10-19T14:46:48.064860+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/dietary-server.log",
+      "sha256": "2155b6141aaad98be62ed4ffe1d5953bfeb606bd08b80019698a47885e6e72c9",
+      "modifiedUtc": "2026-10-19T11:09:44.994125+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/discovery-final.log",
+      "sha256": "136c1fba36e25ea0c6ca2cafbfa4630a4cac6278149875453b657c498a906775",
+      "modifiedUtc": "2026-10-19T15:42:24.109413+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/documentation-final.log",
+      "sha256": "3776a869f11530c20005b79f530c323631ecfa17aa7b1b366a10cdcf3552fb19",
+      "modifiedUtc": "2026-10-19T15:46:25.328951+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/exact-matching.log",
+      "sha256": "facf3d2ff5641b833dd1cb2a96f4139b3c545c3f8433c749353a9f20f86a6f9b",
+      "modifiedUtc": "2026-10-19T11:00:28.887657+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/hygiene-final.log",
+      "sha256": "ffbf9e96e9c91d80abeb4347f2ce070061ea10b1db2bf3513a00d2c12525ab21",
+      "modifiedUtc": "2026-10-19T15:42:29.444981+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/integrated-index-transactions.jsonl",
+      "sha256": "4c118e86fdfe4d2a2121c0a27ece8bfe2514e8187f07365643b2411364d8a705",
+      "modifiedUtc": "2026-10-19T11:12:57.965179+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/integrated-transactions.jsonl",
+      "sha256": "9f8eab2fc4a30d59554101b744121433fd3ff1bb78d81f1410ac2fcc3d6a741c",
+      "modifiedUtc": "2026-10-19T11:04:15.670899+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "modifiedUtc": "2026-10-19T14:48:39.959219+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/lint-followup.log",
+      "sha256": "4b02e92c26f92610932b71b72eb5e806bac862b049c1d02174b60693c41bb063",
+      "modifiedUtc": "2026-10-19T11:10:30.907164+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/local-index-plan-proof.log",
+      "sha256": "71e4cc97fa6b2ac1b7e90d40d17b96c3ac3a46dd955e17d66545aa31a0870a35",
+      "modifiedUtc": "2026-10-19T11:07:21.829387+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/local-index-plan-proof.sql",
+      "sha256": "7746c52819e8bc5030710c26804da2a698c9e9de7c08114ef37451c06c513862",
+      "modifiedUtc": "2026-10-19T11:07:21.785299+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/migrate-dietary.log",
+      "sha256": "d79e1f03b0b075a72d83871ab804ef459be87705bfb8ed7a307ad9106812288c",
+      "modifiedUtc": "2026-10-19T11:09:06.299775+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/migrate-indexes.log",
+      "sha256": "930b0986dea591039c18d9cd8e37b4a9197df2fd9ba01b42782613609b636cca",
+      "modifiedUtc": "2026-10-19T10:56:45.372800+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/migration-and-receipt-evidence.log",
+      "sha256": "79433ee14f133945ab76a9c9aa834378fb250a6811fff64adc14f9132b60f5b0",
+      "modifiedUtc": "2026-10-19T14:52:01.847780+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/migration-integrity-final.log",
+      "sha256": "7a18d0806a44e262e8e1f845919538dedeb01e2a99b6d2509fb8844a55add57e",
+      "modifiedUtc": "2026-10-19T14:51:26.082220+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-final-gate.log",
+      "sha256": "adb7920ec5b7d5c0bd77f4e55561e53215adf0268c297b1abbdaed56407531d3",
+      "modifiedUtc": "2026-10-19T14:52:01.269997+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-final-preparation.log",
+      "sha256": "3122e13ed0ba132a4886cbc8624ca1c29d33f600e863816ab28cb3e56e623dac",
+      "modifiedUtc": "2026-10-19T14:50:33.773491+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-final-server.log",
+      "sha256": "02ad5d45bc1a523617da8b644d3b7c9b0a3b9f773831e57715908f52abd704a7",
+      "modifiedUtc": "2026-10-19T14:50:57.162010+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-fixture-configured.log",
+      "sha256": "725524d6fe30b59d12ed100ec21290780f9f5f05f569be4deaffcffd30d57f76",
+      "modifiedUtc": "2026-10-19T14:47:45.513331+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-fixture.log",
+      "sha256": "b7a57562a18e3eb95c61d7d24e8affd8d344c81363d66b75f51a4618aa3c224c",
+      "modifiedUtc": "2026-10-19T14:46:57.628190+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-gate.log",
+      "sha256": "e39cb14191483069e4977d2069caecff5a5e83849759ed029afee06167dbb7c8",
+      "modifiedUtc": "2026-10-19T14:49:05.180004+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/offline-server.log",
+      "sha256": "65429906467bafe89923c7720b384d08bd7a63203da1c0749b3ed99858e7be3c",
+      "modifiedUtc": "2026-10-19T14:48:18.520323+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/postgres-evidence.log",
+      "sha256": "70d64f395147731b9247d510fbba94e87e9d033af48e675024d4c385ee724ee9",
+      "modifiedUtc": "2026-10-19T14:56:46.998269+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/preservation-final.log",
+      "sha256": "b3de57e851a9e0ab30e171d89fe1f0eeda90e22d0cdc6b0b4eac4e74092d0c07",
+      "modifiedUtc": "2026-10-19T15:47:04.073833+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/query-plans-and-predicate-locks-after.log",
+      "sha256": "4b1aefc887aa56dd806b79b7d617632e44bbcb04a5508346ed8fcc69db4bdf6d",
+      "modifiedUtc": "2026-10-19T10:58:10.684497+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/query-plans-before.log",
+      "sha256": "2889c5c20f44bed05c86e8857b1bbe4b2674cbf5e12b0533a07605fc63fed90d",
+      "modifiedUtc": "2026-10-19T10:43:53.739345+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/rollback-classifier-final.log",
+      "sha256": "09cbb7d9609bf3dadeba36c387c707a7c807a9f58f8f41cdd5668426c0050f60",
+      "modifiedUtc": "2026-10-19T11:00:34.514346+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/rollback-classifier.log",
+      "sha256": "c9372d3e4b6efa95ad06968e3277ac83cfb0bd5289688fc5995a6ae1e6c2463b",
+      "modifiedUtc": "2026-10-19T10:57:41.481678+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/rollback-index-plan.log",
+      "sha256": "b1edfc5b1fbb432008a44feecc86e78b2f3ae30db922f8c16c2f89d00f7c09b2",
+      "modifiedUtc": "2026-10-19T11:10:09.237147+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/statistics-proof.log",
+      "sha256": "cecd8cd684d0d16950ebd8ffae54ae2ecd5eaaff692dc4b1e78c1cdd0ad6e643",
+      "modifiedUtc": "2026-10-19T11:06:03.825141+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/statistics-proof.sql",
+      "sha256": "0146ed3fddc353be8d72e6d8f43fba69c7f7f40e6d33d451ef7d326849b19ce1",
+      "modifiedUtc": "2026-10-19T11:06:03.513287+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/stats-db-preparation.log",
+      "sha256": "376e6b6445ecb2193f313221b88efddd47588811dc890bee657011c8fd5ddc0a",
+      "modifiedUtc": "2026-10-19T11:05:28.127244+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/transactions-after.jsonl",
+      "sha256": "c91eaf83dbab25d8138e03ae8a1cdccae4d096c00008b3b68df980adef4063fc",
+      "modifiedUtc": "2026-10-19T10:59:57.621152+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/transactions-before.jsonl",
+      "sha256": "c7f7e4a64ff95f237bc0e0eec2d6005b6c31bee01dd496031f733a0d110d5a82",
+      "modifiedUtc": "2026-10-19T10:50:57.259502+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/transactions-index-plan.jsonl",
+      "sha256": "57108f957d84e5ae4d9f14261ff95672fb7520fd2cebc73ee521ebb2c68e6dda",
+      "modifiedUtc": "2026-10-19T11:08:48.295492+00:00"
+    },
+    {
+      "path": "tmp/onb07-followup/typecheck-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "modifiedUtc": "2026-10-19T14:48:38.792991+00:00"
+    }
+  ]
+}

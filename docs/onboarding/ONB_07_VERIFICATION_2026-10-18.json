@@ -1,0 +1,1601 @@
+{
+  "date": "2026-10-18",
+  "phase": "ONB-07",
+  "gate": "NOT SATISFIED — local package delivered; mandatory release gates blocked; actual pilot pending",
+  "repository": "ADTrauts/LTC-Manager",
+  "baseHead": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "implementationTracking": "Complete existing program/five migrations normally staged for review; no commit/push/PR/deployment",
+  "environment": {
+    "node": "24.19.0",
+    "next": "16.3.5",
+    "prisma": "6.19.2",
+    "postgres": "14.18 isolated loopback 55471",
+    "credentials": "Stripe/Postmark/Blob/OIDC disabled on local app servers; no live charges/messages/customer originals",
+    "builds": {
+      "initialReused": {
+        "directory": ".next-onb06-build",
+        "id": "GET-eqr1iDmUUQDGd0vBV"
+      },
+      "importAndJourney": {
+        "directory": ".next-onb07-build",
+        "id": "i_jgkeT0vRIw79NHpNo0K"
+      },
+      "finalSignup": {
+        "directory": ".next-onb07-signup-build",
+        "id": "CZz9q-rDrjwyJ7bFLW8Kz"
+      }
+    },
+    "productionFlags": "Not modified; local opt-in flags are not launch approval"
+  },
+  "reviewSlices": [
+    "Existing evidence/prerequisites and current owner fingerprints",
+    "Joined customer/Console verification and current mandatory integration gates",
+    "Release HOLD, concrete pilot checklist and operational handoff"
+  ],
+  "verification": [
+    {
+      "status": "run",
+      "check": "Initial full hermetic checkpoint",
+      "result": {
+        "tests": 3648,
+        "suites": 170,
+        "pass": 3367,
+        "fail": 48,
+        "cancelled": 0,
+        "skipped": 233,
+        "duration_ms": 98959.353566
+      },
+      "log": "/tmp/vssyl-onb07-hermetic.log",
+      "logSha256": "65bd55a761728efbda009600562f7a44c071dfa78ee550ed09993165eb0aef2a",
+      "command": "npm run test:hermetic",
+      "note": "Before ONB-07 fixes/new tests. Exact 48 failure identities match ONB-05. Later final database gate runs the full test set with SQL enabled."
+    },
+    {
+      "status": "run",
+      "check": "Final transaction-owner broad database checkpoint",
+      "result": {
+        "tests": 3654,
+        "suites": 170,
+        "pass": 3571,
+        "fail": 76,
+        "cancelled": 0,
+        "skipped": 7,
+        "duration_ms": 219854.196107
+      },
+      "log": "/tmp/vssyl-onb07-db-candidate.log",
+      "logSha256": "17d756ae15b96f97073af664005671798399a004aaf9e84759f247a0114ae454",
+      "command": "VERIFY_DATABASE_URL=<fresh guarded local DB> VERIFY_MANAGE_DATABASE=0 npm run verify:db",
+      "note": "145 forward migrations; demo seed twice. Red gate retained. Subsequent changes: bounded-request test assertion and signup request-time rendering only; affected follow-ups below."
+    },
+    {
+      "status": "run",
+      "check": "Final bounded request/recovery follow-up",
+      "result": {
+        "tests": 1,
+        "suites": 0,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 33999.253288
+      },
+      "log": "/tmp/vssyl-onb07-bounded-recovery-final.log",
+      "logSha256": "c3ca62fdc191f4a046298c3ec42a8d67f089a3fa0835276e4a3acb952b83051a",
+      "command": "node --import tsx --test --test-name-pattern=\"bounded 25-row execution\" src/lib/onboarding-workbook/workbook.db.test.ts",
+      "note": "Counts 25 attempted rows including real failures, mapping agreement and no p26 premature mapping; next confirmation completes all 28 rows without duplicates."
+    },
+    {
+      "status": "run",
+      "check": "Three previously failing rollback/recovery cases",
+      "result": {
+        "tests": 3,
+        "suites": 0,
+        "pass": 3,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 16840.311369
+      },
+      "log": "/tmp/vssyl-onb07-conflict-triage.log",
+      "logSha256": "5e639c4c2d24b326086c4b9752d475afae1a2e69ab018231027976f7130f19ff",
+      "note": "Partial failure/retry, external drift and four independent concurrent Facilities. Actual P2034 retries observed. Overlaps broad run; do not add totals."
+    },
+    {
+      "status": "run",
+      "check": "Final safety/known-rollback/unknown-outcome cases",
+      "result": {
+        "tests": 16,
+        "suites": 0,
+        "pass": 16,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 3647.484369
+      },
+      "log": "/tmp/vssyl-onb07-recovery-unit-final.log",
+      "logSha256": "c71c81b3b44a90176d7e3d76cc7ea7b7c7f7bfe391d8464758e11c621a300910",
+      "command": "node --import tsx --test src/lib/setup-imports/transaction.hermetic.test.ts src/lib/verify/database-target.test.ts"
+    },
+    {
+      "status": "reused",
+      "check": "Comprehensive existing ONB-01–06 browser checkpoint",
+      "result": {
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb07-browser-matrix-configured.log",
+      "logSha256": "f941b8b20302fd879bd59e143dd70da6ace7b0691e85306491222e86b3a964bd",
+      "command": "npx playwright test --config tmp/onb07-verification/playwright.matrix.config.ts",
+      "originalRun": "2026-10-18T19:42:20Z",
+      "buildId": "GET-eqr1iDmUUQDGd0vBV",
+      "sourceBoundary": "All 14 ONB-06 fingerprints matched initially. Subsequent import-owner changes have the 16 affected final journeys; remaining owners unchanged.",
+      "report": "tmp/onb07-verification/browser-matrix.json"
+    },
+    {
+      "status": "run",
+      "check": "Final affected CSV/workbook/assisted-handoff browser journeys",
+      "result": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb07-browser-affected-final.log",
+      "logSha256": "431a56dba8e1a1fc8873c5ff4c7f57e540d45542f96fa427f9a463242b9e4bf9",
+      "command": "npx playwright test --config tmp/onb07-verification/playwright.affected.config.ts --grep <affected journeys>",
+      "buildId": "i_jgkeT0vRIw79NHpNo0K",
+      "note": "Overlaps the 36-case checkpoint. Later signup-only change does not affect these owners.",
+      "report": "tmp/onb07-verification/browser-affected-final.json"
+    },
+    {
+      "status": "run",
+      "check": "Joined desktop/tablet provisioning through actual Run",
+      "result": {
+        "passed": 2,
+        "failed": 1,
+        "didNotRun": 0
+      },
+      "log": "/tmp/vssyl-onb07-whole-journey-final.log",
+      "logSha256": "4ac330b39b27e45241379aeb6895b8ee35f14f0141483d7c7823d740a63349fb",
+      "command": "npx playwright test --config tests/playwright.onboarding-certification.config.ts --max-failures=1",
+      "buildId": "i_jgkeT0vRIw79NHpNo0K",
+      "note": "Two joined cases passed; separate public signup case failed from cached 404. That changed case passed later; not a single all-three-green invocation.",
+      "facts": [
+        "tmp/onb07-verification/whole-1280-facts.json",
+        "tmp/onb07-verification/whole-768-facts.json"
+      ],
+      "localFlags": [
+        "PUBLIC_SIGNUP_ENABLED=true",
+        "OPERATIONAL_ASSIGNMENTS_ENABLED=true",
+        "DIETARY_JOB_FLOW_ENABLED=true",
+        "BILLING_ENTITLEMENTS_ENABLED=true"
+      ]
+    },
+    {
+      "status": "run",
+      "check": "Final closed/enabled public-signup browser follow-up",
+      "result": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb07-signup-browser-final.log",
+      "logSha256": "332f693a3e31c1c9877d69b5bc4b2011fb433da7b7927af18fbfe5d848e4c2e4",
+      "command": "npx playwright test --config tests/playwright.onboarding-certification.config.ts --grep \"public signup\"",
+      "buildId": "CZz9q-rDrjwyJ7bFLW8Kz",
+      "note": "Closed GET+POST 404/no writes; explicit local opt-in creates FA+grant and enters zero-Department/no billing setup. Mail disabled; production launch and delivery unverified."
+    },
+    {
+      "status": "run",
+      "check": "Final signup-corrected production build and included TypeScript",
+      "result": "PASS",
+      "log": "/tmp/vssyl-onb07-build-signup-final.log",
+      "logSha256": "8fd41f6c810b34a9e2c54d88645da89ab5d32c4db5ed4e3ac8fd895aafafe80e",
+      "command": "NEXT_DIST_DIR=.next-onb07-signup-build npm run verify:build",
+      "buildId": "CZz9q-rDrjwyJ7bFLW8Kz"
+    },
+    {
+      "status": "run",
+      "check": "Final standalone typecheck",
+      "result": "PASS",
+      "log": "/tmp/vssyl-onb07-typecheck-final.log",
+      "logSha256": "261ca8d0c2983fde4df1b2f479104165e0e12c5ed0c108a7213432bf65ea372a",
+      "command": "npm run typecheck"
+    },
+    {
+      "status": "run",
+      "check": "Current broad lint",
+      "result": {
+        "errors": 8,
+        "warnings": 77,
+        "outcome": "FAIL"
+      },
+      "log": "/tmp/vssyl-onb07-lint-current.log",
+      "logSha256": "67c3aae80642651ebe195a22eadbd0ab467a55f50938dc24bf06b2ed9e114adc",
+      "command": "npx eslint .",
+      "note": "After legitimate ignored tmp artifact exclusion; later changed files pass scoped lint. No real source error suppressed."
+    },
+    {
+      "status": "run",
+      "check": "Final changed scope lint",
+      "result": {
+        "errors": 0,
+        "warnings": 0,
+        "outcome": "PASS"
+      },
+      "log": "/tmp/vssyl-onb07-lint-changed.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": "npx eslint <15 changed source/test/config files>"
+    },
+    {
+      "status": "run",
+      "check": "Signup/final test assertion lint",
+      "result": {
+        "errors": 0,
+        "warnings": 0,
+        "outcome": "PASS"
+      },
+      "log": "/tmp/vssyl-onb07-lint-signup-final.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": "npx eslint src/app/signup/page.tsx tests/onboarding-certification-browser/journey.spec.ts src/lib/onboarding-workbook/workbook.db.test.ts"
+    },
+    {
+      "status": "run",
+      "check": "Prisma schema validation",
+      "result": "PASS",
+      "log": "/tmp/vssyl-onb07-prisma-validate.log",
+      "logSha256": "ee3210be32086d10f43d6925dda836277e5cd43602f53c80b2ed78f3b07222ee",
+      "command": "npx prisma validate"
+    },
+    {
+      "status": "run",
+      "check": "Guarded required DB refusal",
+      "result": "PASS: ltc_manager rejected before connection/migration",
+      "log": "/tmp/vssyl-onb07-db-refusal-confirmed.log",
+      "logSha256": "975f9d5a89ba63091cd5be36408f2bf125b147588c68c61cf1c7eb67153a613c",
+      "command": "VERIFY_DATABASE_URL=<forbidden ltc_manager name> npm run verify:db",
+      "note": "Expected nonzero refusal. Earlier wrapper used a read-only zsh status variable after the guard; corrected wrapper reconfirmed refusal."
+    },
+    {
+      "status": "run",
+      "check": "Required isolated rate-limit maintenance dry-run",
+      "result": "PASS: 0 eligible; no deletions",
+      "log": "/tmp/vssyl-onb07-maintenance-dry.log",
+      "logSha256": "0c58795667698f4e2b616109af8e885f73a54ac00307660c09fd5df8bb51ad09",
+      "command": "npm run maintenance:auth-rate-limits -- --dry-run"
+    },
+    {
+      "status": "run",
+      "check": "Required isolated rate-limit maintenance",
+      "result": "PASS: 0 deleted",
+      "log": "/tmp/vssyl-onb07-maintenance.log",
+      "logSha256": "c5a0ca81184305d0ab7c380758c3d39ed0fd0d18c113fd68d4714ec37c3bf0fc",
+      "command": "npm run maintenance:auth-rate-limits"
+    },
+    {
+      "status": "reused",
+      "check": "Real local private ClamAV delivery/scanning proof",
+      "source": "docs/onboarding/ONB_05_VERIFICATION_2026-10-18.json",
+      "sourceSha256": "339f4513d3bc649d0cd53bf001613f45f8039e24f5be6e12bee11f56b2cc49e1",
+      "originalDate": "2026-10-18",
+      "result": "10 scanner cases and separate real service intake have passing scoped evidence; actual maintained ClamAV 1.4.6 and official signatures 28157; final health image proof retained.",
+      "sourceMatches": {
+        "src/lib/support/attachment-scanner.db.test.ts": true,
+        "src/lib/support/attachment-scanner.ts": true,
+        "src/lib/support/scan-pending-attachments.ts": true,
+        "workers/support-attachment-scanner/.dockerignore": true,
+        "workers/support-attachment-scanner/Dockerfile": true,
+        "workers/support-attachment-scanner/README.md": true,
+        "workers/support-attachment-scanner/clamd.conf": true,
+        "workers/support-attachment-scanner/compose.yaml": true,
+        "workers/support-attachment-scanner/freshclam.conf": true,
+        "workers/support-attachment-scanner/healthcheck.py": true,
+        "workers/support-attachment-scanner/run.sh": true,
+        "workers/support-attachment-scanner/worker.py": true
+      },
+      "limitations": "Not rerun in ONB-07; unchanged owners checked against ONB-06 preserved hashes. Synthetic private-store adapter and local TLS/engine; no production Blob, hosting, secrets, scheduling or customer original certification."
+    },
+    {
+      "status": "not run",
+      "check": "Remote GitHub CI / Node 20 / PostgreSQL 16",
+      "reason": "No commit/push/PR or remote execution; local equivalents use supported Node 24.19.0 / PostgreSQL 14.18. Required remote gates remain pending."
+    },
+    {
+      "status": "not run",
+      "check": "Native Office, live Stripe Checkout/charges, actual outbound mail, production originals/infrastructure, deployment and real pilot",
+      "reason": "No authorization; local synthetic/provider-boundary evidence is explicitly limited. All pilot facts/owners/window pending; actual customer/staff effort unmeasured."
+    },
+    {
+      "status": "run",
+      "check": "Final discovery",
+      "result": {
+        "testFiles": 444,
+        "sqlSuites": 53,
+        "outcome": "PASS"
+      },
+      "log": "/tmp/vssyl-onb07-discovery-final.log",
+      "logSha256": "fca59d7d0c18e15844f14ccca64388464ff98a26fbda9cf41c4995ff7680319f",
+      "command": "npm run verify:discovery"
+    },
+    {
+      "status": "run",
+      "check": "Final normal Git-aware migration governance",
+      "result": {
+        "migrations": 145,
+        "outcome": "PASS"
+      },
+      "log": "/tmp/vssyl-onb07-migrations-final.log",
+      "logSha256": "94ad58eecf13dfb6a4a77052b636eb68a69f849e638fddc664d21a5c2eda16db",
+      "command": "npm run verify:migrations"
+    },
+    {
+      "status": "run",
+      "check": "Final tracked repository hygiene",
+      "result": {
+        "trackedFiles": 2578,
+        "outcome": "PASS"
+      },
+      "log": "/tmp/vssyl-onb07-hygiene-final.log",
+      "logSha256": "e5d0dceefa2c3a5ed4eee0d703f11f9cc7dfed23c821cbafea12ab012402aeef",
+      "command": "npm run verify:hygiene"
+    },
+    {
+      "status": "run",
+      "check": "Final preservation/link/JSON/diff checks",
+      "result": {
+        "protectedFilesUnchanged": 20,
+        "missing": [],
+        "editedMarkdownFiles": 8,
+        "checkedEditedDocumentLinks": 75,
+        "brokenEditedDocumentLinks": [],
+        "historicalLinks": "Accepted audit/plan preserved verbatim; their historic absolute/legacy links are not certified as current. Initial overly broad regex check included those links and parenthesized source paths; scoped checker corrected.",
+        "onboardingJsonValid": true,
+        "diffCheck": "PASS",
+        "sourceTreeManifestSha256": "d9dfdc0ae7e6c903bfd1d21ce8659cddc93e451b42892fda67d94448d2d5a03d",
+        "originalTsconfigBytesRestored": true
+      },
+      "log": "/tmp/vssyl-onb07-final-checks.json",
+      "logSha256": "7a27df66e008ab5ecb28468c67444a7352f185579badb1af40664fb4f5005ccb",
+      "command": "Scoped documentation/preservation verifier; git diff --check; git diff --cached --check"
+    }
+  ],
+  "programSqlSummary": {
+    "cases": 94,
+    "executed": 87,
+    "realEngineOptInsSkipped": 7,
+    "distinctExecutedCasesWithPassingEvidenceAcrossScopedRuns": 87,
+    "note": "Broad run 86 onboarding passes /1 attempt-count assertion failure /7 opt-in skips; corrected assertion passed targeted follow-up. Not one all-green repository invocation."
+  },
+  "ciBrowserJobs": [
+    {
+      "job": "offline",
+      "stats": {
+        "startTime": "2026-10-18T22:56:54.032Z",
+        "duration": 117391.021,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 3,
+        "flaky": 0
+      },
+      "failedCases": [
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\n  - waiting for getByTestId('unit-workspace')\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\n  - waiting for getByTestId('unit-workspace')\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\n  - waiting for getByTestId('unit-workspace')\n"
+        }
+      ],
+      "log": "/tmp/vssyl-onb07-ci-offline-candidate.log",
+      "buildId": "i_jgkeT0vRIw79NHpNo0K",
+      "database": "ltc_ci_onb07_offline_final",
+      "reusedBuildBoundary": "Later signup-only rendering change does not affect these owners; source flags/environment recorded in the local runner."
+    },
+    {
+      "job": "assignment",
+      "stats": {
+        "startTime": "2026-10-18T22:59:19.062Z",
+        "duration": 101656.294,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 4,
+        "flaky": 0
+      },
+      "failedCases": [
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "board load @ci-gate: supervisor opens Assignment Board with scale roster",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByText(/Plan:\\s*(DRAFT|CONFIRMED|REOPENED|CLOSED)/i).first()\nExpected: visible\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByText(/Plan:\\s*(DRAFT|CONFIRMED|REOPENED|CLOSED)/i).first() with timeout 20000ms\n  - waiting for getByText(/Plan:\\s*(DRAFT|CONFIRMED|REOPENED|CLOSED)/i).first()\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "create and confirm @ci-gate: supervisor assigns and confirms plan",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('heading', { name: /Create Assignment/i })\nExpected: visible\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('heading', { name: /Create Assignment/i }) with timeout 20000ms\n  - waiting for getByRole('heading', { name: /Create Assignment/i })\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "employee visibility @ci-gate: staff sees confirmed Assignment only after confirm",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('my-assignment-panel')\nExpected: visible\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('my-assignment-panel') with timeout 20000ms\n  - waiting for getByTestId('my-assignment-panel')\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "coverage gap @ci-gate: coverage page links to Assignment Board",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('dietary-assignment-coverage')\nExpected: visible\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('dietary-assignment-coverage') with timeout 20000ms\n  - waiting for getByTestId('dietary-assignment-coverage')\n"
+        }
+      ],
+      "log": "/tmp/vssyl-onb07-ci-assignment-candidate.log",
+      "buildId": "i_jgkeT0vRIw79NHpNo0K",
+      "database": "ltc_ci_onb07_assignment_final",
+      "reusedBuildBoundary": "Later signup-only rendering change does not affect these owners; source flags/environment recorded in the local runner."
+    },
+    {
+      "job": "dietary",
+      "stats": {
+        "startTime": "2026-10-18T23:01:24.468Z",
+        "duration": 115418.973,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 4,
+        "flaky": 0
+      },
+      "failedCases": [
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "call-off and coverage @ci-gate: board shows call-offs and coverage summary",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByText(/Call-offs/i).first()\nExpected: visible\nTimeout: 25000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByText(/Call-offs/i).first() with timeout 25000ms\n  - waiting for getByText(/Call-offs/i).first()\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "assignment create confirm employee @ci-gate: plan confirmation publishes Assignment",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('heading', { name: /Create Assignment/i })\nExpected: visible\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('heading', { name: /Create Assignment/i }) with timeout 20000ms\n  - waiting for getByRole('heading', { name: /Create Assignment/i })\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "gm staffing and timing @ci-gate: coverage page and unit milestones",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('dietary-assignment-coverage')\nExpected: visible\nTimeout: 25000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('dietary-assignment-coverage') with timeout 25000ms\n  - waiting for getByTestId('dietary-assignment-coverage')\n"
+        },
+        {
+          "file": "ci-gate.spec.ts",
+          "test": "quick pin unit workspace ready started offline @ci-gate",
+          "status": "failed",
+          "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\n  - waiting for getByTestId('unit-workspace')\n"
+        }
+      ],
+      "log": "/tmp/vssyl-onb07-ci-dietary-candidate.log",
+      "buildId": "i_jgkeT0vRIw79NHpNo0K",
+      "database": "ltc_ci_onb07_dietary_final",
+      "reusedBuildBoundary": "Later signup-only rendering change does not affect these owners; source flags/environment recorded in the local runner."
+    }
+  ],
+  "currentBroadDatabaseFailures": {
+    "checkpoint": "/tmp/vssyl-onb07-db-candidate.log",
+    "totals": {
+      "tests": "3654",
+      "suites": "170",
+      "pass": "3571",
+      "fail": "76",
+      "cancelled": "0",
+      "skipped": "7",
+      "duration_ms": "219854.196107"
+    },
+    "failures": [
+      {
+        "file": "src/components/location-tree/location-tree.hermetic.test.ts",
+        "test": "Department Locations lists rooms with place as secondary text",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Physical places \\{view\\.department\\.name\\} is responsible for/. Input:\n  \n  'import Link from \"next/link\";\\n' +\n    '\\n' +"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: asset create edit scope status history retirement foreign reject",
+        "detail": "AssertionError [ERR_ASSERTION]: servery unit with Dietary responsibility required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:77:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:153:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: issue report idempotency evidence triage resolve reopen separate from WO",
+        "detail": "AssertionError [ERR_ASSERTION]: servery unit with Dietary responsibility required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:77:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:277:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: work order from issue direct vendor lifecycle return to service",
+        "detail": "AssertionError [ERR_ASSERTION]: servery unit with Dietary responsibility required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:77:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:496:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: authority STAFF supervisor FA quick pin and flag disabled",
+        "detail": "AssertionError [ERR_ASSERTION]: servery unit with Dietary responsibility required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:77:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/phase-10a-asset-operations.test.ts:665:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-3d-work-order-closeout.test.ts",
+        "test": "phase3d sql: labor, parts, expense, evidence, waiver, asset review, legacy",
+        "detail": "PrismaClientKnownRequestError: \n  Invalid `client.repair.create()` invocation in\n  /Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/asset-operations/work-order-service.ts:344:39\n  "
+      },
+      {
+        "file": "src/lib/asset-operations/responsibility.hermetic.test.ts",
+        "test": "projection — department only",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + 'Plant Operations'"
+      },
+      {
+        "file": "src/lib/bulk-import/bulk-import.scale.db.test.ts",
+        "test": "bulk import scale: facility 4 floors / 17+ units / 200+ spaces + asset 250 + replay",
+        "detail": "AssertionError [ERR_ASSERTION]: [{\"row\":2,\"status\":\"invalid\",\"message\":\"Unknown Location Type \\\"101\\\".\",\"field\":\"locationType\",\"value\":\"101\",\"suggestion\":\"Accepted values include: Resident Room, Patient Room, Servery, Dining Room, Hallway, Restroom, Office, Storage, Utility Room, Mechanical Room, Public Area, Production Area, Other / Custom\"},{\"row\":3,\"status\":\"invalid\",\"message\":\"Unknown Location Type \\\"102\\\".\",\"field\":\"locationType\",\"value\":\"102\",\"suggestion\":\"Accepted values include: Resident Room, Patient Room, Servery, Dining Room, Hallway, Restroom, Office, Storage, Utility Room, Mechanical Room, Public Area, Production Area, Other / Custom\"},{\"row\":4,\"status\":\"invalid\",\"message\":\"Unknown Location Type \\\"103\\\".\",\"field\":\"locationType\",\"value\":\"103\",\"suggestion\":\"Accepted values include: Resident Room, Patient Room, Servery, Dining Room, Hallway, Restroom, Office, Storage, Utility Room, Mechanical Room, Public Area, Production Area, Other / Custom\"},{\"row\":5,\"status\":\"invalid\",\"message\":\"Unknown Location Type \\\"104\\\".\",\"field\":\"locationType\",\"value\":\"104\",\"suggestion\":\"Accepted values include: Resident Room, Patient Room, Servery, Dining Room, Hallway, Restroom, Office, Storage, Utility Room, Mechanical Room, Public Area, Production Area, Other / Custom\"},{\"row\":6,\"status\":\"invalid\",\"message\":\"Unknown Location Type \\\"105\\\".\",\"field\":\"locationType\",\"value\":\"105\",\"suggestion\":\"Accepted values include: Resident Room, Patient Room, Servery, Dining Room, Hallway, Restroom, Office, Storage, Utility Room, Mechanical Room, Public Area, Production Area, Other / Custom\"}]\n  \n  280 !== 0\n  "
+      },
+      {
+        "file": "src/lib/business-workspace/business-workspace-projection.test.ts",
+        "test": "5. Facility Overview — labeled department sections",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(\n  "
+      },
+      {
+        "file": "src/lib/canonical-logs/facility-catalog-install.hermetic.test.ts",
+        "test": "Build Logs install verb and place from the installed library",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /install them, then place them/. Input:\n  \n  'import { redirect } from \"next/navigation\";\\n' +\n    '\\n' +"
+      },
+      {
+        "file": "src/lib/canonical-logs/partner-log-read.hermetic.test.ts",
+        "test": "partner record lookup is facility and active department",
+        "detail": "TypeError: Cannot read properties of undefined (reading 'findMany')\n      at composeRunLogRecordView (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/load-run-log-record.ts:309:75)\n      at loadDepartmentScopedRunLogRecordView (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/load-run-log-record.ts:207:10)"
+      },
+      {
+        "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+        "test": "partner submit follows role and active department",
+        "detail": "TypeError: Cannot read properties of undefined (reading 'findMany')\n      at listRecordEngineRollouts (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/record-engine-store.ts:25:49)\n      at effectiveRecordEngine (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/record-engine-store.ts:45:26)\n      at departmentUsesCanonicalRecords (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/record-engine-store.ts:66:17)"
+      },
+      {
+        "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+        "test": "acting context stays on the action that created it",
+        "detail": "TypeError: Cannot read properties of undefined (reading 'findMany')\n      at listRecordEngineRollouts (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/record-engine-store.ts:25:49)\n      at effectiveRecordEngine (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/record-engine-store.ts:45:26)\n      at departmentUsesCanonicalRecords (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/record-engine-store.ts:66:17)"
+      },
+      {
+        "file": "src/lib/canonical-logs/phase-1-cooler-e2e.test.ts",
+        "test": "phase1 sql: install → attach cooler → 38°F Morning → 55°F Afternoon with CA → no legacy rows",
+        "detail": "Error: This department is not using canonical Records for this service date.\n      at performCanonicalLogSubmission (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/submit-canonical-log.ts:273:11)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/phase-1-cooler-e2e.test.ts:197:24)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/canonical-logs/phase-3-canonical-logs.test.ts",
+        "test": "phase3 sql: catalog seed idempotent; attachment twice-daily; submit satisfies requirement",
+        "detail": "Error: This department is not using canonical Records for this service date.\n      at performCanonicalLogSubmission (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/submit-canonical-log.ts:273:11)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/phase-3-canonical-logs.test.ts:189:22)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/canonical-logs/phase-3-canonical-logs.test.ts",
+        "test": "phase3 sql: published catalog immutable; successor draft allowed; cycle needs setup",
+        "detail": "Error: A draft already exists for this Catalog Log.\n      at createCatalogDraftSuccessor (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/catalog-service.ts:270:11)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/canonical-logs/phase-3-canonical-logs.test.ts:246:21)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/department-administration/department-locations.test.ts",
+        "test": "does not write SpaceType or Unit.unitType from Locations UI",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Physical places \\{view\\.department\\.name\\} is responsible for/. Input:\n  \n  'import Link from \"next/link\";\\n' +\n    '\\n' +"
+      },
+      {
+        "file": "src/lib/department-administration/room-types.test.ts",
+        "test": "primary Department Builder page no longer mounts Room Types",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /requestedTab === \"room-types\"/. Input:\n  \n  'import { SetupWorkspaceLink } from \"@/components/setup-workspace-link\";\\n' +\n    'import { notFound, redirect } from \"next/navigation\";\\n' +"
+      },
+      {
+        "file": "src/lib/department-work/phase-11a-department-work.test.ts",
+        "test": "phase11a sql: ownership publish responsibility completion not-required reopen reassign one-off cross-facility",
+        "detail": "AssertionError [ERR_ASSERTION]: servery unit with Dietary responsibility required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/department-work/phase-11a-department-work.test.ts:71:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/department-work/phase-11a-department-work.test.ts:189:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/design-system/temporal-strip-ticks.hermetic.test.ts",
+        "test": "SubNav communicates horizontal overflow with fades and scrolls active tab",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /subnav-fade-right/. Input:\n  \n  '\"use client\";\\n' +\n    '\\n' +"
+      },
+      {
+        "file": "src/lib/dietary-job-flow/phase-9b-job-flow.test.ts",
+        "test": "phase9b sql: draft hidden; publish cycle + confirmed assignment → ACTIVE",
+        "detail": "AssertionError [ERR_ASSERTION]: dietary department required\n      at TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/dietary-job-flow/phase-9b-job-flow.test.ts:90:14)\n      at async Test.run (node:internal/test_runner/test:1389:7)\n      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {"
+      },
+      {
+        "file": "src/lib/dietary-job-flow/supervisor-operations/present-ui.hermetic.test.ts",
+        "test": "Board presentation source scan: ViewModel only, legacy chips removed, access unchanged",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /isAnyStaffingOperationalFeatureEnabled\\(\"jobFlow\"\\)/. Input:\n  \n  'import { unstable_noStore as noStore } from \"next/cache\";\\n' +\n    'import { cookies } from \"next/headers\";\\n' +"
+      },
+      {
+        "file": "src/lib/evs/phase-11b-evs-operations.test.ts",
+        "test": "phase11b sql: SPACE_TYPE PATIENT_ROOM expands per-space; historical occurrence keeps spaceId",
+        "detail": "Error: Department commercial access is unavailable.\n      at requireWorkManage (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/department-work/authority.ts:185:11)\n      at assertManage (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/department-work/work-plan-service.ts:69:3)\n      at async createDraft (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/department-work/work-plan-service.ts:231:3)"
+      },
+      {
+        "file": "src/lib/evs/phase-11b-evs-operations.test.ts",
+        "test": "phase11b sql: EVS cycle without mealType can publish; fixed window facility timezone",
+        "detail": "Error: Department commercial access is unavailable.\n      at requireCycleManage (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-cycles/cycle-authority.ts:187:11)\n      at assertManage (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-cycles/cycle-service.ts:439:3)\n      at async createDraft (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-cycles/cycle-service.ts:506:3)"
+      },
+      {
+        "file": "src/lib/evs/phase-11b-evs-operations.test.ts",
+        "test": "phase11b sql: inspection Needs Attention → rework complete leaves evidence unchanged",
+        "detail": "Error: Department commercial access is unavailable.\n      at requireEvidenceManage (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-evidence/evidence-authority.ts:185:11)\n      at assertManage (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-evidence/template-service.ts:63:3)\n      at async createDraft (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-evidence/template-service.ts:152:3)"
+      },
+      {
+        "file": "src/lib/harbor-console/console-catalog-detail.db.test.ts",
+        "test": "product, record, and work detail match the projection",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  112 !== 110\n  "
+      },
+      {
+        "file": "src/lib/harbor-console/console-catalog.db.test.ts",
+        "test": "department install counts use lineage keys and user access uses operability",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  152 !== 148\n  "
+      },
+      {
+        "file": "src/lib/harbor-console/console-marketplace-v1.db.test.ts",
+        "test": "Marketplace V1 list, detail, and source queries agree on known fixtures",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  162 !== 158\n  "
+      },
+      {
+        "file": "src/lib/locations/location-experience-certification.test.ts",
+        "test": "Facility Overview remains labeled by customer-current department",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n    ["
+      },
+      {
+        "file": "src/lib/locations/locations-cutover.test.ts",
+        "test": "Facility Overview — labeled department snapshots, never flattened",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n    ["
+      },
+      {
+        "file": "src/lib/locations/locations-cutover.test.ts",
+        "test": "Golden parity with Wave 15E shadow adapters (rooms + plant)",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n    ["
+      },
+      {
+        "file": "src/lib/locations/sidebar-cutover.test.ts",
+        "test": "4. Facility Overview labeled composition",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n    ["
+      },
+      {
+        "file": "src/lib/offline/runtime-api.test.ts",
+        "test": "processSyncCommand accepts idempotent offline ready command",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + 'REJECTED'"
+      },
+      {
+        "file": "src/lib/offline/runtime-api.test.ts",
+        "test": "duplicate different command creates conflict review",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + 'REJECTED'"
+      },
+      {
+        "file": "src/lib/onboarding-workbook/workbook.db.test.ts",
+        "test": "SQL workbook: bounded 25-row execution resumes committed references across requests",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  24 !== 25\n  "
+      },
+      {
+        "file": "src/lib/operational-cycles/day-expectation-runtime.test.ts",
+        "test": "sql: materialize is idempotent; adjustment is not overwritten; actual event is untouched",
+        "detail": "AssertionError [ERR_ASSERTION]: dietary department required\n      at TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-cycles/day-expectation-runtime.test.ts:40:14)\n      at async Test.run (node:internal/test_runner/test:1389:7)\n      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {"
+      },
+      {
+        "file": "src/lib/operational-cycles/phase-9a-cycles.test.ts",
+        "test": "phase9a sql: draft not runtime-visible; publish visible; retire prospective; meal target from UnitMealTime",
+        "detail": "AssertionError [ERR_ASSERTION]: dietary department required\n      at TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-cycles/phase-9a-cycles.test.ts:63:14)\n      at async Test.run (node:internal/test_runner/test:1389:7)\n      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {"
+      },
+      {
+        "file": "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
+        "test": "phase9c1 sql: blank LOG field editor publish successor retire preserves history",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(dietary)\n  "
+      },
+      {
+        "file": "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
+        "test": "phase9c1 sql: STAFF and FA-alone denied manage; Quick PIN cannot manage",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(dietary)\n  "
+      },
+      {
+        "file": "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
+        "test": "phase9c1 sql: cross-facility draft rejected",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(dietary)\n  "
+      },
+      {
+        "file": "src/lib/operational-requests/phase-12a-operational-requests.test.ts",
+        "test": "phase12a sql: route validate reject foreign; create request; triage; WO without auto-close",
+        "detail": "AssertionError [ERR_ASSERTION]: dietary department required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-requests/phase-12a-operational-requests.test.ts:61:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-requests/phase-12a-operational-requests.test.ts:172:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/operational-requests/phase-12a-operational-requests.test.ts",
+        "test": "phase12a sql: plant flag off rejects Plant destination routes",
+        "detail": "AssertionError [ERR_ASSERTION]: dietary department required\n      at loadFixture (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-requests/phase-12a-operational-requests.test.ts:61:10)\n      at async TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/operational-requests/phase-12a-operational-requests.test.ts:359:18)\n      at async Test.run (node:internal/test_runner/test:1389:7)"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "accept existing User links membership without rewriting home Facility",
+        "detail": "Error [OrganizationMembershipError]: Organization administrator mutations require a client that can lock the Organization row.\n      at lockOrganizationForAdminMutation (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:538:11)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:259:11)\n      at Object.$transaction (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-claims/organization-claims.hermetic.test.ts:485:88)"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "accept new org-only User creates null facility/role and ORG_ADMIN",
+        "detail": "Error [OrganizationMembershipError]: Organization administrator mutations require a client that can lock the Organization row.\n      at lockOrganizationForAdminMutation (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:538:11)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:259:11)\n      at Object.$transaction (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-claims/organization-claims.hermetic.test.ts:485:88)"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "stale second acceptance cannot create another first admin",
+        "detail": "Error [OrganizationMembershipError]: Organization administrator mutations require a client that can lock the Organization row.\n      at lockOrganizationForAdminMutation (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:538:11)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:259:11)\n      at Object.$transaction (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-claims/organization-claims.hermetic.test.ts:485:88)"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "Organization with existing ORG_ADMIN cannot receive first-admin approval",
+        "detail": "Error [OrganizationMembershipError]: Organization administrator mutations require a client that can lock the Organization row.\n      at lockOrganizationForAdminMutation (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:538:11)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:259:11)\n      at Object.$transaction (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-claims/organization-claims.hermetic.test.ts:485:88)"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "resend rotates token hash and invalidates prior plaintext",
+        "detail": "Error [OrganizationMembershipError]: Organization administrator mutations require a client that can lock the Organization row.\n      at lockOrganizationForAdminMutation (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:538:11)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-membership/service.ts:259:11)\n      at Object.$transaction (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/organization-claims/organization-claims.hermetic.test.ts:485:88)"
+      },
+      {
+        "file": "src/lib/plant/phase-12a-plant-operations.test.ts",
+        "test": "phase12a plant: request ownership preserved on WO; complete does not RTS; FA denied",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(dietary)\n  "
+      },
+      {
+        "file": "src/lib/preventive-maintenance/phase-4d-preventive-maintenance.test.ts",
+        "test": "phase4d sql: no-Procedure PM generates and is not Needs configuration",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  0 !== 1\n  "
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "allows a sparse ENABLE exception to replace archetype selection",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(production)\n  "
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "honors direct archetype replacement",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(experienceKeys(snapshot).includes(\"PRODUCTION\"))\n  "
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "matches the Dietary golden structure",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n  + []"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "resolves EVS room Experiences and prunes empty branches",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n  + []"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "gives direct Plant bindings precedence over the policy default",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n  + undefined"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "resolves query scopes but never executes runtime data",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(scope)\n  "
+      },
+      {
+        "file": "src/lib/projection/projection-runtime.test.ts",
+        "test": "resolves Dietary manager projection through adapter + pipeline",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n  + []"
+      },
+      {
+        "file": "src/lib/projection/projection-runtime.test.ts",
+        "test": "resolves EVS supervisor and Plant manager lenses",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(\n  "
+      },
+      {
+        "file": "src/lib/projection/projection-runtime.test.ts",
+        "test": "accepts a preloaded ProjectionSource and still invokes the pipeline",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(result.snapshot.experiences.length > 0)\n  "
+      },
+      {
+        "file": "src/lib/route-registry/authorize.test.ts",
+        "test": "role policy — Plant Preventive Maintenance Run admits Supervisor+",
+        "detail": "AssertionError [ERR_ASSERTION]: LEAD_TEAM_MEMBER at /preventive-maintenance/clocc00001\n  \n  true !== false\n  "
+      },
+      {
+        "file": "src/lib/route-registry/match.test.ts",
+        "test": "matching — dynamic segments capture exactly one segment",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + '/build/departments/[departmentId]/preventive-maintenance/new'"
+      },
+      {
+        "file": "src/lib/route-registry/match.test.ts",
+        "test": "matching — prefix routes cover their descendants",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + '/preventive-maintenance/[occurrenceId]'"
+      },
+      {
+        "file": "src/lib/route-registry/navigation.test.ts",
+        "test": "navigation — labels come from the registry, not from database rows",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + undefined"
+      },
+      {
+        "file": "src/lib/route-registry/navigation.test.ts",
+        "test": "navigation — Procedures is a Build door and leftover /admin/knowledge stays reachable",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  false !== true\n  "
+      },
+      {
+        "file": "src/lib/scheduling/coverage-expectations/coverage-expectations.hermetic.test.ts",
+        "test": "keeps Locations as an inspector and team × cycle as the need editor",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /requestedTab === \"coverage\" \\|\\| requestedTab === \"cycles\"/. Input:\n  \n  'import { SetupWorkspaceLink } from \"@/components/setup-workspace-link\";\\n' +\n    'import { notFound, redirect } from \"next/navigation\";\\n' +"
+      },
+      {
+        "file": "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts",
+        "test": "phase7a sql: overlap enforcement rejects concurrent windows",
+        "detail": "AssertionError [ERR_ASSERTION]: dietary department required\n      at TestContext.<anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts:37:12)\n      at async Test.run (node:internal/test_runner/test:1389:7)\n      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {"
+      },
+      {
+        "file": "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts",
+        "test": "phase7a sql: plan confirm publishes frontline visibility",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(dietary)\n  "
+      },
+      {
+        "file": "src/lib/session-revocation/session-version.test.ts",
+        "test": "a password session keeps a facility it holds an active grant for",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  false !== true\n  "
+      },
+      {
+        "file": "src/lib/shell-ux-refinement.test.ts",
+        "test": "V1 refinement — the canonical Build Home card set is present for a Facility Administrator",
+        "detail": "AssertionError [ERR_ASSERTION]: expected Build Home card for /build/knowledge\n  \n  false !== true\n  "
+      },
+      {
+        "file": "src/lib/support/support-inbound.db.test.ts",
+        "test": "support inbound email: new tickets, reply routing, lifecycle, idempotency, fallbacks",
+        "detail": "PrismaClientKnownRequestError: \n  Invalid `prisma.$executeRaw()` invocation:\n  \n  "
+      },
+      {
+        "file": "src/lib/support/support-notifications.db.test.ts",
+        "test": "support notifications: create, recipients, idempotency, read state, isolated email",
+        "detail": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n  \n    assert.ok(sent.every((message) => message.to.endsWith(\"@vssyl.test\")))\n  "
+      },
+      {
+        "file": "src/lib/support/support-tickets.db.test.ts",
+        "test": "support tickets: create, note, status, details, replies, idempotency, constraints",
+        "detail": "PrismaClientKnownRequestError: \n  Invalid `prisma.$executeRaw()` invocation:\n  \n  "
+      },
+      {
+        "file": "src/lib/todays-work/todays-work-projection.test.ts",
+        "test": "Facility Overview — labeled department sections",
+        "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n  + actual - expected\n  \n    ["
+      },
+      {
+        "file": "src/lib/vercel-function-storage.hermetic.test.ts",
+        "test": "next config excludes docs and tests from function traces",
+        "detail": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /outputFileTracingExcludes/. Input:\n  \n  'import type { NextConfig } from \"next\";\\n' +\n    '\\n' +"
+      },
+      {
+        "file": "src/lib/work/inspections/inspections.test.ts",
+        "test": "submitInspection writes atomically and respects idempotency + flag",
+        "detail": "TypeError: db.inspectionDefinition.findFirst is not a function\n      at submitInspection (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/submit-inspection.ts:104:52)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/inspections.test.ts:449:25)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/inspections.test.ts:27:17)"
+      },
+      {
+        "file": "src/lib/work/inspections/inspections.test.ts",
+        "test": "Task sync failure does not invalidate inspection submission",
+        "detail": "TypeError: db.inspectionDefinition.findFirst is not a function\n      at submitInspection (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/submit-inspection.ts:104:52)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/inspections.test.ts:575:28)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/inspections.test.ts:27:17)"
+      },
+      {
+        "file": "src/lib/work/inspections/inspections.test.ts",
+        "test": "submitInspection creates follow-up Tasks only for qualifying failed items",
+        "detail": "TypeError: db.inspectionDefinition.findFirst is not a function\n      at submitInspection (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/submit-inspection.ts:104:52)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/inspections.test.ts:706:26)\n      at <anonymous> (/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/src/lib/work/inspections/inspections.test.ts:27:17)"
+      }
+    ],
+    "historicalHermeticMatch": 41,
+    "additionalSQLOrEnvironmentFailures": [
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: asset create edit scope status history retirement foreign reject"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: authority STAFF supervisor FA quick pin and flag disabled"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: issue report idempotency evidence triage resolve reopen separate from WO"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+        "test": "phase10a sql: work order from issue direct vendor lifecycle return to service"
+      },
+      {
+        "file": "src/lib/asset-operations/phase-3d-work-order-closeout.test.ts",
+        "test": "phase3d sql: labor, parts, expense, evidence, waiver, asset review, legacy"
+      },
+      {
+        "file": "src/lib/bulk-import/bulk-import.scale.db.test.ts",
+        "test": "bulk import scale: facility 4 floors / 17+ units / 200+ spaces + asset 250 + replay"
+      },
+      {
+        "file": "src/lib/canonical-logs/phase-1-cooler-e2e.test.ts",
+        "test": "phase1 sql: install → attach cooler → 38°F Morning → 55°F Afternoon with CA → no legacy rows"
+      },
+      {
+        "file": "src/lib/canonical-logs/phase-3-canonical-logs.test.ts",
+        "test": "phase3 sql: catalog seed idempotent; attachment twice-daily; submit satisfies requirement"
+      },
+      {
+        "file": "src/lib/canonical-logs/phase-3-canonical-logs.test.ts",
+        "test": "phase3 sql: published catalog immutable; successor draft allowed; cycle needs setup"
+      },
+      {
+        "file": "src/lib/department-work/phase-11a-department-work.test.ts",
+        "test": "phase11a sql: ownership publish responsibility completion not-required reopen reassign one-off cross-facility"
+      },
+      {
+        "file": "src/lib/dietary-job-flow/phase-9b-job-flow.test.ts",
+        "test": "phase9b sql: draft hidden; publish cycle + confirmed assignment → ACTIVE"
+      },
+      {
+        "file": "src/lib/evs/phase-11b-evs-operations.test.ts",
+        "test": "phase11b sql: EVS cycle without mealType can publish; fixed window facility timezone"
+      },
+      {
+        "file": "src/lib/evs/phase-11b-evs-operations.test.ts",
+        "test": "phase11b sql: SPACE_TYPE PATIENT_ROOM expands per-space; historical occurrence keeps spaceId"
+      },
+      {
+        "file": "src/lib/evs/phase-11b-evs-operations.test.ts",
+        "test": "phase11b sql: inspection Needs Attention → rework complete leaves evidence unchanged"
+      },
+      {
+        "file": "src/lib/harbor-console/console-catalog-detail.db.test.ts",
+        "test": "product, record, and work detail match the projection"
+      },
+      {
+        "file": "src/lib/harbor-console/console-catalog.db.test.ts",
+        "test": "department install counts use lineage keys and user access uses operability"
+      },
+      {
+        "file": "src/lib/harbor-console/console-marketplace-v1.db.test.ts",
+        "test": "Marketplace V1 list, detail, and source queries agree on known fixtures"
+      },
+      {
+        "file": "src/lib/offline/runtime-api.test.ts",
+        "test": "duplicate different command creates conflict review"
+      },
+      {
+        "file": "src/lib/offline/runtime-api.test.ts",
+        "test": "processSyncCommand accepts idempotent offline ready command"
+      },
+      {
+        "file": "src/lib/onboarding-workbook/workbook.db.test.ts",
+        "test": "SQL workbook: bounded 25-row execution resumes committed references across requests"
+      },
+      {
+        "file": "src/lib/operational-cycles/day-expectation-runtime.test.ts",
+        "test": "sql: materialize is idempotent; adjustment is not overwritten; actual event is untouched"
+      },
+      {
+        "file": "src/lib/operational-cycles/phase-9a-cycles.test.ts",
+        "test": "phase9a sql: draft not runtime-visible; publish visible; retire prospective; meal target from UnitMealTime"
+      },
+      {
+        "file": "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
+        "test": "phase9c1 sql: STAFF and FA-alone denied manage; Quick PIN cannot manage"
+      },
+      {
+        "file": "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
+        "test": "phase9c1 sql: blank LOG field editor publish successor retire preserves history"
+      },
+      {
+        "file": "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
+        "test": "phase9c1 sql: cross-facility draft rejected"
+      },
+      {
+        "file": "src/lib/operational-requests/phase-12a-operational-requests.test.ts",
+        "test": "phase12a sql: plant flag off rejects Plant destination routes"
+      },
+      {
+        "file": "src/lib/operational-requests/phase-12a-operational-requests.test.ts",
+        "test": "phase12a sql: route validate reject foreign; create request; triage; WO without auto-close"
+      },
+      {
+        "file": "src/lib/plant/phase-12a-plant-operations.test.ts",
+        "test": "phase12a plant: request ownership preserved on WO; complete does not RTS; FA denied"
+      },
+      {
+        "file": "src/lib/preventive-maintenance/phase-4d-preventive-maintenance.test.ts",
+        "test": "phase4d sql: no-Procedure PM generates and is not Needs configuration"
+      },
+      {
+        "file": "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts",
+        "test": "phase7a sql: overlap enforcement rejects concurrent windows"
+      },
+      {
+        "file": "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts",
+        "test": "phase7a sql: plan confirm publishes frontline visibility"
+      },
+      {
+        "file": "src/lib/session-revocation/session-version.test.ts",
+        "test": "a password session keeps a facility it holds an active grant for"
+      },
+      {
+        "file": "src/lib/support/support-inbound.db.test.ts",
+        "test": "support inbound email: new tickets, reply routing, lifecycle, idempotency, fallbacks"
+      },
+      {
+        "file": "src/lib/support/support-notifications.db.test.ts",
+        "test": "support notifications: create, recipients, idempotency, read state, isolated email"
+      },
+      {
+        "file": "src/lib/support/support-tickets.db.test.ts",
+        "test": "support tickets: create, note, status, details, replies, idempotency, constraints"
+      }
+    ],
+    "historicalNotFailingAtThisCheckpoint": [
+      {
+        "file": "src/lib/organization-membership/last-admin-concurrency.db.test.ts",
+        "test": "concurrent demotions cannot leave an organization with zero administrators"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "assignment and role-change races leave no current assignment after membership end"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "last-admin denial and injected failure commit no assignment changes"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "membership end closes every current assignment through that organization"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "partnership creation waits on the organization lock held by membership end"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts",
+        "test": "concurrent ceiling and assignment changes leave one open period each"
+      },
+      {
+        "file": "src/lib/work/inspections/inspection-scheduling.test.ts",
+        "test": "generator creates one occurrence+Task and is idempotent"
+      }
+    ],
+    "laterTargetedCorrection": "Workbook bounded request asserts attempts, not promised commits; /tmp/vssyl-onb07-bounded-recovery-final.log. Original checkpoint stays red."
+  },
+  "currentLintErrors": [
+    {
+      "file": "src/components/drawer.tsx",
+      "line": 81,
+      "column": 7,
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+    },
+    {
+      "file": "src/components/harbor-console/harbor-support-notifications.tsx",
+      "line": 42,
+      "column": 5,
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+    },
+    {
+      "file": "src/components/harbor-console/support-ticket-work-panel.tsx",
+      "line": 59,
+      "column": 19,
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+    },
+    {
+      "file": "src/components/verify-email-client.tsx",
+      "line": 14,
+      "column": 7,
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+    },
+    {
+      "file": "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts",
+      "line": 360,
+      "column": 18,
+      "message": "A `require()` style import is forbidden  @typescript-eslint/no-require-imports"
+    },
+    {
+      "file": "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts",
+      "line": 361,
+      "column": 5,
+      "message": "A `require()` style import is forbidden  @typescript-eslint/no-require-imports"
+    },
+    {
+      "file": "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts",
+      "line": 365,
+      "column": 20,
+      "message": "A `require()` style import is forbidden  @typescript-eslint/no-require-imports"
+    },
+    {
+      "file": "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts",
+      "line": 366,
+      "column": 5,
+      "message": "A `require()` style import is forbidden  @typescript-eslint/no-require-imports"
+    }
+  ],
+  "initialHermeticFailureComparison": {
+    "failures": [
+      {
+        "file": "src/components/location-tree/location-tree.hermetic.test.ts",
+        "test": "Department Locations lists rooms with place as secondary text"
+      },
+      {
+        "file": "src/lib/asset-operations/responsibility.hermetic.test.ts",
+        "test": "projection — department only"
+      },
+      {
+        "file": "src/lib/business-workspace/business-workspace-projection.test.ts",
+        "test": "5. Facility Overview — labeled department sections"
+      },
+      {
+        "file": "src/lib/canonical-logs/facility-catalog-install.hermetic.test.ts",
+        "test": "Build Logs install verb and place from the installed library"
+      },
+      {
+        "file": "src/lib/canonical-logs/partner-log-read.hermetic.test.ts",
+        "test": "partner record lookup is facility and active department"
+      },
+      {
+        "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+        "test": "partner submit follows role and active department"
+      },
+      {
+        "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+        "test": "acting context stays on the action that created it"
+      },
+      {
+        "file": "src/lib/department-administration/department-locations.test.ts",
+        "test": "does not write SpaceType or Unit.unitType from Locations UI"
+      },
+      {
+        "file": "src/lib/department-administration/room-types.test.ts",
+        "test": "primary Department Builder page no longer mounts Room Types"
+      },
+      {
+        "file": "src/lib/design-system/temporal-strip-ticks.hermetic.test.ts",
+        "test": "SubNav communicates horizontal overflow with fades and scrolls active tab"
+      },
+      {
+        "file": "src/lib/dietary-job-flow/supervisor-operations/present-ui.hermetic.test.ts",
+        "test": "Board presentation source scan: ViewModel only, legacy chips removed, access unchanged"
+      },
+      {
+        "file": "src/lib/locations/location-experience-certification.test.ts",
+        "test": "Facility Overview remains labeled by customer-current department"
+      },
+      {
+        "file": "src/lib/locations/locations-cutover.test.ts",
+        "test": "Facility Overview — labeled department snapshots, never flattened"
+      },
+      {
+        "file": "src/lib/locations/locations-cutover.test.ts",
+        "test": "Golden parity with Wave 15E shadow adapters (rooms + plant)"
+      },
+      {
+        "file": "src/lib/locations/sidebar-cutover.test.ts",
+        "test": "4. Facility Overview labeled composition"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "accept existing User links membership without rewriting home Facility"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "accept new org-only User creates null facility/role and ORG_ADMIN"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "stale second acceptance cannot create another first admin"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "Organization with existing ORG_ADMIN cannot receive first-admin approval"
+      },
+      {
+        "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+        "test": "resend rotates token hash and invalidates prior plaintext"
+      },
+      {
+        "file": "src/lib/organization-membership/last-admin-concurrency.db.test.ts",
+        "test": "concurrent demotions cannot leave an organization with zero administrators"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "membership end closes every current assignment through that organization"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "assignment and role-change races leave no current assignment after membership end"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "last-admin denial and injected failure commit no assignment changes"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+        "test": "partnership creation waits on the organization lock held by membership end"
+      },
+      {
+        "file": "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts",
+        "test": "concurrent ceiling and assignment changes leave one open period each"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "allows a sparse ENABLE exception to replace archetype selection"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "honors direct archetype replacement"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "matches the Dietary golden structure"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "resolves EVS room Experiences and prunes empty branches"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "gives direct Plant bindings precedence over the policy default"
+      },
+      {
+        "file": "src/lib/projection/projection-pipeline.test.ts",
+        "test": "resolves query scopes but never executes runtime data"
+      },
+      {
+        "file": "src/lib/projection/projection-runtime.test.ts",
+        "test": "resolves Dietary manager projection through adapter + pipeline"
+      },
+      {
+        "file": "src/lib/projection/projection-runtime.test.ts",
+        "test": "resolves EVS supervisor and Plant manager lenses"
+      },
+      {
+        "file": "src/lib/projection/projection-runtime.test.ts",
+        "test": "accepts a preloaded ProjectionSource and still invokes the pipeline"
+      },
+      {
+        "file": "src/lib/route-registry/authorize.test.ts",
+        "test": "role policy — Plant Preventive Maintenance Run admits Supervisor+"
+      },
+      {
+        "file": "src/lib/route-registry/match.test.ts",
+        "test": "matching — dynamic segments capture exactly one segment"
+      },
+      {
+        "file": "src/lib/route-registry/match.test.ts",
+        "test": "matching — prefix routes cover their descendants"
+      },
+      {
+        "file": "src/lib/route-registry/navigation.test.ts",
+        "test": "navigation — labels come from the registry, not from database rows"
+      },
+      {
+        "file": "src/lib/route-registry/navigation.test.ts",
+        "test": "navigation — Procedures is a Build door and leftover /admin/knowledge stays reachable"
+      },
+      {
+        "file": "src/lib/scheduling/coverage-expectations/coverage-expectations.hermetic.test.ts",
+        "test": "keeps Locations as an inspector and team × cycle as the need editor"
+      },
+      {
+        "file": "src/lib/shell-ux-refinement.test.ts",
+        "test": "V1 refinement — the canonical Build Home card set is present for a Facility Administrator"
+      },
+      {
+        "file": "src/lib/todays-work/todays-work-projection.test.ts",
+        "test": "Facility Overview — labeled department sections"
+      },
+      {
+        "file": "src/lib/vercel-function-storage.hermetic.test.ts",
+        "test": "next config excludes docs and tests from function traces"
+      },
+      {
+        "file": "src/lib/work/inspections/inspection-scheduling.test.ts",
+        "test": "generator creates one occurrence+Task and is idempotent"
+      },
+      {
+        "file": "src/lib/work/inspections/inspections.test.ts",
+        "test": "submitInspection writes atomically and respects idempotency + flag"
+      },
+      {
+        "file": "src/lib/work/inspections/inspections.test.ts",
+        "test": "Task sync failure does not invalidate inspection submission"
+      },
+      {
+        "file": "src/lib/work/inspections/inspections.test.ts",
+        "test": "submitInspection creates follow-up Tasks only for qualifying failed items"
+      }
+    ],
+    "count": 48,
+    "historicalCount": 48,
+    "new": [],
+    "resolved": [],
+    "historicalSource": "ONB_05_VERIFICATION_2026-10-18.json / /tmp/vssyl-onb05-final-failure-comparison.json"
+  },
+  "migrationProof": [
+    {
+      "database": "ltc_test_onb04_20261017",
+      "disk": 145,
+      "applied": 145,
+      "mismatches": [],
+      "unfinished": [],
+      "unapplied": []
+    },
+    {
+      "database": "ltc_ci_onb07_20261018",
+      "disk": 145,
+      "applied": 145,
+      "mismatches": [],
+      "unfinished": [],
+      "unapplied": []
+    }
+  ],
+  "preservation": {
+    "initialChangedFiles": 196,
+    "unchanged": 187,
+    "intentionalExtensions": [
+      "docs/onboarding/DECISIONS.md",
+      "docs/onboarding/ONB_04_CSV_CONTRACT.md",
+      "docs/onboarding/ONB_06_WORKBOOK_CONTRACT.md",
+      "docs/onboarding/PHASE_TRACKER.md",
+      "docs/onboarding/README.md",
+      "memory-bank/progress-log.md",
+      "src/lib/onboarding-workbook/service.ts",
+      "src/lib/onboarding-workbook/workbook.db.test.ts",
+      "src/lib/setup-imports/service.ts"
+    ],
+    "missing": [],
+    "baselineHashes": "/tmp/vssyl-onb07-preserved.json",
+    "historicalInventoryAuditPlanMigrationSql": "Preserved; final preservation checks recorded separately",
+    "originalTsconfigRestored": true
+  },
+  "sourceFingerprints": {
+    ".env.example": "6598f5a7176adad2c1408db10280e24d8c516b188a5951220cd29d6fb77f5639",
+    "AGENTS.md": "d811faae09672de4cf097343b72d381df2ad0388f0d32530edcd8e4059288972",
+    "eslint.config.mjs": "ab91be17d1bea556e2bcca4b006f4807d0dd436e01b18d689a19a867f801d9bc",
+    "package-lock.json": "5a353eb5e6c1485d3a183c38a104728fe8538f62e89a988a44d0489b278320d0",
+    "package.json": "ab1a33484784d5d059ca4f810b42a23b4710d324e35fe52a2950a162ed4ffccc",
+    "prisma/migrations/20261017180000_onboarding_commercial_suspension_states/migration.sql": "d775af6e1ab28ac862d9606ac8c59d600a355c30d1f0798e6434067a3255e7c9",
+    "prisma/migrations/20261017230000_guided_setup_entry_and_manager_invitations/migration.sql": "992a5a834ca26f79e676e497b48893911ab64bfcd0f5f8e26cde986038d1aef0",
+    "prisma/migrations/20261018010000_canonical_setup_import_receipts/migration.sql": "cd8743f3f962394f3aacb0a91e0e5dd3b33e6154142fde3c64be836c791fe12d",
+    "prisma/migrations/20261018120000_implementation_service_orders/migration.sql": "d1a72f1143eafca2a7e2a2373d522ee65b588c191d99a836c09ea8349b298916",
+    "prisma/migrations/20261018150000_support_private_attachment_scanning/migration.sql": "036ec5f9234c31d6c332ef3270b2954f4f80140cfcd5e2eff7b696d6dd466887",
+    "prisma/schema.prisma": "dec64d271f7fd3cfa27829f0f5e566416c1e7c62d8770dbb9a8f44688a5baeec",
+    "prisma/seed.mjs": "1f45aa53984441d106c39101513e5159da361d886482a44312d59b7fa9841f30",
+    "scripts/support/process-pending-attachments.ts": "e22c19b8a94ba394528234bd19a5f7634e6881565e34a119e7074a120bcc1aac",
+    "scripts/verify/discover-tests.mjs": "9352740dff1d510119569d116f1b274510382233d8dac88c7d10e82f2501a0de",
+    "scripts/verify/fixture-account.mjs": "906f7580f6c49de5e5f7291d7612828868c8b292c65b537a5a348f6816442789",
+    "scripts/verify/lib/database-target.mjs": "b9b72d685d159dcdaa1899363a0ee0c62d62e0664caa9a1d095bba5d3270ad76",
+    "src/app/(protected)/admin/billing/actions.ts": "06821a7c6632a43a95cbba449d8b71ead0b4a5998b693e9c832034ddc72c0bcc",
+    "src/app/(protected)/admin/billing/billing-plan-form.tsx": "0f0d303dc3728f52fb23cfc5d7c04039417cad73b93840a59f78d6925332f58f",
+    "src/app/(protected)/admin/billing/implementation/actions.ts": "44a3fb8f58557a2084743e3163ecd25367418a4dfeae5b59a39afd3260befcce",
+    "src/app/(protected)/admin/billing/implementation/page.tsx": "b74b7f9dfc9876c2fb183ded8f6344b5ea940ed6efdafa108d909312a3fec7ce",
+    "src/app/(protected)/admin/billing/page.tsx": "8bfc851891cec38f09820ad75e815b84196604c551f8628d3dd4d4ef5e77acd7",
+    "src/app/(protected)/admin/departments/[departmentId]/actions.ts": "d60e40dce6ec3fcb7ac86963f6ef7c9f8ed0cab9c3c0b557c5e581d3c53a66b4",
+    "src/app/(protected)/admin/departments/[departmentId]/page.tsx": "7c2eacf8d5417ddd339d275dfde46d0aec5f70ffc92c92c98c2d3ce6587eb538",
+    "src/app/(protected)/admin/facility/builder/actions.ts": "c527307f2f68754e238e67c2146b61653b0f2a77ac86be1d30a4a7c341778000",
+    "src/app/(protected)/admin/facility/builder/page.tsx": "b817ed9a4eeebdd4b52e4857ee5c36c4026d6759c1ce748b9526c784721b8313",
+    "src/app/(protected)/assets/builder/asset-bulk-import-panel.tsx": "302c8d9f0cb2ef7f9c9f3cb4b3250495ca450155d61470be4cbc0d85964df25f",
+    "src/app/(protected)/assets/builder/page.tsx": "09270f3bc40d96fbaf439612df5aaa1851a0d7de03fc80682bc45ee9fd467ba9",
+    "src/app/(protected)/assets/import-actions.ts": "3919d4df5986ff99b7a62be26e34beedebfc26cde39bf3ab37bf5b78d645cec1",
+    "src/app/(protected)/employees/bulk-setup/actions.ts": "fa3b64d17ad77f4b78765b100eb5639716d14e9902fe03774ecd6ed1fd810905",
+    "src/app/(protected)/employees/bulk-setup/page.tsx": "018cd44a8e21e106b409139896ed94a30777bc878d2cdb25d2e500ce1c0bf598",
+    "src/app/(protected)/employees/bulk-setup/workbook-actions.ts": "eccc18a9eeaf40c78e9c08f0ff7c2f90e3d6dd61cbc9f368b86072ea4ff35234",
+    "src/app/(protected)/employees/csv-import-actions.ts": "d2fa57a2813efb7df4b88b6b6e0485dcfe508ee3c2e639c783b341ba4990b12b",
+    "src/app/(protected)/employees/import/import-csv-form.tsx": "8ef8cbbb9c21d2d3a624e39f100440618af8b44872ae999772be6d695cfc11ae",
+    "src/app/(protected)/employees/import/page.tsx": "11ad42eef0c44a33d3011849c12bdcf67ea780a1184d61e6c776daaed45062d9",
+    "src/app/(protected)/employees/page.tsx": "bc7e28fbdfabec236865ee48ab87df9e117639310561583c4464a11697bfa99e",
+    "src/app/accept-invite/page.tsx": "a1ef1f2b8ab6fa0409939ad294a89163d1ecf7595a28963c54df216b4d4c4af2",
+    "src/app/api/auth/account-invite/confirm/route.ts": "c876ed6ff95949dcebc88affc59c398780d5ca6499cd5cad9e957663ce23b1bc",
+    "src/app/api/auth/signup/route.ts": "0075c02696d92f26f6178918460efcd2cd067e5a0f780083099314fc6310413c",
+    "src/app/api/billing/payment-method/default/route.ts": "ba6093243388af4ac5f620315c3ffc1ec0d281115a31a5235cbb27dfec88218d",
+    "src/app/api/console/implementation/[engagementId]/attachments/[attachmentId]/route.ts": "f0a78534cacd54285cdfdb0b2ddbcce05ffbafb4c50f895c89e1b275ae10d563",
+    "src/app/api/console/support-attachments/[attachmentId]/route.ts": "901f240999150c06b75333b3ae716deacc881d7c01c7e3614edda1087c9e11d7",
+    "src/app/api/onboarding/locations/route.ts": "078197415530be0782c63d1425956482d7328eca297e6767ed0e35b8fa757c3c",
+    "src/app/api/onboarding/managers/route.ts": "9b52f31be5f2646c3ba4350d997b080080e21bf940f051b596b7ccd084ff1e05",
+    "src/app/api/onboarding/state/route.ts": "f39aaeac9bd9ee67537fd97631ec8f7d9a2f09bef9ab2a51d2204c074df8c6ab",
+    "src/app/console/(staff)/customers/[facilityId]/implementation/actions.ts": "1b9956235dce48ee258faed5e17bc0848a20395fb11d9989cd65decda57cac5f",
+    "src/app/console/(staff)/customers/[facilityId]/implementation/page.tsx": "ea9a0f12c24d61337ac848feb0efee61a5b8fd4661338b91e593f109c19a6ad7",
+    "src/app/console/(staff)/customers/[facilityId]/page.tsx": "4994b9e41f5bdbfd2d78feac671119f53cb65969768c5591acda30c973ffecc9",
+    "src/app/setup/page.tsx": "845fd2cb5bcc687ef417349736cbd8e9d3280a23725057b7694d6fdc4e589360",
+    "src/app/signup/page.tsx": "bded85ae43804b2237aa88f0cf15a59d40222ee3096e4d9f0641d1316b166009",
+    "src/components/implementation-workspace.tsx": "266e487f3a24a70a9f9bf37ad5fa3c1c8794290a96793f5ff5e8e380abc71ec9",
+    "src/components/manager-invite-accept-form.tsx": "636ab1cf26ce954f1450b636120a56a15d67350f8383c4363e489e6818f2c101",
+    "src/components/onboarding-workbook-workspace.tsx": "d42b64c368a99c77bd7c2cb6e9ebc34b60703b1942a154468ec31ccf55208e02",
+    "src/components/setup-import-workspace.tsx": "984c0bb0da8532a56bcbf17e799a3b5edf417dd4217c1a63352f6641e5257052",
+    "src/components/setup-wizard.tsx": "577a610b14e5549bbf95e7640e2287fa093e48d79f3df0ab632c6fd0480dff01",
+    "src/components/setup-workspace-link.tsx": "d1e7ea3024f3bd93d95a3b2a9428b326ac95b234450b6b972f64adaa85c9b7b9",
+    "src/lib/account-invite/activate.ts": "a47d715bd4bd98b5bc8d295b8eb255774dd4693223946c5e23a52643745a2644",
+    "src/lib/active-department-context.ts": "8b6cfab3213a5b656868a21a1dbac9f4a9216b515742a1c7c78f9a78a32665b1",
+    "src/lib/asset-operations/asset-service.ts": "bf2263d7fa023a5d294f66d09265fd8bcc6b8fe0df9c5ec8d10fda83a210970e",
+    "src/lib/asset-operations/authority.ts": "ddb0bfe3eabaa8c564d31f336c0c2b7f5e4a1eaa8a88da9e811430f6e95ae65d",
+    "src/lib/billing/add-departments.ts": "4f3beb6c002d0d688102574f034b9e9c3b9cbb7e3e941a45a183da58f4e1510d",
+    "src/lib/billing/apply-stripe-event.ts": "bfb19afe271a133ab4b71add78991d3a971090fd8161afd66bf65c306ccf1cd7",
+    "src/lib/billing/checkout-items.hermetic.test.ts": "f60b01c797d020276d29f6ab9fa672aa2ccfdb75895f4c19c98d1e8d538d4858",
+    "src/lib/billing/checkout-items.ts": "23428eecdf9321c122719a6e8c2bee8e25fa75197e0680a335475b435ada9cf0",
+    "src/lib/billing/entitlement.hermetic.test.ts": "95cf066f6be5f70a76a81cabc16221a744bf9e895bba9d21c25fb814f847fb7b",
+    "src/lib/billing/entitlement.ts": "ecef3b93909b9d39b5630c20485aa4d3faa45095fb8c0a88dc6556ae5a94ddcb",
+    "src/lib/billing/implementation-payment.ts": "e8da51bda9af31472dd4ed3e1d4f7b06a2513230c73585e0929e4f548a4c6eca",
+    "src/lib/billing/persist-default-payment-method.hermetic.test.ts": "6065ca45ab767614493f0f3c648094609e3cd7fd8dd619277e58d055eb7c9cfe",
+    "src/lib/billing/reconcile-from-stripe.hermetic.test.ts": "5372c0d1737c6fa26524d572790943b4e65255fc5dfa612eca5a9d0ced756da3",
+    "src/lib/billing/reconcile-from-stripe.ts": "26e4e6ba8052ea4e6f89c0f320e1cde52647cbb2dd9c22ee4eae24b85c3078f3",
+    "src/lib/billing/status.ts": "63b0e1f4f80efaafd47dfe01dd37f54788cfeb582ed7e8d1292426c386ceb0b4",
+    "src/lib/billing/stripe-customer.ts": "34be66e03242335f0a8f1304a718157de8989a42c538ab623c5322b7cb8099a1",
+    "src/lib/billing/stripe-prices.ts": "a35c90930448eab6b61585759437310898573e0a8cf4cf44ac2d14f4f09ea4ff",
+    "src/lib/billing/sync-from-stripe.ts": "94d073ba653770bc51100ac9db4f88847d4ca93879402c7bf698f2e327cd21d1",
+    "src/lib/billing/webhook-handlers.ts": "13d88b0652092b0aad6a2550a5bf95fe569d951de0b35991eb5e8b7f210682ce",
+    "src/lib/bulk-import/asset-import-execute.ts": "bd3d4b81aff21bf8b0c7e4ec31d175d1d8ef6a3e483c540690ae166ebec94484",
+    "src/lib/bulk-import/asset-import.hermetic.test.ts": "5e79b4984e075a26f4b7cba6dda372026f67e7f2a9a0a166a685c393efb6bfdc",
+    "src/lib/bulk-import/asset-import.ts": "92b0784cb7f6ead16273ee6edb457a4ebc484028cf8de9b188141b5e6ad9aef7",
+    "src/lib/bulk-import/facility-structure-execute.ts": "2874aff95d4b53b319ade1ce019983095e639e9bccb2c7ed4496cafbceadfd19",
+    "src/lib/department-products/customer-selection.hermetic.test.ts": "bcf00cfbcb73f6398f0d829fa5087f0b3b2a29f4792a9167c535c8ad3a416ebf",
+    "src/lib/department-products/department-products.hermetic.test.ts": "3b6a69ee7be065aa63a4bafcad9657bc7514e9e47e1fda4564136fb6ac4a18a5",
+    "src/lib/department-products/eligibility.hermetic.test.ts": "2f67000664c8971444ededbfc42e7cb03f7d439e278399ea17836963a11c70e9",
+    "src/lib/department-products/eligibility.ts": "99721e2216489e661882818b5535f1b4f8bb9da9133c16268f73d58811d140aa",
+    "src/lib/department-products/facility-catalog.ts": "a061b315ccfe392e8d52b6e32d67f45b640eeaf7b122a175d2afcf7639ea1096",
+    "src/lib/department-products/healthcare-food-nutrition-identity.hermetic.test.ts": "f89ff6f2ab2224cc2861d3082fe5045d31036bf582a5ac7968e911c544e963b9",
+    "src/lib/department-products/load-facility-catalog.ts": "6bfde4ce7f971213ee502688085bec4a5901311482295ee6d911f356c019ab87",
+    "src/lib/department-products/plant-runtime.ts": "e2e7a729da418c0415feef21680b301506626d6e5028c7a8966365c19b4aa1a1",
+    "src/lib/department-products/reconcile.ts": "f994a1af8d67c69536f16af47321af520a749ff2f9cec5424cb77b3d54e8f904",
+    "src/lib/department-products/registry.ts": "4ebe8b1ec5d4b20e8117ce33a6bc3de90cd3cf54742d409207770f1b5a226f1d",
+    "src/lib/department-work/authority.ts": "1ab9bc157d405483a3afafb84eedc3c4bad46cb2ea72c757090ddc5e67c56f14",
+    "src/lib/dept-settings-access.ts": "c0c98b5918be0f233db9240851fd89348ca152d6f9400b4e4f62074c1bd5cbf5",
+    "src/lib/dietary-job-flow/job-flow-authority.ts": "dbcc18b0dd0d574fb6a907535fa6ac0c42e340d6094b25d0df6308d6d6103c51",
+    "src/lib/employee-csv-import.ts": "251c06d717d4cfe24275af3c29149c35cbee659b8b2fabce19b4b6684018c48d",
+    "src/lib/employee-csv-update/employee-csv-update.db.test.ts": "cb6b95145975f12f38f49d93bfd9128d4e11cc1c4fc5f1adc2987060f46690e2",
+    "src/lib/employee-csv-update/employee-csv-update.hermetic.test.ts": "e8044e392001ca0c8ed5a356870f7bd3473cb477c72ebf8c48bc5411cb5ec4b3",
+    "src/lib/employee-csv-update/service.ts": "700c122c85f68ea1e7e1ca7dfba23730769186d501b9dcd5c402e0fe8d153bc4",
+    "src/lib/employee-csv-update/types.ts": "bb0b6dcb21aab329b5a39e340150d90fa9149ef70c351251580001268db75e2e",
+    "src/lib/employee-identity/onboard.hermetic.test.ts": "b56eab6936e5bbb3da5261d402abe32963eb731ad6fde18cda1860602d75f3d6",
+    "src/lib/employee-identity/onboard.ts": "59425ddeaa022c0271b68113b8f8b80f52cfc87ef25d6731a4bd8cb77e2e940c",
+    "src/lib/facility-builder/responsibility-service.ts": "c419dbc73c6b053bcfa6219f008e30a89d71da61edb3fce9a794e8c756f8b350",
+    "src/lib/facility-provisioning/bootstrap.hermetic.test.ts": "2251fa00a6b2aa1924c07ccdd1f7ab0b43855cddd0e488c1db277e7d63377d2d",
+    "src/lib/facility-provisioning/bootstrap.ts": "15ca413afb45541d0afcd4bf9051c8b35525abce07229b0b4f11373bb8e56541",
+    "src/lib/harbor-console/console-catalog.ts": "8b5fa022646621a3c70be316b2bef176ea9d2ad57ac90369a639b9c9ed159b97",
+    "src/lib/harbor-console/customer-billing-detail.hermetic.test.ts": "a45ab7dd585d9f8657a8db23e0ebe0cf33205f8d05cf51df7d93620198ffbfbf",
+    "src/lib/harbor-console/presentation.hermetic.test.ts": "0d164a1d12a1d8c2c87debc0c20017286966501d1b70482dca0e286ef53ff156",
+    "src/lib/harbor-console/presentation.ts": "ce75560c7628c5fff8b58cc03593f9b3f85c8136bb8c199cb4c46b9acfd65c51",
+    "src/lib/harbor-console/queries.ts": "f69da7714fc2f0c34e26e985d5dce97a5fdbe9eab16bea7c0ff02f7d3a540ebb",
+    "src/lib/implementation/action.ts": "dd60e35cbdec527af61e2c8ca2c774c9d32984da11e185a761f9be320b1d365e",
+    "src/lib/implementation/authority.ts": "886d7144bf426003cb50b0eb155deabdf010736ec3b07e7ba89943bb1f724347",
+    "src/lib/implementation/contract.hermetic.test.ts": "297e24a0757095a654e89133dd8279306567ae8bb7bcaf8b8c816f2a0056660d",
+    "src/lib/implementation/contract.ts": "7b3f77e00c2e5903bc6c85097df0231821c9a5b3719152f612f44023d773b309",
+    "src/lib/implementation/implementation.db.test.ts": "c222133b7cee30e8525c89430e7477870f993b5b960e76f680eead7e47eb02ce",
+    "src/lib/implementation/request-actor.ts": "7c6c9165a0be491a5b863f8dcc96df87168fc15dd3fac38f5dcfa39e31ce15b9",
+    "src/lib/implementation/service.ts": "c6553486d9ee7b61ebbca4ba7f90cc47bdc61ac5b44aff6a33306e65df4d8fb0",
+    "src/lib/onboarding-workbook/archive.ts": "5f502c81197c1219f4d7474b85c5313b64dd1ae6b0811f7bc0a5227f3409a92c",
+    "src/lib/onboarding-workbook/contract.ts": "0f75767bc295b55c927adff4570a6d29abb13af129a3530bbb993823f9882998",
+    "src/lib/onboarding-workbook/file.ts": "049db033eab15ab6e864894fa35f7a633f740ce4af1f442b14a8edd718f59024",
+    "src/lib/onboarding-workbook/planning.ts": "4cb7297bbe6c60a3a6d0b2bd654717c7182f6fe1a5d5919f74a5e0cc288048af",
+    "src/lib/onboarding-workbook/service.ts": "3bdcbcd583e5ad8a7ba27010173d4b4f3ed16c64ddc402853d8937b45a7c7680",
+    "src/lib/onboarding-workbook/workbook.db.test.ts": "1397b7f12f491edc701b601615565631d6add2d8514f31ea22fbc5857360b716",
+    "src/lib/onboarding-workbook/workbook.hermetic.test.ts": "38107131690c37b13ae62932e37660db57902261b217b2ebba874c3b75043b46",
+    "src/lib/onboarding/draft.ts": "c3b96c62d8944c883a9cd8b5abd99564595528dcb13767fe260f95c9ab6f2d90",
+    "src/lib/onboarding/manager-invitations.ts": "fdc1bf26b0c1cf79bd6bea6bc51f6f0d2cd4199baa8363f1710c1d175904d948",
+    "src/lib/onboarding/manager-invite-http.ts": "33df300834f95bb66ec886ba976e4fe9c1ddea3094511b8bccb9900f834e5b52",
+    "src/lib/onboarding/onboarding.db.test.ts": "dd94dacf3448c17478d7bb79731380503db1e51221354f49e70dac5dfb24013b",
+    "src/lib/onboarding/onboarding.hermetic.test.ts": "da9792c1f0ce5126b27a40e76c0fe1fbf1e6652d5216f4ff9f08b979dc934570",
+    "src/lib/onboarding/setup-workspace.db.test.ts": "afc74752a528ce7b4fccbfc91b198b1da8d29a31951eb6e57353d936196b1933",
+    "src/lib/onboarding/status.ts": "36c861a3cb89ba4fbfe59ea2adfbb5c255f27ef668a5fef508171800465ef782",
+    "src/lib/onboarding/transitions.ts": "1cf6e6251e9274cae78420b151cc3d706e759d13ced95be5ab86cbcb1cfaa2e4",
+    "src/lib/onboarding/workspace.hermetic.test.ts": "26f315cae2ec52456748943a0ee175d40c9798b313508e56623a82a882c5e8da",
+    "src/lib/onboarding/workspace.ts": "9d76d6d2bea2c686a7ad334f9791745d080e9b599dd2cea41dfacacd8392c0a2",
+    "src/lib/operational-cycles/cycle-authority.ts": "27fb91fdbf55879b415d06467c6bdc11861478d24535c258e15c7afef56f982c",
+    "src/lib/operational-evidence/evidence-authority.ts": "97feaabb74f7c39f2dda19cc3e97bec687a84bde5790d1c6d0ebd21cc8c537cd",
+    "src/lib/operational-requests/authority.ts": "6f0203bcc38d4f2ff231ce55d118e080a1fa7a088e6c03ffa53b13706dbb5f67",
+    "src/lib/preventive-maintenance/authority.ts": "fb33cedd25ac22d17a83320ae53186999e11c9fcde3d6ac6d50e926a1a7ac8e3",
+    "src/lib/route-registry/platform-routes.ts": "48f552ac026c683511c052c076870b9147014d5217a6deb8ca6b68250f9c670d",
+    "src/lib/scheduling/operational-assignments/assignment-authority.hermetic.test.ts": "ad91b2a4e2d3d93bf87662996e30235c407311966a88efda1d3d12fe6ad21977",
+    "src/lib/scheduling/operational-assignments/assignment-authority.ts": "f8e7502fa996a1c4589e35b0d5c8c86d60de4b61c80cfbbf9e8adf13fc36f70f",
+    "src/lib/setup-imports/activation.ts": "0264e9528bf6ed1f67792a546ed401126be6c913a9ae32f4f8971b98b0115c53",
+    "src/lib/setup-imports/authority.ts": "d4f6c3a229b82ae5c6d7493ec73f8e99f4fcc0e68b94a5402f1b2c88f5fcc576",
+    "src/lib/setup-imports/catalog.ts": "5aae0ea29d3de4914efce42792411e2059513a1ef91ee34c3d0691c3cdcf38e0",
+    "src/lib/setup-imports/contract.hermetic.test.ts": "5fbe388dcc8d02bda20378b647eb13eca64f5ee596e8c2559dcb058f68685be8",
+    "src/lib/setup-imports/contract.ts": "86b7faba88364fe4cc639a31741aa9906f1bc1c73749a89b0a9c7249031a1dfe",
+    "src/lib/setup-imports/execute.ts": "ed43a681f12c8f9175e803830b8dcb2bd8543c013264d6d8345837fec0793cf7",
+    "src/lib/setup-imports/planner.ts": "0352cb28b6c57958f5c3410fe0182db4b382b46b4a40fce3e91fc7237c873741",
+    "src/lib/setup-imports/public-contract.ts": "dce1f00bf253c97129b13d96c6af2838a1d9eac183ba255ad49d73372eae297b",
+    "src/lib/setup-imports/service.ts": "5b6cfdbb067462e968c82d816698643c9b333b6b562195fbe64a373d126c49b2",
+    "src/lib/setup-imports/setup-imports.db.test.ts": "bfe84024031ae41bed604ae51944be099f9cc59b1bd3077a26b9fbc04177f262",
+    "src/lib/setup-imports/transaction.hermetic.test.ts": "8388e2c472ce9523f4ef73966e0a0deab037ed18cb68dc106b4ff127619c54f4",
+    "src/lib/setup-imports/transaction.ts": "d4957898cb357c829e834d1aa39cc91c1579708d5a502bc821b4cb8f48cbdc07",
+    "src/lib/signup-policy.ts": "849e7db76b4828012e34092a313ff1c06c9f7d0ebc42a7ef206a99a4a315262b",
+    "src/lib/support/attachment-scanner.db.test.ts": "4e6501de4bc708b4f36a70854bfab5e7bd1b6e67a26b0c4e098e7b17d617231c",
+    "src/lib/support/attachment-scanner.ts": "ec19dc628efb387113905035da784e5220bb3e5e5b598cd68c296bd56414665c",
+    "src/lib/support/scan-pending-attachments.ts": "60f8d35969cc604d3a0abe7184cb3ee1bab8ee932ed7bd1e22cf089a1ef7e767",
+    "src/lib/verify/database-target.ts": "d068b03b6695245519317629ed592b12a0db530a50ee01bff562e7bcdc5fb047",
+    "src/proxy.ts": "3d9d5350fb2d961de3adb6c23bd06e035c57d31f3247f21edb8d6b5544bf48fb",
+    "tests/bulk-import-browser/ci-gate.spec.ts": "f7e0cf6cfe47cf2dbb727a8822ffd9de55174a4836b538d1576a37d9d59790ee",
+    "tests/employee-csv-browser/employee-update.spec.ts": "d6776f11010f98be82446553af61cbbc21856230e607c0bc0d5a6b596d434144",
+    "tests/implementation-browser/service.spec.ts": "156651938f8c0fef3d537f99315bade6c34165df63c0b111abb2c515b426c43e",
+    "tests/onboarding-browser/setup.spec.ts": "74bd6ff43a3b26816e72a21ed9546a5a71eaf79914cf03f618f2c565df3bd718",
+    "tests/onboarding-certification-browser/journey.spec.ts": "1620c7792efdb635bc61f0451a8f71bff1d3c33677969bbbf361a55a8a7f580a",
+    "tests/playwright.employee-csv.config.ts": "2243e2724cf387abcbd362184df9cf71a6abad55ea500dcf0e705e4713a2aff4",
+    "tests/playwright.implementation.config.ts": "91d01b0c2a48ab23ef3db9ab476fa6dcb03de4af41f82dc783f122bdb5a73a2c",
+    "tests/playwright.onboarding-certification.config.ts": "87aefe0cb62c31702e3a7eb737c77d83807b90eacb74145369cb6fd09bdaad1e",
+    "tests/playwright.onboarding.config.ts": "3cc13d1364af079f5945810dc8a9a580dc2f04cc8c32555e61bcb0c167261f46",
+    "tests/playwright.setup-import.config.ts": "3f5127626f2cb45ef9a4722a98db16e1d9f67f158892fd90be6c781f8184b350",
+    "tests/playwright.setup-workspace.config.ts": "8653c81744819800e91172d2ad33a3e8213c69a9792c07b305d47c94d1c35de3",
+    "tests/playwright.workbook.config.ts": "b3dc96a053bc360e3e7f00ea9dc6b5cdd38eb28db66a50e71e0ea06d0814721b",
+    "tests/setup-import-browser/import.spec.ts": "3173dd0381377da584d9edf0d2fe4a4a3ae84482ba274b525d8aadff03049b45",
+    "tests/setup-workspace-browser/workspace.spec.ts": "92e6753dcfc4aba31da2ce3d041b61a21cf68bb3d41ec5eeb00f1f2dac200beb",
+    "tests/workbook-browser/workbook.spec.ts": "a8a5254411ee37eed031653973ad99f5403f59237280a53f8ba01b6a2d0f02e5",
+    "workers/support-attachment-scanner/.dockerignore": "2331fb574f28e5644bb54c792ac72c0eb029e065ff6fea018fd88e9a0c5215ce",
+    "workers/support-attachment-scanner/Dockerfile": "84229aa04e2baf5508603d367778193586430082e74bb8a0900abb9f33a0d1fd",
+    "workers/support-attachment-scanner/README.md": "ae11eb6a1a27dd29de0f4e23ade8705749d3620f3758e9948daeb5192025c3c2",
+    "workers/support-attachment-scanner/clamd.conf": "9a39d08144c2ec22b0b8a906410ff79bdcff0c70ba195ef5e9fd8e6d4188d2ca",
+    "workers/support-attachment-scanner/compose.yaml": "e5c2682b95f0b95cdda68f6a471ece393e0025c41091922247edabf82a5ccfce",
+    "workers/support-attachment-scanner/freshclam.conf": "f75a2d66daf8c3e04645243ba894cb00a10ee246a32c5072500ea9021641e010",
+    "workers/support-attachment-scanner/healthcheck.py": "e729d429be3449756b92073149c9640130a0d6af3dad472fed8ae141a2a439e5",
+    "workers/support-attachment-scanner/run.sh": "f6e1576015a2f2f574ed7ef7fbc01c61b918aea37270d004148ee8de65c67a84",
+    "workers/support-attachment-scanner/worker.py": "242e1bd137e9bf281d8668756623b32bcdb001da75e2e243ee88e67698f7e3fb"
+  },
+  "applicationSourceManifest": {
+    "path": "tmp/onb07-verification/source-manifest.json",
+    "sha256": "d9dfdc0ae7e6c903bfd1d21ce8659cddc93e451b42892fda67d94448d2d5a03d",
+    "files": 2174
+  },
+  "pilot": {
+    "facility": null,
+    "workflow": null,
+    "customerOwner": null,
+    "vssylDeliverySupportOwner": null,
+    "trainingSupportWindow": null,
+    "liveAuthorization": false,
+    "customerAcceptance": "PENDING",
+    "actualHumanEffort": "Not measured; no invented baseline/targets",
+    "userInstruction": "Continue isolated local certification and package only; no real pilot activation/customer-data operations/external messages/live charges/deployment."
+  },
+  "releasePrerequisites": [
+    "Resolve current required static/hermetic/database/browser integration failures; no waivers",
+    "Normal commit/review/remote CI and target checksum/backup/migration approval",
+    "Authorized private Blob/ClamAV hosting/network/TLS/CA/secrets/updates/ownership/processor schedule",
+    "Separate approved production public-signup/mail launch if applicable",
+    "Named real pilot scope/owners/training/support/fallback plus explicit authorization and actual customer workflow acceptance"
+  ],
+  "decisions": [
+    "D17; D09/D13/D15/D16 preserved"
+  ],
+  "triage": [
+    "Old root-location seed unique selector replaced with Facility-locked root scope; seed twice succeeds.",
+    "CLI onboarding variable omission fixed and safety parity covered.",
+    "Synthetic fixture activation/Facility grants corrected without bypassing credentials.",
+    "Ignored verification source copies no longer inflate lint; 8 real source errors remain visible.",
+    "Confirmed P2034 rollback retries use five bounded attempts with jitter/telemetry; generated extension error constructor identity does not block recognition. Unknown COMMIT is never auto-retried.",
+    "Preview counts scoped to Facility/proposed identity to avoid unrelated concurrency.",
+    "25-row cap means attempted rows, including truthful failures; mapping agreement and explicit complete recovery verified.",
+    "Initial new browser fixture omitted Job Flow local flag; corrected required local flags, no production change.",
+    "Request-time signup flag fixes build-cached 404; enabled local entry passed separately.",
+    "Initial build exposed nullable Role relation in new test; corrected test and final builds/typechecks passed."
+  ],
+  "rawEvidence": "/tmp/vssyl-onb07-* plus ignored tmp/onb07-verification/logs/ and SHA-256 manifest; local screenshots/facts/reports retained. Earlier phase browser artifacts backed up, fresh results archived separately and original contents restored.",
+  "testServicesStopped": {
+    "ownedNextServersStopped": [
+      {
+        "port": 55478,
+        "pid": 62653
+      },
+      {
+        "port": 55479,
+        "pid": 62667
+      }
+    ],
+    "ownedPostgresStopped": true,
+    "retained": "All isolated databases/fixtures, prior browser artifacts, builds, logs and signature volume; no reset/deletion",
+    "onb07ScannerStarted": false,
+    "unrelatedDevPid71158StillAlive": true
+  },
+  "trackedChangeSet": {
+    "files": 213,
+    "commitCreated": false,
+    "normalStagingRecord": "/tmp/vssyl-onb07-tracked-change-set.json",
+    "note": "Entire existing onboarding program and scoped ONB-07 files staged; no unrelated/new unexpected path, no commit/push."
+  },
+  "visualReview": {
+    "run": [
+      "tmp/onb07-verification/whole-run-1280.png",
+      "tmp/onb07-verification/whole-run-768.png",
+      "tmp/onb07-verification/affected-final-browser-evidence/onb06-browser/results-768.png"
+    ],
+    "result": "Desktop/tablet actual Run completion and current tablet receipt results inspected. Existing duplicate Logs navigation retained as a usability finding; no shell rewrite."
+  },
+  "rawLogArchive": {
+    "path": "tmp/onb07-verification/logs",
+    "files": 58,
+    "manifestSha256": "2633e848b2f4ebe6f59f998c1fbe6f634b65cb3b0233a9c29e988ea8accfce57"
+  },
+  "checkpointStatus": "historical October18 checkpoint; original checks retained, not current unchanged-failure evidence",
+  "currentStabilizationInventory": "ONB_07_STABILIZATION_VERIFICATION_2026-10-19.json"
+}

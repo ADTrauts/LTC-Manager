@@ -1,3 +1,4 @@
+import { PROOF_COOKIE, proofCookieOptions } from "@/lib/offline/space/keys";
 import { NextResponse } from "next/server";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
@@ -43,5 +44,6 @@ export async function POST(request: Request) {
   response.cookies.set(SESSION_COOKIE, "", { ...getCookieOptions(), maxAge: 0 });
   response.cookies.set(DEVICE_FACILITY_COOKIE, "", { ...getDeviceCookieOptions(), maxAge: 0 });
   response.cookies.set(DEVICE_UNIT_COOKIE, "", { ...getDeviceCookieOptions(), maxAge: 0 });
+  response.cookies.set(PROOF_COOKIE,"",{...proofCookieOptions(),maxAge:0});
   return response;
 }

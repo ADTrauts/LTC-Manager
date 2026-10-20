@@ -5,6 +5,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { buildDietaryDefaultCyclePlans } from "./defaults";
 import {
@@ -357,13 +359,13 @@ test("Dietary starter adds explicit Service Phases without rewriting Prep/Cleanu
 });
 
 test("shared presenter source has no Dietary meal-key branching", () => {
-  const source = require("node:fs").readFileSync(
-    require("node:path").join(process.cwd(), "src/lib/operational-cycles/present-run-operation.ts"),
+  const source = readFileSync(
+    join(process.cwd(), "src/lib/operational-cycles/present-run-operation.ts"),
     "utf8",
   );
   assert.doesNotMatch(source, /breakfast_cleanup|breakfast_prep|DIETARY/);
-  const timeline = require("node:fs").readFileSync(
-    require("node:path").join(process.cwd(), "src/lib/operational-cycles/cycle-timeline.ts"),
+  const timeline = readFileSync(
+    join(process.cwd(), "src/lib/operational-cycles/cycle-timeline.ts"),
     "utf8",
   );
   assert.doesNotMatch(timeline, /breakfast|lunch|dinner|servery|Dietary/i);

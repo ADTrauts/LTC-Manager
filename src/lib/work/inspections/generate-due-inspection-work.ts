@@ -43,7 +43,7 @@ export type GenerateDueInspectionWorkResult = {
 
 export type GenerateDueInspectionWorkDb = Pick<
   PrismaClient,
-  "inspectionDefinition" | "inspectionOccurrence" | "task" | "facility"
+  "inspectionDefinition" | "inspectionOccurrence" | "task" | "facility" | "recordEngineRollout"
 >;
 
 function toServiceDate(value: Date | string | undefined, fallback: Date): Date {
@@ -156,6 +156,7 @@ export async function generateDueInspectionWork(
             facilityId: definition.facilityId,
             departmentId: definition.departmentId,
             serviceDate: toServiceDateKey(serviceDate),
+            client: db as PrismaClient,
           })
         ) {
           continue;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { prepareCanonicalOfflineFixture } from "./canonical-offline-fixtures.mjs";
 /**
  * Synthetic fixtures for Dietary V1 integrated pilot certification.
  * Disposable VERIFY_DATABASE_URL only. Never prints credentials.
@@ -9,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import bcrypt from "bcryptjs";
+import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mjs";
 import { PrismaClient } from "@prisma/client";
 
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
@@ -17,7 +19,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ARTIFACT_DIR = join(ROOT, "tmp", "dietary-pilot-artifacts");
 const FIXTURE_PATH =
   process.env.DIETARY_PILOT_FIXTURE_PATH || join(ARTIFACT_DIR, "fixtures.json");
-const PINS_PATH = join(ARTIFACT_DIR, "pins.env");
+const PINS_PATH = process.env.DIETARY_PILOT_PINS_PATH || join(ARTIFACT_DIR, "pins.env");
 
 const SYNTHETIC_PASSWORD = process.env.SEED_DEMO_PASSWORD;
 const AUTH_SECRET = process.env.AUTH_SECRET;
@@ -38,7 +40,7 @@ function pinDigest(facilityId, pin) {
 async function upsertUser(db, { email, displayName, roleKey, facilityId, primaryDepartmentId }) {
   const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
   const passwordHash = await bcrypt.hash(SYNTHETIC_PASSWORD, 12);
-  return db.user.upsert({
+  const user = await db.user.upsert({
     where: { email },
     update: {
       displayName,
@@ -60,6 +62,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
     },
     select: { id: true, email: true },
   });
+  return activateFixtureAccount(db, user, { facilityId, roleKey });
 }
 
 async function ensureEmployee(db, input) {
@@ -186,6 +189,7 @@ async function main() {
       dietaryId: dietary.id,
       roleType: "SUPERVISOR",
     });
+    await linkFixtureAccount(db, supervisor, supervisorEmp, { facilityId: facility.id, roleKey: "SUPERVISOR" });
     await ensureDeptMembership(db, supervisorEmp.id, dietary.id);
 
     const staffEmp = await ensureEmployee(db, {
@@ -197,6 +201,7 @@ async function main() {
       primaryUnitId: primaryServery.id,
       pinDigest: pinDigest(facility.id, staffPin),
     });
+    await linkFixtureAccount(db, staff, staffEmp, { facilityId: facility.id, roleKey: "STAFF" });
     await ensureDeptMembership(db, staffEmp.id, dietary.id);
     await db.employeeUnitAccess.upsert({
       where: { employeeId_unitId: { employeeId: staffEmp.id, unitId: primaryServery.id } },
@@ -212,6 +217,7 @@ async function main() {
       dietaryId: dietary.id,
       roleType: "GM",
     });
+    await linkFixtureAccount(db, gm, gmEmp, { facilityId: facility.id, roleKey: "GM" });
     await ensureDeptMembership(db, gmEmp.id, dietary.id);
 
     // ~100 scale employees + schedule slice.
@@ -305,11 +311,13 @@ async function main() {
       });
     }
 
+    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraWorkItems: 3, extraKeyTimes: 1 });
     mkdirSync(ARTIFACT_DIR, { recursive: true });
     writeFileSync(
       FIXTURE_PATH,
       JSON.stringify(
         {
+          canonical,
           facilityId: facility.id,
           facilityName: facility.displayName,
           facilityTimezone: facility.timezone || "America/New_York",
@@ -331,7 +339,7 @@ async function main() {
         2,
       ),
     );
-    writeFileSync(PINS_PATH, `PILOT_STAFF_PIN=${staffPin}\n`, { mode: 0o600 });
+    writeFileSync(PINS_PATH, `PILOT_STAFF_PIN=${staffPin}\nCANONICAL_STAFF_PIN=864205\n`, { mode: 0o600 });
     console.log("dietary-pilot-fixtures: wrote fixtures (no secrets in fixtures.json)");
   } finally {
     await db.$disconnect();

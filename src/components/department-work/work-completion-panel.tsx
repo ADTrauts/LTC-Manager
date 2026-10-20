@@ -18,6 +18,7 @@ import {
 import { loadPendingCommands } from "@/lib/offline/local-store";
 
 type Props = {
+  canonicalOffline?: boolean;
   facilityId: string;
   departmentId: string;
   unitId: string;
@@ -35,6 +36,7 @@ function workStateLabel(state: string): string {
 }
 
 export function WorkCompletionPanel({
+  canonicalOffline = false,
   facilityId,
   departmentId,
   unitId,
@@ -240,6 +242,7 @@ export function WorkCompletionPanel({
             <button
               type="button"
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 disabled:opacity-50"
+              hidden={canonicalOffline}
               data-testid="complete-work-offline"
               disabled={pending || requirement.completionMode === "LINKED_EVIDENCE"}
               onClick={completeOffline}

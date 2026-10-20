@@ -471,7 +471,8 @@ test("signup and Harbor share bootstrap and do not install products or claims", 
   assert.match(partnerPanel, /from \"@\/lib\/organization-membership\/types\"/);
   assert.doesNotMatch(partnerPanel, /from \"@\/lib\/organization-membership\"/);
   assert.doesNotMatch(partnerPanel, /from \"@\/lib\/partner-user-access\"/);
-  assert.match(proxy, /onboardingCompletedAt/);
-  assert.match(proxy, /ONBOARDING_ENTRY_PATH/);
-  assert.match(proxy, /isFacilityAdministratorRole/);
+  // Setup is explicit authorized navigation, not a blanket journey redirect.
+  assert.doesNotMatch(proxy, /onboardingCompletedAt|ONBOARDING_ENTRY_PATH/);
+  assert.match(proxy, /authorizeRoute/);
+  assert.match(proxy, /validateSessionAuthority/);
 });

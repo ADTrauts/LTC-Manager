@@ -179,6 +179,6 @@ test("Facility Overview remains labeled by customer-current department", () => {
   assert.ok(view.departmentSnapshots.every((d) => d.label.length > 0));
   assert.deepEqual(
     view.departmentSnapshots.map((d) => d.departmentKey).sort(),
-    ["DIETARY"],
+    ["DIETARY", "PLANT"],
   );
 });

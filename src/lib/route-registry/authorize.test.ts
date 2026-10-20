@@ -171,7 +171,7 @@ test("role policy — Department Builder admits Manager+ for Operational Cycles"
 
 test("role policy — Plant Preventive Maintenance Run admits Supervisor+", () => {
   const supervisorPlus: AppRole[] = ["FACILITY_ADMINISTRATOR", "GM", "MANAGER", "SUPERVISOR"];
-  for (const path of ["/preventive-maintenance", "/preventive-maintenance/clocc00001"]) {
+  for (const path of ["/preventive-maintenance"]) {
     for (const role of APP_ROLES) {
       assert.equal(
         roleMayAccessRoute(path, role, FLAGS),
@@ -650,4 +650,9 @@ test("drift resistance — the decision is a pure function with no database acce
   const source = authorizeRoute.toString();
   assert.doesNotMatch(source, /prisma/i, "route authorization must not reach the database");
   assert.doesNotMatch(source, /await/, "route authorization must be synchronous");
+});
+
+// Occurrence execution has its own STAFF route and downstream assignment scope.
+test("Plant PM occurrence keeps STAFF execution access", () => {
+  assert.equal(roleMayAccessRoute("/preventive-maintenance/clocc00001", "STAFF", FLAGS), true);
 });

@@ -81,6 +81,13 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
 
 test("create and confirm @ci-gate: supervisor assigns and confirms plan", async () => {
   const fx = loadFixtures();
+  // Reused isolated environments may already hold a confirmed plan. Reset only
+  // this synthetic fixture's plan; real confirmation still happens in the UI.
+  const fixtureDb = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
+  try {
+    await fixtureDb.operationalAssignmentPlan.updateMany({ where: { facilityId: fx.facilityId, departmentId: fx.departmentId, serviceDate: serviceDateUtc(fx.serviceDateKey) }, data: { status: "DRAFT", confirmedAt: null } });
+    await fixtureDb.operationalAssignment.deleteMany({ where: { facilityId: fx.facilityId, employeeId: fx.staffEmployeeId, serviceDate: serviceDateUtc(fx.serviceDateKey) } });
+  } finally { await fixtureDb.$disconnect(); }
   const { context, page } = await openPersistent("confirm");
   try {
     await loginPassword(page, fx.supervisorEmail);
@@ -139,13 +146,13 @@ test("employee visibility @ci-gate: staff sees confirmed Assignment only after c
           serviceDate,
         },
       },
-      update: { status: "CONFIRMED", confirmedAt: new Date() },
+      update: { status: "DRAFT", confirmedAt: null },
       create: {
         facilityId: fx.facilityId,
         departmentId: fx.departmentId,
         serviceDate,
-        status: "CONFIRMED",
-        confirmedAt: new Date(),
+        status: "DRAFT",
+        confirmedAt: null,
       },
     });
     await db.operationalAssignment.deleteMany({
@@ -177,10 +184,13 @@ test("employee visibility @ci-gate: staff sees confirmed Assignment only after c
     try {
       await loginPassword(page, fx.staffEmail);
       await page.goto(`/unit/${fx.unitId}`, { waitUntil: "domcontentloaded" });
-      const panel = page.getByTestId("my-assignment-panel");
+      const panel = page.getByTestId("employee-runtime-assignment");
       await expect(panel).toBeVisible({ timeout: 20_000 });
+      await expect(panel).toContainText(/No confirmed assignment/i);
+      await db.operationalAssignmentPlan.update({ where: { id: plan.id }, data: { status: "CONFIRMED", confirmedAt: new Date() } });
+      await page.reload({ waitUntil: "domcontentloaded" });
       await expect(panel).toContainText(/Server/i);
-      await expect(panel).not.toContainText(/Assignment not confirmed/i);
+      await expect(panel).not.toContainText(/No confirmed assignment/i);
     } finally {
       await context.close();
     }

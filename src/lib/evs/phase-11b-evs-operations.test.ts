@@ -7,7 +7,7 @@ import test from "node:test";
 import { PrismaClient, type SpaceType } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
-import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
+import type { FacilitySession } from "@/lib/auth";
 import {
   completeExplicit,
   createDraft,
@@ -19,11 +19,7 @@ import type { PublishedWorkPlanForResolve, WorkRequirement } from "@/lib/departm
 import { processSyncCommand } from "@/lib/offline/process-sync-command";
 import type { OfflineCommandEnvelope } from "@/lib/offline/types";
 import { createDraft as createCycleDraft, publishCycle } from "@/lib/operational-cycles/cycle-service";
-import {
-  createDraft as createTemplateDraft,
-  publishTemplate,
-} from "@/lib/operational-evidence/template-service";
-import { submitEvidenceRecord } from "@/lib/operational-evidence/submit-evidence";
+import { resolveEvidenceAuthority } from "@/lib/operational-evidence/evidence-authority";
 
 const databaseUrl = process.env.DEPARTMENT_WORK_TEST_DATABASE_URL;
 
@@ -54,7 +50,7 @@ function session(
 
 async function loadEvsFixture(prisma: PrismaClient) {
   const evs = await prisma.department.findFirst({
-    where: { key: "EVS", isActive: true },
+    where: { facilityId: "cmfacseed0000000000000001", key: "EVS", isActive: true },
     include: { facility: true },
   });
   assert.ok(evs, "EVS department required");
@@ -269,341 +265,122 @@ function toPlanForResolve(published: {
   };
 }
 
-test(
-  "phase11b sql: SPACE_TYPE PATIENT_ROOM expands per-space; historical occurrence keeps spaceId",
-  { skip: skipReason },
-  async () => {
-    assert.ok(databaseUrl);
-    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-    const prev = process.env.EVS_OPERATIONS_ENABLED;
-    process.env.EVS_OPERATIONS_ENABLED = "true";
+// DEVELOPMENT does not grant customer operation, even with the engine flag enabled.
+// Direct SQL below represents retained pre-restriction history, never a product install
+// or a customer creation path. Positive shared-owner SQL coverage lives in AVAILABLE
+// Dietary/Plant suites; pure EVS expansion/timezone coverage remains in hermetic tests.
+async function withEvsHistory(run: (prisma: PrismaClient, fx: Awaited<ReturnType<typeof loadEvsFixture>>, mgr: FacilitySession) => Promise<void>) {
+  assert.ok(databaseUrl);
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  const previous = process.env.EVS_OPERATIONS_ENABLED;
+  process.env.EVS_OPERATIONS_ENABLED = "true";
+  try {
+    const fx = await loadEvsFixture(prisma);
+    const mgr = session({ facilityId: fx.facility.id, uid: fx.manager.id,
+      role: fx.manager.role!.key as FacilitySession["role"], primaryDepartmentId: fx.evs.id });
+    await run(prisma, fx, mgr);
+  } finally {
+    if (previous === undefined) delete process.env.EVS_OPERATIONS_ENABLED;
+    else process.env.EVS_OPERATIONS_ENABLED = previous;
+    await prisma.$disconnect();
+  }
+}
 
+test("phase11b sql: historical SPACE_TYPE expansion survives; DEVELOPMENT blocks new Work and completion",
+  { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
+    const actor = { userId: fx.manager.id, label: "EVS Manager" };
+    const draft = { name: `EVS history ${cuidLike()}`, weekdays: [],
+      applicabilities: [{ kind: "SPACE_TYPE" as const, spaceType: "PATIENT_ROOM" as const }],
+      items: [{ itemKey: "surfaces", label: "Clean high-touch surfaces", displaySequence: 10,
+        scheduleKind: "ONCE_PER_OPERATIONAL_DATE" as const }] };
+    const before = await prisma.departmentWorkPlan.count({ where: { departmentId: fx.evs.id } });
+    await assert.rejects(createDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+      actor, client: prisma, draft }), /commercial access is unavailable/);
+    assert.equal(await prisma.departmentWorkPlan.count({ where: { departmentId: fx.evs.id } }), before);
+    const published = await prisma.departmentWorkPlan.create({ data: {
+      facilityId: fx.facility.id, departmentId: fx.evs.id, stableKey: cuidLike(),
+      name: draft.name, status: "PUBLISHED", publishedAt: new Date("2026-08-01T12:00:00Z"),
+      items: { create: draft.items }, applicabilities: { create: draft.applicabilities },
+    }, include: { items: true, applicabilities: true } });
+    await assert.rejects(publishWorkPlan(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+      workPlanId: published.id, actor, client: prisma }), /commercial access is unavailable/);
+    const derived = resolveWorkRequirements({ facilityId: fx.facility.id, departmentId: fx.evs.id,
+      operationalDateKey: "2026-08-07", now: new Date("2026-08-07T15:00:00Z"),
+      facilityTimezone: fx.facility.timezone || "America/New_York", unitId: fx.unit.id,
+      spaces: fx.spaces.map(s => ({ ...s, unitId: fx.unit.id })),
+      publishedPlans: [toPlanForResolve(published)], publishedCycles: [],
+      confirmedAssignments: [{ employeeId: fx.staffEmployee.id, unitId: fx.unit.id, roleKey: null }],
+      existingOccurrences: [] });
+    assert.ok(new Set(derived.map(r => r.spaceId)).size >= 3);
+    const target = derived.find(r => r.spaceId === fx.spaces[0]!.id)!;
+    assert.ok(target);
+    await assert.rejects(completeExplicit(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+      requirement: target, operationalDate: "2026-08-07", actor, client: prisma,
+      clientCommandId: cuidLike() }), /commercial access is unavailable/);
+    assert.equal(await prisma.departmentWorkOccurrence.count({ where: { workPlanId: published.id } }), 0);
+    const history = await prisma.departmentWorkOccurrence.create({ data: {
+      facilityId: fx.facility.id, departmentId: fx.evs.id, occurrenceKey: target.occurrenceKey,
+      operationalDate: new Date("2026-08-07T00:00:00Z"), workPlanId: published.id,
+      workItemId: published.items[0]!.id, workItemLabelSnapshot: target.label,
+      spaceId: fx.spaces[0]!.id, unitId: fx.unit.id, status: "COMPLETED",
+      completedAt: new Date("2026-08-07T15:00:00Z") } });
     try {
-      const fx = await loadEvsFixture(prisma);
-      const mgr = session({
-        facilityId: fx.facility.id,
-        role: (fx.manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
-        uid: fx.manager.id,
-        primaryDepartmentId: fx.evs.id,
-      });
-      const actor = { userId: fx.manager.id, label: "EVS Manager" };
-      const operationalDate = "2026-08-07";
-
-      const draft = await createDraft(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        actor,
-        client: prisma,
-        draft: {
-          name: `EVS Room Clean ${cuidLike().slice(0, 8)}`,
-          description: "SPACE_TYPE expansion SQL",
-          weekdays: [],
-          applicabilities: [{ kind: "SPACE_TYPE", spaceType: "PATIENT_ROOM" }],
-          items: [
-            {
-              itemKey: "surfaces",
-              label: "Clean high-touch surfaces",
-              displaySequence: 10,
-              completionMode: "EXPLICIT_CONFIRMATION",
-              responsibilityMode: "UNIT_SHARED",
-              scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-            },
-          ],
-        },
-      });
-      const published = await publishWorkPlan(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        workPlanId: draft.id,
-        actor,
-        client: prisma,
-      });
-
-      const derived = resolveWorkRequirements({
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        operationalDateKey: operationalDate,
-        now: new Date(`${operationalDate}T15:00:00.000Z`),
-        facilityTimezone: fx.facility.timezone || "America/New_York",
-        unitId: fx.unit.id,
-        spaces: fx.spaces.map((s) => ({
-          id: s.id,
-          spaceType: s.spaceType,
-          unitId: fx.unit.id,
-        })),
-        publishedPlans: [toPlanForResolve(published)],
-        publishedCycles: [],
-        confirmedAssignments: [
-          {
-            employeeId: fx.staffEmployee?.id ?? "e_sql",
-            unitId: fx.unit.id,
-            roleKey: null,
-          },
-        ],
-        existingOccurrences: [],
-      });
-
-      const spaceIds = new Set(derived.map((r) => r.spaceId).filter(Boolean));
-      assert.ok(spaceIds.size >= 3, `expected ≥3 space requirements, got ${spaceIds.size}`);
-      assert.ok(derived.every((r) => r.workItemKey === "surfaces"));
-
-      const target = derived.find((r) => r.spaceId === fx.spaces[0]!.id);
-      assert.ok(target);
-
-      const completed = await completeExplicit(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        requirement: target,
-        operationalDate,
-        actor: { ...actor, employeeId: fx.staffEmployee?.id ?? null },
-        clientCommandId: `cmd_${cuidLike()}`,
-        client: prisma,
-      });
-      assert.equal(completed.occurrence.spaceId, fx.spaces[0]!.id);
-
-      await prisma.unitSpace.update({
-        where: { id: fx.spaces[0]!.id },
-        data: { spaceType: "PUBLIC_AREA" },
-      });
-
-      const afterTypeChange = await prisma.departmentWorkOccurrence.findUniqueOrThrow({
-        where: { id: completed.occurrence.id },
-      });
-      assert.equal(afterTypeChange.spaceId, fx.spaces[0]!.id);
-      assert.equal(afterTypeChange.status, "COMPLETED");
-
-      // Restore for other tests / seed hygiene.
-      await prisma.unitSpace.update({
-        where: { id: fx.spaces[0]!.id },
-        data: { spaceType: "PATIENT_ROOM" },
-      });
+      await prisma.unitSpace.update({ where: { id: fx.spaces[0]!.id }, data: { spaceType: "PUBLIC_AREA" } });
+      assert.deepEqual(await prisma.departmentWorkOccurrence.findUniqueOrThrow({ where: { id: history.id } }), history);
     } finally {
-      if (prev === undefined) delete process.env.EVS_OPERATIONS_ENABLED;
-      else process.env.EVS_OPERATIONS_ENABLED = prev;
-      await prisma.$disconnect();
+      await prisma.unitSpace.update({ where: { id: fx.spaces[0]!.id }, data: { spaceType: "PATIENT_ROOM" } });
     }
-  },
-);
+  }));
 
-test(
-  "phase11b sql: EVS cycle without mealType can publish; fixed window facility timezone",
-  { skip: skipReason },
-  async () => {
-    assert.ok(databaseUrl);
-    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-    const prev = process.env.EVS_OPERATIONS_ENABLED;
-    process.env.EVS_OPERATIONS_ENABLED = "true";
+test("phase11b sql: DEVELOPMENT denies cycle creation/publication and retains historical draft",
+  { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
+    const actor = { userId: fx.manager.id, label: "EVS Manager" };
+    const draft = { stableKey: cuidLike(), label: "Retained EVS morning", cycleType: "PREPARATION" as const,
+      startLocal: "06:00", endLocal: "10:00", applicableDaysOfWeek: [0,1,2,3,4,5,6],
+      effectiveFrom: "2099-01-01", mealType: null, locationMode: "UNIT_TYPES" as const,
+      applicableUnitTypes: ["RESIDENT_AREA" as const], expectedMilestones: [] };
+    await assert.rejects(createCycleDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+      actor, client: prisma, draft }), /commercial access is unavailable/);
+    assert.equal(await prisma.departmentOperationalCycle.count({ where: { departmentId: fx.evs.id, stableKey: draft.stableKey } }), 0);
+    const history = await prisma.departmentOperationalCycle.create({ data: { ...draft,
+      effectiveFrom: new Date("2099-01-01T00:00:00Z"), facilityId: fx.facility.id, departmentId: fx.evs.id } });
+    await assert.rejects(publishCycle(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+      cycleId: history.id, actor, client: prisma }), /commercial access is unavailable/);
+    assert.deepEqual(await prisma.departmentOperationalCycle.findUniqueOrThrow({ where: { id: history.id } }), history);
+    assert.equal(await prisma.departmentOperationalCycleEvent.count({ where: { cycleId: history.id } }), 0);
+  }));
 
-    try {
-      const fx = await loadEvsFixture(prisma);
-      const mgr = session({
-        facilityId: fx.facility.id,
-        role: (fx.manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
-        uid: fx.manager.id,
-        primaryDepartmentId: fx.evs.id,
-      });
-      const actor = { userId: fx.manager.id, label: "EVS Manager" };
-      const stableKey = `phase11b_evs_morning_${cuidLike().slice(-6)}`;
-
-      const draft = await createCycleDraft(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        actor,
-        client: prisma,
-        draft: {
-          stableKey,
-          label: "Morning Routine SQL",
-          cycleType: "PREPARATION",
-          displaySequence: 10,
-          startLocal: "06:00",
-          endLocal: "10:00",
-          applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-          effectiveFrom: "2099-01-01",
-          mealType: null,
-          locationMode: "UNIT_TYPES",
-          applicableUnitTypes: ["RESIDENT_AREA", "COMMON_AREA", "EVS_ZONE"],
-          expectedMilestones: [],
-        },
-      });
-      assert.equal(draft.status, "DRAFT");
-      assert.equal(draft.mealType, null);
-
-      const published = await publishCycle(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        cycleId: draft.id,
-        actor,
-        client: prisma,
-      });
-      assert.equal(published.status, "PUBLISHED");
-      assert.equal(published.mealType, null);
-      assert.equal(published.startLocal, "06:00");
-      assert.equal(published.endLocal, "10:00");
-    } finally {
-      if (prev === undefined) delete process.env.EVS_OPERATIONS_ENABLED;
-      else process.env.EVS_OPERATIONS_ENABLED = prev;
-      await prisma.$disconnect();
-    }
-  },
-);
-
-test(
-  "phase11b sql: inspection Needs Attention → rework complete leaves evidence unchanged",
-  { skip: skipReason },
-  async () => {
-    assert.ok(databaseUrl);
-    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-    const prev = process.env.EVS_OPERATIONS_ENABLED;
-    process.env.EVS_OPERATIONS_ENABLED = "true";
-
-    try {
-      const fx = await loadEvsFixture(prisma);
-      const mgr = session({
-        facilityId: fx.facility.id,
-        role: (fx.manager.role?.key ?? (() => { throw new Error("expected facility role"); })()) as FacilitySession["role"],
-        uid: fx.manager.id,
-        primaryDepartmentId: fx.evs.id,
-      });
-      const actor = { userId: fx.manager.id, label: "EVS Manager" };
-      const dateKey = "2026-08-07";
-      const spaceId = fx.spaces[0]!.id;
-
-      const templateDraft = await createTemplateDraft(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        actor,
-        client: prisma,
-        draft: {
-          name: `EVS Room Inspection ${cuidLike().slice(0, 6)}`,
-          purposeType: "INSPECTION",
-          allowAdHoc: true,
-          fields: [
-            {
-              fieldKey: "result",
-              label: "Inspection result",
-              fieldType: "PASS_NEEDS_ATTENTION",
-              isRequired: true,
-              displaySequence: 10,
-              allowedSelections: ["PASS", "NEEDS_ATTENTION"],
-              correctiveActionTrigger: true,
-              // Allow NEEDS_REVIEW without corrective text on submit.
-              correctiveActionRequired: false,
-            },
-          ],
-          applicabilities: [{ kind: "SPECIFIC_SPACE", spaceId }],
-          schedules: [{ kind: "ONCE_PER_OPERATIONAL_DATE" }],
-        },
-      });
-      const published = await publishTemplate(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        templateId: templateDraft.id,
-        actor,
-        client: prisma,
-      });
-
-      const record = await submitEvidenceRecord(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        templateId: published.id,
-        requirementKey: `insp|${published.stableKey}|${dateKey}|${fx.unit.id}|${spaceId}`,
-        operationalDateKey: dateKey,
-        scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-        unitId: fx.unit.id,
-        spaceId,
-        occurredAt: new Date(`${dateKey}T14:00:00.000Z`),
-        recordedOnline: true,
-        allowNeedsReview: true,
-        values: [{ fieldKey: "result", valueText: "NEEDS_ATTENTION" }],
-        client: prisma,
-      });
-      assert.equal(record.status, "NEEDS_REVIEW");
-      const resultValue = record.values.find((v) => v.fieldKey === "result");
-      assert.equal(resultValue?.valueText, "NEEDS_ATTENTION");
-
-      const rework = await createOneOff(mgr, {
-        work: {
-          facilityId: fx.facility.id,
-          departmentId: fx.evs.id,
-          operationalDate: dateKey,
-          unitId: fx.unit.id,
-          spaceId,
-          title: "Rework after inspection",
-          instructions: "Address Needs Attention findings",
-          assignedEmployeeId: fx.staffEmployee?.id ?? null,
-          priority: "URGENT",
-        },
-        actor,
-        client: prisma,
-      });
-      assert.equal(rework.sourceKind, "ONE_OFF");
-
-      const reworkReq: WorkRequirement = {
-        occurrenceKey: rework.occurrenceKey,
-        workPlanId: "",
-        workPlanStableKey: "",
-        workPlanVersion: 0,
-        workPlanName: "",
-        workItemId: "",
-        workItemKey: "one_off_rework",
-        label: rework.workItemLabelSnapshot,
-        instructions: rework.instructionsSnapshot,
-        priority: "URGENT",
-        completionMode: "EXPLICIT_CONFIRMATION",
-        responsibilityMode: "UNIT_SHARED",
-        scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-        cycleStableKey: null,
-        windowStartLocal: "00:00",
-        windowEndLocal: "23:59",
-        dueAt: null,
-        windowStartsAt: null,
-        windowEndsAt: null,
-        unitId: fx.unit.id,
-        unitName: null,
-        spaceId,
-        assetId: null,
-        roleKeys: [],
-        knowledgeArticleId: null,
-        procedureTitle: null,
-        linkedTemplateStableKey: null,
-        linkedTemplateId: null,
-        state: "DUE",
-        occurrenceId: rework.id,
-        occurrenceStatus: rework.status,
-        assignedEmployeeId: rework.assignedEmployeeId,
-        completedByLabel: null,
-        completedAt: null,
-        evidenceRecordId: null,
-        sourceKind: "ONE_OFF",
-        sourceHref: null,
-      };
-
-      await completeExplicit(mgr, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        requirement: reworkReq,
-        operationalDate: dateKey,
-        actor: { ...actor, employeeId: fx.staffEmployee?.id ?? null },
-        clientCommandId: `cmd_rework_${cuidLike()}`,
-        client: prisma,
-      });
-
-      const unchanged = await prisma.operationalEvidenceRecord.findUniqueOrThrow({
-        where: { id: record.id },
-        include: { values: true },
-      });
-      assert.equal(unchanged.status, "NEEDS_REVIEW");
-      assert.equal(
-        unchanged.values.find((v) => v.fieldKey === "result")?.valueText,
-        "NEEDS_ATTENTION",
-      );
-    } finally {
-      if (prev === undefined) delete process.env.EVS_OPERATIONS_ENABLED;
-      else process.env.EVS_OPERATIONS_ENABLED = prev;
-      await prisma.$disconnect();
-    }
-  },
-);
+test("phase11b sql: DEVELOPMENT denies new rework/Records; retained Needs Attention evidence stays unchanged",
+  { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
+    // Retained legacy definition is required by the historical Record FK/check.
+    // This is test history, not a new template creation service or forward writer.
+    const definition = await prisma.operationalTemplate.create({ data: {
+      facilityId: fx.facility.id, departmentId: fx.evs.id, stableKey: cuidLike(),
+      name: "Historical room inspection", purposeType: "INSPECTION", status: "PUBLISHED",
+      publishedAt: new Date("2026-08-01T12:00:00Z"),
+    } });
+    const history = await prisma.operationalEvidenceRecord.create({ data: {
+      templateId: definition.id,
+      facilityId: fx.facility.id, departmentId: fx.evs.id, templateStableKey: definition.stableKey,
+      templateVersion: 1, templateName: "Historical room inspection", purposeType: "INSPECTION",
+      requirementKey: cuidLike(), operationalDate: new Date("2026-08-07T00:00:00Z"),
+      scheduleKind: "ONCE_PER_OPERATIONAL_DATE", occurredAt: new Date("2026-08-07T14:00:00Z"),
+      unitId: fx.unit.id, spaceId: fx.spaces[0]!.id, status: "NEEDS_REVIEW", outOfStandard: true,
+      templateSnapshotJson: { name: "Historical room inspection", fields: [] },
+      values: { create: { fieldKey: "result", label: "Inspection result", fieldType: "PASS_NEEDS_ATTENTION",
+        valueText: "NEEDS_ATTENTION", outOfStandard: true } },
+    }, include: { values: true } });
+    const authority = await resolveEvidenceAuthority(mgr, fx.facility.id, fx.evs.id);
+    assert.equal(authority.canSubmit, false);
+    assert.match(authority.reason!, /commercial access is unavailable/);
+    const title = `Denied rework ${cuidLike()}`;
+    await assert.rejects(createOneOff(mgr, { work: { facilityId: fx.facility.id, departmentId: fx.evs.id,
+      operationalDate: "2026-08-07", unitId: fx.unit.id, spaceId: fx.spaces[0]!.id,
+      title, instructions: "Address Needs Attention", priority: "URGENT" },
+      actor: { userId: fx.manager.id, label: "EVS Manager" }, client: prisma }), /commercial access is unavailable/);
+    assert.equal(await prisma.departmentWorkOccurrence.count({ where: { departmentId: fx.evs.id, workItemLabelSnapshot: title } }), 0);
+    assert.deepEqual(await prisma.operationalEvidenceRecord.findUniqueOrThrow({ where: { id: history.id }, include: { values: true } }), history);
+  }));
 
 test(
   "phase11b sql: offline process-sync Work completion gated by EVS flag",

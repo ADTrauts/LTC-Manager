@@ -197,6 +197,7 @@ function makeDb(state: {
       fn: (tx: unknown) => Promise<unknown>,
       _options?: unknown,
     ) => Promise<unknown>;
+    $queryRaw: (query: { values: unknown[] }) => Promise<unknown>;
     _claims: Claim[];
     _users: Map<string, User>;
     _memberships: Membership[];
@@ -481,6 +482,10 @@ function makeDb(state: {
       update: async () => {
         throw new Error("unused");
       },
+    },
+    $queryRaw: async (query) => {
+      const id = String(query.values[0]);
+      return orgById.has(id) ? [{ id }] : [];
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>, _options?: unknown) => fn(db),
     _claims: claims,

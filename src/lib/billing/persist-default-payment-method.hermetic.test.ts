@@ -77,7 +77,7 @@ test("Harbor and admin billing share persistDefaultPaymentMethod through syncFac
 
   assert.match(reconcile, /persistDefaultPaymentMethod\(/);
   assert.match(reconcile, /applyResolvedStripeSubscription/);
-  assert.match(checkout, /persistDefaultPaymentMethod\(/);
+  assert.match(checkout, /persistSyncPaymentMethod\(/);
   assert.match(admin, /syncFacilityBillingFromStripe/);
   assert.doesNotMatch(admin, /persistDefaultPaymentMethod/);
   assert.doesNotMatch(persist, /subscriptions\.update|subscriptions\.create|paymentMethods\.attach/);

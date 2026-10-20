@@ -5,6 +5,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { randomBytes } from "node:crypto";
 
 import { PrismaClient } from "@prisma/client";
@@ -15,11 +16,12 @@ import {
   OrganizationMembershipError,
 } from "@/lib/organization-membership";
 
-const databaseUrl = process.env.DATABASE_URL ?? "";
+const databaseUrl = process.env.VERIFY_DATABASE_URL ?? "";
+if (databaseUrl) assertDisposableDatabaseUrl(databaseUrl);
 const local = /localhost|127\.0\.0\.1/.test(databaseUrl);
 const skip = local
   ? false
-  : "set DATABASE_URL to local PostgreSQL to certify concurrent last-admin locking";
+  : "set VERIFY_DATABASE_URL to guarded local PostgreSQL to certify concurrent last-admin locking";
 
 test(
   "concurrent demotions cannot leave an organization with zero administrators",

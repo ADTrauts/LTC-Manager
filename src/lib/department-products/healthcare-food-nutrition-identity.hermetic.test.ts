@@ -28,6 +28,7 @@ function mockDb(options: {
 }) {
   const created: Array<Record<string, unknown>> = [];
   const existing = [...(options.existing ?? [])];
+  const operators = new Map<string, { id: string }>();
 
   return {
     created,
@@ -36,7 +37,21 @@ function mockDb(options: {
       facility: {
         findUnique: async () => ({ id: "fac_terrace" }),
       },
+      departmentOperatorRelationship: {
+        findFirst: async ({ where }: { where: { departmentId: string } }) => operators.get(where.departmentId) ?? null,
+        create: async ({ data }: { data: { departmentId: string; organizationId: string } }) => {
+          assert.ok(existing.some((row) => row.id === data.departmentId));
+          assert.ok(data.organizationId.startsWith("org_"));
+          const row = { id: `operator_${data.departmentId}` };
+          operators.set(data.departmentId, row);
+          return row;
+        },
+      },
       department: {
+        findFirst: async ({ where }: { where: { id: string; facilityId: string } }) => {
+          const row = existing.find((item) => item.id === where.id && item.facilityId === where.facilityId);
+          return row ? { ...row, facility: { organizationId: `org_${row.facilityId}`, timezone: "America/New_York" } } : null;
+        },
         findUnique: async ({
           where,
         }: {

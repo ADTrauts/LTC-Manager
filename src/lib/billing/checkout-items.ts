@@ -28,7 +28,7 @@ export function stripeCheckoutLineItemsForQuote(
   quote: BillingQuote,
   environment: StripePriceIdEnv = process.env as StripePriceIdEnv,
 ): StripeCheckoutLineItem[] {
-  return lineItemsToStripePrices(catalogLineItemsForQuote(quote), environment);
+  return stripeRecurringLineItemsForQuote(quote, environment);
 }
 
 /** Recurring catalog lines only — used when changing an existing subscription. */

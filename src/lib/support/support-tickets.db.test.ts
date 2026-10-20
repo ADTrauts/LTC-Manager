@@ -1,3 +1,4 @@
+import { cleanupSyntheticSupportStaff } from "./fixtures/cleanup-staff";
 /**
  * SQL-backed support ticket tests.
  * Opt in via SUPPORT_TICKETS_TEST_DATABASE_URL / VERIFY_DATABASE_URL (a disposable migrated database).
@@ -434,8 +435,7 @@ test(
       }
       await prisma.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
-      await prisma.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
-      await prisma.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+      await cleanupSyntheticSupportStaff(prisma, staffIds);
       await prisma.facility.deleteMany({ where: { id: { in: facilityIds } } });
       if (orgId) {
         await prisma.organization.deleteMany({ where: { id: orgId } });

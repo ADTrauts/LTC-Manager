@@ -1,3 +1,4 @@
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
@@ -5,6 +6,7 @@ import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations"
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 export type AssetOperationsAuthorityDecision = {
   canViewRuntime: boolean;
@@ -148,8 +150,12 @@ export async function resolveAssetOperationsAuthority(
   session: FacilitySession,
   facilityId: string,
   departmentId: string,
+  client: PrismaClient | Prisma.TransactionClient = prisma,
 ): Promise<AssetOperationsAuthorityDecision> {
-  const department = await prisma.department.findFirst({
+  if (session.facilityId !== facilityId || !(await isCustomerDepartmentAccessAllowed(client, session, departmentId))) {
+    return { ...DENIED, reason: "Department commercial access is unavailable." };
+  }
+  const department = await client.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true, key: true },
   });

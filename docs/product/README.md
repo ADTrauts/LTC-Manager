@@ -20,6 +20,8 @@
 
 ## Still used, not the architecture map
 
+Current execution program: [Vssyl onboarding](../onboarding/README.md), with its accepted audit/plan, single phase tracker, and decision log. It applies this architecture; it does not replace it.
+
 | Document | Role |
 |----------|------|
 | [02 — Capability Model](./02_PRODUCT_CAPABILITY_MODEL.md) | Wave 12 capability inventory. Homes that moved are noted in the constitution. |

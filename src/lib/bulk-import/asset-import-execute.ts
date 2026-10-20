@@ -11,6 +11,7 @@ import type { FacilitySession } from "@/lib/auth";
 import { createAsset } from "@/lib/asset-operations/asset-service";
 import type { AssetOperationalStatus } from "@/lib/asset-operations";
 import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { loadCustomerOperableDepartments } from "@/lib/department-products/load-facility-catalog";
 
 import {
   planAssetImport,
@@ -59,6 +60,7 @@ async function resolveDefaultDepartment(
 export async function loadAssetImportCatalog(
   client: DbClient,
   facilityId: string,
+  candidateCodes: string[] = [],
 ): Promise<AssetImportCatalog> {
   const [units, spaces, departments, assets] = await Promise.all([
     client.unit.findMany({
@@ -83,6 +85,7 @@ export async function loadAssetImportCatalog(
       where: { unit: { facilityId } },
       select: {
         id: true,
+        departmentId: true,
         assetCode: true,
         name: true,
         equipmentType: true,
@@ -94,12 +97,20 @@ export async function loadAssetImportCatalog(
       },
     }),
   ]);
+  const [operable, responsibilities, foreign] = await Promise.all([
+    loadCustomerOperableDepartments(client,facilityId),
+    client.unitDepartmentResponsibility.findMany({ where: { unit: { facilityId } }, select: { unitId: true, departmentId: true, kind: true } }),
+    candidateCodes.length ? client.asset.findMany({ where: { OR: candidateCodes.map(assetCode => ({ assetCode: { equals: assetCode, mode: "insensitive" as const } })), unit: { facilityId: { not: facilityId } } }, select: { assetCode: true } }) : [],
+  ]);
+  const authorized = new Set(operable.map(d => d.id));
   return {
     units,
     spaces,
-    departments,
+    departments: departments.filter(d => authorized.has(d.id)),
+    responsibilities,
+    foreignAssetCodes: foreign.map(a => a.assetCode),
     assets,
-    assetOpsEnabled: isDietaryAssetOperationsEnabled(),
+    assetOpsEnabled: isDietaryAssetOperationsEnabled() || operable.some(d => d.key === "PLANT"),
   };
 }
 

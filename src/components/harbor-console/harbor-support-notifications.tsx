@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import {
   markAllSupportNotificationsReadAction,
@@ -38,10 +38,13 @@ export function HarborSupportNotifications({
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  useEffect(() => {
+  // Reconcile a refreshed server snapshot before rendering its optimistic state.
+  const [snapshot, setSnapshot] = useState({ items, unreadCount });
+  if (snapshot.items !== items || snapshot.unreadCount !== unreadCount) {
+    setSnapshot({ items, unreadCount });
     setFeed(items);
     setUnread(unreadCount);
-  }, [items, unreadCount]);
+  }
 
   function openTicket(notification: SupportStaffNotificationItem) {
     startTransition(async () => {

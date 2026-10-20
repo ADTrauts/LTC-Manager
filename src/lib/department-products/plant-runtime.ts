@@ -67,7 +67,7 @@ export async function isPlantRuntimeEnabled(
   session?: PlantRuntimeSession | null,
 ): Promise<boolean> {
   const developmentOverride = isPlantOperationsDevelopmentOverrideEnabled();
-  if (developmentOverride) {
+  if (developmentOverride && session?.authKind === "harbor_staff") {
     return resolvePlantRuntimeFromFacts({
       developmentOverride: true,
       productInstalled: false,

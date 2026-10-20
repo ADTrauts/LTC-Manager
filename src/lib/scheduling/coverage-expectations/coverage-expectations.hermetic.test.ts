@@ -1,3 +1,4 @@
+import { DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT } from "@/lib/department-administration/admin-nav";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -682,7 +683,9 @@ describe("coverage source contracts", () => {
     assert.match(client, /Staffing need/);
     assert.doesNotMatch(client, /Manage Coverage/);
     assert.doesNotMatch(client, /Mary assigned/);
-    assert.match(page, /requestedTab === "coverage" \|\| requestedTab === "cycles"/);
+    assert.match(page, /isDepartmentAdminRetiredTabId/);
+    assert.equal(DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT.coverage, "people");
+    assert.equal(DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT.cycles, "operating-rhythm");
     assert.match(summary, /Never falls back to/);
     assert.match(summary, /engine: "canonical-oa"/);
     assert.doesNotMatch(summary, /from ["']@\/lib\/scheduling\/schedule/);

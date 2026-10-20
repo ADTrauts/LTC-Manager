@@ -49,17 +49,10 @@ function normalizeSummary(summary: string): string {
 }
 
 async function nextIssueCode(client: DbClient): Promise<string> {
-  const count = await client.assetIssue.count();
-  let candidate = `AI-${String(count + 1).padStart(5, "0")}`;
-  for (let i = 0; i < 8; i += 1) {
-    const clash = await client.assetIssue.findFirst({
-      where: { issueCode: candidate },
-      select: { id: true },
-    });
-    if (!clash) return candidate;
-    candidate = `AI-${String(count + 1 + i + 1).padStart(5, "0")}`;
-  }
-  return `AI-${cuidLike().slice(1, 9).toUpperCase()}`;
+  const rows = await client.$queryRaw<Array<{ value: bigint }>>`
+    SELECT nextval('"AssetIssueCodeSequence"') AS value
+  `;
+  return `AI-${String(rows[0]!.value).padStart(5, "0")}`;
 }
 
 async function appendIssueUpdate(

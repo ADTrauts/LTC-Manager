@@ -7,6 +7,7 @@ import {
   decideSupportAttachmentDownload,
   supportAttachmentDownloadHeaders,
 } from "@/lib/support/attachments";
+import { readVerifiedSupportAttachment } from "@/lib/support/scan-pending-attachments";
 import { getSupportAttachmentStore } from "@/lib/support/attachment-store";
 
 type Props = {
@@ -42,6 +43,8 @@ export async function GET(_request: Request, { params }: Props) {
       contentType: true,
       storageKey: true,
       scanStatus: true,
+      checksumSha256: true,
+      sizeBytes: true,
     },
   });
   const decision = decideSupportAttachmentDownload({
@@ -64,10 +67,13 @@ export async function GET(_request: Request, { params }: Props) {
   }
 
   const store = getSupportAttachmentStore();
-  const bytes = store ? await store.get(attachment.storageKey) : null;
+  const bytes = await readVerifiedSupportAttachment(store,attachment);
   if (!bytes) {
-    return NextResponse.json({ error: "File missing." }, { status: 404 });
+    return NextResponse.json({ error: "Private file unavailable or changed since its security scan." }, { status: 404 });
   }
+
+  const currentStaff = await getHarborSession();
+  if (!currentStaff || currentStaff.uid !== harbor?.uid) return NextResponse.json({ error: "Forbidden." },{ status: 403 });
 
   return new NextResponse(Buffer.from(bytes), {
     status: 200,

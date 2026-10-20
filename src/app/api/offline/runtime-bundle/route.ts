@@ -1,3 +1,5 @@
+import { readOfflineBody } from "@/lib/offline/space/body";
+import { spaceRequest } from "@/lib/offline/space/http";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -58,7 +60,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401, headers: NO_STORE });
   }
 
-  const body = await request.json().catch(() => null);
+  let bytes: string;
+  try { bytes = await readOfflineBody(request); } catch { return NextResponse.json({error:"Invalid, oversized or timed-out request."},{status:413,headers:NO_STORE}); }
+  if (Buffer.byteLength(bytes)>196608) return NextResponse.json({error:"Request too large."},{status:413,headers:NO_STORE});
+  const body = (()=>{try{return JSON.parse(bytes);}catch{return null;}})();
+  if (body?.protocol === "space/1") return spaceRequest(request, body);
   const parsed = postSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400, headers: NO_STORE });

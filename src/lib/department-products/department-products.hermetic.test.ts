@@ -35,6 +35,14 @@ import {
 
 const AQUATICS = "AQUATICS";
 
+type OperatorFixture = {
+  id: string;
+  departmentId: string;
+  organizationId: string;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
+};
+
 function source(relative: string) {
   return readFileSync(join(process.cwd(), relative), "utf8");
 }
@@ -42,13 +50,21 @@ function source(relative: string) {
 function mockDb(options: {
   facilityId?: string | null;
   existing?: Array<{ id: string; facilityId: string; key: string; name: string }>;
+  operators?: OperatorFixture[];
 }) {
   const created: Array<Record<string, unknown>> = [];
   const existing = [...(options.existing ?? [])];
   const facilityId = options.facilityId === undefined ? "fac_1" : options.facilityId;
+  const organizationId = `org_${facilityId}`;
+  const operators = [...(options.operators ?? [])];
+  const operatorCreates: Array<Record<string, unknown>> = [];
+  const scopeLookups: Array<{ id: string; facilityId: string }> = [];
 
   return {
     created,
+    operators,
+    operatorCreates,
+    scopeLookups,
     prisma: {
       facility: {
         findUnique: async ({ where }: { where: { id: string } }) => {
@@ -57,6 +73,17 @@ function mockDb(options: {
         },
       },
       department: {
+        findFirst: async ({ where }: { where: { id: string; facilityId: string } }) => {
+          scopeLookups.push(where);
+          const row = existing.find(
+            (item) => item.id === where.id && item.facilityId === where.facilityId,
+          );
+          if (!row || row.facilityId !== facilityId) return null;
+          return {
+            ...row,
+            facility: { organizationId, timezone: "America/New_York" },
+          };
+        },
         findUnique: async ({
           where,
         }: {
@@ -90,6 +117,25 @@ function mockDb(options: {
           created.push(data);
           existing.push(row);
           return row;
+        },
+      },
+      departmentOperatorRelationship: {
+        findFirst: async ({ where }: { where: { departmentId: string } }) =>
+          operators
+            .filter((row) => row.departmentId === where.departmentId)
+            .sort((a, b) => a.effectiveFrom.getTime() - b.effectiveFrom.getTime())[0] ?? null,
+        create: async ({
+          data,
+        }: {
+          data: Omit<OperatorFixture, "id"> & {
+            createdByUserId: string | null;
+            notes: string;
+          };
+        }) => {
+          const row = { ...data, id: `operator_${operators.length + 1}` };
+          operatorCreates.push(data);
+          operators.push(row);
+          return { id: row.id };
         },
       },
     },
@@ -180,7 +226,7 @@ describe("Department Product registry", () => {
 
 describe("Department Product installation", () => {
   it("installs Dietary and Plant for customers and EVS only through internal development", async () => {
-    const { prisma, created } = mockDb({ facilityId: "fac_terrace" });
+    const { prisma, created, operators } = mockDb({ facilityId: "fac_terrace" });
     const dietary = await installDepartmentProduct({
       facilityId: "fac_terrace",
       productKey: "DIETARY",
@@ -196,6 +242,8 @@ describe("Department Product installation", () => {
       (error: unknown) =>
         error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
     );
+    assert.equal(created.length, 1, "rejected customer EVS install creates no Department");
+    assert.equal(operators.length, 1, "rejected customer EVS install creates no operator");
     const evs = await installDepartmentProductForInternalDevelopment({
       facilityId: "fac_terrace",
       productKey: "EVS",
@@ -217,6 +265,9 @@ describe("Department Product installation", () => {
     assert.equal(plant.key, "PLANT");
     assert.equal(plant.name, "Plant Operations");
     assert.equal(created.length, 3);
+    assert.deepEqual(operators.map((row) => row.departmentId), [dietary.id, evs.id, plant.id]);
+    assert.ok(operators.every((row) => row.organizationId === "org_fac_terrace"));
+    assert.ok(operators.every((row) => row.effectiveFrom instanceof Date && row.effectiveTo === null));
     assert.equal(hasDietaryDomainCapabilities(dietary.key), true);
     assert.equal(hasEvsDomainCapabilities(evs.key), true);
     assert.equal(hasPlantDomainCapabilities(plant.key), true);
@@ -224,7 +275,7 @@ describe("Department Product installation", () => {
   });
 
   it("is idempotent and never mints DIETARY_2 at the same facility", async () => {
-    const { prisma, created } = mockDb({
+    const { prisma, created, operators, operatorCreates } = mockDb({
       facilityId: "fac_1",
       existing: [
         { id: "dept_existing", facilityId: "fac_1", key: "DIETARY", name: "Terrace View Dietary" },
@@ -246,13 +297,69 @@ describe("Department Product installation", () => {
     assert.equal(second.id, "dept_existing");
     assert.equal(second.created, false);
     assert.equal(created.length, 0);
+    assert.equal(operators.length, 1);
+    assert.equal(operatorCreates.length, 1, "retry does not duplicate the initial operator");
+    assert.equal(operators[0]?.departmentId, first.id);
+    assert.equal(operators[0]?.organizationId, "org_fac_1");
     assert.notEqual(first.key, "DIETARY_2");
   });
 
+  it("reuses a fresh installation through its canonical Product alias without duplicating its operator", async () => {
+    const { prisma, created, operators } = mockDb({ facilityId: "fac_1" });
+    const first = await installDepartmentProduct({
+      facilityId: "fac_1",
+      productKey: "DIETARY",
+      prisma: prisma as never,
+    });
+    const retry = await installDepartmentProduct({
+      facilityId: "fac_1",
+      productKey: "HEALTHCARE_FOOD_NUTRITION",
+      prisma: prisma as never,
+    });
+    assert.equal(first.created, true);
+    assert.equal(retry.created, false);
+    assert.equal(retry.id, first.id);
+    assert.equal(retry.key, "DIETARY");
+    assert.equal(created.length, 1);
+    assert.equal(operators.length, 1);
+    assert.equal(operators[0]?.departmentId, first.id);
+  });
+
+  it("preserves an existing contracted operator on installation replay", async () => {
+    const operator: OperatorFixture = {
+      id: "operator_contracted",
+      departmentId: "dept_existing",
+      organizationId: "org_contractor",
+      effectiveFrom: new Date("2026-01-01T00:00:00Z"),
+      effectiveTo: null,
+    };
+    const { prisma, created, operators, operatorCreates } = mockDb({
+      existing: [{ id: "dept_existing", facilityId: "fac_1", key: "DIETARY", name: "Dietary" }],
+      operators: [operator],
+    });
+    const installed = await installDepartmentProduct({
+      facilityId: "fac_1",
+      productKey: "DIETARY",
+      prisma: prisma as never,
+    });
+    assert.equal(installed.id, "dept_existing");
+    assert.equal(installed.created, false);
+    assert.equal(created.length, 0);
+    assert.equal(operatorCreates.length, 0);
+    assert.deepEqual(operators, [operator]);
+  });
+
   it("keeps installation facility-scoped", async () => {
-    const { prisma } = mockDb({
+    const { prisma, operators, scopeLookups } = mockDb({
       facilityId: "fac_b",
       existing: [{ id: "dept_a", facilityId: "fac_a", key: "DIETARY", name: "Dietary" }],
+      operators: [{
+        id: "operator_a",
+        departmentId: "dept_a",
+        organizationId: "org_fac_a",
+        effectiveFrom: new Date("2026-01-01T00:00:00Z"),
+        effectiveTo: null,
+      }],
     });
     const installed = await installDepartmentProduct({
       facilityId: "fac_b",
@@ -262,6 +369,12 @@ describe("Department Product installation", () => {
     assert.equal(installed.created, true);
     assert.equal(installed.facilityId, "fac_b");
     assert.equal(installed.key, "DIETARY");
+    assert.notEqual(installed.id, "dept_a");
+    assert.deepEqual(scopeLookups, [{ id: installed.id, facilityId: "fac_b" }]);
+    assert.equal(operators.length, 2);
+    assert.equal(operators[0]?.organizationId, "org_fac_a");
+    assert.equal(operators[1]?.departmentId, installed.id);
+    assert.equal(operators[1]?.organizationId, "org_fac_b");
   });
 
   it("rejects unknown, blank, and missing-facility installs", async () => {

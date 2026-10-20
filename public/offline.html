@@ -6,6 +6,11 @@
     <meta name="theme-color" content="#0b3d3a" />
     <title>Vssyl — Offline</title>
     <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      main, section, p { overflow-wrap: anywhere; }
+      button { padding: .65rem; margin: .25rem; cursor: pointer; }
+      button:disabled { cursor: default; opacity: .65; }
+      section { border-top: 1px solid #d4d4d8; padding: .65rem 0; }
       :root {
         color-scheme: light;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
@@ -50,18 +55,8 @@
     <main>
       <p class="status">Offline</p>
       <h1>Vssyl</h1>
-      <p>
-        This tablet is offline. Previously authorized Unit Workspace data may still be
-        available when you reopen that Unit from this app after a prior online session.
-      </p>
-      <p>
-        Milestone actions taken offline are saved on this tablet and synchronize when
-        connectivity returns. They are not confirmed until the server accepts them.
-      </p>
-      <p>
-        If no offline bundle was prepared, reconnect to the facility network and open the
-        Unit Workspace online first.
-      </p>
+      <div data-space-offline-fallback><p>Reconnect if this Space was not prepared in this authenticated tab.</p></div>
+      <script type="module" src="/space-offline.js"></script>
       <p><a href="/">Try reconnecting</a></p>
     </main>
   </body>

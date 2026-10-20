@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-19",
+  "scope": "Canonical SPACE offline planning only; one independent isolated DB diagnostic",
+  "authorization": "Plan authorized; offline implementation, gate waiver and live operations unauthorized",
+  "gate": "HOLD \u2014 no new suite totals; ONB-07 incomplete",
+  "plan": {
+    "path": "docs/onboarding/ONB_07_CANONICAL_SPACE_OFFLINE_PLAN.md",
+    "sha256": "c6e5dabbfdd597276c8d9b44cf5b26631ba9ed7f942f0f2adb12527cfb5d1a19",
+    "status": "proposed, awaiting implementation approval",
+    "slices": [
+      "Scope/commands/receipts",
+      "Secure preparation and offline reload",
+      "Canonical Work replay/recovery",
+      "Canonical Key Time actual/correction/adjustment",
+      "Required customer journey certification"
+    ]
+  },
+  "verification": [
+    {
+      "status": "run",
+      "check": "Canonical source-owner inspection",
+      "result": "Reusable owners/gaps recorded; no runtime proof inferred",
+      "sourceSha256": {
+        "public/offline.html": "1e2749252460366a5c1ed42059c1aedaac33eb65dfc3f20fa9416dc047da4e73",
+        "public/sw.js": "8d61531b7f14fe04a4b2524065743a5e9fe9c1c8198209ad85d3dba387d06a2e",
+        "src/app/(protected)/unit/[unitId]/employee-runtime-page.tsx": "32004d36064af003984d8550440719b60e3b62da39e13271d064095d6ba5dd9d",
+        "src/app/api/offline/runtime-bundle/route.ts": "5626a5eee47fbf07d154ca8795075050398b942065ad79ccc5ce5fafe4a84397",
+        "src/app/api/offline/runtime-sync/route.ts": "f0b8944afe893b241aca011976f114b7db3b13d4453c37cdc453b3175440cd90",
+        "src/components/department-work/work-completion-panel.tsx": "e36005b30450a14dc7989d21b3eb021346b6ee4e4da44bd3dd3fdb5f942713ed",
+        "src/components/sign-out-controls.tsx": "3154acc15d5435116cbc18519b7ae9001ff4fea04781973ad3a8ca3a8bbf61ee",
+        "src/lib/department-work/occurrence-service.ts": "8aa46c72842563385d1a23f0c6d447d9ae08e65862a17eea693bf46cc1414454",
+        "src/lib/employee-runtime-flow/index.ts": "e0e777b6af2e89dcf624ccc45fca5fd9a7034460457305bcd2ddb4fb1b41daf4",
+        "src/lib/offline/build-runtime-bundle.ts": "c73e84a8a4ddce0c18297b4a29e764845b5d6c2953b0d01327bade7c556c1ad9",
+        "src/lib/offline/bundle-validation.ts": "94f294c35d06627e295c94afdb459012294a0c8acd6c135541c4bdd37e8d5d8f",
+        "src/lib/offline/crypto.ts": "d6c4cec221c53453efd4d3255e611eed6bf572d0cdf6412da822b5819e901ec8",
+        "src/lib/offline/local-store.ts": "76c7b1327604b128e67f224bd8ec1781106ced3b7cd9be8270fe3f2ef62494dd",
+        "src/lib/offline/process-sync-command.ts": "1e9031cede7ac94956d6418d248be399fde46838adbd393e241d9848bde4f9ba",
+        "src/lib/offline/sync-engine.ts": "5e5cbdf3e3a3c878667086fa8b62df7767e4cc6cfe5bdbcdab225bddc585cb2b",
+        "src/lib/operational-cycles/key-time-day-actions.ts": "257e1307384da2d9bf3802ea593282eaec5b3a93b5f9a60c0f8ba5ae6d533b43",
+        "src/lib/operational-cycles/record-timing-adjustment.ts": "8f2632e0f256b2bafc9d1c48a17482d0e5fccedbcf37e0bbc832085b990d591a"
+      }
+    },
+    {
+      "status": "run",
+      "check": "Empty fixture Role upsert SQL diagnostic",
+      "command": "node tmp/onb07-offline-planning/role-upsert-probe.mjs (Node24.19.0)",
+      "target": "ltc_ci_onb07_followup_index_final, loopback55471, disposable guard",
+      "result": "4 SELECTs, no UPDATE/INSERT, unchanged timestamp, explicit ROLLBACK; empty-upsert write hypothesis ruled out for tested call",
+      "log": "tmp/onb07-offline-planning/role-upsert-probe.log",
+      "sha256": "563a911eb3ad9be11af4824d78f8ed452331b6cbff2ec751c2a2909ebd056098",
+      "limitations": "Not a representative or integrated suite, contention graph or gate pass. Does not prove all fixture operations read-only."
+    },
+    {
+      "status": "run",
+      "check": "Planning document source links, source/index preservation and probe assertions",
+      "result": {
+        "planLinks": 18,
+        "brokenLinks": [],
+        "initialIndexEntriesPreserved": 2591,
+        "changedExistingWorkingFiles": [
+          "docs/onboarding/ONB_07_CERTIFICATION_2026-10-18.md",
+          "docs/onboarding/README.md",
+          "docs/onboarding/DECISIONS.md",
+          "docs/onboarding/PHASE_TRACKER.md",
+          "docs/onboarding/ONB_07_RELEASE_BLOCKERS.md"
+        ],
+        "applicationChanges": 0,
+        "migrationChanges": 0
+      }
+    },
+    {
+      "status": "run",
+      "check": "JSON, local document links and diff hygiene",
+      "log": "tmp/onb07-offline-planning/verification.log",
+      "sha256": "ac5beedd7921393ed9b7d1d223e02e330df01dee65ef654b69fa5016f803679f",
+      "result": "pass"
+    }
+  ],
+  "reusedGateEvidence": {
+    "status": "reused",
+    "path": "docs/onboarding/ONB_07_FOLLOWUP_VERIFICATION_2026-10-19.json",
+    "sha256": "03b9e4f99f82dceea7d1d62746bffd3abb1258e785b1208bafdbdd3e5140961b",
+    "database": {
+      "pass": 3657,
+      "fail": 1,
+      "skip": 7
+    },
+    "offline": {
+      "pass": 4,
+      "fail": 3
+    },
+    "dietary": {
+      "pass": 4,
+      "fail": 1
+    },
+    "limits": "Prior executed gate totals, not fresh runs. Offline implementation untouched; no unchanged offline-suite or broad SQL rerun."
+  },
+  "databaseNextStep": "Correlate predicate scope and concurrent writers across full-catalog guard, child claim and row execution before changing checkpoint scope; preserve five attempts, Serializable, authority/intent and atomic receipts. No causal owner correction justified by the negative upsert probe.",
+  "notRun": [
+    "Offline or Dietary suites",
+    "Representative or integrated SQL suite",
+    "Application build, typecheck or full tests: documentation only; application bytes unchanged",
+    "Remote CI, production infrastructure, deployment, live charges, customer-data operations, signup enablement, external messaging and pilot activation"
+  ],
+  "cleanup": {
+    "databaseStartLog": "tmp/onb07-offline-planning/database-start.log",
+    "databaseStopLog": "tmp/onb07-offline-planning/database-stop.log",
+    "result": "Retained isolated PostgreSQL restarted for probe, then cleanly stopped; no database drop/reset/reseed, source change or migration. Unrelated development server untouched.",
+    "database-start.logSha256": "66afd0411ccc09366e99fdd99b85f21899c8d2d064f5835126859618802153ad",
+    "database-stop.logSha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d"
+  },
+  "preservation": {
+    "initialWorkingFiles": 302,
+    "priorIndexEntriesChangedOrMissing": [],
+    "newIndexPaths": [
+      "docs/onboarding/ONB_07_CANONICAL_SPACE_OFFLINE_PLAN.md",
+      "docs/onboarding/ONB_07_OFFLINE_PLANNING_2026-10-19.json"
+    ],
+    "changedOutsidePlanningDocumentation": []
+  },
+  "recordedAtUtc": "2026-10-19T16:09:37.037933+00:00"
+}

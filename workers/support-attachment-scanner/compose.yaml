@@ -1,0 +1,22 @@
+# Local-only reference. Production hosting, credentials and processor scheduling need separate approval.
+services:
+  support-scanner:
+    build: .
+    ports: ["127.0.0.1:55477:8443"]
+    env_file: ["${SUPPORT_SCANNER_SECRETS_DIR:?Set a private secrets directory}/worker.env"]
+    volumes:
+      - "${SUPPORT_SCANNER_SECRETS_DIR}:/run/scanner-secrets:ro"
+      - signatures:/var/lib/clamav
+    read_only: true
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 128
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+      - /run:rw,noexec,nosuid,size=16m,mode=1777
+      - /var/log/clamav:rw,noexec,nosuid,size=16m,mode=1777
+volumes:
+  signatures:

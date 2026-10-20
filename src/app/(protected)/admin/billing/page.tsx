@@ -1,6 +1,7 @@
+import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { BillingPlanForm } from "@/app/(protected)/admin/billing/billing-plan-form";
-import { areAllCatalogPricesConfigured } from "@/lib/billing/stripe-prices";
+import { areRecurringCatalogPricesConfigured } from "@/lib/billing/stripe-prices";
 import { formatUsdCents } from "@/lib/billing/format";
 import { quoteBilling } from "@/lib/billing/quote";
 import { applyCheckoutSessionId, syncFacilityBillingFromStripe } from "@/lib/billing/sync-from-stripe";
@@ -12,6 +13,8 @@ import { prisma } from "@/lib/prisma";
 import { getStripeServerClient, isStripeSecretConfigured } from "@/lib/stripe";
 
 const STATUS_COPY: Record<FacilityBillingStatus, { label: string; detail: string }> = {
+  UNPAID: { label: "Unpaid", detail: "Licensed Department operation is suspended. Use Manage billing to resolve payment; your data is preserved." },
+  PAUSED: { label: "Paused", detail: "Licensed Department operation is suspended while the subscription is paused. Use Manage billing to resume." },
   UNMANAGED: {
     label: "Not billed yet",
     detail: "Choose departments and start checkout when you are ready to pay.",
@@ -41,6 +44,7 @@ export default async function AdminBillingPage({
 }) {
   const session = await assertFacilityAdministratorPage();
   const params = await searchParams;
+  let synchronizationMessage: string | null = null;
 
   try {
     if (params.session_id) {
@@ -49,8 +53,10 @@ export default async function AdminBillingPage({
         expectedFacilityId: session.facilityId,
       });
     }
-    await syncFacilityBillingFromStripe(session.facilityId);
+    const sync = await syncFacilityBillingFromStripe(session.facilityId);
+    synchronizationMessage = sync.message;
   } catch (error) {
+    synchronizationMessage = "Billing or installation could not be confirmed. Refresh this page to retry synchronization without another checkout or charge.";
     console.error("billing.sync.failed", {
       facilityId: session.facilityId,
       error: error instanceof Error ? error.message : "unknown",
@@ -90,12 +96,15 @@ export default async function AdminBillingPage({
           setupPath: facility?.billing?.setupPath ?? "SELF_SERVE",
         })
       : null;
-  const checkoutReady = isStripeSecretConfigured() && areAllCatalogPricesConfigured();
+  const checkoutReady = isStripeSecretConfigured() && areRecurringCatalogPricesConfigured();
 
   const cardOnFile = await loadCardOnFile(facility?.stripeDefaultPaymentMethodId ?? null);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6" data-testid="admin-billing-page">
+      <SetupWorkspaceLink role={session.role} />
+      <a className="underline" href="/admin/billing/implementation">VSSYL implementation engagements and service orders</a>
+      <p role="status" className="text-sm">{synchronizationMessage}</p>
       <AdminPageHeader
         title="Billing"
         trail={[{ label: "Billing" }]}
@@ -157,7 +166,7 @@ export default async function AdminBillingPage({
               {formatUsdCents(currentQuote.billedRecurringCents)}
             </span>{" "}
             {currentQuote.interval === "ANNUAL" ? "per year" : "per month"}
-            {currentQuote.setupPath === "ASSISTED" ? ", plus assisted setup" : ""}.
+            .
           </p>
         ) : null}
       </section>

@@ -76,7 +76,7 @@ export function deriveFacilityDepartmentCatalog(input: {
     const department = matchDepartmentRecordForProduct(input.departments, product);
     const installed = Boolean(department);
     const entitlementStatus = matchEntitlementStatusForProduct(input.entitlements, product);
-    const licensed = entitlementStatus === "ACTIVE";
+    const licensed = entitlementStatus === "ACTIVE" && !["INCOMPLETE", "CANCELED", "UNPAID", "PAUSED"].includes(billingStatus ?? "");
     const entitled = resolveCommercialEntitlement({
       releaseStatus: product.status,
       entitlementStatus,

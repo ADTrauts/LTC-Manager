@@ -33,6 +33,7 @@ import { isDepartmentProductKey } from "@/lib/department-products/registry";
 import type { AuthMethod } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import { prisma } from "@/lib/prisma";
 
 function actorFromSession(session: {
@@ -56,25 +57,26 @@ function revalidateDepartmentAdmin(departmentId: string) {
 
 async function assertDepartmentInFacility(
   departmentId: string,
-  facilityId: string,
+  session: Awaited<ReturnType<typeof requireFacilitySession>>,
 ): Promise<{ id: string; key: string }> {
   const department = await prisma.department.findFirst({
-    where: { id: departmentId, facilityId, isActive: true },
+    where: { id: departmentId, facilityId: session.facilityId, isActive: true },
     select: { id: true, key: true },
   });
-  if (!department) throw new Error("Department not found.");
+  if (!department || !(await isCustomerDepartmentAccessAllowed(prisma, session, departmentId))) throw new Error("Department commercial access is unavailable.");
   return department;
 }
 
 async function assertProfileInFacility(
   profileId: string,
-  facilityId: string,
+  session: Awaited<ReturnType<typeof requireFacilitySession>>,
 ): Promise<{ id: string; departmentId: string }> {
   const profile = await prisma.departmentOperationalProfile.findFirst({
-    where: { id: profileId, facilityId },
+    where: { id: profileId, facilityId: session.facilityId },
     select: { id: true, departmentId: true },
   });
   if (!profile) throw new Error("Profile not found.");
+  await assertDepartmentInFacility(profile.departmentId, session);
   return profile;
 }
 
@@ -93,7 +95,7 @@ export async function createBaselineDraftAction(formData: FormData): Promise<Act
     requireFeature();
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const result = await createBaselineDraft(actorFromSession(session), {
       facilityId: session.facilityId,
       departmentId,
@@ -114,7 +116,7 @@ export async function createNextDraftAction(formData: FormData): Promise<ActionR
     requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     const result = await createNextDraftVersion(actorFromSession(session), profileId);
     revalidateDepartmentAdmin(profile.departmentId);
     return {
@@ -132,7 +134,7 @@ export async function certifyProfileAction(formData: FormData): Promise<ActionRe
     requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     const result = await certifyProfile(actorFromSession(session), profileId);
     revalidateDepartmentAdmin(profile.departmentId);
     if (!result.certifiable) {
@@ -153,7 +155,7 @@ export async function activateProfileAction(formData: FormData): Promise<ActionR
     requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await activateProfile(actorFromSession(session), profileId);
     revalidateDepartmentAdmin(profile.departmentId);
     return { ok: true, message: "Profile activated.", profileId };
@@ -167,7 +169,7 @@ export async function retireProfileAction(formData: FormData): Promise<ActionRes
     requireFeature();
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await retireActiveProfile(actorFromSession(session), profileId);
     revalidateDepartmentAdmin(profile.departmentId);
     return { ok: true, message: "Profile retired.", profileId };
@@ -183,7 +185,7 @@ export async function setExperienceActiveAction(formData: FormData): Promise<Act
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const areaExperienceId = z.string().cuid().parse(formData.get("areaExperienceId"));
     const isActive = formData.get("isActive") === "true";
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await setAreaExperienceActive(actorFromSession(session), {
       profileId,
       areaExperienceId,
@@ -203,7 +205,7 @@ export async function moveExperienceAction(formData: FormData): Promise<ActionRe
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const areaExperienceId = z.string().cuid().parse(formData.get("areaExperienceId"));
     const targetAreaId = z.string().cuid().parse(formData.get("targetAreaId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await moveAreaExperience(actorFromSession(session), {
       profileId,
       areaExperienceId,
@@ -228,7 +230,7 @@ export async function reorderExperiencesAction(formData: FormData): Promise<Acti
       .map((id) => id.trim())
       .filter(Boolean);
     z.array(z.string().cuid()).min(1).parse(orderedAreaExperienceIds);
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await reorderAreaExperiences(actorFromSession(session), {
       profileId,
       areaId,
@@ -253,7 +255,7 @@ export async function createOperationalTypeAction(formData: FormData): Promise<A
           "Choose a Location Function from the Department Product. A label does not create an identity.",
       };
     }
-    const department = await assertDepartmentInFacility(departmentId, session.facilityId);
+    const department = await assertDepartmentInFacility(departmentId, session);
     if (!isDepartmentProductKey(department.key)) {
       return {
         ok: false,
@@ -292,7 +294,7 @@ export async function bindLocationFunctionAction(formData: FormData): Promise<Ac
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
     const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
     const functionKey = String(formData.get("functionKey") ?? "").trim();
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const actor = actorFromSession(session);
     if (!functionKey) {
       const cleared = await clearLocationFunction(actor, {
@@ -331,7 +333,7 @@ export async function publishLocationFunctionsAction(formData: FormData): Promis
   try {
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const published = await publishLocationFunctionDraft(actorFromSession(session), {
       facilityId: session.facilityId,
       departmentId,
@@ -354,7 +356,7 @@ export async function ensurePatternDraftAction(formData: FormData): Promise<Acti
   try {
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
       facilityId: session.facilityId,
       departmentId,
@@ -390,7 +392,7 @@ export async function clearRoomOperationalTypeAction(formData: FormData): Promis
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
     const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const actor = actorFromSession(session);
     const draft = await ensureWorkingDraftForPatterns(actor, {
       facilityId: session.facilityId,
@@ -416,7 +418,7 @@ export async function renameOperationalTypeAction(formData: FormData): Promise<A
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
     const archetypeKey = z.string().min(1).max(64).parse(String(formData.get("archetypeKey") ?? "").trim());
     const name = z.string().min(1).max(120).parse(String(formData.get("name") ?? "").trim());
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const actor = actorFromSession(session);
     const draft = await ensureWorkingDraftForPatterns(actor, {
       facilityId: session.facilityId,
@@ -453,7 +455,7 @@ export async function updateRoomTypeDepartmentUseAction(
       .string()
       .max(1000)
       .parse(String(formData.get("description") ?? "").trim());
-    const department = await assertDepartmentInFacility(departmentId, session.facilityId);
+    const department = await assertDepartmentInFacility(departmentId, session);
     if (roomTypeKey.startsWith("custom:")) {
       throw new Error("Reusable configuration is not available for custom Room Types yet.");
     }
@@ -502,7 +504,7 @@ export async function setRoomTypeExperiencesAction(formData: FormData): Promise<
       .map((id) => id.trim())
       .filter(Boolean);
     z.array(z.string().cuid()).parse(selectedIds);
-    const department = await assertDepartmentInFacility(departmentId, session.facilityId);
+    const department = await assertDepartmentInFacility(departmentId, session);
     if (roomTypeKey.startsWith("custom:")) {
       throw new Error("Reusable configuration is not available for custom Room Types yet.");
     }
@@ -547,7 +549,7 @@ export async function createArchetypeAction(formData: FormData): Promise<ActionR
     const key = z.string().min(1).max(64).parse(formData.get("key"));
     const name = z.string().min(1).max(120).parse(formData.get("name"));
     const description = z.string().max(500).optional().parse(formData.get("description") || undefined);
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     const department = await prisma.department.findFirst({
       where: { id: profile.departmentId, facilityId: session.facilityId },
       select: { key: true },
@@ -589,7 +591,7 @@ export async function updateArchetypeAction(formData: FormData): Promise<ActionR
     const name = formData.get("name");
     const description = formData.get("description");
     const isActiveRaw = formData.get("isActive");
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await updateRoomArchetype(actorFromSession(session), {
       profileId,
       archetypeId,
@@ -619,7 +621,7 @@ export async function setArchetypeExperiencesAction(formData: FormData): Promise
       .map((id) => id.trim())
       .filter(Boolean);
     z.array(z.string().cuid()).parse(selectedIds);
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await setArchetypeExperiences(actorFromSession(session), {
       profileId,
       archetypeId,
@@ -642,7 +644,7 @@ export async function clearRoomBindingAction(formData: FormData): Promise<Action
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await clearRoomArchetypeBinding(actorFromSession(session), {
       profileId,
       unitSpaceId,
@@ -663,7 +665,7 @@ export async function upsertRoomExceptionAction(formData: FormData): Promise<Act
     const areaExperienceId = z.string().cuid().parse(formData.get("areaExperienceId"));
     const mode = z.enum(["ENABLE", "DISABLE", "OVERRIDE"]).parse(formData.get("mode"));
     const reason = z.string().max(500).optional().parse(formData.get("reason") || undefined);
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await addRoomExperienceException(actorFromSession(session), {
       profileId,
       unitSpaceId,
@@ -684,7 +686,7 @@ export async function removeRoomExceptionAction(formData: FormData): Promise<Act
     const session = await requireFacilitySession();
     const profileId = z.string().cuid().parse(formData.get("profileId"));
     const exceptionId = z.string().cuid().parse(formData.get("exceptionId"));
-    const profile = await assertProfileInFacility(profileId, session.facilityId);
+    const profile = await assertProfileInFacility(profileId, session);
     await removeRoomExperienceException(actorFromSession(session), {
       profileId,
       exceptionId,
@@ -707,7 +709,7 @@ export async function ensureLocationOperationalTypesAction(
   try {
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
       facilityId: session.facilityId,
       departmentId,
@@ -740,7 +742,7 @@ export async function clearLocationOperationalTypeAction(
     const session = await requireFacilitySession();
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
     const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    await assertDepartmentInFacility(departmentId, session.facilityId);
+    await assertDepartmentInFacility(departmentId, session);
     const actor = actorFromSession(session);
     const draft = await ensureWorkingDraftForPatterns(actor, {
       facilityId: session.facilityId,

@@ -154,6 +154,7 @@ function world() {
         attachments.find((row) => matchesAttachment(row, where)) ?? null,
     },
     operationalEvidenceRecord: {
+      findMany: async () => [],
       findFirst: async ({ where }: { where: Record<string, unknown> }) => {
         const rows = [...evidence, ...created] as Array<Record<string, unknown>>;
         if (typeof where.id === "string") {
@@ -210,6 +211,8 @@ function world() {
         return data;
       },
     },
+    recordEngineRollout: { findMany: async () => [{ facilityId: "terrace", departmentId: "food", mode: "CANONICAL", effectiveFromServiceDate: "2020-01-01" }] },
+    operationalEvidenceAttachment: { findMany: async () => [] },
     operationalEvidenceFieldValue: { deleteMany: async () => ({ count: 0 }) },
     unitSpace: { findFirst: async () => null },
   };

@@ -57,9 +57,10 @@ export default async function HarborCustomerPage({
           <span className="mx-1.5 text-[var(--text-secondary)]">/</span>
           <span>{facility.displayName}</span>
         </p>
+        <Link className="underline" href={`/console/customers/${facility.id}/implementation`}>Implementation engagements / service orders</Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{facility.displayName}</h1>
         <p className="text-sm text-[var(--text-secondary)]">{facility.organizationName}</p>
-        <p className="mt-2 text-sm font-medium">{facility.isLive ? "Live" : facility.onboarding}</p>
+        <p className="mt-2 text-sm font-medium">{facility.onboarding}</p>
         {provisionQuery.provisioned === "1" ? (
           <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm">
             {provisionQuery.replayed === "1"
@@ -150,7 +151,7 @@ export default async function HarborCustomerPage({
             }
           />
           <Field label="Setup state" value={facility.onboarding} />
-          <Field label="Live" value={facility.isLive ? "Live" : "Not live"} />
+          <Field label="Guided setup" value={facility.setupAcknowledged ? "Acknowledged" : "In progress"} />
           <Field label="Billing email" value={facility.billingEmail ?? "—"} />
         </dl>
       </section>
@@ -158,14 +159,14 @@ export default async function HarborCustomerPage({
       <section className="rounded-md border border-[var(--border)] bg-white p-4">
         <h2 className="text-sm font-semibold">Licensing</h2>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
-          Local entitlement mirror (`FacilityDepartmentEntitlement`). Not inferred from UI install alone.
+          Current local licensing, installation, Enabled and customer-access facts. Configuration and publication are assessed in the canonical Builders; guided setup is not operational readiness.
         </p>
         <ul className="mt-3 divide-y divide-[var(--border)] text-sm">
           {facility.licensing.map((row) => (
             <li key={row.productKey} className="flex justify-between gap-4 py-2">
               <span>{row.name}</span>
               <span className="text-[var(--text-secondary)]">
-                {row.licensed ? "Licensed" : "Not licensed"}
+                {row.licensed ? "Licensed" : "Not licensed"} · {row.installed ? "Installed" : "Not installed"} · {row.enabled ? "Enabled" : "Disabled"} · {row.customerAccess ? "Customer access available" : "Customer operation unavailable"}
               </span>
             </li>
           ))}

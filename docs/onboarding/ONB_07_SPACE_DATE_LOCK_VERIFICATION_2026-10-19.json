@@ -1,0 +1,584 @@
+{
+  "date": "2026-10-19",
+  "observedAtUtc": "2026-10-20T03:00:56.903924+00:00",
+  "repository": "ADTrauts/LTC-Manager",
+  "head": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "scope": "FR-01 / R07-07 bounded client correction only",
+  "verdict": "FR-01 LOCAL PASS; review-ready candidate; required remote/release/actual pilot gates pending; ONB-07 INCOMPLETE",
+  "build": {
+    "id": "kM54rZEnzG5pildBnjPxm",
+    "directory": ".next-onb07-date-lock-final-build",
+    "status": "run PASS",
+    "log": {
+      "path": "tmp/onb07-date-lock/build.log",
+      "sha256": "7a139d5f0ffc571d1976858d1b9102646b9e18e992bed084974566842ef606ac"
+    },
+    "runtime": "Node24.19.0 / PostgreSQL14.18 / migration150 retained isolated target",
+    "flags": "DIETARY_JOB_FLOW_ENABLED, OPERATIONAL_ASSIGNMENTS_ENABLED, DEPARTMENT_OPERATIONAL_PROFILES_ENABLED=true; OPERATION_ENGINE_ENABLED/PUBLIC_SIGNUP_ENABLED disabled; provider/mail/Blob keys empty; test-only escrow keyring",
+    "publicSource": {
+      "path": "tmp/onb07-date-lock/served-public.json",
+      "sha256": "282d9df177af22971bddd459671e8c43f62d30d715fed9b055c52431deba3f62"
+    },
+    "note": "Three exact served public-script hashes verified. Final public renderer control adjustment preceded build completion; subsequent changes are tests/artifact paths/docs only."
+  },
+  "source": {
+    "manifest": {
+      "path": "tmp/onb07-date-lock/source-fingerprints.json",
+      "sha256": "c96f4bdc96928d97a7c0340a8901e29ca7816be201354844ee82ebf5c5a917e6"
+    },
+    "paths": 288,
+    "changedRuntime": {
+      "public/space-offline-store.js": "764980c7a81bca79fcbf8b250ff9a804c69bf86a718b4f351761ddda24dc2ace",
+      "public/space-offline.js": "c565f577503a0d94b38fd3124408cdc1dd60978641b7579f64cd6a447e6b17c8",
+      "public/sw.js": "b8819cb7a836ada56c93ef3081f9fa179f2217390916d6e1acafe37fc6340e7c"
+    },
+    "changedTests": {
+      "tests/offline-browser/date-guard.spec.ts": "e15be79a0517ae131488355544b45a846c2b6071fe8dbf83e4dfea614280c6a9",
+      "tests/offline-browser/date-boundary.spec.ts": "dc1dc11b8d988f7dd1a9f3ecce6e6f3de96c6362251cbbbf8ae379be4686fc7a",
+      "tests/offline-browser/ci-gate.spec.ts": "ad49d0a8a11426a6cf046651957922880e93099edcdee17fcc72e5d2d2f83b41"
+    },
+    "serverSchemaMigrationChanges": []
+  },
+  "currentChecks": [
+    {
+      "check": "Focused guard browser regression",
+      "status": "run",
+      "result": "10 passed / 0 failed",
+      "command": "OFFLINE_BROWSER_ARTIFACT_DIR=.../guard-final node node_modules/@playwright/test/cli.js test -c tests/playwright.offline.config.ts date-guard.spec.ts",
+      "log": {
+        "path": "tmp/onb07-date-lock/guard-final.log",
+        "sha256": "44d351f53906467fc1825f335d03e6df49e7088cab6d74da44232b9b78b5b6c4"
+      },
+      "results": {
+        "artifacts": {
+          "path": "tmp/onb07-date-lock/guard-final/results.json",
+          "sha256": "02eff42a8ddbe78874c25948b82722b2d545396b9fb956898369296fd598144f"
+        },
+        "reportedStats": {
+          "startTime": "2026-10-20T02:11:13.550Z",
+          "duration": 7897.585,
+          "expected": 10,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "acceptedSelection": null
+      },
+      "limit": "Hermetic intercepted HTTP, not authenticated customer preparation."
+    },
+    {
+      "check": "Affected real rebuilt-app customer journeys",
+      "status": "run across selected logs; prior passing cases reused within task",
+      "result": "16 distinct cases passed; no outstanding product/assertion failure",
+      "selections": [
+        {
+          "artifacts": {
+            "path": "tmp/onb07-date-lock/browser-setup-corrected/results.json",
+            "sha256": "908cb74354c7b1b85e3bfd333768e9b846b5417599c55258f9a02f8e89a64b3d"
+          },
+          "reportedStats": {
+            "startTime": "2026-10-20T02:12:31.990Z",
+            "duration": 28287.661,
+            "expected": 1,
+            "skipped": 0,
+            "unexpected": 1,
+            "flaky": 0
+          },
+          "acceptedSelection": "Desktop expiry/scope PASS only; failed boundary case retained, not accepted"
+        },
+        {
+          "artifacts": {
+            "path": "tmp/onb07-date-lock/browser-native-timers/results.json",
+            "sha256": "daa4130fa2af73ddec2b801a0b70ba9672a5c4824f712ba7d4bc7a0e11bbfe78"
+          },
+          "reportedStats": {
+            "startTime": "2026-10-20T02:15:50.560Z",
+            "duration": 8463.955,
+            "expected": 1,
+            "skipped": 0,
+            "unexpected": 0,
+            "flaky": 0
+          },
+          "acceptedSelection": "Desktop idle boundary/recovery, one PASS"
+        },
+        {
+          "artifacts": {
+            "path": "tmp/onb07-date-lock/browser-tablet/results.json",
+            "sha256": "a4ce9a75b61a4784e80db822017ccccecbb0f2e5db9f7460314ec70a4cb07f03"
+          },
+          "reportedStats": {
+            "startTime": "2026-10-20T02:16:19.088Z",
+            "duration": 52298.282999999996,
+            "expected": 8,
+            "skipped": 0,
+            "unexpected": 0,
+            "flaky": 0
+          },
+          "acceptedSelection": "Five existing customer journeys only; three older target-11 boundary passes superseded below"
+        },
+        {
+          "artifacts": {
+            "path": "tmp/onb07-date-lock/browser-desktop/results.json",
+            "sha256": "bfdfc737b8f9a4427bd973625a817cfb7126877ae457fefdb207a6e8b9493c22"
+          },
+          "reportedStats": {
+            "startTime": "2026-10-20T02:17:12.485Z",
+            "duration": 38174.063,
+            "expected": 6,
+            "skipped": 0,
+            "unexpected": 0,
+            "flaky": 0
+          },
+          "acceptedSelection": "All six: four existing customer journeys and two boundary foreground cases"
+        },
+        {
+          "artifacts": {
+            "path": "tmp/onb07-date-lock/boundary-tablet-final/results.json",
+            "sha256": "60c16a462342bac79bb7e3b0e2ab8d8275df6911df472f7ec21a4c5264441860"
+          },
+          "reportedStats": {
+            "startTime": "2026-10-20T02:18:32.953Z",
+            "duration": 22269.757,
+            "expected": 3,
+            "skipped": 0,
+            "unexpected": 0,
+            "flaky": 0
+          },
+          "acceptedSelection": "All three final target-12 boundary/recovery cases"
+        }
+      ],
+      "commandFile": {
+        "path": "tmp/onb07-date-lock/browser.sh",
+        "sha256": "e549d4ea7abb98beee4aadd121bba60cc74f98693403510c4c20a04ffa0e4202"
+      },
+      "logs": [
+        {
+          "path": "tmp/onb07-date-lock/browser-setup-corrected.log",
+          "sha256": "be74f4c112efe467eb3d72b388cb1db23ef4dbc0a35d5e78466b34f5dd5daff5"
+        },
+        {
+          "path": "tmp/onb07-date-lock/browser-native-timers.log",
+          "sha256": "a02a906f222bc41ca39e3ffa9ef2bc24a255784039a2aaa84a68d75a403dd8d2"
+        },
+        {
+          "path": "tmp/onb07-date-lock/browser-tablet.log",
+          "sha256": "06012be248374d5e2e6ba6eac91013b730b6dc40a0e41b89a3816a3386962f13"
+        },
+        {
+          "path": "tmp/onb07-date-lock/browser-desktop.log",
+          "sha256": "07c7ca5df67dea7fa12180b20b31724a5ac2bdc2bd742c860c845ceb19dda8fb"
+        },
+        {
+          "path": "tmp/onb07-date-lock/boundary-tablet-final.log",
+          "sha256": "df35083604897472d91ee26c671219fe9e713ec5f13c99ac4b5cd89a6331ed9b"
+        }
+      ],
+      "laterTestOnlyDifferences": "Desktop idle already selected target12 before expression became literal12; no changed outcome/owner. ci-gate screenshot destination changed afterward to info.outputPath; assertions, authorization, requests, effects and receipts unchanged. No replay repeated merely for artifact destination."
+    },
+    {
+      "check": "Final standalone TypeScript",
+      "status": "run PASS",
+      "command": "node node_modules/typescript/bin/tsc --noEmit",
+      "log": {
+        "path": "tmp/onb07-date-lock/typecheck-freeze.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "check": "Focused lint",
+      "status": "run PASS",
+      "result": "public:0 errors/3 existing unused-destructuring warnings; final three browser-test files:0 findings",
+      "commands": [
+        "eslint public/space-offline.js public/space-offline-store.js public/sw.js tests/offline-browser/date-guard.spec.ts tests/offline-browser/date-boundary.spec.ts",
+        "eslint tests/offline-browser/date-boundary.spec.ts tests/offline-browser/date-guard.spec.ts tests/offline-browser/ci-gate.spec.ts"
+      ],
+      "logs": [
+        {
+          "path": "tmp/onb07-date-lock/lint-final.log",
+          "sha256": "cb9cf222087738a5800317507fd35cd284fd30f5e7b82c1afe04d25203ab3653"
+        },
+        {
+          "path": "tmp/onb07-date-lock/lint-tests-freeze.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "check": "Normal Git-aware migration integrity",
+      "status": "run PASS",
+      "result": "150 migrations; one unchanged documented historical exception; no new exception",
+      "command": "node scripts/verify/migration-integrity.mjs",
+      "log": {
+        "path": "tmp/onb07-date-lock/migration-integrity.log",
+        "sha256": "f357f76e520e9339545fb5c0e04893ecdc2d62c69f52ff575795ccaab76f1f89"
+      }
+    },
+    {
+      "check": "Tracked-file hygiene",
+      "status": "run PASS",
+      "result": "2612 entries; new correction/test/manifest files intentionally untracked",
+      "command": "node scripts/verify/repository-hygiene.mjs",
+      "log": {
+        "path": "tmp/onb07-date-lock/hygiene.log",
+        "sha256": "f9cd7cb2784d9f4a28f110204e41d810435aed7e2ed804d1f7471461fdebc880"
+      }
+    },
+    {
+      "check": "Preservation, exact inclusion, source/history/artifact hashes, links/JSON/diffs",
+      "status": "run PASS with explicit auxiliary-image limitation",
+      "preservation": {
+        "path": "tmp/onb07-date-lock/preservation.json",
+        "sha256": "f7c7aed089b4e1076c5b72c7e523071a4ff31f3791900f29efc65d49986352d4"
+      },
+      "documents": {
+        "path": "tmp/onb07-date-lock/document-checks.log",
+        "sha256": "f5f2e11fb1cdbad42b228ba802d491708a374b2030e09a5c3f78bc5646dd9072"
+      },
+      "diffLogs": [
+        {
+          "path": "tmp/onb07-date-lock/diff-check-final.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tmp/onb07-date-lock/cached-diff-check-final.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  ],
+  "boundary": {
+    "observations": {
+      "path": "tmp/onb07-date-lock/boundary-observations.json",
+      "sha256": "7f078860e53fc1ab88e13a5357d58353928af3f05ef3a41925e66352bd777ddf"
+    },
+    "cases": [
+      {
+        "run": "browser-native-timers",
+        "timezone": "America/New_York",
+        "operationalDate": "2026-10-19",
+        "midnight": "2026-10-20T04:00:00.000Z",
+        "expiresAt": "2026-10-20T14:15:54.000Z",
+        "restore": "idle",
+        "lockDelayMs": 876.5999999940395,
+        "lockEvents": [
+          {
+            "at": "2026-10-20T04:00:00.000Z",
+            "monotonic": 2035.9000000059605,
+            "reason": "Offline authorization expired. Pending intent remains encrypted.",
+            "navigation": "reload"
+          }
+        ],
+        "commandId": "40a03571-f663-498d-9645-3ec75a67655f"
+      },
+      {
+        "run": "browser-desktop",
+        "timezone": "America/New_York",
+        "operationalDate": "2026-10-19",
+        "midnight": "2026-10-20T04:00:00.000Z",
+        "expiresAt": "2026-10-20T14:17:39.000Z",
+        "restore": "focus",
+        "lockDelayMs": 11.899999976158142,
+        "lockEvents": [
+          {
+            "at": "2026-10-20T04:00:00.000Z",
+            "monotonic": 1162.199999988079,
+            "reason": "Offline authorization expired. Pending intent remains encrypted.",
+            "navigation": "reload"
+          }
+        ],
+        "commandId": "40d44981-9698-43c4-a151-50cd15c28e65"
+      },
+      {
+        "run": "browser-desktop",
+        "timezone": "America/New_York",
+        "operationalDate": "2026-10-19",
+        "midnight": "2026-10-20T04:00:00.000Z",
+        "expiresAt": "2026-10-20T14:17:45.000Z",
+        "restore": "visibilitychange",
+        "lockDelayMs": 13.099999994039536,
+        "lockEvents": [
+          {
+            "at": "2026-10-20T04:00:00.000Z",
+            "monotonic": 1173.5999999940395,
+            "reason": "Offline authorization expired. Pending intent remains encrypted.",
+            "navigation": "reload"
+          }
+        ],
+        "commandId": "8588eaa0-ea54-47a1-b7a4-7933fa84697b"
+      },
+      {
+        "run": "boundary-tablet-final",
+        "timezone": "America/New_York",
+        "operationalDate": "2026-10-19",
+        "midnight": "2026-10-20T04:00:00.000Z",
+        "expiresAt": "2026-10-20T14:18:36.000Z",
+        "restore": "idle",
+        "lockDelayMs": 873,
+        "lockEvents": [
+          {
+            "at": "2026-10-20T04:00:00.000Z",
+            "monotonic": 2035.5999999940395,
+            "reason": "Offline authorization expired. Pending intent remains encrypted.",
+            "navigation": "reload"
+          }
+        ],
+        "commandId": "b08bec32-e0a3-4704-85b7-0f0a8996eae0"
+      },
+      {
+        "run": "boundary-tablet-final",
+        "timezone": "America/New_York",
+        "operationalDate": "2026-10-19",
+        "midnight": "2026-10-20T04:00:00.000Z",
+        "expiresAt": "2026-10-20T14:18:43.000Z",
+        "restore": "focus",
+        "lockDelayMs": 11,
+        "lockEvents": [
+          {
+            "at": "2026-10-20T04:00:00.000Z",
+            "monotonic": 1183.7000000178814,
+            "reason": "Offline authorization expired. Pending intent remains encrypted.",
+            "navigation": "reload"
+          }
+        ],
+        "commandId": "6163143a-2e92-4e1a-b24b-b03b8239a876"
+      },
+      {
+        "run": "boundary-tablet-final",
+        "timezone": "America/New_York",
+        "operationalDate": "2026-10-19",
+        "midnight": "2026-10-20T04:00:00.000Z",
+        "expiresAt": "2026-10-20T14:18:50.000Z",
+        "restore": "visibilitychange",
+        "lockDelayMs": 10.800000011920929,
+        "lockEvents": [
+          {
+            "at": "2026-10-20T04:00:00.000Z",
+            "monotonic": 1255.5,
+            "reason": "Offline authorization expired. Pending intent remains encrypted.",
+            "navigation": "reload"
+          }
+        ],
+        "commandId": "48149267-a24b-49b7-bc3b-6d58161606ed"
+      }
+    ],
+    "coverage": "Non-UTC Facility, local23:59:50 preparation with actual server lease beyond midnight, normal pre-boundary control, native idle timer, immediate foreground restoration, encrypted exactly-one command/ID retention, rejected new actions, locked reload, real fresh same-actor online login and explicit review; no old instructions/actions/receipt created by review.",
+    "limits": "Controlled browser Date only; backend real time/authentication unchanged. No production overnight soak or physical Safari proof; recovery returns browser to real clock and remains review-only."
+  },
+  "reused": [
+    {
+      "status": "reused",
+      "inventory": "docs/onboarding/ONB_07_WORKBOOK_RETIREMENT_VERIFICATION_2026-10-19.json",
+      "build": "5S9jh0r0wyAcpcoCpYyXY",
+      "result": "3684/0/7 integrated;8 workbook browser;59/0/1 concurrent;13 pure;150 migrations/seed twice/schema",
+      "suitability": "All server/workbook/receipt/identity/schema owners unchanged. Four of286 source paths differ: public scripts3 plus screenshot-only harness. Not a fresh integrated run."
+    },
+    {
+      "status": "reused",
+      "inventory": "docs/onboarding/ONB_07_SPACE_OFFLINE_VERIFICATION_2026-10-19.json",
+      "build": "eYn2LNGJB_kx6ATlH7XPy",
+      "result": "20 affected database/contract checks; unchanged PIN/remaining browser evidence within original limits",
+      "suitability": "Known later workbook/CSV differences plus four intentional current deltas recorded in preservation. Offline server, auth, replay/receipt and timing owners unchanged. Changed renderer journeys checked above; no old idle-date proof substituted."
+    },
+    {
+      "status": "historical reused",
+      "inventory": "docs/onboarding/ONB_05_VERIFICATION_2026-10-18.json",
+      "result": "Local real ClamAV proof within recorded versions/coverage",
+      "suitability": "Scanner/download owners unchanged; no fresh engine/signature or production readiness claim."
+    }
+  ],
+  "failedAndIntermediateRuns": {
+    "guard": {
+      "artifacts": {
+        "path": "tmp/onb07-date-lock/guard/results.json",
+        "sha256": "beb16936153516add4978acf94dd83aa5468e1f40c999a544d5fe009bf410717"
+      },
+      "reportedStats": {
+        "startTime": "2026-10-20T02:05:52.548Z",
+        "duration": 11750.935,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 10,
+        "flaky": 0
+      },
+      "acceptedSelection": "Historical/intermediate; do not add to current accepted totals"
+    },
+    "guard-local": {
+      "artifacts": {
+        "path": "tmp/onb07-date-lock/guard-local/results.json",
+        "sha256": "8afa744eb2da1d0afcbecc3333693f36c555a5b337bc6e5c3cbee7d87087f368"
+      },
+      "reportedStats": {
+        "startTime": "2026-10-20T02:06:17.160Z",
+        "duration": 7147.611000000001,
+        "expected": 10,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "acceptedSelection": "Historical/intermediate; do not add to current accepted totals"
+    },
+    "browser-first": {
+      "artifacts": {
+        "path": "tmp/onb07-date-lock/browser-first/results.json",
+        "sha256": "95712b12361388edc5d88a38113d82f52e779155b60004f2d1f2000b584da502"
+      },
+      "reportedStats": {
+        "startTime": "2026-10-20T02:11:01.408Z",
+        "duration": 50462.813,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 16,
+        "flaky": 0
+      },
+      "acceptedSelection": "Historical/intermediate; do not add to current accepted totals"
+    },
+    "browser-smoke": {
+      "artifacts": {
+        "path": "tmp/onb07-date-lock/browser-smoke/results.json",
+        "sha256": "31d9bd9e72fde70f4be3ed4341b7873fd0e2d0389adef13f80fe84fbeb18b71b"
+      },
+      "reportedStats": {
+        "startTime": "2026-10-20T02:12:09.474Z",
+        "duration": 5085.713,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 2,
+        "flaky": 0
+      },
+      "acceptedSelection": "Historical/intermediate; do not add to current accepted totals"
+    },
+    "browser-boundary-diagnostic": {
+      "artifacts": {
+        "path": "tmp/onb07-date-lock/browser-boundary-diagnostic/results.json",
+        "sha256": "57649dec4ced0b65afab323c7c52634b3475db859675a96221ac093b5e4727bc"
+      },
+      "reportedStats": {
+        "startTime": "2026-10-20T02:13:57.079Z",
+        "duration": 24948.089,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "acceptedSelection": "Historical/intermediate; do not add to current accepted totals"
+    },
+    "browser-boundary-fixed-clock": {
+      "artifacts": {
+        "path": "tmp/onb07-date-lock/browser-boundary-fixed-clock/results.json",
+        "sha256": "49eecb4476b2215d3cb71c2217c217713c346f8613de5e0307743bc5403bf2d0"
+      },
+      "reportedStats": {
+        "startTime": "2026-10-20T02:14:47.304Z",
+        "duration": 24889.724,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "acceptedSelection": "Historical/intermediate; do not add to current accepted totals"
+    }
+  },
+  "nonBrowserFailedAttempts": [
+    {
+      "log": {
+        "path": "tmp/onb07-date-lock/build-sandbox-failed.log",
+        "sha256": "a4116f581bc0b5b11d58971a1d32fd0920ef574bca9d8f83c9cc29069d6b04bf"
+      },
+      "reason": "Sandbox font fetch failed"
+    },
+    {
+      "log": {
+        "path": "tmp/onb07-date-lock/build-port-failed.log",
+        "sha256": "4fcedcd9c7690d8863e6f4b06ad8cf1451b7769c289897920f4f85963d1b4514"
+      },
+      "reason": "Cached Turbopack child port restriction"
+    },
+    {
+      "log": {
+        "path": "tmp/onb07-date-lock/build-cached-port-failed.log",
+        "sha256": "454a679ea345f71a1315dc3c549187166f7271ee3ae69bf92e57a8d9b6d52818"
+      },
+      "reason": "Repeated cached port restriction; fresh dist succeeded"
+    },
+    {
+      "log": {
+        "path": "tmp/onb07-date-lock/fixtures.log",
+        "sha256": "9a220d6f5193e615e6399c0a93473678049f9011d09f31f29d5c80b85b9f01b8"
+      },
+      "reason": "Profile flags missing"
+    },
+    {
+      "log": {
+        "path": "tmp/onb07-date-lock/fixtures-binder.log",
+        "sha256": "4bf16bf6ad0490af542d9d52841305db3d6b470af0d4cf76bbefcc3c3ef86c8c"
+      },
+      "reason": "Invalid shorthand fixture role; canonical FACILITY_ADMINISTRATOR used subsequently"
+    }
+  ],
+  "preservedHistory": {
+    "preCorrectionManifest": {
+      "path": "docs/onboarding/ONB_07_CANDIDATE_INCLUSION_PRE_FR01_2026-10-19.json",
+      "sha256": "94b9c01d453fcdc2a2d3167238c5a998c4b6f6381544fedc3ccd5764bb018cf7"
+    },
+    "preCorrectionReview": {
+      "path": "docs/onboarding/ONB_07_FINAL_REVIEW_PRE_FR01_2026-10-19.md",
+      "sha256": "b339ec0c4a292e1effc9163682faf5b667bcfe5869b94aa2b5c186b17c9c95ad"
+    },
+    "originalReviewInventoryUnchanged": {
+      "path": "docs/onboarding/ONB_07_FINAL_REVIEW_VERIFICATION_2026-10-19.json",
+      "sha256": "430b50150152fa3416d1fbcb1b45d5b2e9b3ed313976b03cb7bd5e815dd4b58e"
+    },
+    "failedProbe": [
+      {
+        "path": "tmp/onb07-final-review/date-boundary-probe.mjs",
+        "sha256": "f3da1c540818921a053214d3b57ba4f93d5f16bfc20c269791db167b390e5ef3"
+      },
+      {
+        "path": "tmp/onb07-final-review/date-boundary-probe.json",
+        "sha256": "a869405bb51b56f3a27d940e0a28b5947a026b29e815895f8aa4e3cf6e1011b6"
+      },
+      {
+        "path": "tmp/onb07-final-review/date-boundary-probe.log",
+        "sha256": "fa56ba2d03c285d9e916c70a58ab016113529cb17588096daf919749cf0f80eb"
+      }
+    ],
+    "referenceResolution": "Old inventory references to superseded current manifest/review paths are resolved through byte-identical PRE_FR01 copies; other original hashes unchanged. See preservation audit:49 workbook refs,6 SPACE refs,14 historical review refs,129 SPACE artifact hashes."
+  },
+  "unexpectedArtifactChanges": [
+    "tmp/onb07-space/offline-tablet.png",
+    "tmp/onb07-space/offline-chromium.png"
+  ],
+  "artifactLimitation": "Auxiliary original bytes not recovered; absent from historical hashed inventories; current copies saved and future outputs isolated.",
+  "inclusionManifest": {
+    "path": "docs/onboarding/ONB_07_CANDIDATE_INCLUSION_2026-10-19.json",
+    "sha256": "c88fb6f054544d1fbdd4e227f996e282e529649ce0f6770814e8655bf4dd3f0a"
+  },
+  "handoff": {
+    "path": "docs/onboarding/ONB_07_FINAL_REVIEW_HANDOFF_2026-10-19.md",
+    "sha256": "5e481fd078627b7f3bb02b19baae6925c0e095420c025400ecae6b8289e7c99a"
+  },
+  "completeFreeze": "tmp/onb07-date-lock/approval-freeze.json (generated last; covers all355 final paths including metadata without recursive self-hashes)",
+  "remaining": [
+    "Remote Node20/PostgreSQL16 five mandatory CI jobs NOT RUN",
+    "Production scanner/private Blob/TLS/secrets/updates/ownership/scheduling pending",
+    "Managed offline keys/HTTPS/rotation/retention, all timing writers and intended-target migration integrity pending",
+    "Actual pilot Facility/workflow/owners/training/support/authorization/acceptance pending",
+    "Partner membership-end,PM replacement and intermediate partial-recovery exhaustion remain unexplained intermittent findings, not claimed fixes"
+  ],
+  "notRun": [
+    "Unchanged full repository/database/browser suites",
+    "Unchanged database replay/authorization group",
+    "Fresh scanner/physical-device/production overnight proof",
+    "Intended-target migration deployment or production configuration",
+    "Remote CI or actual pilot"
+  ],
+  "cleanup": {
+    "ownedServer": "port55529 stopped",
+    "retainedDatabase": "cluster55471 stopped after0otherclients; no reset/drop/reseed",
+    "log": {
+      "path": "tmp/onb07-date-lock/database-stop.log",
+      "sha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d"
+    }
+  },
+  "authorization": "No git add,commit,push,PR creation,deployment,live charge,customer data,external message or pilot activation. ONB-07 incomplete."
+}

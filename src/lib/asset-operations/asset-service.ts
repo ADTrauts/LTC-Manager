@@ -46,15 +46,14 @@ function toAssetStatus(status: AssetOperationalStatus): AssetStatus {
 }
 
 async function nextAssetCode(client: DbClient): Promise<string> {
-  const count = await client.asset.count();
-  let candidate = `A-${String(count + 1).padStart(5, "0")}`;
-  for (let i = 0; i < 8; i += 1) {
-    const clash = await client.asset.findFirst({
-      where: { assetCode: candidate },
-      select: { id: true },
-    });
-    if (!clash) return candidate;
-    candidate = `A-${String(count + 1 + i + 1).padStart(5, "0")}`;
+  // Explicit imported codes can occupy future sequence values after migration.
+  // Each reservation is atomic; skip occupied values without rewriting identity.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const rows = await client.$queryRaw<Array<{ value: bigint }>>`
+      SELECT nextval('"AssetCodeSequence"') AS value
+    `;
+    const candidate = `A-${String(rows[0]!.value).padStart(5, "0")}`;
+    if (!await client.asset.findUnique({ where: { assetCode: candidate }, select: { id: true } })) return candidate;
   }
   return `A-${cuidLike().slice(1, 9).toUpperCase()}`;
 }
@@ -152,6 +151,7 @@ export async function createAsset(
     session,
     input.facilityId,
     input.departmentId,
+    client,
   );
   requireAssetManage(authority);
 

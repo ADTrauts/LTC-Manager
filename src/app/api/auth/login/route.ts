@@ -1,3 +1,4 @@
+import { credentialProof, PROOF_COOKIE, proofCookieOptions } from "@/lib/offline/space/keys";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -142,5 +143,6 @@ export async function POST(request: Request) {
     });
   }
 
+  response.cookies.set(PROOF_COOKIE, credentialProof(`user:${user.id}`, user.sessionVersion), proofCookieOptions());
   return response;
 }

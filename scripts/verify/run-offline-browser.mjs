@@ -8,6 +8,7 @@
  * - Runs Playwright Chromium scenarios
  * - Always stops the server, removes the browser profile, and drops a managed DB
  */
+import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -112,6 +113,9 @@ async function main() {
   if (!process.env.SEED_DEMO_PASSWORD) {
     process.env.SEED_DEMO_PASSWORD = "OfflineBrowserSeed!ChangeMe";
   }
+  // Ephemeral test-only escrow configuration; production has no fallback.
+  process.env.OFFLINE_RECOVERY_KEYS ||= JSON.stringify({ verification: randomBytes(32).toString("base64") });
+  process.env.OFFLINE_RECOVERY_ACTIVE_KEY ||= "verification";
   process.env.ALLOW_DEMO_SEED_PASSWORD = "1";
 
   mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -131,8 +135,10 @@ async function main() {
     AUTH_SECRET: process.env.AUTH_SECRET,
     SEED_DEMO_PASSWORD: process.env.SEED_DEMO_PASSWORD,
     ALLOW_DEMO_SEED_PASSWORD: "1",
-    DIETARY_JOB_FLOW_ENABLED: "",
+    DIETARY_JOB_FLOW_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
+    OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
+    DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "true",
   };
 
   try {

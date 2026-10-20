@@ -165,3 +165,25 @@ export async function loadDepartmentsForCurrentSurface(
   }
   return loadCustomerOperableDepartments(prisma, facilityId);
 }
+
+/** Commercial boundary for canonical Product Build/Run owners. Custom shared-engine
+ * Departments keep their existing admission contract. Caller still checks role,
+ * relationship, feature rollout and the concrete resource's Facility.
+ */
+export async function isCustomerDepartmentAccessAllowed(
+  db: CatalogDbClient,
+  session: { facilityId: string; authKind?: string | null },
+  departmentId: string,
+): Promise<boolean> {
+  const context = await loadFacilityDepartmentAccessContext(db, session.facilityId);
+  const department = context.departments.find((row) => row.id === departmentId);
+  if (!department?.isActive) return false;
+  if (session.authKind === "harbor_staff") return true;
+  const product = getDepartmentProduct(department.key);
+  if (!product) return true;
+  return isDepartmentRowCustomerOperable({
+    key: department.key, isActive: department.isActive,
+    entitlementStatus: matchEntitlementStatusForProduct(context.entitlements, product),
+    billingStatus: context.billingStatus, entitlementsEnforced: context.entitlementsEnforced,
+  });
+}

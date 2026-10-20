@@ -3,8 +3,8 @@
  * Creates optional BUILDING → FLOOR → NEIGHBORHOOD → UnitSpace in parent-before-child order.
  */
 
-import { UnitHierarchyRole } from "@prisma/client";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { UnitHierarchyRole, Prisma } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
 import {
   BUILDING_INTERNAL_UNIT_TYPE,
@@ -104,10 +104,14 @@ export async function executeFacilityStructurePlan(
     throw new Error("Import plan has validation errors and cannot be confirmed.");
   }
 
-  const ops = orderedFacilityCreatePlan(plan);
+  return client.$transaction(tx => executeFacilityStructurePlanInTransaction(tx, facilityId, plan), { timeout: 120_000, maxWait: 30_000 });
+}
 
-  return client.$transaction(
-    async (tx) => {
+/** Shared canonical writer for callers already protecting review and receipts in a transaction. */
+export async function executeFacilityStructurePlanInTransaction(tx: Prisma.TransactionClient, facilityId: string, plan: FacilityStructureImportPlan): Promise<FacilityStructureExecuteResult> {
+    if (!plan.canConfirm || plan.counts.invalidRows > 0) throw new Error("Import plan has validation errors.");
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Facility" WHERE "id"=${facilityId} FOR UPDATE`);
+    const ops = orderedFacilityCreatePlan(plan);
     const catalog = await loadFacilityStructureCatalog(tx, facilityId);
     const buildingIdByKey = new Map<string, string>();
     const floorIdByKey = new Map<string, string>();
@@ -293,7 +297,4 @@ export async function executeFacilityStructurePlan(
       neighborhoodsReused: plan.neighborhoodsReused,
       spacesReused: plan.spacesReused,
     };
-  },
-    { timeout: 120_000, maxWait: 30_000 },
-  );
 }

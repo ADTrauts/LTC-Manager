@@ -47,10 +47,11 @@ GOVERNANCE
 
 | State | Meaning here |
 |-------|----------------|
-| **Implemented** | Healthcare Food & Nutrition as the customer-visible Department Product, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, Assets and repairs as they exist today |
+| **Implemented** | Healthcare Food & Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Department Products, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, shared Assets and repairs |
 | **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
-| **In development** | Environmental Services and Facility Plant Operations exist in the registry, tests, and internal tooling. They are not customer-visible until marked AVAILABLE. |
-| **Designed, not implemented as a customer Product** | Facility Plant Operations architecture is locked in [14](./14_FACILITY_PLANT_OPERATIONS.md). Platform Assets and repairs are shared mechanisms; they are not that Product. Implementation has not started. |
+| **In development** | Environmental Services exists in the registry, tests, and internal tooling. It is not customer-visible until marked AVAILABLE. |
+
+Status reconciliation (October 17, 2026): Facility Plant Operations V1 became AVAILABLE on October 7, 2026; see the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07) and [14](./14_FACILITY_PLANT_OPERATIONS.md). This corrects stale implementation-status prose; it does not change Product release policy or billing behavior.
 
 A Product existing in the Vssyl registry does not make it customer-visible. Customer visibility requires AVAILABLE release state. See [13 — Department Product](./13_DEPARTMENT_PRODUCT.md).
 

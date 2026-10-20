@@ -1,0 +1,827 @@
+{
+  "date": "2026-10-19",
+  "scope": "D21 first canonical SPACE offline local implementation only",
+  "phaseStatus": "ONB-07 INCOMPLETE / release HOLD",
+  "head": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "build": {
+    "distDir": ".next-onb07-space-build",
+    "buildId": "eYn2LNGJB_kx6ATlH7XPy",
+    "log": "tmp/onb07-space/build-complete.log",
+    "sha256": "56ae89b19709769ea74a9d974bfc1e5f3b7b4d44423443bd0acc4e691da571f4"
+  },
+  "sourceFingerprint": {
+    "combinedSha256": "a48ab414027acf3903c8257de7652ba4a9e00537d44ad915eb7fd38521e9fdfb",
+    "manifest": "tmp/onb07-space/source-fingerprints.json",
+    "manifestSha256": "94cba92b871455074095582164253b3ee50f2366ce242c41740760238eb1ca72",
+    "files": 286,
+    "runtimeCombinedSha256": "45f83923108f48c53f7b4584c1e9fdbc7c6029f4ea9f035800e632fc86481cdd"
+  },
+  "finalEvidence": {
+    "affectedDatabaseAndContractGroup": {
+      "log": "tmp/onb07-space/sql-complete.log",
+      "sha256": "ffb119723b7d60b4de3cbca6e023c223280385af425a6080210b29bbab6b5953",
+      "totals": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      },
+      "composition": {
+        "spaceCases": 17,
+        "canonicalCycleOwnerCases": 3,
+        "databaseBackedCases": 18,
+        "pureCases": 2
+      }
+    },
+    "offlineDesktopTablet": {
+      "path": "tmp/onb07-space/offline-complete/results.json",
+      "sha256": "c567c365e8f87464ad185b04c65d71a0060ced2e68704eb24881754f9d89ab5a",
+      "stats": {
+        "startTime": "2026-10-19T20:31:54.473Z",
+        "duration": 96781.53000000001,
+        "expected": 18,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "dietaryChangedPinDesktopTablet": {
+      "path": "tmp/onb07-space/dietary-complete/results.json",
+      "sha256": "74303a542ae6e0683b263e0f7576ea26a65c1ffd64ee5ea56d308b71560988b6",
+      "stats": {
+        "startTime": "2026-10-19T20:34:02.832Z",
+        "duration": 13417.509999999998,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "mixedPartialOutcomeCoverage": "Included in the final full 18-case run; earlier two-case augmentation is development evidence"
+  },
+  "reusedEvidence": [
+    {
+      "path": "tmp/onb07-space/dietary-final/results.json",
+      "sha256": "0c925fd545c5a134d46d3fe926ce450c8da65544f6b65e583f93aebe8573c7e8",
+      "originalTotals": {
+        "startTime": "2026-10-19T19:50:03.509Z",
+        "duration": 44610.456,
+        "expected": 10,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reuse": "Eight non-offline Dietary cases only; board/coverage/overlap/denial owners unchanged after this run. Both changed PIN cases rerun on final build. This is not a new ten-case final-build run.",
+      "originalBuildId": "CU7d1ancdZCL7aX1N7HQV"
+    },
+    {
+      "path": "tmp/onb07-space/sql-lock-order.log",
+      "sha256": "462cdb81a8c6252050047ef860bebfadb7667cc6b75d394f587c6c07bd0502e1",
+      "originalTotals": {
+        "tests": 22,
+        "pass": 22,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      },
+      "reuse": "Eight unchanged Work/body/semantic tests reused; thirteen earlier SPACE cases and one Cycle materialization case overlap final checks and are superseded. Do not sum overlapping totals."
+    },
+    {
+      "path": "tmp/onb07-space/sql-compatibility.log",
+      "sha256": "7c8ecf3ece3896fcdf3fc014471a3f8682f15bf6fd50c4790b0bd136dfd0a5a0",
+      "originalTotals": {
+        "tests": 38,
+        "pass": 38,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      },
+      "reuse": "Legacy bundle/sync compatibility, session revocation and pure Key Time planning/semantic tests reused. Their tested owners are unchanged by the later SPACE boundaries and canonical timing-adjustment parent fence; the changed timing writer is covered by the final observed-wait SQL regression."
+    }
+  ],
+  "localChecks": {
+    "buildAndBuildTypecheck": "PASS",
+    "selectedLint": "PASS, zero errors; four warnings (three unused destructured public-JS fields; one existing full-navigation warning)",
+    "lintLogs": [
+      "lint-boundaries-final.log",
+      "lint-certified.log",
+      "lint-delivery-final.log",
+      "lint-new-final.log",
+      "lint-complete.log",
+      "lint-fence.log"
+    ],
+    "standaloneTypecheck": {
+      "log": "tmp/onb07-space/typecheck-final.log",
+      "scope": "Historical standalone PASS; both standalone logs precede the final timing-fence/timezone correction. Current complete-build TypeScript PASS is the current evidence."
+    },
+    "schemaValidation": {
+      "log": "tmp/onb07-space/prisma-validate-fence.log",
+      "result": "PASS; schema unchanged since"
+    },
+    "migrationIntegrity": {
+      "log": "tmp/onb07-space/migration-integrity-fence.log",
+      "result": "PASS 150; SQL unchanged since"
+    },
+    "appliedHistory": {
+      "target": "ltc_ci_onb07_followup_offline",
+      "disk": 150,
+      "applied": 150,
+      "mismatch": [],
+      "pending": [],
+      "unfinished": []
+    },
+    "discovery": {
+      "log": "tmp/onb07-space/discovery.log",
+      "result": "PASS 446 test files / 57 SQL suites; files unchanged since"
+    },
+    "hygiene": {
+      "log": "tmp/onb07-space/hygiene-handoff.log",
+      "result": "PASS, 2608 tracked files"
+    },
+    "diffChecks": {
+      "working": "tmp/onb07-space/working-diff-handoff.log",
+      "index": "tmp/onb07-space/index-diff-handoff.log",
+      "result": "PASS"
+    },
+    "metadataAudit": {
+      "log": "tmp/onb07-space/handoff-metadata.log",
+      "result": "PASS"
+    },
+    "earlierStandaloneTypecheck": {
+      "log": "tmp/onb07-space/typecheck-certified.log",
+      "result": "Earlier PASS after augmented browser tests, before timing-fence/timezone correction; current complete-build TypeScript PASS supersedes its scope"
+    }
+  },
+  "preservation": {
+    "cleanup": {
+      "log": "tmp/onb07-space/cleanup-handoff.log",
+      "result": "Owned final verification server and idle isolated PostgreSQL cluster stopped; database files, builds and evidence retained"
+    },
+    "initialSnapshot": "tmp/onb07-space/before.json",
+    "initialSnapshotSha256": "1bf5aee7e1ad2e07f82253dc34ec946c4d205077407cebc106f105999fa049b0",
+    "finalAudit": "tmp/onb07-space/preservation-handoff.json",
+    "finalAuditSha256": "0a9c89cde281b754515d3d0be49c7cd8c0e749e842d2ddba21e260ebaab63d17",
+    "originalIndexEntries": 2593,
+    "changedOriginalIndexEntries": [],
+    "appliedHistoricalSqlEdited": false,
+    "databaseResetOrDrop": false,
+    "tsconfig": "Verified original JSON equivalence after removing only generated own-distDir entries, then restored exact index bytes"
+  },
+  "gates": {
+    "canonicalSpaceLocal": "PASS",
+    "R07-01BLocal": "PASS for authorized Work + Key Time actual delivery; corrections/adjustments online-only",
+    "R07-01AWorkbookConcurrency": "BLOCKED; no causal workbook fix or fresh whole-suite result",
+    "remoteCI": "NOT RUN",
+    "productionOriginalsInfrastructure": "PENDING",
+    "productionOfflineKeyringAndHttps": "PENDING",
+    "realPilotAcceptance": "PENDING; no live authorization"
+  },
+  "latestBroaderIntegratedEvidence": {
+    "source": "ONB_07_FOLLOWUP_VERIFICATION_2026-10-19.json",
+    "buildScope": "earlier checkpoint, migration 148; not current-candidate whole-suite proof",
+    "total": 3665,
+    "pass": 3657,
+    "fail": 1,
+    "skip": 7,
+    "remainingFailure": "workbook 25-row resumption exhausts P2034 retries"
+  },
+  "notRun": [
+    "Full repository suite on current candidate",
+    "New broad integrated SQL checkpoint",
+    "Remote CI",
+    "Production hosting/keyring/scanner verification",
+    "Real pilot/customer effort measurement",
+    "Physical tablet/Safari/Firefox certification",
+    "Destructive full-unbind execution (cancel/disclosure verified)",
+    "Exhaustive 200-command/2-MiB browser stress"
+  ],
+  "artifactManifest": {
+    "path": "tmp/onb07-space/artifact-manifest.json",
+    "sha256": "bb72fddf419b5209c971f0c9cf682f5801746202ca308a78e79634adf76260d6"
+  },
+  "developmentEvidence": [
+    {
+      "log": "tmp/onb07-space/applied-fence.log",
+      "sha256": "3894eb8cd093ade32dbe7f510002a0050352292ae0044407bb82051e568f6796",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/applied-history.log",
+      "sha256": "b61d3fb8978c47c8bb0c7644052aa4b7fe174bad30c357fdc9cfb51a3674da5f",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/browser-fixtures-retry.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/browser-fixtures.log",
+      "sha256": "7eb50417f779f35ca3ca77aa4700d3f63f773f2ef789f2bbd05d4f22d644d7c8",
+      "classification": "failed fixture setup; no customer gate proof"
+    },
+    {
+      "log": "tmp/onb07-space/browser-smoke-candidate.log",
+      "sha256": "1aba793ecc75165285d3e2e81c4caf274d3e0962d2aea7cf0e4aa11eb27cb2cb",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/browser-smoke-real.log",
+      "sha256": "19a3db8d2b637b0d8199ac304ad233dc55b7af132662d0b7f31016ce6f378a4a",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/browser-smoke.log",
+      "sha256": "8b077cc5e7423eab9d5012b5c7891dafb678831a9c467023b55c18e08e8092b2",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/build-certified.log",
+      "sha256": "b67130f6672a591293195024f7f2ad9b5b11d3cf22cb7fac23d936a693b22937",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-delivery.log",
+      "sha256": "7339c0deabb4ee99b2113da6cc0720ac62c0bbf3e2f05e5fe7bade91d429076f",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-fence-final.log",
+      "sha256": "06ab40e690afb8488a80f61294930d26c4f245ab43a8fa7ee4271d900457e569",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-fifth.log",
+      "sha256": "2202bb19e65f4bc545d62c25434975d0c32fb6408af36beb2d232297ab74d4d6",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-final.log",
+      "sha256": "f18085cb988501836b6d2d9f50d3de5ab85b7c3953c9491d573779fa310fd212",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-first.log",
+      "sha256": "7ec5d34acba0d71606cffcfdebbe2028c2bcd6b0707c6d2a2ad9911ee7465b40",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-fourth.log",
+      "sha256": "902cde0c425bdf91f0abdadb8937c9afe8f96c7aedce0e15d9cfc835f23045b6",
+      "classification": "failed superseded build; retain diagnostic"
+    },
+    {
+      "log": "tmp/onb07-space/build-origin.log",
+      "sha256": "24e4b1515744024e7aea929218673a7421d11dcee2cb6d1dc6c5952670ed71b5",
+      "classification": "passing superseded build"
+    },
+    {
+      "log": "tmp/onb07-space/build-second.log",
+      "sha256": "62253fc79ba745340d27bfba59006505f50f07765247fda38979c7249d90583f",
+      "classification": "failed superseded build; retain diagnostic"
+    },
+    {
+      "log": "tmp/onb07-space/build-third.log",
+      "sha256": "259165a27a8be6d6b7d355bf3e4891685be259687a7b856fd8867d349cf65ac3",
+      "classification": "failed superseded build; retain diagnostic"
+    },
+    {
+      "log": "tmp/onb07-space/cert-fixtures.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/certified-fixtures.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/cleanup-handoff.log",
+      "sha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/complete-fixtures.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/database-start.log",
+      "sha256": "66afd0411ccc09366e99fdd99b85f21899c8d2d064f5835126859618802153ad",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/debug.log",
+      "sha256": "894ec36a0aa213ed519126f8a6d844e50053a57fd9428742590fb31853da66b6",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/delivery-fixtures.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/dietary-certified-fixtures.log",
+      "sha256": "7868e8feea6983f72c3a7da64df5624a05c7ff5bfb8235778a31e423cb38102e",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/dietary-certified.log",
+      "sha256": "ae7d3b6f505db67baeb3ce287600a9f70d68bff96be8069e21bdc48bad34a76e",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/dietary-complete-fixtures.log",
+      "sha256": "7868e8feea6983f72c3a7da64df5624a05c7ff5bfb8235778a31e423cb38102e",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/dietary-final.log",
+      "sha256": "6ef21decf8a968d6f6a5fd1589aa9004821933aaab3e94145ac33e3076f7131a",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/dietary-fixtures.log",
+      "sha256": "3acedffb2089eab981ffa58cc4aec821bf6cc6432fbba3d588ef0e36857ee9a5",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/diff-check-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/discovery.log",
+      "sha256": "9e7d4bc42eaec05da39f3b8c24498bd2a930d656b1a1c59945c780db1a8c3064",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/fence-fixtures.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/final-fixtures-resume.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/final-fixtures.log",
+      "sha256": "7b52bd71993c9e33c958bcd1b14655afca4d415367be218cf6f0ffad222b447c",
+      "classification": "failed fixture setup; no customer gate proof"
+    },
+    {
+      "log": "tmp/onb07-space/handoff-metadata.log",
+      "sha256": "0a0d5b4a3a738dd93e4d74e04c197bc44766677769c167aba636b4c15b92a36f",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/hygiene-final.log",
+      "sha256": "0243152be61be25b9e0d526c275cc69a6454bfc74644f976738206b6df33a118",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/hygiene-handoff.log",
+      "sha256": "e7c3c602439a385268e3106b3d5d81501490b771e5eec66529a669ccb380a2d4",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/hygiene.log",
+      "sha256": "5279b6a69b9ff37ed3a824af7c8d1a1c7cfbd02bf51666fc02f433121ab81261",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/index-diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/index-diff-handoff.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-boundaries-final.log",
+      "sha256": "ae2c8a49df3a576dc188c060f88627c16c142a72dc04a445f5e53a0a6594b202",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-certified.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-complete-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-complete.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-delivery-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-delivery.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-fence.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-final.log",
+      "sha256": "b32627ca2190dceeec5d3f6073e326d14eb3e34d7b2f405abd3a857ff15ebff0",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-focused.log",
+      "sha256": "8f95ca297e5be2f4d2b7f967eda1b2f40e49fce237d40986e38b36f890116b70",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-new-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-partial.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-supporting.log",
+      "sha256": "69bf6345098745174fb7f3168484ce2797a4a9140490e8fbb18c45fe00cc36b0",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-test-fixes.log",
+      "sha256": "508af4985227c52a72d283fb63c5249f846d8f1aa648680ed6bead13de293e69",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/lint-tests-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/migrate-fence.log",
+      "sha256": "b52573e64e1c576c1f7927017055d5de2c50acef2d629b0b2322c03ba85c3dde",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/migrate.log",
+      "sha256": "307c9805cf5e2115345a8cea3052162767e473dcf920d2d76b18335374f09ab8",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/migration-integrity-fence.log",
+      "sha256": "f357f76e520e9339545fb5c0e04893ecdc2d62c69f52ff575795ccaab76f1f89",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/migration-integrity.log",
+      "sha256": "9ade2218e85d103af36a1e22494c893a6032ee4dfc44b15d837951152664291d",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-certified.log",
+      "sha256": "ca5df0e07dcb3b80118739568b196aa13d1c997733ba03434d32d34e4e2471f3",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-delivery.log",
+      "sha256": "a69e951b97227d9848bc566273571571a971f3697aa9b163efb7f1ca23a09b64",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-fence-final.log",
+      "sha256": "c705eaca3cf247a9b754443a6093fa8a966c8d0ea4145c5dba3381cd9c68dd6c",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-final.log",
+      "sha256": "8f60d859cd3eb2dab0335168c5e19f0c5fc0223054c2564651f23b753d2c9b43",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-first.log",
+      "sha256": "e91e5f04c6d8d021f2c4506b5e2b4d2adea9cc13a0ee4f294b58c1088f794534",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-focused-corrected.log",
+      "sha256": "8a65ad4f499b5c3378f70b083375aa5f70e526d91eba345dbe238b12f7440e50",
+      "classification": "interrupted after two passes because conflict target was already consumed; not a complete gate"
+    },
+    {
+      "log": "tmp/onb07-space/offline-focused.log",
+      "sha256": "36b03cb401060f24666f4e1cddb5ef04aa231e2a230b5a9d8818ce3e7a368f12",
+      "classification": "test parse/setup failure; zero tests executed"
+    },
+    {
+      "log": "tmp/onb07-space/offline-partial.log",
+      "sha256": "70bfd8285fcf55d71fa24e704260f6cbce88c37421c91d74d4f1fbc984827e0b",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/offline-recovery-focused.log",
+      "sha256": "f588df2e5e05fccd44e4d519bd4cb5bc1a0da8804df25c6650b8dca470a15853",
+      "classification": "three fixture-path setup failures; not product journey proof"
+    },
+    {
+      "log": "tmp/onb07-space/offline-recovery-valid.log",
+      "sha256": "49c17ba7a5071792f0c082e263813b7c013f229675494469c2e9d4cf72cdec7f",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/partial-fixtures.log",
+      "sha256": "5cfed42742be165f40e396f4088b240a0f7802a55f951aa15f658b785b256708",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/postgres-handoff.log",
+      "sha256": "14c2e13d6a918c9be2876e1117b81ab9a8850607c22c4d10b89dd19a9ee9552f",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/postgresql.log",
+      "sha256": "55e05169143e702f466a875b621d3665a115e85ee08d0b064c879c6320f109e7",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/prisma-generate-fence.log",
+      "sha256": "50dbb05bfe806c92a09e3318ac743d3d880ef8fb995983a38082384261088fe6",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/prisma-generate.log",
+      "sha256": "c6e4ff2b735561f94d193afb134c872e33e0a42ab59facc1bb3582049da7a2dc",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/prisma-validate-fence.log",
+      "sha256": "ee3210be32086d10f43d6925dda836277e5cd43602f53c80b2ed78f3b07222ee",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/prisma-validate.log",
+      "sha256": "ee3210be32086d10f43d6925dda836277e5cd43602f53c80b2ed78f3b07222ee",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/recovery-jsonb.log",
+      "sha256": "abffa40c2e91c1abe85b5fa774e91072338efc072315a5966ea3879a3c328c17",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-candidate.log",
+      "sha256": "efabc24dfa4714260a95870f2f835f6a2d89f67a260efe8176e2c5139c3c0182",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-certified.log",
+      "sha256": "a4fe0f3d872ae50c41e51dbe0d2b420351b352e4f179dce961769e6d0168d662",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-complete.log",
+      "sha256": "cf32d376064c993e1f92f7763874701b61a7889bd36fe11e600b99371bbb1e65",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-delivery.log",
+      "sha256": "ae946e5b38e221d31cedae615cffe37b595befa4e29cff27d99cf936da05b25f",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-fence-final.log",
+      "sha256": "e3b408ff490826a67c2c7840b64008e7d16a60d68b2f6ead92fdf081106fa160",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-final.log",
+      "sha256": "8ccca4f2420230ae929a84db4256f2a4022230a2b1e80207222472ae64a338d2",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-first.log",
+      "sha256": "3cfd039778b27de779d55b9d84b93e1cd5e08eb5116d29dd4c6dbf723359cb02",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/server-origin.log",
+      "sha256": "5308907168bd81b74eda7cf0bbade00d94a9e2db160b46f50b40fcd24e0951c2",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/sql-certified.log",
+      "sha256": "687b1cef473f88e21a7bce0566759b5afaa9a658707861b0243f46470dd3ddc3",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 16,
+        "pass": 16,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-compatibility.log",
+      "sha256": "7c8ecf3ece3896fcdf3fc014471a3f8682f15bf6fd50c4790b0bd136dfd0a5a0",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 38,
+        "pass": 38,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-delivery.log",
+      "sha256": "70df2bd4418c0a5413da6d17f3fdb38369f42a3726562997fe18cd3dddc5463c",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-expanded.log",
+      "sha256": "c00795ad894d2751355cc251fcf70ba3097e26e5aad931eb1924fe5be15491b4",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 12,
+        "pass": 12,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-fence-final.log",
+      "sha256": "a7fb85186361205ebf312250913c4fa7dad6318f56a451068d3443c4f12e330d",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-final-directives.log",
+      "sha256": "165dd7d94c8045e9590b9953c3ef8b3c28bfb995bead3d7b7aea1f19e752c7fe",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-first.log",
+      "sha256": "4e7a9e9933c31d015b2e48810a7491a3b2b5215fd56428eedf9715494ec34354",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-lock-order.log",
+      "sha256": "462cdb81a8c6252050047ef860bebfadb7667cc6b75d394f587c6c07bd0502e1",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 22,
+        "pass": 22,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/sql-owners.log",
+      "sha256": "3b385193c23567ec9bec440ca850da027f88fd58a608dcd3c2a55564f5e5dabf",
+      "classification": "real online/replay deadlock finding; fixed through common canonical Facility-first lock order",
+      "nodeTestTotals": {
+        "tests": 16,
+        "pass": 13,
+        "fail": 1,
+        "skipped": 2,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/timing-wait-after.log",
+      "sha256": "11e440bb40526e945090a6c08d910d3efe454927337ca652553649b72390265d",
+      "classification": "development/setup/check evidence; superseded where applicable",
+      "nodeTestTotals": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/timing-wait-before.log",
+      "sha256": "76c5b87c3326d870183171bf4710a07a136ded96a014b1a765847b1e6fbe4e90",
+      "classification": "real product defect: replay committed from a stale Serializable snapshot after a child-only timing adjustment during lock wait; fixed with migration 150 and canonical timing-parent fence; failing evidence retained",
+      "nodeTestTotals": {
+        "tests": 1,
+        "pass": 0,
+        "fail": 1,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-before-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-certified.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-expanded.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-locking.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-service.log",
+      "sha256": "00ef5bfd5b37b9d8c1a5d6a5c9c0b0e98f56bfd12a6e899f10627156fd173c26",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-slice1.log",
+      "sha256": "79445600d323f9a3aa18b9f08bc7f243c9de281311ae29332cf043c650e37ded",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-slice2.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/typecheck-ui.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/working-diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    },
+    {
+      "log": "tmp/onb07-space/working-diff-handoff.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "classification": "development/setup/check evidence; superseded where applicable"
+    }
+  ],
+  "authorization": {
+    "commit": false,
+    "push": false,
+    "deployment": false,
+    "customerDataOperations": false,
+    "liveCharge": false,
+    "signupEnablement": false,
+    "externalMessages": false,
+    "pilotActivation": false
+  }
+}

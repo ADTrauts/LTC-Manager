@@ -21,9 +21,7 @@ import {
   resolveCurrentInternalFacilityRole,
 } from "@/lib/facility-access/internal-facility-role";
 import { isCanonicalLogsEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
-import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
-import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { authorizeHarborRequest, authorizeHarborWorkFacilityRequest } from "@/lib/harbor-console/proxy-gate";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
@@ -219,28 +217,9 @@ async function continueFacilityRequest(
   featureFlags: ReturnType<typeof routeFeatureFlags>,
 ): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
-  const facility = await prisma.facility.findUnique({
-    where: { id: session.facilityId },
-    select: { onboardingCompletedAt: true },
-  });
-  const onboardingComplete = Boolean(facility?.onboardingCompletedAt);
-  const onSetupRoute =
-    pathname === ONBOARDING_ENTRY_PATH ||
-    pathname.startsWith(`${ONBOARDING_ENTRY_PATH}/`) ||
-    pathname.startsWith("/api/onboarding") ||
-    pathname.startsWith("/api/billing");
-
   const role = session.role as AppRole;
-  const isFa = isFacilityAdministratorRole(role);
   const deviceUnitId = request.cookies.get(DEVICE_UNIT_COOKIE)?.value;
   const lockedUnitId = resolveLockedUnitId(session, deviceUnitId);
-
-  if (!onboardingComplete && isFa && session.authKind !== "harbor_staff" && !onSetupRoute) {
-    return NextResponse.redirect(new URL(ONBOARDING_ENTRY_PATH, request.url));
-  }
-  if (onboardingComplete && pathname === ONBOARDING_ENTRY_PATH) {
-    return defaultHomeRedirect(request, session, lockedUnitId);
-  }
 
   const decision = authorizeRoute({
     pathname,

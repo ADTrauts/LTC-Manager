@@ -1,3 +1,4 @@
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
@@ -110,6 +111,9 @@ export async function resolveJobFlowAuthority(
     });
   }
 
+  if (!(await isCustomerDepartmentAccessAllowed(prisma, session, departmentId))) {
+    return { ...DENIED, reason: "Department commercial access is unavailable." };
+  }
   const department = await prisma.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true, key: true },

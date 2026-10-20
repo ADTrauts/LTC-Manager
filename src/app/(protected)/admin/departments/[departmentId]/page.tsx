@@ -1,3 +1,4 @@
+import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { notFound, redirect } from "next/navigation";
 
 import { DepartmentMenusPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-menus-panel";
@@ -264,6 +265,7 @@ export default async function DepartmentBuilderPage({
 
   return (
     <div className="space-y-3" data-testid="department-builder">
+      <SetupWorkspaceLink role={session.role} />
       <DepartmentBuildContextBar
         departmentId={view.department.id}
         departmentName={view.department.name}

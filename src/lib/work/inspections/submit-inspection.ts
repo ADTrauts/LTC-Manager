@@ -21,7 +21,7 @@ import type { TaskSyncDeps } from "@/lib/work/run-guarded-task-sync";
 
 export type InspectionSubmitDb = Pick<
   PrismaClient,
-  "inspectionDefinition" | "inspectionSubmission" | "inspectionOccurrence" | "$transaction"
+  "inspectionDefinition" | "inspectionSubmission" | "inspectionOccurrence" | "recordEngineRollout" | "facility" | "$transaction"
 > & {
   task?: PrismaClient["task"];
 };
@@ -111,6 +111,7 @@ export async function submitInspection(
       ? await departmentUsesCanonicalRecords({
           facilityId: input.facilityId,
           departmentId: definition.departmentId,
+          client: db as PrismaClient,
         })
       : false,
     writer: "INSPECTION_SUBMISSION",

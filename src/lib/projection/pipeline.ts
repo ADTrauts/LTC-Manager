@@ -713,6 +713,7 @@ export function buildProjectionExperiences(
     provenance: Set<ProjectionExperienceProvenance>;
   };
   const byId = new Map<string, MutableExperience>();
+  const areaOrder = new Map(rooms.flatMap((room) => room.profile.areas.map((area) => [area.key, area.sortOrder] as const)));
 
   for (const room of rooms) {
     for (const area of room.resolved.areas) {
@@ -817,6 +818,7 @@ export function buildProjectionExperiences(
     }))
     .sort(
       (a, b) =>
+        (areaOrder.get(a.reference.areaKey) ?? 100) - (areaOrder.get(b.reference.areaKey) ?? 100) ||
         a.reference.areaKey.localeCompare(b.reference.areaKey) ||
         a.order - b.order ||
         a.reference.experienceKey.localeCompare(b.reference.experienceKey),
@@ -825,6 +827,7 @@ export function buildProjectionExperiences(
 
 export function buildProjectionAreas(
   experiences: readonly ProjectionExperience[],
+  profileAreas: ProfileSnapshot["areas"] = [],
 ): readonly ProjectionArea[] {
   const grouped = new Map<string, ProjectionExperience[]>();
   for (const experience of experiences) {
@@ -832,18 +835,20 @@ export function buildProjectionAreas(
     list.push(experience);
     grouped.set(experience.reference.areaKey, list);
   }
+  const areaByKey = new Map(profileAreas.map((area) => [area.key, area]));
   return [...grouped.entries()]
-    .map(([areaKey, entries]) => {
+    .map(([areaKey, entries], index) => {
       const first = entries[0]!;
       const id = `${first.reference.departmentId}:area:${areaKey}`;
-      const label = leftoverLabel(areaKey);
+      const profileArea = areaByKey.get(areaKey);
+      const label = profileArea?.name ?? leftoverLabel(areaKey);
       return {
         id,
         areaKey,
         departmentId: first.reference.departmentId,
         departmentKey: first.reference.departmentKey,
         label,
-        order: 100,
+        order: profileArea?.sortOrder ?? (index + 1) * 10,
         experienceIds: entries
           .sort(
             (a, b) =>
@@ -1083,7 +1088,7 @@ function resolveDepartmentProjection(
   }
 
   const experiences = buildProjectionExperiences(permissionStageValue);
-  const areas = buildProjectionAreas(experiences);
+  const areas = buildProjectionAreas(experiences, profileStage.value?.areas);
   const queryScopes = resolveProjectionQueryScopes(experiences, hierarchy);
   const locations = buildAndPruneProjectionLocations(
     hierarchy,

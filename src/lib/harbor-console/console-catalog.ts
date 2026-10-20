@@ -161,6 +161,8 @@ export function billingStatusFor(status: string | null | undefined): BillingStat
     status === "INCOMPLETE" ||
     status === "ACTIVE" ||
     status === "PAST_DUE" ||
+    status === "UNPAID" ||
+    status === "PAUSED" ||
     status === "CANCELED"
   ) {
     return status;

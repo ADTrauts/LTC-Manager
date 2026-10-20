@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
+import type { PrismaClient } from "@prisma/client";
 
-import { applyFacilitySubscription } from "./apply-stripe-event";
+import { applyFacilitySubscription, recoverLicensedDepartmentInstallation, SubscriptionMirrorConflict } from "./apply-stripe-event";
 import type { BillingInterval, BillingSetupPath } from "./catalog";
 import type { FacilityBillingStatus } from "./entitlement";
 import { persistDefaultPaymentMethod } from "./persist-default-payment-method";
@@ -14,6 +15,7 @@ import { getStripeServerClient, isStripeSecretConfigured } from "@/lib/stripe";
 import { trackEvent } from "@/lib/telemetry";
 
 export type FacilityStripeSyncCode =
+  | "INSTALLATION_PENDING"
   | "SYNCHRONIZED"
   | "ALREADY_MATCHES"
   | "NO_SUBSCRIPTION"
@@ -38,6 +40,7 @@ export type LocalBillingMirror = {
   interval: BillingInterval | null;
   setupPath: BillingSetupPath | null;
   departmentKeys: string[];
+  revision?: string | null;
 };
 
 export type StripeSubscriptionReconciliationPlan =
@@ -53,6 +56,7 @@ export type StripeSubscriptionReconciliationPlan =
     };
 
 const MESSAGES: Record<FacilityStripeSyncCode, string> = {
+  INSTALLATION_PENDING: "Billing synchronized; installation is pending. Retry Sync from Stripe without another checkout or charge.",
   SYNCHRONIZED: "Billing synchronized successfully.",
   ALREADY_MATCHES: "Local billing already matches Stripe.",
   NO_SUBSCRIPTION: "No Stripe subscription exists for this facility.",
@@ -87,19 +91,23 @@ export function planStripeSubscriptionReconciliation(input: {
     return { action: "reject", code: "UNSAFE" };
   }
 
+  if (input.local.stripeSubscriptionId && input.local.stripeSubscriptionId !== input.subscription.id &&
+      !(["CANCELED", "INCOMPLETE"].includes(input.local.status ?? ""))) {
+    return { action: "reject", code: "CONFLICTING_SUBSCRIPTIONS" };
+  }
   const metadataFacilityId = input.subscription.metadata?.facilityId?.trim() || null;
   if (metadataFacilityId && metadataFacilityId !== input.facilityId) {
     return { action: "reject", code: "METADATA_FACILITY_MISMATCH" };
   }
 
-  const parsedKeys = parseLicensedDepartmentKeysFromMetadata(
-    input.subscription.metadata?.departmentKeys,
-  );
+  const requiresDepartmentKeys = status === "ACTIVE" || status === "PAST_DUE";
+  const parsedKeys = requiresDepartmentKeys
+    ? parseLicensedDepartmentKeysFromMetadata(input.subscription.metadata?.departmentKeys)
+    : { ok: true as const, keys: [] as string[] };
   if (!parsedKeys.ok) {
     return { action: "reject", code: parsedKeys.code };
   }
 
-  const requiresDepartmentKeys = status === "ACTIVE" || status === "PAST_DUE";
   if (requiresDepartmentKeys && parsedKeys.keys.length === 0) {
     return { action: "reject", code: "METADATA_INCOMPLETE" };
   }
@@ -147,9 +155,19 @@ export function planStripeSubscriptionReconciliation(input: {
  */
 export async function applyResolvedStripeSubscription(input: {
   facilityId: string;
-  subscription: Pick<Stripe.Subscription, "id" | "status" | "metadata">;
-}): Promise<FacilityStripeSyncResult> {
-  const local = await loadLocalBillingMirror(input.facilityId);
+  subscription: Pick<Stripe.Subscription, "id" | "status" | "metadata"> & Partial<Pick<Stripe.Subscription, "customer">>;
+  expectedRevision?: string | null;
+}, db: PrismaClient = prisma): Promise<FacilityStripeSyncResult> {
+  const facility = await db.facility.findUnique({ where: { id: input.facilityId }, select: { stripeCustomerId: true } });
+  if (!facility) return facilityStripeSyncResult("FACILITY_NOT_FOUND");
+  const customerId = typeof input.subscription.customer === "string" ? input.subscription.customer : input.subscription.customer?.id;
+  if (facility.stripeCustomerId && customerId && facility.stripeCustomerId !== customerId) {
+    return facilityStripeSyncResult("METADATA_FACILITY_MISMATCH");
+  }
+  const local = await loadLocalBillingMirror(input.facilityId, db);
+  if (input.expectedRevision !== undefined && input.expectedRevision !== local.revision) {
+    return facilityStripeSyncResult("CONFLICTING_SUBSCRIPTIONS");
+  }
   const plan = planStripeSubscriptionReconciliation({
     facilityId: input.facilityId,
     subscription: input.subscription,
@@ -160,17 +178,23 @@ export async function applyResolvedStripeSubscription(input: {
     return facilityStripeSyncResult(plan.code);
   }
   if (plan.action === "noop") {
-    return facilityStripeSyncResult("ALREADY_MATCHES");
+    const recovery = await recoverLicensedDepartmentInstallation(db, input.facilityId);
+    return facilityStripeSyncResult(recovery.installationPending ? "INSTALLATION_PENDING" : "ALREADY_MATCHES");
   }
 
-  await applyFacilitySubscription({
+  let applied: { installationPending: boolean };
+  try { applied = await applyFacilitySubscription({
     facilityId: input.facilityId,
     status: plan.status,
+    expectedRevision: input.expectedRevision !== undefined ? input.expectedRevision : local.revision ?? null,
     stripeSubscriptionId: plan.stripeSubscriptionId,
     ...(plan.interval ? { interval: plan.interval } : {}),
     ...(plan.setupPath ? { setupPath: plan.setupPath } : {}),
-    ...(plan.departmentKeys.length > 0 ? { departmentKeys: plan.departmentKeys } : {}),
-  });
+    departmentKeys: plan.departmentKeys,
+  }, db); } catch (error) {
+    if (error instanceof SubscriptionMirrorConflict) return facilityStripeSyncResult("CONFLICTING_SUBSCRIPTIONS");
+    throw error;
+  }
 
   await trackEvent("billing.subscription.reconciled", {
     facilityId: input.facilityId,
@@ -178,7 +202,7 @@ export async function applyResolvedStripeSubscription(input: {
     status: plan.status,
   });
 
-  return facilityStripeSyncResult("SYNCHRONIZED", true);
+  return facilityStripeSyncResult(applied.installationPending ? "INSTALLATION_PENDING" : "SYNCHRONIZED", true);
 }
 
 /**
@@ -187,12 +211,14 @@ export async function applyResolvedStripeSubscription(input: {
  */
 export async function syncFacilityBillingFromStripe(
   facilityId: string,
+  deps: StripeSyncDependencies = {},
 ): Promise<FacilityStripeSyncResult> {
-  if (!isStripeSecretConfigured()) {
+  if (!deps.stripe && !isStripeSecretConfigured()) {
     return facilityStripeSyncResult("STRIPE_UNAVAILABLE");
   }
 
-  const facility = await prisma.facility.findUnique({
+  const db = deps.db ?? prisma;
+  const facility = await db.facility.findUnique({
     where: { id: facilityId },
     select: { id: true, stripeCustomerId: true },
   });
@@ -200,15 +226,16 @@ export async function syncFacilityBillingFromStripe(
     return facilityStripeSyncResult("FACILITY_NOT_FOUND");
   }
 
-  const stripe = getStripeServerClient();
+  const stripe = deps.stripe ?? getStripeServerClient();
 
   let customerId = facility.stripeCustomerId ?? null;
   if (!customerId) {
     try {
       const matches = await stripe.customers.search({
         query: `metadata['facilityId']:'${facilityId}'`,
-        limit: 1,
+        limit: 2,
       });
+      if (matches.data.length > 1 || matches.has_more) return facilityStripeSyncResult("CONFLICTING_SUBSCRIPTIONS");
       customerId = matches.data[0]?.id ?? null;
     } catch {
       return facilityStripeSyncResult("STRIPE_UNAVAILABLE");
@@ -216,10 +243,6 @@ export async function syncFacilityBillingFromStripe(
     if (!customerId) {
       return facilityStripeSyncResult("NO_SUBSCRIPTION");
     }
-    await prisma.facility.update({
-      where: { id: facilityId },
-      data: { stripeCustomerId: customerId },
-    });
   }
 
   let subscriptions: Stripe.ApiList<Stripe.Subscription>;
@@ -233,12 +256,13 @@ export async function syncFacilityBillingFromStripe(
     return facilityStripeSyncResult("STRIPE_UNAVAILABLE");
   }
 
+  if (subscriptions.has_more) return facilityStripeSyncResult("CONFLICTING_SUBSCRIPTIONS");
   const selected = selectSubscriptionForFacilitySync(subscriptions.data);
   if (!selected.ok) {
     return facilityStripeSyncResult(selected.code);
   }
 
-  const customerFacility = await prisma.facility.findFirst({
+  const customerFacility = await db.facility.findFirst({
     where: { stripeCustomerId: customerId },
     select: { id: true },
   });
@@ -246,12 +270,12 @@ export async function syncFacilityBillingFromStripe(
     return facilityStripeSyncResult("METADATA_FACILITY_MISMATCH");
   }
 
-  const result = await applyResolvedStripeSubscription({
-    facilityId,
-    subscription: selected.subscription,
-  });
+  const result = await syncStripeSubscriptionById(facilityId, selected.subscription.id, { ...deps, db, stripe }, customerId);
 
-  await persistDefaultPaymentMethod(facilityId, selected.subscription.id, customerId);
+  if (result.ok) {
+    await db.facility.updateMany({ where: { id: facilityId, stripeCustomerId: null }, data: { stripeCustomerId: customerId } });
+    await persistSyncPaymentMethod(facilityId, selected.subscription.id, customerId, { ...deps, db, stripe });
+  }
   return result;
 }
 
@@ -303,11 +327,12 @@ export function parseLicensedDepartmentKeysFromMetadata(
 
 export async function resolveFacilityIdFromSubscription(
   subscription: Stripe.Subscription,
+  db: PrismaClient = prisma,
 ): Promise<string | null> {
   const fromMetadata = subscription.metadata?.facilityId?.trim();
   if (fromMetadata) return fromMetadata;
 
-  const existing = await prisma.facilityBilling.findFirst({
+  const existing = await db.facilityBilling.findFirst({
     where: { stripeSubscriptionId: subscription.id },
     select: { facilityId: true },
   });
@@ -317,21 +342,22 @@ export async function resolveFacilityIdFromSubscription(
     typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
   if (!customerId) return null;
 
-  const facility = await prisma.facility.findFirst({
+  const facility = await db.facility.findFirst({
     where: { stripeCustomerId: customerId },
     select: { id: true },
   });
   return facility?.id ?? null;
 }
 
-async function loadLocalBillingMirror(facilityId: string): Promise<LocalBillingMirror> {
-  const billing = await prisma.facilityBilling.findUnique({
+async function loadLocalBillingMirror(facilityId: string, db: PrismaClient): Promise<LocalBillingMirror> {
+  const billing = await db.facilityBilling.findUnique({
     where: { facilityId },
     select: {
       status: true,
       stripeSubscriptionId: true,
       interval: true,
       setupPath: true,
+      updatedAt: true,
       entitlements: {
         where: { status: "ACTIVE" },
         select: { departmentKey: true },
@@ -340,6 +366,7 @@ async function loadLocalBillingMirror(facilityId: string): Promise<LocalBillingM
     },
   });
   return {
+    revision: billing?.updatedAt.toISOString() ?? null,
     status: billing?.status ?? null,
     stripeSubscriptionId: billing?.stripeSubscriptionId ?? null,
     interval: billing?.interval ?? null,
@@ -360,9 +387,43 @@ function localMatchesStripe(input: {
   if (input.local.stripeSubscriptionId !== input.stripeSubscriptionId) return false;
   if (input.interval && input.local.interval !== input.interval) return false;
   if (input.setupPath && input.local.setupPath !== input.setupPath) return false;
+  if (!["ACTIVE", "PAST_DUE"].includes(input.status)) return input.local.departmentKeys.length === 0;
   if (input.departmentKeys.length === 0) return true;
   const localKeys = [...input.local.departmentKeys].sort();
   const stripeKeys = [...input.departmentKeys].sort();
   if (localKeys.length !== stripeKeys.length) return false;
   return localKeys.every((key, index) => key === stripeKeys[index]);
+}
+
+export type StripeSyncDependencies = { db?: PrismaClient; stripe?: Stripe };
+
+/** Capture local revision before remote I/O. A concurrent mirror change must
+ * reject this snapshot under the Facility lock rather than overwrite it.
+ */
+export async function syncStripeSubscriptionById(
+  facilityId: string, subscriptionId: string, deps: StripeSyncDependencies = {}, expectedCustomerId?: string,
+): Promise<FacilityStripeSyncResult> {
+  const db = deps.db ?? prisma;
+  const local = await loadLocalBillingMirror(facilityId, db);
+  const stripe = deps.stripe ?? getStripeServerClient();
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+  if (expectedCustomerId && customerId !== expectedCustomerId) return facilityStripeSyncResult("METADATA_FACILITY_MISMATCH");
+  return applyResolvedStripeSubscription({ facilityId, subscription, expectedRevision: local.revision ?? null }, db);
+}
+
+export async function persistSyncPaymentMethod(
+  facilityId: string, subscriptionId: string, customerId: string, deps: StripeSyncDependencies,
+) {
+  const db = deps.db ?? prisma;
+  const stripe = deps.stripe ?? getStripeServerClient();
+  return persistDefaultPaymentMethod(facilityId, subscriptionId, customerId, {
+    isConfigured: () => true,
+    retrieveSubscription: (id) => stripe.subscriptions.retrieve(id),
+    retrieveCustomer: async (id) => {
+      const customer = await stripe.customers.retrieve(id);
+      return customer.deleted ? { deleted: true } : { deleted: false, invoice_settings: customer.invoice_settings };
+    },
+    updateFacility: async (id, paymentMethodId) => { await db.facility.update({ where: { id }, data: { stripeDefaultPaymentMethodId: paymentMethodId } }); },
+  });
 }

@@ -7,7 +7,7 @@ import { GlobalUserNavLinks } from "@/components/global-user-menu";
 import { CUSTOMER_SUPPORT_HREF } from "@/lib/customer-support";
 import { AppIcons } from "@/lib/design-system";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
-import { clearAllOfflineData, clearForSignOut } from "@/lib/offline/local-store";
+import { clearAllOfflineData, clearForSignOut, loadAllCommands } from "@/lib/offline/local-store";
 
 type AccountMenuProps = {
   showUnbind: boolean;
@@ -35,24 +35,33 @@ async function postLogoutAndRedirect(form: HTMLFormElement) {
   window.location.assign("/login");
 }
 
+function lockSpaceContext() {
+  for(const key of Object.keys(sessionStorage))if(key.startsWith("vssyl-space/1/"))sessionStorage.removeItem(key);
+  localStorage.setItem("vssyl-space-generation",crypto.randomUUID());
+  window.dispatchEvent(new CustomEvent("space-offline-locked",{detail:"Signed out. Pending intent remains encrypted."}));
+}
 async function prepareStandardSignOut(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
-  const form = event.currentTarget;
-  try {
-    await clearForSignOut();
-  } catch {
-    // Best-effort: still sign out even if IndexedDB is unavailable.
-  }
+  const form=event.currentTarget;
+  // Synchronous key clearance precedes every network/import await.
+  lockSpaceContext();
+  await clearForSignOut().catch(()=>{});
   await postLogoutAndRedirect(form);
 }
-
 async function prepareFullSignOut(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
-  const form = event.currentTarget;
+  const form=event.currentTarget;
   try {
+    const asset="/space-offline-store.js";
+    const space=await import(/* webpackIgnore: true */ asset);
+    const pending=await space.pendingCount()+(await loadAllCommands()).filter(c=>!["ACCEPTED","ALREADY_ACCEPTED"].includes(c.queueState)).length;
+    if(!window.confirm(`Sign out and unbind this device? This permanently removes ${pending} pending offline actions (canonical and legacy) from this tablet and clears its Facility/Unit binding.`))return;
+    lockSpaceContext();
+    await space.clearAll();
     await clearAllOfflineData();
   } catch {
-    // Best-effort.
+    window.alert("Could not inspect or clear pending offline data. Full unbind was stopped; standard sign-out remains available.");
+    return;
   }
   await postLogoutAndRedirect(form);
 }
@@ -153,17 +162,7 @@ export function AccountMenu({
           <form
             action="/api/auth/logout-full"
             method="post"
-            onSubmit={(e) => {
-              if (
-                !window.confirm(
-                  "Sign out and unbind this device? This clears the facility binding and unit lock on this browser.",
-                )
-              ) {
-                e.preventDefault();
-                return;
-              }
-              void prepareFullSignOut(e);
-            }}
+            onSubmit={(e) => { void prepareFullSignOut(e); }}
           >
             <button
               type="submit"

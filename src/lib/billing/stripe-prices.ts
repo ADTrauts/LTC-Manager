@@ -77,3 +77,8 @@ export function catalogRecurringPriceIds(
   }
   return ids;
 }
+
+/** One-time implementation prices cannot block a subscription purchase. */
+export function areRecurringCatalogPricesConfigured(environment: StripePriceIdEnv = process.env as StripePriceIdEnv): boolean {
+  return STRIPE_PRICE_ENV_KEYS.filter(key => !key.startsWith("STRIPE_PRICE_SETUP_")).every(key => Boolean(environment[key]?.trim()));
+}

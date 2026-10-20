@@ -65,7 +65,7 @@ test(
 
     try {
       const plant = await prisma.department.findFirst({
-        where: { key: "PLANT", isActive: true },
+        where: { facilityId: "cmfacseed0000000000000001", key: "PLANT", isActive: true },
         include: { facility: true },
       });
       assert.ok(plant);

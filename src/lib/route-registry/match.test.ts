@@ -36,7 +36,7 @@ test("matching — dynamic segments capture exactly one segment", () => {
   );
   assert.equal(
     patternFor("/build/departments/cldept0001/preventive-maintenance/new"),
-    "/build/departments/[departmentId]/preventive-maintenance",
+    "/build/departments/[departmentId]/preventive-maintenance/new",
   );
   assert.equal(
     patternFor("/department/settings/cldept0001"),
@@ -83,7 +83,7 @@ test("matching — prefix routes cover their descendants", () => {
   assert.equal(patternFor("/settings/a/b/c"), "/settings");
   assert.equal(patternFor("/_next/data/build/x.json"), "/_next");
   assert.equal(patternFor("/preventive-maintenance"), "/preventive-maintenance");
-  assert.equal(patternFor("/preventive-maintenance/clocc00001"), "/preventive-maintenance");
+  assert.equal(patternFor("/preventive-maintenance/clocc00001"), "/preventive-maintenance/[occurrenceId]");
 });
 
 test("matching — trailing slashes normalize to the same route", () => {

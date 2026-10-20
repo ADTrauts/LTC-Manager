@@ -83,8 +83,8 @@ export function BillingPlanForm({
       }),
     [selectedKeys.length, setupPath],
   );
-  const lineItems = useMemo(() => catalogLineItemsForQuote(quote), [quote]);
-  const alreadySubscribed = billingStatus === "ACTIVE" || billingStatus === "PAST_DUE";
+  const lineItems = useMemo(() => catalogLineItemsForQuote(quote).filter(item => item.interval), [quote]);
+  const alreadySubscribed = ["ACTIVE", "PAST_DUE", "UNPAID", "PAUSED", "INCOMPLETE"].includes(billingStatus);
   const canCheckout = checkoutReady && selectedKeys.length > 0 && !alreadySubscribed;
   const includedDepartments = departments.filter((department) => selectedKeys.includes(department.key));
   const availableDepartments = departments.filter((department) => !selectedKeys.includes(department.key));
@@ -174,7 +174,7 @@ export function BillingPlanForm({
                 {setupPath === "ASSISTED" ? "Assisted implementation" : "Self-setup"}
               </dd>
               <p className="mt-1 text-zinc-600">
-                {setupPath === "ASSISTED" ? "One-time implementation fee applied at checkout." : "No implementation fee."}
+                {setupPath === "ASSISTED" ? "Separate customer-approved engagement; no implementation fee in subscription checkout." : "No implementation fee."}
               </p>
             </div>
           </dl>
@@ -323,7 +323,8 @@ export function BillingPlanForm({
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-zinc-800">Setup</legend>
+          <legend className="text-sm font-medium text-zinc-800">Setup preference</legend>
+          <a className="underline" href="/admin/billing/implementation">Request or review a scoped VSSYL implementation engagement</a>
           <label className="flex items-start gap-3 rounded-md border border-zinc-200 px-3 py-3 text-sm">
             <input
               type="radio"
@@ -351,7 +352,7 @@ export function BillingPlanForm({
               <span className="font-medium text-zinc-900">Assisted implementation</span>
               <span className="mt-0.5 block text-zinc-600">
                 {formatUsdCents(BILLING_LIST.setupFirstDepartmentCents)} for the first department,{" "}
-                {formatUsdCents(BILLING_LIST.setupAdditionalDepartmentCents)} each additional, billed once.
+                {formatUsdCents(BILLING_LIST.setupAdditionalDepartmentCents)} each additional within a separately approved engagement. This subscription checkout includes no implementation fee.
               </span>
             </span>
           </label>
@@ -378,12 +379,6 @@ export function BillingPlanForm({
                 <span>{interval === "ANNUAL" ? "Billed annually" : "Billed monthly"}</span>
                 <span className="tabular-nums">{formatUsdCents(quote.billedRecurringCents)}</span>
               </li>
-              {quote.setupFeeCents > 0 ? (
-                <li className="flex justify-between gap-4 text-zinc-700">
-                  <span>One-time setup</span>
-                  <span className="tabular-nums">{formatUsdCents(quote.setupFeeCents)}</span>
-                </li>
-              ) : null}
               {quote.atFacilityCeiling ? (
                 <li className="pt-1 text-xs text-zinc-500">
                   Whole-facility ceiling of {formatUsdCents(BILLING_LIST.facilityCeilingMonthlyCents)} / month.

@@ -1,634 +1,159 @@
 "use client";
-
-import type { UnitType } from "@prisma/client";
-import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
+import { useActionState, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
-import { useRouter } from "next/navigation";
+import { startBillingCheckoutAction, addBillingDepartmentsAction, type BillingActionState } from "@/app/(protected)/admin/billing/actions";
+import type { SetupWorkspace } from "@/lib/onboarding/workspace";
+import { readSetupDraft, setupDraftKey, SETUP_VIEWS, type SetupView, type SetupDraft } from "@/lib/onboarding/draft";
 
-import {
-  startBillingCheckoutAction,
-  type BillingActionState,
-} from "@/app/(protected)/admin/billing/actions";
-import {
-  groupCatalogByIndustry,
-  type FacilityDepartmentCatalogItem,
-} from "@/lib/department-products/facility-catalog";
-import { getDepartmentProduct } from "@/lib/department-products/registry";
-
-type Step = "facility" | "managers" | "departments" | "billing" | "locations";
-
-type OnboardingStateResponse = {
-  facility: {
-    displayName: string;
-    managementCompanyName: string | null;
-    billingEmail: string | null;
-    onboardingCurrentStep: string;
-  };
-  managerInvites: Array<{ id: string; email: string }>;
-  catalog?: FacilityDepartmentCatalogItem[];
-  billingStatus?: string;
-  stripeBillingReady?: boolean;
+type Json<T> = T extends Date ? string : T extends readonly (infer U)[] ? Json<U>[] : T extends object ? { [K in keyof T]: Json<T[K]> } : T;
+type Workspace = Json<SetupWorkspace>;
+const initialBilling: BillingActionState = { error: null };
+const viewLabels: Record<SetupView, string> = { site: "Site and administrator", products: "Choose Products", builders: "Prepare in Build", people: "Invite managers" };
+const statusCopy: Record<string, string> = {
+  NOT_LICENSED: "No licensed Department access yet. You can prepare the site and return to choose Products later. A saved card grants no license.",
+  PAYMENT_PENDING: "Payment is pending. Department access waits for a valid license and installation.",
+  PAYMENT_REQUIRED: "Licensed operation is suspended or the subscription has ended. Use Billing to resolve it; your data is preserved.",
+  PAYMENT_ATTENTION: "Payment needs attention. Existing installed, licensed Departments retain past-due access; new purchases and installations wait for ACTIVE.",
+  INSTALLATION_PENDING: "Licensing synchronized; installation is pending. Open Billing to retry synchronization without another charge.",
+  ACCESS_AVAILABLE: "Department access is available. Configuration and publication remain separate actions in each Department's Build tools.",
 };
 
-const stepOrder: Step[] = ["facility", "managers", "departments", "billing", "locations"];
-const SELECTED_KEYS_STORAGE = "vssyl.setup.departmentProductKeys";
-const checkoutInitialState: BillingActionState = { error: null };
-
-function toStep(raw: string): Step {
-  if ((stepOrder as string[]).includes(raw)) {
-    return raw as Step;
-  }
-  return "facility";
-}
-
-const unitTypes: UnitType[] = [
-  "SERVERY",
-  "KITCHEN",
-  "RETAIL",
-  "OFFICE",
-  "STORAGE",
-  "RESIDENT_AREA",
-  "COMMON_AREA",
-  "MECHANICAL",
-  "RESTROOM_CLUSTER",
-  "EVS_ZONE",
-  "GROUND",
-  "OTHER",
-];
-
-function canonicalizeSelectedProductKeys(keys: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const key of keys) {
-    const canonical = getDepartmentProduct(key)?.productKey ?? key;
-    if (seen.has(canonical)) continue;
-    seen.add(canonical);
-    out.push(canonical);
-  }
-  return out;
-}
-
-function readStoredDepartmentKeys(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.sessionStorage.getItem(SELECTED_KEYS_STORAGE);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return canonicalizeSelectedProductKeys(
-      Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : [],
-    );
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredDepartmentKeys(keys: string[]) {
-  window.sessionStorage.setItem(SELECTED_KEYS_STORAGE, JSON.stringify(keys));
-}
-
-export function SetupWizard({ checkout }: { checkout?: string | null }) {
-  const router = useRouter();
-  const [loaded, setLoaded] = useState(false);
-  const [state, setState] = useState<OnboardingStateResponse | null>(null);
-  const [step, setStep] = useState<Step>("facility");
-  const [error, setError] = useState<string | null>(null);
+export function SetupWizard({ initial, checkoutOutcome, checkout }: { initial: Workspace; checkoutOutcome?: string | null; checkout?: string | null }) {
+  const [state, setState] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const [managerInput, setManagerInput] = useState("");
-  const [locationInput, setLocationInput] = useState("");
-  const [locationType, setLocationType] = useState<UnitType>("OTHER");
-  const [locationItems, setLocationItems] = useState<
-    Array<{ name: string; unitType: UnitType; parentName: string | null }>
-  >([]);
-  const [locationParentName, setLocationParentName] = useState<string>("");
-  const [stripeBillingReady, setStripeBillingReady] = useState(true);
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
-  const [interval, setInterval] = useState<"MONTHLY" | "ANNUAL">("ANNUAL");
-  const [checkoutState, checkoutAction] = useActionState(startBillingCheckoutAction, checkoutInitialState);
-
-  useEffect(() => {
-    void (async () => {
-      const res = await fetch("/api/onboarding/state");
-      const payload = (await res.json()) as OnboardingStateResponse;
-      setState(payload);
-      setStripeBillingReady(payload.stripeBillingReady !== false);
-      setStep(toStep(payload.facility.onboardingCurrentStep));
-      const stored = readStoredDepartmentKeys();
-      const licensed = (payload.catalog ?? []).filter((item) => item.licensed).map((item) => item.productKey);
-      setSelectedKeys(stored.length > 0 ? stored : licensed);
-      setLoaded(true);
-    })();
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [invitationResults, setInvitationResults] = useState<Array<{ email: string; error?: string; deliveryStatus?: string }>>([]);
+  const [override, setOverride] = useState<SetupDraft | null>(null);
+  const facilityId = initial.facility.id;
+  const storageKey = setupDraftKey(initial.administrator.id, facilityId);
+  const subscribe = useCallback((notify: () => void) => {
+    window.addEventListener("storage", notify); window.addEventListener("vssyl.setup.changed", notify);
+    return () => { window.removeEventListener("storage", notify); window.removeEventListener("vssyl.setup.changed", notify); };
   }, []);
+  const getSnapshot = useCallback(() => { try { return window.sessionStorage.getItem(storageKey); } catch { return null; } }, [storageKey]);
+  const raw = useSyncExternalStore(subscribe, getSnapshot, () => null);
+  const availableKeys = state.catalog.filter((p) => p.releaseStatus === "AVAILABLE").map((p) => p.productKey);
+  const draft = override ?? readSetupDraft(raw, facilityId, availableKeys, initial.facility.onboardingEntryConfirmedAt || initial.facility.onboardingCompletedAt ? "builders" : "site");
+  const view = draft.view;
+  const selected = draft.selectedKeys;
+  const [checkoutState, checkoutAction] = useActionState(startBillingCheckoutAction, initialBilling);
+  const [addState, addAction] = useActionState(addBillingDepartmentsAction, initialBilling);
 
-  async function patchState(data: Record<string, unknown>) {
-    const res = await fetch("/api/onboarding/state", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(payload.error ?? "Could not save setup step.");
-    }
-    return res.json();
+  function saveDraft(patch: Partial<Pick<SetupDraft, "view" | "selectedKeys">>) {
+    const next = { ...draft, ...patch };
+    setOverride(next);
+    try { window.sessionStorage.setItem(storageKey, JSON.stringify(next)); window.dispatchEvent(new Event("vssyl.setup.changed")); }
+    catch { setNotice("Browser draft storage is unavailable. Keep this page open to retain your selection."); }
   }
+  useEffect(() => {
+    const start = Date.now();
+    void fetch("/api/onboarding/state", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedFacilityId: facilityId, event: "step_viewed", step: view }) }).catch(() => {});
+    let left = false;
+    const leave = () => { if (left) return; left = true; navigator.sendBeacon("/api/onboarding/state", new Blob([JSON.stringify({ expectedFacilityId: facilityId, event: "left", step: view, elapsedMs: Math.min(Date.now()-start, 86_400_000) })], { type: "application/json" })); };
+    window.addEventListener("pagehide", leave);
+    return () => { leave(); window.removeEventListener("pagehide", leave); };
+  }, [facilityId, view]);
 
-  async function saveFacility(formData: FormData) {
-    setBusy(true);
-    setError(null);
-    try {
-      await patchState({
-        facilityName: String(formData.get("facilityName") ?? ""),
-        billingEmail: String(formData.get("billingEmail") ?? ""),
-        step: "managers",
-      });
-      setStep("managers");
-      setState((prev) =>
-        prev
-          ? {
-              ...prev,
-              facility: {
-                ...prev.facility,
-                displayName: String(formData.get("facilityName") ?? prev.facility.displayName),
-                billingEmail: String(formData.get("billingEmail") ?? "") || null,
-                onboardingCurrentStep: "managers",
-              },
-            }
-          : prev,
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save facility settings.");
-    } finally {
-      setBusy(false);
-    }
+  async function request(path: string, body?: unknown) {
+    let response: Response;
+    try { response = await fetch(path, body ? { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : undefined); }
+    catch { throw new Error("Setup could not be reached. Check your connection and retry; your entries are still here."); }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error ?? "Setup could not be saved. Retry after refreshing your Facility context.");
+    return result;
   }
-
-  async function saveManagers(skip = false) {
-    setBusy(true);
-    setError(null);
-    try {
-      const emails = skip
-        ? []
-        : managerInput
-            .split(/[,\n;]/)
-            .map((x) => x.trim())
-            .filter(Boolean);
-      await fetch("/api/onboarding/managers", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ emails }),
-      });
-      await patchState({ step: "departments" });
-      setStep("departments");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save manager emails.");
-    } finally {
-      setBusy(false);
-    }
+  async function refresh() {
+    const next: Workspace = await request("/api/onboarding/state");
+    if (next.facility.id !== facilityId) throw new Error("Your active Facility changed. Reload this page before continuing.");
+    setState(next);
   }
-
-  async function saveDepartments() {
-    setBusy(true);
-    setError(null);
-    try {
-      if (stripeBillingReady && selectedKeys.length === 0) {
-        throw new Error("Select at least one department.");
-      }
-      writeStoredDepartmentKeys(selectedKeys);
-      await patchState({ step: "billing" });
-      setStep("billing");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save department selection.");
-    } finally {
-      setBusy(false);
-    }
+  async function withFeedback(work: () => Promise<void>) {
+    setBusy(true); setError(null); setNotice(null);
+    try { await work(); } catch (e) { setError(e instanceof Error ? e.message : "Setup could not be completed. Refresh and retry."); }
+    finally { setBusy(false); }
   }
-
-  async function saveLocations(skip = false) {
-    setBusy(true);
-    setError(null);
-    try {
-      const locations = skip
-        ? []
-        : locationItems.map(({ name, unitType, parentName }) => ({
-            name,
-            unitType,
-            ...(parentName ? { parentName } : {}),
-          }));
-      const res = await fetch("/api/onboarding/locations", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locations }),
-      });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(payload.error ?? "Could not save locations.");
-      }
-      window.sessionStorage.removeItem(SELECTED_KEYS_STORAGE);
-      router.push("/dashboard?onboarding=complete");
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save locations.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function finishWithoutLicense() {
-    setBusy(true);
-    setError(null);
-    try {
-      await patchState({ step: "locations" });
-      setStep("locations");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not continue setup.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function toggleDepartment(key: string) {
-    setSelectedKeys((current) => {
-      const next = current.includes(key) ? current.filter((value) => value !== key) : [...current, key];
-      writeStoredDepartmentKeys(next);
-      return next;
+  async function confirmSite(data: FormData) {
+    await withFeedback(async () => {
+      await request("/api/onboarding/state", { expectedFacilityId: facilityId, facilityName: data.get("facilityName"), timezone: data.get("timezone"), ...(data.get("billingEmail") ? { billingEmail: data.get("billingEmail") } : {}), confirmEntry: data.get("confirmTimezone") === "on", step: "departments" });
+      await refresh(); saveDraft({ view: "builders" }); setNotice("Site facts confirmed. You can enter Build with zero Departments and choose Products later.");
     });
   }
-
-  if (!loaded || !state) {
-    return <div className="mx-auto max-w-4xl rounded-xl border border-zinc-200 bg-white p-6">Loading setup...</div>;
+  async function invite(data: FormData) {
+    await sendInvitations(String(data.get("emails") ?? "").split(/[,;\n]/).map((x) => x.trim()).filter(Boolean), false);
   }
-
-  const catalog = state.catalog ?? [];
-  const groups = groupCatalogByIndustry(catalog);
-  const currentIdx = stepOrder.indexOf(step);
-
-  return (
-    <section className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-zinc-900">Guided setup</h1>
-            <p className="text-sm text-zinc-600">
-              Finish these steps once, and your team can start using Vssyl right away.
-            </p>
-          </div>
-          <form action="/api/auth/logout" method="post" className="shrink-0">
-            <button
-              type="submit"
-              className="app-button rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {stepOrder.map((item, idx) => (
-            <div
-              key={item}
-              className={`rounded px-2 py-1 text-center text-xs font-medium uppercase tracking-wide ${
-                idx <= currentIdx ? "bg-zinc-900 text-white" : "bg-zinc-200 text-zinc-600"
-              }`}
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-      </header>
-
-      <article className="app-card space-y-4">
-        {step === "facility" ? (
-          <form action={saveFacility} className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">Facility setup</h2>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-zinc-700">Facility Name</span>
-              <input name="facilityName" defaultValue={state.facility.displayName} className="app-input w-full" required />
-            </label>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-zinc-700">Billing Email</span>
-              <input
-                name="billingEmail"
-                type="email"
-                defaultValue={state.facility.billingEmail ?? ""}
-                className="app-input w-full"
-                required
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={busy}
-              className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
-            >
-              {busy ? "Saving..." : "Continue to managers"}
-            </button>
-          </form>
-        ) : null}
-
-        {step === "managers" ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">Additional managers (optional)</h2>
-            <p className="text-sm text-zinc-600">Add manager emails separated by commas, semicolons, or new lines.</p>
-            <textarea
-              value={managerInput}
-              onChange={(e) => setManagerInput(e.target.value)}
-              className="app-input min-h-28 w-full"
-              placeholder="manager1@example.com, manager2@example.com"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void saveManagers(false)}
-                disabled={busy}
-                className="app-button app-accent-button flex-1 font-semibold text-white disabled:opacity-70"
-              >
-                {busy ? "Saving..." : "Save and continue"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveManagers(true)}
-                disabled={busy}
-                className="app-button flex-1 border border-zinc-300 bg-white font-semibold text-zinc-900"
-              >
-                Skip this step
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {step === "departments" ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">Choose your departments</h2>
-            <p className="text-sm text-zinc-600">
-              Select the departments your facility will operate with Vssyl.
-            </p>
-            {groups.map((group) => (
-              <section key={group.industry} className="space-y-2">
-                <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">{group.label}</h3>
-                <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
-                  {group.products.map((product) => {
-                    const checked = selectedKeys.includes(product.productKey);
-                    return (
-                      <li key={product.productKey}>
-                        <label className="flex cursor-pointer items-start gap-3 px-3 py-3 text-sm hover:bg-zinc-50">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleDepartment(product.productKey)}
-                            className="mt-0.5 h-4 w-4 rounded border-zinc-300"
-                          />
-                          <span>
-                            <span className="font-medium text-zinc-900">{product.name}</span>
-                            {product.shortDescription ? (
-                              <span className="mt-0.5 block text-xs text-zinc-500">
-                                {product.shortDescription}
-                              </span>
-                            ) : null}
-                          </span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
-            <button
-              type="button"
-              onClick={() => void saveDepartments()}
-              disabled={busy}
-              className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
-            >
-              {busy ? "Saving..." : "Continue to billing"}
-            </button>
-          </div>
-        ) : null}
-
-        {step === "billing" ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">License departments</h2>
-            <p className="text-sm text-zinc-600">
-              Payment licenses the departments you selected. They are installed only after checkout
-              succeeds.
-            </p>
-            {checkout === "canceled" ? (
-              <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
-                Checkout was canceled. No department was licensed or installed.
-              </p>
-            ) : null}
-            {selectedKeys.length > 0 ? (
-              <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 text-sm">
-                {catalog
-                  .filter((item) => selectedKeys.includes(item.productKey))
-                  .map((item) => (
-                    <li key={item.productKey} className="px-3 py-2 font-medium text-zinc-900">
-                      {item.name}
-                    </li>
-                  ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-zinc-600">No departments selected yet.</p>
-            )}
-
-            {!stripeBillingReady ? (
-              <div className="space-y-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900">
-                <p>
-                  Stripe is not fully configured. You can finish facility setup now. Selected
-                  departments will not be installed until they are licensed later.
-                </p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void finishWithoutLicense()}
-                  className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
-                >
-                  {busy ? "Continuing..." : "Continue without licensing"}
-                </button>
-              </div>
-            ) : (
-              <form action={checkoutAction} className="space-y-3">
-                {selectedKeys.map((key) => (
-                  <input key={key} type="hidden" name="departmentKey" value={key} />
-                ))}
-                <input type="hidden" name="setupPath" value="SELF_SERVE" />
-                <input type="hidden" name="returnTo" value="setup" />
-                <fieldset className="grid gap-3 sm:grid-cols-2">
-                  <legend className="sr-only">Billing interval</legend>
-                  <label className="flex cursor-pointer flex-col rounded-md border border-zinc-200 px-3 py-3 text-sm">
-                    <span className="flex items-center gap-2 font-medium text-zinc-900">
-                      <input
-                        type="radio"
-                        name="interval"
-                        value="MONTHLY"
-                        checked={interval === "MONTHLY"}
-                        onChange={() => setInterval("MONTHLY")}
-                        className="h-4 w-4"
-                      />
-                      Monthly
-                    </span>
-                  </label>
-                  <label className="flex cursor-pointer flex-col rounded-md border border-zinc-200 px-3 py-3 text-sm">
-                    <span className="flex items-center gap-2 font-medium text-zinc-900">
-                      <input
-                        type="radio"
-                        name="interval"
-                        value="ANNUAL"
-                        checked={interval === "ANNUAL"}
-                        onChange={() => setInterval("ANNUAL")}
-                        className="h-4 w-4"
-                      />
-                      Annual
-                    </span>
-                  </label>
-                </fieldset>
-                {checkoutState.error ? (
-                  <p className="text-sm text-rose-700" role="alert">
-                    {checkoutState.error}
-                  </p>
-                ) : null}
-                <CheckoutSubmit disabled={selectedKeys.length === 0} />
-              </form>
-            )}
-          </div>
-        ) : null}
-
-        {step === "locations" ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">Initial locations (optional)</h2>
-            <p className="text-sm text-zinc-600">
-              Add locations now, or skip and do it later from the Units page. Responsibility is
-              assigned only to departments already installed at this facility.
-            </p>
-            <div className="grid gap-2 md:grid-cols-2">
-              <label className="block space-y-1 text-sm md:col-span-2">
-                <span className="font-medium text-zinc-700">Name</span>
-                <input
-                  value={locationInput}
-                  onChange={(e) => setLocationInput(e.target.value)}
-                  className="app-input w-full"
-                  placeholder="Example: Main Kitchen"
-                />
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium text-zinc-700">Type</span>
-                <select
-                  value={locationType}
-                  onChange={(e) => setLocationType(e.target.value as UnitType)}
-                  className="app-input w-full"
-                >
-                  {unitTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium text-zinc-700">Parent (optional)</span>
-                <select
-                  value={locationParentName}
-                  onChange={(e) => setLocationParentName(e.target.value)}
-                  className="app-input w-full"
-                  disabled={locationItems.length === 0}
-                >
-                  <option value="">Top level</option>
-                  {locationItems.map((loc, idx) => (
-                    <option key={`${loc.name}-${idx}`} value={loc.name}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex items-end md:col-span-2">
-                <button
-                  type="button"
-                  className="app-button border border-zinc-300 bg-white font-semibold text-zinc-900"
-                  onClick={() => {
-                    const trimmed = locationInput.trim();
-                    if (!trimmed) return;
-                    if (locationItems.some((row) => row.name.toLowerCase() === trimmed.toLowerCase())) {
-                      setError("That location name is already in the list.");
-                      return;
-                    }
-                    const parent = locationParentName.trim() || null;
-                    if (parent && !locationItems.some((row) => row.name === parent)) {
-                      setError("Pick a parent from the list, or leave parent as top level.");
-                      return;
-                    }
-                    setLocationItems((prev) => [
-                      ...prev,
-                      { name: trimmed, unitType: locationType, parentName: parent },
-                    ]);
-                    setLocationInput("");
-                    setLocationParentName("");
-                    setError(null);
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-            <ul className="space-y-2">
-              {locationItems.map((item, index) => (
-                <li key={`${item.name}-${index}`} className="flex items-center justify-between rounded border border-zinc-200 p-2 text-sm">
-                  <span>
-                    {item.name}{" "}
-                    <span className="text-zinc-500">
-                      ({item.unitType}
-                      {item.parentName ? ` · under ${item.parentName}` : ""})
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-red-700"
-                    onClick={() =>
-                      setLocationItems((prev) => {
-                        const removed = prev[index];
-                        return prev
-                          .filter((_, idx) => idx !== index)
-                          .map((row) =>
-                            row.parentName === removed.name ? { ...row, parentName: null } : row,
-                          );
-                      })
-                    }
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void saveLocations(false)}
-                disabled={busy}
-                className="app-button app-accent-button flex-1 font-semibold text-white disabled:opacity-70"
-              >
-                {busy ? "Saving..." : "Save and finish"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveLocations(true)}
-                disabled={busy}
-                className="app-button flex-1 border border-zinc-300 bg-white font-semibold text-zinc-900"
-              >
-                Skip this step
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      </article>
-    </section>
-  );
+  async function sendInvitations(emails: string[], retry: boolean) {
+    await withFeedback(async () => {
+      const res = await fetch("/api/onboarding/managers", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedFacilityId: facilityId, emails, retry }) });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error ?? "Invitation request failed.");
+      setInvitationResults(result.rows); await refresh();
+      setNotice("Review each invitation's status below. Sending an invitation does not grant access; the recipient must accept.");
+    });
+  }
+  const newKeys = selected.filter((key) => !state.catalog.find((p) => p.productKey === key)?.licensed);
+  const activeSubscription = state.billingStatus === "ACTIVE";
+  const suspended = ["PAST_DUE", "UNPAID", "PAUSED", "INCOMPLETE"].includes(state.billingStatus);
+  return <section className="mx-auto max-w-5xl space-y-5" data-testid="setup-workspace">
+    <header className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-semibold">Site setup workspace</h1><div className="flex gap-4"><Link href="/access" className="underline">Switch Facility</Link><form action="/api/auth/logout" method="post"><button type="submit" className="underline">Sign out</button></form></div></div>
+      <p className="font-medium">{state.facility.displayName} · {state.facility.organization.displayName || state.facility.organization.name}</p>
+      <p className="text-sm text-zinc-600">Prepare the site, choose Products when ready, and configure each Department independently. Setup guidance does not certify operational readiness or publish configuration.</p>
+      <p className="text-sm">Administrator: {state.administrator.name} ({state.administrator.email})</p>
+    </header>
+    <nav aria-label="Setup sections" className="grid grid-cols-2 gap-2 md:grid-cols-4">{SETUP_VIEWS.map((item) => <button key={item} type="button" aria-current={view === item ? "step" : undefined} className={`rounded border px-3 py-3 text-sm ${view === item ? "bg-zinc-900 text-white" : "bg-white"}`} onClick={() => saveDraft({ view: item })}>{viewLabels[item]}</button>)}</nav>
+    <aside aria-label="Licensing and installation" className="app-card space-y-2 text-sm"><p>{statusCopy[state.commercialStatus]}</p>
+      {checkout === "canceled" ? <p>Checkout was canceled. Check current Billing before starting another checkout.</p> : null}
+      {checkoutOutcome ? <p role="status">{["SYNCHRONIZED", "ALREADY_MATCHES"].includes(checkoutOutcome) ? "Subscription checked. Current licensing and installation are shown here." : "Payment or installation needs review. Use Billing to check or retry synchronization without another checkout or charge."}</p> : null}
+      <Link href="/admin/billing" className="font-medium underline">Review Billing and retry synchronization</Link>
+    </aside>
+    {error ? <p role="alert" className="rounded border border-red-300 bg-red-50 p-3">{error}</p> : null}
+    {notice ? <p role="status" className="rounded border border-teal-200 bg-teal-50 p-3">{notice}</p> : null}
+    <article className="app-card space-y-4">
+      {view === "site" ? <form onSubmit={(event) => { event.preventDefault(); void confirmSite(new FormData(event.currentTarget)); }} className="space-y-4">
+        <h2 className="text-lg font-semibold">Confirm site and timezone</h2>
+        <p className="text-sm">Your existing site, owning Organization and administrator are reused. To change Organization or administrator identity, use the existing account/Organization tools.</p>
+        <label className="block">Site name<input className="app-input mt-1 w-full" name="facilityName" required minLength={2} maxLength={200} defaultValue={state.facility.displayName} /></label>
+        <label className="block">Timezone (IANA)<input className="app-input mt-1 w-full" name="timezone" required list="setup-timezones" defaultValue={state.facility.timezone} /></label>
+        <datalist id="setup-timezones">{["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Toronto", "America/Vancouver", "UTC"].map((x) => <option key={x} value={x} />)}</datalist>
+        <label className="block">Billing email (needed at checkout)<input type="email" name="billingEmail" maxLength={200} className="app-input mt-1 w-full" defaultValue={state.facility.billingEmail ?? ""} /></label>
+        <label className="flex items-start gap-2"><input type="checkbox" name="confirmTimezone" required className="mt-1" /><span>I confirm this is the timezone for the site’s local operational dates and times.</span></label>
+        <button disabled={busy} className="app-button app-accent-button text-white">{busy ? "Saving…" : "Confirm site and enter setup"}</button>
+      </form> : null}
+      {view === "products" ? <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Choose available Products</h2><p className="text-sm">Choose none, one or several. Selection is a browser draft for this Facility; it does not license or install anything.</p>
+        <div className="grid gap-3 md:grid-cols-2">{state.catalog.filter((p) => p.releaseStatus === "AVAILABLE").map((p) => <label key={p.productKey} className="flex items-start gap-3 rounded border p-4"><input type="checkbox" className="mt-1" checked={selected.includes(p.productKey)} onChange={() => saveDraft({ selectedKeys: selected.includes(p.productKey) ? selected.filter((k) => k !== p.productKey) : [...selected, p.productKey] })} /><span><strong>{p.name}</strong><span className="block text-sm">{p.shortDescription}</span><span className="block text-xs text-zinc-600">{p.applicabilitySummary ?? p.industryLabel}</span><span className="block text-sm">{p.installed ? "Installed" : "Not installed"} · {p.licensed ? "Licensed" : "Not licensed"}</span></span></label>)}</div>
+        <form action={activeSubscription ? addAction : checkoutAction} className="space-y-3" aria-label="License selected Products">
+          <input type="hidden" name="expectedFacilityId" value={facilityId} /><input type="hidden" name="returnTo" value="setup" /><input type="hidden" name="setupPath" value="SELF_SERVE" />
+          {(activeSubscription ? newKeys : selected).map((key) => <input key={key} type="hidden" name="departmentKey" value={key} />)}
+          {!activeSubscription ? <label className="block">Billing interval<select name="interval" className="app-input ml-2" defaultValue="ANNUAL"><option value="ANNUAL">Annual</option><option value="MONTHLY">Monthly</option></select></label> : null}
+          <LicenseSubmit disabled={!state.stripeBillingReady || suspended || (activeSubscription ? !newKeys.length : !selected.length)} label={activeSubscription ? "Add selected Products to subscription" : "License selected Products at checkout"} />
+          {!state.stripeBillingReady ? <p>Billing is not configured here. Your selection is retained; no license or installation is implied.</p> : null}
+          {suspended ? <p>Resolve the current subscription in Billing before adding Products.</p> : null}
+          {checkoutState.error || addState.error ? <p role="alert">{checkoutState.error ?? addState.error}</p> : null}
+        </form>
+        <button className="app-button" type="button" onClick={() => saveDraft({ view: "builders" })}>Continue without choosing a Product</button>
+      </div> : null}
+      {view === "builders" ? <div className="space-y-4"><h2 className="text-lg font-semibold">Prepare in the existing Build tools</h2>
+        <p className="text-sm">{state.structure.locations} active structure locations · {state.structure.rooms} active rooms. These counts describe saved structure, not operational readiness.</p>
+        <div className="grid gap-3 md:grid-cols-2"><div className="rounded border p-4"><h3 className="font-semibold">Facility structure</h3><p className="text-sm">Map buildings, floors and rooms in Facility Builder. Use its Bulk Import button for a Facility structure CSV.</p><Link className="mt-2 block underline" href="/admin/facility/builder?onboarding=workspace">Open Facility Builder / structure CSV</Link></div><div className="rounded border p-4"><h3 className="font-semibold">Assets</h3><p className="text-sm">Use the existing Asset Builder and its CSV intake. Importing does not publish Department configuration.</p><Link className="mt-2 block underline" href="/assets/builder">Open Asset Builder / asset CSV</Link></div></div>
+        <h3 className="font-semibold">Prepare each Department independently</h3>
+        {state.catalog.filter((p) => p.installed || p.licensed || selected.includes(p.productKey)).map((p) => <div key={p.productKey} className="rounded border p-4"><strong>{p.name}</strong><p className="my-2 text-sm">{p.operable ? "Access available. Continue configuration in this Department's Builder; use its own validation and publication controls." : p.licensed && !p.installed ? "Licensed; installation pending. Retry synchronization in Billing." : p.installed && !p.departmentActive ? "Installed but disabled. Review Department administration." : "Choose and license this Product before Department preparation."}</p>{p.operable && p.departmentId ? <Link className="underline" href={`/build/departments/${p.departmentId}`}>Prepare {p.name}</Link> : <Link className="underline" href={p.installed ? "/admin/departments" : "/admin/billing"}>Review licensing / Department access</Link>}</div>)}
+        {!state.catalog.some((p) => p.installed || p.licensed || selected.includes(p.productKey)) ? <p>No Departments chosen. Start with Facility structure, or choose Products later.</p> : null}
+        <button type="button" className="app-button" disabled={busy} onClick={() => void withFeedback(refresh)}>Refresh saved configuration and access</button>
+      </div> : null}
+      {view === "people" ? <div className="space-y-4"><h2 className="text-lg font-semibold">Invite managers</h2><p className="text-sm">Invite a Manager with an email address. Access begins only after acceptance. Existing staff roles, revoked access or employment history must be reviewed in People.</p>
+        <form onSubmit={(event) => { event.preventDefault(); void invite(new FormData(event.currentTarget)); }} className="space-y-3"><label className="block">Manager email addresses<textarea required name="emails" className="app-input mt-1 min-h-24 w-full" placeholder="manager@example.com" /></label><button disabled={busy} className="app-button app-accent-button text-white">Send manager invitations</button></form>
+        <ul aria-label="Manager invitation results">{invitationResults.map((row) => <li key={row.email}>{row.email}: {row.error ?? row.deliveryStatus}</li>)}</ul>
+        <ul aria-label="Manager invitations" className="divide-y">{state.managerInvites.map((row) => <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 py-3"><span>{row.email} — {row.state.replaceAll("_", " ").toLowerCase()}{row.expiresAt ? `; expires ${new Date(row.expiresAt).toLocaleDateString()}` : " (historical notice; no grant inferred)"}</span>{row.state !== "ACCEPTED" ? <button type="button" disabled={busy} className="app-button" onClick={() => void sendInvitations([row.email], true)}>Retry invitation for {row.email}</button> : null}</li>)}</ul>
+        <Link href="/employees/bulk-setup" className="block underline">Bulk workforce and relationship setup (CSV)</Link><Link href="/employees/bulk-setup?mode=workbook" className="block underline">Combined onboarding workbook (XLSX)</Link><Link href="/employees" className="underline">Open People to manage existing employees and relationships</Link>
+      </div> : null}
+    </article>
+    <footer className="flex flex-wrap items-center justify-between gap-3"><button type="button" className="app-button" onClick={() => saveDraft({ view: SETUP_VIEWS[Math.max(0, SETUP_VIEWS.indexOf(view)-1)]! })}>Back</button><p className="text-sm">{state.facility.onboardingCompletedAt ? "Guided setup acknowledged. Return here anytime; each Department still owns its configuration and publication." : "You can resume setup at any time."}</p><button type="button" className="app-button" disabled={busy} onClick={() => void withFeedback(async () => { await request("/api/onboarding/state", { expectedFacilityId: facilityId, completeOnboarding: true }); await refresh(); setNotice("Guided setup acknowledged. No license, readiness or publication is implied."); })}>Acknowledge guided setup</button></footer>
+  </section>;
 }
-
-function CheckoutSubmit({ disabled }: { disabled: boolean }) {
+function LicenseSubmit({ disabled, label }: { disabled: boolean; label: string }) {
   const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={disabled || pending}
-      className="app-button app-accent-button w-full font-semibold text-white disabled:opacity-70"
-    >
-      {pending ? "Opening checkout..." : "Continue to checkout"}
-    </button>
-  );
+  return <button disabled={disabled || pending} className="app-button app-accent-button text-white">{pending ? "Opening Billing…" : label}</button>;
 }

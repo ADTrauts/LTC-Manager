@@ -58,7 +58,7 @@ test(
     process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED = "true";
 
     try {
-      const facility = await prisma.facility.findFirst({});
+      const facility = await prisma.facility.findUnique({ where: { id: "cmfacseed0000000000000001" } });
       assert.ok(facility);
       const dietary = await prisma.department.findFirst({
         where: { facilityId: facility.id, key: "DIETARY", isActive: true },
@@ -294,7 +294,7 @@ test(
     assert.ok(databaseUrl);
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     try {
-      const facility = await prisma.facility.findFirst({});
+      const facility = await prisma.facility.findUnique({ where: { id: "cmfacseed0000000000000001" } });
       assert.ok(facility);
       const dietary = await prisma.department.findFirst({
         where: { facilityId: facility.id, key: "DIETARY", isActive: true },
@@ -355,7 +355,7 @@ test(
     const prev = process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED;
     process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED = "true";
     try {
-      const facility = await prisma.facility.findFirst({});
+      const facility = await prisma.facility.findUnique({ where: { id: "cmfacseed0000000000000001" } });
       assert.ok(facility);
       const dietary = await prisma.department.findFirst({
         where: { facilityId: facility.id, key: "DIETARY", isActive: true },

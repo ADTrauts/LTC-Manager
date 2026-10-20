@@ -508,10 +508,10 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     pattern: "/setup",
     match: "EXACT",
     surface: "PAGE",
-    access: { kind: "AUTHENTICATED" },
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "onboarding",
     requiresDownstreamAuthorization: true,
-    notes: "Onboarding wizard; the page redirects once onboarding is complete.",
+    notes: "Resumable Facility setup workspace; authorized independently of journey completion.",
   },
   {
     pattern: "/account",
@@ -909,6 +909,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "employees",
   },
   {
+    pattern: "/employees/bulk-setup",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "employees",
+    requiresDownstreamAuthorization: true,
+    notes: "Reviewed CSV setup. Workforce/relationships require FA; Assets retain canonical Department authority. Console stays PlatformStaff.",
+  },
+  {
     pattern: "/employees/import",
     match: "EXACT",
     surface: "PAGE",
@@ -1279,6 +1288,10 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Facility plan selection and Stripe Checkout. Does not gate departments until BILLING_ENTITLEMENTS_ENABLED.",
   },
 
+  { pattern: "/admin/billing/implementation", match: "EXACT", surface: "PAGE", access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") }, module: "administration", requiresDownstreamAuthorization: true, notes: "Internal FA service scope/payment/handoff; explicit participation and current authority checked downstream." },
+  { pattern: "/console/customers/[facilityId]/implementation", match: "EXACT", surface: "PAGE", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Implementation delivery outside Facility work sessions; explicit participants only." },
+  { pattern: "/api/console/implementation/[engagementId]/attachments/[attachmentId]", match: "EXACT", surface: "API", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Explicit Console engagement participant, source link and CLEAN private-file verdict; outside work sessions." },
+
   // ── Registered redirect ───────────────────────────────────────────────────
   {
     pattern: "/settings",
@@ -1636,6 +1649,20 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
   },
   {
     pattern: "/sw.js",
+    match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+  },
+  {
+    pattern: "/space-offline.js",
+    match: "EXACT",
+    surface: "INTERNAL",
+    access: { kind: "INTERNAL" },
+    module: "framework",
+  },
+  {
+    pattern: "/space-offline-store.js",
     match: "EXACT",
     surface: "INTERNAL",
     access: { kind: "INTERNAL" },

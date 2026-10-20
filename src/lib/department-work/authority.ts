@@ -1,3 +1,5 @@
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
@@ -127,6 +129,7 @@ export async function resolveWorkAuthority(
   session: FacilitySession,
   facilityId: string,
   departmentId: string,
+  client: PrismaClient | Prisma.TransactionClient = prisma,
 ): Promise<WorkAuthorityDecision> {
   // Cross-facility first so flag-off messaging does not mask facility denial.
   if (session.facilityId !== facilityId) {
@@ -142,7 +145,10 @@ export async function resolveWorkAuthority(
     });
   }
 
-  const department = await prisma.department.findFirst({
+  if (!(await isCustomerDepartmentAccessAllowed(client, session, departmentId))) {
+    return { ...DENIED, reason: "Department commercial access is unavailable." };
+  }
+  const department = await client.department.findFirst({
     where: { id: departmentId, facilityId },
     select: { id: true, key: true, name: true },
   });
@@ -151,7 +157,7 @@ export async function resolveWorkAuthority(
   // over a stale JWT, matching Cycles / Job Flow / Operational Requests.
   let primaryDepartmentId = session.primaryDepartmentId ?? null;
   if (isFacilityAdministratorRole(session.role)) {
-    const user = await prisma.user.findFirst({
+    const user = await client.user.findFirst({
       where: { id: session.uid, facilityId, isActive: true },
       select: { primaryDepartmentId: true },
     });

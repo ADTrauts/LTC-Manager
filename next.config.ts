@@ -25,6 +25,10 @@ const CONTENT_SECURITY_POLICY = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Verification artifacts and test sources are never production function inputs.
+  outputFileTracingExcludes: {
+    "/*": ["./docs/**", "./tests/**", "./tmp/**", "./src/**/*.test.ts", "./src/**/*.test.tsx"],
+  },
   // VERIFY/browser gates may set NEXT_DIST_DIR to isolate from concurrent `.next` wipes.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {

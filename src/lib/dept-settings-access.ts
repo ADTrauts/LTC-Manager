@@ -1,3 +1,4 @@
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { FacilitySession } from "@/lib/auth";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,7 @@ export async function canManageDepartmentHeadSettings(
   session: FacilitySession,
   departmentId: string,
 ): Promise<boolean> {
+  if (!(await isCustomerDepartmentAccessAllowed(prisma, session, departmentId))) return false;
   if (isFacilityAdministratorRole(session.role)) {
     return true;
   }

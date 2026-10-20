@@ -1,3 +1,4 @@
+import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 /**
  * Phase 12A Operational Request / Plant authority.
  * Quick PIN: frontline report + own requester status only — no Build / triage / WO manage.
@@ -168,6 +169,9 @@ export async function resolveRequesterReportAuthority(
   facilityId: string,
   requestingDepartmentId: string,
 ): Promise<OperationalRequestAuthorityDecision> {
+  if (session.facilityId !== facilityId || !(await isCustomerDepartmentAccessAllowed(prisma, session, requestingDepartmentId))) {
+    return { ...DENIED, reason: "Department commercial access is unavailable." };
+  }
   const department = await prisma.department.findFirst({
     where: { id: requestingDepartmentId, facilityId, isActive: true },
     select: { id: true, key: true },
@@ -201,6 +205,9 @@ export async function resolvePlantOperationsAuthority(
   plantDepartmentId: string,
   opts?: { isAssignedTechnician?: boolean },
 ): Promise<OperationalRequestAuthorityDecision> {
+  if (session.facilityId !== facilityId || !(await isCustomerDepartmentAccessAllowed(prisma, session, plantDepartmentId))) {
+    return { ...DENIED, reason: "Department commercial access is unavailable." };
+  }
   const department = await prisma.department.findFirst({
     where: { id: plantDepartmentId, facilityId, isActive: true },
     select: { id: true, key: true },

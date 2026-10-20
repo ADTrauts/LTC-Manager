@@ -1,3 +1,5 @@
+import { readOfflineBody } from "@/lib/offline/space/body";
+import { spaceRequest } from "@/lib/offline/space/http";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -49,10 +51,15 @@ async function readDeviceContext() {
 }
 
 export async function POST(request: Request) {
-  const rawBody = await request.text();
-  if (rawBody.length > MAX_BODY_BYTES) {
+  let rawBody: string;
+  try { rawBody = await readOfflineBody(request); } catch { return NextResponse.json({error:"Invalid, oversized or timed-out request."},{status:413,headers:NO_STORE}); }
+  if (Buffer.byteLength(rawBody) > 196608) {
     return NextResponse.json({ error: "Request too large." }, { status: 413, headers: NO_STORE });
   }
+
+  const candidate = (() => { try { return JSON.parse(rawBody); } catch { return null; } })();
+  if (candidate?.protocol === "space/1") return spaceRequest(request, candidate);
+  if (Buffer.byteLength(rawBody) > MAX_BODY_BYTES) return NextResponse.json({error:"Request too large."},{status:413,headers:NO_STORE});
 
   const session = await getSession();
   if (!session) {

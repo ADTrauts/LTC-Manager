@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import test, { after } from "node:test";
+import { randomUUID, createHmac } from "node:crypto";
 
 import type { PrismaClient } from "@prisma/client";
 
@@ -34,44 +35,21 @@ async function getFixture(): Promise<Fixture | null> {
   const { PrismaClient: Client } = await import("@prisma/client");
   const db = new Client({ datasources: { db: { url: TEST_DATABASE_URL } } });
 
-  const unit = await db.unit.findFirst({
-    where: {
-      unitType: "SERVERY",
-      isActive: true,
-      mealTimes: { some: { isActive: true } },
-      facility: { departments: { some: { key: "DIETARY", isActive: true } } },
-    },
-    select: {
-      id: true,
-      facilityId: true,
-      facility: { select: { displayName: true } },
-    },
-  });
-  if (!unit) return null;
-
-  const dietary = await db.department.findFirstOrThrow({
-    where: { facilityId: unit.facilityId, key: "DIETARY", isActive: true },
-    select: { id: true },
-  });
-
-  const employee = await db.employee.findFirst({
-    where: {
-      facilityId: unit.facilityId,
-      status: { not: "TERMINATED" },
-      OR: [
-        { primaryDepartmentId: dietary.id },
-        { employeeDepartments: { some: { departmentId: dietary.id } } },
-      ],
-    },
-    select: { id: true, firstName: true, lastName: true },
-  });
-  if (!employee) return null;
+  // Dedicated compatibility scope: shared seed cycles can legitimately select a
+  // different timing engine. Exercise the retained offline milestone contract.
+  const tag = randomUUID();
+  const organization = await db.organization.create({ data: { name: `Offline SQL ${tag}` } });
+  const facility = await db.facility.create({ data: { organizationId: organization.id, displayName: `Offline SQL ${tag}`, timezone: "America/New_York" } });
+  const dietary = await db.department.create({ data: { facilityId: facility.id, key: "DIETARY", name: "Dietary" } });
+  const unit = await db.unit.create({ data: { facilityId: facility.id, name: "Offline test servery", unitType: "SERVERY", hierarchyRole: "NEIGHBORHOOD", mealTimes: { create: [{ mealType: "BREAKFAST", scheduledTime: "07:30", isActive: true }] }, departmentResponsibilities: { create: { departmentId: dietary.id, kind: "PRIMARY" } } } });
+  await db.departmentOperationalCycle.create({ data: { facilityId: facility.id, departmentId: dietary.id, stableKey: "breakfast", version: 1, label: "Offline compatibility breakfast", cycleType: "SERVICE", mealType: "BREAKFAST", status: "PUBLISHED", startLocal: "00:00", endLocal: "23:59", expectedMilestones: ["READY", "SERVICE_STARTED"], applicableDaysOfWeek: [0,1,2,3,4,5,6], effectiveFrom: new Date("2020-01-01"), locationMode: "EXPLICIT_UNITS", locations: { create: { unitId: unit.id } } } });
+  const employee = await db.employee.create({ data: { facilityId: facility.id, firstName: "Offline", lastName: "Tester", email: `offline-${tag}@example.test`, roleType: "STAFF", status: "ACTIVE", primaryDepartmentId: dietary.id, pinDigest: createHmac("sha256", process.env.AUTH_SECRET!).update(`${facility.id}:246813`).digest("hex"), employeeDepartments: { create: { departmentId: dietary.id, roleType: "STAFF" } }, unitAccesses: { create: { unitId: unit.id } } } });
 
   fixture = {
     db,
     buildRuntimeBundle: (await import("./build-runtime-bundle")).buildRuntimeBundle,
     processSyncCommand: (await import("./process-sync-command")).processSyncCommand,
-    facilityId: unit.facilityId,
+    facilityId: facility.id,
     unitId: unit.id,
     dietaryDepartmentId: dietary.id,
     employeeId: employee.id,
@@ -160,7 +138,7 @@ test("processSyncCommand accepts idempotent offline ready command", { skip }, as
     { session, command, deviceFacilityId: fx.facilityId, deviceBoundUnitId: fx.unitId },
     fx.db,
   );
-  assert.equal(first.category, "ACCEPTED");
+  assert.equal(first.category, "ACCEPTED", JSON.stringify(first));
 
   const second = await fx.processSyncCommand(
     { session, command, deviceFacilityId: fx.facilityId, deviceBoundUnitId: fx.unitId },
@@ -230,5 +208,5 @@ test("duplicate different command creates conflict review", { skip }, async () =
     fx.db,
   );
 
-  assert.equal(conflict.category, "CONFLICT_REVIEW_REQUIRED");
+  assert.equal(conflict.category, "CONFLICT_REVIEW_REQUIRED", JSON.stringify(conflict));
 });

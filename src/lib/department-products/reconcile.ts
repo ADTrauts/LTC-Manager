@@ -10,9 +10,9 @@ import {
 } from "./install";
 
 export function shouldInstallLicensedDepartmentProducts(
-  status: "INCOMPLETE" | "ACTIVE" | "PAST_DUE" | "CANCELED",
+  status: string,
 ): boolean {
-  return status === "ACTIVE" || status === "PAST_DUE";
+  return status === "ACTIVE";
 }
 
 /**

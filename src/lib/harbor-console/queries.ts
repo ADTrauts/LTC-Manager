@@ -1,8 +1,9 @@
+import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
+import { deriveFacilityDepartmentCatalog } from "@/lib/department-products/facility-catalog";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
   billingStatusLabel,
-  departmentKeyLabel,
   isPaymentProblem,
   isStuckSetup,
   onboardingLabel,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/harbor-console/presentation";
 import {
   listDepartmentProducts,
+  matchDepartmentRecordForProduct,
   type DepartmentProduct,
 } from "@/lib/department-products";
 
@@ -24,6 +26,7 @@ const facilitySelect = {
   organizationId: true,
   stripeCustomerId: true,
   organization: { select: { id: true, name: true, displayName: true } },
+  departments: { select: { id: true, key: true, isActive: true } },
   billing: {
     select: {
       status: true,
@@ -33,8 +36,7 @@ const facilitySelect = {
       licensedDepartmentCount: true,
       updatedAt: true,
       entitlements: {
-        where: { status: "ACTIVE" },
-        select: { departmentKey: true },
+        select: { departmentKey: true, status: true },
         orderBy: { departmentKey: "asc" as const },
       },
     },
@@ -60,11 +62,14 @@ export type HarborLicensingRow = {
   name: string;
   installationKey: string;
   licensed: boolean;
+  installed: boolean;
+  enabled: boolean;
+  customerAccess: boolean;
 };
 
 export type HarborFacilityDetail = HarborFacilityRow & {
   organizationId: string;
-  isLive: boolean;
+  setupAcknowledged: boolean;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   billingInterval: string | null;
@@ -79,9 +84,8 @@ export type HarborFacilityDetail = HarborFacilityRow & {
 function toRow(
   facility: Prisma.FacilityGetPayload<{ select: typeof facilitySelect }>,
 ): HarborFacilityRow {
-  const licensedDepartments = (facility.billing?.entitlements ?? []).map((row) =>
-    departmentKeyLabel(row.departmentKey),
-  );
+  const licensedDepartments = licensingRows(listDepartmentProducts(), facility)
+    .filter((row) => row.licensed).map((row) => row.name);
   return {
     id: facility.id,
     displayName: facility.displayName,
@@ -102,15 +106,22 @@ function toRow(
 
 function licensingRows(
   products: readonly DepartmentProduct[],
-  activeKeys: readonly string[],
+  facility: Prisma.FacilityGetPayload<{ select: typeof facilitySelect }>,
 ): HarborLicensingRow[] {
-  const licensed = new Set(activeKeys);
-  return products.map((product) => ({
-    productKey: product.productKey,
-    name: product.name,
-    installationKey: product.installationKey,
-    licensed: licensed.has(product.installationKey) || licensed.has(product.productKey),
-  }));
+  const catalog = deriveFacilityDepartmentCatalog({
+    products, departments: facility.departments ?? [],
+    entitlements: facility.billing?.entitlements ?? [],
+    billingStatus: facility.billing?.status ?? null, entitlementsEnforced: isBillingEntitlementsEnabled(),
+  });
+  return products.map((product) => {
+    const item = catalog.find((row) => row.productKey === product.productKey);
+    const installed = matchDepartmentRecordForProduct(facility.departments ?? [], product);
+    return {
+      productKey: product.productKey, name: product.name, installationKey: product.installationKey,
+      licensed: item?.licensed ?? false, installed: Boolean(installed),
+      enabled: installed?.isActive ?? false, customerAccess: item?.operable ?? false,
+    };
+  });
 }
 
 function billingSourceLabel(input: {
@@ -238,13 +249,12 @@ export async function loadHarborFacility(
   const primaryAdmin =
     users.find((user) => user.role === "FACILITY_ADMINISTRATOR") ?? users[0] ?? null;
 
-  const activeKeys = (facility.billing?.entitlements ?? []).map((row) => row.departmentKey);
   const hasBillingRecord = Boolean(facility.billing);
 
   return {
     ...toRow(facility),
     organizationId: facility.organizationId,
-    isLive: facility.onboardingCompletedAt != null,
+    setupAcknowledged: facility.onboardingCompletedAt != null,
     stripeCustomerId: facility.stripeCustomerId,
     stripeSubscriptionId: facility.billing?.stripeSubscriptionId ?? null,
     billingInterval: facility.billing?.interval ?? null,
@@ -256,7 +266,7 @@ export async function loadHarborFacility(
       stripeSubscriptionId: facility.billing?.stripeSubscriptionId ?? null,
     }),
     hasBillingRecord,
-    licensing: licensingRows(listDepartmentProducts(), activeKeys),
+    licensing: licensingRows(listDepartmentProducts(), facility),
     primaryAdmin,
     users,
   };

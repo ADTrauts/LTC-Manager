@@ -167,6 +167,8 @@ model Organization {
 
 /// One deployment typically has one facility; all operational data is scoped here for future multi-site support.
 model Facility {
+  implementationEngagements ImplementationEngagement[]
+  setupImportBatches SetupImportBatch[]
   id                             String                          @id @default(cuid())
   organizationId                 String
   organization                   Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -179,6 +181,8 @@ model Facility {
   onboardingCurrentStep          String?
   onboardingStartedAt            DateTime?
   onboardingCompletedAt          DateTime?
+  /// Explicit site facts/timezone confirmation; journey metadata, never readiness.
+  onboardingEntryConfirmedAt     DateTime?
   /// Optional org-selected accent color (hex) used for subtle UI delineation.
   brandColor                     String?
   /// IANA timezone for facility-local operational time (meals, service dates, due windows).
@@ -708,13 +712,15 @@ enum BillingSetupPath {
   ASSISTED
 }
 
-/// UNMANAGED = grandfathered / not sold yet. Enforcement ignores this status.
+/// UNMANAGED = not sold yet; grandfathering requires enforcement off and an existing AVAILABLE installation.
 enum FacilityBillingStatus {
   UNMANAGED
   INCOMPLETE
   ACTIVE
   PAST_DUE
   CANCELED
+  UNPAID
+  PAUSED
 }
 
 enum DepartmentEntitlementStatus {
@@ -802,6 +808,16 @@ model OnboardingManagerInvite {
   email      String
   createdAt  DateTime  @default(now())
   acceptedAt DateTime?
+  /// Legacy rows without a token remain historical notices, not access grants.
+  tokenHash String? @unique
+  expiresAt DateTime?
+  invitedByUserId String?
+  invitedByUser User? @relation("SetupManagerInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+  acceptedByUserId String?
+  acceptedByUser User? @relation("SetupManagerRecipient", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  grantAcceptedAt DateTime?
+  lastDeliveryAt DateTime?
+  deliveryStatus String?
 
   @@unique([facilityId, email])
   @@index([facilityId, createdAt])
@@ -974,6 +990,14 @@ model MenuOperationalCycleApplicability {
 }
 
 model User {
+  implementationRequests ImplementationEngagement[] @relation("ImplementationRequester")
+  implementationAcceptances ImplementationEngagement[] @relation("ImplementationAcceptance")
+  implementationApprovals ImplementationOrder[] @relation("ImplementationApproval")
+  implementationParticipants ImplementationParticipant[] @relation("ImplementationParticipantUser")
+  implementationEvents ImplementationEvent[] @relation("ImplementationEventUser")
+  setupImportBatches SetupImportBatch[] @relation("SetupImportUser")
+  setupManagerInvitationsSent OnboardingManagerInvite[] @relation("SetupManagerInviter")
+  setupManagerInvitationsAccepted OnboardingManagerInvite[] @relation("SetupManagerRecipient")
   id                             String                          @id @default(cuid())
   email                          String                          @unique
   displayName                    String
@@ -4174,6 +4198,12 @@ enum OfflineConflictResolution {
 
 /// Safe audit record when an offline Runtime bundle is issued to a tablet.
 model OfflineBundleIssuance {
+  /// space/1 only. Historical issuance remains unchanged/null.
+  spaceScope Json?
+  spaceManifest Json?
+  recoveryKeyEnvelope Json?
+  recoveryAfter DateTime?
+
   id                     String            @id @default(cuid())
   facilityId             String
   unitId                 String
@@ -4196,6 +4226,11 @@ model OfflineBundleIssuance {
 
 /// Transport audit for synchronized offline commands. Milestone history remains authoritative.
 model OfflineSyncReceipt {
+  issuanceId String?
+  intentDigest String?
+  authoritativeRecordId String?
+  outcome Json?
+
   id                String    @id @default(cuid())
   facilityId        String
   unitId            String
@@ -4301,6 +4336,8 @@ model DepartmentOperationalCycle {
   occurrenceTracking   OperationalCycleOccurrenceTracking   @default(REQUIRED)
   /// Key Point only. Existing rows stay LOCATION (room groups).
   keyPointGrain        OperationalCycleKeyPointGrain        @default(LOCATION)
+  /// Concurrency fence for append-only operational timing; never a definition version.
+  timingAdjustmentRevision Int                              @default(0)
   version              Int                                  @default(1)
   label                String
   description          String?
@@ -5561,6 +5598,11 @@ enum ConsoleTicketStatus {
 }
 
 model PlatformStaff {
+  implementationAssignments ImplementationEngagement[] @relation("ImplementationResponsible")
+  implementationWaivers ImplementationOrder[] @relation("ImplementationWaiver")
+  implementationParticipants ImplementationParticipant[] @relation("ImplementationParticipantStaff")
+  implementationEvents ImplementationEvent[] @relation("ImplementationEventStaff")
+  setupImportBatches SetupImportBatch[] @relation("SetupImportStaff")
   id             String            @id @default(cuid())
   email          String            @unique
   displayName    String
@@ -5587,6 +5629,51 @@ model PlatformStaff {
   organizationClaimsRevoked  OrganizationClaimInvitation[] @relation("OrganizationClaimRevokedBy")
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+}
+
+/// Reviewed, bounded import intent. Raw files and credentials are never retained.
+model SetupImportBatch {
+  implementationLink ImplementationImportLink?
+  id String @id
+  facilityId String
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  actorKind String
+  actorUserId String?
+  actorUser User? @relation("SetupImportUser", fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorStaffId String?
+  actorStaff PlatformStaff? @relation("SetupImportStaff", fields: [actorStaffId], references: [id], onDelete: Restrict)
+  actorSnapshot Json
+  dataset String
+  mode String
+  contractVersion String
+  fileName String
+  sourceHash String
+  planDigest String
+  reviewedPlan Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  /// Coordination only. Domain outcomes below are append-only and atomic with writes.
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  results SetupImportResult[]
+  @@index([facilityId, createdAt])
+}
+
+model SetupImportResult {
+  id String @id @default(cuid())
+  batchId String
+  batch SetupImportBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  rowNumber Int
+  phase String @default("IMPORT")
+  attempt Int
+  status String
+  intendedKey String
+  targetIds Json
+  message String
+  confirmedDigest String
+  createdAt DateTime @default(now())
+  @@unique([batchId, rowNumber, phase, attempt])
+  @@index([batchId, rowNumber])
 }
 
 model HarborAuditEvent {
@@ -5777,6 +5864,7 @@ model SupportContact {
 }
 
 model SupportTicket {
+  implementationEngagement ImplementationEngagement?
   id              String                 @id @default(cuid())
   /// Displayed as VSS-{number}. Sequence starts at 1001; never reused.
   number          Int                    @unique @default(autoincrement())
@@ -5865,6 +5953,17 @@ model SupportTicketMessage {
 
 /// Binary for one inbound email attachment. Never stored on SupportTicket or in Postgres.
 model SupportTicketAttachment {
+  scanAttempts SupportAttachmentScanAttempt[]
+  scanCycle Int @default(1)
+  scanLeaseToken String?
+  scanLeaseExpiresAt DateTime?
+  nextScanAt DateTime?
+  scannedAt DateTime?
+  scannerProvider String?
+  scannerEngineVersion String?
+  scannerSignatureVersion String?
+  scanResultCode String?
+  scanFailureReason String?
   id               String                            @id @default(cuid())
   messageId        String
   message          SupportTicketMessage              @relation(fields: [messageId], references: [id], onDelete: Restrict)
@@ -6104,4 +6203,132 @@ model PlaceNameChange {
 
   @@index([facilityId, unitSpaceId, effectiveFrom])
   @@index([facilityId, unitId, effectiveFrom])
+}
+
+
+/// Service delivery only. No entitlement, configuration or publication writes.
+model ImplementationEngagement {
+  id String @id @default(cuid())
+  facilityId String
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  requesterUserId String
+  requester User @relation("ImplementationRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  responsibleStaffId String?
+  responsibleStaff PlatformStaff? @relation("ImplementationResponsible", fields: [responsibleStaffId], references: [id], onDelete: Restrict)
+  supportTicketId String @unique
+  supportTicket SupportTicket @relation(fields: [supportTicketId], references: [id], onDelete: Restrict)
+  revision Int @default(0)
+  deliveryRevision Int @default(0)
+  acceptedRevision Int?
+  acceptedByUserId String?
+  acceptedBy User? @relation("ImplementationAcceptance", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+  acceptedAt DateTime?
+  requestedScope Json
+  orders ImplementationOrder[]
+  events ImplementationEvent[]
+  imports ImplementationImportLink[]
+  participants ImplementationParticipant[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([facilityId, createdAt])
+}
+
+/// Immutable scope/pricing revision. Approval binds this exact digest; no payment from an ASSISTED preference.
+model ImplementationOrder {
+  id String @id @default(cuid())
+  engagementId String
+  engagement ImplementationEngagement @relation(fields: [engagementId], references: [id], onDelete: Restrict)
+  revision Int
+  scope Json
+  digest String
+  amountCents Int
+  currency String @default("usd")
+  waivedByStaffId String?
+  waivedBy PlatformStaff? @relation("ImplementationWaiver", fields: [waivedByStaffId], references: [id], onDelete: Restrict)
+  waiverReason String?
+  approvedByUserId String?
+  approvedBy User? @relation("ImplementationApproval", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  approvedAt DateTime?
+  status String @default("QUOTED")
+  attempts ImplementationPaymentAttempt[]
+  createdAt DateTime @default(now())
+  @@unique([engagementId, revision])
+}
+
+/// Exact provider request and key survive response loss. Unknown is never permission for a fresh key.
+model ImplementationPaymentAttempt {
+  id String @id @default(cuid())
+  orderId String
+  order ImplementationOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  sequence Int
+  idempotencyKey String @unique
+  request Json
+  customerId String
+  status String @default("PREPARED")
+  checkoutSessionId String? @unique
+  paymentIntentId String? @unique
+  checkoutUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([orderId, sequence])
+}
+
+model ImplementationParticipant {
+  id String @id @default(cuid())
+  engagementId String
+  engagement ImplementationEngagement @relation(fields: [engagementId], references: [id], onDelete: Restrict)
+  userId String?
+  user User? @relation("ImplementationParticipantUser", fields: [userId], references: [id], onDelete: Restrict)
+  staffId String?
+  staff PlatformStaff? @relation("ImplementationParticipantStaff", fields: [staffId], references: [id], onDelete: Restrict)
+  @@unique([engagementId, userId])
+  @@unique([engagementId, staffId])
+}
+
+/// Append-only customer-visible delivery evidence. Never private support notes or credentials.
+model ImplementationEvent {
+  id String @id @default(cuid())
+  engagementId String
+  engagement ImplementationEngagement @relation(fields: [engagementId], references: [id], onDelete: Restrict)
+  kind String
+  actorKind String
+  actorUserId String?
+  actorUser User? @relation("ImplementationEventUser", fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorStaffId String?
+  actorStaff PlatformStaff? @relation("ImplementationEventStaff", fields: [actorStaffId], references: [id], onDelete: Restrict)
+  providerEventId String? @unique
+  data Json
+  createdAt DateTime @default(now())
+  @@index([engagementId, createdAt])
+}
+
+/// Explicit sharing by the executing actor. Original batch ownership and receipts remain immutable.
+model ImplementationImportLink {
+  id String @id @default(cuid())
+  engagementId String
+  engagement ImplementationEngagement @relation(fields: [engagementId], references: [id], onDelete: Restrict)
+  batchId String @unique
+  batch SetupImportBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+}
+
+/// Support-specific asynchronous processing, bound to exact object bytes. No raw vendor payloads.
+model SupportAttachmentScanAttempt {
+  id String @id
+  attachmentId String
+  attachment SupportTicketAttachment @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+  attempt Int
+  cycle Int @default(1)
+  expectedSha256 String
+  expectedSizeBytes Int
+  status String @default("RUNNING")
+  resultCode String?
+  engineVersion String?
+  signatureVersion String?
+  signatureUpdatedAt DateTime?
+  scannedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([attachmentId, cycle, attempt])
+  @@index([attachmentId, createdAt])
 }

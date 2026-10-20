@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { prepareCanonicalOfflineFixture } from "./canonical-offline-fixtures.mjs";
 /**
  * Deterministic synthetic fixtures for Phase 6A offline browser certification.
  * Uses the disposable VERIFY_DATABASE_URL only. Never prints credentials.
@@ -9,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import bcrypt from "bcryptjs";
+import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mjs";
 import { PrismaClient } from "@prisma/client";
 
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
@@ -37,7 +39,7 @@ function pinDigest(facilityId, pin) {
 async function upsertUser(db, { email, displayName, roleKey, facilityId, primaryDepartmentId }) {
   const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
   const passwordHash = await bcrypt.hash(SYNTHETIC_PASSWORD, 12);
-  return db.user.upsert({
+  const user = await db.user.upsert({
     where: { email },
     update: {
       displayName,
@@ -59,6 +61,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
     },
     select: { id: true, email: true },
   });
+  return activateFixtureAccount(db, user, { facilityId, roleKey });
 }
 
 async function main() {
@@ -121,6 +124,7 @@ async function main() {
       where: { email: "admin@terraceview.local" },
       select: { id: true, email: true, sessionVersion: true, primaryDepartmentId: true },
     });
+    await activateFixtureAccount(db, admin, { facilityId: facility.id, roleKey: "FACILITY_ADMINISTRATOR" });
 
     const supervisor = await upsertUser(db, {
       email: "supervisor.offline@terraceview.local",
@@ -223,8 +227,12 @@ async function main() {
       select: { id: true },
     });
 
+    await linkFixtureAccount(db, staffUser, staffEmployee, { facilityId: facility.id, roleKey: "STAFF" });
+    await linkFixtureAccount(db, supervisor, supervisorEmployee, { facilityId: facility.id, roleKey: "SUPERVISOR" });
+    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "offline", pin: "246815", extraWorkItems: 12, extraKeyTimes: 3 });
     mkdirSync(dirname(FIXTURE_PATH), { recursive: true });
     const payload = {
+      canonical,
       facilityId: facility.id,
       facilityName: facility.displayName,
       facilityTimezone: facility.timezone || "America/New_York",
@@ -255,7 +263,7 @@ async function main() {
     // Export PIN for tests via env file without logging it.
     writeFileSync(
       join(dirname(FIXTURE_PATH), "pins.env"),
-      `OFFLINE_BROWSER_STAFF_PIN=${staffPin}\nOFFLINE_BROWSER_SUPERVISOR_PIN=135790\n`,
+      `OFFLINE_BROWSER_STAFF_PIN=${staffPin}\nOFFLINE_BROWSER_SUPERVISOR_PIN=135790\nCANONICAL_STAFF_PIN=246815\n`,
       { mode: 0o600 },
     );
     console.log(`offline-browser-fixtures: wrote ${FIXTURE_PATH}`);

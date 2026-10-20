@@ -1,3 +1,5 @@
+import { activateInvitedAccount, AccountActivationError } from "@/lib/account-invite/activate";
+import { confirmSetupManagerInvitation } from "@/lib/onboarding/manager-invite-http";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -26,6 +28,7 @@ const confirmSchema = z
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
+  if (body && typeof body === "object" && "kind" in body && body.kind === "manager") return confirmSetupManagerInvitation(body);
   const parsed = confirmSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -61,25 +64,8 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  const now = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.accountInviteToken.update({
-      where: { id: token.id },
-      data: { usedAt: now },
-    });
-    await tx.accountInviteToken.updateMany({
-      where: { userId: user.id, usedAt: null },
-      data: { usedAt: now },
-    });
-    await tx.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash,
-        emailVerifiedAt: now,
-        lastLoginAt: now,
-      },
-    });
-  });
+  try { await activateInvitedAccount(prisma, parsed.data.token, passwordHash); }
+  catch (error) { return NextResponse.json({ error: error instanceof AccountActivationError ? error.message : "Activation changed or could not be completed. Check sign-in before retrying." }, { status: 400 }); }
 
   const refreshed = await prisma.user.findUnique({
     where: { id: user.id },

@@ -1,0 +1,946 @@
+{
+  "date": "2026-10-19",
+  "phase": "ONB-07 stabilization only",
+  "repository": "ADTrauts/LTC-Manager",
+  "baseHead": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "gate": "HOLD — current integrated database and browser gates blocked; remote CI not run; actual pilot pending",
+  "verification": [
+    {
+      "check": "Consolidated hermetic checkpoint",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run test:hermetic",
+      "log": "tmp/onb07-stabilization/hermetic-consolidated.log",
+      "sha256": "7bb0cd848d19617d9ed9202094c727f479ae811e682f6cf509bed7aa47767ba4",
+      "logModifiedUtc": "2026-10-18T23:56:22.552370+00:00",
+      "result": {
+        "tests": 3657,
+        "suites": 170,
+        "pass": 3416,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 241,
+        "todo": 0,
+        "duration_ms": 118053.769334
+      },
+      "limitations": "Current checkpoint before later SQL-only regressions/EVS SQL fixture repair. Later affected pure and SQL opt-out cases passed scoped follow-ups; not relabeled as a fresh final full-suite invocation."
+    },
+    {
+      "check": "Consolidated static checkpoint",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:static",
+      "log": "tmp/onb07-stabilization/static-consolidated.log",
+      "sha256": "4f046d09fb4498854d7310987120f9c9da9765ec27e645076a53f9e8ef34ed72",
+      "logModifiedUtc": "2026-10-19T00:02:36.849256+00:00",
+      "result": {},
+      "limitations": "Discovery 444/56 SQL; integrity147; hygiene2580; typecheck; lint0errors82warnings; Prisma validate. Five newly unused fixture variables subsequently removed; changed-file follow-up below. New package files followed by final discovery/hygiene/integrity checks."
+    },
+    {
+      "check": "Pre-review production build",
+      "status": "run",
+      "verdict": "pass",
+      "command": "NEXT_DIST_DIR=.next-onb07-stabilization-final-build npm run verify:build",
+      "log": "tmp/onb07-stabilization/build-final.log",
+      "sha256": "133daa4f4bc76e6a67924e329f806975d5647d024b422db929f8f9134287b7ec",
+      "logModifiedUtc": "2026-10-19T00:06:38.141696+00:00",
+      "result": {},
+      "limitations": "Passed at its checkpoint. Later Asset allocation collision-skip follow-up rebuilt separately. Earlier browser evidence remains branch/owner scoped and is not a fresh reviewed-build replay."
+    },
+    {
+      "check": "Final package typecheck",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run typecheck",
+      "log": "tmp/onb07-stabilization/typecheck-package-final.log",
+      "sha256": "261ca8d0c2983fde4df1b2f479104165e0e12c5ed0c108a7213432bf65ea372a",
+      "logModifiedUtc": "2026-10-19T09:46:29.718977+00:00",
+      "result": {},
+      "limitations": "Completed exit0 before the final Asset collision-skip follow-up. Superseded for final source by the reviewed standalone check and reviewed production build below."
+    },
+    {
+      "check": "Final changed-file lint",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node node_modules/eslint/bin/eslint.js <83 changed/new TS/TSX/MJS paths>",
+      "log": "tmp/onb07-stabilization/lint-changed-final.log",
+      "sha256": "99925bfab30f23084544ff4aa4a431780b97097688edb00755d9b2d09419fea2",
+      "logModifiedUtc": "2026-10-19T09:45:09.975740+00:00",
+      "result": {},
+      "limitations": "Actual selected path count recorded below; zero errors, 13 warnings. No suppression or max-warning exception; warnings already present on those lines in original staged source.",
+      "actualSelectedFiles": 83
+    },
+    {
+      "check": "First integrated database checkpoint",
+      "status": "run",
+      "verdict": "failed_attempt",
+      "command": "VERIFY_DATABASE_URL=<new isolated ltc_ci_onb07_stabilization> VERIFY_MANAGE_DATABASE=0 npm run verify:db",
+      "log": "tmp/onb07-stabilization/database-consolidated.log",
+      "sha256": "98193db5714bb430905bc915ae720fde87e17344e70474e305836f40ecbfc0f9",
+      "logModifiedUtc": "2026-10-19T00:00:21.832124+00:00",
+      "result": {
+        "tests": 3658,
+        "suites": 170,
+        "pass": 3647,
+        "fail": 4,
+        "cancelled": 0,
+        "skipped": 7,
+        "todo": 0,
+        "duration_ms": 190662.258012
+      },
+      "limitations": "Failed historical stabilization checkpoint: 3 DEVELOPMENT EVS success expectations and 1 support fixture cleanup FK. Those exact paths subsequently passed focused/current full DB checks."
+    },
+    {
+      "check": "Unsuitable retained database seed attempt",
+      "status": "run",
+      "verdict": "failed_attempt",
+      "command": "VERIFY_DATABASE_URL=<retained ltc_ci_onb07_stabilization> VERIFY_MANAGE_DATABASE=0 npm run verify:db",
+      "log": "tmp/onb07-stabilization/database-final.log",
+      "sha256": "b9c66b800aacaf54193ec3f0e3e8a59576f0e196ff54f1cdb28d539c3785c163",
+      "logModifiedUtc": "2026-10-19T09:44:53.998547+00:00",
+      "result": {},
+      "limitations": "Migrations pass; first seed fails on RepairLaborEntry employee FK after prior operational tests. No SQL cases executed. No reset/history deletion; target retained. Subsequent checkpoint uses a new empty DB."
+    },
+    {
+      "check": "Latest empty-database integrated release gate",
+      "status": "run",
+      "verdict": "blocked",
+      "command": "VERIFY_DATABASE_URL=<new isolated ltc_ci_onb07_release_final> VERIFY_MANAGE_DATABASE=0 npm run verify:db",
+      "log": "tmp/onb07-stabilization/database-release-final.log",
+      "sha256": "d497b350f7c98fdb84e6d59f78848b744e1033da69fe5f40977b94604b3b8e31",
+      "logModifiedUtc": "2026-10-19T09:49:06.861492+00:00",
+      "result": {
+        "tests": 3659,
+        "suites": 170,
+        "pass": 3650,
+        "fail": 2,
+        "cancelled": 0,
+        "skipped": 7,
+        "todo": 0,
+        "duration_ms": 180930.071574
+      },
+      "limitations": "147 forward migrations; seed twice; schema assertions pass. Exactly two current failures retained; no fixture/assertion edits after this result. Seven real-engine opt-ins skipped here, historical local-engine evidence is not a new run."
+    },
+    {
+      "check": "Two current import failures together",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs --test-name-pattern='bounded 25-row|same global person' src/lib/onboarding-workbook/workbook.db.test.ts src/lib/setup-imports/setup-imports.db.test.ts",
+      "log": "tmp/onb07-stabilization/import-contention-focused.log",
+      "sha256": "835196e4ccd0c9785a3c68338eb7f3435eb9bed0707e9eb36a72c44e653220f5",
+      "logModifiedUtc": "2026-10-19T10:08:11.988449+00:00",
+      "result": {
+        "tests": 2,
+        "suites": 0,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 27020.716836
+      },
+      "limitations": "Unchanged tests pass on retained guarded database under narrower contention. Does not close latest integrated red gate."
+    },
+    {
+      "check": "EVS current contract and pure expansion",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs src/lib/evs/phase-11b-evs-operations.test.ts src/lib/evs/phase-11b-evs-operations.hermetic.test.ts src/lib/department-work/resolve-requirements.hermetic.test.ts",
+      "log": "tmp/onb07-stabilization/evs-contract-followup.log",
+      "sha256": "18724944603fb82419929c3a6709feedc61d6cf26489bd61d4f5517de9a5a02a",
+      "logModifiedUtc": "2026-10-19T09:44:21.882437+00:00",
+      "result": {
+        "tests": 19,
+        "suites": 0,
+        "pass": 19,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 1918.568404
+      },
+      "limitations": "19 passed. Initial historical Record fixture missing required definition FK failed and was corrected; failed log retained."
+    },
+    {
+      "check": "Support affected suites before dispatcher fixture repair",
+      "status": "run",
+      "verdict": "failed_attempt",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs <all support SQL files>",
+      "log": "tmp/onb07-stabilization/support-all-final.log",
+      "sha256": "c68e8b1700b670658f117db0688da482e7c2f94489650150fe7edd00df5d6f98",
+      "logModifiedUtc": "2026-10-19T00:05:56.215441+00:00",
+      "result": {
+        "tests": 22,
+        "suites": 0,
+        "pass": 15,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 6,
+        "todo": 0,
+        "duration_ms": 7599.85492
+      },
+      "limitations": "15 pass/1 failed/6 skipped; notification dispatch fixture assumed one batch drains all global recipients. Corrected bounded drain in affected file only; later full DB passes all these cases."
+    },
+    {
+      "check": "Support notification final focused follow-up",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs src/lib/support/support-notifications.db.test.ts",
+      "log": "tmp/onb07-stabilization/support-bounded-dispatch-followup.log",
+      "sha256": "afde75f215695331e359bf8322715bb407d85ce5c6a74516bbc6376b518858cc",
+      "logModifiedUtc": "2026-10-19T00:07:17.957633+00:00",
+      "result": {
+        "tests": 3,
+        "suites": 0,
+        "pass": 3,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 3322.985976
+      },
+      "limitations": "3 pass; scoped selection recorded by actual log. All support cases also pass in latest integrated DB; no synthetic totals added across overlapping runs."
+    },
+    {
+      "check": "Mandatory offline browser job",
+      "status": "run",
+      "verdict": "blocked",
+      "command": "OFFLINE_BROWSER_CI_GATE=1 OFFLINE_BROWSER_SKIP_BUILD=1 NEXT_DIST_DIR=.next-onb07-stabilization-build npm run test:offline-browser",
+      "log": "tmp/onb07-stabilization/browser-offline.log",
+      "sha256": "e09508789933c8ee42286fc7408ff1322f4bd8dbef1d451ebb45c400f5e7dfd7",
+      "logModifiedUtc": "2026-10-19T00:00:59.016226+00:00",
+      "result": {},
+      "limitations": "4 passed/3 failed; exact identities in remainingFailures. Real loopback app+isolated DB. Existing browser owners unchanged after build; later Support-only notification dedupe change irrelevant."
+    },
+    {
+      "check": "Mandatory assignment browser final follow-up",
+      "status": "run",
+      "verdict": "pass",
+      "command": "ASSIGNMENT_BROWSER_SKIP_BUILD=1 NEXT_DIST_DIR=.next-onb07-stabilization-build npm run test:assignment-browser",
+      "log": "tmp/onb07-stabilization/browser-assignment-followup.log",
+      "sha256": "1992b1c9d4d4fb86aa547091f5e6adc4e960079d80218378192fdf26f051fa0e",
+      "logModifiedUtc": "2026-10-19T00:07:13.010057+00:00",
+      "result": {},
+      "limitations": "6 passed. Prior5/1 attempt retained. Final assignment fixture explicitly resets only its own plan/assignment; actual DRAFT/CONFIRMED/employee visibility checked. Build owner compatibility reviewed."
+    },
+    {
+      "check": "Mandatory Dietary browser matrix",
+      "status": "run",
+      "verdict": "blocked",
+      "command": "DIETARY_PILOT_CI_GATE=1 DIETARY_PILOT_SKIP_BUILD=1 NEXT_DIST_DIR=.next-onb07-stabilization-final-build npm run test:dietary-pilot",
+      "log": "tmp/onb07-stabilization/browser-dietary-followup.log",
+      "sha256": "551947100bcb37b053aef5843974667a8373c189d5c0a351fa97458f417a713a",
+      "logModifiedUtc": "2026-10-19T00:08:55.714607+00:00",
+      "result": {},
+      "limitations": "4 passed/1 failed. Initial syntax-error attempt executed no tests; retained. Current selector-only follow-up below; four passing cases reused because their owners/assertions did not change."
+    },
+    {
+      "check": "Dietary current Runtime failing boundary",
+      "status": "run",
+      "verdict": "blocked",
+      "command": "npx playwright test --config tests/playwright.dietary-pilot.config.ts --grep 'quick pin'",
+      "log": "tmp/onb07-stabilization/dietary-current-runtime-focus.log",
+      "sha256": "67207437bf79c395ea974bc9c80bbc3cb3cea8ed88b9ea0299025ae5b07ac667",
+      "logModifiedUtc": "2026-10-19T00:10:58.134517+00:00",
+      "result": {},
+      "limitations": "1 failed: real PIN login and current employee Runtime mount succeed; missing offline-runtime-status with No assigned spaces. Downstream offline assertions not reached. Final build55479, isolated dietary-final DB."
+    },
+    {
+      "check": "Changed UI initial browser checkpoint",
+      "status": "run",
+      "verdict": "failed_attempt",
+      "command": "npx playwright test --config tests/playwright.onboarding-stabilization.config.ts",
+      "log": "tmp/onb07-stabilization/ui-browser.log",
+      "sha256": "8c1fb84f02dd9e9886e79203b957c5201288588055d76dd524dfbee8c498693b",
+      "logModifiedUtc": "2026-10-19T00:03:11.796022+00:00",
+      "result": {},
+      "limitations": "1 pass/4 failures. Drawer pass reused. Four failures were ambiguous/outdated test locators, not application crashes. Screenshots/traces preserved."
+    },
+    {
+      "check": "Changed UI verification-token follow-up",
+      "status": "run",
+      "verdict": "failed_attempt",
+      "command": "npx playwright test --config tests/playwright.onboarding-stabilization.config.ts --grep 'support draft|verification'",
+      "log": "tmp/onb07-stabilization/ui-browser-followup.log",
+      "sha256": "71284eaf30efe32734a17025f9ca47c6d1a9833b48de53d0a57c67f9aa40688d",
+      "logModifiedUtc": "2026-10-19T00:05:09.468700+00:00",
+      "result": {},
+      "limitations": "2 verification cases pass;2 support draft label-locator cases failed. Initial drawer pass reused; support locators corrected next."
+    },
+    {
+      "check": "Changed UI support final follow-up",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npx playwright test --config tests/playwright.onboarding-stabilization.config.ts --grep 'support draft'",
+      "log": "tmp/onb07-stabilization/ui-support-final.log",
+      "sha256": "733a65863c62d393efeb8c9cb60b91d06f215e007420b1f2f28911ee3c3ca1b5",
+      "logModifiedUtc": "2026-10-19T00:07:46.018007+00:00",
+      "result": {},
+      "limitations": "2 passed at1280/768. All5 distinct changed UI journeys have passing scoped evidence across runs, not one all5-green invocation. First build55478; UI/read/mark-read owners unchanged by final Support insertion dedupe. Both final screenshots inspected."
+    },
+    {
+      "check": "Rate-limit cleanup dry-run",
+      "status": "run",
+      "verdict": "pass",
+      "command": "MAINTENANCE_DATABASE_URL=<isolated target> npm run maintenance:auth-rate-limits -- --dry-run",
+      "log": "tmp/onb07-stabilization/maintenance-dry.log",
+      "sha256": "886f14a6652fb44c3977df094d510cb1fe6c4a672c9d0df491f603d4484a0a17",
+      "logModifiedUtc": "2026-10-19T00:10:26.888314+00:00",
+      "result": {},
+      "limitations": "0 eligible/0 active locks; no data deletion."
+    },
+    {
+      "check": "Rate-limit cleanup",
+      "status": "run",
+      "verdict": "pass",
+      "command": "MAINTENANCE_DATABASE_URL=<isolated target> npm run maintenance:auth-rate-limits",
+      "log": "tmp/onb07-stabilization/maintenance.log",
+      "sha256": "b838e580b0996a0491317815fb3f1864e0c00b2334d818655aa344db366108d8",
+      "logModifiedUtc": "2026-10-19T00:10:27.805974+00:00",
+      "result": {},
+      "limitations": "0 deleted/0 active locks on isolated DB; original evidence reused, no relevant owner changes."
+    },
+    {
+      "check": "Final reviewed production build",
+      "status": "run",
+      "verdict": "pass",
+      "command": "NEXT_DIST_DIR=.next-onb07-stabilization-reviewed-build npm run verify:build",
+      "log": "tmp/onb07-stabilization/build-reviewed.log",
+      "sha256": "a9dd74b91a37c0a6a758d6dc0812519fa922a08fb938f10316e62ae83178d3e9",
+      "logModifiedUtc": "2026-10-19T10:15:42.732841+00:00",
+      "result": {},
+      "limitations": "After final Asset allocator collision handling; includes TypeScript. Earlier builds retained, not overwritten. Original tsconfig bytes restored after verifying only two generated include entries changed."
+    },
+    {
+      "check": "Reviewed final standalone typecheck",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run typecheck",
+      "log": "tmp/onb07-stabilization/typecheck-reviewed-final.log",
+      "sha256": "261ca8d0c2983fde4df1b2f479104165e0e12c5ed0c108a7213432bf65ea372a",
+      "logModifiedUtc": "2026-10-19T10:16:09.347731+00:00",
+      "result": {},
+      "limitations": "After final application/test changes and structural verification/restoration of original tsconfig bytes. Completed exit0."
+    },
+    {
+      "check": "Final affected Asset identity/closeout SQL",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-stabilization/run-db-focused.mjs src/lib/asset-operations/phase-3d-work-order-closeout.test.ts src/lib/asset-operations/phase-10a-asset-operations.test.ts",
+      "log": "tmp/onb07-stabilization/asset-allocation-review.log",
+      "sha256": "c134328d41fd0b597c0ee21540e146619bdefd5dfadd8aa3e7233385de822823",
+      "logModifiedUtc": "2026-10-19T10:13:17.820325+00:00",
+      "result": {
+        "tests": 8,
+        "suites": 0,
+        "pass": 8,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 5712.046455
+      },
+      "limitations": "8 passed, including explicit imported future-code collision and real concurrent Repair sequence reservations/rollback. Latest full DB checkpoint precedes this bounded Asset follow-up; two unresolved import owners unchanged."
+    },
+    {
+      "check": "Final Asset follow-up lint",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npx eslint src/lib/asset-operations/asset-service.ts src/lib/asset-operations/phase-3d-work-order-closeout.test.ts",
+      "log": "tmp/onb07-stabilization/lint-asset-review.log",
+      "sha256": "1c447a990d2bace5a1849095344bd12113f9f8a70e8ab67f94099bbf55e52ff2",
+      "logModifiedUtc": "2026-10-19T10:13:53.949198+00:00",
+      "result": {},
+      "limitations": "0 errors/1 pre-existing unused-import warning."
+    },
+    {
+      "check": "Final tracking discovery",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:discovery",
+      "log": "tmp/onb07-stabilization/discovery-package-final.log",
+      "sha256": "136c1fba36e25ea0c6ca2cafbfa4630a4cac6278149875453b657c498a906775",
+      "logModifiedUtc": "2026-10-19T10:11:30.631095+00:00",
+      "result": {},
+      "limitations": "444 test files,56 SQL suites."
+    },
+    {
+      "check": "Final Git-aware migration integrity",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:migrations",
+      "log": "tmp/onb07-stabilization/integrity-package-final.log",
+      "sha256": "5b5b989f6d501590206f878f08dde6741bf313f5b2d0dfca0e45b0871fb3c668",
+      "logModifiedUtc": "2026-10-19T10:11:30.505841+00:00",
+      "result": {},
+      "limitations": "147 migrations; repository existing single documented historical checksum exception unchanged; no new exception."
+    },
+    {
+      "check": "Final tracked hygiene",
+      "status": "run",
+      "verdict": "pass",
+      "command": "npm run verify:hygiene",
+      "log": "tmp/onb07-stabilization/hygiene-package-final.log",
+      "sha256": "4ff4bc54069e6afafeb2f534fa9fd256c7f59ed968b0d01712bc8699ab4f7f30",
+      "logModifiedUtc": "2026-10-19T10:11:32.111245+00:00",
+      "result": {},
+      "limitations": "2585 tracked paths; no suppression."
+    },
+    {
+      "check": "Final isolated applied checksums",
+      "status": "run",
+      "verdict": "pass",
+      "command": "node tmp/onb07-stabilization/migration-checks-final.mjs",
+      "log": "tmp/onb07-stabilization/migration-checks-final.log",
+      "sha256": "733ed5697f69bf415f65a3bd783aab0b0e70b1445d0707876f5cc790f028b06d",
+      "logModifiedUtc": "2026-10-19T10:11:17.973397+00:00",
+      "result": {},
+      "limitations": "147 disk/applied on3 isolated databases;0 mismatch/pending/unfinished. Does not certify production."
+    }
+  ],
+  "browserRecords": [
+    {
+      "path": "tmp/offline-browser-artifacts/results.json",
+      "sha256": "19c8bde9b015a614122f252d4f6aae26e65dda640e41a8736466d15da9a1a784",
+      "stats": {
+        "startTime": "2026-10-18T23:59:02.390Z",
+        "duration": 114304.22,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 3,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "-c",
+        "tests/playwright.offline.config.ts",
+        "--grep",
+        "@ci-gate"
+      ],
+      "failures": [
+        {
+          "title": "scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB",
+          "file": "ci-gate.spec.ts",
+          "line": 87,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('unit-workspace')\u001b[22m\n"
+            }
+          ]
+        },
+        {
+          "title": "scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once",
+          "file": "ci-gate.spec.ts",
+          "line": 113,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('unit-workspace')\u001b[22m\n"
+            }
+          ]
+        },
+        {
+          "title": "scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data",
+          "file": "ci-gate.spec.ts",
+          "line": 180,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('unit-workspace')\u001b[22m\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tmp/assignment-browser-artifacts/results.json",
+      "sha256": "1136e20f899dd3098fefce091e868640d51f79f17e6cd98030bf28a8799e41e6",
+      "stats": {
+        "startTime": "2026-10-19T00:06:49.775Z",
+        "duration": 21445.676,
+        "expected": 6,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "-c",
+        "tests/playwright.assignment.config.ts",
+        "--grep",
+        "@ci-gate"
+      ],
+      "failures": []
+    },
+    {
+      "path": "tmp/dietary-pilot-artifacts/results.json",
+      "sha256": "e6d52812a10dcf3a5f379a1b360cb3304f92f30f1ad269d266a9a4219e9bf34d",
+      "stats": {
+        "startTime": "2026-10-19T00:07:59.179Z",
+        "duration": 56540.489,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "-c",
+        "tests/playwright.dietary-pilot.config.ts",
+        "--grep",
+        "@ci-gate"
+      ],
+      "failures": [
+        {
+          "title": "quick pin unit workspace ready started offline @ci-gate",
+          "file": "ci-gate.spec.ts",
+          "line": 169,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('unit-workspace')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByTestId('unit-workspace') with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('unit-workspace')\u001b[22m\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tmp/onb07-stabilization/dietary-focus/results.json",
+      "sha256": "09fd36f08353f29d0d6477288c5eb4f9f78fbbdbf9a90eb0976d255732c303c0",
+      "stats": {
+        "startTime": "2026-10-19T00:10:22.347Z",
+        "duration": 35782.689000000006,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "--config",
+        "tests/playwright.dietary-pilot.config.ts",
+        "--grep",
+        "quick pin"
+      ],
+      "failures": [
+        {
+          "title": "quick pin unit workspace ready started offline @ci-gate",
+          "file": "ci-gate.spec.ts",
+          "line": 169,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('offline-runtime-status')\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" getByTestId('offline-runtime-status') with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('offline-runtime-status')\u001b[22m\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tmp/onb07-stabilization/ui-first-attempt/ui-results.json",
+      "sha256": "b339269ee80e2db26b85993a7166ad1f541be5c287d162c8459654a83ab9c6de",
+      "stats": {
+        "startTime": "2026-10-19T00:01:00.255Z",
+        "duration": 131536.918,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 4,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "--config",
+        "tests/playwright.onboarding-stabilization.config.ts"
+      ],
+      "failures": [
+        {
+          "title": "support draft, refresh and notification recovery at 1280px",
+          "file": "ui.spec.ts",
+          "line": 24,
+          "results": [
+            {
+              "status": "timedOut",
+              "error": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+            }
+          ]
+        },
+        {
+          "title": "verification failure recovery at 1280px",
+          "file": "ui.spec.ts",
+          "line": 56,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('alert')\nExpected substring: \u001b[32m\"missing a token\"\u001b[39m\nError: strict mode violation: getByRole('alert') resolved to 2 elements:\n    1) <p role=\"alert\" class=\"text-sm text-[var(--text-secondary)]\">This verification link is missing a token.</p> aka getByText('This verification link is')\n    2) <div role=\"alert\" aria-live=\"assertive\" id=\"__next-route-announcer__\"></div> aka locator('[id=\"__next-route-announcer__\"]')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('alert') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('alert')\u001b[22m\n"
+            }
+          ]
+        },
+        {
+          "title": "support draft, refresh and notification recovery at 768px",
+          "file": "ui.spec.ts",
+          "line": 24,
+          "results": [
+            {
+              "status": "timedOut",
+              "error": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+            }
+          ]
+        },
+        {
+          "title": "verification failure recovery at 768px",
+          "file": "ui.spec.ts",
+          "line": 56,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('alert')\nExpected substring: \u001b[32m\"missing a token\"\u001b[39m\nError: strict mode violation: getByRole('alert') resolved to 2 elements:\n    1) <p role=\"alert\" class=\"text-sm text-[var(--text-secondary)]\">This verification link is missing a token.</p> aka getByText('This verification link is')\n    2) <div role=\"alert\" aria-live=\"assertive\" id=\"__next-route-announcer__\"></div> aka locator('[id=\"__next-route-announcer__\"]')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('alert') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('alert')\u001b[22m\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tmp/onb07-stabilization/ui-second-attempt/ui-results.json",
+      "sha256": "787e205ade1516e93945a083e91a31985d6b989878140479de2e46b68a75636d",
+      "stats": {
+        "startTime": "2026-10-19T00:04:23.410Z",
+        "duration": 46055.549,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 2,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "--config",
+        "tests/playwright.onboarding-stabilization.config.ts",
+        "--grep",
+        "support draft|verification failure"
+      ],
+      "failures": [
+        {
+          "title": "support draft, refresh and notification recovery at 1280px",
+          "file": "ui.spec.ts",
+          "line": 24,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByLabel('Reply to customer', { exact: true })\nExpected: \u001b[32m\"Draft A — retain 00123 and customer review notes\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByLabel('Reply to customer', { exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByLabel('Reply to customer', { exact: true })\u001b[22m\n"
+            }
+          ]
+        },
+        {
+          "title": "support draft, refresh and notification recovery at 768px",
+          "file": "ui.spec.ts",
+          "line": 24,
+          "results": [
+            {
+              "status": "failed",
+              "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByLabel('Reply to customer', { exact: true })\nExpected: \u001b[32m\"Draft A — retain 00123 and customer review notes\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByLabel('Reply to customer', { exact: true }) with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByLabel('Reply to customer', { exact: true })\u001b[22m\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tmp/onb07-stabilization/ui-results.json",
+      "sha256": "f3fff862f7d75d699f48251ff6cafed337240dd004515298b8b1738546594d6d",
+      "stats": {
+        "startTime": "2026-10-19T00:07:37.315Z",
+        "duration": 8701.418000000001,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "argv": [
+        "/Users/andrewtrautman/.nvm/versions/node/v24.19.0/bin/node",
+        "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/node_modules/.bin/playwright",
+        "test",
+        "--config",
+        "tests/playwright.onboarding-stabilization.config.ts",
+        "--grep",
+        "support draft"
+      ],
+      "failures": []
+    }
+  ],
+  "remainingFailures": {
+    "database": [
+      "SQL workbook: bounded 25-row execution resumes committed references across requests",
+      "SQL: same global person across Facilities requires explicit account match and never overwrites global/home credentials"
+    ],
+    "offline": [
+      "scenario-05 @ci-gate: Authorized Unit Workspace bundle is cached through IndexedDB",
+      "scenario-07/08/09/11/12/13 @ci-gate: Offline Ready queue, refresh, sync exactly once",
+      "scenario-27 @ci-gate: Sign-out does not expose the prior user’s cached data"
+    ],
+    "dietary": [
+      "quick pin unit workspace ready started offline @ci-gate"
+    ]
+  },
+  "environment": {
+    "node": "24.19.0",
+    "next": "16.3.5",
+    "prisma": "6.19.2",
+    "postgres": "14.18 loopback55471",
+    "databaseManagement": "new guarded empty release-final database created; VERIFY_MANAGE_DATABASE=0; no reset/drop; older targets retained",
+    "externalServices": "Stripe/Postmark/Blob/OIDC disabled; public signup disabled on task servers; synthetic data only",
+    "remoteCI": "not run — Node20/PostgreSQL16 not locally certified",
+    "builds": {
+      ".next-onb07-stabilization-build": {
+        "id": "w3kG9YUtRH843CeNt436q",
+        "buildIdSha256": "d7759d5ba1f8a579b174c6b1ff06b5735dcc64d8c60776cce774745597e6abc6",
+        "buildManifestSha256": "a626feb532ac7d7b5f346aae63f34a659d94c5aadadd63db4b144570b85a5aa5"
+      },
+      ".next-onb07-stabilization-final-build": {
+        "id": "eJIejOpLIYvzU_fvx-oxV",
+        "buildIdSha256": "87651c5fb4b74058837dfda64591ddf087729136c6f76131382c0677ec45125a",
+        "buildManifestSha256": "908306547c03ceb6b05146b16dc4c080d05b5349c68617720649d58a33d8aac5"
+      },
+      ".next-onb07-stabilization-reviewed-build": {
+        "id": "haVQ4OB-TsR3plZufsTuP",
+        "buildIdSha256": "c66595c97d6f7cab77ce9be6db762411a2dca890a64fa2fb2c9054571c6c8a5f",
+        "buildManifestSha256": "3f4fcf54b547563884620d84f2411dc44ce4839c37f8cb55cc63bfcaa5e8edbd"
+      }
+    }
+  },
+  "evidenceReuse": {
+    "priorOnboardingJourneys": "Historical ONB07 inventory retains36 prior journeys,16 affected replay,two joined Run cases,separate signup. Not replayed during stabilization. This pass touches shared UI/projection/support/inspection/identifier owners; do not promote old journey evidence into fresh whole-candidate certification. Broad release gate remains HOLD.",
+    "scanner": "Unchanged D15 source/worker hashes compared to original213 snapshot. Real local engine proof retained in ONB05 inventory, not rerun. Production infrastructure remains pending.",
+    "hermetic": "checkpoint plus focused changed pure/SQL-opt-out follow-ups; no second full hermetic loop after SQL-only fixture additions"
+  },
+  "sourceFingerprints": {
+    "capturedAtPackagingUtc": "2026-10-19T10:18:13.880429+00:00",
+    "note": "Current working source hashes, not a claim of a historical immutable build source manifest. Build IDs/artifact hashes above bind actual reused builds; suitability follows reviewed relevant owner changes and stated coverage limits.",
+    "sha256": {
+      ".github/workflows/verify.yml": "dfbcaa23e10c6d5b833924b3679f01dbfba89e7c1843bec7924406f410579e92",
+      "docs/product/11_COMMERCIAL_MODEL.md": "a97f6f97cb9616a2007579079d782d3923d9fa29b35c337cfe1fd5fad5434959",
+      "next.config.ts": "8085aac4a98e55cd7f3955ecc95148ada5d7f0a4c4d8bdec99e910286ece9cb2",
+      "package-lock.json": "5a353eb5e6c1485d3a183c38a104728fe8538f62e89a988a44d0489b278320d0",
+      "prisma/schema.prisma": "dec64d271f7fd3cfa27829f0f5e566416c1e7c62d8770dbb9a8f44688a5baeec",
+      "prisma/seed.mjs": "ccc8a9d3e5427c3dd3c212010b2d38af75e61e23a872bdfa3bdf3b64b16f8742",
+      "scripts/verify/assignment-browser-fixtures.mjs": "b4c2104c85273c7b80c636534328417a66cecd6661ecb3531326488f496d88bd",
+      "scripts/verify/dietary-pilot-fixtures.mjs": "e8c88c3013c7c47d7af48925696b1b63175e13e6f7a2c249c0576ca3d4e9fb7c",
+      "scripts/verify/discover-tests.mjs": "9c376b8ce718c41c51382d6a3fc0d84cebbe9b9ee8d260999a99be90395fb775",
+      "scripts/verify/fixture-account.mjs": "f9dc5766da48462432fa3e859772ec70563dc52a4153612fb123f5f8e990c95a",
+      "scripts/verify/offline-browser-fixtures.mjs": "6a422aa9280834dec2c78597fab303cbc5590378c2e1c4ab3f8d905972df8ac7",
+      "scripts/verify/run-assignment-browser.mjs": "5cb057ec6b134273af069269756ee3d17e577a2715f1a1ae1e83150ecb98f2f0",
+      "scripts/verify/run-dietary-pilot.mjs": "2a63cdd8dbfa1c613d09ee03d8c45e71d582941b563bc8a789a3e47827ec48b4",
+      "scripts/verify/run-tests.mjs": "d85fdbf904d4ab6b8c889105e2c6d8d14a20e1fb0d920d8dafc58d689071b8e0",
+      "src/app/(protected)/repairs/actions.ts": "072700435ff7e5daf882fbe076c3fa6ebe02bb90352e8eef8db5b93a485fb13f",
+      "src/app/(protected)/unit/[unitId]/employee-runtime-page.tsx": "32004d36064af003984d8550440719b60e3b62da39e13271d064095d6ba5dd9d",
+      "src/app/(protected)/unit/[unitId]/servery-action-chrome.tsx": "742662b1857aeab9063446ee45836b648ad8f65a01c4226bce530325a0c0e70b",
+      "src/app/(protected)/unit/[unitId]/space-workspace-page.tsx": "0bd0e57e813b5a669a6c9996050f16c73ebec2c8f9ee552937cd58d0ae10e25c",
+      "src/components/drawer.tsx": "82f9fc3dc415c43f7a2b79b160b0e0f832d768ef984aa1eae044753d2783030b",
+      "src/components/harbor-console/harbor-support-notifications.tsx": "fcc8aa1cfbd10122bf645d27582f1de3705ff6cb708bd39b57f90a480a14298c",
+      "src/components/harbor-console/support-ticket-work-panel.tsx": "0d949ab77251616ffde86bd154097024ab582111a95fa16de4c976fcc863eaa0",
+      "src/components/location-tree/location-tree.hermetic.test.ts": "73631624a9a871d2c9076a394d1815a18ad8c6264f9b6343662a3a0d3c1f2f6c",
+      "src/components/verify-email-client.tsx": "8586e2a4b3bd345c892d660da9d62173d83dd4d5a7b5fcc64c3f238131af77f0",
+      "src/lib/asset-operations/asset-service.ts": "2ae14b1f067184e2091f467577c293c1d430ff1d781ebd78953409b7bfe18a2c",
+      "src/lib/asset-operations/issue-service.ts": "e72160b996f51bb36fe0e7235726bd1413a250e57cf38a2153c64af001ed9d46",
+      "src/lib/asset-operations/phase-10a-asset-operations.test.ts": "d0f18abf085f24921728a591e5d9aba8943ff143e4285535ce2802a37ce3308d",
+      "src/lib/asset-operations/phase-3d-work-order-closeout.test.ts": "c45d7eb67ae0fc6c9b3002cbe3939a4eef9670f86fa5b10874d3217b69749719",
+      "src/lib/asset-operations/responsibility.hermetic.test.ts": "2889c50cca02db955258faec928e5b6adfa8d23f5636c627b9874072e4cda074",
+      "src/lib/asset-operations/work-order-service.ts": "a34dfc83f0f4bbc70bc89e5071000ecc76da3571b6b66b046567358235fafb45",
+      "src/lib/bulk-import/bulk-import.scale.db.test.ts": "ca562632ab1da2a8e0872afeab011bb7b1d6f6e2e9dbf4b86790db954d8bf0b8",
+      "src/lib/business-workspace/business-workspace-projection.test.ts": "074b0533ef654a9a187f48a746a3adcfffc850ba63a9cd6b98ec8279779f1bed",
+      "src/lib/canonical-logs/facility-catalog-install.hermetic.test.ts": "233be961c709399240d57a53aa136998c3609c68159dec4337d9bea8ce8b5f90",
+      "src/lib/canonical-logs/partner-log-read.hermetic.test.ts": "3808573b9778ea45178f01217bc6fa4c883dbb78772d7f84e1b4569b1c8e1746",
+      "src/lib/canonical-logs/partner-log-write.hermetic.test.ts": "06155ee0fd13636b14831243d4ffc9f827a435ecbb77b3fb0a5e96da37af043c",
+      "src/lib/canonical-logs/phase-1-cooler-e2e.test.ts": "00fd20866efe3fc81eb53a4efd6e80adee2f8e5e7a808aba53278cce39251047",
+      "src/lib/canonical-logs/phase-3-canonical-logs.test.ts": "9daf4aa88235878aa7fabf3e13988e05bea4eacda5ec151312383cfdf23c2bba",
+      "src/lib/department-administration/department-locations.test.ts": "7e33557299d89e73591a3fe29e835c2ba435abfd8a40cca523c206a28d3d73c0",
+      "src/lib/department-administration/room-types.test.ts": "6144cdc6cdc5e4d97e64c176b19be8320a9ee716b7199c4e3bdc2dd51e0c5d44",
+      "src/lib/department-work/phase-11a-department-work.test.ts": "f7b5928fbf4b86a4c0177db68b85a2d6afed3245d2bdf04d2861f3c106ed0e93",
+      "src/lib/design-system/temporal-strip-ticks.hermetic.test.ts": "27f33ad849a48152dfedaefa5f0191f84f3877940a9b4669867c356d76505ae8",
+      "src/lib/dietary-job-flow/phase-9b-job-flow.test.ts": "7a79a0a3b0b6079c64dec7f45aea6736a614aa991b7197e8e6a65bad9d8f0663",
+      "src/lib/dietary-job-flow/supervisor-operations/present-ui.hermetic.test.ts": "e0ef0e3e4c23da0da428cb61c9c81b1342d041b666db9ea89f74099660633ff7",
+      "src/lib/evs/phase-11b-evs-operations.test.ts": "1977c364691a7167b05f408cf3cdb6b0a333fc2f204868492b566ee2e68acbe3",
+      "src/lib/harbor-console/console-catalog-detail.db.test.ts": "45cb24ee0ed5fbdf3bbcb9c882de9f3881d4e0a01ac3ca55cb8eda9c8f74c444",
+      "src/lib/harbor-console/console-catalog.db.test.ts": "d26c7a68de22c4e156d4b3716583a7ee8fe9d6f5c5cf6b4f21615ead7523595f",
+      "src/lib/harbor-console/console-marketplace-v1.db.test.ts": "66952eca93da79c547a0ce7096e0267ddf23651edb30959be22902293a248d14",
+      "src/lib/locations/location-experience-certification.test.ts": "89ace8a8933bd8ab3dfaecd9d0d5ca234d9ac6999f0794e9bf918798e814076d",
+      "src/lib/locations/locations-cutover.test.ts": "270ae5a97f00e4b7c7a0e251eb34ebcaa064546235abd25e59e4c483f3c7ced3",
+      "src/lib/locations/sidebar-cutover.test.ts": "604659954443b63d3a4ce665953c93cbc7836d299953b5d46fdc08e0610d4934",
+      "src/lib/offline/runtime-api.test.ts": "4eb3a5f9682db0ea8d9bfc5855f98267a100d5f7045f10a4fb8ee626c1d39d49",
+      "src/lib/onboarding-workbook/service.ts": "3bdcbcd583e5ad8a7ba27010173d4b4f3ed16c64ddc402853d8937b45a7c7680",
+      "src/lib/operational-cycles/cycle-timeline.hermetic.test.ts": "5eacd81b42fdae1dacfc24e7f77f1e5059025916cdf6f2c91c9aedd5a293c16a",
+      "src/lib/operational-cycles/day-expectation-runtime.test.ts": "58cf1c1f1362baaf529f705c9bb5a0db955dccdad0d503a650cef2872c8e5239",
+      "src/lib/operational-cycles/phase-9a-cycles.test.ts": "6644ec02df55a12e2193c1b51843a60ebe4fd6dcb060803e4799abcd864d30ab",
+      "src/lib/operational-evidence/phase-9c1-template-builder.test.ts": "4ea4f3f8e2687e5f31107ac6ff7e4115ac65d225c3b23225916774cec6321bc1",
+      "src/lib/operational-requests/phase-12a-operational-requests.test.ts": "d7f96c2bef66c4f26fa3a6b4b2be221b54e3f4118931cd41359a5b94c4ec8e4c",
+      "src/lib/organization-claims/organization-claims.hermetic.test.ts": "41cc3fbf7dc5ffd0d3ceeeb00dff0b0da6ce2d63c911b81d808638d2b96ebead",
+      "src/lib/organization-membership/last-admin-concurrency.db.test.ts": "b08f1b86032174cb3592685493ee742f6067c54c1581ee96dbe17c97463c95cf",
+      "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts": "0a5025dc789501accde21d0bec971012f7631e8d9708f877eb14df3e6d03e8ec",
+      "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts": "fa60ba561d4d55648592c3a77abb165bcdd9ed58414969c6e30b27a4476d1a41",
+      "src/lib/plant/phase-12a-plant-operations.test.ts": "30b27cd10a8bd83871e39d91eeca43c95ac10d3ceb48688c60caaeb3f0f8b056",
+      "src/lib/projection/pipeline.ts": "152ed7ac4d61750e48e6b3a043b4a20f5223d6f6cca1c2f3b5ac4f759a9c4a9b",
+      "src/lib/projection/projection-pipeline.test.ts": "ecaf8c6560cb64f9ac931b12b4f25c8f637ac77ffab0c1c7138295496b8fc553",
+      "src/lib/route-registry/authorize.test.ts": "bd619653cf358da3b8c09f42134c7bcb5e05a3998071db1230e7af99f13a62fd",
+      "src/lib/route-registry/match.test.ts": "d6b88d04979730463dce69a4327ed94e284c6f68563712f9f1a4328629227f4f",
+      "src/lib/route-registry/navigation.test.ts": "d43c55ce4a111fc5eb378ad0fbe59e97744a58310c3985cd59419abce4af7297",
+      "src/lib/scheduling/coverage-expectations/coverage-expectations.hermetic.test.ts": "36e3dfcc9f2d8ea40fe9a25f881a821b9a705d1049d09d525bc20793e7ef5eca",
+      "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts": "d6453e805435abae0e410ddabeb9b9a5a17e585ec347eb12c903c1a42a4df5ee",
+      "src/lib/session-revocation/session-version.test.ts": "bab7516df54bca7070e499dec69e61f00e82465545f666dffdd64c3cd3b5d222",
+      "src/lib/setup-imports/authority.ts": "d4f6c3a229b82ae5c6d7493ec73f8e99f4fcc0e68b94a5402f1b2c88f5fcc576",
+      "src/lib/setup-imports/catalog.ts": "5aae0ea29d3de4914efce42792411e2059513a1ef91ee34c3d0691c3cdcf38e0",
+      "src/lib/setup-imports/service.ts": "5b6cfdbb067462e968c82d816698643c9b333b6b562195fbe64a373d126c49b2",
+      "src/lib/setup-imports/transaction.ts": "d4957898cb357c829e834d1aa39cc91c1579708d5a502bc821b4cb8f48cbdc07",
+      "src/lib/shell-ux-refinement.test.ts": "891a151ba157f11d13180740e6f6c5adb5fcd948dc04dd8ff8f3b55735a46229",
+      "src/lib/support/attachment-scanner.ts": "ec19dc628efb387113905035da784e5220bb3e5e5b598cd68c296bd56414665c",
+      "src/lib/support/fixtures/cleanup-staff.ts": "ebc8743660fc20c7abf336e307d92f6daba51198ab08ecd5ae01a8e2e5e4facd",
+      "src/lib/support/notifications.ts": "8319bc048745729257fa658c0c392f9159bdf4154fa0b207787a80d2fb08501c",
+      "src/lib/support/scan-pending-attachments.ts": "60f8d35969cc604d3a0abe7184cb3ee1bab8ee932ed7bd1e22cf089a1ef7e767",
+      "src/lib/support/support-automation.db.test.ts": "6118c3d70aec666ae40eb6522ec31fcd45ba9bd23ea199a6326fc6b1c5f36f93",
+      "src/lib/support/support-delivery.db.test.ts": "5b38fd3ed38a9910acfc53fc47ecdd001c99fb2fffd240f8bd621286d6cc0e2d",
+      "src/lib/support/support-history.db.test.ts": "339dd18faa0ddedd20f1894c6df9500988c65a6222685eb18a4425fd30941a2d",
+      "src/lib/support/support-inbound.db.test.ts": "72dbf824a16d92de690dd80f0fb99b8df252d1c706bc99ae39d0467baf406ddb",
+      "src/lib/support/support-list.db.test.ts": "d2d2e8b0ba0001d63ac1f0c42051bc3eca2e35378875de065e2eedda37ae13ce",
+      "src/lib/support/support-macros.db.test.ts": "f54d6d58f33d8afd31a78222e4459924af158790e9af340f1abb5735751b0e84",
+      "src/lib/support/support-notifications.db.test.ts": "ab7a247daa74e08337e0e1833a87b685ebd664fd02efcfae1672b863edc62d3c",
+      "src/lib/support/support-saved-replies-tags.db.test.ts": "5eaa6a05eae826c7f475e0a9fe3177a64170febe537639cd8b711d2772c610c9",
+      "src/lib/support/support-tickets.db.test.ts": "25393a38e68ac59e23544593b70019c906636afe4b72c290b55c7789de3287ed",
+      "src/lib/todays-work/todays-work-projection.test.ts": "f771a6cc2ceb750c259a335c59103073c1fcff7301cfa2ed5231fcd49f1cf74a",
+      "src/lib/vercel-function-storage.hermetic.test.ts": "5605feb123d5d14bdff50a50af60d01936c5ca7f16af758cf1268dd6e499ad85",
+      "src/lib/work/inspections/generate-due-inspection-work.ts": "ecde586b51e59dae9b9a822da7de06123a2adbc3380d0697c30efdc7a3493996",
+      "src/lib/work/inspections/inspection-scheduling.test.ts": "9e62e8f89d9c6d0aa25e8a614651184c17175004a88b6bd1d17d6b3e05a6e310",
+      "src/lib/work/inspections/inspections.test.ts": "ffdeb09b84cd55382daf3827b3945f0e65e51604404ce25b9563c2f08f5f3314",
+      "src/lib/work/inspections/submit-inspection.ts": "d9a86cadf3d8f10a7f1adbcaa5df293635acef895fbcc396c48d87c2511d0cef",
+      "tests/assignment-browser/ci-gate.spec.ts": "5fba2eab0a55ec89174ae9c971a795335032e0b5ec8cdfef66a5c936871fadc8",
+      "tests/dietary-pilot/ci-gate.spec.ts": "c5fed746bad84bda19165d409ee16aff1d5f865d1011161bf3f396ec1fc201ff",
+      "tests/onboarding-stabilization-browser/ui.spec.ts": "6d129fd599340e7f3f7ae70c1bcb8614206dc9f4fb89dd25be8432fb5596f683",
+      "tests/playwright.onboarding-stabilization.config.ts": "cf2e57cc78c89e8d0e491cc6f34360134843b9c6cd95158cee527bb2acc19076",
+      "tsconfig.json": "3c58c0fa76e281d103db2b2555229f9cf16faaa0c0938d8affa616b2255b9613",
+      "workers/support-attachment-scanner/Dockerfile": "84229aa04e2baf5508603d367778193586430082e74bb8a0900abb9f33a0d1fd",
+      "workers/support-attachment-scanner/worker.py": "242e1bd137e9bf281d8668756623b32bcdb001da75e2e243ee88e67698f7e3fb"
+    }
+  },
+  "preservation": {
+    "originalStagedFiles": 213,
+    "changedIndexBlobs": [],
+    "missingIndexFiles": [],
+    "protectedWorkingFiles": 31,
+    "changedProtectedWorkingFiles": [],
+    "allHistoricalMigrationChangesAgainstHEAD": [
+      "prisma/migrations/20261017180000_onboarding_commercial_suspension_states/migration.sql",
+      "prisma/migrations/20261017230000_guided_setup_entry_and_manager_invitations/migration.sql",
+      "prisma/migrations/20261018010000_canonical_setup_import_receipts/migration.sql",
+      "prisma/migrations/20261018120000_implementation_service_orders/migration.sql",
+      "prisma/migrations/20261018150000_support_private_attachment_scanning/migration.sql",
+      "prisma/migrations/20261018233500_onb07_repair_code_allocation/migration.sql",
+      "prisma/migrations/20261018234500_onb07_asset_issue_code_allocation/migration.sql"
+    ],
+    "packagingProofUtc": "2026-10-19T10:17:01.937633+00:00",
+    "protectedPaths": [
+      "docs/onboarding/ONB_00_BASELINE_2026-10-17.json",
+      "docs/onboarding/ONB_01_VERIFICATION_2026-10-17.json",
+      "docs/onboarding/ONB_02_VERIFICATION_2026-10-17.json",
+      "docs/onboarding/ONB_03_VERIFICATION_2026-10-17.json",
+      "docs/onboarding/ONB_04_CSV_CONTRACT.md",
+      "docs/onboarding/ONB_04_VERIFICATION_2026-10-18.json",
+      "docs/onboarding/ONB_05_SERVICE_CONTRACT.md",
+      "docs/onboarding/ONB_05_VERIFICATION_2026-10-18.json",
+      "docs/onboarding/ONB_06_VERIFICATION_2026-10-18.json",
+      "docs/onboarding/ONB_06_WORKBOOK_CONTRACT.md",
+      "docs/onboarding/REPOSITORY_RENAME_CHECKLIST.md",
+      "docs/onboarding/VERIFICATION_POLICY.md",
+      "docs/onboarding/VSSYL_ONBOARDING_AUDIT_2026-10-17.md",
+      "docs/onboarding/VSSYL_ONBOARDING_PHASED_PLAN_2026-10-17.md",
+      "docs/product/11_COMMERCIAL_MODEL.md",
+      "prisma/migrations/20261017180000_onboarding_commercial_suspension_states/migration.sql",
+      "prisma/migrations/20261017230000_guided_setup_entry_and_manager_invitations/migration.sql",
+      "prisma/migrations/20261018010000_canonical_setup_import_receipts/migration.sql",
+      "prisma/migrations/20261018120000_implementation_service_orders/migration.sql",
+      "prisma/migrations/20261018150000_support_private_attachment_scanning/migration.sql",
+      "src/lib/support/attachment-scanner.ts",
+      "src/lib/support/scan-pending-attachments.ts",
+      "workers/support-attachment-scanner/.dockerignore",
+      "workers/support-attachment-scanner/Dockerfile",
+      "workers/support-attachment-scanner/README.md",
+      "workers/support-attachment-scanner/clamd.conf",
+      "workers/support-attachment-scanner/compose.yaml",
+      "workers/support-attachment-scanner/freshclam.conf",
+      "workers/support-attachment-scanner/healthcheck.py",
+      "workers/support-attachment-scanner/run.sh",
+      "workers/support-attachment-scanner/worker.py"
+    ],
+    "intentionalDocumentationUpdates": [
+      "DECISIONS.md",
+      "PHASE_TRACKER.md",
+      "README.md",
+      "ONB_07_CERTIFICATION_2026-10-18.md",
+      "ONB_07_RELEASE_BLOCKERS.md",
+      "ONB_07_VERIFICATION_2026-10-18.json"
+    ],
+    "oldMigrationSqlChanges": []
+  },
+  "fullLogs": {
+    "directory": "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager/tmp/onb07-stabilization",
+    "manifest": "tmp/onb07-stabilization/evidence-manifest.json",
+    "manifestSha256": "1afe6aefb07e3b7295e566f979ada7905e3ab20fee9f7f838d5c6fcfb888651c",
+    "failedAttempts": "All retained. Overlapping follow-ups not summed; old ONB00–06 inventories preserved."
+  },
+  "notRun": [
+    "Remote GitHub CI",
+    "Second full hermetic after SQL-only additions",
+    "Production scanner hosting/TLS/secrets/scheduling",
+    "Real customer pilot/effort/acceptance",
+    "Deployment/signup enablement/live payment/customer data/external messages"
+  ],
+  "packageChecks": {
+    "localDocLinksChecked": 79,
+    "brokenLinks": [],
+    "onboardingJson": "all parsed",
+    "workingDiffExit": 0,
+    "indexDiffExit": 0,
+    "oldMigrationSqlChanged": [],
+    "commercialPolicyUnchanged": true,
+    "tsconfigRestored": true
+  },
+  "appliedMigrationChecks": [
+    {
+      "database": "ltc_ci_onb07_20261018",
+      "disk": 147,
+      "applied": 147,
+      "mismatches": [],
+      "unfinished": [],
+      "unapplied": []
+    },
+    {
+      "database": "ltc_ci_onb07_stabilization",
+      "disk": 147,
+      "applied": 147,
+      "mismatches": [],
+      "unfinished": [],
+      "unapplied": []
+    },
+    {
+      "database": "ltc_ci_onb07_release_final",
+      "disk": 147,
+      "applied": 147,
+      "mismatches": [],
+      "unfinished": [],
+      "unapplied": []
+    }
+  ],
+  "cleanup": {
+    "taskOwnedServersAndPostgres": "stopped; data/builds/evidence retained",
+    "unrelatedDevelopmentServer": "PID75383 preserved",
+    "log": "tmp/onb07-stabilization/cleanup-final.log"
+  },
+  "documentation": "ONB_07_STABILIZATION.md; ONB-D18; certification current addendum; tracker; release blockers"
+}

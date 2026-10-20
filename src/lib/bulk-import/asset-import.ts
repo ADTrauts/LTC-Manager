@@ -4,6 +4,7 @@
  */
 
 import type { AssetCriticality, AssetStatus, UnitHierarchyRole } from "@prisma/client";
+import { getDepartmentProduct } from "@/lib/department-products/registry";
 
 import { ASSET_CRITICALITY_VALUES, isAssetCriticality } from "@/lib/asset-criticality";
 import type { AssetOperationalStatus } from "@/lib/asset-operations";
@@ -78,45 +79,7 @@ const HEADER_ALIASES: Record<string, AssetImportField> = {
   description: "description",
 };
 
-export const ASSET_CSV_TEMPLATE = rowsToCsv(
-  [...ASSET_CSV_HEADERS],
-  [
-    [
-      "Walk-in Cooler",
-      "Refrigerator",
-      "Floor 1",
-      "1A - Naval Park",
-      "Servery",
-      "TV-COOL-01",
-      "True",
-      "T-49",
-      "SN-1001",
-      "",
-      "OPERATIONAL",
-      "Dietary",
-      "CRITICAL",
-      "",
-      "",
-    ],
-    [
-      "Ice Machine",
-      "Ice Maker",
-      "Floor 1",
-      "1A - Naval Park",
-      "Servery",
-      "",
-      "Scotsman",
-      "",
-      "SN-1002",
-      "",
-      "OPERATIONAL",
-      "Dietary",
-      "IMPORTANT",
-      "",
-      "",
-    ],
-  ],
-);
+export const ASSET_CSV_TEMPLATE = rowsToCsv([...ASSET_CSV_HEADERS], []);
 
 export type AssetLocationUnit = {
   id: string;
@@ -135,6 +98,7 @@ export type AssetLocationSpace = {
 
 export type AssetCatalogAsset = {
   id: string;
+  departmentId?: string | null;
   assetCode: string;
   name: string;
   equipmentType: string;
@@ -146,6 +110,8 @@ export type AssetCatalogAsset = {
 };
 
 export type AssetImportCatalog = {
+  responsibilities?: Array<{ unitId: string; departmentId: string; kind: string }>;
+  foreignAssetCodes?: string[];
   units: AssetLocationUnit[];
   spaces: AssetLocationSpace[];
   departments: Array<{ id: string; name: string; key: string; isActive: boolean }>;
@@ -304,6 +270,11 @@ export function parseAssetImportCsv(text: string, fileName?: string | null): {
   return { ok: true, rows, headers: [...ASSET_CSV_HEADERS], fileName: read.fileName };
 }
 
+function exactLocationReference<T extends {id:string;name:string}>(items:T[],reference:string):T[] {
+  const ids=items.filter(x=>x.id===reference);
+  return ids.length ? ids : items.filter(x=>normKey(x.name)===normKey(reference));
+}
+
 function resolveLocation(
   catalog: AssetImportCatalog,
   floorName: string,
@@ -333,11 +304,7 @@ function resolveLocation(
   }
   if (errors.length) return { ok: false, errors };
 
-  const floors = catalog.units.filter(
-    (u) =>
-      normKey(u.name) === normKey(floorName) &&
-      resolveBuilderNodeDisplayKind(u) === "floor",
-  );
+  const floors = exactLocationReference(catalog.units.filter(u=>resolveBuilderNodeDisplayKind(u)==="floor"),floorName);
   if (floors.length === 0) {
     return {
       ok: false,
@@ -380,13 +347,7 @@ function resolveLocation(
     };
   }
 
-  const neighborhoods = catalog.units.filter(
-    (u) =>
-      normKey(u.name) === normKey(neighborhoodName) &&
-      u.parentUnitId === floor.id &&
-      (resolveBuilderNodeDisplayKind(u) === "neighborhood" ||
-        resolveBuilderNodeDisplayKind(u) === "legacy_location"),
-  );
+  const neighborhoods = exactLocationReference(catalog.units.filter(u => u.parentUnitId === floor.id && (resolveBuilderNodeDisplayKind(u) === "neighborhood" || resolveBuilderNodeDisplayKind(u) === "legacy_location")),neighborhoodName);
   if (neighborhoods.length === 0) {
     // Check if name exists elsewhere → clearer error
     const elsewhere = catalog.units.filter(
@@ -448,10 +409,7 @@ function resolveLocation(
 
   let spaceId: string | null = null;
   if (spaceName.trim()) {
-    const spaces = catalog.spaces.filter(
-      (s) =>
-        s.unitId === neighborhood.id && normKey(s.name) === normKey(spaceName),
-    );
+    const spaces = exactLocationReference(catalog.spaces.filter(s=>s.unitId===neighborhood.id),spaceName);
     if (spaces.length === 0) {
       return {
         ok: false,
@@ -698,7 +656,7 @@ export function planAssetImport(
     if (raw.department.trim()) {
       const key = normKey(raw.department);
       const matches = catalog.departments.filter(
-        (d) => d.isActive && (normKey(d.name) === key || normKey(d.key) === key),
+        (d) => d.isActive && (d.id === raw.department.trim() || normKey(d.name) === key || normKey(d.key) === normKey(getDepartmentProduct(raw.department.trim().toUpperCase())?.installationKey ?? raw.department)),
       );
       if (matches.length === 0) {
         errors.push({
@@ -736,6 +694,20 @@ export function planAssetImport(
       messages.push(...location.messages);
     }
 
+    // Responsibility/defaults are part of review, never discovered after confirmation.
+    if (!departmentId && !raw.department.trim() && unitId) {
+      const primary = (catalog.responsibilities ?? []).filter(r => r.unitId === unitId && r.kind === "PRIMARY");
+      const plant = primary.filter(r => catalog.departments.some(d => d.id === r.departmentId && d.key === "PLANT"));
+      const defaults = plant.length === 1 ? plant : primary;
+      const selected = defaults.length === 1 ? catalog.departments.find(d => d.id === defaults[0]!.departmentId && d.isActive) : null;
+      if (selected) { departmentId = selected.id; departmentName = selected.name; messages.push(`Default responsible Department: ${selected.name}.`); }
+    }
+    if (!departmentId) errors.push({ row: raw.rowNumber, field: "department", value: raw.department, reason: "No unambiguous authorized responsible Department. Supply department or configure the canonical Unit responsibility before preview." });
+    if (!raw.assetCode.trim() && !raw.serialNumber.trim() && !raw.facilityAssetNumber.trim()) errors.push({ row: raw.rowNumber, field: "assetCode", value: "", reason: "Supply assetCode, serialNumber or facilityAssetNumber for safe identity/retry." });
+    if (catalog.foreignAssetCodes?.some(c => normKey(c) === normKey(raw.assetCode))) errors.push({ row: raw.rowNumber, field: "assetCode", value: raw.assetCode, reason: "Asset code belongs to another Facility. Do not reuse cross-Facility assets." });
+    const matchedIds = new Set(catalog.assets.filter(a => (raw.assetCode && normKey(a.assetCode) === normKey(raw.assetCode)) || (raw.serialNumber && a.serialNumber && normKey(a.serialNumber) === normKey(raw.serialNumber)) || (raw.facilityAssetNumber && a.facilityAssetNumber && normKey(a.facilityAssetNumber) === normKey(raw.facilityAssetNumber))).map(a => a.id));
+    if (matchedIds.size > 1) errors.push({ row: raw.rowNumber, field: "assetCode", value: raw.assetCode, reason: "Provided identifiers resolve different Assets. Review in Asset Builder." });
+
     // In-file duplicates on stable ids
     if (raw.assetCode.trim()) {
       const k = normKey(raw.assetCode);
@@ -771,6 +743,12 @@ export function planAssetImport(
     if (errors.length === 0 && status !== "skip") {
       const dup = findDuplicateAsset(catalog, raw);
       if (dup?.kind === "skip") {
+        if ((raw.serialNumber.trim() && normKey(raw.serialNumber) !== normKey(dup.asset.serialNumber ?? "")) || (raw.facilityAssetNumber.trim() && normKey(raw.facilityAssetNumber) !== normKey(dup.asset.facilityAssetNumber ?? ""))) {
+          errors.push({ row: raw.rowNumber, field: "serialNumber", value: raw.serialNumber, reason: "Provided stable identifiers disagree with the existing Asset. Reuse cannot overwrite identifiers; review in Asset Builder." });
+        }
+        if ((dup.asset.departmentId !== undefined && dup.asset.departmentId !== departmentId) || dup.asset.unitId !== unitId || dup.asset.spaceId !== spaceId) {
+          errors.push({ row: raw.rowNumber, field: "department", value: raw.department, reason: "Existing Asset belongs to a different Department or physical place. Review in Asset Builder; reuse does not move or reassign it." });
+        }
         status = "skip";
         action = "skip";
         existingAssetId = dup.asset.id;

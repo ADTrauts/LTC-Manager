@@ -1,3 +1,4 @@
+import { initialFacilityOnboarding } from "@/lib/onboarding/transitions";
 import { EmployeeStatus, EmploymentType, type OrganizationType, type PrismaClient } from "@prisma/client";
 
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
@@ -104,8 +105,7 @@ export async function bootstrapFacilityCustomer(
       organizationId: organization.id,
       billingEmail,
       timezone,
-      onboardingStartedAt: now,
-      onboardingCurrentStep: "facility",
+      ...initialFacilityOnboarding(now),
     },
     select: { id: true, displayName: true },
   });

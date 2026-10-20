@@ -71,6 +71,8 @@ test(
     serial(async () => {
       const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
       try {
+      await prisma.$transaction(async (snapshot) => {
+      const prisma = snapshot as unknown as PrismaClient;
         const beforeItems = await listConsoleCatalogItems(prisma);
         const beforePlant = beforeItems.find((row) => row.stableKey === "PLANT");
         const beforeFood = beforeItems.find((row) => row.stableKey === "HEALTHCARE_FOOD_NUTRITION");
@@ -455,7 +457,8 @@ test(
 
         assert.equal(await loadConsoleDepartmentProductDetail(prisma, "NOT_REAL"), null);
         assert.equal(await loadConsoleWorkPresetDetail(prisma, "NOT_REAL"), null);
-      } finally {
+        }, { isolationLevel: "RepeatableRead", timeout: 60000 });
+    } finally {
         await prisma.$disconnect();
       }
     }),

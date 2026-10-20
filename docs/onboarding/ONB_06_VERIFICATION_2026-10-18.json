@@ -1,0 +1,356 @@
+{
+  "date": "2026-10-18",
+  "phase": "ONB-06",
+  "gate": "Complete \u2014 phase-specific exit gate satisfied; separate integration/release prerequisites remain",
+  "repository": "ADTrauts/LTC-Manager",
+  "repositoryHeadObserved": "3b5556e2ece0271a5bf7148ab61486537b61fbba",
+  "historicalProgramBaseline": "c7b5e68b372600b77c69108a8e4a351c6e6753f8",
+  "headNote": "The user Run-header commit at 3b5556e predates this phase. No commit/index change was made by this task. Prior inventories retain their historical baselines.",
+  "node": "24.19.0",
+  "timezone": "America/New_York",
+  "environment": {
+    "next": "16.3.5 production build; .next-onb06-build; owned port 55478",
+    "prisma": "6.19.2; no schema/new migration",
+    "postgres": "14.18; preserved isolated ltc_test_onb04_20261017 on port 55471; no reset/delete",
+    "externalServices": "Stripe, email and private Blob disabled on local server; no live scanner/originals/charges",
+    "workbook": "Existing ExcelJS 4.4.0 generator; bounded ZIP/XML reader; existing Saxes 5.0.1 declared directly"
+  },
+  "reviewSlices": [
+    {
+      "slice": 1,
+      "owners": [
+        "src/lib/onboarding-workbook/contract.ts",
+        "src/lib/onboarding-workbook/file.ts",
+        "src/lib/setup-imports/public-contract.ts"
+      ],
+      "delivered": [
+        "Facility/version-bound optional supported sheets with separate Examples and required/optional guidance",
+        "Text identifiers, current Department/canonical references, Asset omission under canonical authority",
+        "Existing CSV and Facility Builder imports preserved"
+      ]
+    },
+    {
+      "slice": 2,
+      "owners": [
+        "src/lib/onboarding-workbook/archive.ts",
+        "src/lib/onboarding-workbook/planning.ts",
+        "src/lib/setup-imports/planner.ts"
+      ],
+      "delivered": [
+        "Actual ZIP allocation/expanded-byte/CRC, logical shared-string and XML/cell/coordinate/time bounds",
+        "Reject wrong Facility/version/headers, formulas/caches, numeric identities, encryption/macros/external/unknown parts",
+        "Pure shared canonical plans; symbolic reference projection; full source sheet/row/column/identity/dependency review; no preview writes"
+      ]
+    },
+    {
+      "slice": 3,
+      "owners": [
+        "src/lib/onboarding-workbook/service.ts",
+        "src/lib/setup-imports/service.ts",
+        "src/lib/setup-imports/execute.ts",
+        "src/lib/bulk-import/facility-structure-execute.ts",
+        "src/components/onboarding-workbook-workspace.tsx"
+      ],
+      "delivered": [
+        "Existing row/domain executor with internal transaction hooks; no second domain writer/new model",
+        "Parent/child receipts, atomic actual ID mapping/checkpoints, own-commit versus external drift protection",
+        "Known failed child review refresh with retained history; no refresh of running/unknown outcomes",
+        "Dependency-safe unattempted-first retry, 25-row bound, active child awareness, actor/Facility-isolated browser hints and actual partial results"
+      ]
+    }
+  ],
+  "limits": {
+    "compressedBytes": 5242880,
+    "actualExpandedBytes": 20971520,
+    "entryBytes": 4194304,
+    "entries": 128,
+    "sheets": 9,
+    "importRows": 1000,
+    "peopleRows": 500,
+    "serializedCells": 50000,
+    "logicalCellTextUtf8Bytes": 2000000,
+    "maxRowPositionPerSheet": 1001,
+    "maxColumn": 24,
+    "cellOrSharedStringCharacters": 2000,
+    "xmlDepth": 32,
+    "archiveNesting": 0,
+    "parseBudgetMs": 5000,
+    "confirmationRowsPerRequest": 25,
+    "reviewMinutes": 30,
+    "parentLeaseSeconds": 90
+  },
+  "verification": [
+    {
+      "status": "run",
+      "check": "Pre-edit relevant CSV/Facility baseline",
+      "result": {
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb06-baseline.log"
+    },
+    {
+      "status": "run",
+      "check": "Final pure workbook/shared CSV/Facility/Asset cases",
+      "result": {
+        "tests": 48,
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb06-pure-exit-gate.log",
+      "command": "node --import tsx --test src/lib/onboarding-workbook/workbook.hermetic.test.ts src/lib/setup-imports/contract.hermetic.test.ts src/lib/bulk-import/facility-structure.hermetic.test.ts src/lib/bulk-import/asset-import.hermetic.test.ts"
+    },
+    {
+      "status": "run",
+      "check": "Final workbook SQL",
+      "result": {
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb06-db-exit-gate.log",
+      "command": "node --import tsx --test --test-concurrency=1 src/lib/onboarding-workbook/workbook.db.test.ts",
+      "coverage": [
+        "Pure complete preview and multi-Department shared canonical identity/location/Asset/enrollment",
+        "Wrong source/Facility/authority; external drift vs expected own commits",
+        "Partial failure and retry; lost child COMMIT response; same and independent concurrent reviews",
+        "Canonical Facility Builder import race and bounded 25-row cross-request recovery",
+        "Console actual PlatformStaff, denied credentials/Asset authority, assisted canonical child receipt sharing",
+        "Failed-row starvation, own shared-parent child review refresh and retained failed history, implicit Unit responsibility dependency"
+      ],
+      "reuseBoundary": "Later changes only workbook header presentation and CSV error copy; runtime executor/checkpoint/dependency owners unchanged. Final current-build browser round trips also pass."
+    },
+    {
+      "status": "reused",
+      "check": "Retained directly affected CSV SQL within ONB-06",
+      "result": {
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb06-db-final.log",
+      "note": "Combined run 22 total /21 passed/1 new fixture failed; all 15 retained cases passed. New fixture corrected; new workbook suite subsequently passed. Shared retained owners unchanged afterward except fallback error copy; no repeated unrelated suites."
+    },
+    {
+      "status": "run",
+      "check": "Final workbook browser matrix",
+      "result": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb06-browser-exit-gate.log",
+      "report": "tmp/onb06-browser/results-final-six.json",
+      "command": "npx playwright test --config tests/playwright.workbook.config.ts --max-failures=1",
+      "coverage": [
+        "Desktop 1280 and tablet 768 actual download/completion/preview/no-write/confirm/reload/reconcile/repeat",
+        "Wrong Facility/version, cached formula errors, Facility-isolated hints",
+        "Actual response loss after commit and safe recovery",
+        "Real Console Open facility, actual staff receipts, Assets omitted, Manager denied",
+        "Logical shared-string text limit before review/receipt/domain writes"
+      ]
+    },
+    {
+      "status": "run",
+      "check": "Final presentation/download and settled retry assertions",
+      "result": "1 desktop case passed after header/copy-only build; then 3 affected desktop/tablet/interruption cases passed after assertions waited for retry completion",
+      "logs": [
+        "/tmp/vssyl-onb06-browser-visual-final.log",
+        "/tmp/vssyl-onb06-browser-recovery-settled.log"
+      ],
+      "note": "Overlaps six-case matrix; not additional unique journeys. Screenshots taken with actual settled results."
+    },
+    {
+      "status": "run",
+      "check": "Retained affected CSV customer and Console browser journeys",
+      "result": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb06-csv-browser.log",
+      "report": "tmp/onb06-browser/retained-csv/results.json",
+      "command": "npx playwright test --config tests/playwright.setup-import.config.ts --grep \"at 1280px|Console opens real Facility\" --max-failures=1",
+      "note": "Preserved/restored original ONB-04 browser artifacts; current retained evidence archived separately. Later source changes were header/copy only."
+    },
+    {
+      "status": "run",
+      "check": "Final production build including TypeScript",
+      "result": "PASS",
+      "log": "/tmp/vssyl-onb06-build-final-operator-copy.log",
+      "note": "Earlier passing build checkpoints retained. Later changes only test assertions/docs; known Next-generated includes removed after structural comparison, original tsconfig bytes restored."
+    },
+    {
+      "status": "run",
+      "check": "Final scoped ESLint",
+      "result": "PASS \u2014 zero errors/warnings",
+      "log": "/tmp/vssyl-onb06-lint-final.log",
+      "files": "/tmp/vssyl-onb06-lint-files.json"
+    },
+    {
+      "status": "run",
+      "check": "Workbook renders/saved file and browser visual review",
+      "result": "All nine workbook sheets rendered and visually inspected; final saved white bold headers verified; desktop/tablet settled-result screenshots inspected",
+      "logs": [
+        "/tmp/vssyl-onb06-workbook-render.log",
+        "/tmp/vssyl-onb06-workbook-saved-values.log"
+      ],
+      "artifacts": "tmp/onb06-browser/workbook-renders",
+      "limitation": "Bundled renderer imports empty shared-string descriptions as visible index values in Reference Values. Independent ExcelJS read of actual saved XLSX C2 confirms empty text; no renderer export performed. Native Excel/Office was not exercised."
+    },
+    {
+      "status": "run",
+      "check": "Discovery / tracked hygiene",
+      "result": {
+        "testFiles": 443,
+        "sqlSuites": 53,
+        "trackedFiles": 2468,
+        "outcome": "PASS"
+      },
+      "logs": [
+        "/tmp/vssyl-onb06-discovery.log",
+        "/tmp/vssyl-onb06-hygiene.log"
+      ]
+    },
+    {
+      "status": "run",
+      "check": "Read-only isolated migration checksum comparison",
+      "result": {
+        "applied": 145,
+        "disk": 145,
+        "unfinished_or_rolled_back": [],
+        "mismatches": [],
+        "unapplied": []
+      },
+      "log": "/tmp/vssyl-onb06-migration-checksums.json",
+      "note": "No new schema/migration, generate/deploy/reset operation in ONB-06."
+    },
+    {
+      "status": "run",
+      "check": "Normal Git-aware migration integrity",
+      "result": "FAIL: first untracked ONB-02 migration; all five existing ONB-02\u201305 migrations still need normal review/tracking",
+      "log": "/tmp/vssyl-onb06-migration-integrity.log"
+    },
+    {
+      "status": "not run",
+      "check": "Full repository hermetic/static/broad lint and comprehensive earlier journeys",
+      "reason": "D12: no new route, payment owner or wider demonstrated impact; focused/affected owners and mandatory phase checks selected. Required CI/integration/release gates retained. Historical failures not reclassified."
+    },
+    {
+      "status": "not run",
+      "check": "Live Stripe/Blob/email/production scanner, native Excel, deployment/pilot",
+      "reason": "Outside phase; synthetic local fixtures and existing private custody prerequisites only."
+    }
+  ],
+  "summary": {
+    "newPureCases": 12,
+    "retainedPureCases": 36,
+    "newSqlCases": 13,
+    "retainedSqlCases": 15,
+    "newBrowserJourneys": 6,
+    "retainedBrowserJourneys": 2,
+    "overlappingRerunsNotAdded": true
+  },
+  "historicalFailureInventory": {
+    "reference": "ONB_05_VERIFICATION_2026-10-18.json",
+    "repositoryCheckpoint": {
+      "tests": 3621,
+      "passed": 3355,
+      "failed": 48,
+      "skipped": 218
+    },
+    "broadLintHistorical": {
+      "errors": 8,
+      "warnings": 77
+    },
+    "status": "Historical only; not proof of unchanged/current failure status in ONB-06."
+  },
+  "triage": [
+    "Corrected async assertion harness syntax; retained failed log.",
+    "Asset fixture used unsupported IN_SERVICE, a non-scoped globally repeated code and nonexistent direct Facility filter; corrected to canonical defaults, unique leading-zero identifiers and Unit scope.",
+    "Console fixture incorrectly carried a customer primary Department; corrected to actual work shape and verified real browser Open facility.",
+    "A development run rejected an expired parent claim after an observed multi-minute gap; bounded expiry retained, valid claims renew after known failures; later final suite passed.",
+    "Review identified non-starving retry scheduling, own-commit child review refresh/history and implicit Asset responsibility edges; final SQL regressions cover these.",
+    "Added logical decoded text bound for shared-string amplification beyond archive size.",
+    "Column body fonts overwrote header color; reordered final header style, verified actual saved download and rendered sheets.",
+    "Browser assertions now wait for retry response settlement before screenshot/count evidence."
+  ],
+  "releasePrerequisites": [
+    "Review and normally track all five ONB-02\u201305 migrations, then pass normal Git-aware integrity/checksum governance and mandatory CI/integration/release gates.",
+    "Preserve D15 separately authorized private Blob/ClamAV hosting/network/TLS/token, maintained engine/signatures/image refresh/on-call and support-specific processor scheduling before production retained-original operation.",
+    "Whole-journey/native Office compatibility certification and any named controlled pilot belong to ONB-07/integration; no rollout/deployment/rename authorized here."
+  ],
+  "migrationReleasePrerequisite": {
+    "untracked": [
+      "20261017180000_onboarding_commercial_suspension_states",
+      "20261017230000_guided_setup_entry_and_manager_invitations",
+      "20261018010000_canonical_setup_import_receipts",
+      "20261018120000_implementation_service_orders",
+      "20261018150000_support_private_attachment_scanning"
+    ],
+    "newMigrations": 0,
+    "appliedSqlEdited": false,
+    "indexManipulated": false
+  },
+  "preservation": {
+    "baselineFiles": 180,
+    "byteIdentical": 161,
+    "intentionalExtensions": [
+      "docs/onboarding/DECISIONS.md",
+      "docs/onboarding/ONB_04_CSV_CONTRACT.md",
+      "docs/onboarding/PHASE_TRACKER.md",
+      "docs/onboarding/README.md",
+      "docs/onboarding/VERIFICATION_POLICY.md",
+      "memory-bank/progress-log.md",
+      "scripts/verify/discover-tests.mjs",
+      "src/app/(protected)/employees/bulk-setup/actions.ts",
+      "src/app/(protected)/employees/bulk-setup/page.tsx",
+      "src/components/setup-import-workspace.tsx",
+      "src/components/setup-wizard.tsx",
+      "src/lib/bulk-import/asset-import.ts",
+      "src/lib/implementation/service.ts",
+      "src/lib/setup-imports/catalog.ts",
+      "src/lib/setup-imports/contract.ts",
+      "src/lib/setup-imports/execute.ts",
+      "src/lib/setup-imports/planner.ts",
+      "src/lib/setup-imports/public-contract.ts",
+      "src/lib/setup-imports/service.ts"
+    ],
+    "missing": [],
+    "baselineHashes": "/tmp/vssyl-onb06-preserved.json",
+    "previousInventoriesAuditPlanCommercialScannerSql": "Unchanged; final hash comparison passed.",
+    "originalTsconfigBytesRestored": true
+  },
+  "sourceFingerprints": {
+    "src/lib/onboarding-workbook/archive.ts": "5f502c81197c1219f4d7474b85c5313b64dd1ae6b0811f7bc0a5227f3409a92c",
+    "src/lib/onboarding-workbook/contract.ts": "0f75767bc295b55c927adff4570a6d29abb13af129a3530bbb993823f9882998",
+    "src/lib/onboarding-workbook/file.ts": "049db033eab15ab6e864894fa35f7a633f740ce4af1f442b14a8edd718f59024",
+    "src/lib/onboarding-workbook/planning.ts": "4cb7297bbe6c60a3a6d0b2bd654717c7182f6fe1a5d5919f74a5e0cc288048af",
+    "src/lib/onboarding-workbook/service.ts": "aa51d6a12280a539930d6a2d542d15d734394a4e374c7b98bec6d3c4cde0a90e",
+    "src/lib/onboarding-workbook/workbook.db.test.ts": "d1dd97bd9165e14bdde8fd82ce261b7215025019868fce0bb6cb7c7c6098d19b",
+    "src/lib/onboarding-workbook/workbook.hermetic.test.ts": "38107131690c37b13ae62932e37660db57902261b217b2ebba874c3b75043b46",
+    "src/lib/setup-imports/service.ts": "06f352e24798dce1f4ccc725e881a5fba6f063b507f7e629e76b29b7f26b2af1",
+    "src/lib/setup-imports/planner.ts": "0352cb28b6c57958f5c3410fe0182db4b382b46b4a40fce3e91fc7237c873741",
+    "src/lib/setup-imports/execute.ts": "ed43a681f12c8f9175e803830b8dcb2bd8543c013264d6d8345837fec0793cf7",
+    "src/lib/bulk-import/facility-structure-execute.ts": "2874aff95d4b53b319ade1ce019983095e639e9bccb2c7ed4496cafbceadfd19",
+    "src/lib/bulk-import/asset-import.ts": "92b0784cb7f6ead16273ee6edb457a4ebc484028cf8de9b188141b5e6ad9aef7",
+    "src/components/onboarding-workbook-workspace.tsx": "d42b64c368a99c77bd7c2cb6e9ebc34b60703b1942a154468ec31ccf55208e02",
+    "tests/workbook-browser/workbook.spec.ts": "a8a5254411ee37eed031653973ad99f5403f59237280a53f8ba01b6a2d0f02e5"
+  },
+  "rawEvidence": "/tmp/vssyl-onb06-* and ignored tmp/onb06-verification/logs with hash manifest; tmp/onb06-browser for reports/screenshots/renders. No original customer files used.",
+  "decisions": [
+    "D16; D05/D06/D09/D11/D12/D13/D15 preserved"
+  ],
+  "stoppedBefore": "ONB-07",
+  "testServicesStopped": {
+    "ports": {
+      "55471": "stopped",
+      "55478": "stopped"
+    },
+    "unrelatedExistingDevPid71158Running": true,
+    "retained": "Isolated PostgreSQL data, fixtures, builds, logs, screenshots and workbook renders; no data deletion. Existing scanner service/configuration not changed in ONB-06."
+  }
+}

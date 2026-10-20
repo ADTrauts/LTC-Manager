@@ -1,3 +1,4 @@
+import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -104,6 +105,7 @@ export default async function AssetBuilderPage() {
 
   return (
     <section className="space-y-4" data-testid="asset-builder-page">
+      <SetupWorkspaceLink role={session.role} />
       <AssetBuilderClient
         isEmpty={assets.length === 0}
         addForm={

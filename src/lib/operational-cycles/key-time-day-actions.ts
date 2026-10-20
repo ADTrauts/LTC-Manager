@@ -170,6 +170,15 @@ export async function completeKeyTimeDayExpectation(
   input: CompleteKeyTimeDayExpectationInput,
   client: DbClient = prisma,
 ): Promise<CompleteKeyTimeDayExpectationResult> {
+  // All actual writers use the same expectation lock. The outer offline
+  // Serializable transaction can then bind the effect and receipt atomically.
+  if ("$transaction" in client) return client.$transaction(tx => completeKeyTimeDayExpectation(input, tx));
+  const target = await client.operationalCycleKeyTimeDayExpectation.findUnique({ where: { id: input.expectationId }, select: { cycleId: true, facilityId: true } });
+  if (!target) return { ok: false, reason: "NOT_FOUND" };
+  await client.$queryRaw`SELECT "id" FROM "Facility" WHERE "id"=${target.facilityId} FOR UPDATE`;
+  // Match the compatibility timing owner's cycle lock before the expectation.
+  await client.$queryRaw`SELECT "id" FROM "DepartmentOperationalCycle" WHERE "id"=${target.cycleId} FOR UPDATE`;
+  await client.$queryRaw`SELECT "id" FROM "OperationalCycleKeyTimeDayExpectation" WHERE "id"=${input.expectationId} FOR UPDATE`;
   const row = await client.operationalCycleKeyTimeDayExpectation.findFirst({
     where: { id: input.expectationId },
     select: {

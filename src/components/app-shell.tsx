@@ -1,3 +1,4 @@
+import { SpaceIdentityBoundary } from "@/components/offline/canonical-space-panel";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
@@ -107,6 +108,7 @@ export async function AppShell({ children }: AppShellProps) {
         departments={departments}
         selectedDepartmentId={deptNav.activeDepartmentId}
       >
+        <SpaceIdentityBoundary session={anySession} />
         {children}
       </HarborWorkSessionShell>
     );
@@ -319,7 +321,8 @@ export async function AppShell({ children }: AppShellProps) {
             data-shell-main
             className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6"
           >
-            {children}
+            <SpaceIdentityBoundary session={anySession}/>
+          {children}
           </main>
         </div>
       </div>

@@ -45,6 +45,16 @@ function walk(dir, out) {
 
 /** Files that SQL-backed suites live in (opt-in via env; still discovered hermetically as skipped). */
 export const SQL_BACKED_TEST_FILES = [
+  "src/lib/offline/space/space.db.test.ts",
+  "src/lib/organization-membership/last-admin-concurrency.db.test.ts",
+  "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+  "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts",
+  "src/lib/onboarding-workbook/workbook.db.test.ts",
+  "src/lib/support/attachment-scanner.db.test.ts",
+  "src/lib/implementation/implementation.db.test.ts",
+  "src/lib/setup-imports/setup-imports.db.test.ts",
+  "src/lib/onboarding/onboarding.db.test.ts",
+  "src/lib/onboarding/setup-workspace.db.test.ts",
   "src/lib/auth-rate-limit/auth-rate-limit.test.ts",
   "src/lib/servery/record-milestone.test.ts",
   "src/lib/session-revocation/session-version.test.ts",
@@ -78,6 +88,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/department-products/phase-5b-starter.test.ts",
   "src/lib/department-products/plant-release.test.ts",
   "src/lib/bulk-import/bulk-import.scale.db.test.ts",
+  "src/lib/employee-csv-update/employee-csv-update.db.test.ts",
   "src/lib/support/support-tickets.db.test.ts",
   "src/lib/support/support-attachments.db.test.ts",
   "src/lib/support/support-inbound.db.test.ts",

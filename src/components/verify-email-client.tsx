@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export function VerifyEmailClient({ token }: { token: string | null }) {
+  return <VerificationAttempt key={token ?? "missing"} token={token} />;
+}
+
+function VerificationAttempt({ token }: { token: string | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(token));
 
   useEffect(() => {
-    if (!token) {
-      setError("This verification link is missing a token.");
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
 
     let cancelled = false;
     (async () => {
@@ -58,7 +58,7 @@ export function VerifyEmailClient({ token }: { token: string | null }) {
     <div className="w-full max-w-sm space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 shadow-sm">
       <h1 className="text-xl font-semibold text-[var(--foreground)]">Couldn’t verify email</h1>
       <p className="text-sm text-[var(--text-secondary)]" role="alert">
-        {error ?? "This verification link is invalid or expired."}
+        {!token ? "This verification link is missing a token." : error ?? "This verification link is invalid or expired."}
       </p>
       <Link
         href="/check-email"

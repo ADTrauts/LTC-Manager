@@ -1,5 +1,7 @@
 "use server";
 
+import { savePhysicalResponsibility } from "@/lib/facility-builder/responsibility-service";
+
 import { revalidatePath } from "next/cache";
 import { UnitDepartmentKind, UnitHierarchyRole, UnitType } from "@prisma/client";
 import { z } from "zod";
@@ -946,39 +948,7 @@ export async function upsertBuilderUnitResponsibilityAction(formData: FormData) 
     inspectionFrequency: toOptional(formData.get("inspectionFrequency")),
   });
 
-  const unit = await prisma.unit.findFirst({
-    where: { id: parsed.unitId, facilityId: session.facilityId },
-    select: { id: true },
-  });
-  if (!unit) throw new Error("Unit not found in this facility.");
-
-  const dept = await prisma.department.findFirst({
-    where: { id: parsed.departmentId, facilityId: session.facilityId, isActive: true },
-    select: { id: true },
-  });
-  if (!dept) throw new Error("Department not found.");
-
-  await prisma.unitDepartmentResponsibility.upsert({
-    where: {
-      unitId_departmentId: { unitId: parsed.unitId, departmentId: parsed.departmentId },
-    },
-    update: {
-      kind: parsed.kind,
-      capabilities: parsed.capabilities,
-      riskLevel: parsed.riskLevel ?? null,
-      cleaningFrequency: parsed.cleaningFrequency ?? null,
-      inspectionFrequency: parsed.inspectionFrequency ?? null,
-    },
-    create: {
-      unitId: parsed.unitId,
-      departmentId: parsed.departmentId,
-      kind: parsed.kind,
-      capabilities: parsed.capabilities,
-      riskLevel: parsed.riskLevel ?? null,
-      cleaningFrequency: parsed.cleaningFrequency ?? null,
-      inspectionFrequency: parsed.inspectionFrequency ?? null,
-    },
-  });
+  await savePhysicalResponsibility(prisma, { facilityId: session.facilityId, departmentId: parsed.departmentId, locationType: "UNIT", locationId: parsed.unitId, kind: parsed.kind, capabilities: parsed.capabilities, riskLevel: parsed.riskLevel, cleaningFrequency: parsed.cleaningFrequency, inspectionFrequency: parsed.inspectionFrequency });
 
   revalidateBuilderViews();
 }
@@ -1017,29 +987,7 @@ export async function upsertBuilderSpaceResponsibilityAction(formData: FormData)
     capabilities: capabilitiesRaw,
   });
 
-  const space = await prisma.unitSpace.findFirst({
-    where: { id: parsed.spaceId, facilityId: session.facilityId },
-    select: { id: true },
-  });
-  if (!space) throw new Error("Space not found in this facility.");
-
-  const dept = await prisma.department.findFirst({
-    where: { id: parsed.departmentId, facilityId: session.facilityId, isActive: true },
-    select: { id: true },
-  });
-  if (!dept) throw new Error("Department not found.");
-
-  await prisma.unitSpaceResponsibility.upsert({
-    where: {
-      spaceId_departmentId: { spaceId: parsed.spaceId, departmentId: parsed.departmentId },
-    },
-    update: { capabilities: parsed.capabilities },
-    create: {
-      spaceId: parsed.spaceId,
-      departmentId: parsed.departmentId,
-      capabilities: parsed.capabilities,
-    },
-  });
+  await savePhysicalResponsibility(prisma, { facilityId: session.facilityId, departmentId: parsed.departmentId, locationType: "ROOM", locationId: parsed.spaceId, capabilities: parsed.capabilities });
 
   revalidateBuilderViews();
 }

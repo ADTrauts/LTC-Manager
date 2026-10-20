@@ -3,9 +3,11 @@
  * Cache policy: versioned application shell + public static assets only.
  * Never cache protected HTML, authentication responses, or arbitrary API GETs.
  */
-const CACHE_VERSION = "ltc-offline-shell-v1";
+const CACHE_VERSION = "ltc-offline-shell-v3";
 const SHELL_URLS = [
   "/offline.html",
+  "/space-offline.js",
+  "/space-offline-store.js",
   "/manifest.webmanifest",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",

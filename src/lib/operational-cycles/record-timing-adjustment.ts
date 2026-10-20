@@ -29,6 +29,7 @@ export async function recordOperationalTimingAdjustment(
   input: RecordTimingAdjustmentInput,
   client: DbClient = prisma,
 ): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  if ("$transaction" in client) return client.$transaction(tx => recordOperationalTimingAdjustment(input, tx));
   const allowed = hasPlatformCapability({
     capability: "operational_timing.adjust",
     role: input.session.role as AppRole,
@@ -48,6 +49,8 @@ export async function recordOperationalTimingAdjustment(
   });
   if (!check.ok) return check;
 
+  await client.$queryRaw`SELECT "id" FROM "Facility" WHERE "id"=${input.session.facilityId} FOR UPDATE`;
+  await client.$queryRaw`SELECT "id" FROM "DepartmentOperationalCycle" WHERE "id"=${input.cycleId} AND "facilityId"=${input.session.facilityId} FOR UPDATE`;
   const cycle = await client.departmentOperationalCycle.findFirst({
     where: { id: input.cycleId, facilityId: input.session.facilityId, status: "PUBLISHED" },
     select: {
@@ -58,10 +61,14 @@ export async function recordOperationalTimingAdjustment(
       version: true,
       startLocal: true,
       endLocal: true,
+      updatedAt: true,
     },
   });
   if (!cycle) return { ok: false, message: "Published cycle was not found." };
 
+  // Parent row version makes a waiting Serializable replay abort and reread
+  // committed timing. Preserve published definition and its edit timestamp.
+  await client.departmentOperationalCycle.update({ where: { id: cycle.id }, data: { timingAdjustmentRevision: { increment: 1 }, updatedAt: cycle.updatedAt } });
   const row = await client.operationalCycleTimingAdjustment.create({
     data: {
       facilityId: cycle.facilityId,

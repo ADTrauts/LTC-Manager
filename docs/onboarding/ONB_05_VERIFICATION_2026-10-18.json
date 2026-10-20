@@ -1,0 +1,494 @@
+{
+  "date": "2026-10-18",
+  "phase": "ONB-05",
+  "gate": "Complete \u2014 phase-specific exit gate satisfied; separate migration/production/release prerequisites remain",
+  "repository": "ADTrauts/LTC-Manager",
+  "baselineCommit": "c7b5e68b372600b77c69108a8e4a351c6e6753f8",
+  "node": "24.19.0",
+  "timezone": "America/New_York",
+  "environment": {
+    "next": "16.3.5 production build",
+    "prisma": "6.19.2",
+    "postgres": "14.18; isolated port 55471; ltc_test_onb04_20261017 reused without deleting prior fixtures",
+    "stripe": "controlled SDK provider for SQL; disabled on browser server; no live charges",
+    "storage": "canonical private-store interface in memory for real-engine tests; browser private Blob intentionally disabled",
+    "scanner": "actual ClamAV 1.4.6; official signatures 28157, 2026-10-18T06:24:14Z; authenticated TLS loopback 55477"
+  },
+  "reviewSlices": [
+    {
+      "slice": 1,
+      "delivered": [
+        "Facility-scoped engagement, explicit participants/responsible PlatformStaff, canonical support source revisions and attributable mapping decisions",
+        "Private quarantined custody, support-specific durable asynchronous scanner claims/attempts/retries, staff-only verified downloads",
+        "Immutable actor-attributed service events; preserved customer User versus PlatformStaff/work-session boundary"
+      ]
+    },
+    {
+      "slice": 2,
+      "delivered": [
+        "Approved $1500 + $500/additional Department per separately approved engagement; self-service/subscription checkout has no service fee",
+        "Immutable quote/scope digest, customer revision-bound approval, Owner reason/scope-bound whole-order waiver",
+        "One-time Checkout using canonical billing customer, persisted exact request/key, locked reconciliation/replay/settlement and visible unknown attempts; no extra subscription"
+      ]
+    },
+    {
+      "slice": 3,
+      "delivered": [
+        "Explicit original-executor receipt sharing through narrow authorized projections without changing ONB-04 receipt ownership",
+        "Delivered/deferred stages, training/configuration evidence and customer fingerprint-bound acceptance snapshot",
+        "Later canonical retries remain attributable and visibly outside earlier acceptance; no readiness/publication/entitlement grant"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "check": "Pre-edit related baseline",
+      "result": "47 passed; zero failed/skipped",
+      "log": "/tmp/vssyl-onb05-baseline.log"
+    },
+    {
+      "check": "Focused implementation contract and affected billing/support/work-session/import contract tests",
+      "result": "51 passed; zero failed/skipped",
+      "log": "/tmp/vssyl-onb05-focused-final.log",
+      "reuse": "Earlier ONB-05 checkpoint; later changes were scan integration/authorization guards. Pure owners remain unchanged; final guards have SQL proof."
+    },
+    {
+      "check": "Final service SQL after authority-expiry fixes",
+      "command": "node --import tsx --test --test-concurrency=1 src/lib/implementation/implementation.db.test.ts",
+      "result": {
+        "tests": 22,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 1
+      },
+      "log": "/tmp/vssyl-onb05-service-authority-final.log",
+      "note": "Only opt-in real intake skipped in this command; it passed separately with the real worker."
+    },
+    {
+      "check": "Scanner SQL and actual-engine cases after health image rebuild",
+      "result": {
+        "tests": 10,
+        "passed": 9,
+        "failed": 1,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb05-scanner-db-health-final.log",
+      "triage": "First benign scan ran before signatures finished loading. EICAR, Office bounds, authentication/hash, actual paused-engine timeout/recovery, changed-object and SQL retry/stale/failure cases passed. Only startup-affected benign case rerun below."
+    },
+    {
+      "check": "Readiness-affected benign and real customer intake rerun",
+      "command": "node --import tsx --test --test-concurrency=1 --test-name-pattern=\"REAL ClamAV: benign|REAL service intake\" src/lib/implementation/implementation.db.test.ts src/lib/support/attachment-scanner.db.test.ts",
+      "result": {
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb05-scanner-ready-intake-final.log",
+      "note": "Canonical private-store interface, actual authenticated TLS/ClamAV, actual staff-only service read. No production Blob transfer."
+    },
+    {
+      "check": "Final health-only image correction",
+      "result": "PASS: internal socket group, maintained engine/signatures and verified TLS probe; Docker healthy",
+      "log": "/tmp/vssyl-onb05-scanner-health-final-v2.log",
+      "image": "sha256:3eaab3f49a2be9944d7b21f50ad38fe5577f4dcad4292b7c5189cdc4148ebaa3",
+      "baseDigest": "sha256:b5b910ce43d595bf8a2fe401e34db56434602b2c755b7c2b07f00c917d04d469",
+      "reuse": "Scan worker/protocol/clamd settings unchanged after passing scan cases; final image changes only health probe socket-group permissions."
+    },
+    {
+      "check": "Retained commercial SQL for changed billing owners",
+      "result": {
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb05-commercial-db-final.log"
+    },
+    {
+      "check": "Retained ONB-04 canonical import SQL",
+      "result": "15 passed in combined 29-pass earlier ONB-05 run",
+      "log": "/tmp/vssyl-onb05-db-verified.log",
+      "reuse": "Unchanged ONB-04 execution owners; later changes scoped to new service/scanner and billing owners. Counts overlap earlier service runs."
+    },
+    {
+      "check": "Final ONB-05 production browser journeys",
+      "command": "npx playwright test --config tests/playwright.implementation.config.ts --max-failures=1",
+      "result": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb05-browser-final-pass.log",
+      "artifacts": "tmp/onb05-browser/",
+      "coverage": [
+        "1280px and 768px request, Owner waiver, customer approval, source failure/no mutation, real Console work-session canonical CSV execution, explicit receipt share, deferred training and customer acceptance",
+        "Non-waived $2000 approval, Stripe-unconfigured failure, reload/reconcile/checkout return and separate later engagement",
+        "Stale scope approval rejection",
+        "Wrong Facility/nonparticipant/Manager denial and no customer original API",
+        "No automatic subscription implementation fee"
+      ],
+      "limits": "Browser original-file transfer intentionally exercises STORAGE_UNAVAILABLE. Successful private byte custody/scan/staff download proven separately via SQL and real worker; no live Stripe hosted Checkout."
+    },
+    {
+      "check": "Retained affected billing/suspension/Console browser journeys",
+      "command": "npx playwright test --config tests/playwright.onboarding.config.ts --grep \"unfinished Facility|unpaid Department|Console describes\" --max-failures=1",
+      "result": {
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      "log": "/tmp/vssyl-onb05-commercial-browser-final.log"
+    },
+    {
+      "check": "Final production build including TypeScript",
+      "result": "PASS",
+      "log": "/tmp/vssyl-onb05-build-final-authority.log",
+      "note": "Browser reuses this final application build; later changes only tests, worker health probe and documentation."
+    },
+    {
+      "check": "Final standalone typecheck",
+      "result": "PASS",
+      "log": "/tmp/vssyl-onb05-typecheck-authority-final.log"
+    },
+    {
+      "check": "Scoped ESLint of all ONB-05 changed JS/TS/TSX and final browser harness",
+      "result": "PASS; zero errors/warnings",
+      "logs": [
+        "/tmp/vssyl-onb05-lint-authority-final.log",
+        "/tmp/vssyl-onb05-browser-lint-final.log"
+      ],
+      "note": "Earlier wider scope included two existing unused arguments in unchanged billing/actions.ts; no new warning."
+    },
+    {
+      "check": "Mandatory route-registry npm test checkpoint",
+      "result": {
+        "tests": 3621,
+        "suites": 170,
+        "passed": 3355,
+        "failed": 48,
+        "skipped": 218
+      },
+      "log": "/tmp/vssyl-onb05-repository-final.log",
+      "comparison": {
+        "against": "ONB_04_VERIFICATION_2026-10-18.json",
+        "parsedCount": 48,
+        "new": [],
+        "resolved": []
+      },
+      "reuse": "Executed after route/scanner integration and before final authorization-wait guards and two SQL regressions. Final changed behavior covered by SQL/build/browser; no third broad run. Not a full-repository green claim."
+    },
+    {
+      "check": "Schema generation/validation, discovery, tracked hygiene",
+      "result": "PASS; Prisma 6.19.2 generation/schema valid, discovery 441 files / 52 SQL suites, hygiene 2468 tracked files",
+      "logs": [
+        "/tmp/vssyl-onb05-scan-generate-final.log",
+        "/tmp/vssyl-onb05-prisma-validate-final.log",
+        "/tmp/vssyl-onb05-discovery-final.log",
+        "/tmp/vssyl-onb05-hygiene-final.log"
+      ],
+      "note": "Existing Prisma package-level config deprecation warning."
+    },
+    {
+      "check": "Isolated migration application and checksum readback",
+      "result": {
+        "applied": 145,
+        "disk": 145,
+        "unfinished_or_rolled_back": [],
+        "mismatches": [],
+        "unapplied": []
+      },
+      "logs": [
+        "/tmp/vssyl-onb05-migrate-deploy.log",
+        "/tmp/vssyl-onb05-scanner-migrate-deploy.log",
+        "/tmp/vssyl-onb05-migration-checksums-final.json"
+      ]
+    },
+    {
+      "check": "Normal Git-aware migration integrity",
+      "result": "FAIL: ONB-02 migration still untracked; five phase migrations require normal review/tracking before release",
+      "log": "/tmp/vssyl-onb05-migration-integrity-final.log"
+    },
+    {
+      "check": "Diff / preservation / generated config",
+      "result": "No prior file missing; intended shared-owner extensions only; tsconfig original bytes restored after structural comparison",
+      "log": "/tmp/vssyl-onb05-diff-final.log"
+    }
+  ],
+  "summary": {
+    "newDistinctSqlCasesWithPassingEvidence": 32,
+    "newServiceCases": 22,
+    "newScannerCases": 10,
+    "realEngineCasesWithinNewCases": 7,
+    "retainedSqlCasesWithPassingEvidence": 28,
+    "browserPassed": 9,
+    "note": "Evidence accumulated across relevant runs, not one 60-case SQL invocation; counts overlap checkpoint runs and must not be added to hermetic totals."
+  },
+  "failures": [
+    {
+      "file": "src/components/location-tree/location-tree.hermetic.test.ts",
+      "test": "Department Locations lists rooms with place as secondary text"
+    },
+    {
+      "file": "src/lib/asset-operations/responsibility.hermetic.test.ts",
+      "test": "projection \u2014 department only"
+    },
+    {
+      "file": "src/lib/business-workspace/business-workspace-projection.test.ts",
+      "test": "5. Facility Overview \u2014 labeled department sections"
+    },
+    {
+      "file": "src/lib/canonical-logs/facility-catalog-install.hermetic.test.ts",
+      "test": "Build Logs install verb and place from the installed library"
+    },
+    {
+      "file": "src/lib/canonical-logs/partner-log-read.hermetic.test.ts",
+      "test": "partner record lookup is facility and active department"
+    },
+    {
+      "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+      "test": "partner submit follows role and active department"
+    },
+    {
+      "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+      "test": "acting context stays on the action that created it"
+    },
+    {
+      "file": "src/lib/department-administration/department-locations.test.ts",
+      "test": "does not write SpaceType or Unit.unitType from Locations UI"
+    },
+    {
+      "file": "src/lib/department-administration/room-types.test.ts",
+      "test": "primary Department Builder page no longer mounts Room Types"
+    },
+    {
+      "file": "src/lib/design-system/temporal-strip-ticks.hermetic.test.ts",
+      "test": "SubNav communicates horizontal overflow with fades and scrolls active tab"
+    },
+    {
+      "file": "src/lib/dietary-job-flow/supervisor-operations/present-ui.hermetic.test.ts",
+      "test": "Board presentation source scan: ViewModel only, legacy chips removed, access unchanged"
+    },
+    {
+      "file": "src/lib/locations/location-experience-certification.test.ts",
+      "test": "Facility Overview remains labeled by customer-current department"
+    },
+    {
+      "file": "src/lib/locations/locations-cutover.test.ts",
+      "test": "Facility Overview \u2014 labeled department snapshots, never flattened"
+    },
+    {
+      "file": "src/lib/locations/locations-cutover.test.ts",
+      "test": "Golden parity with Wave 15E shadow adapters (rooms + plant)"
+    },
+    {
+      "file": "src/lib/locations/sidebar-cutover.test.ts",
+      "test": "4. Facility Overview labeled composition"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "accept existing User links membership without rewriting home Facility"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "accept new org-only User creates null facility/role and ORG_ADMIN"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "stale second acceptance cannot create another first admin"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "Organization with existing ORG_ADMIN cannot receive first-admin approval"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "resend rotates token hash and invalidates prior plaintext"
+    },
+    {
+      "file": "src/lib/organization-membership/last-admin-concurrency.db.test.ts",
+      "test": "concurrent demotions cannot leave an organization with zero administrators"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "membership end closes every current assignment through that organization"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "assignment and role-change races leave no current assignment after membership end"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "last-admin denial and injected failure commit no assignment changes"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "partnership creation waits on the organization lock held by membership end"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts",
+      "test": "concurrent ceiling and assignment changes leave one open period each"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "allows a sparse ENABLE exception to replace archetype selection"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "honors direct archetype replacement"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "matches the Dietary golden structure"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "resolves EVS room Experiences and prunes empty branches"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "gives direct Plant bindings precedence over the policy default"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "resolves query scopes but never executes runtime data"
+    },
+    {
+      "file": "src/lib/projection/projection-runtime.test.ts",
+      "test": "resolves Dietary manager projection through adapter + pipeline"
+    },
+    {
+      "file": "src/lib/projection/projection-runtime.test.ts",
+      "test": "resolves EVS supervisor and Plant manager lenses"
+    },
+    {
+      "file": "src/lib/projection/projection-runtime.test.ts",
+      "test": "accepts a preloaded ProjectionSource and still invokes the pipeline"
+    },
+    {
+      "file": "src/lib/route-registry/authorize.test.ts",
+      "test": "role policy \u2014 Plant Preventive Maintenance Run admits Supervisor+"
+    },
+    {
+      "file": "src/lib/route-registry/match.test.ts",
+      "test": "matching \u2014 dynamic segments capture exactly one segment"
+    },
+    {
+      "file": "src/lib/route-registry/match.test.ts",
+      "test": "matching \u2014 prefix routes cover their descendants"
+    },
+    {
+      "file": "src/lib/route-registry/navigation.test.ts",
+      "test": "navigation \u2014 labels come from the registry, not from database rows"
+    },
+    {
+      "file": "src/lib/route-registry/navigation.test.ts",
+      "test": "navigation \u2014 Procedures is a Build door and leftover /admin/knowledge stays reachable"
+    },
+    {
+      "file": "src/lib/scheduling/coverage-expectations/coverage-expectations.hermetic.test.ts",
+      "test": "keeps Locations as an inspector and team \u00d7 cycle as the need editor"
+    },
+    {
+      "file": "src/lib/shell-ux-refinement.test.ts",
+      "test": "V1 refinement \u2014 the canonical Build Home card set is present for a Facility Administrator"
+    },
+    {
+      "file": "src/lib/todays-work/todays-work-projection.test.ts",
+      "test": "Facility Overview \u2014 labeled department sections"
+    },
+    {
+      "file": "src/lib/vercel-function-storage.hermetic.test.ts",
+      "test": "next config excludes docs and tests from function traces"
+    },
+    {
+      "file": "src/lib/work/inspections/inspection-scheduling.test.ts",
+      "test": "generator creates one occurrence+Task and is idempotent"
+    },
+    {
+      "file": "src/lib/work/inspections/inspections.test.ts",
+      "test": "submitInspection writes atomically and respects idempotency + flag"
+    },
+    {
+      "file": "src/lib/work/inspections/inspections.test.ts",
+      "test": "Task sync failure does not invalidate inspection submission"
+    },
+    {
+      "file": "src/lib/work/inspections/inspections.test.ts",
+      "test": "submitInspection creates follow-up Tasks only for qualifying failed items"
+    }
+  ],
+  "failureIdentityComparison": {
+    "against": "ONB_04_VERIFICATION_2026-10-18.json",
+    "parsedCount": 48,
+    "new": [],
+    "resolved": []
+  },
+  "decisions": [
+    "D13: approved engagement commercial policy recorded before implementation",
+    "D14: bounded service aggregate, immutable scope/approval and exact-request payment recovery",
+    "D15: user-approved dedicated private ClamAV worker and staff-only originals"
+  ],
+  "migrationReleasePrerequisite": {
+    "untracked": [
+      "prisma/migrations/20261017180000_onboarding_commercial_suspension_states",
+      "prisma/migrations/20261017230000_guided_setup_entry_and_manager_invitations",
+      "prisma/migrations/20261018010000_canonical_setup_import_receipts",
+      "prisma/migrations/20261018120000_implementation_service_orders",
+      "prisma/migrations/20261018150000_support_private_attachment_scanning"
+    ],
+    "required": "Review and track all five migrations normally; pass Git-aware integrity/checksum governance and required CI/release gates. Do not edit applied SQL or stage merely to bypass the check. Isolated 145-migration proof is not production certification."
+  },
+  "limits": [
+    "No live Stripe charge, hosted Checkout/card collection, email delivery or production webhook performed; provider success/replay/unknown outcomes exercised with controlled SDK boundary and real database transactions.",
+    "No live Blob credentials/customer originals or unapproved external scanning host used. Real worker proof uses synthetic originals and a canonical private-store test adapter.",
+    "Production private worker hosting/network/TLS/token/CA, maintained signatures/image refresh/on-call, private Blob and separately deployed support processor schedule remain prerequisites.",
+    "Full suite checkpoint retains 48 actual known failure identities; broad lint was not rerun, previous 8 errors/77 warnings remain historical evidence only.",
+    "Comprehensive ONB-00\u201304 journey replay/full repository certification reserved for mandatory integration/release checkpoints and ONB-07; earlier unchanged owners reused only as labeled.",
+    "No ONB-06 spreadsheet domain reader, deployment, rename, pilot rollout or customer data rewrite."
+  ],
+  "triage": [
+    "Two authority-expiry regressions first failed and then passed after live reauthorization following Facility/engagement waits and before Stripe POST.",
+    "Local settlement receipt injection revealed broad catch could commit partial local status; fixed to roll back local settlement/audit atomically and reconcile existing provider payment on retry.",
+    "Serialized delivery revisions resolve reversed transaction-start timestamps; actual source contact uses uploading reviewer.",
+    "Browser harness corrected native file/button ambiguity, Next route-announcer ambiguity and native wrapping-select exact-label mismatch; no product bypass or timeout increase.",
+    "ClamAV startup fixed AlertOLE2Macros and unprivileged FreshClam configuration; official signature update succeeded.",
+    "Initial engine timeout fault injection lacked permission to pause clamd; corrected to actual clamav user STOP/CONT, timeout recovery passed.",
+    "Rebuilt worker benign scan initially raced signature loading; readiness confirmed and only affected scan rerun passed.",
+    "Inherited public-clamd health probe replaced with private socket/signature/TLS probe; capability-restricted root explicitly joins socket group, final Docker health healthy."
+  ],
+  "preservation": {
+    "baselineFiles": 140,
+    "byteIdentical": 128,
+    "intentionalExtensions": [
+      "docs/onboarding/DECISIONS.md",
+      "docs/onboarding/PHASE_TRACKER.md",
+      "docs/onboarding/README.md",
+      "docs/product/11_COMMERCIAL_MODEL.md",
+      "memory-bank/progress-log.md",
+      "prisma/schema.prisma",
+      "scripts/verify/discover-tests.mjs",
+      "src/app/(protected)/admin/billing/billing-plan-form.tsx",
+      "src/app/(protected)/admin/billing/page.tsx",
+      "src/app/console/(staff)/customers/[facilityId]/page.tsx",
+      "src/lib/billing/webhook-handlers.ts",
+      "src/lib/route-registry/platform-routes.ts"
+    ],
+    "missing": [],
+    "baselineHashes": "/tmp/vssyl-onb05-preserved.json",
+    "oldInventoriesAndAcceptedAuditPlan": "byte-identical",
+    "allPriorAppliedMigrationFiles": "byte-identical"
+  },
+  "rawEvidence": "Full logs archived under ignored tmp/onb05-verification/logs with SHA-256 manifest; original /tmp/vssyl-onb05-* logs retained. Browser JSON/screenshots/traces under tmp/onb05-browser; retained billing evidence tmp/onb02-browser. Desktop/tablet handoff screenshots visually inspected.",
+  "stoppedBefore": "ONB-06",
+  "testServicesStopped": {
+    "ports": {
+      "55471": "stopped",
+      "55476": "stopped",
+      "55477": "stopped"
+    },
+    "ownedScannerRunning": "false",
+    "unrelatedExistingDevPid71158Preserved": true,
+    "retained": "Isolated PostgreSQL data, signature volume, test fixtures, stopped containers and raw evidence; no deletion."
+  }
+}

@@ -26,10 +26,10 @@ test("payment problems are past due or incomplete only", () => {
   assert.equal(isPaymentProblem(null), false);
 });
 
-test("onboarding label prefers Live once complete", () => {
+test("onboarding label describes journey acknowledgement without asserting operation", () => {
   assert.equal(
     onboardingLabel({ onboardingCompletedAt: new Date(), onboardingCurrentStep: "billing" }),
-    "Live",
+    "Guided setup acknowledged",
   );
   assert.equal(
     onboardingLabel({ onboardingCompletedAt: null, onboardingCurrentStep: "locations" }),

@@ -1,0 +1,410 @@
+{
+  "date": "2026-10-17",
+  "phase": "ONB-03",
+  "gate": "SATISFIED — phase-specific; release migration tracking/integrity and repository-wide debt remain open",
+  "baselineCommit": "c7b5e68b372600b77c69108a8e4a351c6e6753f8",
+  "repository": "ADTrauts/LTC-Manager",
+  "node": "24.19.0",
+  "timezone": "America/New_York",
+  "command": "npm run test:hermetic",
+  "summary": {
+    "tests": 3563,
+    "suites": 170,
+    "pass": 3342,
+    "fail": 48,
+    "cancelled": 0,
+    "skipped": 173,
+    "todo": 0
+  },
+  "failures": [
+    {
+      "file": "src/components/location-tree/location-tree.hermetic.test.ts",
+      "test": "Department Locations lists rooms with place as secondary text"
+    },
+    {
+      "file": "src/lib/asset-operations/responsibility.hermetic.test.ts",
+      "test": "projection — department only"
+    },
+    {
+      "file": "src/lib/business-workspace/business-workspace-projection.test.ts",
+      "test": "5. Facility Overview — labeled department sections"
+    },
+    {
+      "file": "src/lib/canonical-logs/facility-catalog-install.hermetic.test.ts",
+      "test": "Build Logs install verb and place from the installed library"
+    },
+    {
+      "file": "src/lib/canonical-logs/partner-log-read.hermetic.test.ts",
+      "test": "partner record lookup is facility and active department"
+    },
+    {
+      "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+      "test": "acting context stays on the action that created it"
+    },
+    {
+      "file": "src/lib/canonical-logs/partner-log-write.hermetic.test.ts",
+      "test": "partner submit follows role and active department"
+    },
+    {
+      "file": "src/lib/department-administration/department-locations.test.ts",
+      "test": "does not write SpaceType or Unit.unitType from Locations UI"
+    },
+    {
+      "file": "src/lib/department-administration/room-types.test.ts",
+      "test": "primary Department Builder page no longer mounts Room Types"
+    },
+    {
+      "file": "src/lib/design-system/temporal-strip-ticks.hermetic.test.ts",
+      "test": "SubNav communicates horizontal overflow with fades and scrolls active tab"
+    },
+    {
+      "file": "src/lib/dietary-job-flow/supervisor-operations/present-ui.hermetic.test.ts",
+      "test": "Board presentation source scan: ViewModel only, legacy chips removed, access unchanged"
+    },
+    {
+      "file": "src/lib/locations/location-experience-certification.test.ts",
+      "test": "Facility Overview remains labeled by customer-current department"
+    },
+    {
+      "file": "src/lib/locations/locations-cutover.test.ts",
+      "test": "Facility Overview — labeled department snapshots, never flattened"
+    },
+    {
+      "file": "src/lib/locations/locations-cutover.test.ts",
+      "test": "Golden parity with Wave 15E shadow adapters (rooms + plant)"
+    },
+    {
+      "file": "src/lib/locations/sidebar-cutover.test.ts",
+      "test": "4. Facility Overview labeled composition"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "Organization with existing ORG_ADMIN cannot receive first-admin approval"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "accept existing User links membership without rewriting home Facility"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "accept new org-only User creates null facility/role and ORG_ADMIN"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "resend rotates token hash and invalidates prior plaintext"
+    },
+    {
+      "file": "src/lib/organization-claims/organization-claims.hermetic.test.ts",
+      "test": "stale second acceptance cannot create another first admin"
+    },
+    {
+      "file": "src/lib/organization-membership/last-admin-concurrency.db.test.ts",
+      "test": "concurrent demotions cannot leave an organization with zero administrators"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "assignment and role-change races leave no current assignment after membership end"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "last-admin denial and injected failure commit no assignment changes"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "membership end closes every current assignment through that organization"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",
+      "test": "partnership creation waits on the organization lock held by membership end"
+    },
+    {
+      "file": "src/lib/partner-user-access/partner-user-access.concurrency.db.test.ts",
+      "test": "concurrent ceiling and assignment changes leave one open period each"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "allows a sparse ENABLE exception to replace archetype selection"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "gives direct Plant bindings precedence over the policy default"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "honors direct archetype replacement"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "matches the Dietary golden structure"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "resolves EVS room Experiences and prunes empty branches"
+    },
+    {
+      "file": "src/lib/projection/projection-pipeline.test.ts",
+      "test": "resolves query scopes but never executes runtime data"
+    },
+    {
+      "file": "src/lib/projection/projection-runtime.test.ts",
+      "test": "accepts a preloaded ProjectionSource and still invokes the pipeline"
+    },
+    {
+      "file": "src/lib/projection/projection-runtime.test.ts",
+      "test": "resolves Dietary manager projection through adapter + pipeline"
+    },
+    {
+      "file": "src/lib/projection/projection-runtime.test.ts",
+      "test": "resolves EVS supervisor and Plant manager lenses"
+    },
+    {
+      "file": "src/lib/route-registry/authorize.test.ts",
+      "test": "role policy — Plant Preventive Maintenance Run admits Supervisor+"
+    },
+    {
+      "file": "src/lib/route-registry/match.test.ts",
+      "test": "matching — dynamic segments capture exactly one segment"
+    },
+    {
+      "file": "src/lib/route-registry/match.test.ts",
+      "test": "matching — prefix routes cover their descendants"
+    },
+    {
+      "file": "src/lib/route-registry/navigation.test.ts",
+      "test": "navigation — Procedures is a Build door and leftover /admin/knowledge stays reachable"
+    },
+    {
+      "file": "src/lib/route-registry/navigation.test.ts",
+      "test": "navigation — labels come from the registry, not from database rows"
+    },
+    {
+      "file": "src/lib/scheduling/coverage-expectations/coverage-expectations.hermetic.test.ts",
+      "test": "keeps Locations as an inspector and team × cycle as the need editor"
+    },
+    {
+      "file": "src/lib/shell-ux-refinement.test.ts",
+      "test": "V1 refinement — the canonical Build Home card set is present for a Facility Administrator"
+    },
+    {
+      "file": "src/lib/todays-work/todays-work-projection.test.ts",
+      "test": "Facility Overview — labeled department sections"
+    },
+    {
+      "file": "src/lib/vercel-function-storage.hermetic.test.ts",
+      "test": "next config excludes docs and tests from function traces"
+    },
+    {
+      "file": "src/lib/work/inspections/inspection-scheduling.test.ts",
+      "test": "generator creates one occurrence+Task and is idempotent"
+    },
+    {
+      "file": "src/lib/work/inspections/inspections.test.ts",
+      "test": "Task sync failure does not invalidate inspection submission"
+    },
+    {
+      "file": "src/lib/work/inspections/inspections.test.ts",
+      "test": "submitInspection creates follow-up Tasks only for qualifying failed items"
+    },
+    {
+      "file": "src/lib/work/inspections/inspections.test.ts",
+      "test": "submitInspection writes atomically and respects idempotency + flag"
+    }
+  ],
+  "comparisonToOnb02": {
+    "newFailures": [],
+    "removedFailures": [],
+    "sameFailureIdentities": true
+  },
+  "checks": {
+    "relatedPrechangeBaseline": {
+      "passed": 152,
+      "failed": 0,
+      "skipped": 0
+    },
+    "focused": {
+      "passed": 180,
+      "failed": 0,
+      "skipped": 0,
+      "scope": [
+        "onboarding transitions/commercial matrix",
+        "workspace drafts and invitation guards",
+        "post-auth routing",
+        "account-invite tokens",
+        "Product selection",
+        "canonical Facility Builder",
+        "provisioning"
+      ]
+    },
+    "database": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "newWorkspaceInvitationCases": 8,
+      "retainedCommercialCases": 13,
+      "database": "ltc_test_onb03_20261017",
+      "postgresql": "14.18",
+      "freshMigrationCount": 142,
+      "seeded": false,
+      "allAppliedChecksumsMatchDisk": true,
+      "commands": "DATABASE_URL=<disposable URL> DIRECT_URL=<same URL> ONBOARDING_TEST_DATABASE_URL=<same URL> TZ=America/New_York node --import tsx --test src/lib/onboarding/setup-workspace.db.test.ts src/lib/onboarding/onboarding.db.test.ts"
+    },
+    "productionWorkspaceBrowser": {
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-18T00:19:23.477Z",
+        "duration": 27497.358,
+        "expected": 7,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "cases": [
+        "prefilled zero-Department entry and canonical Facility Builder intake at 1280px",
+        "prefilled zero-Department entry and canonical Facility Builder intake at 768px",
+        "two AVAILABLE selections persist through back/reload; each licensed Department opens its own Builder",
+        "switching Facility isolates drafts and blocks submissions from a stale workspace tab",
+        "manager invitation exposes unconfigured delivery and retry; recipient accepts an actual delivered token",
+        "denied roles and existing completed customers retain the correct boundaries",
+        "failed entry can be retried without losing prefilled facts or inventing progress"
+      ]
+    },
+    "productionCommercialBrowser": {
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-18T00:19:54.562Z",
+        "duration": 12538.493,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "cases": [
+        "journey acknowledgement grants no operation at 1280px",
+        "journey acknowledgement grants no operation at 768px",
+        "unfinished Facility retains billing recovery access; unauthorized role cannot finish",
+        "unpaid Department direct Build access stays blocked while billing and data remain available",
+        "Console describes setup acknowledgement separately from licensing and installation"
+      ]
+    },
+    "productionBuild": {
+      "status": "PASS",
+      "command": "NEXT_DIST_DIR=.next-onb03-build npm run verify:build",
+      "includesTypecheck": true,
+      "staticPages": 58
+    },
+    "standaloneTypecheck": {
+      "status": "PASS",
+      "command": "npm run typecheck",
+      "originalTsconfigBytesRestored": true
+    },
+    "scopedEslint": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 2,
+      "warningSource": "Existing unused _previous/_formData in retained Billing action"
+    },
+    "broadEslint": {
+      "status": "FAIL — unchanged baseline debt",
+      "command": "npx eslint . --ignore-pattern 'tmp/**'",
+      "errors": 8,
+      "warnings": 77
+    },
+    "prismaGenerate": "PASS",
+    "prismaValidate": "PASS",
+    "discovery": {
+      "status": "PASS",
+      "testFiles": 436,
+      "sqlBackedSuites": 49
+    },
+    "trackedFileHygiene": {
+      "status": "PASS",
+      "files": 2468
+    },
+    "documentedMigrationChecksumGovernance": {
+      "status": "PASS",
+      "historicalExceptions": 1
+    },
+    "gitAwareMigrationIntegrity": {
+      "status": "FAIL — release prerequisite",
+      "firstFailure": "ONB-02 migration directory is not tracked by git",
+      "alsoUntracked": "ONB-03 metadata migration",
+      "stagedToBypass": false
+    },
+    "diffAndDocumentationLinks": "PASS",
+    "telemetry": {
+      "observedEventNames": [
+        "onboarding.configuration.observed",
+        "onboarding.manager.accepted",
+        "onboarding.manager.delivery",
+        "onboarding.manager.invited",
+        "onboarding.state.updated",
+        "onboarding.workspace.left",
+        "onboarding.workspace.step_viewed"
+      ],
+      "firstStoredLocationObservationDurationsMs": [
+        1807,
+        1283
+      ],
+      "measurement": "Best-effort step exit and repeated stored-location observations; not exactly-once conversion/readiness"
+    },
+    "manualReactAndVisualReview": "PASS — stable primitive browser snapshot, User/Facility draft key, type-only server DTO import, explicit form submit/error retention, labeled controls, pending/denied feedback, desktop/tablet screenshots inspected",
+    "localVerificationCleanup": {
+      "ownedServerStopped": true,
+      "isolatedPostgresStopped": true,
+      "databaseFilesAndArtifactsRetained": true
+    }
+  },
+  "migrationSha256": {
+    "20261017180000_onboarding_commercial_suspension_states": "d775af6e1ab28ac862d9606ac8c59d600a355c30d1f0798e6434067a3255e7c9",
+    "20261017230000_guided_setup_entry_and_manager_invitations": "992a5a834ca26f79e676e497b48893911ab64bfcd0f5f8e26cde986038d1aef0"
+  },
+  "preservation": {
+    "preexistingModifiedOrUntrackedFiles": 90,
+    "byteIdentical": 72,
+    "missing": [],
+    "evolvedForOnb03": [
+      "docs/onboarding/DECISIONS.md",
+      "docs/onboarding/PHASE_TRACKER.md",
+      "docs/onboarding/README.md",
+      "src/lib/onboarding/onboarding.hermetic.test.ts",
+      "src/lib/onboarding/transitions.ts",
+      "tests/onboarding-browser/setup.spec.ts",
+      "memory-bank/progress-log.md",
+      "prisma/schema.prisma",
+      "scripts/verify/discover-tests.mjs",
+      "src/app/(protected)/admin/billing/actions.ts",
+      "src/app/(protected)/admin/billing/page.tsx",
+      "src/app/api/onboarding/locations/route.ts",
+      "src/app/api/onboarding/managers/route.ts",
+      "src/app/api/onboarding/state/route.ts",
+      "src/app/setup/page.tsx",
+      "src/components/setup-wizard.tsx",
+      "src/lib/department-products/customer-selection.hermetic.test.ts",
+      "src/proxy.ts"
+    ],
+    "priorD01ThroughD09PreservedVerbatim": true,
+    "auditPlanCommercialPolicyEmployeeCsvAndOnb02MigrationPreservedByteForByte": true
+  },
+  "triage": [
+    "Obsolete provisioning source assertion required blanket setup redirect; changed to normal authorization/no-redirect contract.",
+    "Initial browser locators used desktop-only Builder controls on tablet and included Next route announcer alerts; corrected.",
+    "HTTP test-client secure-cookie behavior prevented second loopback Facility switch; actual My Access form/browser A-to-B-to-A journey passes.",
+    "Handled API errors resolved React async form actions and reset inputs; explicit submit handlers preserve edited facts/confirmation and permit successful retry.",
+    "Two SQL lookup/authority failures from omitted global Prisma test URL resolved by explicitly binding global and injected clients to same disposable database.",
+    "Existing Department Locations copy regex and Room Types legacy redirect assertions inspected; no-write/no-RoomTypesPanel intent remains intact. Existing PM route/role and Procedures navigation mismatches retained outside setup scope."
+  ],
+  "limits": {
+    "deployed": false,
+    "repositoryRenamed": false,
+    "onb04Started": false,
+    "liveStripeOrCharges": false,
+    "externalEmailSent": false,
+    "emailAcceptanceTransport": "Existing production delivery owner with captured test transport; real public acceptance route and canonical DB grants",
+    "customerDataMigration": false,
+    "operationalReadinessOrPilotCertified": false
+  },
+  "beforeRelease": [
+    "Track both ONB-02 and ONB-03 migrations in reviewed change set and pass normal Git-aware migration integrity.",
+    "Resolve wider test/lint debt and complete release/pilot verification; fresh disposable migration/build evidence does not certify production."
+  ]
+}

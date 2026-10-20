@@ -113,6 +113,7 @@ function fakeClient(attachments: ReturnType<typeof attachment>[], records: Retur
   const client = {
     facility: { findUnique: async () => ({ timezone: "UTC" }) },
     logAttachment: {
+      findFirst: async ({ where }: { where?: Record<string, unknown> }) => attachments.find((row) => matches(row, where)) ?? null,
       findMany: async ({ where }: { where?: Record<string, unknown> }) => {
         wheres.push(where);
         return attachments.filter((row) => matches(row, where));
@@ -128,6 +129,7 @@ function fakeClient(attachments: ReturnType<typeof attachment>[], records: Retur
         return records.find((row) => matches(row, where)) ?? null;
       },
     },
+    operationalEvidenceAttachment: { findMany: async () => [] },
     departmentOperationalCycle: { findMany: async () => [] },
     unitSpace: { findMany: async () => [], findFirst: async () => null },
     asset: { findFirst: async () => null },

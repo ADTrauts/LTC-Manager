@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
@@ -38,6 +39,7 @@ export default function RootLayout({
         className="min-h-full bg-[var(--background)] font-sans text-[var(--foreground)]"
       >
         <PwaRegister />
+        <Script type="module" src="/space-offline.js" strategy="afterInteractive" />
         {children}
       </body>
     </html>

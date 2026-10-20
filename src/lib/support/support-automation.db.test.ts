@@ -1,3 +1,4 @@
+import { cleanupSyntheticSupportStaff } from "./fixtures/cleanup-staff";
 /**
  * SQL-backed support automation tests.
  * Opt in via SUPPORT_TICKETS_TEST_DATABASE_URL / VERIFY_DATABASE_URL.
@@ -439,8 +440,7 @@ test(
       if (replyIds.length) await db.supportSavedReply.deleteMany({ where: { id: { in: replyIds } } });
       if (contactEmails.length) await db.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
       if (staffIds.length) {
-        await db.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
-        await db.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+        await cleanupSyntheticSupportStaff(db, staffIds);
       }
       if (orgId) await db.organization.delete({ where: { id: orgId } });
       await db.$disconnect();

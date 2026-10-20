@@ -1,3 +1,4 @@
+import { cleanupSyntheticSupportStaff } from "./fixtures/cleanup-staff";
 /**
  * SQL-backed support list / search tests.
  * Opt in via SUPPORT_TICKETS_TEST_DATABASE_URL / VERIFY_DATABASE_URL (a disposable migrated database).
@@ -251,8 +252,7 @@ test(
         await db.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
       }
       if (staffIds.length) {
-        await db.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
-        await db.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+        await cleanupSyntheticSupportStaff(db, staffIds);
       }
       if (facilityIds.length) await db.facility.deleteMany({ where: { id: { in: facilityIds } } });
       if (orgId) await db.organization.delete({ where: { id: orgId } });

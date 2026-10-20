@@ -5,7 +5,7 @@ export function isStuckSetup(onboardingCompletedAt: Date | null | undefined): bo
 }
 
 export function isPaymentProblem(status: FacilityBillingStatus | null | undefined): boolean {
-  return status === "PAST_DUE" || status === "INCOMPLETE";
+  return status === "PAST_DUE" || status === "INCOMPLETE" || status === "UNPAID" || status === "PAUSED";
 }
 
 export function billingStatusLabel(status: FacilityBillingStatus | null | undefined): string {
@@ -16,6 +16,8 @@ export function billingStatusLabel(status: FacilityBillingStatus | null | undefi
       return "Past due";
     case "INCOMPLETE":
       return "Incomplete";
+    case "UNPAID": return "Unpaid — operation suspended";
+    case "PAUSED": return "Paused — operation suspended";
     case "CANCELED":
       return "Canceled";
     case "UNMANAGED":
@@ -48,7 +50,7 @@ export function onboardingLabel(input: {
   onboardingCurrentStep: string | null;
 }): string {
   if (input.onboardingCompletedAt) {
-    return "Live";
+    return "Guided setup acknowledged";
   }
   const step = input.onboardingCurrentStep?.trim();
   return step ? `Setup: ${step}` : "Setup not started";

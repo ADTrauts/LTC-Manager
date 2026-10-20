@@ -4,6 +4,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { randomBytes } from "node:crypto";
 
 import { PrismaClient } from "@prisma/client";
@@ -21,11 +22,12 @@ import {
   unblockPartnerUser,
 } from "@/lib/partner-user-access";
 
-const databaseUrl = process.env.DATABASE_URL ?? "";
+const databaseUrl = process.env.VERIFY_DATABASE_URL ?? "";
+if (databaseUrl) assertDisposableDatabaseUrl(databaseUrl);
 const local = /localhost|127\.0\.0\.1/.test(databaseUrl);
 const skip = local
   ? false
-  : "set DATABASE_URL to local PostgreSQL to certify concurrent partner authorization locking";
+  : "set VERIFY_DATABASE_URL to guarded local PostgreSQL to certify concurrent partner authorization locking";
 
 test(
   "concurrent ceiling and assignment changes leave one open period each",

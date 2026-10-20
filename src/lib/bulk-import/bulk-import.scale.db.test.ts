@@ -92,7 +92,9 @@ function buildFacilityCsv(): string {
   }
   assert.ok(nbhCount >= 17, `expected >=17 neighborhoods, got ${nbhCount}`);
   assert.ok(spaceCount >= 200, `expected >=200 spaces, got ${spaceCount}`);
-  return rowsToCsv([...FACILITY_STRUCTURE_CSV_HEADERS], rows);
+  // The optional Building column was added before Floor. Populate by header.
+  const legacyHeaders = ["floor", "neighborhood", "locationName", "locationType", "roomNumber", "code", "description", "department", "customTypeLabel"];
+  return rowsToCsv([...FACILITY_STRUCTURE_CSV_HEADERS], rows.map((row) => FACILITY_STRUCTURE_CSV_HEADERS.map((header) => row[legacyHeaders.indexOf(header)] ?? "")));
 }
 
 test(
@@ -133,8 +135,10 @@ test(
           if (idx === 0 || !line.trim()) return line;
           const cells = line.split(",");
           if (cells.length < 2) return line;
-          cells[0] = `${prefix} ${cells[0]}`;
-          cells[1] = `${prefix} ${cells[1]}`;
+          for (const header of ["floor", "neighborhood"] as const) {
+            const index = FACILITY_STRUCTURE_CSV_HEADERS.indexOf(header);
+            cells[index] = `${prefix} ${cells[index]}`;
+          }
           return cells.join(",");
         })
         .join("\n");

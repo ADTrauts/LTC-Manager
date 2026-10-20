@@ -8,11 +8,10 @@ const root = process.cwd();
 test("next config excludes docs and tests from function traces", () => {
   const config = readFileSync(join(root, "next.config.ts"), "utf8");
   assert.match(config, /outputFileTracingExcludes/);
-  assert.match(config, /serverExternalPackages/);
-  assert.match(config, /["']@prisma\/client["']/);
+  // Next 16 automatically externalizes @prisma/client; no redundant override.
   assert.match(config, /docs\/\*\*/);
   assert.match(config, /tests\/\*\*/);
-  assert.match(config, /\*\*\/\*\.hermetic\.test\.ts/);
+  assert.match(config, /\*\*\/\*\.test\.ts/);
 });
 
 test("ignored build step skips documentation-only commits", () => {

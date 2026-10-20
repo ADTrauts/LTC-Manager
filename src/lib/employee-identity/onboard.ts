@@ -20,7 +20,7 @@ export type EmployeeAccountPreview = {
 
 export type OnboardFacilityEmployeeInput = {
   facilityId: string;
-  actorUserId: string;
+  actorUserId: string | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -29,6 +29,9 @@ export type OnboardFacilityEmployeeInput = {
   employmentType: EmploymentType;
   status: EmployeeStatus;
   pinDigest?: string | null;
+  /** Explicit pending enrollment for reviewed, email-backed bulk onboarding only.
+   * No PIN is generated. Normal creation still requires a real eligible PIN. */
+  pendingPinEnrollment?: boolean;
   confirmExistingUser: boolean;
   extras?: Partial<Prisma.EmployeeUncheckedCreateInput>;
 };
@@ -81,8 +84,13 @@ export async function onboardFacilityEmployee(
   if (!email || !email.includes("@")) {
     throw new EmployeeIdentityError("CONFLICT", "Email is required.");
   }
-  if (mayAuthenticateWithQuickPin(input.roleType) && !input.pinDigest) {
+  if (mayAuthenticateWithQuickPin(input.roleType) && !input.pinDigest && input.pendingPinEnrollment !== true) {
     throw new EmployeeIdentityError("CONFLICT", "PIN is required for this role.");
+  }
+
+  // Serialize canonical creation/reuse with imports and concurrent manual creates.
+  if (typeof db.$queryRaw === "function") {
+    await db.$queryRaw(Prisma.sql`SELECT "id" FROM "Facility" WHERE "id"=${input.facilityId} FOR UPDATE`);
   }
 
   const role = await db.role.findFirst({

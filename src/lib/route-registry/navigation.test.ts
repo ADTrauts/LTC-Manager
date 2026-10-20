@@ -59,12 +59,13 @@ test("navigation — labels come from the registry, not from database rows", () 
   assert.equal(byHref.get("/employees"), "Employee Builder");
   assert.equal(byHref.get("/build/departments"), "Department Builder");
   assert.equal(byHref.get("/admin/facility/builder"), "Facility Builder");
-  assert.equal(byHref.get("/build/knowledge"), "Procedures");
+  assert.equal(byHref.has("/build/knowledge"), false);
 });
 
-test("navigation — Procedures is a Build door and leftover /admin/knowledge stays reachable", () => {
-  assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/build/knowledge"), true);
-  assert.equal(roleMayAccessRoute("/build/knowledge", "FACILITY_ADMINISTRATOR", FLAGS), true);
+test("navigation — deferred Procedures stays hidden while its administrator URL remains reachable", () => {
+  assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/build/knowledge"), false);
+  assert.equal(roleMayAccessRoute("/admin/knowledge", "FACILITY_ADMINISTRATOR", FLAGS), true);
+  assert.equal(authorizeRoute({ pathname: "/build/knowledge", role: "FACILITY_ADMINISTRATOR", sessionScope: "facility", authKind: "user", featureFlags: FLAGS }).outcome, "REDIRECT");
 });
 
 test("navigation — absence from navigation does not deny access", () => {

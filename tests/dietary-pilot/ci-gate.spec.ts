@@ -1,3 +1,5 @@
+import { expectCanonicalOfflinePreparation, prepareCanonicalResponsibility } from "../offline-browser/canonical-journey";
+import type { CanonicalOfflineFixture } from "../offline-browser/canonical-journey";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -5,6 +7,7 @@ import { test, expect, chromium, type BrowserContext, type Page } from "@playwri
 import { PrismaClient } from "@prisma/client";
 
 type Fixtures = {
+  canonical: CanonicalOfflineFixture;
   facilityId: string;
   departmentId: string;
   serviceDateKey: string;
@@ -34,9 +37,12 @@ function demoPassword(): string {
 }
 
 async function openPersistent(suffix: string): Promise<{ context: BrowserContext; page: Page }> {
-  const dir = `${profileDir}-${suffix}`;
+  const tablet=test.info().project.name==="tablet";
+  const dir = `${profileDir}-${suffix}-${test.info().project.name}`;
   const context = await chromium.launchPersistentContext(dir, {
     headless: true,
+    viewport: tablet ? {width:1024,height:768} : {width:1280,height:720},
+    isMobile: tablet, hasTouch: tablet,
     baseURL: process.env.DIETARY_PILOT_BASE_URL,
     serviceWorkers: "allow",
   });
@@ -97,6 +103,11 @@ test("call-off and coverage @ci-gate: board shows call-offs and coverage summary
 
 test("assignment create confirm employee @ci-gate: plan confirmation publishes Assignment", async () => {
   const fx = loadFixtures();
+  const fixtureDb = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
+  try {
+    await fixtureDb.operationalAssignmentPlan.updateMany({ where: { facilityId: fx.facilityId, departmentId: fx.departmentId, serviceDate: new Date(`${fx.serviceDateKey}T00:00:00Z`) }, data: { status: "DRAFT", confirmedAt: null } });
+    await fixtureDb.operationalAssignment.deleteMany({ where: { facilityId: fx.facilityId, employeeId: fx.staffEmployeeId, serviceDate: new Date(`${fx.serviceDateKey}T00:00:00Z`) } });
+  } finally { await fixtureDb.$disconnect(); }
   const { context, page } = await openPersistent("assign");
   try {
     await loginPassword(page, fx.supervisorEmail);
@@ -111,6 +122,8 @@ test("assignment create confirm employee @ci-gate: plan confirmation publishes A
     await createForm.locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
     await createForm.locator('select[name="roleKey"]').selectOption({ index: 1 });
     await createForm.locator('select[name="unitId"]').selectOption({ value: fx.serveryUnitId });
+    await createForm.locator('input[name="startsAt"]').fill("");
+    await createForm.locator('input[name="endsAt"]').fill("");
     await createForm.getByRole("button", { name: /Create Assignment/i }).click();
     await page.waitForTimeout(2000);
 
@@ -118,7 +131,8 @@ test("assignment create confirm employee @ci-gate: plan confirmation publishes A
       waitUntil: "domcontentloaded",
     });
     const confirm = page.locator("form").filter({ hasText: /Confirm plan/i });
-    if (await confirm.count()) {
+    await expect(confirm.getByRole("button", { name: /Confirm plan/i })).toBeVisible();
+    {
       const ack = confirm.locator('input[name="acknowledgeCoverageGaps"]');
       if (await ack.count()) await ack.check();
       await confirm.getByRole("button", { name: /Confirm plan/i }).click();
@@ -134,9 +148,9 @@ test("assignment create confirm employee @ci-gate: plan confirmation publishes A
     await context.clearCookies();
     await loginPassword(page, fx.staffEmail);
     await page.goto(`/unit/${fx.serveryUnitId}`, { waitUntil: "domcontentloaded" });
-    const panel = page.getByTestId("my-assignment-panel");
+    const panel = page.getByTestId("employee-runtime-assignment");
     await expect(panel).toBeVisible({ timeout: 20_000 });
-    await expect(panel).not.toContainText(/Assignment not confirmed/i);
+    await expect(panel).not.toContainText(/No confirmed assignment/i);
   } finally {
     await context.close();
   }
@@ -152,22 +166,23 @@ test("gm staffing and timing @ci-gate: coverage page and unit milestones", async
     await expect(page.getByRole("link", { name: /Open Daily Assignments/i })).toBeVisible();
 
     await page.goto(`/unit/${fx.serveryUnitId}`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("unit-workspace")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId("neighborhood-workspace")).toBeVisible({ timeout: 25_000 });
   } finally {
     await context.close();
   }
 });
 
-test("quick pin unit workspace ready started offline @ci-gate", async () => {
+test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, info) => {
   const fx = loadFixtures();
-  const staffPin = process.env.PILOT_STAFF_PIN;
-  expect(staffPin, "PILOT_STAFF_PIN required").toBeTruthy();
+  const staffPin = process.env.CANONICAL_STAFF_PIN;
+  expect(staffPin, "CANONICAL_STAFF_PIN required").toBeTruthy();
 
   const { context, page } = await openPersistent("pin-offline");
   try {
+    await prepareCanonicalResponsibility(page, fx.canonical, fx.serviceDateKey);
     // Bind device as FA, then PIN as staff (preserve device cookies across session logout).
     await loginPassword(page, fx.adminEmail);
-    await bindDevice(page, fx.serveryUnitId);
+    await bindDevice(page, fx.canonical.unitId);
     const deviceCookies = (await context.cookies()).filter(
       (c) => c.name === "ltc_device_facility" || c.name === "ltc_device_unit",
     );
@@ -194,42 +209,30 @@ test("quick pin unit workspace ready started offline @ci-gate", async () => {
       `pin-login failed status=${pinResult.status} body=${pinResult.body.slice(0, 120)}`,
     ).toBeTruthy();
 
-    await page.goto(`/unit/${fx.serveryUnitId}?unitTab=overview`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("unit-workspace")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("offline-runtime-status")).toBeVisible({ timeout: 30_000 });
+    await page.goto(`/unit/${fx.canonical.unitId}?space=${fx.canonical.spaceId}`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("employee-runtime-experience")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("employee-runtime-experience")).toHaveAttribute("data-grain", "space");
+    await expect(page.getByTestId("employee-runtime-assignment")).not.toContainText("No confirmed assignment");
+    const work = page.getByTestId("employee-runtime-work-item").filter({ hasText: fx.canonical.workLabel });
+    await expect(work).toBeVisible();
+    await work.getByRole("link").click();
+    await expectCanonicalOfflinePreparation(page);
+    await page.evaluate(async () => { const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; if (!reg.active) throw Error('Service worker not active'); });
+    await page.reload();
+    await context.setOffline(true);
+    await page.reload({waitUntil:'domcontentloaded'});
+    await expect(page.getByTestId('space-offline-status')).toContainText('Offline — prepared');
+    const i=info.project.name==='tablet'?1:0;
+    await page.locator(`[data-testid="space-work-complete"][data-target-order="${i}"]`).click();
+    await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
+    await expect(page.getByTestId('space-command-result')).toHaveCount(2);
+    await page.reload();
+    await expect(page.getByTestId('space-command-result')).toHaveCount(2);
+    await expect(page.getByTestId('space-online-only')).toContainText('unavailable offline');
+    await context.setOffline(false);
+    await page.getByTestId('space-offline-sync').click();
+    await expect(page.getByTestId('space-command-result').filter({hasText:'committed'})).toHaveCount(2);
 
-    // Ensure meal controls present for Ready / Started.
-    const readyBtn = page.getByRole("button", { name: /Servery Ready/i }).first();
-    const startedBtn = page.getByRole("button", { name: /Meal Service Started/i }).first();
-    await expect(readyBtn).toBeVisible({ timeout: 20_000 });
-    await expect(startedBtn).toBeVisible({ timeout: 20_000 });
-
-    // Online milestone record if controls allow.
-    if (await readyBtn.isEnabled()) {
-      await readyBtn.click({ trial: true }).catch(() => {});
-    }
-
-    // Fetch offline bundle via API and confirm Assignment context stays scoped.
-    const bundleResult = await page.evaluate(async (uid) => {
-      const res = await fetch("/api/offline/runtime-bundle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ unitId: uid }),
-        cache: "no-store",
-      });
-      if (!res.ok) return { ok: false, status: res.status };
-      const data = (await res.json()) as {
-        bundle?: { assignmentContext?: { assignmentId?: string } | null };
-      };
-      return {
-        ok: true,
-        hasAssignmentKey: Object.prototype.hasOwnProperty.call(data.bundle ?? {}, "assignmentContext"),
-        assignmentId: data.bundle?.assignmentContext?.assignmentId ?? null,
-      };
-    }, fx.serveryUnitId);
-    expect(bundleResult.ok, `runtime-bundle status=${bundleResult.status}`).toBeTruthy();
-    expect(bundleResult.hasAssignmentKey).toBeTruthy();
   } finally {
     await context.close();
   }

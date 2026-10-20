@@ -323,9 +323,8 @@ test("a password session keeps a facility it holds an active grant for", { skip 
   const f = await getFixture();
   if (!f) return;
   const user = await makeUser(f);
-  await f.db.userFacilityAccess.create({
-    data: { userId: user.id, facilityId: f.otherFacilityId, isActive: true },
-  });
+  const { ensureUserFacilityAccessGrant } = await import("@/lib/facility-access/assert-user-facility-access");
+  await ensureUserFacilityAccessGrant(f.db, { userId: user.id, facilityId: f.otherFacilityId, roleKey: "STAFF" });
   const session: FacilitySession = {
     ...userSession(f, user.id, user.sessionVersion),
     facilityId: f.otherFacilityId,

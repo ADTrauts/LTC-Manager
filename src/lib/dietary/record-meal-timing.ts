@@ -67,6 +67,8 @@ export async function recordDietaryMealTiming(
   },
   client: DbClient = defaultPrisma,
 ): Promise<RecordDietaryMealTimingResult> {
+  if ("$transaction" in client) return client.$transaction(tx => recordDietaryMealTiming(input, tx));
+  await client.$queryRaw`SELECT "id" FROM "Facility" WHERE "id"=${input.facilityId} FOR UPDATE`;
   const mapped = dietaryTimingForLegacyControl({
     mealType: input.mealType,
     eventType: input.eventType,
@@ -153,6 +155,9 @@ export async function recordDietaryMealTiming(
     }
   }
 
+  // Compatibility and current Space writers serialize through the canonical
+  // cycle identity; historical timing rows and append-only corrections remain.
+  await client.$queryRaw`SELECT "id" FROM "DepartmentOperationalCycle" WHERE "id"=${point.id} FOR UPDATE`;
   const actualLocal = localHhMmFromInstant(occurredAt, timezone);
   const recordedAt = now;
   let firstId: string | null = null;

@@ -1,3 +1,4 @@
+import { cleanupSyntheticSupportStaff } from "./fixtures/cleanup-staff";
 /**
  * SQL-backed Harbor support notification tests.
  * Opt in via SUPPORT_TICKETS_TEST_DATABASE_URL / VERIFY_DATABASE_URL (a disposable migrated database).
@@ -14,6 +15,7 @@ import { parsePostmarkInbound } from "./inbound-email";
 import { processInboundSupportEmail } from "./inbound-service";
 import { dispatchPendingSupportStaffNotificationEmails } from "./notification-email";
 import {
+  recordSupportStaffNotifications,
   listSupportStaffNotifications,
   markAllSupportStaffNotificationsRead,
   markSupportStaffNotificationRead,
@@ -359,7 +361,9 @@ test(
         },
       );
       assert.ok(sent.length >= 1);
-      assert.ok(sent.every((message) => message.to.endsWith("@vssyl.test")));
+      const activeStaff = await db.platformStaff.findMany({ where: { isActive: true }, select: { email: true } });
+      const staffEmails = new Set(activeStaff.map((staff) => staff.email));
+      assert.ok(sent.every((message) => staffEmails.has(message.to)));
       assert.ok(sent.every((message) => !message.to.includes("ada-")));
       assert.ok(sent.every((message) => message.tag === "support-staff-notification"));
       assert.ok(sent.every((message) => message.subject.startsWith("[Vssyl Support]")));
@@ -397,17 +401,17 @@ test(
       assert.equal(failingCreate.result, "created");
       ticketIds.push(failingCreate.ticketId);
       contactEmails.push(`fail-${tag}@example.com`);
-      await dispatchPendingSupportStaffNotificationEmails(
-        db,
-        { ticketId: failingCreate.ticketId },
-        {
-          env: { POSTMARK_SERVER_TOKEN: "test-token", POSTMARK_FROM_EMAIL: "noreply@vssyl.com" },
-          send: async () => {
-            failedOnce = true;
-            return { sent: false, reason: "send_failed", error: "rejected" };
+      // Delivery is bounded to 100 pending notifications per invocation. A
+      // retained integration DB can have more active staff than a fresh seed.
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await dispatchPendingSupportStaffNotificationEmails(
+          db, { ticketId: failingCreate.ticketId }, {
+            env: { POSTMARK_SERVER_TOKEN: "test-token", POSTMARK_FROM_EMAIL: "noreply@vssyl.com" },
+            send: async () => { failedOnce = true; return { sent: false, reason: "send_failed", error: "rejected" }; },
           },
-        },
-      );
+        );
+        if (!(await db.supportStaffNotification.count({ where: { ticketId: failingCreate.ticketId, emailStatus: "PENDING" } }))) break;
+      }
       assert.equal(failedOnce, true);
       assert.equal((await db.supportTicket.findUniqueOrThrow({ where: { id: failingCreate.ticketId } })).status, "NEW");
       assert.equal(
@@ -423,8 +427,7 @@ test(
       await db.supportTicket.deleteMany({ where: { id: { in: ticketIds } } });
       if (contactEmails.length) await db.supportContact.deleteMany({ where: { email: { in: contactEmails } } });
       if (staffIds.length) {
-        await db.supportStaffNotification.deleteMany({ where: { staffId: { in: staffIds } } });
-        await db.platformStaff.deleteMany({ where: { id: { in: staffIds } } });
+        await cleanupSyntheticSupportStaff(db, staffIds);
       }
       if (facilityIds.length) await db.facility.deleteMany({ where: { id: { in: facilityIds } } });
       if (orgId) await db.organization.delete({ where: { id: orgId } });
@@ -432,3 +435,60 @@ test(
     }
   },
 );
+
+
+test("notification recipient deletion cannot turn a fan-out race into an FK failure", { skip: skipReason }, async () => {
+  const db = new PrismaClient({ datasources: { db: { url: databaseUrl! } } });
+  const tag = suffix();
+  const applicationName = `support-race-${tag}`;
+  const url = new URL(databaseUrl!); url.searchParams.set("application_name", applicationName);
+  const writer = new PrismaClient({ datasources: { db: { url: url.toString() } } });
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  let deleted!: () => void;
+  const ready = new Promise<void>((resolve) => { deleted = resolve; });
+  let deletion: Promise<unknown> | undefined;
+  try {
+    const result = await processInboundSupportEmail(db, inboundEmail({ fromEmail: `race-${tag}@example.test`, messageId: `race-${tag}` }));
+    const ticket = await db.supportTicket.findUniqueOrThrow({ where: { id: result.ticketId } });
+    const staff = await db.platformStaff.create({ data: { email: `race-${tag}@vssyl.test`, displayName: "Synthetic notification race", passwordHash: "unusable" } });
+    deletion = db.$transaction(async (tx) => { await tx.platformStaff.delete({ where: { id: staff.id } }); deleted(); await barrier; });
+    await ready;
+    const pending = recordSupportStaffNotifications(writer, { type: "ASSIGNED_TO_ME", ticket: { ...ticket, assignedStaffId: staff.id }, sourceKey: `race-${tag}` });
+    // Observe the real writer blocked behind deletion; a timer alone can miss the race.
+    let waiting = false;
+    for (let i = 0; i < 100; i++) {
+      const rows = await db.$queryRaw<Array<{ waiting: boolean }>>`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name = ${applicationName} AND wait_event_type = 'Lock') AS waiting`;
+      if (rows[0]?.waiting) { waiting = true; break; }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    release();
+    await deletion;
+    assert.deepEqual(await pending, []);
+    assert.equal(waiting, true, "writer must actually overlap the uncommitted recipient deletion");
+    assert.equal(await db.supportStaffNotification.count({ where: { staffId: staff.id } }), 0);
+  } finally { release(); await deletion; await writer.$disconnect(); await db.$disconnect(); }
+});
+
+
+test("notification dedupe includes ticket scope and preserves old-ticket replay", { skip: skipReason }, async () => {
+  const db = new PrismaClient({ datasources: { db: { url: databaseUrl! } } });
+  const tag = suffix();
+  try {
+    const staff = await db.platformStaff.create({ data: { email: `dedupe-${tag}@vssyl.test`, displayName: "Synthetic notification dedupe", passwordHash: "unusable" } });
+    const first = await createSupportTicket(db, { actorStaffId: staff.id, requesterEmail: `dedupe-${tag}@example.test`, subject: "First" });
+    const second = await createSupportTicket(db, { actorStaffId: staff.id, requesterEmail: `dedupe-${tag}@example.test`, subject: "Second" });
+    const firstTicket = await db.supportTicket.findUniqueOrThrow({ where: { id: first.id } });
+    const secondTicket = await db.supportTicket.findUniqueOrThrow({ where: { id: second.id } });
+    const input = { type: "URGENT_PRIORITY" as const, sourceKey: "create->URGENT", ticket: { ...firstTicket, assignedStaffId: staff.id } };
+    await recordSupportStaffNotifications(db, input);
+    await recordSupportStaffNotifications(db, { ...input, ticket: { ...secondTicket, assignedStaffId: staff.id } });
+    await recordSupportStaffNotifications(db, input);
+    assert.equal(await db.supportStaffNotification.count({ where: { staffId: staff.id, type: "URGENT_PRIORITY", ticketId: { in: [first.id, second.id] } } }), 2);
+    // An old-format event has no ticket prefix, but must not be recreated on replay.
+    await db.supportStaffNotification.create({ data: { staffId: staff.id, type: "HIGH_PRIORITY", ticketId: first.id, dedupeKey: `HIGH_PRIORITY:${staff.id}:legacy`, title: "Old notification", body: "Retain read history", isRead: true, emailStatus: "NOT_REQUIRED" } });
+    await recordSupportStaffNotifications(db, { ...input, type: "HIGH_PRIORITY", sourceKey: "legacy" });
+    assert.equal(await db.supportStaffNotification.count({ where: { staffId: staff.id, type: "HIGH_PRIORITY", ticketId: first.id } }), 1);
+    assert.equal((await db.supportStaffNotification.findFirstOrThrow({ where: { staffId: staff.id, type: "HIGH_PRIORITY", ticketId: first.id } })).isRead, true);
+  } finally { await db.$disconnect(); }
+});

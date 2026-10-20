@@ -93,5 +93,6 @@ test("Build Logs install verb and place from the installed library", () => {
   assert.match(page, /Install a log onto this facility, then place it/);
   assert.match(page, /tab=library/);
   assert.match(attach, /listInstalledCatalogStableKeys/);
-  assert.match(harbor, /install them, then place them/);
+  assert.match(harbor, /MarketplaceBrowse/);
+  assert.match(harbor, /requireHarborStaff/);
 });

@@ -1,11 +1,7 @@
 import type Stripe from "stripe";
 
-import { applyFacilitySubscription } from "./apply-stripe-event";
-import { persistDefaultPaymentMethod } from "./persist-default-payment-method";
-import { checkoutSelectionFromMetadata } from "./status";
-import { prisma } from "@/lib/prisma";
+import { syncStripeSubscriptionById, persistSyncPaymentMethod, type StripeSyncDependencies, type FacilityStripeSyncResult } from "./reconcile-from-stripe";
 import { getStripeServerClient, isStripeSecretConfigured } from "@/lib/stripe";
-import { trackEvent } from "@/lib/telemetry";
 
 export {
   applyResolvedStripeSubscription,
@@ -14,55 +10,46 @@ export {
   type FacilityStripeSyncResult,
 } from "./reconcile-from-stripe";
 
-export async function applyCompletedCheckoutSession(session: Stripe.Checkout.Session): Promise<void> {
-  if (session.mode !== "subscription") return;
+export type CheckoutSyncResult =
+  | { code: "PAYMENT_PENDING" | "CHECKOUT_CANCELED" | "UNAVAILABLE" | "WRONG_FACILITY" }
+  | { code: "RECONCILED"; result: FacilityStripeSyncResult };
 
-  const selection = checkoutSelectionFromMetadata({
-    facilityId: session.metadata?.facilityId ?? session.client_reference_id,
-    departmentKeys: session.metadata?.departmentKeys,
-    interval: session.metadata?.interval,
-    setupPath: session.metadata?.setupPath,
-  });
-  if (!selection.facilityId) return;
-
-  const subscriptionId =
-    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
-  const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
-
-  await applyFacilitySubscription({
-    facilityId: selection.facilityId,
-    status: session.status === "complete" && session.payment_status === "paid" ? "ACTIVE" : "INCOMPLETE",
-    interval: selection.interval,
-    setupPath: selection.setupPath,
-    stripeSubscriptionId: subscriptionId ?? null,
-    departmentKeys: selection.departmentKeys,
-  });
-
-  if (customerId) {
-    await prisma.facility.update({
-      where: { id: selection.facilityId },
-      data: { stripeCustomerId: customerId },
-    });
+/** A checkout return is a recovery trigger, never independent proof of a license.
+ * Resolve the current subscription through the same owner as Console/webhooks.
+ * Historical paid sessions cannot reactivate a subsequently canceled subscription.
+ */
+export async function applyCompletedCheckoutSession(
+  session: Stripe.Checkout.Session,
+  expectedFacilityId?: string,
+  deps: StripeSyncDependencies = {},
+): Promise<CheckoutSyncResult> {
+  const facilityId = session.metadata?.facilityId ?? session.client_reference_id;
+  if (!facilityId || (expectedFacilityId && facilityId !== expectedFacilityId)) {
+    return { code: "WRONG_FACILITY" };
   }
+  if (session.mode !== "subscription" || session.status === "expired") {
+    return { code: "CHECKOUT_CANCELED" };
+  }
+  if (session.status !== "complete" || !["paid", "no_payment_required"].includes(session.payment_status)) {
+    return { code: "PAYMENT_PENDING" };
+  }
+  const subscriptionId = typeof session.subscription === "string"
+    ? session.subscription : session.subscription?.id;
+  if (!subscriptionId) return { code: "PAYMENT_PENDING" };
 
-  await persistDefaultPaymentMethod(selection.facilityId, subscriptionId ?? null, customerId ?? null);
-
-  await trackEvent("billing.checkout.completed", {
-    facilityId: selection.facilityId,
-    checkoutSessionId: session.id,
-    stripeSubscriptionId: subscriptionId,
-  });
+  const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
+  if (!customerId) return { code: "WRONG_FACILITY" };
+  const result = await syncStripeSubscriptionById(facilityId, subscriptionId, deps, customerId);
+  if (result.ok) await persistSyncPaymentMethod(facilityId, subscriptionId, customerId, deps);
+  return { code: "RECONCILED", result };
 }
 
 export async function applyCheckoutSessionId(input: {
   checkoutSessionId: string;
   expectedFacilityId: string;
-}): Promise<boolean> {
-  if (!isStripeSecretConfigured()) return false;
-  const stripe = getStripeServerClient();
+}, deps: StripeSyncDependencies = {}): Promise<CheckoutSyncResult> {
+  if (!deps.stripe && !isStripeSecretConfigured()) return { code: "UNAVAILABLE" };
+  const stripe = deps.stripe ?? getStripeServerClient();
   const session = await stripe.checkout.sessions.retrieve(input.checkoutSessionId);
-  const facilityId = session.metadata?.facilityId ?? session.client_reference_id;
-  if (facilityId !== input.expectedFacilityId) return false;
-  await applyCompletedCheckoutSession(session);
-  return true;
+  return applyCompletedCheckoutSession(session, input.expectedFacilityId, deps);
 }

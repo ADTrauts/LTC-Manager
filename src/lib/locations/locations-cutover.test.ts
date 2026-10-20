@@ -175,13 +175,13 @@ test("Facility Overview — labeled department snapshots, never flattened", () =
   assert.equal(view.departmentKey, null);
   assert.deepEqual(
     view.departmentSnapshots.map((d) => d.departmentKey),
-    ["DIETARY"],
+    ["DIETARY", "PLANT"],
   );
   assert.ok(
-    !view.departmentSnapshots.some((d) => d.departmentKey === "EVS" || d.departmentKey === "PLANT"),
+    !view.departmentSnapshots.some((d) => d.departmentKey === "EVS"),
   );
   assert.ok(
-    !view.departmentSnapshots.some((d) => /EVS|Environmental Services|Plant/i.test(d.label)),
+    !view.departmentSnapshots.some((d) => /EVS|Environmental Services/i.test(d.label)),
   );
 
   for (const dept of view.departmentSnapshots) {
@@ -276,7 +276,7 @@ test("Golden parity with Wave 15E shadow adapters (rooms + plant)", () => {
   );
   assert.deepEqual(
     [...facilityLocations.departmentSnapshots.map((d) => d.departmentKey)].sort(),
-    ["DIETARY"],
+    ["DIETARY", "PLANT"],
   );
   assert.deepEqual(
     [...facilityShadow.departmentKeys].sort(),

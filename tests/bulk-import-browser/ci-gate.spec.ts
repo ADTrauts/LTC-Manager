@@ -211,34 +211,24 @@ test.describe("@ci-gate V1 Bulk Onboarding Imports", () => {
       await mgr.page.goto(fx.assetBuilderPath, { waitUntil: "domcontentloaded" });
       await expect(mgr.page.getByTestId("asset-builder-page")).toBeVisible({ timeout: 30_000 });
       await mgr.page.getByTestId("asset-bulk-import-open").click();
-      await expect(mgr.page.getByTestId("asset-bulk-import-wizard")).toBeVisible();
-      await expect(mgr.page.getByTestId("asset-bulk-import-download-template")).toBeVisible();
-      await mgr.page.getByTestId("asset-bulk-import-continue-upload").click();
+      await mgr.page.getByRole("link", { name: "Open reviewed Asset CSV import" }).click();
+      await expect(mgr.page.getByLabel("CSV dataset")).toHaveValue("assets");
+      await expect(mgr.page.getByRole("button", { name: "Download CSV template" })).toBeVisible();
       const assetsPath = writeTempCsv(`assets-valid-${prefix}.csv`, assetCsv(prefix));
-      await mgr.page.getByTestId("asset-bulk-import-file-input").setInputFiles(assetsPath);
-      await mgr.page.getByTestId("asset-bulk-import-validate").click();
-      await expect(mgr.page.getByTestId("asset-bulk-import-step-preview")).toBeVisible({
-        timeout: 30_000,
-      });
-      await expect(mgr.page.getByTestId("asset-bulk-import-confirm")).toBeEnabled();
-      await mgr.page.getByTestId("asset-bulk-import-confirm").click();
-      await expect(mgr.page.getByTestId("asset-bulk-import-complete")).toBeVisible({
-        timeout: 60_000,
-      });
-
+      await mgr.page.getByLabel("CSV file", { exact: true }).setInputFiles(assetsPath);
+      await mgr.page.getByRole("button", { name: "Preview CSV — no mutations" }).click();
+      await expect(mgr.page.getByRole("heading", { name: "Review Asset registry" })).toBeVisible();
+      await mgr.page.getByRole("button", { name: "Confirm reviewed import (up to 25 rows)", exact: true }).click();
+      await expect(mgr.page.getByTestId("setup-import-results").getByLabel("Outcome counts")).toContainText("committed: 2");
       await mgr.page.goto(fx.assetBuilderPath, { waitUntil: "domcontentloaded" });
-      await expect(mgr.page.getByTestId("asset-registry")).toContainText(`BI-${prefix}-001`, {
-        timeout: 30_000,
-      });
-
-      // Duplicate / skip on replay
+      await expect(mgr.page.getByTestId("asset-registry")).toContainText(`BI-${prefix}-001`, { timeout: 30_000 });
+      // A fresh review reuses the canonical identities; no new Assets or field patches.
       await mgr.page.getByTestId("asset-bulk-import-open").click();
-      await mgr.page.getByTestId("asset-bulk-import-continue-upload").click();
-      await mgr.page.getByTestId("asset-bulk-import-file-input").setInputFiles(assetsPath);
-      await mgr.page.getByTestId("asset-bulk-import-validate").click();
-      await expect(mgr.page.getByTestId("asset-bulk-import-counts")).toContainText(/Skip/i, {
-        timeout: 30_000,
-      });
+      await mgr.page.getByRole("link", { name: "Open reviewed Asset CSV import" }).click();
+      await mgr.page.getByLabel("CSV file", { exact: true }).setInputFiles(assetsPath);
+      await mgr.page.getByRole("button", { name: "Preview CSV — no mutations" }).click();
+      await expect(mgr.page.getByRole("heading", { name: "Review Asset registry" })).toBeVisible();
+      await expect(mgr.page.getByTestId("setup-import-workspace")).toContainText("reuse");
 
       // Responsive — preview has no unusable horizontal overflow
       for (const [label, viewport] of [
@@ -247,9 +237,9 @@ test.describe("@ci-gate V1 Bulk Onboarding Imports", () => {
         ["tablet-portrait", TABLET_PORTRAIT],
       ] as const) {
         await mgr.page.setViewportSize(viewport);
-        await expect(mgr.page.getByTestId("asset-bulk-import-step-preview")).toBeVisible();
+        await expect(mgr.page.getByRole("heading", { name: "Review Asset registry" })).toBeVisible();
         const overflow = await mgr.page.evaluate(() => {
-          const el = document.querySelector('[data-testid="asset-bulk-import-step-preview"]');
+          const el = document.querySelector('[data-testid="setup-import-workspace"]');
           if (!el) return { scrollWidth: 0, clientWidth: 0 };
           return { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth };
         });

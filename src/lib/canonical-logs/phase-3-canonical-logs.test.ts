@@ -80,6 +80,7 @@ test(
           name: "Dietary",
         },
       });
+      await prisma.recordEngineRollout.create({ data: { facilityId: facility.id, departmentId: department.id, mode: "CANONICAL", effectiveFromServiceDate: "2020-01-01" } });
       const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: "STAFF" } });
       const recordingUser = await prisma.user.create({
         data: {
@@ -243,10 +244,12 @@ test(
       assert.ok(published);
       assert.equal(published!.status, "PUBLISHED");
 
-      const draft = await createCatalogDraftSuccessor(prisma, published!.id);
+      const seedFields = await prisma.catalogLogField.findMany({ where: { definitionId: published!.id } });
+      const scopedPublished = await prisma.catalogLogDefinition.create({ data: { ...published!, id: undefined, createdAt: undefined, updatedAt: undefined, stableKey: `successor_${cuidLike()}`, fields: { create: seedFields.map((field) => ({ ...field, id: undefined, definitionId: undefined })) } } });
+      const draft = await createCatalogDraftSuccessor(prisma, scopedPublished.id);
       assert.equal(draft.status, "DRAFT");
       assert.equal(draft.version, 2);
-      assert.equal(draft.stableKey, published!.stableKey);
+      assert.equal(draft.stableKey, scopedPublished.stableKey);
 
       const org = await prisma.organization.create({
         data: { id: cuidLike(), name: `Org ${cuidLike()}`, isActive: true },

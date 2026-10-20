@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 
 import { requireBulkImportAuthority } from "@/lib/bulk-import/authority";
 import {
@@ -9,7 +8,6 @@ import {
 } from "@/lib/bulk-import/asset-import";
 import {
   buildAssetImportPlanFromCsv,
-  executeAssetImportPlan,
   loadAssetImportCatalog,
 } from "@/lib/bulk-import/asset-import-execute";
 import { buildValidationResultsCsv } from "@/lib/bulk-import/csv";
@@ -48,12 +46,6 @@ export type AssetImportPreviewResult = {
     detail?: string;
   }>;
 } | { ok: false; error: string };
-
-function revalidateAssetViews() {
-  revalidatePath("/assets");
-  revalidatePath("/assets/builder");
-  revalidatePath("/dashboard");
-}
 
 async function readCsvFromFormData(formData: FormData): Promise<{
   text: string;
@@ -135,47 +127,9 @@ export async function previewAssetImportAction(
   }
 }
 
-export async function confirmAssetImportAction(
-  formData: FormData,
-): Promise<BulkImportCompletionSummary> {
-  const session = await requireFacilitySession();
-  requireBulkImportAuthority(session, "SUPERVISOR");
-
-  const { text, fileName } = await readCsvFromFormData(formData);
-  const catalog = await loadAssetImportCatalog(prisma, session.facilityId);
-  const built = buildAssetImportPlanFromCsv(text, catalog, fileName);
-  if (!built.ok) {
-    throw new Error(built.error);
-  }
-  if (!built.plan.canConfirm || built.plan.counts.invalidRows > 0) {
-    throw new Error("Fix validation errors before confirming import.");
-  }
-
-  // Require department for every create row (or defaultable)
-  for (const row of built.plan.rows) {
-    if (row.action !== "create") continue;
-    if (!row.departmentId) {
-      // defaults resolved at execute time; if unit has none, execute throws
-    }
-  }
-
-  const result = await executeAssetImportPlan(
-    session,
-    session.facilityId,
-    built.plan,
-    prisma,
-  );
-
-  revalidateAssetViews();
-
-  return {
-    importedBy: session.name || session.email || session.uid,
-    importedAtIso: new Date().toISOString(),
-    fileName,
-    createdCount: result.createdCount,
-    skippedCount: result.skippedCount,
-    warningCount: built.plan.counts.warningRows,
-    failedCount: 0,
-    message: `Created ${result.createdCount} assets. Skipped ${result.skippedCount} existing/duplicate rows. No issues, repairs, or evidence were created.`,
-  };
+/** Retired request adapter. The current Asset Builder links the protected shared
+ * review/receipt flow; an old unbound confirmation may never mutate Assets. */
+export async function confirmAssetImportAction(_formData: FormData): Promise<BulkImportCompletionSummary> {
+  void _formData;
+  throw new Error("Use the current reviewed Asset CSV workspace at /employees/bulk-setup?dataset=assets. A signed preview and durable receipts are required.");
 }

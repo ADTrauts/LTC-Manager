@@ -2,19 +2,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
-import { loadFacilityDepartmentCatalog } from "@/lib/department-products";
+import { loadSetupWorkspace } from "@/lib/onboarding/workspace";
+import { isValidIanaTimezone } from "@/lib/operational-time/resolve-facility-timezone";
+import { requirePasswordSession } from "@/lib/credential-policy";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { normalizeOnboardingStep, ONBOARDING_STEPS } from "@/lib/onboarding";
+import { saveFacilityOnboarding } from "@/lib/onboarding/transitions";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
-function isStripeBillingFullyConfigured() {
-  return Boolean(
-    process.env.STRIPE_SECRET_KEY?.trim() && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim(),
-  );
-}
-
 const updateStateSchema = z.object({
+  expectedFacilityId: z.string().cuid().optional(),
+  timezone: z.string().trim().max(100).refine(isValidIanaTimezone, "Choose a valid IANA timezone.").optional(),
+  confirmEntry: z.boolean().optional(),
   facilityName: z.string().trim().min(2).max(200).optional(),
   managementCompanyName: z.string().trim().max(200).optional(),
   billingEmail: z.string().email().max(200).optional(),
@@ -26,46 +26,8 @@ export async function GET() {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
 
-  const facility = await prisma.facility.findUnique({
-    where: { id: session.facilityId },
-    select: {
-      id: true,
-      displayName: true,
-      managementCompanyName: true,
-      billingEmail: true,
-      onboardingCurrentStep: true,
-      onboardingStartedAt: true,
-      onboardingCompletedAt: true,
-    },
-  });
-
-  if (!facility) {
-    return NextResponse.json({ error: "Facility not found." }, { status: 404 });
-  }
-
-  const [managerInvites, catalog, billing] = await Promise.all([
-    prisma.onboardingManagerInvite.findMany({
-      where: { facilityId: session.facilityId },
-      select: { id: true, email: true, createdAt: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    loadFacilityDepartmentCatalog(prisma, session.facilityId),
-    prisma.facilityBilling.findUnique({
-      where: { facilityId: session.facilityId },
-      select: { status: true },
-    }),
-  ]);
-
-  return NextResponse.json({
-    facility: {
-      ...facility,
-      onboardingCurrentStep: normalizeOnboardingStep(facility.onboardingCurrentStep),
-    },
-    managerInvites,
-    catalog,
-    billingStatus: billing?.status ?? "UNMANAGED",
-    stripeBillingReady: isStripeBillingFullyConfigured(),
-  });
+  const workspace = await loadSetupWorkspace(prisma, session);
+  return NextResponse.json({ ...workspace, facility: { ...workspace.facility, onboardingCurrentStep: normalizeOnboardingStep(workspace.facility.onboardingCurrentStep) } });
 }
 
 export async function PATCH(request: Request) {
@@ -79,59 +41,24 @@ export async function PATCH(request: Request) {
   }
 
   const data = parsed.data;
+  requirePasswordSession(session);
+  if (data.expectedFacilityId && data.expectedFacilityId !== session.facilityId) return NextResponse.json({ error: "Facility changed. Reload setup before saving." }, { status: 409 });
+  if (data.confirmEntry && (!data.timezone || !data.facilityName)) return NextResponse.json({ error: "Confirm the site name and timezone." }, { status: 400 });
 
-  if (data.completeOnboarding === true) {
-    const stripeReady = isStripeBillingFullyConfigured();
-    if (stripeReady) {
-      const facilityRow = await prisma.facility.findUnique({
-        where: { id: session.facilityId },
-        select: {
-          stripeDefaultPaymentMethodId: true,
-          billing: { select: { status: true } },
-        },
-      });
-      const billed =
-        facilityRow?.billing?.status === "ACTIVE" || facilityRow?.billing?.status === "PAST_DUE";
-      if (!billed && !facilityRow?.stripeDefaultPaymentMethodId) {
-        return NextResponse.json(
-          {
-            error:
-              "License at least one department before finishing setup, or turn off Stripe keys to skip in development.",
-          },
-          { status: 400 },
-        );
-      }
-    }
-  }
-
-  const updated = await prisma.facility.update({
-    where: { id: session.facilityId },
-    data: {
-      displayName: data.facilityName,
-      managementCompanyName:
-        data.managementCompanyName !== undefined
-          ? data.managementCompanyName.trim() === ""
-            ? null
-            : data.managementCompanyName
-          : undefined,
-      billingEmail: data.billingEmail ? data.billingEmail.toLowerCase() : undefined,
-      onboardingCurrentStep: data.step,
-      onboardingStartedAt: new Date(),
-      onboardingCompletedAt: data.completeOnboarding ? new Date() : undefined,
-    },
-    select: {
-      id: true,
-      displayName: true,
-      managementCompanyName: true,
-      billingEmail: true,
-      onboardingCurrentStep: true,
-      onboardingCompletedAt: true,
-    },
+  const updated = await saveFacilityOnboarding(prisma, {
+    facilityId: session.facilityId,
+    timezone: data.timezone, confirmEntry: data.confirmEntry,
+    facilityName: data.facilityName,
+    managementCompanyName: data.managementCompanyName,
+    billingEmail: data.billingEmail,
+    step: data.step,
+    finish: data.completeOnboarding,
   });
 
   await trackEvent("onboarding.state.updated", {
     facilityId: session.facilityId,
-    step: data.step ?? updated.onboardingCurrentStep,
+    step: updated.onboardingCurrentStep,
+    entryConfirmed: data.confirmEntry === true,
     completeOnboarding: data.completeOnboarding === true,
   });
 
@@ -142,4 +69,14 @@ export async function PATCH(request: Request) {
       onboardingCurrentStep: normalizeOnboardingStep(updated.onboardingCurrentStep),
     },
   });
+}
+
+const eventSchema = z.object({ expectedFacilityId: z.string().cuid(), event: z.enum(["viewed", "step_viewed", "left"]), step: z.enum(["site", "products", "builders", "people"]), elapsedMs: z.number().min(0).max(86_400_000).optional() });
+export async function POST(request: Request) {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
+  const parsed = eventSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success || parsed.data.expectedFacilityId !== session.facilityId) return NextResponse.json({ error: "Invalid setup context." }, { status: 400 });
+  await trackEvent(`onboarding.workspace.${parsed.data.event}`, { facilityId: session.facilityId, actorKind: session.authKind, step: parsed.data.step, elapsedMs: parsed.data.elapsedMs });
+  return NextResponse.json({ ok: true });
 }

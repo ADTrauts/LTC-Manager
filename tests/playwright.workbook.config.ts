@@ -1,0 +1,2 @@
+import { defineConfig, devices } from "@playwright/test";
+export default defineConfig({testDir:"workbook-browser",workers:1,retries:0,timeout:120000,expect:{timeout:20000},forbidOnly:Boolean(process.env.CI),reporter:[["list"],["json",{outputFile:"../tmp/onb06-browser/results.json"}]],outputDir:"../tmp/onb06-browser/output",use:{...devices["Desktop Chrome"],actionTimeout:20000,baseURL:process.env.ONBOARDING_BROWSER_BASE_URL||"http://127.0.0.1:55478",screenshot:"only-on-failure",trace:"retain-on-failure"}});

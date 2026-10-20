@@ -41,6 +41,8 @@ export type BillingStatusForEntitlement =
   | "ACTIVE"
   | "PAST_DUE"
   | "CANCELED"
+  | "UNPAID"
+  | "PAUSED"
   | null;
 
 /**
@@ -71,11 +73,9 @@ export function evaluateCustomerDepartmentOperability(
 /**
  * Resolve whether this facility is commercially entitled to operate a product.
  *
- * ACTIVE entitlement always counts.
- * When commercial enforcement is off, already-installed AVAILABLE or RETIRED
- * products stay customer-operable. Facility billing may already be ACTIVE from
- * another Product; that must not hide a newly AVAILABLE bootstrap install.
- * DEVELOPMENT is never entitled for customers.
+ * Explicit suspension/revocation always wins, including during enforcement rollout.
+ * Grace retains installed, licensed access only. Grandfathering does not install
+ * new Products or restore suspended paid access.
  */
 export function resolveCommercialEntitlement(input: {
   releaseStatus: DepartmentProductReleaseStatus | null;
@@ -87,16 +87,13 @@ export function resolveCommercialEntitlement(input: {
   if (!input.releaseStatus || input.releaseStatus === "DEVELOPMENT") {
     return false;
   }
+  if (["INCOMPLETE", "CANCELED", "UNPAID", "PAUSED"].includes(input.billingStatus ?? "") ||
+      input.entitlementStatus === "REVOKED") return false;
   if (input.entitlementStatus === "ACTIVE") {
-    return true;
+    return input.billingStatus === "PAST_DUE" ? input.installed : true;
   }
-  if (
-    !input.entitlementsEnforced &&
-    input.installed &&
-    (input.releaseStatus === "AVAILABLE" || input.releaseStatus === "RETIRED")
-  ) {
-    return true;
-  }
+  if (input.billingStatus === "PAST_DUE") return false;
+  if (!input.entitlementsEnforced && input.installed && input.releaseStatus === "AVAILABLE") return true;
   return false;
 }
 

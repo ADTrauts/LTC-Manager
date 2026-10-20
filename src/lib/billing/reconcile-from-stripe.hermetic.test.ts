@@ -228,7 +228,7 @@ test("webhook and Console sync share the same reconcile entrypoint", () => {
   const webhook = source("src/lib/billing/webhook-handlers.ts");
   const sync = source("src/lib/billing/reconcile-from-stripe.ts");
   const action = source("src/app/console/(staff)/customers/actions.ts");
-  assert.match(webhook, /applyResolvedStripeSubscription/);
+  assert.match(webhook, /syncStripeSubscriptionById/);
   assert.match(sync, /planStripeSubscriptionReconciliation/);
   assert.match(sync, /applyFacilitySubscription/);
   assert.match(sync, /persistDefaultPaymentMethod/);

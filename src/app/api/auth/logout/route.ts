@@ -1,3 +1,4 @@
+import { PROOF_COOKIE, proofCookieOptions } from "@/lib/offline/space/keys";
 import { NextResponse } from "next/server";
 
 import { getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
@@ -9,5 +10,6 @@ export async function POST(request: Request) {
     ...getCookieOptions(),
     maxAge: 0,
   });
+  response.cookies.set(PROOF_COOKIE,"",{...proofCookieOptions(),maxAge:0});
   return response;
 }

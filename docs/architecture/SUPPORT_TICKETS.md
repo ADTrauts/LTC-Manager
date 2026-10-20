@@ -549,8 +549,7 @@ Scan status: `PENDING`, `CLEAN`, `BLOCKED`, `SCAN_FAILED`.
 real `CLEAN` scan result.** Stored files stay `PENDING` until a real malware scanner returns a
 result. Do not treat `PENDING` as clean. No code path may mark `CLEAN` without a scanner result.
 
-Malware scanning is **not implemented**. Slice 2B stopped after the runtime audit rather than
-improvising a vendor or a dedicated worker. See [Malware scanning](#malware-scanning).
+Support slice 2B historically stopped after the runtime audit. ONB-05/D15 subsequently authorized a dedicated private ClamAV worker and support-specific PENDING processor; see [Malware scanning](#malware-scanning). Production hosting/credentials/deployment remain separate prerequisites.
 
 Download: `GET /api/console/support-attachments/{id}` after `getHarborSession()`. Only `CLEAN` is
 streamed. `PENDING`, `BLOCKED`, and `SCAN_FAILED` are denied and never expose a blob URL. Facility
@@ -568,9 +567,9 @@ Outbound staff attachments are deferred. Previews are deferred.
 
 ## Malware scanning
 
-Vssyl does not yet scan stored support attachments. The inbound webhook stores a private object,
-writes `scanStatus = PENDING`, and returns 200. Harbor cannot download the file until a future
-scanner sets `CLEAN`.
+ONB-05/D15 selects Option B: a dedicated private ClamAV container behind `SupportAttachmentScanner`, with durable asynchronous processing in `src/lib/support/scan-pending-attachments.ts`. The inbound webhook still stores a private object, writes PENDING and returns without scanning. The worker streams authenticated TLS, keeps raw clamd internal, inspects bounded ordinary Office containers, rejects standalone archives/macros/unsupported or uninspectable content, and requires maintained engine/signatures. Only a completed exact-byte no-detection result can set CLEAN. Original downloads remain staff-only and verify SHA-256/size on every read.
+
+See the [worker contract and local operation](../../workers/support-attachment-scanner/README.md), [ONB-05 service contract](../onboarding/ONB_05_SERVICE_CONTRACT.md) and phase verification inventory for actual local proof. Production private hosting, secrets/network, maintained signatures/on-call ownership and a deployed PENDING processor schedule remain separately authorized prerequisites. No deployment or production scan is implied.
 
 ### Why scanning is not in the inbound webhook
 
@@ -581,21 +580,20 @@ timeout or 5xx would replay the whole inbound payload. Attachment persistence is
 idempotent, but scanner latency must not become inbound retry pressure.
 
 `after()` / `waitUntil` can continue work after 200, but they are best-effort and not a durable
-queue. Vssyl has no cron (`vercel.json` is absent), no Inngest/workflow/job worker, and no runtime
-outside Vercel. Support “queues” are Console list filters. The offline queue is client IndexedDB.
+queue. There is no deployed support scanner schedule yet. The ONB-05 processor is a bounded support-specific CLI/function with durable PENDING discovery and expired-claim recovery; it runs outside inbound email. The separately hosted ClamAV worker is locally verified before production hosting is authorized. Support ticket list queues and offline IndexedDB remain unrelated.
 
 ### Options considered
 
 | Class | Approach | Verdict |
 |-------|----------|---------|
 | A | Managed private malware-scanning API. Vercel uploads/streams the private object to the vendor and maps clean / infected / error. | Smallest fit for the current Vercel-only runtime, **if** a B2B vendor is contracted. File bytes leave Vercel. Requires an API key, DPA, and retention review. |
-| B | Dedicated ClamAV (or equivalent) worker on a persistent host. Vercel invokes it asynchronously. | Compatible with large binaries and private data, but it is a new service, image, virus-definition updates, and on-call surface. |
+| B | Dedicated private ClamAV container behind SupportAttachmentScanner, invoked by a support-specific asynchronous processor. | **Selected by the user in ONB-D15, October 18, 2026.** Local implementation/real-engine proof precedes separately authorized production hosting/credentials/deployment. |
 | C | Storage-native scanning on Vercel Blob / Neon. | Not available. Vercel Blob has no malware scanner. |
 
 Rejected: VirusTotal and any consumer/research service whose normal behavior publishes or broadly
 shares samples. Do not create public blob URLs for scanning.
 
-### Recommended architecture when a vendor is chosen
+### Selected architecture and lifecycle
 
 Do not scan inside the inbound webhook. Keep this lifecycle:
 
@@ -616,9 +614,7 @@ Allowed transitions: `PENDING → CLEAN | BLOCKED | SCAN_FAILED`. An explicit re
 `SCAN_FAILED → PENDING` and then to a new result. Never silently convert `BLOCKED → CLEAN`.
 
 Retry: three attempts with bounded backoff, then `SCAN_FAILED`. Infected (`BLOCKED`) does not
-retry. Scanner outage must not fail the inbound webhook or loop Postmark. Two workers on the same
-attachment must be idempotent (claim the row before scanning). Persist `scannedAt`, a provider
-identifier, a short result code, and a failure reason — not secrets or raw vendor payloads.
+retry. Scanner outage must not fail the inbound webhook or loop Postmark. Durable 90-second claims, an active-attempt uniqueness constraint and binding revalidation protect concurrent workers. Failure backoff is one minute then five minutes; after three attempts the file becomes SCAN_FAILED. Explicit active staff rescan starts a new audited cycle; BLOCKED is never silently reset. Attempt bindings and finished results are immutable. Record scan time, provider, exact SHA-256, attempt/cycle, engine/signature versions and bounded result/failure codes, never secrets or raw vendor payloads. Recheck the object before publication and on download; changed bytes are unavailable.
 
 Recovery while the scanner is unavailable: inbound mail and tickets continue; attachments remain
 `PENDING` or become `SCAN_FAILED` after bounded retries; Harbor sees “Security scan pending” or
@@ -736,11 +732,10 @@ ticket; reply from Console; confirm the customer Reply stays on that ticket.
 Configuration: `POSTMARK_FROM_EMAIL`, `SUPPORT_FROM_EMAIL`, `SUPPORT_REPLY_ADDRESS`.
 Attachment storage: `BLOB_READ_WRITE_TOKEN` (Vercel Blob, private, Production and Preview). Without
 it, inbound mail is still recorded and attachment rows are stored as `BLOCKED` /
-`STORAGE_UNAVAILABLE`. There is no malware-scanner secret yet; stored files remain `PENDING`.
+`STORAGE_UNAVAILABLE`. Private scanner configuration is `SUPPORT_SCANNER_URL`, exact `SUPPORT_SCANNER_ALLOWED_HOSTS`, `SUPPORT_SCANNER_BEARER_TOKEN` and optional private `SUPPORT_SCANNER_CA_PEM`. Without an approved configured worker/processor, files stay PENDING and unavailable.
 
 ## Not built yet
 
-Malware scanner vendor and `SupportAttachmentScanner` processor (stored files remain `PENDING` and
-non-downloadable), outbound attachments, attachment previews, retention/deletion automation,
+Production scanner hosting/credentials/schedule (local worker/processor are provided by ONB-05), outbound attachments, attachment previews, retention/deletion automation,
 acknowledgment emails, notification preferences and retention cleanup, business-hour/SLA calendars, SLAs,
 teams and routing rules, AI classification, feature-request aggregation, customer portal, and chat.

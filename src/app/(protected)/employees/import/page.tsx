@@ -1,49 +1,32 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-
+import { EMPLOYEE_CLEARABLE_FIELDS } from "@/lib/employee-csv-import";
+import { requireEmployeeCsvAuthority } from "@/lib/employee-csv-update/service";
 import { ImportCsvForm } from "./import-csv-form";
 
 export default async function EmployeesImportPage() {
   const session = await getSession();
-  if (!session?.facilityId) {
-    redirect("/login");
-  }
-  if (!hasAtLeastRole(session.role, "MANAGER")) {
-    redirect("/dashboard");
-  }
-
+  if (!session?.facilityId) redirect("/login");
+  if (!hasAtLeastRole(session.role, "MANAGER")) redirect("/dashboard");
+  let denied: string | null = null;
+  try { requireEmployeeCsvAuthority(session); }
+  catch (error) { denied = (error as Error).message; }
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Import employees (CSV)</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Update existing employee roster fields from a comma-separated file. CSV cannot create new employees —
-          add those from Add employee. PINs and per-card edits stay in the Employees directory.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Update employees (CSV)</h1>
+        <p className="mt-2 text-sm text-zinc-600">Update existing Facility roster fields after reviewing exact changes. Add new employees from Add employee. Role, status, separation, account linking, and PIN changes use the existing employee actions.</p>
       </header>
-
-      <ImportCsvForm />
-
-      <div className="rounded-xl border border-zinc-100 bg-zinc-50/80 p-4 text-xs text-zinc-600">
-        <p className="font-medium text-zinc-800">Columns (headers are case-insensitive)</p>
-        <p className="mt-2">
-          Required: <span className="font-mono">firstName</span>, <span className="font-mono">lastName</span>.
-          Optional: <span className="font-mono">email</span>, <span className="font-mono">phone</span>,{" "}
-          <span className="font-mono">roleType</span> (defaults STAFF), <span className="font-mono">employmentType</span>{" "}
-          (FULL_TIME), <span className="font-mono">status</span> (ACTIVE), <span className="font-mono">unionMember</span>,{" "}
-          <span className="font-mono">onLeave</span>, <span className="font-mono">hireDate</span> (YYYY-MM-DD),{" "}
-          <span className="font-mono">jobClassification</span>, <span className="font-mono">chrcStatus</span>,{" "}
-          <span className="font-mono">chrcClearedAt</span>, <span className="font-mono">chrcNotes</span>,{" "}
-          <span className="font-mono">birthMonth</span>, <span className="font-mono">birthDay</span>,{" "}
-          <span className="font-mono">shirtSize</span> (XS, S, M, L, XL, 2XL–5XL),{" "}
-          <span className="font-mono">hrNotes</span>,{" "}
-          <span className="font-mono">workStations</span> (e.g. COOK|SERVER), <span className="font-mono">primaryUnit</span>{" "}
-          (unit name), <span className="font-mono">terminationDate</span>,{" "}
-          <span className="font-mono">chrcOffboardingCompletedAt</span>,{" "}
-          <span className="font-mono">chrcOffboardingNotes</span>.
-        </p>
+      <Link className="inline-block underline" href="/employees/bulk-setup">Create/reuse workforce or add relationships with the separate reviewed CSV workflow</Link>
+      {denied ? <p role="alert">{denied}</p> : <ImportCsvForm />}
+      <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+        <h2 className="font-semibold">File rules</h2>
+        <p>Omitted columns and blank cells preserve data. Use <code>__CLEAR__</code> for a deliberate clear in these fields only: {[...EMPLOYEE_CLEARABLE_FIELDS].join(", ")}. Domain restrictions still apply; email required by a leadership role cannot be cleared.</p>
+        <p>Match by an exported Employee ID, otherwise a unique email. Without either, both names must uniquely match one employee in this Facility. Use Employee ID when changing email or names. An email matching another person blocks the row; an unmatched email never falls back to names.</p>
+        <p>Headers are case-insensitive. Dates use YYYY-MM-DD. Booleans use true/false (yes/no and 1/0 also work). Workstations use names separated by |. Birth month/day must form a valid pair, or both be explicitly cleared. The template has a header only.</p>
+        <p>Duplicate target employees, malformed rows, unsupported columns, authority and lifecycle changes are blocked. Publication, access grants, global accounts and employment history are outside this update.</p>
       </div>
     </section>
   );

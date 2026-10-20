@@ -41,8 +41,6 @@ export async function POST(request: Request) {
     where: { id: facility.id },
     data: {
       stripeDefaultPaymentMethodId: parsed.data.paymentMethodId,
-      onboardingCurrentStep: "complete",
-      onboardingStartedAt: new Date(),
     },
   });
 

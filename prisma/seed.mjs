@@ -225,23 +225,19 @@ async function main() {
   const unitIdByName = {};
 
   for (const unit of starterUnits) {
-    const savedUnit = await prisma.unit.upsert({
-      where: {
-        facilityId_name: {
-          facilityId: facility.id,
-          name: unit.name,
-        },
-      },
-      update: {
-        unitType: unit.unitType,
-        displayOrder: unit.displayOrder,
-      },
-      create: {
-        facilityId: facility.id,
-        name: unit.name,
-        unitType: unit.unitType,
-        displayOrder: unit.displayOrder,
-      },
+    // Root and child names have separate sibling scopes since optional Buildings.
+    // Prisma cannot express the partial root unique index as an upsert selector.
+    // Serialize this check/create on the Facility, preserving any same-named child.
+    const savedUnit = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Facility" WHERE "id" = ${facility.id} FOR UPDATE`;
+      const existing = await tx.unit.findFirst({
+        where: { facilityId: facility.id, parentUnitId: null, name: unit.name },
+        select: { id: true },
+      });
+      const data = { unitType: unit.unitType, displayOrder: unit.displayOrder };
+      return existing
+        ? tx.unit.update({ where: { id: existing.id }, data })
+        : tx.unit.create({ data: { ...data, facilityId: facility.id, parentUnitId: null, name: unit.name } });
     });
 
     await prisma.unitMealTime.deleteMany({ where: { unitId: savedUnit.id } });
@@ -575,8 +571,8 @@ async function main() {
   });
 
   if (!existingRepair) {
-    const repairCount = await prisma.repair.count();
-    const repairCode = `R-${String(repairCount + 1).padStart(5, "0")}`;
+    const codes = await prisma.$queryRaw`SELECT nextval('"RepairCodeSequence"') AS value`;
+    const repairCode = `R-${String(codes[0].value).padStart(5, "0")}`;
     const dueAt = new Date();
     dueAt.setDate(dueAt.getDate() + 7);
 

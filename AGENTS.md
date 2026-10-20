@@ -8,11 +8,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## Repository identity
+
+This is the current **Vssyl — Current Operations** application and VSSYL Console: [ADTrauts/LTC-Manager](https://github.com/ADTrauts/LTC-Manager). The `ltc-manager` package/folder name is retained. [ADTrauts/Vssyl](https://github.com/ADTrauts/Vssyl) is the mothballed **Vssyl — Legacy Platform** predecessor; do not use its architecture as current implementation guidance.
+
+The accepted onboarding program lives in [docs/onboarding](docs/onboarding/README.md). Its phase tracker records authorized scope; ONB identifiers do not replace historical wave numbers.
+
 ## Vssyl architecture
 
 Current authority is `docs/product/01_PRODUCT_CONSTITUTION.md`. Vocabulary is `docs/product/08_PRODUCT_LANGUAGE_GUIDE.md`. The Department Product contract is `docs/product/13_DEPARTMENT_PRODUCT.md`. Facility Plant Operations architecture is `docs/product/14_FACILITY_PLANT_OPERATIONS.md`. Compatibility systems are `docs/product/LEGACY_SURFACE_REGISTER.md`.
 
-Manager language is Location Function, Operational Cycle, Phase, Key Point, Records, Audit / Reports, Work, and People & Coverage. Facility Plant Operations remains DEVELOPMENT. Do not implement that Product, create migrations, or change its release status unless explicitly asked.
+Manager language is Location Function, Operational Cycle, Phase, Key Point, Records, Audit / Reports, Work, and People & Coverage. Facility Plant Operations V1 is AVAILABLE as of October 7, 2026; Environmental Services remains DEVELOPMENT. See the [release addendum](docs/plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). Onboarding work must not change Product release status, sellability, or billing packaging as a side effect. New Plant features or migrations require explicit scope.
 
 Forward Records (when `CANONICAL_LOGS_ENABLED=true`): `CatalogLogDefinition` → `FacilityCatalogInstall` → `LogAttachment` → derived requirement → `OperationalEvidenceRecord`. Log Book and Review are projections, not fact stores. `OperationalTemplate` is not the next layer after Catalog. Legacy `/logs` is compatibility while the flag is off. Do not add a parallel template, requirement, or evidence model.
 

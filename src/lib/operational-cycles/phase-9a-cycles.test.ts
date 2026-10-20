@@ -55,7 +55,7 @@ test(
     process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED = "true";
 
     try {
-      const facility = await prisma.facility.findFirst({});
+      const facility = await prisma.facility.findUnique({ where: { id: "cmfacseed0000000000000001" } });
       assert.ok(facility, "seed facility required");
       const dietary = await prisma.department.findFirst({
         where: { facilityId: facility.id, key: "DIETARY", isActive: true },

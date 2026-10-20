@@ -1,3 +1,4 @@
+import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -45,7 +46,7 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
 
   const query = searchParams ? await searchParams : {};
   const fromOnboarding =
-    typeof query.onboarding === "string" && query.onboarding === "complete";
+    typeof query.onboarding === "string" && ["complete", "workspace"].includes(query.onboarding);
   const tab = resolveTab(query.tab);
 
   const hierarchy = await loadFacilityHierarchy(session.facilityId);
@@ -53,9 +54,10 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
 
   return (
     <div className="mx-auto max-w-7xl space-y-3" data-testid="facility-builder-page">
+      <SetupWorkspaceLink role={session.role} />
       {fromOnboarding ? (
         <section className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <h2 className="text-base font-semibold text-emerald-900">Setup complete — build your facility</h2>
+          <h2 className="text-base font-semibold text-emerald-900">Continue site setup in Facility Builder</h2>
           <p className="mt-1 text-sm text-emerald-800">
             Start with Structure to map buildings, floors, and rooms. Define Room Types when you need shared
             classifications.

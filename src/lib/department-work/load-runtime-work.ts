@@ -1,3 +1,5 @@
+import type { Prisma, PrismaClient } from "@prisma/client";
+type WorkReadClient = PrismaClient | Prisma.TransactionClient;
 /**
  * Batch load Work Requirements for Job Flow / Supervisor Board (Phase 11A).
  * Candidate locations come from department responsibility + cycle participation,
@@ -99,8 +101,9 @@ export async function loadPublishedWorkPlansForResolve(
   facilityId: string,
   departmentId: string,
   operationalDateKey?: string,
+  client: WorkReadClient = prisma,
 ): Promise<PublishedWorkPlanForResolve[]> {
-  const rows = await prisma.departmentWorkPlan.findMany({
+  const rows = await client.departmentWorkPlan.findMany({
     where: { facilityId, departmentId, status: "PUBLISHED" },
     include: {
       items: { orderBy: { displaySequence: "asc" } },
@@ -140,10 +143,12 @@ function cycleExplicitUnitIds(
 }
 
 async function attachRuntimeOperationalTypeKeys(input: {
+  client?: WorkReadClient;
   facilityId: string;
   departmentId: string;
   spaces: Array<{ id: string; spaceType: string; unitId: string | null }>;
 }): Promise<SpaceScopeForWorkResolve[]> {
+  const client = input.client ?? prisma;
   if (!input.spaces.length) {
     return [];
   }
@@ -152,6 +157,7 @@ async function attachRuntimeOperationalTypeKeys(input: {
     departmentId: input.departmentId,
     spaceIds: input.spaces.map((space) => space.id),
     perspective: "runtime",
+    client,
   });
   return input.spaces.map((space) => ({
     id: space.id,
@@ -162,12 +168,14 @@ async function attachRuntimeOperationalTypeKeys(input: {
 }
 
 export async function loadWorkScopeForUnit(input: {
+  client?: WorkReadClient;
   facilityId: string;
   unitId: string;
   departmentId?: string;
 }): Promise<{ assets: AssetScopeForWorkResolve[]; spaces: SpaceScopeForWorkResolve[] }> {
+  const client = input.client ?? prisma;
   const [assets, spaces] = await Promise.all([
-    prisma.asset.findMany({
+    client.asset.findMany({
       where: {
         unitId: input.unitId,
         unit: { facilityId: input.facilityId },
@@ -175,7 +183,7 @@ export async function loadWorkScopeForUnit(input: {
       },
       select: { id: true, equipmentType: true, unitId: true },
     }),
-    prisma.unitSpace.findMany({
+    client.unitSpace.findMany({
       where: { unitId: input.unitId, facilityId: input.facilityId, isActive: true },
       select: { id: true, spaceType: true, unitId: true },
     }),
@@ -203,12 +211,14 @@ export async function loadWorkScopeForUnit(input: {
 }
 
 export async function loadExistingWorkOccurrencesForDate(input: {
+  client?: WorkReadClient;
   facilityId: string;
   departmentId: string;
   operationalDate: Date;
   unitId?: string | null;
 }): Promise<ExistingWorkOccurrenceForResolve[]> {
-  const rows = await prisma.departmentWorkOccurrence.findMany({
+  const client = input.client ?? prisma;
+  const rows = await client.departmentWorkOccurrence.findMany({
     where: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -247,12 +257,14 @@ export async function loadExistingWorkOccurrencesForDate(input: {
 }
 
 async function loadConfirmedAssignmentsForDate(input: {
+  client?: WorkReadClient;
   facilityId: string;
   departmentId: string;
   serviceDate: Date;
   unitId?: string | null;
 }): Promise<ConfirmedAssignmentForWorkResolve[]> {
-  const rows = await prisma.operationalAssignment.findMany({
+  const client = input.client ?? prisma;
+  const rows = await client.operationalAssignment.findMany({
     where: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -278,12 +290,14 @@ async function loadConfirmedAssignmentsForDate(input: {
 }
 
 async function loadAcceptedEvidenceForDate(input: {
+  client?: WorkReadClient;
   facilityId: string;
   departmentId: string;
   operationalDate: Date;
   unitId?: string | null;
 }): Promise<AcceptedEvidenceForWorkResolve[]> {
-  const rows = await prisma.operationalEvidenceRecord.findMany({
+  const client = input.client ?? prisma;
+  const rows = await client.operationalEvidenceRecord.findMany({
     where: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -309,6 +323,7 @@ async function loadAcceptedEvidenceForDate(input: {
 }
 
 export type ResolveUnitWorkRequirementsInput = {
+  client?: WorkReadClient;
   facilityId: string;
   departmentId: string;
   operationalDate: Date;
@@ -324,8 +339,9 @@ export type ResolveUnitWorkRequirementsInput = {
 async function departmentWorkPlansEnabledFor(
   facilityId: string,
   departmentId: string,
+  client: WorkReadClient = prisma,
 ): Promise<boolean> {
-  const department = await prisma.department.findFirst({
+  const department = await client.department.findFirst({
     where: { id: departmentId, facilityId },
     select: { key: true },
   });
@@ -339,7 +355,8 @@ async function departmentWorkPlansEnabledFor(
 export async function resolveUnitWorkRequirements(
   input: ResolveUnitWorkRequirementsInput,
 ): Promise<WorkRequirement[]> {
-  if (!(await departmentWorkPlansEnabledFor(input.facilityId, input.departmentId))) {
+  const client = input.client ?? prisma;
+  if (!(await departmentWorkPlansEnabledFor(input.facilityId, input.departmentId, client))) {
     return [];
   }
 
@@ -351,20 +368,24 @@ export async function resolveUnitWorkRequirements(
         input.facilityId,
         input.departmentId,
         input.operationalDateKey,
+        client,
       ),
       loadExistingWorkOccurrencesForDate({
+        client,
         facilityId: input.facilityId,
         departmentId: input.departmentId,
         operationalDate: input.operationalDate,
         unitId: input.unitId,
       }),
       loadConfirmedAssignmentsForDate({
+        client,
         facilityId: input.facilityId,
         departmentId: input.departmentId,
         serviceDate,
         unitId: input.unitId,
       }),
       loadAcceptedEvidenceForDate({
+        client,
         facilityId: input.facilityId,
         departmentId: input.departmentId,
         operationalDate: input.operationalDate,
@@ -374,10 +395,11 @@ export async function resolveUnitWorkRequirements(
         input.facilityId,
         input.departmentId,
         input.operationalDateKey,
+        client,
       ),
-      prisma.unit.findMany({
+      client.unit.findMany({
         where: {
-          facilityId: input.facilityId,
+        facilityId: input.facilityId,
           isActive: true,
           departmentResponsibilities: { some: { departmentId: input.departmentId } },
         },
@@ -417,13 +439,13 @@ export async function resolveUnitWorkRequirements(
 
   const [loadedSpaces, assets] = await Promise.all([
     spaceWhere
-      ? prisma.unitSpace.findMany({
+      ? client.unitSpace.findMany({
           where: spaceWhere,
           select: { id: true, spaceType: true, unitId: true },
         })
       : Promise.resolve([]),
     input.unitId
-      ? prisma.asset.findMany({
+      ? client.asset.findMany({
           where: {
             unitId: input.unitId,
             unit: { facilityId: input.facilityId },
@@ -439,7 +461,7 @@ export async function resolveUnitWorkRequirements(
   if (explicitSpaceIds.size) {
     const missing = [...explicitSpaceIds].filter((id) => !spaceUnitById.has(id));
     if (missing.length) {
-      const extra = await prisma.unitSpace.findMany({
+      const extra = await client.unitSpace.findMany({
         where: { facilityId: input.facilityId, id: { in: missing } },
         select: { id: true, spaceType: true, unitId: true },
       });
@@ -458,7 +480,8 @@ export async function resolveUnitWorkRequirements(
   const spacesForResolve =
     needsOperationalTypes || cyclesUseOperationalTypes
       ? await attachRuntimeOperationalTypeKeys({
-          facilityId: input.facilityId,
+          client,
+        facilityId: input.facilityId,
           departmentId: input.departmentId,
           spaces,
         })
@@ -541,6 +564,7 @@ export type SupervisorWorkExceptionItem = {
 };
 
 export async function loadSupervisorWorkExceptions(input: {
+  client?: WorkReadClient;
   facilityId: string;
   departmentId: string;
   operationalDate: Date;
