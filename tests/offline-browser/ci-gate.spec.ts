@@ -36,7 +36,10 @@ test('scenario-05 @ci-gate: exact Space encrypts IndexedDB; a new tab cannot ret
     expect(raw).not.toContain(data.bundle.label);
     expect(raw).not.toContain(loadFixtures().canonical.workLabel);
     expect(raw).not.toContain('password');
-    expect(raw).not.toContain('jwt');
+    // Ciphertext is random Base64 and may contain the letters "jwt". Check
+    // credential fields and JWT structure, never a three-character substring.
+    expect(raw).not.toMatch(/"jwt"\s*:/i);
+    expect(raw).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
     expect(raw).not.toContain('pinDigest');
     const second = await context.newPage();
     await second.goto(page.url());

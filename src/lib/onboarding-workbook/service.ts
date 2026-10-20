@@ -13,7 +13,7 @@ import { HEADERS } from "@/lib/setup-imports/public-contract";
 type Review={id:string;facilityId:string;actor:string;digest:string;sourceHash:string;expiresAt:number;checkpointVersion?:CheckpointVersion};
 export type WorkbookPreview={batchId:string;reviewToken:string;expiresAt:string;rows:PlannedWorkbookRow[];fileName:string};
 type Child={batchId:string;reviewToken:string;text:string;fileName:string;checkpoint?:string;attemptToken?:string};
-type Stored={source:WorkbookSource;rows:PlannedWorkbookRow[];checkpoint:string;reviewedCheckpoint:string;mapping:Mapping;children:Record<string,Child>;history?:Record<string,Child[]>;checkpointVersion?:CheckpointVersion};
+type Stored={source:WorkbookSource;rows:PlannedWorkbookRow[];checkpoint:string;reviewedCheckpoint:string;mapping:Mapping;children:Record<string,Child>;history?:Record<string,Child[]>;checkpointVersion?:CheckpointVersion;attemptCounts?:Record<string,number>};
 function intentDigest(source:WorkbookSource,rows:PlannedWorkbookRow[],state:string,version:CheckpointVersion){
   return hash({source,rows,checkpoint:state,...(version===2?{checkpointVersion:version}:{})});
 }
@@ -80,9 +80,11 @@ export async function confirmWorkbook(db:PrismaClient,session:FacilitySession,in
         const candidate=stored.rows.find(r=>r.id===result.id)!;
         return !visited.has(result.id)&&!["committed","reused"].includes(result.status)&&candidate.plan.action!=="blocked"&&(result.status!=="blocked"||stored.children[result.id]?.checkpoint!==stored.checkpoint)&&candidate.dependencies.every(key=>Boolean(stored.mapping[key]))&&(!candidate.plan.requiresAccountConfirmation||input.confirmedAccountRows.includes(candidate.id));
       });
-      // New ready work must not starve behind repeated failures. Stable sheet order
-      // remains the tie-breaker; reference prerequisites always precede dependants.
-      const result=ready.find(r=>r.status==="unknown")||ready[0];if(!result)break;
+      // New work goes first. On later requests, choose the least-attempted failed
+      // row so a transient rollback behind 25 permanent failures can recover.
+      // Stable sheet order breaks ties; prerequisite and consent checks stay above.
+      const result=ready.find(r=>r.status==="unknown")||ready.reduce<typeof ready[number]|undefined>((best,r)=>
+        !best||(stored.attemptCounts?.[r.id]??0)<(stored.attemptCounts?.[best.id]??0)?r:best,undefined);if(!result)break;
       visited.add(result.id);attempted++;
       const row=stored.rows.find(r=>r.id===result.id)!;
       let child=stored.children[row.id];
@@ -122,6 +124,9 @@ export async function confirmWorkbook(db:PrismaClient,session:FacilitySession,in
         // with the existing child/lease instead of adding a receipt write to
         // every row's claim. Failed outcomes below remain append-only receipts.
         child={...current.children[row.id]!,attemptToken:randomUUID()};current.children[row.id]=child;
+        // Coordination only, never a claim of a domain commit. Persist with the
+        // existing attempt identity/lease; old reviews start at zero safely.
+        current.attemptCounts ||= {};current.attemptCounts[row.id]=(current.attemptCounts[row.id]||0)+1;
         await tx.setupImportBatch.update({where:{id:review.id},data:{reviewedPlan:json(current),leaseExpiresAt:new Date(Date.now()+90_000)}});
       },{timeout:30000,maxWait:30000});
       try{await confirmImport(db,session,{reviewToken:child.reviewToken,expectedFacilityId:session.facilityId,text:child.text,fileName:child.fileName,confirmedAccountRows:input.confirmedAccountRows.includes(row.id)?[2]:[]},{beforeClaim:async tx=>{await claimGuard(tx);},before:async tx=>{await guard(tx);},after:async(tx,_plan,outcome)=>{

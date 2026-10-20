@@ -89,10 +89,29 @@ test("SQL workbook: assisted review shares authorized canonical child receipts, 
 test("SQL workbook: independently reviewed concurrent packages cannot auto-reuse a raced identity or duplicate a place",{skip},()=>run(async db=>{
  const f=await fixture(db),bytes=await f.workbook(),a=await f.preview(bytes),b=await f.preview(bytes),races=await Promise.allSettled([f.confirm(a,bytes),f.confirm(b,bytes)]);assert.ok(races.some(r=>r.status==="fulfilled"));assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),1);assert.equal(await db.unitSpace.count({where:{facilityId:f.facility.id}}),1);for(const p of [a,b]){const count=await db.setupImportBatch.count({where:{id:p.batchId}});if(count){const receipts=await workbookResults(db,f.session,p.batchId);if(!receipts.mapping["workforce:p001"])await assert.rejects(()=>f.confirm(p),/External material|Material facts/);}}
 }));
-test("SQL workbook: repeatedly failed early rows cannot starve later ready unattempted rows",{skip},()=>run(async db=>{
+test("SQL workbook: repeatedly failed early rows cannot starve unattempted work or its rollback recovery",{skip},()=>run(async db=>{
  const f=await fixture(db),bytes=await f.workbook(w=>{for(let i=1;i<=26;i++)f.add(w,"People",{rowRef:`p${i}`,email:`${i===26?"success":"fail"}-${i}-${f.email}`,firstName:"Casey",lastName:"Worker",roleType:"STAFF",employmentType:"PART_TIME",primaryDepartment:"DIETARY"});}),p=await f.preview(bytes);
- const faulty=db.$extends({query:{employee:{async create({args,query}){if(String(args.data.email).startsWith("fail-"))throw Error("repeatable row-local failure");return query(args);}}}}) as unknown as PrismaClient;
- const first=await f.confirm(p,bytes,[],faulty);assert.equal(first.rows.filter(r=>r.status==="failed").length,25);assert.equal(first.rows[25]!.status,"unknown");const second=await f.confirm(p,undefined,[],faulty);assert.equal(second.rows[25]!.status,"committed");assert.ok(second.mapping["workforce:p26"]);assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:{startsWith:"success-"}}}),1);
+ let rollbackAttempts=0;
+ const faulty=db.$extends({query:{employee:{async create({args,query}){
+   if(String(args.data.email).startsWith("fail-"))throw Error("repeatable row-local failure");
+   // Exhaust the existing five transaction attempts once. A row attempt is not
+   // a promised commit; a later request must recover the SAME reviewed child.
+   if(rollbackAttempts++<5)throw new Prisma.PrismaClientKnownRequestError("injected serialization rollback",{code:"P2034",clientVersion:Prisma.prismaVersion.client});
+   return query(args);
+ }}}}) as unknown as PrismaClient;
+ const counters=async()=>((await db.setupImportBatch.findUniqueOrThrow({where:{id:p.batchId}})).reviewedPlan as unknown as {attemptCounts:Record<string,number>}).attemptCounts;
+ const total=(counts:Record<string,number>)=>Object.values(counts).reduce((a,b)=>a+b,0);
+ const first=await f.confirm(p,bytes,[],faulty);
+ assert.equal(first.rows.filter(r=>r.status==="failed").length,25);assert.equal(first.rows[25]!.status,"unknown");assert.equal(total(await counters()),25);
+ const second=await f.confirm(p,undefined,[],faulty),childId=second.rows[25]!.childBatchId!;
+ assert.equal(second.rows[25]!.status,"failed");assert.equal(rollbackAttempts,5);assert.equal(second.mapping["workforce:p26"],undefined);assert.equal(total(await counters()),50);
+ assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:{startsWith:"success-"}}}),0);
+ assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"failed"}}),1);
+ const third=await f.confirm(p,undefined,[],faulty);
+ assert.equal(third.rows[25]!.status,"committed");assert.equal(third.rows[25]!.childBatchId,childId);assert.ok(third.mapping["workforce:p26"]);assert.equal(total(await counters()),75);
+ assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:{startsWith:"success-"}}}),1);
+ assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"committed"}}),1);
+ assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"failed"}}),1);
 }));
 test("SQL workbook: own shared-parent location commits permit safe child refresh while failed receipt history survives",{skip},()=>run(async db=>{
  const f=await fixture(db),bytes=await f.workbook(w=>{for(const name of ["Room A","Room B"])f.add(w,"Locations",{rowRef:name,floor:"Floor 1",neighborhood:"Shared Wing",locationName:name,locationType:"Resident Room"});}),p=await f.preview(bytes);let fail=true;
