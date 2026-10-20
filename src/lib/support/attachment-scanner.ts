@@ -40,3 +40,9 @@ export function getSupportAttachmentScanner(env: NodeJS.ProcessEnv = process.env
     return validateScanResult(input,response);
   } };
 }
+
+/** Downloads remain unavailable until the approved private scanner is configured.
+ * A historical CLEAN status is not deployment infrastructure approval. */
+export function supportAttachmentDownloadsConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  try { return getSupportAttachmentScanner(env) !== null; } catch { return false; }
+}

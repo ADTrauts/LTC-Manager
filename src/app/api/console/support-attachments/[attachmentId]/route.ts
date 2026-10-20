@@ -8,6 +8,7 @@ import {
   supportAttachmentDownloadHeaders,
 } from "@/lib/support/attachments";
 import { readVerifiedSupportAttachment } from "@/lib/support/scan-pending-attachments";
+import { supportAttachmentDownloadsConfigured } from "@/lib/support/attachment-scanner";
 import { getSupportAttachmentStore } from "@/lib/support/attachment-store";
 
 type Props = {
@@ -34,6 +35,10 @@ export async function GET(_request: Request, { params }: Props) {
       { error: actor === "anonymous" ? "Unauthorized." : "Forbidden." },
       { status: actor === "anonymous" ? 401 : 403 },
     );
+  }
+
+  if (!supportAttachmentDownloadsConfigured()) {
+    return NextResponse.json({ error: "Private original downloads are unavailable until the approved scanner is configured." }, { status: 503 });
   }
 
   const attachment = await prisma.supportTicketAttachment.findUnique({
