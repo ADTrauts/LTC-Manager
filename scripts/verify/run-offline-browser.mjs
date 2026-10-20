@@ -154,7 +154,7 @@ async function main() {
     run("npx", ["prisma", "db", "seed"], baseEnv, "seed");
     run(
       "node",
-      ["scripts/verify/offline-browser-fixtures.mjs"],
+      ["--import", "tsx", "scripts/verify/offline-browser-fixtures.mjs"],
       {
         ...baseEnv,
         OFFLINE_BROWSER_FIXTURE_PATH: FIXTURE_PATH,

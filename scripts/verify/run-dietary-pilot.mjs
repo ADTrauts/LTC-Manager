@@ -148,7 +148,7 @@ async function main() {
     run("npx", ["prisma", "db", "seed"], baseEnv, "seed");
     run(
       "node",
-      ["scripts/verify/dietary-pilot-fixtures.mjs"],
+      ["--import", "tsx", "scripts/verify/dietary-pilot-fixtures.mjs"],
       { ...baseEnv, DIETARY_PILOT_FIXTURE_PATH: FIXTURE_PATH },
       "pilot fixtures",
     );

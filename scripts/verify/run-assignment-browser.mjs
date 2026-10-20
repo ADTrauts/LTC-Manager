@@ -131,7 +131,7 @@ async function main() {
     run("npx", ["prisma", "db", "seed"], baseEnv, "seed");
     run(
       "node",
-      ["scripts/verify/assignment-browser-fixtures.mjs"],
+      ["--import", "tsx", "scripts/verify/assignment-browser-fixtures.mjs"],
       {
         ...baseEnv,
         ASSIGNMENT_BROWSER_FIXTURE_PATH: FIXTURE_PATH,

@@ -28,7 +28,7 @@ test("Department Locations header stacks title, helper, and manage action compac
   assert.match(panel, /flex flex-col gap-2 sm:flex-row/);
   assert.match(
     panel,
-    /Physical places \{view\.department\.name\} is responsible for\./,
+    /Physical places stay in Facility Builder\. \{view\.department\.name\} binds each place to a\s+Location Function from the Department Product\./,
   );
   assert.match(panel, /Manage responsibility/);
   assert.match(panel, /space-y-3/);

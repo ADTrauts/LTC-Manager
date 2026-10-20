@@ -58,7 +58,7 @@ const databaseUrl =
   process.env.DEPARTMENT_WORK_TEST_DATABASE_URL ||
   process.env.VERIFY_DATABASE_URL;
 
-if (process.env.CI && !databaseUrl) {
+if (process.env.CI && process.env.VERIFY_TEST_MODE !== "hermetic" && !databaseUrl) {
   throw new Error(
     "Release-critical Plant SQL tests must not skip in CI. Set VERIFY_DATABASE_URL.",
   );

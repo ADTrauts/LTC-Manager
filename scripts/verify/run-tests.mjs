@@ -54,6 +54,9 @@ function main() {
     if (files.length === 0) fail("no test files discovered");
 
     const env = { ...process.env };
+    // SQL-required suites must distinguish the intentional no-database CI job
+    // from a misconfigured database gate. Do not trust an inherited mode.
+    env.VERIFY_TEST_MODE = mode;
     // Never inherit a poisoned NODE_ENV into the test process from a broken caller.
     // node:test itself does not require production; leave NODE_ENV unset unless caller set test.
     if (env.NODE_ENV === "production") {
