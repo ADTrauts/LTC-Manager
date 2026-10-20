@@ -53,6 +53,43 @@ test("resolveCycleWindowInstants overnight end is next day", () => {
   assert.ok(hours >= 7.5 && hours <= 8.5);
 });
 
+for (const [timezone, startsAt, endsAt] of [
+  ["Pacific/Auckland", "2026-10-19T11:00:00.000Z", "2026-10-20T10:59:00.000Z"],
+  ["Pacific/Kiritimati", "2026-10-19T10:00:00.000Z", "2026-10-20T09:59:00.000Z"],
+  ["Pacific/Pago_Pago", "2026-10-20T11:00:00.000Z", "2026-10-21T10:59:00.000Z"],
+  ["America/New_York", "2026-10-20T04:00:00.000Z", "2026-10-21T03:59:00.000Z"],
+  ["Asia/Kolkata", "2026-10-19T18:30:00.000Z", "2026-10-20T18:29:00.000Z"],
+]) {
+  test(`explicit cycle service date stays on its Facility civil day in ${timezone}`, () => {
+    const window = resolveCycleWindowInstants({
+      operationalDateKey: "2026-10-20", startLocal: "00:00", endLocal: "23:59", facilityTimezone: timezone,
+    });
+    assert.equal(window?.startsAt.toISOString(), startsAt);
+    assert.equal(window?.endsAt.toISOString(), endsAt);
+  });
+}
+
+test("Auckland overnight window advances the civil day across daylight-saving end", () => {
+  const window = resolveCycleWindowInstants({
+    operationalDateKey: "2026-04-04", startLocal: "22:00", endLocal: "06:00", facilityTimezone: "Pacific/Auckland",
+  });
+  assert.equal(window?.startsAt.toISOString(), "2026-04-04T09:00:00.000Z");
+  assert.equal(window?.endsAt.toISOString(), "2026-04-04T18:00:00.000Z");
+});
+
+test("explicit cycle dates retain the existing DST gap approximation and fold choice", () => {
+  const gap = resolveCycleWindowInstants({
+    operationalDateKey: "2026-03-08", startLocal: "02:30", endLocal: "08:00", facilityTimezone: "America/New_York",
+  });
+  assert.equal(gap?.startsAt.toISOString(), "2026-03-08T07:30:00.000Z");
+  assert.equal(gap?.endsAt.toISOString(), "2026-03-08T12:00:00.000Z");
+  const fold = resolveCycleWindowInstants({
+    operationalDateKey: "2026-11-01", startLocal: "01:30", endLocal: "08:00", facilityTimezone: "America/New_York",
+  });
+  assert.equal(fold?.startsAt.toISOString(), "2026-11-01T05:30:00.000Z");
+  assert.equal(fold?.endsAt.toISOString(), "2026-11-01T13:00:00.000Z");
+});
+
 test("windowsOverlap detects intersection", () => {
   const a = resolveCycleWindowInstants({
     operationalDateKey: "2026-08-06",

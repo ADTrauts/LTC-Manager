@@ -2,6 +2,34 @@ import { test, expect } from '@playwright/test';
 import { loadFixtures, prisma, ensureDeviceBoundAsAdmin, loginPassword, setNetworkOffline, waitForServiceWorkerControl } from './helpers';
 import { prepareCanonicalResponsibility, openCanonicalSpaceWork, expectCanonicalOfflinePreparation } from './canonical-journey';
 
+// The live boundary chooses a timezone with midnight inside its lease. Keep an
+// independent +13h control so its runtime remains covered at every CI hour.
+test('Auckland civil day @ci-gate: published operation and exact Space preparation remain available', async ({ page }) => {
+  const fx = loadFixtures(), db = prisma();
+  const original = await db.facility.findUniqueOrThrow({ where: { id: fx.facilityId } });
+  const timezone = 'Pacific/Auckland';
+  const serviceDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+  try {
+    await db.facility.update({ where: { id: fx.facilityId }, data: { timezone } });
+    await prepareCanonicalResponsibility(page, fx.canonical, serviceDate);
+    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.canonical.unitId);
+    await openCanonicalSpaceWork(page, fx.canonical);
+    await waitForServiceWorkerControl(page);
+    await expectCanonicalOfflinePreparation(page);
+    const bundle = await page.evaluate(async () => {
+      const s = await import(String('/space-offline-store.js'));
+      const r = (await s.envelopes()).find((row: {id:string}) => row.id === s.activeId());
+      return (await s.read(r)).bundle;
+    });
+    expect(bundle.scope.spaceId).toBe(fx.canonical.spaceId);
+    expect(bundle.timezone).toBe(timezone);
+    expect(bundle.operationalDate).toBe(serviceDate);
+  } finally {
+    await db.facility.update({ where: { id: fx.facilityId }, data: { timezone: original.timezone } });
+    await db.$disconnect();
+  }
+});
+
 // Real server/authentication/issuance + public offline renderer. Move only the
 // browser clock; backend authority, credentials and recovery proofs stay real.
 for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {

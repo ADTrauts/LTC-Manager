@@ -1,4 +1,5 @@
 import { resolveFacilityTimezone } from "./resolve-facility-timezone";
+import { facilityLocalDateToServiceDate } from "./service-date";
 import type { BuildOperationalTimeContextInput, OperationalTimeContext } from "./types";
 import { formatFacilityLocalDate, getFacilityLocalParts } from "./zoned-parts";
 
@@ -11,6 +12,20 @@ export function parseFacilityLocalScheduledStart(
   now: Date,
   timeZone: string,
 ): Date | null {
+  return parseFacilityLocalScheduledStartOnDate(
+    scheduledStartLocal,
+    formatFacilityLocalDate(getFacilityLocalParts(now, timeZone)),
+    timeZone,
+  );
+}
+
+/** Resolve an explicit Facility civil date without deriving it from a UTC probe.
+ * UTC noon is already tomorrow in zones such as Auckland during daylight saving. */
+export function parseFacilityLocalScheduledStartOnDate(
+  scheduledStartLocal: string | null | undefined,
+  localDate: string,
+  timeZone: string,
+): Date | null {
   if (!scheduledStartLocal) return null;
   const match = /^(\d{1,2}):(\d{2})$/.exec(scheduledStartLocal.trim());
   if (!match) return null;
@@ -19,7 +34,8 @@ export function parseFacilityLocalScheduledStart(
   const minutes = Number(match[2]);
   if (hours > 23 || minutes > 59) return null;
 
-  const local = getFacilityLocalParts(now, timeZone);
+  const date = facilityLocalDateToServiceDate(localDate);
+  const local = { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() };
   // Construct a UTC probe then adjust by the zone offset at that local civil time.
   const probe = new Date(Date.UTC(local.year, local.month - 1, local.day, hours, minutes, 0, 0));
   const probeParts = getFacilityLocalParts(probe, timeZone);
@@ -34,7 +50,17 @@ export function parseFacilityLocalScheduledStart(
     0,
   );
   const offsetMs = probeAsLocalMs - desiredAsUtcMs;
-  return new Date(desiredAsUtcMs - offsetMs);
+  const result = new Date(desiredAsUtcMs - offsetMs);
+  const resolved = getFacilityLocalParts(result, timeZone);
+  const resolvedAsUtcMs = Date.UTC(resolved.year, resolved.month - 1, resolved.day, resolved.hour, resolved.minute, resolved.second);
+  const corrected = new Date(result.getTime() + desiredAsUtcMs - resolvedAsUtcMs);
+  const checked = getFacilityLocalParts(corrected, timeZone);
+  // The first offset probe can straddle a DST transition. Accept a correction
+  // only when it round-trips to the requested wall time. Nonexistent times keep
+  // the existing approximation; ambiguous times keep the existing first match.
+  if (checked.year === local.year && checked.month === local.month && checked.day === local.day
+    && checked.hour === hours && checked.minute === minutes) return corrected;
+  return result;
 }
 
 export function buildOperationalTimeContext(

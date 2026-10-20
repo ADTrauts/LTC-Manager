@@ -1,5 +1,17 @@
 # ONB-07 release blockers
 
+## October20 internal test release update
+
+The user subsequently authorized main push, its automatic Vercel internal test deployment, required forward migrations and mandatory remote CI. See the [release execution record](./ONB_07_INTERNAL_TEST_RELEASE_2026-10-20.md); the October19 table below is retained historical evidence, including its then-current authorization/CI status.
+
+- All ten forward migrations were applied before the new runtime:150 completed, zero pending/unfinished, original140 migration histories preserved under existing checksum governance. No reset/reseed/applied-SQL edits or customer-domain operations.
+- Vercel READY on initial release `4f5d9aa` and CI-repair `5df7ed2`; safe deployed public/auth-boundary checks pass. Internal test release does not certify production infrastructure or actual customer acceptance.
+- Remote attempt1 failed five jobs; bounded copy/mode/Node20 fixture-loader repairs are recorded. Attempt2 passed static/hermetic, database3,712/0/7, assignment6 and Dietary10. Offline28 passed / six failed before preparation. The exact-civil-date window defect for UTC+13 is corrected through canonical time/cycle owners; focused45 and rebuilt affected browser8 pass. A final exact-SHA mandatory remote run remains required; no gate waiver or lucky unchanged rerun.
+- Production scanner/managed offline keys/Stripe and gated workflow configuration remain unavailable; fail-closed behavior remains. No real scanner checks, supplemental onboarding browser configurations or authenticated customer flows are claimed as remote coverage. Signup stays disabled.
+- Partner/PM and intermediate recovery findings remain historical unexplained intermittent evidence, not retrospectively fixed by passing checkpoints. Production infrastructure and actual pilot details/acceptance remain pending. **ONB-07 remains incomplete.**
+
+## Retained October19 checkpoint
+
 Updated **October 19, 2026** after approved R07-01A checkpoint retirement (D23). **HOLD**; ONB-07 remains incomplete. [Current local certification](./ONB_07_SPACE_OFFLINE_CERTIFICATION_2026-10-19.md) and [inventory](./ONB_07_SPACE_OFFLINE_VERIFICATION_2026-10-19.json) supersede the SPACE 404 boundary. Prior follow-up/stabilization inventories retain historical and unresolved evidence. Local checks, remote CI, production readiness and actual pilot acceptance remain separate gates.
 
 | ID | Current gate / issue | Required closure |

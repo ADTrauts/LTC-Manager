@@ -17,6 +17,7 @@ export {
   buildOperationalTimeContext,
   getFacilityLocalTodayWindow,
   parseFacilityLocalScheduledStart,
+  parseFacilityLocalScheduledStartOnDate,
 } from "./build-operational-time-context";
 export {
   formatFacilityLocalDate,

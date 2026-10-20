@@ -1,7 +1,8 @@
 import {
   facilityLocalDateToServiceDate,
-  parseFacilityLocalScheduledStart,
+  parseFacilityLocalScheduledStartOnDate,
   resolveFacilityTimezone,
+  toServiceDateKey,
 } from "@/lib/operational-time";
 
 const HH_MM = /^(\d{1,2}):(\d{2})$/;
@@ -64,39 +65,14 @@ export function resolveCycleWindowInstants(input: {
   );
 
   const serviceDate = facilityLocalDateToServiceDate(input.operationalDateKey);
-  const startProbe = new Date(
-    Date.UTC(
-      serviceDate.getUTCFullYear(),
-      serviceDate.getUTCMonth(),
-      serviceDate.getUTCDate(),
-      12,
-      0,
-      0,
-      0,
-    ),
-  );
-
-  const startsAt = parseFacilityLocalScheduledStart(input.startLocal, startProbe, timezone);
+  const startsAt = parseFacilityLocalScheduledStartOnDate(input.startLocal, input.operationalDateKey, timezone);
   if (!startsAt) return null;
 
-  let endProbe = startProbe;
+  const endDate = new Date(serviceDate);
   if (overnight) {
-    const nextDay = new Date(serviceDate);
-    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    endProbe = new Date(
-      Date.UTC(
-        nextDay.getUTCFullYear(),
-        nextDay.getUTCMonth(),
-        nextDay.getUTCDate(),
-        12,
-        0,
-        0,
-        0,
-      ),
-    );
+    endDate.setUTCDate(endDate.getUTCDate() + 1);
   }
-
-  const endsAt = parseFacilityLocalScheduledStart(input.endLocal, endProbe, timezone);
+  const endsAt = parseFacilityLocalScheduledStartOnDate(input.endLocal, toServiceDateKey(endDate), timezone);
   if (!endsAt) return null;
 
   return { startsAt, endsAt };
