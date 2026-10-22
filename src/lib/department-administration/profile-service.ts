@@ -12,7 +12,9 @@
 import type { Prisma } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
-import type { AuthMethod } from "@/lib/auth";
+import type { AuthMethod, FacilitySession } from "@/lib/auth";
+import { requireDepartmentManage } from "@/lib/department-authority/access";
+import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
 import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
@@ -51,13 +53,30 @@ export type ProfileActor = {
   authMethod?: AuthMethod;
 };
 
-function assertWrite(actor: ProfileActor, targetFacilityId: string): void {
+async function assertWrite(actor: ProfileActor, targetFacilityId: string, departmentId: string): Promise<void> {
   assertProfileWriteAccess({
     flagEnabled: isDepartmentOperationalProfilesEnabled(),
     role: actor.role,
     sessionFacilityId: actor.facilityId,
     targetFacilityId,
   });
+  if (!actor.userId) return;
+  const access = await loadDepartmentChangeAccess(
+    prisma,
+    {
+      uid: actor.userId,
+      name: "",
+      email: "",
+      role: actor.role,
+      facilityId: actor.facilityId,
+      authKind: "user",
+      authMethod: actor.authMethod ?? "PASSWORD",
+      scopeKind: "facility",
+      accessKind: "internal",
+    } as unknown as FacilitySession,
+    { facilityId: targetFacilityId, departmentId },
+  );
+  if (access) requireDepartmentManage(access);
 }
 
 function assertPatternWrite(actor: ProfileActor, targetFacilityId: string): void {
@@ -221,7 +240,7 @@ export async function certifyProfile(
   profileId: string,
 ): Promise<CertificationResult> {
   const row = await loadProfile(profileId);
-  assertWrite(actor, row.facilityId);
+  await assertWrite(actor, row.facilityId, row.departmentId);
   assertProfileTransition(row.status, "CERTIFIED");
 
   const snapshot = toProfileSnapshot(row);
@@ -288,7 +307,7 @@ export async function activateProfile(
     where: { id: profileId },
     select: { id: true, facilityId: true, departmentId: true, status: true },
   });
-  assertWrite(actor, target.facilityId);
+  await assertWrite(actor, target.facilityId, target.departmentId);
 
   const siblings = await prisma.departmentOperationalProfile.findMany({
     where: { departmentId: target.departmentId },
@@ -507,7 +526,7 @@ export async function addRoomExperienceException(
     where: { id: input.profileId },
     select: { id: true, facilityId: true, departmentId: true, status: true },
   });
-  assertWrite(actor, profile.facilityId);
+  await assertWrite(actor, profile.facilityId, profile.departmentId);
   assertProfileEditable(profile.status);
 
   const areaExperience = await prisma.departmentAreaExperience.findUniqueOrThrow({
@@ -664,9 +683,9 @@ export async function removeRoomExperienceException(
 ): Promise<void> {
   const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
     where: { id: input.profileId },
-    select: { id: true, facilityId: true, status: true },
+    select: { id: true, facilityId: true, departmentId: true, status: true },
   });
-  assertWrite(actor, profile.facilityId);
+  await assertWrite(actor, profile.facilityId, profile.departmentId);
   assertProfileEditable(profile.status);
 
   const exception = await prisma.departmentRoomExperienceException.findUniqueOrThrow({
@@ -694,7 +713,7 @@ async function loadEditableProfile(
     where: { id: profileId },
     select: { id: true, facilityId: true, departmentId: true, status: true },
   });
-  assertWrite(actor, profile.facilityId);
+  await assertWrite(actor, profile.facilityId, profile.departmentId);
   assertProfileEditable(profile.status);
   return profile as { id: string; facilityId: string; departmentId: string; status: "DRAFT" };
 }
@@ -1158,9 +1177,9 @@ export async function retireActiveProfile(
 ): Promise<void> {
   const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
     where: { id: profileId },
-    select: { id: true, facilityId: true, status: true },
+    select: { id: true, facilityId: true, departmentId: true, status: true },
   });
-  assertWrite(actor, profile.facilityId);
+  await assertWrite(actor, profile.facilityId, profile.departmentId);
   assertProfileTransition(profile.status, "RETIRED");
 
   await prisma.departmentOperationalProfile.update({

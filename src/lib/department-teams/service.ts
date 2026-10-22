@@ -10,6 +10,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import { withDepartmentChangeCeiling } from "@/lib/department-authority/changes";
 import type { FacilitySession } from "@/lib/auth";
 import { loadDepartmentLocationsView } from "@/lib/department-administration/load-department-admin";
 import { listFacilityRoomTypes } from "@/lib/facility-builder/facility-room-types";
@@ -53,13 +54,19 @@ export async function resolveTeamAuthority(
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true },
   });
-  return decideTeamAuthority({
-    role: session.role as AppRole,
-    authMethod: session.authMethod,
-    sessionFacilityId: session.facilityId,
-    facilityId,
-    departmentExists: Boolean(department),
-  });
+  return withDepartmentChangeCeiling(
+    prisma,
+    session,
+    { facilityId, departmentId },
+    decideTeamAuthority({
+      role: session.role as AppRole,
+      authMethod: session.authMethod,
+      sessionFacilityId: session.facilityId,
+      facilityId,
+      departmentExists: Boolean(department),
+    }),
+    { writes: ["canManage"], views: ["canView"] },
+  );
 }
 
 export async function loadAllowedTeamSpaceIds(

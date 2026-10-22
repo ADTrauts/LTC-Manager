@@ -4,6 +4,9 @@
 
 import type { LogAttachmentTargetKind } from "@prisma/client";
 
+import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
+import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import {
   catalogMatchesTarget,
   cycleLabelMap,
@@ -27,6 +30,7 @@ export async function loadTargetLogsBuildContext(input: {
   departmentId?: string | null;
   /** Deep-link from an old attach URL: include this published card even if not installed yet. */
   includeCatalogStableKey?: string | null;
+  session?: DepartmentAccessSession | null;
 }) {
   const target =
     input.targetKind === "ASSET"
@@ -47,8 +51,13 @@ export async function loadTargetLogsBuildContext(input: {
   if (!label) return null;
 
   const departmentId = input.departmentId ?? label.departmentId;
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(prisma, input.session, input.facilityId)
+    : isContractedDepartmentAuthorityEnabled()
+      ? { ownerKind: "VSSYL" as const }
+      : {};
   const [publishedCards, installedStableKeys] = await Promise.all([
-    listPublishedCatalogBrowseCards(prisma),
+    listPublishedCatalogBrowseCards(prisma, ownerWhere),
     listInstalledCatalogStableKeys(prisma, input.facilityId),
   ]);
   const includeKey = input.includeCatalogStableKey?.trim() || null;

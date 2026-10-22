@@ -3,7 +3,9 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { DepartmentViewNotice } from "@/components/department-view-notice";
 import { hasAtLeastRole } from "@/lib/access";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { getSession } from "@/lib/auth";
 import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
 import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
@@ -107,13 +109,13 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
   const selectedDate = parseIsoDateOrToday(query?.date);
   const selectedDateIso = toIsoDate(selectedDate);
 
-  const canEdit =
-    hasAtLeastRole(session.role, "SUPERVISOR") &&
-    (await resolveAssignmentAuthority({
-      session,
-      departmentId: deptNav.activeDepartmentId ?? "",
-      facilityId: session.facilityId,
-    })).canManage;
+  const assignmentAuthority = await resolveAssignmentAuthority({
+    session,
+    departmentId: deptNav.activeDepartmentId ?? "",
+    facilityId: session.facilityId,
+  });
+  const viewNotice = departmentViewOnlyNotice(assignmentAuthority.reason);
+  const canEdit = hasAtLeastRole(session.role, "SUPERVISOR") && assignmentAuthority.canManage && !viewNotice;
   const deptKey = deptNav.activeOperationalDepartmentKey;
 
   const board = await loadDailyAssignmentBoard({
@@ -249,6 +251,11 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             Schedule View. Assignment is the official Unit responsibility plan.
             {board.departmentKey ? ` Showing ${board.departmentKey}.` : ""}
           </p>
+          {viewNotice ? (
+            <div className="mt-3">
+              <DepartmentViewNotice notice={viewNotice} />
+            </div>
+          ) : null}
           {planView ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
               <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 font-medium text-zinc-800">

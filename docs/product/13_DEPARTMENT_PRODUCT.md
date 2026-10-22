@@ -39,7 +39,7 @@ A facility may locally call the Department Dietary, Food & Nutrition, Nutrition 
 
 Compatibility: the canonical Product key is `HEALTHCARE_FOOD_NUTRITION`. Existing Department rows and entitlements keep the legacy installation key `DIETARY`. `DIETARY` resolves to Healthcare Food & Nutrition and is not a second sellable Product.
 
-Vssyl Console owns the Records / Logs catalog, not Department Product release metadata. Department Product release state lives on the code registry until Console-backed product metadata exists.
+Vssyl Console owns the Records / Logs catalog, not Department Product release metadata. Department Product release state lives on the code registry until Console-backed product metadata exists. When other Marketplace item kinds move into the Catalog, the Console publishes them too, and marks each item Included or Paid.
 
 ---
 
@@ -71,6 +71,13 @@ Choose Department Products
 
 Do not invert this order. Selection may stay ephemeral until payment succeeds. Abandoned checkout creates no entitlement and no Department row. DEVELOPMENT products never enter this journey.
 
+**Inside a Department (Foundation amendment, October 20, 2026).**
+- Configure includes adding **Marketplace items** to the Department: Records forms, Work presets, Operating Rhythm starters and Menu templates.
+- The Product's starter content is the items pre-selected for it.
+- Each item is Included or Paid ([11](./11_COMMERCIAL_MODEL.md#marketplace-items)). A Paid item needs a valid purchase first.
+- Items run on Platform engines. They never add one.
+- Today only Records forms are Marketplace items. See the [Constitution amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026).
+
 ---
 
 ## Sources of truth
@@ -81,6 +88,7 @@ Do not invert this order. Selection may stay ephemeral until payment succeeds. A
 | Which of those are customer-visible? | Registry `status === AVAILABLE` |
 | What products did this facility purchase? | `FacilityDepartmentEntitlement` |
 | What Departments are installed? | `Department` |
+| Which Marketplace items does a Department use? | Today: Records forms through `FacilityCatalogInstall` and `LogAttachment`. Other item kinds are not built. |
 | Which Departments may a customer enter? | Eligibility: AVAILABLE or entitled RETIRED + valid entitlement + installed + active |
 | Is an installed Department admitted / enabled? | `Department.isActive` |
 | What is locally configured? | Existing facility-scoped Build models |
@@ -177,8 +185,11 @@ CLI / seed / provision may still bootstrap the original trio for local developme
 |----------|-------------|
 | What operational products does Vssyl publish? | Department Product registry |
 | Can this active facility Department use shared engines? | Open department admission (`isActive`) |
+| Does an installed Product Department get its Product's capabilities? | Yes: install, plus a valid license when billing enforcement is on (Foundation amendment, October 20, 2026). Not a deployment switch. |
 
 The registry is not a shared-engine allowlist.
+
+**Today the code differs.** Food & Nutrition and EVS capabilities are also gated by deployment-wide switches (`DIETARY_*`, `EVS_OPERATIONS_ENABLED`). Several default off: Job Flow, Dietary evidence, Dietary asset operations and all of EVS. Plant's runtime check already follows install and license (`isPlantRuntimeEnabled`), but some synchronous checks, such as Cycle authority, still read `PLANT_OPERATIONS_ENABLED`. The switches retire in LEG-05 ([LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026)).
 
 ---
 
@@ -227,10 +238,13 @@ Every new Department Product must define these before implementation. Facility P
 | Domain-specific capabilities | Only mechanisms the platform does not already have |
 | Run requirements | What must be true during the current operation |
 | Historical / Audit questions | What a past service date must be able to answer |
-| Starter content | What install copies, and what stays unpublished until the facility publishes |
+| Starter content | Which Marketplace items are pre-selected for the Department, what install copies, and what stays unpublished until the facility publishes |
 | Facility-configurable values | Times, room bindings, people, local labels |
+| Dashboard contributions | Which Dashboard capabilities and attention sources the product produces, its drill-down homes, and its "not configured" states. Products contribute capabilities, never dashboard UI. See the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md). |
 | Platform-gap test | Which required behavior no existing Platform mechanism can express |
 
 A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, or history store unless that platform-gap test shows a missing reusable mechanism.
+
+A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete. Healthcare Food & Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
 
 Facility Plant Operations is implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). V1 is AVAILABLE as of October 7, 2026.

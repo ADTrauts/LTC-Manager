@@ -7,6 +7,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import { withDepartmentChangeCeiling } from "@/lib/department-authority/changes";
 import type { FacilitySession } from "@/lib/auth";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership/department";
 import { prisma } from "@/lib/prisma";
@@ -63,13 +64,19 @@ export async function resolveJobRoleAuthority(
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true },
   });
-  return decideJobRoleAuthority({
-    role: session.role as AppRole,
-    authMethod: session.authMethod,
-    sessionFacilityId: session.facilityId,
-    facilityId,
-    departmentExists: Boolean(department),
-  });
+  return withDepartmentChangeCeiling(
+    prisma,
+    session,
+    { facilityId, departmentId },
+    decideJobRoleAuthority({
+      role: session.role as AppRole,
+      authMethod: session.authMethod,
+      sessionFacilityId: session.facilityId,
+      facilityId,
+      departmentExists: Boolean(department),
+    }),
+    { writes: ["canManage"], views: ["canView"] },
+  );
 }
 
 async function assertActiveJobRoleNameAvailable(

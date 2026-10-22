@@ -3,6 +3,7 @@
  * Batched — no per-employee queries.
  */
 
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import { prisma } from "@/lib/prisma";
 import { assetNotRetiredWhere } from "@/lib/asset-operations/ownership";
 import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
@@ -110,12 +111,18 @@ export async function loadExistingEvidenceForDate(input: {
   unitId?: string | null;
 }): Promise<ExistingEvidenceRecordForResolve[]> {
   const rows = await prisma.operationalEvidenceRecord.findMany({
-    where: {
+    where: withOperatorPeriod(
+      {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDate: input.operationalDate,
       ...(input.unitId ? { unitId: input.unitId } : {}),
     },
+      await operationPeriodWhere(prisma, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
+    ),
     select: {
       id: true,
       requirementKey: true,

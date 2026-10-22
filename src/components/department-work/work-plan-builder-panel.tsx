@@ -12,6 +12,7 @@ import {
   retireWorkPlanAction,
   updateWorkPlanDraftAction,
 } from "@/app/(protected)/staffing/work-plans/actions";
+import { DepartmentViewNotice } from "@/components/department-view-notice";
 import type { WorkItemDraftInput, WorkPlanDraftInput } from "@/lib/department-work/types";
 
 type PlanRow = {
@@ -81,6 +82,8 @@ type Props = {
   departmentId: string;
   canManage: boolean;
   canPublish: boolean;
+  /** Set when this person may read the Department and may not change it. */
+  viewOnlyNotice?: string | null;
   /** When set (e.g. after create/successor), keep the editor on this plan across refresh. */
   initialPlanId?: string | null;
   plans: PlanRow[];
@@ -164,6 +167,7 @@ export function WorkPlanBuilderPanel({
   departmentId,
   canManage,
   canPublish,
+  viewOnlyNotice = null,
   initialPlanId = null,
   plans,
   presets,
@@ -313,6 +317,25 @@ export function WorkPlanBuilderPanel({
       </aside>
 
       <section className="space-y-4" data-testid="work-plan-editor">
+        {viewOnlyNotice ? (
+          <>
+            <DepartmentViewNotice notice={viewOnlyNotice} />
+            {selected ? (
+              <div className="rounded-md border bg-slate-50 p-3 text-sm" data-testid="work-plan-preview">
+                <p className="font-medium">{selected.name}</p>
+                <p className="text-slate-600">{selected.description}</p>
+                <ul className="mt-2 list-disc pl-5">
+                  {selected.items.map((item) => (
+                    <li key={item.itemKey}>{item.label}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-600">Select a Work Plan to read it.</p>
+            )}
+          </>
+        ) : (
+        <>
         {message ? (
           <p className="text-sm text-emerald-700" data-testid="work-plan-message">
             {message}
@@ -747,6 +770,8 @@ export function WorkPlanBuilderPanel({
             </p>
           </div>
         ) : null}
+        </>
+        )}
       </section>
     </div>
   );

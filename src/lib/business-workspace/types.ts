@@ -2,9 +2,7 @@ import type { AppRole } from "@/lib/access";
 import type { DashboardWorkspaceViewModel } from "./dashboard/types";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import type { AppIconKey } from "@/lib/design-system";
-import type { StatusBadgeVariant, StatusTone } from "@/lib/design-system/status-styles";
-import type { RunDepartmentOperationPresentation } from "@/lib/operational-cycles";
-import type { OperationContext, OperationsCenterKeyTimeSummary } from "@/lib/operations-center/types";
+import type { StatusTone } from "@/lib/design-system/status-styles";
 
 export type WorkspaceContext =
   | {
@@ -33,60 +31,6 @@ export type WorkspaceSectionId =
 
 export type WorkspaceHealthTone = "green" | "yellow" | "red" | "neutral";
 
-export type WorkspacePriorityRank = 1 | 2 | 3 | 4 | 5 | 6;
-
-export type WorkspacePriorityCard = {
-  id: string;
-  title: string;
-  detail: string;
-  href: string;
-  tone: StatusTone;
-  rank: WorkspacePriorityRank;
-  /** Watch / healthy-state items — shown after primaries, never as urgent. */
-  isWatch?: boolean;
-  departmentLabel?: string;
-  locationLabel?: string;
-};
-
-export type ManagerFocusCard = {
-  id: string;
-  title: string;
-  explanation: string;
-  whyItMatters: string;
-  actionLabel: string;
-  href: string;
-  tone: StatusTone;
-  locationLabel?: string;
-  rank: number;
-};
-
-export type ManagerFocusHealthyGuidance = {
-  title: string;
-  detail: string;
-  primary: { label: string; href: string };
-  secondary: Array<{ label: string; href: string }>;
-};
-
-export type ManagementAgendaBucketId = "morning" | "midday" | "afternoon" | "evening";
-
-export type ManagementAgendaTemporal = "past" | "current" | "future";
-
-export type ManagementAgendaItem = {
-  id: string;
-  title: string;
-  detail: string;
-  href: string;
-  tone?: StatusTone;
-};
-
-export type ManagementAgendaBucket = {
-  id: ManagementAgendaBucketId;
-  label: string;
-  isCurrent: boolean;
-  temporal: ManagementAgendaTemporal;
-  items: ManagementAgendaItem[];
-};
-
 export type WorkspaceQuickAction = {
   id: string;
   title: string;
@@ -98,18 +42,6 @@ export type WorkspaceQuickAction = {
 export type WorkspaceCachedMorningBrief = {
   headline: string;
   origin: "cached";
-  href: string;
-};
-
-export type WorkspaceDepartmentHealth = {
-  key: string;
-  label: string;
-  tone: WorkspaceHealthTone;
-  badge: StatusBadgeVariant;
-  summary: string;
-  reason: string;
-  locationCounts: { ready: number; inProgress: number; blocked: number; total: number };
-  openPriorityWorkCount: number;
   href: string;
 };
 
@@ -142,10 +74,6 @@ export type BusinessWorkspaceHeader = {
   greeting: string;
   facilityName: string;
   departmentLabel: string;
-  operation: OperationContext;
-  healthy: boolean;
-  keyTimeSummaries?: OperationsCenterKeyTimeSummary[];
-  runPresentation?: RunDepartmentOperationPresentation | null;
 };
 
 export type WorkspacePreferenceState = {
@@ -157,18 +85,13 @@ export type WorkspacePreferenceState = {
 
 export type BusinessWorkspaceData = {
   header: BusinessWorkspaceHeader;
-  managerFocus: ManagerFocusCard[];
-  managerFocusHealthy: ManagerFocusHealthyGuidance | null;
-  managementAgenda: ManagementAgendaBucket[];
   quickActions: WorkspaceQuickAction[];
   cachedMorningBrief: WorkspaceCachedMorningBrief | null;
-  priorities: WorkspacePriorityCard[];
-  departmentHealth: WorkspaceDepartmentHealth[];
   todaysWorkLinks: WorkspaceLinkCard[];
   operationsLinks: WorkspaceLinkCard[];
   performance: WorkspaceMetric[];
   recentActivity: WorkspaceActivityItem[];
-  dashboardRuntime: DashboardWorkspaceViewModel | null;
+  dashboardRuntime: DashboardWorkspaceViewModel;
 };
 
 export type BusinessWorkspaceView = {

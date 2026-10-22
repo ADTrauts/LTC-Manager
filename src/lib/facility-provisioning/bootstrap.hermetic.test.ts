@@ -177,6 +177,25 @@ function buildDb(seed?: {
         periods.push(row);
         return row;
       },
+      findFirst: async ({
+        where,
+      }: {
+        where: { roleKey: string; endsAt: null; userFacilityAccess: { facilityId: string; userId?: { not: string } } };
+      }) => {
+        for (const period of periods) {
+          const access = accesses.find((row) => row.id === period.userFacilityAccessId);
+          if (
+            access &&
+            period.roleKey === where.roleKey &&
+            period.endsAt === null &&
+            access.facilityId === where.userFacilityAccess.facilityId &&
+            access.userId !== where.userFacilityAccess.userId?.not
+          ) {
+            return { id: period.id, userFacilityAccess: { userId: access.userId } };
+          }
+        }
+        return null;
+      },
     },
     userOrganizationMembership: {
       findMany: async () => memberships,

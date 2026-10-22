@@ -1,46 +1,69 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { DashboardScreen } from "@/components/dashboard/dashboard-screen";
+import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
+import { dashboardFaultCardId } from "@/lib/dashboard/fault";
+import { resolveDashboardViewer } from "@/lib/dashboard/viewer/resolve";
+import { isDashboardV2Enabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
-type RetiredOperationsCenterPageProps = {
+type DashboardPageProps = {
   searchParams?: Promise<{
     onboarding?: string | string[] | undefined;
+    scope?: string | string[] | undefined;
+    fault?: string | string[] | undefined;
   }>;
 };
 
 /**
- * `/dashboard` (legacy Operations Center) is RETIRED as a RUN destination.
- *
- * See docs/product/LTC_MANAGER_RUN_SURFACE_RATIONALIZATION_2026-08-09.md and the Legacy Surface
- * Register. The canonical RUN information architecture is:
- *   Dashboard      = /workspace  (manager/GM overview)
- *   Today's Work   = /today      (current-day execution)
- *   Locations      = /units      (place-based operational view)
- *
- * Bookmarks and deep links land on the caller's canonical RUN home instead of a dead route:
- * managers/GMs reach the Dashboard (`/workspace`), supervisors reach Today's Work (`/today`), and
- * frontline sessions reach their own operational home. Authorization is unchanged — every landing
- * route is independently gated by the platform route registry.
+ * Flag off: `/dashboard` still sends each role to today's home.
+ * Flag on: Supervisor and above see the Dashboard. The flag stays off until production approval.
  */
-export default async function RetiredOperationsCenterPage({
-  searchParams,
-}: RetiredOperationsCenterPageProps) {
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
   }
 
   const query = searchParams ? await searchParams : {};
-  const onboardingComplete =
-    typeof query.onboarding === "string" && query.onboarding === "complete";
-
+  const onboardingComplete = typeof query.onboarding === "string" && query.onboarding === "complete";
+  const scopeParam = typeof query.scope === "string" ? query.scope : undefined;
+  const faultCardId = dashboardFaultCardId(typeof query.fault === "string" ? query.fault : undefined);
   const destination = resolveDefaultHomePath({
     authKind: session.authKind,
     role: session.role,
     activeUnitId: session.activeUnitId,
   });
 
-  // Preserve the post-onboarding launch checklist hand-off to the canonical Dashboard.
-  redirect(onboardingComplete ? `${destination}?onboarding=complete` : destination);
+  if (!isDashboardV2Enabled()) {
+    redirect(onboardingComplete ? `${destination}?onboarding=complete` : destination);
+  }
+  if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
+    redirect(destination);
+  }
+
+  const cookieStore = await cookies();
+  const resolution = await resolveDashboardViewer(session, {
+    scopeParam,
+    cookieDepartmentId: cookieStore.get(ACTIVE_DEPARTMENT_COOKIE)?.value,
+  });
+  if (resolution.kind !== "viewer" || !resolution.viewer.scope) {
+    return (
+      <section className="mx-auto max-w-3xl" data-testid="dashboard-v2">
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="mt-2 text-sm text-zinc-600">Your Dashboard needs a Department.</p>
+      </section>
+    );
+  }
+
+  return (
+    <DashboardScreen
+      viewer={resolution.viewer}
+      onboardingComplete={onboardingComplete}
+      faultCardId={faultCardId}
+    />
+  );
 }

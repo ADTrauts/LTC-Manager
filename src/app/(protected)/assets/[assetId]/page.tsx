@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 
 import {
+  acceptMaintainerProposalAction,
   retireAssetAction,
   removeAssetPhotoAction,
   updateAssetIdentityAction,
@@ -35,7 +36,8 @@ import { getSession } from "@/lib/auth";
 import { loadDepartmentsForCurrentSurface, isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
-import { isCanonicalLogsEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { repairCompanyWhere } from "@/lib/department-authority/asset-maintainers";
+import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
@@ -182,6 +184,7 @@ export default async function AssetProfilePage({ params }: Props) {
     );
   }
 
+  const companyWhere = await repairCompanyWhere(prisma, session, session.facilityId);
   const [units, spaces, vendors, organizations, departments, facility, pmPlans] = await Promise.all([
     prisma.unit.findMany({
       where: { facilityId: session.facilityId, isActive: true },
@@ -195,7 +198,7 @@ export default async function AssetProfilePage({ params }: Props) {
     }),
     authority.canViewVendorDetails || authority.canManageAssets
       ? prisma.vendor.findMany({
-          where: { facilityId: session.facilityId },
+          where: { facilityId: session.facilityId, ...companyWhere },
           orderBy: { name: "asc" },
           select: { id: true, name: true },
         })
@@ -232,6 +235,12 @@ export default async function AssetProfilePage({ params }: Props) {
   const deviceBoundUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value?.trim() || null;
 
   const identity = profile.identity;
+  const pendingMaintainer = isContractedDepartmentAuthorityEnabled()
+    ? await prisma.assetMaintainerProposal.findFirst({
+        where: { assetId: identity.id, status: "PENDING" },
+        select: { id: true },
+      })
+    : null;
   const roomTerm = resolveFacilityVocabulary(facility).level3.singular;
   const locationLabel = formatAssetLocationLabel({
     unitName: identity.unit.name,
@@ -677,6 +686,7 @@ export default async function AssetProfilePage({ params }: Props) {
           Identity and location are BUILD facts. Prefer Asset Builder for routine configuration.
         </p>
         {authority.canManageAssets && presentation.lifecycle !== "RETIRED" ? (
+          <>
           <form action={updateAssetIdentityAction} className="mt-3 grid gap-3 md:grid-cols-2">
             <input type="hidden" name="assetId" value={identity.id} />
             <input type="hidden" name="departmentId" value={departmentId} />
@@ -766,6 +776,9 @@ export default async function AssetProfilePage({ params }: Props) {
               </select>
               <span className="text-xs text-zinc-500">
                 Facility or operating partner obligated to maintain or repair this asset.
+                {pendingMaintainer
+                  ? " A different maintainer is waiting for that party to accept. The current maintainer stays until then."
+                  : ""}
               </span>
             </label>
             {authority.canAssignVendor || authority.canManageAssets ? (
@@ -839,6 +852,16 @@ export default async function AssetProfilePage({ params }: Props) {
               </button>
             </div>
           </form>
+          {pendingMaintainer ? (
+            <form action={acceptMaintainerProposalAction} className="mt-3">
+              <input type="hidden" name="proposalId" value={pendingMaintainer.id} />
+              <input type="hidden" name="assetId" value={identity.id} />
+              <button type="submit" className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm">
+                Accept this maintainer
+              </button>
+            </form>
+          ) : null}
+          </>
         ) : (
           <dl className="mt-3 grid gap-2 text-sm text-zinc-700 md:grid-cols-2">
             <div>

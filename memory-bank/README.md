@@ -7,6 +7,9 @@ Use it to keep operational context so future sessions do not drift.
 ## Files
 
 - Current onboarding program: [docs/onboarding/README.md](../docs/onboarding/README.md), with its single phase tracker and decision log. The phased plan and audit are saved there; do not duplicate ONB status in older phase checklists.
+- Dashboard program: [docs/dashboard/README.md](../docs/dashboard/README.md), with its single phase tracker and decision log. It replaces Business Workspace and retires Today's Work; do not duplicate DSH status elsewhere.
+- Contracted Department Authority program: [docs/contracted-departments/README.md](../docs/contracted-departments/README.md), with its single phase tracker. Do not duplicate CDA status elsewhere.
+- Legacy Retirement program: [docs/legacy-retirement/README.md](../docs/legacy-retirement/README.md), with its single phase tracker. Do not duplicate LEG status elsewhere.
 - `project-overview.md`: product scope. Current architecture is `docs/product/01_PRODUCT_CONSTITUTION.md`. The module list is the earlier MVP inventory.
 - `architecture-decisions.md`: key technical decisions, including the certified platform mechanisms.
 - `progress-log.md`: phase-by-phase implementation history, quality gates, and notable post-phase fixes.

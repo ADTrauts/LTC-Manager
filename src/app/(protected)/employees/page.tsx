@@ -17,9 +17,19 @@ import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { buildPageIntro } from "@/lib/build-hub";
+import { DepartmentViewNotice } from "@/components/department-view-notice";
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { facilityWorkforcePeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
+import {
+  employeeVisibleWhere,
+  loadDepartmentVisibility,
+  visibleDepartmentIdList,
+} from "@/lib/department-authority/visibility";
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
 import { loadActiveJobRolesForFacilityDepartments } from "@/lib/department-job-roles";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
+import { findOtherOpenFacilityAdministratorPeriod } from "@/lib/facility-access";
 import { prisma } from "@/lib/prisma";
 
 function toIsoDate(d: Date | null): string | null {
@@ -80,6 +90,7 @@ function toEmployeeCardProps(
   },
   accountLink: EmployeeForManagementCard["accountLink"],
   accountState: EmployeeAccountPresentation,
+  holdsFacilityAdministratorSeat: boolean,
 ): EmployeeForManagementCard {
   const disciplineEntries = employee.disciplinePointEntries.map((e) => ({
     id: e.id,
@@ -100,6 +111,7 @@ function toEmployeeCardProps(
     hasAppLogin: accountState.kind !== "unlinked",
     phone: employee.phone,
     roleType: employee.roleType,
+    holdsFacilityAdministratorSeat,
     employmentType: employee.employmentType,
     status: employee.status,
     primaryUnitId: employee.primaryUnitId,
@@ -186,7 +198,23 @@ export default async function EmployeesPage({
   if (activeDepartmentId) {
     directoryQuery.dept = activeDepartmentId;
   }
-  const where = buildEmployeeWhere(facilityId, directoryQuery);
+  const visibility = await loadDepartmentVisibility(prisma, session, facilityId);
+  const canAuthorPeople =
+    !visibility ||
+    (activeDepartmentId
+      ? visibility.manageDepartmentIds.has(activeDepartmentId)
+      : visibility.manageDepartmentIds.size > 0);
+  const peopleViewNotice =
+    showManagerTools && visibility && !canAuthorPeople
+      ? departmentViewOnlyNotice(DEPARTMENT_VIEW_REASON)
+      : null;
+  const visibleDepartmentIds = visibleDepartmentIdList(visibility);
+  const where = withOperatorPeriod(
+    visibility
+      ? { AND: [buildEmployeeWhere(facilityId, directoryQuery), employeeVisibleWhere(visibility)] }
+      : buildEmployeeWhere(facilityId, directoryQuery),
+    await facilityWorkforcePeriodWhere(prisma, facilityId),
+  );
   const orderBy = buildEmployeeOrderBy(directoryQuery.sort);
 
   const [employees, units, jobTitles, activeTeams] = await Promise.all([
@@ -247,7 +275,20 @@ export default async function EmployeesPage({
       },
     }),
     prisma.unit.findMany({
-      where: { facilityId, isActive: true },
+      where: visibleDepartmentIds
+        ? {
+            facilityId,
+            isActive: true,
+            OR: [
+              { departmentResponsibilities: { some: { departmentId: { in: [...visibleDepartmentIds] } } } },
+              {
+                childSpaces: {
+                  some: { responsibilities: { some: { departmentId: { in: [...visibleDepartmentIds] } } } },
+                },
+              },
+            ],
+          }
+        : { facilityId, isActive: true },
       orderBy: { displayOrder: "asc" },
       select: { id: true, name: true },
     }),
@@ -257,7 +298,9 @@ export default async function EmployeesPage({
       select: { id: true, name: true },
     }),
     prisma.departmentTeam.findMany({
-      where: { facilityId, status: "ACTIVE" },
+      where: visibleDepartmentIds
+        ? { facilityId, status: "ACTIVE", departmentId: { in: [...visibleDepartmentIds] } }
+        : { facilityId, status: "ACTIVE" },
       orderBy: [{ displayName: "asc" }],
       select: {
         id: true,
@@ -277,7 +320,9 @@ export default async function EmployeesPage({
     ),
   ];
 
-  const operableDepartments = await loadCustomerOperableDepartments(prisma, facilityId);
+  const operableDepartments = (await loadCustomerOperableDepartments(prisma, facilityId)).filter(
+    (department) => !visibility || visibility.pageDepartmentIds.has(department.id),
+  );
   const operableIds = new Set(operableDepartments.map((row) => row.id));
   const departments = (
     await prisma.department.findMany({
@@ -331,6 +376,7 @@ export default async function EmployeesPage({
           select: { userId: true },
         });
   const grantedUserIds = new Set(grants.map((row) => row.userId));
+  const administratorSeat = await findOtherOpenFacilityAdministratorPeriod(prisma, { facilityId });
   const pendingInvites = await prisma.employeeUserLinkInvitation.findMany({
     where: {
       employeeId: { in: employees.map((e) => e.id) },
@@ -377,7 +423,7 @@ export default async function EmployeesPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {showManagerTools ? (
+          {showManagerTools && canAuthorPeople ? (
             <>
             <Link
               href="/employees/import"
@@ -388,7 +434,7 @@ export default async function EmployeesPage({
             <Link className="app-button" href="/employees/bulk-setup">Bulk setup (CSV)</Link>
             </>
           ) : null}
-          {showManagerTools ? (
+          {showManagerTools && canAuthorPeople ? (
             <CreateEmployeeDrawer
               facilityDisplayName={facility?.displayName ?? "this Facility"}
               units={units}
@@ -400,6 +446,8 @@ export default async function EmployeesPage({
           ) : null}
         </div>
       </header>
+
+      {peopleViewNotice ? <DepartmentViewNotice notice={peopleViewNotice} /> : null}
 
       <div className="rounded-lg border border-zinc-200 bg-white p-3">
         <EmployeesFiltersForm
@@ -430,13 +478,18 @@ export default async function EmployeesPage({
         {employees.map((employee) => (
           <EmployeeManagementCard
             key={employee.id}
-            employee={toEmployeeCardProps(employee, accountLinkFor(employee), accountStateFor(employee))}
+            employee={toEmployeeCardProps(
+              employee,
+              accountLinkFor(employee),
+              accountStateFor(employee),
+              Boolean(employee.userId) && employee.userId === administratorSeat?.userId,
+            )}
             units={units}
             departments={departments}
             jobTitles={jobTitles}
             teams={activeTeams}
             jobRoles={jobRoles}
-            showManagerTools={showManagerTools}
+            showManagerTools={showManagerTools && canAuthorPeople}
             showPinManagement={showPinManagement}
             {...(showPinManagement ? { hasPinSet: Boolean(employee.pinDigest) } : {})}
           />

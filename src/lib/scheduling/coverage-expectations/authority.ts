@@ -1,4 +1,5 @@
 import type { AppRole } from "@/lib/access";
+import { withDepartmentChangeCeiling } from "@/lib/department-authority/changes";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -65,11 +66,17 @@ export async function resolveCoverageAuthority(
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true },
   });
-  return decideCoverageAuthority({
-    role: session.role as AppRole,
-    authMethod: session.authMethod,
-    sessionFacilityId: session.facilityId,
-    facilityId,
-    departmentExists: Boolean(department),
-  });
+  return withDepartmentChangeCeiling(
+    prisma,
+    session,
+    { facilityId, departmentId },
+    decideCoverageAuthority({
+      role: session.role as AppRole,
+      authMethod: session.authMethod,
+      sessionFacilityId: session.facilityId,
+      facilityId,
+      departmentExists: Boolean(department),
+    }),
+    { writes: ["canManage"], views: ["canView"] },
+  );
 }

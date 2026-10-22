@@ -1,8 +1,9 @@
 import { EmployeeStatus, type EmploymentType, Prisma, type PrismaClient, type RoleKey } from "@prisma/client";
 
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
+import { operatorPeriodIdForCreate } from "@/lib/department-authority/operator-period";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
-import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import { ensureUserFacilityAccessGrant, FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL } from "@/lib/facility-access";
 
 import { isGlobalAccountActivated } from "./activation";
 import { findExistingUserByEmail } from "./invitations";
@@ -83,6 +84,9 @@ export async function onboardFacilityEmployee(
   const email = normalizeAccountIdentifier(input.email);
   if (!email || !email.includes("@")) {
     throw new EmployeeIdentityError("CONFLICT", "Email is required.");
+  }
+  if (input.roleType === "FACILITY_ADMINISTRATOR") {
+    throw new EmployeeIdentityError("CONFLICT", FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL);
   }
   if (mayAuthenticateWithQuickPin(input.roleType) && !input.pinDigest && input.pendingPinEnrollment !== true) {
     throw new EmployeeIdentityError("CONFLICT", "PIN is required for this role.");
@@ -214,8 +218,18 @@ export async function onboardFacilityEmployee(
       grantedByUserId: input.actorUserId,
     });
   } else {
+    const primaryDepartmentId =
+      typeof input.extras?.primaryDepartmentId === "string" ? input.extras.primaryDepartmentId : null;
     const created = await db.employee.create({
-      data: employeeData,
+      data: {
+        ...employeeData,
+        operatorPeriodId: primaryDepartmentId
+          ? await operatorPeriodIdForCreate(db, {
+              facilityId: input.facilityId,
+              departmentId: primaryDepartmentId,
+            })
+          : null,
+      },
       select: { id: true },
     });
     employeeId = created.id;

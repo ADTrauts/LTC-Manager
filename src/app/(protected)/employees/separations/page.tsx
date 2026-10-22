@@ -7,12 +7,9 @@ import { EmployeeStatus, SeparationKind } from "@prisma/client";
 import { RecordSeparationDrawer } from "@/app/(protected)/employees/record-separation-drawer";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import {
-  employeeWhereForFacilityAndDept,
-  hrefWithEmployeesDept,
-  resolveEmployeesDeptScope,
-} from "@/lib/employees-department-tabs";
+import { hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 
 function separationKindLabel(k: SeparationKind): string {
   return k === SeparationKind.RESIGNED ? "Resigned" : "Terminated";
@@ -30,14 +27,18 @@ export default async function EmployeesSeparationsPage({
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role, "MANAGER")) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const facilityId = session.facilityId;
   const sp = await searchParams;
-  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees/separations", sp);
-
-  const employeeScope = employeeWhereForFacilityAndDept(facilityId, deptId);
+  const { deptId, deptName, employeeWhere: employeeScope } = await resolveEmployeesDeptScope(
+    prisma,
+    facilityId,
+    "/employees/separations",
+    sp,
+    session,
+  );
 
   const [rows, roster] = await Promise.all([
     prisma.employeeTerminationRecord.findMany({

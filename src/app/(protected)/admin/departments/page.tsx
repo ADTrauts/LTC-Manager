@@ -10,6 +10,8 @@ import {
   ADMIN_DEPARTMENTS_MARKETPLACE_HREF,
   adminDepartmentManageHref,
 } from "@/lib/department-administration";
+import { listDepartmentsNeedingHead } from "@/lib/department-authority";
+import { loadDepartmentVisibility } from "@/lib/department-authority/visibility";
 import {
   loadCurrentOperatorsForFacilityDepartments,
   organizationDisplayLabel,
@@ -80,10 +82,14 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
             headEmployee: { select: { firstName: true, lastName: true } },
           },
         });
-  const operatorsByDepartment = await loadCurrentOperatorsForFacilityDepartments(prisma, {
-    facilityId,
-    departmentIds: departments.map((row) => row.id),
-  });
+  const [operatorsByDepartment, needingHead, visibility] = await Promise.all([
+    loadCurrentOperatorsForFacilityDepartments(prisma, {
+      facilityId,
+      departmentIds: departments.map((row) => row.id),
+    }),
+    listDepartmentsNeedingHead(prisma, { facilityId, departmentIds: operableIds }),
+    loadDepartmentVisibility(prisma, session, facilityId),
+  ]);
 
   if (catalogBeforeCheckout) {
     const newlyInstalled = catalog.filter((item) => {
@@ -148,6 +154,42 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
         </p>
       ) : null}
 
+      {needingHead.length > 0 ? (
+        <section
+          className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+          data-testid="departments-needing-head"
+        >
+          <h2 className="text-sm font-semibold text-amber-900">Departments that need a head</h2>
+          <p className="text-xs text-amber-900">
+            Every department your facility runs needs a head. You may name yourself.
+          </p>
+          <ul className="divide-y divide-amber-200">
+            {needingHead.map((row) => (
+              <li
+                key={row.departmentId}
+                className="flex flex-wrap items-center justify-between gap-2 py-2"
+                data-testid={`department-needs-head-${row.departmentId}`}
+              >
+                <span className="text-sm text-zinc-900">
+                  {row.name}
+                  <span className="ml-2 text-xs text-zinc-600">
+                    {row.status === "HEAD_LEFT"
+                      ? `${row.formerHeadName ?? "The head"} has left`
+                      : "No head yet"}
+                  </span>
+                </span>
+                <Link
+                  href={`/department/settings/${row.departmentId}`}
+                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+                >
+                  Name a head
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {departments.length === 0 ? (
         <div className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-600">
           No departments are installed at this facility yet. Add a Vssyl department from the
@@ -171,6 +213,7 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
               const operatedBy = operator
                 ? organizationDisplayLabel(operator.relationship.organization)
                 : null;
+              const summaryOnly = visibility?.summaryDepartmentIds.has(d.id) === true;
               return (
                 <li key={d.id} className="px-4 py-4 sm:px-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -192,9 +235,15 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
                           <span className="text-zinc-600">Inactive</span>
                         )}
                       </p>
-                      <p className="mt-1 text-sm text-zinc-600">
-                        Department Manager: {managerName}
-                      </p>
+                      {summaryOnly ? (
+                        <p className="mt-1 text-sm text-zinc-600">
+                          {operatedBy ?? "Its operator"} runs this Department. You can open its compliance Records.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-zinc-600">
+                          Department Manager: {managerName}
+                        </p>
+                      )}
                       {operatedBy ? (
                         <p className="text-sm text-zinc-600" data-testid="department-operated-by">
                           Operated by: {operatedBy}
@@ -202,11 +251,11 @@ export default async function AdminDepartmentsPage({ searchParams }: PageProps) 
                       ) : null}
                     </div>
                     <Link
-                      href={adminDepartmentManageHref(d.id)}
+                      href={summaryOnly ? `/staffing/log-book?department=${d.id}` : adminDepartmentManageHref(d.id)}
                       className="inline-flex self-start rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
-                      data-testid="manage-department"
+                      data-testid={summaryOnly ? "department-compliance-records" : "manage-department"}
                     >
-                      Manage
+                      {summaryOnly ? "Compliance Records" : "Manage"}
                     </Link>
                   </div>
                 </li>

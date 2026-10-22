@@ -45,7 +45,18 @@ export { loadOrganizationFacilitySummaries } from "./organization-facility-summa
 export {
   changeInternalFacilityRole,
   ensureCurrentInternalFacilityRole,
+  InternalFacilityRoleError,
   listCurrentInternalFacilityRoles,
   resolveCurrentInternalFacilityRole,
   type InternalFacilityRoleResolution,
 } from "./internal-facility-role";
+
+export {
+  FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL,
+  FACILITY_ADMINISTRATOR_CHANGE_REFUSAL,
+  FACILITY_ADMINISTRATOR_TAKEN_MESSAGE,
+  facilityAdministratorRoleEditRefusal,
+  findOtherOpenFacilityAdministratorPeriod,
+  lockFacilityForAdministratorChange,
+  userHoldsFacilityAdministratorSeat,
+} from "./administrator-seat";

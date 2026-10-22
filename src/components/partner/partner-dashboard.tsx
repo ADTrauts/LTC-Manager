@@ -81,7 +81,13 @@ function AssetsCard({ card }: { card: DashboardAssetsCard }) {
   );
 }
 
-export function PartnerDashboard({ view }: { view: PartnerDashboardViewModel }) {
+export function PartnerDashboard({
+  view,
+  leaderCards = [],
+}: {
+  view: PartnerDashboardViewModel;
+  leaderCards?: Array<{ id: string; title: string; question: string; reason: string | null }>;
+}) {
   return (
     <section className="space-y-4" data-testid="partner-dashboard">
       <div>
@@ -90,6 +96,19 @@ export function PartnerDashboard({ view }: { view: PartnerDashboardViewModel }) 
           {view.departmentName} · {view.serviceDate}
         </p>
       </div>
+      {leaderCards.length > 0 ? (
+        <div data-testid="vendor-leader-dashboard">
+          <h3 className="text-sm font-semibold text-zinc-900">You run this Department</h3>
+          <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white">
+            {leaderCards.map((card) => (
+              <li key={card.id} className="px-4 py-3">
+                <p className="text-sm font-medium text-zinc-900">{card.title}</p>
+                <p className="text-sm text-zinc-600">{card.reason ?? card.question}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         {view.review ? <ReviewCard card={view.review} /> : null}
         {view.logs ? <LogsCard card={view.logs} /> : null}

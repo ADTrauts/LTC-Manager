@@ -2,7 +2,7 @@
 
 **Business Operations Platform.** Your operations. All together.
 
-**Vssyl — Current Operations:** [ADTrauts/LTC-Manager](https://github.com/ADTrauts/LTC-Manager) contains the current application and VSSYL Console. [ADTrauts/Vssyl](https://github.com/ADTrauts/Vssyl) is the mothballed **Vssyl — Legacy Platform** predecessor. Current architecture: [Product Constitution](docs/product/01_PRODUCT_CONSTITUTION.md). Accepted onboarding work: [program and phase tracker](docs/onboarding/README.md).
+**Vssyl — Current Operations:** [ADTrauts/LTC-Manager](https://github.com/ADTrauts/LTC-Manager) contains the current application and VSSYL Console. [ADTrauts/Vssyl](https://github.com/ADTrauts/Vssyl) is the mothballed **Vssyl — Legacy Platform** predecessor. Current architecture: [Product Constitution](docs/product/01_PRODUCT_CONSTITUTION.md). Accepted onboarding work: [program and phase tracker](docs/onboarding/README.md). Accepted Dashboard work: [program and phase tracker](docs/dashboard/README.md). Accepted Contracted Department Authority work: [program and phase tracker](docs/contracted-departments/README.md). Legacy retirement before the first real customer: [program and phase tracker](docs/legacy-retirement/README.md).
 
 This repository still uses the historical package/folder name `ltc-manager`. That is a retained technical identifier, not the product name.
 

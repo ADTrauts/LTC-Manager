@@ -17,7 +17,9 @@ import { resolveMembershipPrimaryOperationalDepartmentId } from "@/lib/active-de
 import { employeeBelongsToDepartment, resolveDepartmentMembershipIds } from "@/lib/employee-membership";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import { resolveDepartmentAccess } from "@/lib/department-authority/resolve";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
+import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import type { NextRequest } from "next/server";
 
 export type ActiveDepartmentNavResolution = {
@@ -80,7 +82,15 @@ async function userMaySelectDepartment(
   if (!departmentIsProductEligible(session, dept, access) && !plantRuntime) {
     return false;
   }
-  if (isFacilityAdmin) return true;
+  const departmentAccess = isContractedDepartmentAuthorityEnabled()
+    ? await resolveDepartmentAccess(prisma, session, { facilityId, departmentId })
+    : null;
+  const visibleMode = departmentAccess?.mode;
+  const hidden =
+    isContractedDepartmentAuthorityEnabled() &&
+    visibleMode !== "MANAGE" &&
+    visibleMode !== "VIEW";
+  if (isFacilityAdmin) return !hidden;
   const empId = await getOperationalEmployeeIdForSession(session);
   if (!empId) {
     return plantRuntime && session.primaryDepartmentId === departmentId;
@@ -95,6 +105,7 @@ async function userMaySelectDepartment(
   if (!employee) {
     return plantRuntime && session.primaryDepartmentId === departmentId;
   }
+  if (hidden) return false;
   return employeeBelongsToDepartment(employee, departmentId);
 }
 

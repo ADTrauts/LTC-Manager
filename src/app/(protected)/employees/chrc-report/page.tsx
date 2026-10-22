@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { CHRC_STATUS_LABEL } from "@/lib/employee-hr-labels";
 import { getSession } from "@/lib/auth";
-import { employeeWhereForFacilityAndDept, hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
+import { hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 function formatDate(d: Date | null): string {
@@ -26,14 +26,17 @@ export default async function EmployeesChrcReportPage({
   }
   const facilityId = session.facilityId;
   const sp = await searchParams;
-  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees/chrc-report", sp);
+  const { deptId, deptName, employeeWhere } = await resolveEmployeesDeptScope(
+    prisma,
+    facilityId,
+    "/employees/chrc-report",
+    sp,
+    session,
+  );
 
   const employees = await prisma.employee.findMany({
     where: {
-      AND: [
-        employeeWhereForFacilityAndDept(facilityId, deptId),
-        { status: { not: EmployeeStatus.TERMINATED } },
-      ],
+      AND: [employeeWhere, { status: { not: EmployeeStatus.TERMINATED } }],
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {

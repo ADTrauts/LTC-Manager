@@ -26,6 +26,7 @@ import {
   type RepairQueueFilter,
 } from "@/lib/asset-operations";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import { repairCompanyWhere } from "@/lib/department-authority/asset-maintainers";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { presentPmWorkOrderContext } from "@/lib/preventive-maintenance/pm-context";
@@ -84,6 +85,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   const departmentWhere = repairDepartmentWhere(deptNav.activeDepartmentId);
+  const companyWhere = await repairCompanyWhere(prisma, session, facilityId);
 
   const [units, assets, vendors, repairs] = await Promise.all([
     prisma.unit.findMany({
@@ -107,7 +109,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
       },
     }),
     prisma.vendor.findMany({
-      where: { facilityId },
+      where: { facilityId, ...companyWhere },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

@@ -24,6 +24,8 @@
     "test:plant-browser": "node scripts/verify/run-plant-browser.mjs",
     "test:product-shell-browser": "node scripts/verify/run-product-shell-browser.mjs",
     "test:bulk-import-browser": "node scripts/verify/run-bulk-import-browser.mjs",
+    "test:facility-administrator-browser": "node scripts/verify/run-facility-administrator-browser.mjs",
+    "test:dashboard-browser": "node scripts/verify/run-dashboard-browser.mjs",
     "test:dietary-pilot": "node scripts/verify/run-dietary-pilot.mjs",
     "verify:static": "node scripts/verify/verify-static.mjs",
     "verify:build": "node scripts/verify/verify-build.mjs",

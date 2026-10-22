@@ -13,6 +13,8 @@ import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
+import { applyMaintainerChoice, assertRepairCompanyMatchesMaintainer } from "@/lib/department-authority/asset-maintainers";
+import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { listAttachmentsForAsset } from "@/lib/attachments";
 
@@ -177,6 +179,11 @@ export async function createAsset(
       select: { id: true },
     });
     if (!vendor) throw new Error("Vendor not found.");
+    await assertRepairCompanyMatchesMaintainer(client, {
+      facilityId: input.facilityId,
+      vendorId: input.vendorId,
+      maintainerFacilityOrganizationId: input.responsibleOrganizationId ?? null,
+    });
   }
 
   if (input.responsibleOrganizationId) {
@@ -367,9 +374,39 @@ export async function updateAssetIdentity(
       : { disconnect: true };
   }
   if (input.responsibleOrganizationId !== undefined) {
-    data.responsibleOrganization = input.responsibleOrganizationId
-      ? { connect: { id: input.responsibleOrganizationId } }
-      : { disconnect: true };
+    let applyOrganization = true;
+    if (isContractedDepartmentAuthorityEnabled()) {
+      const choice = await applyMaintainerChoice(client, {
+        session,
+        facilityId: input.facilityId,
+        assetId: asset.id,
+        usingDepartmentId: nextDepartmentId,
+        currentOrganizationId: asset.responsibleOrganizationId,
+        proposedFacilityOrganizationId: input.responsibleOrganizationId,
+      });
+      applyOrganization = choice.apply;
+    }
+    if (applyOrganization) {
+      data.responsibleOrganization = input.responsibleOrganizationId
+        ? { connect: { id: input.responsibleOrganizationId } }
+        : { disconnect: true };
+    }
+    if (input.vendorId) {
+      await assertRepairCompanyMatchesMaintainer(client, {
+        facilityId: input.facilityId,
+        vendorId: input.vendorId,
+        maintainerFacilityOrganizationId: applyOrganization
+          ? input.responsibleOrganizationId
+          : asset.responsibleOrganizationId,
+      });
+    }
+  }
+  if (input.vendorId && input.responsibleOrganizationId === undefined) {
+    await assertRepairCompanyMatchesMaintainer(client, {
+      facilityId: input.facilityId,
+      vendorId: input.vendorId,
+      maintainerFacilityOrganizationId: asset.responsibleOrganizationId,
+    });
   }
   if (input.criticality !== undefined) data.criticality = input.criticality;
   if (input.notes !== undefined) data.notes = input.notes?.trim() || null;

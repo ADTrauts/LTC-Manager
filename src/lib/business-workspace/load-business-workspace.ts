@@ -277,21 +277,7 @@ export async function loadBusinessWorkspace(
       facilityName: input.facilityName,
       departmentLabel:
         context.mode === "department" ? context.departmentName : "Facility Overview",
-      operation: {
-        mealType: "BREAKFAST",
-        mealLabel: runtime.operation.label,
-        serviceLabel: runtime.operation.label,
-        phase: "Preparation",
-        scheduledTimeLabel: runtime.next?.timeLabel ?? null,
-        minutesUntilService: null,
-      },
-      healthy: runtime.attentionCount === 0,
-      keyTimeSummaries: [],
-      runPresentation: null,
     },
-    managerFocus: [],
-    managerFocusHealthy: null,
-    managementAgenda: [],
     quickActions: buildQuickActions({
       supervisor: input.role === "SUPERVISOR",
       promotedHrefs: ["/today", "/units"],
@@ -299,8 +285,6 @@ export async function loadBusinessWorkspace(
       config,
     }).filter((action) => action.href !== "/dashboard"),
     cachedMorningBrief,
-    priorities: [],
-    departmentHealth: [],
     todaysWorkLinks: runtimeTodaysWorkLinks(runtime).filter(
       (link) => todaysWorkLinkIds.has(link.id) || link.id === "locations" || link.id === "walk",
     ),

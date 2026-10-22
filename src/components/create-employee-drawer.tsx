@@ -17,6 +17,7 @@ import {
   AUTHORITY_LABEL,
   EMPLOYEE_STATUS_LABEL,
   EMPLOYMENT_TYPE_LABEL,
+  PEOPLE_ASSIGNABLE_AUTHORITIES,
 } from "@/lib/employee-hr-labels";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import { Drawer } from "@/components/drawer";
@@ -119,7 +120,7 @@ export function CreateEmployeeDrawer({
             value={roleType}
             onChange={(event) => setRoleType(event.currentTarget.value as RoleKey)}
           >
-            {Object.values(RoleKey).map((value) => (
+            {PEOPLE_ASSIGNABLE_AUTHORITIES.map((value) => (
               <option key={value} value={value}>
                 {AUTHORITY_LABEL[value]}
               </option>

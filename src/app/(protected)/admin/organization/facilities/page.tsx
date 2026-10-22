@@ -9,6 +9,7 @@ import {
   loadOrganizationFacilitySummaries,
 } from "@/lib/facility-access";
 import { prisma } from "@/lib/prisma";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 
 import { FacilityAccessManager } from "./facility-access-manager";
 
@@ -29,14 +30,14 @@ export default async function OrganizationFacilitiesPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (ROLE_PRIORITY[session.role as AppRole] < ROLE_PRIORITY.FACILITY_ADMINISTRATOR) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
   if (!canManageFacilityAccess(session.role) || session.authKind !== "user") {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const actorUserId = sessionUserIdForFk(session);
-  if (!actorUserId) redirect("/dashboard");
+  if (!actorUserId) redirect(resolveWorkspaceHomeHref(session));
 
   const activeFacility = await prisma.facility.findUnique({
     where: { id: session.facilityId },
@@ -46,7 +47,7 @@ export default async function OrganizationFacilitiesPage() {
       organization: { select: { id: true, name: true, displayName: true } },
     },
   });
-  if (!activeFacility) redirect("/dashboard");
+  if (!activeFacility) redirect(resolveWorkspaceHomeHref(session));
 
   const summaries = await loadOrganizationFacilitySummaries({
     organizationId: activeFacility.organizationId,

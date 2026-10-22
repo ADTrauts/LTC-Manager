@@ -13,6 +13,7 @@ import { resolveActiveDepartmentForShell } from "@/lib/active-department-context
 import { getSession } from "@/lib/auth";
 import { isAiShiftSummaryEnabled, isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 import {
   assembleProjectedTodaysWorkHandoffs,
   filterCallDownsToProjectedUnits,
@@ -29,7 +30,7 @@ export default async function TodaysWorkHandoffsPage() {
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());

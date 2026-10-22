@@ -28,6 +28,7 @@ import { getSession, sessionUserIdForFk } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import { repairCompanyWhere } from "@/lib/department-authority/asset-maintainers";
 import { prisma } from "@/lib/prisma";
 import { MAX_REPAIR_PHOTOS_PER_SUBMIT } from "@/lib/photo-attachments";
 
@@ -85,9 +86,10 @@ export default async function AssetIssueDetailPage({ params }: Props) {
     notFound();
   }
 
+  const companyWhere = await repairCompanyWhere(prisma, session, session.facilityId);
   const vendors = authority.canAssignVendor
     ? await prisma.vendor.findMany({
-        where: { facilityId: session.facilityId },
+        where: { facilityId: session.facilityId, ...companyWhere },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       })

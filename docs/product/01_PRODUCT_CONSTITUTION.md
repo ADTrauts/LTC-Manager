@@ -38,7 +38,7 @@ GOVERNANCE
 |-------|------|----------------|
 | **Platform** | Physical facility tree, Location Functions mechanism, Operational Cycles, Work, Records, Assets, Issues where present | A department’s domain rules |
 | **Department Product** | Purpose, function keys, rhythm starters, Work presets, Record definitions, coverage needs, starter content | A second location tree, Cycle engine, Work engine, Record engine, or history store |
-| **Facility configuration** | Which rooms are bound, local times, published plans, people, installed departments | Product identity (`functionKey`, catalog definitions) |
+| **Facility configuration** | Which rooms are bound, local times, published plans, people, installed departments, Marketplace items added to each Department | Product identity (`functionKey`, catalog definitions) |
 | **Run** | What is true in the current operation | Permanent configuration |
 | **History / Audit** | Expected versus actual for a requested service date, using the configuration effective that day | A central history ledger |
 | **Governance** | Organization, facility access, licensing, permissions | Day-of operational truth |
@@ -54,6 +54,72 @@ GOVERNANCE
 Status reconciliation (October 17, 2026): Facility Plant Operations V1 became AVAILABLE on October 7, 2026; see the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07) and [14](./14_FACILITY_PLANT_OPERATIONS.md). This corrects stale implementation-status prose; it does not change Product release policy or billing behavior.
 
 A Product existing in the Vssyl registry does not make it customer-visible. Customer visibility requires AVAILABLE release state. See [13 — Department Product](./13_DEPARTMENT_PRODUCT.md).
+
+### Foundation amendment — October 20, 2026
+
+The product owner decided this amendment on October 20, 2026. It is a constitution revision under Governance. It changes no release status, price or sellability today. Building it needs its own authorized scope.
+
+**What a customer adds, in three layers.**
+
+```text
+Vssyl Platform                 every facility
+  → Department Product         licensed and installed per facility
+      → Marketplace items      added inside a Department
+```
+
+- **Marketplace items** are ready-made content Vssyl publishes: Records forms (Reading, Checklist, Inspection, Acknowledgement, On-demand Record), Work presets, Operating Rhythm starters and Menu templates.
+- An item runs on Platform engines. It is never a second engine.
+- A Department Product's starter content is the set of Marketplace items pre-selected for it.
+- Forms a Department head or a vendor builds ([LEG-D19](../legacy-retirement/DECISIONS.md#leg-d19--departments-and-vendors-can-make-their-own-forms--accepted-user-october-20-2026)) live in the same Catalog. Only their owner sees them, and they are never sold.
+- **Built today:**
+  - Only Records forms come from the Catalog (`CatalogLogDefinition` → `FacilityCatalogInstall`).
+  - Work presets and Operating Rhythm starters ship in code with their Product.
+  - Menu templates do not exist.
+  - Moving these into the Marketplace reuses the Catalog. It does not add a second catalog.
+
+**Included or Paid.** Vssyl marks each Marketplace item Included or Paid in the Console. Included is the default. Department pricing is unchanged. See [11 — Commercial Model](./11_COMMERCIAL_MODEL.md#marketplace-items).
+
+**Capabilities come with the installed Department.**
+- An installed Department gets everything its Department Product includes. When billing enforcement is on, its license must also be valid.
+- Deployment-wide switches no longer turn a Product's capabilities on or off.
+- Release status still keeps DEVELOPMENT Products from customers. Internal preview uses an install in an internal facility, as Plant does today.
+- Today the code still checks the switches for Food & Nutrition and EVS, and some Plant checks. They retire in LEG-05 ([LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026)).
+
+**Foundation round (decided by the product owner, October 20, 2026).** The [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) records each owner.
+
+- **Shift and Assignment are separate.**
+  - The shift (`ScheduleEntry`, from a `WorkShift` pattern) answers who works, for which Department, and when.
+  - The daily Assignment (`OperationalAssignment`) answers where they work and what they cover.
+  - Neither creates the other.
+  - A call-off marks the shift. A move changes the Assignment.
+- **Assignments are part of every Department.**
+  - Without an Assignment, a person sees the Work for the place they are signed into.
+  - With one, they see the Work for their assigned places.
+  - An empty Assignment plan never hides Work.
+- **One "my work" view.**
+  - It shows a person's Work Plan items, the Records due at their places, and the work orders and preventive maintenance assigned to them (`Repair.assignedEmployeeId`), side by side.
+  - Each keeps its own store and lifecycle. Plant work orders never become Work Plan items.
+- **"What's happening now" is the published Cycle and Phase.**
+  - The shift and Assignment answer "am I on, and where".
+  - No published Cycle means no window. The system never guesses.
+  - The meal-time guess (`meal-daypart.ts`) and the AI snapshot's placeholder "Current operation" are removed.
+  - Food & Nutrition meal timing uses Key Points only ([LEG-D07](../legacy-retirement/DECISIONS.md)).
+- **Job Flow is the "my work" view.**
+  - It is the employee's "my day" screen in every Department, always on.
+  - It shows the Assignment, the current window, what is expected now and next, Work items, Records due, and problems at the person's places, with one next action.
+  - It stores nothing. It reads Assignments, Cycles, Work Plans, Records and work orders.
+  - Today it is off by default (`DIETARY_JOB_FLOW_ENABLED`), and it lists no Work without the Assignments switch. Both switches retire in LEG-05 (LEG-D20).
+  - Adding assigned work orders and preventive maintenance to it touches Plant. It is not scheduled and needs its own authorized scope.
+- **Employee goals** do not exist. They are recorded as a future idea: not designed, not scheduled.
+
+**Stale text in this document.** These lines name surfaces that are retired or being replaced. The program named corrects them; they are not current guidance.
+
+| Text | Replaced by |
+|---|---|
+| Principle 7 names the Operations Engine, Operations Center, Business Workspace and Today's Work | The Operation entity retired on September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)), and its tables drop at LEG-06. The homes are replaced by the Dashboard at [DSH-04](../dashboard/PHASED_PLAN.md). |
+| "Managers begin in Business Workspace", "Supervisors begin in Today's Work", "Manager daily home (Business Workspace)" | The Dashboard ([DSH-04](../dashboard/PHASED_PLAN.md)) |
+| "Department operating Organization as date-effective governance metadata" | Vendor-run Departments ([CDA-07](../contracted-departments/PHASED_PLAN.md)) |
+| Legacy `/logs` as the live path while `CANONICAL_LOGS_ENABLED` is off | The Records cutover ([LEG-03](../legacy-retirement/PHASED_PLAN.md)) |
 
 ### Shared mechanisms
 

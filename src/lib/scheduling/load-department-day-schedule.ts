@@ -5,6 +5,7 @@
  * Also surfaces ASSIGNED_UNSCHEDULED employees (OA without Shift).
  */
 
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-membership";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
@@ -105,7 +106,8 @@ export async function loadDepartmentDaySchedule(input: {
       },
     }),
     prisma.scheduleEntry.findMany({
-      where: {
+      where: withOperatorPeriod(
+        {
         date: { gte: start, lt: end },
         OR: [
           { departmentId },
@@ -117,6 +119,8 @@ export async function loadDepartmentDaySchedule(input: {
         ],
         employee: { facilityId },
       },
+        await operationPeriodWhere(prisma, { facilityId, departmentId }),
+      ),
       select: {
         id: true,
         employeeId: true,

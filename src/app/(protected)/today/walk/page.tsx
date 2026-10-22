@@ -21,6 +21,7 @@ import {
   loadDepartmentRunPresentation,
 } from "@/lib/operational-cycles";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 import {
   assembleProjectedTodaysWorkWalk,
   isTeamUnconfiguredScope,
@@ -36,7 +37,7 @@ export default async function TodaysWorkWalkPage() {
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());

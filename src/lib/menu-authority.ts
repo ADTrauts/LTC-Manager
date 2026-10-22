@@ -1,6 +1,8 @@
 import type { MenuStatus } from "@prisma/client";
 
 import { requireAtLeastRole } from "@/lib/access";
+import { requireDepartmentManage } from "@/lib/department-authority/access";
+import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
 import { assertCustomerDepartmentContext } from "@/lib/active-department-context";
 import type { FacilitySession } from "@/lib/auth";
 import { departmentProductOffersMenus } from "@/lib/department-products";
@@ -60,6 +62,11 @@ export async function requireAuthorizedMenu(menuId: string) {
   if (!context.allowed) {
     throw new Error("Menu not found.");
   }
+  const access = await loadDepartmentChangeAccess(prisma, session, {
+    facilityId: session.facilityId,
+    departmentId: menu.departmentId,
+  });
+  if (access) requireDepartmentManage(access);
 
   return { session, menu };
 }
@@ -89,6 +96,11 @@ export async function requireAuthorizedMenuDepartment(input: {
   if (!context.allowed) {
     throw new Error("Department not found.");
   }
+  const access = await loadDepartmentChangeAccess(prisma, input.session, {
+    facilityId: input.session.facilityId,
+    departmentId: department.id,
+  });
+  if (access) requireDepartmentManage(access);
 
   return department;
 }

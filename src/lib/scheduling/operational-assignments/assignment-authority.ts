@@ -3,6 +3,7 @@ import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/loa
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import { isPartnerFacilitySession, type FacilitySession } from "@/lib/auth";
+import { withDepartmentChangeCeiling } from "@/lib/department-authority/changes";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -93,15 +94,24 @@ export async function resolveAssignmentAuthority(input: {
   }
 
   const manage = hasAtLeastRole(role, "SUPERVISOR");
-  return {
-    canViewOwn: true,
-    canViewDepartment: manage,
-    canManage: manage,
-    canConfirm: manage,
-    canReopen: manage,
-    canOverride: manage,
-    reason: null,
-  };
+  return withDepartmentChangeCeiling(
+    store,
+    input.session,
+    { facilityId: input.facilityId, departmentId: input.departmentId },
+    {
+      canViewOwn: true,
+      canViewDepartment: manage,
+      canManage: manage,
+      canConfirm: manage,
+      canReopen: manage,
+      canOverride: manage,
+      reason: null,
+    },
+    {
+      writes: ["canManage", "canConfirm", "canReopen", "canOverride"],
+      views: ["canViewOwn", "canViewDepartment"],
+    },
+  );
 }
 
 export function requireAssignmentManage(decision: AssignmentAuthorityDecision): void {

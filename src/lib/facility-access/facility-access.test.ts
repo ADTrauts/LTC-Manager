@@ -230,6 +230,27 @@ function createMemoryDb(seed: {
       },
       findMany: async (args: { where: { userFacilityAccessId: string } }) =>
         rolePeriods.filter((period) => period.userFacilityAccessId === args.where.userFacilityAccessId),
+      findFirst: async (args: {
+        where: {
+          roleKey: RolePeriodRow["roleKey"];
+          endsAt: null;
+          userFacilityAccess: { facilityId: string; userId?: { not: string } };
+        };
+      }) => {
+        for (const period of rolePeriods) {
+          const access = accesses.find((a) => a.id === period.userFacilityAccessId);
+          if (
+            access &&
+            period.roleKey === args.where.roleKey &&
+            period.endsAt === null &&
+            access.facilityId === args.where.userFacilityAccess.facilityId &&
+            access.userId !== args.where.userFacilityAccess.userId?.not
+          ) {
+            return { id: period.id, userFacilityAccess: { userId: access.userId } };
+          }
+        }
+        return null;
+      },
       update: async (args: { where: { id: string }; data: { endsAt?: Date; endedByUserId?: string | null } }) => {
         const row = rolePeriods.find((period) => period.id === args.where.id);
         if (!row) throw new Error("missing period");

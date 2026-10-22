@@ -6,6 +6,7 @@
  */
 
 import type { FacilitySession } from "@/lib/auth";
+import { loadDepartmentVisibility, visibleDepartmentIdList } from "@/lib/department-authority/visibility";
 import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
@@ -52,7 +53,8 @@ export type UnitsPageData = {
   projectionError: string | null;
 };
 
-const unitSelect = {
+function unitSelect(visibleIds: readonly string[] | null) {
+  return {
   id: true,
   name: true,
   unitType: true,
@@ -65,6 +67,7 @@ const unitSelect = {
     select: { mealType: true, scheduledTime: true },
   },
   departmentResponsibilities: {
+    ...(visibleIds ? { where: { departmentId: { in: [...visibleIds] } } } : {}),
     select: {
       id: true,
       kind: true,
@@ -74,7 +77,8 @@ const unitSelect = {
       department: { select: { id: true, key: true, name: true } },
     },
   },
-} as const;
+  };
+}
 
 /** Collect Unit ids from a Locations view (adapter already dedupes). */
 export function collectProjectedUnitIds(
@@ -83,7 +87,11 @@ export function collectProjectedUnitIds(
   return view?.projectedUnitIds ?? [];
 }
 
-async function loadSupportingData(facilityId: string, unitIds: readonly string[]) {
+async function loadSupportingData(
+  facilityId: string,
+  unitIds: readonly string[],
+  visibleIds: readonly string[] | null,
+) {
   const idList = [...unitIds];
   const [templates, departments, logAssignments] = await Promise.all([
     prisma.logTemplate.findMany({
@@ -92,7 +100,9 @@ async function loadSupportingData(facilityId: string, unitIds: readonly string[]
       select: { id: true, name: true },
     }),
     loadCustomerOperableDepartments(prisma, facilityId).then((rows) =>
-      rows.map((row) => ({ id: row.id, key: row.key, name: row.name })),
+      rows
+        .filter((row) => !visibleIds || visibleIds.includes(row.id))
+        .map((row) => ({ id: row.id, key: row.key, name: row.name })),
     ),
     idList.length === 0
       ? Promise.resolve([])
@@ -127,16 +137,36 @@ export async function loadUnitsPageData(
 ): Promise<UnitsPageData> {
   const facilityId = session.facilityId;
   const includeTemplates = options.includeTemplates ?? true;
+  const visibleIds = visibleDepartmentIdList(
+    await loadDepartmentVisibility(prisma, session, facilityId),
+  );
 
   if (!isProjectionLocationsEnabled()) {
     const units = await prisma.unit.findMany({
-      where: operationalUnitWhere(facilityId),
+      where: visibleIds
+        ? {
+            AND: [
+              operationalUnitWhere(facilityId),
+              {
+                OR: [
+                  { departmentResponsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
+                  {
+                    childSpaces: {
+                      some: { responsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
+                    },
+                  },
+                ],
+              },
+            ],
+          }
+        : operationalUnitWhere(facilityId),
       orderBy: { displayOrder: "asc" },
-      select: unitSelect,
+      select: unitSelect(visibleIds),
     });
     const support = await loadSupportingData(
       facilityId,
       units.map((u) => u.id),
+      visibleIds,
     );
     return {
       units,
@@ -157,12 +187,25 @@ export async function loadUnitsPageData(
     projectedIds.length === 0
       ? []
       : await prisma.unit.findMany({
-          where: {
-            facilityId,
-            id: { in: [...projectedIds] },
-          },
+          where: visibleIds
+            ? {
+                facilityId,
+                id: { in: [...projectedIds] },
+                OR: [
+                  { departmentResponsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
+                  {
+                    childSpaces: {
+                      some: { responsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
+                    },
+                  },
+                ],
+              }
+            : {
+                facilityId,
+                id: { in: [...projectedIds] },
+              },
           orderBy: { displayOrder: "asc" },
-          select: unitSelect,
+          select: unitSelect(visibleIds),
         });
 
   // Preserve Projection order preference when ids exist; fall back to displayOrder.
@@ -177,6 +220,7 @@ export async function loadUnitsPageData(
   const support = await loadSupportingData(
     facilityId,
     units.map((u) => u.id),
+    visibleIds,
   );
 
   return {

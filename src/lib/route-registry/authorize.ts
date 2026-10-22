@@ -14,6 +14,11 @@ export type RouteFeatureFlags = {
   dietaryOperationalEvidenceEnabled?: boolean;
   dietaryWorkPlansEnabled?: boolean;
   canonicalLogsEnabled?: boolean;
+  /**
+   * New Dashboard page. Absent or false keeps the Dashboard nav item on `/workspace`.
+   * The page guard still decides what `/dashboard` renders, so this flag does not deny the route.
+   */
+  dashboardV2Enabled?: boolean;
 };
 
 export type RouteAuthorizationInput = {

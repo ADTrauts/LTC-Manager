@@ -8,10 +8,12 @@ export function OrganizationWorkspaceNav({
   organizationId,
   current,
   isAdmin,
+  showVendorDepartments = false,
 }: {
   organizationId: string;
-  current?: "portfolio" | "clients" | "members";
+  current?: "portfolio" | "facilities" | "clients" | "members" | "departments" | "archive";
   isAdmin: boolean;
+  showVendorDepartments?: boolean;
 }) {
   const pathname = usePathname() ?? "";
   const resolved =
@@ -20,15 +22,28 @@ export function OrganizationWorkspaceNav({
       ? "members"
       : pathname.endsWith("/clients")
         ? "clients"
-        : "portfolio");
+        : pathname.endsWith("/facilities")
+          ? "facilities"
+          : pathname.endsWith("/departments")
+            ? "departments"
+            : pathname.endsWith("/archive")
+              ? "archive"
+              : "portfolio");
 
   const items = [
     { href: `/organization/${organizationId}`, label: "Portfolio" },
     ...(isAdmin
       ? [
+          { href: `/organization/${organizationId}/facilities`, label: "Facilities" },
           { href: `/organization/${organizationId}/clients`, label: "Clients" },
           { href: `/organization/${organizationId}/members`, label: "Members" },
         ]
+      : []),
+    ...(showVendorDepartments
+      ? [{ href: `/organization/${organizationId}/departments`, label: "Departments" }]
+      : []),
+    ...(showVendorDepartments && isAdmin
+      ? [{ href: `/organization/${organizationId}/archive`, label: "Archive" }]
       : []),
   ];
 

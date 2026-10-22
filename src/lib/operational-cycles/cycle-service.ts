@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
+import { operatorPeriodIdForCreate } from "@/lib/department-authority/operator-period";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -570,6 +571,10 @@ export async function createDraft(
       id: createdId,
       facilityId: input.facilityId,
       departmentId: input.departmentId,
+      operatorPeriodId: await operatorPeriodIdForCreate(client, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
       stableKey,
       parentStableKey,
       nodeKind,
@@ -814,6 +819,10 @@ export async function duplicateCycle(
       id: createdId,
       facilityId: input.facilityId,
       departmentId: input.departmentId,
+      operatorPeriodId: await operatorPeriodIdForCreate(client, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
       stableKey: source.stableKey,
       parentStableKey: source.parentStableKey,
       nodeKind: source.nodeKind,

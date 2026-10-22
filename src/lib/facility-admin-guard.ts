@@ -4,6 +4,7 @@ import { type AppRole, hasAtLeastRole } from "@/lib/access";
 import { getSession, type FacilitySession } from "@/lib/auth";
 
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 
 export async function assertFacilityAdministratorPage(): Promise<FacilitySession> {
   const session = await getSession();
@@ -11,7 +12,7 @@ export async function assertFacilityAdministratorPage(): Promise<FacilitySession
     redirect("/login");
   }
   if (!isFacilityAdministratorRole(session.role)) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
   return session;
 }

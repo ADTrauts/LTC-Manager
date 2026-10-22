@@ -4,12 +4,9 @@ import { redirect } from "next/navigation";
 
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
-import {
-  employeeWhereForFacilityAndDept,
-  hrefWithEmployeesDept,
-  resolveEmployeesDeptScope,
-} from "@/lib/employees-department-tabs";
+import { hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 
 export default async function EmployeesHrAuditPage({
   searchParams,
@@ -23,17 +20,23 @@ export default async function EmployeesHrAuditPage({
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role, "MANAGER")) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const facilityId = session.facilityId;
   const sp = await searchParams;
-  const { deptId, deptName } = await resolveEmployeesDeptScope(prisma, facilityId, "/employees/hr-audit", sp);
+  const { deptId, deptName, employeeWhere } = await resolveEmployeesDeptScope(
+    prisma,
+    facilityId,
+    "/employees/hr-audit",
+    sp,
+    session,
+  );
 
   const rows = await prisma.employeeHrAuditLog.findMany({
     where: {
       facilityId,
-      employee: employeeWhereForFacilityAndDept(facilityId, deptId),
+      employee: employeeWhere,
     },
     orderBy: { createdAt: "desc" },
     take: 500,

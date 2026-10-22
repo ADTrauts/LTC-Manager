@@ -348,6 +348,26 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Active Department Dashboard. Composes certified Review evidence, Log requirement states, and partner Asset status counts.",
   },
   {
+    pattern: "/partner/people",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "PIN workforce records for an accepted vendor head (CDA-05). Hidden unless that head is signed in and enforcement is on.",
+  },
+  {
+    pattern: "/partner/department",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "The vendor head's Department page (CDA-05). Logs, locations, and people. Other partner sessions stay on the partner home.",
+  },
+  {
     pattern: "/partner/logs",
     match: "EXACT",
     surface: "PAGE",
@@ -457,6 +477,36 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Organization member administration and person-first client assignments. ORG_ADMIN authority is re-checked server-side. Grants no Facility access. Client assignments reuse partner staffing services.",
   },
   {
+    pattern: "/organization/[organizationId]/facilities",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Facility Administrator seats (CDA-02). Live ORG_ADMIN is re-checked server-side. Appoints only when a seat is empty or its holder has left; the appointee must accept. Grants the organization no Facility access.",
+  },
+  {
+    pattern: "/organization/[organizationId]/departments",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Vendor head assignment (CDA-05). The organization's administrator names the head of a Department it runs. The named person accepts. Hidden while Contracted Department Authority is off.",
+  },
+  {
+    pattern: "/organization/[organizationId]/archive",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ORGANIZATION_SESSION" },
+    module: "organization-membership",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Vendor archive (CDA-06). The organization administrator reads ended operator periods. Hidden while Contracted Department Authority is off.",
+  },
+  {
     pattern: "/organization/[organizationId]/clients",
     match: "EXACT",
     surface: "PAGE",
@@ -521,6 +571,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "account",
     notes:
       "Global User profile. Any User-authenticated session may view it. PIN and Harbor cannot. Display name is self-service; email is read-only.",
+  },
+  {
+    pattern: "/account/facility-administrator",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "USER_SESSION" },
+    module: "account",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Accept or decline a Facility Administrator invitation (CDA-02). Only the invited User sees it; acceptance re-checks the seat and the invitee's facility access.",
   },
   {
     pattern: "/account/security",
@@ -1254,6 +1314,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
     module: "administration",
+  },
+  {
+    pattern: "/admin/organization/facility-administrator",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") },
+    module: "administration",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Transfer the Facility Administrator role (CDA-02). Only the current holder may invite; the successor must already have an account here and must accept.",
   },
   {
     pattern: "/admin/organization/partners",

@@ -13,6 +13,7 @@ export async function RecordEnginePanel(props: {
   facilityId: string;
   departmentId: string;
   departmentName: string;
+  canSchedule?: boolean;
 }) {
   if (!hasAtLeastRole(props.session.role, "FACILITY_ADMINISTRATOR")) return null;
   const timezone = await loadFacilityTimezone(prisma, props.facilityId);
@@ -106,6 +107,7 @@ export async function RecordEnginePanel(props: {
       ) : (
         <p className="text-xs text-zinc-500">No service-date decision is stored. New work stays on the previous Logs.</p>
       )}
+      {props.canSchedule === false ? null : (
       <form action={scheduleRecordEngineAction} className="grid gap-2 sm:grid-cols-2">
         <input type="hidden" name="departmentId" value={props.departmentId} />
         <label className="text-sm">
@@ -129,6 +131,7 @@ export async function RecordEnginePanel(props: {
           Save Record engine
         </button>
       </form>
+      )}
       </div>
     </details>
   );

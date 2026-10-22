@@ -969,7 +969,7 @@ test.describe("Phase 13 Product Shell @ci-gate", () => {
       // Organization → Internal is covered by returning through partner then:
       await selectWorkspaceRow(page, ws!.keys.terraceInternalKey);
       await page.waitForURL((u) => u.pathname === "/workspace", { timeout: 30_000 });
-      await expect(visibleCurrentWorkspace(page)).toContainText("Facility Administrator");
+      await expect(visibleCurrentWorkspace(page)).toContainText("General Manager");
       await expect(page.getByTestId("shell-mode-picker-trigger")).toBeVisible();
     } finally {
       await context.close();

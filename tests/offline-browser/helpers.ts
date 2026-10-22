@@ -27,8 +27,6 @@ export type BrowserFixtures = {
   leadUserId: string;
   managerEmail: string;
   managerUserId: string;
-  faNoDietEmail: string;
-  faNoDietUserId: string;
   staffEmployeeId: string;
   supervisorEmployeeId: string;
 };

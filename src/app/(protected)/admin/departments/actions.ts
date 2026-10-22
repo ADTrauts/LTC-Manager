@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { EmployeeStatus } from "@prisma/client";
 
-import { employeeBelongsToDepartment } from "@/lib/employee-membership";
+import { employeeBelongsToDepartment, syncEmployeeDepartmentMembership } from "@/lib/employee-membership";
 import { assertFacilityAdministratorAction } from "@/lib/facility-admin-guard";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
@@ -97,6 +97,8 @@ export async function setDepartmentHeadAction(formData: FormData) {
     throw new Error("Department not found.");
   }
 
+  let addMembership: { primaryDepartmentId: string | null; additionalDepartmentIds: string[] } | null =
+    null;
   if (parsed.headEmployeeId) {
     const employee = await prisma.employee.findFirst({
       where: { id: parsed.headEmployeeId, facilityId: session.facilityId },
@@ -114,13 +116,29 @@ export async function setDepartmentHeadAction(formData: FormData) {
       throw new Error("Cannot assign a terminated employee as department head.");
     }
     if (!employeeBelongsToDepartment(employee, parsed.departmentId)) {
-      throw new Error("Department Manager must belong to this Department.");
+      addMembership = {
+        primaryDepartmentId: employee.primaryDepartmentId,
+        additionalDepartmentIds: [
+          ...employee.employeeDepartments.map((row) => row.departmentId),
+          parsed.departmentId,
+        ],
+      };
     }
   }
 
-  await prisma.department.update({
-    where: { id: parsed.departmentId },
-    data: { headEmployeeId: parsed.headEmployeeId ?? null },
+  const headEmployeeId = parsed.headEmployeeId ?? null;
+  await prisma.$transaction(async (tx) => {
+    if (headEmployeeId && addMembership) {
+      await syncEmployeeDepartmentMembership(tx, {
+        employeeId: headEmployeeId,
+        facilityId: session.facilityId,
+        ...addMembership,
+      });
+    }
+    await tx.department.update({
+      where: { id: parsed.departmentId },
+      data: { headEmployeeId },
+    });
   });
 
   revalidateDepartmentRelatedViews(parsed.departmentId);

@@ -18,6 +18,7 @@ import {
   presentAssetLifecycleAndCondition,
   responsibleOrganizationDisplayLabel,
 } from "@/lib/asset-operations";
+import { repairCompanyWhere } from "@/lib/department-authority/asset-maintainers";
 import { getSession } from "@/lib/auth";
 import {
   customerCurrentDepartmentLabel,
@@ -49,6 +50,7 @@ export default async function AssetBuilderPage() {
   const facilityId = session.facilityId;
   const assetOpsEnabled = await isSharedAssetOperationsEnabled(facilityId, session);
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
+  const companyWhere = await repairCompanyWhere(prisma, session, facilityId);
 
   const [units, spaces, vendors, organizations, departments, assets, facility] = await Promise.all([
     prisma.unit.findMany({
@@ -62,7 +64,7 @@ export default async function AssetBuilderPage() {
       select: { id: true, name: true, unitId: true },
     }),
     prisma.vendor.findMany({
-      where: { facilityId },
+      where: { facilityId, ...companyWhere },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

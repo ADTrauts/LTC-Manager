@@ -6,8 +6,13 @@ import { trackEvent } from "@/lib/telemetry";
 import { revokeUserSessions } from "@/lib/session-revocation";
 
 import {
+  FACILITY_ADMINISTRATOR_TAKEN_MESSAGE,
+  findOtherOpenFacilityAdministratorPeriod,
+} from "./administrator-seat";
+import {
   closeCurrentInternalFacilityRole,
   ensureCurrentInternalFacilityRole,
+  InternalFacilityRoleError,
 } from "./internal-facility-role";
 
 type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
@@ -78,6 +83,17 @@ export async function ensureUserFacilityAccessGrant(
     },
     select: { id: true, isActive: true, revokedAt: true },
   });
+
+  const opensGrant = !existing || !existing.isActive || Boolean(existing.revokedAt);
+  if (opensGrant && (!existing || input.reactivate) && input.roleKey === "FACILITY_ADMINISTRATOR") {
+    const other = await findOtherOpenFacilityAdministratorPeriod(db, {
+      facilityId: input.facilityId,
+      exceptUserId: input.userId,
+    });
+    if (other) {
+      throw new InternalFacilityRoleError("FACILITY_ADMINISTRATOR_TAKEN", FACILITY_ADMINISTRATOR_TAKEN_MESSAGE);
+    }
+  }
 
   if (existing) {
     if (existing.isActive && !existing.revokedAt) {

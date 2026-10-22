@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
+import { operatorPeriodIdForCreate } from "@/lib/department-authority/operator-period";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -210,6 +211,11 @@ export async function submitEvidenceRecord(
         id: cuidLike(),
         facilityId: input.facilityId,
         departmentId: input.departmentId,
+        operatorPeriodId: await operatorPeriodIdForCreate(client, {
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+          at: recordedAt,
+        }),
         templateId: template.id,
         templateStableKey: template.stableKey,
         templateVersion: template.version,

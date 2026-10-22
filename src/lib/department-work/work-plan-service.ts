@@ -8,6 +8,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
+import { operationPeriodWhere, operatorPeriodIdForCreate, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import { getLocationFunctionByKey } from "@/lib/department-products/location-functions";
 import { prisma } from "@/lib/prisma";
 
@@ -244,6 +245,10 @@ export async function createDraft(
       id: cuidLike(),
       facilityId: input.facilityId,
       departmentId: input.departmentId,
+      operatorPeriodId: await operatorPeriodIdForCreate(client, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
       stableKey,
       version,
       name: input.draft.name.trim(),
@@ -687,20 +692,24 @@ export async function loadPublishedWorkPlansForDate(input: {
   const operationalDate = new Date(`${dateKey}T00:00:00.000Z`);
   const weekday = operationalDate.getUTCDay();
 
+  const publishedWhere: Prisma.DepartmentWorkPlanWhereInput = {
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    status: "PUBLISHED",
+    AND: [
+      {
+        OR: [{ effectiveStartDate: null }, { effectiveStartDate: { lte: operationalDate } }],
+      },
+      {
+        OR: [{ effectiveEndDate: null }, { effectiveEndDate: { gte: operationalDate } }],
+      },
+    ],
+  };
   const rows = await prisma.departmentWorkPlan.findMany({
-    where: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      status: "PUBLISHED",
-      AND: [
-        {
-          OR: [{ effectiveStartDate: null }, { effectiveStartDate: { lte: operationalDate } }],
-        },
-        {
-          OR: [{ effectiveEndDate: null }, { effectiveEndDate: { gte: operationalDate } }],
-        },
-      ],
-    },
+    where: withOperatorPeriod(
+      publishedWhere,
+      await operationPeriodWhere(prisma, { facilityId: input.facilityId, departmentId: input.departmentId }),
+    ),
     include: planDetailInclude,
     orderBy: [{ name: "asc" }, { stableKey: "asc" }, { version: "desc" }],
   });
@@ -725,11 +734,15 @@ export async function loadBuilderWorkPlans(input: {
     throw new Error(authority.reason ?? "Insufficient Department Work authority.");
   }
 
+  const builderWhere: Prisma.DepartmentWorkPlanWhereInput = {
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  };
   const rows = await prisma.departmentWorkPlan.findMany({
-    where: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-    },
+    where: withOperatorPeriod(
+      builderWhere,
+      await operationPeriodWhere(prisma, { facilityId: input.facilityId, departmentId: input.departmentId }),
+    ),
     include: {
       ...planDetailInclude,
       _count: { select: { items: true } },

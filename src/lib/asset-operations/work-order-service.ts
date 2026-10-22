@@ -15,6 +15,8 @@ import type {
 
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
+import { routeMaintainedWorkOrder } from "@/lib/department-authority/asset-maintainers";
+import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { requesterVisibleStatusLabel } from "@/lib/operational-requests/types";
 import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
@@ -333,6 +335,10 @@ export async function createWorkOrderDirect(
   const now = input.now ?? new Date();
   const repairCode = await nextRepairCode(client);
   const initialStatus: RepairStatus = input.assignedEmployeeId ? "ASSIGNED" : "OPEN";
+  const maintained =
+    isContractedDepartmentAuthorityEnabled() && location.assetId
+      ? await routeMaintainedWorkOrder(client, { facilityId: input.facilityId, assetId: location.assetId })
+      : null;
 
   const created = await client.repair.create({
     data: {
@@ -350,7 +356,8 @@ export async function createWorkOrderDirect(
       issueType: "EQUIPMENT",
       requestingDepartmentId: suggested.requestingDepartmentId,
       responsibleDepartmentId:
-        input.responsibleDepartmentId ?? suggested.responsibleDepartmentId,
+        input.responsibleDepartmentId ?? maintained?.responsibleDepartmentId ?? suggested.responsibleDepartmentId,
+      payerOrganizationId: maintained?.payerOrganizationId ?? null,
       assignedEmployeeId: input.assignedEmployeeId ?? null,
       vendorId: input.vendorId ?? null,
       targetDate: input.targetDate ?? null,

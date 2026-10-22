@@ -1,7 +1,8 @@
 # 03 — Product Domain Model
 
 **Status:** Current domain relationships. Authority for the platform map is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
-**Rule:** Product language follows [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md). Persistence names below are compatibility, not a second model.
+**Rule:** Product language follows [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md). Persistence names below are compatibility, not a second model.  
+**Amended:** October 20, 2026 ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)). It adds Marketplace items, Shift and Assignment, marks retired entities and diagrams, and records the foundation round's ownership rows.
 
 ---
 
@@ -19,6 +20,7 @@
 | **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
 | **Department Product** | Vssyl-owned operational product (Healthcare Food & Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
+| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Work preset, Operating Rhythm starter or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as items (`CatalogLogDefinition`). |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
@@ -28,9 +30,9 @@
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
 | **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
 | **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |
-| **Operation** | Time-bound commitment (e.g. Lunch service) via definition + instance when Operations Engine is on. |
-| **Readiness** | Computed location state for an operation: Ready / In Progress / Needs Attention. |
-| **Task** | Unified work projection (optional dual-write) over logs, repairs/issues, inspections. |
+| **Operation** | **Retired** September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)). The window is an Operational Cycle. Remaining `operationInstanceId` code is removed in LEG-05, and the tables drop at LEG-06. |
+| **Readiness** | Computed location state: Ready / In Progress / Needs Attention. Location answers come from Runtime Location State. |
+| **Task** | **Legacy.** Written only by Task Sync and legacy inspection work. Not Work. Removed in LEG-05, and the table drops at LEG-06 ([LEG-D12](../legacy-retirement/DECISIONS.md#leg-d12--dormant-systems-are-removed-not-kept-dormant--accepted-program-default-october-20-2026)). |
 | **Request** | Intake asking for maintenance attention. Persistence today is `OperationalRequest`. |
 | **Issue** | A known undesirable condition. Persistence today is `AssetIssue` (still Asset-required — see [14](./14_FACILITY_PLANT_OPERATIONS.md)). Not a façade over Repair. |
 | **Work Order** | Accepted Facility Plant Operations maintenance work. Persistence today is `Repair`. Distinct from shared Work. |
@@ -39,12 +41,16 @@
 | **Record** | One engine. Facility requirement segment, derived expected slot, `OperationalEvidenceRecord`, permitted waiver, correction, and follow-up. Legacy log and inspection stores are compatibility. |
 | **Asset** | Equipment / plant object that can fail or need PM. |
 | **Knowledge article** | Facility-scoped SOP/reference publishable into work context. |
-| **Schedule / Override / Call-down** | Who is supposed to be where; intentional coverage change. |
+| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Not a place. A call-off marks the shift. |
+| **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. Optional: without one, a person sees the Work for the place they are signed into. |
+| **Schedule / Override / Call-down** | Older umbrella for the two rows above. `AssignmentOverride` is legacy unit movement and retires (LEG-Q04). |
 | **WorkspacePreference** | Per-user, per-facility Workspace layout prefs. |
 
 ---
 
 ## Relationship diagram (business)
+
+This diagram predates the Operation retirement and the forward Records engine. Its Log, Inspection and Operation branches are legacy. It is redrawn after the foundation round.
 
 ```text
 Organization (Parent)
@@ -79,6 +85,8 @@ Operating Organization:  Metz Culinary Management
 ```
 
 `DepartmentOperatorRelationship` is **governance metadata** only. It does not move work, logs, teams, employees, assets, schedules, or other operational records to the operating Organization.
+
+This describes the code today. The accepted [Contracted Department Authority](../contracted-departments/README.md) program changes it: a vendor-run Department is controlled by the vendor, which owns its data. That takes effect at CDA-07.
 
 **Operating a Department does not grant users from that Organization access to the Facility.** Facility entry remains explicit `UserFacilityAccess` (same-Organization eligibility rules unchanged).
 
@@ -135,6 +143,8 @@ Do not confuse with:
 | `Vendor` | Facility | Preferred repair/service provider (unchanged) |
 | `Facility.managementCompanyName` | Facility (legacy string) | Compatibility only — not Department operator truth |
 
+The two diagrams below are historical. The Operation entity is retired, and Operations Center, Today's Walk and Workspace Focus are replaced by the Dashboard ([DSH](../dashboard/README.md)).
+
 ```text
 Operation (instance)
   ├── scopes expectations (logs, staffing, meal events)
@@ -160,13 +170,20 @@ Disruption path
 |---------|---------------------|
 | What kind of operational location is this for a Department? | Location Function on that Department’s profile (`functionKey`) |
 | Where does published Work apply? | Published Work Plan applicability, including a Location Function key when the plan uses one |
-| What window is active? | Published Operational Cycle effective now. Build uses the working profile; Run uses ACTIVE. |
+| What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. Build uses the working profile; Run uses ACTIVE. No published Cycle means no window, never a meal-time guess (foundation round, October 20, 2026). |
 | What was expected on a past service date? | Audit / Reports, using the profile and requirement segment effective that day |
-| Where should the supervisor walk? | Today's Work walk/coverage |
-| What should **I** do next (manager)? | Business Workspace Manager Focus |
-| What do I do **at this unit**? | Unit Workspace work queue |
+| Where should the supervisor walk? | Today's Work walk/coverage, until DSH-04 replaces it with the Dashboard |
+| What should **I** do next (manager)? | Business Workspace Manager Focus, until DSH-04 replaces it with the Dashboard |
+| What do I do **at this unit**? | The "my work" view (below), for this place |
 | Issue lifecycle | Issue / Repair module |
 | Whether a Record was required | Derived expected slot from the requirement segment effective that day |
+| Does this Department have a capability? | Its installed Department Product, plus a valid license when enforcement is on. Not a deployment switch ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)). |
+| Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
+| What Work is expected? | Published Work Plans (derived requirements). Assignment does not create Work. |
+| What is **my** work? | One "my work" view: Work Plan items for my assigned places, or for the place I'm signed into when I have no Assignment; Records due there; work orders and preventive maintenance assigned to me. Each source keeps its own store. The view is **Job Flow**, in every Department. |
+| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. |
+| Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. |
+| Am I on, and where? | My shift and my Assignment, not the Cycle |
 
 Homes **must not** invent alternate truth for the rows above.
 
@@ -193,6 +210,8 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 
 1. **Site vs Facility** — vision docs say Site; shipped model is Facility. Prefer Facility until a deliberate rename.  
 2. **Issue vs Repair** — dual language remains; destination URLs still mixed.  
-3. **Operation engine flag-off** — domain concept exists; some surfaces still use meal-heuristic context.  
-4. **Task optional** — Work capability exists without Task rows when sync is disabled.  
-5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace will add room-level granularity. See `docs/location-architecture/`.
+3. **Operation engine** — retired September 25, 2026. Some surfaces still use meal-heuristic context until Food & Nutrition timing moves to Key Points (LEG-D07).  
+4. **Task** — legacy. Work never needs Task rows. Removed in LEG-05.  
+5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace will add room-level granularity. See `docs/location-architecture/`.  
+6. **Location Function vs Operational Type** — code and some Build labels still say Operational Type or Archetype. `DEPARTMENT_OPERATIONAL_PROFILES_ENABLED` guards only the older profile and Experience editor: baseline drafts, separate certify / activate / retire, Experience areas and room exceptions. That editor belongs to the retired Experience catalog. Location Function binding and publishing do not use the flag. The editor is removed in LEG-05 (LEG-D12).  
+7. **Capability switches** — code still gates Food & Nutrition and EVS capabilities with deployment switches. They retire in LEG-05 (LEG-D20).

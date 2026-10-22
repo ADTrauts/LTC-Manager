@@ -25,6 +25,19 @@ test("resolveNavIconKey maps primary shell routes", () => {
   assert.equal(resolveNavIconKey("/issues/abc"), "repairs");
 });
 
+test("the Dashboard icon key is dashboard only while the new page is on", () => {
+  const previous = process.env.DASHBOARD_V2_ENABLED;
+  process.env.DASHBOARD_V2_ENABLED = "true";
+  try {
+    assert.equal(resolveNavIconKey("/dashboard"), "dashboard");
+    assert.equal(resolveNavIcon("/workspace"), AppIcons.dashboard);
+  } finally {
+    if (previous === undefined) delete process.env.DASHBOARD_V2_ENABLED;
+    else process.env.DASHBOARD_V2_ENABLED = previous;
+  }
+  assert.equal(resolveNavIconKey("/dashboard"), "operationsCenter");
+});
+
 test("resolveNavIcon returns AppIcons component for known routes", () => {
   assert.equal(resolveNavIcon("/dashboard"), AppIcons.operationsCenter);
   assert.equal(resolveNavIcon("/employees/import"), AppIcons.employees);

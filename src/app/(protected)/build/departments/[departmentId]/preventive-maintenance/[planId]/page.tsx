@@ -1,9 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { PmBuilderShell } from "@/components/plant-operations/pm-builder-shell";
 import { PmPlanEditor } from "@/components/plant-operations/pm-plan-editor";
 import { getSession } from "@/lib/auth";
+import { assertVisibleDepartment } from "@/lib/department-authority/visibility";
+import { prisma } from "@/lib/prisma";
 import { loadDepartmentAdminView } from "@/lib/department-administration/load-department-admin";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { loadPlantPmBuilderDepartment, loadPmPlanEditor } from "@/lib/preventive-maintenance/builder-load";
@@ -18,6 +21,7 @@ export default async function PreventiveMaintenancePlanPage({ params }: PageProp
   if (!session?.facilityId) redirect("/login");
 
   const { departmentId, planId } = await params;
+  await assertVisibleDepartment(prisma, session, session.facilityId, departmentId);
   if (planId === "new") {
     redirect(`/build/departments/${departmentId}/preventive-maintenance/new`);
   }
@@ -74,6 +78,7 @@ export default async function PreventiveMaintenancePlanPage({ params }: PageProp
         canDraft={loaded.authority.canDraft}
         canPublish={loaded.authority.canPublish}
         canRetire={loaded.authority.canRetire}
+        viewOnlyNotice={departmentViewOnlyNotice(loaded.authority.reason)}
       />
     </PmBuilderShell>
   );

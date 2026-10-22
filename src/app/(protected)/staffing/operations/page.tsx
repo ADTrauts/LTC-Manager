@@ -17,8 +17,9 @@ import {
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
 import { loadSupervisorOperationsViewModel } from "@/lib/dietary-job-flow";
+import { resolveWorkAuthority } from "@/lib/department-work";
 import { isPlantRuntimeEnabled } from "@/lib/department-products";
-import { listRoutesForFacility } from "@/lib/operational-requests";
+import { listRoutesForFacility, resolvePlantOperationsAuthority } from "@/lib/operational-requests";
 import { prisma } from "@/lib/prisma";
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -201,6 +202,18 @@ export default async function SupervisorOperationsBoardPage({
   }
 
   const plantOperations = view.overlay.plant;
+  const [plantAuthority, workAuthority] = await Promise.all([
+    plantOperations
+      ? resolvePlantOperationsAuthority(session, session.facilityId, view.identity.departmentId)
+      : null,
+    workPlansEnabled ? resolveWorkAuthority(session, session.facilityId, department.id) : null,
+  ]);
+  const showSupervisorWorkActions = Boolean(
+    workAuthority &&
+      (workAuthority.canCreateOneOff ||
+        workAuthority.canMarkNotRequired ||
+        workAuthority.canReopen),
+  );
 
   return (
     <SupervisorOperationsBoardView
@@ -220,6 +233,8 @@ export default async function SupervisorOperationsBoardPage({
           {plantOperations ? (
             <PlantTriagePanel
               plantDepartmentId={view.identity.departmentId}
+              canTriage={plantAuthority?.canTriage ?? false}
+              readOnlyReason={plantAuthority?.reason}
               requests={plantOperations.requests}
               technicians={plantOperations.technicians}
               summary={{
@@ -237,7 +252,7 @@ export default async function SupervisorOperationsBoardPage({
             />
           ) : null}
 
-          {workPlansEnabled ? (
+          {showSupervisorWorkActions ? (
             <SupervisorWorkActionsPanel
               facilityId={session.facilityId}
               departmentId={department.id}

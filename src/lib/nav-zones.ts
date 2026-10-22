@@ -1,6 +1,6 @@
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import type { AuthKind } from "@/lib/auth";
-import { isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { isDashboardV2Enabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 
 export const NAV_ZONES = [
   "WORKSPACE",
@@ -175,8 +175,14 @@ export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
   }
 
   if (hasAtLeastRole(ctx.role, "MANAGER")) {
-    return "/workspace";
+    return isDashboardV2Enabled() ? "/dashboard" : "/workspace";
   }
 
   return "/workspace";
+}
+
+/** Dashboard nav target. Flag off keeps Business Workspace. */
+export function dashboardNavHref(href: string): string {
+  if (!isDashboardV2Enabled() || href !== "/workspace") return href;
+  return "/dashboard";
 }

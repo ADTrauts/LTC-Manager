@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  dashboardNavHref,
   groupNavItemsByZone,
   normalizePrimaryNavLabel,
   resolveDefaultHomePath,
@@ -105,6 +106,20 @@ test("resolveDefaultHomePath sends floor staff to unit workspace or locations", 
     resolveDefaultHomePath({ authKind: "employee", role: "STAFF" }),
     "/logs",
   );
+});
+
+test("the new Dashboard is home for managers only while its flag is on", () => {
+  const previous = process.env.DASHBOARD_V2_ENABLED;
+  process.env.DASHBOARD_V2_ENABLED = "true";
+  try {
+    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
+    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
+    assert.equal(dashboardNavHref("/workspace"), "/dashboard");
+  } finally {
+    if (previous === undefined) delete process.env.DASHBOARD_V2_ENABLED;
+    else process.env.DASHBOARD_V2_ENABLED = previous;
+  }
+  assert.equal(dashboardNavHref("/workspace"), "/workspace");
 });
 
 test("resolveDefaultHomePath sends supervisors to Today's Work hub", () => {

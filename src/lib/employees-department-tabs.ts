@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
+import {
+  employeeVisibleWhere,
+  loadDepartmentVisibility,
+} from "@/lib/department-authority/visibility";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
 
@@ -56,8 +61,18 @@ export async function resolveEmployeesDeptScope(
   facilityId: string,
   pathname: string,
   sp: { [key: string]: string | string[] | undefined },
-): Promise<{ departments: EmployeeAppDepartment[]; deptId: string | null; deptName: string | null }> {
-  const departments = await loadEmployeeAppDepartments(prisma, facilityId);
+  session: DepartmentAccessSession,
+): Promise<{
+  departments: EmployeeAppDepartment[];
+  deptId: string | null;
+  deptName: string | null;
+  employeeWhere: Prisma.EmployeeWhereInput;
+}> {
+  const visibility = await loadDepartmentVisibility(prisma, session, facilityId);
+  let departments = await loadEmployeeAppDepartments(prisma, facilityId);
+  if (visibility) {
+    departments = departments.filter((department) => visibility.pageDepartmentIds.has(department.id));
+  }
   const allowedIds = new Set(departments.map((d) => d.id));
   const rawDept = typeof sp.dept === "string" ? sp.dept.trim() : "";
   if (rawDept && !allowedIds.has(rawDept)) {
@@ -65,5 +80,10 @@ export async function resolveEmployeesDeptScope(
   }
   const deptId = parseEmployeesDeptId(sp, allowedIds);
   const deptName = deptId ? (departments.find((d) => d.id === deptId)?.name ?? null) : null;
-  return { departments, deptId, deptName };
+  const employeeWhere = deptId
+    ? employeeWhereForFacilityAndDept(facilityId, deptId)
+    : visibility
+      ? { AND: [{ facilityId }, employeeVisibleWhere(visibility)] }
+      : { facilityId };
+  return { departments, deptId, deptName, employeeWhere };
 }

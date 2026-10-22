@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { DepartmentViewNotice } from "@/components/department-view-notice";
 import { Button } from "@/components/design-system/Button";
 import { Field, Select, TextArea, TextInput } from "@/components/design-system/Field";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
@@ -109,6 +110,7 @@ export function PmPlanEditor({
   canDraft,
   canPublish,
   canRetire,
+  viewOnlyNotice = null,
 }: {
   departmentId: string;
   facilityToday: string;
@@ -124,6 +126,7 @@ export function PmPlanEditor({
   canDraft: boolean;
   canPublish: boolean;
   canRetire: boolean;
+  viewOnlyNotice?: string | null;
 }) {
   const editing = plan?.editing;
   const isCreate = mode === "create";
@@ -262,6 +265,20 @@ export function PmPlanEditor({
       ))}
     </>
   );
+
+  if (viewOnlyNotice) {
+    return (
+      <div className="space-y-3" data-testid="pm-plan-editor">
+        <h1 className="text-lg font-semibold text-zinc-900">{name || "Preventive Maintenance Plan"}</h1>
+        <DepartmentViewNotice notice={viewOnlyNotice} />
+        {plan ? (
+          <p className="text-sm text-zinc-700">
+            {plan.asset.name} · {plan.status}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" data-testid="pm-plan-editor">

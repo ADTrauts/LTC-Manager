@@ -8,6 +8,7 @@ import {
   RoleKey,
   WorkStation,
 } from "@prisma/client";
+import Link from "next/link";
 import { useState } from "react";
 
 import type { DisciplineEntryForCard } from "@/app/(protected)/employees/employee-discipline-section";
@@ -25,6 +26,7 @@ import {
   EMPLOYEE_STATUS_LABEL,
   EMPLOYMENT_TYPE_LABEL,
   formatSeniorityFromHireDate,
+  PEOPLE_ASSIGNABLE_AUTHORITIES,
 } from "@/lib/employee-hr-labels";
 import { requiresEmailPasswordAccount } from "@/lib/credential-policy";
 import { JOB_ROLE_TIER_LABEL } from "@/lib/department-job-roles";
@@ -52,6 +54,8 @@ export type EmployeeForManagementCard = {
   hasAppLogin: boolean;
   phone: string | null;
   roleType: RoleKey;
+  /** Linked account holds this facility's Facility Administrator seat. */
+  holdsFacilityAdministratorSeat: boolean;
   employmentType: EmploymentType;
   status: EmployeeStatus;
   primaryUnitId: string | null;
@@ -111,7 +115,11 @@ function EmployeeProfileForm({
   jobRoles: OrganizationJobRoleOption[];
 }) {
   const [statusDraft, setStatusDraft] = useState(employee.status);
-  const [roleDraft, setRoleDraft] = useState<RoleKey>(employee.roleType);
+  const staleAdministratorRole =
+    employee.roleType === RoleKey.FACILITY_ADMINISTRATOR && !employee.holdsFacilityAdministratorSeat;
+  const [roleDraft, setRoleDraft] = useState<RoleKey>(
+    staleAdministratorRole ? RoleKey.MANAGER : employee.roleType,
+  );
   const [emailDraft, setEmailDraft] = useState(employee.email ?? "");
 
   const initialEmailNormalized = (employee.email ?? "").trim().toLowerCase();
@@ -169,24 +177,46 @@ function EmployeeProfileForm({
                 : "Email should be set for this platform authority. You can still save Job Roles and organization; add an email before relying on app login."}
             </p>
           ) : null}
-          <label className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2">
-            Platform authority
-            <select
-              name="roleType"
-              value={roleDraft}
-              onChange={(e) => setRoleDraft(e.target.value as RoleKey)}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          {employee.holdsFacilityAdministratorSeat ? (
+            <div
+              className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2"
+              data-testid="employee-profile-facility-administrator-locked"
             >
-              {Object.values(RoleKey).map((value) => (
-                <option key={value} value={value}>
-                  {AUTHORITY_LABEL[value]}
-                </option>
-              ))}
-            </select>
-            <span className="text-xs text-zinc-500">
-              Controls application-level access. Department work permissions come from Job Roles.
-            </span>
-          </label>
+              Platform authority
+              <input type="hidden" name="roleType" value={RoleKey.FACILITY_ADMINISTRATOR} />
+              <span className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900">
+                {AUTHORITY_LABEL.FACILITY_ADMINISTRATOR}
+              </span>
+              <span className="text-xs text-zinc-500">
+                This role changes only by{" "}
+                <Link href="/admin/organization/facility-administrator" className="underline underline-offset-2">
+                  transfer
+                </Link>
+                .
+              </span>
+            </div>
+          ) : (
+            <label className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2">
+              Platform authority
+              <select
+                name="roleType"
+                value={roleDraft}
+                onChange={(e) => setRoleDraft(e.target.value as RoleKey)}
+                className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+              >
+                {PEOPLE_ASSIGNABLE_AUTHORITIES.map((value) => (
+                  <option key={value} value={value}>
+                    {AUTHORITY_LABEL[value]}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-zinc-500">
+                {staleAdministratorRole
+                  ? "This person no longer holds the Facility Administrator role. Choose the platform authority to keep."
+                  : "Controls application-level access. Department work permissions come from Job Roles."}
+              </span>
+            </label>
+          )}
           <label className="flex flex-col gap-1 text-xs text-zinc-600">
             Employment type
             <select

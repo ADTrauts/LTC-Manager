@@ -10,6 +10,7 @@ import {
   isApplicableWeekday,
   resolveCycleWindowInstants,
 } from "@/lib/operational-cycles/cycle-windows";
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import { facilityLocalDateToServiceDate, toServiceDateKey } from "@/lib/operational-time";
 
 import type { PublishedCycleForLogs } from "./resolve-log-requirements";
@@ -67,19 +68,27 @@ async function loadCoveringPeriodCycles(input: {
 }): Promise<CycleRow[]> {
   const fromDate = facilityLocalDateToServiceDate(input.fromDateKey);
   const toDate = facilityLocalDateToServiceDate(input.toDateKey);
-  return input.client.departmentOperationalCycle.findMany({
-    where: {
+  const baseWhere: Prisma.DepartmentOperationalCycleWhereInput = {
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    nodeKind: "PERIOD",
+    effectiveFrom: { lte: toDate },
+    OR: [{ effectiveTo: null }, { effectiveTo: { gte: fromDate } }],
+    AND: [
+      {
+        OR: [{ status: "PUBLISHED" }, { status: "RETIRED", effectiveTo: { not: null } }],
+      },
+    ],
+  };
+  const where = withOperatorPeriod(
+    baseWhere,
+    await operationPeriodWhere(input.client, {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
-      nodeKind: "PERIOD",
-      effectiveFrom: { lte: toDate },
-      OR: [{ effectiveTo: null }, { effectiveTo: { gte: fromDate } }],
-      AND: [
-        {
-          OR: [{ status: "PUBLISHED" }, { status: "RETIRED", effectiveTo: { not: null } }],
-        },
-      ],
-    },
+    }),
+  );
+  return input.client.departmentOperationalCycle.findMany({
+    where,
     select: {
       stableKey: true,
       label: true,

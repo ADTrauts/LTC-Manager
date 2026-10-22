@@ -3,6 +3,9 @@ import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/loa
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { applyDepartmentChangeCeiling, loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
+import { resolveFacilityAdministratorView } from "@/lib/department-authority/resolve";
 import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -48,6 +51,10 @@ export function decideWorkAuthority(input: {
   departmentExists: boolean;
   primaryDepartmentId: string | null | undefined;
   departmentLabel?: string;
+  /** CDA-03: the Facility Administrator views a self-operated Department they are not primary in. */
+  facilityAdministratorView?: boolean;
+  /** CDA-04: a head who is also Facility Administrator manages this Department. */
+  headOfDepartment?: boolean;
 }): WorkAuthorityDecision {
   const label = input.departmentLabel?.trim() || "Department";
 
@@ -63,8 +70,16 @@ export function decideWorkAuthority(input: {
     return { ...DENIED, reason: "Department not found." };
   }
 
-  if (isFacilityAdministratorRole(input.role)) {
+  if (isFacilityAdministratorRole(input.role) && !input.headOfDepartment) {
     if (input.primaryDepartmentId !== input.departmentId) {
+      if (input.facilityAdministratorView) {
+        return {
+          ...DENIED,
+          canViewRuntime: true,
+          canViewDepartment: true,
+          reason: DEPARTMENT_VIEW_REASON,
+        };
+      }
       return {
         ...DENIED,
         reason: `Facility Administrator status alone does not grant ${label} Work Plan or operational Work authority.`,
@@ -163,8 +178,13 @@ export async function resolveWorkAuthority(
     });
     primaryDepartmentId = user?.primaryDepartmentId ?? null;
   }
+  const facilityAdministratorView =
+    isFacilityAdministratorRole(session.role) &&
+    primaryDepartmentId !== departmentId &&
+    (await resolveFacilityAdministratorView(client, session, { facilityId, departmentId }));
+  const access = await loadDepartmentChangeAccess(client, session, { facilityId, departmentId });
 
-  return decideWorkAuthority({
+  return applyDepartmentChangeCeiling(decideWorkAuthority({
     flagEnabled: await isDepartmentEngineEnabledForFacility(
       facilityId,
       "workPlans",
@@ -179,6 +199,11 @@ export async function resolveWorkAuthority(
     departmentExists: Boolean(department),
     primaryDepartmentId,
     departmentLabel: department?.name ?? department?.key ?? "Department",
+    facilityAdministratorView,
+    headOfDepartment: access?.isHead === true,
+  }), access, {
+    writes: ["canComplete", "canCreateOneOff", "canReassign", "canMarkNotRequired", "canReopen", "canManage", "canPublish"],
+    views: ["canViewRuntime", "canViewDepartment"],
   });
 }
 

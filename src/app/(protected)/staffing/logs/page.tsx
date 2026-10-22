@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { loadDepartmentVisibility } from "@/lib/department-authority/visibility";
 import { loadFacilityRunLogRequirements } from "@/lib/canonical-logs/load-run-requirements";
 import {
   isAnyStaffingOperationalFeatureEnabled,
@@ -36,6 +37,10 @@ export default async function CanonicalRunLogsPage() {
 
   let departmentId: string | null = deptNav.activeDepartmentId;
   const facilityWide = deptNav.showAllDepartmentNav && !deptNav.activeDepartmentId;
+  const visibility = await loadDepartmentVisibility(prisma, session, session.facilityId);
+  if (visibility && departmentId && !visibility.pageDepartmentIds.has(departmentId)) {
+    departmentId = null;
+  }
 
   if (!facilityWide && !departmentId) {
     const dept = await resolveStaffingOperationalDepartment({
@@ -45,9 +50,14 @@ export default async function CanonicalRunLogsPage() {
     }).catch(() => null);
     departmentId = dept?.id ?? null;
   }
-  if (!facilityWide && !departmentId) {
+  if (visibility && departmentId && !visibility.pageDepartmentIds.has(departmentId)) {
+    departmentId = null;
+  }
+  if (!facilityWide && !departmentId && !(visibility && visibility.pageDepartmentIds.size === 0)) {
     const fallback = await prisma.department.findFirst({
-      where: { facilityId: session.facilityId, isActive: true },
+      where: visibility
+        ? { id: { in: [...visibility.pageDepartmentIds] }, facilityId: session.facilityId, isActive: true }
+        : { facilityId: session.facilityId, isActive: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true },
     });

@@ -1,10 +1,14 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
 import { CatalogBrowseClient } from "@/components/canonical-logs/catalog-browse-client";
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { getSession } from "@/lib/auth";
+import {
+  departmentIsVisible,
+  loadDepartmentVisibility,
+} from "@/lib/department-authority/visibility";
 import { buildPageIntro } from "@/lib/build-hub";
 import {
   filterCatalogCardsToInstalled,
@@ -37,10 +41,16 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
     query.tab === "attachments" ? "attachments" : query.tab === "library" ? "library" : "catalog";
   const facilityId = session.facilityId;
 
-  const departments = (await loadCustomerOperableDepartments(prisma, facilityId)).map((row) => ({
-    id: row.id,
-    name: row.name,
-  }));
+  const visibility = await loadDepartmentVisibility(prisma, session, facilityId);
+  if (query.departmentId && !departmentIsVisible(visibility, query.departmentId)) {
+    notFound();
+  }
+  const departments = (await loadCustomerOperableDepartments(prisma, facilityId))
+    .filter((row) => !visibility || visibility.pageDepartmentIds.has(row.id))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+    }));
 
   const [catalogCards, installedStableKeys] = await Promise.all([
     listPublishedCatalogBrowseCards(prisma),

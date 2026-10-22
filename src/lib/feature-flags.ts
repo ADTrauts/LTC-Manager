@@ -218,3 +218,20 @@ export function isBillingEntitlementsEnabled(): boolean {
   return parseEnvFlag(process.env.BILLING_ENTITLEMENTS_ENABLED, false);
 }
 
+/**
+ * Defaults to disabled — Contracted Department Authority (CDA-D12). While off,
+ * `resolveDepartmentAccess` answers MANAGE everywhere and today's module rules
+ * alone decide. Switching it on needs CDA-07 production approval.
+ */
+export function isContractedDepartmentAuthorityEnabled(): boolean {
+  return parseEnvFlag(process.env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED, false);
+}
+
+/**
+ * New Dashboard page (DSH-02). Default off: `/dashboard` still redirects home
+ * and `/workspace` stays the manager overview. Production enablement is separate.
+ */
+export function isDashboardV2Enabled(): boolean {
+  return parseEnvFlag(process.env.DASHBOARD_V2_ENABLED, false);
+}
+

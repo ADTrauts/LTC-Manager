@@ -1,4 +1,9 @@
 import { Prisma } from "@prisma/client";
+import {
+  facilityWorkforcePeriodWhere,
+  operationPeriodWhere,
+  withOperatorPeriod,
+} from "@/lib/department-authority/operator-period";
 import type { MenuCycleSettings, MenuItem, MenuStatus, PrismaClient } from "@prisma/client";
 
 export type MenuItemCycleRow = Pick<
@@ -196,11 +201,17 @@ export async function listMenus(
   }
 
   try {
+    const period = input.departmentId
+      ? await operationPeriodWhere(prisma, { facilityId: input.facilityId, departmentId: input.departmentId })
+      : await facilityWorkforcePeriodWhere(prisma, input.facilityId);
     const rows = await prisma.menu.findMany({
-      where: {
-        facilityId: input.facilityId,
-        ...(input.departmentId ? { departmentId: input.departmentId } : {}),
-      },
+      where: withOperatorPeriod(
+        {
+          facilityId: input.facilityId,
+          ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+        },
+        period,
+      ),
       select: {
         id: true,
         name: true,

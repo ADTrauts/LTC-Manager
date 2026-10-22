@@ -71,6 +71,7 @@ type Props = {
   vendorName: string | null;
   externalCost: string | null;
   externalCostNote: string | null;
+  hideVendorExpense?: boolean;
   recordedExpense: string | null;
   assetReview: string | null;
   missing: string[];
@@ -437,6 +438,13 @@ export function WorkOrderCloseoutPanel(props: Props) {
               run(() => setWorkOrderExternalCostAction(fd));
             }}
           >
+            {props.hideVendorExpense ? (
+              <p className="text-sm text-zinc-600" data-testid="wo-vendor-expense-private">
+                The vendor that maintains this asset keeps the repair cost and the repair company.
+              </p>
+            ) : null}
+            {props.hideVendorExpense ? null : (
+            <>
             <label className="text-xs text-zinc-600">
               Vendor
               <select
@@ -476,6 +484,8 @@ export function WorkOrderCloseoutPanel(props: Props) {
             >
               Save expense
             </button>
+            </>
+            )}
           </form>
         </div>
       ) : null}

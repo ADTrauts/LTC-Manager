@@ -2,7 +2,8 @@
 
 **Status:** Compatibility register. Current architecture is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
 **Date:** 2026-08-08, compatibility systems certified 2026-10-02  
-**Purpose:** Name the systems that remain readable and are not the forward architecture.
+**Purpose:** Name the systems that remain readable and are not the forward architecture.  
+**Retirement:** Every surface here retires before the first real customer under the [Legacy Retirement program](../legacy-retirement/README.md) (`LEG-`). It amends this register as each phase lands. Until then, the rows below describe the current state.
 
 ---
 

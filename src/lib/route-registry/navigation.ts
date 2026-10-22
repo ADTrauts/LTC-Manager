@@ -27,7 +27,10 @@ export function platformNavItemsForRole(role: AppRole, featureFlags: NavFeatureF
     })
     .map((route) => ({
       label: normalizePrimaryNavLabel(route.pattern, route.nav?.label ?? route.pattern),
-      href: route.pattern,
+      href:
+        featureFlags.dashboardV2Enabled === true && route.pattern === "/workspace"
+          ? "/dashboard"
+          : route.pattern,
       zone: resolveZoneForPathPrefix(route.pattern),
     }));
 }

@@ -24,6 +24,7 @@ import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignm
 import { loadSupervisorDailyCoverage } from "@/lib/scheduling/load-supervisor-daily-coverage";
 import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 import {
   filterCallDownsToProjectedUnits,
   loadPresenceCallOffs,
@@ -38,7 +39,7 @@ export default async function TodaysWorkCoveragePage() {
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const cookieStore = await cookies();

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { type AppRole, hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 
 type AdminLayoutProps = {
   children: React.ReactNode;
@@ -17,7 +18,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
     redirect("/login");
   }
   if (!hasAtLeastRole(session.role as AppRole, "MANAGER")) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
   return <>{children}</>;
 }

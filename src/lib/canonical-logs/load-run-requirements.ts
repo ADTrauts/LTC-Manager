@@ -402,10 +402,17 @@ export async function loadFacilityRunLogRequirements(
     adHocAttachments.length === 0 &&
     upcoming.length === 0
   ) {
-    const others = await input.client.logAttachment.findMany({
+    const { loadDepartmentVisibility } = await import("@/lib/department-authority/visibility");
+    const visibility = await loadDepartmentVisibility(input.client, input.session, input.facilityId);
+    const otherIds = visibility
+      ? [...visibility.pageDepartmentIds].filter((id) => id !== input.departmentId)
+      : null;
+    const others = otherIds && otherIds.length === 0
+      ? []
+      : await input.client.logAttachment.findMany({
       where: {
         facilityId: input.facilityId,
-        departmentId: { not: input.departmentId },
+        departmentId: otherIds ? { in: otherIds } : { not: input.departmentId },
         status: { not: "RETIRED" },
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: todayDate } }],
       },

@@ -30,7 +30,24 @@ Checkout validates AVAILABLE registry keys. DEVELOPMENT products cannot be purch
 
 Do **not** charge per administrator, supervisor, employee, PIN user, room, or routine log.
 
-`showInEmployeeApp`, `Department.isActive`, and `DIETARY_*` / `EVS_*` / `PLANT_*` flags are **not** licenses.
+`showInEmployeeApp`, `Department.isActive`, and `DIETARY_*` / `EVS_*` / `PLANT_*` flags are **not** licenses. Those flags retire. An installed, licensed Department gets everything its Product includes ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026), LEG-D20).
+
+---
+
+## Marketplace items
+
+Decided by the product owner on October 20, 2026 ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)).
+
+- **Marketplace items** are ready-made content added inside a Department: Records forms, Work presets, Operating Rhythm starters and Menu templates.
+- Vssyl marks each item **Included** or **Paid** in the Console. Included is the default.
+- Department pricing below is unchanged. An Included item costs nothing beyond its Department.
+- A Paid item needs a valid purchase before a facility can add it. Its purchase rules and Stripe catalog shape are designed with the first Paid item, under explicit billing scope.
+- Included or Paid applies to Vssyl-published items. Forms a facility or vendor builds for itself carry no Vssyl price.
+- **Today:**
+  - no item is Paid
+  - no per-item Stripe price exists
+  - nothing below the Department is licensed
+  - enforcement still waits for `BILLING_ENTITLEMENTS_ENABLED`
 
 ---
 

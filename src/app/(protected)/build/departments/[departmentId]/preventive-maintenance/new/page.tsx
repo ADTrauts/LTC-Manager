@@ -1,9 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
+import { DepartmentViewNotice } from "@/components/department-view-notice";
 import { PmBuilderShell } from "@/components/plant-operations/pm-builder-shell";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { PmPlanEditor } from "@/components/plant-operations/pm-plan-editor";
 import { getSession } from "@/lib/auth";
+import { assertVisibleDepartment } from "@/lib/department-authority/visibility";
 import { loadDepartmentAdminView } from "@/lib/department-administration/load-department-admin";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { facilityCivilToday } from "@/lib/preventive-maintenance";
@@ -24,6 +27,7 @@ export default async function NewPreventiveMaintenancePlanPage({ params }: PageP
   if (!session?.facilityId) redirect("/login");
 
   const { departmentId } = await params;
+  await assertVisibleDepartment(prisma, session, session.facilityId, departmentId);
   const plantDepartment = await loadPlantPmBuilderDepartment(session, departmentId);
   if (!plantDepartment) notFound();
 
@@ -51,9 +55,13 @@ export default async function NewPreventiveMaintenancePlanPage({ params }: PageP
         locationCount={view.locationCoverage.total}
         context={context}
       >
-        <p className="text-sm text-zinc-600">
-          {authority.reason ?? "You can view Preventive Maintenance but cannot create drafts."}
-        </p>
+        {departmentViewOnlyNotice(authority.reason) ? (
+          <DepartmentViewNotice notice={departmentViewOnlyNotice(authority.reason)!} />
+        ) : (
+          <p className="text-sm text-zinc-600">
+            {authority.reason ?? "You can view Preventive Maintenance but cannot create drafts."}
+          </p>
+        )}
       </PmBuilderShell>
     );
   }

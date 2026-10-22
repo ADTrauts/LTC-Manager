@@ -1,9 +1,9 @@
+import { resolveLedDepartmentIds } from "@/lib/department-authority/led-departments";
 import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { FacilitySession } from "@/lib/auth";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { RoleKey } from "@prisma/client";
 
 /** Facility admin, recorded department head, or department-scoped GM (primary dept match). */
 export async function canManageDepartmentHeadSettings(
@@ -14,20 +14,9 @@ export async function canManageDepartmentHeadSettings(
   if (isFacilityAdministratorRole(session.role)) {
     return true;
   }
-  const empId = await getOperationalEmployeeIdForSession(session);
-  if (!empId) return false;
+  const employeeId = await getOperationalEmployeeIdForSession(session);
+  if (!employeeId) return false;
 
-  const department = await prisma.department.findFirst({
-    where: { id: departmentId, facilityId: session.facilityId },
-    select: { headEmployeeId: true },
-  });
-  if (department?.headEmployeeId === empId) return true;
-
-  const employee = await prisma.employee.findFirst({
-    where: { id: empId, facilityId: session.facilityId },
-    select: { roleType: true, primaryDepartmentId: true },
-  });
-  return Boolean(
-    employee?.roleType === RoleKey.GM && employee.primaryDepartmentId === departmentId,
-  );
+  const led = await resolveLedDepartmentIds(prisma, { facilityId: session.facilityId, employeeId });
+  return led.includes(departmentId);
 }

@@ -4,6 +4,8 @@ import { unstable_noStore as noStore } from "next/cache";
 import { AddLogFlowClient } from "@/components/canonical-logs/add-log-flow";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import { assertVisibleDepartment } from "@/lib/department-authority/visibility";
+import { prisma } from "@/lib/prisma";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 
@@ -42,10 +44,12 @@ export default async function AttachLogPage({ searchParams }: { searchParams: Se
     targetId,
     departmentId: query.departmentId ?? null,
     includeCatalogStableKey: query.catalog ?? null,
+    session,
   });
   if (!ctx || !ctx.departmentId || !ctx.departmentName) {
     notFound();
   }
+  await assertVisibleDepartment(prisma, session, session.facilityId, ctx.departmentId);
 
   return (
     <AddLogFlowClient

@@ -158,14 +158,6 @@ async function main() {
       primaryDepartmentId: dietary.id,
     });
 
-    const faNoDiet = await upsertUser(db, {
-      email: "fa.nodiet.offline@terraceview.local",
-      displayName: "Offline Browser FA No Diet",
-      roleKey: "FACILITY_ADMINISTRATOR",
-      facilityId: facility.id,
-      primaryDepartmentId: null,
-    });
-
     const staffPin = "246813";
     const staffEmployee = await db.employee.upsert({
       where: { id: "offline-browser-staff" },
@@ -251,8 +243,6 @@ async function main() {
       leadUserId: lead.id,
       managerEmail: manager.email,
       managerUserId: manager.id,
-      faNoDietEmail: faNoDiet.email,
-      faNoDietUserId: faNoDiet.id,
       staffEmployeeId: staffEmployee.id,
       supervisorEmployeeId: supervisorEmployee.id,
       // PINs are synthetic test values; password comes only from SEED_DEMO_PASSWORD env.

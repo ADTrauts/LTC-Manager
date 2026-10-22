@@ -3,8 +3,9 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { WorkPlanBuilderPanel } from "@/components/department-work/work-plan-builder-panel";
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
+import { WorkPlanBuilderPanel } from "@/components/department-work/work-plan-builder-panel";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
@@ -189,6 +190,7 @@ export default async function WorkPlanBuilderPage({
         departmentId={department.id}
         canManage={builder.canManage}
         canPublish={builder.canPublish}
+        viewOnlyNotice={departmentViewOnlyNotice(authority.reason)}
         initialPlanId={params.plan ?? null}
         plans={plans}
         presets={listWorkPlanPresetSummaries(department.key)}

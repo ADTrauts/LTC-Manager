@@ -2,6 +2,9 @@ import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/loa
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { applyDepartmentChangeCeiling, loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
+import { resolveFacilityAdministratorView } from "@/lib/department-authority/resolve";
 import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -42,6 +45,10 @@ export function decideEvidenceAuthority(input: {
   departmentId: string;
   departmentExists: boolean;
   primaryDepartmentId: string | null | undefined;
+  /** CDA-03: the Facility Administrator views a self-operated Department they are not primary in. */
+  facilityAdministratorView?: boolean;
+  /** CDA-04: a head who is also Facility Administrator manages this Department. */
+  headOfDepartment?: boolean;
 }): EvidenceAuthorityDecision {
   if (!input.flagEnabled) {
     return {
@@ -67,8 +74,17 @@ export function decideEvidenceAuthority(input: {
   const role = input.role;
   const pinBlocksBuild = input.authMethod === "QUICK_PIN";
 
-  if (isFacilityAdministratorRole(role)) {
+  if (isFacilityAdministratorRole(role) && !input.headOfDepartment) {
     if (input.primaryDepartmentId !== input.departmentId) {
+      if (input.facilityAdministratorView) {
+        return {
+          ...DENIED,
+          canViewOwn: true,
+          canViewDepartment: true,
+          canViewLogBook: true,
+          reason: DEPARTMENT_VIEW_REASON,
+        };
+      }
       return {
         ...DENIED,
         reason:
@@ -161,8 +177,13 @@ export async function resolveEvidenceAuthority(
     });
     primaryDepartmentId = user?.primaryDepartmentId ?? null;
   }
+  const facilityAdministratorView =
+    isFacilityAdministratorRole(session.role as AppRole) &&
+    primaryDepartmentId !== departmentId &&
+    (await resolveFacilityAdministratorView(prisma, session, { facilityId, departmentId }));
+  const access = await loadDepartmentChangeAccess(prisma, session, { facilityId, departmentId });
 
-  return decideEvidenceAuthority({
+  const ceilinged = applyDepartmentChangeCeiling(decideEvidenceAuthority({
     flagEnabled:
       (await isDepartmentEngineEnabledForFacility(
         facilityId,
@@ -177,7 +198,16 @@ export async function resolveEvidenceAuthority(
     departmentId,
     departmentExists: Boolean(department),
     primaryDepartmentId,
+    facilityAdministratorView,
+    headOfDepartment: access?.isHead === true,
+  }), access, {
+    writes: ["canSubmit", "canCorrect", "canManage", "canPublish"],
+    views: ["canViewOwn", "canViewDepartment", "canViewLogBook"],
   });
+  if (access?.mode === "SUMMARY" && access.canReadComplianceRecords) {
+    return { ...ceilinged, canViewDepartment: true, canViewLogBook: true, reason: access.reason };
+  }
+  return ceilinged;
 }
 
 export function requireEvidenceManage(decision: EvidenceAuthorityDecision): void {

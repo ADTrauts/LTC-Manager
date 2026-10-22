@@ -7,7 +7,7 @@ import {
   listInstalledCatalogStableKeys,
   listPublishedCatalogBrowseCards,
 } from "@/lib/canonical-logs";
-import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { loadTeamsForDepartment } from "@/lib/department-teams";
 import { prisma } from "@/lib/prisma";
 
@@ -254,7 +254,12 @@ export async function loadLocationPrograms(input: {
       department: input.department,
       rooms,
     }),
-    logsEnabled ? listPublishedCatalogBrowseCards(prisma) : Promise.resolve([]),
+    logsEnabled
+      ? listPublishedCatalogBrowseCards(
+          prisma,
+          isContractedDepartmentAuthorityEnabled() ? { ownerKind: "VSSYL" } : {},
+        )
+      : Promise.resolve([]),
     logsEnabled ? listInstalledCatalogStableKeys(prisma, input.facilityId) : Promise.resolve([]),
   ]);
 

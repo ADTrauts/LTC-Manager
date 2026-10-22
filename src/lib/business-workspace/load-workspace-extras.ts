@@ -53,11 +53,24 @@ export type WorkspaceNonOperationalExtras = {
 
 export async function loadWorkspaceNonOperationalExtras(input: {
   facilityId: string;
+  /** Omitted: the whole facility. Empty: nothing. */
+  departmentIds?: readonly string[];
+  /** Legacy inspection submissions; the Dashboard does not read them. */
+  includeLegacyInspections?: boolean;
 }): Promise<WorkspaceNonOperationalExtras> {
   const now = new Date();
   const facilityTimezone = await loadFacilityTimezone(prisma, input.facilityId);
   const operationalTime = buildOperationalTimeContext({ now, facilityTimezone });
   const lookback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const departmentIds = input.departmentIds ? [...input.departmentIds] : null;
+  const repairDepartmentWhere = departmentIds
+    ? {
+        OR: [
+          { responsibleDepartmentId: { in: departmentIds } },
+          { requestingDepartmentId: { in: departmentIds } },
+        ],
+      }
+    : {};
 
   const [repairsOpened, repairsResolved, inspectionsCompleted, knowledgePublished] =
     await Promise.all([
@@ -66,6 +79,7 @@ export async function loadWorkspaceNonOperationalExtras(input: {
           unit: { facilityId: input.facilityId },
           createdAt: { gte: lookback },
           priority: { in: ["HIGH", "URGENT"] },
+          ...repairDepartmentWhere,
         },
         orderBy: { createdAt: "desc" },
         take: 6,
@@ -85,6 +99,7 @@ export async function loadWorkspaceNonOperationalExtras(input: {
           status: "CLOSED",
           updatedAt: { gte: lookback },
           priority: { in: ["HIGH", "URGENT", "MEDIUM"] },
+          ...repairDepartmentWhere,
         },
         orderBy: { updatedAt: "desc" },
         take: 6,
@@ -97,26 +112,30 @@ export async function loadWorkspaceNonOperationalExtras(input: {
           responsibleDepartment: { select: { key: true } },
         },
       }),
-      prisma.inspectionSubmission.findMany({
-        where: {
-          facilityId: input.facilityId,
-          submittedAt: { gte: lookback },
-        },
-        orderBy: { submittedAt: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          result: true,
-          submittedAt: true,
-          definition: { select: { name: true, department: { select: { key: true } } } },
-          unit: { select: { name: true } },
-        },
-      }),
+      input.includeLegacyInspections === false
+        ? Promise.resolve([])
+        : prisma.inspectionSubmission.findMany({
+            where: {
+              facilityId: input.facilityId,
+              submittedAt: { gte: lookback },
+              ...(departmentIds ? { definition: { departmentId: { in: departmentIds } } } : {}),
+            },
+            orderBy: { submittedAt: "desc" },
+            take: 6,
+            select: {
+              id: true,
+              result: true,
+              submittedAt: true,
+              definition: { select: { name: true, department: { select: { key: true } } } },
+              unit: { select: { name: true } },
+            },
+          }),
       prisma.knowledgeArticle.findMany({
         where: {
           facilityId: input.facilityId,
           status: "PUBLISHED",
           updatedAt: { gte: lookback },
+          ...(departmentIds ? { departmentId: { in: departmentIds } } : {}),
         },
         orderBy: { updatedAt: "desc" },
         take: 4,

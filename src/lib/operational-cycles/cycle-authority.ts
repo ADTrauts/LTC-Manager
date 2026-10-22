@@ -1,3 +1,4 @@
+import { withDepartmentChangeCeiling } from "@/lib/department-authority/changes";
 import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
@@ -170,16 +171,22 @@ export async function resolveCycleAuthority(
     primaryDepartmentId = user?.primaryDepartmentId ?? null;
   }
 
-  return decideCycleAuthority({
-    flagEnabled: isDepartmentOperationalCyclesEnabled(department?.key),
-    role: session.role as AppRole,
-    authMethod: session.authMethod,
-    sessionFacilityId: session.facilityId,
-    facilityId,
-    departmentId,
-    departmentExists: Boolean(department),
-    primaryDepartmentId,
-  });
+  return withDepartmentChangeCeiling(
+    prisma,
+    session,
+    { facilityId, departmentId },
+    decideCycleAuthority({
+      flagEnabled: isDepartmentOperationalCyclesEnabled(department?.key),
+      role: session.role as AppRole,
+      authMethod: session.authMethod,
+      sessionFacilityId: session.facilityId,
+      facilityId,
+      departmentId,
+      departmentExists: Boolean(department),
+      primaryDepartmentId,
+    }),
+    { writes: ["canManage", "canPublish"], views: ["canViewRuntime", "canViewDepartment"] },
+  );
 }
 
 export function requireCycleManage(decision: CycleAuthorityDecision): void {

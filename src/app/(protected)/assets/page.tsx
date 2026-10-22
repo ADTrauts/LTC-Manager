@@ -16,7 +16,6 @@ import {
   ASSET_BUILD_PATH,
   OPEN_ASSET_ISSUE_STATUSES,
   OPEN_WORK_ORDER_STATUSES,
-  assetResponsibleDepartmentWhere,
   assetNotRetiredWhere,
   conditionToneClass,
   formatAssetLocationAriaLabel,
@@ -25,6 +24,11 @@ import {
   runConditionSelectValues,
 } from "@/lib/asset-operations";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { DepartmentViewNotice } from "@/components/department-view-notice";
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
+import { repairCompanyWhere } from "@/lib/department-authority/asset-maintainers";
+import { assetVisibilityWhere, loadDepartmentVisibility } from "@/lib/department-authority/visibility";
 import { getSession } from "@/lib/auth";
 import { customerCurrentDepartmentLabel, isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { departmentFilterIdsForSession } from "@/lib/department-scope";
@@ -62,11 +66,16 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const assetOpsEnabled = await isSharedAssetOperationsEnabled(facilityId, session);
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const departmentWhere = assetResponsibleDepartmentWhere(deptNav.activeDepartmentId);
+  const visibility = await loadDepartmentVisibility(prisma, session, facilityId);
+  const departmentWhere = assetVisibilityWhere({
+    visibility,
+    activeDepartmentId: deptNav.activeDepartmentId,
+  });
 
+  const companyWhere = await repairCompanyWhere(prisma, session, facilityId);
   const [vendors, assets, facility] = await Promise.all([
     prisma.vendor.findMany({
-      where: { facilityId },
+      where: { facilityId, ...companyWhere },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
@@ -126,6 +135,11 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       .map((r) => [r.assetId, r._count._all]),
   );
 
+  const assetViewNotice =
+    visibility &&
+    (!deptNav.activeDepartmentId || !visibility.manageDepartmentIds.has(deptNav.activeDepartmentId))
+      ? departmentViewOnlyNotice(DEPARTMENT_VIEW_REASON)
+      : null;
   const viewerDepartmentIds = await departmentFilterIdsForSession(session);
   const knowledgeByAsset = await loadContextualKnowledgeByAssetIds({
     facilityId,
@@ -152,6 +166,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           activeId={activeSubtab === "vendors" ? "vendors" : "assets"}
         />
       </header>
+
+      {activeSubtab !== "vendors" && assetViewNotice ? (
+        <DepartmentViewNotice notice={assetViewNotice} />
+      ) : null}
 
       {activeSubtab === "vendors" ? (
         <>
@@ -305,7 +323,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                     />
                     {presentation.lifecycle === "RETIRED" ? (
                       <p className="text-xs text-zinc-500">Lifecycle: Retired — condition locked</p>
-                    ) : (
+                    ) : visibility &&
+                      !(asset.departmentId && visibility.manageDepartmentIds.has(asset.departmentId)) ? null : (
                       <form action={updateAssetStatusAction} className="flex items-center gap-2">
                         <input type="hidden" name="assetId" value={asset.id} />
                         {asset.departmentId ? (

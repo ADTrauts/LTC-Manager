@@ -6,6 +6,7 @@ import { MenuItemEntryType, MenuStatus, MenuWeekStartDay, Prisma } from "@prisma
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
+import { operatorPeriodIdForCreate } from "@/lib/department-authority/operator-period";
 import { requireFacilitySession } from "@/lib/facility-context";
 import {
   isMenuStatus,
@@ -178,6 +179,10 @@ export async function createMenuAction(formData: FormData) {
           departmentId: department.id,
           name,
           status: "ACTIVE",
+          operatorPeriodId: await operatorPeriodIdForCreate(tx, {
+            facilityId: session.facilityId,
+            departmentId: department.id,
+          }),
         },
       });
       await tx.menuCycleSettings.create({

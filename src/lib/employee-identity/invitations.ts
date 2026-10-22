@@ -1,6 +1,7 @@
 import { EmployeeStatus, Prisma, type PrismaClient, type RoleKey } from "@prisma/client";
 
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
+import { FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL } from "@/lib/facility-access/administrator-seat";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access/assert-user-facility-access";
 
 import { EmployeeIdentityError } from "./types";
@@ -93,6 +94,9 @@ export async function issueEmployeeUserLinkInvitation(
   const email = normalizeAccountIdentifier(input.targetEmail);
   if (!email) {
     throw new EmployeeIdentityError("CONFLICT", "A valid email is required to invite an existing account.");
+  }
+  if (input.intendedRoleKey === "FACILITY_ADMINISTRATOR") {
+    throw new EmployeeIdentityError("CONFLICT", FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL);
   }
 
   const employee = await db.employee.findFirst({
@@ -250,6 +254,9 @@ export async function acceptEmployeeUserLinkInvitation(
     }
 
     if (!eligibility.hasGrant) {
+      if (invitation.intendedRoleKey === "FACILITY_ADMINISTRATOR") {
+        throw new EmployeeIdentityError("CONFLICT", FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL);
+      }
       await ensureUserFacilityAccessGrant(tx, {
         userId: user.id,
         facilityId: invitation.facilityId,

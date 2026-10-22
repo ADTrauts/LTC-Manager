@@ -21,7 +21,7 @@ import {
   type DashboardWorkspaceViewModel,
 } from "./types";
 
-function spaceHref(
+export function spaceHref(
   unitId: string,
   spaceId: string,
   section?: "coverage" | "evidence" | "assets" | "milestones",
@@ -30,7 +30,7 @@ function spaceHref(
   return section ? `${base}#${spaceWorkspaceAnchorId(section)}` : base;
 }
 
-function lookAtHref(exception: RuntimeException | undefined, unitId: string, spaceId: string): string {
+export function lookAtHref(exception: RuntimeException | undefined, unitId: string, spaceId: string): string {
   if (!exception) return spaceHref(unitId, spaceId);
   if (exception.source === "coverage") return spaceHref(unitId, spaceId, "coverage");
   if (exception.source === "evidence" || exception.source === "corrective_action") {

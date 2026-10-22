@@ -49,7 +49,7 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
     typeof query.onboarding === "string" && ["complete", "workspace"].includes(query.onboarding);
   const tab = resolveTab(query.tab);
 
-  const hierarchy = await loadFacilityHierarchy(session.facilityId);
+  const hierarchy = await loadFacilityHierarchy(session.facilityId, session);
   const structureCounts = summarizeFacilityStructureCounts(hierarchy);
 
   return (

@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import { getFacilityForSession } from "@/lib/facility-context";
 import { loadOrganizationContextForSessionFacility } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 
 import { BindDeviceForm } from "@/components/bind-device-form";
 
@@ -18,7 +19,7 @@ export default async function AdminOrganizationPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (ROLE_PRIORITY[session.role as AppRole] < ROLE_PRIORITY.FACILITY_ADMINISTRATOR) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const facility =
@@ -50,7 +51,7 @@ export default async function AdminOrganizationPage() {
     }));
 
   if (!facility) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const organizationContext = await loadOrganizationContextForSessionFacility(facility.id);
@@ -84,6 +85,19 @@ export default async function AdminOrganizationPage() {
             >
               Open Facilities &amp; User Access →
             </Link>
+            <div className="mt-4 border-t border-zinc-100 pt-3">
+              <p className="text-sm font-medium text-zinc-900">Facility Administrator</p>
+              <p className="mt-0.5 text-sm text-zinc-600">
+                One per facility. Hand the role to someone else here; it moves when they accept.
+              </p>
+              <Link
+                href="/admin/organization/facility-administrator"
+                className="mt-2 inline-flex text-sm font-semibold text-zinc-900 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                data-testid="org-facility-administrator-nav-link"
+              >
+                Open Facility Administrator →
+              </Link>
+            </div>
             <div className="mt-4 border-t border-zinc-100 pt-3">
               <p className="text-sm font-medium text-zinc-900">External Partners</p>
               <p className="mt-0.5 text-sm text-zinc-600">

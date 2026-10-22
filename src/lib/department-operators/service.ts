@@ -4,6 +4,10 @@ import {
   getFacilityServiceDate,
   toServiceDateKey,
 } from "@/lib/operational-time";
+import {
+  retireOperatorPeriodSetup,
+  vendorPeriodEndsNow,
+} from "@/lib/department-authority/operator-period";
 import { trackEvent } from "@/lib/telemetry";
 
 import {
@@ -374,6 +378,16 @@ export async function assignDepartmentOperator(
         where: { id: row.id },
         data: { effectiveTo: closeTo },
       });
+      if (
+        vendorPeriodEndsNow({
+          organizationId: row.organizationId,
+          facilityOrganizationId: scope.facilityOrganizationId,
+          replacementStartsOn: toServiceDateKey(effectiveFrom),
+          serviceDateKey: toServiceDateKey(getFacilityServiceDate(scope.facilityTimezone)),
+        })
+      ) {
+        await retireOperatorPeriodSetup(tx, row.id);
+      }
     }
 
     const created = await tx.departmentOperatorRelationship.create({

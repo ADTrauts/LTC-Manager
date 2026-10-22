@@ -9,6 +9,9 @@ import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/loa
 import type { AppRole } from "@/lib/access";
 import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { applyDepartmentChangeCeiling, loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
+import { resolveFacilityAdministratorView } from "@/lib/department-authority/resolve";
 import { isDepartmentAssetOperationsEnabled, isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -52,6 +55,10 @@ export function decideOperationalRequestAuthority(input: {
   primaryDepartmentId: string | null | undefined;
   /** When true, STAFF may act on WOs assigned to their employee identity. */
   isAssignedTechnician?: boolean;
+  /** CDA-03: the Facility Administrator views a self-operated Department they are not primary in. */
+  facilityAdministratorView?: boolean;
+  /** CDA-04: a head who is also Facility Administrator manages this Department. */
+  headOfDepartment?: boolean;
 }): OperationalRequestAuthorityDecision {
   if (!input.flagEnabled) {
     return {
@@ -74,8 +81,16 @@ export function decideOperationalRequestAuthority(input: {
     };
   }
 
-  if (isFacilityAdministratorRole(input.role)) {
+  if (isFacilityAdministratorRole(input.role) && !input.headOfDepartment) {
     if (input.primaryDepartmentId !== input.departmentId) {
+      if (input.facilityAdministratorView) {
+        return {
+          ...DENIED,
+          canViewRequesterStatus: true,
+          canViewInternalNotes: true,
+          reason: DEPARTMENT_VIEW_REASON,
+        };
+      }
       return {
         ...DENIED,
         reason:
@@ -163,6 +178,18 @@ async function requesterFlagForKey(
   return true;
 }
 
+async function facilityAdministratorViewFor(
+  session: FacilitySession,
+  facilityId: string,
+  departmentId: string,
+  primaryDepartmentId: string | null,
+): Promise<boolean> {
+  if (!isFacilityAdministratorRole(session.role as AppRole) || primaryDepartmentId === departmentId) {
+    return false;
+  }
+  return resolveFacilityAdministratorView(prisma, session, { facilityId, departmentId });
+}
+
 /** Requester-side report authority. Trio departments keep release flags; custom keys are admitted. */
 export async function resolveRequesterReportAuthority(
   session: FacilitySession,
@@ -185,8 +212,12 @@ export async function resolveRequesterReportAuthority(
     });
     primaryDepartmentId = user?.primaryDepartmentId ?? null;
   }
+  const access = await loadDepartmentChangeAccess(prisma, session, {
+    facilityId,
+    departmentId: requestingDepartmentId,
+  });
 
-  return decideOperationalRequestAuthority({
+  return applyDepartmentChangeCeiling(decideOperationalRequestAuthority({
     flagEnabled: await requesterFlagForKey(facilityId, department?.key, session),
     role: session.role as AppRole,
     authMethod: session.authMethod ?? "PASSWORD",
@@ -196,6 +227,16 @@ export async function resolveRequesterReportAuthority(
     departmentExists: Boolean(department),
     departmentKey: department?.key ?? null,
     primaryDepartmentId,
+    facilityAdministratorView: await facilityAdministratorViewFor(
+      session,
+      facilityId,
+      requestingDepartmentId,
+      primaryDepartmentId,
+    ),
+    headOfDepartment: access?.isHead === true,
+  }), access, {
+    writes: ["canReport"],
+    views: ["canViewRequesterStatus"],
   });
 }
 
@@ -221,8 +262,12 @@ export async function resolvePlantOperationsAuthority(
     });
     primaryDepartmentId = user?.primaryDepartmentId ?? null;
   }
+  const access = await loadDepartmentChangeAccess(prisma, session, {
+    facilityId,
+    departmentId: plantDepartmentId,
+  });
 
-  return decideOperationalRequestAuthority({
+  return applyDepartmentChangeCeiling(decideOperationalRequestAuthority({
     flagEnabled:
       (await isPlantRuntimeEnabled(facilityId, session)) && department?.key === "PLANT",
     role: session.role as AppRole,
@@ -234,6 +279,23 @@ export async function resolvePlantOperationsAuthority(
     departmentKey: department?.key ?? null,
     primaryDepartmentId,
     isAssignedTechnician: opts?.isAssignedTechnician,
+    facilityAdministratorView: await facilityAdministratorViewFor(
+      session,
+      facilityId,
+      plantDepartmentId,
+      primaryDepartmentId,
+    ),
+    headOfDepartment: access?.isHead === true,
+  }), access, {
+    writes: [
+      "canTriage",
+      "canConfigureRoutes",
+      "canManageWorkOrders",
+      "canActOnAssignedWorkOrder",
+      "canReturnAssetToService",
+      "canManageVendors",
+    ],
+    views: ["canViewInternalNotes"],
   });
 }
 

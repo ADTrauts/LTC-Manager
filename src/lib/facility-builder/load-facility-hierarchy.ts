@@ -1,3 +1,5 @@
+import type { FacilitySession } from "@/lib/auth";
+import { loadDepartmentVisibility, visibleDepartmentIdList } from "@/lib/department-authority/visibility";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { prisma } from "@/lib/prisma";
 import type { UnitType, SpaceType, UnitDepartmentKind, UnitHierarchyRole } from "@prisma/client";
@@ -96,8 +98,12 @@ export type FacilityHierarchy = {
 
 export async function loadFacilityHierarchy(
   facilityId: string,
+  session?: FacilitySession | null,
 ): Promise<FacilityHierarchy> {
   await ensureFacilityRoomTypesBackfilled(facilityId, prisma);
+  const visibleIds = session
+    ? visibleDepartmentIdList(await loadDepartmentVisibility(prisma, session, facilityId))
+    : null;
 
   const spaceSelect = {
     id: true,
@@ -113,6 +119,7 @@ export async function loadFacilityHierarchy(
     unitId: true,
     parentSpaceId: true,
     responsibilities: {
+      ...(visibleIds ? { where: { departmentId: { in: [...visibleIds] } } } : {}),
       orderBy: { department: { sortOrder: "asc" as const } },
       select: {
         id: true,
@@ -136,7 +143,19 @@ export async function loadFacilityHierarchy(
       },
     }),
     prisma.unit.findMany({
-      where: { facilityId },
+      where: visibleIds
+        ? {
+            facilityId,
+            OR: [
+              { departmentResponsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
+              {
+                childSpaces: {
+                  some: { responsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
+                },
+              },
+            ],
+          }
+        : { facilityId },
       orderBy: { displayOrder: "asc" },
       select: {
         id: true,
@@ -148,6 +167,7 @@ export async function loadFacilityHierarchy(
         displayOrder: true,
         description: true,
         departmentResponsibilities: {
+          ...(visibleIds ? { where: { departmentId: { in: [...visibleIds] } } } : {}),
           orderBy: { department: { sortOrder: "asc" } },
           select: {
             id: true,
@@ -160,19 +180,32 @@ export async function loadFacilityHierarchy(
           },
         },
         childSpaces: {
-          where: { unitId: { not: null } },
+          where: visibleIds
+            ? {
+                unitId: { not: null },
+                responsibilities: { some: { departmentId: { in: [...visibleIds] } } },
+              }
+            : { unitId: { not: null } },
           orderBy: { sortOrder: "asc" },
           select: spaceSelect,
         },
       },
     }),
     prisma.unitSpace.findMany({
-      where: { facilityId, unitId: null },
+      where: visibleIds
+        ? {
+            facilityId,
+            unitId: null,
+            responsibilities: { some: { departmentId: { in: [...visibleIds] } } },
+          }
+        : { facilityId, unitId: null },
       orderBy: { sortOrder: "asc" },
       select: spaceSelect,
     }),
     loadCustomerOperableDepartments(prisma, facilityId).then((rows) =>
-      rows.map((row) => ({ id: row.id, key: row.key, name: row.name })),
+      rows
+        .filter((row) => !visibleIds || visibleIds.includes(row.id))
+        .map((row) => ({ id: row.id, key: row.key, name: row.name })),
     ),
     listFacilityRoomTypes(facilityId, prisma),
   ]);

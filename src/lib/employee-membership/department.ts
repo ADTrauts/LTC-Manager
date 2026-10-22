@@ -1,5 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { assertOneOperatorWorkforce } from "@/lib/department-authority/workforce-records";
+
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export type DepartmentMembershipSource = {
@@ -112,6 +114,11 @@ export async function syncEmployeeDepartmentMembership(
       }
     }
   }
+
+  await assertOneOperatorWorkforce(tx, {
+    facilityId: input.facilityId,
+    departmentIds: referenced,
+  });
 
   const existing = await tx.employee.findFirst({
     where: { id: input.employeeId, facilityId: input.facilityId },

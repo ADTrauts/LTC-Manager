@@ -4,6 +4,8 @@
  * Does not evaluate ScheduleEntry coverage or dashboard aggregates.
  */
 
+import type { Prisma } from "@prisma/client";
+
 import {
   buildOperationalTimeContext,
   getFacilityLocalTodayWindow,
@@ -55,14 +57,35 @@ export function buildPresenceCallOffItems(args: {
   return items.sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
 }
 
-export async function loadPresenceCallOffs(facilityId: string): Promise<CallDownData> {
+/**
+ * A call-off belongs to its shift's Department. Overrides without a Department-bound shift
+ * belong to the employee's primary Department.
+ */
+export function presenceCallOffDepartmentWhere(departmentId: string): Prisma.AssignmentOverrideWhereInput {
+  return {
+    OR: [
+      { scheduleEntry: { is: { departmentId } } },
+      { scheduleEntry: { is: null }, employee: { primaryDepartmentId: departmentId } },
+      { scheduleEntry: { is: { departmentId: null } }, employee: { primaryDepartmentId: departmentId } },
+    ],
+  };
+}
+
+export async function loadPresenceCallOffs(
+  facilityId: string,
+  options: { departmentId?: string } = {},
+): Promise<CallDownData> {
   const now = new Date();
   const facilityTimezone = await loadFacilityTimezone(prisma, facilityId);
   const window = getFacilityLocalTodayWindow(facilityTimezone, now);
   const dateIso = buildOperationalTimeContext({ now, facilityTimezone }).facilityLocalDate;
 
   const overrides = await prisma.assignmentOverride.findMany({
-    where: { date: { gte: window.start, lt: window.end }, employee: { facilityId } },
+    where: {
+      date: { gte: window.start, lt: window.end },
+      employee: { facilityId },
+      ...(options.departmentId ? presenceCallOffDepartmentWhere(options.departmentId) : {}),
+    },
     orderBy: { changedAt: "desc" },
     select: {
       id: true,

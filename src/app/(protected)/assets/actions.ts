@@ -20,6 +20,7 @@ import {
   updateAssetIdentity,
   type AssetOperationalStatus,
 } from "@/lib/asset-operations";
+import { acceptMaintainerProposal, repairCompanyOwnerIdForActor } from "@/lib/department-authority/asset-maintainers";
 import { isSharedAssetOperationsEnabled } from "@/lib/department-products";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { listAttachmentsForAsset } from "@/lib/attachments";
@@ -120,10 +121,12 @@ export async function createVendorAction(formData: FormData) {
     notes: toOptional(formData.get("notes")),
   });
 
+  const ownerOrganizationId = await repairCompanyOwnerIdForActor(prisma, session, session.facilityId);
   await prisma.vendor.create({
     data: {
       ...parsed,
       facilityId: session.facilityId,
+      ownerOrganizationId,
     },
   });
 
@@ -641,4 +644,15 @@ export async function createFacilityOrganizationAction(formData: FormData) {
   });
 
   revalidateAssetViews();
+}
+
+export async function acceptMaintainerProposalAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const assetId = String(formData.get("assetId") ?? "");
+  await acceptMaintainerProposal(prisma, {
+    session,
+    facilityId: session.facilityId,
+    proposalId: String(formData.get("proposalId") ?? ""),
+  });
+  revalidateAssetViews(assetId);
 }

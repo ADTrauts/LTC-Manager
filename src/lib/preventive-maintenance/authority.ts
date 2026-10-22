@@ -9,6 +9,9 @@ import { hasAtLeastRole } from "@/lib/access";
 import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { applyDepartmentChangeCeiling, loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
+import { resolveFacilityAdministratorView } from "@/lib/department-authority/resolve";
 import { isDepartmentAssetOperationsEnabled } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
@@ -48,6 +51,10 @@ export function decidePmPlanAuthority(input: {
   departmentExists: boolean;
   departmentKey: string | null;
   primaryDepartmentId: string | null | undefined;
+  /** CDA-03: the Facility Administrator views a self-operated Department they are not primary in. */
+  facilityAdministratorView?: boolean;
+  /** CDA-04: a head who is also Facility Administrator manages this Department. */
+  headOfDepartment?: boolean;
 }): PmPlanAuthorityDecision {
   if (!input.flagEnabled) {
     return { ...DENIED, reason: "Asset Operations is not enabled for this department." };
@@ -58,8 +65,11 @@ export function decidePmPlanAuthority(input: {
   if (!input.departmentExists) {
     return { ...DENIED, reason: "Department not found." };
   }
-  if (isFacilityAdministratorRole(input.role)) {
+  if (isFacilityAdministratorRole(input.role) && !input.headOfDepartment) {
     if (input.primaryDepartmentId !== input.departmentId) {
+      if (input.facilityAdministratorView) {
+        return { ...DENIED, canView: true, reason: DEPARTMENT_VIEW_REASON };
+      }
       return {
         ...DENIED,
         reason: "Facility Administrator status alone does not grant PM Plan authority.",
@@ -112,7 +122,12 @@ export async function resolvePmPlanAuthority(
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true, key: true },
   });
-  return decidePmPlanAuthority({
+  const facilityAdministratorView =
+    isFacilityAdministratorRole(session.role as AppRole) &&
+    session.primaryDepartmentId !== departmentId &&
+    (await resolveFacilityAdministratorView(client, session, { facilityId, departmentId }));
+  const access = await loadDepartmentChangeAccess(client, session, { facilityId, departmentId });
+  return applyDepartmentChangeCeiling(decidePmPlanAuthority({
     flagEnabled:
       department?.key === "PLANT"
         ? await isPlantRuntimeEnabled(facilityId, session)
@@ -125,6 +140,11 @@ export async function resolvePmPlanAuthority(
     departmentExists: Boolean(department),
     departmentKey: department?.key ?? null,
     primaryDepartmentId: session.primaryDepartmentId,
+    facilityAdministratorView,
+    headOfDepartment: access?.isHead === true,
+  }), access, {
+    writes: ["canDraft", "canManage", "canPublish", "canRetire", "canSkip"],
+    views: ["canView"],
   });
 }
 

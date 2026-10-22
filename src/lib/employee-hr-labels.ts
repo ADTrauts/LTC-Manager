@@ -16,6 +16,11 @@ export const AUTHORITY_LABEL: Record<RoleKey, string> = {
   STAFF: "Staff",
 };
 
+/** Facility Administrator moves only by transfer or organization recovery (CDA-02). */
+export const PEOPLE_ASSIGNABLE_AUTHORITIES: readonly RoleKey[] = Object.values(RoleKey).filter(
+  (key) => key !== RoleKey.FACILITY_ADMINISTRATOR,
+);
+
 /** User-facing employment type — never show raw FULL_TIME / PART_TIME / PER_DIEM. */
 export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
   FULL_TIME: "Full time",

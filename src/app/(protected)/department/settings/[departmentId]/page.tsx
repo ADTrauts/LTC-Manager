@@ -3,10 +3,15 @@ import { redirect } from "next/navigation";
 
 import { setDepartmentHeadAction } from "@/app/(protected)/admin/departments/actions";
 import { getSession } from "@/lib/auth";
+import { assertVisibleDepartment, loadDepartmentStaffManagerChoices, resolveDepartmentAccess } from "@/lib/department-authority";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
+import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 import { EmployeeStatus } from "@prisma/client";
+
+import { StaffManagerToggle } from "./staff-manager-toggle";
 
 type PageProps = { params: Promise<{ departmentId: string }> };
 
@@ -18,12 +23,13 @@ export default async function DepartmentSettingsPage({ params }: PageProps) {
 
   const { departmentId } = await params;
   const facilityId = session.facilityId;
+  await assertVisibleDepartment(prisma, session, facilityId, departmentId);
 
   if (!(await canManageDepartmentHeadSettings(session, departmentId))) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
-  const [department, employees] = await Promise.all([
+  const [department, employees, access, sessionEmployeeId, staffManagers] = await Promise.all([
     prisma.department.findFirst({
       where: { id: departmentId, facilityId, isActive: true },
       select: {
@@ -46,10 +52,13 @@ export default async function DepartmentSettingsPage({ params }: PageProps) {
         employeeDepartments: { select: { departmentId: true } },
       },
     }),
+    resolveDepartmentAccess(prisma, session, { facilityId, departmentId }),
+    getOperationalEmployeeIdForSession(session),
+    loadDepartmentStaffManagerChoices(prisma, { facilityId, departmentId }),
   ]);
 
   if (!department) {
-    redirect("/dashboard");
+    redirect(resolveWorkspaceHomeHref(session));
   }
 
   const departmentKey = department.id;
@@ -66,6 +75,9 @@ export default async function DepartmentSettingsPage({ params }: PageProps) {
     .sort((a, b) => `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`));
 
   const fa = isFacilityAdministratorRole(session.role);
+  const isHead = access?.isHead ?? false;
+  const employeeLabel = (e: (typeof employees)[number]) =>
+    `${e.lastName}, ${e.firstName}${e.id === sessionEmployeeId ? " (you)" : ""}`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -139,16 +151,16 @@ export default async function DepartmentSettingsPage({ params }: PageProps) {
                         <optgroup label={`On ${department.name} roster`}>
                           {onRoster.map((e) => (
                             <option key={e.id} value={e.id}>
-                              {e.lastName}, {e.firstName}
+                              {employeeLabel(e)}
                             </option>
                           ))}
                         </optgroup>
                       ) : null}
                       {elsewhere.length > 0 ? (
-                        <optgroup label="Other employees (saving may add dept membership)">
+                        <optgroup label="Other employees (saving adds them to this department)">
                           {elsewhere.map((e) => (
                             <option key={e.id} value={e.id}>
-                              {e.lastName}, {e.firstName}
+                              {employeeLabel(e)}
                             </option>
                           ))}
                         </optgroup>
@@ -165,6 +177,44 @@ export default async function DepartmentSettingsPage({ params }: PageProps) {
               Save head
             </button>
           </form>
+        </section>
+      ) : null}
+
+      {department.showInEmployeeApp ? (
+        <section
+          className="rounded-xl border border-zinc-200 bg-white px-4 py-5 shadow-sm sm:px-6"
+          data-testid="department-staff-managers"
+        >
+          <h2 className="text-sm font-semibold text-zinc-900">Managers who add staff</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            {isHead
+              ? "Choose which managers may add staff to this department and set their roles."
+              : "The department head chooses which managers may add staff and set roles."}
+          </p>
+          {staffManagers.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-500">No managers in this department yet.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-zinc-100">
+              {staffManagers.map((manager) =>
+                isHead ? (
+                  <StaffManagerToggle
+                    key={manager.employeeId}
+                    departmentId={department.id}
+                    employeeId={manager.employeeId}
+                    name={manager.name}
+                    allowed={manager.allowed}
+                  />
+                ) : (
+                  <li key={manager.employeeId} className="py-2 text-sm text-zinc-900">
+                    {manager.name}
+                    <span className="ml-2 text-xs text-zinc-500">
+                      {manager.allowed ? "May add staff and set roles" : "Does not add staff or set roles"}
+                    </span>
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
         </section>
       ) : (
         <p className="text-sm text-zinc-600">Turn this department on under Admin before assigning a head.</p>

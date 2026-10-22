@@ -14,9 +14,24 @@ This is the current **Vssyl — Current Operations** application and VSSYL Conso
 
 The accepted onboarding program lives in [docs/onboarding](docs/onboarding/README.md). Its phase tracker records authorized scope; ONB identifiers do not replace historical wave numbers.
 
+The accepted Dashboard program lives in [docs/dashboard](docs/dashboard/README.md). It replaces Business Workspace (`/workspace`) and retires Today's Work (`/today*`) phase by phase; its phase tracker records authorized scope (`DSH-` identifiers). Do not extend Business Workspace or Today's Work. Department Products contribute Dashboard capabilities, never dashboard UI ([contract](docs/dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md)).
+
+The accepted Contracted Department Authority program lives in [docs/contracted-departments](docs/contracted-departments/README.md) (`CDA-` identifiers). Model:
+- Each facility has one Facility Administrator, who keeps governance and can transfer the role.
+- Every Department is run by its head and its members, within role.
+- The Facility Administrator only views a self-operated Department unless they are its head.
+- A vendor-run Department is controlled by the vendor, who also owns its data. The Facility Administrator sees summaries, plus compliance Records read-only.
+- People see only their own Department's data (employees, assigned rooms, schedules). Assets are facility property shared between the using Department and Plant; each asset's maintainer runs and pays for its repairs.
+
+Until its enforcement is enabled (CDA-07), `DepartmentOperatorRelationship` restricts nothing in code. New write actions must be classifiable under its write manifest; do not add Department writes that check only a role.
+
+The Legacy Retirement program lives in [docs/legacy-retirement](docs/legacy-retirement/README.md) (`LEG-` identifiers). Nothing legacy may be in use at the first real customer; every account today is a test account. Do not extend legacy surfaces (`/logs`, `/admin/inspections`, `OperationalTemplate`, `/staffing/legacy`, `/issues`, projection fallback flags, Task Sync). Do not add new readers or writers of their stores. Table drops need separate explicit approval (LEG-06).
+
 ## Vssyl architecture
 
 Current authority is `docs/product/01_PRODUCT_CONSTITUTION.md`. Vocabulary is `docs/product/08_PRODUCT_LANGUAGE_GUIDE.md`. The Department Product contract is `docs/product/13_DEPARTMENT_PRODUCT.md`. Facility Plant Operations architecture is `docs/product/14_FACILITY_PLANT_OPERATIONS.md`. Compatibility systems are `docs/product/LEGACY_SURFACE_REGISTER.md`.
+
+Layers (Constitution [Foundation amendment](docs/product/01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026), October 20, 2026): Platform → licensed Department Product → Marketplace items added inside a Department (Records forms, Work presets, Operating Rhythm starters, Menu templates), each Included or Paid. Capabilities come with the installed Department. Do not add deployment switches for Department capabilities; the existing ones retire in LEG-05 (LEG-D20). New item kinds reuse the Catalog; do not add a second catalog. Ownership (Domain Model, foundation round): the shift (`ScheduleEntry`) says who works, for which Department and when; the daily Assignment (`OperationalAssignment`) says where and what they cover, and is optional for seeing Work. "What's happening now" is only the published Cycle and Phase; never guess from meal times. Job Flow is the one "my work" view in every Department. It combines Work Plan items, Records due and assigned work orders without merging their stores. Adding work orders to it needs Plant scope.
 
 Manager language is Location Function, Operational Cycle, Phase, Key Point, Records, Audit / Reports, Work, and People & Coverage. Facility Plant Operations V1 is AVAILABLE as of October 7, 2026; Environmental Services remains DEVELOPMENT. See the [release addendum](docs/plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). Onboarding work must not change Product release status, sellability, or billing packaging as a side effect. New Plant features or migrations require explicit scope.
 

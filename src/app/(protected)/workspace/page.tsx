@@ -16,7 +16,7 @@ import { canAccessBusinessWorkspace } from "@/lib/business-workspace";
 import { loadBusinessWorkspace } from "@/lib/business-workspace/load-business-workspace";
 import { loadDashboardRuntime } from "@/lib/business-workspace/dashboard";
 import { assembleProjectedBusinessWorkspace } from "@/lib/business-workspace/projection/load";
-import { isProjectionBusinessWorkspaceEnabled } from "@/lib/feature-flags";
+import { isDashboardV2Enabled, isProjectionBusinessWorkspaceEnabled } from "@/lib/feature-flags";
 import { getFacilityForSession } from "@/lib/facility-context";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
@@ -83,6 +83,9 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
+  }
+  if (isDashboardV2Enabled()) {
+    redirect(onboardingComplete ? "/dashboard?onboarding=complete" : "/dashboard");
   }
 
   if (!canAccessBusinessWorkspace(session.role)) {

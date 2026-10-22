@@ -158,6 +158,9 @@ model Organization {
   organizationClaimInvitations OrganizationClaimInvitation[]
   /// Ordinary member invitations after first admin exists (Phase 2B3).
   organizationMemberInvitations OrganizationMemberInvitation[]
+  /// Facility maintainer rows linked to this Organization (CDA-D18).
+  facilityMaintainerOrganizations FacilityOrganization[]
+  catalogFormDefinitions CatalogLogDefinition[] @relation("CatalogFormOwnerOrganization")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -264,6 +267,8 @@ model Facility {
   /// Explicit external partner Organizations (Phase 2A). Does not grant user access.
   facilityPartnerOrganizations   FacilityPartnerOrganization[]
   organizationClaimInvitationsRequested OrganizationClaimInvitation[] @relation("OrganizationClaimRequestedFromFacility")
+  facilityAdministratorInvitations FacilityAdministratorInvitation[]
+  catalogFormDefinitions CatalogLogDefinition[] @relation("CatalogFormOwnerFacility")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -283,6 +288,7 @@ model Department {
   showInEmployeeApp              Boolean                         @default(true)
   headEmployeeId                 String?
   headEmployee                   Employee?                       @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  staffManagers                  DepartmentStaffManager[]
   usersAsPrimary                 User[]                          @relation("UserPrimaryDepartment")
   employeesAsPrimary             Employee[]                      @relation("EmployeePrimaryDepartment")
   employeeDepartments            EmployeeDepartment[]
@@ -330,6 +336,7 @@ model Department {
   preventiveMaintenancePlans     PreventiveMaintenancePlan[]
   /// Date-effective operating Organization for this Department (governance metadata only).
   operatorRelationships          DepartmentOperatorRelationship[]
+  vendorHeadAssignments          DepartmentVendorHeadAssignment[]
   /// Partner Department authorization scope periods (Phase 2A). Not user access.
   partnerDepartmentScopes        FacilityPartnerDepartmentScope[]
   createdAt                      DateTime                        @default(now())
@@ -361,6 +368,14 @@ model DepartmentOperatorRelationship {
   contractReference   String?
   createdByUserId     String?
   createdByUser       User?        @relation("DepartmentOperatorCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  vendorHeadAssignments DepartmentVendorHeadAssignment[]
+  evidenceRecords     OperationalEvidenceRecord[] @relation("EvidenceOperatorPeriod")
+  menus               Menu[]                      @relation("MenuOperatorPeriod")
+  workPlans           DepartmentWorkPlan[]        @relation("WorkPlanOperatorPeriod")
+  operationalCycles   DepartmentOperationalCycle[] @relation("CycleOperatorPeriod")
+  employees           Employee[]                  @relation("EmployeeOperatorPeriod")
+  scheduleEntries     ScheduleEntry[]             @relation("ScheduleOperatorPeriod")
+  catalogForms        CatalogLogDefinition[]      @relation("CatalogOperatorPeriod")
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
@@ -368,6 +383,38 @@ model DepartmentOperatorRelationship {
   @@index([departmentId, effectiveTo])
   @@index([organizationId])
   @@index([createdByUserId])
+}
+
+enum DepartmentVendorHeadAssignmentStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REPLACED
+}
+
+/// The vendor's company admin names the Department head. Control stays with the
+/// facility until the named person accepts (CDA-D06). One open row per Department.
+model DepartmentVendorHeadAssignment {
+  id                     String                                @id @default(cuid())
+  departmentId           String
+  department             Department                            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  operatorRelationshipId String
+  operatorRelationship   DepartmentOperatorRelationship        @relation(fields: [operatorRelationshipId], references: [id], onDelete: Cascade)
+  assigneeUserId         String
+  assigneeUser           User                                  @relation("VendorHeadAssignee", fields: [assigneeUserId], references: [id], onDelete: Restrict)
+  assignedByUserId       String
+  assignedByUser         User                                  @relation("VendorHeadAssigner", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+  status                 DepartmentVendorHeadAssignmentStatus  @default(PENDING)
+  acceptedAt             DateTime?
+  declinedAt             DateTime?
+  endedAt                DateTime?
+  createdAt              DateTime                              @default(now())
+  updatedAt              DateTime                              @updatedAt
+
+  @@index([departmentId, status])
+  @@index([assigneeUserId, status])
+  @@index([operatorRelationshipId])
+  @@index([assignedByUserId])
 }
 
 /// Durable Facility ↔ external Organization partnership identity (Phase 2A).
@@ -786,6 +833,21 @@ model JobTitle {
 /// Additional Department membership (not the primary Department).
 /// Canonical membership is Employee.primaryDepartmentId ∪ EmployeeDepartment.
 /// `roleType` is dormant — Employee.roleType remains canonical authority.
+/// A manager the Department head allows to add staff and set roles in the Department (CDA-D03).
+/// Counts only while the employee is an active Manager member of the Department.
+model DepartmentStaffManager {
+  id                  String     @id @default(cuid())
+  departmentId        String
+  department          Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  grantedByEmployeeId String?
+  createdAt           DateTime   @default(now())
+
+  @@unique([departmentId, employeeId])
+  @@index([employeeId])
+}
+
 model EmployeeDepartment {
   id           String     @id @default(cuid())
   employeeId   String
@@ -903,6 +965,8 @@ model Menu {
   department     Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   name           String
   status         MenuStatus         @default(ACTIVE)
+  operatorPeriodId String?
+  operatorPeriod   DepartmentOperatorRelationship? @relation("MenuOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   cycleSettings                   MenuCycleSettings?
   items                           MenuItem[]
   locationApplicability           MenuLocationApplicability[]
@@ -913,6 +977,7 @@ model Menu {
   @@index([facilityId, departmentId, status])
   @@index([departmentId, status])
   @@index([facilityId, status, name])
+  @@index([departmentId, operatorPeriodId])
 }
 
 /// Rotating-cycle configuration for one Menu. Not Menu identity.
@@ -1127,6 +1192,14 @@ model User {
   facilityPartnerUserRestrictions        FacilityPartnerUserRestrictionPeriod[] @relation("FacilityPartnerUserRestrictionSubject")
   facilityPartnerUserRestrictionsCreated FacilityPartnerUserRestrictionPeriod[] @relation("FacilityPartnerUserRestrictionCreatedBy")
   facilityPartnerUserRestrictionsEnded   FacilityPartnerUserRestrictionPeriod[] @relation("FacilityPartnerUserRestrictionEndedBy")
+  assetMaintainerProposalsMade            AssetMaintainerProposal[] @relation("AssetMaintainerProposedBy")
+  assetMaintainerProposalsAccepted        AssetMaintainerProposal[] @relation("AssetMaintainerAcceptedBy")
+  vendorHeadAssignmentsReceived            DepartmentVendorHeadAssignment[] @relation("VendorHeadAssignee")
+  vendorHeadAssignmentsMade                DepartmentVendorHeadAssignment[] @relation("VendorHeadAssigner")
+  facilityAdministratorInvitationsReceived FacilityAdministratorInvitation[] @relation("FacilityAdministratorInvitationInvited")
+  facilityAdministratorInvitationsSent     FacilityAdministratorInvitation[] @relation("FacilityAdministratorInvitationInvitedBy")
+  facilityAdministratorInvitationsOutgoing FacilityAdministratorInvitation[] @relation("FacilityAdministratorInvitationOutgoing")
+  facilityAdministratorInvitationsClosed   FacilityAdministratorInvitation[] @relation("FacilityAdministratorInvitationClosedBy")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
 
@@ -1244,6 +1317,54 @@ model UserFacilityRolePeriod {
   @@index([userFacilityAccessId, endsAt], map: "UserFacilityRolePeriod_access_endsAt_idx")
   @@index([createdByUserId])
   @@index([endedByUserId])
+}
+
+enum FacilityAdministratorInvitationKind {
+  /// Sent by the Facility Administrator to their successor.
+  TRANSFER
+  /// Sent by the parent Organization's admin when the seat is empty or its holder is gone.
+  RECOVERY
+}
+
+enum FacilityAdministratorInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+/// CDA-02. The Facility Administrator role moves only when the invited person accepts.
+/// At most one PENDING row per facility (`FacilityAdministratorInvitation_one_pending_uidx`).
+/// One open FACILITY_ADMINISTRATOR role period per facility is enforced by the
+/// `UserFacilityRolePeriod_one_facility_administrator` trigger.
+model FacilityAdministratorInvitation {
+  id                String                                @id @default(cuid())
+  facilityId        String
+  facility          Facility                              @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  kind              FacilityAdministratorInvitationKind
+  status            FacilityAdministratorInvitationStatus @default(PENDING)
+  invitedUserId     String
+  invitedUser       User                                  @relation("FacilityAdministratorInvitationInvited", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedByUserId   String?
+  invitedByUser     User?                                 @relation("FacilityAdministratorInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+  /// Transfer: the sender. Recovery: the departed holder whose period acceptance ends, if any.
+  outgoingUserId    String?
+  outgoingUser      User?                                 @relation("FacilityAdministratorInvitationOutgoing", fields: [outgoingUserId], references: [id], onDelete: SetNull)
+  /// Transfer only: the role the sender keeps after the hand-over.
+  outgoingRoleKey   RoleKey?
+  expiresAt         DateTime
+  closedAt          DateTime?
+  closedByUserId    String?
+  closedByUser      User?                                 @relation("FacilityAdministratorInvitationClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                              @default(now())
+  updatedAt         DateTime                              @updatedAt
+
+  @@index([facilityId, status])
+  @@index([invitedUserId, status])
+  @@index([invitedByUserId])
+  @@index([outgoingUserId])
+  @@index([closedByUserId])
 }
 
 enum UnitType {
@@ -2329,10 +2450,13 @@ model Employee {
   primaryUnit                    Unit?                           @relation("EmployeePrimaryUnit", fields: [primaryUnitId], references: [id], onDelete: SetNull)
   /// Optional primary operational department for PIN session / HR scoping.
   primaryDepartmentId            String?
+  operatorPeriodId               String?
+  operatorPeriod                 DepartmentOperatorRelationship? @relation("EmployeeOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   primaryDepartment              Department?                     @relation("EmployeePrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
   jobTitleId                     String?
   jobTitle                       JobTitle?                       @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
   headedDepartments              Department[]                    @relation("DepartmentHead")
+  departmentStaffManagerGrants   DepartmentStaffManager[]
   managedTeams                   DepartmentTeam[]                @relation("DepartmentTeamManager")
   employeeDepartments            EmployeeDepartment[]
   teamMemberships                EmployeeTeamMembership[]
@@ -2408,6 +2532,7 @@ model Employee {
   @@index([userId])
   @@index([primaryUnitId])
   @@index([primaryDepartmentId])
+  @@index([operatorPeriodId])
   @@index([jobTitleId])
   @@index([facilityId, unionMember])
   @@index([birthMonth, birthDay])
@@ -2592,6 +2717,8 @@ model ScheduleEntry {
   /// NULL on legacy rows created before this migration.
   departmentId String?
   department   Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  operatorPeriodId String?
+  operatorPeriod   DepartmentOperatorRelationship? @relation("ScheduleOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   workShiftId  String?
   workShift    WorkShift?           @relation(fields: [workShiftId], references: [id], onDelete: SetNull)
   plannedStart String?
@@ -2606,6 +2733,7 @@ model ScheduleEntry {
   @@index([employeeId, date])
   @@index([workShiftId])
   @@index([departmentId, date])
+  @@index([departmentId, operatorPeriodId])
 }
 
 model AssignmentOverride {
@@ -2638,6 +2766,9 @@ model Vendor {
   email       String?
   contactName String?
   notes       String?
+  /// Maintainer that owns this repair company. Null for companies recorded before that link.
+  ownerOrganizationId String?
+  ownerOrganization   FacilityOrganization? @relation(fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
   assets      Asset[]
   repairs     Repair[]
   createdAt   DateTime @default(now())
@@ -2645,23 +2776,59 @@ model Vendor {
 
   @@unique([facilityId, name])
   @@index([facilityId])
+  @@index([ownerOrganizationId])
 }
 
 /// Facility-scoped organization responsible for maintaining/repairing assets (e.g. facility operator, contracted manager).
-/// Distinct from platform Organization (tenancy parent) and from Vendor (external service provider).
+/// Optional link to the platform Organization that is the facility or the vendor (CDA-D18).
 model FacilityOrganization {
-  id         String   @id @default(cuid())
-  facilityId String
-  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  name       String
-  isActive   Boolean  @default(true)
-  notes      String?
-  assets     Asset[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(cuid())
+  facilityId     String
+  facility       Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  name           String
+  isActive       Boolean  @default(true)
+  notes          String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  assets         Asset[]
+  ownedVendors   Vendor[]
+  paidRepairs    Repair[]
+  maintainerProposals AssetMaintainerProposal[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([facilityId, name])
   @@index([facilityId, isActive])
+  @@index([organizationId])
+}
+
+enum AssetMaintainerProposalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// A using Department names a different party as maintainer. That party accepts before it takes effect (CDA-Q09).
+model AssetMaintainerProposal {
+  id                     String                         @id @default(cuid())
+  assetId                String
+  asset                  Asset                          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  facilityOrganizationId String
+  facilityOrganization   FacilityOrganization           @relation(fields: [facilityOrganizationId], references: [id], onDelete: Cascade)
+  proposedByUserId       String?
+  proposedByUser         User?                          @relation("AssetMaintainerProposedBy", fields: [proposedByUserId], references: [id], onDelete: SetNull)
+  status                 AssetMaintainerProposalStatus  @default(PENDING)
+  acceptedAt             DateTime?
+  acceptedByUserId       String?
+  acceptedByUser         User?                          @relation("AssetMaintainerAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  declinedAt             DateTime?
+  createdAt              DateTime                       @default(now())
+  updatedAt              DateTime                       @updatedAt
+
+  @@index([assetId, status])
+  @@index([facilityOrganizationId])
+  @@index([proposedByUserId])
+  @@index([acceptedByUserId])
 }
 
 model Asset {
@@ -2678,6 +2845,7 @@ model Asset {
   /// Organization responsible for maintenance and repair (not Department; not Vendor).
   responsibleOrganizationId          String?
   responsibleOrganization            FacilityOrganization?              @relation(fields: [responsibleOrganizationId], references: [id], onDelete: SetNull)
+  maintainerProposals                AssetMaintainerProposal[]
   manufacturer                       String?
   model                              String?
   serialNumber                       String?
@@ -3016,6 +3184,9 @@ model Repair {
   workPerformed           String?
   /// Compatibility completion note. Canonical closeout summary is workPerformed.
   resolution              String?
+  /// Who pays, copied from the asset's maintainer when the work order is created (CDA-D18).
+  payerOrganizationId     String?
+  payerOrganization       FacilityOrganization?          @relation(fields: [payerOrganizationId], references: [id], onDelete: SetNull)
   /// Recorded vendor/material expense. Not labor dollars. Not a Facility currency model.
   externalCost            Decimal?                       @db.Decimal(12, 2)
   externalCostNote        String?
@@ -3062,6 +3233,7 @@ model Repair {
   @@index([issueType, status])
   @@index([requestingDepartmentId])
   @@index([responsibleDepartmentId])
+  @@index([payerOrganizationId])
   @@index([assignedEmployeeId])
   @@index([preventiveScheduleId])
   @@index([pmOccurrenceId])
@@ -4325,6 +4497,8 @@ model DepartmentOperationalCycle {
   facility             Facility                             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId         String
   department           Department                           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  operatorPeriodId     String?
+  operatorPeriod       DepartmentOperatorRelationship?      @relation("CycleOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   /// Stable identity across versions of the same logical cycle within a department.
   stableKey            String
   /// Logical parent cycle identity within the department. Null = top-level.
@@ -4392,6 +4566,7 @@ model DepartmentOperationalCycle {
   @@index([departmentId, roomTypeKey])
   @@index([departmentId, parentStableKey])
   @@index([departmentId, nodeKind])
+  @@index([departmentId, operatorPeriodId])
 }
 
 /// Explicit Unit or Room applicability when locationMode = EXPLICIT_UNITS.
@@ -4823,6 +4998,8 @@ model OperationalEvidenceRecord {
   facility                     Facility                        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   departmentId                 String
   department                   Department                      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  operatorPeriodId             String?
+  operatorPeriod               DepartmentOperatorRelationship? @relation("EvidenceOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   /// Published Phase 9C template version at capture time. Null for Catalog Attachment submissions.
   templateId                   String?
   template                     OperationalTemplate?            @relation(fields: [templateId], references: [id], onDelete: Restrict)
@@ -4910,6 +5087,7 @@ model OperationalEvidenceRecord {
   @@index([followsRecordId])
   @@index([recordedByEmployeeId])
   @@index([status])
+  @@index([departmentId, operatorPeriodId])
 }
 
 /// Supporting photo, file, or signature for one OperationalEvidenceRecord.
@@ -5067,6 +5245,8 @@ model DepartmentWorkPlan {
   facility            Facility                 @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   departmentId        String
   department          Department               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  operatorPeriodId    String?
+  operatorPeriod      DepartmentOperatorRelationship? @relation("WorkPlanOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   /// Stable identity across versions within a department.
   stableKey           String
   version             Int                      @default(1)
@@ -5100,6 +5280,7 @@ model DepartmentWorkPlan {
   @@unique([departmentId, stableKey, version])
   @@index([facilityId, departmentId, status])
   @@index([departmentId, status, name])
+  @@index([departmentId, operatorPeriodId])
 }
 
 model DepartmentWorkPlanApplicability {
@@ -5393,6 +5574,13 @@ model CatalogLogDefinition {
   facilityTypeLogDefaults     DepartmentFacilityTypeLogDefault[]
   facilityInstalls            FacilityCatalogInstall[]
   evidenceRecords             OperationalEvidenceRecord[]
+  ownerKind                   CatalogFormOwnerKind            @default(VSSYL)
+  ownerFacilityId             String?
+  ownerFacility               Facility?                       @relation("CatalogFormOwnerFacility", fields: [ownerFacilityId], references: [id], onDelete: SetNull)
+  ownerOrganizationId         String?
+  ownerOrganization           Organization?                   @relation("CatalogFormOwnerOrganization", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+  operatorPeriodId            String?
+  operatorPeriod              DepartmentOperatorRelationship? @relation("CatalogOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
   createdAt                   DateTime                        @default(now())
   updatedAt                   DateTime                        @updatedAt
 
@@ -5400,6 +5588,15 @@ model CatalogLogDefinition {
   @@index([status])
   @@index([purposeType, category])
   @@index([stableKey, status])
+  @@index([ownerKind, ownerOrganizationId])
+  @@index([ownerFacilityId])
+  @@index([operatorPeriodId])
+}
+
+enum CatalogFormOwnerKind {
+  VSSYL
+  FACILITY
+  ORGANIZATION
 }
 
 model CatalogLogField {

@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
+import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -106,10 +108,17 @@ export async function searchEvidenceRecords(
     where.recordedByEmployeeId = filters.recordedByEmployeeId;
   }
 
+  const periodWhere = isFacilityAdministratorRole(session.role)
+    ? {}
+    : await operationPeriodWhere(prisma, {
+        facilityId: filters.facilityId,
+        departmentId: filters.departmentId,
+      });
+  const scopedWhere = withOperatorPeriod(where, periodWhere);
   const [total, records] = await Promise.all([
-    prisma.operationalEvidenceRecord.count({ where }),
+    prisma.operationalEvidenceRecord.count({ where: scopedWhere }),
     prisma.operationalEvidenceRecord.findMany({
-      where,
+      where: scopedWhere,
       include: {
         values: { orderBy: { fieldKey: "asc" } },
         _count: { select: { corrections: true, attachments: true } },

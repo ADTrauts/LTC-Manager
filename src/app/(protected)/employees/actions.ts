@@ -31,6 +31,7 @@ import { z } from "zod";
 
 import { issueAndSendAccountInvite } from "@/lib/account-invite/send";
 import { requireAtLeastRole } from "@/lib/access";
+import { assertCanChangeDepartmentPeople } from "@/lib/department-authority/changes";
 import { resolveRequestOrigin } from "@/lib/billing/request-origin";
 import {
   mayAuthenticateWithQuickPin,
@@ -53,7 +54,11 @@ import {
   restoreInternalAccessForRehire,
   revokeInternalAccessForEmploymentEnd,
 } from "@/lib/employee-identity";
-import { ensureUserFacilityAccessGrant } from "@/lib/facility-access";
+import {
+  ensureUserFacilityAccessGrant,
+  facilityAdministratorRoleEditRefusal,
+  userHoldsFacilityAdministratorSeat,
+} from "@/lib/facility-access";
 import {
   changeInternalFacilityRole,
   resolveCurrentInternalFacilityRole,
@@ -361,6 +366,7 @@ export async function createEmployeeAction(formData: FormData) {
   if (!organization.primaryDepartmentId) {
     throw new Error("Primary Department is required.");
   }
+  await assertCanChangeDepartmentPeople(prisma, session, organization.primaryDepartmentId);
 
   const primaryUnitId = unitAccessSubmitted
     ? await validatePrimaryUnitId(
@@ -536,6 +542,9 @@ export async function updateEmployeeProfileAction(formData: FormData) {
   if (!existing) {
     throw new Error("Employee not found.");
   }
+  if (existing.primaryDepartmentId) {
+    await assertCanChangeDepartmentPeople(prisma, session, existing.primaryDepartmentId);
+  }
 
   // Prefer submitted email; otherwise keep the stored address so Job Role / org edits
   // are not blocked when the email field is blank.
@@ -553,6 +562,16 @@ export async function updateEmployeeProfileAction(formData: FormData) {
   const effectiveRoleType = requestedPlatformPromotionWithoutEmail
     ? existing.roleType
     : parsed.roleType;
+  const administratorRefusal = facilityAdministratorRoleEditRefusal({
+    holdsAdministratorSeat: await userHoldsFacilityAdministratorSeat(prisma, {
+      userId: existing.userId,
+      facilityId: session.facilityId,
+    }),
+    requestedRoleType: effectiveRoleType,
+  });
+  if (administratorRefusal) {
+    throw new Error(administratorRefusal);
+  }
 
   // The current Employee email is the best available link to its password account. Prefer it over
   // a newly submitted address so a simultaneous email + role edit cannot leave the old account
@@ -1051,6 +1070,9 @@ export async function updateEmployeeStatusAction(formData: FormData) {
     });
     if (!existing) {
       throw new Error("Employee not found.");
+    }
+    if (existing.primaryDepartmentId) {
+      await assertCanChangeDepartmentPeople(tx, session, existing.primaryDepartmentId);
     }
 
     await tx.employee.update({

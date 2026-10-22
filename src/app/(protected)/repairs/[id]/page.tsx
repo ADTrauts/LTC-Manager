@@ -12,6 +12,7 @@ import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected)/repairs/actions";
 import { WorkOrderExecutionPanel } from "@/components/work-orders/work-order-execution-panel";
 import { WorkOrderCloseoutPanel } from "@/components/work-orders/work-order-closeout-panel";
+import { repairCompanyWhere, repairVendorExpenseVisible } from "@/lib/department-authority/asset-maintainers";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { isSharedAssetOperationsEnabled, loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { hasAtLeastRole } from "@/lib/access";
@@ -232,6 +233,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     Boolean(repair.assignedEmployeeId) &&
     (repair.assignedEmployeeId === sessionEmployeeId ||
       (session.authKind === "employee" && repair.assignedEmployeeId === session.uid));
+  const companyWhere = await repairCompanyWhere(prisma, session, session.facilityId);
   const canMutate = hasAtLeastRole(session.role, "SUPERVISOR") || isAssignedTechnician;
   const canAssign = hasAtLeastRole(session.role, "SUPERVISOR");
   const plantOrAssetOps = await isSharedAssetOperationsEnabled(session.facilityId, session);
@@ -254,16 +256,20 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           take: 80,
         }),
         prisma.vendor.findMany({
-          where: { facilityId: session.facilityId },
+          where: { facilityId: session.facilityId, ...companyWhere },
           select: { id: true, name: true },
           orderBy: { name: "asc" },
           take: 80,
         }),
       ])
     : [[], []];
+  const showVendorExpense = await repairVendorExpenseVisible(prisma, session, {
+    facilityId: session.facilityId,
+    repairId: repair.id,
+  });
   const closeoutExpense = projectRecordedExpense({
     parts: repair.partsUsed,
-    externalCost: repair.externalCost,
+    externalCost: showVendorExpense ? repair.externalCost : null,
   });
   const closeoutValidation = validateWorkOrderCloseout({
     workPerformed: repair.workPerformed,
@@ -798,15 +804,16 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               outOfStandard: requirement.satisfiedByRecord?.outOfStandard ?? false,
             }))}
             templates={publishedTemplates}
-            vendors={vendors}
             employees={employees.map((employee) => ({
               id: employee.id,
               name: `${employee.firstName} ${employee.lastName}`.trim(),
             }))}
-            vendorId={repair.vendorId}
-            vendorName={repair.vendor?.name ?? null}
-            externalCost={repair.externalCost?.toFixed(2) ?? null}
-            externalCostNote={repair.externalCostNote}
+            vendorId={showVendorExpense ? repair.vendorId : null}
+            vendorName={showVendorExpense ? repair.vendor?.name ?? null : null}
+            vendors={showVendorExpense ? vendors : []}
+            externalCost={showVendorExpense ? repair.externalCost?.toFixed(2) ?? null : null}
+            externalCostNote={showVendorExpense ? repair.externalCostNote : null}
+            hideVendorExpense={!showVendorExpense}
             recordedExpense={formatRecordedExpense(
               closeoutExpense.recordedMaterialVendorExpense,
             )}

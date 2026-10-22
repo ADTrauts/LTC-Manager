@@ -35,6 +35,9 @@ export type PlantTriageRequestRow = {
 
 type Props = {
   plantDepartmentId: string;
+  /** False renders the queue read-only, with `readOnlyReason` in place of the triage controls. */
+  canTriage: boolean;
+  readOnlyReason?: string | null;
   requests: PlantTriageRequestRow[];
   technicians: Array<{ id: string; name: string }>;
   summary: {
@@ -60,6 +63,8 @@ type IssueLookup = {
 
 export function PlantTriagePanel({
   plantDepartmentId,
+  canTriage,
+  readOnlyReason,
   requests,
   technicians,
   summary,
@@ -191,193 +196,201 @@ export function PlantTriagePanel({
                     : " · No Work Order yet"}
                 </p>
               </div>
-              <label className="block space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Internal note
-                </span>
-                <textarea
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  rows={2}
-                  value={triageNote}
-                  onChange={(e) => setTriageNote(e.target.value)}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Assign technician (optional)
-                </span>
-                <select
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
-                  data-testid="plant-triage-assignee"
-                >
-                  <option value="">Unassigned</option>
-                  {technicians.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={pending || alreadyLinked}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50"
-                  onClick={() =>
-                    run(async () => {
-                      const fd = new FormData();
-                      fd.set("plantDepartmentId", plantDepartmentId);
-                      fd.set("requestId", selected.id);
-                      fd.set("triageNote", triageNote);
-                      await acceptRequestCreateIssueAction(fd);
-                    })
-                  }
-                  data-testid="plant-accept-issue"
-                >
-                  Accept + create Issue
-                </button>
-                <button
-                  type="button"
-                  disabled={pending || Boolean(selected.workOrderCode)}
-                  className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  onClick={() =>
-                    run(async () => {
-                      const fd = new FormData();
-                      fd.set("plantDepartmentId", plantDepartmentId);
-                      fd.set("requestId", selected.id);
-                      fd.set("triageNote", triageNote);
-                      if (assigneeId) fd.set("assignedEmployeeId", assigneeId);
-                      await acceptRequestCreateIssueAndWorkOrderAction(fd);
-                    })
-                  }
-                  data-testid="plant-create-wo"
-                >
-                  Accept + Issue + Work Order
-                </button>
-              </div>
+              {canTriage ? (
+                <>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Internal note
+                    </span>
+                    <textarea
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                      rows={2}
+                      value={triageNote}
+                      onChange={(e) => setTriageNote(e.target.value)}
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Assign technician (optional)
+                    </span>
+                    <select
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                      value={assigneeId}
+                      onChange={(e) => setAssigneeId(e.target.value)}
+                      data-testid="plant-triage-assignee"
+                    >
+                      <option value="">Unassigned</option>
+                      {technicians.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={pending || alreadyLinked}
+                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50"
+                      onClick={() =>
+                        run(async () => {
+                          const fd = new FormData();
+                          fd.set("plantDepartmentId", plantDepartmentId);
+                          fd.set("requestId", selected.id);
+                          fd.set("triageNote", triageNote);
+                          await acceptRequestCreateIssueAction(fd);
+                        })
+                      }
+                      data-testid="plant-accept-issue"
+                    >
+                      Accept + create Issue
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending || Boolean(selected.workOrderCode)}
+                      className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      onClick={() =>
+                        run(async () => {
+                          const fd = new FormData();
+                          fd.set("plantDepartmentId", plantDepartmentId);
+                          fd.set("requestId", selected.id);
+                          fd.set("triageNote", triageNote);
+                          if (assigneeId) fd.set("assignedEmployeeId", assigneeId);
+                          await acceptRequestCreateIssueAndWorkOrderAction(fd);
+                        })
+                      }
+                      data-testid="plant-create-wo"
+                    >
+                      Accept + Issue + Work Order
+                    </button>
+                  </div>
 
-              <div className="space-y-2 rounded-md border border-zinc-200 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Link existing Issue
+                  <div className="space-y-2 rounded-md border border-zinc-200 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Link existing Issue
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                        placeholder="Search open Issues"
+                        value={issueQuery}
+                        onChange={(e) => setIssueQuery(e.target.value)}
+                        data-testid="plant-issue-search"
+                      />
+                      <button
+                        type="button"
+                        disabled={pending}
+                        className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                        onClick={() =>
+                          run(async () => {
+                            const rows = await searchOpenIssuesForTriageAction({
+                              plantDepartmentId,
+                              q: issueQuery,
+                            });
+                            setIssueMatches(
+                              rows.map((row) => ({
+                                id: row.id,
+                                issueCode: row.issueCode,
+                                summary: row.summary,
+                                status: row.status,
+                              })),
+                            );
+                          })
+                        }
+                        data-testid="plant-issue-search-submit"
+                      >
+                        Search
+                      </button>
+                    </div>
+                    {issueMatches.length > 0 ? (
+                      <select
+                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                        value={selectedIssueId}
+                        onChange={(e) => setSelectedIssueId(e.target.value)}
+                        data-testid="plant-issue-lookup"
+                      >
+                        <option value="">Select Issue</option>
+                        {issueMatches.map((issue) => (
+                          <option key={issue.id} value={issue.id}>
+                            {issue.issueCode} · {issue.summary}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={pending || !selectedIssueId}
+                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50"
+                      onClick={() =>
+                        run(async () => {
+                          const fd = new FormData();
+                          fd.set("plantDepartmentId", plantDepartmentId);
+                          fd.set("requestId", selected.id);
+                          fd.set("issueId", selectedIssueId);
+                          fd.set("triageNote", triageNote);
+                          await linkRequestToExistingIssueAction(fd);
+                        })
+                      }
+                      data-testid="plant-link-issue"
+                    >
+                      Link to selected Issue
+                    </button>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Reason for decline / resolve without work
+                    </span>
+                    <input
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="Required"
+                      data-testid="plant-triage-reason"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                      onClick={() =>
+                        run(async () => {
+                          const fd = new FormData();
+                          fd.set("plantDepartmentId", plantDepartmentId);
+                          fd.set("requestId", selected.id);
+                          fd.set("reason", reason);
+                          await declineOperationalRequestAction(fd);
+                        })
+                      }
+                      data-testid="plant-decline"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                      onClick={() =>
+                        run(async () => {
+                          const fd = new FormData();
+                          fd.set("plantDepartmentId", plantDepartmentId);
+                          fd.set("requestId", selected.id);
+                          fd.set("reason", reason);
+                          await resolveRequestWithoutWorkAction(fd);
+                        })
+                      }
+                      data-testid="plant-resolve-without-work"
+                    >
+                      Resolve without work
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-600" data-testid="plant-triage-read-only">
+                  {readOnlyReason ?? "You can view these Requests."}
                 </p>
-                <div className="flex gap-2">
-                  <input
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    placeholder="Search open Issues"
-                    value={issueQuery}
-                    onChange={(e) => setIssueQuery(e.target.value)}
-                    data-testid="plant-issue-search"
-                  />
-                  <button
-                    type="button"
-                    disabled={pending}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    onClick={() =>
-                      run(async () => {
-                        const rows = await searchOpenIssuesForTriageAction({
-                          plantDepartmentId,
-                          q: issueQuery,
-                        });
-                        setIssueMatches(
-                          rows.map((row) => ({
-                            id: row.id,
-                            issueCode: row.issueCode,
-                            summary: row.summary,
-                            status: row.status,
-                          })),
-                        );
-                      })
-                    }
-                    data-testid="plant-issue-search-submit"
-                  >
-                    Search
-                  </button>
-                </div>
-                {issueMatches.length > 0 ? (
-                  <select
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                    value={selectedIssueId}
-                    onChange={(e) => setSelectedIssueId(e.target.value)}
-                    data-testid="plant-issue-lookup"
-                  >
-                    <option value="">Select Issue</option>
-                    {issueMatches.map((issue) => (
-                      <option key={issue.id} value={issue.id}>
-                        {issue.issueCode} · {issue.summary}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-                <button
-                  type="button"
-                  disabled={pending || !selectedIssueId}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50"
-                  onClick={() =>
-                    run(async () => {
-                      const fd = new FormData();
-                      fd.set("plantDepartmentId", plantDepartmentId);
-                      fd.set("requestId", selected.id);
-                      fd.set("issueId", selectedIssueId);
-                      fd.set("triageNote", triageNote);
-                      await linkRequestToExistingIssueAction(fd);
-                    })
-                  }
-                  data-testid="plant-link-issue"
-                >
-                  Link to selected Issue
-                </button>
-              </div>
-
-              <label className="block space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Reason for decline / resolve without work
-                </span>
-                <input
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Required"
-                  data-testid="plant-triage-reason"
-                />
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={pending}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  onClick={() =>
-                    run(async () => {
-                      const fd = new FormData();
-                      fd.set("plantDepartmentId", plantDepartmentId);
-                      fd.set("requestId", selected.id);
-                      fd.set("reason", reason);
-                      await declineOperationalRequestAction(fd);
-                    })
-                  }
-                  data-testid="plant-decline"
-                >
-                  Decline
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  onClick={() =>
-                    run(async () => {
-                      const fd = new FormData();
-                      fd.set("plantDepartmentId", plantDepartmentId);
-                      fd.set("requestId", selected.id);
-                      fd.set("reason", reason);
-                      await resolveRequestWithoutWorkAction(fd);
-                    })
-                  }
-                  data-testid="plant-resolve-without-work"
-                >
-                  Resolve without work
-                </button>
-              </div>
+              )}
             </>
           ) : (
             <p className="text-sm text-zinc-500">Select a Request.</p>

@@ -41,9 +41,10 @@ import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import { DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { getFacilityForSession } from "@/lib/facility-context";
-import { resolveDefaultHomePath } from "@/lib/nav-zones";
+import { dashboardNavHref, resolveDefaultHomePath } from "@/lib/nav-zones";
 import { roleMayAccessRoute } from "@/lib/route-registry";
 import {
+  isDashboardV2Enabled,
   isDietaryOperationalEvidenceEnabled,
   isDietaryWorkPlansEnabled,
   isCanonicalLogsEnabled,
@@ -164,6 +165,7 @@ export async function AppShell({ children }: AppShellProps) {
     dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
     dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
+    dashboardV2Enabled: isDashboardV2Enabled(),
   };
   const rawNavItems = platformNavItemsForRole(session.role, navFeatureFlags);
 
@@ -196,7 +198,7 @@ export async function AppShell({ children }: AppShellProps) {
       canViewLogBook: hasAtLeastRole(session.role, "SUPERVISOR"),
     }),
     { canViewAssets: hasAtLeastRole(session.role, "SUPERVISOR") },
-  );
+  ).map((item) => ({ ...item, href: dashboardNavHref(item.href) }));
   const buildGroup = groupNavItemsByMode(navItems).find((group) => group.mode === "BUILD");
   const buildNavItems = rewriteDepartmentBuilderNavHref(
     buildSidebarNavItems(buildGroup?.items ?? []),

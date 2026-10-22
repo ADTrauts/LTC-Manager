@@ -12,6 +12,7 @@
 
 import { ShiftType } from "@prisma/client";
 
+import { operatorPeriodIdForCreate } from "@/lib/department-authority/operator-period";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -131,6 +132,10 @@ export async function createCanonicalShift(input: {
     data: {
       employeeId: input.employeeId,
       departmentId: input.departmentId,
+      operatorPeriodId: await operatorPeriodIdForCreate(prisma, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+      }),
       date: facilityLocalDateToServiceDate(input.serviceDate),
       plannedStart,
       plannedEnd,

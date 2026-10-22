@@ -668,7 +668,7 @@ test(
             requestId: request.id,
             client: prisma,
           }),
-        /denied|authority|Facility Administrator/i,
+        /denied|authority|Facility Administrator|Changes are made by its head/i,
       );
       const accepted = await triageRequestCreateIssueAndWorkOrder(supervisor, {
         facilityId: facility.id,

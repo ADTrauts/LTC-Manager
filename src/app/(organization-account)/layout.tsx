@@ -17,6 +17,7 @@ import {
   listCurrentOrganizationMembershipsForUser,
   organizationDisplayLabel,
 } from "@/lib/organization-membership";
+import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +71,11 @@ export default async function OrganizationAccountLayout({ children }: Props) {
       <WorkspaceShellHeader
         menu={
           <CompactWorkspaceMenu>
-            <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
+            <OrganizationWorkspaceNav
+              organizationId={session.organizationId}
+              isAdmin={isAdmin}
+              showVendorDepartments={isContractedDepartmentAuthorityEnabled()}
+            />
           </CompactWorkspaceMenu>
         }
         brand={<ShellBrandBlock href={homeHref} />}
@@ -82,7 +87,11 @@ export default async function OrganizationAccountLayout({ children }: Props) {
       <div className="mx-auto flex min-h-0 w-full flex-1 overflow-hidden">
         <WorkspaceShellRail
           destinations={
-            <OrganizationWorkspaceNav organizationId={session.organizationId} isAdmin={isAdmin} />
+            <OrganizationWorkspaceNav
+              organizationId={session.organizationId}
+              isAdmin={isAdmin}
+              showVendorDepartments={isContractedDepartmentAuthorityEnabled()}
+            />
           }
         />
         <main data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">

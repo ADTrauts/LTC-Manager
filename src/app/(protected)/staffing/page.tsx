@@ -13,7 +13,10 @@ import { ScheduleReturnFields } from "@/components/scheduling/schedule-return-fi
 import { WeekEmployeeScheduleGrid } from "@/components/scheduling/week-employee-schedule-grid";
 import { WeekLocationCoverageGrid } from "@/components/scheduling/week-location-coverage-grid";
 import { WorkShiftPrefillFields } from "@/components/scheduling/work-shift-prefill-fields";
+import { DepartmentViewNotice } from "@/components/department-view-notice";
 import { hasAtLeastRole } from "@/lib/access";
+import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
@@ -73,7 +76,7 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const canManage = hasAtLeastRole(session.role, "SUPERVISOR");
+  const roleCanManage = hasAtLeastRole(session.role, "SUPERVISOR");
 
   const timezone = await loadFacilityTimezone(prisma, session.facilityId);
   const todayIso = buildOperationalTimeContext({
@@ -97,6 +100,17 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
   const nextDay = shiftScheduleIsoDate(selectedDateIso, 1);
 
   const departmentId = deptNav.activeDepartmentId;
+  const viewNotice = departmentViewOnlyNotice(
+    departmentId
+      ? (
+          await loadDepartmentChangeAccess(prisma, session, {
+            facilityId: session.facilityId,
+            departmentId,
+          })
+        )?.reason
+      : null,
+  );
+  const canManage = roleCanManage && !viewNotice;
   const filters = {
     team: firstSearchParam(query?.team),
     jobRole: firstSearchParam(query?.jobRole),
@@ -167,6 +181,8 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
         showAssignments={isOperationalAssignmentsEnabled()}
         showCycles={isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey)}
       />
+
+      {viewNotice ? <DepartmentViewNotice notice={viewNotice} /> : null}
 
       {actionError ? (
         <p

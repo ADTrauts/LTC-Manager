@@ -170,11 +170,14 @@ function toBrowseCard(row: {
 }
 
 /** Latest published Catalog definition per stableKey (drafts/retired excluded). */
-export async function listPublishedCatalogBrowseCards(client: Db): Promise<CatalogBrowseCard[]> {
+export async function listPublishedCatalogBrowseCards(
+  client: Db,
+  ownerWhere: Prisma.CatalogLogDefinitionWhereInput = {},
+): Promise<CatalogBrowseCard[]> {
   if (!isCanonicalLogsEnabled()) return [];
 
   const rows = await client.catalogLogDefinition.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", ...ownerWhere },
     orderBy: [{ category: "asc" }, { name: "asc" }, { version: "desc" }],
     select: {
       id: true,

@@ -1,10 +1,18 @@
 import { cookies } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
+import { DepartmentViewNotice } from "@/components/department-view-notice";
+import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { CreateMenuForm } from "@/components/menus/create-menu-form";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import {
+  departmentIsVisible,
+  loadDepartmentVisibility,
+} from "@/lib/department-authority/visibility";
 import { departmentProductOffersMenus } from "@/lib/department-products";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { resolveMenuListDepartmentScope } from "@/lib/menu-authority";
@@ -28,11 +36,16 @@ export default async function MenusPage({ searchParams }: MenusPageProps) {
   const params = searchParams ? await searchParams : undefined;
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  const requestedDepartmentId = typeof params?.department === "string" ? params.department : null;
+  const visibility = await loadDepartmentVisibility(prisma, session, session.facilityId);
+  if (requestedDepartmentId && !departmentIsVisible(visibility, requestedDepartmentId)) {
+    notFound();
+  }
 
   const scopedDepartmentId = resolveMenuListDepartmentScope({
     showAllDepartmentNav: deptNav.showAllDepartmentNav,
     activeDepartmentId: deptNav.activeDepartmentId,
-    requestedDepartmentId: typeof params?.department === "string" ? params.department : null,
+    requestedDepartmentId,
   });
 
   const [menuList, departments] = await Promise.all([
@@ -47,13 +60,24 @@ export default async function MenusPage({ searchParams }: MenusPageProps) {
     }),
   ]);
 
-  const createDepartments = departments
+  const visibleDepartments = departments.filter(
+    (department) => !visibility || visibility.pageDepartmentIds.has(department.id),
+  );
+  const createDepartments = visibleDepartments
     .filter((department) => departmentProductOffersMenus(department.key))
+    .filter((department) => !visibility || visibility.manageDepartmentIds.has(department.id))
     .filter((department) => deptNav.showAllDepartmentNav || department.id === deptNav.activeDepartmentId)
     .map((department) => ({ id: department.id, name: department.name }));
+  const menuViewNotice =
+    visibility && createDepartments.length === 0
+      ? departmentViewOnlyNotice(DEPARTMENT_VIEW_REASON)
+      : null;
 
-  const active = menuList.menus.filter((menu) => menu.status === "ACTIVE");
-  const inactive = menuList.menus.filter((menu) => menu.status === "INACTIVE");
+  const visibleMenus = menuList.menus.filter(
+    (menu) => !visibility || visibility.pageDepartmentIds.has(menu.department.id),
+  );
+  const active = visibleMenus.filter((menu) => menu.status === "ACTIVE");
+  const inactive = visibleMenus.filter((menu) => menu.status === "INACTIVE");
 
   return (
     <section className="space-y-4">
@@ -64,6 +88,8 @@ export default async function MenusPage({ searchParams }: MenusPageProps) {
         </div>
       ) : null}
 
+      {menuViewNotice ? <DepartmentViewNotice notice={menuViewNotice} /> : null}
+      {createDepartments.length > 0 ? (
       <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-900">Create menu</h2>
         <div className="mt-3">
@@ -74,6 +100,7 @@ export default async function MenusPage({ searchParams }: MenusPageProps) {
           />
         </div>
       </article>
+      ) : null}
 
       <MenuSection title="Active" menus={active} empty="No active menus." />
       <MenuSection title="Inactive" menus={inactive} empty="No inactive menus." />

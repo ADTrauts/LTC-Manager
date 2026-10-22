@@ -325,10 +325,11 @@ async function seedWorkspaceSelectorFixtures(db, { terrace, dietary, password })
     departmentId: highpointeDietary.id,
   });
 
+  // shell.fa holds Terrace View's one Facility Administrator seat (CDA-02).
   const workspace = await upsertUser(db, {
     email: "shell.workspace@ltc.local",
     displayName: "Shell Workspace Selector",
-    roleKey: "FACILITY_ADMINISTRATOR",
+    roleKey: "GM",
     facilityId: terrace.id,
     primaryDepartmentId: dietary.id,
   });
@@ -340,7 +341,7 @@ async function seedWorkspaceSelectorFixtures(db, { terrace, dietary, password })
   await ensureInternalGrant(db, {
     userId: workspace.id,
     facilityId: terrace.id,
-    roleKey: "FACILITY_ADMINISTRATOR",
+    roleKey: "GM",
   });
   await ensureInternalGrant(db, {
     userId: workspace.id,

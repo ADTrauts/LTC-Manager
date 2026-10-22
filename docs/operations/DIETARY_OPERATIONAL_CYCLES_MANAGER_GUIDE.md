@@ -2,6 +2,15 @@
 
 > **Domain guide.** Current section is Department Builder → Operating Rhythm. Manager terms are Operational Cycle, Phase, and Key Point. Meal Due, Ready, and Service Started are Key Points. See `docs/product/01_PRODUCT_CONSTITUTION.md`.
 
+> **Superseded in part (October 20, 2026).** The steps below describe Phase 9A. Where they conflict, the [Constitution](../product/01_PRODUCT_CONSTITUTION.md) wins:
+> - Cycles may overlap. Publishing shows a warning, not an error.
+> - Unit meal times are not the service clock. Meal Due is a Key Point; meal timing moves to Key Points only ([LEG-D07](../legacy-retirement/DECISIONS.md)).
+> - Cycles apply to explicit Department locations and Location Functions, not unit types ([LEG-D08](../legacy-retirement/DECISIONS.md)).
+> - `DIETARY_OPERATIONAL_CYCLES_ENABLED` already defaults on, and it retires: capabilities come with the installed Department ([LEG-D20](../legacy-retirement/DECISIONS.md)).
+> - The tab is **Operating Rhythm**, and "Milestones" are Key Points.
+>
+> This guide is rewritten when LEG-02 moves meal timing.
+
 Phase 9A lets Dietary Managers define the **named phases of the operating day** (Operational Cycles) and publish them so Employees and Supervisors see what part of the day is active.
 
 This phase does **not** implement full Job Flow, minute-by-minute task lists, or automatic task generation.

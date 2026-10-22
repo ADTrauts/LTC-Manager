@@ -3,6 +3,7 @@ import { FACILITY_STRUCTURE_CSV_HEADERS } from "@/lib/bulk-import/facility-struc
 import { rowsToCsv } from "@/lib/bulk-import/csv";
 import { RoleKey, EmploymentType } from "@prisma/client";
 import { getDepartmentProduct } from "@/lib/department-products/registry";
+import { FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL } from "@/lib/facility-access/administrator-seat";
 import { findCurrentInternalRolePeriod } from "@/lib/facility-access/periods";
 import { planAssetImport, ASSET_CSV_HEADERS, type ParsedAssetImportRow } from "@/lib/bulk-import/asset-import";
 import { hash, type ImportSource, type SourceRow, type PlanRow, type Operation } from "./contract";
@@ -79,6 +80,7 @@ export function planImport(source: ImportSource, catalog: Catalog, scopeDepartme
         if (!v.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email) || v.email.length > 120) throw Error("A real email is required. No fake emails or PIN-only unlinked people.");
         if (!v.firstName || v.firstName.length < 2 || v.firstName.length > 60 || !v.lastName || v.lastName.length < 2 || v.lastName.length > 60) throw Error("New employees require first and last names (2–60 characters).");
         if (!Object.values(RoleKey).includes(v.roleType as RoleKey) || !catalog.roles.some(x => x.key === v.roleType)) throw Error("Supply an active canonical roleType; no default authority is inferred.");
+        if (v.roleType === RoleKey.FACILITY_ADMINISTRATOR) throw Error(FACILITY_ADMINISTRATOR_ASSIGN_REFUSAL);
         if (!Object.values(EmploymentType).includes(v.employmentType as EmploymentType)) throw Error("New employees require an explicit employmentType.");
         if (v.phone && v.phone.length > 30) throw Error("Phone exceeds 30 characters.");
         const d = department(v.primaryDepartment || ""); options(v,d.id);

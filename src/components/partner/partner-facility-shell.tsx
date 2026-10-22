@@ -8,6 +8,10 @@ import { WorkspaceOwnedNav } from "@/components/shell/workspace-owned-nav";
 import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import type { PartnerFacilitySession } from "@/lib/auth";
+import { resolveDepartmentAccess } from "@/lib/department-authority/resolve";
+import { vendorHeadNavItems } from "@/lib/department-authority/vendor-nav";
+import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
+import { prisma } from "@/lib/prisma";
 import {
   loadWorkspaceSelectorModel,
   presentCurrentContextFromSession,
@@ -58,9 +62,18 @@ export async function PartnerFacilityShell({
       </p>
     );
 
-  const destinationsNode = () => (
-    <WorkspaceOwnedNav items={PARTNER_DESTINATIONS} label="Partner" />
-  );
+  const headAccess = isContractedDepartmentAuthorityEnabled()
+    ? await resolveDepartmentAccess(prisma, session, {
+        facilityId: session.facilityId,
+        departmentId: shell.context.activeDepartmentId,
+      })
+    : null;
+  const destinations = [
+    ...PARTNER_DESTINATIONS,
+    ...vendorHeadNavItems(headAccess?.isHead === true && headAccess.mode === "MANAGE"),
+  ];
+
+  const destinationsNode = () => <WorkspaceOwnedNav items={destinations} label="Partner" />;
 
   const workspaceNode = () =>
     workspaceSelector ? (

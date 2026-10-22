@@ -7,6 +7,7 @@ import { PageHeader, StatusBadge } from "@/components/design-system";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
+import { assertComplianceRecordsDepartment } from "@/lib/department-authority/visibility";
 import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
@@ -14,7 +15,7 @@ import {
 import { formatInspectionLogBookLine, scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
 import { repeatLogBookSummary } from "@/lib/canonical-logs/template-structure";
 import { searchEvidenceRecords, resolveEvidenceAuthority } from "@/lib/operational-evidence";
-import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
 import {
   getFacilityServiceDate,
@@ -72,14 +73,32 @@ export default async function EvidenceLogBookPage({
   }
 
   const cookieStore = await cookies();
+  const params = await searchParams;
+  const requestedDepartmentId = one(params.department);
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  const requestedDepartment =
+    requestedDepartmentId && isContractedDepartmentAuthorityEnabled()
+      ? await prisma.department.findFirst({
+          where: { id: requestedDepartmentId, facilityId: session.facilityId, isActive: true },
+          select: { id: true, name: true, key: true },
+        })
+      : null;
+  if (requestedDepartment) {
+    await assertComplianceRecordsDepartment(
+      prisma,
+      session,
+      session.facilityId,
+      requestedDepartment.id,
+    );
+  }
   if (
+    !requestedDepartment &&
     !isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey) &&
     !isCanonicalLogsEnabled()
   ) {
     redirect("/staffing");
   }
-  const department = await resolveStaffingOperationalDepartment({
+  const department = requestedDepartment ?? await resolveStaffingOperationalDepartment({
     facilityId: session.facilityId,
     activeDepartmentId: deptNav.activeDepartmentId,
     feature: "evidence",
@@ -103,7 +122,6 @@ export default async function EvidenceLogBookPage({
     );
   }
 
-  const params = await searchParams;
   const unitId = one(params.unitId);
   const assetId = one(params.assetId);
   const templateStableKey = one(params.template);

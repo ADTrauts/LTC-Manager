@@ -3,6 +3,7 @@
  * One query set for the whole week — avoids 7× day loaders.
  */
 
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-membership";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
@@ -97,7 +98,8 @@ export async function loadDepartmentWeekSchedule(input: {
       },
     }),
     prisma.scheduleEntry.findMany({
-      where: {
+      where: withOperatorPeriod(
+        {
         date: { gte: start, lt: end },
         OR: [
           { departmentId: input.departmentId },
@@ -108,6 +110,11 @@ export async function loadDepartmentWeekSchedule(input: {
         ],
         employee: { facilityId: input.facilityId },
       },
+        await operationPeriodWhere(prisma, {
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+        }),
+      ),
       select: {
         id: true,
         employeeId: true,

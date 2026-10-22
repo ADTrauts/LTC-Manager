@@ -1,0 +1,81 @@
+"use client";
+
+import { useActionState } from "react";
+
+import {
+  createVendorCatalogFormAction,
+  publishVendorCatalogFormAction,
+  type VendorFormActionResult,
+} from "@/app/partner/department/actions";
+
+export function VendorFormPanel({
+  drafts,
+}: {
+  drafts: Array<{ id: string; name: string; status: string }>;
+}) {
+  const [createState, createAction, creating] = useActionState<VendorFormActionResult | null, FormData>(
+    createVendorCatalogFormAction,
+    null,
+  );
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="vendor-forms">
+      <h2 className="text-sm font-semibold text-zinc-900">Forms</h2>
+      <p className="mt-1 text-sm text-zinc-600">
+        A form you build belongs to your organization. It can be used at every facility you run, and nowhere else.
+      </p>
+      <form action={createAction} className="mt-3 space-y-2">
+        <label className="block text-sm text-zinc-700">
+          Name
+          <input name="name" required className="mt-1 block w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block text-sm text-zinc-700">
+          Field
+          <input
+            name="fieldLabel"
+            required
+            className="mt-1 block w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={creating}
+          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+        >
+          {creating ? "Saving…" : "Add form"}
+        </button>
+        {createState ? (
+          <p className={`text-sm ${createState.ok ? "text-emerald-700" : "text-red-700"}`} role="status">
+            {createState.message}
+          </p>
+        ) : null}
+      </form>
+      <ul className="mt-4 space-y-2">
+        {drafts.map((form) => (
+          <li key={form.id} className="flex items-center justify-between gap-3 text-sm">
+            <span>
+              {form.name}
+              <span className="ml-2 text-zinc-500">{form.status === "PUBLISHED" ? "Published" : "Draft"}</span>
+            </span>
+            {form.status === "DRAFT" ? <PublishButton definitionId={form.id} /> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function PublishButton({ definitionId }: { definitionId: string }) {
+  const [state, action, pending] = useActionState<VendorFormActionResult | null, FormData>(
+    publishVendorCatalogFormAction,
+    null,
+  );
+  return (
+    <form action={action}>
+      <input type="hidden" name="definitionId" value={definitionId} />
+      <button type="submit" disabled={pending} className="text-xs underline-offset-2 hover:underline">
+        {pending ? "Publishing…" : "Publish"}
+      </button>
+      {state && !state.ok ? <span className="ml-2 text-xs text-red-700">{state.message}</span> : null}
+    </form>
+  );
+}

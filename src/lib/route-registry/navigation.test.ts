@@ -35,6 +35,15 @@ test("navigation — no role is offered a link outside its policy", () => {
   assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/admin"), true);
 });
 
+test("navigation — the Dashboard item points at the new page only while its flag is on", () => {
+  const on = platformNavItemsForRole("MANAGER", { todaysWorkEnabled: true, dashboardV2Enabled: true });
+  const dashboard = on.find((item) => item.label === "Dashboard");
+  assert.equal(dashboard?.href, "/dashboard");
+  assert.equal(dashboard?.zone, "WORKSPACE");
+  const off = platformNavItemsForRole("MANAGER", { todaysWorkEnabled: true, dashboardV2Enabled: false });
+  assert.equal(off.find((item) => item.label === "Dashboard")?.href, "/workspace");
+});
+
 test("navigation — items are ordered by the registry order", () => {
   const items = platformNavItemsForRole("FACILITY_ADMINISTRATOR", FLAGS);
   const orders = items.map(

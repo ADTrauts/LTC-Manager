@@ -2,6 +2,11 @@ import { Prisma, type PrismaClient, type RoleKey } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
 
+import {
+  FACILITY_ADMINISTRATOR_TAKEN_MESSAGE,
+  findOtherOpenFacilityAdministratorPeriod,
+  lockFacilityForAdministratorChange,
+} from "./administrator-seat";
 import { userHasActiveFacilityAccess } from "./assert-user-facility-access";
 import {
   assertNoOverlappingInternalRolePeriods,
@@ -24,11 +29,27 @@ export class InternalFacilityRoleError extends Error {
       | "NO_CURRENT_ROLE"
       | "OVERLAPPING_PERIOD"
       | "INVALID_ROLE"
-      | "USER_INACTIVE",
+      | "USER_INACTIVE"
+      | "FACILITY_ADMINISTRATOR_TAKEN",
     message: string,
   ) {
     super(message);
     this.name = "InternalFacilityRoleError";
+  }
+}
+
+/** One Facility Administrator per facility (CDA-02). Locks the facility before any access row. */
+async function assertFacilityAdministratorSeatAvailable(
+  db: DbClient,
+  input: { facilityId: string; userId: string },
+): Promise<void> {
+  await lockFacilityForAdministratorChange(db, input.facilityId);
+  const other = await findOtherOpenFacilityAdministratorPeriod(db, {
+    facilityId: input.facilityId,
+    exceptUserId: input.userId,
+  });
+  if (other) {
+    throw new InternalFacilityRoleError("FACILITY_ADMINISTRATOR_TAKEN", FACILITY_ADMINISTRATOR_TAKEN_MESSAGE);
   }
 }
 
@@ -179,7 +200,8 @@ async function resolveFallbackRoleKey(
 /**
  * Open a current role period when an active grant has none.
  * Used by login repair, signup, employee-created Users, and new grants.
- * Does not overwrite an existing current period.
+ * Does not overwrite an existing current period. A repair that would add a second Facility
+ * Administrator opens nothing; an explicit `roleKey` request for one throws instead.
  */
 export async function ensureCurrentInternalFacilityRole(
   db: DbClient,
@@ -218,10 +240,21 @@ export async function ensureCurrentInternalFacilityRole(
       at,
     });
 
-  if ("$transaction" in db) {
-    return db.$transaction((tx) => open(tx));
+  try {
+    if ("$transaction" in db) {
+      return await db.$transaction((tx) => open(tx));
+    }
+    return await open(db);
+  } catch (error) {
+    if (
+      !input.roleKey &&
+      error instanceof InternalFacilityRoleError &&
+      error.code === "FACILITY_ADMINISTRATOR_TAKEN"
+    ) {
+      return null;
+    }
+    throw error;
   }
-  return open(db);
 }
 
 async function openCurrentRoleIfMissing(
@@ -234,6 +267,10 @@ async function openCurrentRoleIfMissing(
     at: Date;
   },
 ): Promise<InternalFacilityRoleResolution | null> {
+  const opensAdministrator = input.roleKey === "FACILITY_ADMINISTRATOR";
+  if (opensAdministrator) {
+    await lockFacilityForAdministratorChange(db, input.grant.facilityId);
+  }
   await lockUserFacilityAccess(db, input.grant.id);
   const refreshed = await loadActiveGrant(db, {
     userId: input.userId,
@@ -248,6 +285,12 @@ async function openCurrentRoleIfMissing(
       roleKey: current.roleKey,
       periodId: current.id,
     };
+  }
+  if (opensAdministrator) {
+    await assertFacilityAdministratorSeatAvailable(db, {
+      facilityId: refreshed.facilityId,
+      userId: input.userId,
+    });
   }
 
   assertNoOverlappingInternalRolePeriods([
@@ -308,6 +351,9 @@ export async function changeInternalFacilityRole(
     const grant = await loadActiveGrant(tx, input);
     if (!grant) {
       throw new InternalFacilityRoleError("ACCESS_DENIED", "Facility access denied.");
+    }
+    if (input.roleKey === "FACILITY_ADMINISTRATOR") {
+      await assertFacilityAdministratorSeatAvailable(tx, { facilityId: input.facilityId, userId: input.userId });
     }
     await lockUserFacilityAccess(tx, grant.id);
     const locked = await loadActiveGrant(tx, input);

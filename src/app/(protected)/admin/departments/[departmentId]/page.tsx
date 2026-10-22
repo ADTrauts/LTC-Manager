@@ -26,6 +26,10 @@ import { loadDepartmentLocationRoomInspects } from "@/lib/department-administrat
 import { resolveTeamAuthority } from "@/lib/department-teams";
 import { loadDepartmentBuilderContextSummary } from "@/lib/department-administration/builder-context-summary";
 import { assertCustomerDepartmentContext } from "@/lib/active-department-context";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
+import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
+import { assertVisibleDepartment } from "@/lib/department-authority/visibility";
+import { DepartmentViewNotice } from "@/components/department-view-notice";
 import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import {
@@ -78,6 +82,7 @@ export default async function DepartmentBuilderPage({
 
   const profilesEnabled = isDepartmentOperationalProfilesEnabled();
   const { departmentId } = await params;
+  await assertVisibleDepartment(prisma, session, session.facilityId, departmentId);
   const access = await assertCustomerDepartmentContext({ session, departmentId });
   if (!access.allowed) {
     if (
@@ -165,8 +170,17 @@ export default async function DepartmentBuilderPage({
           }),
         }
       : null;
+  const viewNotice = departmentViewOnlyNotice(
+    (
+      await loadDepartmentChangeAccess(prisma, session, {
+        facilityId: session.facilityId,
+        departmentId: view.department.id,
+      })
+    )?.reason,
+  );
   const canInstallStarter =
     view.department.key === "PLANT" &&
+    !viewNotice &&
     hasAtLeastRole(session.role, "MANAGER") &&
     session.authMethod !== "QUICK_PIN";
   const plantStarterPresence =
@@ -247,6 +261,7 @@ export default async function DepartmentBuilderPage({
           targetKind: "DEPARTMENT",
           targetId: view.department.id,
           departmentId: view.department.id,
+          session,
         })
       : null;
 
@@ -282,6 +297,8 @@ export default async function DepartmentBuilderPage({
         tabs={availableTabs}
       />
 
+      {viewNotice ? <DepartmentViewNotice notice={viewNotice} /> : null}
+
       <div className={`min-w-0 ${contentMaxWidth}`.trim()}>
         {tab === "overview" ? (
           <div className="space-y-4">
@@ -290,6 +307,7 @@ export default async function DepartmentBuilderPage({
               facilityId={session.facilityId}
               departmentId={view.department.id}
               departmentName={view.department.name}
+              canSchedule={!viewNotice}
             />
             <OverviewPanel
               department={view.department}

@@ -611,6 +611,12 @@ export async function setWorkOrderExternalCost(
 ) {
   assertSupervisorPlus(session, "Technicians cannot edit vendor or recorded expense.");
   const client = input.client ?? prisma;
+  const { assertRepairCompanyMatchesMaintainer, repairVendorExpenseVisible } = await import(
+    "@/lib/department-authority/asset-maintainers"
+  );
+  if (!(await repairVendorExpenseVisible(client, session, { facilityId: input.facilityId, repairId: input.repairId }))) {
+    throw new Error("This repair cost belongs to the vendor that maintains the asset.");
+  }
   await resolveActor(session, input.facilityId, input.departmentId, input.repairId);
   const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
   if (repair.status === "CANCELLED") {
@@ -625,6 +631,11 @@ export async function setWorkOrderExternalCost(
         select: { id: true },
       });
       if (!vendor) throw new Error("Vendor not found.");
+      await assertRepairCompanyMatchesMaintainer(client, {
+        facilityId: input.facilityId,
+        vendorId: input.vendorId,
+        maintainerFacilityOrganizationId: repair.payerOrganizationId,
+      });
       vendorId = vendor.id;
     } else {
       vendorId = null;

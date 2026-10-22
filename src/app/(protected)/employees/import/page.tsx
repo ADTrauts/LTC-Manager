@@ -4,12 +4,13 @@ import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 import { EMPLOYEE_CLEARABLE_FIELDS } from "@/lib/employee-csv-import";
 import { requireEmployeeCsvAuthority } from "@/lib/employee-csv-update/service";
+import { resolveWorkspaceHomeHref } from "@/lib/shell/workspace-home";
 import { ImportCsvForm } from "./import-csv-form";
 
 export default async function EmployeesImportPage() {
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
-  if (!hasAtLeastRole(session.role, "MANAGER")) redirect("/dashboard");
+  if (!hasAtLeastRole(session.role, "MANAGER")) redirect(resolveWorkspaceHomeHref(session));
   let denied: string | null = null;
   try { requireEmployeeCsvAuthority(session); }
   catch (error) { denied = (error as Error).message; }

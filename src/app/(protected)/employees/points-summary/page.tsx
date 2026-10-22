@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth";
-import { employeeWhereForFacilityAndDept, hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
+import { hrefWithEmployeesDept, resolveEmployeesDeptScope } from "@/lib/employees-department-tabs";
 import { prisma } from "@/lib/prisma";
 
 type Row = {
@@ -29,15 +29,16 @@ export default async function EmployeesPointsSummaryPage({
   }
   const facilityId = session.facilityId;
   const sp = await searchParams;
-  const { deptId, deptName } = await resolveEmployeesDeptScope(
+  const { deptId, deptName, employeeWhere } = await resolveEmployeesDeptScope(
     prisma,
     facilityId,
     "/employees/points-summary",
     sp,
+    session,
   );
 
   const entries = await prisma.disciplinePointEntry.findMany({
-    where: { employee: employeeWhereForFacilityAndDept(facilityId, deptId) },
+    where: { employee: employeeWhere },
     select: {
       employeeId: true,
       category: true,
