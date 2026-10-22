@@ -42,7 +42,7 @@ ECMC owns Terrace View. ECMC runs Environmental Services and Facility Plant Oper
 | [Architecture](./ARCHITECTURE.md) | Access modes, the resolver, owners, enforcement, single Facility Administrator, vendor operation, operator-period data, tests |
 | [Phased plan](./PHASED_PLAN.md) | CDA-00 through CDA-07, and order with the Dashboard |
 | [Phase tracker](./PHASE_TRACKER.md) | The single status and authorization record |
-| [CDA-06 design](./CDA-06_DESIGN.md) | Operator-period stamp, backfill, reads, archive, and survey Records. Approve before code. |
+| [CDA-06 design](./CDA-06_DESIGN.md) | Operator-period stamp, backfill, reads, archive, and survey Records. Accepted October 22, 2026. |
 
 ## Boundaries
 

@@ -69,7 +69,7 @@ import {
   siblingSpacesOf,
   nestedSpacesOf,
   nestParentCandidates,
-} from "@/lib/facility-builder/load-facility-hierarchy";
+} from "@/lib/facility-builder/space-nesting";
 import {
   resolveBuilderNodeDisplayKind,
   displayKindLabel,

@@ -12,14 +12,16 @@ import { EmptyState } from "@/components/design-system/EmptyState";
 import { Select, TextArea, TextInput } from "@/components/design-system/Field";
 import { Drawer } from "@/components/drawer";
 import {
+  capabilitiesByCategory,
+  type OperationalCapabilityKey,
+} from "@/lib/department-job-roles/capabilities";
+import type { DepartmentJobRoleView } from "@/lib/department-job-roles/service";
+import {
   DEPARTMENT_JOB_ROLE_TIERS,
   JOB_ROLE_TIER_LABEL,
-  capabilitiesByCategory,
   defaultCapabilitiesForTier,
-  type DepartmentJobRoleView,
   type JobRoleTier,
-  type OperationalCapabilityKey,
-} from "@/lib/department-job-roles";
+} from "@/lib/department-job-roles/tiers";
 
 type Props = {
   departmentId: string;

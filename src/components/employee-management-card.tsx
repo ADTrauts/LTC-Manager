@@ -29,7 +29,7 @@ import {
   PEOPLE_ASSIGNABLE_AUTHORITIES,
 } from "@/lib/employee-hr-labels";
 import { requiresEmailPasswordAccount } from "@/lib/credential-policy";
-import { JOB_ROLE_TIER_LABEL } from "@/lib/department-job-roles";
+import { JOB_ROLE_TIER_LABEL } from "@/lib/department-job-roles/tiers";
 import {
   EmployeeOrganizationFields,
   type OrganizationJobRoleAssignment,

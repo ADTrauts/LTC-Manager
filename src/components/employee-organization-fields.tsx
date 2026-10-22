@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { JOB_ROLE_TIER_LABEL, type JobRoleTier } from "@/lib/department-job-roles";
+import { JOB_ROLE_TIER_LABEL, type JobRoleTier } from "@/lib/department-job-roles/tiers";
 
 export type OrganizationDepartmentOption = {
   id: string;

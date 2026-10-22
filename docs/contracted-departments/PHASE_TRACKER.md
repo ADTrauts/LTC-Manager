@@ -1,6 +1,6 @@
 # Contracted Department Authority — phase tracker
 
-Updated October 22, 2026 (CDA-06 handover fixture passed on a disposable database). This is the single status and authorization record for the [Contracted Department Authority program](./README.md). Scope is in the [phased plan](./PHASED_PLAN.md). Decisions are in [DECISIONS.md](./DECISIONS.md).
+Updated October 22, 2026 (CDA-07 started at staging). This is the single status and authorization record for the [Contracted Department Authority program](./README.md). Scope is in the [phased plan](./PHASED_PLAN.md). Decisions are in [DECISIONS.md](./DECISIONS.md).
 
 | Phase | Status | Gate / dependency |
 |---|---|---|
@@ -10,8 +10,55 @@ Updated October 22, 2026 (CDA-06 handover fixture passed on a disposable databas
 | CDA-03 — View everywhere, heads in place | **Accepted (user) October 21, 2026.** A head is required on add in the sense of the needs-a-head list ([CDA-D05](./DECISIONS.md#cda-d05--self-operated-departments--accepted-user-october-20-2026-head-rule-refined-user-october-21-2026)). | Requires CDA-01 exit. Before DSH-02. One forward-only migration. [Record below](#cda-03-record--october-21-2026). |
 | CDA-04 — Head-run enforcement: changes and visibility (internal) | **Accepted (user) October 22, 2026.** | Requires CDA-03 exit. CDA-Q08 answered. The enforcement flag stays off. Known limits remain in the records below. [Changes](#cda-04-changes-record--october-21-2026). [Visibility](#cda-04-visibility-record--october-21-2026). [View-only screens](#cda-04-view-only-screens-record--october-21-2026). [Workforce, Legacy, and the manifest](#cda-04-workforce-legacy-and-manifest-record--october-21-2026). |
 | CDA-05 — Vendor operation | **Accepted (user) October 22, 2026.** | Requires CDA-04 exit. CDA-Q09 answered. The enforcement flag stays off. [Vendor operation](#cda-05-vendor-head-record--october-21-2026). |
-| CDA-06 — Operator-period data | **Approved (user) October 22, 2026.** Stamp, operating reads, contract-end retire, the company-admin archive, and the handover fixture are in. A future-dated handover keeps the current operator's setup until that start date. Waiting on acceptance. | [Design](./CDA-06_DESIGN.md). Flag stays off. The local `ltc_manager` database is not migrated. |
-| CDA-07 — Enable | Not started — not authorized | Requires CDA-06 exit, staging acceptance, and legacy retirement ([LEG-07](../legacy-retirement/PHASE_TRACKER.md), CDA-D17) or an explicit exception. Before DSH-02 production. |
+| CDA-06 — Operator-period data | **Accepted (user) October 22, 2026.** | [Design](./CDA-06_DESIGN.md). Flag stays off. [Record](#cda-06-record--october-22-2026). |
+| CDA-07 — Enable | **Started October 22, 2026.** Staging only. Production is not authorized. | Authorized when the product owner said to start CDA-07, after accepting CDA-06. Production still needs [LEG-07](../legacy-retirement/PHASE_TRACKER.md) or an explicit exception (CDA-D17). [Record](#cda-07-record--october-22-2026). |
+
+## CDA-07 record — October 22, 2026
+
+Authorized when the product owner said to start CDA-07. CDA-06 is accepted. This phase starts at staging. The code default stays `false`. Production stays off until LEG-07 or an explicit exception. Doc amendments in [CDA-D15](./DECISIONS.md#cda-d15--superseded-statements-and-amendment-schedule--accepted-october-20-2026) wait until enforcement is on.
+
+### Staging
+
+The staging project is `ltc-manager-staging`. On October 22, 2026, `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED=true` was set there for production, preview, and development. The production project `ltc-manager` was left unset. The staging database received the same pending migrations, through the operator-period stamp. A preview deployment of `codex/onboarding-integration` (`f685155`) was started so that flag is on a build that contains the code: `ltc-manager-staging-302tkvva6-adtrauts-projects.vercel.app`. The older staging production alias was not replaced.
+
+Acceptance uses the Terrace View pattern:
+
+- One Facility Administrator.
+- Food & Nutrition is vendor-run by Metz. After the Metz head accepts, the Facility Administrator sees a summary and can open compliance Records, including ended periods.
+- Plant Operations is self-operated. The Facility Administrator views it until they are its head.
+- Environmental Services stays in development and off customer Dashboards.
+- A handover to the next operator hides the previous period. The company admin sees ended periods as counts.
+
+### Not in this start
+
+- Production enablement.
+- The Dashboard production flag.
+- Constitution, Language Guide, Persona Model, and doc 13 amendments. Those land when enforcement is enabled.
+
+## CDA-06 record — October 22, 2026
+
+Built to the [design](./CDA-06_DESIGN.md), approved the same day, including no row deletion and no survey expiry.
+
+### Delivered
+
+- [x] Period stamp `operatorPeriodId` on Menus, Work Plans, Operating Rhythm, People, Schedule, Records, and vendor catalog forms. Migration `20261022120000_cda06_operator_period_stamp`. Assets, repairs, and Plant requests are not stamped.
+- [x] Creates stamp the vendor period in force while enforcement is on. Updates do not move a row. Flag off leaves new stamps null.
+- [x] Operating lists follow the period in force. A current vendor period hides every other period. The facility People directory keeps null stamps and facility-organization periods.
+- [x] Closing a vendor period retires that period's Menus, Work Plans, and Operating Rhythm when the replacement date is today or earlier. People and Records stay.
+- [x] Company-admin archive at `/organization/[organizationId]/archive`: ended periods and counts only.
+- [x] The Facility Administrator's Log Book includes every period, including ended ones.
+- [x] Handover fixture: Metz to Sodexo, then Sodexo back to the facility. The next operator does not see the previous period. The Facility Administrator still opens the Records.
+
+### Limits that stay
+
+- A handover saved for a future date keeps the current operator's setup until that start date. The status change runs when the assignment is saved on or after that date. Operating lists still follow whichever period is in force.
+- The archive is counts, not a row-by-row browser.
+- Nothing is deleted and nothing expires.
+- `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED` stays off.
+
+### Accepted
+
+Accepted by the product owner October 22, 2026, as built, including the limits above. CDA-07 was authorized later the same day, starting at staging. Production still needs legacy retirement (LEG-07) or an explicit exception.
 
 ## CDA-03 record — October 21, 2026
 
