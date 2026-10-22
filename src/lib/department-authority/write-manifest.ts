@@ -551,6 +551,7 @@ export const WRITE_MANIFEST: WriteManifest = {
     "refreshMorningBriefAction",
     "ensureMorningBriefAction",
   ]),
+  [`${PROTECTED}/dashboard/settle-action.ts`]: { recordDashboardSettle: AUTH_SYSTEM },
   [`${PROTECTED}/workspace/actions.ts`]: each(PERSONAL, [
     "updateWorkspaceHiddenSectionsAction",
     "toggleWorkspaceSectionCollapsedAction",
