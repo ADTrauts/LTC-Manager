@@ -108,13 +108,6 @@ async function main() {
           unitType: "SERVERY",
           isActive: true,
           displayOrder: 90,
-          mealTimes: {
-            create: [
-              { mealType: "BREAKFAST", scheduledTime: "07:45", isActive: true },
-              { mealType: "LUNCH", scheduledTime: "12:00", isActive: true },
-              { mealType: "DINNER", scheduledTime: "17:00", isActive: true },
-            ],
-          },
         },
         select: { id: true, name: true },
       });

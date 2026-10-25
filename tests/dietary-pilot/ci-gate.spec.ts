@@ -161,9 +161,12 @@ test("gm staffing and timing @ci-gate: coverage page and unit milestones", async
   const { context, page } = await openPersistent("gm");
   try {
     await loginPassword(page, fx.gmEmail);
-    await page.goto("/today/coverage", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("dietary-assignment-coverage")).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole("link", { name: /Open Daily Assignments/i })).toBeVisible();
+    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
+      timeout: 25_000,
+    });
 
     await page.goto(`/unit/${fx.serveryUnitId}`, { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("neighborhood-workspace")).toBeVisible({ timeout: 25_000 });

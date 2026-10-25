@@ -25,11 +25,9 @@ test("every stored RepairStatus maps to one canonical Work Order status", () => 
     OPEN: "OPEN",
     ASSIGNED: "ASSIGNED",
     IN_PROGRESS: "IN_PROGRESS",
-    WAITING_PARTS: "ON_HOLD",
     WAITING_ON_VENDOR: "ON_HOLD",
     ON_HOLD: "ON_HOLD",
     COMPLETED: "COMPLETED",
-    CLOSED: "COMPLETED",
     CANCELLED: "CANCELED",
   };
   for (const status of ALL_REPAIR_STATUSES) {

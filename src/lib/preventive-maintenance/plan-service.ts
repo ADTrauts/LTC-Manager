@@ -91,10 +91,9 @@ function civilDateValue(value: CivilDate | Date): Date {
 function requirementCreates(rows: PmRecordRequirementInput[] | undefined) {
   return (rows ?? []).map((row, index) => ({
     id: cuidLike(),
-    templateId: row.templateId ?? null,
-    templateStableKey: row.templateId ? "" : null,
-    templateVersion: row.templateId ? 0 : null,
-    templateName: row.templateId ? "" : null,
+    templateStableKey: row.catalogDefinitionId ? null : row.templateId ? "retired" : null,
+    templateVersion: null,
+    templateName: null,
     catalogDefinitionId: row.catalogDefinitionId ?? null,
     sortOrder: row.sortOrder ?? index,
   }));

@@ -130,7 +130,6 @@ test("queue sort — open oldest first before completed", () => {
 test("product separation: completed repair statuses do not imply issue/asset resolution", () => {
   // Documented invariant — helpers only classify Repair status.
   assert.equal(isRepairCompletedStatus("COMPLETED"), true);
-  assert.equal(isRepairCompletedStatus("CLOSED"), true);
   assert.equal(isRepairCompletedStatus("IN_PROGRESS"), false);
   // No helper couples Repair completion to AssetIssue or Asset condition.
 });

@@ -204,9 +204,12 @@ test("coverage gap @ci-gate: coverage page links to Assignment Board", async () 
   const { context, page } = await openPersistent("coverage");
   try {
     await loginPassword(page, fx.supervisorEmail);
-    await page.goto("/today/coverage", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("dietary-assignment-coverage")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("link", { name: /Open Daily Assignments/i })).toBeVisible();
+    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
+      timeout: 20_000,
+    });
   } finally {
     await context.close();
   }

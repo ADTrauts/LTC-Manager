@@ -37,7 +37,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     activeUnitId: session.activeUnitId,
   });
 
-  if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
+  if (!hasAtLeastRole(session.role, "SUPERVISOR") && destination !== "/dashboard") {
     redirect(onboardingComplete ? `${destination}?onboarding=complete` : destination);
   }
 

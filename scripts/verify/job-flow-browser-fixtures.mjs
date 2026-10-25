@@ -628,64 +628,7 @@ async function main() {
       });
     }
 
-    // Seed Ready + late Started on primary unit for LUNCH (Supervisor timing exception when cycle applies).
-    const readyAt = new Date(Date.UTC(y, Number(m) - 1, Number(d), 15, 30, 0));
-    const startedAt = new Date(Date.UTC(y, Number(m) - 1, Number(d), 17, 5, 0));
-    const event = await db.serveryMealServiceEvent.upsert({
-      where: {
-        unitId_serviceDate_mealType: {
-          unitId: primaryUnit.id,
-          serviceDate,
-          mealType: "LUNCH",
-        },
-      },
-      update: {
-        mealServiceReadyAt: readyAt,
-        mealServiceStartedAt: startedAt,
-        readyRecordedAt: readyAt,
-        startedRecordedAt: startedAt,
-      },
-      create: {
-        unitId: primaryUnit.id,
-        serviceDate,
-        mealType: "LUNCH",
-        mealServiceReadyAt: readyAt,
-        mealServiceStartedAt: startedAt,
-        readyRecordedAt: readyAt,
-        startedRecordedAt: startedAt,
-      },
-      select: { id: true },
-    });
-    const readyExists = await db.serveryMilestoneEntry.findFirst({
-      where: { eventId: event.id, milestone: "READY" },
-      select: { id: true },
-    });
-    if (!readyExists) {
-      await db.serveryMilestoneEntry.create({
-        data: {
-          eventId: event.id,
-          milestone: "READY",
-          occurredAt: readyAt,
-          clientActionId: "jf-browser-ready-lunch",
-        },
-      });
-    }
-    const startedExists = await db.serveryMilestoneEntry.findFirst({
-      where: { eventId: event.id, milestone: "SERVICE_STARTED" },
-      select: { id: true },
-    });
-    if (!startedExists) {
-      await db.serveryMilestoneEntry.create({
-        data: {
-          eventId: event.id,
-          milestone: "SERVICE_STARTED",
-          occurredAt: startedAt,
-          clientActionId: "jf-browser-started-lunch",
-        },
-      });
-    }
-
-    // Server-visible offline sync signals for Supervisor Board OfflineSync exceptions.
+    // Meal milestones moved to Key Points. The retired servery event tables are gone.
     await db.offlineSyncReceipt.upsert({
       where: {
         facilityId_unitId_clientCommandId: {

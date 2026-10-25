@@ -50,7 +50,7 @@ test("lifecycle vs operational condition helpers", () => {
 test("assetNotRetiredWhere is the shared active-lifecycle filter", () => {
   assert.deepEqual(assetNotRetiredWhere(), { status: { not: "RETIRED" } });
   assert.deepEqual(assetAvailableForProspectiveUseWhere(), {
-    status: { in: ["ACTIVE", "OPERATIONAL", "DEGRADED"] },
+    status: { in: ["OPERATIONAL", "DEGRADED"] },
   });
   assert.deepEqual(assetAttentionConditionWhere(), {
     status: { in: ["DEGRADED", "OUT_OF_SERVICE"] },

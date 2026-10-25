@@ -50,8 +50,8 @@ test("log priority is conservative MEDIUM", () => {
 test("repair status maps to TaskStatus", () => {
   assert.equal(mapRepairStatusToTaskStatus("OPEN"), "OPEN");
   assert.equal(mapRepairStatusToTaskStatus("IN_PROGRESS"), "IN_PROGRESS");
-  assert.equal(mapRepairStatusToTaskStatus("WAITING_PARTS"), "IN_PROGRESS");
-  assert.equal(mapRepairStatusToTaskStatus("CLOSED"), "COMPLETED");
+  assert.equal(mapRepairStatusToTaskStatus("WAITING_ON_VENDOR"), "IN_PROGRESS");
+  assert.equal(mapRepairStatusToTaskStatus("COMPLETED"), "COMPLETED");
 });
 
 test("repair priority maps 1:1", () => {
@@ -126,7 +126,7 @@ test("repair upsert input maps priority/status and allows null unit", () => {
     title: "Leak under sink",
     description: "Standing water",
     priority: "URGENT",
-    status: "WAITING_PARTS",
+    status: "WAITING_ON_VENDOR",
     unitId: null,
     responsibleDepartmentId: "dept_plant",
     assignedEmployeeId: null,
@@ -150,7 +150,7 @@ test("closed repair maps to COMPLETED with completedAt", () => {
     title: "Door hinge",
     description: "Fixed",
     priority: "LOW",
-    status: "CLOSED",
+    status: "COMPLETED",
     unitId: "unit_1",
     responsibleDepartmentId: null,
     assignedEmployeeId: null,
@@ -265,7 +265,7 @@ test("repair sync updates Task status on status change and survives upsert failu
         title: "Valve",
         description: "Leak",
         priority: "HIGH",
-        status: "CLOSED",
+        status: "COMPLETED",
         unitId: "unit_1",
         responsibleDepartmentId: "dept_1",
         assignedEmployeeId: null,

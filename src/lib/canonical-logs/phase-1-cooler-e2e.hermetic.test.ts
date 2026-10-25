@@ -446,7 +446,7 @@ test("Phase 1 — Review and CSV use the same Morning requirement key as the 38�
 
 test("Phase 1 — canonical Cooler path does not write legacy engines", () => {
   const submit = source("src/lib/canonical-logs/submit-canonical-log.ts");
-  assert.match(submit, /templateId: null/);
+  assert.doesNotMatch(submit, /templateId:/);
   assert.match(submit, /operationalEvidenceRecord\.create/);
   assert.doesNotMatch(submit, /logSubmission\.create/);
   assert.doesNotMatch(submit, /inspectionSubmission\.create/);

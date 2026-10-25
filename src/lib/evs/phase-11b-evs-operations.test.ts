@@ -356,7 +356,6 @@ test("phase11b sql: DEVELOPMENT denies new rework/Records; retained Needs Attent
     // This is test history, not a new template creation service or forward writer.
     const definition = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
     const history = await prisma.operationalEvidenceRecord.create({ data: {
-      templateId: definition.id,
       facilityId: fx.facility.id, departmentId: fx.evs.id, templateStableKey: definition.stableKey,
       templateVersion: 1, templateName: "Historical room inspection", purposeType: "INSPECTION",
       requirementKey: cuidLike(), operationalDate: new Date("2026-08-07T00:00:00Z"),

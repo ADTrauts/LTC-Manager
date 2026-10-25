@@ -214,6 +214,7 @@ function world() {
     recordEngineRollout: { findMany: async () => [{ facilityId: "terrace", departmentId: "food", mode: "CANONICAL", effectiveFromServiceDate: "2020-01-01" }] },
     operationalEvidenceAttachment: { findMany: async () => [] },
     operationalEvidenceFieldValue: { deleteMany: async () => ({ count: 0 }) },
+    department: { findFirst: async () => ({ key: "DIETARY" }) },
     unitSpace: { findFirst: async () => null },
   };
 

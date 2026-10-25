@@ -291,16 +291,9 @@ async function main() {
       data: { facilityId: facilityA.id, key: "MAINTENANCE", name: `Maint A ${stamp}` },
       select: { id: true },
     }));
-  const mkOp = async (facilityId, departmentId, label) => {
-    const def = await db.operationDefinition.create({
-      data: { facilityId, departmentId, key: `p4-${label}-${stamp}`, label },
-      select: { id: true },
-    });
-    return db.operationInstance.create({
-      data: { facilityId, departmentId, definitionId: def.id, serviceDate: sd, label },
-      select: { id: true },
-    });
-  };
+  const mkOp = async (_facilityId: string, _departmentId: string, label: string) => ({
+    id: `retired-${label}-${stamp}`,
+  });
   const opA = await mkOp(facilityA.id, deptA.id, "opA");
   const opAOther = await mkOp(facilityA.id, deptA2.id, "opAOther");
   const opB = await mkOp(facilityB.id, deptB.id, "opB");

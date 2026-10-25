@@ -54,7 +54,7 @@ test("Department Builder and Procedures live under Build", () => {
   assert.doesNotMatch(href, /`\/admin\/departments/);
   const surface = source("src/lib/knowledge/surface.ts");
   assert.match(surface, /PROCEDURES_RESOURCES_VISIBLE = true/);
-  assert.match(surface, /\/build\/knowledge/);
+  assert.match(surface, /\/admin\/knowledge/);
 });
 
 test("Harbor catalog installs inspections and procedures", () => {

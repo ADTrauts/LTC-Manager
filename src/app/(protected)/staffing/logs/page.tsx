@@ -11,7 +11,6 @@ import { getSession } from "@/lib/auth";
 import { loadDepartmentVisibility } from "@/lib/department-authority/visibility";
 import { loadFacilityRunLogRequirements } from "@/lib/canonical-logs/load-run-requirements";
 import {
-  isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
 import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
@@ -28,11 +27,7 @@ export default async function CanonicalRunLogsPage() {
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
   if (!isCanonicalLogsEnabled()) {
-    redirect(
-      isAnyStaffingOperationalFeatureEnabled("evidence", deptNav.activeOperationalDepartmentKey)
-        ? "/staffing/log-book"
-        : "/logs",
-    );
+    redirect("/staffing/log-book");
   }
 
   let departmentId: string | null = deptNav.activeDepartmentId;

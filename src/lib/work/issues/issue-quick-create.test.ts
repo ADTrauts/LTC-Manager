@@ -1,14 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { IssueType } from "@prisma/client";
+import { RepairTrade } from "@prisma/client";
 
-import { ISSUE_TYPE_OPTIONS, issueTypeLabel } from "@/lib/repair-routing";
+import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
 
-test("all IssueType values are represented in quick-report options", () => {
-  const values = new Set(ISSUE_TYPE_OPTIONS.map((option) => option.value));
-  for (const value of Object.values(IssueType)) {
-    assert.ok(values.has(value), `missing option for ${value}`);
-    assert.ok(issueTypeLabel(value).length > 0);
-  }
+test("repair routing uses trade, not a retired issue type", async () => {
+  const prisma = {
+    department: {
+      findMany: async () => [
+        { id: "dept_dietary", key: "DIETARY" },
+        { id: "dept_plant", key: "PLANT" },
+      ],
+      findFirst: async () => ({ id: "dept_dietary" }),
+    },
+    unit: {
+      findFirst: async () => ({
+        departmentResponsibilities: [
+          { kind: "PRIMARY", department: { id: "dept_dietary", key: "DIETARY" } },
+        ],
+      }),
+    },
+    asset: { findFirst: async () => null },
+  };
+
+  const result = await suggestRepairDepartmentIds(prisma as never, {
+    facilityId: "fac_1",
+    unitId: "unit_1",
+    repairTrade: RepairTrade.PLUMBING,
+  });
+
+  assert.equal(result.responsibleDepartmentId, "dept_plant");
+  assert.equal(result.requestingDepartmentId, "dept_dietary");
 });

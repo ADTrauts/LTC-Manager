@@ -19,12 +19,6 @@ const skip = TEST_DATABASE_URL
 process.env.AUTH_SECRET ??= "object-scope-db-test-secret";
 
 const SERVICE_DATE_KEY = "2031-03-04";
-const OTHER_SERVICE_DATE_KEY = "2031-03-05";
-
-function serviceDate(key: string): Date {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1, d!));
-}
 
 type Side = {
   facilityId: string;
@@ -80,59 +74,8 @@ async function buildSide(db: PrismaClient, organizationId: string, label: string
     },
     select: { id: true },
   });
-  // Declare the unit as Dietary's, so the cross-department coherence check has something to read.
   await db.unitDepartmentResponsibility.create({
     data: { unitId: unit.id, departmentId: department.id, kind: "PRIMARY" },
-  });
-
-  const definition = await db.operationDefinition.create({
-    data: {
-      facilityId: facility.id,
-      departmentId: department.id,
-      key: unique("op"),
-      label: `Breakfast ${label}`,
-    },
-    select: { id: true },
-  });
-  const secondDefinition = await db.operationDefinition.create({
-    data: {
-      facilityId: facility.id,
-      departmentId: secondDepartment.id,
-      key: unique("op"),
-      label: `Round ${label}`,
-    },
-    select: { id: true },
-  });
-
-  const instance = await db.operationInstance.create({
-    data: {
-      facilityId: facility.id,
-      departmentId: department.id,
-      definitionId: definition.id,
-      serviceDate: serviceDate(SERVICE_DATE_KEY),
-      label: `Breakfast ${label}`,
-    },
-    select: { id: true },
-  });
-  const otherDepartmentInstance = await db.operationInstance.create({
-    data: {
-      facilityId: facility.id,
-      departmentId: secondDepartment.id,
-      definitionId: secondDefinition.id,
-      serviceDate: serviceDate(SERVICE_DATE_KEY),
-      label: `Round ${label}`,
-    },
-    select: { id: true },
-  });
-  const otherDateInstance = await db.operationInstance.create({
-    data: {
-      facilityId: facility.id,
-      departmentId: department.id,
-      definitionId: definition.id,
-      serviceDate: serviceDate(OTHER_SERVICE_DATE_KEY),
-      label: `Breakfast ${label} next day`,
-    },
-    select: { id: true },
   });
 
   const vendor = await db.vendor.create({
@@ -145,9 +88,9 @@ async function buildSide(db: PrismaClient, organizationId: string, label: string
     departmentId: department.id,
     secondDepartmentId: secondDepartment.id,
     unitId: unit.id,
-    operationInstanceId: instance.id,
-    otherDepartmentOperationInstanceId: otherDepartmentInstance.id,
-    otherDateOperationInstanceId: otherDateInstance.id,
+    operationInstanceId: `retired-op-${label}`,
+    otherDepartmentOperationInstanceId: `retired-op-other-${label}`,
+    otherDateOperationInstanceId: `retired-op-date-${label}`,
     vendorId: vendor.id,
   };
 }
@@ -174,8 +117,6 @@ after(async () => {
   const { db } = fixture;
   for (const facilityId of createdFacilityIds) {
     await db.operationalAssignment.deleteMany({ where: { facilityId } });
-    await db.operationInstance.deleteMany({ where: { facilityId } });
-    await db.operationDefinition.deleteMany({ where: { facilityId } });
     await db.vendor.deleteMany({ where: { facilityId } });
     await db.unitDepartmentResponsibility.deleteMany({ where: { unit: { facilityId } } });
     await db.unit.deleteMany({ where: { facilityId } });

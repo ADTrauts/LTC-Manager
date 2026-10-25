@@ -468,7 +468,6 @@ test(
           id: cuidLike(),
           facilityId: fx.facility.id,
           departmentId: fx.plant.id,
-          templateId: templateA.id,
           templateStableKey: templateA.stableKey,
           templateVersion: templateA.version,
           templateName: templateA.name,
@@ -485,7 +484,6 @@ test(
           id: cuidLike(),
           facilityId: other.facility.id,
           departmentId: other.plant.id,
-          templateId: templateB.id,
           templateStableKey: templateB.stableKey,
           templateVersion: templateB.version,
           templateName: templateB.name,
@@ -544,7 +542,7 @@ test(
           title: "Pre-3B repair",
           description: "No space, no procedure, no category",
           priority: "LOW",
-          status: "WAITING_PARTS",
+          status: "ON_HOLD",
           repairTrade: "ELECTRICAL",
         },
       });
@@ -553,7 +551,7 @@ test(
       assert.equal(replay.maintenanceCategoryId, null);
       assert.equal(replay.holdReason, null);
       assert.equal(replay.priority, "LOW");
-      assert.equal(replay.status, "WAITING_PARTS");
+      assert.equal(replay.status, "ON_HOLD");
       assert.equal(presentWorkOrder(replay).priority, "ROUTINE");
       assert.equal(presentWorkOrder(replay).status, "ON_HOLD");
       assert.equal(presentWorkOrder(replay).categoryKey, "ELECTRICAL");

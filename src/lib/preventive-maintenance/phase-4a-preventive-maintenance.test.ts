@@ -206,20 +206,6 @@ test(
 
       const template = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
 
-      const legacySchedule = await prisma.preventiveMaintenanceSchedule.create({
-        data: {
-          id: cuidLike(),
-          facilityId: fx.facility.id,
-          assetId: fx.asset.id,
-          departmentId: fx.plant.id,
-          name: "Legacy rolling PM",
-          cadence: "QUARTERLY",
-          intervalCount: 1,
-          nextDueAt: new Date("2027-04-01T00:00:00.000Z"),
-          isActive: true,
-        },
-      });
-
       const supervisorDraft = await createPmPlanWithDraft(supervisor, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
@@ -536,12 +522,6 @@ test(
       });
       assert.equal(occurrenceAfterRetire.status, "OPEN");
       assert.equal(occurrenceAfterRetire.planVersionId, publishedV1.id);
-
-      const leftoverLegacy = await prisma.preventiveMaintenanceSchedule.findUniqueOrThrow({
-        where: { id: legacySchedule.id },
-      });
-      assert.equal(leftoverLegacy.nextDueAt.toISOString(), legacySchedule.nextDueAt.toISOString());
-      assert.equal(leftoverLegacy.cadence, "QUARTERLY");
     } finally {
       if (prevPlant === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
       else process.env.PLANT_OPERATIONS_ENABLED = prevPlant;

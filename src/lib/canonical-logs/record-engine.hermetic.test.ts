@@ -580,19 +580,18 @@ test("legacy writers are blocked only while the product record engine is on", ()
   assert.match(source("src/app/(protected)/unit/[unitId]/actions.ts"), /Catalog Record/);
   assert.doesNotMatch(source("src/lib/work/inspections/submit-inspection.ts"), /inspectionSubmission/);
   assert.doesNotMatch(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /inspectionDefinition/);
-  assert.match(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
-  assert.match(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.doesNotMatch(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.doesNotMatch(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
 });
 
-test("historical log and inspection models stay in place", () => {
+test("legacy log and inspection models are retired", () => {
   const schema = source("prisma/schema.prisma");
-  assert.match(schema, /model LogSubmission/);
-  assert.match(schema, /model InspectionSubmission/);
-  assert.match(schema, /model InspectionOccurrence/);
-  assert.match(schema, /model OperationalTemplate/);
-  assert.match(schema, /waiverAllowed/);
+  assert.doesNotMatch(schema, /model LogSubmission /);
+  assert.doesNotMatch(schema, /model InspectionSubmission /);
+  assert.doesNotMatch(schema, /model InspectionOccurrence /);
+  assert.doesNotMatch(schema, /model OperationalTemplate /);
+  assert.match(schema, /model OperationalEvidenceRecord/);
   assert.doesNotMatch(source("src/lib/canonical-logs/record-engine.ts"), /waiver\.create/);
-  assert.doesNotMatch(schema, /model OperationalEvidenceRecord[\s\S]*Attachment\s+Attachment/);
 });
 
 test("procedure install is not a record requirement", () => {

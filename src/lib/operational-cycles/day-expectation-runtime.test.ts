@@ -44,7 +44,6 @@ test(
           isActive: true,
           OR: [
             { hierarchyRole: "NEIGHBORHOOD" },
-            { hierarchyRole: "LEGACY_LOCATION" },
             { unitType: "SERVERY" },
           ],
         },

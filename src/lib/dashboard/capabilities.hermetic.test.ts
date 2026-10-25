@@ -294,10 +294,10 @@ test("resolver: one query per source for every Department, derived per service d
   assert.equal(activities.has.has("cycles.published"), false, "weekend cycle");
   assert.ok(activities.has.has("work.expected"), "every-day Work Plan");
   assert.ok(activities.has.has("coverage.planned"), "today's assignment counts as a coverage plan");
-  assert.equal(activities.has.has("records.canonical"), false, "rollout starts next month");
+  assert.ok(activities.has.has("records.canonical"), "a Department with no rollout row uses the forward engine");
   assert.deepEqual(
     activities.notConfigured.map((row) => row.capability),
-    ["people.roster", "records.legacy"],
+    ["people.roster"],
   );
 
   const plant = result.get("dept-plant")!;

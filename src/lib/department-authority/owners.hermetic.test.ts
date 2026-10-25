@@ -63,7 +63,6 @@ test("owner kinds cover the CDA architecture §4 table", () => {
     "evidenceTemplate",
     "evidenceRecord",
     "recordWaiver",
-    "legacyLogTemplate",
     "operationalRequest",
     "requestRoute",
     "repair",
@@ -73,16 +72,19 @@ test("owner kinds cover the CDA architecture §4 table", () => {
     "pmOccurrence",
     "inspectionDefinition",
     "knowledgeArticle",
+    "legacyLogTemplate",
     "serveryMilestone",
   ];
   assert.deepEqual([...DEPARTMENT_OWNER_KINDS].sort(), [...expected].sort());
 });
 
 test("every owner resolver scopes its lookup to the facility and returns null when missing", async () => {
+  const retired = new Set(["callOffOverride", "legacyLogTemplate", "evidenceTemplate", "inspectionDefinition"]);
   for (const kind of DEPARTMENT_OWNER_KINDS) {
     const { db, calls } = recordingDb();
     const owner = await resolveDepartmentOwner(db, kind, input);
     assert.equal(owner, null, `${kind}: missing record`);
+    if (retired.has(kind)) continue;
     assert.ok(calls.length > 0, `${kind}: queried`);
     const first = calls[0]!;
     assert.equal(first.method, "findFirst", `${kind}: single-record lookup`);
@@ -111,7 +113,6 @@ test("Department-owned records return their departmentId", async () => {
     "logAttachment",
     "logTypeDefault",
     "logSuppression",
-    "evidenceTemplate",
     "evidenceRecord",
     "recordWaiver",
     "assetIssue",
@@ -192,11 +193,7 @@ test("shifts: the shift's Department, else the employee's primary Department", a
   });
   const orphan = recordingDb({ scheduleEntry: { departmentId: null, employee: { primaryDepartmentId: null } } });
   assert.deepEqual(await resolveDepartmentOwner(orphan.db, "scheduleEntry", input), { kind: "unowned" });
-  const override = recordingDb({ assignmentOverride: { employee: { primaryDepartmentId: "dept_fn" } } });
-  assert.deepEqual(await resolveDepartmentOwner(override.db, "callOffOverride", input), {
-    kind: "department",
-    departmentId: "dept_fn",
-  });
+  assert.equal(await resolveDepartmentOwner(recordingDb().db, "callOffOverride", input), null);
 });
 
 test("records without a Department fall back to shared facility or unowned", async () => {
@@ -207,8 +204,8 @@ test("records without a Department fall back to shared facility or unowned", asy
     asset: { departmentId: null },
     repair: { responsibleDepartmentId: null },
   });
-  assert.deepEqual(await resolveDepartmentOwner(empty.db, "legacyLogTemplate", input), { kind: "sharedFacility" });
-  assert.deepEqual(await resolveDepartmentOwner(empty.db, "inspectionDefinition", input), { kind: "sharedFacility" });
+  assert.equal(await resolveDepartmentOwner(empty.db, "legacyLogTemplate", input), null);
+  assert.equal(await resolveDepartmentOwner(empty.db, "inspectionDefinition", input), null);
   assert.deepEqual(await resolveDepartmentOwner(empty.db, "knowledgeArticle", input), { kind: "sharedFacility" });
   assert.deepEqual(await resolveDepartmentOwner(empty.db, "asset", input), { kind: "unowned" });
   assert.deepEqual(await resolveDepartmentOwner(empty.db, "repair", input), { kind: "unowned" });

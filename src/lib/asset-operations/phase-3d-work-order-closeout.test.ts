@@ -179,7 +179,6 @@ async function makeRecord(
       id: cuidLike(),
       facilityId: fx.facility.id,
       departmentId: fx.plant.id,
-      templateId: template.id,
       templateStableKey: template.stableKey,
       templateVersion: template.version,
       templateName: template.name,

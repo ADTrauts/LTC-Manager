@@ -78,7 +78,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/department-authority/cda03.db.test.ts",
   "src/lib/dashboard/dashboard-foundation.db.test.ts",
   "src/lib/facility-administrator/facility-administrator.db.test.ts",
-  "src/lib/todays-work/viewer-team-scope.db.test.ts",
+  "src/lib/dashboard/viewer/viewer-team-scope.db.test.ts",
   "src/lib/operational-requests/phase-12a-operational-requests.test.ts",
   "src/lib/plant/phase-12a-plant-operations.test.ts",
   "src/lib/knowledge/knowledge-versions.test.ts",

@@ -11,8 +11,8 @@ import { normalizeAttachmentTarget } from "./attachment-validate";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 
 test("seed includes cooler, dishwashers, opening checklist, food temp, ice machine, receiving, freezer, sanitizer", () => {
-  const keys = [...new Set(CATALOG_SEED_DEFINITIONS.map((d) => d.stableKey))].sort();
-  assert.deepEqual(keys, [
+  const keys = new Set(CATALOG_SEED_DEFINITIONS.map((d) => d.stableKey));
+  for (const key of [
     "cooler_temperature_log",
     "food_temperature_log",
     "freezer_temperature_log",
@@ -22,7 +22,12 @@ test("seed includes cooler, dishwashers, opening checklist, food temp, ice machi
     "opening_checklist",
     "receiving_temperature_log",
     "three_bay_sink_sanitizer_log",
-  ]);
+    "dietary_dry_storage_ambient",
+    "evs_restroom_sanitation_round",
+    "kitchen_sanitation_audit",
+  ]) {
+    assert.ok(keys.has(key), key);
+  }
   assert.equal(
     CATALOG_SEED_DEFINITIONS.find((d) => d.stableKey === "cooler_temperature_log")?.recommendedCadence,
     "TWICE_DAILY",

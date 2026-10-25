@@ -65,8 +65,8 @@ test("Phase 0 — flag OFF keeps legacy writers; flag ON fences competing writer
   assert.equal(existsSync("src/app/(protected)/admin/inspections/actions.ts"), false);
   assert.equal(existsSync("src/app/(protected)/staffing/templates/actions.ts"), false);
 
-  assert.match(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
-  assert.match(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.doesNotMatch(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.doesNotMatch(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/app/(protected)/unit/[unitId]/evidence-actions.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/lib/offline/process-sync-command.ts"), /LEGACY_TEMPLATE_EVIDENCE_FENCED/);
   assert.doesNotMatch(source("src/lib/work/inspections/submit-inspection.ts"), /inspectionSubmission/);
@@ -131,16 +131,16 @@ test("Phase 0 — documentation names the forward chain and legacy /logs status"
   assert.match(constitution, /CatalogLogDefinition/);
   assert.match(constitution, /FacilityCatalogInstall/);
   assert.match(constitution, /LogAttachment/);
-  assert.match(constitution, /CANONICAL_LOGS_ENABLED=true/);
-  assert.match(constitution, /legacy `\/logs`/);
+  assert.match(constitution, /`CANONICAL_LOGS_ENABLED` remains a code flag/);
+  assert.match(constitution, /legacy log, inspection, and operational-template tables were dropped/);
 
   const register = source("docs/product/LEGACY_SURFACE_REGISTER.md");
-  assert.match(register, /LEGACY COMPATIBILITY AUTHORITY/);
+  assert.match(register, /\*\*RETIRED in LEG-06\.\*\*/);
+  assert.match(register, /\| 2 \| `\/logs` \| \*\*RETIRED\*\*/);
   assert.doesNotMatch(
     register.split("\n").find((line) => line.includes("| `/logs` |")) ?? "",
     /ACTIVE AUTHORITY/,
   );
-  assert.match(register, /not\*\* the next layer after `CatalogLogDefinition`/);
 
   const buildGuide = source("docs/product/LTC_MANAGER_BUILD_GUIDE.md");
   assert.match(buildGuide, /\/build\/logs/);

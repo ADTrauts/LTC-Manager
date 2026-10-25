@@ -290,7 +290,6 @@ async function makeRecord(
       id: cuidLike(),
       facilityId: fx.facility.id,
       departmentId: fx.plant.id,
-      templateId: template.id,
       templateStableKey: template.stableKey,
       templateVersion: template.version,
       templateName: template.name,
@@ -580,7 +579,7 @@ test(
       const julyWo = await prisma.repair.findFirstOrThrow({
         where: {
           pmOccurrenceId: july.id,
-          status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] },
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
         },
       });
       await updateWorkOrderStatus(supervisor, {
@@ -620,7 +619,7 @@ test(
       const julyActive = await prisma.repair.findMany({
         where: {
           pmOccurrenceId: july.id,
-          status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] },
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
         },
       });
       assert.equal(julyActive.length, 0);

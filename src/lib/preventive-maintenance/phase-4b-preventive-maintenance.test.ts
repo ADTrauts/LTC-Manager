@@ -286,7 +286,6 @@ async function makeRecord(
       id: cuidLike(),
       facilityId: fx.facility.id,
       departmentId: fx.plant.id,
-      templateId: template.id,
       templateStableKey: template.stableKey,
       templateVersion: template.version,
       templateName: template.name,
@@ -601,7 +600,7 @@ test(
 
       const skipOcc = july;
       const julyWo = await prisma.repair.findFirstOrThrow({
-        where: { pmOccurrenceId: skipOcc.id, status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] } },
+        where: { pmOccurrenceId: skipOcc.id, status: { notIn: ["COMPLETED", "CANCELLED"] } },
       });
       await updateWorkOrderStatus(supervisor, {
         facilityId: fx.facility.id,
@@ -634,7 +633,7 @@ test(
         now: julyNow,
       });
       const julyWos = await prisma.repair.findMany({
-        where: { pmOccurrenceId: skipOcc.id, status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] } },
+        where: { pmOccurrenceId: skipOcc.id, status: { notIn: ["COMPLETED", "CANCELLED"] } },
       });
       assert.equal(julyWos.length, 0);
       assert.ok(skipAgain.workOrdersCreated === 0 || skipAgain.workOrdersCreated >= 0);
@@ -1030,7 +1029,7 @@ test(
       const active = await a.repair.findMany({
         where: {
           pmOccurrenceId: occurrences[0]!.id,
-          status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] },
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
         },
       });
       assert.equal(active.length, 1);

@@ -21,7 +21,7 @@ test("queue filter defaults to OPEN", () => {
 
 test("status filter membership", () => {
   assert.equal(repairMatchesQueueFilter("OPEN", "OPEN"), true);
-  assert.equal(repairMatchesQueueFilter("WAITING_PARTS", "OPEN"), true);
+  assert.equal(repairMatchesQueueFilter("ON_HOLD", "OPEN"), true);
   assert.equal(repairMatchesQueueFilter("COMPLETED", "OPEN"), false);
   assert.equal(repairMatchesQueueFilter("ASSIGNED", "IN_PROGRESS"), false);
   assert.equal(repairMatchesQueueFilter("ASSIGNED", "ASSIGNED"), true);
@@ -33,7 +33,7 @@ test("status filter membership", () => {
     repairMatchesQueueFilter("OPEN", "URGENT", { priority: "EMERGENCY" }),
     true,
   );
-  assert.equal(repairMatchesQueueFilter("WAITING_PARTS", "WAITING"), true);
+  assert.equal(repairMatchesQueueFilter("WAITING_ON_VENDOR", "WAITING"), true);
   assert.equal(repairMatchesQueueFilter("COMPLETED", "COMPLETED"), true);
   assert.equal(repairMatchesQueueFilter("OPEN", "COMPLETED"), false);
   assert.equal(parseRepairQueueFilter("PREVENTIVE"), "PREVENTIVE");

@@ -80,7 +80,6 @@ test(
           name: "Dietary",
         },
       });
-      await prisma.recordEngineRollout.create({ data: { facilityId: facility.id, departmentId: department.id, mode: "CANONICAL", effectiveFromServiceDate: "2020-01-01" } });
       const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: "STAFF" } });
       const recordingUser = await prisma.user.create({
         data: {

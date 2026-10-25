@@ -417,7 +417,6 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
     else process.env[CDA_FLAG] = previousFlag;
 
     await prisma.repair.deleteMany({ where: { unit: inTestFacility } });
-    await prisma.assignmentOverride.deleteMany({ where: { employee: inTestFacility } });
     await prisma.scheduleEntry.deleteMany({ where: { employee: inTestFacility } });
     await prisma.knowledgeArticle.deleteMany({ where: inTestFacility });
     await prisma.departmentRequestRoute.deleteMany({ where: inTestFacility });

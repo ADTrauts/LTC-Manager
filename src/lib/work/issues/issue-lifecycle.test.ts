@@ -14,8 +14,8 @@ test("report → assign → start → close recovery stages", () => {
     { status: RepairStatus.OPEN, assignedEmployeeId: null, expected: "REPORTED" },
     { status: RepairStatus.OPEN, assignedEmployeeId: "e1", expected: "ASSIGNED" },
     { status: RepairStatus.IN_PROGRESS, assignedEmployeeId: "e1", expected: "IN_PROGRESS" },
-    { status: RepairStatus.WAITING_PARTS, assignedEmployeeId: "e1", expected: "WAITING" },
-    { status: RepairStatus.CLOSED, assignedEmployeeId: "e1", expected: "RESOLVED" },
+    { status: RepairStatus.WAITING_ON_VENDOR, assignedEmployeeId: "e1", expected: "WAITING" },
+    { status: RepairStatus.COMPLETED, assignedEmployeeId: "e1", expected: "RESOLVED" },
   ];
 
   for (const row of stages) {

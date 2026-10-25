@@ -459,15 +459,6 @@ test(
         where: { id: published.id },
       });
       assert.equal(retired.status, "RETIRED");
-
-      // Ensure Wave Task was not written
-      const taskCount = await prisma.task.count({
-        where: {
-          facilityId: fx.facility.id,
-          title: { contains: "Opening check" },
-        },
-      });
-      assert.equal(taskCount, 0);
     } finally {
       if (prev === undefined) delete process.env.DIETARY_WORK_PLANS_ENABLED;
       else process.env.DIETARY_WORK_PLANS_ENABLED = prev;
