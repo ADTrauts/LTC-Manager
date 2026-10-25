@@ -12,7 +12,6 @@ import type { WorkRequirement } from "@/lib/department-work/types";
 import { submitCanonicalLogSubmission } from "@/lib/canonical-logs";
 import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
-import { submitEvidenceRecord } from "@/lib/operational-evidence";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
 

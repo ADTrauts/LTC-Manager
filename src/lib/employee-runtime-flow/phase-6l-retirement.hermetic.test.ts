@@ -43,9 +43,8 @@ test("offline sync keeps produce-new / consume-old dual path", () => {
   const syncSrc = read("src/lib/offline/process-sync-command.ts");
   assert.match(syncSrc, /if \(payload\.logAttachmentId\)/);
   assert.match(syncSrc, /submitCanonicalLogSubmission/);
-  assert.match(syncSrc, /if \(!payload\.templateId\)/);
-  assert.match(syncSrc, /submitEvidenceRecord/);
-  assert.ok(syncSrc.indexOf("submitCanonicalLogSubmission") < syncSrc.indexOf("submitEvidenceRecord"));
+  assert.doesNotMatch(syncSrc, /payload\.templateId/);
+  assert.doesNotMatch(syncSrc, /submitEvidenceRecord\(/);
 });
 
 test("Harbor submit still stores catalog stable key on templateStableKey", () => {
@@ -83,7 +82,7 @@ test("Template Builder and Supervisor Board remain", () => {
 test("historical template evidence identity is not rewritten", () => {
   const schema = read("prisma/schema.prisma");
   const logBook = read("src/lib/operational-evidence/log-book.ts");
-  assert.match(schema, /templateId\s+String\?/);
+  assert.doesNotMatch(schema, /templateId\s+String\?/);
   assert.match(schema, /templateStableKey\s+String/);
   assert.match(schema, /templateSnapshotJson/);
   assert.match(schema, /logAttachmentId\s+String\?/);

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { hasAtLeastRole } from "@/lib/access";
 import { getSession } from "@/lib/auth";
 
 type LogsPageProps = {
@@ -25,6 +26,15 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
+
+  if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
+    return (
+      <section className="mx-auto max-w-3xl space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Logs</h1>
+        <p className="text-sm text-zinc-600">Open your unit to record work.</p>
+      </section>
+    );
+  }
 
   if (activeTab === "assignments") {
     redirect("/build/logs");

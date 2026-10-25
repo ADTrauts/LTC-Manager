@@ -130,6 +130,9 @@ test("a vendor handover retires menus, work plans, and cycles once the replaceme
         calls.push(`cycle:${args.data.status}`);
       },
     },
+    departmentOperatorRelationship: {
+      findUnique: async () => null,
+    },
   };
   try {
     await retireOperatorPeriodSetup(db as never, "metz");

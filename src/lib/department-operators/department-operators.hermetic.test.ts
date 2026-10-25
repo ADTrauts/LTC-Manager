@@ -700,6 +700,6 @@ test("FA Organization settings edit only the session Facility parent Organizatio
   assert.doesNotMatch(operatorActions, /organization\.update/);
   assert.match(
     operatorActions,
-    /Does not authorize editing that Organization's canonical identity/,
+    /Saving a partnership does not create a company/,
   );
 });
