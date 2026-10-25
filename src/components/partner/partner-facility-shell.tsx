@@ -8,6 +8,7 @@ import { WorkspaceOwnedNav } from "@/components/shell/workspace-owned-nav";
 import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header";
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import type { PartnerFacilitySession } from "@/lib/auth";
+import { partnerMaySetUpDepartment } from "@/lib/department-authority/partner-setup";
 import { resolveDepartmentAccess } from "@/lib/department-authority/resolve";
 import { departmentProductOffersMenus } from "@/lib/department-products/registry";
 import { vendorHeadNavItems } from "@/lib/department-authority/vendor-nav";

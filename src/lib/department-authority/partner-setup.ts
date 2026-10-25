@@ -11,7 +11,10 @@ export function partnerMaySetUpDepartment(input: {
   return input.mode === "MANAGE" && (input.isHead || input.effectiveRole === "PARTNER_MANAGER");
 }
 
-/** Lets a partner setup session use a Department service that still checks a facility manager role. */
+/**
+ * Lets a partner setup session use a Department service that still checks a facility manager role.
+ * The spread keeps accessKind "partner", so Department writes still see the vendor.
+ */
 export function partnerAuthorSession(session: PartnerFacilitySession): FacilitySession {
-  return { ...session, role: "MANAGER" } as FacilitySession;
+  return { ...session, role: "MANAGER" } as unknown as FacilitySession;
 }

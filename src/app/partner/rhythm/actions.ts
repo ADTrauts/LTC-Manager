@@ -12,6 +12,8 @@ import { requirePartnerOperationalContext } from "@/lib/partner-operational-cont
 import { toServiceDateKey } from "@/lib/operational-time/service-date";
 import { prisma } from "@/lib/prisma";
 
+export type PartnerRhythmResult = { ok: boolean; message: string } | null;
+
 async function setupContext(): Promise<
   | { ok: false; message: string }
   | {
