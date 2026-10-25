@@ -4,7 +4,7 @@ import test from "node:test";
 import { APP_ROLES, type AppRole } from "@/lib/access";
 import { roleMayAccessRoute } from "@/lib/route-registry";
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { };
 
 test("/admin/knowledge keeps the FACILITY_ADMINISTRATOR gate of the Administration area", () => {
   assert.equal(roleMayAccessRoute("/admin/knowledge", "FACILITY_ADMINISTRATOR" as AppRole, FLAGS), true);

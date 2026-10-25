@@ -23,7 +23,7 @@ function snapshot(partial: Partial<OperationalSnapshot> = {}): OperationalSnapsh
       label: "Lunch preparation",
       phase: "Preparation",
       scheduledTime: "11:30",
-      source: "operations_center",
+      source: "published_cycle",
     },
     readiness: { ready: 3, inProgress: 0, needsAttention: 1 },
     priorityLocations: [
@@ -40,7 +40,7 @@ function snapshot(partial: Partial<OperationalSnapshot> = {}): OperationalSnapsh
     issues: { urgent: 0, high: 0, inProgress: 1, supplyShorts: 0 },
     inspections: { overdue: 0, dueNow: 0, openFindings: 0 },
     handoffs: [],
-    allowedSourcePaths: [unitWorkspacePath("u1"), "/today/coverage", "/issues"],
+    allowedSourcePaths: [unitWorkspacePath("u1"), "/today/coverage", "/repairs"],
     ...partial,
   };
 }

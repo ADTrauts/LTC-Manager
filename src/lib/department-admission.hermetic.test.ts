@@ -103,42 +103,27 @@ describe("department admission — shared engines vs domain capabilities", () =>
     assert.equal(hasPlantDomainCapabilities("PLANT"), true);
   });
 
-  it("admits custom keys to shared engines without trio flags", () => {
-    withEnv("DIETARY_OPERATIONAL_CYCLES_ENABLED", "false", () => {
-      withEnv("DIETARY_JOB_FLOW_ENABLED", undefined, () => {
-        withEnv("DIETARY_OPERATIONAL_EVIDENCE_ENABLED", undefined, () => {
-          withEnv("DIETARY_ASSET_OPERATIONS_ENABLED", undefined, () => {
-            withEnv("DIETARY_WORK_PLANS_ENABLED", undefined, () => {
-              withEnv("EVS_OPERATIONS_ENABLED", undefined, () => {
-                withEnv("PLANT_OPERATIONS_ENABLED", undefined, () => {
-                  assert.equal(isDepartmentOperationalCyclesEnabled(AQUATICS), true);
-                  assert.equal(isDepartmentJobFlowEnabled(AQUATICS), true);
-                  assert.equal(isDepartmentOperationalEvidenceEnabled(AQUATICS), true);
-                  assert.equal(isDepartmentAssetOperationsEnabled(AQUATICS), true);
-                  assert.equal(isDepartmentWorkPlansEnabled(AQUATICS), true);
-                  assert.equal(isAnyStaffingOperationalFeatureEnabled("cycles", AQUATICS), true);
-
-                  assert.equal(isDepartmentOperationalCyclesEnabled("DIETARY"), false);
-                  assert.equal(isDepartmentJobFlowEnabled("EVS"), false);
-                  assert.equal(isDepartmentWorkPlansEnabled("PLANT"), false);
-                  assert.equal(isDepartmentOperationalCyclesEnabled(null), false);
-                });
-              });
-            });
-          });
-        });
-      });
-    });
+  it("admits every department key to the shared engines", () => {
+    for (const key of ["DIETARY", "EVS", "PLANT", AQUATICS]) {
+      assert.equal(isDepartmentOperationalCyclesEnabled(key), true);
+      assert.equal(isDepartmentJobFlowEnabled(key), true);
+      assert.equal(isDepartmentOperationalEvidenceEnabled(key), true);
+      assert.equal(isDepartmentAssetOperationsEnabled(key), true);
+      assert.equal(isDepartmentWorkPlansEnabled(key), true);
+      assert.equal(isAnyStaffingOperationalFeatureEnabled("cycles", key), true);
+    }
+    assert.equal(isDepartmentOperationalCyclesEnabled(null), false);
+    assert.equal(isAnyStaffingOperationalFeatureEnabled("cycles", null), false);
   });
 
-  it("keeps Dietary / EVS / Plant release flags independent of custom admission", () => {
-    withEnv("DIETARY_WORK_PLANS_ENABLED", "true", () => {
-      withEnv("EVS_OPERATIONS_ENABLED", undefined, () => {
-        withEnv("PLANT_OPERATIONS_ENABLED", undefined, () => {
+  it("ignores retired capability env switches", () => {
+    withEnv("DIETARY_WORK_PLANS_ENABLED", "false", () => {
+      withEnv("EVS_OPERATIONS_ENABLED", "false", () => {
+        withEnv("PLANT_OPERATIONS_ENABLED", "false", () => {
           assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), true);
-          assert.equal(isDepartmentWorkPlansEnabled("EVS"), false);
-          assert.equal(isDepartmentWorkPlansEnabled("PLANT"), false);
-          assert.equal(isDepartmentWorkPlansEnabled(AQUATICS), true);
+          assert.equal(isDepartmentWorkPlansEnabled("EVS"), true);
+          assert.equal(isDepartmentWorkPlansEnabled("PLANT"), true);
+          assert.equal(isDepartmentWorkPlansEnabled(null), false);
         });
       });
     });

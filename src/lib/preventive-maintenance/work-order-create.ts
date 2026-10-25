@@ -26,9 +26,11 @@ import {
 } from "@/lib/asset-operations/work-order-service";
 import { newWorkOrderCuid, type DbClient } from "@/lib/asset-operations/work-order-access";
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
+import { loadCurrentOperatorsForFacilityDepartments } from "@/lib/department-operators/service";
 import { prisma } from "@/lib/prisma";
 
 import { isPmActiveWorkOrderStatus } from "./active-work-order";
+import { catalogFormServesRunningDepartment } from "./catalog-pin";
 import { type CivilDate, civilDateParts, civilDateToUtcMidnight, parseCivilDate } from "./civil-date";
 import { isPmPlanGenerationEligible } from "./eligibility";
 
@@ -243,15 +245,53 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
     }
 
     for (const requirement of version.recordRequirements) {
-      const template = await tx.operationalTemplate.findFirst({
-        where: { id: requirement.templateId },
-        select: { id: true },
-      });
-      if (!template) {
+      if (!requirement.catalogDefinitionId) {
         throw new PmWorkOrderConfigurationError(
           "TEMPLATE_MISSING",
-          `Required Record template ${requirement.templateName} is missing.`,
+          `Required Record ${requirement.templateName ?? "Record"} is missing a Catalog form.`,
         );
+      }
+    }
+
+    const catalogIds = version.recordRequirements
+      .map((requirement) => requirement.catalogDefinitionId)
+      .filter((id): id is string => Boolean(id));
+    if (catalogIds.length > 0) {
+      const operators = await loadCurrentOperatorsForFacilityDepartments(tx, {
+        facilityId: plan.facilityId,
+        departmentIds: [plan.departmentId],
+      });
+      const current = operators.get(plan.departmentId);
+      const contractedOrganizationId =
+        current?.operatingModel === "CONTRACTED" ? current.relationship.organizationId : null;
+      const catalogs = await tx.catalogLogDefinition.findMany({
+        where: { id: { in: catalogIds } },
+        select: {
+          id: true,
+          name: true,
+          ownerKind: true,
+          ownerFacilityId: true,
+          ownerOrganizationId: true,
+        },
+      });
+      for (const requirement of version.recordRequirements) {
+        if (!requirement.catalogDefinitionId) continue;
+        const catalog = catalogs.find((row) => row.id === requirement.catalogDefinitionId);
+        if (
+          !catalog ||
+          !catalogFormServesRunningDepartment({
+            ownerKind: catalog.ownerKind,
+            ownerFacilityId: catalog.ownerFacilityId,
+            ownerOrganizationId: catalog.ownerOrganizationId,
+            facilityId: plan.facilityId,
+            contractedOrganizationId,
+          })
+        ) {
+          throw new PmWorkOrderConfigurationError(
+            "CATALOG_FORM",
+            `Required Record ${catalog?.name ?? requirement.templateName} is not a form of the Department running this work order.`,
+          );
+        }
       }
     }
 
@@ -289,7 +329,6 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
         status: initialStatus,
         workOrderKind: "PREVENTIVE",
         repairTrade: "GENERAL",
-        issueType: "EQUIPMENT",
         requestingDepartmentId: plan.departmentId,
         responsibleDepartmentId: plan.departmentId,
         assignedEmployeeId,
@@ -314,10 +353,12 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
         recordRequirements: {
           create: version.recordRequirements.map((requirement) => ({
             id: newWorkOrderCuid(),
-            templateId: requirement.templateId,
             templateStableKey: requirement.templateStableKey,
             templateVersion: requirement.templateVersion,
             templateName: requirement.templateName,
+            catalogDefinitionId: requirement.catalogDefinitionId,
+            catalogStableKey: requirement.catalogStableKey,
+            catalogVersion: requirement.catalogVersion,
             sortOrder: requirement.sortOrder,
             createdByUserId: null,
           })),

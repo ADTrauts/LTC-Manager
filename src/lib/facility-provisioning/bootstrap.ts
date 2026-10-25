@@ -37,6 +37,7 @@ export type FacilityBootstrapInput = {
     displayName: string;
     billingEmail: string;
     timezone?: string;
+    /** Ignored. The parent Organization holds the company. Not stored on the Facility. */
     managementCompanyName?: string | null;
   };
   administrator: FacilityBootstrapAdministratorInput;
@@ -101,7 +102,6 @@ export async function bootstrapFacilityCustomer(
   const facility = await db.facility.create({
     data: {
       displayName,
-      managementCompanyName: input.facility.managementCompanyName ?? null,
       organizationId: organization.id,
       billingEmail,
       timezone,

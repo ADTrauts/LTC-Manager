@@ -37,7 +37,7 @@ import { loadDepartmentsForCurrentSurface, isSharedAssetOperationsEnabled } from
 import { DEVICE_FACILITY_COOKIE, DEVICE_UNIT_COOKIE } from "@/lib/device-cookie";
 import { resolveFacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
 import { repairCompanyWhere } from "@/lib/department-authority/asset-maintainers";
-import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled, isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { actorRefForSession } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
@@ -121,18 +121,9 @@ export default async function AssetProfilePage({ params }: Props) {
         where: {
           facilityId: session.facilityId,
           isActive: true,
-          key: isDietaryAssetOperationsEnabled() ? "DIETARY" : "PLANT",
+          key: { in: ["DIETARY", "PLANT"] },
         },
-        select: { id: true },
-      })
-    )?.id ??
-    (
-      await prisma.department.findFirst({
-        where: {
-          facilityId: session.facilityId,
-          isActive: true,
-          key: { in: ["PLANT", "DIETARY"] },
-        },
+        orderBy: { key: "asc" },
         select: { id: true },
       })
     )?.id;
@@ -486,7 +477,8 @@ export default async function AssetProfilePage({ params }: Props) {
             <p className="text-sm text-zinc-500">No open issues.</p>
           ) : (
             profile.openIssues.map((issue) => {
-              const linked = issue.workOrderId ? repairsById.get(issue.workOrderId) : null;
+              const linkedWorkOrderId = issue.workOrders[0]?.id;
+              const linked = linkedWorkOrderId ? repairsById.get(linkedWorkOrderId) : null;
               return (
                 <div key={issue.id} className="rounded border border-zinc-200 p-3 text-sm">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -513,7 +505,7 @@ export default async function AssetProfilePage({ params }: Props) {
                       >
                         View issue
                       </Link>
-                      {!issue.workOrderId && authority.canManageWorkOrders ? (
+                      {!linkedWorkOrderId && authority.canManageWorkOrders ? (
                         <form action={createWorkOrderFromAssetIssueAction}>
                           <input type="hidden" name="issueId" value={issue.id} />
                           <input type="hidden" name="departmentId" value={departmentId} />
@@ -576,7 +568,9 @@ export default async function AssetProfilePage({ params }: Props) {
           {profile.activeWorkOrders.length === 0 ? (
             <p className="text-sm text-zinc-500">No open Work Orders.</p>
           ) : (
-            profile.activeWorkOrders.map((wo) => (
+            profile.activeWorkOrders.map((wo) => {
+              const linkedIssue = wo.issue;
+              return (
               <Link
                 key={wo.id}
                 href={`/repairs/${wo.id}`}
@@ -589,12 +583,13 @@ export default async function AssetProfilePage({ params }: Props) {
                 <span className="mt-0.5 block text-xs text-zinc-600">
                   {workOrderStatusLabel(wo.status)}
                   {wo.returnToServiceReady ? " · Ready to return to service (confirm on asset)" : ""}
-                  {wo.sourceAssetIssue
-                    ? ` · For issue: ${wo.sourceAssetIssue.summary}`
+                  {linkedIssue
+                    ? ` · For issue: ${linkedIssue.summary}`
                     : " · Direct Work Order (no linked reported issue)"}
                 </span>
               </Link>
-            ))
+              );
+            })
           )}
         </div>
       </section>

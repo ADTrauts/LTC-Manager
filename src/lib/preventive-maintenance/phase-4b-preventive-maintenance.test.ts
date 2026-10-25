@@ -225,20 +225,7 @@ async function publishedSopAndTemplate(
   });
   const procedure = await loadCurrentPublishedVersion(prisma, sop.id);
   assert.ok(procedure);
-  const template = await prisma.operationalTemplate.create({
-    data: {
-      id: cuidLike(),
-      facilityId: fx.facility.id,
-      departmentId: fx.plant.id,
-      name: `PM Inspection ${fx.suffix}`,
-      purposeType: "INSPECTION",
-      status: "PUBLISHED",
-      version: 1,
-      stableKey: `pm-insp-${fx.suffix}`,
-      allowAdHoc: true,
-      publishedAt: now,
-    },
-  });
+  const template = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
   return { sop, procedure, template };
 }
 

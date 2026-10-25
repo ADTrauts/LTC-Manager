@@ -460,16 +460,7 @@ test(
           status: "PUBLISHED",
         },
       });
-      await prisma.operationalTemplate.create({
-        data: {
-          facilityId: workA.facility.id,
-          departmentId: deptA.id,
-          stableKey: "EQUIPMENT_CONDITION_INSPECTION",
-          name: "Equipment Condition Inspection",
-          purposeType: "INSPECTION",
-          presetKey: "EQUIPMENT_CONDITION_INSPECTION",
-        },
-      });
+      await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
       const knowledgeTitle = `Customer procedure ${workCustomer.suffix}`;
       await prisma.knowledgeArticle.create({
         data: {

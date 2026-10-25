@@ -1,5 +1,7 @@
 # Business Workspace — 30-Second Manager Acceptance Checklist
 
+**Historical.** October 23, 2026. `/workspace` only redirects to the Dashboard. Arranging the Dashboard is the DSH-03 grid: drag a card to move it, drag it sideways to share a row, and drag the corner to change its width and height. The drag-and-drop line below is superseded.
+
 **Wave:** 12 (BW-019)  
 **Route:** `/workspace`  
 **Role:** Manager / GM / Facility Administrator (Supervisor: limited shell)  
@@ -60,7 +62,7 @@ Answer each question from `/workspace` without opening a second dashboard mindse
 
 ## Out of scope (do not fail Wave 12 on these)
 
-- Drag-and-drop section order
+- Drag-and-drop section order — superseded by the Dashboard arrange grid (DSH-03)
 - Full Morning Brief card duplication
 - Analytics, scheduling, communications, inventory
 - Operations Center / Today’s Work / Unit Workspace redesigns

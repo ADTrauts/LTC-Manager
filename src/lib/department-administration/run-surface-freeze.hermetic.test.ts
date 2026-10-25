@@ -11,6 +11,7 @@ describe("Run surface reference freeze", () => {
   it("keeps Locations / Dashboard / Review on the frozen routes and loaders", () => {
     const units = read("src/app/(protected)/units/page.tsx");
     const workspace = read("src/app/(protected)/workspace/page.tsx");
+    const runtime = read("src/lib/dashboard/runtime/load.ts");
     const reports = read("src/app/(protected)/reports/page.tsx");
     const freeze = read("docs/department-administration/14_RUN_SURFACE_REFERENCE_FREEZE.md");
 
@@ -21,9 +22,9 @@ describe("Run surface reference freeze", () => {
     assert.doesNotMatch(units, /LocationsHierarchyBrowser/);
     assert.doesNotMatch(units, /buildLocationsLandingPresentation/);
 
-    assert.match(workspace, /loadDashboardRuntime/);
-    assert.match(workspace, /BusinessWorkspaceScreen/);
-    assert.match(workspace, /14_RUN_SURFACE_REFERENCE_FREEZE/);
+    assert.match(workspace, /redirect\(/);
+    assert.match(runtime, /loadDashboardRuntime/);
+    assert.match(runtime, /loadRuntimeLocationStates/);
 
     assert.match(reports, /loadOperationalReviewDay/);
     assert.match(reports, /presentOperationalReviewDay/);
@@ -51,8 +52,10 @@ describe("Run surface reference freeze", () => {
 
   it("keeps Dashboard and Review off the exception-first Location card", () => {
     const workspace = read("src/app/(protected)/workspace/page.tsx");
+    const dashboard = read("src/components/dashboard/dashboard-screen.tsx");
     const reports = read("src/app/(protected)/reports/page.tsx");
     assert.doesNotMatch(workspace, /ExceptionFirstLocationCard|ExceptionFirstLocationsBoard/);
+    assert.doesNotMatch(dashboard, /ExceptionFirstLocationCard|ExceptionFirstLocationsBoard/);
     assert.doesNotMatch(reports, /ExceptionFirstLocationCard|ExceptionFirstLocationsBoard/);
   });
 });

@@ -13,8 +13,7 @@ RUN is where the operation happens **today**. It is the default mode for every r
 
 | Area | Route | Who | What it is |
 |------|-------|-----|-----------|
-| **Dashboard** | `/workspace` | Manager / GM | Personal operating picture — focus, agenda, quick actions, links into exceptions. Default home for Manager+. |
-| **Today's Work** | `/today` | Supervisor | Exception-first motion: walk list, coverage / call-downs, handoffs. Default home for Supervisor. |
+| **Dashboard** | `/dashboard` | Supervisor and above | Home. `/workspace` and `/today` only redirect here. |
 | **Locations** | `/units` → `/unit/[id]` | Supervisor+ / scoped | Facility hierarchy (Floor → Neighborhood/Unit → Room/Space). Structural nodes expand; actionable nodes open runtime. |
 | **Employees** | `/staffing` | Supervisor+ | Today's workforce: schedule visibility, attendance, assignments, coverage. *Not* workforce configuration. |
 | **Logs** | `/staffing/logs` when `CANONICAL_LOGS_ENABLED`; otherwise legacy `/logs` | Staff+ | Due operational Records — what must be recorded now. |
@@ -24,13 +23,12 @@ RUN is where the operation happens **today**. It is the default mode for every r
 | **Review** | `/reports` | Manager+ | Derived expected-versus-actual analysis. Not a submitted-evidence store. |
 | **Legacy Logs** | `/logs` | Staff+ | Compatibility while canonical Logs are off. Historical `LogSubmission` reads remain when the flag is on. |
 
-Plus role-scoped runtime: Operations Center (`/dashboard`, exception glance, linked from Dashboard), Supervisor Operations, Operational Cycles, Requests, Issues, Asset Issues — all reachable in context.
+Plus role-scoped runtime: Schedule, Locations, Rounds, Handoffs, Operational Cycles, Requests, Issues, Asset Issues — all reachable in context.
 
 ## Role homes in RUN
 
 - **Frontline Employee (Quick PIN):** lands directly in their department's runtime — Unit Workspace / Job Flow / current assignment. RUN-only; never sees Build or Admin.
-- **Supervisor:** lands on Today's Work (exceptions).
-- **Manager / GM / FA:** lands on the Dashboard.
+- **Supervisor and above:** land on the Dashboard.
 
 ## Department behavior in RUN
 

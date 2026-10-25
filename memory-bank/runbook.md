@@ -31,12 +31,9 @@ Typical local DB URL (placeholder credentials — never commit a real password):
 npm run db:generate
 npm run db:migrate:dev -- --name <migration_name>
 npm run db:seed
-npm run db:backfill-log-presets
 npm run db:backfill-gm-roster
 npm run db:validate
 ```
-
-`db:backfill-log-presets` inserts/updates shipped log templates for all existing facilities (useful after adding new preset templates to a live or long-running local DB).
 
 `db:backfill-gm-roster` adds **`Employee`** roster rows for active **GM** **`User`** accounts that have the same email but no matching employee at that facility (covers GMs who self-signed up before roster auto-create shipped).
 
@@ -96,17 +93,9 @@ Relevant migrations:
 
 **Employees area:** department tabs appear on **all** `/employees/*` pages (layout). `?dept=<id>` filters **directory**, **points summary**, **CHRC report**, **separations**, and **HR audit** to employees whose **primary** department matches or who have an **`EmployeeDepartment`** row. **Import** is not filtered by department. **All departments** clears `dept`. Invalid `dept` values redirect on the **current** path without `dept`. Section tabs (Points, CHRC, etc.) keep `dept` in the URL when switching views.
 
-### Shipped log template presets
+### Forward Records on a new facility
 
-- Presets are included in both:
-  - `npm run db:seed` (seed facility + demo data)
-  - `npm run db:provision` (blank facility flow)
-- For databases created before presets existed, run:
-
-```bash
-cd "/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager"
-npm run db:backfill-log-presets
-```
+`npm run db:seed` and `npm run db:provision` install the Catalog Records that match the old log presets. They do not create log templates or meal times. Plant and the unmatched presets wait for LEG-02.
 
 - If npm reports missing scripts or `npx prisma` tries to install an unexpected version, confirm you are in `ltc-manager/` (not the parent `LTC Manager/` folder).
 

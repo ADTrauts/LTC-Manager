@@ -14,13 +14,14 @@ import { loadPublishedRunModel } from "@/lib/operational-cycles/load-run-operati
 import type { PublishedCycleForLogs } from "@/lib/canonical-logs/resolve-log-requirements";
 import { prisma } from "@/lib/prisma";
 import type { CoverageAssignmentActual, CoverageTemplateVersionRow } from "@/lib/scheduling/coverage-expectations";
-import { isCanonicalLogsEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
   loadFacilityTimezone,
   toServiceDateKey,
 } from "@/lib/operational-time";
+import { dietaryMealTimingUpgradeRequired } from "@/lib/dietary/meal-timing";
 import { localHhMmFromInstant } from "@/lib/operational-cycles/key-time-day-expectation";
 
 import { loadLocationProgramsForRuntimeSpaces } from "@/lib/department-administration/load-location-program";
@@ -107,7 +108,7 @@ export async function prefetchRuntimeLocationInputs(
     input.operationalDateKey ?? toServiceDateKey(getFacilityServiceDate(timezone, now));
   const nowLocalHhMm = localHhMmFromInstant(now, timezone);
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
-  const oaEnabled = input.operationalAssignmentsEnabled ?? isOperationalAssignmentsEnabled();
+  const oaEnabled = input.operationalAssignmentsEnabled ?? true;
   const logsEnabled = input.canonicalLogsEnabled ?? isCanonicalLogsEnabled();
 
   if (spaceIds.length === 0) {
@@ -434,24 +435,21 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   const unitIds = uniqueIds(spaceRows.map((space) => space.unitId));
-  const serveryEvents =
-    unitIds.length === 0
-      ? []
-      : await prisma.serveryMealServiceEvent.findMany({
-          where: {
-            unitId: { in: unitIds },
-            serviceDate,
-          },
-          select: {
-            id: true,
-            unitId: true,
-            mealType: true,
-            mealServiceReadyAt: true,
-            mealServiceStartedAt: true,
-            readyRecordedAt: true,
-            startedRecordedAt: true,
-          },
-        });
+  const legacyMealStillOwns = [...runModelsByDepartmentId.entries()].some(
+    ([departmentId, model]) =>
+      departmentKeyById.get(departmentId) === "DIETARY" &&
+      dietaryMealTimingUpgradeRequired(model.cycles),
+  );
+  const serveryEvents: Array<{
+    id: string;
+    unitId: string;
+    mealType: string;
+    mealServiceReadyAt: Date | null;
+    mealServiceStartedAt: Date | null;
+    readyRecordedAt: Date | null;
+    startedRecordedAt: Date | null;
+  }> = [];
+  void legacyMealStillOwns;
   const serveryEventsByUnitId = new Map<string, typeof serveryEvents>();
   for (const event of serveryEvents) {
     const list = serveryEventsByUnitId.get(event.unitId) ?? [];

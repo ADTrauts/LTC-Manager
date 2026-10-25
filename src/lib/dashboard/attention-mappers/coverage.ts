@@ -1,6 +1,6 @@
-import { spaceHref } from "@/lib/business-workspace/dashboard/from-runtime-state";
+import { spaceHref } from "@/lib/dashboard/runtime/from-runtime-state";
 import type { RuntimeLocationState } from "@/lib/runtime-location-state";
-import type { CallDownData } from "@/lib/todays-work/call-down";
+import type { CallDownData } from "@/lib/scheduling/call-down";
 
 import { plural, type DashboardAttentionItem } from "../attention";
 

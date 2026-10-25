@@ -14,19 +14,6 @@ import { decideWorkAuthority } from "@/lib/department-work/authority";
 import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
 import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
-import { isDietaryWorkPlansEnabled, isEvsOperationsEnabled } from "@/lib/feature-flags";
-
-function withEnv(name: string, value: string | undefined, fn: () => void) {
-  const previous = process.env[name];
-  if (value === undefined) delete process.env[name];
-  else process.env[name] = value;
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) delete process.env[name];
-    else process.env[name] = previous;
-  }
-}
 
 function planForDept(
   departmentHint: string,
@@ -82,27 +69,12 @@ function planForDept(
   };
 }
 
-test("EVS flag defaults false; Dietary work flags unchanged when EVS disabled", () => {
-  withEnv("EVS_OPERATIONS_ENABLED", undefined, () => {
-    withEnv("DIETARY_WORK_PLANS_ENABLED", "true", () => {
-      assert.equal(isEvsOperationsEnabled(), false);
-      assert.equal(isDepartmentWorkPlansEnabled("EVS"), false);
-      assert.equal(isDepartmentJobFlowEnabled("EVS"), false);
-      assert.equal(isDietaryWorkPlansEnabled(), true);
-      assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), true);
-    });
-  });
-});
-
-test("when EVS enabled and Dietary work disabled, only EVS work-plans key is true", () => {
-  withEnv("EVS_OPERATIONS_ENABLED", "true", () => {
-    withEnv("DIETARY_WORK_PLANS_ENABLED", "false", () => {
-      assert.equal(isDepartmentWorkPlansEnabled("EVS"), true);
-      assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), false);
-      assert.equal(isDepartmentJobFlowEnabled("EVS"), true);
-      assert.equal(isDepartmentJobFlowEnabled("DIETARY"), false);
-    });
-  });
+test("EVS and Dietary work engines stay on without deployment switches", () => {
+  assert.equal(isDepartmentWorkPlansEnabled("EVS"), true);
+  assert.equal(isDepartmentJobFlowEnabled("EVS"), true);
+  assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), true);
+  assert.equal(isDepartmentJobFlowEnabled("DIETARY"), true);
+  assert.equal(isDepartmentWorkPlansEnabled(null), false);
 });
 
 test("cross-department resolve: Runtime-scoped publishedPlans keep Dietary/EVS work isolated", () => {

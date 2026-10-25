@@ -14,7 +14,7 @@ async function headContext() {
   const session = await getPartnerFacilitySession();
   if (!session) return null;
   const context = await requirePartnerOperationalContext();
-  return { session, departmentId: context.activeDepartmentId };
+  return { session, departmentId: context.activeDepartmentId, effectiveRole: context.effectiveRole };
 }
 
 export async function createVendorCatalogFormAction(
@@ -28,6 +28,7 @@ export async function createVendorCatalogFormAction(
       session: ready.session,
       facilityId: ready.session.facilityId,
       departmentId: ready.departmentId,
+      effectiveRole: ready.effectiveRole,
       name: String(formData.get("name") ?? ""),
       fieldLabel: String(formData.get("fieldLabel") ?? ""),
     });
@@ -51,6 +52,7 @@ export async function publishVendorCatalogFormAction(
       facilityId: ready.session.facilityId,
       departmentId: ready.departmentId,
       definitionId: String(formData.get("definitionId") ?? ""),
+      effectiveRole: ready.effectiveRole,
     });
     revalidatePath("/partner/department");
     return { ok: true, message: "Form published. Your team can use it at every facility you run." };

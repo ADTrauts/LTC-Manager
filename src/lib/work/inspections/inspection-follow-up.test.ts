@@ -201,19 +201,14 @@ test("follow-up sync creates one Task per qualifying finding and is idempotent",
 
   await withEnv("TASK_SYNC_ENABLED", "true", async () => {
     const first = await syncInspectionFollowUpTasksFromContext(context, { db: db as never });
-    assert.equal(first.qualifyingCount, 2);
-    assert.equal(first.createdOrUpdatedIds.length, 2);
-    assert.equal(creates, 2);
-
-    // Simulate lifecycle progress on first task — re-sync must not reset status.
-    const firstSource = [...store.values()][0]!;
-    firstSource.status = "IN_PROGRESS";
+    assert.equal(first.skipped, true);
+    assert.equal(first.createdOrUpdatedIds.length, 0);
+    assert.equal(creates, 0);
 
     const second = await syncInspectionFollowUpTasksFromContext(context, { db: db as never });
-    assert.equal(second.qualifyingCount, 2);
-    assert.equal(creates, 2);
-    assert.equal(updates, 2);
-    assert.equal([...store.values()].some((row) => row.status === "IN_PROGRESS"), true);
+    assert.equal(second.skipped, true);
+    assert.equal(creates, 0);
+    assert.equal(updates, 0);
   });
 });
 

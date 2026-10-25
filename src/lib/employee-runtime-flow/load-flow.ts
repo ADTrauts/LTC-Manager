@@ -23,7 +23,7 @@ import type {
   JobFlowLocationSequence,
   JobFlowScopeSummary,
 } from "@/lib/dietary-job-flow/types";
-import { isCanonicalLogsEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
   getFacilityServiceDate,
@@ -134,7 +134,7 @@ async function buildPlantWorkOrderAttention(input: {
       responsibleDepartmentId: input.departmentId,
       assignedEmployeeId: input.employeeId,
       unit: { facilityId: input.facilityId },
-      status: { in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_PARTS", "WAITING_ON_VENDOR", "ON_HOLD"] },
+      status: { in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_ON_VENDOR", "ON_HOLD"] },
     },
   });
   const urgentRequests = await prisma.operationalRequest.count({
@@ -187,7 +187,7 @@ export async function loadEmployeeRuntimeFlow(
   const timezone = await loadFacilityTimezone(prisma, input.facilityId);
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
-  const oaEnabled = isOperationalAssignmentsEnabled();
+  const oaEnabled = true;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
 
   const assignments = oaEnabled

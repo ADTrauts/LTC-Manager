@@ -192,14 +192,14 @@ export function diffOperationalSnapshots(
 
   const urgentHighBefore = baseline.issues.urgent + baseline.issues.high;
   const urgentHighAfter = current.issues.urgent + current.issues.high;
-  compareCounts(items, "issues", "urgent/high issue(s)", urgentHighBefore, urgentHighAfter, "/issues");
+  compareCounts(items, "issues", "urgent/high issue(s)", urgentHighBefore, urgentHighAfter, "/repairs");
   compareCounts(
     items,
     "issues",
     "issue(s) in progress",
     baseline.issues.inProgress,
     current.issues.inProgress,
-    "/issues",
+    "/repairs",
     false,
   );
   compareCounts(
@@ -208,7 +208,7 @@ export function diffOperationalSnapshots(
     "supply shortage(s)",
     baseline.issues.supplyShorts,
     current.issues.supplyShorts,
-    "/issues",
+    "/repairs",
   );
 
   compareCounts(

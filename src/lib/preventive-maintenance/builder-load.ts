@@ -9,6 +9,7 @@ import { presentAssetLifecycleAndCondition } from "@/lib/asset-operations/lifecy
 import { listMaintenanceCategories } from "@/lib/asset-operations/maintenance-categories";
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
 import type { FacilitySession } from "@/lib/auth";
+import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
@@ -154,12 +155,8 @@ export async function loadPmBuilderOptions(
       },
       orderBy: [{ article: { title: "asc" } }, { version: "desc" }],
     }),
-    client.operationalTemplate.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        status: "PUBLISHED",
-      },
+    client.catalogLogDefinition.findMany({
+      where: { status: "PUBLISHED" },
       select: { id: true, name: true, purposeType: true, version: true },
       orderBy: [{ name: "asc" }, { version: "desc" }],
     }),
@@ -248,7 +245,25 @@ export async function loadPmBuilderOptions(
     name: `${row.firstName} ${row.lastName}`.trim(),
   }));
 
-  return { assetOptions, categoryOptions, procedureOptions, templateOptions, employeeOptions };
+  const catalogForms = await publishedCatalogFormsAtFacility(client, {
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  });
+  const catalogOptions: PmBuilderTemplateOption[] = catalogForms.map((row) => ({
+    id: row.id,
+    name: row.name,
+    purposeType: "Record",
+    version: row.version,
+  }));
+
+  return {
+    assetOptions,
+    categoryOptions,
+    procedureOptions,
+    templateOptions,
+    catalogOptions,
+    employeeOptions,
+  };
 }
 
 export async function loadPmPlanList(
@@ -476,9 +491,10 @@ export async function loadPmPlanEditor(
         procedureVersionId: editing.procedureVersionId,
         defaultAssignedEmployeeId: editing.defaultAssignedEmployeeId,
         recordRequirements: editing.recordRequirements.map((row) => ({
-          templateId: row.templateId,
+          templateId: null,
           templateName: row.templateName,
           templateVersion: row.templateVersion,
+          catalogDefinitionId: row.catalogDefinitionId,
           sortOrder: row.sortOrder,
         })),
       },
@@ -503,7 +519,7 @@ export async function loadPmPlanEditor(
 
 /**
  * Internal Plant Build access.
- * Plant Product installed/authorized, or PLANT_OPERATIONS_ENABLED override.
+ * Plant Product installed, and Harbor or customer-operable.
  * Does not use customer Marketplace entitlement while Plant remains DEVELOPMENT.
  */
 export async function loadPlantPmBuilderDepartment(

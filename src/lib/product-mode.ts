@@ -50,7 +50,6 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/admin/facility/builder", mode: "BUILD", label: "Facility Builder" },
     { pathPrefix: "/build/departments", mode: "BUILD", label: "Department Builder" },
     { pathPrefix: "/admin/knowledge", mode: "BUILD", label: "Procedures" },
-    { pathPrefix: "/build/knowledge", mode: "BUILD", label: "Procedures" },
     { pathPrefix: "/admin/inspections", mode: "BUILD", label: "Inspections (legacy)" },
     { pathPrefix: "/department/settings", mode: "BUILD", label: "Department Settings" },
     { pathPrefix: "/employees", mode: "BUILD", label: "Employee Builder" },
@@ -70,11 +69,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
 
     // ── RUN — operational surfaces (default) ───────────────────────────────
     { pathPrefix: "/workspace", mode: "RUN", label: "Dashboard" },
-    // `/dashboard` and `/operations` are the RETIRED Operations Center routes; they now redirect to
-    // the caller's canonical RUN home. Kept as RUN + "Dashboard" so any transient chrome reads
-    // correctly. See the Legacy Surface Register.
     { pathPrefix: "/dashboard", mode: "RUN", label: "Dashboard" },
-    { pathPrefix: "/operations", mode: "RUN", label: "Dashboard" },
     { pathPrefix: "/today", mode: "RUN", label: "Today's Work" },
     { pathPrefix: "/units", mode: "RUN", label: "Locations" },
     { pathPrefix: "/unit", mode: "RUN", label: "Location Runtime" },
@@ -89,7 +84,6 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/asset-issues", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/repairs", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/preventive-maintenance", mode: "RUN", label: "Maintenance" },
-    { pathPrefix: "/issues", mode: "RUN", label: "Maintenance" },
     { pathPrefix: "/operational-requests", mode: "RUN", label: "Requests" },
     { pathPrefix: "/reports", mode: "RUN", label: "Audit / Reports" },
   ] satisfies ModePathRule[]

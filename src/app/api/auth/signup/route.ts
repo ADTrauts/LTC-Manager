@@ -109,7 +109,6 @@ export async function POST(request: Request) {
       facility: {
         displayName: data.facilityName,
         billingEmail: email,
-        managementCompanyName,
       },
       administrator: {
         mode: "create",

@@ -162,24 +162,22 @@ export async function resolveDepartmentAccessMap(
   const requested = [...new Set(input.departmentIds)];
   if (requested.length === 0) return new Map();
 
-  const [viewer, departments] = await Promise.all([
+  const [viewer, departments, operators, acceptedHeads] = await Promise.all([
     loadViewerFacts(db, session, input.facilityId),
     db.department.findMany({
       where: { facilityId: input.facilityId, id: { in: requested } },
       select: { id: true, headEmployeeId: true },
     }),
+    loadCurrentOperatorsForFacilityDepartments(db, {
+      facilityId: input.facilityId,
+      departmentIds: requested,
+      now: input.now,
+    }),
+    loadAcceptedVendorHeads(db, { departmentIds: requested }),
   ]);
   if (departments.length === 0) return new Map();
 
-  const operators = await loadCurrentOperatorsForFacilityDepartments(db, {
-    facilityId: input.facilityId,
-    departmentIds: departments.map((department) => department.id),
-    now: input.now,
-  });
   const enforcementEnabled = isContractedDepartmentAuthorityEnabled();
-  const acceptedHeads = await loadAcceptedVendorHeads(db, {
-    departmentIds: departments.map((department) => department.id),
-  });
 
   const workforce = viewer.workforce;
   const ledDepartmentIds = new Set(

@@ -18,11 +18,6 @@ export {
   type AccessMatrixRow,
 } from "@/lib/route-registry/access-matrix";
 export {
-  buildLegacyRouteMirror,
-  type LegacyMirrorRoute,
-  type LegacyRouteMirror,
-} from "@/lib/route-registry/legacy-mirror";
-export {
   rolesAtLeast,
   ROUTE_ACCESS_KINDS,
   type PlatformRoute,

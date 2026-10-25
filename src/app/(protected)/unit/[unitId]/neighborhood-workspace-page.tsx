@@ -13,7 +13,6 @@ import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration";
-import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import { loadLocationsView } from "@/lib/locations";
 import { resolveRunPresentationDepartment } from "@/lib/operational-cycles";
 import { prisma } from "@/lib/prisma";
@@ -135,10 +134,6 @@ export async function tryRenderNeighborhoodWorkspace(input: {
   });
   if (employeeRuntime) {
     return employeeRuntime;
-  }
-
-  if (!isProjectionLocationsEnabled()) {
-    return <UnitRouteUnavailable kind="projection_off" unitName={unit.name} />;
   }
 
   const locations = await loadLocationsView(input.session);

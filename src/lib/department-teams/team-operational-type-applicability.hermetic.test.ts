@@ -350,7 +350,7 @@ describe("source contracts", () => {
 
   it("configured-team Run consumers expand rooms from ACTIVE Operational Types only", () => {
     const scope = readFileSync(
-      join(process.cwd(), "src/lib/todays-work/viewer-team-scope.ts"),
+      join(process.cwd(), "src/lib/dashboard/viewer/viewer-team-scope.ts"),
       "utf8",
     );
     assert.match(scope, /configuredTeamSpaceIds/);

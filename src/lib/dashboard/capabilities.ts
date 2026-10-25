@@ -17,7 +17,7 @@ import {
   getDepartmentProduct,
   type DepartmentProductKey,
 } from "@/lib/department-products/registry";
-import { isCanonicalLogsEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isApplicableWeekday } from "@/lib/operational-cycles/cycle-windows";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
@@ -203,7 +203,7 @@ export async function resolveDepartmentDashboardCapabilities(
   const ids = departments.map((department) => department.id);
   const serviceDate = facilityLocalDateToServiceDate(viewer.serviceDate);
   const canonicalLogsEnabled = deps.canonicalLogsEnabled ?? isCanonicalLogsEnabled();
-  const operationalAssignmentsEnabled = deps.operationalAssignmentsEnabled ?? isOperationalAssignmentsEnabled();
+  const operationalAssignmentsEnabled = deps.operationalAssignmentsEnabled ?? true;
   const plantRuntimeEnabled =
     deps.plantRuntimeEnabled ?? (await isPlantRuntimeEnabled(facilityId, viewer.session).catch(() => false));
   const menuDepartmentIds = departments
@@ -315,17 +315,7 @@ export async function resolveDepartmentDashboardCapabilities(
         .filter((row) => row._count.employeesAsPrimary + row._count.employeeDepartments > 0)
         .map((row) => row.id),
     ),
-    (async (): Promise<RecordEngineRollout[] | null> => {
-      try {
-        return await db.recordEngineRollout.findMany({
-          where: { facilityId, departmentId: { in: ids } },
-          orderBy: { effectiveFromServiceDate: "asc" },
-          select: { facilityId: true, departmentId: true, mode: true, effectiveFromServiceDate: true },
-        });
-      } catch {
-        return null;
-      }
-    })(),
+    Promise.resolve([] as RecordEngineRollout[]),
     plantRuntimeEnabled
       ? departmentsWith(async () =>
           (
@@ -379,6 +369,7 @@ export async function resolveDepartmentDashboardCapabilities(
                 capabilityEnabled: canonicalLogsEnabled,
                 facilityId,
                 departmentId: department.id,
+                departmentKey: department.key,
                 serviceDate: viewer.serviceDate,
                 rollouts: rollouts.filter((row) => row.departmentId === department.id),
               }),

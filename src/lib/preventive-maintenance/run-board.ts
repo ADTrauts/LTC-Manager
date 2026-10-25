@@ -145,6 +145,9 @@ export function presentPmConfigurationIssue(code: string, message: string): PmRu
   if (code === "TEMPLATE_MISSING") {
     return { code, message: message || "A required Record template is missing." };
   }
+  if (code === "CATALOG_FORM") {
+    return { code, message: message || "A required Record is not a form of the Department running this work." };
+  }
   return { code, message: message || "Work Order could not be generated." };
 }
 

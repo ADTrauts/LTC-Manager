@@ -103,11 +103,11 @@ test("parent Neighborhood is exclusive for non-structural units", () => {
 
 test("Floor/Building, projection-off, and Locations failure fail closed", () => {
   assert.match(neighborhood, /kind="structural"/);
-  assert.match(neighborhood, /kind="projection_off"/);
+  assert.equal(neighborhood.includes("projection_off"), false);
   assert.match(neighborhood, /kind="locations_unavailable"/);
   assert.equal(neighborhood.includes("return null"), false);
   assert.match(unavailable, /This location is structural/);
-  assert.match(unavailable, /Canonical location projection is not available/);
+  assert.equal(unavailable.includes("Canonical location projection is not available"), false);
   assert.match(unavailable, /Locations could not be loaded for this facility/);
 });
 
@@ -180,7 +180,7 @@ test("leftover Unit Workspace flags are gone; live location flags stay unchanged
   assert.equal(flags.includes("PROJECTION_UNIT_WORKSPACE_ENABLED"), false);
   assert.equal(flags.includes("isExperienceShellEnabled"), false);
   assert.equal(flags.includes("EXPERIENCE_SHELL_ENABLED"), false);
-  assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_LOCATIONS_ENABLED, true\)/);
+  assert.equal(flags.includes("PROJECTION_LOCATIONS_ENABLED"), false);
   assert.equal(flags.includes("PROJECTION_OPERATIONS_CENTER_ENABLED"), false);
   assert.equal(flags.includes("isProjectionOperationsCenterEnabled"), false);
 });

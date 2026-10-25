@@ -512,10 +512,7 @@ test("a meal the servery does not serve is refused", { skip }, async () => {
   if (!f) return;
   await resetEvents(f);
   const actor = await makeActor(f);
-  const served = await f.db.unitMealTime.findMany({
-    where: { unitId: f.unitId, isActive: true },
-    select: { mealType: true },
-  });
+  const served = await [];
   const unserved = (["BREAKFAST", "LUNCH", "DINNER"] as MealType[]).find(
     (meal) => !served.some((row) => row.mealType === meal),
   );

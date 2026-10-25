@@ -495,6 +495,6 @@ test("applicability writes reuse requireAuthorizedMenu and do not touch logs com
   assert.match(detail, /MenuApplicabilityForm/);
   assert.match(detail, /loadMenu/);
   assert.doesNotMatch(detail, /loadFacilityMenuData/);
-  assert.match(logs, /loadFacilityMenuData/);
+  assert.doesNotMatch(logs, /loadFacilityMenuData/);
   assert.doesNotMatch(logs, /loadMenuApplicability/);
 });

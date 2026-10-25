@@ -20,8 +20,6 @@ export async function loadTemplatesForDepartment(input: {
       isActive: true,
       departmentId: true,
       department: { select: { key: true } },
-      operationDefinitionId: true,
-      operationDefinition: { select: { label: true } },
       workShiftId: true,
       workShift: { select: { name: true } },
       items: {
@@ -49,8 +47,8 @@ export async function loadTemplatesForDepartment(input: {
     isActive: t.isActive,
     departmentId: t.departmentId,
     departmentKey: t.department.key,
-    operationDefinitionId: t.operationDefinitionId,
-    operationLabel: t.operationDefinition?.label ?? null,
+    operationDefinitionId: null,
+    operationLabel: null,
     workShiftId: t.workShiftId,
     workShiftName: t.workShift?.name ?? null,
     items: t.items.map((item) => ({

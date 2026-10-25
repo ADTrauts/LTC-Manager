@@ -21,7 +21,8 @@ Guardrails for every phase ([LEG-D16](./DECISIONS.md#leg-d16--guardrails--accept
 | LEG-05 platform leftovers | after DSH-04 | Today's Work and Business Workspace are removed by DSH-04. Their quick actions and projection flags go with them. |
 | LEG-05 `managementCompanyName` | with CDA-05 | Maintainers come from `FacilityOrganization` linked to the operator (CDA-D18) |
 | LEG-05 capability switches | — | Decided in the foundation round: Assignments and Job Flow are part of every Department (LEG-D20). |
-| LEG-07 gate | before CDA-07 and before the first real customer | CDA-D17, LEG-D02 |
+| LEG-07 gate | before CDA-07 production and before the first real customer | CDA-D17, LEG-D02 |
+| LEG-04 finishes before CDA-08 | CDA-08 Partner GM build, CDA-09 Console company setup | [CDA-D20](../contracted-departments/DECISIONS.md#cda-d20--a-partner-gm-sets-up-their-department-inside-the-facility--accepted-user-october-24-2026) and [CDA-D21](../contracted-departments/DECISIONS.md#cda-d21--vssyl-console-creates-the-partner-company--accepted-user-october-24-2026). CDA-09 can be designed during LEG-04. |
 
 ---
 

@@ -30,7 +30,7 @@ function viewer(scope: DashboardScope | null, departments = [FN, PLANT]): Dashbo
     availableScopes: scope ? [scope] : [],
     notices: [],
     canCustomize: false,
-    routeFlags: { todaysWorkEnabled: true },
+    routeFlags: {},
   };
 }
 

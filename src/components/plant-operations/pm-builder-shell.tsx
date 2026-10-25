@@ -16,7 +16,6 @@ export function plantMaintenanceTabs(input: {
   workEnabled: boolean;
 }) {
   return departmentAdminTabsForFlags({
-    profilesEnabled: false,
     locationsEnabled: true,
     workEnabled: input.workEnabled,
     recordsEnabled: isCanonicalLogsEnabled(),

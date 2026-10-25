@@ -4,7 +4,7 @@
  * Canonical and legacy stores are never both written.
  */
 
-import type { MealType, Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
 import type { AuthKind } from "@/lib/auth";
@@ -14,7 +14,6 @@ import {
   toServiceDateKey,
 } from "@/lib/operational-time";
 import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
-import { recordServeryMilestone } from "@/lib/servery/record-milestone";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
 import {
@@ -109,40 +108,6 @@ export async function routeDietaryMealTiming(
     );
     if (!result.ok) return { ...result, model };
     return { ...result, model: "CANONICAL_KEY_POINTS" };
-  }
-
-  if (target === "legacy") {
-    const legacy = await recordServeryMilestone(
-      {
-        facilityId: input.facilityId,
-        unitId: input.unitId,
-        mealType: input.mealType as MealType,
-        milestone: input.eventType === "READY" ? "READY" : "SERVICE_STARTED",
-        action: input.action,
-        clientActionId: input.clientActionId,
-        occurredAt: input.occurredAt,
-        reason: input.reason,
-        actor: {
-          userId: input.actor.userId,
-          employeeId: input.actor.employeeId,
-          role: input.actor.role,
-          authMethod: input.actor.authMethod ?? "PASSWORD",
-        },
-        deviceBoundUnitId: input.actor.deviceBoundUnitId,
-        now,
-      },
-      client as PrismaClient,
-    );
-    if (!legacy.ok) return { ok: false, model, reason: legacy.reason };
-    return {
-      ok: true,
-      model: "LEGACY_MILESTONES",
-      actualId: legacy.eventId,
-      stableKey: input.mealType,
-      occurredAt: legacy.occurredAt,
-      recordedAt: legacy.recordedAt,
-      deduplicated: legacy.deduplicated,
-    };
   }
 
   return { ok: false, model: "NOT_CONFIGURED", reason: "NOT_CONFIGURED" };

@@ -47,47 +47,13 @@ function cuidLike() {
 }
 
 const ALLOWED_WO_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
-  OPEN: ["ASSIGNED", "IN_PROGRESS", "WAITING_PARTS", "WAITING_ON_VENDOR", "ON_HOLD", "CANCELLED"],
-  ASSIGNED: [
-    "IN_PROGRESS",
-    "WAITING_PARTS",
-    "WAITING_ON_VENDOR",
-    "ON_HOLD",
-    "OPEN",
-    "CANCELLED",
-  ],
-  IN_PROGRESS: [
-    "WAITING_PARTS",
-    "WAITING_ON_VENDOR",
-    "ON_HOLD",
-    "COMPLETED",
-    "CANCELLED",
-  ],
-  WAITING_PARTS: [
-    "IN_PROGRESS",
-    "WAITING_ON_VENDOR",
-    "ON_HOLD",
-    "COMPLETED",
-    "CANCELLED",
-  ],
-  WAITING_ON_VENDOR: [
-    "IN_PROGRESS",
-    "WAITING_PARTS",
-    "ON_HOLD",
-    "COMPLETED",
-    "CANCELLED",
-  ],
-  ON_HOLD: [
-    "OPEN",
-    "ASSIGNED",
-    "IN_PROGRESS",
-    "WAITING_PARTS",
-    "WAITING_ON_VENDOR",
-    "CANCELLED",
-  ],
+  OPEN: ["ASSIGNED", "IN_PROGRESS", "WAITING_ON_VENDOR", "ON_HOLD", "CANCELLED"],
+  ASSIGNED: ["IN_PROGRESS", "WAITING_ON_VENDOR", "ON_HOLD", "OPEN", "CANCELLED"],
+  IN_PROGRESS: ["WAITING_ON_VENDOR", "ON_HOLD", "COMPLETED", "CANCELLED"],
+  WAITING_ON_VENDOR: ["IN_PROGRESS", "ON_HOLD", "COMPLETED", "CANCELLED"],
+  ON_HOLD: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_ON_VENDOR", "CANCELLED"],
   COMPLETED: [],
   CANCELLED: [],
-  CLOSED: [],
 };
 
 export async function nextRepairCode(client: DbClient): Promise<string> {
@@ -325,7 +291,6 @@ export async function createWorkOrderDirect(
     unitId: location.unitId,
     assetId: location.assetId,
     repairTrade,
-    issueType: "EQUIPMENT",
     sessionPrimaryDepartmentId: session.primaryDepartmentId,
     forceRequestingDepartmentId: input.departmentId,
     explicitResponsibleDepartmentId: input.responsibleDepartmentId,
@@ -353,7 +318,6 @@ export async function createWorkOrderDirect(
       status: initialStatus,
       workOrderKind: input.workOrderKind ?? "CORRECTIVE",
       repairTrade,
-      issueType: "EQUIPMENT",
       requestingDepartmentId: suggested.requestingDepartmentId,
       responsibleDepartmentId:
         input.responsibleDepartmentId ?? maintained?.responsibleDepartmentId ?? suggested.responsibleDepartmentId,
@@ -458,14 +422,6 @@ export async function createWorkOrderFromIssue(
     now: input.now,
   });
 
-  // Compatibility dual-write: first Work Order only. Additional WOs use Repair.issueId.
-  if (!issue.workOrderId) {
-    await client.assetIssue.update({
-      where: { id: issue.id },
-      data: { workOrderId: created.id },
-    });
-  }
-
   const actorUserId = sessionUserIdForFk(session);
   await client.assetIssueUpdate.create({
     data: {
@@ -482,7 +438,7 @@ export async function createWorkOrderFromIssue(
 
 /**
  * Link an existing Work Order to an Issue. One Work Order → at most one Issue.
- * Dual-writes AssetIssue.workOrderId only when it is still empty (first WO).
+ * The link is Repair.issueId. AssetIssue.workOrderId is no longer written.
  */
 export async function linkWorkOrderToIssue(
   session: FacilitySession,
@@ -519,13 +475,6 @@ export async function linkWorkOrderToIssue(
     where: { id: repair.id },
     data: { issueId: issue.id },
   });
-
-  if (!issue.workOrderId) {
-    await client.assetIssue.update({
-      where: { id: issue.id },
-      data: { workOrderId: repair.id },
-    });
-  }
 
   const actorUserId = sessionUserIdForFk(session);
   await client.assetIssueUpdate.create({
@@ -849,7 +798,6 @@ export async function createWorkOrderFromOperationalRequest(
       status: initialStatus,
       workOrderKind: "CORRECTIVE",
       repairTrade: requestTrade,
-      issueType: "EQUIPMENT",
       requestingDepartmentId: request.requestingDepartmentId,
       responsibleDepartmentId: request.responsibleDepartmentId,
       assignedEmployeeId: input.assignedEmployeeId ?? null,
@@ -977,7 +925,7 @@ export async function technicianUpdateWorkOrder(
   let requestedStatus: RepairStatus;
   if (input.action === "START" || input.action === "RESUME") requestedStatus = "IN_PROGRESS";
   else if (input.action === "HOLD") requestedStatus = "ON_HOLD";
-  else if (input.action === "WAITING_PARTS") requestedStatus = "WAITING_PARTS";
+  else if (input.action === "WAITING_PARTS") requestedStatus = "ON_HOLD";
   else if (input.action === "WAITING_ON_VENDOR") requestedStatus = "WAITING_ON_VENDOR";
   else if (input.action === "COMPLETE") requestedStatus = "COMPLETED";
   else throw new Error("Unsupported Work Order action.");

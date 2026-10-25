@@ -470,8 +470,6 @@ export async function deleteBuilderUnitAction(formData: FormData) {
           scheduleEntries: true,
           assets: true,
           repairs: true,
-          logSubmissions: true,
-          overrideNewUnit: true,
         },
       },
     },
@@ -488,9 +486,7 @@ export async function deleteBuilderUnitAction(formData: FormData) {
   // Cascade relations (access, meal times, responsibilities, etc.) go with the Unit.
   // There is no archive table yet — related operational rows for this location are removed.
   await prisma.$transaction(async (tx) => {
-    await tx.assignmentOverride.deleteMany({ where: { newUnitId: unitId } });
     await tx.scheduleEntry.deleteMany({ where: { unitId } });
-    await tx.logSubmission.deleteMany({ where: { unitId } });
     await tx.repair.deleteMany({ where: { unitId } });
     await tx.asset.deleteMany({ where: { unitId } });
     await tx.unit.delete({ where: { id: unitId } });

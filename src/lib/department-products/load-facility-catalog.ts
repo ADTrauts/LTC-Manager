@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
+import { cache } from "react";
 
 import type { AuthKind } from "@/lib/auth";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
+import { prisma as prismaClient } from "@/lib/prisma";
 
 import {
   departmentProductReleaseStatus,
@@ -54,8 +56,8 @@ export async function loadFacilityDepartmentCatalog(
   });
 }
 
-export async function loadFacilityDepartmentAccessContext(
-  prisma: CatalogDbClient,
+async function queryFacilityDepartmentAccessContext(
+  db: CatalogDbClient,
   facilityId: string,
 ): Promise<{
   departments: FacilityDepartmentAccessRow[];
@@ -64,7 +66,7 @@ export async function loadFacilityDepartmentAccessContext(
   entitlementsEnforced: boolean;
 }> {
   const [departments, entitlements, billing] = await Promise.all([
-    prisma.department.findMany({
+    db.department.findMany({
       where: { facilityId },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: {
@@ -76,11 +78,11 @@ export async function loadFacilityDepartmentAccessContext(
         sortOrder: true,
       },
     }),
-    prisma.facilityDepartmentEntitlement.findMany({
+    db.facilityDepartmentEntitlement.findMany({
       where: { facilityId },
       select: { departmentKey: true, status: true },
     }),
-    prisma.facilityBilling.findUnique({
+    db.facilityBilling.findUnique({
       where: { facilityId },
       select: { status: true },
     }),
@@ -92,6 +94,23 @@ export async function loadFacilityDepartmentAccessContext(
     billingStatus: (billing?.status ?? null) as BillingStatusForEntitlement,
     entitlementsEnforced: isBillingEntitlementsEnabled(),
   };
+}
+
+const queryFacilityDepartmentAccessContextForRequest = cache((facilityId: string) =>
+  queryFacilityDepartmentAccessContext(prismaClient, facilityId),
+);
+
+export async function loadFacilityDepartmentAccessContext(
+  db: CatalogDbClient,
+  facilityId: string,
+): Promise<{
+  departments: FacilityDepartmentAccessRow[];
+  entitlements: Array<{ departmentKey: string; status: "ACTIVE" | "REVOKED" }>;
+  billingStatus: BillingStatusForEntitlement;
+  entitlementsEnforced: boolean;
+}> {
+  if (db === prismaClient) return queryFacilityDepartmentAccessContextForRequest(facilityId);
+  return queryFacilityDepartmentAccessContext(db, facilityId);
 }
 
 export function isDepartmentRowCustomerOperable(input: {

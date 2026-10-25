@@ -1,17 +1,16 @@
 /**
  * Profile access guards — pure.
  *
- * All profile write operations require:
- * - DEPARTMENT_OPERATIONAL_PROFILES_ENABLED flag on;
+ * Profile writes that publishing still uses require:
  * - Manager+ (Department Administration standard);
  * - session facility matches the target facility.
+ * Location Function binding uses pattern authoring access.
  */
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import type { AuthMethod } from "@/lib/auth";
 
 export type ProfileWriteContext = {
-  flagEnabled: boolean;
   role: AppRole;
   sessionFacilityId: string;
   targetFacilityId: string;
@@ -30,12 +29,6 @@ export type ProfileAccessDenial = { code: string; message: string };
 export function checkProfileWriteAccess(
   context: ProfileWriteContext,
 ): ProfileAccessDenial | null {
-  if (!context.flagEnabled) {
-    return {
-      code: "feature_disabled",
-      message: "Department Operational Profiles are not enabled.",
-    };
-  }
   if (!hasAtLeastRole(context.role, "MANAGER")) {
     return {
       code: "insufficient_role",

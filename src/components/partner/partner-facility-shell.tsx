@@ -9,6 +9,7 @@ import { WorkspaceShellHeader } from "@/components/shell/workspace-shell-header"
 import { WorkspaceShellRail } from "@/components/shell/workspace-shell-rail";
 import type { PartnerFacilitySession } from "@/lib/auth";
 import { resolveDepartmentAccess } from "@/lib/department-authority/resolve";
+import { departmentProductOffersMenus } from "@/lib/department-products/registry";
 import { vendorHeadNavItems } from "@/lib/department-authority/vendor-nav";
 import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
@@ -68,9 +69,30 @@ export async function PartnerFacilityShell({
         departmentId: shell.context.activeDepartmentId,
       })
     : null;
+  const setup =
+    headAccess != null &&
+    partnerMaySetUpDepartment({
+      mode: headAccess.mode,
+      isHead: headAccess.isHead,
+      effectiveRole: shell.context.effectiveRole,
+    });
+  const departmentKey = setup
+    ? (
+        await prisma.department.findFirst({
+          where: { id: shell.context.activeDepartmentId, facilityId: session.facilityId },
+          select: { key: true },
+        })
+      )?.key
+    : null;
   const destinations = [
     ...PARTNER_DESTINATIONS,
-    ...vendorHeadNavItems(headAccess?.isHead === true && headAccess.mode === "MANAGE"),
+    ...vendorHeadNavItems({
+      people: headAccess?.isHead === true && headAccess.mode === "MANAGE",
+      coverage: setup,
+      rhythm: setup,
+      work: setup,
+      menus: setup && departmentProductOffersMenus(departmentKey),
+    }),
   ];
 
   const destinationsNode = () => <WorkspaceOwnedNav items={destinations} label="Partner" />;

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -25,7 +25,7 @@ test("Phase 0 — flag default stays off", () => {
     if (prev === undefined) delete process.env.CANONICAL_LOGS_ENABLED;
     else process.env.CANONICAL_LOGS_ENABLED = prev;
   }
-  assert.match(source(".env.example"), /CANONICAL_LOGS_ENABLED=false/);
+  assert.match(source(".env.example"), /CANONICAL_LOGS_ENABLED=true/);
 });
 
 test("Phase 0 — forward authority chain is Catalog → install → attachment → derived → fact", () => {
@@ -61,21 +61,16 @@ test("Phase 0 — flag OFF keeps legacy writers; flag ON fences competing writer
     assert.equal(legacyRecordWriteDecision({ productRecordEngine: true, writer }).allowed, false);
   }
 
-  const logsActions = source("src/app/(protected)/logs/actions.ts");
-  assert.match(logsActions, /writer: "LOG_TEMPLATE"/);
-  assert.match(logsActions, /writer: "LOG_ASSIGNMENT"/);
-  assert.match(logsActions, /writer: "LOG_SUBMISSION"/);
-  assert.match(logsActions, /addTemplateFieldAction[\s\S]*LOG_TEMPLATE/);
-  assert.match(logsActions, /toggleLogAssignmentAction[\s\S]*LOG_ASSIGNMENT/);
+  assert.equal(existsSync("src/app/(protected)/logs/actions.ts"), false);
+  assert.equal(existsSync("src/app/(protected)/admin/inspections/actions.ts"), false);
+  assert.equal(existsSync("src/app/(protected)/staffing/templates/actions.ts"), false);
 
   assert.match(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
-  assert.match(source("src/app/(protected)/staffing/templates/actions.ts"), /publishEvidenceTemplateAction[\s\S]*OPERATIONAL_TEMPLATE/);
   assert.match(source("src/app/(protected)/unit/[unitId]/evidence-actions.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/lib/offline/process-sync-command.ts"), /LEGACY_TEMPLATE_EVIDENCE_FENCED/);
-  assert.match(source("src/lib/work/inspections/submit-inspection.ts"), /INSPECTION_SUBMISSION/);
-  assert.match(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /isCanonicalLogsEnabled/);
-  assert.match(source("src/app/(protected)/admin/inspections/actions.ts"), /isCanonicalLogsEnabled/);
+  assert.doesNotMatch(source("src/lib/work/inspections/submit-inspection.ts"), /inspectionSubmission/);
+  assert.doesNotMatch(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /inspectionDefinition/);
   const logsPage = source("src/app/(protected)/logs/page.tsx");
   assert.match(logsPage, /activeTab === "assignments"/);
   assert.match(logsPage, /activeTab === "templates" \|\| activeTab === "submit"/);
@@ -98,7 +93,6 @@ test("Phase 0 — Log Book reads OperationalEvidenceRecord; Review stays derived
 test("Phase 0 — canonical ON navigation distinguishes due Logs from Log Book", () => {
   const supervisor = applyCanonicalLogsNavRewrite(
     platformNavItemsForRole("SUPERVISOR", {
-      todaysWorkEnabled: true,
       canonicalLogsEnabled: true,
       dietaryOperationalEvidenceEnabled: true,
     }),
@@ -111,7 +105,6 @@ test("Phase 0 — canonical ON navigation distinguishes due Logs from Log Book",
 
   const staff = applyCanonicalLogsNavRewrite(
     platformNavItemsForRole("STAFF", {
-      todaysWorkEnabled: true,
       canonicalLogsEnabled: true,
     }),
     true,
@@ -121,13 +114,12 @@ test("Phase 0 — canonical ON navigation distinguishes due Logs from Log Book",
   assert.equal(staff.some((item) => item.href === "/staffing/log-book"), false);
 
   const managerBuild = platformNavItemsForRole("MANAGER", {
-    todaysWorkEnabled: true,
     canonicalLogsEnabled: true,
   });
   assert.equal(managerBuild.some((item) => item.href === "/build/logs"), true);
 
   const flagOff = applyCanonicalLogsNavRewrite(
-    platformNavItemsForRole("STAFF", { todaysWorkEnabled: true, canonicalLogsEnabled: false }),
+    platformNavItemsForRole("STAFF", { canonicalLogsEnabled: false }),
     false,
   );
   assert.equal(flagOff.some((item) => item.href === "/logs"), true);

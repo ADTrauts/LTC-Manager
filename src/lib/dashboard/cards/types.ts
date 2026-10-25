@@ -21,6 +21,11 @@ export type DashboardCardId =
   | "menu_today"
   | "department_setup"
   | "facility_setup"
+  | "departments_licensing"
+  | "hr_alerts"
+  | "team_comparison"
+  | "requests_filed"
+  | "review_yesterday"
   | "shortcuts";
 
 export type DashboardCategory =

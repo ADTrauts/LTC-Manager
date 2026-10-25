@@ -354,11 +354,7 @@ test("phase11b sql: DEVELOPMENT denies new rework/Records; retained Needs Attent
   { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
     // Retained legacy definition is required by the historical Record FK/check.
     // This is test history, not a new template creation service or forward writer.
-    const definition = await prisma.operationalTemplate.create({ data: {
-      facilityId: fx.facility.id, departmentId: fx.evs.id, stableKey: cuidLike(),
-      name: "Historical room inspection", purposeType: "INSPECTION", status: "PUBLISHED",
-      publishedAt: new Date("2026-08-01T12:00:00Z"),
-    } });
+    const definition = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
     const history = await prisma.operationalEvidenceRecord.create({ data: {
       templateId: definition.id,
       facilityId: fx.facility.id, departmentId: fx.evs.id, templateStableKey: definition.stableKey,

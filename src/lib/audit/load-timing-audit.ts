@@ -100,25 +100,7 @@ export async function loadOperationalTimingAudit(
         adjustedDueLocal: true,
       },
     }),
-    client.serveryMealServiceEvent.findMany({
-      where: {
-        serviceDate: { gte: startDate, lte: endDate },
-        unit: { facilityId: input.facilityId },
-      },
-      select: {
-        serviceDate: true,
-        unitId: true,
-        mealType: true,
-        mealServiceReadyAt: true,
-        readyRecordedAt: true,
-        mealServiceStartedAt: true,
-        startedRecordedAt: true,
-        entries: {
-          select: { milestone: true, occurredAt: true, recordedAt: true },
-          orderBy: { recordedAt: "desc" },
-        },
-      },
-    }),
+    Promise.resolve([] as never[]),
     client.unitSpace.findMany({
       where: { unit: { facilityId: input.facilityId } },
       select: { id: true, name: true },

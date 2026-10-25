@@ -168,7 +168,11 @@ export async function loadSupervisorAssetExceptions(
         operationalImpact: true,
         unitId: true,
         assetId: true,
-        workOrderId: true,
+        workOrders: {
+          orderBy: { requestedAt: "asc" },
+          take: 1,
+          select: { id: true },
+        },
         unit: { select: { name: true } },
         asset: { select: { assetCode: true, name: true, status: true } },
       },
@@ -227,6 +231,7 @@ export async function loadSupervisorAssetExceptions(
           : "Current";
     const sortRank =
       temporal === "Late" ? 470 : temporal === "Current" ? 480 : 490;
+    const linkedWorkOrderId = issue.workOrders[0]?.id;
     items.push({
       group: "Asset",
       status: `${assetIssueStatusLabel(issue.status)} · ${issue.asset?.assetCode ?? issue.unit.name}`,
@@ -234,13 +239,13 @@ export async function loadSupervisorAssetExceptions(
       unitId: issue.unitId,
       unitName: issue.unit.name,
       sourceHref: `/asset-issues/${issue.id}`,
-      availableActions: issue.workOrderId
+      availableActions: linkedWorkOrderId
         ? ["Open Asset Issue", "Open Work Order"]
         : ["Open Asset Issue", "Create Work Order"],
       sortRank,
       assetId: issue.assetId ?? undefined,
       issueId: issue.id,
-      workOrderId: issue.workOrderId ?? undefined,
+      workOrderId: linkedWorkOrderId,
     });
   }
 

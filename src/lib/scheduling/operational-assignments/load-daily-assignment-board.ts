@@ -1,5 +1,5 @@
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
-import { parseCallDownReason } from "@/lib/todays-work/call-down";
+import { parseCallDownReason } from "@/lib/scheduling/call-down";
 import { prisma } from "@/lib/prisma";
 
 import { detectOverlappingAssignments } from "./detect-assignment-conflicts";
@@ -20,7 +20,7 @@ export type LoadDailyAssignmentBoardInput = {
 
 /**
  * Load the Daily Assignment Board for a given facility and service date.
- * Combines ScheduleEntry (who is working), AssignmentOverride (call-offs/moves),
+ * Combines ScheduleEntry (who is working, including a call-off mark)
  * and OperationalAssignment (role/task placement) into one coordinated view.
  */
 export async function loadDailyAssignmentBoard(
@@ -32,7 +32,7 @@ export async function loadDailyAssignmentBoard(
 
   const deptFilter = departmentId ? { departmentId } : {};
 
-  const [scheduleEntries, overrides, assignments, units] = await Promise.all([
+  const [scheduleEntries, assignments, units] = await Promise.all([
     prisma.scheduleEntry.findMany({
       where: {
         date: { gte: dateStart, lte: dateEnd },
@@ -47,6 +47,8 @@ export async function loadDailyAssignmentBoard(
         shift: true,
         plannedStart: true,
         plannedEnd: true,
+        calledOffAt: true,
+        callOffReason: true,
         unit: { select: { id: true, name: true } },
         employee: {
           select: {
@@ -56,20 +58,6 @@ export async function loadDailyAssignmentBoard(
             primaryDepartment: { select: { key: true, name: true } },
           },
         },
-      },
-    }),
-    prisma.assignmentOverride.findMany({
-      where: {
-        date: { gte: dateStart, lte: dateEnd },
-        employee: { facilityId },
-      },
-      select: {
-        id: true,
-        employeeId: true,
-        reason: true,
-        oldUnitId: true,
-        newUnitId: true,
-        mealType: true,
       },
     }),
     prisma.operationalAssignment.findMany({
@@ -85,8 +73,6 @@ export async function loadDailyAssignmentBoard(
         roleLabel: true,
         unitId: true,
         unit: { select: { name: true, isActive: true } },
-        operationInstanceId: true,
-        operationInstance: { select: { label: true, status: true } },
         startsAt: true,
         endsAt: true,
         status: true,
@@ -123,11 +109,11 @@ export async function loadDailyAssignmentBoard(
     }),
   ]);
 
-  const overridesByEmployee = new Map<string, typeof overrides>();
-  for (const o of overrides) {
-    const list = overridesByEmployee.get(o.employeeId) ?? [];
-    list.push(o);
-    overridesByEmployee.set(o.employeeId, list);
+  const callOffReasonByEmployee = new Map<string, string>();
+  for (const entry of scheduleEntries) {
+    if (entry.calledOffAt && entry.callOffReason) {
+      callOffReasonByEmployee.set(entry.employeeId, entry.callOffReason);
+    }
   }
 
   const unitNameById = new Map(units.map((u) => [u.id, u.name]));
@@ -139,11 +125,7 @@ export async function loadDailyAssignmentBoard(
     if (seenEmployeeIds.has(entry.employeeId)) continue;
     seenEmployeeIds.add(entry.employeeId);
 
-    const empOverrides = overridesByEmployee.get(entry.employeeId) ?? [];
-    const callDown = empOverrides.find((o) => {
-      const parsed = parseCallDownReason(o.reason);
-      return parsed.isCallDown;
-    });
+    const callOffReason = callOffReasonByEmployee.get(entry.employeeId) ?? null;
 
     employees.push({
       id: entry.employee.id,
@@ -155,8 +137,8 @@ export async function loadDailyAssignmentBoard(
       plannedStart: entry.plannedStart,
       plannedEnd: entry.plannedEnd,
       unitName: entry.unit?.name ?? null,
-      hasCallDown: !!callDown,
-      callDownReason: callDown ? parseCallDownReason(callDown.reason).displayReason : null,
+      hasCallDown: callOffReason != null,
+      callDownReason: callOffReason ? parseCallDownReason(callOffReason).displayReason : null,
     });
   }
 
@@ -183,8 +165,8 @@ export async function loadDailyAssignmentBoard(
       roleLabel: a.roleLabel,
       unitId: a.unitId,
       unitName: a.unit?.name ?? (a.unitId ? unitNameById.get(a.unitId) ?? null : null),
-      operationInstanceId: a.operationInstanceId,
-      operationLabel: a.operationInstance?.label ?? null,
+      operationInstanceId: null,
+      operationLabel: null,
       startsAt: a.startsAt?.toISOString() ?? null,
       endsAt: a.endsAt?.toISOString() ?? null,
       status: a.status,
@@ -217,7 +199,6 @@ function computeWarnings(
   rawAssignments: Array<{
     id: string;
     unit?: { isActive: boolean } | null;
-    operationInstance?: { status: string } | null;
   }>,
 ): AssignmentWarning[] {
   const warnings: AssignmentWarning[] = [];
@@ -243,14 +224,6 @@ function computeWarnings(
         assignmentId: a.id,
         employeeId: "",
         message: "Assignment linked to an inactive unit.",
-      });
-    }
-    if (a.operationInstance && a.operationInstance.status === "CANCELLED") {
-      warnings.push({
-        kind: "cancelled_operation",
-        assignmentId: a.id,
-        employeeId: "",
-        message: "Assignment linked to a cancelled operation.",
       });
     }
   }

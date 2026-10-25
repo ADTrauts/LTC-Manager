@@ -258,7 +258,6 @@ test("starter catalog is the certified Work and Record package", () => {
 test("Build and Run IA nouns stay Product language", () => {
   assert.deepEqual(
     departmentAdminTabsForFlags({
-      profilesEnabled: true,
       workEnabled: true,
       recordsEnabled: true,
       maintenanceEnabled: true,

@@ -51,7 +51,6 @@ test("facility desktop — RUN destinations live in the workspace rail, not TopN
 
 test("facility RUN nav is the registry projection, not a second hardcoded list", () => {
   const flags = {
-    todaysWorkEnabled: true,
     dietaryOperationalEvidenceEnabled: true,
     dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: true,
@@ -65,7 +64,7 @@ test("facility RUN nav is the registry projection, not a second hardcoded list",
   const run = headerNavItemsForMode("RUN", groupNavItemsByMode(items).find((g) => g.mode === "RUN")?.items ?? []);
   const labels = run.map((item) => item.label);
   assert.equal(labels.includes("Dashboard"), true);
-  assert.equal(labels.includes("Today's Work"), true);
+  assert.equal(labels.includes("Today's Work"), false);
   assert.equal(labels.includes("Locations"), true);
   assert.equal(labels.includes("Schedule"), true);
   assert.equal(labels.includes("Logs"), true);

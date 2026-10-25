@@ -77,7 +77,6 @@ export const ADMIN_HUB_EXCLUDED_PRIMARY_HREFS = [
   "/build/logs",
   "/admin/inspections",
   "/admin/knowledge",
-  "/build/knowledge",
 ] as const;
 
 export function flattenAdminHubLinks(

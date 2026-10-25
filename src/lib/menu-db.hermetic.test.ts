@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { listMenus, loadFacilityMenuData, loadMenu } from "@/lib/menu-db";
+import { listMenus, loadMenu } from "@/lib/menu-db";
 
 function source(relative: string) {
   return readFileSync(join(process.cwd(), relative), "utf8");
@@ -153,61 +153,7 @@ test("loadMenu returns only that menu's items and rejects another facility id", 
   assert.equal(denied.menuItems.length, 0);
 });
 
-test("loadFacilityMenuData is quiet unless exactly one ACTIVE menu exists", async () => {
-  const one = await loadFacilityMenuData(
-    mockPrisma({
-      menus: [{ id: "menu_a", facilityId: "fac_1", status: "ACTIVE" }],
-      settings: [cycleSettings({ menuId: "menu_a" })],
-      items: [item("menu_a", "Oatmeal")],
-    }) as never,
-    "fac_1",
-  );
-  assert.equal(one.unavailableReason, null);
-  assert.deepEqual(
-    one.menuItems.map((row) => row.itemName),
-    ["Oatmeal"],
-  );
-
-  const none = await loadFacilityMenuData(
-    mockPrisma({
-      menus: [{ id: "menu_a", facilityId: "fac_1", status: "INACTIVE" }],
-    }) as never,
-    "fac_1",
-  );
-  assert.equal(none.menuItems.length, 0);
-  assert.match(none.unavailableReason ?? "", /No active menu/);
-
-  const many = await loadFacilityMenuData(
-    mockPrisma({
-      menus: [
-        { id: "menu_a", facilityId: "fac_1", status: "ACTIVE" },
-        { id: "menu_b", facilityId: "fac_1", status: "ACTIVE" },
-      ],
-      items: [item("menu_a", "A"), item("menu_b", "B")],
-    }) as never,
-    "fac_1",
-  );
-  assert.equal(many.menuItems.length, 0);
-  assert.match(many.unavailableReason ?? "", /Multiple active menus/);
-});
-
-test("loadFacilityMenuData can read orphan legacy rows only when no Menu records exist", async () => {
-  const orphan = await loadFacilityMenuData(
-    mockPrisma({
-      menus: [],
-      settings: [cycleSettings({ menuId: null, facilityId: "fac_1" })],
-      items: [{ ...item("ignored", "Legacy oatmeal"), menuId: null, facilityId: "fac_1" }],
-    }) as never,
-    "fac_1",
-  );
-  assert.equal(orphan.unavailableReason, null);
-  assert.deepEqual(
-    orphan.menuItems.map((row) => row.itemName),
-    ["Legacy oatmeal"],
-  );
-});
-
-test("builder pages use listMenus/loadMenu rather than the logs compatibility loader", () => {
+test("builder pages use listMenus/loadMenu", () => {
   const list = source("src/app/(protected)/menus/page.tsx");
   const detail = source("src/app/(protected)/menus/[menuId]/page.tsx");
   const logs = source("src/app/(protected)/logs/page.tsx");
@@ -215,5 +161,6 @@ test("builder pages use listMenus/loadMenu rather than the logs compatibility lo
   assert.doesNotMatch(list, /loadFacilityMenuData/);
   assert.match(detail, /loadMenu/);
   assert.doesNotMatch(detail, /loadFacilityMenuData/);
-  assert.match(logs, /loadFacilityMenuData/);
+  assert.doesNotMatch(logs, /loadFacilityMenuData/);
+  assert.doesNotMatch(source("src/lib/menu-db.ts"), /loadFacilityMenuData/);
 });

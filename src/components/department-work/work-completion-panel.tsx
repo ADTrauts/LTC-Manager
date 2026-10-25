@@ -23,6 +23,7 @@ type Props = {
   departmentId: string;
   unitId: string;
   requirement: WorkRequirement;
+  evidenceHref?: string | null;
   deviceFacilityId?: string | null;
   deviceBoundUnitId?: string | null;
   actorRef?: string | null;
@@ -41,6 +42,7 @@ export function WorkCompletionPanel({
   departmentId,
   unitId,
   requirement,
+  evidenceHref = null,
   deviceFacilityId = null,
   deviceBoundUnitId = null,
   actorRef = null,
@@ -253,14 +255,11 @@ export function WorkCompletionPanel({
           {requirement.completionMode === "LINKED_EVIDENCE" ? (
             <p className="text-xs text-zinc-600">
               This Work completes when linked Evidence is accepted.
-              {requirement.linkedTemplateStableKey ? (
+              {requirement.linkedTemplateStableKey && evidenceHref ? (
                 <>
                   {" "}
-                  <Link
-                    href={`/unit/${unitId}?evidence=${encodeURIComponent(requirement.linkedTemplateStableKey)}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Open Evidence
+                  <Link href={evidenceHref} className="underline-offset-2 hover:underline">
+                    Open Record
                   </Link>
                 </>
               ) : null}

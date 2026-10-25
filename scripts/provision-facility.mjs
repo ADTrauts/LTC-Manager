@@ -27,7 +27,8 @@ import {
   RoleKey,
 } from "@prisma/client";
 
-import { applyLogTemplatePresets } from "../prisma/apply-log-template-presets.mjs";
+import { upsertPublishedCatalogSeeds } from "../prisma/apply-catalog-log-seeds.mjs";
+import { installMatchedCatalogRecords } from "../prisma/apply-log-template-presets.mjs";
 
 function loadEnvFile() {
   try {
@@ -118,15 +119,12 @@ async function main() {
   const facility = await prisma.facility.create({
     data: {
       displayName,
-      managementCompanyName: managementCompany,
       organizationId: organization.id,
     },
   });
 
-  await applyLogTemplatePresets(prisma, {
-    facilityId: facility.id,
-    createdByRoleId: gmRole.id,
-  });
+  await upsertPublishedCatalogSeeds(prisma);
+  await installMatchedCatalogRecords(prisma, { facilityId: facility.id });
 
   const passwordHash = await bcrypt.hash(gmPassword, 12);
 

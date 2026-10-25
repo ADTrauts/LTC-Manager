@@ -13,9 +13,6 @@ import { resolveNavIcon } from "@/lib/design-system";
 import { filterNavItemsForDepartmentScope } from "@/lib/department-nav";
 import {
   isCanonicalLogsEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-  isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { groupNavItemsByMode } from "@/lib/product-mode";
@@ -51,9 +48,8 @@ export default async function BuildHubPage() {
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
 
   const rawNavItems = platformNavItemsForRole(session.role, {
-    todaysWorkEnabled: isTodaysWorkEnabled(),
-    dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
-    dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    dietaryOperationalEvidenceEnabled: true,
+    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   });
   const navItems = filterNavItemsForDepartmentScope(rawNavItems, {

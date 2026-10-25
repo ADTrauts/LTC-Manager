@@ -10,11 +10,7 @@ import {
 } from "@/lib/department-operations";
 import { loadSupervisorWorkExceptions } from "@/lib/department-work";
 import { loadZonesForDepartment } from "@/lib/department-zones";
-import {
-  isCanonicalLogsEnabled,
-  isEvsOperationsEnabled,
-  isOperationalAssignmentsEnabled,
-} from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import {
@@ -65,11 +61,11 @@ export async function loadSupervisorOperationsFacts(
   const timezone = await loadFacilityTimezone(prisma, input.facilityId);
   const operationalDateKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
-  const oaEnabled = isOperationalAssignmentsEnabled();
+  const oaEnabled = true;
   const harborLogsEnabled = isCanonicalLogsEnabled();
   const evidenceCompatEnabled = isDepartmentOperationalEvidenceEnabled(input.departmentKey);
   const workPlansEnabled = isDepartmentWorkPlansEnabled(input.departmentKey);
-  const isEvs = input.departmentKey === "EVS" && isEvsOperationsEnabled();
+  const isEvs = input.departmentKey === "EVS";
   const isPlant =
     input.departmentKey === "PLANT" &&
     (await isPlantRuntimeEnabled(input.facilityId, input.session));
@@ -525,7 +521,9 @@ async function loadPlantOverlay(
       .length,
     inProgressWorkOrders: workOrders.filter((row) => row.status === "IN_PROGRESS").length,
     waitingVendor: workOrders.filter((row) => row.status === "WAITING_ON_VENDOR").length,
-    waitingParts: workOrders.filter((row) => row.status === "WAITING_PARTS").length,
+    waitingParts: workOrders.filter(
+      (row) => row.status === "ON_HOLD" && row.holdReason === "WAITING_FOR_PART",
+    ).length,
     overdueWorkOrders: workOrders.filter(
       (row) => row.dueAt != null && row.dueAt.getTime() < now.getTime(),
     ).length,

@@ -1,12 +1,11 @@
 /**
  * Wave 15E — adapt legacy eligibility → ShadowEligibilityView.
  *
- * Legacy = assignments + capability strings (via Experience compatibility),
+ * Legacy = assignments plus experience keys already on the room,
  * sidebar unit visibility, and optional Plant coverage notes.
  * Does not invent Projection rules.
  */
 
-import { experiencesFromCapabilities } from "@/lib/experiences";
 import {
   findAreaForExperience,
   getExperience,
@@ -79,7 +78,7 @@ export function adaptLegacyEligibilityToShadowView(
     }
     if (!input.departmentKeys.includes(room.departmentKey)) continue;
 
-    const experienceKeys = experiencesFromCapabilities(room.capabilities);
+    const experienceKeys = room.capabilities.filter((key) => getExperience(key));
     for (const experienceKey of experienceKeys) {
       const experience = getExperience(experienceKey);
       if (!experience) continue;

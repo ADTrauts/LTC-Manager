@@ -40,7 +40,7 @@ function snapshot(): OperationalSnapshot {
       label: "Lunch preparation",
       phase: "Preparation",
       scheduledTime: "11:30",
-      source: "operations_center",
+      source: "published_cycle",
     },
     readiness: { ready: 3, inProgress: 0, needsAttention: 1 },
     priorityLocations: [

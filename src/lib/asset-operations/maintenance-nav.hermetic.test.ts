@@ -47,7 +47,6 @@ test("STAFF Maintenance rewrite lands on the repair queue", () => {
 test("manager registry projection collapses Assets and Repairs after rewrite", () => {
   const items = applyMaintenanceNavRewrite(
     platformNavItemsForRole("MANAGER", {
-      todaysWorkEnabled: true,
       canonicalLogsEnabled: true,
       dietaryOperationalEvidenceEnabled: true,
     }),
@@ -63,7 +62,7 @@ test("isRunMaintenancePath covers the operational loop and excludes Asset Builde
   assert.equal(isRunMaintenancePath("/assets/asset-1"), true);
   assert.equal(isRunMaintenancePath("/repairs"), true);
   assert.equal(isRunMaintenancePath("/repairs/r1"), true);
-  assert.equal(isRunMaintenancePath("/issues/legacy"), true);
+  assert.equal(isRunMaintenancePath("/issues/legacy"), false);
   assert.equal(isRunMaintenancePath("/asset-issues/i1"), true);
   assert.equal(isRunMaintenancePath("/preventive-maintenance"), true);
   assert.equal(isRunMaintenancePath("/preventive-maintenance/occ1"), true);

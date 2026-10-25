@@ -7,7 +7,8 @@
  *   Asset is optional; location-only Issues snapshot unitId / spaceId.
  * - Repair owns Work Order / repair response. Not canonical Issue.
  *   Repair.issueId is authoritative Issue → many Work Orders.
- *   AssetIssue.workOrderId is a compatibility pointer to the first linked Work Order.
+ *   AssetIssue.workOrderId is a compatibility pointer and is no longer written.
+ *   Repair.issueId is the Issue link. The column stays until LEG-06.
  * - OperationalRequest owns intake. Creating a Request does not create an Issue.
  * - Operational Evidence remains separate; may link to an Issue without owning it.
  * - Supervisor Board / Job Flow project exceptions only — no ownership.
@@ -49,15 +50,11 @@ export const OPEN_WORK_ORDER_STATUSES: RepairStatus[] = [
   "OPEN",
   "ASSIGNED",
   "IN_PROGRESS",
-  "WAITING_PARTS",
   "WAITING_ON_VENDOR",
   "ON_HOLD",
 ];
 
-export const COMPLETED_WORK_ORDER_STATUSES: RepairStatus[] = [
-  "COMPLETED",
-  "CLOSED",
-];
+export const COMPLETED_WORK_ORDER_STATUSES: RepairStatus[] = ["COMPLETED"];
 
 export function normalizeAssetStatus(status: AssetStatus | string): AssetOperationalStatus {
   if (status === "ACTIVE" || status === "OPERATIONAL") return "OPERATIONAL";
@@ -116,7 +113,6 @@ export function workOrderStatusLabel(status: RepairStatus): string {
       return "Assigned";
     case "IN_PROGRESS":
       return "In progress";
-    case "WAITING_PARTS":
     case "WAITING_ON_VENDOR":
     case "ON_HOLD":
       return "On hold";
@@ -124,8 +120,6 @@ export function workOrderStatusLabel(status: RepairStatus): string {
       return "Completed";
     case "CANCELLED":
       return "Canceled";
-    case "CLOSED":
-      return "Closed";
     default:
       return status;
   }

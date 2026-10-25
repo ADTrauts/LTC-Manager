@@ -7,8 +7,7 @@ type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"
 /**
  * Create the parent Organization for a new Facility (signup / seed / provision).
  * Parent Organization is hierarchy ownership — not contracted department operation.
- * `managementCompanyName` may still be stored on Facility as a legacy string, but
- * it must not become Facility.organizationId.
+ * A company name may choose the parent Organization. It is not stored on the Facility.
  */
 export async function createOrganizationForNewFacility(
   db: DbClient,

@@ -308,7 +308,6 @@ async function loadAcceptedEvidenceForDate(input: {
     select: {
       id: true,
       templateStableKey: true,
-      templateId: true,
       unitId: true,
       status: true,
     },
@@ -316,7 +315,7 @@ async function loadAcceptedEvidenceForDate(input: {
   return rows.map((r) => ({
     id: r.id,
     templateStableKey: r.templateStableKey,
-    templateId: r.templateId,
+    templateId: null,
     unitId: r.unitId,
     status: r.status,
   }));

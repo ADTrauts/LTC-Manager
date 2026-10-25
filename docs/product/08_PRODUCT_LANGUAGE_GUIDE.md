@@ -25,7 +25,7 @@ A Department Product is a Vssyl-authored operating model. A Department is the fa
 | **Mode** | Run, Build, or Admin. Never call these Workspaces |
 | **Department** | Subordinate operational lens under a Facility or Partner Facility workspace |
 
-Do not label Run / Build / Admin as Workspace. Do not treat Department, My Account, My Access, Harbor, or Quick PIN as a Workspace. **Business Workspace** and **Unit Workspace** remain existing product homes; they are not the shell Workspace selector.
+Do not label Run / Build / Admin as Workspace. Do not treat Department, My Account, My Access, Harbor, or Quick PIN as a Workspace. Business Workspace is a retired home. It is not the shell Workspace selector.
 
 **Switch workspace** is the shell chooser. It lists current enterable Workspaces from the available-context directory and enters one `contextKey` through `enterContext`. It is not My Access and does not create authority.
 
@@ -35,9 +35,10 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 
 | Use this | Do not use as synonym |
 |----------|----------------------|
-| **Business Workspace** | Manager Dashboard, Home Console, Mission Control |
-| **Operations Center** | Global Dashboard *(legacy path `/dashboard` ok)*, Command Center |
-| **Today's Work** | Supervisor Board, Daily Tasks (as zone name) |
+| **Dashboard** | Manager Dashboard, Home Console, Mission Control. The home for Supervisors and above |
+| **Business Workspace** | A retired home. Its address opens the Dashboard |
+| **Operations Center** | Global Dashboard, Command Center. Retired peer destination |
+| **Today's Work** | A retired home. Its address opens the Dashboard; handoffs and rounds live in Schedule and Locations |
 | **Unit Workspace** | Unit Dashboard, Location App |
 | **Locations** (nav) | Units list *(schema may still say Unit)* |
 | **Administration** | Settings (unless form-level), Backend |
@@ -82,7 +83,10 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **enterGrantedContext** | Enter one explicit created/accepted context; missing target recovers to account `/access` | Listing every context first; minting from `User.facilityId` / `User.roleId` |
 | **enterContext** | Live target revalidation and exclusive session mint from any User session | Listing every context then trusting a posted role; silent fallback to another workspace |
 | **Client Facility** | Current `FacilityPartnerOrganization` relationship, or a partner Facility workspace entered via that partnership | Inferring partnership from operators, vendors, or parent Organization; treating org visibility as personal entry |
-| **Facility operated / Contracted** | Derived operating model (operator org == / != Facility parent org) | Persisted SELF_OPERATED / CONTRACTED enum *(prefer derivation)* |
+| **Self-operated / Vendor-run** | Derived from the operator: the facility's own company, or another company. Never a stored switch. | Persisted SELF_OPERATED / CONTRACTED enum |
+| **Facility Administrator** | The one person who governs the facility account. Views a self-operated Department unless they are its head. Sees a vendor-run Department as a summary plus compliance Records. | Several Facility Administrators; operating every Department |
+| **Department head / GM** | The person who runs one Department | The Facility Administrator by default |
+| **Operator period** | The dates one company runs a Department | A permanent operator flag |
 | **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Facility Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name; generic **Maintenance** as a Product name |
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |

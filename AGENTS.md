@@ -21,7 +21,7 @@ The accepted Contracted Department Authority program lives in [docs/contracted-d
 - Every Department is run by its head and its members, within role.
 - The Facility Administrator only views a self-operated Department unless they are its head.
 - A vendor-run Department is controlled by the vendor, who also owns its data. The Facility Administrator sees summaries, plus compliance Records read-only.
-- People see only their own Department's data (employees, assigned rooms, schedules). Assets are facility property shared between the using Department and Plant; each asset's maintainer runs and pays for its repairs.
+- People see only their own Department's data (employees, assigned rooms, schedules). An operating partner can add assets for its Department and set title, maintainer, and repair vendor. Title is the facility or that partner. Assets on site are shared with Plant. Facility-titled equipment stays when a contract ends; partner-titled equipment leaves, and the facility keeps a closed note (CDA-D22). The maintainer runs and pays for repairs.
 
 Until its enforcement is enabled (CDA-07), `DepartmentOperatorRelationship` restricts nothing in code. New write actions must be classifiable under its write manifest; do not add Department writes that check only a role.
 
@@ -43,7 +43,7 @@ Forward Records (when `CANONICAL_LOGS_ENABLED=true`): `CatalogLogDefinition` →
 - **Never suggest or run `prisma migrate reset`** (or any command that drops the database) unless the user explicitly opts in to losing data.
 - **Prefer forward-only fixes:** add a **new** migration for schema fixes, or use documented Prisma repair flows with the user’s approval.
 - If `migrate dev` is blocked but the user must keep data: consider **`prisma migrate deploy`** for applying **pending** migrations to the real database (no shadow DB), after the migration history/checksums are consistent—or ask the user how they want to reconcile history vs. live DB.
-- Menu Builder reads should use **`listMenus`** / **`loadMenu`** in `src/lib/menu-db.ts`. Applicability uses **`loadMenuApplicability`** / **`replaceMenuApplicability`** in `src/lib/menu-applicability-db.ts`. Runtime reads use **`resolveApplicableMenus`** in `src/lib/menu-runtime-db.ts` (exact location + date-effective root Operational Cycle + facility service date). **`loadFacilityMenuData`** is temporary `/logs` compatibility only (exactly one ACTIVE menu, otherwise quiet). Do not use it as the Menu editor or Runtime read.
+- Menu Builder reads should use **`listMenus`** / **`loadMenu`** in `src/lib/menu-db.ts`. Applicability uses **`loadMenuApplicability`** / **`replaceMenuApplicability`** in `src/lib/menu-applicability-db.ts`. Runtime reads use **`resolveApplicableMenus`** in `src/lib/menu-runtime-db.ts` (exact location + date-effective root Operational Cycle + facility service date).
 - Menu applicability is explicit Department locations (`unitId` XOR `spaceId`) plus root PERIOD `cycleStableKey` rows with a `menuPeriodKey` mapping. Do not infer rooms from neighborhoods. Do not bind `DepartmentOperationalCycle.id`. Do not choose a Menu winner. Do not migrate `/logs` onto the Runtime resolver unless explicitly asked.
 
 ## Prisma client vs. runtime errors

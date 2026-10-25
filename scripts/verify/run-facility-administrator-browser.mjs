@@ -129,7 +129,6 @@ async function main() {
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     TASK_SYNC_ENABLED: "",
     OPERATION_ENGINE_ENABLED: "",
-    DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
   };
 
   try {

@@ -1,41 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { MealType, RoleKey, ShiftType } from "@prisma/client";
+import { MealType } from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
-import { isEmployeeEligibleForUnit } from "@/lib/scheduling-eligibility";
-import { resolveOverrideReasonFromForm } from "@/lib/todays-work/call-down";
+import { callOffReasonFromForm, moveDayAssignment, peopleChangeIsMove, markShiftsCalledOff } from "@/lib/scheduling/people-coverage";
 
-const roleKeyValues = [
-  RoleKey.FACILITY_ADMINISTRATOR,
-  RoleKey.GM,
-  RoleKey.MANAGER,
-  RoleKey.SUPERVISOR,
-  RoleKey.LEAD_TEAM_MEMBER,
-  RoleKey.STAFF,
-] as const;
-const shiftValues = [ShiftType.BREAKFAST, ShiftType.LUNCH, ShiftType.DINNER, ShiftType.FULL_DAY] as const;
 const mealValues = [MealType.BREAKFAST, MealType.LUNCH, MealType.DINNER] as const;
-
-const createScheduleEntrySchema = z.object({
-  employeeId: z.string().cuid(),
-  unitId: z.string().cuid(),
-  date: z.string().min(8),
-  shift: z.enum(shiftValues),
-  roleType: z.enum(roleKeyValues).optional(),
-  plannedStart: z.string().optional(),
-  plannedEnd: z.string().optional(),
-});
 
 const createOverrideSchema = z.object({
   scheduleEntryId: z.string().cuid().optional(),
   employeeId: z.string().cuid(),
   oldUnitId: z.string().cuid().optional(),
-  newUnitId: z.string().cuid(),
+  newUnitId: z.string().cuid().optional(),
   date: z.string().min(8),
   mealType: z.enum(mealValues).optional(),
   reasonTemplate: z.string().optional(),
@@ -49,139 +29,12 @@ function toOptional(value: FormDataEntryValue | null) {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-function toOptionalRoleKey(value: FormDataEntryValue | null): RoleKey | undefined {
-  const maybe = toOptional(value);
-  if (!maybe) return undefined;
-  return roleKeyValues.includes(maybe as RoleKey) ? (maybe as RoleKey) : undefined;
-}
-
-function parseDate(raw: string) {
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    const parsed = new Date(
-      Number.parseInt(match[1], 10),
-      Number.parseInt(match[2], 10) - 1,
-      Number.parseInt(match[3], 10),
-      0,
-      0,
-      0,
-      0,
-    );
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new Error("Invalid date.");
-  }
-  return parsed;
-}
-
 function revalidateStaffingViews() {
   revalidatePath("/staffing");
   revalidatePath("/dashboard");
   revalidatePath("/today");
   revalidatePath("/today/coverage");
   revalidatePath("/unit/[unitId]", "page");
-}
-
-export async function deleteScheduleEntryAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "SUPERVISOR");
-
-  const scheduleEntryId = formData.get("scheduleEntryId");
-  if (typeof scheduleEntryId !== "string" || scheduleEntryId.trim().length === 0) {
-    throw new Error("Schedule entry is required.");
-  }
-
-  const entry = await prisma.scheduleEntry.findFirst({
-    where: {
-      id: scheduleEntryId,
-      employee: { facilityId: session.facilityId },
-    },
-    select: { id: true },
-  });
-  if (!entry) {
-    throw new Error("Schedule entry not found.");
-  }
-
-  await prisma.scheduleEntry.delete({ where: { id: entry.id } });
-  revalidateStaffingViews();
-}
-
-export async function createScheduleEntryAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "SUPERVISOR");
-
-  const parsed = createScheduleEntrySchema.parse({
-    employeeId: formData.get("employeeId"),
-    unitId: formData.get("unitId"),
-    date: formData.get("date"),
-    shift: formData.get("shift"),
-    roleType: toOptionalRoleKey(formData.get("roleType")),
-    plannedStart: toOptional(formData.get("plannedStart")),
-    plannedEnd: toOptional(formData.get("plannedEnd")),
-  });
-
-  const [employee, unit] = await Promise.all([
-    prisma.employee.findFirst({
-      where: { id: parsed.employeeId, facilityId: session.facilityId },
-      select: {
-        id: true,
-        roleType: true,
-        workStations: { select: { station: true } },
-        unitAccesses: { select: { unitId: true } },
-      },
-    }),
-    prisma.unit.findFirst({
-      where: { id: parsed.unitId, facilityId: session.facilityId },
-      select: { id: true, unitType: true },
-    }),
-  ]);
-  if (!employee || !unit) {
-    throw new Error("Employee or unit not found.");
-  }
-  const allowedUnitIds = employee.unitAccesses.length > 0 ? new Set(employee.unitAccesses.map((access) => access.unitId)) : null;
-  const eligible = isEmployeeEligibleForUnit({
-    unitId: unit.id,
-    unitType: unit.unitType,
-    allowedUnitIds,
-    workStations: employee.workStations.map((station) => station.station),
-  });
-  if (!eligible) {
-    throw new Error("Employee is not eligible for this location.");
-  }
-
-  const scheduleDate = parseDate(parsed.date);
-  const scheduleDateEnd = new Date(scheduleDate);
-  scheduleDateEnd.setDate(scheduleDateEnd.getDate() + 1);
-  const serveryMealShifts = new Set<ShiftType>([ShiftType.BREAKFAST, ShiftType.LUNCH, ShiftType.DINNER]);
-  if (unit.unitType === "SERVERY" && serveryMealShifts.has(parsed.shift)) {
-    await prisma.scheduleEntry.deleteMany({
-      where: {
-        unitId: unit.id,
-        date: { gte: scheduleDate, lt: scheduleDateEnd },
-        shift: parsed.shift,
-      },
-    });
-  }
-
-  await prisma.scheduleEntry.create({
-    data: {
-      employeeId: parsed.employeeId,
-      unitId: parsed.unitId,
-      date: scheduleDate,
-      shift: parsed.shift,
-      // roleType is demoted from required Shift field (migration 81). Preserve for legacy rows.
-      roleType: parsed.roleType ?? employee.roleType ?? undefined,
-      plannedStart: parsed.plannedStart,
-      plannedEnd: parsed.plannedEnd,
-      createdById: session.authKind === "user" ? session.uid : undefined,
-    },
-  });
-
-  revalidateStaffingViews();
 }
 
 export async function createOverrideAction(formData: FormData) {
@@ -192,7 +45,7 @@ export async function createOverrideAction(formData: FormData) {
     scheduleEntryId: toOptional(formData.get("scheduleEntryId")),
     employeeId: formData.get("employeeId"),
     oldUnitId: toOptional(formData.get("oldUnitId")),
-    newUnitId: formData.get("newUnitId"),
+    newUnitId: toOptional(formData.get("newUnitId")),
     date: formData.get("date"),
     mealType: toOptional(formData.get("mealType")),
     reasonTemplate: toOptional(formData.get("reasonTemplate")),
@@ -200,53 +53,31 @@ export async function createOverrideAction(formData: FormData) {
     reason: toOptional(formData.get("reason")),
   });
 
-  const reason = resolveOverrideReasonFromForm(parsed);
-
+  const reason = callOffReasonFromForm(parsed);
   const employee = await prisma.employee.findFirst({
     where: { id: parsed.employeeId, facilityId: session.facilityId },
     select: { id: true },
   });
-  if (!employee) {
-    throw new Error("Employee not found.");
-  }
-  const newUnit = await prisma.unit.findFirst({
-    where: { id: parsed.newUnitId, facilityId: session.facilityId },
-    select: { id: true },
-  });
-  if (!newUnit) {
-    throw new Error("Unit not found.");
-  }
-  if (parsed.oldUnitId) {
-    const oldUnit = await prisma.unit.findFirst({
-      where: { id: parsed.oldUnitId, facilityId: session.facilityId },
-      select: { id: true },
-    });
-    if (!oldUnit) {
-      throw new Error("Old unit not found.");
-    }
-  }
-  if (parsed.scheduleEntryId) {
-    const entry = await prisma.scheduleEntry.findFirst({
-      where: { id: parsed.scheduleEntryId, employeeId: parsed.employeeId },
-      include: { employee: { select: { facilityId: true } } },
-    });
-    if (!entry || entry.employee.facilityId !== session.facilityId) {
-      throw new Error("Schedule entry not found.");
-    }
-  }
+  if (!employee) throw new Error("Employee not found.");
 
-  await prisma.assignmentOverride.create({
-    data: {
-      scheduleEntryId: parsed.scheduleEntryId,
+  if (peopleChangeIsMove(parsed.reasonTemplate)) {
+    if (!parsed.newUnitId) throw new Error("Choose the location for the move.");
+    await moveDayAssignment({
+      facilityId: session.facilityId,
       employeeId: parsed.employeeId,
-      oldUnitId: parsed.oldUnitId,
-      newUnitId: parsed.newUnitId,
-      date: parseDate(parsed.date),
-      mealType: parsed.mealType,
+      serviceDate: parsed.date,
+      unitId: parsed.newUnitId,
       reason,
-      changedById: session.authKind === "user" ? session.uid : undefined,
-    },
-  });
+      actorUserId: session.authKind === "user" ? session.uid : null,
+    });
+  } else {
+    await markShiftsCalledOff({
+      facilityId: session.facilityId,
+      employeeId: parsed.employeeId,
+      serviceDate: parsed.date,
+      reason,
+    });
+  }
 
   revalidateStaffingViews();
 }

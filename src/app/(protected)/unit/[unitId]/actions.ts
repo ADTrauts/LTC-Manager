@@ -2,25 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { MealType, IssueType, RepairPriority, RepairStatus, WorkOrderKind } from "@prisma/client";
+import { MealType, RepairPriority, RepairStatus, RepairTrade, WorkOrderKind } from "@prisma/client";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { resolveMilestoneActor } from "@/lib/offline/resolve-milestone-actor";
 import { prisma } from "@/lib/prisma";
-import {
-  defaultRepairTradeForIssueType,
-  suggestRepairDepartmentIds,
-} from "@/lib/repair-routing";
+import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { routeDietaryMealTiming } from "@/lib/dietary/route-meal-timing";
-import { activeDepartmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
-import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
-import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
-import { submitInspection } from "@/lib/work/inspections";
-import type { InspectionItemAnswerInput } from "@/lib/work/inspections/types";
-
 const recordServeryServiceTimeSchema = z.object({
   unitId: z.string().cuid(),
   mealType: z.nativeEnum(MealType),
@@ -152,91 +143,14 @@ export async function correctServeryServiceTimeAction(formData: FormData) {
   redirect(`/unit/${parsed.unitId}?${redirectParams.toString()}`);
 }
 
-const submitUnitInspectionSchema = z.object({
-  unitId: z.string().cuid(),
-  definitionId: z.string().cuid(),
-  occurrenceId: z.string().cuid().optional(),
-  idempotencyKey: z.string().trim().min(8).max(120),
-  answersJson: z.string().min(2),
-});
-
 export type SubmitUnitInspectionActionResult =
   | { ok: true; result: "PASSED" | "PASSED_WITH_FINDINGS" | "FAILED"; deduplicated: boolean }
   | { ok: false; message: string };
 
 export async function submitUnitInspectionAction(
-  formData: FormData,
+  _formData: FormData,
 ): Promise<SubmitUnitInspectionActionResult> {
-  try {
-    assertLegacyRecordWriteAllowed({
-      productRecordEngine: await activeDepartmentUsesCanonicalRecords(),
-      writer: "INSPECTION_SUBMISSION",
-    });
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Inspection write blocked." };
-  }
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "STAFF");
-
-  const parsed = submitUnitInspectionSchema.parse({
-    unitId: formData.get("unitId"),
-    definitionId: formData.get("definitionId"),
-    occurrenceId: formData.get("occurrenceId") || undefined,
-    idempotencyKey: formData.get("idempotencyKey"),
-    answersJson: formData.get("answersJson"),
-  });
-
-  const unit = await prisma.unit.findFirst({
-    where: { id: parsed.unitId, facilityId: session.facilityId, isActive: true },
-    select: { id: true },
-  });
-  if (!unit) {
-    return { ok: false, message: "Unit not found." };
-  }
-
-  let answers: InspectionItemAnswerInput[];
-  try {
-    answers = z
-      .array(
-        z.object({
-          definitionItemId: z.string().cuid(),
-          passed: z.boolean().nullable().optional(),
-          valueText: z.string().nullable().optional(),
-          valueNumber: z.number().nullable().optional(),
-          notes: z.string().nullable().optional(),
-        }),
-      )
-      .parse(JSON.parse(parsed.answersJson));
-  } catch {
-    return { ok: false, message: "Inspection answers are invalid." };
-  }
-
-  const submittedByEmployeeId = session.authKind === "employee" ? session.uid : null;
-
-  const outcome = await submitInspection({
-    facilityId: session.facilityId,
-    definitionId: parsed.definitionId,
-    unitId: unit.id,
-    submittedByEmployeeId,
-    occurrenceId: parsed.occurrenceId ?? null,
-    idempotencyKey: parsed.idempotencyKey,
-    answers,
-  });
-
-  if (!outcome.ok) {
-    return { ok: false, message: outcome.validation.message };
-  }
-
-  revalidatePath("/unit/[unitId]", "page");
-  revalidatePath(`/unit/${unit.id}`);
-  revalidatePath("/admin/inspections");
-  revalidatePath("/today/handoffs");
-
-  return {
-    ok: true,
-    result: outcome.submission.result,
-    deduplicated: outcome.deduplicated,
-  };
+  return { ok: false, message: "Record this inspection as a Catalog Record." };
 }
 
 const updateFollowUpSchema = z.object({
@@ -255,51 +169,27 @@ export async function updateInspectionFollowUpTaskAction(
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "STAFF");
 
-  const parsed = updateFollowUpSchema.parse({
+  updateFollowUpSchema.parse({
     unitId: formData.get("unitId"),
     taskId: formData.get("taskId"),
     status: formData.get("status"),
   });
 
-  const task = await prisma.task.findFirst({
-    where: {
-      id: parsed.taskId,
-      facilityId: session.facilityId,
-      unitId: parsed.unitId,
-      sourceType: "INSPECTION_FINDING",
-    },
-    select: { id: true, status: true },
-  });
-  if (!task) {
-    return { ok: false, message: "Follow-up work was not found for this unit." };
-  }
-
-  await prisma.task.update({
-    where: { id: task.id },
-    data: {
-      status: parsed.status,
-      completedAt: parsed.status === "COMPLETED" ? new Date() : null,
-    },
-  });
-
-  revalidatePath("/unit/[unitId]", "page");
-  revalidatePath(`/unit/${parsed.unitId}`);
-  revalidatePath("/today/handoffs");
-  return { ok: true };
+  return { ok: false, message: "Follow-up work is recorded on the Record." };
 }
 
 const createUnitIssueSchema = z.object({
   unitId: z.string().cuid(),
-  issueType: z.nativeEnum(IssueType),
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().min(5).max(1000),
   priority: z.nativeEnum(RepairPriority).default(RepairPriority.MEDIUM),
+  repairTrade: z.nativeEnum(RepairTrade).default(RepairTrade.GENERAL),
   assetId: z.string().cuid().optional(),
   quantityNote: z.string().trim().max(80).optional(),
 });
 
 export type CreateUnitIssueResult =
-  | { ok: true; issueId: string; repairCode: string; issueType: IssueType; title: string }
+  | { ok: true; issueId: string; repairCode: string; title: string }
   | { ok: false; message: string };
 
 /**
@@ -317,10 +207,10 @@ export async function createUnitIssueAction(
   try {
     parsed = createUnitIssueSchema.parse({
       unitId: formData.get("unitId"),
-      issueType: formData.get("issueType"),
       title: formData.get("title"),
       description: formData.get("description"),
       priority: formData.get("priority") || RepairPriority.MEDIUM,
+      repairTrade: formData.get("repairTrade") || RepairTrade.GENERAL,
       assetId: (() => {
         const raw = formData.get("assetId");
         return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
@@ -356,13 +246,12 @@ export async function createUnitIssueAction(
     }
   }
 
-  const repairTrade = defaultRepairTradeForIssueType(parsed.issueType);
+  const repairTrade = parsed.repairTrade;
   const suggested = await suggestRepairDepartmentIds(prisma, {
     facilityId: session.facilityId,
     unitId: unit.id,
     assetId: parsed.assetId,
     repairTrade,
-    issueType: parsed.issueType,
     sessionPrimaryDepartmentId: session.primaryDepartmentId,
   });
 
@@ -376,7 +265,7 @@ export async function createUnitIssueAction(
   }
 
   let description = parsed.description;
-  if (parsed.issueType === IssueType.SUPPLY_SHORT && parsed.quantityNote) {
+  if (parsed.quantityNote) {
     description = `${description}\nQuantity / urgency: ${parsed.quantityNote}`;
   }
 
@@ -393,7 +282,6 @@ export async function createUnitIssueAction(
       priority: parsed.priority,
       workOrderKind: WorkOrderKind.CORRECTIVE,
       repairTrade,
-      issueType: parsed.issueType,
       requestingDepartmentId,
       responsibleDepartmentId,
       reportedById: session.authKind === "user" ? session.uid : undefined,
@@ -415,24 +303,10 @@ export async function createUnitIssueAction(
     },
   });
 
-  await syncRepairRecordToTask({
-    id: repair.id,
-    title: repair.title,
-    description: repair.description,
-    priority: repair.priority,
-    status: repair.status,
-    unitId: repair.unitId,
-    responsibleDepartmentId: repair.responsibleDepartmentId,
-    assignedEmployeeId: repair.assignedEmployeeId,
-    dueAt: repair.dueAt,
-    completedAt: repair.completedAt,
-    facilityId: repair.unit.facilityId,
-  });
-
   revalidatePath("/unit/[unitId]", "page");
   revalidatePath(`/unit/${unit.id}`);
   revalidatePath("/repairs");
-  revalidatePath(`/issues/${repair.id}`);
+  revalidatePath(`/repairs/${repair.id}`);
   revalidatePath("/dashboard");
   revalidatePath("/today/handoffs");
 
@@ -440,7 +314,6 @@ export async function createUnitIssueAction(
     ok: true,
     issueId: repair.id,
     repairCode: repair.repairCode,
-    issueType: parsed.issueType,
     title: repair.title,
   };
 }

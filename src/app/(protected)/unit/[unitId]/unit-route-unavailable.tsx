@@ -8,10 +8,7 @@ import type { ReactNode } from "react";
 
 import { PageHeader } from "@/components/design-system/page-header";
 
-export type UnitRouteUnavailableKind =
-  | "structural"
-  | "projection_off"
-  | "locations_unavailable";
+export type UnitRouteUnavailableKind = "structural" | "locations_unavailable";
 
 type NavLink = {
   href: string;
@@ -32,10 +29,6 @@ const COPY: Record<
   structural: {
     title: "This location is structural",
     body: "Floors and buildings are containers. They are not operational workspaces.",
-  },
-  projection_off: {
-    title: "Location workspace unavailable",
-    body: "Canonical location projection is not available.",
   },
   locations_unavailable: {
     title: "Location workspace unavailable",

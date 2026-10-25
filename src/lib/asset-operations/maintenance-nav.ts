@@ -51,8 +51,6 @@ export function isRunMaintenancePath(pathname: string | null): boolean {
     path.startsWith("/assets/") ||
     path === "/repairs" ||
     path.startsWith("/repairs/") ||
-    path === "/issues" ||
-    path.startsWith("/issues/") ||
     path === "/asset-issues" ||
     path.startsWith("/asset-issues/") ||
     path === "/preventive-maintenance" ||
@@ -70,7 +68,7 @@ export function resolveMaintenanceSubNavActiveId(
 ): MaintenanceSubNavId {
   if (!pathname) return "assets";
   const path = pathOnly(pathname);
-  if (path === "/repairs" || path.startsWith("/repairs/") || path === "/issues" || path.startsWith("/issues/")) {
+  if (path === "/repairs" || path.startsWith("/repairs/")) {
     return "repairs";
   }
   if (path === "/asset-issues" || path.startsWith("/asset-issues/")) {

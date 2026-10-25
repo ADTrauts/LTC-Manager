@@ -332,7 +332,7 @@ Supporting records:
    - Yesterday in review (behind a new day-level cache for `loadOperationalReviewDay`)
    - Our requests to Maintenance
    - Departments & licensing
-3. **Partner Dashboard decision.** Evaluate moving `/partner` (`loadPartnerDashboard`) onto the card registry with a partner authority band. Record the outcome as a decision. Implement only if accepted. Vendor heads of vendor-run Departments are handled earlier, in CDA-05 (DSH-D18). This item covers the remaining partner roles.
+3. **Partner Dashboard decision.** Accepted by the product owner October 23, 2026 ([DSH-D20](./DECISIONS.md#dsh-d20--remaining-partner-people-use-the-same-dashboard--accepted-user-october-23-2026)). Remaining partner roles use the same card Dashboard on `/partner`. Vendor heads of vendor-run Departments stay Department leaders (DSH-D18).
 4. **EVS.** EVS's declaration is finalized only when an EVS release is separately authorized. Not in this program.
 5. **WorkspacePreference drop.** A forward migration to drop `WorkspacePreference` happens **only** with explicit product-owner approval, recorded as a decision.
 

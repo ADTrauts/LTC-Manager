@@ -29,7 +29,7 @@ export function presentPmWorkOrderContext(input: {
       name: string;
       maintenanceCategory?: { label: string } | null;
       procedureVersion?: { version: number; title: string; article?: { title: string } | null } | null;
-      recordRequirements?: Array<{ templateName: string }>;
+      recordRequirements?: Array<{ templateName: string | null }>;
     } | null;
   } | null;
 }): WorkOrderPmContext | null {
@@ -48,7 +48,8 @@ export function presentPmWorkOrderContext(input: {
       ? `${procedure.article?.title || procedure.title} v${procedure.version}`
       : null,
     requirementLabels:
-      input.pmOccurrence.planVersion?.recordRequirements?.map((row) => row.templateName) ?? [],
+      input.pmOccurrence.planVersion?.recordRequirements
+        ?.flatMap((row) => (row.templateName ? [row.templateName] : [])) ?? [],
     assetName: input.pmOccurrence.plan?.asset?.name ?? null,
   };
 }

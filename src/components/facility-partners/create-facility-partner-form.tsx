@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 
 import {
   createFacilityPartnerAction,
-  createOrganizationAndPartnerAction,
   searchPartnerOrganizationsAction,
 } from "@/app/(protected)/admin/organization/partners/actions";
 
@@ -28,8 +27,7 @@ export function CreateFacilityPartnerForm({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
-  const [createName, setCreateName] = useState("");
-  const [mode, setMode] = useState<"existing" | "create">("existing");
+  const [searched, setSearched] = useState(false);
 
   async function runSearch() {
     setError(null);
@@ -40,6 +38,7 @@ export function CreateFacilityPartnerForm({
       return;
     }
     setResults(response.results);
+    setSearched(true);
   }
 
   function onCreateExisting(formData: FormData) {
@@ -60,59 +59,15 @@ export function CreateFacilityPartnerForm({
     });
   }
 
-  function onCreateNewOrg(formData: FormData) {
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      const result = await createOrganizationAndPartnerAction(formData);
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      setMessage(result.message ?? "Saved.");
-      if (result.partnershipId) {
-        router.push(`/admin/organization/partners/${result.partnershipId}`);
-        return;
-      }
-      router.refresh();
-    });
-  }
-
   return (
     <div className="space-y-4" data-testid="create-facility-partner-form">
-      <div className="flex flex-wrap gap-2 text-sm">
-        <button
-          type="button"
-          className={
-            mode === "existing"
-              ? "rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white"
-              : "rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700"
-          }
-          onClick={() => setMode("existing")}
-        >
-          Select existing
-        </button>
-        <button
-          type="button"
-          className={
-            mode === "create"
-              ? "rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white"
-              : "rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700"
-          }
-          onClick={() => setMode("create")}
-        >
-          Create organization
-        </button>
-      </div>
-
       <p className="text-xs text-zinc-500">
         Your parent Organization ({facilityOrganizationLabel}) cannot be selected as an external
         partner. Establishing a partnership does not grant any partner users access to this
         Facility.
       </p>
 
-      {mode === "existing" ? (
-        <form action={onCreateExisting} className="space-y-3">
+      <form action={onCreateExisting} className="space-y-3">
           <input type="hidden" name="organizationId" value={selectedId ?? ""} />
           <input type="hidden" name="facilityOrganizationId" value={facilityOrganizationId} />
 
@@ -156,6 +111,10 @@ export function CreateFacilityPartnerForm({
                   </li>
                 ))}
               </ul>
+            ) : searched ? (
+              <p className="text-sm text-amber-800">
+                No matching company. Vssyl Console must create it before this facility can attach it.
+              </p>
             ) : null}
             {selectedId ? (
               <p className="text-sm text-zinc-700">
@@ -187,41 +146,7 @@ export function CreateFacilityPartnerForm({
           >
             {pending ? "Saving…" : "Establish partner"}
           </button>
-        </form>
-      ) : (
-        <form action={onCreateNewOrg} className="space-y-3">
-          <label className="block text-sm">
-            <span className="font-medium text-zinc-700">New organization name</span>
-            <input
-              name="organizationName"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              placeholder="Metz Culinary Management"
-              required
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-zinc-700">Notes (optional)</span>
-            <textarea
-              name="notes"
-              rows={2}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-700">
-            <input type="checkbox" name="activateNow" />
-            Activate authorization now
-          </label>
-          <button
-            type="submit"
-            disabled={pending || createName.trim().length < 2}
-            className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {pending ? "Saving…" : "Create organization & partner"}
-          </button>
-        </form>
-      )}
+      </form>
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {message ? <p className="text-sm text-emerald-800">{message}</p> : null}

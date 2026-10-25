@@ -143,7 +143,6 @@ test.describe("@ci-gate Phase 9C Operational Evidence", () => {
         where: {
           facilityId: fx.facilityId,
           departmentId: fx.departmentId,
-          templateId: fx.publishedTemplateId,
           operationalDate: new Date(`${fx.serviceDateKey}T00:00:00.000Z`),
           requirementKey: { not: { startsWith: "hist-" } },
         },
@@ -295,21 +294,8 @@ test.describe("@ci-gate Phase 9C Operational Evidence", () => {
 
   test("BROWSER: successor draft, range change, publish; prior Log Book snapshot unchanged; retire", async () => {
     const db = prisma();
-    let publishedId = fx.publishedTemplateId;
-    try {
-      const published = await db.operationalTemplate.findFirst({
-        where: {
-          facilityId: fx.facilityId,
-          departmentId: fx.departmentId,
-          status: "PUBLISHED",
-          name: { contains: "Browser Cooler Log 9C1" },
-        },
-        orderBy: { version: "desc" },
-      });
-      if (published) publishedId = published.id;
-    } finally {
-      await db.$disconnect();
-    }
+    const publishedId = fx.publishedTemplateId;
+    await db.$disconnect();
 
     const { context, page } = await openPersistent("builder-successor");
     try {

@@ -133,7 +133,6 @@ export async function ensureWorkingCoverageDraft(
       name: current.name,
       description: current.description,
       isActive: true,
-      operationDefinitionId: current.operationDefinitionId,
       workShiftId: current.workShiftId,
       createdByUserId: current.createdByUserId,
       items: {

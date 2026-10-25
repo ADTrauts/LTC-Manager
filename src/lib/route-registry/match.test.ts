@@ -19,7 +19,7 @@ test("matching — exact routes match only themselves", () => {
 
 test("matching — dynamic segments capture exactly one segment", () => {
   assert.equal(patternFor("/unit/clunit0001"), "/unit/[unitId]");
-  assert.equal(patternFor("/issues/clissue001"), "/issues/[issueId]");
+  assert.equal(patternFor("/issues/clissue001"), null);
   assert.equal(patternFor("/repairs/clrepair01"), "/repairs/[id]");
   assert.equal(patternFor("/asset-issues"), "/asset-issues");
   assert.equal(patternFor("/asset-issues/clissue001"), "/asset-issues/[issueId]");
@@ -45,7 +45,7 @@ test("matching — dynamic segments capture exactly one segment", () => {
 
   // One segment too deep is a different path, not a deeper match on the same route.
   assert.equal(patternFor("/unit/clunit0001/extra"), null);
-  assert.equal(patternFor("/issues/clissue001/comments"), null);
+  assert.equal(patternFor("/repairs/clrepair01/comments"), null);
 });
 
 test("matching — segment boundaries are respected", () => {
@@ -78,9 +78,8 @@ test("matching — a literal segment beats a dynamic one at the same depth", () 
 });
 
 test("matching — prefix routes cover their descendants", () => {
-  assert.equal(patternFor("/settings"), "/settings");
-  assert.equal(patternFor("/settings/profile"), "/settings");
-  assert.equal(patternFor("/settings/a/b/c"), "/settings");
+  assert.equal(patternFor("/settings"), null);
+  assert.equal(patternFor("/settings/profile"), null);
   assert.equal(patternFor("/_next/data/build/x.json"), "/_next");
   assert.equal(patternFor("/preventive-maintenance"), "/preventive-maintenance");
   assert.equal(patternFor("/preventive-maintenance/clocc00001"), "/preventive-maintenance/[occurrenceId]");

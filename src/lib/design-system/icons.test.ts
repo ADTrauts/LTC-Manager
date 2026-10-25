@@ -10,7 +10,7 @@ import {
 } from "@/lib/design-system/icons";
 
 test("resolveNavIconKey maps primary shell routes", () => {
-  assert.equal(resolveNavIconKey("/dashboard"), "operationsCenter");
+  assert.equal(resolveNavIconKey("/dashboard"), "dashboard");
   assert.equal(resolveNavIconKey("/today"), "todaysWork");
   assert.equal(resolveNavIconKey("/reports"), "review");
   assert.equal(resolveNavIconKey("/admin"), "administration");
@@ -21,25 +21,17 @@ test("resolveNavIconKey maps primary shell routes", () => {
   assert.equal(resolveNavIconKey("/assets"), "repairs");
   assert.equal(resolveNavIconKey("/assets/builder"), "assets");
   assert.equal(resolveNavIconKey("/repairs"), "repairs");
-  assert.equal(resolveNavIconKey("/issues"), "repairs");
-  assert.equal(resolveNavIconKey("/issues/abc"), "repairs");
+  assert.equal(resolveNavIconKey("/repairs"), "repairs");
+  assert.equal(resolveNavIconKey("/repairs/abc"), "repairs");
 });
 
-test("the Dashboard icon key is dashboard only while the new page is on", () => {
-  const previous = process.env.DASHBOARD_V2_ENABLED;
-  process.env.DASHBOARD_V2_ENABLED = "true";
-  try {
-    assert.equal(resolveNavIconKey("/dashboard"), "dashboard");
-    assert.equal(resolveNavIcon("/workspace"), AppIcons.dashboard);
-  } finally {
-    if (previous === undefined) delete process.env.DASHBOARD_V2_ENABLED;
-    else process.env.DASHBOARD_V2_ENABLED = previous;
-  }
-  assert.equal(resolveNavIconKey("/dashboard"), "operationsCenter");
+test("the Dashboard icon is the Dashboard mark", () => {
+  assert.equal(resolveNavIconKey("/dashboard"), "dashboard");
+  assert.equal(resolveNavIcon("/workspace"), AppIcons.dashboard);
+  assert.equal(resolveNavIcon("/dashboard"), AppIcons.dashboard);
 });
 
 test("resolveNavIcon returns AppIcons component for known routes", () => {
-  assert.equal(resolveNavIcon("/dashboard"), AppIcons.operationsCenter);
   assert.equal(resolveNavIcon("/employees/import"), AppIcons.employees);
   assert.equal(resolveNavIcon("/unknown"), undefined);
 });

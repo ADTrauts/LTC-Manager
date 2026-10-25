@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 test("creating a Request does not create an Issue record", () => {
@@ -28,14 +28,9 @@ test("legacy unit issue action persists Repair, not canonical Issue", () => {
   assert.doesNotMatch(source, /prisma\.assetIssue\.create/);
 });
 
-test("/issues compatibility path is not Issue domain authority", () => {
-  const page = readFileSync(
-    new URL("../../app/(protected)/issues/page.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(page, /Compatibility path only/);
-  assert.match(page, /redirect\("\/repairs"\)/);
+test("the old issues address is gone and repair copy is not an Issue store", () => {
+  assert.equal(existsSync("src/app/(protected)/issues/page.tsx"), false);
+  assert.equal(existsSync("src/app/(protected)/issues/actions.ts"), false);
   const copy = readFileSync(new URL("../work/issues/issue-copy.ts", import.meta.url), "utf8");
   assert.match(copy, /not canonical Issue/);
-  assert.match(copy, /not domain authority/);
 });

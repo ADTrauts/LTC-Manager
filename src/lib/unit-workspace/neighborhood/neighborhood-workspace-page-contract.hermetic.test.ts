@@ -56,7 +56,7 @@ test("structural Floor/Building does not invent a Neighborhood workspace", () =>
   assert.match(neighborhoodPageSrc, /isStructuralNeighborhoodUnit/);
   assert.match(neighborhoodPageSrc, /hierarchyRole/);
   assert.match(neighborhoodPageSrc, /kind="structural"/);
-  assert.match(neighborhoodPageSrc, /kind="projection_off"/);
+  assert.equal(neighborhoodPageSrc.includes("projection_off"), false);
   assert.match(neighborhoodPageSrc, /kind="locations_unavailable"/);
   assert.equal(neighborhoodPageSrc.includes("return null"), false);
   assert.equal(neighborhoodPageSrc.includes("loadUnitWorkspace("), false);

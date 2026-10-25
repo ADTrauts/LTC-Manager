@@ -547,7 +547,7 @@ export async function getIssueWorkOrders(
 
   return prisma.repair.findMany({
     where: {
-      OR: [{ issueId: issue.id }, { id: issue.workOrderId ?? "__none__" }],
+      issueId: issue.id,
       unit: { facilityId: input.facilityId },
     },
     orderBy: { requestedAt: "asc" },
@@ -908,7 +908,6 @@ export async function listIssuesForDepartment(
       assetId: true,
       unitId: true,
       spaceId: true,
-      workOrderId: true,
       asset: { select: { id: true, assetCode: true, name: true, status: true } },
       unit: { select: { id: true, name: true } },
       space: { select: { id: true, name: true } },
@@ -966,19 +965,6 @@ export async function getIssueDetail(
       },
       unit: { select: { id: true, name: true } },
       space: { select: { id: true, name: true } },
-      workOrder: {
-        select: {
-          id: true,
-          repairCode: true,
-          title: true,
-          status: true,
-          priority: true,
-          holdReason: true,
-          returnToServiceReady: true,
-          assignedEmployee: { select: { firstName: true, lastName: true } },
-          maintenanceCategory: { select: { key: true, label: true } },
-        },
-      },
       workOrders: {
         orderBy: { requestedAt: "asc" },
         select: {

@@ -52,7 +52,6 @@ test("canonical RUN nav injects due Logs and Log Book when evidence nav is off",
 test("canonical-on manager nav offers due Logs and Log Book when Dietary Evidence is off", () => {
   const items = applyCanonicalLogsNavRewrite(
     platformNavItemsForRole("MANAGER", {
-      todaysWorkEnabled: true,
       canonicalLogsEnabled: true,
       dietaryOperationalEvidenceEnabled: false,
     }),

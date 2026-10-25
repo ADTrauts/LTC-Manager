@@ -15,6 +15,7 @@ export {
   endOrganizationMember,
   findAcceptableMemberInvitationByRawToken,
   inviteOrganizationMember,
+  inviteOrganizationMemberFromHarbor,
   listOrganizationMemberInvitations,
   resendOrganizationMemberInvitation,
   revokeOrganizationMemberInvitation,

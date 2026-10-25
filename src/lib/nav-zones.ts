@@ -1,6 +1,5 @@
-import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import type { AppRole } from "@/lib/access";
 import type { AuthKind } from "@/lib/auth";
-import { isDashboardV2Enabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
 
 export const NAV_ZONES = [
   "WORKSPACE",
@@ -55,7 +54,6 @@ export const NAV_ZONE_PATH_RULES: NavZonePathRule[] = (
   [
     { pathPrefix: "/workspace", zone: "WORKSPACE" },
     { pathPrefix: "/dashboard", zone: "OPERATIONS_CENTER" },
-    { pathPrefix: "/operations", zone: "OPERATIONS_CENTER" },
     { pathPrefix: "/unit", zone: "LOCATIONS" },
     { pathPrefix: "/units", zone: "LOCATIONS" },
     { pathPrefix: "/today", zone: "TODAYS_WORK" },
@@ -67,7 +65,6 @@ export const NAV_ZONE_PATH_RULES: NavZonePathRule[] = (
     { pathPrefix: "/menus", zone: "ADMINISTRATION" },
     { pathPrefix: "/assets", zone: "ADMINISTRATION" },
     { pathPrefix: "/repairs", zone: "ADMINISTRATION" },
-    { pathPrefix: "/issues", zone: "ADMINISTRATION" },
     { pathPrefix: "/department", zone: "ADMINISTRATION" },
   ] satisfies NavZonePathRule[]
 ).sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
@@ -157,7 +154,7 @@ function isFloorOperationalContext(ctx: DefaultHomeContext): boolean {
 
 /**
  * Role-aware post-auth landing path.
- * Manager+ → Business Workspace; Supervisor → Today's Work; floor → unit/logs.
+ * Supervisor and above begin in the Dashboard. Floor roles begin in their unit, or Logs.
  */
 export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
   const unitId = ctx.lockedUnitId ?? ctx.activeUnitId ?? undefined;
@@ -170,19 +167,11 @@ export function resolveDefaultHomePath(ctx: DefaultHomeContext): string {
     return "/logs";
   }
 
-  if (ctx.role === "SUPERVISOR") {
-    return isTodaysWorkEnabled() ? "/today" : "/workspace";
-  }
-
-  if (hasAtLeastRole(ctx.role, "MANAGER")) {
-    return isDashboardV2Enabled() ? "/dashboard" : "/workspace";
-  }
-
-  return "/workspace";
+  return "/dashboard";
 }
 
-/** Dashboard nav target. Flag off keeps Business Workspace. */
+/** The Run overview link opens the Dashboard. */
 export function dashboardNavHref(href: string): string {
-  if (!isDashboardV2Enabled() || href !== "/workspace") return href;
+  if (href !== "/workspace") return href;
   return "/dashboard";
 }

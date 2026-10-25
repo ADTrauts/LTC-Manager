@@ -49,7 +49,6 @@ export async function PATCH(request: Request) {
     facilityId: session.facilityId,
     timezone: data.timezone, confirmEntry: data.confirmEntry,
     facilityName: data.facilityName,
-    managementCompanyName: data.managementCompanyName,
     billingEmail: data.billingEmail,
     step: data.step,
     finish: data.completeOnboarding,

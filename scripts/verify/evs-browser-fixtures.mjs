@@ -457,41 +457,7 @@ async function main() {
 
     // EVS INSPECTION template
     const inspId = cuidLike();
-    await db.operationalTemplate.create({
-      data: {
-        id: inspId,
-        facilityId: facility.id,
-        departmentId: evs.id,
-        stableKey: `evs_room_inspection_${inspId.slice(-6)}`,
-        version: 1,
-        name: "EVS Room Inspection",
-        purposeType: "INSPECTION",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-        allowAdHoc: true,
-        fields: {
-          create: [
-            {
-              id: cuidLike(),
-              fieldKey: "result",
-              label: "Inspection result",
-              fieldType: "PASS_NEEDS_ATTENTION",
-              isRequired: true,
-              displaySequence: 10,
-              allowedSelections: ["PASS", "NEEDS_ATTENTION"],
-              correctiveActionTrigger: true,
-              correctiveActionRequired: false,
-            },
-          ],
-        },
-        applicabilities: {
-          create: [{ id: cuidLike(), kind: "SPACE_TYPE", spaceType: "PATIENT_ROOM" }],
-        },
-        schedules: {
-          create: [{ id: cuidLike(), kind: "ONCE_PER_OPERATIONAL_DATE" }],
-        },
-      },
-    });
+    await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
 
     // Asset for issue reporting (no vendor required on create for thin path)
     const asset = await db.asset.create({

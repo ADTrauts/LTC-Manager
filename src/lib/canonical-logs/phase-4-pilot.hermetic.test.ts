@@ -308,11 +308,11 @@ test("canonical submit path does not write legacy LogSubmission", () => {
   assert.match(syncSrc, /submitCanonicalLogSubmission/);
 });
 
-test("staffing/templates remains a compatibility surface — canonical BUILD does not require it", () => {
+test("staffing/templates redirects to Records", () => {
   const templatesSrc = readFileSync(
     join(process.cwd(), "src/app/(protected)/staffing/templates/page.tsx"),
     "utf8",
   );
-  assert.match(templatesSrc, /Compatibility surface/);
-  assert.match(templatesSrc, /BUILD · Logs/);
+  assert.match(templatesSrc, /redirect\(hasAtLeastRole\(session\.role, "MANAGER"\) \? "\/build\/logs" : "\/staffing\/logs"\)/);
+  assert.doesNotMatch(templatesSrc, /loadBuilderTemplates/);
 });

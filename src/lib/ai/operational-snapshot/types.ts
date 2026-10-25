@@ -4,9 +4,9 @@ export type SnapshotReadinessState = "ready" | "in_progress" | "needs_attention"
 
 export type OperationalSnapshotActiveOperation = {
   label: string;
-  phase: "Preparation" | "Execution";
+  phase: string | null;
   scheduledTime: string | null;
-  source: "operations_center";
+  source: "published_cycle";
 };
 
 export type OperationalSnapshotPriorityLocation = {
@@ -31,7 +31,8 @@ export type OperationalSnapshot = {
   timezone: string;
   serviceDate: string;
   activeDepartment: OperationalDepartmentKey | "ALL";
-  activeOperation: OperationalSnapshotActiveOperation;
+  /** Published Cycle and Phase underway now. Null when none is. */
+  activeOperation: OperationalSnapshotActiveOperation | null;
   readiness: {
     ready: number;
     inProgress: number;

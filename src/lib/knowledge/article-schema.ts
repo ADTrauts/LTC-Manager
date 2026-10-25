@@ -16,6 +16,7 @@ export const knowledgeArticleFormSchema = z.object({
   status: z.nativeEnum(KnowledgeArticleStatus).optional(),
   unitIds: z.array(z.string().cuid()).max(50).default([]),
   assetIds: z.array(z.string().cuid()).max(50).default([]),
+  catalogDefinitionIds: z.array(z.string().cuid()).max(50).default([]),
   logTemplateIds: z.array(z.string().cuid()).max(50).default([]),
   inspectionDefinitionIds: z.array(z.string().cuid()).max(50).default([]),
 });

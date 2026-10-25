@@ -11,7 +11,6 @@ import { loadAuditOperationalRecords } from "@/lib/audit/load-audit-records";
 import { loadOperationalTimingAudit } from "@/lib/audit/load-timing-audit";
 import type { AuditRecordSlot } from "@/lib/audit/audit-records";
 import type { TimingAuditRow } from "@/lib/audit/timing-audit";
-import { PageHeader } from "@/components/design-system";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import { getSession } from "@/lib/auth";
 import {
@@ -27,8 +26,6 @@ import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 
 import { CanonicalRangeReview } from "./canonical-range-review";
 import { CanonicalReview } from "./canonical-review";
-import { LegacyReport } from "./legacy-report";
-import { ReviewModeNav } from "./review-mode-nav";
 
 type ReportsPageProps = {
   searchParams: Promise<{
@@ -101,28 +98,21 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   }
 
   const facilityId = session.facilityId;
-  const legacyMode = params.view === "legacy";
+  if (params.view === "legacy") {
+    const next = new URLSearchParams();
+    if (params.date) next.set("date", params.date);
+    if (params.spaceId) next.set("spaceId", params.spaceId);
+    const query = next.toString();
+    redirect(query ? `/reports?${query}` : "/reports");
+  }
+
   const start = params.start?.trim() || "";
   const end = params.end?.trim() || "";
-  const rangeMode = !legacyMode && Boolean(start && end && start !== end);
+  const rangeMode = Boolean(start && end && start !== end);
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const spaceId = params.spaceId?.trim() || null;
   const definition = params.definition?.trim() || "";
   const locationFunction = params.locationFunction?.trim() || "";
-
-  if (legacyMode) {
-    return (
-      <section className="space-y-6" data-testid="reports-page-legacy">
-        <PageHeader
-          icon="review"
-          title="Legacy Report"
-          subtitle="Previous reporting model. Use Audit / Reports for date-effective operational history."
-          below={<ReviewModeNav activeId="legacy" date={params.start ?? params.date} />}
-        />
-        <LegacyReport facilityId={facilityId} params={params} />
-      </section>
-    );
-  }
 
   if (rangeMode) {
     const loaded = await loadOperationalReviewRange({
@@ -142,6 +132,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           end={params.end?.trim() || loaded.todayKey}
           todayKey={loaded.todayKey}
           validationMessage={loaded.validation.message}
+          showLegacyReport={false}
         />
       );
     }
@@ -174,6 +165,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         auditSlots={auditSlots}
         timingRows={timingRows}
         departmentId={deptNav.activeDepartmentId}
+        showLegacyReport={false}
       />
     );
   }
@@ -250,6 +242,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       }}
       spaceId={spaceId}
       todayKey={facts.todayKey}
+      showLegacyReport={false}
     />
   );
 }

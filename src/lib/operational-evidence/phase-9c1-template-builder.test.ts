@@ -243,7 +243,7 @@ test(
       });
       assert.equal(publishedV2.status, "PUBLISHED");
 
-      const prior = await prisma.operationalTemplate.findUnique({ where: { id: published.id } });
+      const prior = await null;
       assert.equal(prior?.status, "RETIRED");
 
       const book = await searchEvidenceRecords(mgr, {

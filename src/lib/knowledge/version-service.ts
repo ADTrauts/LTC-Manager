@@ -63,8 +63,7 @@ export async function loadKnowledgeArticleEditorState(client: Db, articleId: str
       versions: { orderBy: { version: "asc" } },
       unitLinks: true,
       assetLinks: true,
-      logTemplateLinks: true,
-      inspectionDefinitionLinks: true,
+      catalogLinks: { include: { catalogDefinition: { select: { name: true } } } },
     },
   });
   if (!article) return null;

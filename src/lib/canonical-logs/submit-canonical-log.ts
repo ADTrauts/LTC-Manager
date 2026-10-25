@@ -37,7 +37,11 @@ import {
   snapshotToPrismaJson,
 } from "./snapshot";
 import { normalizeAttachmentTarget } from "./attachment-validate";
-import { parseInspectionSections } from "./inspection-score";
+import {
+  evaluateInspectionScore,
+  inspectionFailureMarksOutOfStandard,
+  parseInspectionSections,
+} from "./inspection-score";
 import { parseRepeatingGroups, validateRepeatSubmission } from "./template-structure";
 import { followUpRecordDecision, recordPurposeRejection } from "./record-engine";
 import { partnerActingColumns, type PartnerActingContext } from "@/lib/operational-evidence/acting-context";
@@ -430,8 +434,20 @@ export async function performCanonicalLogSubmission(
   if (repeat.correctiveActionRequired && !input.correctiveActionText?.trim()) {
     throw new Error(repeat.reasons[0] ? `Corrective action is required: ${repeat.reasons[0]}` : "Corrective action is required.");
   }
-  const recordOutOfStandard = validation.outOfStandard || repeat.outOfStandard;
   const visibleValues = dropHiddenFieldValues(input.values, validation.visibleFieldKeys);
+  const inspectionScore = evaluateInspectionScore({
+    purposeType: governing.purposeType,
+    passingScore: governing.passingScore,
+    criticalFailureForcesFailure: governing.criticalFailureForcesFailure,
+    sections: parseInspectionSections(governing.sections),
+    fields: governing.fields,
+    values: visibleValues,
+    visibleFieldKeys: validation.visibleFieldKeys,
+  });
+  const recordOutOfStandard =
+    validation.outOfStandard ||
+    repeat.outOfStandard ||
+    inspectionFailureMarksOutOfStandard(inspectionScore?.outcome);
   for (const item of preparedMedia.items) {
     if (!visibleValues.some((value) => value.fieldKey === item.fieldKey)) {
       visibleValues.push({
@@ -604,7 +620,6 @@ export async function performCanonicalLogSubmission(
         id: recordId,
         facilityId: input.facilityId,
         departmentId: input.departmentId,
-        templateId: null,
         logAttachmentId: attachment.id,
         attachmentStableKey: attachment.stableKey,
         catalogDefinitionId: governing.id,

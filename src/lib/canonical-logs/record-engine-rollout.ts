@@ -16,8 +16,8 @@
  *
  * Canonical scope fences legacy Record writers for that department and date.
  * It does not write LogSubmission, OperationalTemplate evidence, or
- * InspectionSubmission as a fallback. Another department with no canonical row
- * stays on the legacy engine, including Plant PM/WO OperationalTemplate pins.
+ * InspectionSubmission as a fallback. When the flag is on, a Department with
+ * no rollout row uses the forward engine, including Plant.
  */
 
 export type RecordEngineMode = "LEGACY" | "CANONICAL";
@@ -31,10 +31,16 @@ export type RecordEngineRollout = {
 
 const SERVICE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A Department with no rollout row uses the forward engine, including Plant (LEG-02). */
+export function defaultRecordEngineForMissingRollout(_departmentKey: string | null | undefined): RecordEngineMode {
+  return "CANONICAL";
+}
+
 export function resolveRecordEngine(input: {
   capabilityEnabled: boolean;
   facilityId: string;
   departmentId: string;
+  departmentKey?: string | null;
   serviceDate: string;
   rollouts: readonly RecordEngineRollout[];
 }): RecordEngineMode {
@@ -49,7 +55,12 @@ export function resolveRecordEngine(input: {
         row.effectiveFromServiceDate <= input.serviceDate,
     )
     .sort((a, b) => (a.effectiveFromServiceDate < b.effectiveFromServiceDate ? -1 : 1));
-  return applicable.at(-1)?.mode ?? "LEGACY";
+  if (applicable.length > 0) return applicable.at(-1)!.mode;
+  const scheduledLater = input.rollouts.some(
+    (row) => row.facilityId === input.facilityId && row.departmentId === input.departmentId,
+  );
+  if (scheduledLater) return "LEGACY";
+  return defaultRecordEngineForMissingRollout(input.departmentKey);
 }
 
 export type CutoverReadiness = {
@@ -81,7 +92,6 @@ export function evaluateCanonicalCutoverReadiness(input: {
   todayKey: string;
   activeAttachmentCount: number;
   attachmentSetupErrorCount: number;
-  pmUsesOperationalTemplate: boolean;
 }): CutoverReadiness {
   const blockers: string[] = [];
   const warnings: string[] = [];
@@ -101,9 +111,6 @@ export function evaluateCanonicalCutoverReadiness(input: {
   }
   if (input.activeAttachmentCount === 0) {
     warnings.push("No Logs are placed yet. Due work will be empty until a manager places one.");
-  }
-  if (input.pmUsesOperationalTemplate) {
-    warnings.push("Plant maintenance still uses the previous Record templates. Leave that department on the previous engine.");
   }
   warnings.push("Repeating readings submit online. A lost connection does not save those rows.");
   return { status: blockers.length > 0 ? "BLOCKED" : "READY", blockers, warnings };

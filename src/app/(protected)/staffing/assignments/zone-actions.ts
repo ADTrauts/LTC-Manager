@@ -10,7 +10,6 @@ import {
   updateDepartmentZone,
 } from "@/lib/department-zones";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isEvsOperationsEnabled, isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import {
   requireAssignmentManage,
@@ -26,15 +25,6 @@ function opt(v: FormDataEntryValue | null): string | undefined {
 function parseSpaceIds(raw: string | undefined): string[] {
   if (!raw) return [];
   return [...new Set(raw.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean))];
-}
-
-function requireFlags() {
-  if (!isOperationalAssignmentsEnabled()) {
-    throw new Error("Operational assignments are not enabled.");
-  }
-  if (!isEvsOperationsEnabled()) {
-    throw new Error("EVS operations are not enabled.");
-  }
 }
 
 async function requireManage(session: Awaited<ReturnType<typeof requireFacilitySession>>, departmentId: string) {
@@ -67,7 +57,6 @@ const retireSchema = z.object({
 });
 
 export async function createDepartmentZoneAction(formData: FormData) {
-  requireFlags();
   const session = await requireFacilitySession();
   const parsed = createSchema.parse({
     departmentId: formData.get("departmentId"),
@@ -99,7 +88,6 @@ export async function createDepartmentZoneAction(formData: FormData) {
 }
 
 export async function updateDepartmentZoneAction(formData: FormData) {
-  requireFlags();
   const session = await requireFacilitySession();
   const parsed = updateSchema.parse({
     zoneId: formData.get("zoneId"),
@@ -131,7 +119,6 @@ export async function updateDepartmentZoneAction(formData: FormData) {
 }
 
 export async function retireDepartmentZoneAction(formData: FormData) {
-  requireFlags();
   const session = await requireFacilitySession();
   const parsed = retireSchema.parse({
     zoneId: formData.get("zoneId"),

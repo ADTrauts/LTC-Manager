@@ -94,7 +94,7 @@ export function assetLifecycleActiveWhere(): Prisma.AssetWhereInput {
 
 /** Assets that may be bound for prospective operational use (not OOS, not retired). */
 export function assetAvailableForProspectiveUseWhere(): Prisma.AssetWhereInput {
-  return { status: { in: ["ACTIVE", "OPERATIONAL", "DEGRADED"] } };
+  return { status: { in: ["OPERATIONAL", "DEGRADED"] } };
 }
 
 /** Condition-attention Assets (degraded or out of service). Excludes retired. */

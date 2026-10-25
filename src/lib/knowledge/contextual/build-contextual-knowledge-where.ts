@@ -28,16 +28,9 @@ export function buildContextualKnowledgeWhere(
   if (context.assetId) {
     linkClauses.push({ assetLinks: { some: { assetId: context.assetId } } });
   }
-  if (context.logTemplateId) {
+  if (context.catalogDefinitionId) {
     linkClauses.push({
-      logTemplateLinks: { some: { logTemplateId: context.logTemplateId } },
-    });
-  }
-  if (context.inspectionDefinitionId) {
-    linkClauses.push({
-      inspectionDefinitionLinks: {
-        some: { inspectionDefinitionId: context.inspectionDefinitionId },
-      },
+      catalogLinks: { some: { catalogDefinitionId: context.catalogDefinitionId } },
     });
   }
   if (context.unitId) {
@@ -50,8 +43,7 @@ export function buildContextualKnowledgeWhere(
         { category: { in: FACILITY_WIDE_CATEGORIES } },
         { unitLinks: { none: {} } },
         { assetLinks: { none: {} } },
-        { logTemplateLinks: { none: {} } },
-        { inspectionDefinitionLinks: { none: {} } },
+        { catalogLinks: { none: {} } },
       ],
     });
   }
@@ -93,6 +85,7 @@ export function categoryPrecedence(category: KnowledgeArticleCategory): number {
 export function linkReasonRank(reason: ContextualKnowledgeLinkReason): number {
   switch (reason) {
     case "ASSET":
+    case "CATALOG_RECORD":
     case "LOG_TEMPLATE":
     case "INSPECTION_DEFINITION":
       return 0;
@@ -109,6 +102,8 @@ export function linkReasonLabel(reason: ContextualKnowledgeLinkReason): string {
   switch (reason) {
     case "ASSET":
       return "Linked to this equipment";
+    case "CATALOG_RECORD":
+      return "Linked to this Record";
     case "LOG_TEMPLATE":
       return "Linked to this log";
     case "INSPECTION_DEFINITION":

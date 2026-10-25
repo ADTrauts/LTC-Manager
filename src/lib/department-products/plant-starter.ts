@@ -13,11 +13,9 @@ import {
   PLANT_WORK_PRESET_KEYS,
   type WorkActor,
 } from "@/lib/department-work";
-import {
-  createDraftFromPreset as createRecordDraftFromPreset,
-  PLANT_RECORD_PRESET_KEYS,
-  type EvidenceActor,
-} from "@/lib/operational-evidence";
+import { upsertPublishedCatalogSeeds } from "@/lib/canonical-logs/catalog-seed";
+import { installPublishedCatalog } from "@/lib/canonical-logs/facility-catalog-install";
+import type { EvidenceActor } from "@/lib/operational-evidence";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -46,6 +44,20 @@ export {
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
+const PLANT_STARTER_CATALOG_KEYS: Record<string, string> = {
+  EQUIPMENT_CONDITION_INSPECTION: "plant_equipment_condition_inspection",
+  MECHANICAL_ROOM_INSPECTION: "plant_mechanical_room_inspection",
+  GENERATOR_INSPECTION: "plant_generator_inspection",
+  BASIC_EQUIPMENT_READING: "plant_basic_equipment_reading",
+  POST_WORK_ORDER_VERIFICATION: "plant_post_work_order_verification",
+};
+
+function starterIdForCatalogKey(stableKey: string): string | null {
+  return (
+    Object.entries(PLANT_STARTER_CATALOG_KEYS).find(([, key]) => key === stableKey)?.[0] ?? null
+  );
+}
+
 export async function loadPlantStarterInstalledKeys(
   input: { facilityId: string; departmentId: string; client?: DbClient },
 ): Promise<{ workPresetKeys: string[]; recordPresetKeys: string[] }> {
@@ -62,22 +74,20 @@ export async function loadPlantStarterInstalledKeys(
       },
       select: { presetKey: true, stableKey: true },
     }),
-    client.operationalTemplate.findMany({
+    client.facilityCatalogInstall.findMany({
       where: {
         facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        OR: [
-          { presetKey: { in: [...PLANT_RECORD_PRESET_KEYS] } },
-          { stableKey: { in: [...PLANT_RECORD_PRESET_KEYS] } },
-        ],
+        catalogStableKey: { in: Object.values(PLANT_STARTER_CATALOG_KEYS) },
       },
-      select: { presetKey: true, stableKey: true },
+      select: { catalogStableKey: true },
     }),
   ]);
 
   return {
     workPresetKeys: uniqueKeys(work),
-    recordPresetKeys: uniqueKeys(records),
+    recordPresetKeys: records
+      .map((row) => starterIdForCatalogKey(row.catalogStableKey))
+      .filter((id): id is string => id != null),
   };
 }
 
@@ -141,12 +151,13 @@ export async function installPlantStarterConfiguration(
       workAdded += 1;
       continue;
     }
-    await createRecordDraftFromPreset(session, {
+    const catalogStableKey = PLANT_STARTER_CATALOG_KEYS[id];
+    if (!catalogStableKey) continue;
+    const client = input.client ?? prisma;
+    await upsertPublishedCatalogSeeds(client);
+    await installPublishedCatalog(client, {
       facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      presetKey: id,
-      actor: input.actor,
-      client: input.client,
+      catalogStableKey,
     });
     already.add(id);
     recordAdded += 1;

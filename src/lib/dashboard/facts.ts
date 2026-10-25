@@ -8,7 +8,7 @@ import { listWorkOrders } from "@/lib/asset-operations/work-order-service";
 import {
   loadWorkspaceNonOperationalExtras,
   type WorkspaceNonOperationalExtras,
-} from "@/lib/business-workspace/load-workspace-extras";
+} from "@/lib/dashboard/activity";
 import { loadFacilityRunLogRequirements } from "@/lib/canonical-logs/load-run-requirements";
 import type { RunLogRequirementView } from "@/lib/canonical-logs/run-presentation";
 import { collectActionableLandingSpaces, loadLocationsView } from "@/lib/locations";
@@ -23,10 +23,15 @@ import { prisma } from "@/lib/prisma";
 import { loadRuntimeLocationStates, type RuntimeLocationState } from "@/lib/runtime-location-state";
 import { loadSupervisorDailyCoverage } from "@/lib/scheduling/load-supervisor-daily-coverage";
 import type { SupervisorDailyCoverageProjection } from "@/lib/scheduling/supervisor-daily-coverage";
-import type { CallDownData } from "@/lib/todays-work/call-down";
-import { loadTodaysExpectedWork } from "@/lib/todays-work/expected-work/load-expected-work";
-import type { TodaysExpectedWorkView } from "@/lib/todays-work/expected-work/types";
-import { loadPresenceCallOffs } from "@/lib/todays-work/load-presence-call-offs";
+import type { CallDownData } from "@/lib/scheduling/call-down";
+import { loadTodaysExpectedWork } from "@/lib/work/expected/load-expected-work";
+import type { TodaysExpectedWorkView } from "@/lib/work/expected/types";
+import { loadPresenceCallOffs } from "@/lib/scheduling/load-presence-call-offs";
+import {
+  presentOperationalReviewDay,
+  type OperationalReviewDayPresentation,
+} from "@/lib/operational-review/present-operational-review-day";
+import { cachedOperationalReviewDay, previousServiceDateKey } from "@/lib/operational-review/review-day-cache";
 
 import type { PlantTriageRequestFact } from "./attention-mappers/plant-requests";
 import { resolveDepartmentDashboardCapabilities, type DepartmentDashboardCapabilities } from "./capabilities";
@@ -125,6 +130,8 @@ export type DashboardFactPack = {
   runLogRequirements(departmentId: string): Promise<readonly RunLogRequirementView[]>;
   /** Last seven days of non-operational activity for the scope's Departments, without legacy inspections. */
   recentActivity(): Promise<WorkspaceNonOperationalExtras>;
+  /** Yesterday's review for one Department, cached for that service date. */
+  reviewDay(departmentId: string): Promise<OperationalReviewDayPresentation>;
   /** Today's Work operating board for rounds and handoff. */
   operatingBoard(departmentId: string): Promise<LoadedOperatingLocationBoard>;
   /** Active Menus, with the locations and cycles each one is assigned to. */
@@ -152,10 +159,9 @@ export function createDashboardFactPack(
   const memo = new Map<string, Promise<unknown>>();
   const session = viewer.session;
   function facilitySession(): FacilitySession {
-    if (isPartnerFacilitySession(session)) {
-      throw new Error("Vendor-head Dashboard facts stay on the partner Department reads.");
-    }
-    return session;
+    if (!isPartnerFacilitySession(session)) return session;
+    // Loaders require a facility role. The partner's Departments stay limited by `scoped`.
+    return { ...session, role: viewer.role, accessKind: undefined } as FacilitySession;
   }
   const facilityId = viewer.facilityId;
   const teamRoomIds =
@@ -287,6 +293,17 @@ export function createDashboardFactPack(
           includeLegacyInspections: false,
         }),
       ),
+    reviewDay: (departmentId) =>
+      scoped("reviewDay", departmentId, async () => {
+        const loaded = await cachedOperationalReviewDay({
+          client: sources.db,
+          facilityId,
+          departmentId,
+          serviceDate: previousServiceDateKey(viewer.serviceDate),
+          now,
+        });
+        return presentOperationalReviewDay(loaded.model, { todayKey: viewer.serviceDate });
+      }),
     operatingBoard: (departmentId) =>
       scoped("operatingBoard", departmentId, () => {
         const department = viewer.departments.find((row) => row.id === departmentId);

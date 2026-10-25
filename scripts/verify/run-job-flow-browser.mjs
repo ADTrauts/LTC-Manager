@@ -131,7 +131,6 @@ async function main() {
     DIETARY_OPERATIONAL_CYCLES_ENABLED: "true",
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
-    DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
   };
 
   try {
@@ -179,7 +178,6 @@ async function main() {
           DIETARY_OPERATIONAL_CYCLES_ENABLED: "true",
           OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
           OPERATION_ENGINE_ENABLED: "",
-          DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "false",
         },
         stdio: ["ignore", "pipe", "pipe"],
       },

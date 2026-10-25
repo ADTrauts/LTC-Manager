@@ -17,7 +17,7 @@ function baseSnapshot(overrides: Partial<OperationalSnapshot> = {}): Operational
       label: "Lunch preparation",
       phase: "Preparation",
       scheduledTime: "11:30",
-      source: "operations_center",
+      source: "published_cycle",
     },
     readiness: { ready: 4, inProgress: 0, needsAttention: 1 },
     priorityLocations: [
@@ -41,7 +41,7 @@ function baseSnapshot(overrides: Partial<OperationalSnapshot> = {}): Operational
         sourcePath: "/today/coverage",
       },
     ],
-    allowedSourcePaths: [unitWorkspacePath("u1"), "/today/coverage", "/issues", "/staffing"],
+    allowedSourcePaths: [unitWorkspacePath("u1"), "/today/coverage", "/repairs", "/staffing"],
     ...overrides,
   };
 }
@@ -135,7 +135,7 @@ test("handoff added and removed are detected; ordering is deterministic", () => 
         type: "open_repair",
         location: "Kitchen",
         summary: "Dishwasher open",
-        sourcePath: "/issues/1",
+        sourcePath: "/repairs/1",
       },
     ],
   });

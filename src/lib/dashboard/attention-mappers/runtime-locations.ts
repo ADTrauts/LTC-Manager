@@ -1,4 +1,4 @@
-import { lookAtHref } from "@/lib/business-workspace/dashboard/from-runtime-state";
+import { lookAtHref } from "@/lib/dashboard/runtime/from-runtime-state";
 import { exceptionSortRank, type RuntimeLocationState } from "@/lib/runtime-location-state";
 
 import type { AttentionSeverity, DashboardAttentionItem } from "../attention";

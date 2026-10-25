@@ -14,7 +14,6 @@ import {
   adaptProjectionSnapshotToShadowView,
   compareProjectionSnapshotsForShadow,
 } from "@/lib/projection";
-import { isProjectionSidebarEnabled } from "@/lib/feature-flags";
 import { FACILITY_VOCABULARY_PROFILES } from "@/lib/facility-builder/facility-vocabulary";
 
 import {
@@ -22,24 +21,6 @@ import {
   adaptProjectionToLocationsView,
 } from "@/lib/locations";
 import type { ProjectedSidebarNode, SidebarProjectionView } from "@/lib/locations";
-
-function withEnv(name: string, value: string | undefined, fn: () => void) {
-  const previous = process.env[name];
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) {
-      delete process.env[name];
-    } else {
-      process.env[name] = previous;
-    }
-  }
-}
 
 function walk(nodes: readonly ProjectedSidebarNode[]): ProjectedSidebarNode[] {
   const out: ProjectedSidebarNode[] = [];
@@ -62,15 +43,6 @@ function sidebarFromGolden(
   const locations = adaptProjectionToLocationsView(snapshot);
   return adaptLocationsViewToSidebar(locations, vocabulary);
 }
-
-test("PROJECTION_SIDEBAR_ENABLED defaults to true (certified nested rail)", () => {
-  withEnv("PROJECTION_SIDEBAR_ENABLED", undefined, () => {
-    assert.equal(isProjectionSidebarEnabled(), true);
-  });
-  withEnv("PROJECTION_SIDEBAR_ENABLED", "false", () => {
-    assert.equal(isProjectionSidebarEnabled(), false);
-  });
-});
 
 test("1. Dietary projected Sidebar tree", () => {
   const view = sidebarFromGolden(DIETARY_GOLDEN_PROJECTION);
@@ -251,16 +223,6 @@ test("24. Projection failure fail-closed view has empty sections", () => {
   assert.equal(empty.sections.length, 0);
   assert.equal(empty.projectedUnitIds.length, 0);
   assert.equal(empty.error, "boom");
-});
-
-test("25–27. flag off means legacy path; no union (contract)", () => {
-  withEnv("PROJECTION_SIDEBAR_ENABLED", "false", () => {
-    assert.equal(isProjectionSidebarEnabled(), false);
-  });
-  // When flag on, AppShell skips getSidebarUnitsForSession — covered by usedLegacyEligibility.
-  withEnv("PROJECTION_SIDEBAR_ENABLED", "true", () => {
-    assert.equal(isProjectionSidebarEnabled(), true);
-  });
 });
 
 test("28. Plant creates no fake assignment rows (policy flag)", () => {

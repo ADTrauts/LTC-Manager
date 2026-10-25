@@ -535,6 +535,6 @@ test("Phase 2 — record detail and CSV serialize typed values into the existing
 test("Phase 2 — authority and flag stay unchanged", () => {
   assert.doesNotMatch(source("prisma/schema.prisma"), /model FormDefinition/);
   assert.match(source("src/lib/canonical-logs/catalog-service.ts"), /catalogLogDefinition/);
-  assert.match(source(".env.example"), /CANONICAL_LOGS_ENABLED=false/);
+  assert.match(source(".env.example"), /CANONICAL_LOGS_ENABLED=true/);
   assert.match(source("src/lib/feature-flags.ts"), /parseEnvFlag\(process\.env\.CANONICAL_LOGS_ENABLED, false\)/);
 });

@@ -90,17 +90,17 @@ test("App Shell is navigation only — no readiness batch or chips", () => {
   assert.doesNotMatch(compact, /readinessByUnitId/);
 });
 
-test("live Today's Work pages do not call leftover dashboard lists", () => {
+test("Today's Work addresses redirect, and handoffs stay on the presence path", () => {
   const hub = source("src/app/(protected)/today/page.tsx");
   const coverage = source("src/app/(protected)/today/coverage/page.tsx");
-  const handoffs = source("src/app/(protected)/today/handoffs/page.tsx");
-  assert.doesNotMatch(hub, /loadCallDownList/);
-  assert.match(hub, /loadPresenceCallOffs/);
-  assert.doesNotMatch(coverage, /loadCoverageList|TodaysWorkCoverageList|CoverageSummaryCards|loadCallDownList/);
-  assert.match(coverage, /loadPresenceCallOffs/);
-  assert.match(coverage, /SupervisorDailyCoveragePanel/);
+  const handoffs = source("src/app/(protected)/staffing/handoffs/page.tsx");
+  const callOffs = source("src/lib/scheduling/load-presence-call-offs.ts");
+  assert.match(hub, /redirect\("\/dashboard"\)/);
+  assert.match(coverage, /redirect\("\/staffing"\)/);
   assert.doesNotMatch(handoffs, /loadHandoffs\b/);
-  assert.match(handoffs, /presentHandoffsFromBoard|assembleProjectedTodaysWorkHandoffs/);
+  assert.match(handoffs, /presentHandoffsFromBoard/);
+  assert.doesNotMatch(handoffs, /assembleProjectedTodaysWorkHandoffs|isProjectionTodaysWorkEnabled/);
+  assert.match(callOffs, /export async function loadPresenceCallOffs/);
 });
 
 test("AI snapshots do not use leftover dashboard / readiness loaders", () => {
@@ -136,23 +136,23 @@ test("leftover engines are absent; canonical replacements remain", () => {
     assert.equal(existsSync(join(process.cwd(), file)), false, file);
   }
   assert.match(source("src/lib/todays-work/operating-locations/load.ts"), /export async function loadOperatingLocationBoard/);
-  assert.match(source("src/lib/todays-work/load-presence-call-offs.ts"), /export async function loadPresenceCallOffs/);
-  assert.match(source("src/lib/todays-work/present-handoffs-from-board.ts"), /export function presentHandoffsFromBoard/);
-  assert.match(source("src/lib/business-workspace/dashboard/load.ts"), /export async function loadDashboardRuntime/);
+  assert.match(source("src/lib/scheduling/load-presence-call-offs.ts"), /export async function loadPresenceCallOffs/);
+  assert.match(source("src/lib/staffing/handoffs/present-handoffs-from-board.ts"), /export function presentHandoffsFromBoard/);
+  assert.match(source("src/lib/dashboard/runtime/load.ts"), /export async function loadDashboardRuntime/);
 });
 
-test("redirect routes remain and leftover OC flag is gone", () => {
+test("the Dashboard remains and leftover OC flag is gone", () => {
   const dashboard = source("src/app/(protected)/dashboard/page.tsx");
-  const operations = source("src/app/(protected)/operations/page.tsx");
   const flags = source("src/lib/feature-flags.ts");
   assert.match(dashboard, /redirect/);
-  assert.match(operations, /redirect/);
+  assert.equal(existsSync("src/app/(protected)/operations/page.tsx"), false);
   assert.equal(flags.includes("PROJECTION_OPERATIONS_CENTER_ENABLED"), false);
-  assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_LOCATIONS_ENABLED, true\)/);
-  assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_SIDEBAR_ENABLED, true\)/);
-  assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_TODAYS_WORK_ENABLED, false\)/);
-  assert.match(flags, /parseEnvFlag\(process.env.PROJECTION_BUSINESS_WORKSPACE_ENABLED, false\)/);
-  assert.match(flags, /parseEnvFlag\(process.env.TODAYS_WORK_ENABLED, true\)/);
+  assert.equal(flags.includes("PROJECTION_LOCATIONS_ENABLED"), false);
+  assert.equal(flags.includes("PROJECTION_SIDEBAR_ENABLED"), false);
+  assert.equal(flags.includes("PROJECTION_TODAYS_WORK_ENABLED"), false);
+  assert.equal(flags.includes("PROJECTION_BUSINESS_WORKSPACE_ENABLED"), false);
+  assert.equal(flags.includes("DASHBOARD_V2_ENABLED"), false);
+  assert.equal(flags.includes("TODAYS_WORK_ENABLED"), false);
   assert.equal(flags.includes("OPERATION_ENGINE_ENABLED"), false);
   assert.equal(flags.includes("isOperationEngineEnabled"), false);
 });

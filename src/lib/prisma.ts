@@ -44,7 +44,6 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "passwordResetToken",
     "emailVerificationToken",
     "accountInviteToken",
-    "recordEngineRollout",
   ] as const;
   return required.filter((key) => typeof c[key]?.findMany !== "function");
 }

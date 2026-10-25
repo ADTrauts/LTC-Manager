@@ -4,6 +4,7 @@ type ReviewModeNavProps = {
   activeId: "review" | "legacy";
   date?: string | null;
   spaceId?: string | null;
+  showLegacy?: boolean;
 };
 
 function reviewHref(date?: string | null, spaceId?: string | null): string {
@@ -24,13 +25,14 @@ function legacyHref(date?: string | null): string {
   return `/reports?${params.toString()}`;
 }
 
-export function ReviewModeNav({ activeId, date, spaceId }: ReviewModeNavProps) {
+export function ReviewModeNav({ activeId, date, spaceId, showLegacy = true }: ReviewModeNavProps) {
+  const items = [
+    { id: "review", label: "Audit / Reports", href: reviewHref(date, spaceId) },
+    ...(showLegacy ? [{ id: "legacy", label: "Legacy Report", href: legacyHref(date) }] : []),
+  ];
   return (
     <SubNav
-      items={[
-        { id: "review", label: "Audit / Reports", href: reviewHref(date, spaceId) },
-        { id: "legacy", label: "Legacy Report", href: legacyHref(date) },
-      ]}
+      items={items}
       activeId={activeId}
       aria-label="Audit / Reports"
       data-testid="review-mode-nav"

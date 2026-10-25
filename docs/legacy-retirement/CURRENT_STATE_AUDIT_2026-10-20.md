@@ -107,7 +107,7 @@ Retiring the template engine removes the relation and template-backed writes. It
 
 ### Seeds and provisioning
 
-`prisma/seed.mjs`, `prisma/apply-log-template-presets.mjs` (9 presets for Dietary, EVS and Plant), `scripts/provision-facility.mjs`, `scripts/bootstrap-pilot-facility-admin.mjs` and `scripts/backfill-log-template-presets.mjs` create legacy log templates and assignments. The seed also creates the forward Catalog seeds, so every fresh database has both.
+LEG-01: seeds and provisioning install the five Catalog Records that match six of the nine presets. Dry storage, the restroom round, and the generator log wait for LEG-02. `scripts/backfill-log-template-presets.mjs` is removed. Fresh databases do not create log templates, assignments, or meal times.
 
 ## 2. People & Coverage
 
@@ -126,7 +126,7 @@ Retiring the template engine removes the relation and template-backed writes. It
 | Today's Work (`/today*`, `TODAYS_WORK_ENABLED` default `true`) | DSH-04 |
 | Business Workspace (`/workspace`) | DSH-04 (redirect from DSH-02) |
 | `PROJECTION_TODAYS_WORK_ENABLED`, `PROJECTION_BUSINESS_WORKSPACE_ENABLED` (default `false`) | Go with those surfaces |
-| `WorkspacePreference` | DSH-05 decision |
+| `WorkspacePreference` | Stays. DSH-05 left it in place. A drop needs its own approval. |
 | `/dashboard`, `/operations` redirects | `/dashboard` becomes the new Dashboard (DSH-02) |
 
 ## 4. Maintenance and assets

@@ -407,6 +407,30 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
     );
   }
 
+  if (
+    input.expectedMilestones?.some(
+      (milestone) => milestone === "READY" || milestone === "SERVICE_STARTED",
+    )
+  ) {
+    errors.push(
+      issue(
+        "milestones_retired",
+        "Meal timing uses Key Points. Ready and Service Started are no longer milestones on the Cycle.",
+        "error",
+      ),
+    );
+  }
+
+  if (input.locationMode === "UNIT_TYPES" || input.locationMode === "ROOM_TYPE") {
+    errors.push(
+      issue(
+        "physical_location_retired",
+        "Cycles apply by explicit locations and Location Functions. Unit type and room type no longer choose where a Cycle runs.",
+        "error",
+      ),
+    );
+  }
+
   if (hasLegacyRoomTypeScope(input)) {
     const key = input.roomTypeKey?.trim() ?? "";
     if (!isStandardRoomTypeKey(key)) {

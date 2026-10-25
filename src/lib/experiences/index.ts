@@ -88,17 +88,3 @@ export {
   validateExperienceRegistry,
   type ExperienceRegistryIssue,
 } from "./registry";
-
-export {
-  COMPATIBILITY_MAPPINGS,
-  assertCapabilitiesHaveCompatibility,
-  assertCompatibilityTargetsValid,
-  experienceKeyForCapability,
-  experiencesFromCapabilities,
-  findCompatibilityMapping,
-  resolveLegacyConcept,
-  toolKeyForCapability,
-  type CompatibilityMapping,
-  type CompatibilityTargetKind,
-  type ResolvedCompatibility,
-} from "./compatibility";

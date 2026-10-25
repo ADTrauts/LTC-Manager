@@ -4,21 +4,15 @@ import { isApiPathname, matchPlatformRoute } from "@/lib/route-registry/match";
 import type { PlatformRoute, RouteSurface } from "@/lib/route-registry/types";
 
 export type RouteFeatureFlags = {
-  todaysWorkEnabled: boolean;
   /**
-   * Optional department-operational flags. When omitted they are treated as enabled, so the proxy
-   * (which supplies only `todaysWorkEnabled`) never gains a new way to withhold a route — the page's
-   * own guard stays the gate. The navigation projection supplies the real values so a Build/Run link
+   * Optional department-operational flags. When omitted they are treated as enabled, so a caller
+   * that supplies only Canonical Logs never gains a new way to withhold a route — the page's own
+   * guard stays the gate. The navigation projection supplies the real values so a Build/Run link
    * disappears when the capability is off.
    */
   dietaryOperationalEvidenceEnabled?: boolean;
   dietaryWorkPlansEnabled?: boolean;
   canonicalLogsEnabled?: boolean;
-  /**
-   * New Dashboard page. Absent or false keeps the Dashboard nav item on `/workspace`.
-   * The page guard still decides what `/dashboard` renders, so this flag does not deny the route.
-   */
-  dashboardV2Enabled?: boolean;
 };
 
 export type RouteAuthorizationInput = {
@@ -55,8 +49,6 @@ function unregisteredSurface(pathname: string): RouteSurface {
 
 function featureEnabled(route: PlatformRoute, flags: RouteAuthorizationInput["featureFlags"]): boolean {
   switch (route.featureFlag) {
-    case "TODAYS_WORK":
-      return flags.todaysWorkEnabled;
     case "DIETARY_OPERATIONAL_EVIDENCE":
       // Absent → enabled: keeps the proxy's decision unchanged (the page's own guard remains the gate)
       // while letting the navigation projection hide the link when the capability is off.

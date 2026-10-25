@@ -319,6 +319,19 @@ Plant's work orders for Food & Nutrition's requests appear on Plant's cards, bec
 
 **Consequence.** Pilot facilities need the forward engine on, or their Records cards stay `not_configured`.
 
+## DSH-D20 — Remaining partner people use the same Dashboard — accepted (user) October 23, 2026
+
+**Decision.** A partner who can manage a Department sees the same card Dashboard, on `/partner`. An accepted head stays a Department leader for the Departments they head. Any other partner person who can manage a Department sees the manager Dashboard for those Departments. A partner with no Department they can run keeps the Review, Logs, and Assets summary.
+
+**Why.** Vendor heads already had the Department Dashboard (DSH-D18). The product owner said the remaining partner people should use the same Dashboard.
+
+**What stays the same.**
+- Partner access is unchanged. The Dashboard only opens Departments they can already manage.
+- A head is not shown Departments they do not head.
+- Links that have a partner page open there (`/partner/logs`, `/partner/reports`, `/partner/locations`, `/partner/assets`, `/partner/people`). A card whose page a partner cannot open still shows, without that link.
+- Arrange saves a personal layout for that person. Facility defaults stay with the Facility Administrator.
+- `WorkspacePreference` is not dropped.
+
 ---
 
 ## Open confirmation items

@@ -9,7 +9,6 @@ import { z } from "zod";
 
 import { sessionUserIdForFk } from "@/lib/auth";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import {
   facilityLocalDateToServiceDate,
@@ -85,7 +84,6 @@ const createSchema = z.object({
   roleKey: z.string().min(1).optional(),
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   unitId: z.string().min(1).optional(),
-  operationInstanceId: z.string().min(1).optional(),
   startsAt: z.string().optional(),
   endsAt: z.string().optional(),
   source: z.enum(sourceValues).optional(),
@@ -101,7 +99,6 @@ const editSchema = z.object({
   assignmentId: z.string().min(1),
   roleKey: z.string().min(1).optional(),
   unitId: z.string().optional(),
-  operationInstanceId: z.string().optional(),
   startsAt: z.string().optional(),
   endsAt: z.string().optional(),
   notes: z.string().max(500).optional(),
@@ -129,12 +126,6 @@ function opt(v: FormDataEntryValue | null): string | undefined {
   return t.length === 0 ? undefined : t;
 }
 
-function requireFlag() {
-  if (!isOperationalAssignmentsEnabled()) {
-    throw new Error("Operational assignments are not enabled.");
-  }
-}
-
 function revalidateAssignmentViews() {
   revalidatePath("/staffing/assignments");
   revalidatePath("/staffing");
@@ -155,7 +146,6 @@ async function requireManageForDepartment(session: Awaited<ReturnType<typeof req
 }
 
 export async function createAssignmentAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   const parsed = createSchema.parse({
     employeeId: formData.get("employeeId"),
@@ -163,7 +153,6 @@ export async function createAssignmentAction(formData: FormData) {
     roleKey: opt(formData.get("roleKey")),
     serviceDate: formData.get("serviceDate"),
     unitId: opt(formData.get("unitId")),
-    operationInstanceId: opt(formData.get("operationInstanceId")),
     startsAt: opt(formData.get("startsAt")),
     endsAt: opt(formData.get("endsAt")),
     source: opt(formData.get("source")) as OperationalAssignmentSource | undefined,
@@ -253,7 +242,6 @@ export async function createAssignmentAction(formData: FormData) {
     departmentId: parsed.departmentId,
     serviceDateKey: parsed.serviceDate,
     unitId: parsed.unitId,
-    operationInstanceId: parsed.operationInstanceId,
   });
   if (!references.ok) {
     throw new Error(describeAssignmentReferenceRejection(references.reason));
@@ -388,7 +376,6 @@ export async function createAssignmentAction(formData: FormData) {
         roleLabel,
         unitId: unitIdForScope,
         sourceZoneId: department.key === "EVS" ? parsed.sourceZoneId ?? null : null,
-        operationInstanceId: parsed.operationInstanceId ?? null,
         startsAt,
         endsAt,
         source,
@@ -441,14 +428,12 @@ export async function createAssignmentAction(formData: FormData) {
 }
 
 export async function editAssignmentAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
 
   const parsed = editSchema.parse({
     assignmentId: formData.get("assignmentId"),
     roleKey: opt(formData.get("roleKey")),
     unitId: opt(formData.get("unitId")),
-    operationInstanceId: opt(formData.get("operationInstanceId")),
     startsAt: opt(formData.get("startsAt")),
     endsAt: opt(formData.get("endsAt")),
     notes: opt(formData.get("notes")),
@@ -512,16 +497,12 @@ export async function editAssignmentAction(formData: FormData) {
     departmentId: assignment.departmentId,
     serviceDateKey,
     unitId: nextUnitId,
-    operationInstanceId: parsed.operationInstanceId,
   });
   if (!references.ok) {
     throw new Error(describeAssignmentReferenceRejection(references.reason));
   }
 
   if (parsed.unitId !== undefined) data.unitId = parsed.unitId || null;
-  if (parsed.operationInstanceId !== undefined) {
-    data.operationInstanceId = parsed.operationInstanceId || null;
-  }
   if (parsed.sourceZoneId !== undefined && assignment.department.key === "EVS") {
     data.sourceZoneId = parsed.sourceZoneId || null;
   }
@@ -615,7 +596,6 @@ export async function editAssignmentAction(formData: FormData) {
 }
 
 export async function assignmentLifecycleAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
 
   const parsed = lifecycleSchema.parse({
@@ -681,7 +661,6 @@ export async function assignmentLifecycleAction(formData: FormData) {
 }
 
 export async function reassignAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   const existingId = opt(formData.get("existingAssignmentId"));
   const mode = opt(formData.get("mode")) ?? "coverage";
@@ -692,7 +671,6 @@ export async function reassignAction(formData: FormData) {
     roleKey: opt(formData.get("roleKey")),
     serviceDate: formData.get("serviceDate"),
     unitId: opt(formData.get("unitId")),
-    operationInstanceId: opt(formData.get("operationInstanceId")),
     startsAt: opt(formData.get("startsAt")),
     endsAt: opt(formData.get("endsAt")),
     notes: opt(formData.get("notes")),
@@ -743,7 +721,6 @@ export async function reassignAction(formData: FormData) {
 }
 
 export async function confirmAssignmentPlanAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   const parsed = planSchema.parse({
     departmentId: formData.get("departmentId"),
@@ -859,7 +836,6 @@ export async function confirmAssignmentPlanAction(formData: FormData) {
 }
 
 export async function reopenAssignmentPlanAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   const parsed = planSchema.parse({
     departmentId: formData.get("departmentId"),

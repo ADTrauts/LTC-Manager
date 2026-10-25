@@ -116,7 +116,7 @@ These values come from the CDA resolver, never from Dashboard code.
 | Facility User session, Supervisor+ | Yes. Layout owner is the User. |
 | Facility Employee PIN session, Supervisor | Yes. Layout owner is the Employee. |
 | Facility session, Lead / Staff | No. Default home unchanged. |
-| Partner session | No. `/partner` is unchanged until DSH-05 convergence. Exception, as built in CDA-05 while Contracted Department Authority is on: an accepted vendor head is a Department leader for the Departments they run. Their partner Dashboard lists that leader's cards. Other partner sessions stay on the existing partner Dashboard. |
+| Partner session | Yes, on `/partner`, when Contracted Department Authority is on and the partner can manage a Department ([DSH-D20](./DECISIONS.md#dsh-d20--remaining-partner-people-use-the-same-dashboard--accepted-user-october-23-2026)). An accepted head is a Department leader for the Departments they head. Anyone else who can manage a Department sees the manager Dashboard for those Departments. Links open the matching partner page. A partner with no Department they can manage keeps the Review, Logs, and Assets summary. |
 | Organization session | No. |
 | VSSYL Console Facility work session | Follows its effective Facility role. Never saves a layout (layout owner `null`). |
 
@@ -252,7 +252,7 @@ The summary loader may read only aggregate queries over the vendor's current ope
 - `coverage`
 - `shift_now` and `timeline` (Operating Rhythm on track or late)
 - `department_setup`
-- `requests_filed`, from DSH-05. Until then, open requests to Plant are a count on the `departments_glance` row.
+- `requests_filed`
 
 **Not configured.** A card that is eligible except for a missing configuration capability can still render in a `not_configured` state, but only for viewers who can fix it: the Department leader, or the Facility Administrator when they hold `MANAGE`. `VIEW` viewers see the reason as read-only information, with no fix link. `SUMMARY` viewers and everyone else don't see it. The Department setup card collects those reasons in one place, so the Dashboard is not a grid of empty tiles.
 
@@ -451,7 +451,7 @@ A server action, `saveDashboardLayout({ scopeKind, items })`:
 | Runtime Location State | One batched load per request for all spaces in scope, reusing its prefetch. Never per card. |
 | Card query discipline | A card adds no database round trips beyond its Fact Pack facts. Asserted by tests that count fact calls. |
 | Pilot target | p95 time until every card has settled under 2.5 s for the pilot facility's largest Department, measured with existing telemetry. A miss blocks DSH-02 exit. |
-| Heavy loaders | `loadOperationalReviewDay` is not used until it has a day-level cache (DSH-05). |
+| Heavy loaders | Yesterday in review reads `loadOperationalReviewDay` through a day-level cache. A failed load is not kept. |
 
 ## 12. Planned file layout
 

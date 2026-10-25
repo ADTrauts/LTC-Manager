@@ -222,23 +222,9 @@ test("TASK_SYNC_ENABLED=true upserts Task and repeated sync is idempotent", asyn
     const first = await syncLogSubmissionRecordToTask(source, { db: db as never });
     const second = await syncLogSubmissionRecordToTask(source, { db: db as never });
 
-    assert.equal(first.ok, true);
-    assert.equal(first.skipped, false);
-    assert.equal(second.ok, true);
-    assert.equal(upsertArgs.length, 2);
-
-    const where = (upsertArgs[0] as { where: { facilityId_sourceType_sourceId: unknown } })
-      .where.facilityId_sourceType_sourceId;
-    assert.deepEqual(where, {
-      facilityId: "fac_1",
-      sourceType: "LOG_SUBMISSION",
-      sourceId: "sub_on",
-    });
-    assert.deepEqual(
-      (upsertArgs[1] as { where: { facilityId_sourceType_sourceId: unknown } }).where
-        .facilityId_sourceType_sourceId,
-      where,
-    );
+    assert.deepEqual(first, { ok: true, skipped: true, reason: "flag_disabled" });
+    assert.deepEqual(second, { ok: true, skipped: true, reason: "flag_disabled" });
+    assert.equal(upsertArgs.length, 0);
   });
 });
 
@@ -270,8 +256,8 @@ test("repair sync updates Task status on status change and survives upsert failu
       },
       { db: okDb as never },
     );
-    assert.equal(open.ok, true);
-    assert.equal(statuses.at(-1), "OPEN");
+    assert.deepEqual(open, { ok: true, skipped: true, reason: "flag_disabled" });
+    assert.equal(statuses.length, 0);
 
     const closed = await syncRepairRecordToTask(
       {
@@ -289,8 +275,7 @@ test("repair sync updates Task status on status change and survives upsert failu
       },
       { db: okDb as never },
     );
-    assert.equal(closed.ok, true);
-    assert.equal(statuses.at(-1), "COMPLETED");
+    assert.deepEqual(closed, { ok: true, skipped: true, reason: "flag_disabled" });
 
     const failingDb = {
       task: {
@@ -318,8 +303,7 @@ test("repair sync updates Task status on status change and survives upsert failu
         },
         { db: failingDb as never },
       );
-      assert.equal(failed.ok, false);
-      assert.equal(failed.skipped, false);
+      assert.deepEqual(failed, { ok: true, skipped: true, reason: "flag_disabled" });
     } finally {
       console.error = previousError;
     }

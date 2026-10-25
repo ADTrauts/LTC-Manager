@@ -51,7 +51,7 @@ function dietaryLegacy(options?: {
         departmentKey: "DIETARY",
         capabilities: options?.capabilities ?? [
           "MEAL_SERVICE",
-          "FOOD_SAFETY",
+          "TEMPERATURE_MONITORING",
         ],
         isActive: true,
         isPlaced: true,
@@ -78,7 +78,7 @@ describe("Projection Shadow — adapters", () => {
     assert.ok(view.roomIds.includes(SERVERY_SPACE));
   });
 
-  it("adapts legacy Dietary capabilities into Experiences via compatibility", () => {
+  it("adapts legacy Dietary experience keys into the shadow view", () => {
     const view = adaptLegacyEligibilityToShadowView(dietaryLegacy());
     assert.deepEqual(
       view.experiences.map((e) => e.experienceKey).sort(),
@@ -288,7 +288,7 @@ describe("Projection Shadow — legacy vs Projection", () => {
           unitId: UNIT_ID,
           departmentId: "dept_plant",
           departmentKey: "PLANT",
-          capabilities: ["REPAIRS"],
+          capabilities: ["WORK_ORDERS"],
           isActive: true,
           isPlaced: true,
         },

@@ -34,12 +34,10 @@ export function mapRepairStatusToTaskStatus(status: RepairStatus): TaskStatus {
     case "ASSIGNED":
       return "OPEN";
     case "IN_PROGRESS":
-    case "WAITING_PARTS":
     case "WAITING_ON_VENDOR":
     case "ON_HOLD":
       return "IN_PROGRESS";
     case "COMPLETED":
-    case "CLOSED":
       return "COMPLETED";
     case "CANCELLED":
       return "CANCELLED";

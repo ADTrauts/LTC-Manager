@@ -160,19 +160,8 @@ test.describe("Phase 4D preventive maintenance Run @phase-4d @ci-gate", () => {
       include: { versions: true },
     });
     const procedure = article.versions[0]!;
-    const template = await db.operationalTemplate.create({
-      data: {
-        id: cuidLike(),
-        facilityId: fx.facilityId,
-        departmentId: fx.plantDepartmentId,
-        name: `PM Inspection ${suffix}`,
-        purposeType: "INSPECTION",
-        status: "PUBLISHED",
-        version: 1,
-        stableKey: `pm-4d-${suffix.toLowerCase()}`,
-        allowAdHoc: true,
-        publishedAt: new Date(),
-      },
+    const template = await db.catalogLogDefinition.findFirstOrThrow({
+      where: { status: "PUBLISHED" },
     });
     const category = await db.maintenanceCategory.create({
       data: {
@@ -197,7 +186,7 @@ test.describe("Phase 4D preventive maintenance Run @phase-4d @ci-gate", () => {
         maintenanceCategoryId: category.id,
         procedureVersionId: procedure.id,
         defaultAssignedEmployeeId: fx.techEmployeeId,
-        recordRequirements: [{ templateId: template.id }],
+        recordRequirements: [{ catalogDefinitionId: template.id }],
         priority: "HIGH",
       },
       client: db,
@@ -325,7 +314,7 @@ test.describe("Phase 4D preventive maintenance Run @phase-4d @ci-gate", () => {
           id: cuidLike(),
           facilityId: fx.facilityId,
           departmentId: fx.plantDepartmentId,
-          templateId: template.id,
+          catalogDefinitionId: template.id,
           templateStableKey: template.stableKey,
           templateVersion: template.version,
           templateName: template.name,
@@ -436,19 +425,8 @@ test.describe("Phase 4D preventive maintenance Run @phase-4d @ci-gate", () => {
       },
       include: { versions: true },
     });
-    const template = await db.operationalTemplate.create({
-      data: {
-        id: cuidLike(),
-        facilityId: fx.facilityId,
-        departmentId: fx.plantDepartmentId,
-        name: `Skip inspection ${suffix}`,
-        purposeType: "INSPECTION",
-        status: "PUBLISHED",
-        version: 1,
-        stableKey: `pm-skip-${suffix.toLowerCase()}`,
-        allowAdHoc: true,
-        publishedAt: new Date(),
-      },
+    const template = await db.catalogLogDefinition.findFirstOrThrow({
+      where: { status: "PUBLISHED" },
     });
     const category = await db.maintenanceCategory.create({
       data: {
@@ -470,7 +448,7 @@ test.describe("Phase 4D preventive maintenance Run @phase-4d @ci-gate", () => {
         generationLeadDays: 14,
         maintenanceCategoryId: category.id,
         procedureVersionId: article.versions[0]!.id,
-        recordRequirements: [{ templateId: template.id }],
+        recordRequirements: [{ catalogDefinitionId: template.id }],
         priority: "MEDIUM",
       },
       client: db,

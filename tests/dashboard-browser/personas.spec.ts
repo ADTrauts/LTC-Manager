@@ -194,9 +194,9 @@ test("personas @ci-gate: each role opens its default Dashboard", async ({ browse
       vendor.page.waitForURL((url) => url.pathname === "/partner", { timeout: 45_000 }),
       openPartner.click(),
     ]);
-    await expect(vendor.page.getByTestId("partner-dashboard")).toContainText("Food & Nutrition");
-    const cards = vendor.page.getByTestId("vendor-leader-dashboard");
+    const cards = vendor.page.getByTestId("dashboard-v2");
     await expect(cards).toBeVisible();
+    await expect(vendor.page.getByTestId("dashboard-scope")).toContainText("Food & Nutrition");
     await expect(cards).toContainText("Today's timeline");
     await expect(cards).toContainText("Today's menu");
     await expect(cards).toContainText("Department setup");

@@ -75,6 +75,10 @@ function main() {
       // Empty values also stop Prisma dotenv from restoring a developer DB URL.
       env.DATABASE_URL = "";
       env.DIRECT_URL = "";
+      // A developer shell may have exported staging flags. Hermetic tests set the
+      // ones they need themselves.
+      env.CANONICAL_LOGS_ENABLED = "false";
+      env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED = "false";
       console.log(`run-tests: hermetic — ${files.length} files (SQL-backed suites will skip)`);
     } else if (mode === "db") {
       const url = resolveDbUrl();

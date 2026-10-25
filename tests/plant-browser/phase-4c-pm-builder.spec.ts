@@ -120,19 +120,8 @@ test.describe("Phase 4C preventive maintenance builder @phase-4c @ci-gate", () =
         },
       },
     });
-    const template = await db.operationalTemplate.create({
-      data: {
-        id: cuidLike(),
-        facilityId: fx.facilityId,
-        departmentId: fx.plantDepartmentId,
-        name: `Generator inspection ${suffix}`,
-        purposeType: "INSPECTION",
-        status: "PUBLISHED",
-        version: 1,
-        stableKey: `pm-4c-${suffix.toLowerCase()}`,
-        allowAdHoc: true,
-        publishedAt: new Date(),
-      },
+    const template = await db.catalogLogDefinition.findFirstOrThrow({
+      where: { status: "PUBLISHED" },
     });
 
     const { context, page } = await openPersistent("pm-builder");

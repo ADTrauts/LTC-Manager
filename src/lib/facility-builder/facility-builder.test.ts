@@ -395,13 +395,13 @@ describe("resolveBuilderNodeDisplayKind — explicit roles", () => {
     );
   });
 
-  it("explicit LEGACY_LOCATION resolves as legacy", () => {
+  it("a rewritten legacy location displays as a neighborhood", () => {
     assert.equal(
       resolveBuilderNodeDisplayKind({
         parentUnitId: null,
         hierarchyRole: "LEGACY_LOCATION",
       }),
-      "legacy_location",
+      "neighborhood",
     );
   });
 

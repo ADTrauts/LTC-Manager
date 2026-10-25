@@ -14,31 +14,12 @@ import {
   adaptProjectionSnapshotToShadowView,
   compareProjectionSnapshotsForShadow,
 } from "@/lib/projection";
-import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 
 import {
   adaptProjectionToLocationsView,
   collectProjectedUnitIds,
 } from "@/lib/locations";
 import type { LocationsTreeNode, LocationsViewModel } from "@/lib/locations";
-
-function withEnv(name: string, value: string | undefined, fn: () => void) {
-  const previous = process.env[name];
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) {
-      delete process.env[name];
-    } else {
-      process.env[name] = previous;
-    }
-  }
-}
 
 function walk(nodes: readonly LocationsTreeNode[]): LocationsTreeNode[] {
   const out: LocationsTreeNode[] = [];
@@ -68,15 +49,6 @@ function assertNoEmptyAreas(view: LocationsViewModel) {
     }
   }
 }
-
-test("isProjectionLocationsEnabled defaults to true (production cutover)", () => {
-  withEnv("PROJECTION_LOCATIONS_ENABLED", undefined, () => {
-    assert.equal(isProjectionLocationsEnabled(), true);
-  });
-  withEnv("PROJECTION_LOCATIONS_ENABLED", "false", () => {
-    assert.equal(isProjectionLocationsEnabled(), false);
-  });
-});
 
 test("Dietary manager — projected tree, rooms, areas, experiences", () => {
   const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);

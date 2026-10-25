@@ -84,11 +84,7 @@ Department:              Food & Nutrition
 Operating Organization:  Metz Culinary Management
 ```
 
-`DepartmentOperatorRelationship` is **governance metadata** only. It does not move work, logs, teams, employees, assets, schedules, or other operational records to the operating Organization.
-
-This describes the code today. The accepted [Contracted Department Authority](../contracted-departments/README.md) program changes it: a vendor-run Department is controlled by the vendor, which owns its data. That takes effect at CDA-07.
-
-**Operating a Department does not grant users from that Organization access to the Facility.** Facility entry remains explicit `UserFacilityAccess` (same-Organization eligibility rules unchanged).
+`DepartmentOperatorRelationship` is date-effective. On a vendor-run Department, the operator controls the Department and owns that period's data. Vendor accounts open the Departments their company runs. The Facility Administrator chooses the operator and sees the summary plus compliance Records.
 
 ### Partner Organization (Phase 2A governance)
 
@@ -102,14 +98,14 @@ This means the Facility has established Metz as an external partner and has expl
 
 | Concept | Persistence | Grants user access? |
 |---------|-------------|---------------------|
-| Operating Organization | `DepartmentOperatorRelationship` (`@db.Date`, inclusive) | No |
-| Partner Organization | `FacilityPartnerOrganization` + `FacilityPartnerAccessPeriod` (UTC timestamps, half-open) | No (Phase 2A) |
-| Partner Department Scope | `FacilityPartnerDepartmentScope` (UTC timestamps, half-open) | No (Phase 2A) |
-| User authorization | Future Path B (Phase 2C+) | Not yet |
+| Operating Organization | `DepartmentOperatorRelationship` (`@db.Date`, inclusive) | The operator's accounts, for the Departments that company runs |
+| Partner Organization | `FacilityPartnerOrganization` + `FacilityPartnerAccessPeriod` (UTC timestamps, half-open) | After the facility attaches the company and the head accepts |
+| Partner Department Scope | `FacilityPartnerDepartmentScope` (UTC timestamps, half-open) | Those Departments only |
+| User authorization | Partner facility session | The Departments in scope |
 
 `DepartmentOperatorRelationship` ≠ Facility partner authorization. UI may suggest operator Departments when configuring a partner; explicit Admin save is required. No automatic sync either direction.
 
-**Phase 2A grants zero external-user Facility access.** `UserFacilityAccess` remains internal / same-parent-org only.
+**Phase 2A established the partnership without opening the facility.** Vendor accounts now open the Departments their company runs. They do not open another Department, Facility Builder, or Administration.
 
 **Phase 2B1 identity:**
 
@@ -213,5 +209,5 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 3. **Operation engine** — retired September 25, 2026. Some surfaces still use meal-heuristic context until Food & Nutrition timing moves to Key Points (LEG-D07).  
 4. **Task** — legacy. Work never needs Task rows. Removed in LEG-05.  
 5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace will add room-level granularity. See `docs/location-architecture/`.  
-6. **Location Function vs Operational Type** — code and some Build labels still say Operational Type or Archetype. `DEPARTMENT_OPERATIONAL_PROFILES_ENABLED` guards only the older profile and Experience editor: baseline drafts, separate certify / activate / retire, Experience areas and room exceptions. That editor belongs to the retired Experience catalog. Location Function binding and publishing do not use the flag. The editor is removed in LEG-05 (LEG-D12).  
-7. **Capability switches** — code still gates Food & Nutrition and EVS capabilities with deployment switches. They retire in LEG-05 (LEG-D20).
+6. **Location Function vs Operational Type** — code and some Build labels still say Operational Type or Archetype. The older profile and Experience editor is removed (LEG-D12). Location Function binding and publishing stay. The profile tables stay until LEG-06.  
+7. **Capability switches** — retired in LEG-05 (LEG-D20). Cycles, Job Flow, evidence, Work Plans, assets, and Assignments come with the Department. Plant still follows install plus Harbor or customer access. `CANONICAL_LOGS_ENABLED` remains.

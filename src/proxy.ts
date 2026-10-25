@@ -20,7 +20,7 @@ import {
   internalRoleKeyAsAppRole,
   resolveCurrentInternalFacilityRole,
 } from "@/lib/facility-access/internal-facility-role";
-import { isCanonicalLogsEnabled, isTodaysWorkEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
 import { authorizeHarborRequest, authorizeHarborWorkFacilityRequest } from "@/lib/harbor-console/proxy-gate";
@@ -33,7 +33,6 @@ import {
 
 function routeFeatureFlags() {
   return {
-    todaysWorkEnabled: isTodaysWorkEnabled(),
     // Fail closed when omitted elsewhere — do not treat absent as enabled for Canonical Logs.
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   };

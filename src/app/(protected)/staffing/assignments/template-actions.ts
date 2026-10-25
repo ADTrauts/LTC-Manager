@@ -7,7 +7,6 @@ import { requireAtLeastRole } from "@/lib/access";
 import { sessionUserIdForFk } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
 import { randomBytes } from "node:crypto";
@@ -18,12 +17,6 @@ import {
   applyAssignmentTemplate,
 } from "@/lib/scheduling/operational-assignments";
 import { ensureWorkingCoverageDraft } from "@/lib/scheduling/coverage-expectations/service";
-
-function requireFlag() {
-  if (!isOperationalAssignmentsEnabled()) {
-    throw new Error("Operational assignments are not enabled.");
-  }
-}
 
 function opt(v: FormDataEntryValue | null): string | undefined {
   if (typeof v !== "string") return undefined;
@@ -43,12 +36,10 @@ const createTemplateSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   departmentId: z.string().min(1),
-  operationDefinitionId: z.string().min(1).optional(),
   workShiftId: z.string().min(1).optional(),
 });
 
 export async function createTemplateAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -56,7 +47,6 @@ export async function createTemplateAction(formData: FormData) {
     name: formData.get("name"),
     description: opt(formData.get("description")),
     departmentId: formData.get("departmentId"),
-    operationDefinitionId: opt(formData.get("operationDefinitionId")),
     workShiftId: opt(formData.get("workShiftId")),
   });
 
@@ -75,7 +65,6 @@ export async function createTemplateAction(formData: FormData) {
       status: "DRAFT",
       name: parsed.name,
       description: parsed.description ?? null,
-      operationDefinitionId: parsed.operationDefinitionId ?? null,
       workShiftId: parsed.workShiftId ?? null,
       createdByUserId: sessionUserIdForFk(session),
     },
@@ -92,7 +81,6 @@ const editTemplateSchema = z.object({
 });
 
 export async function editTemplateAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -138,7 +126,6 @@ const addItemSchema = z.object({
 });
 
 export async function addTemplateItemAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -194,7 +181,6 @@ export async function addTemplateItemAction(formData: FormData) {
 }
 
 export async function removeTemplateItemAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -227,7 +213,6 @@ export async function removeTemplateItemAction(formData: FormData) {
 }
 
 export async function moveTemplateItemAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -275,7 +260,6 @@ const applySchema = z.object({
 });
 
 export async function applyTemplateAction(formData: FormData) {
-  requireFlag();
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "MANAGER");
 
@@ -314,7 +298,6 @@ export async function applyTemplateAction(formData: FormData) {
     departmentId: parsed.departmentId,
     departmentKey: department.key,
     serviceDate: parsed.serviceDate,
-    operationInstanceId: preview.operationInstanceId,
     positions: preview.positions,
     createdByUserId: sessionUserIdForFk(session),
   });

@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import type { DepartmentWeekLocationCoverageProjection } from "@/lib/scheduling/department-week-location-coverage-projection";
 import {
   scheduleWeekdayLongLabel,
@@ -38,29 +37,10 @@ export function WeekLocationCoverageGrid({
   floorFilter,
   showRooms = false,
 }: Props) {
-  const oaEnabled = isOperationalAssignmentsEnabled();
   const week = projection.week;
   const floors = floorFilter
     ? projection.floors.filter((f) => f.floorUnitId === floorFilter || f.floorName === floorFilter)
     : projection.floors;
-
-  if (!oaEnabled) {
-    return (
-      <article className="rounded-xl border border-amber-200 bg-amber-50 p-4" data-testid="week-location-grid">
-        <h2 className="text-sm font-semibold text-amber-950">Location View</h2>
-        <p className="mt-1 text-sm text-amber-900">
-          Location coverage uses Daily Assignments. Enable Operational Assignments to see where
-          coverage is planned across the week. Employee View still schedules Shifts.
-        </p>
-        <Link
-          href={`/staffing?date=${anchorDate}&view=employee&mode=week`}
-          className="mt-3 inline-block text-sm font-medium text-indigo-700 hover:underline"
-        >
-          Back to Employee View
-        </Link>
-      </article>
-    );
-  }
 
   return (
     <div className="space-y-4" data-testid="week-location-grid">

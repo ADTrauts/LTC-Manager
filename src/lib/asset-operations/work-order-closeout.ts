@@ -27,11 +27,14 @@ import {
 } from "./work-order-access";
 import {
   formatWorkOrderCloseoutBlockedMessage,
+  recordMatchesPinnedRequirement,
   validateWorkOrderCloseout,
   WAIVE_REASON_MIN_LENGTH,
   type RepairAssetConditionReviewChoice,
 } from "./work-order-closeout-gate";
+import { loadCurrentOperatorsForFacilityDepartments } from "@/lib/department-operators/service";
 import { completePmOccurrenceForWorkOrder } from "@/lib/preventive-maintenance/complete-occurrence";
+import { catalogFormServesRunningDepartment } from "@/lib/preventive-maintenance/catalog-pin";
 
 export {
   formatWorkOrderCloseoutBlockedMessage,
@@ -48,12 +51,11 @@ const ACTIVE_CLOSEOUT_STATUSES: RepairStatus[] = [
   "OPEN",
   "ASSIGNED",
   "IN_PROGRESS",
-  "WAITING_PARTS",
   "WAITING_ON_VENDOR",
   "ON_HOLD",
 ];
 
-const COMPLETED_STATUSES: RepairStatus[] = ["COMPLETED", "CLOSED"];
+const COMPLETED_STATUSES: RepairStatus[] = ["COMPLETED"];
 
 export function parseNonNegativeDecimal(raw: string, scale: number): Prisma.Decimal {
   const trimmed = raw.trim();
@@ -682,7 +684,8 @@ export async function addWorkOrderRecordRequirement(
     facilityId: string;
     departmentId: string;
     repairId: string;
-    templateId: string;
+    templateId?: string | null;
+    catalogDefinitionId?: string | null;
     client?: DbClient;
   },
 ) {
@@ -695,51 +698,63 @@ export async function addWorkOrderRecordRequirement(
   }
   assertActiveWorkOrder(repair.status, "add required Records");
 
-  const template = await client.operationalTemplate.findFirst({
-    where: { id: input.templateId, facilityId: input.facilityId },
-  });
-  if (!template) throw new Error("Record template not found.");
-  if (template.status !== "PUBLISHED") {
-    throw new Error("Required Records must pin a published template version.");
-  }
-  if (
-    repair.responsibleDepartmentId &&
-    template.departmentId !== repair.responsibleDepartmentId &&
-    template.departmentId !== input.departmentId
-  ) {
-    throw new Error("Required Record template is outside this Work Order department.");
-  }
-
-  const existing = await client.repairRecordRequirement.findFirst({
-    where: { repairId: repair.id, templateId: template.id },
-  });
-  if (existing) throw new Error("That required Record is already attached.");
-
-  const last = await client.repairRecordRequirement.findFirst({
-    where: { repairId: repair.id },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-
-  const created = await client.repairRecordRequirement.create({
-    data: {
-      id: newWorkOrderCuid(),
+  if (input.catalogDefinitionId) {
+    const catalog = await client.catalogLogDefinition.findFirst({
+      where: { id: input.catalogDefinitionId, status: "PUBLISHED" },
+    });
+    if (!catalog) throw new Error("Record form not found.");
+    const departmentId = repair.responsibleDepartmentId ?? input.departmentId;
+    const operators = await loadCurrentOperatorsForFacilityDepartments(client, {
+      facilityId: input.facilityId,
+      departmentIds: [departmentId],
+    });
+    const current = operators.get(departmentId);
+    const contractedOrganizationId =
+      current?.operatingModel === "CONTRACTED" ? current.relationship.organizationId : null;
+    if (
+      !catalogFormServesRunningDepartment({
+        ownerKind: catalog.ownerKind,
+        ownerFacilityId: catalog.ownerFacilityId,
+        ownerOrganizationId: catalog.ownerOrganizationId,
+        facilityId: input.facilityId,
+        contractedOrganizationId,
+      })
+    ) {
+      throw new Error("This Record is not a form of the Department running this work order.");
+    }
+    const already = await client.repairRecordRequirement.findFirst({
+      where: { repairId: repair.id, catalogDefinitionId: catalog.id },
+    });
+    if (already) throw new Error("That required Record is already attached.");
+    const lastCatalog = await client.repairRecordRequirement.findFirst({
+      where: { repairId: repair.id },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    const createdCatalog = await client.repairRecordRequirement.create({
+      data: {
+        id: newWorkOrderCuid(),
+        repairId: repair.id,
+        catalogDefinitionId: catalog.id,
+        catalogStableKey: catalog.stableKey,
+        catalogVersion: catalog.version,
+        templateName: catalog.name,
+        templateStableKey: catalog.stableKey,
+        templateVersion: catalog.version,
+        sortOrder: (lastCatalog?.sortOrder ?? 0) + 1,
+        createdByUserId: sessionUserIdForFk(session),
+      },
+    });
+    await appendRepairUpdate(client, {
       repairId: repair.id,
-      templateId: template.id,
-      templateStableKey: template.stableKey,
-      templateVersion: template.version,
-      templateName: template.name,
-      sortOrder: (last?.sortOrder ?? 0) + 1,
-      createdByUserId: sessionUserIdForFk(session),
-    },
-  });
-  await appendRepairUpdate(client, {
-    repairId: repair.id,
-    updateText: `Required Record added: ${template.name} v${template.version}`,
-    statusAfterUpdate: repair.status,
-    updatedById: sessionUserIdForFk(session),
-  });
-  return created;
+      updateText: `Required Record added: ${catalog.name} v${catalog.version}`,
+      statusAfterUpdate: repair.status,
+      updatedById: sessionUserIdForFk(session),
+    });
+    return createdCatalog;
+  }
+
+  throw new Error("Select a published Record.");
 }
 
 export async function removeWorkOrderRecordRequirement(
@@ -817,12 +832,12 @@ export async function satisfyWorkOrderRecordRequirement(
     where: { id: input.evidenceRecordId, facilityId: input.facilityId },
   });
   if (!record) throw new Error("Record not found.");
-  if (record.templateId !== requirement.templateId) {
-    throw new Error("Record does not match the pinned required template.");
-  }
-  if (record.templateVersion !== requirement.templateVersion) {
-    throw new Error("Record does not match the pinned template version.");
-  }
+  const match = recordMatchesPinnedRequirement({
+    requirement,
+    record,
+    assetId: repair.assetId,
+  });
+  if (!match.ok) throw new Error(match.reason);
   if (
     record.status !== "COMPLETED" &&
     record.status !== "COMPLETED_WITH_CORRECTIVE_ACTION"
@@ -945,7 +960,7 @@ export async function applyWorkOrderCloseoutCompletion(
     repairId: input.repairId,
   });
   const repair = await loadWorkOrderScoped(input.client, input.repairId, input.facilityId);
-  if (repair.status === "COMPLETED" || repair.status === "CLOSED") {
+  if (repair.status === "COMPLETED") {
     return repair;
   }
   if (repair.status === "CANCELLED") {
@@ -956,7 +971,10 @@ export async function applyWorkOrderCloseoutCompletion(
   }
 
   const workPerformed =
-    input.workPerformed?.trim() || repair.workPerformed?.trim() || "";
+    input.workPerformed?.trim() ||
+    repair.workPerformed?.trim() ||
+    input.resolution?.trim() ||
+    "";
   const review = input.assetConditionReview ?? repair.assetConditionReview ?? null;
   if (!repair.assetId && review) {
     throw new Error("Location-only Work Orders do not include Asset condition review.");
@@ -1005,7 +1023,6 @@ export async function applyWorkOrderCloseoutCompletion(
       completedAt: now,
       startedAt: repair.startedAt ?? now,
       workPerformed,
-      resolution: input.resolution?.trim() || repair.resolution,
       followUpRequired: input.followUpRequired ?? repair.followUpRequired,
       followUpNote:
         input.followUpNote !== undefined

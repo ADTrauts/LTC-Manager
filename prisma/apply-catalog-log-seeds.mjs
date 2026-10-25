@@ -1,8 +1,10 @@
 /**
  * Idempotent platform Catalog seeds for Canonical Logs (Prisma seed).
- * Keep in sync with src/lib/canonical-logs/catalog-seed.ts
+ * The definitions used by LEG-01 preset matching live here and in catalog-seed.ts.
  */
 import { randomBytes } from "node:crypto";
+
+import { STANDARD_DEPARTMENT_FORMS } from "./standard-department-forms.mjs";
 
 function cuidLike() {
   return `c${randomBytes(12).toString("hex")}`;
@@ -10,6 +12,7 @@ function cuidLike() {
 
 /** @type {const} */
 export const CATALOG_SEED_DEFINITIONS = [
+  ...STANDARD_DEPARTMENT_FORMS,
   {
     stableKey: "cooler_temperature_log",
     version: 1,
@@ -170,6 +173,77 @@ export const CATALOG_SEED_DEFINITIONS = [
       },
     ],
   },
+  {
+    stableKey: "food_temperature_log",
+    version: 1,
+    name: "Food Temperature Log",
+    description: "Record prepared or held food temperatures during service.",
+    instructions:
+      "Check the food temperature with a clean, calibrated thermometer. Enter the reading and note the item. Mark Needs Attention if the food is not safe to serve, then document corrective action.",
+    purposeType: "LOG",
+    category: "FOOD_SAFETY",
+    recommendedCadence: "ONCE_PER_OPERATIONAL_CYCLE",
+    recommendedScheduleKind: "OPERATIONAL_CYCLE",
+    recommendedDaypartLabels: [],
+    suggestions: {
+      assetTypes: [],
+      spaceTypes: ["KITCHEN", "SERVERY"],
+      departmentKeys: ["DIETARY"],
+      keywords: ["food", "temperature", "hot holding", "cold holding"],
+    },
+    fields: [
+      { fieldKey: "item_name", label: "Food item", fieldType: "SHORT_TEXT", displaySequence: 10, helpText: "What food was checked." },
+      { fieldKey: "food_temperature", label: "Temperature", fieldType: "TEMPERATURE", displaySequence: 20, unitLabel: "°F", helpText: "Enter the measured temperature. Use local policy for acceptable ranges." },
+      { fieldKey: "result", label: "Result", fieldType: "PASS_NEEDS_ATTENTION", displaySequence: 30, correctiveActionTrigger: true, correctiveActionRequired: true, allowedSelections: ["PASS", "NEEDS_ATTENTION"] },
+    ],
+  },
+  {
+    stableKey: "receiving_temperature_log",
+    version: 1,
+    name: "Receiving Temperature Log",
+    description: "Record temperatures of incoming refrigerated or frozen deliveries.",
+    instructions:
+      "Check product temperature at receiving. Enter the item and reading. Mark Needs Attention if the delivery is not acceptable, then document corrective action.",
+    purposeType: "LOG",
+    category: "FOOD_SAFETY",
+    recommendedCadence: "AD_HOC",
+    recommendedScheduleKind: null,
+    recommendedDaypartLabels: [],
+    suggestions: {
+      assetTypes: [],
+      spaceTypes: ["RECEIVING", "KITCHEN"],
+      departmentKeys: ["DIETARY"],
+      keywords: ["receiving", "delivery", "temperature"],
+    },
+    fields: [
+      { fieldKey: "product_name", label: "Product", fieldType: "SHORT_TEXT", displaySequence: 10 },
+      { fieldKey: "receiving_temperature", label: "Temperature", fieldType: "TEMPERATURE", displaySequence: 20, unitLabel: "°F", helpText: "Enter the measured receiving temperature. Use local receiving policy for limits." },
+      { fieldKey: "result", label: "Result", fieldType: "PASS_NEEDS_ATTENTION", displaySequence: 30, correctiveActionTrigger: true, correctiveActionRequired: true, allowedSelections: ["PASS", "NEEDS_ATTENTION"] },
+    ],
+  },
+  {
+    stableKey: "freezer_temperature_log",
+    version: 1,
+    name: "Freezer Temperature Log",
+    description: "Record freezer temperatures on a twice-daily schedule.",
+    instructions:
+      "Check the freezer thermometer. Enter the temperature. Mark Needs Attention if the unit is not holding, then document corrective action.",
+    purposeType: "LOG",
+    category: "TEMPERATURE",
+    recommendedCadence: "TWICE_DAILY",
+    recommendedScheduleKind: "FIXED_DAILY_WINDOW",
+    recommendedDaypartLabels: ["Morning", "Afternoon"],
+    suggestions: {
+      assetTypes: ["FREEZER", "REACH_IN_FREEZER", "WALK_IN_FREEZER"],
+      spaceTypes: [],
+      departmentKeys: ["DIETARY"],
+      keywords: ["freezer", "temperature"],
+    },
+    fields: [
+      { fieldKey: "freezer_temperature", label: "Freezer temperature", fieldType: "TEMPERATURE", displaySequence: 10, unitLabel: "°F", helpText: "Enter the measured freezer temperature. Use the range posted on this unit." },
+      { fieldKey: "result", label: "Result", fieldType: "PASS_NEEDS_ATTENTION", displaySequence: 20, correctiveActionTrigger: true, correctiveActionRequired: true, allowedSelections: ["PASS", "NEEDS_ATTENTION"] },
+    ],
+  },
 ];
 
 /**
@@ -206,6 +280,9 @@ export async function upsertPublishedCatalogSeeds(prisma) {
         recommendedScheduleKind: seed.recommendedScheduleKind,
         recommendedDaypartLabels: seed.recommendedDaypartLabels,
         suggestionsJson: seed.suggestions,
+        passingScore: seed.passingScore ?? null,
+        criticalFailureForcesFailure: seed.criticalFailureForcesFailure === true,
+        sectionsJson: seed.sections ?? [],
         publishedAt: new Date(),
         fields: {
           create: seed.fields.map((f) => ({
@@ -222,6 +299,10 @@ export async function upsertPublishedCatalogSeeds(prisma) {
             allowedSelections: f.allowedSelections ?? [],
             correctiveActionTrigger: f.correctiveActionTrigger === true,
             correctiveActionRequired: f.correctiveActionRequired === true,
+            sectionKey: f.sectionKey ?? null,
+            scoreWeight: f.scoreWeight ?? null,
+            critical: f.critical === true,
+            creditValues: f.creditValues ?? [],
           })),
         },
       },

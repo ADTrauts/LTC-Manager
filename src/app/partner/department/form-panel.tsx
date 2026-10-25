@@ -21,7 +21,7 @@ export function VendorFormPanel({
     <section className="rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="vendor-forms">
       <h2 className="text-sm font-semibold text-zinc-900">Forms</h2>
       <p className="mt-1 text-sm text-zinc-600">
-        A form you build belongs to your organization. It can be used at every facility you run, and nowhere else.
+        A form you build belongs to your organization. Publishing installs it at every facility that organization runs.
       </p>
       <form action={createAction} className="mt-3 space-y-2">
         <label className="block text-sm text-zinc-700">

@@ -5,7 +5,7 @@
 export const PLANT_STARTER_PACKAGE_NAME = "Plant Operations starter configuration";
 
 export const PLANT_STARTER_INTRO =
-  "Optional examples to help your Facility get started. Review and select what to add. Installed items become Facility-owned drafts — they are not published automatically and are not regulatory compliance.";
+  "Optional examples to help your Facility get started. Work examples stay drafts. Record examples install Vssyl's published forms. They are not regulatory compliance.";
 
 export type PlantStarterKind = "work" | "record";
 export type PlantStarterPresence = "none" | "partial" | "added";

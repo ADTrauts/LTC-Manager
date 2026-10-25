@@ -51,10 +51,18 @@ export function buildFallbackMorningBrief(snapshot: OperationalSnapshot): Mornin
   }
 
   const { needsAttention, inProgress: ip, ready } = snapshot.readiness;
-  const op = snapshot.activeOperation.label;
+  const op = snapshot.activeOperation?.label ?? null;
 
   let headline: string;
-  if (needsAttention === 0 && ip === 0) {
+  if (!op) {
+    if (needsAttention === 0 && ip === 0) {
+      headline = `No published Cycle is underway across ${ready} ready location${ready === 1 ? "" : "s"}.`;
+    } else if (needsAttention > 0) {
+      headline = `${needsAttention} location${needsAttention === 1 ? "" : "s"} need attention. No published Cycle is underway.`;
+    } else {
+      headline = `${ip} location${ip === 1 ? "" : "s"} in progress. No published Cycle is underway.`;
+    }
+  } else if (needsAttention === 0 && ip === 0) {
     headline = `${op} is generally on track across ${ready} ready location${ready === 1 ? "" : "s"}.`;
   } else if (needsAttention > 0) {
     headline = `${op}: ${needsAttention} location${needsAttention === 1 ? "" : "s"} need attention.`;
@@ -68,7 +76,11 @@ export function buildFallbackMorningBrief(snapshot: OperationalSnapshot): Mornin
       `Start with ${priorities[0]!.title}: ${priorities[0]!.reason.replace(/\.$/, "")}.`,
     );
   } else {
-    summaryParts.push("No Needs Attention locations are currently flagged for the active operation.");
+    summaryParts.push(
+      snapshot.activeOperation
+        ? "No Needs Attention locations are currently flagged for the published Cycle."
+        : "No Needs Attention locations are currently flagged.",
+    );
   }
   if (snapshot.staffing.gaps > 0 || snapshot.staffing.openCallDowns > 0) {
     summaryParts.push("Review staffing coverage and call-downs before service.");

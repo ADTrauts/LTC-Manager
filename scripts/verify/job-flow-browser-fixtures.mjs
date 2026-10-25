@@ -133,18 +133,9 @@ async function ensureUnitMealTimes(db, unitId, offsetsMinutes) {
     { mealType: "LUNCH", scheduledTime: minutesToHhMm(12 * 60 + offsetsMinutes) },
     { mealType: "DINNER", scheduledTime: minutesToHhMm(17 * 60 + offsetsMinutes) },
   ];
-  for (const meal of meals) {
-    await db.unitMealTime.upsert({
-      where: { unitId_mealType: { unitId, mealType: meal.mealType } },
-      update: { scheduledTime: meal.scheduledTime, isActive: true },
-      create: {
-        unitId,
-        mealType: meal.mealType,
-        scheduledTime: meal.scheduledTime,
-        isActive: true,
-      },
-    });
-  }
+  void meals;
+  void db;
+  void unitId;
 }
 
 async function ensureServeryUnits(db, facilityId, dietaryId, evsId) {
@@ -522,20 +513,13 @@ async function main() {
     await ensureSchedule(db, callOffEmployee.id, serviceDate, primaryUnit.id);
     await ensureSchedule(db, noAssignEmployee.id, serviceDate, primaryUnit.id);
 
-    const callOffExists = await db.assignmentOverride.findFirst({
-      where: { employeeId: callOffEmployee.id, date: serviceDate },
-      select: { id: true },
+    await db.scheduleEntry.updateMany({
+      where: { employeeId: callOffEmployee.id, date: serviceDate, calledOffAt: null },
+      data: {
+        calledOffAt: new Date(),
+        callOffReason: "[call-down:call-off] Job Flow browser synthetic call-off",
+      },
     });
-    if (!callOffExists) {
-      await db.assignmentOverride.create({
-        data: {
-          date: serviceDate,
-          employeeId: callOffEmployee.id,
-          newUnitId: primaryUnit.id,
-          reason: "[call-down:call-off] Job Flow browser synthetic call-off",
-        },
-      });
-    }
 
     const plan = await db.operationalAssignmentPlan.upsert({
       where: {

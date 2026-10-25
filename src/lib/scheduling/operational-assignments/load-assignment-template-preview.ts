@@ -21,8 +21,6 @@ export async function loadAssignmentTemplatePreview(
     select: {
       id: true,
       name: true,
-      operationDefinitionId: true,
-      operationDefinition: { select: { label: true } },
       items: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -56,25 +54,8 @@ export async function loadAssignmentTemplatePreview(
     };
   }
 
-  let operationInstanceId: string | null = null;
-  let operationLabel: string | null = template.operationDefinition?.label ?? null;
-
-  if (template.operationDefinitionId) {
-    const dateStart = new Date(`${input.serviceDate}T00:00:00`);
-    const instance = await prisma.operationInstance.findFirst({
-      where: {
-        definitionId: template.operationDefinitionId,
-        serviceDate: dateStart,
-        facilityId: input.facilityId,
-        status: { in: ["SCHEDULED", "PREPARATION", "EXECUTION"] },
-      },
-      select: { id: true, label: true },
-    });
-    if (instance) {
-      operationInstanceId = instance.id;
-      operationLabel = instance.label;
-    }
-  }
+  const operationInstanceId: string | null = null;
+  const operationLabel: string | null = null;
 
   const activeAssignments = boardAssignments.filter(
     (a) => a.status === "PLANNED" || a.status === "ACTIVE",
@@ -135,10 +116,6 @@ export async function loadAssignmentTemplatePreview(
         suggestedReason: suggestion?.reason ?? (existing ? null : "No eligible employee found"),
       });
     }
-  }
-
-  if (template.operationDefinitionId && !operationInstanceId) {
-    warnings.push("No operation instance found for this date. Assignments will use the service date only.");
   }
 
   const totalRequired = positions.length;

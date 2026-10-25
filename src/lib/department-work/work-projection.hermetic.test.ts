@@ -1224,7 +1224,7 @@ test("generic nested Phase-bound Work uses Phase window without Dietary branchin
   assert.equal(reqs[0]!.windowEndLocal, "11:00");
 });
 
-test("builder preserves multiple cycle checkboxes and defaults Work Plans on with rollback", () => {
+test("builder preserves multiple cycle checkboxes and Work Plans are not an env switch", () => {
   const builder = readFileSync(
     join(process.cwd(), "src/components/department-work/work-plan-builder-panel.tsx"),
     "utf8",
@@ -1238,7 +1238,9 @@ test("builder preserves multiple cycle checkboxes and defaults Work Plans on wit
   assert.doesNotMatch(builder, /DepartmentRoomArchetype/);
 
   const flags = readFileSync(join(process.cwd(), "src/lib/feature-flags.ts"), "utf8");
-  assert.match(flags, /parseEnvFlag\(process\.env\.DIETARY_WORK_PLANS_ENABLED, true\)/);
+  assert.doesNotMatch(flags, /DIETARY_WORK_PLANS_ENABLED/);
+  const operations = readFileSync(join(process.cwd(), "src/lib/department-operations.ts"), "utf8");
+  assert.match(operations, /function sharedEngineEnabled/);
 
   const resolver = readFileSync(
     join(process.cwd(), "src/lib/department-work/resolve-requirements.ts"),

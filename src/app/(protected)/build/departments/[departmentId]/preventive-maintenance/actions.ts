@@ -65,6 +65,7 @@ function parseDraft(formData: FormData): PmPlanDraftInput & { assetId: string } 
     String(formData.get("defaultAssignedEmployeeId") ?? "").trim() || null;
   const instructions = String(formData.get("instructions") ?? "").trim() || null;
   const templateIds = formData.getAll("recordTemplateId").map((value) => String(value).trim()).filter(Boolean);
+  const catalogIds = formData.getAll("recordCatalogId").map((value) => String(value).trim()).filter(Boolean);
 
   return {
     assetId,
@@ -78,7 +79,13 @@ function parseDraft(formData: FormData): PmPlanDraftInput & { assetId: string } 
     priority: priority as RepairPriority,
     procedureVersionId,
     defaultAssignedEmployeeId,
-    recordRequirements: templateIds.map((templateId, sortOrder) => ({ templateId, sortOrder })),
+    recordRequirements: [
+      ...catalogIds.map((catalogDefinitionId, sortOrder) => ({ catalogDefinitionId, sortOrder })),
+      ...templateIds.map((templateId, sortOrder) => ({
+        templateId,
+        sortOrder: catalogIds.length + sortOrder,
+      })),
+    ],
   };
 }
 

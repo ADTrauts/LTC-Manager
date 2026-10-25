@@ -10,7 +10,6 @@ import {
 } from "@/app/(protected)/staffing/schedule/actions";
 import { ScheduleReturnFields } from "@/components/scheduling/schedule-return-fields";
 import { WorkShiftPrefillFields } from "@/components/scheduling/work-shift-prefill-fields";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import type { DepartmentWeekScheduleBundle } from "@/lib/scheduling/load-department-week-schedule";
 import {
   filterDepartmentWeekEmployees,
@@ -83,7 +82,6 @@ export function WeekEmployeeScheduleGrid({
     scheduledOnly: filters.scheduled === "scheduled",
     unscheduledOnly: filters.scheduled === "unscheduled",
   });
-  const oaEnabled = isOperationalAssignmentsEnabled();
   const manage = canManage && !readOnly;
   const weekSummary = (
     <p className="text-xs text-zinc-500" data-testid="week-summary">
@@ -425,7 +423,7 @@ export function WeekEmployeeScheduleGrid({
                                       : null}
                                 </li>
                               ) : null}
-                              {oaEnabled && day.needsAssignment ? (
+                              {day.needsAssignment ? (
                                 <li>
                                   <Link
                                     href={`/staffing/assignments?date=${day.serviceDate}`}

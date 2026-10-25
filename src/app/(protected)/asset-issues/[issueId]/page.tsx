@@ -98,12 +98,7 @@ export default async function AssetIssueDetailPage({ params }: Props) {
   const canTriage = authority.canTriageIssue;
   const canManageWo = authority.canManageWorkOrders;
   const canChangeStatus = Boolean(detail.assetId) && authority.canChangeAssetStatus;
-  const linkedWorkOrders =
-    detail.workOrders.length > 0
-      ? detail.workOrders
-      : detail.workOrder
-        ? [detail.workOrder]
-        : [];
+  const linkedWorkOrders = detail.workOrders;
 
   return (
     <section className="space-y-6" data-testid="asset-issue-detail">

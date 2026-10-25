@@ -8,7 +8,6 @@ import { hasAtLeastRole } from "@/lib/access";
 import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { getSession } from "@/lib/auth";
 import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
 import {
   loadDailyAssignmentBoard,
@@ -55,7 +54,6 @@ import {
   retireDepartmentZoneAction,
 } from "./zone-actions";
 import { loadZonesForDepartment } from "@/lib/department-zones";
-import { isEvsOperationsEnabled } from "@/lib/feature-flags";
 
 function getToday() {
   const date = new Date();
@@ -93,10 +91,6 @@ type AssignmentPageProps = {
 
 export default async function AssignmentBoardPage({ searchParams }: AssignmentPageProps) {
   noStore();
-
-  if (!isOperationalAssignmentsEnabled()) {
-    redirect("/staffing");
-  }
 
   const session = await getSession();
   if (!session?.facilityId) {
@@ -166,7 +160,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
       })
     : null;
 
-  const isEvsDept = deptKey === "EVS" && isEvsOperationsEnabled();
+  const isEvsDept = deptKey === "EVS";
   const locationCoverage =
     isEvsDept && deptNav.activeDepartmentId
       ? await buildLocationCoverageSummary(prisma, {
@@ -192,7 +186,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           facilityId: session.facilityId,
           departmentId: deptNav.activeDepartmentId,
           departmentKey: deptKey,
-          serviceDate: selectedDateIso,
         })
       : null,
     canEdit && deptNav.activeDepartmentId && deptKey
@@ -369,9 +362,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <Link href={`/staffing?date=${selectedDateIso}`} className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
               Schedule
             </Link>
-            <Link href={`/staffing/legacy?date=${selectedDateIso}`} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50">
-              Legacy unit staffing
-            </Link>
             {isAnyStaffingOperationalFeatureEnabled("cycles", deptKey) ? (
               <Link
                 href="/staffing/cycles"
@@ -429,20 +419,12 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                   ))}
                 </select>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Unit (optional)…</option>
-                  {formOptions.units.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-                <select name="operationInstanceId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Operation (optional)…</option>
-                  {formOptions.operations.map((o) => (
-                    <option key={o.id} value={o.id}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
+              <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+                <option value="">Unit (optional)…</option>
+                {formOptions.units.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
               {isEvsDept && formOptions.spaces.length > 0 ? (
                 <AssignmentSpaceScopePicker
                   spaces={formOptions.spaces}

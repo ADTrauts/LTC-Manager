@@ -1,10 +1,10 @@
 import { workOrderStatusAuthorityLabel } from "@/lib/asset-operations/work-order-semantics";
-import { buildQuickActions } from "@/lib/business-workspace/build-quick-actions";
-import { resolveCompositionConfig } from "@/lib/business-workspace/workspace-composition";
-import type { WorkspaceContext } from "@/lib/business-workspace/types";
+import { buildQuickActions } from "@/lib/dashboard/shortcuts/build-quick-actions";
+import { resolveCompositionConfig } from "@/lib/dashboard/shortcuts/workspace-composition";
+import type { WorkspaceContext } from "@/lib/dashboard/shortcuts/types";
 import { emptyPmRunBoardCounts, type PmRunBoardCounts } from "@/lib/preventive-maintenance/run-board";
 import { filterCallDownsToProjectedUnits } from "@/lib/todays-work/projection/assemble";
-import { presentHandoffsFromBoard } from "@/lib/todays-work/present-handoffs-from-board";
+import { presentHandoffsFromBoard } from "@/lib/staffing/handoffs/present-handoffs-from-board";
 
 import { mergeAttentionItems, scopeAttentionToViewer } from "../attention";
 import { attentionFromAssetExceptions } from "../attention-mappers/asset-exceptions";

@@ -320,7 +320,7 @@ export async function createWorkOrderFromAssetIssueAction(formData: FormData) {
   });
 
   revalidateIssueViews(issueId);
-  revalidatePath(`/issues/${wo.id}`);
+  revalidatePath(`/repairs/${wo.id}`);
   revalidatePath(`/repairs/${wo.id}`);
 }
 
@@ -360,19 +360,21 @@ export async function updateWorkOrderStatusAction(formData: FormData) {
       facilityId: session.facilityId,
       departmentId,
       repairId,
-      toStatus: toStatus as
+      toStatus: (toStatus === "CLOSED"
+        ? "COMPLETED"
+        : toStatus === "WAITING_PARTS"
+          ? "ON_HOLD"
+          : toStatus) as
         | "OPEN"
         | "ASSIGNED"
         | "IN_PROGRESS"
-        | "WAITING_PARTS"
         | "WAITING_ON_VENDOR"
         | "ON_HOLD"
         | "COMPLETED"
-        | "CANCELLED"
-        | "CLOSED",
+        | "CANCELLED",
     });
   }
 
-  revalidatePath(`/issues/${repairId}`);
+  revalidatePath(`/repairs/${repairId}`);
   revalidatePath("/staffing/operations");
 }

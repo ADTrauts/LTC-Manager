@@ -18,7 +18,7 @@ import {
 import { resolveProductAreaLabel, resolveProductModeForPath } from "@/lib/product-mode";
 import { roleMayAccessRoute } from "@/lib/route-registry/authorize";
 
-const FLAGS = { todaysWorkEnabled: true, canonicalLogsEnabled: true };
+const FLAGS = { canonicalLogsEnabled: true };
 
 function source(relative: string) {
   return readFileSync(join(process.cwd(), relative), "utf8");

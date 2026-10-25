@@ -8,7 +8,6 @@ import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
 
 const FLAGS = {
-  todaysWorkEnabled: true,
   dietaryOperationalEvidenceEnabled: true,
   dietaryWorkPlansEnabled: true,
 };

@@ -200,14 +200,14 @@ test("Console delivery copy distinguishes sent from delivered and surfaces probl
 
 test("the outbound delivery webhook is a public route: no Harbor or facility session is consulted", () => {
   assert.equal(
-    authorizeRoute({ pathname: "/api/support/email-events", role: null, featureFlags: { todaysWorkEnabled: true } }).outcome,
+    authorizeRoute({ pathname: "/api/support/email-events", role: null, featureFlags: { } }).outcome,
     "ALLOW",
   );
   assert.equal(
     authorizeRoute({
       pathname: "/api/support/email-events",
       role: "FACILITY_ADMINISTRATOR",
-      featureFlags: { todaysWorkEnabled: true },
+      featureFlags: { },
     }).outcome,
     "ALLOW",
   );
@@ -215,7 +215,7 @@ test("the outbound delivery webhook is a public route: no Harbor or facility ses
     authorizeRoute({
       pathname: "/api/console/support-attachments/x",
       role: "FACILITY_ADMINISTRATOR",
-      featureFlags: { todaysWorkEnabled: true },
+      featureFlags: { },
     }).outcome,
     "DENY",
   );

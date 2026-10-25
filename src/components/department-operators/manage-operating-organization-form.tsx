@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 
 import {
   assignDepartmentOperatorAction,
-  createOrganizationAndAssignOperatorAction,
   searchOperatorOrganizationsAction,
 } from "@/app/(protected)/admin/departments/[departmentId]/operator-actions";
 
@@ -40,8 +39,7 @@ export function ManageOperatingOrganizationForm({
   const [selectedLabel, setSelectedLabel] = useState<string>(
     currentOrganizationLabel ?? facilityOrganizationLabel,
   );
-  const [createName, setCreateName] = useState("");
-  const [mode, setMode] = useState<"existing" | "create">("existing");
+  const [searched, setSearched] = useState(false);
 
   async function runSearch() {
     setError(null);
@@ -52,6 +50,7 @@ export function ManageOperatingOrganizationForm({
       return;
     }
     setResults(response.results);
+    setSearched(true);
   }
 
   function onAssignExisting(formData: FormData) {
@@ -68,49 +67,9 @@ export function ManageOperatingOrganizationForm({
     });
   }
 
-  function onCreateAndAssign(formData: FormData) {
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      const result = await createOrganizationAndAssignOperatorAction(formData);
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      setMessage(result.message ?? "Saved.");
-      router.refresh();
-    });
-  }
-
   return (
     <div className="space-y-5" data-testid="manage-operating-organization-form">
-      <div className="flex flex-wrap gap-2 text-sm">
-        <button
-          type="button"
-          className={
-            mode === "existing"
-              ? "rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white"
-              : "rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700"
-          }
-          onClick={() => setMode("existing")}
-        >
-          Select existing
-        </button>
-        <button
-          type="button"
-          className={
-            mode === "create"
-              ? "rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white"
-              : "rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700"
-          }
-          onClick={() => setMode("create")}
-        >
-          Create organization
-        </button>
-      </div>
-
-      {mode === "existing" ? (
-        <form action={onAssignExisting} className="space-y-3">
+      <form action={onAssignExisting} className="space-y-3">
           <input type="hidden" name="departmentId" value={departmentId} />
           <input type="hidden" name="organizationId" value={selectedId ?? ""} />
           <input type="hidden" name="replaceFutureScheduled" value="on" />
@@ -165,6 +124,10 @@ export function ManageOperatingOrganizationForm({
                   </li>
                 ))}
               </ul>
+            ) : searched ? (
+              <p className="text-sm text-amber-800" data-testid="operator-org-missing">
+                No matching company. Vssyl Console must create it before this facility can attach it.
+              </p>
             ) : null}
             {selectedId ? (
               <p className="text-sm text-zinc-700" data-testid="selected-operator-org">
@@ -185,45 +148,7 @@ export function ManageOperatingOrganizationForm({
           >
             {pending ? "Saving…" : "Save operating organization"}
           </button>
-        </form>
-      ) : (
-        <form action={onCreateAndAssign} className="space-y-3">
-          <input type="hidden" name="departmentId" value={departmentId} />
-          <input type="hidden" name="replaceFutureScheduled" value="on" />
-
-          <div className="space-y-2">
-            <label htmlFor="organizationName" className="block text-sm font-medium text-zinc-700">
-              New organization name
-            </label>
-            <input
-              id="organizationName"
-              name="organizationName"
-              value={createName}
-              onChange={(event) => setCreateName(event.target.value)}
-              className="app-input w-full"
-              maxLength={200}
-              required
-              placeholder="Metz Culinary Management"
-              data-testid="create-operator-org-name"
-            />
-            <p className="text-xs text-zinc-500">
-              Creates a platform Organization record for operator identity only. It does not grant
-              users from that Organization access to this facility.
-            </p>
-          </div>
-
-          <DateAndMetaFields defaultEffectiveFromKey={defaultEffectiveFromKey} />
-
-          <button
-            type="submit"
-            disabled={pending || createName.trim().length < 2}
-            className="inline-flex min-h-10 items-center rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white disabled:opacity-50"
-            data-testid="create-and-assign-operating-organization"
-          >
-            {pending ? "Saving…" : "Create and assign"}
-          </button>
-        </form>
-      )}
+      </form>
 
       {error ? (
         <p className="text-sm text-red-700" data-testid="operator-action-error">

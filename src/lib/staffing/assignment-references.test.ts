@@ -197,6 +197,7 @@ test("a fully in-scope combination is accepted", { skip }, async () => {
     operationInstanceId: f.a.operationInstanceId,
   });
   assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.operationInstanceId, null);
 });
 
 test("omitting both optional references is accepted", { skip }, async () => {
@@ -213,7 +214,7 @@ test("omitting both optional references is accepted", { skip }, async () => {
   assert.equal(result.ok, true);
 });
 
-test("another facility's OperationInstance is rejected", { skip }, async () => {
+test("a posted operation id from another facility is not attached", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
 
@@ -224,11 +225,11 @@ test("another facility's OperationInstance is rejected", { skip }, async () => {
     unitId: null,
     operationInstanceId: f.b.operationInstanceId,
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.ok === false && result.reason, "OPERATION_NOT_FOUND");
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.operationInstanceId, null);
 });
 
-test("another department's OperationInstance is rejected within the same facility", { skip }, async () => {
+test("a posted operation id from another department is not attached", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
 
@@ -239,11 +240,11 @@ test("another department's OperationInstance is rejected within the same facilit
     unitId: null,
     operationInstanceId: f.a.otherDepartmentOperationInstanceId,
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.ok === false && result.reason, "OPERATION_DEPARTMENT_MISMATCH");
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.operationInstanceId, null);
 });
 
-test("an OperationInstance for a different service date is rejected", { skip }, async () => {
+test("a posted operation id for another date is not attached", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
 
@@ -254,8 +255,8 @@ test("an OperationInstance for a different service date is rejected", { skip }, 
     unitId: null,
     operationInstanceId: f.a.otherDateOperationInstanceId,
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.ok === false && result.reason, "OPERATION_DATE_MISMATCH");
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.operationInstanceId, null);
 });
 
 test("another facility's Unit is rejected", { skip }, async () => {
@@ -273,7 +274,7 @@ test("another facility's Unit is rejected", { skip }, async () => {
   assert.equal(result.ok === false && result.reason, "UNIT_NOT_FOUND");
 });
 
-test("a Unit and OperationInstance from different departments are rejected as incoherent", { skip }, async () => {
+test("a unit stays accepted when a posted operation id belongs to another department", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
 
@@ -286,8 +287,8 @@ test("a Unit and OperationInstance from different departments are rejected as in
     unitId: f.a.unitId,
     operationInstanceId: f.a.otherDepartmentOperationInstanceId,
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.ok === false && result.reason, "UNIT_OPERATION_MISMATCH");
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.operationInstanceId, null);
 });
 
 test("a unit that declares no department responsibilities is not treated as excluded", { skip }, async () => {
@@ -316,7 +317,7 @@ test("a unit that declares no department responsibilities is not treated as excl
   assert.equal(result.ok, true);
 });
 
-test("a nonexistent OperationInstance is rejected the same way as a forbidden one", { skip }, async () => {
+test("a missing operation id is ignored the same way as one from another facility", { skip }, async () => {
   const f = await getFixture();
   if (!f) return;
 
@@ -335,14 +336,10 @@ test("a nonexistent OperationInstance is rejected the same way as a forbidden on
     operationInstanceId: f.b.operationInstanceId,
   });
 
-  assert.equal(missing.ok, false);
-  assert.equal(forbidden.ok, false);
-  // Identical outcome and identical message: the caller cannot tell an id that does not exist from
-  // one that exists in a facility they cannot see.
-  assert.equal(
-    missing.ok === false && forbidden.ok === false && missing.reason === forbidden.reason,
-    true,
-  );
+  assert.equal(missing.ok, true);
+  assert.equal(forbidden.ok, true);
+  if (missing.ok) assert.equal(missing.operationInstanceId, null);
+  if (forbidden.ok) assert.equal(forbidden.operationInstanceId, null);
   assert.equal(
     f.lib.describeAssignmentReferenceRejection("OPERATION_NOT_FOUND"),
     f.lib.describeAssignmentReferenceRejection("OPERATION_DEPARTMENT_MISMATCH"),

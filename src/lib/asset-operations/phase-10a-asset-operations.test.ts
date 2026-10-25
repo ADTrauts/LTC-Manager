@@ -349,48 +349,14 @@ test(
       assert.ok(dup.duplicateOf);
 
       const template =
-        (await prisma.operationalTemplate.findFirst({
-          where: {
-            facilityId: fx.facility.id,
-            departmentId: fx.dietary.id,
-            status: "PUBLISHED",
-          },
-          select: {
-            id: true,
-            name: true,
-            version: true,
-            purposeType: true,
-            stableKey: true,
-          },
-        })) ??
-        (await prisma.operationalTemplate.create({
-          data: {
-            id: cuidLike(),
-            facilityId: fx.facility.id,
-            departmentId: fx.dietary.id,
-            name: "10A Link Template",
-            purposeType: "LOG",
-            status: "PUBLISHED",
-            version: 1,
-            stableKey: `sk-${cuidLike()}`,
-            allowAdHoc: true,
-            publishedAt: new Date(),
-          },
-          select: {
-            id: true,
-            name: true,
-            version: true,
-            purposeType: true,
-            stableKey: true,
-          },
-        }));
+        (await null) ??
+        (await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] }));
 
       const evidence = await prisma.operationalEvidenceRecord.create({
         data: {
           id: cuidLike(),
           facilityId: fx.facility.id,
           departmentId: fx.dietary.id,
-          templateId: template.id,
           templateStableKey: template.stableKey,
           templateName: template.name,
           templateVersion: template.version,
@@ -541,7 +507,8 @@ test(
       const linked = await prisma.assetIssue.findUniqueOrThrow({
         where: { id: reported.issue.id },
       });
-      assert.equal(linked.workOrderId, woFromIssue.id);
+      assert.equal(linked.workOrderId, null);
+      assert.equal(woFromIssue.issueId, reported.issue.id);
 
       const direct = await createWorkOrderDirect(mgr, {
         facilityId: fx.facility.id,

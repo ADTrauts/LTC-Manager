@@ -7,7 +7,6 @@ import { getSession } from "@/lib/auth";
 import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
 import { dashboardFaultCardId } from "@/lib/dashboard/fault";
 import { resolveDashboardViewer } from "@/lib/dashboard/viewer/resolve";
-import { isDashboardV2Enabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
 type DashboardPageProps = {
@@ -15,12 +14,12 @@ type DashboardPageProps = {
     onboarding?: string | string[] | undefined;
     scope?: string | string[] | undefined;
     fault?: string | string[] | undefined;
+    edit?: string | string[] | undefined;
   }>;
 };
 
 /**
- * Flag off: `/dashboard` still sends each role to today's home.
- * Flag on: Supervisor and above see the Dashboard. The flag stays off until production approval.
+ * Supervisor and above begin here. Floor roles are sent to their unit or Logs.
  */
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const session = await getSession();
@@ -38,11 +37,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     activeUnitId: session.activeUnitId,
   });
 
-  if (!isDashboardV2Enabled()) {
-    redirect(onboardingComplete ? `${destination}?onboarding=complete` : destination);
-  }
   if (!hasAtLeastRole(session.role, "SUPERVISOR")) {
-    redirect(destination);
+    redirect(onboardingComplete ? `${destination}?onboarding=complete` : destination);
   }
 
   const cookieStore = await cookies();
@@ -64,6 +60,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       viewer={resolution.viewer}
       onboardingComplete={onboardingComplete}
       faultCardId={faultCardId}
+      editing={query.edit === "1"}
     />
   );
 }

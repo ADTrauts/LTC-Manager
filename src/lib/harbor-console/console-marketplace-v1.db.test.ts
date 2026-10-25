@@ -422,18 +422,7 @@ test(
             publishedAt: new Date(),
           },
         });
-        await prisma.operationalTemplate.create({
-          data: {
-            facilityId: isolation.facility.id,
-            departmentId: isolationDept.id,
-            stableKey: `v1_ot_${plantA.suffix}`,
-            version: 1,
-            name: "Cooler Temperature Log",
-            purposeType: "LOG",
-            status: "PUBLISHED",
-            publishedAt: new Date(),
-          },
-        });
+        await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
         await prisma.knowledgeArticle.create({
           data: {
             facilityId: isolation.facility.id,

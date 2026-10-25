@@ -1,15 +1,12 @@
 /**
  * Wave 15F — `/units` (Locations zone) data loader.
  *
- * When Projection cutover is enabled: unit visibility comes only from Projection.
- * When disabled: legacy operationalUnitWhere (rollback path only).
+ * Unit visibility comes only from Projection.
  */
 
 import type { FacilitySession } from "@/lib/auth";
 import { loadDepartmentVisibility, visibleDepartmentIdList } from "@/lib/department-authority/visibility";
-import { operationalUnitWhere } from "@/lib/facility-builder/operational-visibility";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
-import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 import { loadLocationsView, type LoadLocationsViewOptions } from "./load-locations";
@@ -38,16 +35,6 @@ export type UnitsPageData = {
   units: UnitsPageUnitRow[];
   parentOptions: { id: string; name: string }[];
   departments: { id: string; key: string; name: string }[];
-  templates: { id: string; name: string }[];
-  logAssignments: {
-    id: string;
-    unitId: string;
-    isActive: boolean;
-    recurrence: string;
-    mealType: string | null;
-    timesPerDay: number;
-    template: { name: string };
-  }[];
   locationsView: LocationsViewModel | null;
   projectionEnabled: boolean;
   projectionError: string | null;
@@ -89,39 +76,15 @@ export function collectProjectedUnitIds(
 
 async function loadSupportingData(
   facilityId: string,
-  unitIds: readonly string[],
   visibleIds: readonly string[] | null,
 ) {
-  const idList = [...unitIds];
-  const [templates, departments, logAssignments] = await Promise.all([
-    prisma.logTemplate.findMany({
-      where: { facilityId, isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    loadCustomerOperableDepartments(prisma, facilityId).then((rows) =>
-      rows
-        .filter((row) => !visibleIds || visibleIds.includes(row.id))
-        .map((row) => ({ id: row.id, key: row.key, name: row.name })),
-    ),
-    idList.length === 0
-      ? Promise.resolve([])
-      : prisma.logAssignment.findMany({
-          where: { unitId: { in: idList } },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            unitId: true,
-            isActive: true,
-            recurrence: true,
-            mealType: true,
-            timesPerDay: true,
-            template: { select: { name: true } },
-          },
-        }),
-  ]);
+  const departments = await loadCustomerOperableDepartments(prisma, facilityId).then((rows) =>
+    rows
+      .filter((row) => !visibleIds || visibleIds.includes(row.id))
+      .map((row) => ({ id: row.id, key: row.key, name: row.name })),
+  );
 
-  return { templates, departments, logAssignments };
+  return { departments };
 }
 
 /**
@@ -131,54 +94,12 @@ async function loadSupportingData(
  */
 export async function loadUnitsPageData(
   session: FacilitySession,
-  options: LoadLocationsViewOptions & {
-    includeTemplates?: boolean;
-  } = {},
+  options: LoadLocationsViewOptions = {},
 ): Promise<UnitsPageData> {
   const facilityId = session.facilityId;
-  const includeTemplates = options.includeTemplates ?? true;
   const visibleIds = visibleDepartmentIdList(
     await loadDepartmentVisibility(prisma, session, facilityId),
   );
-
-  if (!isProjectionLocationsEnabled()) {
-    const units = await prisma.unit.findMany({
-      where: visibleIds
-        ? {
-            AND: [
-              operationalUnitWhere(facilityId),
-              {
-                OR: [
-                  { departmentResponsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
-                  {
-                    childSpaces: {
-                      some: { responsibilities: { some: { departmentId: { in: [...visibleIds] } } } },
-                    },
-                  },
-                ],
-              },
-            ],
-          }
-        : operationalUnitWhere(facilityId),
-      orderBy: { displayOrder: "asc" },
-      select: unitSelect(visibleIds),
-    });
-    const support = await loadSupportingData(
-      facilityId,
-      units.map((u) => u.id),
-      visibleIds,
-    );
-    return {
-      units,
-      parentOptions: units.map((unit) => ({ id: unit.id, name: unit.name })),
-      departments: support.departments,
-      templates: includeTemplates ? support.templates : [],
-      logAssignments: support.logAssignments,
-      locationsView: null,
-      projectionEnabled: false,
-      projectionError: null,
-    };
-  }
 
   const loaded = await loadLocationsView(session, options);
   const projectedIds = collectProjectedUnitIds(loaded.view);
@@ -217,18 +138,12 @@ export async function loadUnitsPageData(
     return a.displayOrder - b.displayOrder;
   });
 
-  const support = await loadSupportingData(
-    facilityId,
-    units.map((u) => u.id),
-    visibleIds,
-  );
+  const support = await loadSupportingData(facilityId, visibleIds);
 
   return {
     units,
     parentOptions: units.map((unit) => ({ id: unit.id, name: unit.name })),
     departments: support.departments,
-    templates: includeTemplates ? support.templates : [],
-    logAssignments: support.logAssignments,
     locationsView: loaded.view,
     projectionEnabled: true,
     projectionError: loaded.error,

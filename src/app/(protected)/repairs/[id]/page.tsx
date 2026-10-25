@@ -13,6 +13,7 @@ import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected
 import { WorkOrderExecutionPanel } from "@/components/work-orders/work-order-execution-panel";
 import { WorkOrderCloseoutPanel } from "@/components/work-orders/work-order-closeout-panel";
 import { repairCompanyWhere, repairVendorExpenseVisible } from "@/lib/department-authority/asset-maintainers";
+import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 import { isSharedAssetOperationsEnabled, loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { hasAtLeastRole } from "@/lib/access";
@@ -51,7 +52,6 @@ import { presentPmOccurrence } from "@/lib/preventive-maintenance/version-semant
 import { facilityCivilToday } from "@/lib/preventive-maintenance/civil-date";
 import {
   getIssueCopy,
-  issueTypeIconKey,
   mapRepairStatusToRecoveryStage,
   priorityBadgeVariant,
   recoveryStageBadgeVariant,
@@ -112,9 +112,6 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       assignedEmployee: { select: { id: true, firstName: true, lastName: true } },
       requestingDepartment: { select: { id: true, name: true, key: true } },
       responsibleDepartment: { select: { id: true, name: true, key: true } },
-      sourceAssetIssue: {
-        select: { id: true, issueCode: true, summary: true, status: true },
-      },
       issue: {
         select: { id: true, issueCode: true, summary: true, status: true },
       },
@@ -160,6 +157,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       recordRequirements: {
         orderBy: { sortOrder: "asc" },
         include: {
+          catalogDefinition: { select: { name: true, version: true } },
           satisfiedByRecord: {
             select: {
               id: true,
@@ -191,7 +189,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     notFound();
   }
 
-  const [employees, departments, projectedTask, viewerDepartmentIds] = await Promise.all([
+  const [employees, departments, viewerDepartmentIds] = await Promise.all([
     prisma.employee.findMany({
       where: { facilityId: session.facilityId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -199,14 +197,6 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       select: { id: true, firstName: true, lastName: true },
     }),
     loadDepartmentsForCurrentSurface(prisma, session.facilityId, session),
-    prisma.task.findFirst({
-      where: {
-        facilityId: session.facilityId,
-        sourceType: "REPAIR",
-        sourceId: repair.id,
-      },
-      select: { id: true, status: true, title: true },
-    }),
     departmentFilterIdsForSession(session),
   ]);
 
@@ -219,7 +209,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     limit: 8,
   });
 
-  const copy = getIssueCopy(repair.issueType);
+  const copy = getIssueCopy();
   const stage = mapRepairStatusToRecoveryStage({
     status: repair.status,
     assignedEmployeeId: repair.assignedEmployeeId,
@@ -228,7 +218,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     ? `${repair.assignedEmployee.firstName} ${repair.assignedEmployee.lastName}`.trim()
     : null;
   const sessionEmployeeId = await getOperationalEmployeeIdForSession(session);
-  const linkedIssue = repair.issue ?? repair.sourceAssetIssue;
+  const linkedIssue = repair.issue;
   const isAssignedTechnician =
     Boolean(repair.assignedEmployeeId) &&
     (repair.assignedEmployeeId === sessionEmployeeId ||
@@ -241,19 +231,11 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const closeoutDepartmentId =
     repair.responsibleDepartmentId ?? deptNav.activeDepartmentId ?? repair.unit.facilityId;
-  const [publishedTemplates, vendors] = canAssign
+  const [publishedRecords, vendors] = canAssign
     ? await Promise.all([
-        prisma.operationalTemplate.findMany({
-          where: {
-            facilityId: session.facilityId,
-            status: "PUBLISHED",
-            ...(repair.responsibleDepartmentId
-              ? { departmentId: repair.responsibleDepartmentId }
-              : {}),
-          },
-          select: { id: true, name: true, version: true },
-          orderBy: [{ name: "asc" }, { version: "desc" }],
-          take: 80,
+        publishedCatalogFormsAtFacility(prisma, {
+          facilityId: session.facilityId,
+          departmentId: repair.responsibleDepartmentId,
         }),
         prisma.vendor.findMany({
           where: { facilityId: session.facilityId, ...companyWhere },
@@ -304,7 +286,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
   const assetOpsEnabled = plantOrAssetOps;
   const sourceKind = repairSourceKind({
     workOrderKind: repair.workOrderKind,
-    hasLinkedAssetIssue: Boolean(repair.sourceAssetIssue),
+    hasLinkedAssetIssue: Boolean(linkedIssue),
   });
   const pmContext = presentPmWorkOrderContext({
     workOrderKind: repair.workOrderKind,
@@ -335,7 +317,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
       data-source-kind={sourceKind}
     >
       <PageHeader
-        icon={issueTypeIconKey(repair.issueType)}
+        icon="repairs"
         eyebrow="Work Order"
         title={repair.title}
         subtitle={`${repair.repairCode} · ${
@@ -394,17 +376,17 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
 
       <AppCard title="Work Order source" subtitle={repairSourceLabel(sourceKind)}>
         <div className="space-y-3 text-sm">
-          {repair.sourceAssetIssue ? (
+          {linkedIssue ? (
             <div data-testid="repair-linked-issue">
               <p className="font-medium text-zinc-900">
-                Linked issue: {repair.sourceAssetIssue.summary}
+                Linked issue: {linkedIssue.summary}
               </p>
               <p className="mt-1 text-zinc-600">
-                Issue status: {assetIssueStatusLabel(repair.sourceAssetIssue.status)} ·{" "}
-                {repair.sourceAssetIssue.issueCode}
+                Issue status: {assetIssueStatusLabel(linkedIssue.status)} ·{" "}
+                {linkedIssue.issueCode}
               </p>
               <Link
-                href={`/asset-issues/${repair.sourceAssetIssue.id}`}
+                href={`/asset-issues/${linkedIssue.id}`}
                 className="mt-2 inline-flex min-h-10 items-center text-sm font-semibold underline underline-offset-2"
               >
                 View issue
@@ -422,7 +404,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               </p>
             </div>
           ) : null}
-          {!repair.sourceAssetIssue && !repair.sourceOperationalRequest ? (
+          {!linkedIssue && !repair.sourceOperationalRequest ? (
             <p className="text-zinc-700" data-testid="repair-direct-source">
               {sourceKind === "PREVENTIVE"
                 ? "Preventive maintenance work — not from a reported Issue."
@@ -796,14 +778,18 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
             }))}
             requirements={repair.recordRequirements.map((requirement) => ({
               id: requirement.id,
-              templateName: requirement.templateName,
-              templateVersion: requirement.templateVersion,
+              templateName: requirement.templateName ?? requirement.catalogDefinition?.name ?? "Record",
+              templateVersion: requirement.templateVersion ?? requirement.catalogDefinition?.version ?? requirement.catalogVersion ?? 0,
               status: requirement.status,
               waiveReason: requirement.waiveReason,
               satisfiedStatus: requirement.satisfiedByRecord?.status ?? null,
               outOfStandard: requirement.satisfiedByRecord?.outOfStandard ?? false,
             }))}
-            templates={publishedTemplates}
+            templates={publishedRecords.map((form) => ({
+              id: form.id,
+              name: form.name,
+              version: form.version,
+            }))}
             employees={employees.map((employee) => ({
               id: employee.id,
               name: `${employee.firstName} ${employee.lastName}`.trim(),
@@ -895,11 +881,6 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               Unit workspace · {repair.unit.name}
             </Link>
           </li>
-          {projectedTask ? (
-            <li className="text-zinc-700">
-              Task projection · {projectedTask.status} ({projectedTask.title})
-            </li>
-          ) : null}
           <li className="text-xs text-zinc-500">
             Stage: {recoveryStageLabel(stage)}
           </li>

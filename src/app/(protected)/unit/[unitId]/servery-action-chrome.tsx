@@ -34,36 +34,29 @@ export async function renderServeryActionChrome(input: {
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
 
+  const runDepartment = await resolveRunPresentationDepartment({
+    facilityId: input.session.facilityId,
+    activeDepartmentId: null,
+    unitId: input.unitId,
+  });
+  const runModel = runDepartment
+    ? await loadPublishedRunModel({
+        facilityId: input.session.facilityId,
+        departmentId: runDepartment.id,
+        now: input.now,
+      })
+    : null;
+  const hideLegacyMealControls =
+    Boolean(runModel) && isCurrentPeriodModel(runModel?.provenance);
+
   const [unit, events, conflicts] = await Promise.all([
     prisma.unit.findFirst({
       where: { id: input.unitId, facilityId: input.session.facilityId },
       select: {
         unitType: true,
-        mealTimes: {
-          where: { isActive: true },
-          orderBy: { mealType: "asc" },
-          select: { mealType: true, scheduledTime: true },
-        },
       },
     }),
-    prisma.serveryMealServiceEvent.findMany({
-      where: {
-        unitId: input.unitId,
-        serviceDate: { gte: start, lt: end },
-      },
-      select: {
-        mealType: true,
-        mealServiceReadyAt: true,
-        mealServiceStartedAt: true,
-        readyRecordedAt: true,
-        startedRecordedAt: true,
-        readyRecordedBy: { select: { displayName: true } },
-        startedRecordedBy: { select: { displayName: true } },
-        readyRecordedByEmployee: { select: { firstName: true, lastName: true } },
-        startedRecordedByEmployee: { select: { firstName: true, lastName: true } },
-        entries: { where: { kind: "CORRECTION" }, select: { milestone: true } },
-      },
-    }),
+    Promise.resolve([]),
     prisma.offlineConflict.findMany({
       where: {
         facilityId: input.session.facilityId,
@@ -81,27 +74,12 @@ export async function renderServeryActionChrome(input: {
   ]);
   if (!unit) return null;
 
-  const runDepartment = await resolveRunPresentationDepartment({
-    facilityId: input.session.facilityId,
-    activeDepartmentId: null,
-    unitId: input.unitId,
-  });
-  const runModel = runDepartment
-    ? await loadPublishedRunModel({
-        facilityId: input.session.facilityId,
-        departmentId: runDepartment.id,
-        now: input.now,
-      })
-    : null;
-  const hideLegacyMealControls =
-    Boolean(runModel) && isCurrentPeriodModel(runModel?.provenance);
-
   const sessionEmployeeId = await getOperationalEmployeeIdForSession(input.session);
   const cookieJar = await cookies();
   const deviceBoundUnitId = cookieJar.get(DEVICE_UNIT_COOKIE)?.value?.trim() || null;
   const mealServiceContext = resolveServeryMealServiceContext({
     unitType: unit.unitType,
-    mealTimes: unit.mealTimes,
+    mealTimes: [],
     now: input.now,
     facilityTimezone: input.timezone,
   });
@@ -120,35 +98,8 @@ export async function renderServeryActionChrome(input: {
   const canRecord = milestoneAccess.ok === true;
   const canCorrect = canRecord && roleMayCorrectMilestones(input.session.role);
 
-  const eventByMeal = Object.fromEntries(
-    unit.mealTimes.map((slot) => {
-      const ev = events.find((row) => row.mealType === slot.mealType);
-      const corrected = new Set(ev?.entries?.map((entry) => entry.milestone) ?? []);
-      const readyName = ev?.readyRecordedByEmployee
-        ? `${ev.readyRecordedByEmployee.firstName} ${ev.readyRecordedByEmployee.lastName}`.trim()
-        : ev?.readyRecordedBy?.displayName ?? null;
-      const startedName = ev?.startedRecordedByEmployee
-        ? `${ev.startedRecordedByEmployee.firstName} ${ev.startedRecordedByEmployee.lastName}`.trim()
-        : ev?.startedRecordedBy?.displayName ?? null;
-      return [
-        slot.mealType,
-        {
-          ready: {
-            occurredAt: ev?.mealServiceReadyAt?.toISOString() ?? null,
-            recordedAt: ev?.readyRecordedAt?.toISOString() ?? null,
-            recordedByLabel: readyName,
-            corrected: corrected.has("READY"),
-          },
-          started: {
-            occurredAt: ev?.mealServiceStartedAt?.toISOString() ?? null,
-            recordedAt: ev?.startedRecordedAt?.toISOString() ?? null,
-            recordedByLabel: startedName,
-            corrected: corrected.has("SERVICE_STARTED"),
-          },
-        },
-      ];
-    }),
-  );
+  const eventByMeal = {};
+  void events;
 
   const conflictRows = conflicts.map((row) => {
     const payload = row.commandPayload as {
@@ -185,7 +136,7 @@ export async function renderServeryActionChrome(input: {
           defaultMealType={recordableMealForContext(mealServiceContext)?.mealType ?? null}
           returnTab="overview"
           returnLogTab=""
-          slots={unit.mealTimes}
+          slots={[]}
           contextNote={describeMealServiceContext(mealServiceContext)}
           canRecord={canRecord}
           canCorrect={canCorrect}

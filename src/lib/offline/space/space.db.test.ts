@@ -22,7 +22,6 @@ process.env.OFFLINE_RECOVERY_KEYS = JSON.stringify({ test: Buffer.alloc(32, 17).
 process.env.OFFLINE_RECOVERY_ACTIVE_KEY = "test";
 process.env.DIETARY_JOB_FLOW_ENABLED = "true";
 process.env.OPERATIONAL_ASSIGNMENTS_ENABLED = "true";
-process.env.DEPARTMENT_OPERATIONAL_PROFILES_ENABLED = "true";
 async function run(fn: (db: PrismaClient) => Promise<void>) { const db = new PrismaClient({ datasources: { db: { url: url! } } }); try {
     await fn(db);
 }

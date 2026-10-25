@@ -109,7 +109,7 @@ async function main() {
         facilityId: facility.id,
         name: `Servery ${tag}`,
         unitType: "SERVERY",
-        hierarchyRole: "LEGACY_LOCATION",
+        hierarchyRole: "NEIGHBORHOOD",
         isActive: true,
       },
       select: { id: true },

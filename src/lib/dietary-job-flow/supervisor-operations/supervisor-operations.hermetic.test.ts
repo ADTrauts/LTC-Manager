@@ -649,7 +649,7 @@ test("EVS overlay uses location coverage engine, not Dietary gaps", () => {
   assert.equal(view.overlay.evs?.locationUncovered, 2);
 });
 
-test("pipeline source scan: one RLS batch, OA flag, no readiness/dashboard/cycle engines", () => {
+test("pipeline source scan: one RLS batch, assignments always read, no readiness/dashboard/cycle engines", () => {
   const root = process.cwd();
   const files = [
     "src/lib/dietary-job-flow/load-supervisor-operations-board.ts",
@@ -659,7 +659,8 @@ test("pipeline source scan: one RLS batch, OA flag, no readiness/dashboard/cycle
   ]
     .map((rel) => readFileSync(join(root, rel), "utf8"))
     .join("\n");
-  assert.match(files, /isOperationalAssignmentsEnabled/);
+  assert.doesNotMatch(files, /isOperationalAssignmentsEnabled/);
+  assert.match(files, /const oaEnabled = true/);
   assert.match(files, /isCanonicalLogsEnabled/);
   assert.match(files, /loadRuntimeLocationStates/);
   assert.match(files, /presentSupervisorEvidenceAttention/);

@@ -5,7 +5,6 @@ import {
   buildOperationalTimeContext,
   DEFAULT_FACILITY_TIMEZONE,
   facilityLocalDateToServiceDate,
-  getDefaultMealTypeForFacilityLocalTime,
   getFacilityLocalTodayWindow,
   getFacilityServiceDate,
   resolveFacilityTimezone,
@@ -60,14 +59,6 @@ test("daylight-saving spring forward keeps local midnight window continuous", ()
   assert.equal(windowBefore.end.getTime() - windowBefore.start.getTime(), 23 * 60 * 60 * 1000);
 });
 
-test("active meal selection uses facility-local wall time", () => {
-  // 15:00 UTC = 10:00 America/New_York (breakfast) and 07:00 America/Los_Angeles (breakfast)
-  // 16:00 UTC = 11:00 America/New_York (lunch) and 08:00 America/Los_Angeles (breakfast)
-  const lunchInNy = new Date("2026-07-08T16:00:00.000Z");
-  assert.equal(getDefaultMealTypeForFacilityLocalTime(lunchInNy, "America/New_York"), "LUNCH");
-  assert.equal(getDefaultMealTypeForFacilityLocalTime(lunchInNy, "America/Los_Angeles"), "BREAKFAST");
-});
-
 test("serviceDate for operation instances uses facility-local calendar date as UTC midnight", () => {
   const now = new Date("2026-07-09T03:30:00.000Z"); // still Jul 8 in NY
   const serviceDate = getFacilityServiceDate("America/New_York", now);
@@ -75,10 +66,9 @@ test("serviceDate for operation instances uses facility-local calendar date as U
   assert.equal(toServiceDateKey(facilityLocalDateToServiceDate("2026-07-08")), "2026-07-08");
 });
 
-test("invalid timezone falls back safely for windows and meal selection", () => {
+test("invalid timezone falls back safely for windows", () => {
   const now = new Date("2026-07-08T16:00:00.000Z");
   assert.equal(resolveFacilityTimezone("Invalid/Zone"), "America/New_York");
-  assert.equal(getDefaultMealTypeForFacilityLocalTime(now, "Invalid/Zone"), "LUNCH");
   const window = getFacilityLocalTodayWindow("Invalid/Zone", now);
   assert.ok(window.start.getTime() < now.getTime());
   assert.ok(window.end.getTime() > now.getTime());

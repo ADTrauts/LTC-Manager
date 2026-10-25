@@ -79,23 +79,11 @@ export const AppIcons = {
 
 export type AppIconKey = keyof typeof AppIcons;
 
-/**
- * Same acceptance as `isDashboardV2Enabled`. Read here so the client nav icon
- * map does not import the shared feature-flag module.
- */
-function dashboardV2NavMarkEnabled(): boolean {
-  const value = process.env.DASHBOARD_V2_ENABLED;
-  if (value === undefined || value.trim() === "") return false;
-  const normalized = value.trim().toLowerCase();
-  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
-}
-
 /** Default nav path → icon key (for shell and future module chrome). */
 export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
   "/build": "operationalMode",
   "/workspace": "operationsCenter",
   "/dashboard": "operationsCenter",
-  "/operations": "operationsCenter",
   "/today": "todaysWork",
   "/staffing/templates": "logs",
   "/staffing/log-book": "logs",
@@ -110,7 +98,6 @@ export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
   "/assets/builder": "assets",
   "/assets": "repairs",
   "/repairs": "repairs",
-  "/issues": "repairs",
   "/reports": "review",
   "/admin/facility/builder": "locations",
   "/admin/departments": "administration",
@@ -120,7 +107,7 @@ export const NAV_PATH_ICON_KEYS: Partial<Record<string, AppIconKey>> = {
 
 export function resolveNavIconKey(href: string): AppIconKey | undefined {
   const path = href.split("?")[0]?.split("#")[0] ?? href;
-  if ((path === "/dashboard" || path === "/workspace") && dashboardV2NavMarkEnabled()) {
+  if (path === "/dashboard" || path === "/workspace") {
     return "dashboard";
   }
   if (NAV_PATH_ICON_KEYS[path]) {

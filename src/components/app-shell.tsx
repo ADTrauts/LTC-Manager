@@ -44,12 +44,7 @@ import { getFacilityForSession } from "@/lib/facility-context";
 import { dashboardNavHref, resolveDefaultHomePath } from "@/lib/nav-zones";
 import { roleMayAccessRoute } from "@/lib/route-registry";
 import {
-  isDashboardV2Enabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
   isCanonicalLogsEnabled,
-  isProjectionSidebarEnabled,
-  isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
 import { applyMaintenanceNavRewrite } from "@/lib/asset-operations/maintenance-nav";
 import { applyCanonicalLogsNavRewrite } from "@/lib/canonical-logs/run-nav";
@@ -59,7 +54,7 @@ import { prisma } from "@/lib/prisma";
 import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
-import { getSidebarUnitsForSession } from "@/lib/units";
+import type { SidebarUnit } from "@/lib/units";
 import { shellClasses } from "@/lib/design-system";
 
 type AppShellProps = {
@@ -117,27 +112,13 @@ export async function AppShell({ children }: AppShellProps) {
 
   const cookieStore = await cookies();
   const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
-  const projectionSidebar = isProjectionSidebarEnabled();
-  const memo = projectionSidebar ? createProjectionRuntimeRequestScope() : undefined;
+  const memo = createProjectionRuntimeRequestScope();
 
-  const [legacyUnits, sidebarProjection, facility, workspaceSelector] =
-    await Promise.all([
-      projectionSidebar
-        ? Promise.resolve([])
-        : getSidebarUnitsForSession(session),
-      projectionSidebar
-        ? loadSidebarProjection(session, { memo })
-        : Promise.resolve({
-            enabled: false as const,
-            view: null,
-            projectedUnitIds: [] as const,
-            error: null,
-            usedLegacyEligibility: true,
-            metrics: null,
-          }),
-      getFacilityForSession(),
-      loadWorkspaceSelectorModel(session),
-    ]);
+  const [sidebarProjection, facility, workspaceSelector] = await Promise.all([
+    loadSidebarProjection(session, { memo }),
+    getFacilityForSession(),
+    loadWorkspaceSelectorModel(session),
+  ]);
 
   const deviceUnitId = cookieStore.get(DEVICE_UNIT_COOKIE)?.value;
   const lockedUnitId =
@@ -161,11 +142,9 @@ export async function AppShell({ children }: AppShellProps) {
   const showGmUnbind =
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   const navFeatureFlags = {
-    todaysWorkEnabled: isTodaysWorkEnabled(),
-    dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
-    dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    dietaryOperationalEvidenceEnabled: true,
+    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
-    dashboardV2Enabled: isDashboardV2Enabled(),
   };
   const rawNavItems = platformNavItemsForRole(session.role, navFeatureFlags);
 
@@ -205,11 +184,9 @@ export async function AppShell({ children }: AppShellProps) {
     deptNav.activeDepartmentId,
   );
 
-  const sidebarUnits = projectionSidebar ? [] : legacyUnits;
-  const projectionSections = projectionSidebar
-    ? (sidebarProjection.view?.sections ?? [])
-    : undefined;
-  const projectionUnavailable = Boolean(projectionSidebar && sidebarProjection.error);
+  const sidebarUnits: SidebarUnit[] = [];
+  const projectionSections = sidebarProjection.view?.sections ?? [];
+  const projectionUnavailable = Boolean(sidebarProjection.error);
 
   const currentWorkspace =
     authKind === "user"

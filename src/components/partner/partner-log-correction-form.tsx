@@ -27,10 +27,16 @@ export function PartnerLogCorrectionForm({
       setError("A correction reason is required.");
       return;
     }
-    const payload: EvidenceFieldValueInput[] = fields.map((field) => ({
-      fieldKey: field.fieldKey,
-      valueText: values[field.fieldKey]?.trim() || null,
-    }));
+    const payload: EvidenceFieldValueInput[] = fields.map((field) => {
+      const valueText = values[field.fieldKey]?.trim() || null;
+      const displayed = valueText?.match(/^(-?\d+(?:\.\d+)?)(?:\s*[°º]?[A-Za-z%]+)?$/);
+      const valueNumber = displayed ? Number(displayed[1]) : null;
+      return {
+        fieldKey: field.fieldKey,
+        valueText,
+        ...(valueNumber != null && Number.isFinite(valueNumber) ? { valueNumber } : {}),
+      };
+    });
     startTransition(async () => {
       const result = await correctPartnerCanonicalLogAction({ recordId, reason, values: payload });
       if (!result.ok) {

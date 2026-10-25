@@ -24,7 +24,6 @@ export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/build", visibility: "shared" },
   { pathPrefix: "/workspace", visibility: "shared" },
   { pathPrefix: "/dashboard", visibility: "shared" },
-  { pathPrefix: "/operations", visibility: "shared" },
   { pathPrefix: "/units", visibility: "shared" },
   { pathPrefix: "/employees", visibility: "shared" },
   { pathPrefix: "/logs", visibility: "shared" },
@@ -36,7 +35,6 @@ export const NAV_DEPARTMENT_RULES: NavDeptRule[] = [
   { pathPrefix: "/assets", visibility: "sharedOperational" },
   { pathPrefix: "/asset-issues", visibility: "sharedOperational" },
   { pathPrefix: "/repairs", visibility: "sharedOperational" },
-  { pathPrefix: "/issues", visibility: "sharedOperational" },
   { pathPrefix: "/admin", visibility: "shared" },
   { pathPrefix: "/unit", visibility: "shared" },
 ];

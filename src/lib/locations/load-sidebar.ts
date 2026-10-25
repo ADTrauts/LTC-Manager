@@ -2,7 +2,6 @@
  * Wave 15G — Sidebar Projection loader.
  *
  * purpose: SIDEBAR → shared LocationsViewModel → Sidebar DTO.
- * When flag off, callers use legacy getSidebarUnitsForSession (no mix).
  */
 
 import type { FacilitySession } from "@/lib/auth";
@@ -10,7 +9,6 @@ import {
   resolveFacilityVocabulary,
   type FacilityVocabulary,
 } from "@/lib/facility-builder/facility-vocabulary";
-import { isProjectionSidebarEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import type {
   ProjectionRuntimeMemo,
@@ -71,17 +69,6 @@ export async function loadSidebarProjection(
   session: FacilitySession,
   options: LoadSidebarProjectionOptions = {},
 ): Promise<LoadSidebarProjectionResult> {
-  if (!isProjectionSidebarEnabled()) {
-    return {
-      enabled: false,
-      view: null,
-      projectedUnitIds: [],
-      error: null,
-      usedLegacyEligibility: true,
-      metrics: null,
-    };
-  }
-
   const loaded = await loadProjectedLocationView(session, {
     ...options,
     purpose: "SIDEBAR",

@@ -28,6 +28,48 @@ export type WorkOrderCloseoutValidation = {
   missingRecordLabels: string[];
 };
 
+/** A completed Record satisfies the pin. A Catalog form wins when the requirement names one. */
+export function recordMatchesPinnedRequirement(input: {
+  requirement: {
+    templateId?: string | null;
+    templateVersion: number | null;
+    templateStableKey?: string | null;
+    catalogDefinitionId?: string | null;
+    catalogVersion?: number | null;
+  };
+  record: {
+    templateId?: string | null;
+    templateVersion: number | null;
+    templateStableKey?: string | null;
+    catalogDefinitionId?: string | null;
+    assetId?: string | null;
+  };
+  assetId?: string | null;
+}): { ok: true } | { ok: false; reason: string } {
+  if (input.requirement.catalogDefinitionId) {
+    if (input.record.catalogDefinitionId !== input.requirement.catalogDefinitionId) {
+      return { ok: false, reason: "Record does not match the required form." };
+    }
+    if (
+      input.assetId &&
+      input.record.assetId &&
+      input.record.assetId !== input.assetId
+    ) {
+      return { ok: false, reason: "Record is for a different asset." };
+    }
+    return { ok: true };
+  }
+  const requirementKey = input.requirement.templateStableKey ?? input.requirement.templateId ?? null;
+  const recordKey = input.record.templateStableKey ?? input.record.templateId ?? null;
+  if (requirementKey && recordKey !== requirementKey) {
+    return { ok: false, reason: "Record does not match the pinned required template." };
+  }
+  if (input.record.templateVersion !== input.requirement.templateVersion) {
+    return { ok: false, reason: "Record does not match the pinned template version." };
+  }
+  return { ok: true };
+}
+
 export function validateWorkOrderCloseout(input: {
   workPerformed: string | null | undefined;
   laborEntryCount: number;

@@ -3,7 +3,6 @@ import test from "node:test";
 
 import { APP_ROLES, ROLE_PRIORITY, type AppRole } from "@/lib/access";
 import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
-import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { isTodaysWorkPathname, resolveDefaultHomePath } from "@/lib/nav-zones";
 import { roleMayAccessRoute } from "@/lib/route-registry";
 
@@ -17,28 +16,10 @@ const BELOW_SUPERVISOR_ROLES: AppRole[] = APP_ROLES.filter(
   (role) => ROLE_PRIORITY[role] < ROLE_PRIORITY.SUPERVISOR,
 );
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = {};
 
 function mayAccess(path: string, role: AppRole): boolean {
   return roleMayAccessRoute(path, role, FLAGS);
-}
-
-function withTodaysWorkFlag(value: string | undefined, fn: () => void) {
-  const previous = process.env.TODAYS_WORK_ENABLED;
-  if (value === undefined) {
-    delete process.env.TODAYS_WORK_ENABLED;
-  } else {
-    process.env.TODAYS_WORK_ENABLED = value;
-  }
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) {
-      delete process.env.TODAYS_WORK_ENABLED;
-    } else {
-      process.env.TODAYS_WORK_ENABLED = previous;
-    }
-  }
 }
 
 test("Today's Work RBAC — supervisor+ roles can access all /today routes", () => {
@@ -86,9 +67,9 @@ test("Today's Work RBAC — shared across operational department modes", () => {
   }
 });
 
-test("Today's Work RBAC — floor and manager homes stay off /today", () => {
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/workspace");
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
+test("Today's Work RBAC — floor stays off the Dashboard; Supervisor and above begin there", () => {
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/dashboard");
   assert.equal(resolveDefaultHomePath({ authKind: "employee", role: "STAFF" }), "/logs");
   assert.equal(
     resolveDefaultHomePath({ authKind: "employee", role: "STAFF", activeUnitId: "unit-1" }),
@@ -98,25 +79,13 @@ test("Today's Work RBAC — floor and manager homes stay off /today", () => {
 
 test("Today's Work RBAC — staff retain Operations Center and unit workspace access", () => {
   assert.equal(mayAccess("/dashboard", "STAFF"), true);
-  assert.equal(mayAccess("/operations", "STAFF"), true);
   assert.equal(mayAccess("/unit/abc", "STAFF"), true);
 });
 
-test("Today's Work RBAC — feature flag off keeps supervisor on Business Workspace", () => {
-  withTodaysWorkFlag("false", () => {
-    assert.equal(isTodaysWorkEnabled(), false);
-    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/workspace");
-  });
-});
-
-test("Today's Work RBAC — disabling the feature withdraws /today from every role", () => {
+test("Today's Work RBAC — Supervisor and above can still open the redirect addresses", () => {
   for (const role of SUPERVISOR_PLUS_ROLES) {
     for (const path of TODAYS_WORK_PATHS) {
-      assert.equal(
-        roleMayAccessRoute(path, role, { todaysWorkEnabled: false }),
-        false,
-        `${role} should be blocked from ${path} while the feature is off`,
-      );
+      assert.equal(mayAccess(path, role), true, `${role} should reach the redirect at ${path}`);
     }
   }
 });

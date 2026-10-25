@@ -21,15 +21,13 @@ import {
 } from "@/lib/asset-operations";
 import {
   issueDetailPath,
-  legacyIssueFaçadePath,
   repairDetailAliasPath,
 } from "@/lib/work/issues/issue-copy";
 
-test("canonical detail is /repairs; legacy façade remains /issues", () => {
+test("repair detail paths stay on /repairs", () => {
   const id = "repair_abc";
   assert.equal(issueDetailPath(id), `/repairs/${id}`);
   assert.equal(repairDetailAliasPath(id), `/repairs/${id}`);
-  assert.equal(legacyIssueFaçadePath(id), `/issues/${id}`);
 });
 
 test("linked vs direct vs preventive source labels", () => {

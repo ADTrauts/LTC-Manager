@@ -27,13 +27,11 @@ type KnowledgeArticleEditorProps = {
   initialStatus?: KnowledgeArticleStatus;
   initialUnitIds?: string[];
   initialAssetIds?: string[];
-  initialLogTemplateIds?: string[];
-  initialInspectionDefinitionIds?: string[];
+  initialCatalogDefinitionIds?: string[];
   departments: SelectOption[];
   units: SelectOption[];
   assets: SelectOption[];
-  logTemplates: SelectOption[];
-  inspectionDefinitions: SelectOption[];
+  catalogForms: SelectOption[];
 };
 
 export function KnowledgeArticleEditor({
@@ -48,22 +46,19 @@ export function KnowledgeArticleEditor({
   initialStatus = "DRAFT",
   initialUnitIds = [],
   initialAssetIds = [],
-  initialLogTemplateIds = [],
-  initialInspectionDefinitionIds = [],
+  initialCatalogDefinitionIds = [],
   departments,
   units,
   assets,
-  logTemplates,
-  inspectionDefinitions,
+  catalogForms,
 }: KnowledgeArticleEditorProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const [unitIds, setUnitIds] = useState<Set<string>>(new Set(initialUnitIds));
   const [assetIds, setAssetIds] = useState<Set<string>>(new Set(initialAssetIds));
-  const [logTemplateIds, setLogTemplateIds] = useState<Set<string>>(new Set(initialLogTemplateIds));
-  const [inspectionDefinitionIds, setInspectionDefinitionIds] = useState<Set<string>>(
-    new Set(initialInspectionDefinitionIds),
+  const [catalogDefinitionIds, setCatalogDefinitionIds] = useState<Set<string>>(
+    new Set(initialCatalogDefinitionIds),
   );
 
   const categoryOptions = useMemo(
@@ -95,8 +90,7 @@ export function KnowledgeArticleEditor({
     formData.set("status", status);
     formData.set("unitIdsJson", JSON.stringify([...unitIds]));
     formData.set("assetIdsJson", JSON.stringify([...assetIds]));
-    formData.set("logTemplateIdsJson", JSON.stringify([...logTemplateIds]));
-    formData.set("inspectionDefinitionIdsJson", JSON.stringify([...inspectionDefinitionIds]));
+    formData.set("catalogDefinitionIdsJson", JSON.stringify([...catalogDefinitionIds]));
 
     try {
       const result = await upsertKnowledgeArticleAction(formData);
@@ -213,17 +207,11 @@ export function KnowledgeArticleEditor({
           onToggle={(id, checked) => setAssetIds(toggleId(assetIds, id, checked))}
         />
         <ObjectLinkFieldset
-          title="Linked log templates"
-          options={logTemplates}
-          selected={logTemplateIds}
-          onToggle={(id, checked) => setLogTemplateIds(toggleId(logTemplateIds, id, checked))}
-        />
-        <ObjectLinkFieldset
-          title="Linked inspections"
-          options={inspectionDefinitions}
-          selected={inspectionDefinitionIds}
+          title="Linked Records"
+          options={catalogForms}
+          selected={catalogDefinitionIds}
           onToggle={(id, checked) =>
-            setInspectionDefinitionIds(toggleId(inspectionDefinitionIds, id, checked))
+            setCatalogDefinitionIds(toggleId(catalogDefinitionIds, id, checked))
           }
         />
       </form>

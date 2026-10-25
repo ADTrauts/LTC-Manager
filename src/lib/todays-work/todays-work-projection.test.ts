@@ -13,26 +13,12 @@ import {
   PERMISSION_NARROWED_PROJECTION,
   PLANT_GOLDEN_PROJECTION,
 } from "@/lib/projection";
-import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
-
 import {
   adaptProjectionToTodaysWork,
   assembleExperienceWalkContributions,
   filterWalkListToProjectedUnits,
 } from "@/lib/todays-work/projection";
 import type { WalkListData, WalkListItem } from "@/lib/todays-work";
-
-function withEnv(name: string, value: string | undefined, fn: () => void) {
-  const previous = process.env[name];
-  if (value === undefined) delete process.env[name];
-  else process.env[name] = value;
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) delete process.env[name];
-    else process.env[name] = previous;
-  }
-}
 
 function walkItem(unitId: string, name: string, score = 1): WalkListItem {
   return {
@@ -50,15 +36,6 @@ function walkItem(unitId: string, name: string, score = 1): WalkListItem {
     attentionScore: score,
   };
 }
-
-test("PROJECTION_TODAYS_WORK_ENABLED defaults to false", () => {
-  withEnv("PROJECTION_TODAYS_WORK_ENABLED", undefined, () => {
-    assert.equal(isProjectionTodaysWorkEnabled(), false);
-  });
-  withEnv("PROJECTION_TODAYS_WORK_ENABLED", "true", () => {
-    assert.equal(isProjectionTodaysWorkEnabled(), true);
-  });
-});
 
 test("Dietary — Experience contributors and projected Units", () => {
   const view = adaptProjectionToTodaysWork(DIETARY_GOLDEN_PROJECTION);

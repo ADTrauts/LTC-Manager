@@ -134,7 +134,7 @@ test("same stableKey peers are ignored for publish overlap", () => {
       effectiveFrom: "2026-08-11",
       mealType: "DINNER",
       locationMode: "ALL_DEPARTMENT_UNITS",
-      expectedMilestones: ["READY"],
+      expectedMilestones: [],
       stableKey: "dinner",
     },
     peers,
@@ -338,7 +338,24 @@ test("ROOM_TYPE scope requires a standard Facility Room Type when legacy key is 
     roomTypeKey: "servery",
     mealType: "BREAKFAST",
   });
-  assert.equal(ok.valid, true);
+  assert.equal(ok.valid, false);
+  assert.ok(ok.errors.some((e) => e.code === "physical_location_retired"));
+});
+
+test("Ready and Service Started cannot be saved as Cycle milestones", () => {
+  const result = validateCycle({
+    label: "Breakfast",
+    cycleType: "SERVICE",
+    startLocal: "07:00",
+    endLocal: "09:00",
+    applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    effectiveFrom: "2026-08-01",
+    locationMode: "ALL_DEPARTMENT_UNITS",
+    mealType: "BREAKFAST",
+    expectedMilestones: ["READY", "SERVICE_STARTED"],
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === "milestones_retired"));
 });
 
 test("distinct scoped cycles may overlap — publish warning only", () => {

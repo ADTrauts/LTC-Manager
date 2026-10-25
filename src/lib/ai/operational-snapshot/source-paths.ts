@@ -5,7 +5,7 @@ export function unitWorkspacePath(unitId: string): string {
 }
 
 export function issueDetailPath(issueId: string): string {
-  return `/issues/${issueId}`;
+  return `/repairs/${issueId}`;
 }
 
 export function todaysWorkCoveragePath(): string {

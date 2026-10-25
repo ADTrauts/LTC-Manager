@@ -24,12 +24,6 @@ export type MenuCycleSettingsRow = Pick<
   "cycleLengthWeeks" | "weekStartsOn" | "cycleAnchorDate" | "periodConfigJson"
 >;
 
-export type FacilityMenuData = {
-  settingsRaw: MenuCycleSettingsRow | null;
-  menuItems: MenuItemCycleRow[];
-  unavailableReason: string | null;
-};
-
 export type MenuListItem = {
   id: string;
   name: string;
@@ -106,85 +100,6 @@ export function assertPrismaMenuReady(prisma: PrismaClient): void {
     throw new Error(
       "Menu feature is offline: the running app does not have menu models on the Prisma client. Run `npx prisma generate` and restart the Next.js dev server.",
     );
-  }
-}
-
-export function emptyFacilityMenuData(reason: string): FacilityMenuData {
-  return { settingsRaw: null, menuItems: [], unavailableReason: reason };
-}
-
-/**
- * Facility-wide compatibility read for legacy `/logs` only.
- * Builder reads must use listMenus / loadMenu.
- */
-export async function loadFacilityMenuData(
-  prisma: PrismaClient,
-  facilityId: string,
-  options?: { menuItemsOrderBy?: Prisma.MenuItemOrderByWithRelationInput[] },
-): Promise<FacilityMenuData> {
-  if (!prismaMenuDelegatesAvailable(prisma)) {
-    return emptyFacilityMenuData(
-      "Menu data is unavailable: Prisma client is missing menu models. Run `npx prisma generate` and restart the dev server.",
-    );
-  }
-
-  try {
-    const menus = await prisma.menu.findMany({
-      where: { facilityId, status: "ACTIVE" },
-      select: { id: true },
-    });
-
-    if (menus.length === 1) {
-      const menuId = menus[0]!.id;
-      const [settingsRaw, menuItems] = await Promise.all([
-        prisma.menuCycleSettings.findFirst({
-          where: { menuId },
-          select: CYCLE_SETTINGS_SELECT,
-        }),
-        prisma.menuItem.findMany({
-          where: { menuId },
-          select: MENU_ITEM_SELECT,
-          ...(options?.menuItemsOrderBy ? { orderBy: options.menuItemsOrderBy } : {}),
-        }),
-      ]);
-      return { settingsRaw, menuItems, unavailableReason: null };
-    }
-
-    if (menus.length > 1) {
-      return emptyFacilityMenuData(
-        "Multiple active menus exist. Menu-linked temp hints stay quiet until a specific menu applies.",
-      );
-    }
-
-    const orphanCount = await prisma.menu.count({ where: { facilityId } });
-    if (orphanCount > 0) {
-      return emptyFacilityMenuData("No active menu is available for facility-wide menu hints.");
-    }
-
-    const [legacySettings, legacyItems] = await Promise.all([
-      prisma.menuCycleSettings.findFirst({
-        where: { facilityId, menuId: null },
-        select: CYCLE_SETTINGS_SELECT,
-      }),
-      prisma.menuItem.findMany({
-        where: { facilityId, menuId: null },
-        select: MENU_ITEM_SELECT,
-        ...(options?.menuItemsOrderBy ? { orderBy: options.menuItemsOrderBy } : {}),
-      }),
-    ]);
-
-    if (!legacySettings && legacyItems.length === 0) {
-      return emptyFacilityMenuData("No active menu is available for facility-wide menu hints.");
-    }
-
-    return { settingsRaw: legacySettings, menuItems: legacyItems, unavailableReason: null };
-  } catch (error) {
-    if (isMenuInfrastructureUnavailableError(error)) {
-      return emptyFacilityMenuData(
-        "Menu tables are not in this database yet. When your migration workflow is ready, apply pending migrations to enable menus (this does not require resetting your database).",
-      );
-    }
-    throw error;
   }
 }
 

@@ -65,7 +65,7 @@ function facts(overrides: Partial<DashboardViewerFacts> = {}): DashboardViewerFa
     candidateDepartments: ALL,
     access: accessFor(ALL),
     teamScope: null,
-    routeFlags: { todaysWorkEnabled: true },
+    routeFlags: {},
     ...overrides,
   };
 }

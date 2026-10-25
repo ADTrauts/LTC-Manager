@@ -18,11 +18,18 @@ export async function RecordEnginePanel(props: {
   if (!hasAtLeastRole(props.session.role, "FACILITY_ADMINISTRATOR")) return null;
   const timezone = await loadFacilityTimezone(prisma, props.facilityId);
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone));
-  const rollouts = await listRecordEngineRollouts(prisma, props.facilityId, props.departmentId);
+  const [rollouts, department] = await Promise.all([
+    listRecordEngineRollouts(prisma, props.facilityId, props.departmentId),
+    prisma.department.findFirst({
+      where: { id: props.departmentId, facilityId: props.facilityId },
+      select: { key: true },
+    }),
+  ]);
   const mode = resolveRecordEngine({
     capabilityEnabled: isCanonicalLogsEnabled(),
     facilityId: props.facilityId,
     departmentId: props.departmentId,
+    departmentKey: department?.key ?? null,
     serviceDate: todayKey,
     rollouts,
   });
@@ -61,7 +68,6 @@ export async function RecordEnginePanel(props: {
     todayKey,
     activeAttachmentCount,
     attachmentSetupErrorCount: 0,
-    pmUsesOperationalTemplate: true,
   });
   const pilot = evaluatePilotAcceptanceReadiness({
     engine: readiness,

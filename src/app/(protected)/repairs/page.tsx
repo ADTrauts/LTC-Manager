@@ -157,7 +157,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         assignedEmployee: { select: { firstName: true, lastName: true } },
         maintenanceCategory: { select: { label: true } },
         space: { select: { name: true } },
-        sourceAssetIssue: { select: { id: true, summary: true, status: true } },
+        issue: { select: { id: true, summary: true, status: true } },
         pmOccurrence: {
           select: {
             id: true,
@@ -249,9 +249,10 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
         <h2 className="sr-only">Work Order queue</h2>
         <div className="space-y-3" data-testid="repairs-queue">
           {filtered.map((repair) => {
+            const linkedIssue = repair.issue;
             const sourceKind = repairSourceKind({
               workOrderKind: repair.workOrderKind,
-              hasLinkedAssetIssue: Boolean(repair.sourceAssetIssue),
+              hasLinkedAssetIssue: Boolean(linkedIssue),
             });
             const pmContext = presentPmWorkOrderContext({
               workOrderKind: repair.workOrderKind,
@@ -261,7 +262,7 @@ export default async function RepairsPage({ searchParams }: RepairsPageProps) {
               ? `Preventive Maintenance · ${pmContext.planName} · Scheduled ${formatProjectedDateLabel(pmContext.scheduledDate, { includeYear: true })}`
               : repairSourceCompactLine({
                   kind: sourceKind,
-                  issueSummary: repair.sourceAssetIssue?.summary ?? null,
+                  issueSummary: linkedIssue?.summary ?? null,
                 });
             const responsibility = projectAssetResponsibility({
               department: repair.asset?.department ?? repair.responsibleDepartment,

@@ -5,6 +5,7 @@ import type { DashboardAuthority, DashboardScopeKind } from "../viewer/types";
 export type DashboardLayoutItem = {
   id: DashboardCardId;
   size: CardSize;
+  rows?: 1 | 2 | 3;
 };
 
 /** Supervisor, team or whole Department. Ineligible cards drop out, so Plant keeps Maintenance. */
@@ -19,6 +20,7 @@ const SUPERVISOR: readonly DashboardLayoutItem[] = [
   { id: "handoff", size: "M" },
   { id: "menu_today", size: "S" },
   { id: "maintenance_open", size: "S" },
+  { id: "requests_filed", size: "S" },
   { id: "request_triage", size: "S" },
   { id: "pm_due", size: "S" },
 ];
@@ -33,8 +35,10 @@ const MANAGER: readonly DashboardLayoutItem[] = [
   { id: "pm_due", size: "M" },
   { id: "expected_work", size: "M" },
   { id: "maintenance_open", size: "M" },
+  { id: "requests_filed", size: "S" },
   { id: "menu_today", size: "S" },
   { id: "shortcuts", size: "S" },
+  { id: "review_yesterday", size: "M" },
   { id: "recent_activity", size: "M" },
 ];
 
@@ -42,15 +46,19 @@ const LEADER: readonly DashboardLayoutItem[] = [
   { id: "attention", size: "L" },
   { id: "timeline", size: "L" },
   { id: "department_setup", size: "M" },
+  { id: "hr_alerts", size: "M" },
   { id: "coverage", size: "S" },
   { id: "call_offs", size: "S" },
   { id: "records_due", size: "M" },
+  { id: "team_comparison", size: "M" },
   { id: "request_triage", size: "M" },
   { id: "pm_due", size: "M" },
   { id: "expected_work", size: "M" },
   { id: "maintenance_open", size: "M" },
+  { id: "requests_filed", size: "S" },
   { id: "menu_today", size: "S" },
   { id: "shortcuts", size: "S" },
+  { id: "review_yesterday", size: "M" },
   { id: "recent_activity", size: "M" },
 ];
 
@@ -58,12 +66,15 @@ const FACILITY: readonly DashboardLayoutItem[] = [
   { id: "attention", size: "L" },
   { id: "departments_glance", size: "L" },
   { id: "facility_setup", size: "M" },
+  { id: "departments_licensing", size: "M" },
+  { id: "hr_alerts", size: "M" },
   { id: "coverage", size: "S" },
   { id: "call_offs", size: "S" },
   { id: "maintenance_open", size: "M" },
   { id: "records_due", size: "M" },
   { id: "pm_due", size: "S" },
   { id: "request_triage", size: "S" },
+  { id: "review_yesterday", size: "M" },
   { id: "recent_activity", size: "M" },
 ];
 
@@ -85,6 +96,7 @@ export function defaultLayoutFor(viewer: {
 export type PlacedDashboardCard = {
   eligible: EligibleDashboardCard;
   size: CardSize;
+  rows: 1 | 2 | 3;
 };
 
 /** Keeps the layout order and size. Eligible cards that are not on the layout stay off the page. */
@@ -98,7 +110,8 @@ export function placeDashboardCards(
     const eligible = byId.get(item.id);
     if (!eligible) continue;
     const size = eligible.card.sizes.includes(item.size) ? item.size : eligible.card.defaultSize;
-    placed.push({ eligible, size });
+    const rows = item.rows === 2 || item.rows === 3 ? item.rows : 1;
+    placed.push({ eligible, size, rows });
   }
   return placed;
 }

@@ -3,10 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { CanonicalLogEntryForm } from "@/components/canonical-logs/canonical-log-entry-form";
+import { ContextualKnowledgePanel } from "@/components/knowledge/contextual-knowledge-panel";
 import { loadPartnerRunLogRequirements } from "@/lib/canonical-logs/partner-log-read";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { canPartner } from "@/lib/partner-user-access";
 import { requirePartnerOperationalContext } from "@/lib/partner-operational-context";
+import { loadContextualKnowledge } from "@/lib/knowledge/contextual";
 import { prisma } from "@/lib/prisma";
 
 type SearchParams = Promise<{ attachmentId?: string; requirementKey?: string }>;
@@ -44,8 +46,26 @@ export default async function PartnerOpenLogPage({ searchParams }: { searchParam
     );
   }
 
+  const attachment = await prisma.logAttachment.findFirst({
+    where: { id: view.attachmentId, facilityId: context.facilityId },
+    select: { catalogDefinitionId: true, unitId: true, assetId: true },
+  });
+  const recordKnowledge = attachment
+    ? await loadContextualKnowledge({
+        facilityId: context.facilityId,
+        viewerDepartmentIds: [context.activeDepartmentId],
+        unitId: attachment.unitId,
+        assetId: attachment.assetId,
+        catalogDefinitionId: attachment.catalogDefinitionId,
+        includeFacilityWideReference: false,
+        limit: 6,
+      })
+    : { articles: [], count: 0 };
+
   return (
-    <CanonicalLogEntryForm
+    <section className="space-y-4">
+      <ContextualKnowledgePanel articles={recordKnowledge.articles} />
+      <CanonicalLogEntryForm
       audience="partner"
       facilityId={context.facilityId}
       departmentId={view.departmentId}
@@ -72,5 +92,6 @@ export default async function PartnerOpenLogPage({ searchParams }: { searchParam
       rules={view.rules}
       cancelHref="/partner/logs"
     />
+    </section>
   );
 }

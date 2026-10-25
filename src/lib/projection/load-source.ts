@@ -101,7 +101,7 @@ function mapHierarchyRole(
 ): "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY" {
   if (role === "BUILDING") return "BUILDING";
   if (role === "FLOOR") return "FLOOR";
-  if (role === "NEIGHBORHOOD") return "NEIGHBORHOOD";
+  if (role === "NEIGHBORHOOD" || role === "LEGACY_LOCATION") return "NEIGHBORHOOD";
   return "LEGACY";
 }
 
@@ -110,8 +110,7 @@ function mapParentHierarchyRole(
 ): "BUILDING" | "FLOOR" | "NEIGHBORHOOD" | "LEGACY_LOCATION" | "STAGED" | null {
   if (role === "BUILDING") return "BUILDING";
   if (role === "FLOOR") return "FLOOR";
-  if (role === "NEIGHBORHOOD") return "NEIGHBORHOOD";
-  if (role === "LEGACY_LOCATION") return "LEGACY_LOCATION";
+  if (role === "NEIGHBORHOOD" || role === "LEGACY_LOCATION") return "NEIGHBORHOOD";
   if (role === "STAGED") return "STAGED";
   return null;
 }

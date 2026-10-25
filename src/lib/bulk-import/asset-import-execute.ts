@@ -10,7 +10,6 @@ import type { AssetStatus, Prisma, PrismaClient } from "@prisma/client";
 import type { FacilitySession } from "@/lib/auth";
 import { createAsset } from "@/lib/asset-operations/asset-service";
 import type { AssetOperationalStatus } from "@/lib/asset-operations";
-import { isDietaryAssetOperationsEnabled } from "@/lib/feature-flags";
 import { loadCustomerOperableDepartments } from "@/lib/department-products/load-facility-catalog";
 
 import {
@@ -110,7 +109,7 @@ export async function loadAssetImportCatalog(
     responsibilities,
     foreignAssetCodes: foreign.map(a => a.assetCode),
     assets,
-    assetOpsEnabled: isDietaryAssetOperationsEnabled() || operable.some(d => d.key === "PLANT"),
+    assetOpsEnabled: operable.length > 0,
   };
 }
 
@@ -181,11 +180,10 @@ export async function executeAssetImportPlan(
   const createRows = plan.rows.filter((r) => r.action === "create" && r.status === "create");
   let createdCount = 0;
   let skippedCount = plan.rows.filter((r) => r.action === "skip").length;
-  const assetOpsEnabled = isDietaryAssetOperationsEnabled();
-
   await client.$transaction(
     async (tx) => {
     const live = await loadAssetImportCatalog(tx, facilityId);
+    const assetOpsEnabled = live.assetOpsEnabled;
 
     for (const row of createRows) {
       if (!row.unitId || !row.statusValue) {
@@ -252,7 +250,8 @@ export async function executeAssetImportPlan(
             facilityAssetNumber: row.facilityAssetNumber,
             description: row.description,
             notes: row.notes,
-            status: row.statusValue as AssetStatus,
+            status:
+              (row.statusValue as string) === "ACTIVE" ? "OPERATIONAL" : row.statusValue,
             criticality: row.criticality,
           },
         });

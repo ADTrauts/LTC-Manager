@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ScheduleToolbar } from "@/components/scheduling/schedule-toolbar";
+import { LogCallOff } from "@/components/scheduling/log-call-off";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -18,9 +19,9 @@ import { hasAtLeastRole } from "@/lib/access";
 import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
 import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { employeeBelongsToDepartmentWhere } from "@/lib/employee-membership/department";
 import { getSession } from "@/lib/auth";
 import { isAnyStaffingOperationalFeatureEnabled } from "@/lib/department-operations";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import {
   buildOperationalTimeContext,
   loadFacilityTimezone,
@@ -147,6 +148,30 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
         })
       : null;
 
+  const callOff =
+    canManage
+      ? {
+          people: await prisma.employee.findMany({
+            where: {
+              status: "ACTIVE",
+              facilityId: session.facilityId,
+              ...(departmentId ? { AND: [employeeBelongsToDepartmentWhere(departmentId)] } : {}),
+            },
+            orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+            select: { id: true, firstName: true, lastName: true },
+          }),
+          places: await prisma.unit.findMany({
+            where: {
+              facilityId: session.facilityId,
+              isActive: true,
+              OR: [{ hierarchyRole: null }, { hierarchyRole: { not: "STAGED" } }],
+            },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          }),
+        }
+      : null;
+
   const facilityWeekSchedules =
     !departmentId && deptNav.showAllDepartmentNav && mode === "week"
       ? await loadFacilityWeekSchedule({
@@ -178,9 +203,11 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
         today={todayIso}
         filters={{ q: filters.search, team: filters.team, jobRole: filters.jobRole,
           scheduled: filters.scheduled, floor: floorFilter, rooms: showRooms ? "1" : undefined }}
-        showAssignments={isOperationalAssignmentsEnabled()}
+        showAssignments
         showCycles={isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey)}
       />
+
+      {callOff ? <LogCallOff people={callOff.people} places={callOff.places} date={todayIso} /> : null}
 
       {viewNotice ? <DepartmentViewNotice notice={viewNotice} /> : null}
 
@@ -400,16 +427,14 @@ function DayRoster({
                       </td>
                       <td className="py-2.5 pr-3 align-top text-zinc-700">
                         <p>{row.coverageContext ?? row.relationshipLabel}</p>
-                        {isOperationalAssignmentsEnabled() ? (
-                          <Link
-                            href={`/staffing/assignments?date=${selectedDateIso}`}
-                            className="mt-1 inline-block text-xs font-medium text-indigo-700 hover:underline"
-                          >
-                            {p.relationship === "SCHEDULED_UNASSIGNED"
-                              ? "Assign coverage"
-                              : "View assignment"}
-                          </Link>
-                        ) : null}
+                        <Link
+                          href={`/staffing/assignments?date=${selectedDateIso}`}
+                          className="mt-1 inline-block text-xs font-medium text-indigo-700 hover:underline"
+                        >
+                          {p.relationship === "SCHEDULED_UNASSIGNED"
+                            ? "Assign coverage"
+                            : "View assignment"}
+                        </Link>
                       </td>
                       {canManage ? (
                         <td className="py-2.5 align-top">

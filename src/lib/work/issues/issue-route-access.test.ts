@@ -7,29 +7,25 @@ import { resolveZoneForPathname } from "@/lib/nav-zones";
 import { roleMayAccessRoute } from "@/lib/route-registry";
 import { issueDetailPath, repairDetailAliasPath } from "@/lib/work/issues/issue-copy";
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { };
 
-test("/issues detail keeps the same STAFF+ access as the /repairs alias", () => {
+test("repair detail is STAFF+ and is not registered at /issues", () => {
   for (const role of APP_ROLES) {
     const allowed = ROLE_PRIORITY[role as AppRole] >= ROLE_PRIORITY.STAFF;
     assert.equal(
-      roleMayAccessRoute("/issues/clxxxxxxxxxxxxxxxxxxxxxxxx", role, FLAGS),
-      allowed,
-      `${role} /issues detail`,
-    );
-    assert.equal(
       roleMayAccessRoute("/repairs/clxxxxxxxxxxxxxxxxxxxxxxxx", role, FLAGS),
       allowed,
-      `${role} /repairs alias`,
+      `${role} /repairs`,
     );
+    assert.equal(roleMayAccessRoute("/issues/clxxxxxxxxxxxxxxxxxxxxxxxx", role, FLAGS), false);
   }
 });
 
-test("/issues maps to ADMINISTRATION zone and Dietary/EVS/Plant department visibility", () => {
-  assert.equal(resolveZoneForPathname("/issues/abc"), "ADMINISTRATION");
-  assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "DIETARY"), true);
-  assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "PLANT"), true);
-  assert.equal(pathnameAllowedForDepartmentKey("/issues/abc", "EVS"), true);
+test("repairs map to ADMINISTRATION and stay visible for Dietary, EVS, and Plant", () => {
+  assert.equal(resolveZoneForPathname("/repairs/abc"), "ADMINISTRATION");
+  assert.equal(pathnameAllowedForDepartmentKey("/repairs/abc", "DIETARY"), true);
+  assert.equal(pathnameAllowedForDepartmentKey("/repairs/abc", "PLANT"), true);
+  assert.equal(pathnameAllowedForDepartmentKey("/repairs/abc", "EVS"), true);
 });
 
 test("/asset-issues list is a registered STAFF+ frontline surface", () => {

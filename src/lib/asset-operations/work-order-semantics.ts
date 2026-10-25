@@ -56,12 +56,10 @@ export const ALL_REPAIR_STATUSES: readonly RepairStatus[] = [
   "OPEN",
   "ASSIGNED",
   "IN_PROGRESS",
-  "WAITING_PARTS",
   "WAITING_ON_VENDOR",
   "ON_HOLD",
   "COMPLETED",
   "CANCELLED",
-  "CLOSED",
 ];
 
 export const ALL_REPAIR_PRIORITIES: readonly RepairPriority[] = [
@@ -164,8 +162,18 @@ export function mapRepairTradeToCategoryKey(
   return "GENERAL_REPAIR";
 }
 
+export function currentRepairStatusWrite(
+  requested: RepairStatus | string,
+  holdReason?: WorkOrderHoldReason | null,
+): { status: RepairStatus; holdReason: WorkOrderHoldReason | null } {
+  if (requested === "CLOSED") {
+    return { status: "COMPLETED", holdReason: null };
+  }
+  return resolveStoredHoldWrite(requested, holdReason);
+}
+
 export function resolveStoredHoldWrite(
-  requested: RepairStatus,
+  requested: RepairStatus | string,
   holdReason?: WorkOrderHoldReason | null,
 ): { status: RepairStatus; holdReason: WorkOrderHoldReason | null } {
   if (requested === "WAITING_PARTS") {
@@ -177,7 +185,16 @@ export function resolveStoredHoldWrite(
   if (requested === "ON_HOLD") {
     return { status: "ON_HOLD", holdReason: holdReason ?? "OTHER" };
   }
-  return { status: requested, holdReason: null };
+  if (
+    requested === "OPEN" ||
+    requested === "ASSIGNED" ||
+    requested === "IN_PROGRESS" ||
+    requested === "COMPLETED" ||
+    requested === "CANCELLED"
+  ) {
+    return { status: requested, holdReason: null };
+  }
+  return { status: "OPEN", holdReason: null };
 }
 
 export type WorkOrderPresentation = {

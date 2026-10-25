@@ -1,4 +1,4 @@
-import { spaceHref } from "@/lib/business-workspace/dashboard/from-runtime-state";
+import { spaceHref } from "@/lib/dashboard/runtime/from-runtime-state";
 import type { RecordEngineMode } from "@/lib/canonical-logs/record-engine-rollout";
 import type { RunLogRequirementView } from "@/lib/canonical-logs/run-presentation";
 import type { LogRequirementProductState } from "@/lib/logs-architecture/types";

@@ -1,15 +1,15 @@
 import type { SupervisorAssetExceptionItem } from "@/lib/asset-operations/load-runtime-assets";
-import { presentDashboardWorkspace } from "@/lib/business-workspace/dashboard/from-runtime-state";
-import type { WorkspaceActivityRaw } from "@/lib/business-workspace/load-workspace-extras";
+import { presentDashboardWorkspace } from "@/lib/dashboard/runtime/from-runtime-state";
+import type { WorkspaceActivityRaw } from "@/lib/dashboard/activity";
 import type { RunLogRequirementView } from "@/lib/canonical-logs/run-presentation";
 import type { PmRunBoardCounts } from "@/lib/preventive-maintenance/run-board";
 import type { GmCycleSummary } from "@/lib/operational-cycles/load-gm-cycle-summary";
 import type { RunDepartmentOperationPresentation } from "@/lib/operational-cycles/present-run-operation";
 import type { RuntimeLocationState } from "@/lib/runtime-location-state";
 import type { SupervisorDailyCoverageProjection } from "@/lib/scheduling/supervisor-daily-coverage";
-import type { CallDownData } from "@/lib/todays-work/call-down";
-import type { HandoffData } from "@/lib/todays-work/handoffs";
-import type { TodaysExpectedWorkView } from "@/lib/todays-work/expected-work/types";
+import type { CallDownData } from "@/lib/scheduling/call-down";
+import type { HandoffData } from "@/lib/staffing/handoffs/handoffs";
+import type { TodaysExpectedWorkView } from "@/lib/work/expected/types";
 import type { OperatingLocationStatus } from "@/lib/todays-work/operating-locations/types";
 
 import { plural, type DashboardAttentionItem } from "../attention";
@@ -512,7 +512,7 @@ export function presentActivity(activity: WorkspaceActivityRaw): CardResult<Dash
       line({ id: `resolved:${row.id}`, title: row.title, detail: `${row.unitName} · resolved`, tone: "ok", href: `/repairs/${row.id}` }),
     ),
     ...activity.knowledgePublished.map((row) =>
-      line({ id: `knowledge:${row.id}`, title: row.title, detail: "Procedure published", tone: "ok", href: "/build/knowledge" }),
+      line({ id: `knowledge:${row.id}`, title: row.title, detail: "Procedure published", tone: "ok", href: "/admin/knowledge" }),
     ),
   ];
   if (lines.length === 0) return quiet("Nothing changed in the last seven days.");

@@ -6,7 +6,7 @@ import { pathnameAllowedForDepartmentKey } from "@/lib/department-nav";
 import { isTodaysWorkPathname, resolveDefaultHomePath } from "@/lib/nav-zones";
 import { PLATFORM_ROUTES, roleMayAccessRoute } from "@/lib/route-registry";
 
-const FLAGS = { todaysWorkEnabled: true, canonicalLogsEnabled: true };
+const FLAGS = { canonicalLogsEnabled: true };
 
 function mayAccess(path: string, role: AppRole): boolean {
   return roleMayAccessRoute(path, role, FLAGS);
@@ -31,7 +31,6 @@ const WAVE1_RBAC_MATRIX: { role: AppRole; path: string }[] = [
   { role: "STAFF", path: "/logs" },
   { role: "STAFF", path: "/unit/abc" },
   { role: "STAFF", path: "/dashboard" },
-  { role: "STAFF", path: "/operations" },
 ];
 
 const WAVE1_RBAC_DENIALS: { role: AppRole; path: string }[] = [
@@ -109,9 +108,9 @@ test("Wave 1 RBAC matrix — floor default home avoids /units redirect loop", ()
   );
 });
 
-test("Wave 1 RBAC matrix — manager homes on Workspace; supervisor homes on Today's Work", () => {
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/workspace");
-  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
+test("Wave 1 RBAC matrix — Supervisor and above begin in the Dashboard", () => {
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/dashboard");
 });
 
 test("Wave 1 RBAC matrix — /today subpaths keep the supervisor+ gate", () => {

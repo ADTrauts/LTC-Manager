@@ -129,17 +129,7 @@ test(
       // Facility-local 11:00–14:00 America/New_York ≈ 15:00–18:00 UTC in August.
       const now = new Date("2099-08-06T16:00:00.000Z");
 
-      await prisma.unitMealTime.upsert({
-        where: { unitId_mealType: { unitId: unit.id, mealType: "LUNCH" } },
-        create: {
-          id: cuidLike(),
-          unitId: unit.id,
-          mealType: "LUNCH",
-          scheduledTime: "12:15",
-          isActive: true,
-        },
-        update: { scheduledTime: "12:15", isActive: true },
-      });
+      await null;
 
       // Clean prior synthetic rows
       await prisma.operationalAssignmentEvent.deleteMany({

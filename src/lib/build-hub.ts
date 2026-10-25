@@ -31,14 +31,12 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
   "/menus": "Create and edit department-owned menus.",
   "/build/logs":
     "Install published logs, checklists, inspections, and procedures onto this facility, then place them on rooms, assets, units, or departments.",
-  "/build/knowledge":
-    "Local procedure notes for this facility. Harbor-published procedures install under Logs.",
   "/staffing/templates":
     "Phase 9C operational templates (compatibility). Prefer BUILD · Logs for Catalog Attachments when Canonical Logs are enabled.",
   "/staffing/work-plans":
     "Author department work plans that schedule recurring operational work.",
   "/admin/knowledge":
-    "Local procedure notes. Prefer /build/knowledge.",
+    "Local procedure notes for this facility. Harbor-published procedures install under Logs.",
 };
 
 /**
@@ -60,8 +58,6 @@ export const BUILD_PAGE_INTROS: Record<string, string> = {
     "Phase 9C template builder (compatibility). Canonical Catalog Attachments live under Logs.",
   "/build/logs":
     "Install a published log, checklist, inspection, or procedure onto this facility, then place it.",
-  "/build/knowledge":
-    "Add a local note beside a Harbor procedure.",
   "/staffing/work-plans":
     "Author department work plans that schedule recurring operational work.",
   "/admin/knowledge":

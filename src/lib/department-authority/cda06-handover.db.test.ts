@@ -189,17 +189,7 @@ test("a vendor handover hides the previous period and keeps compliance Records",
       },
     });
     const record = async (name: string, periodId: string | null) => {
-      const template = await prisma.operationalTemplate.create({
-        data: {
-          facilityId: facility.id,
-          departmentId: department.id,
-          stableKey: `${name}-${suffix}`,
-          name,
-          purposeType: "LOG",
-          status: "PUBLISHED",
-          publishedAt: new Date(),
-        },
-      });
+      const template = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
       return prisma.operationalEvidenceRecord.create({
         data: {
           facilityId: facility.id,

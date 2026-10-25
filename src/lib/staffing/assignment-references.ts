@@ -1,7 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
 
-import { toServiceDateKey } from "@/lib/operational-time";
-
 /**
  * Why a submitted reference was refused.
  *
@@ -66,7 +64,6 @@ export async function resolveAssignmentReferences(
   },
 ): Promise<AssignmentReferenceResult> {
   const unitId = input.unitId || null;
-  const operationInstanceId = input.operationInstanceId || null;
 
   if (unitId) {
     const unit = await client.unit.findFirst({
@@ -78,45 +75,5 @@ export async function resolveAssignmentReferences(
     }
   }
 
-  if (!operationInstanceId) {
-    return { ok: true, unitId, operationInstanceId: null };
-  }
-
-  const operation = await client.operationInstance.findFirst({
-    where: { id: operationInstanceId, facilityId: input.facilityId },
-    select: { id: true, departmentId: true, serviceDate: true },
-  });
-  if (!operation) {
-    return { ok: false, reason: "OPERATION_NOT_FOUND" };
-  }
-
-  // An assignment in one department must not be attached to another department's operation, even
-  // within the same facility.
-  if (operation.departmentId !== input.departmentId) {
-    return { ok: false, reason: "OPERATION_DEPARTMENT_MISMATCH" };
-  }
-
-  // Attaching Monday's assignment to Tuesday's operation would silently misfile the work.
-  if (toServiceDateKey(operation.serviceDate) !== input.serviceDateKey) {
-    return { ok: false, reason: "OPERATION_DATE_MISMATCH" };
-  }
-
-  if (unitId) {
-    // Units carry department responsibilities rather than a single department column. When a unit
-    // declares them, the operation's department must be among them. A unit that declares none is
-    // treated as unrestricted, which is how the rest of the product reads a legacy unit — a
-    // missing declaration is not evidence of exclusion.
-    const responsibilities = await client.unitDepartmentResponsibility.findMany({
-      where: { unitId },
-      select: { departmentId: true },
-    });
-    if (
-      responsibilities.length > 0 &&
-      !responsibilities.some((row) => row.departmentId === operation.departmentId)
-    ) {
-      return { ok: false, reason: "UNIT_OPERATION_MISMATCH" };
-    }
-  }
-
-  return { ok: true, unitId, operationInstanceId };
+  return { ok: true, unitId, operationInstanceId: null };
 }

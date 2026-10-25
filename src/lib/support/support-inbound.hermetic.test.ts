@@ -347,9 +347,9 @@ test("timeline describes email-opened tickets and customer-caused reopening", ()
 });
 
 test("the inbound webhook is a public route: no Harbor or facility session is consulted", () => {
-  assert.equal(authorizeRoute({ pathname: "/api/support/inbound-email", role: null, featureFlags: { todaysWorkEnabled: true } }).outcome, "ALLOW");
+  assert.equal(authorizeRoute({ pathname: "/api/support/inbound-email", role: null, featureFlags: { } }).outcome, "ALLOW");
   assert.equal(
-    authorizeRoute({ pathname: "/api/support/inbound-email", role: "FACILITY_ADMINISTRATOR", featureFlags: { todaysWorkEnabled: true } }).outcome,
+    authorizeRoute({ pathname: "/api/support/inbound-email", role: "FACILITY_ADMINISTRATOR", featureFlags: { } }).outcome,
     "ALLOW",
   );
 });

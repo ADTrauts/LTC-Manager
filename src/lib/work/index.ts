@@ -15,7 +15,6 @@ export {
   mapRepairPriorityToTaskPriority,
   buildLogTaskTitle,
 } from "@/lib/work/task-mappings";
-export { isTaskSyncEnabled } from "@/lib/feature-flags";
 export {
   validateInspectionSubmission,
   determineInspectionResult,

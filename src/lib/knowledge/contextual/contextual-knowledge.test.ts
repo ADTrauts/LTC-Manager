@@ -14,6 +14,7 @@ import { articleVisibleToViewer } from "@/lib/knowledge/visibility";
 test("exact object link ranks above unit and facility-wide", () => {
   assert.ok(linkReasonRank("ASSET") < linkReasonRank("UNIT"));
   assert.ok(linkReasonRank("LOG_TEMPLATE") < linkReasonRank("UNIT"));
+  assert.equal(linkReasonRank("CATALOG_RECORD"), linkReasonRank("LOG_TEMPLATE"));
   assert.ok(linkReasonRank("INSPECTION_DEFINITION") < linkReasonRank("FACILITY_WIDE"));
   assert.ok(linkReasonRank("UNIT") < linkReasonRank("FACILITY_WIDE"));
 });
@@ -26,6 +27,7 @@ test("safety and compliance precede SOP and troubleshooting within a link tier",
 
 test("link reason labels are operator-friendly", () => {
   assert.match(linkReasonLabel("ASSET"), /equipment/i);
+  assert.match(linkReasonLabel("CATALOG_RECORD"), /Record/i);
   assert.match(linkReasonLabel("UNIT"), /location/i);
   assert.match(linkReasonLabel("FACILITY_WIDE"), /Facility/i);
 });

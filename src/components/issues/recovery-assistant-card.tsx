@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   ensureRecoveryAssistantAction,
   refreshRecoveryAssistantAction,
-} from "@/app/(protected)/issues/recovery-actions";
+} from "@/app/(protected)/repairs/recovery-actions";
 import { AppCard } from "@/components/design-system/AppCard";
 import { OperationalListRow } from "@/components/design-system/OperationalListRow";
 import { StatusBadge } from "@/components/design-system/StatusBadge";

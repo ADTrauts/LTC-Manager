@@ -381,3 +381,26 @@ body:has([data-shell-root]) {
   background: rgb(254 226 226);
   color: rgb(185 28 28);
 }
+
+/* Dashboard widths are inline spans on a 12-column grid. A viewport query keeps
+   that grid working when container-query utilities do not apply. */
+.dashboard-grid {
+  display: grid;
+  gap: 1rem;
+  grid-auto-rows: minmax(7.5rem, auto);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-grid > article {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .dashboard-grid > article[data-size="S"] { grid-column: span 3; }
+  .dashboard-grid > article[data-size="M"] { grid-column: span 6; }
+  .dashboard-grid > article[data-size="L"] { grid-column: span 12; }
+}

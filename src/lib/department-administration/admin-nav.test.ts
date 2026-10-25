@@ -79,12 +79,11 @@ describe("Department Builder local navigation", () => {
   it("keeps Operating Rhythm on the bar and omits Records and Menus until the product needs them", () => {
     const base = ["overview", "locations", "operating-rhythm", "work", "people"];
     assert.deepEqual(
-      departmentAdminTabsForFlags({ profilesEnabled: false, cyclesEnabled: true }).map((t) => t.id),
+      departmentAdminTabsForFlags({ cyclesEnabled: true }).map((t) => t.id),
       base,
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
-        profilesEnabled: true,
         workEnabled: false,
         recordsEnabled: true,
         menusEnabled: true,
@@ -93,7 +92,6 @@ describe("Department Builder local navigation", () => {
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
-        profilesEnabled: true,
         workEnabled: false,
         maintenanceEnabled: true,
       }).map((t) => t.id),

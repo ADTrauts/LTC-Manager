@@ -772,7 +772,8 @@ test("adapter and landing page do not query domain services or persist RLS", () 
   assert.doesNotMatch(browser, /Experience\{|countExperiences|ReadinessChip|needs_attention/);
   assert.match(browser, /Configure facility structure/);
   assert.match(browser, /Configure this location/);
-  assert.doesNotMatch(page, /\/locations\//);
+  assert.match(page, /RoundsScreen/);
+  assert.doesNotMatch(page, /["']\/locations["'?]/);
 });
 
 test("Phase 6D does not migrate workspace, TW, sidebar, or dashboard", () => {

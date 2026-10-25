@@ -383,7 +383,7 @@ test("scope: items outside the viewer's Departments or behind a closed route are
     scopeDepartmentIds: [FN],
     role: "SUPERVISOR" as const,
     session: { authKind: "user" } as FacilitySession,
-    routeFlags: { todaysWorkEnabled: false },
+    routeFlags: {},
   };
   const kept = scopeAttentionToViewer(viewer, [
     item({ id: "location:a", href: "/unit/u1?space=a" }),
@@ -392,5 +392,5 @@ test("scope: items outside the viewer's Departments or behind a closed route are
     item({ id: "builder", href: "/build/departments/dept-fn" }),
     item({ id: "relative", href: "units" }),
   ]);
-  assert.deepEqual(kept.map((row) => row.id), ["location:a"]);
+  assert.deepEqual(kept.map((row) => row.id), ["location:a", "handoff"]);
 });

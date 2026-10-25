@@ -1,12 +1,11 @@
-import { PROCEDURES_RESOURCES_VISIBLE } from "@/lib/knowledge/surface";
 import { rolesAtLeast, type PlatformRoute } from "@/lib/route-registry/types";
 
 /**
  * The canonical, platform-owned route authorization policy.
  *
  * This module is the single source of truth for which roles may reach which paths. The proxy,
- * primary navigation, the read-only Access Matrix, and the legacy compatibility seed data are all
- * projections of this list — none of them holds a second copy of the policy, and
+ * primary navigation and the read-only Access Matrix are projections of this list. None of them
+ * holds a second copy of the policy, and
  * `platform-routes.test.ts` fails if the list drifts from the routes that exist in `src/app`.
  *
  * Changing access here is a reviewed code change. It is deliberately not editable at runtime; see
@@ -153,6 +152,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
+  },
+  {
+    pattern: "/console/partners",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor OWNER creates a partner company with no facility. Page re-checks OWNER; MEMBER is redirected.",
   },
   {
     pattern: "/console/organization-claims",
@@ -345,7 +353,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "partner-facility-session",
     requiresDownstreamAuthorization: true,
     notes:
-      "Active Department Dashboard. Composes certified Review evidence, Log requirement states, and partner Asset status counts.",
+      "Partner home. A partner who can manage a Department sees the same card Dashboard. Others keep the Review, Logs, and Assets summary.",
   },
   {
     pattern: "/partner/people",
@@ -356,6 +364,46 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes:
       "PIN workforce records for an accepted vendor head (CDA-05). Hidden unless that head is signed in and enforcement is on.",
+  },
+  {
+    pattern: "/partner/coverage",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Partner GM coverage (CDA-08). Shifts, call-offs, moves, and teams for the active Department. Redirects home unless the head or a Partner Manager may set it up.",
+  },
+  {
+    pattern: "/partner/rhythm",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Partner operating rhythm (CDA-08). Cycles, phases, and key points for the active Department. The cycle covers the whole Department.",
+  },
+  {
+    pattern: "/partner/work",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Partner work plans (CDA-08). A step may link an organization-owned Catalog Record.",
+  },
+  {
+    pattern: "/partner/menus",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Partner menus (CDA-08). Shown when the Department product offers menus. Attaches an explicit location and a published root cycle.",
   },
   {
     pattern: "/partner/department",
@@ -630,30 +678,18 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "operations-center",
     legacyArea: { key: "dashboard", label: "Operations Center", navOrder: 10, navVisible: false, critical: true },
     notes:
-      "RETIRED Operations Center surface. The page no longer renders operational content — it redirects every role to their canonical RUN home (managers → /workspace, supervisors → /today, frontline → their unit/logs). Kept reachable by all roles so bookmarks/deep links and internal 'home' redirects never dead-end. See docs/product/LEGACY_SURFACE_REGISTER.md.",
-  },
-  {
-    pattern: "/operations",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
-    module: "operations-center",
-    legacyArea: { key: "operations", label: "Operations Center", navOrder: 11, navVisible: false, critical: false },
-    notes:
-      "Legacy alias of the retired Operations Center. Redirects to the caller's canonical RUN home.",
+      "Dashboard for Supervisor and above. Floor roles are sent to their unit or Logs.",
   },
 
-  // ── Today's Work (feature-gated) ──────────────────────────────────────────
+  // ── Today's Work (redirects only) ─────────────────────────────────────────
   {
     pattern: "/today",
     match: "EXACT",
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "todays-work",
-    legacyArea: { key: "today", label: "Today's Work", navOrder: 15, navVisible: true, critical: false },
-    featureFlag: "TODAYS_WORK",
-    // RUN · Today's Work — supervisor exception board / walk / coverage / handoffs.
-    nav: { label: "Today's Work", order: 20 },
+    legacyArea: { key: "today", label: "Today's Work", navOrder: 15, navVisible: false, critical: false },
+    notes: "DSH-04. The page only redirects Supervisor and above to the Dashboard.",
   },
   {
     pattern: "/today/coverage",
@@ -661,7 +697,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "todays-work",
-    featureFlag: "TODAYS_WORK",
+    notes: "DSH-04. Redirects to Schedule.",
   },
   {
     pattern: "/today/handoffs",
@@ -669,7 +705,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "todays-work",
-    featureFlag: "TODAYS_WORK",
+    notes: "DSH-04. Redirects to /staffing/handoffs.",
   },
   {
     pattern: "/today/walk",
@@ -677,7 +713,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "todays-work",
-    featureFlag: "TODAYS_WORK",
+    notes: "DSH-04. Redirects to /units?view=rounds.",
   },
 
   // ── Staffing ──────────────────────────────────────────────────────────────
@@ -689,9 +725,17 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "staffing",
     legacyArea: { key: "staffing", label: "Today's Work", navOrder: 50, navVisible: false, critical: false },
     // RUN · Schedule — Department-scoped clock-time Shifts (presence).
-    // Daily Assignments live at /staffing/assignments. Legacy Unit/meal grid: /staffing/legacy.
+    // Daily Assignments live at /staffing/assignments. /staffing/legacy redirects here.
     // Workforce configuration lives in BUILD Employee Builder (/employees).
     nav: { label: "Schedule", order: 40 },
+  },
+  {
+    pattern: "/staffing/handoffs",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
+    module: "staffing",
+    notes: "Shift handoff notes and the AI shift summary. DSH-04 home for /today/handoffs.",
   },
   {
     pattern: "/staffing/legacy",
@@ -699,7 +743,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "PAGE",
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
-    notes: "Legacy Unit/meal ScheduleEntry grid. Prefer /staffing Department Scheduler.",
+    notes: "Retired unit and meal grid. Redirects to /staffing.",
   },
   {
     pattern: "/staffing/assignments",
@@ -715,7 +759,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
     notes:
-      "Dietary Operational Cycles supervisor overview. Page enforces DIETARY_OPERATIONAL_CYCLES_ENABLED.",
+      "Operational Cycles supervisor overview. The capability comes with the Department.",
   },
   {
     pattern: "/staffing/operations",
@@ -724,7 +768,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("SUPERVISOR") },
     module: "staffing",
     notes:
-      "Dietary Supervisor Operations Board. Page enforces DIETARY_JOB_FLOW_ENABLED and Job Flow authority.",
+      "Supervisor Operations Board. Job Flow comes with the Department and still checks Job Flow authority.",
   },
   {
     pattern: "/staffing/templates",
@@ -736,7 +780,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // BUILD · Operational Templates — Phase 9C compatibility surface (not Canonical Catalog UI).
     nav: { label: "Operational Templates", order: 245 },
     notes:
-      "Phase 9C OperationalTemplate builder. Compatibility/historical when CANONICAL_LOGS_ENABLED. Not the Marketplace Catalog or the next layer after CatalogLogDefinition. Canonical configuration is /build/logs.",
+      "Phase 9C OperationalTemplate builder. A Department on the forward engine is sent to /build/logs (managers) or /staffing/logs. The page remains for a Department on the previous engine.",
   },
   {
     pattern: "/build/logs",
@@ -808,7 +852,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // BUILD · Work — Department Work Plan builder. Owned by Department Builder, not Staffing.
     nav: { label: "Work", order: 250 },
     notes:
-      "Dietary Department Work Plan Builder (Phase 11A). Page enforces DIETARY_WORK_PLANS_ENABLED.",
+      "Department Work Plan Builder. Work Plans come with the Department.",
   },
   {
     pattern: "/staffing/work-plans/[workPlanId]",
@@ -817,7 +861,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "staffing",
     notes:
-      "Dietary Work Plan detail (Phase 11A). Page enforces DIETARY_WORK_PLANS_ENABLED.",
+      "Work Plan detail. Work Plans come with the Department.",
   },
   {
     pattern: "/staffing/log-book",
@@ -830,7 +874,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     // app-shell injects this item when CANONICAL_LOGS_ENABLED even if evidence is off.
     nav: { label: "Log Book", order: 50 },
     notes:
-      "Log Book is the historical projection over OperationalEvidenceRecord. Distinct from due Logs at /staffing/logs. Page allows DIETARY_OPERATIONAL_EVIDENCE_ENABLED or CANONICAL_LOGS_ENABLED.",
+      "Log Book is the historical projection over OperationalEvidenceRecord. Distinct from due Logs at /staffing/logs. Evidence comes with the Department. Canonical Logs remains its own switch.",
   },
   {
     pattern: "/staffing/log-book/[recordId]",
@@ -1120,25 +1164,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Facility Plant Operations Preventive Maintenance Run board. Supervisor+ operations; STAFF execute assigned PREVENTIVE Work Orders on /repairs.",
   },
   {
-    pattern: "/issues/[issueId]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
-    module: "issues",
-    legacyArea: { key: "issues", label: "Repairs", navOrder: 81, navVisible: false, critical: false },
-    requiresDownstreamAuthorization: true,
-    notes:
-      "Legacy Repair detail deep link — redirects to /repairs/[id]. When Asset Ops is enabled, Repair is the product term — not AssetIssue.",
-  },
-  {
-    pattern: "/issues",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("STAFF") },
-    module: "issues",
-    notes: "Legacy list façade — redirects to /repairs. Not a second legacyArea anchor.",
-  },
-  {
     pattern: "/reports",
     match: "EXACT",
     surface: "PAGE",
@@ -1278,21 +1303,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Redirects to BUILD Logs. Harbor publishes inspections; install then place.",
   },
   {
-    pattern: "/build/knowledge",
-    match: "EXACT",
-    surface: "PAGE",
-    access: {
-      kind: "REDIRECT_ONLY",
-      destination: "/admin/knowledge",
-      allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR"),
-    },
-    module: "administration",
-    notes: "Canonical procedures URL redirects to Admin knowledge until Build surface exists.",
-    ...(PROCEDURES_RESOURCES_VISIBLE
-      ? { nav: { label: "Procedures", order: 260 } }
-      : {}),
-  },
-  {
     pattern: "/admin/knowledge",
     match: "EXACT",
     surface: "PAGE",
@@ -1361,20 +1371,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
   { pattern: "/admin/billing/implementation", match: "EXACT", surface: "PAGE", access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") }, module: "administration", requiresDownstreamAuthorization: true, notes: "Internal FA service scope/payment/handoff; explicit participation and current authority checked downstream." },
   { pattern: "/console/customers/[facilityId]/implementation", match: "EXACT", surface: "PAGE", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Implementation delivery outside Facility work sessions; explicit participants only." },
   { pattern: "/api/console/implementation/[engagementId]/attachments/[attachmentId]", match: "EXACT", surface: "API", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Explicit Console engagement participant, source link and CLEAN private-file verdict; outside work sessions." },
-
-  // ── Registered redirect ───────────────────────────────────────────────────
-  {
-    pattern: "/settings",
-    match: "PREFIX",
-    surface: "PAGE",
-    access: {
-      kind: "REDIRECT_ONLY",
-      destination: "/admin/organization",
-      allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR"),
-    },
-    module: "administration",
-    notes: "Legacy settings entry point. Facility Administrators land on Organization; others go home.",
-  },
 
   // ── Public APIs ───────────────────────────────────────────────────────────
   {

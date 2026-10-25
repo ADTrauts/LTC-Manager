@@ -138,7 +138,6 @@ async function main() {
     DIETARY_JOB_FLOW_ENABLED: "true",
     OPERATION_ENGINE_ENABLED: "",
     OPERATIONAL_ASSIGNMENTS_ENABLED: "true",
-    DEPARTMENT_OPERATIONAL_PROFILES_ENABLED: "true",
   };
 
   try {

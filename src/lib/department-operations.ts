@@ -1,12 +1,7 @@
 /**
- * Department-keyed operational feature gates.
- *
- * Shared engines (cycles, job flow, evidence, work, assets) admit any active
- * department. DIETARY / EVS / PLANT keep their existing release flags.
- * Custom keys do not need a compile-time flag and do not receive domain
- * capabilities from those flags.
- *
- * Does not enable OPERATION_ENGINE_ENABLED or TASK_SYNC_ENABLED.
+ * Department engines come with the installed Department.
+ * Plant still uses install plus customer-operable or Harbor access.
+ * Custom departments get the same shared engines.
  */
 
 import {
@@ -14,15 +9,6 @@ import {
   isDomainDepartmentKey,
   type DomainDepartmentKey,
 } from "@/lib/department-admission";
-import {
-  isDietaryAssetOperationsEnabled,
-  isDietaryJobFlowEnabled,
-  isDietaryOperationalCyclesEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-  isEvsOperationsEnabled,
-  isPlantOperationsEnabled,
-} from "@/lib/feature-flags";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { prisma } from "@/lib/prisma";
 
@@ -37,68 +23,35 @@ export type StaffingOperationalFeature =
   | "evidence"
   | "asset";
 
-function isSharedOperationalEngineEnabledForKey(
-  key: string | null | undefined,
-  dietaryFlag: () => boolean,
-  evsFlag: () => boolean,
-  plantFlag: () => boolean,
-): boolean {
-  if (!key) return false;
-  if (key === "DIETARY") return dietaryFlag();
-  if (key === "EVS") return evsFlag();
-  if (key === "PLANT") return plantFlag();
-  return true;
+/** Sync admission. Plant's install rule is applied by the facility-scoped check. */
+function sharedEngineEnabled(key: string | null | undefined): boolean {
+  return Boolean(key);
 }
 
 export function isDepartmentOperationalCyclesEnabled(
   key: string | null | undefined,
 ): boolean {
-  return isSharedOperationalEngineEnabledForKey(
-    key,
-    isDietaryOperationalCyclesEnabled,
-    isEvsOperationsEnabled,
-    isPlantOperationsEnabled,
-  );
+  return sharedEngineEnabled(key);
 }
 
 export function isDepartmentJobFlowEnabled(key: string | null | undefined): boolean {
-  return isSharedOperationalEngineEnabledForKey(
-    key,
-    isDietaryJobFlowEnabled,
-    isEvsOperationsEnabled,
-    isPlantOperationsEnabled,
-  );
+  return sharedEngineEnabled(key);
 }
 
 export function isDepartmentOperationalEvidenceEnabled(
   key: string | null | undefined,
 ): boolean {
-  return isSharedOperationalEngineEnabledForKey(
-    key,
-    isDietaryOperationalEvidenceEnabled,
-    isEvsOperationsEnabled,
-    isPlantOperationsEnabled,
-  );
+  return sharedEngineEnabled(key);
 }
 
 export function isDepartmentAssetOperationsEnabled(
   key: string | null | undefined,
 ): boolean {
-  return isSharedOperationalEngineEnabledForKey(
-    key,
-    isDietaryAssetOperationsEnabled,
-    isEvsOperationsEnabled,
-    isPlantOperationsEnabled,
-  );
+  return sharedEngineEnabled(key);
 }
 
 export function isDepartmentWorkPlansEnabled(key: string | null | undefined): boolean {
-  return isSharedOperationalEngineEnabledForKey(
-    key,
-    isDietaryWorkPlansEnabled,
-    isEvsOperationsEnabled,
-    isPlantOperationsEnabled,
-  );
+  return sharedEngineEnabled(key);
 }
 
 export async function isDepartmentEngineEnabledForFacility(
@@ -132,22 +85,14 @@ function isFeatureEnabledForKey(
 }
 
 /**
- * True when a staffing engine surface should be reachable.
- * Trio departments still honor their release flags. An active custom
- * department key admits the shared engine without a new flag.
+ * True when the active Department has this engine.
+ * A missing Department does not turn the surface on.
  */
 export function isAnyStaffingOperationalFeatureEnabled(
   feature: StaffingOperationalFeature,
   activeDepartmentKey?: string | null,
 ): boolean {
-  if (isFeatureEnabledForKey(feature, activeDepartmentKey)) {
-    return true;
-  }
-  return (
-    isFeatureEnabledForKey(feature, "DIETARY") ||
-    isFeatureEnabledForKey(feature, "EVS") ||
-    isFeatureEnabledForKey(feature, "PLANT")
-  );
+  return isFeatureEnabledForKey(feature, activeDepartmentKey);
 }
 
 /**
@@ -159,7 +104,7 @@ export async function resolveStaffingOperationalDepartment(input: {
   activeDepartmentId: string | null;
   feature?: StaffingOperationalFeature;
   preferKeys?: readonly DomainDepartmentKey[];
-  /** When true, resolve even if that department's release flag is off. */
+  /** When true, resolve even if that department has no shared engine. */
   skipFeatureGate?: boolean;
   session?: { authKind?: string | null } | null;
 }): Promise<{ id: string; name: string; key: string } | null> {

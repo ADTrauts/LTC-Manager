@@ -55,13 +55,13 @@ test("Harbor submit still stores catalog stable key on templateStableKey", () =>
   assert.match(submitSrc, /catalogDefinitionId:\s*governing\.id/);
 });
 
-test("feature flag defaults remain independent and off", () => {
+test("canonical logs stays a flag; evidence is no longer an env switch", () => {
   const flags = read("src/lib/feature-flags.ts");
   const env = read(".env.example");
   assert.match(flags, /parseEnvFlag\(process\.env\.CANONICAL_LOGS_ENABLED, false\)/);
-  assert.match(flags, /parseEnvFlag\(process\.env\.DIETARY_OPERATIONAL_EVIDENCE_ENABLED, false\)/);
-  assert.match(env, /CANONICAL_LOGS_ENABLED=false/);
-  assert.match(env, /DIETARY_OPERATIONAL_EVIDENCE_ENABLED=false/);
+  assert.doesNotMatch(flags, /DIETARY_OPERATIONAL_EVIDENCE_ENABLED/);
+  assert.match(env, /CANONICAL_LOGS_ENABLED=true/);
+  assert.doesNotMatch(env, /DIETARY_OPERATIONAL_EVIDENCE_ENABLED/);
 });
 
 test("Template Builder and Supervisor Board remain", () => {
@@ -71,7 +71,8 @@ test("Template Builder and Supervisor Board remain", () => {
     read("src/lib/dietary-job-flow/load-supervisor-operations-board.ts") +
     read("src/lib/dietary-job-flow/supervisor-operations/load-facts.ts") +
     read("src/lib/dietary-job-flow/supervisor-operations/compose.ts");
-  assert.match(templates, /loadBuilderTemplates/);
+  assert.match(templates, /redirect\(hasAtLeastRole\(session\.role, "MANAGER"\) \? "\/build\/logs" : "\/staffing\/logs"\)/);
+  assert.doesNotMatch(templates, /loadBuilderTemplates/);
   assert.match(board, /loadSupervisorOperationsBoard|operations/);
   assert.match(boardLoad, /loadSupervisorOperationsBoard/);
   assert.equal(boardLoad.includes("operationalTemplate.count"), false);

@@ -68,15 +68,7 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
   },
 
   /** Legacy call-off / move override: the employee's primary Department. */
-  callOffOverride: async (db, { facilityId, id }) => {
-    const row = await db.assignmentOverride.findFirst({
-      where: { id, employee: { facilityId } },
-      select: { employee: { select: { primaryDepartmentId: true } } },
-    });
-    if (!row) return null;
-    const departmentId = row.employee.primaryDepartmentId;
-    return departmentId ? { kind: "department", departmentId } : { kind: "unowned" };
-  },
+  callOffOverride: async () => null,
 
   operationalAssignment: async (db, { facilityId, id }) =>
     owned(await db.operationalAssignment.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
@@ -162,8 +154,7 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
       }),
     ),
 
-  evidenceTemplate: async (db, { facilityId, id }) =>
-    owned(await db.operationalTemplate.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
+  evidenceTemplate: async () => null,
 
   evidenceRecord: async (db, { facilityId, id }) =>
     owned(
@@ -174,10 +165,7 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
     owned(await db.operationalRecordWaiver.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 
   /** Legacy `/logs` template (class Legacy). Without a Department it is shared facility. */
-  legacyLogTemplate: async (db, { facilityId, id }) =>
-    ownedOr(await db.logTemplate.findFirst({ where: { id, facilityId }, select: departmentIdSelect }), {
-      kind: "sharedFacility",
-    }),
+  legacyLogTemplate: async () => null,
 
   /** Request to another Department: the responsible Department. */
   operationalRequest: async (db, { facilityId, id }) => {
@@ -231,10 +219,7 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
     return owned(row?.plan ?? null);
   },
 
-  inspectionDefinition: async (db, { facilityId, id }) =>
-    ownedOr(await db.inspectionDefinition.findFirst({ where: { id, facilityId }, select: departmentIdSelect }), {
-      kind: "sharedFacility",
-    }),
+  inspectionDefinition: async () => null,
 
   knowledgeArticle: async (db, { facilityId, id }) =>
     ownedOr(await db.knowledgeArticle.findFirst({ where: { id, facilityId }, select: departmentIdSelect }), {

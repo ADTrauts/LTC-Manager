@@ -43,6 +43,24 @@ test("required field missing is invalid", () => {
   assert.ok(result.errors.some((e) => e.code.includes("required")));
 });
 
+test("displayed temperature text counts as the required number", () => {
+  const result = validateEvidenceSubmission({
+    fields: [tempField],
+    values: [{ fieldKey: "cooler_temperature", valueText: "41 °F" }],
+  });
+  assert.equal(result.valid, true);
+  assert.equal(result.outOfStandard, false);
+  assert.equal(result.normalizedValues[0]?.valueNumber, 41);
+  assert.equal(result.normalizedValues[0]?.valueText, null);
+
+  const missing = validateEvidenceSubmission({
+    fields: [tempField],
+    values: [{ fieldKey: "cooler_temperature", valueText: "°F" }],
+  });
+  assert.equal(missing.valid, false);
+  assert.ok(missing.errors.some((e) => e.message === '"Cooler temperature" is required.'));
+});
+
 test("in-range temperature is completed-ready", () => {
   const result = validateEvidenceSubmission({
     fields: [tempField],

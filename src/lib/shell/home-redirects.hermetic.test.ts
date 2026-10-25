@@ -18,9 +18,13 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test("unauthorized-role bounces go to the caller's home, not the retired /dashboard hop", () => {
+test("unauthorized-role bounces go to the caller's home, except the old overview addresses", () => {
+  const allowed = new Set([
+    join(process.cwd(), "src/app/(protected)/today/page.tsx"),
+    join(process.cwd(), "src/app/(protected)/workspace/page.tsx"),
+  ]);
   const offenders = sourceFiles(join(process.cwd(), "src")).filter((path) =>
-    /redirect\(\s*["'`]\/dashboard["'`]\s*\)/.test(readFileSync(path, "utf8")),
+    /redirect\(\s*["'`]\/dashboard["'`]\s*\)/.test(readFileSync(path, "utf8")) && !allowed.has(path),
   );
   assert.deepEqual(offenders, []);
 });

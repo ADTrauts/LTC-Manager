@@ -15,7 +15,6 @@ import type { AppRole } from "@/lib/access";
 import type { AuthMethod, FacilitySession } from "@/lib/auth";
 import { requireDepartmentManage } from "@/lib/department-authority/access";
 import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
-import { isDepartmentOperationalProfilesEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 import { resolveLocationFunctionAdoption } from "@/lib/department-products/location-functions";
@@ -55,7 +54,6 @@ export type ProfileActor = {
 
 async function assertWrite(actor: ProfileActor, targetFacilityId: string, departmentId: string): Promise<void> {
   assertProfileWriteAccess({
-    flagEnabled: isDepartmentOperationalProfilesEnabled(),
     role: actor.role,
     sessionFacilityId: actor.facilityId,
     targetFacilityId,

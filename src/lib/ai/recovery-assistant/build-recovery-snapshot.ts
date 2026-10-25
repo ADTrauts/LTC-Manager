@@ -17,6 +17,7 @@ import {
   todaysWorkHandoffsPath,
   unitWorkspacePath,
 } from "@/lib/ai/operational-snapshot/source-paths";
+import { loadPublishedOperationWindow } from "@/lib/ai/operational-snapshot/published-window";
 import type { SnapshotReadinessState } from "@/lib/ai/operational-snapshot/types";
 
 import {
@@ -115,7 +116,7 @@ export async function buildRecoverySnapshot(
       description: true,
       priority: true,
       status: true,
-      issueType: true,
+      repairTrade: true,
       createdAt: true,
       dueAt: true,
       updatedAt: true,
@@ -150,7 +151,7 @@ export async function buildRecoverySnapshot(
   const facilityTimezone = await loadFacilityTimezone(prisma, input.facilityId);
   const timeCtx = buildOperationalTimeContext({ now, facilityTimezone });
 
-  const [knowledge, relatedOpen, relatedSupply] = await Promise.all([
+  const [knowledge, relatedOpen, relatedSupply, activeOperation] = await Promise.all([
     loadContextualKnowledge({
       facilityId: input.facilityId,
       viewerDepartmentIds: input.viewerDepartmentIds,
@@ -161,19 +162,19 @@ export async function buildRecoverySnapshot(
     }),
     prisma.repair.count({
       where: {
-        status: { not: "CLOSED" },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
         unit: { facilityId: input.facilityId },
         id: { not: issue.id },
         unitId: issue.unitId,
       },
     }),
-    prisma.repair.count({
-      where: {
-        status: { not: "CLOSED" },
-        issueType: "SUPPLY_SHORT",
-        unit: { facilityId: input.facilityId },
-        unitId: issue.unitId,
-      },
+    Promise.resolve(0),
+    loadPublishedOperationWindow({
+      facilityId: input.facilityId,
+      departmentKey: department === "ALL" ? null : department,
+      now,
+      timezone: facilityTimezone,
+      serviceDate: timeCtx.facilityLocalDate,
     }),
   ]);
 
@@ -183,7 +184,6 @@ export async function buildRecoverySnapshot(
   });
 
   const impactSummary = resolveIssueImpactSummary({
-    issueType: issue.issueType,
     priority: issue.priority,
     status: issue.status,
   });
@@ -221,14 +221,16 @@ export async function buildRecoverySnapshot(
     timezone: facilityTimezone,
     serviceDate: timeCtx.facilityLocalDate,
     department,
-    activeOperation: {
-      label: "Current operation",
-      phase: "Preparation",
-      scheduledTime: null,
-    },
+    activeOperation: activeOperation
+      ? {
+          label: activeOperation.label,
+          phase: activeOperation.phase,
+          scheduledTime: activeOperation.scheduledTime,
+        }
+      : null,
     issue: {
       id: issue.id,
-      issueType: issue.issueType,
+      issueType: issue.repairTrade,
       title: issue.title,
       sanitizedDescription: issue.description,
       priority: issue.priority,
@@ -260,7 +262,7 @@ export async function buildRecoverySnapshot(
     },
     operationalImpact: {
       currentServiceAtRisk: issue.priority === "URGENT" || issue.priority === "HIGH",
-      currentOperationLabel: "Current operation",
+      currentOperationLabel: activeOperation?.label ?? null,
       affectedSignals,
       staffingState: "not evaluated from leftover readiness",
       relatedSupplyShorts: relatedSupply,

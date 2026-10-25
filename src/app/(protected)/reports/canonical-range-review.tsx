@@ -31,6 +31,7 @@ export function CanonicalRangeReview({
   auditSlots = null,
   timingRows = null,
   departmentId = "",
+  showLegacyReport = true,
 }: {
   presentation: OperationalReviewRangePresentation | null;
   spaceId: string | null;
@@ -43,6 +44,7 @@ export function CanonicalRangeReview({
   auditSlots?: readonly AuditRecordSlot[] | null;
   timingRows?: readonly TimingAuditRow[] | null;
   departmentId?: string | null;
+  showLegacyReport?: boolean;
 }) {
   const locationOptions = presentation?.locationOptions ?? [];
   return (
@@ -57,7 +59,12 @@ export function CanonicalRangeReview({
         }
         below={
           <div className="space-y-4">
-            <ReviewModeNav activeId="review" date={end || todayKey} spaceId={spaceId} />
+            <ReviewModeNav
+              activeId="review"
+              date={end || todayKey}
+              spaceId={spaceId}
+              showLegacy={showLegacyReport}
+            />
             <ReviewDateForm
               start={start}
               end={end}

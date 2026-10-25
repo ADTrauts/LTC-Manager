@@ -5,7 +5,6 @@ import { nextRepairCode } from "@/lib/asset-operations/work-order-service";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  IssueType,
   RepairPriority,
   RepairStatus,
   RepairTrade,
@@ -18,10 +17,7 @@ import { z } from "zod";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
-import {
-  defaultRepairTradeForIssueType,
-  suggestRepairDepartmentIds,
-} from "@/lib/repair-routing";
+import { suggestRepairDepartmentIds } from "@/lib/repair-routing";
 import {
   addWorkOrderLabor,
   addWorkOrderNote,
@@ -42,7 +38,7 @@ import {
   waiveWorkOrderRecordRequirement,
 } from "@/lib/asset-operations";
 import { listAttachmentsForRepair } from "@/lib/attachments";
-import { syncRepairRecordToTask } from "@/lib/work/adapters/repair-task";
+import { currentRepairStatusWrite } from "@/lib/asset-operations/work-order-semantics";
 import {
   deleteFacilityPhotoAttachment,
   MAX_REPAIR_PHOTOS_PER_SUBMIT,
@@ -59,8 +55,8 @@ const priorityValues = [
 const statusValues = [
   RepairStatus.OPEN,
   RepairStatus.IN_PROGRESS,
-  RepairStatus.WAITING_PARTS,
-  RepairStatus.CLOSED,
+  RepairStatus.ON_HOLD,
+  RepairStatus.COMPLETED,
 ] as const;
 
 const createRepairSchema = z.object({
@@ -70,8 +66,7 @@ const createRepairSchema = z.object({
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().min(5).max(1000),
   priority: z.enum(priorityValues),
-  issueType: z.nativeEnum(IssueType).default(IssueType.EQUIPMENT),
-  repairTrade: z.nativeEnum(RepairTrade).optional(),
+  repairTrade: z.nativeEnum(RepairTrade).default(RepairTrade.GENERAL),
 });
 
 const addUpdateSchema = z.object({
@@ -88,15 +83,12 @@ function toOptional(value: FormDataEntryValue | null) {
 
 function revalidateRepairViews(opts?: { issueId?: string; unitId?: string | null }) {
   revalidatePath("/repairs");
-  revalidatePath("/issues");
   revalidatePath("/dashboard");
-  revalidatePath("/operations");
   revalidatePath("/today");
   revalidatePath("/today/handoffs");
   revalidatePath("/units");
   revalidatePath("/unit/[unitId]", "page");
   if (opts?.issueId) {
-    revalidatePath(`/issues/${opts.issueId}`);
     revalidatePath(`/repairs/${opts.issueId}`);
   }
   if (opts?.unitId) {
@@ -108,10 +100,6 @@ export async function createRepairAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "STAFF");
 
-  const issueTypeRaw = toOptional(formData.get("issueType"));
-  const issueType = issueTypeRaw
-    ? z.nativeEnum(IssueType).parse(issueTypeRaw)
-    : IssueType.EQUIPMENT;
   const repairTradeRaw = toOptional(formData.get("repairTrade"));
 
   const parsed = createRepairSchema.parse({
@@ -121,10 +109,9 @@ export async function createRepairAction(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     priority: formData.get("priority"),
-    issueType,
     repairTrade: repairTradeRaw
       ? z.nativeEnum(RepairTrade).parse(repairTradeRaw)
-      : defaultRepairTradeForIssueType(issueType),
+      : RepairTrade.GENERAL,
   });
 
   const unit = await prisma.unit.findFirst({
@@ -164,13 +151,12 @@ export async function createRepairAction(formData: FormData) {
     }
   }
 
-  const repairTrade = parsed.repairTrade ?? defaultRepairTradeForIssueType(parsed.issueType);
+  const repairTrade = parsed.repairTrade;
   const suggested = await suggestRepairDepartmentIds(prisma, {
     facilityId: session.facilityId,
     unitId: parsed.unitId,
     assetId: parsed.assetId,
     repairTrade,
-    issueType: parsed.issueType,
     sessionPrimaryDepartmentId: session.primaryDepartmentId,
   });
 
@@ -187,7 +173,6 @@ export async function createRepairAction(formData: FormData) {
       priority: parsed.priority,
       workOrderKind: WorkOrderKind.CORRECTIVE,
       repairTrade,
-      issueType: parsed.issueType,
       requestingDepartmentId: suggested.requestingDepartmentId,
       responsibleDepartmentId: suggested.responsibleDepartmentId,
       reportedById: session.authKind === "user" ? session.uid : undefined,
@@ -206,21 +191,6 @@ export async function createRepairAction(formData: FormData) {
       completedAt: true,
       unit: { select: { facilityId: true } },
     },
-  });
-
-  // Additive Work Engine projection — guarded; never fails repair create.
-  await syncRepairRecordToTask({
-    id: repair.id,
-    title: repair.title,
-    description: repair.description,
-    priority: repair.priority,
-    status: repair.status,
-    unitId: repair.unitId,
-    responsibleDepartmentId: repair.responsibleDepartmentId,
-    assignedEmployeeId: repair.assignedEmployeeId,
-    dueAt: repair.dueAt,
-    completedAt: repair.completedAt,
-    facilityId: repair.unit.facilityId,
   });
 
   await savePhotosFromFormData({
@@ -402,13 +372,15 @@ export async function addWorkOrderRecordRequirementAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
   const { repairId, departmentId } = closeoutIds(formData);
-  const templateId = String(formData.get("templateId") ?? "");
-  if (!templateId) throw new Error("Select a published Record template.");
+  const catalogDefinitionId = String(formData.get("catalogDefinitionId") ?? "").trim();
+  const templateId = String(formData.get("templateId") ?? "").trim();
+  if (!catalogDefinitionId && !templateId) throw new Error("Select a published Record.");
   await addWorkOrderRecordRequirement(session, {
     facilityId: session.facilityId,
     departmentId,
     repairId,
-    templateId,
+    catalogDefinitionId: catalogDefinitionId || null,
+    templateId: templateId || null,
   });
   revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
 }
@@ -528,21 +500,27 @@ export async function addRepairUpdateAction(formData: FormData) {
     throw new Error("Repair not found.");
   }
 
+  const stored = currentRepairStatusWrite(
+    parsed.statusAfterUpdate,
+    parsed.statusAfterUpdate === RepairStatus.ON_HOLD
+      ? "WAITING_FOR_PART"
+      : undefined,
+  );
   const [, updated] = await prisma.$transaction([
     prisma.repairUpdate.create({
       data: {
         repairId: parsed.repairId,
         updateText: parsed.updateText,
         updatedById: session.authKind === "user" ? session.uid : undefined,
-        statusAfterUpdate: parsed.statusAfterUpdate,
+        statusAfterUpdate: stored.status,
       },
     }),
     prisma.repair.update({
       where: { id: parsed.repairId },
       data: {
-        status: parsed.statusAfterUpdate,
-        completedAt:
-          parsed.statusAfterUpdate === RepairStatus.CLOSED ? new Date() : null,
+        status: stored.status,
+        holdReason: stored.holdReason,
+        completedAt: stored.status === RepairStatus.COMPLETED ? new Date() : null,
       },
       select: {
         id: true,
@@ -559,21 +537,6 @@ export async function addRepairUpdateAction(formData: FormData) {
       },
     }),
   ]);
-
-  // Additive Work Engine projection — guarded; never fails repair status update.
-  await syncRepairRecordToTask({
-    id: updated.id,
-    title: updated.title,
-    description: updated.description,
-    priority: updated.priority,
-    status: updated.status,
-    unitId: updated.unitId,
-    responsibleDepartmentId: updated.responsibleDepartmentId,
-    assignedEmployeeId: updated.assignedEmployeeId,
-    dueAt: updated.dueAt,
-    completedAt: updated.completedAt,
-    facilityId: updated.unit.facilityId,
-  });
 
   revalidateRepairViews({ issueId: updated.id, unitId: updated.unitId });
 }

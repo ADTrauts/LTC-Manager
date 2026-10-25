@@ -18,6 +18,8 @@ import type {
   DashboardViewer,
 } from "../viewer/types";
 
+import { defaultLayoutFor, placeDashboardCards } from "../layouts/defaults";
+
 import { listEligibleCards, type DashboardCapabilityMap } from "./eligibility";
 import { DASHBOARD_CARDS } from "./registry";
 import type { DashboardCardId } from "./types";
@@ -27,7 +29,6 @@ const PLANT = { id: "dept-plant", key: "PLANT", name: "Plant Operations", sortOr
 const EVS = { id: "dept-evs", key: "EVS", name: "Environmental Services", sortOrder: 3 };
 
 const ALL_FLAGS: RouteFeatureFlags = {
-  todaysWorkEnabled: true,
   dietaryOperationalEvidenceEnabled: true,
   dietaryWorkPlansEnabled: true,
   canonicalLogsEnabled: true,
@@ -96,9 +97,9 @@ const facility: DashboardScope = { kind: "FACILITY" };
 
 const ids = (rows: { card: { id: DashboardCardId } }[]) => rows.map((row) => row.card.id).sort();
 
-test("registry: 18 platform cards, unique ids, sizes include the default", () => {
-  assert.equal(DASHBOARD_CARDS.length, 18);
-  assert.equal(new Set(DASHBOARD_CARDS.map((card) => card.id)).size, 18);
+test("registry: 23 platform cards, unique ids, sizes include the default", () => {
+    assert.equal(DASHBOARD_CARDS.length, 23);
+    assert.equal(new Set(DASHBOARD_CARDS.map((card) => card.id)).size, 23);
   for (const card of DASHBOARD_CARDS) {
     assert.ok(card.sizes.includes(card.defaultSize), card.id);
     assert.ok(Object.isFrozen(card), card.id);
@@ -122,12 +123,15 @@ test("scope kinds and authority: each band sees the catalog's cards", () => {
       "call_offs",
       "coverage",
       "departments_glance",
+      "departments_licensing",
       "facility_setup",
+      "hr_alerts",
       "maintenance_open",
       "pm_due",
       "recent_activity",
       "records_due",
       "request_triage",
+      "review_yesterday",
       "shortcuts",
     ],
   );
@@ -142,15 +146,19 @@ test("scope kinds and authority: each band sees the catalog's cards", () => {
       "department_setup",
       "expected_work",
       "handoff",
+      "hr_alerts",
       "maintenance_open",
       "menu_today",
       "pm_due",
       "recent_activity",
       "records_due",
       "request_triage",
+      "requests_filed",
+      "review_yesterday",
       "rounds",
       "shift_now",
       "shortcuts",
+      "team_comparison",
       "timeline",
     ],
   );
@@ -158,14 +166,47 @@ test("scope kinds and authority: each band sees the catalog's cards", () => {
   const manager = listEligibleCards(viewer({ role: "MANAGER", authority: "MANAGER", scope: department() }), FULL);
   assert.deepEqual(
     ids(manager),
-    ids(leader).filter((id) => id !== "department_setup"),
+    ids(leader).filter((id) => id !== "department_setup" && id !== "hr_alerts" && id !== "team_comparison"),
   );
 
   const supervisorTeam = listEligibleCards(viewer({ role: "SUPERVISOR", authority: "SUPERVISOR", scope: team }), FULL);
   assert.deepEqual(
     ids(supervisorTeam),
-    ["attention", "call_offs", "coverage", "handoff", "maintenance_open", "menu_today", "records_due", "rounds", "shift_now", "shortcuts"],
+    ["attention", "call_offs", "coverage", "handoff", "maintenance_open", "menu_today", "records_due", "requests_filed", "rounds", "shift_now", "shortcuts"],
     "no timeline or recent activity (Manager+), no PM or triage at Team scope, no Work Plans link below Manager",
+  );
+});
+
+test("enabling Plant runtime places its cards on the unchanged default layout", () => {
+  const admin = viewer({
+    role: "FACILITY_ADMINISTRATOR",
+    authority: "FACILITY_ADMINISTRATOR",
+    scope: facility,
+    departments: [FN, PLANT],
+  });
+  const withoutPlant = EVERYTHING.filter((capability) => capability !== "plant.maintenance");
+  const off = placeDashboardCards(
+    listEligibleCards(admin, new Map([
+      capabilities(FN.id, FN.key, withoutPlant),
+      capabilities(PLANT.id, PLANT.key, withoutPlant),
+    ])),
+    defaultLayoutFor(admin),
+  ).map((row) => row.eligible.card.id);
+  const on = placeDashboardCards(
+    listEligibleCards(admin, new Map([
+      capabilities(FN.id, FN.key, withoutPlant),
+      capabilities(PLANT.id, PLANT.key, EVERYTHING),
+    ])),
+    defaultLayoutFor(admin),
+  ).map((row) => row.eligible.card.id);
+
+  assert.equal(off.includes("pm_due"), false);
+  assert.equal(off.includes("request_triage"), false);
+  assert.equal(on.includes("pm_due"), true);
+  assert.equal(on.includes("request_triage"), true);
+  assert.deepEqual(
+    defaultLayoutFor(admin).map((item) => item.id),
+    defaultLayoutFor({ authority: "FACILITY_ADMINISTRATOR", scope: { kind: "FACILITY" } }).map((item) => item.id),
   );
 });
 
@@ -233,9 +274,9 @@ test("not configured: leaders and managing administrators can fix; viewing admin
 test("route flags: a card whose required link is closed is not eligible", () => {
   const supervisor = (routeFlags: RouteFeatureFlags) =>
     ids(listEligibleCards(viewer({ role: "SUPERVISOR", authority: "SUPERVISOR", scope: department(), routeFlags }), FULL));
-  const closedTodaysWork = supervisor({ ...ALL_FLAGS, todaysWorkEnabled: false });
-  assert.equal(closedTodaysWork.includes("handoff"), false);
-  assert.equal(closedTodaysWork.includes("rounds"), false);
+  const closedTodaysWork = supervisor(ALL_FLAGS);
+  assert.ok(closedTodaysWork.includes("handoff"));
+  assert.ok(closedTodaysWork.includes("rounds"));
   assert.ok(closedTodaysWork.includes("coverage"));
 
   const manager = (routeFlags: RouteFeatureFlags) =>

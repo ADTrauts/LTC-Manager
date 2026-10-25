@@ -437,6 +437,25 @@ test("OA disabled / no assignment: Assignment unavailable, no schedule fallback,
   assert.match(adapted.current.expectation, /Assignment unavailable/);
 });
 
+test("no assignment keeps Work for the signed-in place", () => {
+  const flow = composeEmployeeRuntimeFlow({
+    operationalAssignmentsEnabled: true,
+    canonicalLogsEnabled: true,
+    currentAssignment: null,
+    upcomingAssignment: null,
+    deviceBoundUnitId: "unit-a",
+    assignmentLocations: [],
+    spaceRefs: [],
+    states: [],
+    templateEvidence: [],
+    workRequirements: [work({ occurrenceKey: "w1", label: "Wipe", state: "DUE" })],
+  });
+  assert.equal(flow.assignmentAvailability, "no_confirmed_assignment");
+  assert.equal(flow.responsibility.unitId, "unit-a");
+  assert.equal(flow.work.length, 1);
+  assert.equal(flow.work[0]?.label, "Wipe");
+});
+
 test("upcoming assignment transition is represented without inventing current responsibility", () => {
   const upcoming = assignment({
     id: "oa-later",

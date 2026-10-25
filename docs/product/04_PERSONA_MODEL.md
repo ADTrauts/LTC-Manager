@@ -12,11 +12,11 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 
 | Field | Content |
 |-------|---------|
-| **Goals** | Facility stands up correctly; permissions safe; org/facility access correct; departments configured. |
-| **Responsibilities** | Admin hub, permissions, organization facilities, departments, onboarding/billing edges. |
-| **Decisions** | Who may enter which facility; which routes exist; structural setup. |
-| **Primary workspace** | Business Workspace (daily), Administration for setup. |
-| **Primary workflows** | Grant facility access; configure departments; review permissions; land on Workspace for ops day. |
+| **Goals** | One administrator. The facility account, rooms, and which company operates each Department stay with the facility. |
+| **Responsibilities** | Governance and visibility. Views a self-operated Department unless they are its head. Sees a vendor-run Department as a summary plus compliance Records. |
+| **Decisions** | Who succeeds them; which company operates a Department; facility rooms and account security. |
+| **Primary workspace** | **Dashboard**. Administration for facility setup. |
+| **Primary workflows** | Transfer the role; attach an existing partner company; open compliance Records. |
 
 ---
 
@@ -24,10 +24,10 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 
 | Field | Content |
 |-------|---------|
-| **Goals** | Facility performance across departments; escalate correctly; keep managers aligned. |
+| **Goals** | Own Department. When the Dashboard flag is on, the Dashboard shows that Department only. |
 | **Responsibilities** | Oversight similar to Manager with broader facility authority; may own FA-adjacent setup depending on deployment. |
 | **Decisions** | Cross-department priorities; staffing crises; when to involve FA/corporate. |
-| **Primary workspace** | Business Workspace → OC / Today as needed. |
+| **Primary workspace** | **Dashboard**. |
 | **Primary workflows** | Morning Focus; OC exception sweep; issue escalation; org-aware facility switching when multi-site. |
 
 ---
@@ -39,7 +39,7 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 | **Goals** | Own dietary (or EVS/Plant) day: ready locations, coverage, issues, inspections. |
 | **Responsibilities** | Department lens; employee roster for domain; menus/assets as relevant; Workspace preferences. |
 | **Decisions** | What to work personally next; which locations to send supervisors toward; when to declare recovery priorities. |
-| **Primary workspace** | **Business Workspace**. |
+| **Primary workspace** | **Dashboard**. |
 | **Primary workflows** | Manager Focus → specific issue/unit/coverage; Agenda; Quick Actions; OC for live sweep; Knowledge/Inspections admin as needed. |
 
 ---
@@ -51,8 +51,8 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 | **Goals** | Multi-location walk: find what is slipping before it becomes a meal failure. |
 | **Responsibilities** | Walk, coverage, call-downs, handoffs; limited Workspace Focus. |
 | **Decisions** | Where to stand next; how to cover call-downs; what to hand to next shift. |
-| **Primary workspace** | **Today's Work** (`/today`). |
-| **Primary workflows** | Walk list ordered by Needs Attention; Coverage; Call-downs; Handoffs; peek OC; optional Workspace for Focus. |
+| **Primary workspace** | **Dashboard**. |
+| **Primary workflows** | Needs attention and Rounds on the Dashboard; coverage and call-offs in Schedule; handoffs in People & Coverage. |
 
 ---
 
@@ -110,6 +110,6 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 
 | Persona | Default home |
 |---------|----------------|
-| FA / GM / Manager | `/workspace` |
-| Supervisor | `/today` (when Today's Work enabled) |
+| FA / GM / Manager | `/dashboard` |
+| Supervisor | `/dashboard` |
 | Lead / Staff / PIN | `/unit/{id}` or due Logs (`/staffing/logs` when `CANONICAL_LOGS_ENABLED`; otherwise legacy `/logs`) |

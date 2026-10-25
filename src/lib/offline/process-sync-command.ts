@@ -112,6 +112,38 @@ export async function processSyncCommand(
     return reject(command.clientCommandId, "OCCURRENCE_TIME_INVALID");
   }
 
+  const priorReceipt = await client.offlineSyncReceipt.findUnique({
+    where: {
+      facilityId_unitId_clientCommandId: {
+        facilityId: input.session.facilityId,
+        unitId: command.unitId,
+        clientCommandId: command.clientCommandId,
+      },
+    },
+    select: {
+      resultCategory: true,
+      serverAcceptedAt: true,
+      milestoneEntryId: true,
+    },
+  });
+  if (
+    priorReceipt &&
+    (priorReceipt.resultCategory === "ACCEPTED" ||
+      priorReceipt.resultCategory === "ALREADY_ACCEPTED")
+  ) {
+    return {
+      clientCommandId: command.clientCommandId,
+      category: "ALREADY_ACCEPTED",
+      reasonCode: null,
+      authoritativeRecordId: priorReceipt.milestoneEntryId,
+      serverAcceptedAt: priorReceipt.serverAcceptedAt?.toISOString() ?? null,
+      serverRevision: null,
+      retryAfterSeconds: null,
+      conflictCategory: null,
+      authoritativeMilestone: null,
+    };
+  }
+
   const result = await routeDietaryMealTiming(
     {
       facilityId: input.session.facilityId,
@@ -293,116 +325,7 @@ async function processEvidenceCommand(
   ) {
     return reject(command.clientCommandId, "LEGACY_TEMPLATE_EVIDENCE_FENCED");
   }
-  if (!payload.templateId) {
-    return reject(command.clientCommandId, "EVIDENCE_PAYLOAD_INVALID");
-  }
-
-  try {
-    const template = await client.operationalTemplate.findFirst({
-      where: {
-        id: payload.templateId,
-        facilityId: command.facilityId,
-        departmentId: command.departmentId,
-      },
-      select: { id: true, version: true, status: true },
-    });
-    if (!template) return reject(command.clientCommandId, "TEMPLATE_NOT_FOUND");
-    if (template.status === "RETIRED") return reject(command.clientCommandId, "TEMPLATE_RETIRED");
-    if (template.status !== "PUBLISHED") {
-      return reject(command.clientCommandId, "TEMPLATE_NOT_PUBLISHED");
-    }
-    if (
-      payload.templateVersion != null &&
-      template.version !== payload.templateVersion
-    ) {
-      const conflictCategory: OfflineConflictCategory = "AUTHORITATIVE_STATE_CHANGED";
-      await upsertConflict(client, input, command, conflictCategory, "TEMPLATE_VERSION_MISMATCH");
-      await upsertReceipt(
-        client,
-        input,
-        command,
-        "CONFLICT_REVIEW_REQUIRED",
-        "TEMPLATE_VERSION_MISMATCH",
-        null,
-        null,
-        null,
-      );
-      return {
-        clientCommandId: command.clientCommandId,
-        category: "CONFLICT_REVIEW_REQUIRED",
-        reasonCode: "TEMPLATE_VERSION_MISMATCH",
-        authoritativeRecordId: null,
-        serverAcceptedAt: null,
-        serverRevision: null,
-        retryAfterSeconds: null,
-        conflictCategory,
-        authoritativeMilestone: null,
-      };
-    }
-
-    const record = await submitEvidenceRecord(input.session, {
-      facilityId: command.facilityId,
-      departmentId: command.departmentId,
-      templateId: payload.templateId,
-      requirementKey: payload.requirementKey,
-      operationalDateKey: command.operationalDate,
-      scheduleKind: payload.scheduleKind as OperationalTemplateScheduleKind,
-      cycleStableKey: payload.cycleStableKey,
-      cycleLabel: payload.cycleLabel,
-      windowStartLocal: payload.windowStartLocal,
-      windowEndLocal: payload.windowEndLocal,
-      unitId: command.unitId,
-      spaceId: payload.spaceId,
-      assetId: payload.assetId,
-      occurredAt,
-      recordedOnline: false,
-      clientCommandId: command.clientCommandId,
-      deviceBoundUnitId: input.deviceBoundUnitId,
-      recordedByEmployeeId: actor.employeeId,
-      recordedByLabel: input.session.name || input.session.email || null,
-      correctiveActionText: payload.correctiveActionText,
-      values: payload.values,
-      now,
-      client,
-    });
-
-    const synchronizedAt = record.synchronizedAt ?? now;
-    if (!record.synchronizedAt) {
-      await client.operationalEvidenceRecord.update({
-        where: { id: record.id },
-        data: { synchronizedAt },
-      });
-    }
-
-    const category: OfflineSyncResultCategory = "ACCEPTED";
-    await upsertReceipt(
-      client,
-      input,
-      command,
-      category,
-      null,
-      synchronizedAt,
-      null,
-      record.id,
-      null,
-    );
-
-    return {
-      clientCommandId: command.clientCommandId,
-      category,
-      reasonCode: null,
-      authoritativeRecordId: record.id,
-      serverAcceptedAt: synchronizedAt.toISOString(),
-      serverRevision: null,
-      retryAfterSeconds: null,
-      conflictCategory: null,
-      authoritativeMilestone: null,
-    };
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : "EVIDENCE_SUBMIT_FAILED";
-    await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null, null);
-    return reject(command.clientCommandId, reason);
-  }
+  return reject(command.clientCommandId, "LEGACY_TEMPLATE_EVIDENCE_FENCED");
 }
 
 async function processAssetIssueCommand(

@@ -134,11 +134,7 @@ export async function loadEmployeeCycleContext(input: {
         id: true,
         unitType: true,
         parentUnitId: true,
-        mealTimes: {
-          where: { isActive: true },
-          select: { mealType: true, scheduledTime: true },
-        },
-        childSpaces: {
+                childSpaces: {
           select: {
             id: true,
             spaceType: true,
@@ -174,11 +170,6 @@ export async function loadEmployeeCycleContext(input: {
       mealTargets = mealTargetsFromTimings(unitTimings, ownerIds).map((target) => ({
         mealType: target.mealType as MealType,
         scheduledTime: target.scheduledTime,
-      }));
-    } else if (cycles.length === 0) {
-      mealTargets = row.mealTimes.map((m) => ({
-        mealType: m.mealType,
-        scheduledTime: m.scheduledTime,
       }));
     }
 

@@ -83,7 +83,7 @@ Neutral copy can happen without industry packs. `applyIndustryPack()` is will-no
 
 - Call-down / Needs Attention push or digest  
 - Preference for alert channels by role  
-- Never replace Today's Work handoffs  
+- Keep handoffs as a full page under People & Coverage (`/staffing/handoffs`)  
 
 ---
 

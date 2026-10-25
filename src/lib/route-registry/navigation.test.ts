@@ -6,7 +6,7 @@ import { authorizeRoute, roleMayAccessRoute } from "@/lib/route-registry/authori
 import { platformNavItemsForRole } from "@/lib/route-registry/navigation";
 import { PLATFORM_ROUTES } from "@/lib/route-registry/platform-routes";
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { };
 
 function hrefsFor(role: AppRole, flags = FLAGS): string[] {
   return platformNavItemsForRole(role, flags).map((item) => item.href);
@@ -35,13 +35,19 @@ test("navigation — no role is offered a link outside its policy", () => {
   assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/admin"), true);
 });
 
-test("navigation — the Dashboard item points at the new page only while its flag is on", () => {
-  const on = platformNavItemsForRole("MANAGER", { todaysWorkEnabled: true, dashboardV2Enabled: true });
-  const dashboard = on.find((item) => item.label === "Dashboard");
+test("navigation — Today's Work is not in the bar", () => {
+  for (const role of APP_ROLES) {
+    assert.equal(hrefsFor(role, { }).includes("/today"), false, role);
+    assert.equal(hrefsFor(role).includes("/today"), false, role);
+  }
+  assert.equal(hrefsFor("SUPERVISOR").includes("/dashboard"), true);
+});
+
+test("navigation — the Run overview opens the Dashboard", () => {
+  const items = platformNavItemsForRole("MANAGER", { });
+  const dashboard = items.find((item) => item.label === "Dashboard");
   assert.equal(dashboard?.href, "/dashboard");
   assert.equal(dashboard?.zone, "WORKSPACE");
-  const off = platformNavItemsForRole("MANAGER", { todaysWorkEnabled: true, dashboardV2Enabled: false });
-  assert.equal(off.find((item) => item.label === "Dashboard")?.href, "/workspace");
 });
 
 test("navigation — items are ordered by the registry order", () => {
@@ -50,7 +56,7 @@ test("navigation — items are ordered by the registry order", () => {
     (item) => PLATFORM_ROUTES.find((route) => route.pattern === item.href)?.nav?.order ?? -1,
   );
   assert.deepEqual([...orders].sort((a, b) => a - b), orders);
-  assert.equal(items[0]?.href, "/workspace");
+  assert.equal(items[0]?.href, "/dashboard");
   assert.equal(items.at(-1)?.href, "/admin");
 });
 
@@ -58,11 +64,11 @@ test("navigation — labels come from the registry, not from database rows", () 
   const byHref = new Map(
     platformNavItemsForRole("FACILITY_ADMINISTRATOR", FLAGS).map((item) => [item.href, item.label]),
   );
-  assert.equal(byHref.get("/workspace"), "Dashboard");
+  assert.equal(byHref.get("/dashboard"), "Dashboard");
   assert.equal(byHref.get("/units"), "Locations");
   assert.equal(byHref.get("/reports"), "Audit / Reports");
   assert.equal(byHref.get("/admin"), "Admin");
-  assert.equal(byHref.get("/today"), "Today's Work");
+  assert.equal(byHref.has("/today"), false);
   // Phase 13 product-mode surfaces.
   assert.equal(byHref.get("/staffing"), "Schedule");
   assert.equal(byHref.get("/employees"), "Employee Builder");
@@ -74,13 +80,13 @@ test("navigation — labels come from the registry, not from database rows", () 
 test("navigation — deferred Procedures stays hidden while its administrator URL remains reachable", () => {
   assert.equal(hrefsFor("FACILITY_ADMINISTRATOR").includes("/build/knowledge"), false);
   assert.equal(roleMayAccessRoute("/admin/knowledge", "FACILITY_ADMINISTRATOR", FLAGS), true);
-  assert.equal(authorizeRoute({ pathname: "/build/knowledge", role: "FACILITY_ADMINISTRATOR", sessionScope: "facility", authKind: "user", featureFlags: FLAGS }).outcome, "REDIRECT");
+  assert.equal(authorizeRoute({ pathname: "/build/knowledge", role: "FACILITY_ADMINISTRATOR", sessionScope: "facility", authKind: "user", featureFlags: FLAGS }).outcome, "NOT_FOUND");
 });
 
 test("navigation — absence from navigation does not deny access", () => {
-  // /dashboard, /operations, /account, /help and the dynamic detail routes are intentionally hidden.
+  // /dashboard, /account, /help and the dynamic detail routes are intentionally hidden.
   // Facility RoleKey reachability still applies to AUTHENTICATED surfaces. /account is USER_SESSION.
-  for (const path of ["/dashboard", "/operations", "/help"]) {
+  for (const path of ["/dashboard", "/help"]) {
     assert.equal(hrefsFor("STAFF").includes(path), false, `${path} should be hidden`);
     assert.equal(roleMayAccessRoute(path, "STAFF", FLAGS), true, `${path} should stay reachable`);
   }
@@ -95,8 +101,8 @@ test("navigation — absence from navigation does not deny access", () => {
     }).outcome,
     "ALLOW",
   );
-  // The Operations Center dashboard stays reachable by URL but is not offered in nav.
-  assert.equal(hrefsFor("SUPERVISOR").includes("/dashboard"), false);
+  // The Run overview is offered as the Dashboard.
+  assert.equal(hrefsFor("SUPERVISOR").includes("/dashboard"), true);
   assert.equal(roleMayAccessRoute("/dashboard", "SUPERVISOR", FLAGS), true);
 });
 
@@ -123,12 +129,10 @@ test("navigation — Phase 13 RUN Employees surface is offered to supervisors", 
   assert.equal(roleMayAccessRoute("/staffing", "SUPERVISOR", FLAGS), true);
 });
 
-test("navigation — the Today's Work feature gate removes the link as well as the route", () => {
-  const flags = { todaysWorkEnabled: false };
+test("navigation — Today's Work stays out of the bar for every role", () => {
   for (const role of APP_ROLES) {
-    assert.equal(hrefsFor(role, flags).includes("/today"), false, role);
+    assert.equal(hrefsFor(role, {}).includes("/today"), false, role);
   }
-  assert.equal(hrefsFor("SUPERVISOR", FLAGS).includes("/today"), true);
 });
 
 test("navigation — redirect-only and internal routes never appear", () => {
@@ -155,8 +159,8 @@ test("navigation — /evs is absent for every role", () => {
 
 test("navigation — role-specialized surfaces stay distinct", () => {
   const supervisor = hrefsFor("SUPERVISOR");
-  assert.equal(supervisor.includes("/workspace"), true);
-  assert.equal(supervisor.includes("/today"), true);
+  assert.equal(supervisor.includes("/dashboard"), true);
+  assert.equal(supervisor.includes("/today"), false);
   assert.equal(supervisor.includes("/units"), true);
   assert.equal(hrefsFor("STAFF").includes("/logs"), true);
 });

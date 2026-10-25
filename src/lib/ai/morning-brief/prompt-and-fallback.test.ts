@@ -23,7 +23,7 @@ function snapshot(partial: Partial<OperationalSnapshot> = {}): OperationalSnapsh
       label: "Lunch preparation",
       phase: "Preparation",
       scheduledTime: "11:30",
-      source: "operations_center",
+      source: "published_cycle",
     },
     readiness: { ready: 5, inProgress: 0, needsAttention: 0 },
     priorityLocations: [],
@@ -154,6 +154,12 @@ test("fallback with no attention items is calm and linked", () => {
   const brief = buildFallbackMorningBrief(snapshot());
   assert.match(brief.headline, /on track/i);
   assert.equal(brief.priorities.length, 0);
+});
+
+test("fallback with no published Cycle does not invent an operation", () => {
+  const brief = buildFallbackMorningBrief(snapshot({ activeOperation: null }));
+  assert.match(brief.headline, /No published Cycle is underway/);
+  assert.doesNotMatch(brief.headline, /Current operation/);
 });
 
 test("fallback with one priority uses that location and source path", () => {

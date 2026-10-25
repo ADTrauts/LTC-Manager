@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { assertLegacyRecordWriteAllowed } from "@/lib/canonical-logs/record-engine";
 import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
-import { isDietaryOperationalEvidenceEnabled } from "@/lib/feature-flags";
 import {
   submitEvidenceRecord,
   type EvidenceFieldValueInput,
@@ -30,9 +29,6 @@ export async function submitUnitEvidenceAction(input: {
   occurredAt?: string | null;
   clientCommandId?: string | null;
 }) {
-  if (!isDietaryOperationalEvidenceEnabled()) {
-    throw new Error("Dietary Operational Evidence is not enabled.");
-  }
   assertLegacyRecordWriteAllowed({
     productRecordEngine: await departmentUsesCanonicalRecords({
       facilityId: input.facilityId,
@@ -66,8 +62,6 @@ export async function submitUnitEvidenceAction(input: {
     recordedByLabel: session.name || session.email || null,
   });
 
-  revalidatePath(`/unit/${input.unitId}`);
-  revalidatePath("/staffing/operations");
-  revalidatePath("/staffing/log-book");
-  return { id: record.id, status: record.status };
+  void record;
+  throw new Error("OPERATIONAL_TEMPLATE submit is retired. Submit Records through the Catalog.");
 }

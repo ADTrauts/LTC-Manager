@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { VendorFormPanel } from "@/app/partner/department/form-panel";
 import { getPartnerFacilitySession } from "@/lib/auth";
 import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
+import { partnerMaySetUpDepartment } from "@/lib/department-authority/partner-setup";
 import { resolveDepartmentAccess } from "@/lib/department-authority/resolve";
 import { listVendorDepartmentPeople } from "@/lib/department-authority/vendor-workforce";
 import { requirePartnerOperationalContext, loadPartnerFacilityShell } from "@/lib/partner-operational-context";
@@ -25,8 +26,13 @@ export default async function PartnerDepartmentPage() {
     facilityId: session.facilityId,
     departmentId: context.activeDepartmentId,
   });
+  const maySetUp = partnerMaySetUpDepartment({
+    mode: access.mode,
+    isHead: access.isHead,
+    effectiveRole: context.effectiveRole,
+  });
   const forms =
-    access.isHead && isContractedDepartmentAuthorityEnabled()
+    maySetUp && isContractedDepartmentAuthorityEnabled()
       ? await prisma.catalogLogDefinition.findMany({
           where: {
             ownerKind: "ORGANIZATION",
@@ -66,7 +72,7 @@ export default async function PartnerDepartmentPage() {
           </li>
         ) : null}
       </ul>
-      {access.isHead && isContractedDepartmentAuthorityEnabled() ? <VendorFormPanel drafts={forms} /> : null}
+      {maySetUp && isContractedDepartmentAuthorityEnabled() ? <VendorFormPanel drafts={forms} /> : null}
     </div>
   );
 }

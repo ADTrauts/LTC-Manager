@@ -82,7 +82,7 @@ test("member client assignment UI expands on Members and does not mint sessions"
   assert.equal(clients.includes("OrganizationMemberClientAssignments"), false);
   assert.equal(portfolio.includes("OrganizationMemberClientAssignments"), false);
   assert.equal(registry.includes("/organization/[organizationId]/members/["), false);
-  const flags = { todaysWorkEnabled: true };
+  const flags = { };
   assert.equal(
     authorizeRoute({
       pathname: "/organization/metz/members",

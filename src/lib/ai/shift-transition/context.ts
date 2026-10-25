@@ -27,10 +27,10 @@ export function buildShiftContextLabel(input: {
           ? "Dietary"
           : "Facility";
 
-  const currentLabel = input.current.activeOperation.label;
-  const baselineLabel = input.baseline?.activeOperation.label ?? null;
+  const currentLabel = input.current.activeOperation?.label ?? null;
+  const baselineLabel = input.baseline?.activeOperation?.label ?? null;
 
-  if (baselineLabel && baselineLabel !== currentLabel) {
+  if (baselineLabel && currentLabel && baselineLabel !== currentLabel) {
     const from = shortOp(baselineLabel);
     const to = shortOp(currentLabel);
     if (from && to && from !== to) {
@@ -45,9 +45,14 @@ export function buildShiftContextLabel(input: {
     return `${dept} operations transition`;
   }
 
-  const phase = input.current.activeOperation.phase;
-  if (phase === "Preparation") {
+  if (!currentLabel) return `${dept} handoff`;
+
+  const phase = input.current.activeOperation?.phase ?? null;
+  if (phase && /^prep/i.test(phase)) {
     return `${shortOp(currentLabel) ?? currentLabel} preparation handoff`;
+  }
+  if (phase) {
+    return `${shortOp(currentLabel) ?? currentLabel} ${phase.toLowerCase()} handoff`;
   }
   return `${shortOp(currentLabel) ?? currentLabel} shift handoff`;
 }

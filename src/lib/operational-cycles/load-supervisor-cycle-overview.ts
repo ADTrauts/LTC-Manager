@@ -10,7 +10,10 @@ import {
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import { prisma } from "@/lib/prisma";
 
-import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
+import {
+  dietaryMealTimingUpgradeRequired,
+  selectDietaryMealTimingModel,
+} from "@/lib/dietary/meal-timing";
 import { resolveCycleAuthority } from "./cycle-authority";
 import { roomTypeKeyForStoredSpace } from "./cycle-scope";
 import {
@@ -211,11 +214,7 @@ export async function loadSupervisorCycleOverview(input: {
       name: true,
       unitType: true,
       parentUnitId: true,
-      mealTimes: {
-        where: { isActive: true },
-        select: { mealType: true, scheduledTime: true },
-      },
-      childSpaces: {
+            childSpaces: {
         select: { id: true, spaceType: true, customTypeLabel: true },
       },
     },
@@ -223,7 +222,9 @@ export async function loadSupervisorCycleOverview(input: {
   });
 
   const includeMealMilestones = departmentKey === "DIETARY";
-  const childUnits = includeMealMilestones
+  const legacyMealStillOwns =
+    includeMealMilestones && dietaryMealTimingUpgradeRequired(cycles);
+  const childUnits = legacyMealStillOwns
     ? await prisma.unit.findMany({
         where: {
           facilityId: input.facilityId,
@@ -238,25 +239,14 @@ export async function loadSupervisorCycleOverview(input: {
     ...childUnits.map((u) => u.id),
   ];
 
-  const events = includeMealMilestones
-    ? await prisma.serveryMealServiceEvent.findMany({
-        where: {
-          serviceDate,
-          unitId: { in: eventUnitIds },
-        },
-        select: {
-          unitId: true,
-          mealType: true,
-          mealServiceReadyAt: true,
-          mealServiceStartedAt: true,
-          entries: {
-            where: { kind: "CORRECTION" },
-            select: { id: true },
-            take: 1,
-          },
-        },
-      })
-    : [];
+  const events: Array<{
+    unitId: string;
+    mealType: string;
+    mealServiceReadyAt: Date | null;
+    mealServiceStartedAt: Date | null;
+    entries: Array<{ id: string }>;
+  }> = [];
+  void eventUnitIds;
 
   const childIdsByParent = new Map<string, string[]>();
   for (const child of childUnits) {
@@ -292,7 +282,7 @@ export async function loadSupervisorCycleOverview(input: {
             mealType: row.mealType as import("@prisma/client").MealType,
             scheduledTime: row.scheduledTime,
           }))
-        : unit.mealTimes;
+        : [];
 
     const roomTypeKeys = [
       ...new Set(
@@ -400,7 +390,7 @@ export async function loadSupervisorCycleOverview(input: {
         const status = resolveCycleMilestoneStatus({
           event: event
             ? {
-                mealType: event.mealType,
+                mealType: event.mealType as import("@prisma/client").MealType,
                 mealServiceReadyAt: readyLegacy ? event.mealServiceReadyAt : null,
                 mealServiceStartedAt: startedLegacy ? event.mealServiceStartedAt : null,
                 hasCorrection: event.entries.length > 0,

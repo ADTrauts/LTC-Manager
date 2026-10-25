@@ -4,8 +4,8 @@
  * OPERATIONAL_TYPES is the canonical reusable path:
  *   cycle → DepartmentRoomArchetype.key → rooms currently bound to that type.
  *
- * ROOM_TYPE / UNIT_TYPES remain compatibility modes and must not be labeled
- * as Operational Type. They do not infer an Operational Type.
+ * ROOM_TYPE / UNIT_TYPES no longer match a location. Cycles apply by
+ * Department-wide scope, explicit locations, and Location Functions.
  */
 
 import type { OperationalCycleLocationMode, UnitType } from "@prisma/client";
@@ -111,18 +111,6 @@ export function matchCycleApplicability(input: {
     (cycle.spaceIds.length > 0 || cycle.unitIds.length > 0)
   ) {
     // explicit mode with a non-matching selection — do not add
-  }
-
-  if (mode === "ROOM_TYPE" && cycle.roomTypeKey && context.physicalRoomTypeKey) {
-    if (cycle.roomTypeKey === context.physicalRoomTypeKey) {
-      sources.push("LEGACY_PHYSICAL_ROOM_TYPE");
-    }
-  }
-
-  if (mode === "UNIT_TYPES" && context.unitType) {
-    if (cycle.applicableUnitTypes.includes(context.unitType)) {
-      sources.push("LEGACY_UNIT_TYPE");
-    }
   }
 
   if (sources.length === 0) return null;

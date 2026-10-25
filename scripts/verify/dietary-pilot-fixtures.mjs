@@ -136,17 +136,7 @@ async function main() {
         },
         select: { id: true, name: true },
       });
-      for (const meal of [
-        { mealType: "BREAKFAST", scheduledTime: "08:00" },
-        { mealType: "LUNCH", scheduledTime: "12:00" },
-        { mealType: "DINNER", scheduledTime: "17:00" },
-      ]) {
-        await db.unitMealTime.upsert({
-          where: { unitId_mealType: { unitId: created.id, mealType: meal.mealType } },
-          update: { scheduledTime: meal.scheduledTime },
-          create: { unitId: created.id, mealType: meal.mealType, scheduledTime: meal.scheduledTime },
-        });
-      }
+      void db;
       serverys.push(created);
     }
     const primaryServery = serverys[0];
@@ -260,23 +250,15 @@ async function main() {
       }
     }
 
-    // Seven call-offs (AssignmentOverride as call-down).
     const callOffIds = scaleIds.slice(0, 7);
     for (const employeeId of callOffIds) {
-      const exists = await db.assignmentOverride.findFirst({
-        where: { employeeId, date: serviceDate },
-        select: { id: true },
+      await db.scheduleEntry.updateMany({
+        where: { employeeId, date: serviceDate, calledOffAt: null },
+        data: {
+          calledOffAt: new Date(),
+          callOffReason: "[call-down:call-off] Pilot call-off (synthetic)",
+        },
       });
-      if (!exists) {
-        await db.assignmentOverride.create({
-          data: {
-            date: serviceDate,
-            employeeId,
-            newUnitId: primaryServery.id,
-            reason: "[call-down:call-off] Pilot call-off (synthetic)",
-          },
-        });
-      }
     }
 
     let template = await db.operationalAssignmentTemplate.findFirst({

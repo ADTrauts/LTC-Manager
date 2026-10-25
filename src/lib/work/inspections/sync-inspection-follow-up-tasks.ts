@@ -1,11 +1,6 @@
-import type { PrismaClient, Task, TaskStatus } from "@prisma/client";
+import type { TaskStatus } from "@prisma/client";
 
-import { prisma as defaultPrisma } from "@/lib/prisma";
-import {
-  runGuardedTaskSync,
-  type TaskSyncDeps,
-} from "@/lib/work/run-guarded-task-sync";
-import { isTaskSyncEnabled } from "@/lib/feature-flags";
+import type { TaskSyncDeps } from "@/lib/work/run-guarded-task-sync";
 
 export type InspectionFollowUpFinding = {
   submissionItemId: string;
@@ -33,10 +28,7 @@ export type InspectionFollowUpContext = {
   findings: InspectionFollowUpFinding[];
 };
 
-export type InspectionFollowUpDb = Pick<
-  PrismaClient,
-  "task" | "inspectionSubmission"
->;
+export type InspectionFollowUpDb = object;
 
 export type FollowUpSyncResult = {
   attempted: boolean;
@@ -136,169 +128,28 @@ export function buildInspectionFollowUpUpsertInput(
  * Never throws to callers; submission remains authoritative.
  */
 export async function syncInspectionFollowUpTasks(
-  submissionId: string,
-  deps: TaskSyncDeps & { db?: InspectionFollowUpDb } = {},
+  _submissionId: string,
+  _deps: TaskSyncDeps & { db?: InspectionFollowUpDb } = {},
 ): Promise<FollowUpSyncResult> {
-  const isEnabled = deps.isEnabled ?? isTaskSyncEnabled;
-  if (!isEnabled()) {
-    return {
-      attempted: false,
-      skipped: true,
-      createdOrUpdatedIds: [],
-      qualifyingCount: 0,
-      errors: [],
-    };
-  }
-
-  const db = deps.db ?? defaultPrisma;
-
-  const submission = await db.inspectionSubmission.findUnique({
-    where: { id: submissionId },
-    select: {
-      id: true,
-      facilityId: true,
-      unitId: true,
-      operationInstanceId: true,
-      submittedAt: true,
-      taskId: true,
-      unit: { select: { name: true } },
-      definition: { select: { name: true, departmentId: true } },
-      submittedByEmployee: { select: { firstName: true, lastName: true } },
-      items: {
-        select: {
-          id: true,
-          passed: true,
-          valueText: true,
-          valueNumber: true,
-          notes: true,
-          definitionItem: {
-            select: {
-              id: true,
-              label: true,
-              failureCreatesFollowUp: true,
-              responseType: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!submission) {
-    return {
-      attempted: true,
-      skipped: false,
-      createdOrUpdatedIds: [],
-      qualifyingCount: 0,
-      errors: [new Error(`InspectionSubmission not found: ${submissionId}`)],
-    };
-  }
-
-  const context: InspectionFollowUpContext = {
-    submissionId: submission.id,
-    facilityId: submission.facilityId,
-    departmentId: submission.definition.departmentId,
-    unitId: submission.unitId,
-    unitName: submission.unit?.name ?? null,
-    operationInstanceId: submission.operationInstanceId,
-    definitionName: submission.definition.name,
-    submittedAt: submission.submittedAt,
-    submittedByName: submission.submittedByEmployee
-      ? `${submission.submittedByEmployee.firstName} ${submission.submittedByEmployee.lastName}`
-      : null,
-    executionTaskId: submission.taskId,
-    findings: submission.items.map((item) => ({
-      submissionItemId: item.id,
-      definitionItemId: item.definitionItem.id,
-      itemLabel: item.definitionItem.label,
-      passed: item.passed,
-      valueText: item.valueText,
-      valueNumber: item.valueNumber,
-      notes: item.notes,
-      failureCreatesFollowUp: item.definitionItem.failureCreatesFollowUp,
-      responseType: item.definitionItem.responseType,
-    })),
+  return {
+    attempted: false,
+    skipped: true,
+    createdOrUpdatedIds: [],
+    qualifyingCount: 0,
+    errors: [],
   };
-
-  return syncInspectionFollowUpTasksFromContext(context, {
-    ...deps,
-    db: { task: db.task },
-  });
 }
 
 export async function syncInspectionFollowUpTasksFromContext(
-  context: InspectionFollowUpContext,
-  deps: TaskSyncDeps & { db?: Pick<PrismaClient, "task"> } = {},
+  _context: InspectionFollowUpContext,
+  _deps: TaskSyncDeps & { db?: InspectionFollowUpDb } = {},
 ): Promise<FollowUpSyncResult> {
-  const isEnabled = deps.isEnabled ?? isTaskSyncEnabled;
-  if (!isEnabled()) {
-    return {
-      attempted: false,
-      skipped: true,
-      createdOrUpdatedIds: [],
-      qualifyingCount: 0,
-      errors: [],
-    };
-  }
-
-  const db = deps.db ?? defaultPrisma;
-  const qualifying = context.findings.filter(isQualifyingInspectionFollowUp);
-  const createdOrUpdatedIds: string[] = [];
-  const errors: unknown[] = [];
-
-  for (const finding of qualifying) {
-    const outcome = await runGuardedTaskSync(
-      "inspection finding → follow-up Task",
-      {
-        submissionId: context.submissionId,
-        submissionItemId: finding.submissionItemId,
-      },
-      async () => {
-        const data = buildInspectionFollowUpUpsertInput(context, finding);
-        const existing = await db.task.findUnique({
-          where: {
-            facilityId_sourceType_sourceId: {
-              facilityId: data.facilityId,
-              sourceType: data.sourceType,
-              sourceId: data.sourceId,
-            },
-          },
-          select: { id: true, status: true },
-        });
-
-        // Preserve lifecycle status on re-sync; only fill missing projections or refresh metadata.
-        if (existing) {
-          return db.task.update({
-            where: { id: existing.id },
-            data: {
-              departmentId: data.departmentId,
-              unitId: data.unitId,
-              operationInstanceId: data.operationInstanceId,
-              title: data.title,
-              description: data.description,
-              // Do not reset status/completedAt/assignedEmployeeId on re-sync.
-            },
-          });
-        }
-
-        return db.task.create({ data });
-      },
-      { isEnabled: () => true },
-    );
-
-    if (outcome.ok && !outcome.skipped) {
-      createdOrUpdatedIds.push(outcome.task.id);
-    } else if (!outcome.ok) {
-      errors.push(outcome.error);
-    }
-  }
-
   return {
-    attempted: true,
-    skipped: false,
-    createdOrUpdatedIds,
-    qualifyingCount: qualifying.length,
-    errors,
+    attempted: false,
+    skipped: true,
+    createdOrUpdatedIds: [],
+    qualifyingCount: 0,
+    errors: [],
   };
 }
 
@@ -318,5 +169,3 @@ export function followUpStatusLabel(status: TaskStatus): string {
     }
   }
 }
-
-export type { Task };

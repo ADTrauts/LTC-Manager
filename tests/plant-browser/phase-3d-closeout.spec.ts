@@ -79,19 +79,8 @@ test.describe("Phase 3D work order closeout @phase-3d @ci-gate", () => {
         select: { id: true, unitId: true, assetCode: true, name: true },
       });
 
-      const template = await db.operationalTemplate.create({
-        data: {
-          id: cuidLike(),
-          facilityId: fx.facilityId,
-          departmentId: fx.plantDepartmentId,
-          name: `Post-repair inspection ${suffix}`,
-          purposeType: "INSPECTION",
-          status: "PUBLISHED",
-          version: 1,
-          stableKey: `sk-${cuidLike()}`,
-          allowAdHoc: true,
-          publishedAt: new Date(),
-        },
+      const template = await db.catalogLogDefinition.findFirstOrThrow({
+        where: { status: "PUBLISHED" },
       });
 
       const issue = await db.assetIssue.create({
@@ -197,7 +186,7 @@ test.describe("Phase 3D work order closeout @phase-3d @ci-gate", () => {
             id: cuidLike(),
             facilityId: fx.facilityId,
             departmentId: fx.plantDepartmentId,
-            templateId: template.id,
+            catalogDefinitionId: template.id,
             templateStableKey: template.stableKey,
             templateVersion: template.version,
             templateName: template.name,

@@ -20,7 +20,7 @@ function sampleSnapshot(overrides: Partial<OperationalSnapshot> = {}): Operation
       label: "Lunch preparation",
       phase: "Preparation",
       scheduledTime: "11:30",
-      source: "operations_center",
+      source: "published_cycle",
     },
     readiness: { ready: 4, inProgress: 1, needsAttention: 2 },
     priorityLocations: [

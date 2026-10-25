@@ -68,7 +68,7 @@ const occurrenceInclude = {
         },
       },
       recordRequirements: {
-        select: { templateId: true, templateName: true, templateVersion: true },
+        select: { templateName: true, templateVersion: true, catalogDefinitionId: true },
         orderBy: { sortOrder: "asc" as const },
       },
     },
@@ -118,7 +118,10 @@ async function diagnoseMissingWorkOrder(
         status: string;
         article: { category: string };
       } | null;
-      recordRequirements: Array<{ templateId: string; templateName: string }>;
+      recordRequirements: Array<{
+        templateName: string | null;
+        catalogDefinitionId?: string | null;
+      }>;
     };
   },
 ): Promise<PmRunConfigurationIssue> {
@@ -153,16 +156,11 @@ async function diagnoseMissingWorkOrder(
     }
   }
   for (const requirement of input.version.recordRequirements) {
-    const template = await client.operationalTemplate.findFirst({
-      where: { id: requirement.templateId },
-      select: { id: true },
-    });
-    if (!template) {
-      return presentPmConfigurationIssue(
-        "TEMPLATE_MISSING",
-        `Required Record template ${requirement.templateName} is missing.`,
-      );
-    }
+    if (requirement.catalogDefinitionId) continue;
+    return presentPmConfigurationIssue(
+      "TEMPLATE_MISSING",
+      `Required Record ${requirement.templateName ?? "Record"} is missing a Catalog form.`,
+    );
   }
   return presentPmConfigurationIssue("WORK_ORDER_MISSING", "Work Order could not be generated.");
 }

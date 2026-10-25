@@ -1,15 +1,10 @@
-import type { IssueType, RepairPriority, RepairStatus } from "@prisma/client";
+import type { RepairPriority, RepairStatus } from "@prisma/client";
 
-import type { AppIconKey } from "@/lib/design-system/icons";
 import type { StatusBadgeVariant } from "@/lib/design-system/status-styles";
-import { issueTypeLabel } from "@/lib/repair-routing";
 
 /**
- * Compatibility copy for the legacy Repair façade (`/issues` → `/repairs`).
- *
- * Repair is the Work Order row. It is not canonical Issue.
+ * Repair detail copy. Repair is the Work Order row. It is not canonical Issue.
  * AssetIssue is the Issue store. OperationalRequest is intake.
- * `/issues` remains a compatibility path, not domain authority.
  */
 
 /** User-facing recovery stage (display only — maps onto RepairStatus + assignment). */
@@ -28,88 +23,26 @@ export type IssueCopyBundle = {
   reportedPhrase: string;
 };
 
-const COPY: Record<IssueType, IssueCopyBundle> = {
-  EQUIPMENT: {
-    typeLabel: "Equipment issue",
-    noun: "equipment issue",
-    inProgressPhrase: "Repair in progress",
-    resolvedPhrase: "Equipment restored",
-    reportedPhrase: "Equipment issue reported",
-  },
-  SUPPLY_SHORT: {
-    typeLabel: "Supply shortage",
-    noun: "supply shortage",
-    inProgressPhrase: "Restocking in progress",
-    resolvedPhrase: "Supply restored",
-    reportedPhrase: "Supply shortage reported",
-  },
-  ENVIRONMENT: {
-    typeLabel: "Environmental issue",
-    noun: "environmental issue",
-    inProgressPhrase: "Area service in progress",
-    resolvedPhrase: "Condition resolved",
-    reportedPhrase: "Environmental issue reported",
-  },
-  SAFETY: {
-    typeLabel: "Safety issue",
-    noun: "safety issue",
-    inProgressPhrase: "Immediate attention required",
-    resolvedPhrase: "Safety issue resolved",
-    reportedPhrase: "Safety issue reported",
-  },
-  SERVICE_DISRUPTION: {
-    typeLabel: "Service disruption",
-    noun: "service disruption",
-    inProgressPhrase: "Recovery in progress",
-    resolvedPhrase: "Service restored",
-    reportedPhrase: "Service disruption reported",
-  },
-  OTHER: {
-    typeLabel: "Operational issue",
-    noun: "operational issue",
-    inProgressPhrase: "Work in progress",
-    resolvedPhrase: "Issue resolved",
-    reportedPhrase: "Operational issue reported",
-  },
+const WORK_ORDER_COPY: IssueCopyBundle = {
+  typeLabel: "Work order",
+  noun: "work order",
+  inProgressPhrase: "Work in progress",
+  resolvedPhrase: "Work completed",
+  reportedPhrase: "Work order reported",
 };
 
-export function getIssueCopy(issueType: IssueType): IssueCopyBundle {
-  return COPY[issueType] ?? COPY.OTHER;
-}
-
-export function issueTypeDisplayLabel(issueType: IssueType): string {
-  return getIssueCopy(issueType).typeLabel;
-}
-
-/** Short label for dense lists (queue chips). */
-export function issueTypeShortLabel(issueType: IssueType): string {
-  return issueTypeLabel(issueType);
-}
-
-export function issueTypeIconKey(issueType: IssueType): AppIconKey {
-  switch (issueType) {
-    case "SUPPLY_SHORT":
-      return "assets";
-    case "SAFETY":
-      return "warning";
-    case "ENVIRONMENT":
-      return "locationDefault";
-    case "SERVICE_DISRUPTION":
-      return "inProgress";
-    case "OTHER":
-      return "activity";
-    case "EQUIPMENT":
-    default:
-      return "repairs";
-  }
+export function getIssueCopy(): IssueCopyBundle {
+  return WORK_ORDER_COPY;
 }
 
 export function mapRepairStatusToRecoveryStage(input: {
   status: RepairStatus;
   assignedEmployeeId?: string | null;
 }): IssueRecoveryStage {
-  if (input.status === "CLOSED") return "RESOLVED";
-  if (input.status === "WAITING_PARTS") return "WAITING";
+  if (input.status === "COMPLETED") return "RESOLVED";
+  if (input.status === "WAITING_ON_VENDOR" || input.status === "ON_HOLD") {
+    return "WAITING";
+  }
   if (input.status === "IN_PROGRESS") return "IN_PROGRESS";
   if (input.assignedEmployeeId) return "ASSIGNED";
   return "REPORTED";
@@ -149,15 +82,14 @@ export function priorityBadgeVariant(priority: RepairPriority): StatusBadgeVaria
 }
 
 export function resolveIssueImpactSummary(input: {
-  issueType: IssueType;
   priority: RepairPriority;
   status: RepairStatus;
 }): string {
-  const copy = getIssueCopy(input.issueType);
-  if (input.status === "CLOSED") {
+  const copy = getIssueCopy();
+  if (input.status === "COMPLETED") {
     return copy.resolvedPhrase;
   }
-  if (input.priority === "URGENT" || input.issueType === "SAFETY") {
+  if (input.priority === "URGENT" || input.priority === "EMERGENCY") {
     return "Current operations may be disrupted until this is resolved.";
   }
   if (input.priority === "HIGH") {
@@ -167,15 +99,14 @@ export function resolveIssueImpactSummary(input: {
 }
 
 export function resolveIssueNextAction(input: {
-  issueType: IssueType;
   status: RepairStatus;
   assignedEmployeeId?: string | null;
 }): string {
-  const copy = getIssueCopy(input.issueType);
-  if (input.status === "CLOSED") {
+  const copy = getIssueCopy();
+  if (input.status === "COMPLETED") {
     return "Reopen if the problem returns.";
   }
-  if (input.status === "WAITING_PARTS") {
+  if (input.status === "ON_HOLD" || input.status === "WAITING_ON_VENDOR") {
     return "Update when parts or supplies arrive, then resume work.";
   }
   if (input.status === "IN_PROGRESS") {
@@ -188,11 +119,10 @@ export function resolveIssueNextAction(input: {
 }
 
 export function resolveIssueRecoveryStatePhrase(input: {
-  issueType: IssueType;
   status: RepairStatus;
   assignedEmployeeId?: string | null;
 }): string {
-  const copy = getIssueCopy(input.issueType);
+  const copy = getIssueCopy();
   const stage = mapRepairStatusToRecoveryStage(input);
   if (stage === "RESOLVED") return copy.resolvedPhrase;
   if (stage === "IN_PROGRESS" || stage === "WAITING") return copy.inProgressPhrase;
@@ -208,9 +138,4 @@ export function issueDetailPath(repairId: string): string {
 /** @deprecated Prefer issueDetailPath — same canonical /repairs path. */
 export function repairDetailAliasPath(repairId: string): string {
   return `/repairs/${repairId}`;
-}
-
-/** Legacy deep-link path kept for redirects only. */
-export function legacyIssueFaçadePath(repairId: string): string {
-  return `/issues/${repairId}`;
 }

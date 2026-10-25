@@ -11,10 +11,6 @@ import {
   FACILITY_OVERVIEW_GOLDEN_PROJECTION,
   PLANT_GOLDEN_PROJECTION,
 } from "@/lib/projection";
-import {
-  isProjectionLocationsEnabled,
-  isProjectionSidebarEnabled,
-} from "@/lib/feature-flags";
 import { FACILITY_VOCABULARY_PROFILES } from "@/lib/facility-builder/facility-vocabulary";
 
 import {
@@ -23,24 +19,6 @@ import {
   compareLocationSidebarAncestry,
 } from "@/lib/locations";
 import type { LocationsTreeNode, LocationsViewModel } from "@/lib/locations";
-
-function withEnv(name: string, value: string | undefined, fn: () => void) {
-  const previous = process.env[name];
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-  try {
-    fn();
-  } finally {
-    if (previous === undefined) {
-      delete process.env[name];
-    } else {
-      process.env[name] = previous;
-    }
-  }
-}
 
 function walk(nodes: readonly LocationsTreeNode[]): LocationsTreeNode[] {
   const out: LocationsTreeNode[] = [];
@@ -140,23 +118,6 @@ test("39–41. Sidebar and Locations share ancestry + actionability", () => {
     assert.equal(report.identicalIds, true);
     assert.equal(report.identicalAncestry, true);
     assert.equal(report.identicalActionability, true);
-  }
-});
-
-test("42. all four feature-flag combinations", () => {
-  const combos: [string | undefined, string | undefined, boolean, boolean][] = [
-    [undefined, undefined, true, true],
-    ["true", "false", true, false],
-    ["false", "true", false, true],
-    ["false", "false", false, false],
-  ];
-  for (const [loc, side, expectLoc, expectSide] of combos) {
-    withEnv("PROJECTION_LOCATIONS_ENABLED", loc, () => {
-      withEnv("PROJECTION_SIDEBAR_ENABLED", side, () => {
-        assert.equal(isProjectionLocationsEnabled(), expectLoc);
-        assert.equal(isProjectionSidebarEnabled(), expectSide);
-      });
-    });
   }
 });
 

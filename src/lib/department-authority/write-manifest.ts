@@ -61,6 +61,27 @@ export const WRITE_MANIFEST: WriteManifest = {
     "moveVendorStaffAction",
   ]),
   [`${APP}/partner/people/actions.ts`]: each(department("workforceRecord"), ["createVendorPinWorkforceAction"]),
+  [`${APP}/partner/coverage/actions.ts`]: each(department("department"), [
+    "addPartnerShiftAction",
+    "callOffPartnerShiftAction",
+    "movePartnerAssignmentAction",
+    "createPartnerTeamAction",
+  ]),
+  [`${APP}/partner/rhythm/actions.ts`]: each(department("department"), [
+    "addPartnerCycleAction",
+    "addPartnerPhaseAction",
+    "addPartnerKeyPointAction",
+    "publishPartnerCycleAction",
+  ]),
+  [`${APP}/partner/work/actions.ts`]: {
+    addPartnerWorkPlanAction: department("department"),
+    publishPartnerWorkPlanAction: department("workPlan"),
+  },
+  [`${APP}/partner/assets/actions.ts`]: each(department("department"), ["addPartnerAssetAction"]),
+  [`${APP}/partner/menus/actions.ts`]: {
+    addPartnerMenuAction: department("department"),
+    assignPartnerMenuAction: department("menu"),
+  },
   [`${APP}/partner/department/actions.ts`]: each(GOVERNANCE, [
     "createVendorCatalogFormAction",
     "publishVendorCatalogFormAction",
@@ -78,6 +99,10 @@ export const WRITE_MANIFEST: WriteManifest = {
     "startBillingPortalAction",
   ]),
   [`${PROTECTED}/admin/billing/implementation/actions.ts`]: each(GOVERNANCE, ["implementationCustomerAction"]),
+  [`${DEPARTMENT_ADMIN}/facility-form-actions.ts`]: each(department("department"), [
+    "createFacilityCatalogFormAction",
+    "publishFacilityCatalogFormAction",
+  ]),
   [`${PROTECTED}/admin/departments/actions.ts`]: {
     createDepartmentAction: GOVERNANCE,
     setDepartmentHeadAction: GOVERNANCE,
@@ -179,20 +204,8 @@ export const WRITE_MANIFEST: WriteManifest = {
 
   [`${DEPARTMENT_ADMIN}/actions.ts`]: {
     ...each(legacy("locationFunctionProfile"), [
-      "createBaselineDraftAction",
-      "createNextDraftAction",
-      "certifyProfileAction",
-      "activateProfileAction",
-      "retireProfileAction",
-      "setExperienceActiveAction",
-      "moveExperienceAction",
-      "reorderExperiencesAction",
       "createArchetypeAction",
       "updateArchetypeAction",
-      "setArchetypeExperiencesAction",
-      "upsertRoomExceptionAction",
-      "removeRoomExceptionAction",
-      "setRoomTypeExperiencesAction",
     ]),
     bindRoomAction: department("roomArchetype"),
     clearRoomBindingAction: department("roomBinding"),
@@ -504,18 +517,7 @@ export const WRITE_MANIFEST: WriteManifest = {
   },
   [`${PROTECTED}/preventive-maintenance/actions.ts`]: each(department("pmOccurrence"), ["skipPmOccurrenceAction"]),
 
-  [`${PROTECTED}/logs/actions.ts`]: each(legacy("legacyLogTemplate"), [
-    "createLogTemplateAction",
-    "addTemplateFieldAction",
-    "createLogAssignmentAction",
-    "toggleLogAssignmentAction",
-    "submitLogAction",
-  ]),
-  [`${PROTECTED}/admin/inspections/actions.ts`]: each(legacy("inspectionDefinition"), [
-    "upsertInspectionDefinitionAction",
-    "setInspectionDefinitionActiveAction",
-  ]),
-  [`${PROTECTED}/issues/actions.ts`]: each(legacy("repair"), [
+  [`${PROTECTED}/repairs/issue-actions.ts`]: each(legacy("repair"), [
     "assignIssueAction",
     "addIssueUpdateAction",
     "startIssueWorkAction",
@@ -523,23 +525,12 @@ export const WRITE_MANIFEST: WriteManifest = {
     "closeIssueAction",
     "reopenIssueAction",
   ]),
-  [`${PROTECTED}/issues/recovery-actions.ts`]: each(legacy(), [
+  [`${PROTECTED}/repairs/recovery-actions.ts`]: each(legacy(), [
     "refreshRecoveryAssistantAction",
     "ensureRecoveryAssistantAction",
   ]),
   [`${PROTECTED}/staffing/actions.ts`]: {
-    deleteScheduleEntryAction: legacy("scheduleEntry"),
-    createScheduleEntryAction: legacy("workforceRecord"),
     createOverrideAction: legacy("workforceRecord"),
-  },
-  [`${PROTECTED}/staffing/templates/actions.ts`]: {
-    ...each(legacy("department"), ["createEvidenceTemplateDraftAction", "createEvidencePresetDraftAction"]),
-    ...each(legacy("evidenceTemplate"), [
-      "updateEvidenceTemplateDraftAction",
-      "publishEvidenceTemplateAction",
-      "retireEvidenceTemplateAction",
-      "createEvidenceSuccessorDraftAction",
-    ]),
   },
   [`${PROTECTED}/unit/[unitId]/evidence-actions.ts`]: each(legacy("evidenceRecord"), ["submitUnitEvidenceAction"]),
   [`${PROTECTED}/today/handoffs/actions.ts`]: each(legacy(), [
@@ -547,17 +538,12 @@ export const WRITE_MANIFEST: WriteManifest = {
     "ensureShiftTransitionAction",
   ]),
 
-  [`${PROTECTED}/dashboard/actions.ts`]: each(SHARED_FACILITY, [
-    "refreshMorningBriefAction",
-    "ensureMorningBriefAction",
-  ]),
+  [`${PROTECTED}/dashboard/actions.ts`]: {
+    ...each(SHARED_FACILITY, ["refreshMorningBriefAction", "ensureMorningBriefAction"]),
+    ...each(PERSONAL, ["saveDashboardLayout", "resetDashboardLayout"]),
+    setDashboardFacilityDefault: GOVERNANCE,
+  },
   [`${PROTECTED}/dashboard/settle-action.ts`]: { recordDashboardSettle: AUTH_SYSTEM },
-  [`${PROTECTED}/workspace/actions.ts`]: each(PERSONAL, [
-    "updateWorkspaceHiddenSectionsAction",
-    "toggleWorkspaceSectionCollapsedAction",
-    "setWorkspacePreferredLandingAction",
-    "setWorkspaceSectionOrderAction",
-  ]),
   [`${APP}/account/actions.ts`]: each(PERSONAL, ["updateOwnDisplayNameAction"]),
   [`${APP}/account/facility-administrator/actions.ts`]: each(GOVERNANCE, [
     "acceptFacilityAdministratorInvitationAction",
@@ -595,6 +581,11 @@ export const WRITE_MANIFEST: WriteManifest = {
     "previewHarborProvisionAdministratorAction",
     "provisionFacilityAction",
     "resendHarborProvisionInviteAction",
+  ]),
+  [`${APP}/console/(staff)/partners/actions.ts`]: each(AUTH_SYSTEM, [
+    "createPartnerCompanyAction",
+    "invitePartnerAdministratorAction",
+    "invitePartnerMemberAction",
   ]),
   [`${APP}/console/(staff)/organization-claims/actions.ts`]: each(AUTH_SYSTEM, [
     "approveOrganizationClaimAction",

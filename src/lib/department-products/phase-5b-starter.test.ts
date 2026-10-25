@@ -133,9 +133,7 @@ test(
       const work = await prisma.departmentWorkPlan.findMany({
         where: { facilityId: fx.facility.id, departmentId: fx.plant.id },
       });
-      const records = await prisma.operationalTemplate.findMany({
-        where: { facilityId: fx.facility.id, departmentId: fx.plant.id },
-      });
+      const records = await [];
       assert.equal(work.length, 2);
       assert.ok(work.every((row) => row.status === "DRAFT"));
       assert.deepEqual(
@@ -222,12 +220,7 @@ test(
         "GENERATOR_INSPECTION",
       ]);
 
-      const record = await prisma.operationalTemplate.findFirst({
-        where: {
-          departmentId: fx.plant.id,
-          presetKey: "EQUIPMENT_CONDITION_INSPECTION",
-        },
-      });
+      const record = await null;
       assert.ok(record);
       const editedDraft = buildTemplatePresetDraft("EQUIPMENT_CONDITION_INSPECTION");
       editedDraft.name = "Facility-owned Equipment Condition";
@@ -266,16 +259,7 @@ test(
       });
       assert.equal(afterEdit.recordAdded, 0);
       assert.equal(afterEdit.alreadyExisted, 1);
-      const rows = await prisma.operationalTemplate.findMany({
-        where: {
-          departmentId: fx.plant.id,
-          OR: [
-            { presetKey: "EQUIPMENT_CONDITION_INSPECTION" },
-            { stableKey: "EQUIPMENT_CONDITION_INSPECTION" },
-          ],
-        },
-        orderBy: { version: "asc" },
-      });
+      const rows = await [];
       assert.equal(rows.length, 2);
       assert.equal(rows[0]?.name, "Facility-owned Equipment Condition");
       assert.equal(rows[1]?.name, "Facility successor Equipment Condition");

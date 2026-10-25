@@ -224,14 +224,8 @@ test("forward Dietary timing writers do not call the legacy milestone writer", (
   for (const file of files) {
     const source = readFileSync(join(process.cwd(), file), "utf8");
     if (file.endsWith("route-meal-timing.ts")) {
-      assert.match(source, /recordServeryMilestone/);
       assert.match(source, /recordDietaryMealTiming/);
-      const canonicalBranch = source.split('target === "canonical"')[1]?.split('target === "legacy"')[0] ?? "";
-      const legacyBranch = source.split('target === "legacy"')[1] ?? "";
-      assert.match(canonicalBranch, /recordDietaryMealTiming/);
-      assert.doesNotMatch(canonicalBranch, /recordServeryMilestone/);
-      assert.match(legacyBranch, /recordServeryMilestone/);
-      assert.doesNotMatch(legacyBranch, /recordDietaryMealTiming/);
+      assert.doesNotMatch(source, /recordServeryMilestone/);
       continue;
     }
     assert.doesNotMatch(source, /recordServeryMilestone/);

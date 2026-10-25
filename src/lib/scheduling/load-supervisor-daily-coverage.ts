@@ -8,7 +8,6 @@ import type { FacilitySession } from "@/lib/auth";
 import type { HierarchyWalkUnit } from "@/lib/department-administration/department-locations";
 import { collectDepartmentActionableLocations } from "@/lib/department-administration/department-locations";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
   getFacilityLocalParts,
@@ -19,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import {
   resolveViewerTeamScopes,
   type ViewerTeamScope,
-} from "@/lib/todays-work/viewer-team-scope";
+} from "@/lib/dashboard/viewer/viewer-team-scope";
 
 import { loadDepartmentDaySchedule } from "./load-department-day-schedule";
 import {
@@ -151,7 +150,7 @@ export async function loadSupervisorDailyCoverage(input: {
     serviceDate: input.serviceDate,
   });
 
-  const oaEnabled = isOperationalAssignmentsEnabled();
+  const oaEnabled = true;
   const oaServiceDate = facilityLocalDateToServiceDate(input.serviceDate);
 
   const [hierarchy, oaRows, teamScopes] = await Promise.all([

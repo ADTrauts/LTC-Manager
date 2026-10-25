@@ -1,3 +1,5 @@
+import { isPartnerFacilitySession } from "@/lib/auth";
+
 import type {
   DashboardCapability,
   DepartmentDashboardCapabilities,
@@ -141,7 +143,10 @@ export function listEligibleCards(
         isDashboardHrefAuthorized(viewer, drillDown.href) &&
         (!drillDown.viewHref || isDashboardHrefAuthorized(viewer, drillDown.viewHref)),
     );
-    if (card.drillDownRequired && reachable.length !== drillDowns.length && !options.keepUnlinked) continue;
+    const partner = isPartnerFacilitySession(viewer.session);
+    if (card.drillDownRequired && reachable.length !== drillDowns.length && !options.keepUnlinked && !partner) {
+      continue;
+    }
 
     eligible.push({
       card,

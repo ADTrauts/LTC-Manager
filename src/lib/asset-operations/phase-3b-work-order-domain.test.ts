@@ -461,34 +461,8 @@ test(
       });
       assert.equal(resolved.status, "RESOLVED");
 
-      const templateA = await prisma.operationalTemplate.create({
-        data: {
-          id: cuidLike(),
-          facilityId: fx.facility.id,
-          departmentId: fx.plant.id,
-          name: "Phase 3B diagnostic",
-          purposeType: "LOG",
-          status: "PUBLISHED",
-          version: 1,
-          stableKey: `sk-${cuidLike()}`,
-          allowAdHoc: true,
-          publishedAt: new Date(),
-        },
-      });
-      const templateB = await prisma.operationalTemplate.create({
-        data: {
-          id: cuidLike(),
-          facilityId: other.facility.id,
-          departmentId: other.plant.id,
-          name: "Phase 3B foreign",
-          purposeType: "LOG",
-          status: "PUBLISHED",
-          version: 1,
-          stableKey: `sk-${cuidLike()}`,
-          allowAdHoc: true,
-          publishedAt: new Date(),
-        },
-      });
+      const templateA = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
+      const templateB = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
       const evidence = await prisma.operationalEvidenceRecord.create({
         data: {
           id: cuidLike(),

@@ -1860,7 +1860,7 @@ test("invalid partner context recovers to account session; explicit leave stays 
   assert.equal(resolver.includes("createOrganizationSessionToken"), false);
   assert.equal(transition.includes("cookies("), false);
   assert.equal(transition.includes("redirect("), false);
-  const flags = { todaysWorkEnabled: true };
+  const flags = { };
   assert.equal(authorizeRoute({ pathname: "/partner/exit", role: null, featureFlags: flags }).outcome, "ALLOW");
   assert.equal(
     authorizeRoute({ pathname: "/dashboard", role: null, sessionScope: "partner", featureFlags: flags }).outcome,
@@ -2699,7 +2699,7 @@ test("ending organization membership closes that organization's assignments and 
 });
 
 test("organization client staffing is session-bound and hides facility restriction notes", async () => {
-  const flags = { todaysWorkEnabled: true };
+  const flags = { };
   assert.equal(
     authorizeRoute({
       pathname: "/organization/metz/clients",

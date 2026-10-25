@@ -35,11 +35,7 @@ export function isRepairCompletedStatus(status: RepairStatus): boolean {
 }
 
 export function isRepairWaitingStatus(status: RepairStatus): boolean {
-  return (
-    status === "WAITING_PARTS" ||
-    status === "WAITING_ON_VENDOR" ||
-    status === "ON_HOLD"
-  );
+  return status === "WAITING_ON_VENDOR" || status === "ON_HOLD";
 }
 
 export function isRepairInProgressStatus(status: RepairStatus): boolean {

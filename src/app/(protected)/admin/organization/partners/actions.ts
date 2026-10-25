@@ -3,13 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import {
-  createOrganizationForDepartmentOperator,
-  searchOrganizationsForOperator,
-} from "@/lib/department-operators";
+import { searchOrganizationsForOperator } from "@/lib/department-operators";
 import { assertFacilityAdministratorAction } from "@/lib/facility-admin-guard";
 import { requireFacilitySession } from "@/lib/facility-context";
-import { normalizeOrganizationKey } from "@/lib/organization";
+import { matchOrganizationByNormalizedName } from "@/lib/organization/partner-company";
 import {
   activateFacilityPartner,
   addPartnerDepartmentScope,
@@ -98,6 +95,9 @@ export async function createFacilityPartnerAction(
   }
 }
 
+const CONSOLE_MUST_CREATE =
+  "Vssyl Console must create this company before the facility can attach it. Saving a partnership does not create a company.";
+
 export async function createOrganizationAndPartnerAction(
   formData: FormData,
 ): Promise<PartnerActionResult> {
@@ -120,28 +120,18 @@ export async function createOrganizationAndPartnerAction(
   }
 
   try {
-    const normalized = normalizeOrganizationKey(parsed.data.organizationName);
-    const existing = await prisma.organization.findMany({
+    const rows = await prisma.organization.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, displayName: true },
-      take: 200,
+      select: { id: true, name: true, displayName: true, legalName: true },
     });
-    const match = existing.find(
-      (row) =>
-        normalizeOrganizationKey(row.name) === normalized ||
-        (row.displayName != null &&
-          normalizeOrganizationKey(row.displayName) === normalized),
-    );
-    const organization =
-      match ??
-      (await createOrganizationForDepartmentOperator(prisma, {
-        name: parsed.data.organizationName,
-        organizationType: "MANAGEMENT_COMPANY",
-      }));
+    const match = matchOrganizationByNormalizedName(rows, [parsed.data.organizationName]);
+    if (!match) {
+      return { ok: false, message: CONSOLE_MUST_CREATE };
+    }
 
     const partner = await createFacilityPartner(prisma, {
       facilityId: session.facilityId,
-      organizationId: organization.id,
+      organizationId: match.id,
       notes: parsed.data.notes ?? null,
       createdByUserId: session.uid,
     });
@@ -156,9 +146,7 @@ export async function createOrganizationAndPartnerAction(
     return {
       ok: true,
       partnershipId: partner.id,
-      message: match
-        ? `Using existing organization “${match.displayName ?? match.name}”.`
-        : "Organization created and partner relationship saved.",
+      message: `Using existing organization “${match.displayName ?? match.name}”.`,
     };
   } catch (error) {
     return fail(error);

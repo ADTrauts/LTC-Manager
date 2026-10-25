@@ -3,17 +3,16 @@
  *
  * Marketplace / customer install follow committed Product release status.
  * Runtime engines may run when:
- *   - internal override PLANT_OPERATIONS_ENABLED is on, or
  *   - Harbor/internal audience has an installed PLANT Department Product, or
  *   - the Facility is customer-operable for Plant (installed + AVAILABLE + entitled).
  *
  * Association is by Product installation key, not a locally renamed Department.
  */
 
-import { isDietaryAssetOperationsEnabled, isPlantOperationsEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 
 import { hasInternalDepartmentProductAccess } from "./eligibility";
+import { isCustomerDepartmentAccessAllowed } from "./load-facility-catalog";
 import {
   isDepartmentRowCustomerOperable,
   loadFacilityDepartmentAccessContext,
@@ -46,10 +45,6 @@ export function resolveSharedAssetOperationsFromFacts(input: {
   return input.dietaryAssetOperationsEnabled || input.plantRuntimeEnabled;
 }
 
-export function isPlantOperationsDevelopmentOverrideEnabled(): boolean {
-  return isPlantOperationsEnabled();
-}
-
 export async function isPlantDepartmentProductInstalled(
   facilityId: string,
 ): Promise<boolean> {
@@ -66,16 +61,6 @@ export async function isPlantRuntimeEnabled(
   facilityId: string,
   session?: PlantRuntimeSession | null,
 ): Promise<boolean> {
-  const developmentOverride = isPlantOperationsDevelopmentOverrideEnabled();
-  if (developmentOverride && session?.authKind === "harbor_staff") {
-    return resolvePlantRuntimeFromFacts({
-      developmentOverride: true,
-      productInstalled: false,
-      harborAccess: false,
-      customerOperable: false,
-    });
-  }
-
   const product = getDepartmentProduct("PLANT");
   if (!product) {
     return resolvePlantRuntimeFromFacts({
@@ -114,15 +99,26 @@ export async function isPlantRuntimeEnabled(
   });
 }
 
-/** Shared Asset Run/profile: Dietary flag or Plant runtime. */
+/** Shared Asset Run: on when any admitted Department is installed, including Plant. */
 export async function isSharedAssetOperationsEnabled(
   facilityId: string,
   session?: PlantRuntimeSession | null,
 ): Promise<boolean> {
-  return resolveSharedAssetOperationsFromFacts({
-    dietaryAssetOperationsEnabled: isDietaryAssetOperationsEnabled(),
-    plantRuntimeEnabled: isDietaryAssetOperationsEnabled()
-      ? true
-      : await isPlantRuntimeEnabled(facilityId, session),
+  if (await isPlantRuntimeEnabled(facilityId, session)) return true;
+  const departments = await prisma.department.findMany({
+    where: { facilityId, isActive: true, key: { not: "PLANT" } },
+    select: { id: true },
   });
+  for (const department of departments) {
+    if (
+      await isCustomerDepartmentAccessAllowed(
+        prisma,
+        { facilityId, authKind: session?.authKind },
+        department.id,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

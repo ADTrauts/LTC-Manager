@@ -256,8 +256,7 @@ test.describe("@ci-gate Phase 10A Asset Operations", () => {
           data: {
             status: "COMPLETED",
             completedAt: new Date(),
-            workPerformed: "Recharged refrigerant",
-            resolution: "Cooling restored",
+            workPerformed: "Recharged refrigerant. Cooling restored",
           },
         });
         const assetAfterWo = await db.asset.findUniqueOrThrow({ where: { id: fridgeId } });

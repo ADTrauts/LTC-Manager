@@ -133,7 +133,7 @@ test("scheduled task mapping uses INSPECTION_OCCURRENCE source", () => {
   assert.equal(input.title, "Sanitizer station");
 });
 
-test("generator creates one occurrence+Task and is idempotent", async () => {
+test("generator creates no inspection occurrences", async () => {
   const occurrences = new Map<string, { id: string; dueAt: Date; status: string; taskId: string | null }>();
   const tasks = new Map<string, { id: string; status: string; dueAt: Date | null }>();
   let occurrenceCreates = 0;
@@ -156,8 +156,16 @@ test("generator creates one occurrence+Task and is idempotent", async () => {
   };
 
   const db = {
-    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
-    recordEngineRollout: { findMany: async () => [] },
+    recordEngineRollout: {
+      findMany: async () => [
+        {
+          facilityId: "fac_1",
+          departmentId: "dept_1",
+          mode: "LEGACY",
+          effectiveFromServiceDate: "2020-01-01",
+        },
+      ],
+    },
     facility: {
       findUnique: async () => ({ timezone: "America/New_York" }),
       findMany: async () => [{ id: "fac_1" }],
@@ -240,8 +248,9 @@ test("generator creates one occurrence+Task and is idempotent", async () => {
       },
       { db: db as never },
     );
-    assert.equal(first.occurrencesCreated, 1);
-    assert.equal(first.tasksCreated, 1);
+    assert.equal(first.occurrencesCreated, 0);
+    assert.equal(first.tasksCreated, 0);
+    assert.equal(first.definitionsConsidered, 0);
 
     const second = await generateDueInspectionWork(
       {
@@ -252,9 +261,117 @@ test("generator creates one occurrence+Task and is idempotent", async () => {
       { db: db as never },
     );
     assert.equal(second.occurrencesCreated, 0);
-    assert.equal(second.occurrencesExisting, 1);
-    assert.equal(occurrenceCreates, 1);
-    assert.equal(taskCreates, 1);
+    assert.equal(second.occurrencesExisting, 0);
+    assert.equal(occurrenceCreates, 0);
+    assert.equal(taskCreates, 0);
+  });
+});
+
+test("a forward Department does not generate inspection work", async () => {
+  let definitionReads = 0;
+  const db = {
+    department: {
+      findMany: async () => [{ id: "dept_forward" }],
+      findFirst: async () => ({ key: "PLANT" }),
+    },
+    recordEngineRollout: { findMany: async () => [] },
+    inspectionDefinition: {
+      findMany: async () => {
+        definitionReads += 1;
+        return [];
+      },
+    },
+  };
+
+  await withEnv("CANONICAL_LOGS_ENABLED", "true", async () => {
+    const result = await generateDueInspectionWork(
+      {
+        facilityId: "fac_forward",
+        date: "2026-07-12",
+        facilityTimezone: "America/New_York",
+      },
+      { db: db as never },
+    );
+    assert.equal(result.definitionsConsidered, 0);
+    assert.equal(result.occurrencesCreated, 0);
+    assert.equal(result.tasksCreated, 0);
+    assert.equal(definitionReads, 0);
+  });
+});
+
+test("a previous-engine Department does not generate inspection work", async () => {
+  const occurrences = new Map<string, { id: string; dueAt: Date; status: string; taskId: string | null }>();
+  let definitionWhere: { departmentId?: { in: string[] } } | null = null;
+  const db = {
+    department: {
+      findMany: async () => [{ id: "dept_legacy" }, { id: "dept_forward" }],
+      findFirst: async () => ({ key: "DIETARY" }),
+    },
+    recordEngineRollout: {
+      findMany: async () => [
+        {
+          facilityId: "fac_mixed",
+          departmentId: "dept_legacy",
+          mode: "LEGACY",
+          effectiveFromServiceDate: "2020-01-01",
+        },
+      ],
+    },
+    facility: { findUnique: async () => ({ timezone: "America/New_York" }) },
+    inspectionDefinition: {
+      findMany: async ({ where }: { where: { departmentId?: { in: string[] } } }) => {
+        definitionWhere = where;
+        return [
+          {
+            id: "def_legacy",
+            name: "Old round",
+            description: null,
+            facilityId: "fac_mixed",
+            departmentId: "dept_legacy",
+            unitId: "unit_1",
+            cadenceType: "DAILY" as const,
+            dueTimeLocal: "09:00",
+            daysOfWeek: [] as number[],
+            dayOfMonth: null,
+            activeFrom: null,
+            activeUntil: null,
+            unit: { name: "Kitchen" },
+          },
+        ];
+      },
+      update: async () => ({ id: "def_legacy" }),
+    },
+    inspectionOccurrence: {
+      findUnique: async () => null,
+      create: async ({ data }: { data: { dueAt: Date; status: string } }) => {
+        const row = { id: "occ_legacy", dueAt: data.dueAt, status: data.status, taskId: null };
+        occurrences.set("occ_legacy", row);
+        return { id: row.id };
+      },
+      update: async () => ({ id: "occ_legacy" }),
+    },
+    task: {
+      findUnique: async () => null,
+      create: async () => ({ id: "task_legacy" }),
+      update: async () => ({ id: "task_legacy" }),
+    },
+  };
+
+  await withEnv("CANONICAL_LOGS_ENABLED", "true", async () => {
+    await withEnv("TASK_SYNC_ENABLED", "false", async () => {
+      const result = await generateDueInspectionWork(
+        {
+          facilityId: "fac_mixed",
+          date: "2026-07-12",
+          facilityTimezone: "America/New_York",
+        },
+        { db: db as never },
+      );
+      assert.equal(definitionWhere, null);
+      assert.equal(result.definitionsConsidered, 0);
+      assert.equal(result.occurrencesCreated, 0);
+      assert.equal(result.tasksSkipped, 0);
+    });
   });
 });
 

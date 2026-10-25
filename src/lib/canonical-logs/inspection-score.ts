@@ -81,6 +81,13 @@ export function complianceResponseLabel(value: string | null | undefined): strin
   return value?.trim() || "—";
 }
 
+/** A failed inspection is out of standard, so the Record can be rechecked. */
+export function inspectionFailureMarksOutOfStandard(
+  outcome: InspectionOutcome | null | undefined,
+): boolean {
+  return outcome === "FAIL";
+}
+
 export function inspectionOutcomeLabel(outcome: InspectionOutcome | null): string {
   if (outcome === "PASS") return "Pass";
   if (outcome === "PASS_WITH_EXCEPTIONS") return "Pass with exceptions";

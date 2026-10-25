@@ -12,7 +12,8 @@ type InvitationRow = {
   intendedRole: OrganizationMembershipRole;
   expiresAt: Date | null;
   status: OrganizationMemberInvitationStatus;
-  invitedByUserId: string;
+  invitedByUserId: string | null;
+  invitedByPlatformStaffId: string | null;
   acceptedByUserId: string | null;
   acceptedAt: Date | null;
   revokedByUserId: string | null;

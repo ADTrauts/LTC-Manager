@@ -161,6 +161,47 @@ export async function retireOperatorPeriodSetup(db: Db, periodId: string): Promi
     where: { operatorPeriodId: periodId, status: { not: "RETIRED" } },
     data: { status: "RETIRED", retiredAt: now },
   });
+  const period = await db.departmentOperatorRelationship.findUnique({
+    where: { id: periodId },
+    select: {
+      organizationId: true,
+      departmentId: true,
+      effectiveFrom: true,
+      effectiveTo: true,
+      department: { select: { facilityId: true } },
+    },
+  });
+  if (!period?.effectiveTo) return;
+  const leaving = await db.asset.findMany({
+    where: {
+      departmentId: period.departmentId,
+      titleKind: "PARTNER",
+      titleOrganizationId: period.organizationId,
+      status: { not: "RETIRED" },
+    },
+    select: { id: true, name: true, equipmentType: true, inServiceDate: true, createdAt: true },
+  });
+  for (const asset of leaving) {
+    await db.assetPresenceNote.create({
+      data: {
+        facilityId: period.department.facilityId,
+        departmentId: period.departmentId,
+        name: asset.name,
+        equipmentType: asset.equipmentType,
+        onSiteFrom: asset.inServiceDate ?? asset.createdAt,
+        onSiteTo: period.effectiveTo,
+        titleOrganizationId: period.organizationId,
+      },
+    });
+    await db.asset.update({
+      where: { id: asset.id },
+      data: {
+        status: "RETIRED",
+        retiredAt: now,
+        retiredReason: "Left with the operating partner.",
+      },
+    });
+  }
 }
 
 export async function listVendorArchive(db: Db, organizationId: string) {

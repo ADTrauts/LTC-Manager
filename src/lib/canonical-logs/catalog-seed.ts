@@ -14,6 +14,8 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
+import { STANDARD_DEPARTMENT_FORMS } from "../../../prisma/standard-department-forms.mjs";
+
 type Db = PrismaClient | Prisma.TransactionClient;
 
 function cuidLike() {
@@ -33,6 +35,10 @@ type SeedField = {
   allowedSelections?: string[];
   correctiveActionTrigger?: boolean;
   correctiveActionRequired?: boolean;
+  sectionKey?: string;
+  scoreWeight?: number | null;
+  critical?: boolean;
+  creditValues?: string[];
 };
 
 export type CatalogSeedDefinition = {
@@ -53,9 +59,13 @@ export type CatalogSeedDefinition = {
     keywords: string[];
   };
   fields: SeedField[];
+  passingScore?: number | null;
+  criticalFailureForcesFailure?: boolean;
+  sections?: Array<{ sectionKey: string; label: string; displaySequence: number }>;
 };
 
 export const CATALOG_SEED_DEFINITIONS: CatalogSeedDefinition[] = [
+  ...(STANDARD_DEPARTMENT_FORMS as CatalogSeedDefinition[]),
   {
     stableKey: "cooler_temperature_log",
     version: 1,
@@ -494,6 +504,9 @@ export async function upsertPublishedCatalogSeeds(client: Db): Promise<{
         recommendedScheduleKind: seed.recommendedScheduleKind,
         recommendedDaypartLabels: seed.recommendedDaypartLabels,
         suggestionsJson: seed.suggestions as unknown as Prisma.InputJsonValue,
+        passingScore: seed.passingScore ?? null,
+        criticalFailureForcesFailure: seed.criticalFailureForcesFailure === true,
+        sectionsJson: (seed.sections ?? []) as unknown as Prisma.InputJsonValue,
         publishedAt: new Date(),
         fields: {
           create: seed.fields.map((f) => ({
@@ -510,6 +523,10 @@ export async function upsertPublishedCatalogSeeds(client: Db): Promise<{
             allowedSelections: f.allowedSelections ?? [],
             correctiveActionTrigger: f.correctiveActionTrigger === true,
             correctiveActionRequired: f.correctiveActionRequired === true,
+            sectionKey: f.sectionKey ?? null,
+            scoreWeight: f.scoreWeight ?? null,
+            critical: f.critical === true,
+            creditValues: f.creditValues ?? [],
           })),
         },
       },

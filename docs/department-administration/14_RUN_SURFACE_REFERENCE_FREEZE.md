@@ -106,6 +106,7 @@ Step 18 landed that rewire. Steps 20–22 replaced Locations / Dashboard / Revie
 ## Locked after 20–22
 
 - Do not copy the frozen hierarchy / OT / dump.  
-- Dashboard stays an aggregation, not 17 stacked cards.  
+- Dashboard stays an aggregation, not 17 stacked cards.
+- DSH-04 sends Supervisor and above to the Dashboard at `/dashboard`. `/workspace` only redirects there.  
 - Review day Locations stay a past-date replay of the same state.  
 - Experience keys are retired (step 25). The location workspace reads this same state. Operation engine and Experience shell are deleted. Leftover catalog is not a product registry.

@@ -13,13 +13,6 @@ test("a later lens change counts from when that view mounted", () => {
   assert.equal(dashboardSettleElapsedMs({ nowMs: 90_000, mountedAtMs: 88_200 }), 1800);
 });
 
-test("settle is not recorded while the Dashboard flag is off", async () => {
-  const previous = process.env.DASHBOARD_V2_ENABLED;
-  delete process.env.DASHBOARD_V2_ENABLED;
-  try {
-    await recordDashboardSettle({ elapsedMs: 1200, cardCount: 4, scope: "department:dept" });
-  } finally {
-    if (previous === undefined) delete process.env.DASHBOARD_V2_ENABLED;
-    else process.env.DASHBOARD_V2_ENABLED = previous;
-  }
+test("settle is skipped when there is no facility session", async () => {
+  await recordDashboardSettle({ elapsedMs: 1200, cardCount: 4, scope: "department:dept" });
 });

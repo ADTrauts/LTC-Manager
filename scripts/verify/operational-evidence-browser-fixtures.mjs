@@ -133,18 +133,9 @@ async function ensureUnitMealTimes(db, unitId, offsetsMinutes) {
     { mealType: "LUNCH", scheduledTime: minutesToHhMm(12 * 60 + offsetsMinutes) },
     { mealType: "DINNER", scheduledTime: minutesToHhMm(17 * 60 + offsetsMinutes) },
   ];
-  for (const meal of meals) {
-    await db.unitMealTime.upsert({
-      where: { unitId_mealType: { unitId, mealType: meal.mealType } },
-      update: { scheduledTime: meal.scheduledTime, isActive: true },
-      create: {
-        unitId,
-        mealType: meal.mealType,
-        scheduledTime: meal.scheduledTime,
-        isActive: true,
-      },
-    });
-  }
+  void meals;
+  void db;
+  void unitId;
 }
 
 async function ensureServeryUnits(db, facilityId, dietaryId, evsId) {
@@ -522,20 +513,13 @@ async function main() {
     await ensureSchedule(db, callOffEmployee.id, serviceDate, primaryUnit.id);
     await ensureSchedule(db, noAssignEmployee.id, serviceDate, primaryUnit.id);
 
-    const callOffExists = await db.assignmentOverride.findFirst({
-      where: { employeeId: callOffEmployee.id, date: serviceDate },
-      select: { id: true },
+    await db.scheduleEntry.updateMany({
+      where: { employeeId: callOffEmployee.id, date: serviceDate, calledOffAt: null },
+      data: {
+        calledOffAt: new Date(),
+        callOffReason: "[call-down:call-off] Job Flow browser synthetic call-off",
+      },
     });
-    if (!callOffExists) {
-      await db.assignmentOverride.create({
-        data: {
-          date: serviceDate,
-          employeeId: callOffEmployee.id,
-          newUnitId: primaryUnit.id,
-          reason: "[call-down:call-off] Job Flow browser synthetic call-off",
-        },
-      });
-    }
 
     const plan = await db.operationalAssignmentPlan.upsert({
       where: {
@@ -771,76 +755,8 @@ async function main() {
       distinct: ["stableKey"],
       take: 2,
     });
-    const coolerDraft = await db.operationalTemplate.create({
-      data: {
-        id: cuid(),
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        stableKey: "cooler_temperature_log",
-        version: 1,
-        name: "Cooler Temperature Log",
-        description: "Synthetic cooler log",
-        instructions: "Enter cooler temperature.",
-        purposeType: "LOG",
-        status: "PUBLISHED",
-        presetKey: "COOLER_TEMPERATURE_LOG",
-        publishedAt: new Date(),
-        fields: {
-          create: [
-            {
-              id: cuid(),
-              fieldKey: "cooler_temperature",
-              label: "Cooler temperature",
-              fieldType: "TEMPERATURE",
-              isRequired: true,
-              displaySequence: 10,
-              unitLabel: "°F",
-              minNumber: 33,
-              maxNumber: 41,
-              correctiveActionTrigger: true,
-              correctiveActionRequired: true,
-            },
-          ],
-        },
-        applicabilities: {
-          create: [{ id: cuid(), kind: "SPECIFIC_ASSET", assetId: coolerAsset.id }],
-        },
-        schedules: {
-          create: (publishedCycleKeys.length
-            ? publishedCycleKeys
-            : [{ stableKey: "jf_morning_prep" }]
-          ).map((c) => ({
-            id: cuid(),
-            kind: "OPERATIONAL_CYCLE",
-            cycleStableKey: c.stableKey,
-          })),
-        },
-      },
-    });
-    await db.operationalTemplate.create({
-      data: {
-        id: cuid(),
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        stableKey: "draft_only_checklist",
-        version: 1,
-        name: "Draft Only Checklist",
-        purposeType: "CHECKLIST",
-        status: "DRAFT",
-        fields: {
-          create: [
-            {
-              id: cuid(),
-              fieldKey: "attestation",
-              label: "Attest",
-              fieldType: "ATTESTATION",
-              isRequired: true,
-              displaySequence: 10,
-            },
-          ],
-        },
-      },
-    });
+    const coolerDraft = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
+    await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
     const historyRecordIds = [];
     for (let i = 0; i < 30; i++) {
       const d = new Date(serviceDate);

@@ -12,7 +12,6 @@ import type { FacilitySession, AuthMethod } from "@/lib/auth";
 import { DEPARTMENT_VIEW_REASON } from "@/lib/department-authority/access";
 import { applyDepartmentChangeCeiling, loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
 import { resolveFacilityAdministratorView } from "@/lib/department-authority/resolve";
-import { isDepartmentAssetOperationsEnabled, isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { prisma } from "@/lib/prisma";
@@ -172,9 +171,6 @@ async function requesterFlagForKey(
 ): Promise<boolean> {
   if (!key) return false;
   if (key === "PLANT") return isPlantRuntimeEnabled(facilityId, session);
-  if (key === "DIETARY" || key === "EVS") {
-    return isDepartmentJobFlowEnabled(key) || isDepartmentAssetOperationsEnabled(key);
-  }
   return true;
 }
 
@@ -190,7 +186,7 @@ async function facilityAdministratorViewFor(
   return resolveFacilityAdministratorView(prisma, session, { facilityId, departmentId });
 }
 
-/** Requester-side report authority. Trio departments keep release flags; custom keys are admitted. */
+/** Requester-side report authority. Plant follows install and access. Every other key is admitted. */
 export async function resolveRequesterReportAuthority(
   session: FacilitySession,
   facilityId: string,

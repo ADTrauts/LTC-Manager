@@ -15,6 +15,7 @@ import { randomBytes } from "node:crypto";
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
+import { loadCurrentOperatorsForFacilityDepartments } from "@/lib/department-operators/service";
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { prisma } from "@/lib/prisma";
 
@@ -26,6 +27,10 @@ import {
 } from "./authority";
 import { type CivilDate, civilDateToUtcMidnight, facilityCivilToday, parseCivilDate } from "./civil-date";
 import { compareCivilDates } from "./civil-date";
+import {
+  catalogFormServesRunningDepartment,
+  catalogStableKeyForTemplate,
+} from "./catalog-pin";
 import {
   assertPmPublishedVersionImmutable,
   isPmPriorityPublishable,
@@ -43,7 +48,8 @@ function cuidLike() {
 }
 
 export type PmRecordRequirementInput = {
-  templateId: string;
+  templateId?: string | null;
+  catalogDefinitionId?: string | null;
   sortOrder?: number;
 };
 
@@ -85,43 +91,101 @@ function civilDateValue(value: CivilDate | Date): Date {
 function requirementCreates(rows: PmRecordRequirementInput[] | undefined) {
   return (rows ?? []).map((row, index) => ({
     id: cuidLike(),
-    templateId: row.templateId,
-    templateStableKey: "",
-    templateVersion: 0,
-    templateName: "",
+    templateId: row.templateId ?? null,
+    templateStableKey: row.templateId ? "" : null,
+    templateVersion: row.templateId ? 0 : null,
+    templateName: row.templateId ? "" : null,
+    catalogDefinitionId: row.catalogDefinitionId ?? null,
     sortOrder: row.sortOrder ?? index,
   }));
+}
+
+async function contractedOrganizationId(
+  client: DbClient,
+  facilityId: string,
+  departmentId: string,
+): Promise<string | null> {
+  if (!("departmentOperatorRelationship" in client)) return null;
+  const operators = await loadCurrentOperatorsForFacilityDepartments(client, {
+    facilityId,
+    departmentIds: [departmentId],
+  });
+  const current = operators.get(departmentId);
+  return current?.operatingModel === "CONTRACTED" ? current.relationship.organizationId : null;
+}
+
+async function publishedCatalogForRequirement(
+  client: DbClient,
+  row: PmRecordRequirementInput,
+  template: { stableKey: string; name: string } | null,
+) {
+  if (!("catalogLogDefinition" in client)) return null;
+  if (row.catalogDefinitionId) {
+    const named = await client.catalogLogDefinition.findFirst({
+      where: { id: row.catalogDefinitionId, status: "PUBLISHED" },
+    });
+    if (!named) throw new Error("Required Record form not found.");
+    return named;
+  }
+  if (!template) return null;
+  return client.catalogLogDefinition.findFirst({
+    where: {
+      stableKey: catalogStableKeyForTemplate({
+        stableKey: template.stableKey,
+        name: template.name,
+      }),
+      status: "PUBLISHED",
+    },
+    orderBy: { version: "desc" },
+  });
 }
 
 async function snapshotRecordRequirements(
   client: DbClient,
   input: {
     facilityId: string;
+    departmentId: string;
     planVersionId: string;
     rows: PmRecordRequirementInput[];
   },
 ) {
   const unique = new Map<string, PmRecordRequirementInput>();
   for (const row of input.rows) {
-    unique.set(row.templateId, row);
+    const key = row.catalogDefinitionId ?? row.templateId;
+    if (!key) throw new Error("A required Record must name a form.");
+    unique.set(key, row);
   }
+  const contractedOrganization = await contractedOrganizationId(
+    client,
+    input.facilityId,
+    input.departmentId,
+  );
   const snapshots = [];
   let sort = 0;
   for (const row of unique.values()) {
-    const template = await client.operationalTemplate.findFirst({
-      where: { id: row.templateId, facilityId: input.facilityId },
-    });
-    if (!template) throw new Error("Required Record template not found.");
-    if (template.status !== "PUBLISHED") {
-      throw new Error("PM Plan required Records must pin a published template version.");
+    const catalog = await publishedCatalogForRequirement(client, row, null);
+    if (
+      catalog &&
+      !catalogFormServesRunningDepartment({
+        ownerKind: catalog.ownerKind,
+        ownerFacilityId: catalog.ownerFacilityId,
+        ownerOrganizationId: catalog.ownerOrganizationId,
+        facilityId: input.facilityId,
+        contractedOrganizationId: contractedOrganization,
+      })
+    ) {
+      throw new Error("This Record is not a form of the Department running the plan.");
     }
+    if (!catalog) throw new Error("Required Record form not found.");
     snapshots.push({
       id: cuidLike(),
       planVersionId: input.planVersionId,
-      templateId: template.id,
-      templateStableKey: template.stableKey,
-      templateVersion: template.version,
-      templateName: template.name,
+      templateStableKey: catalog.stableKey,
+      templateVersion: catalog.version,
+      templateName: catalog.name,
+      catalogDefinitionId: catalog?.id ?? null,
+      catalogStableKey: catalog?.stableKey ?? null,
+      catalogVersion: catalog?.version ?? null,
       sortOrder: row.sortOrder ?? sort,
     });
     sort += 1;
@@ -231,6 +295,7 @@ async function validatePublishableVersion(
 
   await snapshotRecordRequirements(client, {
     facilityId: input.facilityId,
+    departmentId: input.departmentId,
     planVersionId: "validate-only",
     rows: input.draft.recordRequirements ?? [],
   });
@@ -436,7 +501,7 @@ export async function publishPmPlanVersion(
       procedureVersionId: draft.procedureVersionId,
       defaultAssignedEmployeeId: draft.defaultAssignedEmployeeId,
       recordRequirements: draft.recordRequirements.map((row) => ({
-        templateId: row.templateId,
+        catalogDefinitionId: row.catalogDefinitionId,
         sortOrder: row.sortOrder,
       })),
     };
@@ -455,6 +520,7 @@ export async function publishPmPlanVersion(
 
     const snapshots = await snapshotRecordRequirements(db, {
       facilityId: input.facilityId,
+      departmentId: input.departmentId,
       planVersionId: draft.id,
       rows: draftInput.recordRequirements ?? [],
     });
@@ -559,10 +625,12 @@ export async function createPmPlanSuccessorDraft(
       recordRequirements: {
         create: published.recordRequirements.map((row, index) => ({
           id: cuidLike(),
-          templateId: row.templateId,
           templateStableKey: row.templateStableKey,
           templateVersion: row.templateVersion,
           templateName: row.templateName,
+          catalogDefinitionId: row.catalogDefinitionId,
+          catalogStableKey: row.catalogStableKey,
+          catalogVersion: row.catalogVersion,
           sortOrder: row.sortOrder ?? index,
         })),
       },

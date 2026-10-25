@@ -1,4 +1,5 @@
 export {
+  applyDashboardLens,
   dashboardLayoutOwner,
   dashboardScopeCandidates,
   deriveDashboardAuthority,
@@ -9,7 +10,12 @@ export {
   type DashboardTeamScopeFact,
   type DashboardViewerFacts,
 } from "./derive";
-export { currentDashboardRouteFlags, resolveDashboardViewer, type DashboardViewerDeps } from "./resolve";
+export {
+  currentDashboardRouteFlags,
+  resolveDashboardViewer,
+  selectPartnerDashboardDepartments,
+  type DashboardViewerDeps,
+} from "./resolve";
 export {
   DASHBOARD_AUTHORITY_RANK,
   type DashboardAuthority,

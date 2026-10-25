@@ -1,21 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
   isAiBriefEnabled,
   isAiRecoveryAssistantEnabled,
   isAiShiftSummaryEnabled,
-  isDietaryWorkPlansEnabled,
-  isEvsOperationsEnabled,
-  isOperationalAssignmentsEnabled,
-  isProjectionLocationsEnabled,
   isProjectionShadowEnabled,
-  isProjectionSidebarEnabled,
-  isProjectionTodaysWorkEnabled,
-  isTaskSyncEnabled,
-  isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
-import { resolveDefaultHomePath } from "@/lib/nav-zones";
 
 function withEnv(name: string, value: string | undefined, fn: () => void) {
   const previous = process.env[name];
@@ -34,31 +26,6 @@ function withEnv(name: string, value: string | undefined, fn: () => void) {
     }
   }
 }
-
-test("isTodaysWorkEnabled defaults to true when unset", () => {
-  withEnv("TODAYS_WORK_ENABLED", undefined, () => {
-    assert.equal(isTodaysWorkEnabled(), true);
-  });
-});
-
-test("isTaskSyncEnabled defaults to false when unset", () => {
-  withEnv("TASK_SYNC_ENABLED", undefined, () => {
-    assert.equal(isTaskSyncEnabled(), false);
-  });
-});
-
-test("isTaskSyncEnabled parses truthy and falsey env values", () => {
-  for (const value of ["true", "1", "on", "yes"]) {
-    withEnv("TASK_SYNC_ENABLED", value, () => {
-      assert.equal(isTaskSyncEnabled(), true, value);
-    });
-  }
-  for (const value of ["false", "0", "off", "no"]) {
-    withEnv("TASK_SYNC_ENABLED", value, () => {
-      assert.equal(isTaskSyncEnabled(), false, value);
-    });
-  }
-});
 
 test("isAiBriefEnabled defaults to false when unset", () => {
   withEnv("AI_BRIEF_ENABLED", undefined, () => {
@@ -102,133 +69,37 @@ test("isAiRecoveryAssistantEnabled parses truthy env values", () => {
   }
 });
 
-test("isTodaysWorkEnabled parses falsey env values", () => {
-  for (const value of ["false", "0", "off", "no"]) {
-    withEnv("TODAYS_WORK_ENABLED", value, () => {
-      assert.equal(isTodaysWorkEnabled(), false, value);
-    });
-  }
-});
-
-test("resolveDefaultHomePath falls back to Business Workspace when Today's Work is disabled", () => {
-  withEnv("TODAYS_WORK_ENABLED", "false", () => {
-    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/workspace");
-  });
-});
-
-test("isOperationalAssignmentsEnabled defaults to false when unset", () => {
-  withEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", undefined, () => {
-    assert.equal(isOperationalAssignmentsEnabled(), false);
-  });
-});
-
-test("isOperationalAssignmentsEnabled parses truthy env values", () => {
-  for (const value of ["true", "1", "on", "yes"]) {
-    withEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", value, () => {
-      assert.equal(isOperationalAssignmentsEnabled(), true, value);
-    });
-  }
-});
-
-test("isOperationalAssignmentsEnabled parses falsey env values", () => {
-  for (const value of ["false", "0", "off", "no"]) {
-    withEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", value, () => {
-      assert.equal(isOperationalAssignmentsEnabled(), false, value);
-    });
-  }
-});
-
-test("isProjectionLocationsEnabled defaults to true when unset", () => {
-  withEnv("PROJECTION_LOCATIONS_ENABLED", undefined, () => {
-    assert.equal(isProjectionLocationsEnabled(), true);
-  });
-});
-
-test("isProjectionLocationsEnabled can be disabled for rollback", () => {
-  withEnv("PROJECTION_LOCATIONS_ENABLED", "false", () => {
-    assert.equal(isProjectionLocationsEnabled(), false);
-  });
-});
-
 test("isProjectionShadowEnabled defaults to false when unset", () => {
   withEnv("PROJECTION_SHADOW_ENABLED", undefined, () => {
     assert.equal(isProjectionShadowEnabled(), false);
   });
 });
 
-test("isProjectionSidebarEnabled defaults to true when unset", () => {
-  withEnv("PROJECTION_SIDEBAR_ENABLED", undefined, () => {
-    assert.equal(isProjectionSidebarEnabled(), true);
-  });
-});
-
-test("isProjectionSidebarEnabled can be disabled for rollback", () => {
-  withEnv("PROJECTION_SIDEBAR_ENABLED", "false", () => {
-    assert.equal(isProjectionSidebarEnabled(), false);
-  });
-});
-
-test("isProjectionTodaysWorkEnabled defaults to false when unset", () => {
-  withEnv("PROJECTION_TODAYS_WORK_ENABLED", undefined, () => {
-    assert.equal(isProjectionTodaysWorkEnabled(), false);
-  });
-});
-
-test("isProjectionTodaysWorkEnabled can be enabled for cutover", () => {
-  withEnv("PROJECTION_TODAYS_WORK_ENABLED", "true", () => {
-    assert.equal(isProjectionTodaysWorkEnabled(), true);
-  });
-});
-
-test("isDietaryWorkPlansEnabled defaults to true when unset", () => {
-  withEnv("DIETARY_WORK_PLANS_ENABLED", undefined, () => {
-    assert.equal(isDietaryWorkPlansEnabled(), true);
-  });
-});
-
-test("isDietaryWorkPlansEnabled parses truthy and falsey env values", () => {
-  for (const value of ["true", "1", "on", "yes"]) {
-    withEnv("DIETARY_WORK_PLANS_ENABLED", value, () => {
-      assert.equal(isDietaryWorkPlansEnabled(), true, value);
-    });
+test("department capability switches are gone from the flag module", () => {
+  const flags = readFileSync("src/lib/feature-flags.ts", "utf8");
+  for (const name of [
+    "TASK_SYNC_ENABLED",
+    "isTaskSyncEnabled",
+    "DEPARTMENT_OPERATIONAL_PROFILES_ENABLED",
+    "isDepartmentOperationalProfilesEnabled",
+    "OPERATIONAL_ASSIGNMENTS_ENABLED",
+    "isOperationalAssignmentsEnabled",
+    "DIETARY_OPERATIONAL_CYCLES_ENABLED",
+    "isDietaryOperationalCyclesEnabled",
+    "DIETARY_JOB_FLOW_ENABLED",
+    "isDietaryJobFlowEnabled",
+    "DIETARY_OPERATIONAL_EVIDENCE_ENABLED",
+    "isDietaryOperationalEvidenceEnabled",
+    "DIETARY_ASSET_OPERATIONS_ENABLED",
+    "isDietaryAssetOperationsEnabled",
+    "DIETARY_WORK_PLANS_ENABLED",
+    "isDietaryWorkPlansEnabled",
+    "EVS_OPERATIONS_ENABLED",
+    "isEvsOperationsEnabled",
+    "PLANT_OPERATIONS_ENABLED",
+    "isPlantOperationsEnabled",
+    "isPlantOperationsDevelopmentOverrideEnabled",
+  ]) {
+    assert.equal(flags.includes(name), false, name);
   }
-  for (const value of ["false", "0", "off", "no"]) {
-    withEnv("DIETARY_WORK_PLANS_ENABLED", value, () => {
-      assert.equal(isDietaryWorkPlansEnabled(), false, value);
-    });
-  }
-});
-
-test("Phase 11A keeps Task sync disabled by default", () => {
-  withEnv("TASK_SYNC_ENABLED", undefined, () => {
-    assert.equal(isTaskSyncEnabled(), false);
-  });
-});
-
-test("isEvsOperationsEnabled defaults to false when unset", () => {
-  withEnv("EVS_OPERATIONS_ENABLED", undefined, () => {
-    assert.equal(isEvsOperationsEnabled(), false);
-  });
-});
-
-test("isEvsOperationsEnabled parses truthy and falsey env values", () => {
-  for (const value of ["true", "1", "on", "yes"]) {
-    withEnv("EVS_OPERATIONS_ENABLED", value, () => {
-      assert.equal(isEvsOperationsEnabled(), true, value);
-    });
-  }
-  for (const value of ["false", "0", "off", "no"]) {
-    withEnv("EVS_OPERATIONS_ENABLED", value, () => {
-      assert.equal(isEvsOperationsEnabled(), false, value);
-    });
-  }
-});
-
-test("Phase 11B EVS flag does not enable Task sync", () => {
-  withEnv("EVS_OPERATIONS_ENABLED", "true", () => {
-    withEnv("TASK_SYNC_ENABLED", undefined, () => {
-      assert.equal(isEvsOperationsEnabled(), true);
-      assert.equal(isTaskSyncEnabled(), false);
-    });
-  });
 });

@@ -10,6 +10,7 @@ import type { SupportStaffNotificationItem } from "@/lib/support/notifications";
 const NAV = [
   { href: "/console", label: "Today", enabled: true },
   { href: "/console/customers", label: "Customers", enabled: true },
+  { href: "/console/partners", label: "Partners", enabled: true, ownerOnly: true },
   { href: "/console/organization-claims", label: "Org Claims", enabled: true },
   { href: "/console/tickets", label: "Tickets", enabled: true },
   { href: "/console/catalog", label: "Marketplace", enabled: true },
@@ -44,7 +45,7 @@ export function HarborConsoleShell({
           <VssylLockup tone="inverse" size="console" />
           <p className="mt-2 text-sm text-[var(--run-aside-muted)]">Vssyl Console</p>
           <nav className="mt-8 flex flex-col gap-1" aria-label="Vssyl Console">
-            {NAV.map((item) => {
+            {NAV.filter((item) => !("ownerOnly" in item && item.ownerOnly) || staffRole === "OWNER").map((item) => {
               const active = navActive(pathname, item.href);
               if (!item.enabled) {
                 return (

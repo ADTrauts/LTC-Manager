@@ -1,15 +1,12 @@
-import type { InspectionResult, PrismaClient, Task } from "@prisma/client";
+import type { InspectionResult } from "@prisma/client";
 
 import {
   completedAtForTaskStatus,
 } from "@/lib/work/task-mappings";
 import {
-  runGuardedTaskSync,
   type TaskSyncDeps,
   type TaskSyncOutcome,
 } from "@/lib/work/run-guarded-task-sync";
-import { prisma as defaultPrisma } from "@/lib/prisma";
-
 export type InspectionSubmissionTaskSource = {
   id: string;
   facilityId: string;
@@ -22,8 +19,6 @@ export type InspectionSubmissionTaskSource = {
   notes: string | null;
   definitionName: string;
 };
-
-export type InspectionTaskDb = Pick<PrismaClient, "task">;
 
 /**
  * Preferred Wave 7b rule: the inspection execution Task is COMPLETED when submitted.
@@ -73,44 +68,10 @@ export function buildInspectionTaskUpsertInput(
   };
 }
 
-async function upsertInspectionTask(
-  db: InspectionTaskDb,
-  submission: InspectionSubmissionTaskSource,
-): Promise<Task> {
-  const data = buildInspectionTaskUpsertInput(submission);
-  return db.task.upsert({
-    where: {
-      facilityId_sourceType_sourceId: {
-        facilityId: data.facilityId,
-        sourceType: data.sourceType,
-        sourceId: data.sourceId,
-      },
-    },
-    create: data,
-    update: {
-      departmentId: data.departmentId,
-      unitId: data.unitId,
-      operationInstanceId: data.operationInstanceId,
-      title: data.title,
-      description: data.description,
-      status: data.status,
-      priority: data.priority,
-      completedAt: data.completedAt,
-      assignedEmployeeId: data.assignedEmployeeId,
-    },
-  });
-}
-
-/** Idempotent Task projection for an inspection submission. Never throws to callers. */
+/** Task projection is retired. Inspection results stay on the Record. */
 export async function syncInspectionRecordToTask(
-  submission: InspectionSubmissionTaskSource,
-  deps: TaskSyncDeps & { db?: InspectionTaskDb } = {},
+  _submission: InspectionSubmissionTaskSource,
+  _deps: TaskSyncDeps = {},
 ): Promise<TaskSyncOutcome> {
-  const db = deps.db ?? defaultPrisma;
-  return runGuardedTaskSync(
-    "inspection submission → Task",
-    { submissionId: submission.id },
-    () => upsertInspectionTask(db, submission),
-    deps,
-  );
+  return { ok: true, skipped: true, reason: "flag_disabled" };
 }

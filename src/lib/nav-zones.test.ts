@@ -12,8 +12,8 @@ import {
 } from "@/lib/nav-zones";
 
 test("resolveZoneForPathname maps routes to certified zones", () => {
+  assert.equal(resolveZoneForPathname("/workspace"), "WORKSPACE");
   assert.equal(resolveZoneForPathname("/dashboard"), "OPERATIONS_CENTER");
-  assert.equal(resolveZoneForPathname("/operations"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathname("/unit/abc"), "LOCATIONS");
   assert.equal(resolveZoneForPathname("/units"), "LOCATIONS");
   assert.equal(resolveZoneForPathname("/staffing"), "TODAYS_WORK");
@@ -26,9 +26,9 @@ test("resolveZoneForPathname uses longest-prefix matching", () => {
   assert.equal(resolveZoneForPathname("/employees/points-summary"), "ADMINISTRATION");
 });
 
-test("resolveZoneForPathPrefix matches pathPrefix values from AppRoute", () => {
+test("resolveZoneForPathPrefix matches product path prefixes", () => {
+  assert.equal(resolveZoneForPathPrefix("/workspace"), "WORKSPACE");
   assert.equal(resolveZoneForPathPrefix("/dashboard"), "OPERATIONS_CENTER");
-  assert.equal(resolveZoneForPathPrefix("/operations"), "OPERATIONS_CENTER");
   assert.equal(resolveZoneForPathPrefix("/units"), "LOCATIONS");
 });
 
@@ -73,14 +73,11 @@ test("shouldShowZoneHeading hides redundant zone label for single matching link"
   assert.equal(shouldShowZoneHeading(multi), true);
 });
 
-test("resolveDefaultHomePath sends managers to Business Workspace", () => {
-  assert.equal(
-    resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }),
-    "/workspace",
-  );
+test("resolveDefaultHomePath sends Supervisor and above to the Dashboard", () => {
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
   assert.equal(
     resolveDefaultHomePath({ authKind: "user", role: "FACILITY_ADMINISTRATOR" }),
-    "/workspace",
+    "/dashboard",
   );
 });
 
@@ -108,23 +105,9 @@ test("resolveDefaultHomePath sends floor staff to unit workspace or locations", 
   );
 });
 
-test("the new Dashboard is home for managers only while its flag is on", () => {
-  const previous = process.env.DASHBOARD_V2_ENABLED;
-  process.env.DASHBOARD_V2_ENABLED = "true";
-  try {
-    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
-    assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/today");
-    assert.equal(dashboardNavHref("/workspace"), "/dashboard");
-  } finally {
-    if (previous === undefined) delete process.env.DASHBOARD_V2_ENABLED;
-    else process.env.DASHBOARD_V2_ENABLED = previous;
-  }
-  assert.equal(dashboardNavHref("/workspace"), "/workspace");
-});
-
-test("resolveDefaultHomePath sends supervisors to Today's Work hub", () => {
-  assert.equal(
-    resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }),
-    "/today",
-  );
+test("Supervisor and above begin in the Dashboard", () => {
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "MANAGER" }), "/dashboard");
+  assert.equal(resolveDefaultHomePath({ authKind: "user", role: "SUPERVISOR" }), "/dashboard");
+  assert.equal(dashboardNavHref("/workspace"), "/dashboard");
+  assert.equal(dashboardNavHref("/units"), "/units");
 });

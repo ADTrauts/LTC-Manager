@@ -678,20 +678,7 @@ test(
       const pinned = await prisma.repair.findUniqueOrThrow({ where: { id: pinWo.id } });
       assert.equal(pinned.procedureVersionId, v1.id);
 
-      const template = await prisma.operationalTemplate.create({
-        data: {
-          id: cuidLike(),
-          facilityId: fx.facility.id,
-          departmentId: fx.plant.id,
-          name: "Inspection",
-          purposeType: "INSPECTION",
-          status: "PUBLISHED",
-          version: 1,
-          stableKey: `sk-${cuidLike()}`,
-          allowAdHoc: true,
-          publishedAt: new Date(),
-        },
-      });
+      const template = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
       const record = await prisma.operationalEvidenceRecord.create({
         data: {
           id: cuidLike(),

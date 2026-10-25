@@ -1,6 +1,6 @@
 # Contracted Department Authority — phase tracker
 
-Updated October 22, 2026 (CDA-07 started at staging). This is the single status and authorization record for the [Contracted Department Authority program](./README.md). Scope is in the [phased plan](./PHASED_PLAN.md). Decisions are in [DECISIONS.md](./DECISIONS.md).
+Updated October 25, 2026 (CDA-08 accepted). This is the single status and authorization record for the [Contracted Department Authority program](./README.md). Scope is in the [phased plan](./PHASED_PLAN.md). Decisions are in [DECISIONS.md](./DECISIONS.md).
 
 | Phase | Status | Gate / dependency |
 |---|---|---|
@@ -11,7 +11,35 @@ Updated October 22, 2026 (CDA-07 started at staging). This is the single status 
 | CDA-04 — Head-run enforcement: changes and visibility (internal) | **Accepted (user) October 22, 2026.** | Requires CDA-03 exit. CDA-Q08 answered. The enforcement flag stays off. Known limits remain in the records below. [Changes](#cda-04-changes-record--october-21-2026). [Visibility](#cda-04-visibility-record--october-21-2026). [View-only screens](#cda-04-view-only-screens-record--october-21-2026). [Workforce, Legacy, and the manifest](#cda-04-workforce-legacy-and-manifest-record--october-21-2026). |
 | CDA-05 — Vendor operation | **Accepted (user) October 22, 2026.** | Requires CDA-04 exit. CDA-Q09 answered. The enforcement flag stays off. [Vendor operation](#cda-05-vendor-head-record--october-21-2026). |
 | CDA-06 — Operator-period data | **Accepted (user) October 22, 2026.** | [Design](./CDA-06_DESIGN.md). Flag stays off. [Record](#cda-06-record--october-22-2026). |
-| CDA-07 — Enable | **Started October 22, 2026.** Staging only. Production is not authorized. | Authorized when the product owner said to start CDA-07, after accepting CDA-06. Production still needs [LEG-07](../legacy-retirement/PHASE_TRACKER.md) or an explicit exception (CDA-D17). [Record](#cda-07-record--october-22-2026). |
+| CDA-07 — Enable | **Accepted (user) October 22, 2026.** Staging. Production flag set October 25, 2026. | `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED=true` on production project `ltc-manager`, production target only. The code default stays off. The running deployment picks it up on the next deploy. [Record](#cda-07-record--october-22-2026). |
+| CDA-08 — Partner GM build | **Accepted (user) October 25, 2026.** | Partner setup on the partner workspace, including asset title ([CDA-D22](./DECISIONS.md#cda-d22--an-operating-partner-can-add-assets-and-set-title--accepted-user-october-25-2026)). [Record](#cda-08-record--october-25-2026). |
+| CDA-09 — Partner company setup in Vssyl Console | **Accepted (user) October 25, 2026.** | [CDA-D21](./DECISIONS.md#cda-d21--vssyl-console-creates-the-partner-company--accepted-user-october-24-2026). [Record](#cda-09-record--october-25-2026). |
+
+## CDA-09 record — October 25, 2026
+
+Authorized when the product owner said to proceed with the first step. That step is company creation. Invitations, the claim queue, and facility attachment are not started.
+
+- [x] A Harbor owner creates a partner company from `/console/partners`. The company type is `MANAGEMENT_COMPANY`. A normalized-name match is refused and the existing company is shown. The action creates no facility, administrator, member, partnership, or Department operator.
+- [x] Console invites the first Organization Administrator with the existing claim email, and the first members with the existing member email. Accepting either invitation does not grant facility access. Migration `20261025120000_cda09_harbor_member_invite` records a Console staff inviter.
+- [x] The claim queue stays for a company that already exists and has no administrator. Organization Claims is unchanged.
+- [x] The Facility Administrator attaches an existing company from search on External Partners and on the Department operator screen.
+- [x] Saving a partnership or an operator no longer creates the company. An unknown name says Vssyl Console must create it first.
+
+Accepted by the product owner October 25, 2026.
+
+## CDA-08 record — October 25, 2026
+
+Authorized when the product owner accepted CDA-09 and said to proceed. This step is People & Coverage. Operating rhythm, work plans, menus, forms, and assets are not started.
+
+- [x] The accepted head, and a Partner Manager on that Department, can add a shift, mark a call-off, move the day's assignment to a room the Department is responsible for, and add a team. The page is `/partner/coverage`. With the authority flag off, it redirects home.
+- [x] Operating rhythm is `/partner/rhythm`. A cycle covers the whole Department. A phase sits inside a draft cycle. A key point sits on the cycle. Publishing uses the existing cycle service.
+- [x] Work plans are `/partner/work`. A draft has one step. The step can link a published Catalog Record owned by the partner organization. Publishing uses the existing work-plan service.
+- [x] Menus are `/partner/menus` when the Department product offers menus. Creating a menu uses the menu tables. Attaching it uses the existing applicability rules: one Department location and one published root cycle.
+- [x] Catalog forms stay the same name-and-field builder the facility uses. The head and a Partner Manager can save one. It stays organization-owned. Publishing installs it at every facility that organization currently runs.
+- [x] The head and a Partner Manager can add an asset in a room this Department already has, and set title, maintainer, and repair vendor. Existing assets stay facility-titled. When that operator period ends, partner-titled equipment is retired and the facility keeps an AssetPresenceNote. Migration `20261025160000_cda08_asset_title`.
+- [x] The product owner signs this gate.
+
+Accepted by the product owner October 25, 2026.
 
 ## CDA-07 record — October 22, 2026
 
@@ -19,7 +47,9 @@ Authorized when the product owner said to start CDA-07. CDA-06 is accepted. This
 
 ### Staging
 
-The staging project is `ltc-manager-staging`. On October 22, 2026, `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED=true` was set there for production, preview, and development. The production project `ltc-manager` was left unset. The staging database received the same pending migrations, through the operator-period stamp. A preview deployment of `codex/onboarding-integration` (`f685155`) was started so that flag is on a build that contains the code: `ltc-manager-staging-302tkvva6-adtrauts-projects.vercel.app`. The older staging production alias was not replaced.
+The staging project is `ltc-manager-staging`. On October 22, 2026, `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED=true` was set there for production, preview, and development. The production project `ltc-manager` was left unset. The staging database received the same pending migrations, through the operator-period stamp. The first preview (`f685155`) failed because client screens imported server auth. That import is fixed in `3abe885`. The preview is ready: `ltc-manager-staging-be5pcnkza-adtrauts-projects.vercel.app`. The older staging production alias was not replaced. `9334b76` classifies the Dashboard settle log. Verify passed on that commit, and the product owner accepted it October 22, 2026. The Dashboard pilot flag was turned on later the same day for staging preview and development.
+
+A Terrace View facility was added on the staging database, beside the existing synthetic facility. The page walk passed against that data: one Facility Administrator; Food & Nutrition is vendor-run by Metz after the head accepted, and the administrator opens both the ended Sodexo record and the current Metz record; Plant stays self-operated and the administrator only views it; Environmental Services is not installed there; the Metz GM sees the current person and not the ended period; the Sodexo company admin sees the ended period as counts.
 
 Acceptance uses the Terrace View pattern:
 
@@ -29,11 +59,18 @@ Acceptance uses the Terrace View pattern:
 - Environmental Services stays in development and off customer Dashboards.
 - A handover to the next operator hides the previous period. The company admin sees ended periods as counts.
 
-### Not in this start
+### Production — October 25, 2026
 
-- Production enablement.
-- The Dashboard production flag.
-- Constitution, Language Guide, Persona Model, and doc 13 amendments. Those land when enforcement is enabled.
+The product owner started production enablement after accepting CDA-08. `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED=true` is set on the production project `ltc-manager` for the production target. The code default stays `false`. Preview and development on that project stay unset. The running production deployment picks this up on its next deploy. Constitution, language guide, persona model, domain model, and doc 13 now describe vendor control. The doc 13 release gate includes the write manifest. The Dashboard flag was already removed, so there was no Dashboard production switch to set.
+
+### Not in the October 22 acceptance
+
+- Production enablement. Recorded above on October 25, 2026.
+- A real customer. This enablement does not onboard one.
+
+### Accepted
+
+Accepted by the product owner October 22, 2026, for staging, including the Terrace View walk above. Production still needs legacy retirement (LEG-07) or an explicit exception.
 
 ## CDA-06 record — October 22, 2026
 

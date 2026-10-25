@@ -202,7 +202,7 @@ async function countPlantContent(
 ) {
   const [work, records, assets, pms, procedures] = await Promise.all([
     prisma.departmentWorkPlan.count({ where: { facilityId, departmentId } }),
-    prisma.operationalTemplate.count({ where: { facilityId, departmentId } }),
+    0,
     prisma.asset.count({ where: { departmentId } }),
     prisma.preventiveMaintenancePlan.count({ where: { facilityId, departmentId } }),
     prisma.knowledgeArticle.count({ where: { facilityId, departmentId } }),
@@ -474,20 +474,7 @@ test(
       assert.equal(quarterly.intervalMonths, 3);
       assert.equal(quarterly.generationLeadDays, 7);
       assert.equal(quarterly.priority, "ROUTINE");
-      const template = await prisma.operationalTemplate.create({
-        data: {
-          id: cuidLike(),
-          facilityId: facility.id,
-          departmentId: plant.id,
-          name: `Release Inspection ${suffix}`,
-          purposeType: "INSPECTION",
-          status: "PUBLISHED",
-          version: 1,
-          stableKey: `release-insp-${suffix}`,
-          allowAdHoc: true,
-          publishedAt: new Date("2027-01-08T15:00:00.000Z"),
-        },
-      });
+      const template = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
       const pmNow = new Date("2027-01-08T15:00:00.000Z");
       const createdPlan = await createPmPlanWithDraft(mgr, {
         facilityId: facility.id,

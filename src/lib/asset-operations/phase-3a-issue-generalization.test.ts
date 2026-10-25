@@ -243,8 +243,7 @@ test(
       const issueAfterWos = await prisma.assetIssue.findUniqueOrThrow({
         where: { id: locationOnly.issue.id },
       });
-      assert.equal(issueAfterWos.workOrderId, woA.id);
-      assert.notEqual(issueAfterWos.workOrderId, woB.id);
+      assert.equal(issueAfterWos.workOrderId, null);
       const linkedWos = await prisma.repair.findMany({
         where: { issueId: locationOnly.issue.id },
       });

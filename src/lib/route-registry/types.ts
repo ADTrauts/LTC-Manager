@@ -60,14 +60,12 @@ export type RouteAccess =
 /**
  * Feature flags that can withdraw a whole route, independent of role.
  *
- * `TODAYS_WORK` is enforced at the proxy (the route redirects/denies when off). The department
- * operational flags are used by the navigation projection so a Build/Run link disappears when the
- * capability is off; the pages themselves keep their own downstream flag guards, so leaving a flag
- * unset in a caller's `featureFlags` (treated as enabled) never exposes a disabled page — it only
- * keeps that page's own guard as the gate.
+ * The department operational flags are used by the navigation projection so a Build/Run link
+ * disappears when the capability is off; the pages themselves keep their own downstream flag
+ * guards, so leaving a flag unset in a caller's `featureFlags` (treated as enabled) never exposes
+ * a disabled page — it only keeps that page's own guard as the gate.
  */
 export type RouteFeatureFlag =
-  | "TODAYS_WORK"
   | "DIETARY_OPERATIONAL_EVIDENCE"
   | "DIETARY_WORK_PLANS"
   | "CANONICAL_LOGS";

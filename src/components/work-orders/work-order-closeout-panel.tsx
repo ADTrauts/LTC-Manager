@@ -402,11 +402,11 @@ export function WorkOrderCloseoutPanel(props: Props) {
             }}
           >
             <select
-              name="templateId"
+              name="catalogDefinitionId"
               className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
               data-testid="wo-requirement-template"
             >
-              <option value="">Published Record template</option>
+              <option value="">Published Record</option>
               {props.templates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name} v{template.version}

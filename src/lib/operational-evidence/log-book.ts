@@ -164,15 +164,6 @@ export async function loadEvidenceRecordDetail(input: {
     include: {
       values: { orderBy: { fieldKey: "asc" } },
       corrections: { orderBy: { createdAt: "desc" } },
-      template: {
-        select: {
-          id: true,
-          stableKey: true,
-          version: true,
-          name: true,
-          status: true,
-        },
-      },
     },
   });
   if (!record) throw new Error("Evidence record not found.");

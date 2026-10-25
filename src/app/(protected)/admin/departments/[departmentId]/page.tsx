@@ -1,6 +1,7 @@
 import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { notFound, redirect } from "next/navigation";
 
+import { FacilityFormsSection } from "@/app/(protected)/admin/departments/[departmentId]/facility-forms-section";
 import { DepartmentMenusPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-menus-panel";
 import { RecordEnginePanel } from "@/app/(protected)/admin/departments/[departmentId]/record-engine-panel";
 import { DepartmentWorkPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-work-panel";
@@ -38,10 +39,7 @@ import {
 } from "@/lib/department-products/plant-starter";
 import { classifyPlantStarterPresence } from "@/lib/department-products/plant-starter-catalog";
 import { loadTargetLogsBuildContext } from "@/lib/canonical-logs/load-target-build-context";
-import {
-  isCanonicalLogsEnabled,
-  isDepartmentOperationalProfilesEnabled,
-} from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   presentOverviewGuidance,
   resolveOverviewProductIdentity,
@@ -80,7 +78,6 @@ export default async function DepartmentBuilderPage({
     redirect("/login");
   }
 
-  const profilesEnabled = isDepartmentOperationalProfilesEnabled();
   const { departmentId } = await params;
   await assertVisibleDepartment(prisma, session, session.facilityId, departmentId);
   const access = await assertCustomerDepartmentContext({ session, departmentId });
@@ -130,7 +127,6 @@ export default async function DepartmentBuilderPage({
     contextSummary.draftWorkPlanCount > 0;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
   const availableTabs = departmentAdminTabsForFlags({
-    profilesEnabled,
     locationsEnabled: true,
     workEnabled,
     recordsEnabled: canonicalLogsEnabled,
@@ -357,6 +353,11 @@ export default async function DepartmentBuilderPage({
         {tab === "records" && departmentLogsCtx ? (
           <section className="space-y-2" data-testid="department-records-panel">
             <h2 className="text-base font-semibold text-zinc-900">Records</h2>
+            <FacilityFormsSection
+              session={session}
+              facilityId={session.facilityId}
+              departmentId={view.department.id}
+            />
             <p className="text-sm text-zinc-600">
               Readings, checklists, inspections, and acknowledgements required for this department.
               Recording a value happens in Run.

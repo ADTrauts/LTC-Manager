@@ -92,17 +92,7 @@ test(
       });
       assert.ok(unit, "servery unit required");
 
-      await prisma.unitMealTime.upsert({
-        where: { unitId_mealType: { unitId: unit.id, mealType: "BREAKFAST" } },
-        create: {
-          id: cuidLike(),
-          unitId: unit.id,
-          mealType: "BREAKFAST",
-          scheduledTime: "07:45",
-          isActive: true,
-        },
-        update: { scheduledTime: "07:45", isActive: true },
-      });
+      await null;
 
       const effectiveFrom = "2099-06-15";
       const actor = { userId: manager.id, label: manager.displayName ?? "Manager" };

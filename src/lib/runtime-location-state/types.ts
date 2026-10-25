@@ -298,7 +298,7 @@ export type LoadRuntimeLocationStatesInput = {
   now?: Date;
   /** Pin the service date (Review replay). Defaults to the facility-local day of `now`. */
   operationalDateKey?: string;
-  /** Injected for tests. Defaults to isOperationalAssignmentsEnabled(). */
+  /** Injected for tests. Assignments are on unless a test turns this off. */
   operationalAssignmentsEnabled?: boolean;
   /** Injected for tests. Defaults to isCanonicalLogsEnabled(). */
   canonicalLogsEnabled?: boolean;

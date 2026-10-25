@@ -64,7 +64,6 @@ export function ScheduleToolbar({ date, label, view, mode, previousDate, nextDat
             </form>
             {showAssignments ? <Link href={`/staffing/assignments?date=${date}`} className={linkClass}>Daily Assignments</Link> : null}
             {showCycles ? <Link href="/staffing/cycles" className={linkClass}>Cycle overview</Link> : null}
-            <Link href={`/staffing/legacy?date=${date}`} className={linkClass}>Legacy unit staffing</Link>
           </div>
         </FilterPanel>
         </div>

@@ -18,6 +18,7 @@ import {
   operationalListShellClass,
 } from "@/components/design-system";
 import { buildPageIntro } from "@/lib/build-hub";
+import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
 import { loadDepartmentsForCurrentSurface } from "@/lib/department-products";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
 import {
@@ -81,7 +82,7 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
     includeArchived,
   });
 
-  const [articles, departments, units, assets, logTemplates, inspectionDefinitions] =
+  const [articles, departments, units, assets] =
     await Promise.all([
       prisma.knowledgeArticle.findMany({
         where,
@@ -90,10 +91,6 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
           department: { select: { name: true } },
           unitLinks: { include: { unit: { select: { name: true } } } },
           assetLinks: { include: { asset: { select: { name: true, assetCode: true } } } },
-          logTemplateLinks: { include: { logTemplate: { select: { name: true } } } },
-          inspectionDefinitionLinks: {
-            include: { inspectionDefinition: { select: { name: true } } },
-          },
         },
       }),
       loadDepartmentsForCurrentSurface(prisma, session.facilityId, session),
@@ -107,16 +104,6 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
         orderBy: { assetCode: "asc" },
         select: { id: true, assetCode: true, name: true },
         take: 200,
-      }),
-      prisma.logTemplate.findMany({
-        where: { facilityId: session.facilityId, isActive: true },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-      prisma.inspectionDefinition.findMany({
-        where: { facilityId: session.facilityId, isActive: true },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
       }),
     ]);
 
@@ -133,27 +120,37 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
           department: { select: { name: true } },
           unitLinks: { include: { unit: { select: { name: true } } } },
           assetLinks: { include: { asset: { select: { name: true, assetCode: true } } } },
-          logTemplateLinks: { include: { logTemplate: { select: { name: true } } } },
-          inspectionDefinitionLinks: {
-            include: { inspectionDefinition: { select: { name: true } } },
-          },
+          catalogLinks: { include: { catalogDefinition: { select: { id: true, name: true } } } },
         },
       })
     : null;
+
+  const catalogForms = await publishedCatalogFormsAtFacility(prisma, {
+    facilityId: session.facilityId,
+    departmentId: editing?.article.departmentId,
+  });
+  const catalogOptions = catalogForms.map((form) => ({ id: form.id, label: form.name }));
+  for (const link of editing?.article.catalogLinks ?? []) {
+    if (!catalogOptions.some((option) => option.id === link.catalogDefinitionId)) {
+      catalogOptions.push({
+        id: link.catalogDefinitionId,
+        label: link.catalogDefinition.name,
+      });
+    }
+  }
 
   const selectOptions = {
     departments: departments.map((row) => ({ id: row.id, label: row.name })),
     units: units.map((row) => ({ id: row.id, label: row.name })),
     assets: assets.map((row) => ({ id: row.id, label: `${row.assetCode} · ${row.name}` })),
-    logTemplates: logTemplates.map((row) => ({ id: row.id, label: row.name })),
-    inspectionDefinitions: inspectionDefinitions.map((row) => ({ id: row.id, label: row.name })),
+    catalogForms: catalogOptions,
   };
 
   return (
     <div className="mx-auto max-w-4xl space-y-4" data-testid="admin-knowledge">
       <BuildPageHeader
         title="Procedures"
-        subtitle={buildPageIntro("/build/knowledge")}
+        subtitle={buildPageIntro("/admin/knowledge")}
       />
 
       {query?.saved ? (
@@ -307,11 +304,8 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
             ...previewArticle.assetLinks.map(
               (link) => `Asset · ${link.asset.assetCode} ${link.asset.name}`,
             ),
-            ...previewArticle.logTemplateLinks.map(
-              (link) => `Log template · ${link.logTemplate.name}`,
-            ),
-            ...previewArticle.inspectionDefinitionLinks.map(
-              (link) => `Inspection · ${link.inspectionDefinition.name}`,
+            ...previewArticle.catalogLinks.map(
+              (link) => `Record · ${link.catalogDefinition.name}`,
             ),
           ]}
         />
@@ -347,15 +341,13 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
           initialStatus={editing?.editorStatus}
           initialUnitIds={editing?.article.unitLinks.map((link) => link.unitId)}
           initialAssetIds={editing?.article.assetLinks.map((link) => link.assetId)}
-          initialLogTemplateIds={editing?.article.logTemplateLinks.map((link) => link.logTemplateId)}
-          initialInspectionDefinitionIds={editing?.article.inspectionDefinitionLinks.map(
-            (link) => link.inspectionDefinitionId,
+          initialCatalogDefinitionIds={editing?.article.catalogLinks.map(
+            (link) => link.catalogDefinitionId,
           )}
           departments={selectOptions.departments}
           units={selectOptions.units}
           assets={selectOptions.assets}
-          logTemplates={selectOptions.logTemplates}
-          inspectionDefinitions={selectOptions.inspectionDefinitions}
+          catalogForms={selectOptions.catalogForms}
         />
       </section>
     </div>

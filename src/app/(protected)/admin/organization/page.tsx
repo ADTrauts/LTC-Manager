@@ -101,7 +101,7 @@ export default async function AdminOrganizationPage() {
             <div className="mt-4 border-t border-zinc-100 pt-3">
               <p className="text-sm font-medium text-zinc-900">External Partners</p>
               <p className="mt-0.5 text-sm text-zinc-600">
-                Establish Facility partnerships with external Organizations and authorize
+                Attach a company that already exists in Vssyl Console, then authorize
                 Departments for later partner access. Does not grant user access yet.
               </p>
               <Link

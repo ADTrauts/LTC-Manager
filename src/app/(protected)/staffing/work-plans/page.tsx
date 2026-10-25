@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { BuildPageHeader } from "@/components/build/build-breadcrumb";
 import { WorkPlanBuilderPanel } from "@/components/department-work/work-plan-builder-panel";
+import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
 import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
 import { hasAtLeastRole } from "@/lib/access";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -74,6 +75,13 @@ export default async function WorkPlanBuilderPage({
     departmentId: department.id,
   });
 
+  const recordOptions = publishedCatalogFormsAtFacility(prisma, {
+    facilityId: session.facilityId,
+    departmentId: department.id,
+  }).then((forms) =>
+    forms.map((form) => ({ id: form.id, stableKey: form.stableKey, name: form.name })),
+  );
+
   const [procedures, units, cycles, templates, operationalTypeOptions] = await Promise.all([
     prisma.knowledgeArticle.findMany({
       where: {
@@ -105,15 +113,7 @@ export default async function WorkPlanBuilderPage({
       orderBy: [{ displaySequence: "asc" }, { stableKey: "asc" }],
       distinct: ["stableKey"],
     }),
-    prisma.operationalTemplate.findMany({
-      where: {
-        facilityId: session.facilityId,
-        departmentId: department.id,
-        status: "PUBLISHED",
-      },
-      select: { id: true, stableKey: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+    recordOptions,
     loadDepartmentOperationalTypeOptions({
       facilityId: session.facilityId,
       departmentId: department.id,
@@ -175,8 +175,8 @@ export default async function WorkPlanBuilderPage({
         subtitle={`${department.name} — ${buildPageIntro("/staffing/work-plans")}`}
         actions={
           <div className="flex flex-wrap gap-2 text-sm">
-            <Link href="/staffing/templates" className="underline-offset-2 hover:underline">
-              Operational Templates
+            <Link href="/build/logs" className="underline-offset-2 hover:underline">
+              Records
             </Link>
             <Link href="/staffing/cycles" className="underline-offset-2 hover:underline">
               Cycles
@@ -198,6 +198,7 @@ export default async function WorkPlanBuilderPage({
         units={units}
         cycleOptions={cycles}
         templates={templates}
+        linkedRecordLabel="Linked Record"
         operationalTypeOptions={operationalTypeOptions}
       />
     </section>

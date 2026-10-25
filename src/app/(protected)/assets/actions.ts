@@ -43,12 +43,6 @@ async function resolveDefaultResponsibleDepartmentForUnit(unitId: string, facili
   return anyPrimary?.departmentId ?? null;
 }
 
-const legacyAssetStatusValues = [
-  AssetStatus.ACTIVE,
-  AssetStatus.OUT_OF_SERVICE,
-  AssetStatus.RETIRED,
-] as const;
-
 const operationalAssetStatusValues = [
   "OPERATIONAL",
   "DEGRADED",
@@ -137,9 +131,8 @@ export async function createAssetAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
 
-  const assetOpsEnabled = await isSharedAssetOperationsEnabled(session.facilityId, session);
   const criticalityRaw = String(formData.get("criticality") ?? "ROUTINE");
-  const lifecycleOrStatus = String(formData.get("lifecycle") ?? formData.get("status") ?? "ACTIVE");
+  const lifecycleOrStatus = String(formData.get("lifecycle") ?? formData.get("status") ?? "OPERATIONAL");
   const parsed = createAssetSchema.parse({
     assetCode: formData.get("assetCode"),
     name: formData.get("name"),
@@ -151,7 +144,7 @@ export async function createAssetAction(formData: FormData) {
     vendorId: toOptional(formData.get("vendorId")),
     departmentId: toOptional(formData.get("departmentId")),
     responsibleOrganizationId: toOptional(formData.get("responsibleOrganizationId")),
-    status: assetOpsEnabled && lifecycleOrStatus === "ACTIVE" ? "OPERATIONAL" : lifecycleOrStatus,
+    status: lifecycleOrStatus === "ACTIVE" ? "OPERATIONAL" : lifecycleOrStatus,
     criticality: isAssetCriticality(criticalityRaw) ? criticalityRaw : "ROUTINE",
     notes: toOptional(formData.get("notes")),
     manufacturer: toOptional(formData.get("manufacturer")),
@@ -219,9 +212,8 @@ export async function createAssetAction(formData: FormData) {
     }
   }
 
-  if (assetOpsEnabled) {
-    const status = parseOperationalStatus(parsed.status);
-    const created = await createAsset(session, {
+  const status = parseOperationalStatus(parsed.status);
+  const created = await createAsset(session, {
       facilityId: session.facilityId,
       departmentId,
       unitId: parsed.unitId,
@@ -248,42 +240,6 @@ export async function createAssetAction(formData: FormData) {
       session,
       maxCount: MAX_ASSET_PHOTOS,
     });
-    revalidateAssetViews(created.id);
-    redirect("/assets/builder");
-  }
-
-  if (!(legacyAssetStatusValues as readonly string[]).includes(parsed.status)) {
-    throw new Error("Invalid asset status.");
-  }
-
-  const created = await prisma.asset.create({
-    data: {
-      assetCode: parsed.assetCode,
-      name: parsed.name,
-      equipmentType: parsed.equipmentType,
-      unitId: parsed.unitId,
-      spaceId: parsed.spaceId ?? null,
-      model: parsed.model,
-      serialNumber: parsed.serialNumber,
-      vendorId: parsed.vendorId,
-      departmentId,
-      responsibleOrganizationId: parsed.responsibleOrganizationId ?? null,
-      status: parsed.status as AssetStatus,
-      criticality: parsed.criticality as AssetCriticality,
-      notes: parsed.notes,
-    },
-    select: { id: true },
-  });
-
-  await savePhotosFromFormData({
-    formData,
-    facilityId: session.facilityId,
-    parentKind: "ASSET",
-    assetId: created.id,
-    session,
-    maxCount: MAX_ASSET_PHOTOS,
-  });
-
   revalidateAssetViews(created.id);
   redirect("/assets/builder");
 }

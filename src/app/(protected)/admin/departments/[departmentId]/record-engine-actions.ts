@@ -42,7 +42,6 @@ export async function scheduleRecordEngineAction(formData: FormData): Promise<vo
       actorLabel: session.name,
       activeAttachmentCount,
       attachmentSetupErrorCount: 0,
-      pmUsesOperationalTemplate: true,
     });
   } catch (error) {
     console.error(

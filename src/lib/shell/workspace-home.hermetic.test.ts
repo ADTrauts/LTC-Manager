@@ -30,7 +30,7 @@ test("workspace home — Facility Dashboard, partner Dashboard, org Portfolio, a
       facilityId: "fac-1",
       role: "FACILITY_ADMINISTRATOR",
     } as AppJwtPayload),
-    "/workspace",
+    "/dashboard",
   );
   assert.equal(
     resolveWorkspaceHomeHref({

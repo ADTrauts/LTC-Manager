@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
@@ -575,12 +575,11 @@ test("legacy writers are blocked only while the product record engine is on", ()
     writer: "INSPECTION_SUBMISSION",
   });
   assert.equal(blocked.allowed, false);
-  assert.match(source("src/app/(protected)/logs/actions.ts"), /LOG_SUBMISSION/);
-  assert.match(source("src/app/(protected)/logs/actions.ts"), /addTemplateFieldAction[\s\S]*LOG_TEMPLATE/);
-  assert.match(source("src/app/(protected)/unit/[unitId]/actions.ts"), /INSPECTION_SUBMISSION/);
-  assert.match(source("src/lib/work/inspections/submit-inspection.ts"), /INSPECTION_SUBMISSION/);
-  assert.match(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /isCanonicalLogsEnabled/);
-  assert.match(source("src/app/(protected)/staffing/templates/actions.ts"), /OPERATIONAL_TEMPLATE/);
+  assert.equal(existsSync("src/app/(protected)/logs/actions.ts"), false);
+  assert.equal(existsSync("src/app/(protected)/staffing/templates/actions.ts"), false);
+  assert.match(source("src/app/(protected)/unit/[unitId]/actions.ts"), /Catalog Record/);
+  assert.doesNotMatch(source("src/lib/work/inspections/submit-inspection.ts"), /inspectionSubmission/);
+  assert.doesNotMatch(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /inspectionDefinition/);
   assert.match(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
 });

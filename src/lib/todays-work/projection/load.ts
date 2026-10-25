@@ -4,11 +4,7 @@
 
 import type { FacilitySession } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
-import { isProjectionTodaysWorkEnabled } from "@/lib/feature-flags";
-import {
-  resolveSessionProjection,
-  type LoadProjectedLocationOptions,
-} from "@/lib/locations";
+import { type LoadProjectedLocationOptions } from "@/lib/locations";
 import type {
   ProjectionRuntimeMemo,
   ProjectionRuntimeResult,
@@ -27,7 +23,6 @@ import {
 } from "../operating-locations";
 import type { ViewerTeamScope } from "../viewer-team-scope";
 
-import { adaptProjectionToTodaysWork } from "./adapt-projection";
 import {
   assembleExperienceWalkContributions,
   filterCallDownsToProjectedUnits,
@@ -69,60 +64,17 @@ export type AssembledTodaysWorkHandoffs = {
 };
 
 /**
- * Load Projection eligibility for Today's Work (purpose TODAYS_WORK).
+ * Today's Work no longer switches onto Projection. Handoffs and Rounds read the
+ * operating-location board. This stays so older callers get the retired result.
  */
 export async function loadTodaysWorkProjection(
-  session: FacilitySession,
-  options: LoadTodaysWorkProjectionOptions = {},
+  _session: FacilitySession,
+  _options: LoadTodaysWorkProjectionOptions = {},
 ): Promise<LoadTodaysWorkProjectionResult> {
-  if (!isProjectionTodaysWorkEnabled()) {
-    return {
-      enabled: false,
-      view: null,
-      usedLegacy: true,
-      error: null,
-    };
-  }
-
-  const facilityId = session.facilityId;
-  if (!facilityId) {
-    return {
-      enabled: true,
-      view: null,
-      usedLegacy: false,
-      error: "Today's Work requires a facility session",
-    };
-  }
-
-  const resolved = await resolveSessionProjection(session, {
-    ...options,
-    purpose: "TODAYS_WORK",
-  });
-
-  if (!resolved.ok || !resolved.runtime) {
-    return {
-      enabled: true,
-      view: {
-        facilityId,
-        lensMode: "DEPARTMENT",
-        lensKey: "fail-closed",
-        projectedUnitIds: [],
-        actionableUnitIds: [],
-        sections: [],
-        error: resolved.error ?? "Projection failed",
-      },
-      usedLegacy: false,
-      error: resolved.error ?? "Projection failed",
-    };
-  }
-
-  const view = adaptProjectionToTodaysWork(resolved.runtime.snapshot, null, {
-    audience: session.authKind === "harbor_staff" ? "internal" : "customer",
-  });
   return {
-    enabled: true,
-    view,
-    usedLegacy: false,
+    enabled: false,
+    view: null,
+    usedLegacy: true,
     error: null,
   };
 }

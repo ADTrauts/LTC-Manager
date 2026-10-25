@@ -115,7 +115,7 @@ test("inspection result copy is calm and does not imply save failure", () => {
 });
 
 test("inspection builder remains behind Administration (/admin) FA gate", () => {
-  const flags = { todaysWorkEnabled: true };
+  const flags = { };
   assert.equal(roleMayAccessRoute("/admin/inspections", "FACILITY_ADMINISTRATOR", flags), true);
   assert.equal(roleMayAccessRoute("/admin/inspections", "GM", flags), false);
   assert.equal(roleMayAccessRoute("/admin/inspections", "MANAGER", flags), false);

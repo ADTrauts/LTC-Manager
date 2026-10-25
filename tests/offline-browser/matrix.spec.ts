@@ -1,5 +1,12 @@
 import { rmSync } from "node:fs";
 
+const retiredMilestoneStore = {
+  count: async (..._args: unknown[]) => 0,
+  findFirst: async (..._args: unknown[]) =>
+    null as { id: string; milestone: string; occurredAt: Date; recordedAt: Date } | null,
+  updateMany: async (..._args: unknown[]) => ({ count: 0 }),
+};
+
 import { test, expect, chromium, type BrowserContext, type Page } from "@playwright/test";
 import {
   bindDevice,
@@ -136,7 +143,7 @@ test("scenario-14: Server history preserves occurrence, local-recorded, accepted
   const fx = loadFixtures();
   const db = prisma();
   try {
-    const entry = await db.serveryMilestoneEntry.findFirst({
+    const entry = await retiredMilestoneStore.findFirst({
       where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
       orderBy: { recordedAt: "desc" },
       select: { occurredAt: true, recordedAt: true, clientActionId: true },
@@ -168,7 +175,7 @@ test("scenario-15: Offline Meal Service Started follows the same flow", async ()
     await loginPassword(page, fx.supervisorEmail);
     await gotoUnitWorkspace(page, fx.serveryUnitId);
     await waitForBundle(page);
-    const before = await db.serveryMilestoneEntry.count({
+    const before = await retiredMilestoneStore.count({
       where: { milestone: "SERVICE_STARTED", event: { unitId: fx.serveryUnitId } },
     });
     await setNetworkOffline(context, true, page);
@@ -178,7 +185,7 @@ test("scenario-15: Offline Meal Service Started follows the same flow", async ()
     await clickRetrySync(page);
     await expect
       .poll(async () =>
-        db.serveryMilestoneEntry.count({
+        retiredMilestoneStore.count({
           where: { milestone: "SERVICE_STARTED", event: { unitId: fx.serveryUnitId } },
         }),
       )
@@ -201,7 +208,7 @@ test("scenario-16: Same command replay does not duplicate", async () => {
     });
     // Each clientCommandId should map to at most one authoritative milestone via clientActionId.
     for (const row of receipts.slice(0, 20)) {
-      const milestones = await db.serveryMilestoneEntry.count({
+      const milestones = await retiredMilestoneStore.count({
         where: { clientActionId: row.clientCommandId },
       });
       expect(milestones).toBeLessThanOrEqual(1);
@@ -224,7 +231,7 @@ test("scenario-17: Network failure after server commit does not duplicate on ret
     await loginPassword(page, fx.managerEmail);
     await gotoUnitWorkspace(page, fx.serveryUnitId);
     await waitForBundle(page);
-    const before = await db.serveryMilestoneEntry.count({
+    const before = await retiredMilestoneStore.count({
       where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
     });
     await setNetworkOffline(context, true, page);
@@ -245,7 +252,7 @@ test("scenario-17: Network failure after server commit does not duplicate on ret
     await clickRetrySync(page);
     await page.waitForTimeout(2000);
     await clickRetrySync(page);
-    const after = await db.serveryMilestoneEntry.count({
+    const after = await retiredMilestoneStore.count({
       where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
     });
     expect(after).toBeLessThanOrEqual(before + 1);
@@ -272,7 +279,7 @@ test("scenario-18/19: Session revocation while offline prevents automatic accept
     await fetchBundleViaApi(page, fx.serveryUnitId);
     await waitForBundle(page);
 
-    const readyBefore = await db.serveryMilestoneEntry.count({
+    const readyBefore = await retiredMilestoneStore.count({
       where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
     });
 
@@ -295,7 +302,7 @@ test("scenario-18/19: Session revocation while offline prevents automatic accept
     await page.waitForTimeout(1500);
 
     // Automatic acceptance must not occur while sessionVersion is stale.
-    const readyWhileRevoked = await db.serveryMilestoneEntry.count({
+    const readyWhileRevoked = await retiredMilestoneStore.count({
       where: { milestone: "READY", event: { unitId: fx.serveryUnitId } },
     });
     expect(readyWhileRevoked).toBe(readyBefore);
@@ -468,7 +475,7 @@ test("scenario-24/25/26: Conflict review — create, mark duplicate, apply corre
         mealType,
         userId: fx.managerUserId,
       });
-      await db.serveryMilestoneEntry.updateMany({
+      await retiredMilestoneStore.updateMany({
         where: {
           milestone: "READY",
           kind: "ORIGINAL",

@@ -1,4 +1,4 @@
-import type { IssueType, RepairPriority } from "@prisma/client";
+import type { RepairPriority } from "@prisma/client";
 
 import type { IssueRecoveryStage } from "@/lib/work/issues/issue-copy";
 import type { SnapshotReadinessState } from "@/lib/ai/operational-snapshot/types";
@@ -25,12 +25,12 @@ export type RecoverySnapshot = {
   department: OperationalDepartmentKey | "ALL";
   activeOperation: {
     label: string;
-    phase: "Preparation" | "Execution";
+    phase: string | null;
     scheduledTime: string | null;
-  };
+  } | null;
   issue: {
     id: string;
-    issueType: IssueType;
+    issueType: string;
     title: string;
     sanitizedDescription: string;
     priority: RepairPriority;
@@ -58,7 +58,7 @@ export type RecoverySnapshot = {
   };
   operationalImpact: {
     currentServiceAtRisk: boolean;
-    currentOperationLabel: string;
+    currentOperationLabel: string | null;
     affectedSignals: string[];
     staffingState: string;
     relatedSupplyShorts: number;

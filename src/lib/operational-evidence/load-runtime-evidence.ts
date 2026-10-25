@@ -19,57 +19,10 @@ import {
 } from "@/lib/operational-evidence";
 
 export async function loadPublishedTemplatesForResolve(
-  facilityId: string,
-  departmentId: string,
+  _facilityId: string,
+  _departmentId: string,
 ): Promise<PublishedTemplateForResolve[]> {
-  const rows = await prisma.operationalTemplate.findMany({
-    where: { facilityId, departmentId, status: "PUBLISHED" },
-    include: {
-      fields: { orderBy: { displaySequence: "asc" } },
-      applicabilities: true,
-      schedules: true,
-    },
-  });
-
-  return rows.map((t) => ({
-    id: t.id,
-    stableKey: t.stableKey,
-    version: t.version,
-    name: t.name,
-    description: t.description,
-    instructions: t.instructions,
-    purposeType: t.purposeType,
-    status: t.status,
-    allowAdHoc: t.allowAdHoc,
-    fields: t.fields.map((f) => ({
-      fieldKey: f.fieldKey,
-      label: f.label,
-      fieldType: f.fieldType,
-      isRequired: f.isRequired,
-      displaySequence: f.displaySequence,
-      helpText: f.helpText,
-      unitLabel: f.unitLabel,
-      minNumber: f.minNumber,
-      maxNumber: f.maxNumber,
-      allowedSelections: f.allowedSelections,
-      correctiveActionTrigger: f.correctiveActionTrigger,
-      correctiveActionRequired: f.correctiveActionRequired,
-    })),
-    applicabilities: t.applicabilities.map((a) => ({
-      kind: a.kind,
-      assetId: a.assetId,
-      assetType: a.assetType,
-      spaceId: a.spaceId,
-      spaceType: a.spaceType,
-      unitId: a.unitId,
-    })),
-    schedules: t.schedules.map((s) => ({
-      kind: s.kind,
-      cycleStableKey: s.cycleStableKey,
-      windowStartLocal: s.windowStartLocal,
-      windowEndLocal: s.windowEndLocal,
-    })),
-  }));
+  return [];
 }
 
 export async function loadEvidenceScopeForUnit(input: {

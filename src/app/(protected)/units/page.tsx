@@ -7,14 +7,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ExceptionFirstLocationsBoard } from "@/components/exception-first-locations-board";
-import { UnitsManager } from "@/components/units-manager";
+import { RoundsScreen } from "@/components/locations/rounds-screen";
 import { getSession } from "@/lib/auth";
 import { hasAtLeastRole } from "@/lib/access";
-import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import {
   collectActionableLandingSpaces,
   loadLocationsView,
-  loadUnitsPageData,
   presentExceptionFirstLocationBoard,
 } from "@/lib/locations";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
@@ -31,7 +29,11 @@ function lensSummaryLabel(view: {
   return null;
 }
 
-export default async function UnitsPage() {
+export default async function UnitsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ view?: string | string[] | undefined }>;
+}) {
   noStore();
 
   const session = await getSession();
@@ -39,39 +41,12 @@ export default async function UnitsPage() {
     redirect("/login");
   }
 
-  const canManageLogAssignments = hasAtLeastRole(session.role, "MANAGER");
-  const canConfigureFacility = hasAtLeastRole(session.role, "MANAGER");
-
-  // Flag off — preserve complete legacy Units management page for rollback.
-  if (!isProjectionLocationsEnabled()) {
-    const data = await loadUnitsPageData(session, {
-      includeTemplates: canManageLogAssignments,
-    });
-
-    return (
-      <section className="space-y-4">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Units
-          </h1>
-          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-            Configure each location: type-specific details, sidebar order, and
-            which compliance logs apply. Log templates are built under Logs;
-            managers can attach them to a unit here or on the Logs → Assignments
-            tab.
-          </p>
-        </header>
-        <UnitsManager
-          units={data.units}
-          parentOptions={data.parentOptions}
-          departments={data.departments}
-          templates={canManageLogAssignments ? data.templates : []}
-          logAssignments={data.logAssignments}
-          canManageLogAssignments={canManageLogAssignments}
-        />
-      </section>
-    );
+  const query = searchParams ? await searchParams : {};
+  if (query.view === "rounds") {
+    return <RoundsScreen />;
   }
+
+  const canConfigureFacility = hasAtLeastRole(session.role, "MANAGER");
 
   const loaded = await loadLocationsView(session);
   const collected =

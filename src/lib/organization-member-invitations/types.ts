@@ -17,7 +17,8 @@ export type OrganizationMemberInvitationView = {
   expiresAt: Date | null;
   status: OrganizationMemberInvitationStatus;
   displayStatus: OrganizationMemberInvitationDisplayStatus;
-  invitedByUserId: string;
+  invitedByUserId: string | null;
+  invitedByPlatformStaffId: string | null;
   acceptedByUserId: string | null;
   acceptedAt: Date | null;
   revokedByUserId: string | null;

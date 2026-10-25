@@ -19,9 +19,6 @@ import {
 } from "@/lib/auth";
 import {
   isCanonicalLogsEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-  isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
@@ -54,9 +51,8 @@ export async function GlobalUserLayout({ children }: { children: ReactNode }) {
   const backLabel = workspaceHomeBackLabel(session);
   const facilitySession = isFacilityScopedSession(session) ? session : null;
   const navFeatureFlags = {
-    todaysWorkEnabled: isTodaysWorkEnabled(),
-    dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled(),
-    dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    dietaryOperationalEvidenceEnabled: true,
+    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   };
   const runHomeHref = facilitySession

@@ -1,4 +1,4 @@
-import type { LogSubmissionStatus, PrismaClient, Task } from "@prisma/client";
+import type { LogSubmissionStatus } from "@prisma/client";
 
 import {
   buildLogTaskTitle,
@@ -7,12 +7,9 @@ import {
   mapLogSubmissionStatusToTaskStatus,
 } from "@/lib/work/task-mappings";
 import {
-  runGuardedTaskSync,
   type TaskSyncDeps,
   type TaskSyncOutcome,
 } from "@/lib/work/run-guarded-task-sync";
-import { prisma as defaultPrisma } from "@/lib/prisma";
-
 export type LogSubmissionTaskSource = {
   id: string;
   status: LogSubmissionStatus;
@@ -25,8 +22,6 @@ export type LogSubmissionTaskSource = {
   departmentId: string | null;
   templateName: string;
 };
-
-export type LogTaskDb = Pick<PrismaClient, "task" | "logSubmission">;
 
 export function buildLogTaskUpsertInput(submission: LogSubmissionTaskSource) {
   const status = mapLogSubmissionStatusToTaskStatus(submission.status);
@@ -59,94 +54,18 @@ export function buildLogTaskUpsertInput(submission: LogSubmissionTaskSource) {
   };
 }
 
-async function upsertLogTask(
-  db: LogTaskDb,
-  submission: LogSubmissionTaskSource,
-): Promise<Task> {
-  const data = buildLogTaskUpsertInput(submission);
-  return db.task.upsert({
-    where: {
-      facilityId_sourceType_sourceId: {
-        facilityId: data.facilityId,
-        sourceType: data.sourceType,
-        sourceId: data.sourceId,
-      },
-    },
-    create: data,
-    update: {
-      departmentId: data.departmentId,
-      unitId: data.unitId,
-      title: data.title,
-      description: data.description,
-      status: data.status,
-      priority: data.priority,
-      completedAt: data.completedAt,
-      assignedEmployeeId: data.assignedEmployeeId,
-    },
-  });
-}
-
-/**
- * Upsert Task projection for a LogSubmission.
- * Idempotent on (facilityId, LOG_SUBMISSION, submissionId).
- * Never throws to callers — LogSubmission remains source of truth.
- */
+/** Task projection is retired. The log record stays the source of truth. */
 export async function syncLogSubmissionToTask(
-  submissionId: string,
-  deps: TaskSyncDeps & { db?: LogTaskDb } = {},
+  _submissionId: string,
+  _deps: TaskSyncDeps = {},
 ): Promise<TaskSyncOutcome> {
-  const db = deps.db ?? defaultPrisma;
-
-  return runGuardedTaskSync(
-    "log submission → Task",
-    { submissionId },
-    async () => {
-      const row = await db.logSubmission.findUnique({
-        where: { id: submissionId },
-        select: {
-          id: true,
-          status: true,
-          notes: true,
-          submittedAt: true,
-          unitId: true,
-          mealType: true,
-          submittedByEmployeeId: true,
-          unit: { select: { facilityId: true } },
-          template: { select: { name: true, departmentId: true } },
-        },
-      });
-
-      if (!row) {
-        throw new Error(`LogSubmission not found: ${submissionId}`);
-      }
-
-      return upsertLogTask(db, {
-        id: row.id,
-        status: row.status,
-        notes: row.notes,
-        submittedAt: row.submittedAt,
-        unitId: row.unitId,
-        mealType: row.mealType,
-        submittedByEmployeeId: row.submittedByEmployeeId,
-        facilityId: row.unit.facilityId,
-        departmentId: row.template.departmentId,
-        templateName: row.template.name,
-      });
-    },
-    deps,
-  );
+  return { ok: true, skipped: true, reason: "flag_disabled" };
 }
 
-/** Sync from an already-loaded submission projection (preferred after create). */
+/** Task projection is retired. The log record stays the source of truth. */
 export async function syncLogSubmissionRecordToTask(
-  submission: LogSubmissionTaskSource,
-  deps: TaskSyncDeps & { db?: LogTaskDb } = {},
+  _submission: LogSubmissionTaskSource,
+  _deps: TaskSyncDeps = {},
 ): Promise<TaskSyncOutcome> {
-  const db = deps.db ?? defaultPrisma;
-  return runGuardedTaskSync(
-    "log submission → Task",
-    { submissionId: submission.id },
-    () => upsertLogTask(db, submission),
-    deps,
-  );
+  return { ok: true, skipped: true, reason: "flag_disabled" };
 }

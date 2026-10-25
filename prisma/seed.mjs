@@ -1,12 +1,8 @@
-import { readFileSync } from "node:fs";
-
 import bcrypt from "bcryptjs";
 import {
   AssetStatus,
   EmploymentType,
   EmployeeStatus,
-  LogRecurrence,
-  MealType,
   PrismaClient,
   RepairPriority,
   RepairStatus,
@@ -16,8 +12,8 @@ import {
   WorkOrderKind,
 } from "@prisma/client";
 
-import { applyLogTemplatePresets } from "./apply-log-template-presets.mjs";
 import { upsertPublishedCatalogSeeds } from "./apply-catalog-log-seeds.mjs";
+import { installMatchedCatalogRecords } from "./apply-log-template-presets.mjs";
 import { backfillUnitDepartmentRows, upsertDefaultDepartments } from "./ensure-departments.mjs";
 
 const prisma = new PrismaClient();
@@ -26,20 +22,6 @@ const prisma = new PrismaClient();
 const SEED_FACILITY_ID = "cmfacseed0000000000000001";
 /** Wave 11 seed Organization for Terrace View. */
 const SEED_ORGANIZATION_ID = "cmorgseed0000000000000001";
-
-/**
- * Legacy compatibility mirror for `AppRoute` / `RoleRoutePermission`.
- *
- * These tables are NON-AUTHORITATIVE. Runtime authorization is decided entirely by the platform
- * route registry in `src/lib/route-registry/platform-routes.ts` and never reads them. Seed keeps
- * them populated for historical continuity and transitional inspection only, and the values come
- * from a file generated off that same registry (`npm run route-mirror:generate`), so the mirror
- * cannot drift into describing a policy the product does not enforce.
- */
-const LEGACY_ROUTE_MIRROR = JSON.parse(
-  readFileSync(new URL("./legacy-route-mirror.json", import.meta.url), "utf8"),
-);
-
 
 async function main() {
   const organization = await prisma.organization.upsert({
@@ -68,7 +50,6 @@ async function main() {
     create: {
       id: SEED_FACILITY_ID,
       displayName: "Terrace View Long Term Care",
-      managementCompanyName: null,
       organizationId: organization.id,
     },
   });
@@ -104,52 +85,6 @@ async function main() {
       update: { name: role.name, isActive: true },
       create: role,
     });
-  }
-
-  for (const route of LEGACY_ROUTE_MIRROR.routes) {
-    const fields = {
-      pathPrefix: route.pathPrefix,
-      label: route.label,
-      navVisible: route.navVisible,
-      navOrder: route.navOrder,
-      isActive: true,
-      isCritical: route.isCritical,
-    };
-    await prisma.appRoute.upsert({
-      where: { key: route.key },
-      update: fields,
-      create: { key: route.key, ...fields },
-    });
-  }
-
-  const [dbRoles, dbRoutes] = await Promise.all([
-    prisma.role.findMany({ select: { id: true, key: true } }),
-    prisma.appRoute.findMany({ select: { id: true, pathPrefix: true } }),
-  ]);
-  const allowedRolesByPrefix = new Map(
-    LEGACY_ROUTE_MIRROR.routes.map((route) => [route.pathPrefix, new Set(route.allowedRoles)]),
-  );
-
-  for (const role of dbRoles) {
-    for (const route of dbRoutes) {
-      const allowedRoles = allowedRolesByPrefix.get(route.pathPrefix);
-      if (!allowedRoles) continue;
-      const allowed = allowedRoles.has(role.key);
-      await prisma.roleRoutePermission.upsert({
-        where: {
-          roleId_appRouteId: {
-            roleId: role.id,
-            appRouteId: route.id,
-          },
-        },
-        update: { allowed },
-        create: {
-          roleId: role.id,
-          appRouteId: route.id,
-          allowed,
-        },
-      });
-    }
   }
 
   const faRole = await prisma.role.findUniqueOrThrow({
@@ -198,27 +133,16 @@ async function main() {
       name: "Central Kitchen",
       unitType: UnitType.KITCHEN,
       displayOrder: 10,
-      mealTimes: [
-        { mealType: MealType.BREAKFAST, scheduledTime: "06:30" },
-        { mealType: MealType.LUNCH, scheduledTime: "11:00" },
-        { mealType: MealType.DINNER, scheduledTime: "16:00" },
-      ],
     },
     {
       name: "Retail",
       unitType: UnitType.RETAIL,
       displayOrder: 20,
-      mealTimes: [],
     },
     {
       name: "1A Naval Park",
       unitType: UnitType.SERVERY,
       displayOrder: 30,
-      mealTimes: [
-        { mealType: MealType.BREAKFAST, scheduledTime: "07:45" },
-        { mealType: MealType.LUNCH, scheduledTime: "12:00" },
-        { mealType: MealType.DINNER, scheduledTime: "17:00" },
-      ],
     },
   ];
 
@@ -239,17 +163,6 @@ async function main() {
         ? tx.unit.update({ where: { id: existing.id }, data })
         : tx.unit.create({ data: { ...data, facilityId: facility.id, parentUnitId: null, name: unit.name } });
     });
-
-    await prisma.unitMealTime.deleteMany({ where: { unitId: savedUnit.id } });
-    for (const mealTime of unit.mealTimes) {
-      await prisma.unitMealTime.create({
-        data: {
-          unitId: savedUnit.id,
-          mealType: mealTime.mealType,
-          scheduledTime: mealTime.scheduledTime,
-        },
-      });
-    }
 
     unitIdByName[unit.name] = savedUnit.id;
   }
@@ -287,57 +200,11 @@ async function main() {
     });
   }
 
-  await applyLogTemplatePresets(prisma, {
-    facilityId: facility.id,
-    createdByRoleId: faRole.id,
-    departmentIds,
-  });
-
-  // Platform Catalog seeds (Canonical Logs). Idempotent by stableKey+version.
+  // Platform Catalog seeds, then the matched Food & Nutrition Records for this facility.
   await upsertPublishedCatalogSeeds(prisma);
+  await installMatchedCatalogRecords(prisma, { facilityId: facility.id });
 
   const serveryId = unitIdByName["1A Naval Park"];
-  const kitchenId = unitIdByName["Central Kitchen"];
-
-  async function ensureLogAssignment(templateName, unitId, data) {
-    if (!unitId) return;
-    const tpl = await prisma.logTemplate.findFirst({
-      where: { facilityId: facility.id, name: templateName },
-      select: { id: true },
-    });
-    if (!tpl) return;
-    const existing = await prisma.logAssignment.findFirst({
-      where: { unitId, templateId: tpl.id },
-      select: { id: true },
-    });
-    if (existing) return;
-    await prisma.logAssignment.create({
-      data: { unitId, templateId: tpl.id, ...data },
-    });
-  }
-
-  await ensureLogAssignment("Unit Cooler Temp Log", serveryId, {
-    recurrence: LogRecurrence.PER_MEAL,
-    timesPerDay: 3,
-    requiredRole: RoleKey.SUPERVISOR,
-    isActive: true,
-  });
-  await ensureLogAssignment("Servery – Hot and cold holding", serveryId, {
-    recurrence: LogRecurrence.PER_MEAL,
-    timesPerDay: 3,
-    requiredRole: RoleKey.SUPERVISOR,
-    isActive: true,
-  });
-  await ensureLogAssignment("Walk-in cooler temperature", kitchenId, {
-    recurrence: LogRecurrence.DAILY,
-    timesPerDay: 1,
-    isActive: true,
-  });
-  await ensureLogAssignment("Dishwashing – high-temp / machine", kitchenId, {
-    recurrence: LogRecurrence.DAILY,
-    timesPerDay: 1,
-    isActive: true,
-  });
 
   const employees = [
     {
@@ -379,10 +246,10 @@ async function main() {
   await prisma.employeeDepartment.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
-  await prisma.assignmentOverride.deleteMany({
+  await prisma.scheduleEntry.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
-  await prisma.scheduleEntry.deleteMany({
+  await prisma.operationalAssignment.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
   await prisma.defaultAssignment.deleteMany({
@@ -459,13 +326,12 @@ async function main() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const schedule = await prisma.scheduleEntry.create({
+    await prisma.scheduleEntry.create({
       data: {
         employeeId: employee.id,
-        unitId,
+        departmentId: departmentIds[item.deptKey],
         date: today,
         shift: ShiftType.FULL_DAY,
-        roleType: item.roleType,
         workShiftId: item.firstName === "Tara" && evsWorkShift ? evsWorkShift.id : undefined,
         plannedStart: "07:00",
         plannedEnd: "15:00",
@@ -474,17 +340,24 @@ async function main() {
     });
 
     if (item.firstName === "Tara") {
-      await prisma.assignmentOverride.create({
-        data: {
-          scheduleEntryId: schedule.id,
-          employeeId: employee.id,
-          oldUnitId: unitIdByName["Retail"],
-          newUnitId: unitIdByName["1A Naval Park"],
-          date: today,
-          mealType: MealType.LUNCH,
-          reason: "Lunch coverage support for unit staffing gap",
-        },
-      });
+      const movedTo = unitIdByName["1A Naval Park"];
+      if (movedTo) {
+        await prisma.operationalAssignment.create({
+          data: {
+            facilityId: facility.id,
+            departmentId: departmentIds[item.deptKey],
+            employeeId: employee.id,
+            unitId: movedTo,
+            serviceDate: today,
+            roleKey: "EVS_AIDE",
+            roleLabel: "EVS Aide",
+            source: "REASSIGNMENT",
+            status: "PLANNED",
+            changeReason: "Lunch coverage support for unit staffing gap",
+            clientCommandId: `seed-tara-move-${today.toISOString().slice(0, 10)}`,
+          },
+        });
+      }
     }
   }
 

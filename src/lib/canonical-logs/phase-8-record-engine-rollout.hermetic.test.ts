@@ -39,7 +39,13 @@ test("dietary and plant can use different engines on the same service date", () 
     "CANONICAL",
   );
   assert.equal(
-    resolveRecordEngine({ capabilityEnabled: true, ...plant, serviceDate: "2026-10-16", rollouts: history }),
+    resolveRecordEngine({
+      capabilityEnabled: true,
+      ...plant,
+      departmentKey: "PLANT",
+      serviceDate: "2026-10-16",
+      rollouts: [...history, { ...plant, mode: "LEGACY", effectiveFromServiceDate: "2026-10-01" }],
+    }),
     "LEGACY",
   );
   assert.equal(
@@ -47,8 +53,9 @@ test("dietary and plant can use different engines on the same service date", () 
       productRecordEngine: resolveRecordEngine({
         capabilityEnabled: true,
         ...plant,
+        departmentKey: "PLANT",
         serviceDate: "2026-10-16",
-        rollouts: history,
+        rollouts: [...history, { ...plant, mode: "LEGACY", effectiveFromServiceDate: "2026-10-01" }],
       }) === "CANONICAL",
       writer: "OPERATIONAL_TEMPLATE",
     }).allowed,
@@ -60,6 +67,49 @@ test("dietary and plant can use different engines on the same service date", () 
       writer: "LOG_SUBMISSION",
     }).allowed,
     false,
+  );
+});
+
+test("a Department with no rollout row starts on the forward engine, including Plant", () => {
+  assert.equal(
+    resolveRecordEngine({
+      capabilityEnabled: true,
+      ...dietary,
+      departmentKey: "DIETARY",
+      serviceDate: "2026-10-23",
+      rollouts: [],
+    }),
+    "CANONICAL",
+  );
+  assert.equal(
+    resolveRecordEngine({
+      capabilityEnabled: true,
+      ...plant,
+      departmentKey: "PLANT",
+      serviceDate: "2026-10-23",
+      rollouts: [],
+    }),
+    "CANONICAL",
+  );
+  assert.equal(
+    resolveRecordEngine({
+      capabilityEnabled: true,
+      ...dietary,
+      departmentKey: "DIETARY",
+      serviceDate: "2026-10-23",
+      rollouts: [{ ...dietary, mode: "LEGACY", effectiveFromServiceDate: "2026-10-01" }],
+    }),
+    "LEGACY",
+  );
+  assert.equal(
+    resolveRecordEngine({
+      capabilityEnabled: true,
+      ...dietary,
+      departmentKey: "DIETARY",
+      serviceDate: "2026-10-23",
+      rollouts: [{ ...dietary, mode: "CANONICAL", effectiveFromServiceDate: "2026-11-01" }],
+    }),
+    "LEGACY",
   );
 });
 
@@ -82,7 +132,6 @@ test("preflight blocks a closed date and warns when no Logs are placed", () => {
     todayKey: "2026-10-15",
     activeAttachmentCount: 2,
     attachmentSetupErrorCount: 0,
-    pmUsesOperationalTemplate: true,
   });
   assert.equal(blocked.status, "BLOCKED");
   const ready = evaluateCanonicalCutoverReadiness({
@@ -92,7 +141,6 @@ test("preflight blocks a closed date and warns when no Logs are placed", () => {
     todayKey: "2026-10-15",
     activeAttachmentCount: 0,
     attachmentSetupErrorCount: 0,
-    pmUsesOperationalTemplate: true,
   });
   assert.equal(ready.status, "READY");
   assert.ok(ready.warnings.some((warning) => warning.includes("No Logs are placed")));

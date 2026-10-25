@@ -1,7 +1,6 @@
 "use server";
 
 import { getSession } from "@/lib/auth";
-import { isDashboardV2Enabled } from "@/lib/feature-flags";
 import { trackEvent } from "@/lib/telemetry";
 
 /** One sample for the Dashboard settle budget. Logged with the existing event stream. */
@@ -10,8 +9,12 @@ export async function recordDashboardSettle(input: {
   cardCount: number;
   scope: string | null;
 }): Promise<void> {
-  if (!isDashboardV2Enabled()) return;
-  const session = await getSession();
+  let session;
+  try {
+    session = await getSession();
+  } catch {
+    return;
+  }
   if (!session?.facilityId) return;
   if (!Number.isFinite(input.elapsedMs) || input.elapsedMs < 0 || input.elapsedMs > 10 * 60 * 1000) return;
   const cardCount = Number.isFinite(input.cardCount) ? Math.max(0, Math.round(input.cardCount)) : 0;

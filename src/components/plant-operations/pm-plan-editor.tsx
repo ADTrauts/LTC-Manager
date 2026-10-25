@@ -76,9 +76,10 @@ type EditorPlan = {
     procedureVersionId: string | null;
     defaultAssignedEmployeeId: string | null;
     recordRequirements: Array<{
-      templateId: string;
-      templateName: string;
-      templateVersion: number;
+      templateId: string | null;
+      templateName: string | null;
+      templateVersion: number | null;
+      catalogDefinitionId?: string | null;
       sortOrder: number;
     }>;
   };
@@ -121,6 +122,7 @@ export function PmPlanEditor({
     categoryOptions: PmBuilderCategoryOption[];
     procedureOptions: PmBuilderProcedureOption[];
     templateOptions: PmBuilderTemplateOption[];
+    catalogOptions?: PmBuilderTemplateOption[];
     employeeOptions: PmBuilderEmployeeOption[];
   };
   canDraft: boolean;
@@ -163,7 +165,11 @@ export function PmPlanEditor({
   const [assigneeId, setAssigneeId] = useState(editing?.defaultAssignedEmployeeId ?? "");
   const [instructions, setInstructions] = useState(editing?.instructions ?? "");
   const [recordIds, setRecordIds] = useState<string[]>(
-    editing?.recordRequirements.map((row) => row.templateId) ?? [],
+    editing?.recordRequirements.flatMap((row) => {
+      if (row.catalogDefinitionId) return [row.catalogDefinitionId];
+      if (row.templateId) return [row.templateId];
+      return [];
+    }) ?? [],
   );
   const [retireOpen, setRetireOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -223,9 +229,14 @@ export function PmPlanEditor({
       ? options.procedureOptions.some((row) => row.versionId === procedureVersionId)
       : null,
     recordTemplateIds: recordIds,
-    recordTemplatesEligible: recordIds.every((id) =>
-      options.templateOptions.some((row) => row.id === id) ||
-      (editing?.recordRequirements.some((row) => row.templateId === id) ?? false),
+    recordTemplatesEligible: recordIds.every(
+      (id) =>
+        (options.catalogOptions ?? []).some((row) => row.id === id) ||
+        options.templateOptions.some((row) => row.id === id) ||
+        (editing?.recordRequirements.some(
+          (row) => row.catalogDefinitionId === id || row.templateId === id,
+        ) ??
+          false),
     ),
     firstPublish,
     priorEffectiveDate: published?.effectiveDate ?? null,
@@ -260,9 +271,19 @@ export function PmPlanEditor({
       <input type="hidden" name="procedureVersionId" value={procedureVersionId} />
       <input type="hidden" name="defaultAssignedEmployeeId" value={assigneeId} />
       <input type="hidden" name="instructions" value={instructions} />
-      {recordIds.map((id) => (
-        <input key={id} type="hidden" name="recordTemplateId" value={id} />
-      ))}
+      {recordIds.map((id) => {
+        const catalog =
+          (options.catalogOptions ?? []).some((row) => row.id === id) ||
+          (editing?.recordRequirements.some((row) => row.catalogDefinitionId === id) ?? false);
+        return (
+          <input
+            key={id}
+            type="hidden"
+            name={catalog ? "recordCatalogId" : "recordTemplateId"}
+            value={id}
+          />
+        );
+      })}
     </>
   );
 
@@ -531,12 +552,12 @@ export function PmPlanEditor({
       </section>
 
       <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4">
-        <h2 className="text-base font-semibold text-zinc-900">Required evidence</h2>
+        <h2 className="text-base font-semibold text-zinc-900">Required Records</h2>
         <p className="text-sm text-zinc-600">
-          Published Record templates pinned to this plan version. Later template updates do not
-          change already published configuration.
+          Published Catalog forms required on each work order this plan creates. A later form
+          version does not change an already published plan.
         </p>
-        <Field label="Add Record template">
+        <Field label="Add Record">
           <select
             className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm"
             disabled={readOnly}
@@ -547,20 +568,24 @@ export function PmPlanEditor({
               if (next && !recordIds.includes(next)) setRecordIds([...recordIds, next]);
             }}
           >
-            <option value="">Select a published template</option>
-            {options.templateOptions
+            <option value="">Select a published Record</option>
+            {(options.catalogOptions ?? [])
               .filter((row) => !recordIds.includes(row.id))
               .map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.name} · {row.purposeType.toLowerCase()} v{row.version}
+                  {row.name} · v{row.version}
                 </option>
               ))}
           </select>
         </Field>
         <ul className="space-y-2" data-testid="pm-record-requirements">
           {recordIds.map((id, index) => {
-            const option = options.templateOptions.find((row) => row.id === id);
-            const pinned = editing?.recordRequirements.find((row) => row.templateId === id);
+            const option =
+              (options.catalogOptions ?? []).find((row) => row.id === id) ??
+              options.templateOptions.find((row) => row.id === id);
+            const pinned = editing?.recordRequirements.find(
+              (row) => row.catalogDefinitionId === id || row.templateId === id,
+            );
             return (
               <li
                 key={id}

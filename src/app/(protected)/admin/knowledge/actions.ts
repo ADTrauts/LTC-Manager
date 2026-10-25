@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { KnowledgeArticleStatus } from "@prisma/client";
 
 import { requireAtLeastRole } from "@/lib/access";
+import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
 import { requireFacilitySession } from "@/lib/facility-context";
 import {
   knowledgeArticleFormSchema,
@@ -63,6 +64,7 @@ async function validateAndLoadObjectLinks(
   assetIds: string[],
   logTemplateIds: string[],
   inspectionDefinitionIds: string[],
+  catalogDefinitionIds: string[],
 ) {
   const units = unitIds.length
     ? await prisma.unit.findMany({
@@ -106,41 +108,20 @@ async function validateAndLoadObjectLinks(
     }
   }
 
-  const logTemplates = logTemplateIds.length
-    ? await prisma.logTemplate.findMany({
-        where: { id: { in: logTemplateIds }, facilityId, isActive: true },
-        select: { id: true, name: true, departmentId: true },
-      })
-    : [];
-
-  if (logTemplates.length !== logTemplateIds.length) {
-    throw new Error("One or more log templates were not found in this facility.");
+  if (logTemplateIds.length || inspectionDefinitionIds.length) {
+    throw new Error("Legacy log and inspection links are retired. Link a Catalog form.");
   }
+  const logTemplates: Array<{ id: string; name: string; departmentId: string | null }> = [];
+  const definitions: Array<{ id: string; name: string; departmentId: string | null }> = [];
 
-  for (const template of logTemplates) {
-    if (!isDepartmentCompatibleLink(articleDepartmentId, template.departmentId)) {
-      throw new Error(
-        objectLinkCompatibilityError(`Log template “${template.name}”`, articleDepartmentName),
-      );
-    }
-  }
-
-  const definitions = inspectionDefinitionIds.length
-    ? await prisma.inspectionDefinition.findMany({
-        where: { id: { in: inspectionDefinitionIds }, facilityId, isActive: true },
-        select: { id: true, name: true, departmentId: true },
-      })
-    : [];
-
-  if (definitions.length !== inspectionDefinitionIds.length) {
-    throw new Error("One or more inspection definitions were not found in this facility.");
-  }
-
-  for (const definition of definitions) {
-    if (!isDepartmentCompatibleLink(articleDepartmentId, definition.departmentId)) {
-      throw new Error(
-        objectLinkCompatibilityError(`Inspection “${definition.name}”`, articleDepartmentName),
-      );
+  if (catalogDefinitionIds.length) {
+    const forms = await publishedCatalogFormsAtFacility(prisma, {
+      facilityId,
+      departmentId: articleDepartmentId,
+    });
+    const allowed = new Set(forms.map((form) => form.id));
+    if (catalogDefinitionIds.some((id) => !allowed.has(id))) {
+      throw new Error("One or more Records are not forms for this Department.");
     }
   }
 
@@ -153,12 +134,13 @@ async function syncArticleObjectLinks(
   assetIds: string[],
   logTemplateIds: string[],
   inspectionDefinitionIds: string[],
+  catalogDefinitionIds: string[],
+  replaceLegacyRecordLinks: boolean,
 ) {
   await prisma.$transaction(async (tx) => {
     await tx.knowledgeArticleUnit.deleteMany({ where: { articleId } });
     await tx.knowledgeArticleAsset.deleteMany({ where: { articleId } });
-    await tx.knowledgeArticleLogTemplate.deleteMany({ where: { articleId } });
-    await tx.knowledgeArticleInspectionDefinition.deleteMany({ where: { articleId } });
+    await tx.knowledgeArticleCatalogDefinition.deleteMany({ where: { articleId } });
 
     if (unitIds.length) {
       await tx.knowledgeArticleUnit.createMany({
@@ -172,17 +154,11 @@ async function syncArticleObjectLinks(
         skipDuplicates: true,
       });
     }
-    if (logTemplateIds.length) {
-      await tx.knowledgeArticleLogTemplate.createMany({
-        data: logTemplateIds.map((logTemplateId) => ({ articleId, logTemplateId })),
-        skipDuplicates: true,
-      });
-    }
-    if (inspectionDefinitionIds.length) {
-      await tx.knowledgeArticleInspectionDefinition.createMany({
-        data: inspectionDefinitionIds.map((inspectionDefinitionId) => ({
+    if (catalogDefinitionIds.length) {
+      await tx.knowledgeArticleCatalogDefinition.createMany({
+        data: catalogDefinitionIds.map((catalogDefinitionId) => ({
           articleId,
-          inspectionDefinitionId,
+          catalogDefinitionId,
         })),
         skipDuplicates: true,
       });
@@ -202,6 +178,7 @@ function parseArticleForm(formData: FormData) {
     status: toOptional(formData.get("status")),
     unitIds: dedupeIds(parseIdListJson(formData.get("unitIdsJson"))),
     assetIds: dedupeIds(parseIdListJson(formData.get("assetIdsJson"))),
+    catalogDefinitionIds: dedupeIds(parseIdListJson(formData.get("catalogDefinitionIdsJson"))),
     logTemplateIds: dedupeIds(parseIdListJson(formData.get("logTemplateIdsJson"))),
     inspectionDefinitionIds: dedupeIds(parseIdListJson(formData.get("inspectionDefinitionIdsJson"))),
   });
@@ -233,6 +210,7 @@ export async function upsertKnowledgeArticleAction(
       parsed.assetIds,
       parsed.logTemplateIds,
       parsed.inspectionDefinitionIds,
+      parsed.catalogDefinitionIds,
     );
   } catch (error) {
     return {
@@ -283,6 +261,8 @@ export async function upsertKnowledgeArticleAction(
       parsed.assetIds,
       parsed.logTemplateIds,
       parsed.inspectionDefinitionIds,
+      parsed.catalogDefinitionIds,
+      formData.has("logTemplateIdsJson") || formData.has("inspectionDefinitionIdsJson"),
     );
 
     revalidateKnowledgeViews();
@@ -315,6 +295,8 @@ export async function upsertKnowledgeArticleAction(
     parsed.assetIds,
     parsed.logTemplateIds,
     parsed.inspectionDefinitionIds,
+    parsed.catalogDefinitionIds,
+    formData.has("logTemplateIdsJson") || formData.has("inspectionDefinitionIdsJson"),
   );
 
   revalidateKnowledgeViews();

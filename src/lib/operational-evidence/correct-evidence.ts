@@ -238,7 +238,7 @@ export async function performCanonicalEvidenceCorrection(
         ? (actor.employeeId ?? existing.correctiveActionByEmployeeId)
         : null,
       values: {
-        create: buildValueRows(fields, input.values, validation.fieldOutOfStandard),
+        create: buildValueRows(fields, validation.normalizedValues, validation.fieldOutOfStandard),
       },
     },
     include: {

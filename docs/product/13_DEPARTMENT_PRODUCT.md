@@ -116,7 +116,7 @@ Configuration readiness is derived from those operational facts. Do not persist 
 | **Department Product** | Vssyl Inc. | Code registry (`src/lib/department-products/`) |
 | **Entitlement** | Commercial authorization | `FacilityDepartmentEntitlement.departmentKey` |
 | **Department** | Facility installation | Existing `Department` row (`facilityId` + `key`) |
-| **Operating Organization** | Facility Administrator (governance) | `DepartmentOperatorRelationship` (date-effective). Does not grant Facility access. |
+| **Operating Organization** | Facility Administrator chooses the operator. A vendor-run Department is controlled by that operator. | `DepartmentOperatorRelationship` (date-effective). |
 | **Partner Organization** | Facility Administrator (governance) | `FacilityPartnerOrganization` + access periods. External Facility partnership — not user access. |
 | **Partner Department Scope** | Facility Administrator (governance) | `FacilityPartnerDepartmentScope` (timestamp periods). Explicit eligibility for later partner access. |
 | **isActive** | Operational state | `Department.isActive` |
@@ -189,7 +189,7 @@ CLI / seed / provision may still bootstrap the original trio for local developme
 
 The registry is not a shared-engine allowlist.
 
-**Today the code differs.** Food & Nutrition and EVS capabilities are also gated by deployment-wide switches (`DIETARY_*`, `EVS_OPERATIONS_ENABLED`). Several default off: Job Flow, Dietary evidence, Dietary asset operations and all of EVS. Plant's runtime check already follows install and license (`isPlantRuntimeEnabled`), but some synchronous checks, such as Cycle authority, still read `PLANT_OPERATIONS_ENABLED`. The switches retire in LEG-05 ([LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026)).
+Department capability switches are removed (LEG-D20). A Department key admits the shared engines: cycles, Job Flow, evidence, Work Plans, and assets. Plant runtime follows install plus Harbor or customer-operable access. Assignments are part of every Department. `CANONICAL_LOGS_ENABLED` remains a separate switch. DEVELOPMENT products stay hidden from customers by release status.
 
 ---
 
@@ -245,6 +245,6 @@ Every new Department Product must define these before implementation. Facility P
 
 A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, or history store unless that platform-gap test shows a missing reusable mechanism.
 
-A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete. Healthcare Food & Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
+A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Healthcare Food & Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
 
 Facility Plant Operations is implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). V1 is AVAILABLE as of October 7, 2026.

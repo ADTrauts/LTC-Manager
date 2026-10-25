@@ -105,16 +105,7 @@ async function resetPlantStarterRows(
       OR: [{ presetKey: { in: [...STARTER_WORK_KEYS] } }, { stableKey: { in: [...STARTER_WORK_KEYS] } }],
     },
   });
-  await db.operationalTemplate.deleteMany({
-    where: {
-      facilityId,
-      departmentId,
-      OR: [
-        { presetKey: { in: [...STARTER_RECORD_KEYS] } },
-        { stableKey: { in: [...STARTER_RECORD_KEYS] } },
-      ],
-    },
-  });
+  await Promise.resolve();
 }
 
 test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", () => {
@@ -313,14 +304,14 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
     });
     const wo = occurrence
       ? await db.repair.findFirst({
-          where: { pmOccurrenceId: occurrence.id, status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] } },
+          where: { pmOccurrenceId: occurrence.id, status: { notIn: ["COMPLETED", "CANCELLED"] } },
           select: { id: true, title: true },
         })
       : await db.repair.findFirst({
           where: {
             unit: { facilityId: fx.facilityId },
             workOrderKind: "PREVENTIVE",
-            status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
           },
           select: { id: true, title: true },
         });

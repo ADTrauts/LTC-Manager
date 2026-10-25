@@ -1,6 +1,5 @@
 import { AdminPageHeader } from "@/components/administration/admin-page-header";
 import { assertFacilityAdministratorPage } from "@/lib/facility-admin-guard";
-import { isTodaysWorkEnabled } from "@/lib/feature-flags";
 import { buildAccessMatrix } from "@/lib/route-registry";
 
 import { AccessMatrix } from "./access-matrix";
@@ -15,7 +14,7 @@ import { AccessMatrix } from "./access-matrix";
 export default async function AdminPermissionsPage() {
   await assertFacilityAdministratorPage();
 
-  const matrix = buildAccessMatrix({ todaysWorkEnabled: isTodaysWorkEnabled() });
+  const matrix = buildAccessMatrix({});
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">

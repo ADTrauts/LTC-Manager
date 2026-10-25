@@ -165,20 +165,7 @@ async function publishedTemplate(
   fx: Awaited<ReturnType<typeof createFacilityFixture>>,
   name: string,
 ) {
-  return prisma.operationalTemplate.create({
-    data: {
-      id: cuidLike(),
-      facilityId: fx.facility.id,
-      departmentId: fx.plant.id,
-      name,
-      purposeType: "INSPECTION",
-      status: "PUBLISHED",
-      version: 1,
-      stableKey: `sk-${cuidLike()}`,
-      allowAdHoc: true,
-      publishedAt: new Date(),
-    },
-  });
+  return ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
 }
 
 async function makeRecord(

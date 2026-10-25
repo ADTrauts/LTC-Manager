@@ -39,12 +39,8 @@ export async function registerAttachmentMetadata(
     throw new Error("Asset attachment is missing its parent.");
   }
 
-  if (input.logSubmissionId) {
-    const sub = await db.logSubmission.findFirst({
-      where: { id: input.logSubmissionId, unit: { facilityId: input.facilityId } },
-      select: { id: true },
-    });
-    if (!sub) throw new Error("Log submission not found for facility.");
+  if (input.parentKind === "LOG_SUBMISSION" || input.logSubmissionId) {
+    throw new Error("Log submission attachments are retired.");
   }
   if (input.repairId) {
     const rep = await db.repair.findFirst({
@@ -68,7 +64,6 @@ export async function registerAttachmentMetadata(
       fileRelativePath: input.fileRelativePath,
       originalFilename: input.originalFilename,
       mimeType: input.mimeType,
-      logSubmissionId: input.logSubmissionId ?? undefined,
       repairId: input.repairId ?? undefined,
       assetId: input.assetId ?? undefined,
       createdByUserId: input.createdByUserId ?? undefined,
@@ -158,11 +153,8 @@ function isMissingAttachmentAssetColumnError(error: unknown): boolean {
   );
 }
 
-export async function listAttachmentsForLogSubmission(facilityId: string, logSubmissionId: string) {
-  return prisma.attachment.findMany({
-    where: { facilityId, logSubmissionId },
-    orderBy: { createdAt: "desc" },
-  });
+export async function listAttachmentsForLogSubmission(_facilityId: string, _logSubmissionId: string) {
+  return [];
 }
 
 export function attachmentFileHref(attachmentId: string): string {

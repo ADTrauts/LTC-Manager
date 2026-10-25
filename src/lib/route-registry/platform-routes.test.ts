@@ -102,7 +102,6 @@ test("registry completeness — surfaces agree with what is on disk", () => {
 test("registry completeness — redirect-only routes have no page of their own", () => {
   const discovered = new Set(DISCOVERED.map((route) => route.pattern));
   const redirects = PLATFORM_ROUTES.filter((route) => route.access.kind === "REDIRECT_ONLY");
-  assert.ok(redirects.length > 0, "expected at least one registered redirect route");
   for (const route of redirects) {
     assert.equal(
       discovered.has(normalizeRoutePattern(route.pattern)),

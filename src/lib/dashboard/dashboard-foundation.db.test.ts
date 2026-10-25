@@ -9,13 +9,13 @@ import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
-import { loadWorkspaceNonOperationalExtras } from "@/lib/business-workspace/load-workspace-extras";
+import { loadWorkspaceNonOperationalExtras } from "@/lib/dashboard/activity";
 import { resolveLedDepartmentIds } from "@/lib/department-authority";
 import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
 import { presentExceptionFirstLocationBoard } from "@/lib/locations/exception-first/from-runtime-state";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
-import { loadPresenceCallOffs } from "@/lib/todays-work/load-presence-call-offs";
-import type { TodaysExpectedWorkView } from "@/lib/todays-work/expected-work/types";
+import { loadPresenceCallOffs } from "@/lib/scheduling/load-presence-call-offs";
+import type { TodaysExpectedWorkView } from "@/lib/work/expected/types";
 
 import { attentionFromRuntimeLocations } from "./attention-mappers";
 import { loadAttention, loadExpectedWork } from "./cards/load";
@@ -293,16 +293,17 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
       const fnShift = await shift(fnAide.id, fn.id, "BREAKFAST");
       const activitiesShiftForFnAide = await shift(fnAide.id, activities.id, "LUNCH");
       const unboundShift = await shift(fnAide.id, null, "DINNER");
-      const override = (employeeId: string, scheduleEntryId: string | null, reason: string) =>
-        prisma.assignmentOverride.create({
-          data: { date: today, employeeId, newUnitId: unit.id, scheduleEntryId, reason },
+      const mark = (id: string, reason: string) =>
+        prisma.scheduleEntry.update({
+          where: { id },
+          data: { calledOffAt: today, callOffReason: reason },
           select: { id: true },
         });
-      const fnByShift = await override(fnAide.id, fnShift.id, "[call-down:call-off] sick");
-      const activitiesByPrimary = await override(activitiesAide.id, null, "[call-down:call-off]");
-      const activitiesByShift = await override(fnAide.id, activitiesShiftForFnAide.id, "[call-down:late-arrival]");
-      const fnByPrimary = await override(fnAide.id, unboundShift.id, "[call-down:no-call-no-show]");
-      await override(fnAide.id, fnShift.id, "Swapped rooms");
+      const activitiesShift = await shift(activitiesAide.id, activities.id, "BREAKFAST");
+      const fnByShift = await mark(fnShift.id, "[call-down:call-off] sick");
+      const activitiesByPrimary = await mark(activitiesShift.id, "[call-down:call-off]");
+      const activitiesByShift = await mark(activitiesShiftForFnAide.id, "[call-down:late-arrival]");
+      const fnByPrimary = await mark(unboundShift.id, "[call-down:no-call-no-show]");
 
       const ids = async (departmentId?: string) =>
         (await loadPresenceCallOffs(facilityId, departmentId ? { departmentId } : {})).items.map((item) => item.id).sort();

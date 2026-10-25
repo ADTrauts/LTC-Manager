@@ -8,7 +8,7 @@ import { buildAccessMatrix } from "@/lib/route-registry/access-matrix";
 import { roleMayAccessRoute } from "@/lib/route-registry/authorize";
 import { PLATFORM_ROUTES } from "@/lib/route-registry/platform-routes";
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { };
 const PERMISSIONS_DIR = resolve(process.cwd(), "src", "app", "(protected)", "admin", "permissions");
 
 function permissionsSources(): { name: string; source: string }[] {

@@ -16,7 +16,6 @@ function mapRow(row: {
   departmentKey: string;
   serviceDate: Date;
   briefType: AiBriefType;
-  operationInstanceId: string | null;
   snapshotHash: string;
   snapshotJson: unknown;
   baselineSnapshotHash: string | null;
@@ -38,7 +37,7 @@ function mapRow(row: {
     departmentKey: row.departmentKey,
     serviceDate: row.serviceDate,
     briefType: row.briefType,
-    operationInstanceId: row.operationInstanceId,
+    operationInstanceId: null,
     snapshotHash: row.snapshotHash,
     snapshotJson: (row.snapshotJson as OperationalSnapshot | null) ?? null,
     baselineSnapshotHash: row.baselineSnapshotHash,
@@ -97,14 +96,13 @@ export function createPrismaBriefCacheStore(db: PrismaClient): MorningBriefCache
         },
       });
     },
-    async findMostRecentAny(facilityId, departmentKey, serviceDate, briefType, operationInstanceId) {
+    async findMostRecentAny(facilityId, departmentKey, serviceDate, briefType, _operationInstanceId) {
       const row = await db.aiOperationalBrief.findFirst({
         where: {
           facilityId,
           departmentKey,
           serviceDate,
           ...(briefType ? { briefType } : {}),
-          ...(operationInstanceId ? { operationInstanceId } : {}),
         },
         orderBy: { generatedAt: "desc" },
       });
@@ -142,7 +140,6 @@ export function createPrismaBriefCacheStore(db: PrismaClient): MorningBriefCache
           departmentKey: record.departmentKey,
           serviceDate: record.serviceDate,
           briefType: record.briefType,
-          operationInstanceId: record.operationInstanceId,
           snapshotHash: record.snapshotHash,
           snapshotJson: (record.snapshotJson as Prisma.InputJsonValue | undefined) ?? undefined,
           baselineSnapshotHash: record.baselineSnapshotHash,
@@ -172,7 +169,6 @@ export function createPrismaBriefCacheStore(db: PrismaClient): MorningBriefCache
           errorCode: record.errorCode,
           generatedAt: record.generatedAt,
           expiresAt: record.expiresAt,
-          operationInstanceId: record.operationInstanceId,
         },
       });
       return mapRow(row);

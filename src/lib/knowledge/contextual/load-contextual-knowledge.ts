@@ -28,8 +28,7 @@ type ArticleRow = {
   department: { name: string; key: string } | null;
   unitLinks: { unitId: string }[];
   assetLinks: { assetId: string }[];
-  logTemplateLinks: { logTemplateId: string }[];
-  inspectionDefinitionLinks: { inspectionDefinitionId: string }[];
+  catalogLinks: { catalogDefinitionId: string }[];
 };
 
 function resolveLinkReason(
@@ -43,18 +42,10 @@ function resolveLinkReason(
     return "ASSET";
   }
   if (
-    context.logTemplateId &&
-    row.logTemplateLinks.some((link) => link.logTemplateId === context.logTemplateId)
+    context.catalogDefinitionId &&
+    row.catalogLinks.some((link) => link.catalogDefinitionId === context.catalogDefinitionId)
   ) {
-    return "LOG_TEMPLATE";
-  }
-  if (
-    context.inspectionDefinitionId &&
-    row.inspectionDefinitionLinks.some(
-      (link) => link.inspectionDefinitionId === context.inspectionDefinitionId,
-    )
-  ) {
-    return "INSPECTION_DEFINITION";
+    return "CATALOG_RECORD";
   }
   if (context.unitId && row.unitLinks.some((link) => link.unitId === context.unitId)) {
     return "UNIT";
@@ -103,17 +94,11 @@ export async function loadContextualKnowledge(
         where: context.assetId ? { assetId: context.assetId } : undefined,
         select: { assetId: true },
       },
-      logTemplateLinks: {
-        where: context.logTemplateId
-          ? { logTemplateId: context.logTemplateId }
+      catalogLinks: {
+        where: context.catalogDefinitionId
+          ? { catalogDefinitionId: context.catalogDefinitionId }
           : undefined,
-        select: { logTemplateId: true },
-      },
-      inspectionDefinitionLinks: {
-        where: context.inspectionDefinitionId
-          ? { inspectionDefinitionId: context.inspectionDefinitionId }
-          : undefined,
-        select: { inspectionDefinitionId: true },
+        select: { catalogDefinitionId: true },
       },
     },
   })) as ArticleRow[];

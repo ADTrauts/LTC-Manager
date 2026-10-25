@@ -9,7 +9,7 @@ import {
 import { getDepartmentProduct, matchEntitlementStatusForProduct } from "@/lib/department-products/registry";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import type { RouteFeatureFlags } from "@/lib/route-registry/authorize";
-import type { ViewerTeamScope } from "@/lib/todays-work/viewer-team-scope";
+import type { ViewerTeamScope } from "@/lib/dashboard/viewer/viewer-team-scope";
 
 import type {
   DashboardAuthority,
@@ -143,6 +143,25 @@ function matchScopeParam(param: string, available: readonly DashboardScope[]): D
   return null;
 }
 
+/** A `?scope=` parameter outranks the sidebar cookie. An unavailable request stays on the default and explains why. */
+export function applyDashboardLens(
+  lens: DashboardLensRequest | undefined,
+  available: readonly DashboardScope[],
+  defaultScope: DashboardScope,
+  names: ReadonlyMap<string, string>,
+): { scope: DashboardScope; notice: DashboardViewerNotice | null } {
+  const requested = requestedScope(lens, available, defaultScope);
+  if (requested.match) return { scope: requested.match, notice: null };
+  if (!requested.requested) return { scope: defaultScope, notice: null };
+  return {
+    scope: defaultScope,
+    notice: {
+      code: "LENS_NOT_AVAILABLE",
+      message: `That view isn't available to you. Your Dashboard shows ${scopeLabel(defaultScope, names)}.`,
+    },
+  };
+}
+
 /** A `?scope=` parameter outranks the sidebar cookie. A cookie naming the default's Department keeps the default. */
 function requestedScope(
   lens: DashboardLensRequest | undefined,
@@ -264,15 +283,9 @@ export function deriveDashboardViewer(facts: DashboardViewerFacts): DashboardVie
       message: "Your Dashboard needs a Department. Ask your Facility Administrator to set your primary Department.",
     });
   } else {
-    const lens = requestedScope(facts.lens, available, defaultScope);
-    if (lens.match) {
-      scope = lens.match;
-    } else if (lens.requested) {
-      notices.push({
-        code: "LENS_NOT_AVAILABLE",
-        message: `That view isn't available to you. Your Dashboard shows ${scopeLabel(defaultScope, names)}.`,
-      });
-    }
+    const lens = applyDashboardLens(facts.lens, available, defaultScope, names);
+    scope = lens.scope;
+    if (lens.notice) notices.push(lens.notice);
   }
 
   const layoutOwner = dashboardLayoutOwner(session);

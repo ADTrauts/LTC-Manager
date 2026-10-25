@@ -39,7 +39,7 @@ export type ClassifiableUnit = {
  * - BUILDING → building
  * - FLOOR → floor
  * - NEIGHBORHOOD → neighborhood
- * - LEGACY_LOCATION → legacy_location
+ * - LEGACY_LOCATION → neighborhood (rows are rewritten; the enum stays until LEG-06)
  * - STAGED → staged (builder-only Undesignated)
  * - null + has parent → neighborhood
  * - null + no parent → legacy_location
@@ -53,9 +53,8 @@ export function resolveBuilderNodeDisplayKind(
     case "FLOOR":
       return "floor";
     case "NEIGHBORHOOD":
-      return "neighborhood";
     case "LEGACY_LOCATION":
-      return "legacy_location";
+      return "neighborhood";
     case "STAGED":
       return "staged";
     default:

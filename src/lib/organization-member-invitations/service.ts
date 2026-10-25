@@ -35,6 +35,7 @@ const invitationSelect = {
   expiresAt: true,
   status: true,
   invitedByUserId: true,
+  invitedByPlatformStaffId: true,
   acceptedByUserId: true,
   acceptedAt: true,
   revokedByUserId: true,
@@ -178,6 +179,101 @@ export async function inviteOrganizationMember(
     actorUserId: input.actorUserId,
     targetEmailNormalized: email,
     intendedRole: input.intendedRole,
+  });
+
+  return {
+    invitation: toMemberInvitationView(invitation, now),
+    rawToken: minted.rawToken,
+  };
+}
+
+/** Console invites a member. The role is member, not administrator. No facility access is created. */
+export async function inviteOrganizationMemberFromHarbor(
+  db: DbClient,
+  input: {
+    organizationId: string;
+    platformStaffId: string;
+    targetEmail: string;
+    now?: Date;
+  },
+): Promise<{ invitation: OrganizationMemberInvitationView; rawToken: string }> {
+  const now = input.now ?? new Date();
+  const email = normalizeAccountIdentifier(input.targetEmail);
+  if (!email || !email.includes("@")) {
+    throw new OrganizationMemberInvitationError("INVALID_INPUT", "A valid email is required.");
+  }
+  const organization = await db.organization.findUnique({
+    where: { id: input.organizationId },
+    select: { id: true, isActive: true },
+  });
+  if (!organization) {
+    throw new OrganizationMemberInvitationError("INVALID_INPUT", "Organization not found.");
+  }
+  if (!organization.isActive) {
+    throw new OrganizationMemberInvitationError("ORGANIZATION_INACTIVE", "Organization is inactive.");
+  }
+
+  const existingUser = await db.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (existingUser) {
+    const membership = await getUserOrganizationMembership(db, {
+      userId: existingUser.id,
+      organizationId: input.organizationId,
+      now,
+    });
+    if (membership?.currentRole) {
+      throw new OrganizationMemberInvitationError(
+        "ALREADY_CURRENT_MEMBER",
+        "This person is already a current member.",
+      );
+    }
+  }
+
+  const minted = mintOrganizationMemberInvitationToken(now);
+  const invitation = await runInTransaction(db, async (tx) => {
+    const live = await tx.organizationMemberInvitation.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        targetEmailNormalized: email,
+        status: "PENDING",
+      },
+      select: invitationSelect,
+    });
+    if (live && !live.acceptedAt && !live.revokedAt) {
+      return tx.organizationMemberInvitation.update({
+        where: { id: live.id },
+        data: {
+          intendedRole: "ORG_MEMBER",
+          tokenHash: minted.tokenHash,
+          expiresAt: minted.expiresAt,
+          invitedByUserId: null,
+          invitedByPlatformStaffId: input.platformStaffId,
+        },
+        select: invitationSelect,
+      });
+    }
+    return tx.organizationMemberInvitation.create({
+      data: {
+        organizationId: input.organizationId,
+        targetEmailNormalized: email,
+        intendedRole: "ORG_MEMBER",
+        tokenHash: minted.tokenHash,
+        expiresAt: minted.expiresAt,
+        status: "PENDING",
+        invitedByPlatformStaffId: input.platformStaffId,
+      },
+      select: invitationSelect,
+    });
+  });
+
+  await trackEvent("organization_member.invited", {
+    organizationId: input.organizationId,
+    invitationId: invitation.id,
+    actorUserId: input.platformStaffId,
+    targetEmailNormalized: email,
+    intendedRole: "ORG_MEMBER",
   });
 
   return {

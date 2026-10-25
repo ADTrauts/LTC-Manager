@@ -13,11 +13,7 @@ These stores and names stay. They are readable. They are not the canonical forwa
 
 | System | What it still is | New writes |
 |--------|------------------|------------|
-| Legacy meal milestone stores (`READY` / `SERVICE_STARTED` on the older milestone path) | Historical Dietary timing compatibility | Not the timing source when a service date already has `OperationalCycleKeyPointActual` |
-| `UnitMealTime` | Older unit meal clock | Not the Dietary Key Point actual |
-| `LogTemplate` / `LogAssignment` / `LogSubmission` | Legacy log capture and history. Live compatibility authority **only while `CANONICAL_LOGS_ENABLED` is off**. | Fenced when canonical Records are enabled. Not the forward Record engine. |
-| Legacy Inspection engine | Legacy inspection definitions, occurrences, and submissions | Fenced when canonical Records are enabled. Inspection as a Catalog Record form + `LogAttachment` is the forward path |
-| `OperationalTemplate` | Previous facility-owned definition + applicability + schedule engine (Phase 9C). Remaining callers: `/staffing/templates` (historical/private), PM `PreventiveMaintenancePlanRecordRequirement`, WO `RepairRecordRequirement`, compatibility runtime when canonical is off, offline template sync (fenced when canonical is on). | Not the Record definition and **not** the next layer after `CatalogLogDefinition`. Writers and template-backed `submitEvidenceRecord` are fenced when canonical Records are enabled. |
+| Legacy meal milestone stores, `UnitMealTime`, `LogTemplate`, legacy inspections, and `OperationalTemplate` | **RETIRED in LEG-06.** The tables are dropped. | None. Records use the Catalog chain. |
 | Review-named internal infrastructure | Loaders and types that still say Review | Not a workspace and not a submitted-evidence store. Manager surface is Audit / Reports at `/reports` |
 | Legacy physical-type applicability | Older readers that match room type or unit type | Not used for canonical Product Location Functions, Cycles, Work, or Records |
 | Legacy Operational Type terminology and `DepartmentRoomArchetype` rows | Persistence for Location Functions, including historical keys such as `servery` | Canonical identity is the Product `functionKey`. Display labels and room names are not identity |
@@ -48,7 +44,7 @@ The table below governed duplicate routes during the Build / Run shell. It remai
 >
 > **V1 shell UX refinement amendment (2026-08-09):** Asset Builder is now a first-class BUILD surface (`/assets/builder`, row 12) that appears on Build Home; the global header now exposes only **Build Home** in BUILD mode (individual builders are reached from the hub, not from permanent header links); Change password moved into the account menu. See `docs/product/LTC_MANAGER_V1_SHELL_UX_REFINEMENT_2026-08-09.md`.
 >
-> **RUN surface rationalization amendment (2026-08-09):** **Operations Center is RETIRED** as a peer RUN destination (row 3 reclassified **HIDDEN FROM NAVIGATION → REDIRECT**). `/dashboard` and `/operations` no longer render an operational surface — both server-redirect to the caller's canonical RUN home (managers → `/workspace` Dashboard, supervisors → `/today` Today's Work, frontline → their unit/logs). Run / Build / Admin switching moved out of the permanent top bar into the right-side context/account menu. The stale-location defect (retired Units shown as active) was root-caused and fixed in the shared `loadDashboardQueries` loader. See `docs/product/LTC_MANAGER_RUN_SURFACE_RATIONALIZATION_2026-08-09.md`.
+> **RUN surface rationalization amendment (2026-08-09, corrected DSH-04, LEG-01, and LEG-05):** Operations Center is retired. `/operations` is no longer a route. `/dashboard` is the Dashboard for Supervisor and above. `loadDashboardQueries` is gone. Run / Build / Admin switching lives in the account menu.
 
 ---
 
@@ -63,7 +59,9 @@ The table below governed duplicate routes during the Build / Run shell. It remai
 | **DEPRECATED** | Slated for removal once dependencies retire; still reachable. |
 | **REMOVE ROUTE** | Safe to delete (no workflow / deep-link / test dependency). |
 
-**Removal policy:** a route is removed only when (1) no current workflow depends on it, (2) no historical deep-link requirement exists, and (3) route registry and tests support removal. Prefer redirect / hidden-nav before destructive removal. **No historical records are deleted; no legacy data is migrated merely to simplify navigation.**
+**Removal policy:** a route is removed only when (1) no current workflow depends on it, (2) no historical deep-link requirement exists, and (3) route registry and tests support removal. Prefer redirect / hidden-nav before destructive removal. Legacy data is not migrated merely to simplify navigation.
+
+**Test-data amendment (LEG-06, approved by the product owner October 24, 2026).** There are no real customers. After row counts on local `ltc_manager` and staging `neondb`, the product owner approved dropping the legacy tables and columns in `20261025010000_leg06_schema_cleanup`. That approval covers pre-customer test rows only. Forward Records, shifts, repairs, and location-function profiles stay.
 
 ---
 
@@ -71,18 +69,19 @@ The table below governed duplicate routes during the Build / Run shell. It remai
 
 | # | Route | Current class | Authoritative replacement | Rationale | Decision |
 |---|-------|---------------|---------------------------|-----------|----------|
-| 1 | `/admin/inspections` | **LEGACY READ-ONLY / HIDDEN FROM NAVIGATION** | `/build/logs` (Catalog INSPECTION + Attachment) | Inspection as a Catalog Record form is the forward path. `/staffing/templates` is Phase 9C compatibility, not the Catalog. | Hide from nav; keep reachable & read-authoritative for FA; writes fenced when `CANONICAL_LOGS_ENABLED`. No data deleted. |
-| 2 | `/logs` | **LEGACY COMPATIBILITY AUTHORITY** while `CANONICAL_LOGS_ENABLED` is off | `/staffing/logs` (due work) + `/staffing/log-book` (history) | Frontline STAFF logging while the canonical flag is off. Not the forward Record engine. Distinct from Log Book. | Keep reachable for historical `LogSubmission` reads. Hide from nav and fence writers when canonical Logs are on. |
-| 3 | `/dashboard`, `/operations` | **REDIRECT (RETIRED — RUN surface rationalization 2026-08-09)** | Role-aware canonical RUN home (`/workspace` Dashboard, `/today` Today's Work, or unit/logs) | Operations Center overlapped Dashboard and Today's Work and displayed stale/retired locations. Retired as a peer RUN destination; both routes now render nothing and redirect via `resolveDefaultHomePath`. Kept reachable by all roles (STAFF+) so bookmarks/deep links and internal "home" fallbacks never dead-end. No historical records deleted. | Redirect; reachable by URL (STAFF+); absent from all navigation. |
+| 1 | `/admin/inspections` | **RETIRED** | `/build/logs` | The inspection tables were dropped in LEG-06. | Not a record store. |
+| 2 | `/logs` | **RETIRED** | `/staffing/logs` and `/staffing/log-book` | The legacy log tables were dropped in LEG-06. | Not a record store. |
+| 3 | `/dashboard` | **Dashboard for Supervisor and above.** `/operations` is removed. | `/dashboard` is the home. `/workspace` redirects there. | Operations Center and Business Workspace are retired as homes. DSH-04 sends Supervisor and above to the Dashboard without a flag. | Dashboard page for Supervisor+. Floor roles are sent to their unit or Logs. |
 | 4 | `/staffing` (as "Today's Work" label) | **ACTIVE AUTHORITY** (relabeled) | — | Repurposed as RUN **Employees** (today's workforce ops). Old label retired. | Keep; product label = Employees. |
 | 5 | `/employees` (as top-level "Employees") | **ACTIVE AUTHORITY** (reclassified) | — | Reclassified from RUN people-ops to BUILD **Employee Builder** (workforce configuration). | Keep; mode = BUILD. |
 | 6 | `/menus` (as "Menus" in Administration dropdown) | **ACTIVE AUTHORITY** (reclassified) | `/menus/[menuId]` | Reclassified to BUILD **Menus** library. Individual editors are `/menus/[menuId]` with Overview, Menu, and Applicability. Not a facility singleton. Runtime resolution is `resolveApplicableMenus`; the first Run surface is Today's Menu on the Space workspace. `/logs` still uses `loadFacilityMenuData`. | Keep; mode = BUILD. |
 | 7 | `/admin/knowledge` ("Operational Knowledge") | **ACTIVE AUTHORITY** (relabeled/moved) | — | Relabeled to **Procedures & Resources**, moved from Admin to BUILD. Authority preserved (FA). | Keep; mode = BUILD. |
-| 8 | `/settings` | **REDIRECT** | `/admin/organization` | Existing legacy settings entry. FA → Organization; others → default home. Redirect does not bypass authorization. | Keep redirect (unchanged). |
+| 8 | `/settings` | **Removed (LEG-05).** | — | The settings entry no longer redirects. Organization stays at `/admin/organization`. | Not a route. |
 | 9 | Old zone-based nav components (`src/components/navigation/administration-menu.tsx`, `src/lib/administration-nav.ts`, `src/lib/administration-menu-position.ts`) | **REMOVED (Phase 14)** | `TopNav` mode grouping + `src/lib/product-mode.ts` | Dead after the Run/Build shell — no live importers. Deleted with their unit tests in Phase 14; `link-integrity` / `navigation` registry tests remain green. | Removed. No route affected. |
-| 10 | Dormant Operation Engine / Task Sync pages | **HIDDEN / DORMANT (do not activate)** | — | `OPERATION_ENGINE_ENABLED` and `TASK_SYNC_ENABLED` remain **false**. Phase 14 does not activate dormant systems. | No change; keep dormant. |
+| 10 | Operation Engine / Task Sync | **RETIRED** | — | The operation and Task tables were dropped in LEG-06. | Not a product surface. |
 | 11 | `/build` (BUILD hub) | **ACTIVE AUTHORITY** (new, Phase 14) | — | Dedicated Build-mode landing that composes the Build navigation group as cards. Presentation-only projection (SUPERVISOR floor); frontline stays Run-only below it. The Build mode segment lands here. | Keep; mode = BUILD. |
 | 12 | `/assets/builder` (Asset Builder) | **ACTIVE AUTHORITY** (new, V1 shell refinement 2026-08-09) | — | Canonical BUILD asset-configuration surface. Shares the single asset registry and the same server actions as the RUN `/assets` view (adds no new authority); SUPERVISOR floor + department scope match `/assets`. Restored to Build Home via the BUILD nav projection. | Keep; mode = BUILD. |
+| 13 | `/today`, `/today/walk`, `/today/coverage`, `/today/handoffs` | **REDIRECT** | `/dashboard`, `/units?view=rounds`, `/staffing`, `/staffing/handoffs` | Today's Work is retired. Supervisor and above begin in the Dashboard. Handoffs live in People & Coverage. Rounds live in Locations. Coverage lives in Schedule. | Keep the addresses. They only redirect. Hidden from navigation. |
 
 ---
 
@@ -95,21 +94,21 @@ These routes and persistence names remain. Classify them; do not delete them to 
 | `/repairs` | **ACTIVE AUTHORITY** | Work Orders | Route retained. STAFF land here as My Work. SUPERVISOR+ Maintenance sub-nav label is Work Orders. |
 | `/asset-issues` | **ACTIVE AUTHORITY** | Issues | Route retained. Supervisor-gated. Location-only Issues are valid. |
 | `/preventive-maintenance` | **ACTIVE AUTHORITY** | Preventive Maintenance | Canonical Plant Run PM surface. |
-| `Repair` | Persistence name | Work Order | Compatibility row for accepted maintenance work. Do not revive Repair as the manager-facing noun. |
-| `AssetIssue` | Persistence name | Issue | Compatibility row for a known undesirable condition. May exist without an Asset. |
-| `PreventiveMaintenanceSchedule` | **LEGACY READ-ONLY** | — | Older schedule row. Forward PM identity is `PreventiveMaintenancePlan` / occurrence. |
-| `preventiveScheduleId` | **LEGACY READ-ONLY** | — | Compatibility foreign key on older rows. New PM writes use plan / occurrence identity. |
+| `Repair` | Kept persistence (LEG-D15) | Work Order | Table name stays. Do not revive Repair as the manager-facing noun. |
+| `AssetIssue` | Kept persistence (LEG-D15) | Issue | Table name stays. May exist without an Asset. |
+| `PreventiveMaintenanceSchedule` | **RETIRED** | — | Dropped in LEG-06. Forward PM identity is `PreventiveMaintenancePlan` / occurrence. |
+| `preventiveScheduleId` | **RETIRED** | — | Dropped in LEG-06. |
 
 ---
 
 ## Redirect / deprecation decisions summary
 
-- **Redirect:** `/settings → /admin/organization` (pre-existing; unchanged).
-- **Redirect (RETIRED, 2026-08-09):** `/dashboard` and `/operations` → role-aware canonical RUN home (`resolveDefaultHomePath`). Operations Center is retired as a peer RUN destination; the pages render nothing but the routes remain registered (STAFF+) so redirects preserve authorization and avoid dead links.
-- **Hidden from navigation:** `/admin/inspections` (reachable by URL, server-authorized).
+- **Removed (LEG-05):** `/settings` and `/operations` are not routes. `/build/knowledge` is not a route; procedures stay at `/admin/knowledge`.
+- **Redirect (RETIRED, 2026-08-09, updated DSH-04):** `/dashboard` is the Dashboard for Supervisor and above. `/workspace` redirects there. `/today`, `/today/walk`, `/today/coverage`, and `/today/handoffs` only redirect to the Dashboard, Rounds, Schedule, and Handoffs.
+- **Retired (LEG-06):** `/admin/inspections` and `/logs` are not record stores. The inspection and log tables are dropped.
 - **Added (Phase 14):** `/build` BUILD hub (ROLE_RESTRICTED, SUPERVISOR floor) — a new page route, registered in `platform-routes.ts`.
 - **Removed (Phase 14):** deprecated zone-based nav code (row 9). No **route** was removed; only dead components/tests were deleted.
-- **Stale-location root cause (2026-08-09):** the shared `loadDashboardQueries` loader (`src/lib/operations-center/load-dashboard-queries.ts`) filtered Units by `isActive: true` **only**, so a Unit retired to the builder-only `STAGED` hierarchy role (which stays `isActive: true`) leaked in as an active operational location. Because the Projection feature flags for Dashboard (`/workspace`) and Today's Work (`/today`) default **off**, this legacy loader was the live default for those surfaces too — the defect was not limited to the retired Operations Center. **Fix:** the legacy path now composes its Unit where-clause with `operationalUnitWhere`, which excludes `BUILDER_ONLY_HIERARCHY_ROLES` (`STAGED`). No new model, no migration (count stays 72). Historical rows are untouched — only their presentation as *currently active* locations is corrected.
+- **Stale locations:** `loadDashboardQueries` is gone. The Dashboard does not use that loader. Historical staged units stay out of the operating location board.
 
 ## Route policy note
 

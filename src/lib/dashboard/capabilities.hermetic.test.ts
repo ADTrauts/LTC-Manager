@@ -83,6 +83,7 @@ test("Food & Nutrition: configured capabilities and no setup reasons", () => {
         "plant.requests.filed",
         "menus",
         "meal.milestones",
+        "maintenance.shared",
       ]),
     );
     assert.deepEqual(result.notConfigured, []);
@@ -105,15 +106,15 @@ test("Food & Nutrition: every declared setup step reports the contract wording",
   });
 });
 
-test("an engine that is not admitted is neither a capability nor a setup reason", () => {
+test("retired env switches cannot hide an admitted engine", () => {
   withEnv({ DIETARY_OPERATIONAL_CYCLES_ENABLED: "false", DIETARY_WORK_PLANS_ENABLED: "false" }, () => {
     const configured = deriveDepartmentDashboardCapabilities(facts("DIETARY"));
-    assert.equal(configured.has.has("cycles.published"), false);
-    assert.equal(configured.has.has("work.expected"), false);
+    assert.equal(configured.has.has("cycles.published"), true);
+    assert.equal(configured.has.has("work.expected"), true);
     const missing = deriveDepartmentDashboardCapabilities(facts("DIETARY", allMissing));
     const reasons = missing.notConfigured.map((row) => row.capability);
-    assert.equal(reasons.includes("cycles.published"), false);
-    assert.equal(reasons.includes("work.expected"), false);
+    assert.equal(reasons.includes("cycles.published"), true);
+    assert.equal(reasons.includes("work.expected"), true);
   });
 });
 
@@ -131,7 +132,7 @@ test("fail closed: a failed source contributes no capability and no reason", () 
         hasMenuApplicability: null,
       }),
     );
-    assert.deepEqual(sorted(result.has), ["meal.milestones"]);
+    assert.deepEqual(sorted(result.has), ["maintenance.shared", "meal.milestones"]);
     assert.deepEqual(result.notConfigured, []);
   });
 });
@@ -177,16 +178,13 @@ test("custom Department: shared engines admitted, people and Work setup steps on
   });
 });
 
-test("EVS: release flag off admits no shared engine and declares no setup steps", () => {
-  withEnv({}, () => {
-    const result = deriveDepartmentDashboardCapabilities(facts("EVS", allMissing));
-    assert.equal(result.productKey, "EVS");
-    assert.equal(result.has.has("cycles.published"), false);
-    assert.deepEqual(result.notConfigured.map((row) => row.capability), ["records.legacy"]);
-  });
-  withEnv({ EVS_OPERATIONS_ENABLED: "true" }, () => {
-    assert.ok(deriveDepartmentDashboardCapabilities(facts("EVS")).has.has("cycles.published"));
-  });
+test("EVS engines stay admitted without a release flag", () => {
+  const missing = deriveDepartmentDashboardCapabilities(facts("EVS", allMissing));
+  assert.equal(missing.productKey, "EVS");
+  assert.equal(missing.has.has("cycles.published"), false);
+  assert.equal(missing.has.has("maintenance.shared"), true);
+  assert.deepEqual(missing.notConfigured.map((row) => row.capability), ["records.legacy"]);
+  assert.ok(deriveDepartmentDashboardCapabilities(facts("EVS")).has.has("cycles.published"));
 });
 
 test("engine admission matches isDepartmentEngineEnabledForFacility for every key and flag setting", async () => {

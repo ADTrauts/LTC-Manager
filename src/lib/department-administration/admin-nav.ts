@@ -113,7 +113,6 @@ export function isDepartmentAdminDeferredTabId(
 }
 
 export function departmentAdminTabsForFlags(input: {
-  profilesEnabled: boolean;
   /**
    * @deprecated The Operating Rhythm tab is always present. Ignored.
    */
@@ -129,7 +128,6 @@ export function departmentAdminTabsForFlags(input: {
   /** Plant Preventive Maintenance builder. Omit for other products. */
   maintenanceEnabled?: boolean;
 }): (typeof DEPARTMENT_ADMIN_TABS)[number][] {
-  void input.profilesEnabled;
   void input.cyclesEnabled;
   const locationsEnabled = input.locationsEnabled ?? true;
   const workEnabled = input.workEnabled ?? true;

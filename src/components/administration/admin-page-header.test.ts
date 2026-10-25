@@ -60,7 +60,6 @@ test("BUILD surfaces under /admin use Build chrome, not Back to Administration",
   const pages = [
     ["app/(protected)/admin/facility/builder/page.tsx", "FacilityBuildContextBar"],
     ["app/(protected)/admin/departments/[departmentId]/page.tsx", "DepartmentBuildContextBar"],
-    ["app/(protected)/admin/inspections/page.tsx", "BuildPageHeader"],
     ["app/(protected)/admin/knowledge/page.tsx", "BuildPageHeader"],
   ];
   for (const [page, buildChrome] of pages) {

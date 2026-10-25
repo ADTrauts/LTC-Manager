@@ -7,24 +7,25 @@ import {
   type FacilitySession,
   type PartnerFacilitySession,
 } from "@/lib/auth";
-import { resolveDepartmentAccessMap, resolveLedDepartmentIds } from "@/lib/department-authority";
+import {
+  resolveDepartmentAccessMap,
+  resolveLedDepartmentIds,
+  type DepartmentAccess,
+} from "@/lib/department-authority";
 import { loadFacilityDepartmentAccessContext } from "@/lib/department-products/load-facility-catalog";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import {
   isCanonicalLogsEnabled,
   isContractedDepartmentAuthorityEnabled,
-  isDashboardV2Enabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-  isTodaysWorkEnabled,
 } from "@/lib/feature-flags";
 import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 import type { RouteFeatureFlags } from "@/lib/route-registry/authorize";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { resolveViewerTeamScopes } from "@/lib/todays-work/viewer-team-scope";
+import { resolveViewerTeamScopes } from "@/lib/dashboard/viewer/viewer-team-scope";
 
 import {
+  applyDashboardLens,
   dashboardScopeCandidates,
   deriveDashboardAuthority,
   deriveDashboardViewer,
@@ -36,11 +37,9 @@ import type { DashboardLensRequest, DashboardViewer, DashboardViewerResolution }
 export function currentDashboardRouteFlags(): RouteFeatureFlags {
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
   return {
-    todaysWorkEnabled: isTodaysWorkEnabled(),
-    dietaryOperationalEvidenceEnabled: isDietaryOperationalEvidenceEnabled() || canonicalLogsEnabled,
-    dietaryWorkPlansEnabled: isDietaryWorkPlansEnabled(),
+    dietaryOperationalEvidenceEnabled: true,
+    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled,
-    dashboardV2Enabled: isDashboardV2Enabled(),
   };
 }
 
@@ -53,12 +52,34 @@ export type DashboardViewerDeps = {
 };
 
 /**
- * An accepted vendor head is a Department leader for the Departments they run.
- * Anyone else on a partner session stays off the Department leader Dashboard.
+ * Departments a partner may open on the Dashboard.
+ * A person who heads any Department is a leader for those Departments only.
+ * Anyone else who can manage a Department gets the manager Dashboard for those Departments.
+ */
+export function selectPartnerDashboardDepartments<T extends { id: string }>(
+  rows: readonly T[],
+  access: ReadonlyMap<string, Pick<DepartmentAccess, "isHead" | "mode">>,
+): {
+  authority: "DEPARTMENT_LEADER" | "MANAGER";
+  role: "GM" | "MANAGER";
+  departments: T[];
+} | null {
+  const manageable = rows.filter((row) => access.get(row.id)?.mode === "MANAGE");
+  const led = manageable.filter((row) => access.get(row.id)?.isHead === true);
+  const departments = led.length > 0 ? led : manageable;
+  if (departments.length === 0) return null;
+  if (led.length > 0) return { authority: "DEPARTMENT_LEADER", role: "GM", departments };
+  return { authority: "MANAGER", role: "MANAGER", departments };
+}
+
+/**
+ * A partner who can manage a Department uses the same Dashboard as that role.
+ * Heads are Department leaders. Other partner people are managers of the Departments they can run.
  */
 async function resolveVendorLeaderViewer(
   session: PartnerFacilitySession,
   deps: Partial<DashboardViewerDeps>,
+  lens: DashboardLensRequest,
 ): Promise<DashboardViewerResolution> {
   const db = deps.db ?? prisma;
   const now = deps.now ?? new Date();
@@ -78,15 +99,12 @@ async function resolveVendorLeaderViewer(
     departmentIds: rows.map((row) => row.id),
     now,
   });
-  const led = rows.filter((row) => {
-    const item = access.get(row.id);
-    return item?.isHead === true && item.mode === "MANAGE";
-  });
-  if (led.length === 0) return { kind: "not_eligible", reason: "SESSION_KIND" };
+  const selected = selectPartnerDashboardDepartments(rows, access);
+  if (!selected) return { kind: "not_eligible", reason: "SESSION_KIND" };
 
   const departmentAccess: Record<string, DashboardViewer["departmentAccess"][string]> = {};
   const operators: Record<string, DashboardViewer["operators"][string]> = {};
-  for (const department of led) {
+  for (const department of selected.departments) {
     const item = access.get(department.id)!;
     departmentAccess[department.id] = "MANAGE";
     operators[department.id] = {
@@ -95,7 +113,14 @@ async function resolveVendorLeaderViewer(
       vendorHeadAccepted: item.operatingModel === "CONTRACTED" && item.vendorHeadAccepted,
     };
   }
-  const available = led.map((department) => ({ kind: "DEPARTMENT" as const, departmentId: department.id }));
+  const available = selected.departments.map((department) => ({
+    kind: "DEPARTMENT" as const,
+    departmentId: department.id,
+  }));
+  const defaultScope = available[0] ?? null;
+  if (!defaultScope) return { kind: "not_eligible", reason: "SESSION_KIND" };
+  const names = new Map(selected.departments.map((department) => [department.id, department.name]));
+  const picked = applyDashboardLens(lens, available, defaultScope, names);
   return {
     kind: "viewer",
     viewer: {
@@ -103,18 +128,19 @@ async function resolveVendorLeaderViewer(
       facilityTimezone,
       serviceDate: toServiceDateKey(getFacilityServiceDate(facilityTimezone, now)),
       session,
-      role: "GM",
-      authority: "DEPARTMENT_LEADER",
+      role: selected.role,
+      authority: selected.authority,
       employeeId: null,
       layoutOwner: { kind: "USER", userId: session.uid },
-      ledDepartmentIds: led.map((department) => department.id),
-      departments: led,
-      scopeDepartmentIds: led.map((department) => department.id),
+      ledDepartmentIds:
+        selected.authority === "DEPARTMENT_LEADER" ? selected.departments.map((department) => department.id) : [],
+      departments: selected.departments,
+      scopeDepartmentIds: selected.departments.map((department) => department.id),
       departmentAccess,
       operators,
-      scope: available[0] ?? null,
+      scope: picked.scope,
       availableScopes: available,
-      notices: [],
+      notices: picked.notice ? [picked.notice] : [],
       canCustomize: true,
       routeFlags: deps.routeFlags ?? currentDashboardRouteFlags(),
     },
@@ -134,7 +160,7 @@ export async function resolveDashboardViewer(
     if (!isContractedDepartmentAuthorityEnabled()) {
       return { kind: "not_eligible", reason: "SESSION_KIND" };
     }
-    return resolveVendorLeaderViewer(session, deps);
+    return resolveVendorLeaderViewer(session, deps, lens);
   }
   if (!isFacilityScopedSession(session)) {
     return { kind: "not_eligible", reason: "SESSION_KIND" };

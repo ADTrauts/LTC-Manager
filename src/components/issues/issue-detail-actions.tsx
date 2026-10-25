@@ -11,7 +11,7 @@ import {
   markIssueWaitingAction,
   reopenIssueAction,
   startIssueWorkAction,
-} from "@/app/(protected)/issues/actions";
+} from "@/app/(protected)/repairs/issue-actions";
 
 type EmployeeOption = { id: string; name: string };
 type DepartmentOption = { id: string; name: string };
@@ -31,16 +31,21 @@ type IssueDetailActionsProps = {
 const STATUS_OPTIONS_ISSUE: Array<{ value: RepairStatus; label: string }> = [
   { value: "OPEN", label: "Reported / open" },
   { value: "IN_PROGRESS", label: "In progress" },
-  { value: "WAITING_PARTS", label: "Waiting" },
-  { value: "CLOSED", label: "Resolved" },
+  { value: "ON_HOLD", label: "Waiting" },
+  { value: "COMPLETED", label: "Resolved" },
 ];
 
 const STATUS_OPTIONS_REPAIR: Array<{ value: RepairStatus; label: string }> = [
   { value: "OPEN", label: "Open" },
   { value: "IN_PROGRESS", label: "In progress" },
-  { value: "WAITING_PARTS", label: "Waiting" },
-  { value: "CLOSED", label: "Completed" },
+  { value: "ON_HOLD", label: "Waiting" },
+  { value: "COMPLETED", label: "Completed" },
 ];
+
+function displayedStatus(status: RepairStatus): RepairStatus {
+  if (status === "WAITING_ON_VENDOR") return "ON_HOLD";
+  return status;
+}
 
 export function IssueDetailActions({
   issueId,
@@ -57,7 +62,7 @@ export function IssueDetailActions({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updateText, setUpdateText] = useState("");
-  const [statusAfterUpdate, setStatusAfterUpdate] = useState<RepairStatus>(status);
+  const [statusAfterUpdate, setStatusAfterUpdate] = useState<RepairStatus>(displayedStatus(status));
   const [assigneeId, setAssigneeId] = useState(assignedEmployeeId ?? "");
   const [departmentId, setDepartmentId] = useState(responsibleDepartmentId ?? "");
   const isRepairCopy = terminology === "repair";
@@ -151,7 +156,7 @@ export function IssueDetailActions({
         </button>
       </div>
 
-      {status !== "CLOSED" && status !== "COMPLETED" ? (
+      {status !== "COMPLETED" ? (
         <div className="flex flex-wrap gap-2">
           {status !== "IN_PROGRESS" ? (
             <button
@@ -167,7 +172,7 @@ export function IssueDetailActions({
               Start work
             </button>
           ) : null}
-          {status !== "WAITING_PARTS" && status !== "WAITING_ON_VENDOR" ? (
+          {status !== "WAITING_ON_VENDOR" && status !== "ON_HOLD" ? (
             <button
               type="button"
               disabled={pending}

@@ -9,7 +9,6 @@ export type ApplyTemplateInput = {
   departmentId: string;
   departmentKey: string;
   serviceDate: string;
-  operationInstanceId: string | null;
   positions: TemplatePreviewPosition[];
   createdByUserId: string | null;
 };
@@ -101,7 +100,6 @@ export async function applyAssignmentTemplate(
         roleKey: pos.roleKey,
         roleLabel: jobRoleLabelByEmployeeId.get(employeeId) ?? roleDef.label,
         unitId: pos.unitId ?? null,
-        operationInstanceId: input.operationInstanceId,
         templateItemId: pos.itemId ?? null,
         startsAt: pos.startsAtLocal ? parseLocalTime(input.serviceDate, pos.startsAtLocal) : null,
         endsAt: pos.endsAtLocal ? parseLocalTime(input.serviceDate, pos.endsAtLocal) : null,

@@ -11,7 +11,6 @@ export type FacilityOnboardingTransition = {
   step?: OnboardingStep;
   finish?: boolean;
   facilityName?: string;
-  managementCompanyName?: string;
   billingEmail?: string;
   timezone?: string;
   confirmEntry?: boolean;
@@ -38,8 +37,6 @@ export async function transitionFacilityOnboarding(
       displayName: input.facilityName,
       timezone: input.timezone,
       onboardingEntryConfirmedAt: input.confirmEntry ? current.onboardingEntryConfirmedAt ?? now : undefined,
-      managementCompanyName: input.managementCompanyName === undefined
-        ? undefined : input.managementCompanyName.trim() || null,
       billingEmail: input.billingEmail?.toLowerCase(),
       onboardingStartedAt: current.onboardingStartedAt ?? now,
       onboardingCompletedAt: finish ? current.onboardingCompletedAt ?? now : undefined,

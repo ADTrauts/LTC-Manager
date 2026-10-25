@@ -109,7 +109,7 @@ export async function loadOperationalReviewRangeFacts(input: {
     parentUnitLabel: space.unit?.name ?? null,
   }));
 
-  const [profiles, attachments, evidence, templates, plans, assignments, scheduleEntries, overrides, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
+  const [profiles, attachments, evidence, templates, plans, assignments, scheduleEntries, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
     await Promise.all([
       departmentIds.length === 0
         ? Promise.resolve([])
@@ -228,52 +228,23 @@ export async function loadOperationalReviewRangeFacts(input: {
           unitId: true,
           departmentId: true,
           shift: true,
+          calledOffAt: true,
+          callOffReason: true,
           employee: { select: { firstName: true, lastName: true } },
         },
       }),
       input.omitFacilityWideFacts
         ? Promise.resolve([])
-        : input.client.assignmentOverride.findMany({
-        where: {
-          date: { gte: startDate, lt: endExclusive },
-          employee: { facilityId: input.facilityId },
-        },
-        select: {
-          id: true,
-          date: true,
-          employeeId: true,
-          reason: true,
-          oldUnitId: true,
-          newUnitId: true,
-          employee: { select: { firstName: true, lastName: true } },
-        },
-      }),
-      input.omitFacilityWideFacts
-        ? Promise.resolve([])
-        : input.client.serveryMealServiceEvent.findMany({
-        where: {
-          serviceDate: { gte: startDate, lt: endExclusive },
-          unit: { facilityId: input.facilityId },
-        },
-        select: {
-          serviceDate: true,
-          unitId: true,
-          mealType: true,
-          mealServiceReadyAt: true,
-          readyRecordedAt: true,
-          mealServiceStartedAt: true,
-          startedRecordedAt: true,
-          entries: {
-            select: {
-              milestone: true,
-              occurredAt: true,
-              recordedAt: true,
-              kind: true,
-            },
-            orderBy: { recordedAt: "desc" },
-          },
-        },
-      }),
+        : Promise.resolve([] as Array<{
+            serviceDate: Date;
+            unitId: string;
+            mealType: string;
+            mealServiceReadyAt: Date | null;
+            readyRecordedAt: Date | null;
+            mealServiceStartedAt: Date | null;
+            startedRecordedAt: Date | null;
+            entries: Array<{ milestone: string; occurredAt: Date; recordedAt: Date; kind: string }>;
+          }>),
       departmentIds.length === 0
         ? Promise.resolve([])
         : input.client.operationalCycleKeyTimeDayExpectation.findMany({
@@ -325,13 +296,7 @@ export async function loadOperationalReviewRangeFacts(input: {
       }),
       input.omitFacilityWideFacts
         ? Promise.resolve([])
-        : input.client.logSubmission.findMany({
-        where: {
-          submittedAt: { gte: startDate, lt: endExclusive },
-          unit: { facilityId: input.facilityId },
-        },
-        select: { submittedAt: true },
-      }),
+        : Promise.resolve([] as Array<{ submittedAt: Date }>),
     ]);
 
   const assignmentIds = assignments.map((row) => row.id);
@@ -399,7 +364,10 @@ export async function loadOperationalReviewRangeFacts(input: {
   const plansByDate = groupByDateKey(plans, (row) => toServiceDateKey(row.serviceDate));
   const assignmentsByDate = groupByDateKey(assignments, (row) => toServiceDateKey(row.serviceDate));
   const scheduleByDate = groupByDateKey(scheduleEntries, (row) => toServiceDateKey(row.date));
-  const overridesByDate = groupByDateKey(overrides, (row) => toServiceDateKey(row.date));
+  const callOffsByDate = groupByDateKey(
+    scheduleEntries.filter((row) => row.calledOffAt),
+    (row) => toServiceDateKey(row.date),
+  );
   const serveryByDate = groupByDateKey(serveryEvents, (row) => toServiceDateKey(row.serviceDate));
   const keyTimesByDate = groupByDateKey(keyTimes, (row) => toServiceDateKey(row.serviceDate));
   const keyPointActualsByDate = groupByDateKey(keyPointActuals, (row) =>
@@ -485,13 +453,13 @@ export async function loadOperationalReviewRangeFacts(input: {
         departmentId: row.departmentId,
         shift: row.shift,
       })),
-      presenceExceptions: (overridesByDate.get(serviceDate) ?? []).map((row) => ({
+      presenceExceptions: (callOffsByDate.get(serviceDate) ?? []).map((row) => ({
         id: row.id,
         employeeId: row.employeeId,
         employeeDisplayName: employeeDisplayName(row.employee),
-        reason: row.reason,
-        oldUnitId: row.oldUnitId,
-        newUnitId: row.newUnitId,
+        reason: row.callOffReason ?? "Call-off",
+        oldUnitId: null,
+        newUnitId: row.unitId ?? "",
       })),
       assetImpacts: (assetsByDate.get(serviceDate) ?? [])
         .filter(

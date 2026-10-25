@@ -33,6 +33,32 @@ function firstSearchValue(value: string | string[] | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
+function linkedRecordHref(
+  flow: {
+    evidenceMode: string;
+    evidence: Array<{
+      catalogStableKey: string | null;
+      attachmentId: string;
+      requirementKey: string;
+    }>;
+  },
+  unitId: string,
+  requirement: { completionMode: string; linkedTemplateStableKey: string | null },
+): string | null {
+  const key = requirement.linkedTemplateStableKey?.trim();
+  if (!key || requirement.completionMode !== "LINKED_EVIDENCE") return null;
+  if (flow.evidenceMode === "harbor") {
+    const match = flow.evidence.find((item) => item.catalogStableKey === key);
+    if (!match) return "/staffing/logs";
+    const params = new URLSearchParams({
+      attachmentId: match.attachmentId,
+      requirementKey: match.requirementKey,
+    });
+    return `/staffing/logs/open?${params.toString()}`;
+  }
+  return `/unit/${unitId}?evidence=${encodeURIComponent(key)}`;
+}
+
 export async function tryRenderEmployeeRuntimeExperience(input: {
   session: FacilitySession;
   unitId: string;
@@ -124,6 +150,7 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
           departmentId={department.id}
           unitId={input.unitId}
           requirement={requirement}
+          evidenceHref={linkedRecordHref(loaded.flow, input.unitId, requirement)}
           canonicalOffline={Boolean(input.spaceId)}
           deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
           deviceBoundUnitId={deviceBoundUnitId}

@@ -45,7 +45,7 @@ export function DepartmentGovernanceSection({ departmentId, current, manageHref 
     >
       <h2 className="text-sm font-semibold text-zinc-900">Department governance</h2>
       <p className="mt-1 text-xs text-zinc-500">
-        Operating organization is who runs this department. It does not grant facility access.
+        The operating organization runs this Department. A vendor-run Department is controlled by that company. Saving this does not create the company.
       </p>
 
       <dl className="mt-3 space-y-2 text-sm">

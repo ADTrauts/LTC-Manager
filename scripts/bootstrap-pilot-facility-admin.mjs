@@ -35,7 +35,8 @@ import {
   parseDatabaseName,
   redactDatabaseUrl,
 } from "./verify/lib/database-target.mjs";
-import { applyLogTemplatePresets } from "../prisma/apply-log-template-presets.mjs";
+import { upsertPublishedCatalogSeeds } from "../prisma/apply-catalog-log-seeds.mjs";
+import { installMatchedCatalogRecords } from "../prisma/apply-log-template-presets.mjs";
 import { upsertDefaultDepartments } from "../prisma/ensure-departments.mjs";
 
 const UNSAFE_PASSWORDS = new Set([
@@ -173,7 +174,6 @@ async function main() {
       const facility = await tx.facility.create({
         data: {
           displayName: facilityName,
-          managementCompanyName: managementCompany,
           organizationId: organization.id,
           billingEmail: faEmail,
           timezone,
@@ -209,10 +209,8 @@ async function main() {
     });
 
     await upsertDefaultDepartments(prisma, created.facility.id);
-    await applyLogTemplatePresets(prisma, {
-      facilityId: created.facility.id,
-      createdByRoleId: existingFaRole.id,
-    });
+    await upsertPublishedCatalogSeeds(prisma);
+    await installMatchedCatalogRecords(prisma, { facilityId: created.facility.id });
 
     // Completion record — no secrets printed.
     console.log("bootstrap-pilot-admin: PASS");
@@ -229,8 +227,7 @@ async function main() {
         ? "  onboarding: marked complete"
         : "  onboarding: started — complete remaining Admin setup in UI",
     );
-    console.log("Next: configure Dietary Department locations, Employees, devices, meal times;");
-    console.log("      set OPERATIONAL_ASSIGNMENTS_ENABLED=true; keep OPERATION_ENGINE_ENABLED=false.");
+    console.log("Next: configure Dietary Department locations, Employees, devices, and meal times.");
   } finally {
     await prisma.$disconnect();
   }

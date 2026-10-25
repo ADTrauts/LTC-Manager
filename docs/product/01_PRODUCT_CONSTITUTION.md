@@ -82,8 +82,7 @@ Vssyl Platform                 every facility
 **Capabilities come with the installed Department.**
 - An installed Department gets everything its Department Product includes. When billing enforcement is on, its license must also be valid.
 - Deployment-wide switches no longer turn a Product's capabilities on or off.
-- Release status still keeps DEVELOPMENT Products from customers. Internal preview uses an install in an internal facility, as Plant does today.
-- Today the code still checks the switches for Food & Nutrition and EVS, and some Plant checks. They retire in LEG-05 ([LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026)).
+- Release status still keeps DEVELOPMENT Products from customers. Internal preview uses an install in an internal facility, as Plant does today. Plant has no env override ([LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026)).
 
 **Foundation round (decided by the product owner, October 20, 2026).** The [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) records each owner.
 
@@ -116,10 +115,10 @@ Vssyl Platform                 every facility
 
 | Text | Replaced by |
 |---|---|
-| Principle 7 names the Operations Engine, Operations Center, Business Workspace and Today's Work | The Operation entity retired on September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)), and its tables drop at LEG-06. The homes are replaced by the Dashboard at [DSH-04](../dashboard/PHASED_PLAN.md). |
+| Principle 7 names the Operations Engine, Operations Center, Business Workspace and Today's Work | The Operation entity retired on September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)). Its tables were dropped in LEG-06. The homes are the Dashboard ([DSH-04](../dashboard/PHASED_PLAN.md)). |
 | "Managers begin in Business Workspace", "Supervisors begin in Today's Work", "Manager daily home (Business Workspace)" | The Dashboard ([DSH-04](../dashboard/PHASED_PLAN.md)) |
 | "Department operating Organization as date-effective governance metadata" | Vendor-run Departments ([CDA-07](../contracted-departments/PHASED_PLAN.md)) |
-| Legacy `/logs` as the live path while `CANONICAL_LOGS_ENABLED` is off | The Records cutover ([LEG-03](../legacy-retirement/PHASED_PLAN.md)) |
+| Legacy `/logs` as a live record store | The Catalog record chain. The legacy tables were dropped in LEG-06. |
 
 ### Shared mechanisms
 
@@ -143,7 +142,7 @@ CatalogLogDefinition
 
 `CatalogLogDefinition` is the Vssyl-published product definition. `FacilityCatalogInstall` is the facility’s adoption reference (not a field copy, and not an `OperationalTemplate` clone). `LogAttachment` is the facility requirement segment (target, timing, local overlay, pinned catalog version). Expected slots are derived (`resolveLogRequirementsForAttachment`). The submitted fact is `OperationalEvidenceRecord`. Missing expected Records are derived. Procedures are knowledge, not Records.
 
-This chain is live when `CANONICAL_LOGS_ENABLED=true`. The flag defaults **off**. While it is off, legacy `/logs` (`LogTemplate` / `LogAssignment` / `LogSubmission`) is the live compatibility path — not the forward architecture. `OperationalTemplate` is the previous facility-owned definition engine (Phase 9C). It is not the next layer after Catalog.
+This chain is the Record path. The legacy log, inspection, and operational-template tables were dropped in LEG-06. `CANONICAL_LOGS_ENABLED` remains a code flag and is not a second record store.
 
 Harbor / Vssyl Template Studio (`/console/catalog`) authors `CatalogLogDefinition` + `CatalogLogField` using the existing `OperationalEvidenceFieldType` set. Field identity is `fieldKey`, not the label. Catalog schedule and applicability metadata are Marketplace recommendations only; the facility `LogAttachment` remains the live requirement.
 
@@ -279,7 +278,7 @@ Operations Engine, Work Engine, and Readiness are **substrate**. Business Worksp
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  
 - Knowledge bound to work  
 - Organization parent + explicit multi-facility access  
-- Department operating Organization as date-effective governance metadata (does not grant Facility access)  
+- A vendor-run Department is controlled by its operator, who owns that period's data. Vendor accounts open the Departments their company runs. The relationship stays date-effective.  
 - Commercial licensing of **operational departments** (not seats)  
 - Design system and navigation zones that enforce the above  
 
@@ -332,10 +331,9 @@ Operational Cycle (what window is active)
   → Audit / Reports (what was expected, and what was recorded)
 ```
 
-Managers begin in **Business Workspace**.  
-Supervisors begin in **Today's Work**.  
+Supervisors and above begin in the **Dashboard**.  
 Floor staff begin in **Unit Workspace** (or logs if no unit is locked).  
-**Operations Center** is a retired peer destination. Site awareness lives on Dashboard and Today's Work.
+**Operations Center** is a retired peer destination. Site awareness lives on the Dashboard. Detail lives in the area that owns it.
 
 ---
 

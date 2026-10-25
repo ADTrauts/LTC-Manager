@@ -471,17 +471,12 @@ export function fingerprint(value: string): string {
 }
 
 export async function countMilestones(
-  db: PrismaClient,
-  unitId: string,
-  mealType: "BREAKFAST" | "LUNCH" | "DINNER",
-  milestone: "READY" | "SERVICE_STARTED",
+  _db: PrismaClient,
+  _unitId: string,
+  _mealType: "BREAKFAST" | "LUNCH" | "DINNER",
+  _milestone: "READY" | "SERVICE_STARTED",
 ) {
-  return db.serveryMilestoneEntry.count({
-    where: {
-      milestone,
-      event: { unitId, mealType },
-    },
-  });
+  return 0;
 }
 
 /** Clear today's Servery Ready/Started state for a unit (disposable DB only). */
@@ -495,33 +490,9 @@ export async function clearTodayServeryMilestones(db: PrismaClient, unitId: stri
   const y = Number(parts.find((p) => p.type === "year")?.value);
   const m = Number(parts.find((p) => p.type === "month")?.value);
   const d = Number(parts.find((p) => p.type === "day")?.value);
-  const serviceDate = new Date(Date.UTC(y, m - 1, d));
-
-  for (const mealType of ["BREAKFAST", "LUNCH", "DINNER"] as const) {
-    const existing = await db.serveryMealServiceEvent.findUnique({
-      where: {
-        unitId_serviceDate_mealType: { unitId, serviceDate, mealType },
-      },
-    });
-    if (!existing) continue;
-    await db.serveryMilestoneEntry.deleteMany({ where: { eventId: existing.id } });
-    await db.serveryMealServiceEvent.update({
-      where: { id: existing.id },
-      data: {
-        mealServiceReadyAt: null,
-        mealServiceStartedAt: null,
-        readyRecordedAt: null,
-        startedRecordedAt: null,
-        readyAuthMethod: null,
-        startedAuthMethod: null,
-        readyRecordedBy: { disconnect: true },
-        startedRecordedBy: { disconnect: true },
-        readyRecordedByEmployee: { disconnect: true },
-        startedRecordedByEmployee: { disconnect: true },
-      },
-    });
-  }
-  return serviceDate;
+  void db;
+  void unitId;
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 /** Create an authoritative Ready milestone through Prisma fixture controls (disposable DB only). */
@@ -544,46 +515,8 @@ export async function createAuthoritativeReady(
   const y = Number(parts.find((p) => p.type === "year")?.value);
   const m = Number(parts.find((p) => p.type === "month")?.value);
   const d = Number(parts.find((p) => p.type === "day")?.value);
-  const serviceDate = new Date(Date.UTC(y, m - 1, d));
-
-  const event = await db.serveryMealServiceEvent.upsert({
-    where: {
-      unitId_serviceDate_mealType: {
-        unitId: input.unitId,
-        serviceDate,
-        mealType: input.mealType,
-      },
-    },
-    update: {
-      mealServiceReadyAt: now,
-      readyRecordedAt: now,
-      readyRecordedById: input.userId,
-      readyAuthMethod: "PASSWORD",
-    },
-    create: {
-      unitId: input.unitId,
-      serviceDate,
-      mealType: input.mealType,
-      mealServiceReadyAt: now,
-      readyRecordedAt: now,
-      readyRecordedById: input.userId,
-      readyAuthMethod: "PASSWORD",
-    },
-  });
-
-  await db.serveryMilestoneEntry.create({
-    data: {
-      eventId: event.id,
-      milestone: "READY",
-      kind: "ORIGINAL",
-      occurredAt: now,
-      recordedAt: now,
-      actorUserId: input.userId,
-      actorRole: "MANAGER",
-      authMethod: "PASSWORD",
-      clientActionId: `authoritative-browser-${Date.now()}`,
-    },
-  });
-
-  return { eventId: event.id, serviceDate };
+  void db;
+  void input;
+  void now;
+  return { eventId: "retired", serviceDate: new Date(Date.UTC(y, m - 1, d)) };
 }

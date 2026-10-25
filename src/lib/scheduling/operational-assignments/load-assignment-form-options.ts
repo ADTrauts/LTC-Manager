@@ -23,7 +23,6 @@ export type AssignmentFormOptions = {
   employees: { id: string; firstName: string; lastName: string }[];
   roles: OperationalRoleDefinition[];
   units: { id: string; name: string }[];
-  operations: { id: string; label: string }[];
   spaces: AssignmentFormSpaceOption[];
   zones: AssignmentFormZoneOption[];
 };
@@ -32,11 +31,8 @@ export async function loadAssignmentFormOptions(input: {
   facilityId: string;
   departmentId: string;
   departmentKey: string;
-  serviceDate: string;
 }): Promise<AssignmentFormOptions> {
-  const dateStart = new Date(`${input.serviceDate}T00:00:00`);
-
-  const [employees, units, operations, spaces, zones] = await Promise.all([
+  const [employees, units, spaces, zones] = await Promise.all([
     prisma.employee.findMany({
       where: {
         facilityId: input.facilityId,
@@ -53,16 +49,6 @@ export async function loadAssignmentFormOptions(input: {
       where: { facilityId: input.facilityId, isActive: true },
       orderBy: { displayOrder: "asc" },
       select: { id: true, name: true },
-    }),
-    prisma.operationInstance.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        serviceDate: dateStart,
-        status: { in: ["SCHEDULED", "PREPARATION", "EXECUTION"] },
-      },
-      orderBy: { scheduledStartLocal: "asc" },
-      select: { id: true, label: true },
     }),
     input.departmentKey === "EVS"
       ? prisma.unitSpace.findMany({
@@ -97,7 +83,6 @@ export async function loadAssignmentFormOptions(input: {
     employees,
     roles,
     units,
-    operations,
     spaces: spaces.map((s) => ({
       id: s.id,
       label: formatRoomDisplayName(s),

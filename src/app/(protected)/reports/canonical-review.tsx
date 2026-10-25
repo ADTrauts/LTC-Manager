@@ -105,6 +105,7 @@ export function CanonicalReview({
   auditSlots = null,
   timingRows = null,
   departmentId = "",
+  showLegacyReport = true,
 }: {
   presentation: OperationalReviewDayPresentation;
   spaceId: string | null;
@@ -114,6 +115,7 @@ export function CanonicalReview({
   auditSlots?: readonly AuditRecordSlot[] | null;
   timingRows?: readonly TimingAuditRow[] | null;
   departmentId?: string | null;
+  showLegacyReport?: boolean;
 }) {
   const subtitle = presentation.isToday
     ? `${presentation.serviceDateLabel}. This is Audit / Reports for the current service day — live work continues in Run.`
@@ -135,7 +137,12 @@ export function CanonicalReview({
         subtitle={subtitle}
         below={
           <div className="space-y-4">
-            <ReviewModeNav activeId="review" date={presentation.serviceDate} spaceId={spaceId} />
+            <ReviewModeNav
+              activeId="review"
+              date={presentation.serviceDate}
+              spaceId={spaceId}
+              showLegacy={showLegacyReport}
+            />
             <ReviewDateForm
               start={presentation.serviceDate}
               end={presentation.serviceDate}

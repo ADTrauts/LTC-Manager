@@ -18,21 +18,11 @@ import {
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export async function listRecordEngineRollouts(
-  client: Db,
-  facilityId: string,
-  departmentId: string,
+  _client: Db,
+  _facilityId: string,
+  _departmentId: string,
 ): Promise<RecordEngineRollout[]> {
-  const rows = await client.recordEngineRollout.findMany({
-    where: { facilityId, departmentId },
-    orderBy: { effectiveFromServiceDate: "asc" },
-    select: { facilityId: true, departmentId: true, mode: true, effectiveFromServiceDate: true },
-  });
-  return rows.map((row) => ({
-    facilityId: row.facilityId,
-    departmentId: row.departmentId,
-    mode: row.mode,
-    effectiveFromServiceDate: row.effectiveFromServiceDate,
-  }));
+  return [];
 }
 
 export async function effectiveRecordEngine(input: {
@@ -42,11 +32,18 @@ export async function effectiveRecordEngine(input: {
   client?: Db;
 }): Promise<RecordEngineMode> {
   const client = input.client ?? prisma;
-  const rollouts = await listRecordEngineRollouts(client, input.facilityId, input.departmentId);
+  const [rollouts, department] = await Promise.all([
+    listRecordEngineRollouts(client, input.facilityId, input.departmentId),
+    client.department.findFirst({
+      where: { id: input.departmentId, facilityId: input.facilityId },
+      select: { key: true },
+    }),
+  ]);
   return resolveRecordEngine({
     capabilityEnabled: isCanonicalLogsEnabled(),
     facilityId: input.facilityId,
     departmentId: input.departmentId,
+    departmentKey: department?.key ?? null,
     serviceDate: input.serviceDate,
     rollouts,
   });
@@ -91,7 +88,6 @@ export async function scheduleRecordEngineChange(input: {
   actorLabel: string | null;
   activeAttachmentCount?: number;
   attachmentSetupErrorCount?: number;
-  pmUsesOperationalTemplate?: boolean;
 }) {
   const client = input.client ?? prisma;
   const department = await client.department.findFirst({
@@ -105,7 +101,6 @@ export async function scheduleRecordEngineChange(input: {
     todayKey: input.todayKey,
     activeAttachmentCount: input.activeAttachmentCount ?? 0,
     attachmentSetupErrorCount: input.attachmentSetupErrorCount ?? 0,
-    pmUsesOperationalTemplate: input.pmUsesOperationalTemplate === true,
   });
   if (input.mode === "LEGACY") {
     const legacyBlockers = readiness.blockers.filter(
@@ -118,28 +113,13 @@ export async function scheduleRecordEngineChange(input: {
   } else if (readiness.status === "BLOCKED") {
     throw new Error(readiness.blockers[0] ?? "Canonical Records are not ready for this department.");
   }
-  const existing = await client.recordEngineRollout.findUnique({
-    where: {
-      facilityId_departmentId_effectiveFromServiceDate: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        effectiveFromServiceDate: input.effectiveFromServiceDate,
-      },
-    },
-    select: { id: true, mode: true },
-  });
-  if (existing) {
-    if (existing.mode === input.mode) return existing;
-    throw new Error("That service date already has a Record engine decision. Choose another service date.");
+  if (input.mode === "LEGACY") {
+    throw new Error("Previous Logs are retired. This department uses forward Records.");
   }
-  return client.recordEngineRollout.create({
-    data: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      mode: input.mode,
-      effectiveFromServiceDate: input.effectiveFromServiceDate,
-      actorUserId: input.actorUserId,
-      actorLabel: input.actorLabel,
-    },
-  });
+  return {
+    id: "forward-records",
+    mode: input.mode,
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  };
 }

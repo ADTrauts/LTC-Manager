@@ -323,10 +323,8 @@ test("resolver provenance distinguishes OT, explicit, department-wide, and legac
     "Applies to the entire department",
   );
   assert.equal(
-    describeCycleApplicability(
-      matchCycleApplicability({ cycle: physical, allCyclesByStableKey: byKey, context })!,
-    ),
-    "Legacy applicability: Physical Room Type",
+    matchCycleApplicability({ cycle: physical, allCyclesByStableKey: byKey, context }),
+    null,
   );
   assert.notEqual(physical.locationMode, "OPERATIONAL_TYPES");
 });
@@ -372,8 +370,7 @@ test("physical ROOM_TYPE never masquerades as Operational Type", () => {
       physicalRoomTypeKey: "servery",
     },
   });
-  assert.deepEqual(match?.sources, ["LEGACY_PHYSICAL_ROOM_TYPE"]);
-  assert.equal(match?.operationalTypeKey, null);
+  assert.equal(match, null);
   assert.equal(
     cycleAppliesToSpace(physical, "s1", byKey, { operationalTypeKey: "servery" }),
     false,

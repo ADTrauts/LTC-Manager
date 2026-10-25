@@ -5,7 +5,6 @@
  */
 
 import type { FacilitySession } from "@/lib/auth";
-import { isProjectionLocationsEnabled } from "@/lib/feature-flags";
 import type {
   ProjectionRuntimeMemo,
   ProjectionRuntimeResult,
@@ -43,16 +42,6 @@ export async function loadLocationsView(
   session: FacilitySession,
   options: LoadLocationsViewOptions = {},
 ): Promise<LoadLocationsViewResult> {
-  if (!isProjectionLocationsEnabled()) {
-    return {
-      enabled: false,
-      view: null,
-      projectedUnitIds: [],
-      error: null,
-      metrics: null,
-    };
-  }
-
   const loaded = await loadProjectedLocationView(session, {
     ...options,
     purpose: "LOCATIONS",

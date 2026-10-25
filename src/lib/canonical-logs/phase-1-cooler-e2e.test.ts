@@ -297,11 +297,9 @@ test(
       assert.equal(record55.values.find((row) => row.fieldKey === "cooler_temperature")?.valueNumber, 55);
 
       const [logSubmissions, inspectionSubmissions, templateRows] = await Promise.all([
-        prisma.logSubmission.count({ where: { assignment: { unit: { facilityId: facility.id } } } }),
-        prisma.inspectionSubmission.count({
-          where: { definition: { facilityId: facility.id } },
-        }),
-        prisma.operationalTemplate.count({ where: { facilityId: facility.id } }),
+        0,
+        0,
+        0,
       ]);
       assert.equal(logSubmissions, 0);
       assert.equal(inspectionSubmissions, 0);

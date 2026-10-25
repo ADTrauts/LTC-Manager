@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma } from "@prisma/client";
 
+import { recordMatchesPinnedRequirement } from "./work-order-closeout-gate";
 import {
   formatWorkOrderCloseoutBlockedMessage,
   parseNonNegativeDecimal,
@@ -9,6 +10,34 @@ import {
   projectRecordedExpense,
   validateWorkOrderCloseout,
 } from "./work-order-closeout";
+
+test("a Catalog form satisfies the requirement for that asset", () => {
+  const requirement = {
+    templateId: "template-old",
+    templateVersion: 1,
+    catalogDefinitionId: "form-1",
+    catalogVersion: 1,
+  };
+  assert.equal(
+    recordMatchesPinnedRequirement({
+      requirement,
+      record: { templateId: null, templateVersion: 1, catalogDefinitionId: "form-1", assetId: "asset-1" },
+      assetId: "asset-1",
+    }).ok,
+    true,
+  );
+  const otherAsset = recordMatchesPinnedRequirement({
+    requirement,
+    record: { templateId: null, templateVersion: 1, catalogDefinitionId: "form-1", assetId: "asset-2" },
+    assetId: "asset-1",
+  });
+  assert.equal(otherAsset.ok, false);
+  const templateOnly = recordMatchesPinnedRequirement({
+    requirement: { templateId: "template-1", templateVersion: 2, catalogDefinitionId: null },
+    record: { templateId: "template-1", templateVersion: 2, catalogDefinitionId: null },
+  });
+  assert.equal(templateOnly.ok, true);
+});
 
 test("closeout gate: missing labor is not the same as zero minutes", () => {
   const missingLabor = validateWorkOrderCloseout({

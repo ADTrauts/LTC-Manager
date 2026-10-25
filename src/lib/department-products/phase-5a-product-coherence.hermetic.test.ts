@@ -104,7 +104,6 @@ test("Unit/Space Report a problem mounts Request intake, not Issue create", () =
 
 test("Plant Builder exposes Work and Maintenance without Menus", () => {
   const tabs = departmentAdminTabsForFlags({
-    profilesEnabled: true,
     workEnabled: true,
     recordsEnabled: true,
     maintenanceEnabled: true,
@@ -135,9 +134,11 @@ test("Getting Started is derived guidance and never a persisted score", () => {
   assert.doesNotMatch(gettingStarted, /SETUP_COMPLETE/);
 });
 
-test("Plant runtime helper is installed Product or DEVELOPMENT override", () => {
+test("Plant runtime follows install plus Harbor or customer access", () => {
   const runtime = source("src/lib/department-products/plant-runtime.ts");
-  assert.match(runtime, /isPlantOperationsDevelopmentOverrideEnabled/);
+  assert.doesNotMatch(runtime, /isPlantOperationsDevelopmentOverrideEnabled/);
+  assert.doesNotMatch(runtime, /PLANT_OPERATIONS_ENABLED/);
+  assert.match(runtime, /developmentOverride: false/);
   assert.match(runtime, /matchDepartmentRecordForProduct/);
   assert.match(runtime, /hasInternalDepartmentProductAccess/);
   assert.match(runtime, /isDepartmentRowCustomerOperable/);

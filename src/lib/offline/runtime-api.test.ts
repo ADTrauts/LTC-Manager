@@ -35,14 +35,16 @@ async function getFixture(): Promise<Fixture | null> {
   const { PrismaClient: Client } = await import("@prisma/client");
   const db = new Client({ datasources: { db: { url: TEST_DATABASE_URL } } });
 
-  // Dedicated compatibility scope: shared seed cycles can legitimately select a
-  // different timing engine. Exercise the retained offline milestone contract.
+  // Dedicated scope so shared seed Cycles do not choose the timing model.
+  // Ready is a Key Point. Replaying the same command stays accepted; a second
+  // command for that moment is a conflict.
   const tag = randomUUID();
   const organization = await db.organization.create({ data: { name: `Offline SQL ${tag}` } });
   const facility = await db.facility.create({ data: { organizationId: organization.id, displayName: `Offline SQL ${tag}`, timezone: "America/New_York" } });
   const dietary = await db.department.create({ data: { facilityId: facility.id, key: "DIETARY", name: "Dietary" } });
   const unit = await db.unit.create({ data: { facilityId: facility.id, name: "Offline test servery", unitType: "SERVERY", hierarchyRole: "NEIGHBORHOOD", mealTimes: { create: [{ mealType: "BREAKFAST", scheduledTime: "07:30", isActive: true }] }, departmentResponsibilities: { create: { departmentId: dietary.id, kind: "PRIMARY" } } } });
-  await db.departmentOperationalCycle.create({ data: { facilityId: facility.id, departmentId: dietary.id, stableKey: "breakfast", version: 1, label: "Offline compatibility breakfast", cycleType: "SERVICE", mealType: "BREAKFAST", status: "PUBLISHED", startLocal: "00:00", endLocal: "23:59", expectedMilestones: ["READY", "SERVICE_STARTED"], applicableDaysOfWeek: [0,1,2,3,4,5,6], effectiveFrom: new Date("2020-01-01"), locationMode: "EXPLICIT_UNITS", locations: { create: { unitId: unit.id } } } });
+  await db.departmentOperationalCycle.create({ data: { facilityId: facility.id, departmentId: dietary.id, stableKey: "breakfast", version: 1, label: "Offline breakfast", cycleType: "SERVICE", mealType: "BREAKFAST", status: "PUBLISHED", startLocal: "00:00", endLocal: "23:59", expectedMilestones: [], applicableDaysOfWeek: [0,1,2,3,4,5,6], effectiveFrom: new Date("2020-01-01"), locationMode: "EXPLICIT_UNITS", locations: { create: { unitId: unit.id } } } });
+  await db.departmentOperationalCycle.create({ data: { facilityId: facility.id, departmentId: dietary.id, stableKey: "breakfast_ready", parentStableKey: "breakfast", nodeKind: "KEY_TIME", occurrenceTracking: "REQUIRED", keyPointGrain: "DEPARTMENT", version: 1, label: "Breakfast ready", cycleType: "SERVICE", mealType: "BREAKFAST", status: "PUBLISHED", applicableDaysOfWeek: [0,1,2,3,4,5,6], effectiveFrom: new Date("2020-01-01"), locationMode: "ALL_DEPARTMENT_UNITS" } });
   const employee = await db.employee.create({ data: { facilityId: facility.id, firstName: "Offline", lastName: "Tester", email: `offline-${tag}@example.test`, roleType: "STAFF", status: "ACTIVE", primaryDepartmentId: dietary.id, pinDigest: createHmac("sha256", process.env.AUTH_SECRET!).update(`${facility.id}:246813`).digest("hex"), employeeDepartments: { create: { departmentId: dietary.id, roleType: "STAFF" } }, unitAccesses: { create: { unitId: unit.id } } } });
 
   fixture = {
@@ -107,10 +109,7 @@ test("processSyncCommand accepts idempotent offline ready command", { skip }, as
     sessionVersion: 0,
   };
 
-  const meal = await fx.db.unitMealTime.findFirst({
-    where: { unitId: fx.unitId, isActive: true },
-    select: { mealType: true },
-  });
+  const meal = { mealType: "BREAKFAST" as const };
   assert.ok(meal);
 
   const clientCommandId = `offline-test-${Date.now()}`;
@@ -163,10 +162,7 @@ test("duplicate different command creates conflict review", { skip }, async () =
     sessionVersion: 0,
   };
 
-  const meal = await fx.db.unitMealTime.findFirst({
-    where: { unitId: fx.unitId, isActive: true },
-    select: { mealType: true },
-  });
+  const meal = { mealType: "BREAKFAST" as const };
   assert.ok(meal);
 
   const base = {

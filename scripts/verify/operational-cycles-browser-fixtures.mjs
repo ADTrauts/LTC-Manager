@@ -111,18 +111,9 @@ async function ensureUnitMealTimes(db, unitId, offsetsMinutes) {
     { mealType: "LUNCH", scheduledTime: minutesToHhMm(12 * 60 + offsetsMinutes) },
     { mealType: "DINNER", scheduledTime: minutesToHhMm(17 * 60 + offsetsMinutes) },
   ];
-  for (const meal of meals) {
-    await db.unitMealTime.upsert({
-      where: { unitId_mealType: { unitId, mealType: meal.mealType } },
-      update: { scheduledTime: meal.scheduledTime, isActive: true },
-      create: {
-        unitId,
-        mealType: meal.mealType,
-        scheduledTime: meal.scheduledTime,
-        isActive: true,
-      },
-    });
-  }
+  void meals;
+  void db;
+  void unitId;
 }
 
 function minutesToHhMm(totalMinutes) {

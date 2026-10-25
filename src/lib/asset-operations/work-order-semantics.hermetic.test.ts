@@ -4,6 +4,7 @@ import test from "node:test";
 import { getDepartmentProduct } from "@/lib/department-products";
 
 import {
+  currentRepairStatusWrite,
   ALL_REPAIR_PRIORITIES,
   ALL_REPAIR_STATUSES,
   DEFAULT_MAINTENANCE_CATEGORIES,
@@ -51,6 +52,17 @@ test("legacy waiting statuses infer hold reason; new ON_HOLD uses stored reason"
     "WAITING_FOR_VENDOR",
   );
   assert.equal(presentWorkOrderHoldReason({ status: "OPEN", holdReason: null }), null);
+});
+
+test("closed writes persist COMPLETED", () => {
+  assert.deepEqual(currentRepairStatusWrite("CLOSED"), {
+    status: "COMPLETED",
+    holdReason: null,
+  });
+  assert.deepEqual(currentRepairStatusWrite("WAITING_PARTS"), {
+    status: "ON_HOLD",
+    holdReason: "WAITING_FOR_PART",
+  });
 });
 
 test("new hold writes persist ON_HOLD plus reason, not WAITING_*", () => {

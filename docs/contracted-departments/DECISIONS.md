@@ -13,8 +13,8 @@ Evidence is in the [current-state audit](./CURRENT_STATE_AUDIT_2026-10-20.md). T
 | **Head (title: Department head or GM)** | Runs the Department: rules, functionality, people | Runs the Department: rules, functionality, people |
 | **Staff and roles** | Added and set by the head and managers the head allows | Added and set by the head and managers the head allows |
 | **People in other Departments** | See nothing of it, except cross-Department work. Only Plant shares its assets. | Same |
-| **Assets it uses** | Facility property. Seen by this Department, Plant and the Facility Administrator. Its head picks the maintainer: Plant or the vendor. | Same. If the vendor maintains an asset, the vendor's team runs and pays for its repairs, with its own repair companies. |
-| **Data** | Belongs to the facility | Belongs to the vendor. On contract end it is archived with the vendor. The facility can read compliance Records during and after the contract. Assets and their repair history stay with the facility. |
+| **Assets it uses** | Facility property. Seen by this Department, Plant and the Facility Administrator. Its head picks the maintainer: Plant or the vendor. | The operating partner can add the asset and set its title, maintainer, and repair vendor. Title is the facility or that partner. Facility-titled equipment stays. Partner-titled equipment leaves with the partner ([CDA-D22](#cda-d22--an-operating-partner-can-add-assets-and-set-title--accepted-user-october-25-2026)). |
+| **Data** | Belongs to the facility | Belongs to the vendor. On contract end it is archived with the vendor. The facility can read compliance Records during and after the contract. Facility-titled assets stay. Partner-titled assets leave (CDA-D22). |
 
 ---
 
@@ -122,7 +122,8 @@ When the vendor's team asks Plant for a repair, the request and work order are P
 | Setup: menus, recipes, Work Plans, Operating Rhythm, job roles, staffing templates | Archived with the vendor. The next operator starts from Vssyl's standard starters. |
 | Vendor employee records: profiles, schedules, discipline | Go with the vendor entirely |
 | Plant requests and work orders | Stay with the facility (CDA-D09) |
-| Assets, including the ones the vendor maintained, and their repair history | Stay with the facility (CDA-D18) |
+| Facility-titled assets, and their repair history | Stay with the facility (CDA-D18, refined by CDA-D22) |
+| Partner-titled assets | Leave with the partner. The facility keeps a closed note that the equipment was on site and when it left (CDA-D22) |
 | Repair costs the vendor paid, and the vendor's own repair companies | Go with the vendor (CDA-D18) |
 | Who can open the archive | The vendor's company admin only |
 
@@ -189,7 +190,7 @@ Rules for those changes:
 
 ## CDA-D15 — Superseded statements and amendment schedule — accepted October 20, 2026
 
-Amended at the final phase (CDA-07), when enforcement is enabled. Until then, current behavior stands.
+Amended October 25, 2026, when production enforcement was set. The code default stays off.
 
 | Document | Statement | Amendment |
 |---|---|---|
@@ -259,8 +260,11 @@ Amended at the final phase (CDA-07), when enforcement is enabled. Until then, cu
 - **When a facility-maintained asset breaks**, Plant runs the work order and the facility pays, as today.
 - **Each maintainer keeps its own list of repair companies.** Metz's list is private to Metz. Plant's list is the facility's.
 - **When a vendor's contract ends:**
-  - the asset record and its repair history stay with the facility
+  - a facility-titled asset and its repair history stay with the facility
+  - a partner-titled asset leaves with the partner (CDA-D22)
   - the repair costs the vendor paid go with the vendor
+
+Title, who owns the equipment, is separate from the maintainer. [CDA-D22](#cda-d22--an-operating-partner-can-add-assets-and-set-title--accepted-user-october-25-2026) is that rule. This decision still names the user, the maintainer, and the repair company.
 
 **Program defaults that follow:**
 - On vendor-run work orders, costs and the repair company's name are visible only to the vendor's team. The facility keeps what was done and when.
@@ -356,6 +360,85 @@ Counts and status only. No names, no links.
 - Until they accept, the current maintainer stays.
 - The Facility Administrator sees every maintainer change.
 
+## CDA-D20 — A Partner GM sets up their Department inside the facility — accepted (user) October 24, 2026
+
+**User wording:** "A partner GM still needs some Build capabilities. It should be able to be semi-autonomous and operate within the facility structure but can make some decisions on their own."
+
+CDA-05 gave the accepted head People (a PIN record) and Department (a form with one field). A self-operated Manager still has the Department's setup screens. This is the rest of [CDA-D06](#cda-d06--vendor-run-departments--accepted-user-october-20-2026) and [CDA-D07](#cda-d07--vendor-people-sign-in-with-vendor-accounts--accepted-user-october-20-2026): the head runs the Department, on the partner workspace, limited to the Departments their company operates.
+
+**The facility keeps the structure.**
+
+- Floors, rooms, and which Department is responsible for a room.
+- Which company operates the Department.
+- The rooms and which Department is responsible for each room. The operating partner adds assets inside those rooms and sets title, maintainer, and repair vendor ([CDA-D22](#cda-d22--an-operating-partner-can-add-assets-and-set-title--accepted-user-october-25-2026)). Plant still shares the assets that are on site ([CDA-D18](#cda-d18--assets-are-facility-property-shared-with-plant--accepted-user-october-20-2026)).
+
+**The Partner GM decides how their company runs inside that structure.**
+
+- Their people, teams, and schedule. Hourly staff stay on a PIN. Leaders stay on vendor accounts.
+- Operating rhythm, work plans, and menus for their Department.
+- Forms the company owns, through the same Catalog, usable at every facility that company runs ([LEG-D19](../legacy-retirement/DECISIONS.md#leg-d19--departments-and-vendors-can-make-their-own-forms--accepted-user-october-20-2026)).
+- Which of their assets their company maintains, and their own repair companies.
+- Title on the assets they add: the facility, or their own company (CDA-D22).
+
+They do not receive Facility Builder, Administration, or another Department's pages. The same role floors apply: a Partner Manager who is the accepted head can set the Department up; a Partner Operator fills Logs; a Partner Viewer reads.
+
+This is [CDA-08](./PHASED_PLAN.md#cda-08--partner-gm-build). It starts after LEG-04. It is not part of LEG-04.
+
+## CDA-D21 — Vssyl Console creates the partner company — accepted (user) October 24, 2026
+
+**User wording:** "The organization/partners need some help getting set up and I believe that work should happen in Vssyl Console. Console should be able to create the partner company's workspace, add the initial administrator, and other members."
+
+A company such as Metz exists once, then connects to each facility it serves. Console is where that company is born.
+
+**What exists today, and what it does not do.**
+
+- Console **New customer** creates a facility, its parent company, and the Facility Administrator. It does not create a company administrator or members. A new company can sit unclaimed.
+- Console **Organization Claims** approves the first Organization Administrator after someone requests it. Approval does not give that person facility access.
+- The Facility Administrator can type a company name under Partners and attach it to that one facility. That creates the company record and the partnership. It does not create the administrator, the members, or a login.
+
+**What Console adds.**
+
+- A Harbor owner creates the partner company.
+- Console invites the first Organization Administrator and the first members.
+- That invitation does not grant facility access.
+- The claim queue stays for a company that already exists and has no administrator.
+
+**What the facility does after that.**
+
+- The Facility Administrator attaches a company that already exists to the facility, and records it as a Department's operator.
+- Creating a company while saving a partnership stops being the way a company is born.
+
+The company administrator then invites later members and names the Department head, as in CDA-D06. This is [CDA-09](./PHASED_PLAN.md#cda-09--partner-company-setup-in-vssyl-console). It can be designed while LEG-04 finishes. It does not depend on call-offs.
+
+## CDA-D22 — An operating partner can add assets and set title — accepted (user) October 25, 2026
+
+**User wording:** "The operating partner needs access to add assets. They should be able to program who owns the equipment, who is responsible, and a vendor who fixes it. A managing partner might purchase and bring in the equipment, but the facility might be the true owners of the equipment. Alternatively the operating partner might have some proprietary equipment that might leave when the contract ends."
+
+The product owner accepted this into CDA-08 on October 25, 2026.
+
+Responsible maintainer and repair vendor are already on the asset. Title is not. CDA-D18 said the facility owns every asset. This decision adds title and lets the operating partner add the equipment.
+
+**On each asset the operating partner adds, for their Department, in the facility's rooms:**
+
+| Fact | Meaning | Where it lives |
+|---|---|---|
+| Title | Who owns the equipment: the facility, or the operating partner's company | New. Existing assets stay facility-titled. |
+| Responsible maintainer | Who keeps it up and pays the repair bill | `Asset.responsibleOrganizationId`, already there |
+| Repair vendor | The company that maintainer calls | `Asset.vendorId`, already there, from that maintainer's list |
+
+Equipment the partner buys and brings in can still be titled to the facility. Proprietary equipment is titled to the partner. Title is independent of who maintains the asset.
+
+**Who sees it.** While the asset is on site, the using Department, Plant, and the Facility Administrator see it, including its title. Another Department does not.
+
+**When the contract ends:**
+
+- Facility-titled equipment stays, with its repair history. The vendor's private costs still leave with the vendor.
+- Partner-titled equipment leaves with the partner. The facility keeps a closed note that it was on site and when it left. That note is not an active asset.
+
+A self-operated Department does not title equipment to a vendor. Only the company operating that Department can title an asset to itself.
+
+This is part of [CDA-08](./PHASED_PLAN.md#cda-08--partner-gm-build). It needs one new forward-only migration for title and the closed note.
+
 ---
 
 ## Revision history
@@ -409,3 +492,7 @@ Still true from the morning version:
 - The facility keeps governance and account security.
 - "Contracted" or "vendor-run" is derived from the operator relationship on the facility service date.
 - One resolver, behind a flag, with a write manifest.
+
+**October 24.** The product owner added the rest of vendor setup. A Partner GM sets up their Department inside the facility's rooms ([CDA-D20](#cda-d20--a-partner-gm-sets-up-their-department-inside-the-facility--accepted-user-october-24-2026)). Vssyl Console creates the partner company, its first administrator, and its first members ([CDA-D21](#cda-d21--vssyl-console-creates-the-partner-company--accepted-user-october-24-2026)). Both are required before a first customer with a vendor-run Department. Production enablement still needs LEG-07.
+
+**October 25.** LEG-07 is accepted. The operating partner can add assets and set title, maintainer, and repair vendor ([CDA-D22](#cda-d22--an-operating-partner-can-add-assets-and-set-title--accepted-user-october-25-2026)). Facility-titled equipment stays when the contract ends. Partner-titled equipment leaves, and the facility keeps a closed note.

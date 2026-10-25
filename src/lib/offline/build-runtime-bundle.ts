@@ -32,16 +32,16 @@ import {
   serializeEmployeeRuntimeJobFlowContext,
   serializeEmployeeRuntimeWorkContext,
 } from "@/lib/employee-runtime-flow";
-import {
-  isCanonicalLogsEnabled,
-  isOperationalAssignmentsEnabled,
-  isPlantOperationsEnabled,
-} from "@/lib/feature-flags";
+import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
 import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
+import {
+  dietaryMealTimingUpgradeRequired,
+  selectDietaryMealTimingModel,
+} from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import {
   loadSpaceOperationalTypeAssignments,
@@ -137,12 +137,7 @@ export async function buildRuntimeBundle(
       parentUnitId: true,
       updatedAt: true,
       facility: { select: { id: true, displayName: true, timezone: true } },
-      mealTimes: {
-        where: { isActive: true },
-        select: { mealType: true, scheduledTime: true, updatedAt: true },
-        orderBy: { mealType: "asc" },
-      },
-      childSpaces: {
+            childSpaces: {
         where: { isActive: true },
         select: { id: true, spaceType: true, customTypeLabel: true },
       },
@@ -180,7 +175,7 @@ export async function buildRuntimeBundle(
   const dietary = operationalDepartment;
   const includeMealMilestones = dietary.key === "DIETARY";
 
-  let runtimeMealTimes: typeof unit.mealTimes = [];
+  let runtimeMealTimes: Array<{ mealType: string; scheduledTime: string; updatedAt: Date }> = [];
   let keyTimeExpectations: NonNullable<OfflineRuntimeBundle["keyTimeExpectations"]> = [];
   if (includeMealMilestones) {
     const {
@@ -298,39 +293,6 @@ export async function buildRuntimeBundle(
     }
   }
 
-  const events = includeMealMilestones
-    ? await client.serveryMealServiceEvent.findMany({
-        where: { unitId: unit.id, serviceDate },
-        select: {
-          id: true,
-          mealType: true,
-          updatedAt: true,
-          mealServiceReadyAt: true,
-          mealServiceStartedAt: true,
-          readyRecordedAt: true,
-          startedRecordedAt: true,
-          readyRecordedBy: { select: { displayName: true } },
-          startedRecordedBy: { select: { displayName: true } },
-          readyRecordedByEmployee: { select: { firstName: true, lastName: true } },
-          startedRecordedByEmployee: { select: { firstName: true, lastName: true } },
-          entries: { select: { milestone: true, kind: true } },
-        },
-      })
-    : [];
-
-  const mealContext = includeMealMilestones
-    ? resolveServeryMealServiceContext({
-        unitType: "SERVERY",
-        mealTimes: runtimeMealTimes.map((m) => ({ mealType: m.mealType, scheduledTime: m.scheduledTime })),
-        now,
-        facilityTimezone,
-      })
-    : null;
-  const recordable = mealContext ? recordableMealForContext(mealContext) : null;
-
-  const employeeLabel = (e?: { firstName: string; lastName: string } | null) =>
-    e ? `${e.firstName} ${e.lastName}`.trim() : null;
-
   const timingCycles = includeMealMilestones
     ? await loadPublishedCyclesWithKeyTimesForDate(
         input.session.facilityId,
@@ -345,6 +307,40 @@ export async function buildRuntimeBundle(
       eventType,
       effectiveCycles: timingCycles,
     }) === "LEGACY_MILESTONES";
+  const legacyMealStillOwns =
+    includeMealMilestones && dietaryMealTimingUpgradeRequired(timingCycles);
+
+  const events: Array<{
+    id: string;
+    mealType: string;
+    updatedAt: Date;
+    mealServiceReadyAt: Date | null;
+    mealServiceStartedAt: Date | null;
+    readyRecordedAt: Date | null;
+    startedRecordedAt: Date | null;
+    readyRecordedBy: { displayName: string } | null;
+    startedRecordedBy: { displayName: string } | null;
+    readyRecordedByEmployee: { firstName: string; lastName: string } | null;
+    startedRecordedByEmployee: { firstName: string; lastName: string } | null;
+    entries: Array<{ milestone: string; kind: string }>;
+  }> = [];
+  void legacyMealStillOwns;
+
+  const mealContext = includeMealMilestones
+    ? resolveServeryMealServiceContext({
+        unitType: "SERVERY",
+        mealTimes: runtimeMealTimes.map((m) => ({
+          mealType: m.mealType as MealType,
+          scheduledTime: m.scheduledTime,
+        })),
+        now,
+        facilityTimezone,
+      })
+    : null;
+  const recordable = mealContext ? recordableMealForContext(mealContext) : null;
+
+  const employeeLabel = (e?: { firstName: string; lastName: string } | null) =>
+    e ? `${e.firstName} ${e.lastName}`.trim() : null;
 
   const milestones = includeMealMilestones
     ? runtimeMealTimes.map((slot) => {
@@ -398,10 +394,9 @@ export async function buildRuntimeBundle(
   );
   const bundleVersion = `${serviceDateKey}:${serverRevision}`;
 
-  const assignmentContext =
-    isOperationalAssignmentsEnabled() && actor.employeeId
-      ? await loadEmployeeAssignmentOfflineContext(actor.employeeId, input.session.facilityId, now)
-      : null;
+  const assignmentContext = actor.employeeId
+    ? await loadEmployeeAssignmentOfflineContext(actor.employeeId, input.session.facilityId, now)
+    : null;
 
   let cycleContext: OfflineRuntimeBundle["cycleContext"] = null;
   let resolvedCycle =
@@ -439,7 +434,7 @@ export async function buildRuntimeBundle(
       },
       mealTargets: includeMealMilestones
         ? runtimeMealTimes.map((m) => ({
-            mealType: m.mealType,
+            mealType: m.mealType as MealType,
             scheduledTime: m.scheduledTime,
           }))
         : [],
@@ -529,7 +524,7 @@ export async function buildRuntimeBundle(
   let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
   let workContext: OfflineRuntimeBundle["workContext"] = null;
   const jobFlowEnabled = isDepartmentJobFlowEnabled(dietary.key);
-  const oaEnabled = isOperationalAssignmentsEnabled();
+  const oaEnabled = true;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
 
   if (jobFlowEnabled && actor.employeeId) {
@@ -853,9 +848,9 @@ export async function buildRuntimeBundle(
 
   let plantWorkOrderContext: OfflineRuntimeBundle["plantWorkOrderContext"] = null;
   if (
-    isPlantOperationsEnabled() &&
     dietary.key === "PLANT" &&
-    actor.employeeId
+    actor.employeeId &&
+    (await isPlantRuntimeEnabled(input.session.facilityId, input.session))
   ) {
     try {
       const assignedWos = await client.repair.findMany({

@@ -99,7 +99,6 @@ export async function loadOperationalReviewDayFacts(input: {
     plans,
     assignments,
     scheduleEntries,
-    overrides,
     serveryEvents,
     keyTimes,
     keyPointActuals,
@@ -228,50 +227,22 @@ export async function loadOperationalReviewDayFacts(input: {
         unitId: true,
         departmentId: true,
         shift: true,
+        calledOffAt: true,
+        callOffReason: true,
         employee: { select: { firstName: true, lastName: true } },
       },
     }),
     input.omitFacilityWideFacts
       ? Promise.resolve([])
-      : input.client.assignmentOverride.findMany({
-      where: {
-        date: serviceDate,
-        employee: { facilityId: input.facilityId },
-      },
-      select: {
-        id: true,
-        employeeId: true,
-        reason: true,
-        oldUnitId: true,
-        newUnitId: true,
-        employee: { select: { firstName: true, lastName: true } },
-      },
-    }),
-    input.omitFacilityWideFacts
-      ? Promise.resolve([])
-      : input.client.serveryMealServiceEvent.findMany({
-      where: {
-        serviceDate,
-        unit: { facilityId: input.facilityId },
-      },
-      select: {
-        unitId: true,
-        mealType: true,
-        mealServiceReadyAt: true,
-        readyRecordedAt: true,
-        mealServiceStartedAt: true,
-        startedRecordedAt: true,
-        entries: {
-          select: {
-            milestone: true,
-            occurredAt: true,
-            recordedAt: true,
-            kind: true,
-          },
-          orderBy: { recordedAt: "desc" },
-        },
-      },
-    }),
+      : Promise.resolve([] as Array<{
+          unitId: string;
+          mealType: string;
+          mealServiceReadyAt: Date | null;
+          readyRecordedAt: Date | null;
+          mealServiceStartedAt: Date | null;
+          startedRecordedAt: Date | null;
+          entries: Array<{ milestone: string; occurredAt: Date; recordedAt: Date; kind: string }>;
+        }>),
     departmentIds.length === 0
       ? Promise.resolve([])
       : input.client.operationalCycleKeyTimeDayExpectation.findMany({
@@ -324,15 +295,7 @@ export async function loadOperationalReviewDayFacts(input: {
     }),
     input.omitFacilityWideFacts
       ? Promise.resolve(0)
-      : input.client.logSubmission.count({
-          where: {
-            submittedAt: {
-              gte: serviceDate,
-              lt: new Date(serviceDate.getTime() + 24 * 60 * 60 * 1000),
-            },
-            unit: { facilityId: input.facilityId },
-          },
-        }),
+      : Promise.resolve(0),
   ]);
 
   const assignmentIds = assignments.map((row) => row.id);
@@ -550,9 +513,9 @@ export async function loadOperationalReviewDayFacts(input: {
       .map((row) => ({
         unitId: event.unitId,
         mealType: event.mealType,
-        milestone: row.milestone,
+        milestone: row.milestone as "READY" | "SERVICE_STARTED",
         occurredAt: row.occurredAt,
-        recordedAt: row.recordedAt,
+        recordedAt: row.recordedAt ?? row.occurredAt,
       }));
   }),
     cycleRows,
@@ -623,14 +586,16 @@ export async function loadOperationalReviewDayFacts(input: {
       departmentId: row.departmentId,
       shift: row.shift,
     })),
-    presenceExceptions: overrides.map((row) => ({
-      id: row.id,
-      employeeId: row.employeeId,
-      employeeDisplayName: `${row.employee.firstName} ${row.employee.lastName}`.trim(),
-      reason: row.reason,
-      oldUnitId: row.oldUnitId,
-      newUnitId: row.newUnitId,
-    })),
+    presenceExceptions: scheduleEntries
+      .filter((row) => row.calledOffAt)
+      .map((row) => ({
+        id: row.id,
+        employeeId: row.employeeId,
+        employeeDisplayName: `${row.employee.firstName} ${row.employee.lastName}`.trim(),
+        reason: row.callOffReason ?? "Call-off",
+        oldUnitId: null,
+        newUnitId: row.unitId ?? "",
+      })),
     assetImpacts: assetIssues
       .filter(
         (row): row is typeof row & { operationalImpact: "SERVICE_AT_RISK" | "EQUIPMENT_UNAVAILABLE" } =>

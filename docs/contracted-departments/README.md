@@ -17,15 +17,19 @@ ECMC owns Terrace View. ECMC runs Environmental Services and Facility Plant Oper
   - The head and the managers the head allows run the Department.
   - The Facility Administrator can view everything but changes nothing unless they are the head.
 - **Food & Nutrition (vendor-run)**
+  - Metz Culinary is created in Vssyl Console, with its first administrator and its first members. Terrace View then attaches that company to Food & Nutrition.
   - Metz's company admin names the GM from Metz's own account.
   - Until the GM accepts, the Facility Administrator can still set things up.
-  - After that, Metz runs it. The Facility Administrator sees high-level work on the Dashboard, and can open its compliance Records read-only, for example for a survey.
+  - After that, Metz runs it inside the rooms the facility assigned. The GM sets up Metz's people, schedule, operating rhythm, work plans, menus, Metz's own forms, and the assets Food & Nutrition uses. The facility keeps the building and the room assignments.
+  - The Facility Administrator sees high-level work on the Dashboard, and can open its compliance Records read-only, for example for a survey.
   - Metz leaders sign in with Metz accounts. Hourly Metz staff use a PIN at the facility.
 - **Each Department sees only its own.** The EVS head sees EVS employees, the rooms assigned to EVS, and EVS schedules, not Plant's.
-- **Assets are facility property, shared with Plant.**
-  - The Facility Administrator and Plant see every asset. Food & Nutrition and EVS each see only their own.
+- **Assets are shared with Plant.**
+  - The operating partner can add an asset for their Department and set who owns it, who maintains it, and which vendor fixes it.
+  - Title is the facility or that partner. Equipment Metz buys can still belong to Terrace View. Proprietary Metz equipment is titled to Metz.
+  - The Facility Administrator and Plant see every asset while it is on site. Food & Nutrition and EVS each see only their own.
   - Each asset's maintainer, Plant or Metz, is set by the head of the Department that uses it. The maintainer runs and pays for repairs, with its own repair companies.
-  - If Metz leaves, the assets and their repair history stay; Metz's costs go with Metz.
+  - If Metz leaves, facility-titled assets and their repair history stay. Metz-titled assets leave with Metz, and Terrace View keeps a closed note that they were on site. Metz's costs go with Metz.
 - **Plant still handles Food & Nutrition's repair requests.** Those records stay with the facility.
 - **If Metz's contract ends:**
   - Metz's Records, setup and employee records are archived with Metz.
@@ -40,7 +44,7 @@ ECMC owns Terrace View. ECMC runs Environmental Services and Facility Plant Oper
 | [Current-state audit](./CURRENT_STATE_AUDIT_2026-10-20.md) | How Department data, accounts and the Facility Administrator role work today |
 | [Decisions](./DECISIONS.md) | The model, decisions (`CDA-D01`…), open items (`CDA-Q01`…) and the revision history |
 | [Architecture](./ARCHITECTURE.md) | Access modes, the resolver, owners, enforcement, single Facility Administrator, vendor operation, operator-period data, tests |
-| [Phased plan](./PHASED_PLAN.md) | CDA-00 through CDA-07, and order with the Dashboard |
+| [Phased plan](./PHASED_PLAN.md) | CDA-00 through CDA-09, and order with the Dashboard and Legacy Retirement |
 | [Phase tracker](./PHASE_TRACKER.md) | The single status and authorization record |
 | [CDA-06 design](./CDA-06_DESIGN.md) | Operator-period stamp, backfill, reads, archive, and survey Records. Accepted October 22, 2026. |
 
@@ -49,7 +53,7 @@ ECMC owns Terrace View. ECMC runs Environmental Services and Facility Plant Oper
 - **Schema changes only where a phase says so.** They are forward-only and approved explicitly. No `prisma migrate reset`.
 - **No commercial side effects.** No change to release status, sellability, entitlements or billing. EVS stays DEVELOPMENT.
 - **No new Plant features.** No parallel Records model.
-- **Behind a flag.** Enforcement is behind `CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED` until CDA-07, and each later phase needs its own production approval.
+- **Behind a flag.** Staging enforcement is on. The code default and the production project stay off until production enablement, which still needs LEG-07 or an explicit exception.
 - **Next.js 16.** Read the relevant guide in `node_modules/next/dist/docs/` before writing code.
 
 ## Glossary

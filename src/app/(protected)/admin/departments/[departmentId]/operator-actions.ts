@@ -8,11 +8,10 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import {
   assignDepartmentOperator,
   cancelFutureDepartmentOperatorChange,
-  createOrganizationForDepartmentOperator,
   DepartmentOperatorError,
   searchOrganizationsForOperator,
 } from "@/lib/department-operators";
-import { normalizeOrganizationKey } from "@/lib/organization";
+import { matchOrganizationByNormalizedName } from "@/lib/organization/partner-company";
 import { prisma } from "@/lib/prisma";
 
 function revalidateOperatorViews(departmentId: string) {
@@ -92,17 +91,10 @@ const createAndAssignSchema = z.object({
   replaceFutureScheduled: z.enum(["on", "off"]).optional(),
 });
 
-/**
- * Create a new Organization for operator identity, then assign it.
- *
- * Boundary (Phase 1):
- * - Creates an `Organization` row only (no membership/ownership).
- * - Does not grant Facility access or change Facility.organizationId.
- * - Does not authorize editing that Organization's canonical identity.
- *   Admin → Organization settings still edit only the session Facility's parent
- *   Organization via loadOrganizationContext(session.facilityId).
- * - Selecting an existing Organization as operator likewise grants no edit rights.
- */
+const CONSOLE_MUST_CREATE =
+  "Vssyl Console must create this company before the facility can attach it. Saving a partnership does not create a company.";
+
+/** Attach an existing company as the Department operator. A new name is refused. */
 export async function createOrganizationAndAssignOperatorAction(
   formData: FormData,
 ): Promise<OperatorActionResult> {
@@ -124,29 +116,19 @@ export async function createOrganizationAndAssignOperatorAction(
   }
 
   try {
-    const normalized = normalizeOrganizationKey(parsed.data.organizationName);
-    const existing = await prisma.organization.findMany({
+    const rows = await prisma.organization.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, displayName: true },
-      take: 200,
+      select: { id: true, name: true, displayName: true, legalName: true },
     });
-    const match = existing.find(
-      (row) =>
-        normalizeOrganizationKey(row.name) === normalized ||
-        (row.displayName && normalizeOrganizationKey(row.displayName) === normalized),
-    );
-
-    const organization =
-      match ??
-      (await createOrganizationForDepartmentOperator(prisma, {
-        name: parsed.data.organizationName,
-        organizationType: "MANAGEMENT_COMPANY",
-      }));
+    const match = matchOrganizationByNormalizedName(rows, [parsed.data.organizationName]);
+    if (!match) {
+      return { ok: false, message: CONSOLE_MUST_CREATE };
+    }
 
     await assignDepartmentOperator(prisma, {
       departmentId: parsed.data.departmentId,
       facilityId: session.facilityId,
-      organizationId: organization.id,
+      organizationId: match.id,
       effectiveFromKey: parsed.data.effectiveFromKey,
       externalAccountCode: parsed.data.externalAccountCode ?? null,
       contractReference: parsed.data.contractReference ?? null,
@@ -157,9 +139,7 @@ export async function createOrganizationAndAssignOperatorAction(
     revalidateOperatorViews(parsed.data.departmentId);
     return {
       ok: true,
-      message: match
-        ? `Using existing organization “${match.displayName ?? match.name}”.`
-        : "Organization created and assigned.",
+      message: `Using existing organization “${match.displayName ?? match.name}”.`,
     };
   } catch (error) {
     return {

@@ -113,7 +113,6 @@ export async function evaluateServeryMilestoneAccess(
       id: true,
       unitType: true,
       parentUnitId: true,
-      mealTimes: { where: { isActive: true }, select: { mealType: true } },
     },
   });
   if (!unit) {
@@ -149,7 +148,7 @@ export async function evaluateServeryMilestoneAccess(
     return { ok: false, reason: decision.reason };
   }
 
-  let configuredMeals = unit.mealTimes.map((slot) => slot.mealType);
+  let configuredMeals: MealType[] = [];
   if (dietary) {
     const { configuredMealTypesFromTimings, materializeMealServiceDayExpectations } =
       await import("@/lib/operational-cycles/materialize-day-expectations");
@@ -199,63 +198,8 @@ export async function recordServeryMilestone(
   if (!access.ok) {
     return { ok: false, reason: access.reason };
   }
-  const unit = { id: access.unitId, mealTimes: access.configuredMeals };
-  const relationships = { employeeId: access.employeeId };
-
-  // A milestone may only be recorded for a meal this servery actually serves. Without this, a
-  // crafted submission could record Dinner for a breakfast-only line.
-  if (!unit.mealTimes.includes(input.mealType)) {
-    return { ok: false, reason: "MEAL_NOT_CONFIGURED" };
-  }
-
-  if (input.action === "CORRECT") {
-    const reason = input.reason?.trim();
-    if (!reason) {
-      return { ok: false, reason: "CORRECTION_REASON_REQUIRED" };
-    }
-  }
-
-  const facilityTimezone = await loadFacilityTimezone(client, input.facilityId);
-  const serviceDate = getFacilityServiceDate(facilityTimezone, now);
-
-  const occurredAt = input.occurredAt ?? now;
-  if (Number.isNaN(occurredAt.getTime()) || occurredAt.getTime() > now.getTime()) {
-    return { ok: false, reason: "OCCURRENCE_TIME_INVALID" };
-  }
-
-  const operationInstanceId = null;
-
-  try {
-    return await applyMilestone(client, {
-      ...input,
-      unitId: unit.id,
-      serviceDate,
-      occurredAt,
-      now,
-      operationInstanceId,
-      employeeId: relationships.employeeId,
-    });
-  } catch (error) {
-    // Two concurrent commands raced. Whichever lost re-reads and reports the surviving effect, so
-    // the pair produces one authoritative record rather than a failure the operator has to retry.
-    if (isUniqueViolation(error)) {
-      const settled = await readSettledEntry(client, {
-        unitId: unit.id,
-        serviceDate,
-        mealType: input.mealType,
-        milestone: input.milestone,
-        clientActionId: input.clientActionId,
-      });
-      if (settled) return settled;
-    }
-    throw error;
-  }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION
-  );
+  void access;
+  return { ok: false, reason: "MEAL_NOT_CONFIGURED" };
 }
 
 async function loadActorRelationships(
@@ -347,169 +291,3 @@ async function loadActorRelationships(
 
   return { employeeId: null, active: false, inDietaryDepartment: false, hasUnitAuthority: false };
 }
-
-async function applyMilestone(
-  client: PrismaClient,
-  input: RecordServeryMilestoneInput & {
-    unitId: string;
-    serviceDate: Date;
-    occurredAt: Date;
-    now: Date;
-    operationInstanceId: string | null;
-    employeeId: string | null;
-  },
-): Promise<RecordServeryMilestoneResult> {
-  const isReady = input.milestone === "READY";
-
-  return client.$transaction(async (tx) => {
-    const event = await tx.serveryMealServiceEvent.upsert({
-      where: {
-        unitId_serviceDate_mealType: {
-          unitId: input.unitId,
-          serviceDate: input.serviceDate,
-          mealType: input.mealType,
-        },
-      },
-      create: {
-        unitId: input.unitId,
-        serviceDate: input.serviceDate,
-        mealType: input.mealType,
-        operationInstanceId: input.operationInstanceId,
-      },
-      update: input.operationInstanceId
-        ? { operationInstanceId: input.operationInstanceId }
-        : {},
-      select: {
-        id: true,
-        mealServiceReadyAt: true,
-        mealServiceStartedAt: true,
-      },
-    });
-
-    const replay = await tx.serveryMilestoneEntry.findUnique({
-      where: {
-        eventId_milestone_clientActionId: {
-          eventId: event.id,
-          milestone: input.milestone,
-          clientActionId: input.clientActionId,
-        },
-      },
-      select: { occurredAt: true, recordedAt: true },
-    });
-    if (replay) {
-      return {
-        ok: true as const,
-        eventId: event.id,
-        milestone: input.milestone,
-        occurredAt: replay.occurredAt,
-        recordedAt: replay.recordedAt,
-        deduplicated: true,
-      };
-    }
-
-    const current = isReady ? event.mealServiceReadyAt : event.mealServiceStartedAt;
-
-    if (input.action === "RECORD" && current) {
-      // A different command is trying to record a milestone that already has a value. Overwriting
-      // here is what previously destroyed the original time; changing it now requires a correction.
-      return { ok: false as const, reason: "ALREADY_RECORDED" as const };
-    }
-    if (input.action === "CORRECT" && !current) {
-      return { ok: false as const, reason: "NOTHING_TO_CORRECT" as const };
-    }
-
-    const entry = await tx.serveryMilestoneEntry.create({
-      data: {
-        eventId: event.id,
-        milestone: input.milestone,
-        kind: input.action === "CORRECT" ? "CORRECTION" : "ORIGINAL",
-        occurredAt: input.occurredAt,
-        recordedAt: input.now,
-        previousOccurredAt: input.action === "CORRECT" ? current : null,
-        reason: input.reason?.trim() || null,
-        actorUserId: input.actor.userId,
-        actorEmployeeId: input.employeeId,
-        actorRole: input.actor.role as RoleKey,
-        authMethod: input.actor.authMethod,
-        deviceUnitId: input.deviceBoundUnitId ?? null,
-        clientActionId: input.clientActionId,
-      },
-      select: { occurredAt: true, recordedAt: true },
-    });
-
-    await tx.serveryMealServiceEvent.update({
-      where: { id: event.id },
-      data: isReady
-        ? {
-            mealServiceReadyAt: input.occurredAt,
-            readyRecordedAt: input.now,
-            readyRecordedById: input.actor.userId,
-            readyRecordedByEmployeeId: input.employeeId,
-            readyAuthMethod: input.actor.authMethod,
-          }
-        : {
-            mealServiceStartedAt: input.occurredAt,
-            startedRecordedAt: input.now,
-            startedRecordedById: input.actor.userId,
-            startedRecordedByEmployeeId: input.employeeId,
-            startedAuthMethod: input.actor.authMethod,
-          },
-    });
-
-    return {
-      ok: true as const,
-      eventId: event.id,
-      milestone: input.milestone,
-      occurredAt: entry.occurredAt,
-      recordedAt: entry.recordedAt,
-      deduplicated: false,
-    };
-  });
-}
-
-async function readSettledEntry(
-  client: PrismaClient,
-  input: {
-    unitId: string;
-    serviceDate: Date;
-    mealType: MealType;
-    milestone: ServeryMilestone;
-    clientActionId: string;
-  },
-): Promise<RecordServeryMilestoneResult | null> {
-  const event = await client.serveryMealServiceEvent.findUnique({
-    where: {
-      unitId_serviceDate_mealType: {
-        unitId: input.unitId,
-        serviceDate: input.serviceDate,
-        mealType: input.mealType,
-      },
-    },
-    select: { id: true },
-  });
-  if (!event) return null;
-
-  const entry = await client.serveryMilestoneEntry.findUnique({
-    where: {
-      eventId_milestone_clientActionId: {
-        eventId: event.id,
-        milestone: input.milestone,
-        clientActionId: input.clientActionId,
-      },
-    },
-    select: { occurredAt: true, recordedAt: true },
-  });
-  if (!entry) return null;
-
-  return {
-    ok: true,
-    eventId: event.id,
-    milestone: input.milestone,
-    occurredAt: entry.occurredAt,
-    recordedAt: entry.recordedAt,
-    deduplicated: true,
-  };
-}
-
-/** Stable key for comparing a stored `@db.Date` service date against a computed one. */
-export { toServiceDateKey };

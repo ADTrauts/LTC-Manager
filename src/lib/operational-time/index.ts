@@ -29,8 +29,4 @@ export {
   getFacilityServiceDate,
   toServiceDateKey,
 } from "./service-date";
-export {
-  getDefaultMealTypeForFacilityLocalTime,
-  pickDefaultMealTypeForUnitSlots,
-} from "./meal-daypart";
 export { loadFacilityTimezone } from "./load-facility-timezone";

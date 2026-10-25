@@ -6,6 +6,7 @@ import type {
 /** Why an article was included in a contextual result. */
 export type ContextualKnowledgeLinkReason =
   | "ASSET"
+  | "CATALOG_RECORD"
   | "LOG_TEMPLATE"
   | "INSPECTION_DEFINITION"
   | "UNIT"
@@ -17,6 +18,7 @@ export type ContextualKnowledgeContext = {
   viewerDepartmentIds: string[] | null;
   unitId?: string | null;
   assetId?: string | null;
+  catalogDefinitionId?: string | null;
   logTemplateId?: string | null;
   inspectionDefinitionId?: string | null;
   /** When true, include limited facility-wide SAFETY/COMPLIANCE/SOP/REFERENCE articles. */

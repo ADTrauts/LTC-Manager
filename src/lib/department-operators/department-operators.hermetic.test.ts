@@ -586,6 +586,17 @@ test("Admin facility settings no longer edit managementCompanyName as department
   assert.match(actions, /managementCompanyName is legacy and no longer writable/);
 });
 
+test("provisioning and onboarding do not store managementCompanyName on the Facility", () => {
+  const bootstrap = readFileSync(join(process.cwd(), "src/lib/facility-provisioning/bootstrap.ts"), "utf8");
+  const transitions = readFileSync(join(process.cwd(), "src/lib/onboarding/transitions.ts"), "utf8");
+  const signup = readFileSync(join(process.cwd(), "src/app/api/auth/signup/route.ts"), "utf8");
+  const provision = readFileSync(join(process.cwd(), "scripts/provision-facility.mjs"), "utf8");
+  assert.doesNotMatch(bootstrap, /managementCompanyName: input\.facility/);
+  assert.doesNotMatch(transitions, /managementCompanyName: input/);
+  assert.doesNotMatch(signup, /billingEmail: email,\s*managementCompanyName/);
+  assert.doesNotMatch(provision, /managementCompanyName: managementCompany/);
+});
+
 test("createOrganizationForNewFacility naming ignores contracted operator strings", () => {
   const types = readFileSync(
     join(process.cwd(), "src/lib/organization/types.ts"),

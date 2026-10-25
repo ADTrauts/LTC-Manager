@@ -139,9 +139,11 @@ export function buildFallbackRecoveryGuidance(snapshot: RecoverySnapshot): Recov
 
   const situationParts = [
     `${issue.issueType.replaceAll("_", " ").toLowerCase()} at ${issue.location.name} · ${issue.priority.toLowerCase()} priority.`,
-    operationalImpact.currentServiceAtRisk
-      ? `Current operation (${operationalImpact.currentOperationLabel}) may be affected.`
-      : `Current operation (${operationalImpact.currentOperationLabel}) is not flagged as at risk from this issue alone.`,
+    operationalImpact.currentOperationLabel
+      ? operationalImpact.currentServiceAtRisk
+        ? `${operationalImpact.currentOperationLabel} may be affected.`
+        : `${operationalImpact.currentOperationLabel} is not flagged as at risk from this issue alone.`
+      : "No published Cycle is underway.",
   ];
   if (issue.recentUpdates.length > 0) {
     situationParts.push("Review the latest recovery update before changing course.");

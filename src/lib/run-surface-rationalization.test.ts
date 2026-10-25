@@ -22,7 +22,6 @@ import {
 import { platformNavItemsForRole, roleMayAccessRoute } from "@/lib/route-registry";
 
 const FLAGS = {
-  todaysWorkEnabled: true,
   dietaryOperationalEvidenceEnabled: true,
   dietaryWorkPlansEnabled: true,
 };
@@ -44,16 +43,15 @@ test("Operations Center is not a peer RUN destination", () => {
       `${role} RUN nav must not label an Operations Center peer`,
     );
     assert.ok(
-      !items.some((i) => i.href === "/dashboard" || i.href === "/operations"),
-      `${role} RUN nav must not link the retired Operations Center routes`,
+      !items.some((i) => i.href === "/operations" || i.href === "/workspace" || i.href === "/today"),
+      `${role} RUN nav must not link the retired overview addresses`,
     );
+    assert.equal(items.find((i) => i.href === "/dashboard")?.label, "Dashboard");
   }
 });
 
-test("retired Operations Center routes stay reachable and resolve to RUN (safe redirect targets)", () => {
-  // Still RUN so the shell chrome reads correctly during the redirect, and reachable by every role
-  // (including frontline) so bookmarks / internal 'home' fallbacks never dead-end.
-  for (const path of ["/dashboard", "/operations"]) {
+test("the Dashboard stays reachable and resolves to RUN", () => {
+  for (const path of ["/dashboard"]) {
     assert.equal(resolveProductModeForPath(path), "RUN", path);
     for (const role of ["STAFF", "SUPERVISOR", "MANAGER", "FACILITY_ADMINISTRATOR"] as const) {
       assert.equal(roleMayAccessRoute(path, role, FLAGS), true, `${role} ${path}`);
@@ -64,11 +62,12 @@ test("retired Operations Center routes stay reachable and resolve to RUN (safe r
 test("canonical RUN destinations are present and unclipped for a manager", () => {
   const items = runHeaderItemsForRole("MANAGER");
   const hrefs = items.map((i) => i.href);
-  for (const href of ["/workspace", "/today", "/units", "/staffing", "/assets"]) {
+  for (const href of ["/dashboard", "/units", "/staffing", "/assets"]) {
     assert.ok(hrefs.includes(href), `RUN nav should include ${href}`);
   }
-  // Dashboard is the canonical overview label for /workspace.
-  assert.equal(items.find((i) => i.href === "/workspace")?.label, "Dashboard");
+  assert.equal(hrefs.includes("/today"), false);
+  assert.equal(hrefs.includes("/workspace"), false);
+  assert.equal(items.find((i) => i.href === "/dashboard")?.label, "Dashboard");
   // No empty / clipped labels or orphaned icon-only entries.
   for (const item of items) {
     assert.ok(item.label.trim().length > 0, `nav item ${item.href} must have a visible label`);

@@ -15,6 +15,7 @@ import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
 import { applyMaintainerChoice, assertRepairCompanyMatchesMaintainer } from "@/lib/department-authority/asset-maintainers";
 import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
+import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { prisma } from "@/lib/prisma";
 import { listAttachmentsForAsset } from "@/lib/attachments";
 
@@ -452,11 +453,8 @@ export async function changeAssetStatus(
     throw new Error("Retired Assets cannot return to service without a correction workflow.");
   }
 
-  if (fromStatus === toStatus || (normalizeAssetStatus(fromStatus) === normalizeAssetStatus(toStatus) && fromStatus !== "ACTIVE")) {
-    // ACTIVE → OPERATIONAL is a meaningful normalize write; otherwise no-op.
-    if (!(fromStatus === "ACTIVE" && toStatus === "OPERATIONAL")) {
-      return asset;
-    }
+  if (fromStatus === toStatus) {
+    return asset;
   }
 
   const actorUserId = sessionUserIdForFk(session);
@@ -669,31 +667,12 @@ export async function getAssetProfile(
   const evidenceLimit = input.evidenceLimit ?? 10;
   const historyLimit = input.historyLimit ?? 40;
 
-  const [templates, recentEvidence, openIssues, activeWorkOrders, history, photos] =
+  const canonicalRecords = await departmentUsesCanonicalRecords({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  });
+  const [recentEvidence, openIssues, activeWorkOrders, history, photos] =
     await Promise.all([
-      prisma.operationalTemplateApplicability.findMany({
-        where: {
-          assetId: asset.id,
-          template: {
-            facilityId: input.facilityId,
-            departmentId: input.departmentId,
-            status: { in: ["PUBLISHED", "DRAFT"] },
-          },
-        },
-        include: {
-          template: {
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              stableKey: true,
-              version: true,
-              purposeType: true,
-            },
-          },
-        },
-        take: 50,
-      }),
       prisma.operationalEvidenceRecord.findMany({
         where: {
           assetId: asset.id,
@@ -727,7 +706,11 @@ export async function getAssetProfile(
           priority: true,
           operationalImpact: true,
           reportedAt: true,
-          workOrderId: true,
+          workOrders: {
+            orderBy: { requestedAt: "asc" },
+            take: 1,
+            select: { id: true },
+          },
         },
       }),
       prisma.repair.findMany({
@@ -747,7 +730,8 @@ export async function getAssetProfile(
           returnToServiceReady: true,
           requestedAt: true,
           vendorId: true,
-          sourceAssetIssue: {
+          issueId: true,
+          issue: {
             select: { id: true, issueCode: true, summary: true },
           },
         },
@@ -757,7 +741,9 @@ export async function getAssetProfile(
     ]);
 
   const retired = normalizeAssetStatus(asset.status) === "RETIRED";
-  const prospectiveTemplateBindingNote = retired
+  const prospectiveTemplateBindingNote = canonicalRecords
+    ? null
+    : retired
     ? "Retired Assets cannot be bound to new templates. History is preserved."
     : !isAssetAvailableForProspectiveUse(asset.status)
       ? "Out-of-service Assets are not eligible for prospective template binding."
@@ -795,7 +781,7 @@ export async function getAssetProfile(
       retiredAt: asset.retiredAt,
       retiredReason: asset.retiredReason,
     },
-    templates: templates.map((t) => t.template),
+    templates: [],
     recentEvidence,
     openIssues,
     activeWorkOrders: activeWorkOrders.map((wo) => ({

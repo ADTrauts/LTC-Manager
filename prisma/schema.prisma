@@ -77,55 +77,11 @@ model Role {
   description      String?
   isActive         Boolean               @default(true)
   users            User[]
-  templates        LogTemplate[]
-  routePermissions RoleRoutePermission[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 }
 
-/// NON-AUTHORITATIVE compatibility data. Does not control access.
-///
-/// Route authorization, navigation, route labels, and the Access Matrix are all resolved from the
-/// platform route registry in `src/lib/route-registry/platform-routes.ts`. Nothing reads this table
-/// at runtime. Missing rows, extra rows, stale labels, and an empty table all leave authorization
-/// unchanged.
-///
-/// Retained for historical migration continuity and transitional inspection. The only writers are
-/// migrations and `prisma/seed.mjs`, which populates it from `prisma/legacy-route-mirror.json` —
-/// a file generated from the registry, so the mirror cannot describe a policy the product does not
-/// enforce. Removal is deferred to a later phase.
-model AppRoute {
-  id          String                @id @default(cuid())
-  key         String                @unique
-  pathPrefix  String                @unique
-  label       String
-  navVisible  Boolean               @default(true)
-  navOrder    Int                   @default(100)
-  isActive    Boolean               @default(true)
-  isCritical  Boolean               @default(false)
-  permissions RoleRoutePermission[]
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-}
 
-/// NON-AUTHORITATIVE compatibility data. Does not grant or deny access.
-///
-/// See `AppRoute`. Editing these rows — including granting STAFF access to /admin or revoking it
-/// from FACILITY_ADMINISTRATOR — has no effect on what any user can reach.
-model RoleRoutePermission {
-  id         String   @id @default(cuid())
-  roleId     String
-  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  appRouteId String
-  appRoute   AppRoute @relation(fields: [appRouteId], references: [id], onDelete: Cascade)
-  allowed    Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([roleId, appRouteId])
-  @@index([roleId])
-  @@index([appRouteId])
-}
 
 /// Parent business entity for one or more Facilities. Facility remains the tenancy/ops root.
 enum OrganizationType {
@@ -161,6 +117,8 @@ model Organization {
   /// Facility maintainer rows linked to this Organization (CDA-D18).
   facilityMaintainerOrganizations FacilityOrganization[]
   catalogFormDefinitions CatalogLogDefinition[] @relation("CatalogFormOwnerOrganization")
+  titledAssets           Asset[]                 @relation("AssetTitleOrganization")
+  assetPresenceNotes     AssetPresenceNote[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -204,16 +162,15 @@ model Facility {
   unionHandbookUploadedAt        DateTime?
   unionHandbookEffectiveDate     DateTime?                       @db.Date
   users                          User[]
-  consoleTickets                 ConsoleTicket[]
   supportContacts                SupportContact[]
   supportTickets                 SupportTicket[]
   userFacilityAccesses           UserFacilityAccess[]
   units                          Unit[]
   unitSpaces                     UnitSpace[]
+  assetPresenceNotes             AssetPresenceNote[]
   facilityRoomTypes              FacilityRoomType[]
   employees                      Employee[]
   employeeUserLinkInvitations    EmployeeUserLinkInvitation[]
-  logTemplates                   LogTemplate[]
   vendors                        Vendor[]
   facilityOrganizations          FacilityOrganization[]
   employeeHrAuditLogs            EmployeeHrAuditLog[]
@@ -223,30 +180,23 @@ model Facility {
   menuItems                      MenuItem[]
   kioskUnitPinLoginEvents        KioskUnitPinLoginEvent[]
   onboardingManagerInvites       OnboardingManagerInvite[]
-  operationDefinitions           OperationDefinition[]
-  operationInstances             OperationInstance[]
   departments                    Department[]
-  recordEngineRollouts           RecordEngineRollout[]
   jobTitles                      JobTitle[]
   workShifts                     WorkShift[]
-  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   roomAreaStatuses               RoomAreaStatus[]
   operationalAssignments         OperationalAssignment[]
   assignmentPlans                OperationalAssignmentPlan[]
   assignmentTemplates            OperationalAssignmentTemplate[]
   attachments                    Attachment[]
-  tasks                          Task[]
-  inspectionDefinitions          InspectionDefinition[]
-  inspectionSubmissions          InspectionSubmission[]
-  inspectionOccurrences          InspectionOccurrence[]
   knowledgeArticles              KnowledgeArticle[]
   aiOperationalBriefs            AiOperationalBrief[]
   workspacePreferences           WorkspacePreference[]
+  dashboardLayouts               DashboardLayout[]
+  dashboardFacilityDefaults      DashboardFacilityDefault[]
   departmentOperationalProfiles  DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
   cycleDayExpectations           OperationalCycleDayExpectation[]
   keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
-  operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
   logAttachments                 LogAttachment[]
   catalogInstalls                FacilityCatalogInstall[]
@@ -295,14 +245,9 @@ model Department {
   unitResponsibilities           UnitDepartmentResponsibility[]
   spaceResponsibilities          UnitSpaceResponsibility[]
   assets                         Asset[]
-  logTemplates                   LogTemplate[]
   workShifts                     WorkShift[]
-  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   repairsRequesting              Repair[]                        @relation("RepairRequestingDepartment")
   repairsResponsible             Repair[]                        @relation("RepairResponsibleDepartment")
-  tasks                          Task[]
-  inspectionDefinitions          InspectionDefinition[]
-  inspectionOccurrences          InspectionOccurrence[]
   knowledgeArticles              KnowledgeArticle[]
   operationalAssignments         OperationalAssignment[]
   assignmentPlans                OperationalAssignmentPlan[]
@@ -311,12 +256,11 @@ model Department {
   operationalCycles              DepartmentOperationalCycle[]
   cycleDayExpectations           OperationalCycleDayExpectation[]
   keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
-  operationalTemplates           OperationalTemplate[]
   operationalEvidenceRecords     OperationalEvidenceRecord[]
-  recordEngineRollouts           RecordEngineRollout[]
   logAttachments                 LogAttachment[]                 @relation("LogAttachmentOwningDepartment")
   logAttachmentsAsTarget         LogAttachment[]                 @relation("LogAttachmentTargetDepartment")
   assetIssues                    AssetIssue[]
+  assetPresenceNotes             AssetPresenceNote[]
   menus                          Menu[]
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
@@ -728,8 +672,11 @@ model OrganizationMemberInvitation {
   tokenHash                    String?                            @unique
   expiresAt                    DateTime?
   status                       OrganizationMemberInvitationStatus @default(PENDING)
-  invitedByUserId              String
-  invitedByUser                User                               @relation("OrganizationMemberInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  invitedByUserId              String?
+  invitedByUser                User?                              @relation("OrganizationMemberInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  /// Set when Vssyl Console invites a member before a company administrator exists.
+  invitedByPlatformStaffId     String?
+  invitedByPlatformStaff       PlatformStaff?                     @relation("OrganizationMemberInvitationInvitedByStaff", fields: [invitedByPlatformStaffId], references: [id], onDelete: SetNull)
   acceptedByUserId             String?
   acceptedByUser               User?                              @relation("OrganizationMemberInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
   acceptedAt                   DateTime?
@@ -746,6 +693,7 @@ model OrganizationMemberInvitation {
   @@index([organizationId, targetEmailNormalized, status])
   @@index([targetEmailNormalized])
   @@index([invitedByUserId])
+  @@index([invitedByPlatformStaffId])
   @@index([status, expiresAt])
 }
 
@@ -885,71 +833,7 @@ model OnboardingManagerInvite {
   @@index([facilityId, createdAt])
 }
 
-/// Recurring operation template scoped to a facility department (e.g. dietary breakfast service).
-model OperationDefinition {
-  id                  String                          @id @default(cuid())
-  facilityId          String
-  facility            Facility                        @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  /// Department scope (`Department.id` when the departments model is present).
-  departmentId        String
-  /// Stable slug unique per department (e.g. `breakfast`, `evs-day-round-1`).
-  key                 String
-  /// Display label (e.g. "Breakfast").
-  label               String
-  /// Dietary meal period when applicable; null for non-meal operations (EVS rounds, plant PM).
-  mealType            MealType?
-  /// Optional named shift template id (`WorkShift.id` when shift model is present).
-  workShiftId         String?
-  /// Local start time hint (`HH:mm`) for sync/scheduling; not authoritative until wired.
-  scheduledStartLocal String?
-  scheduledEndLocal   String?
-  sortOrder           Int                             @default(100)
-  isActive            Boolean                         @default(true)
-  instances           OperationInstance[]
-  assignmentTemplates OperationalAssignmentTemplate[]
-  createdAt           DateTime                        @default(now())
-  updatedAt           DateTime                        @updatedAt
 
-  @@unique([facilityId, departmentId, key])
-  @@index([facilityId])
-  @@index([departmentId])
-  @@index([workShiftId])
-}
-
-/// A single dated occurrence of an operation (e.g. "Breakfast 2026-07-08").
-model OperationInstance {
-  id                       String                    @id @default(cuid())
-  facilityId               String
-  facility                 Facility                  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId             String
-  definitionId             String
-  definition               OperationDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
-  /// Service date for this occurrence (facility-local calendar day).
-  serviceDate              DateTime                  @db.Date
-  /// Denormalized for query filters without joining the definition.
-  mealType                 MealType?
-  /// Snapshot label copied from definition at instance creation.
-  label                    String
-  status                   OperationInstanceStatus   @default(SCHEDULED)
-  workShiftId              String?
-  scheduledStartLocal      String?
-  scheduledEndLocal        String?
-  startedAt                DateTime?
-  completedAt              DateTime?
-  serveryMealServiceEvents ServeryMealServiceEvent[]
-  tasks                    Task[]
-  inspectionSubmissions    InspectionSubmission[]
-  operationalAssignments   OperationalAssignment[]
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-
-  @@unique([definitionId, serviceDate])
-  @@index([facilityId, serviceDate])
-  @@index([departmentId, serviceDate])
-  @@index([facilityId, departmentId, serviceDate])
-  @@index([status])
-  @@index([workShiftId])
-}
 
 enum MenuStatus {
   ACTIVE
@@ -1090,10 +974,8 @@ model User {
   /// Optional primary operational department for session/nav scoping.
   primaryDepartmentId            String?
   primaryDepartment              Department?                     @relation("UserPrimaryDepartment", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
-  submissions                    LogSubmission[]
   supportContacts                SupportContact[]
   createdSchedules               ScheduleEntry[]                 @relation("ScheduleCreatedBy")
-  changedOverrides               AssignmentOverride[]            @relation("OverrideChangedBy")
   createdAssignments             OperationalAssignment[]         @relation("AssignmentCreatedBy")
   lastChangedAssignments         OperationalAssignment[]         @relation("AssignmentLastChangedBy")
   createdTemplates               OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
@@ -1108,9 +990,6 @@ model User {
   disciplinePointsCreated        DisciplinePointEntry[]          @relation("DisciplinePointCreatedBy")
   employeeHrAuditLogs            EmployeeHrAuditLog[]
   terminationRecordsCreated      EmployeeTerminationRecord[]     @relation("TerminationCreatedBy")
-  serveryMealReadyEvents         ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedBy")
-  serveryMealStartedEvents       ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedBy")
-  serveryMilestoneEntries        ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorUser")
   offlineBundleIssuances         OfflineBundleIssuance[]         @relation("OfflineBundleIssuanceActorUser")
   offlineSyncReceipts            OfflineSyncReceipt[]            @relation("OfflineSyncReceiptActorUser")
   offlineConflictsResolved       OfflineConflict[]               @relation("OfflineConflictResolvedByUser")
@@ -1128,6 +1007,7 @@ model User {
   employeeLinkInvitationsInvited EmployeeUserLinkInvitation[]    @relation("EmployeeUserLinkInvitationInvitedBy")
   employeeLinkInvitationsAccepted EmployeeUserLinkInvitation[]   @relation("EmployeeUserLinkInvitationAcceptedBy")
   workspacePreferences           WorkspacePreference[]
+  dashboardLayouts               DashboardLayout[]
   assetsCreated                  Asset[]                         @relation("AssetCreatedByUser")
   assetsLastChanged              Asset[]                         @relation("AssetLastChangedByUser")
   assetStatusHistoryChanges      AssetStatusHistory[]            @relation("AssetStatusHistoryChangedBy")
@@ -1272,6 +1152,56 @@ model WorkspacePreference {
   @@index([facilityId])
 }
 
+/// One arrangement scope: the whole facility, one Department, or a Supervisor's team.
+enum DashboardScopeKind {
+  FACILITY
+  DEPARTMENT
+  TEAM
+}
+
+enum DashboardAuthority {
+  FACILITY_ADMINISTRATOR
+  DEPARTMENT_LEADER
+  MANAGER
+  SUPERVISOR
+}
+
+/// A person's Dashboard arrangement. One owner: a User or an Employee, never both.
+model DashboardLayout {
+  id            String             @id @default(cuid())
+  facilityId    String
+  facility      Facility           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId    String?
+  employee      Employee?          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  scopeKind     DashboardScopeKind
+  schemaVersion Int                @default(1)
+  items         Json
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([facilityId, userId, scopeKind])
+  @@unique([facilityId, employeeId, scopeKind])
+  @@index([facilityId])
+}
+
+/// Starting layout for one authority band and scope. Personal layouts still win.
+model DashboardFacilityDefault {
+  id            String             @id @default(cuid())
+  facilityId    String
+  facility      Facility           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  authority     DashboardAuthority
+  scopeKind     DashboardScopeKind
+  schemaVersion Int                @default(1)
+  items         Json
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([facilityId, authority, scopeKind])
+  @@index([facilityId])
+}
+
 /// Explicit multi-facility access grant. Shared Organization alone never authorizes a facility.
 /// Current internal RoleKey lives on UserFacilityRolePeriod, not User.roleId.
 model UserFacilityAccess {
@@ -1389,7 +1319,6 @@ enum UnitHierarchyRole {
   BUILDING
   FLOOR
   NEIGHBORHOOD
-  LEGACY_LOCATION
   /// Builder-only staging — never shown on operational surfaces.
   STAGED
 }
@@ -1459,14 +1388,6 @@ enum SessionAuthMethod {
   QUICK_PIN
 }
 
-/// Lifecycle state for a date-bound operation occurrence (Wave 5 Operations Engine).
-enum OperationInstanceStatus {
-  SCHEDULED
-  PREPARATION
-  EXECUTION
-  COMPLETED
-  CANCELLED
-}
 
 enum MenuWeekStartDay {
   SUNDAY
@@ -1559,9 +1480,8 @@ enum ShiftType {
   FULL_DAY
 }
 
-/// Asset operational status. ACTIVE remains for legacy rows; prefer OPERATIONAL.
+/// Asset operational status.
 enum AssetStatus {
-  ACTIVE
   OPERATIONAL
   DEGRADED
   OUT_OF_SERVICE
@@ -1638,17 +1558,15 @@ enum WorkOrderHoldReason {
   OTHER
 }
 
-/// Work Order lifecycle on Repair. CLOSED/WAITING_PARTS retained for legacy rows.
+/// Work Order lifecycle on Repair.
 enum RepairStatus {
   OPEN
   ASSIGNED
   IN_PROGRESS
-  WAITING_PARTS
   WAITING_ON_VENDOR
   ON_HOLD
   COMPLETED
   CANCELLED
-  CLOSED
 }
 
 /// Closeout Asset condition review. NO_CHANGE stamps consideration without mutating Asset.
@@ -1678,15 +1596,6 @@ enum RepairTrade {
   GENERAL
 }
 
-/// Broader operational issue classification on Repair (ADL-008). Default EQUIPMENT preserves legacy rows.
-enum IssueType {
-  EQUIPMENT
-  SUPPLY_SHORT
-  ENVIRONMENT
-  SAFETY
-  SERVICE_DISRUPTION
-  OTHER
-}
 
 enum PreventiveMaintenanceCadence {
   WEEKLY
@@ -1806,24 +1715,14 @@ model Unit {
   description                String?
   primaryForEmployees        Employee[]                           @relation("EmployeePrimaryUnit")
   employeeUnitAccess         EmployeeUnitAccess[]
-  mealTimes                  UnitMealTime[]
   childSpaces                UnitSpace[]
   departmentResponsibilities UnitDepartmentResponsibility[]
-  logAssignments             LogAssignment[]
-  logSubmissions             LogSubmission[]
   defaultAssignments         DefaultAssignment[]
   scheduleEntries            ScheduleEntry[]
-  overrideOldUnit            AssignmentOverride[]                 @relation("OverrideOldUnit")
-  overrideNewUnit            AssignmentOverride[]                 @relation("OverrideNewUnit")
   assets                     Asset[]
   repairs                    Repair[]
   roomAreaStatuses           RoomAreaStatus[]
-  serveryMealServiceEvents   ServeryMealServiceEvent[]
   kioskUnitPinLoginEvents    KioskUnitPinLoginEvent[]
-  tasks                      Task[]
-  inspectionDefinitions      InspectionDefinition[]
-  inspectionSubmissions      InspectionSubmission[]
-  inspectionOccurrences      InspectionOccurrence[]
   knowledgeArticleUnits      KnowledgeArticleUnit[]
   operationalAssignments     OperationalAssignment[]
   assignmentTemplateItems    OperationalAssignmentTemplateItem[]
@@ -1922,7 +1821,6 @@ model UnitSpace {
   responsibilities                   UnitSpaceResponsibility[]
   archetypeBindings                  DepartmentRoomArchetypeBinding[]
   experienceExceptions               DepartmentRoomExperienceException[]
-  operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   logAttachments                     LogAttachment[]
   assets                             Asset[]
@@ -2326,109 +2224,8 @@ model DepartmentRoomExperienceException {
   @@index([areaExperienceId])
 }
 
-/// Current state of the two Dietary service milestones for one Unit, service date, and meal.
-///
-/// This row is a projection of `ServeryMilestoneEntry`, which is the append-only record of what was
-/// entered and by whom. Readers (dashboard, Unit Workspace, logs) use this row so they never have to
-/// reduce the entry log themselves; corrections update it while the entry log preserves history.
-///
-/// `mealServiceReadyAt` / `mealServiceStartedAt` are when the milestone *occurred*.
-/// `readyRecordedAt` / `startedRecordedAt` are when the server *accepted* the record. These are
-/// deliberately separate: conflating them would make a late entry indistinguishable from a late meal.
-model ServeryMealServiceEvent {
-  id                          String                  @id @default(cuid())
-  unitId                      String
-  unit                        Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  serviceDate                 DateTime                @db.Date
-  mealType                    MealType
-  /// When Servery Ready occurred.
-  mealServiceReadyAt          DateTime?
-  /// When Meal Service Started occurred.
-  mealServiceStartedAt        DateTime?
-  /// Server acceptance time for the current Ready value. Null for rows predating this column.
-  readyRecordedAt             DateTime?
-  /// Server acceptance time for the current Started value. Null for rows predating this column.
-  startedRecordedAt           DateTime?
-  readyRecordedById           String?
-  readyRecordedBy             User?                   @relation("ServeryReadyRecordedBy", fields: [readyRecordedById], references: [id], onDelete: SetNull)
-  startedRecordedById         String?
-  startedRecordedBy           User?                   @relation("ServeryStartedRecordedBy", fields: [startedRecordedById], references: [id], onDelete: SetNull)
-  /// Employee attribution for PIN sessions, which have no `User` row. Null for password sessions.
-  readyRecordedByEmployeeId   String?
-  readyRecordedByEmployee     Employee?               @relation("ServeryReadyRecordedByEmployee", fields: [readyRecordedByEmployeeId], references: [id], onDelete: SetNull)
-  startedRecordedByEmployeeId String?
-  startedRecordedByEmployee   Employee?               @relation("ServeryStartedRecordedByEmployee", fields: [startedRecordedByEmployeeId], references: [id], onDelete: SetNull)
-  /// Credential surface of the session that recorded the current value. Null for historical rows.
-  readyAuthMethod             SessionAuthMethod?
-  startedAuthMethod           SessionAuthMethod?
-  /// Optional link to the dated operation occurrence when the operations engine is enabled.
-  operationInstanceId         String?
-  operationInstance           OperationInstance?      @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  entries                     ServeryMilestoneEntry[]
-  createdAt                   DateTime                @default(now())
-  updatedAt                   DateTime                @updatedAt
 
-  @@unique([unitId, serviceDate, mealType])
-  @@index([serviceDate])
-  @@index([operationInstanceId])
-}
 
-/// Append-only record of every Dietary milestone entry and correction.
-///
-/// Rows are never updated or deleted by the product. A correction appends a `CORRECTION` entry that
-/// carries the value it replaced in `previousOccurredAt`, so the original occurrence time, its
-/// actor, and its acceptance time all survive. This is what makes "Not Confirmed" distinguishable
-/// from "Did Not Occur" and a corrected record distinguishable from an original one.
-///
-/// `clientActionId` is the idempotency key. Its uniqueness is scoped by `eventId`, which already
-/// encodes Facility (through Unit), Unit, service date, and meal, plus `milestone` — so a replayed
-/// command returns the original effect and cannot collide across contexts.
-model ServeryMilestoneEntry {
-  id                 String                    @id @default(cuid())
-  eventId            String
-  event              ServeryMealServiceEvent   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  milestone          ServeryMilestone
-  kind               ServeryMilestoneEntryKind @default(ORIGINAL)
-  /// When the milestone occurred, as recorded by this entry.
-  occurredAt         DateTime
-  /// When the server accepted this entry. Always server-generated.
-  recordedAt         DateTime                  @default(now())
-  /// The occurrence time this entry replaced. Set on corrections only.
-  previousOccurredAt DateTime?
-  /// Required for corrections; null for original entries.
-  reason             String?
-  actorUserId        String?
-  actorUser          User?                     @relation("ServeryMilestoneEntryActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
-  actorEmployeeId    String?
-  actorEmployee      Employee?                 @relation("ServeryMilestoneEntryActorEmployee", fields: [actorEmployeeId], references: [id], onDelete: SetNull)
-  /// Role held at the time of entry. Null for rows backfilled from before this table existed.
-  actorRole          RoleKey?
-  /// Credential surface used. Null for backfilled rows.
-  authMethod         SessionAuthMethod?
-  /// Unit the recording tablet was bound to, when it was unit-locked.
-  deviceUnitId       String?
-  /// Idempotency key supplied by the client command.
-  clientActionId     String
-
-  @@unique([eventId, milestone, clientActionId])
-  @@index([eventId, milestone, recordedAt])
-  @@index([actorUserId])
-  @@index([actorEmployeeId])
-}
-
-model UnitMealTime {
-  id            String   @id @default(cuid())
-  unitId        String
-  unit          Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  mealType      MealType
-  scheduledTime String
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([unitId, mealType])
-  @@index([unitId, isActive])
-}
 
 model Employee {
   id                             String                          @id @default(cuid())
@@ -2457,6 +2254,7 @@ model Employee {
   jobTitle                       JobTitle?                       @relation(fields: [jobTitleId], references: [id], onDelete: SetNull)
   headedDepartments              Department[]                    @relation("DepartmentHead")
   departmentStaffManagerGrants   DepartmentStaffManager[]
+  dashboardLayouts               DashboardLayout[]
   managedTeams                   DepartmentTeam[]                @relation("DepartmentTeamManager")
   employeeDepartments            EmployeeDepartment[]
   teamMemberships                EmployeeTeamMembership[]
@@ -2471,9 +2269,7 @@ model Employee {
   employmentType                 EmploymentType                  @default(FULL_TIME)
   defaultAssignments             DefaultAssignment[]
   scheduleEntries                ScheduleEntry[]
-  assignmentOverrides            AssignmentOverride[]
   operationalAssignments         OperationalAssignment[]
-  logSubmissions                 LogSubmission[]                 @relation("SubmissionByEmployee")
   /// HR (see memory-bank/employee-hr-source-of-truth.md)
   unionMember                    Boolean                         @default(false)
   hireDate                       DateTime?                       @db.Date
@@ -2496,9 +2292,6 @@ model Employee {
   hrAuditLogs                    EmployeeHrAuditLog[]
   terminationRecords             EmployeeTerminationRecord[]
   kioskUnitPinLoginEvents        KioskUnitPinLoginEvent[]
-  serveryMealReadyEvents         ServeryMealServiceEvent[]       @relation("ServeryReadyRecordedByEmployee")
-  serveryMealStartedEvents       ServeryMealServiceEvent[]       @relation("ServeryStartedRecordedByEmployee")
-  serveryMilestoneEntries        ServeryMilestoneEntry[]         @relation("ServeryMilestoneEntryActorEmployee")
   offlineBundleIssuances         OfflineBundleIssuance[]         @relation("OfflineBundleIssuanceActorEmployee")
   offlineSyncReceipts            OfflineSyncReceipt[]            @relation("OfflineSyncReceiptActorEmployee")
   offlineConflictsResolved       OfflineConflict[]               @relation("OfflineConflictResolvedByEmployee")
@@ -2508,9 +2301,7 @@ model Employee {
   defaultPmPlanVersions          PreventiveMaintenancePlanVersion[] @relation("PmPlanVersionDefaultAssignee")
   repairLaborEntries             RepairLaborEntry[]
   roomAreaStatusUpdates          RoomAreaStatus[]
-  assignedTasks                  Task[]                          @relation("TaskAssignedEmployee")
   attachmentsCreated             Attachment[]                    @relation("AttachmentCreatedByEmployee")
-  inspectionSubmissions          InspectionSubmission[]          @relation("InspectionSubmittedByEmployee")
   assetIssuesReported            AssetIssue[]                    @relation("AssetIssueReportedByEmployee")
   assetIssueUpdates              AssetIssueUpdate[]              @relation("AssetIssueUpdateByEmployee")
   operationalRequestsReported    OperationalRequest[]            @relation("OperationalRequestReportedByEmployee")
@@ -2723,9 +2514,11 @@ model ScheduleEntry {
   workShift    WorkShift?           @relation(fields: [workShiftId], references: [id], onDelete: SetNull)
   plannedStart String?
   plannedEnd   String?
+  /// Set when the person calls off this shift. Historical overrides stay until the table drop.
+  calledOffAt  DateTime?
+  callOffReason String?
   createdById  String?
   createdBy    User?                @relation("ScheduleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  overrides    AssignmentOverride[]
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
@@ -2736,26 +2529,6 @@ model ScheduleEntry {
   @@index([departmentId, operatorPeriodId])
 }
 
-model AssignmentOverride {
-  id              String         @id @default(cuid())
-  scheduleEntryId String?
-  scheduleEntry   ScheduleEntry? @relation(fields: [scheduleEntryId], references: [id], onDelete: SetNull)
-  date            DateTime
-  mealType        MealType?
-  employeeId      String
-  employee        Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  oldUnitId       String?
-  oldUnit         Unit?          @relation("OverrideOldUnit", fields: [oldUnitId], references: [id], onDelete: SetNull)
-  newUnitId       String
-  newUnit         Unit           @relation("OverrideNewUnit", fields: [newUnitId], references: [id], onDelete: Restrict)
-  reason          String
-  changedById     String?
-  changedBy       User?          @relation("OverrideChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
-  changedAt       DateTime       @default(now())
-
-  @@index([date, newUnitId])
-  @@index([employeeId, date])
-}
 
 model Vendor {
   id          String   @id @default(cuid())
@@ -2863,15 +2636,17 @@ model Asset {
   warrantyExpiresAt                  DateTime?                          @db.Date
   retiredAt                          DateTime?
   retiredReason                      String?
+  /// Who owns the equipment. Existing rows stay facility-titled (CDA-D22).
+  titleKind                          AssetTitleKind                     @default(FACILITY)
+  titleOrganizationId                String?
+  titleOrganization                  Organization?                      @relation("AssetTitleOrganization", fields: [titleOrganizationId], references: [id], onDelete: SetNull)
   createdByUserId                    String?
   createdByUser                      User?                              @relation("AssetCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
   lastChangedByUserId                String?
   lastChangedByUser                  User?                              @relation("AssetLastChangedByUser", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
   repairs                            Repair[]
-  preventiveMaintenanceSchedules     PreventiveMaintenanceSchedule[]
   preventiveMaintenancePlans         PreventiveMaintenancePlan[]
   knowledgeArticleAssets             KnowledgeArticleAsset[]
-  operationalTemplateApplicabilities OperationalTemplateApplicability[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   logAttachments                     LogAttachment[]
   attachments                        Attachment[]
@@ -2889,6 +2664,31 @@ model Asset {
   @@index([responsibleOrganizationId])
   @@index([spaceId])
   @@index([status])
+  @@index([titleOrganizationId])
+}
+
+enum AssetTitleKind {
+  FACILITY
+  PARTNER
+}
+
+/// Facility-kept record that partner-titled equipment was on site. Not an asset.
+model AssetPresenceNote {
+  id                  String        @id @default(cuid())
+  facilityId          String
+  facility            Facility      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                String
+  equipmentType       String
+  onSiteFrom          DateTime      @db.Date
+  onSiteTo            DateTime      @db.Date
+  titleOrganizationId String?
+  titleOrganization   Organization? @relation(fields: [titleOrganizationId], references: [id], onDelete: SetNull)
+  createdAt           DateTime      @default(now())
+
+  @@index([facilityId, departmentId])
+  @@index([titleOrganizationId])
 }
 
 /// Append-preserving Asset operational status changes (Phase 10A).
@@ -2950,9 +2750,6 @@ model AssetIssue {
   resolvedAt               DateTime?
   closedAt                 DateTime?
   resolutionReason         String?
-  /// Compatibility pointer to the first linked Work Order. Not cardinality authority.
-  workOrderId              String?                @unique
-  workOrder                Repair?                @relation("AssetIssueWorkOrder", fields: [workOrderId], references: [id], onDelete: SetNull)
   /// Authoritative Issue → many Work Orders (Repair.issueId).
   workOrders               Repair[]               @relation("RepairCanonicalIssue")
   /// Reverse of OperationalRequest.relatedAssetIssueId (many Requests → one Issue).
@@ -3159,16 +2956,12 @@ model Repair {
   status                  RepairStatus                   @default(OPEN)
   workOrderKind           WorkOrderKind                  @default(CORRECTIVE)
   repairTrade             RepairTrade                    @default(GENERAL)
-  /// Product “Issue” classification on legacy Repair façade (ADL-008).
-  issueType               IssueType                      @default(EQUIPMENT)
   requestingDepartmentId  String?
   requestingDepartment    Department?                    @relation("RepairRequestingDepartment", fields: [requestingDepartmentId], references: [id], onDelete: SetNull)
   responsibleDepartmentId String?
   responsibleDepartment   Department?                    @relation("RepairResponsibleDepartment", fields: [responsibleDepartmentId], references: [id], onDelete: SetNull)
   assignedEmployeeId      String?
   assignedEmployee        Employee?                      @relation("RepairAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  preventiveScheduleId    String?
-  preventiveSchedule      PreventiveMaintenanceSchedule? @relation(fields: [preventiveScheduleId], references: [id], onDelete: SetNull)
   /// Canonical PM occurrence. Not globally unique: canceled Work Orders may be replaced.
   /// Partial unique index Repair_pmOccurrenceId_active_key: at most one active WO per occurrence.
   pmOccurrenceId          String?
@@ -3182,8 +2975,6 @@ model Repair {
   estimatedLaborMinutes   Int?
   partsNote               String?
   workPerformed           String?
-  /// Compatibility completion note. Canonical closeout summary is workPerformed.
-  resolution              String?
   /// Who pays, copied from the asset's maintainer when the work order is created (CDA-D18).
   payerOrganizationId     String?
   payerOrganization       FacilityOrganization?          @relation(fields: [payerOrganizationId], references: [id], onDelete: SetNull)
@@ -3205,8 +2996,6 @@ model Repair {
   /// Authoritative Issue link (one Work Order → zero or one Issue; one Issue → many Work Orders).
   issueId                 String?
   issue                   AssetIssue?                    @relation("RepairCanonicalIssue", fields: [issueId], references: [id], onDelete: SetNull)
-  /// Compatibility reverse of AssetIssue.workOrderId (first linked Work Order only).
-  sourceAssetIssue        AssetIssue?                    @relation("AssetIssueWorkOrder")
   /// Optional Phase 12A source Operational Request (Request owns the FK).
   sourceOperationalRequest OperationalRequest?           @relation("OperationalRequestWorkOrder")
   /// Canonical hold reason when status is ON_HOLD. Null when not on hold.
@@ -3230,12 +3019,10 @@ model Repair {
 
   @@index([unitId, status])
   @@index([priority, status])
-  @@index([issueType, status])
   @@index([requestingDepartmentId])
   @@index([responsibleDepartmentId])
   @@index([payerOrganizationId])
   @@index([assignedEmployeeId])
-  @@index([preventiveScheduleId])
   @@index([pmOccurrenceId])
   @@index([dueAt])
   @@index([targetDate])
@@ -3303,11 +3090,13 @@ model RepairRecordRequirement {
   id                   String                         @id @default(cuid())
   repairId             String
   repair               Repair                         @relation(fields: [repairId], references: [id], onDelete: Cascade)
-  templateId           String
-  template             OperationalTemplate            @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  templateStableKey    String
-  templateVersion      Int
-  templateName         String
+  templateStableKey    String?
+  templateVersion      Int?
+  templateName         String?
+  catalogDefinitionId  String?
+  catalogDefinition    CatalogLogDefinition?          @relation("RepairCatalogRequirement", fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
+  catalogStableKey     String?
+  catalogVersion       Int?
   sortOrder            Int                            @default(0)
   status               RepairRecordRequirementStatus  @default(PENDING)
   satisfiedByRecordId  String?
@@ -3320,9 +3109,9 @@ model RepairRecordRequirement {
   createdByUserId      String?
   createdByUser        User?                          @relation("RepairRecordRequirementCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([repairId, templateId])
+  @@unique([repairId, catalogDefinitionId])
   @@index([repairId, status])
-  @@index([templateId])
+  @@index([catalogDefinitionId])
   @@index([satisfiedByRecordId])
   @@index([waivedByUserId])
   @@index([createdByUserId])
@@ -3343,114 +3132,10 @@ model RepairUpdate {
   @@index([repairId, updatedAt])
 }
 
-model LogTemplate {
-  id                    String                        @id @default(cuid())
-  facilityId            String
-  facility              Facility                      @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  name                  String
-  category              String
-  description           String?
-  instructions          String?
-  recurrence            LogRecurrence                 @default(DAILY)
-  isActive              Boolean                       @default(true)
-  departmentId          String?
-  department            Department?                   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdByRoleId       String?
-  createdByRole         Role?                         @relation(fields: [createdByRoleId], references: [id], onDelete: SetNull)
-  fields                LogTemplateField[]
-  assignments           LogAssignment[]
-  submissions           LogSubmission[]
-  knowledgeArticleLinks KnowledgeArticleLogTemplate[]
-  createdAt             DateTime                      @default(now())
-  updatedAt             DateTime                      @updatedAt
 
-  @@unique([facilityId, name])
-  @@index([category, isActive])
-  @@index([facilityId])
-  @@index([departmentId])
-}
 
-model LogTemplateField {
-  id           String               @id @default(cuid())
-  templateId   String
-  template     LogTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  label        String
-  fieldType    LogFieldType
-  isRequired   Boolean              @default(true)
-  fieldOrder   Int
-  unitLabel    String?
-  fieldOptions String[]             @default([])
-  values       LogSubmissionValue[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
 
-  @@unique([templateId, fieldOrder])
-  @@index([templateId])
-}
 
-model LogAssignment {
-  id             String          @id @default(cuid())
-  unitId         String
-  unit           Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  templateId     String
-  template       LogTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  recurrence     LogRecurrence
-  mealType       MealType?
-  timesPerDay    Int             @default(1)
-  requiredRole   RoleKey?
-  isActive       Boolean         @default(true)
-  effectiveStart DateTime        @default(now())
-  effectiveEnd   DateTime?
-  submissions    LogSubmission[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-
-  @@index([unitId, isActive])
-  @@index([templateId, isActive])
-}
-
-model LogSubmission {
-  id                    String               @id @default(cuid())
-  assignmentId          String
-  assignment            LogAssignment        @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
-  unitId                String
-  unit                  Unit                 @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  templateId            String
-  template              LogTemplate          @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  serviceDate           DateTime
-  mealType              MealType?
-  submittedById         String?
-  submittedBy           User?                @relation(fields: [submittedById], references: [id], onDelete: SetNull)
-  submittedByEmployeeId String?
-  submittedByEmployee   Employee?            @relation("SubmissionByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
-  status                LogSubmissionStatus  @default(COMPLETED)
-  notes                 String?
-  correctiveAction      String?
-  values                LogSubmissionValue[]
-  attachments           Attachment[]
-  submittedAt           DateTime             @default(now())
-
-  @@index([unitId, serviceDate])
-  @@index([templateId, serviceDate])
-  @@index([submittedById])
-  @@index([submittedByEmployeeId])
-}
-
-model LogSubmissionValue {
-  id            String           @id @default(cuid())
-  submissionId  String
-  submission    LogSubmission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  fieldId       String
-  field         LogTemplateField @relation(fields: [fieldId], references: [id], onDelete: Restrict)
-  valueText     String?
-  valueNumber   Float?
-  valueBoolean  Boolean?
-  valueDateTime DateTime?
-  createdAt     DateTime         @default(now())
-
-  @@index([submissionId])
-  @@index([fieldId])
-}
 
 model WorkShift {
   id                  String                          @id @default(cuid())
@@ -3472,30 +3157,6 @@ model WorkShift {
   @@index([departmentId])
 }
 
-/// LEGACY / SUPERSEDED. Rolling nextDueAt is not canonical PM.
-/// Canonical identity is PreventiveMaintenancePlan. Do not generate from this table.
-model PreventiveMaintenanceSchedule {
-  id            String                       @id @default(cuid())
-  facilityId    String
-  facility      Facility                     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  assetId       String
-  asset         Asset                        @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  departmentId  String?
-  department    Department?                  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  name          String
-  cadence       PreventiveMaintenanceCadence
-  intervalCount Int                          @default(1)
-  nextDueAt     DateTime
-  isActive      Boolean                      @default(true)
-  repairs       Repair[]
-  createdAt     DateTime                     @default(now())
-  updatedAt     DateTime                     @updatedAt
-
-  @@index([facilityId])
-  @@index([assetId])
-  @@index([departmentId])
-  @@index([nextDueAt])
-}
 
 /// Canonical PM Plan identity. One Asset. No schedule fields on this row.
 /// Asset RETIRED does not mutate Plan status. Plan RETIRED is an explicit configuration action.
@@ -3572,16 +3233,18 @@ model PreventiveMaintenancePlanRecordRequirement {
   id                String                          @id @default(cuid())
   planVersionId     String
   planVersion       PreventiveMaintenancePlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
-  templateId        String
-  template          OperationalTemplate             @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  templateStableKey String
-  templateVersion   Int
-  templateName      String
+  templateStableKey String?
+  templateVersion   Int?
+  templateName      String?
+  catalogDefinitionId String?
+  catalogDefinition  CatalogLogDefinition?           @relation("PmCatalogRequirement", fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
+  catalogStableKey   String?
+  catalogVersion     Int?
   sortOrder         Int                             @default(0)
   createdAt         DateTime                        @default(now())
 
-  @@unique([planVersionId, templateId])
-  @@index([templateId])
+  @@unique([planVersionId, catalogDefinitionId])
+  @@index([catalogDefinitionId])
 }
 
 /// Durable PM obligation. Unique (planId, scheduledDate) is the idempotency boundary.
@@ -3638,8 +3301,6 @@ model Attachment {
   facilityId          String
   facility            Facility             @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   parentKind          AttachmentParentKind
-  logSubmissionId     String?
-  logSubmission       LogSubmission?       @relation(fields: [logSubmissionId], references: [id], onDelete: Cascade)
   repairId            String?
   repair              Repair?              @relation(fields: [repairId], references: [id], onDelete: Cascade)
   assetId             String?
@@ -3654,192 +3315,17 @@ model Attachment {
   createdAt           DateTime             @default(now())
 
   @@index([facilityId])
-  @@index([logSubmissionId])
   @@index([repairId])
   @@index([assetId])
   @@index([createdByUserId])
   @@index([createdByEmployeeId])
 }
 
-/// Additive Work Engine projection. LogSubmission / Repair remain source of truth.
-model Task {
-  id                    String                 @id @default(cuid())
-  facilityId            String
-  facility              Facility               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId          String?
-  department            Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  unitId                String?
-  unit                  Unit?                  @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  operationInstanceId   String?
-  operationInstance     OperationInstance?     @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  type                  TaskType
-  title                 String
-  description           String?
-  status                TaskStatus             @default(OPEN)
-  priority              TaskPriority           @default(MEDIUM)
-  dueAt                 DateTime?
-  completedAt           DateTime?
-  assignedEmployeeId    String?
-  assignedEmployee      Employee?              @relation("TaskAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  sourceType            TaskSourceType
-  sourceId              String
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  inspectionSubmissions InspectionSubmission[]
-  inspectionOccurrences InspectionOccurrence[]
 
-  @@unique([facilityId, sourceType, sourceId])
-  @@index([facilityId, status])
-  @@index([facilityId, type])
-  @@index([unitId])
-  @@index([departmentId])
-  @@index([assignedEmployeeId])
-  @@index([operationInstanceId])
-  @@index([dueAt])
-}
 
-/// Native Work Engine inspection checklist definition (distinct from LogTemplate).
-model InspectionDefinition {
-  id                    String                                 @id @default(cuid())
-  facilityId            String
-  facility              Facility                               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId          String?
-  department            Department?                            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  unitId                String?
-  unit                  Unit?                                  @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  name                  String
-  description           String?
-  /// Optional free-text notes; structured scheduling uses cadenceType / dueTimeLocal / daysOfWeek / dayOfMonth.
-  frequency             String?
-  cadenceType           InspectionCadenceType                  @default(ON_DEMAND)
-  /// Facility-local due wall time "HH:MM". Null defaults to 09:00 for generated occurrences.
-  dueTimeLocal          String?
-  /// Weekday numbers for WEEKLY cadence: 0=Sunday … 6=Saturday (facility-local).
-  daysOfWeek            Int[]                                  @default([])
-  /// 1–31 for MONTHLY cadence (facility-local). Clamped to last day of short months.
-  dayOfMonth            Int?
-  activeFrom            DateTime?                              @db.Date
-  activeUntil           DateTime?                              @db.Date
-  /// Last facility-local service date the generator has materialized through.
-  lastGeneratedThrough  DateTime?                              @db.Date
-  isActive              Boolean                                @default(true)
-  items                 InspectionDefinitionItem[]
-  submissions           InspectionSubmission[]
-  occurrences           InspectionOccurrence[]
-  knowledgeArticleLinks KnowledgeArticleInspectionDefinition[]
-  createdAt             DateTime                               @default(now())
-  updatedAt             DateTime                               @updatedAt
 
-  @@unique([facilityId, name])
-  @@index([facilityId, isActive])
-  @@index([facilityId, cadenceType, isActive])
-  @@index([departmentId])
-  @@index([unitId])
-}
 
-/// One scheduled inspection occurrence per definition + facility-local service date.
-model InspectionOccurrence {
-  id           String                     @id @default(cuid())
-  definitionId String
-  definition   InspectionDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
-  facilityId   String
-  facility     Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId String?
-  department   Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  unitId       String?
-  unit         Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  /// Facility-local calendar day as UTC-midnight @db.Date.
-  serviceDate  DateTime                   @db.Date
-  dueAt        DateTime
-  status       InspectionOccurrenceStatus @default(OPEN)
-  taskId       String?
-  task         Task?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  submission   InspectionSubmission?
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
 
-  @@unique([definitionId, serviceDate])
-  @@index([facilityId, status, dueAt])
-  @@index([facilityId, serviceDate])
-  @@index([unitId, status])
-  @@index([departmentId])
-  @@index([taskId])
-}
-
-model InspectionDefinitionItem {
-  id                     String                     @id @default(cuid())
-  definitionId           String
-  definition             InspectionDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
-  label                  String
-  description            String?
-  sortOrder              Int
-  isRequired             Boolean                    @default(true)
-  responseType           InspectionResponseType
-  failureCreatesFollowUp Boolean                    @default(false)
-  submissionItems        InspectionSubmissionItem[]
-  createdAt              DateTime                   @default(now())
-  updatedAt              DateTime                   @updatedAt
-
-  @@unique([definitionId, sortOrder])
-  @@index([definitionId])
-}
-
-model InspectionSubmission {
-  id                    String                     @id @default(cuid())
-  facilityId            String
-  facility              Facility                   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  definitionId          String
-  definition            InspectionDefinition       @relation(fields: [definitionId], references: [id], onDelete: Restrict)
-  unitId                String?
-  unit                  Unit?                      @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  operationInstanceId   String?
-  operationInstance     OperationInstance?         @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
-  /// When set, this submission completes the linked scheduled occurrence (no duplicate execution Task).
-  occurrenceId          String?                    @unique
-  occurrence            InspectionOccurrence?      @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
-  submittedByEmployeeId String?
-  submittedByEmployee   Employee?                  @relation("InspectionSubmittedByEmployee", fields: [submittedByEmployeeId], references: [id], onDelete: SetNull)
-  submittedAt           DateTime                   @default(now())
-  result                InspectionResult
-  notes                 String?
-  /// Optional link to projected Task after sync (Task remains keyed by sourceType/sourceId).
-  taskId                String?
-  task                  Task?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  /// Caller-supplied key to make retries idempotent within a facility.
-  idempotencyKey        String?
-  items                 InspectionSubmissionItem[]
-  createdAt             DateTime                   @default(now())
-  updatedAt             DateTime                   @updatedAt
-
-  @@unique([facilityId, idempotencyKey])
-  @@index([facilityId, submittedAt])
-  @@index([definitionId, submittedAt])
-  @@index([unitId])
-  @@index([operationInstanceId])
-  @@index([submittedByEmployeeId])
-  @@index([taskId])
-  @@index([result])
-  @@index([occurrenceId])
-}
-
-model InspectionSubmissionItem {
-  id               String                   @id @default(cuid())
-  submissionId     String
-  submission       InspectionSubmission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  definitionItemId String
-  definitionItem   InspectionDefinitionItem @relation(fields: [definitionItemId], references: [id], onDelete: Restrict)
-  /// For PASS_FAIL / YES_NO: true = pass/yes, false = fail/no.
-  passed           Boolean?
-  valueText        String?
-  valueNumber      Float?
-  notes            String?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
-
-  @@unique([submissionId, definitionItemId])
-  @@index([submissionId])
-  @@index([definitionItemId])
-}
 
 enum KnowledgeArticleStatus {
   DRAFT
@@ -3897,8 +3383,7 @@ model KnowledgeArticle {
   archivedAt                DateTime?
   unitLinks                 KnowledgeArticleUnit[]
   assetLinks                KnowledgeArticleAsset[]
-  logTemplateLinks          KnowledgeArticleLogTemplate[]
-  inspectionDefinitionLinks KnowledgeArticleInspectionDefinition[]
+  catalogLinks              KnowledgeArticleCatalogDefinition[]
   workItemLinks             DepartmentWorkItem[]
   versions                  KnowledgeArticleVersion[]
   createdAt                 DateTime                               @default(now())
@@ -3962,28 +3447,20 @@ model KnowledgeArticleAsset {
   @@index([assetId])
 }
 
-model KnowledgeArticleLogTemplate {
-  id            String           @id @default(cuid())
-  articleId     String
-  article       KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  logTemplateId String
-  logTemplate   LogTemplate      @relation(fields: [logTemplateId], references: [id], onDelete: Cascade)
-  createdAt     DateTime         @default(now())
 
-  @@unique([articleId, logTemplateId])
-  @@index([logTemplateId])
-}
 
-model KnowledgeArticleInspectionDefinition {
-  id                     String               @id @default(cuid())
-  articleId              String
-  article                KnowledgeArticle     @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  inspectionDefinitionId String
-  inspectionDefinition   InspectionDefinition @relation(fields: [inspectionDefinitionId], references: [id], onDelete: Cascade)
-  createdAt              DateTime             @default(now())
+/// Knowledge points at a published Catalog form. Older log-template and
+/// inspection links stay until those tables drop.
+model KnowledgeArticleCatalogDefinition {
+  id                  String               @id @default(cuid())
+  articleId           String
+  article             KnowledgeArticle     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  catalogDefinitionId String
+  catalogDefinition   CatalogLogDefinition @relation(fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
+  createdAt           DateTime             @default(now())
 
-  @@unique([articleId, inspectionDefinitionId])
-  @@index([inspectionDefinitionId])
+  @@unique([articleId, catalogDefinitionId])
+  @@index([catalogDefinitionId])
 }
 
 enum AiBriefStatus {
@@ -4008,7 +3485,6 @@ model AiOperationalBrief {
   /// Facility-local service date as UTC-midnight @db.Date.
   serviceDate          DateTime      @db.Date
   briefType            AiBriefType   @default(MORNING_BRIEF)
-  operationInstanceId  String?
   snapshotHash         String
   /// Sanitized operational snapshot used for baseline diffs (privacy-minimized).
   snapshotJson         Json?
@@ -4191,8 +3667,6 @@ model OperationalAssignment {
   /// Optional Zone used as create-time convenience. Not live membership authority.
   sourceZoneId        String?
   sourceZone          DepartmentOperationalZone?         @relation("AssignmentSourceZone", fields: [sourceZoneId], references: [id], onDelete: SetNull)
-  operationInstanceId String?
-  operationInstance   OperationInstance?                 @relation(fields: [operationInstanceId], references: [id], onDelete: SetNull)
   templateItemId      String?
   templateItem        OperationalAssignmentTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: SetNull)
   serviceDate         DateTime                           @db.Date
@@ -4222,7 +3696,6 @@ model OperationalAssignment {
   @@index([employeeId, serviceDate])
   @@index([unitId, serviceDate])
   @@index([sourceZoneId])
-  @@index([operationInstanceId])
   @@index([templateItemId])
   @@index([planId])
 }
@@ -4288,8 +3761,6 @@ model OperationalAssignmentTemplate {
   /// Inclusive end of effectiveness. Null = not retired. Retired templates do not apply prospectively.
   effectiveTo           DateTime?                           @db.Date
   publishedAt           DateTime?
-  operationDefinitionId String?
-  operationDefinition   OperationDefinition?                @relation(fields: [operationDefinitionId], references: [id], onDelete: SetNull)
   workShiftId           String?
   workShift             WorkShift?                          @relation(fields: [workShiftId], references: [id], onDelete: SetNull)
   items                 OperationalAssignmentTemplateItem[]
@@ -4868,126 +4339,10 @@ enum OperationalEvidenceRecordStatus {
   NEEDS_REVIEW
 }
 
-/// Unified Operational Template — authoritative evidence definition for Phase 9C.
-/// Versioned via stableKey + version. Published versions are immutable; edits create successors.
-model OperationalTemplate {
-  id                  String                             @id @default(cuid())
-  facilityId          String
-  facility            Facility                           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId        String
-  department          Department                         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  /// Stable identity across versions within a department.
-  stableKey           String
-  version             Int                                @default(1)
-  name                String
-  description         String?
-  instructions        String?
-  purposeType         OperationalTemplatePurposeType
-  status              OperationalTemplateStatus          @default(DRAFT)
-  /// Optional preset key for synthetic Dietary reference drafts (never auto-published).
-  presetKey           String?
-  allowAdHoc          Boolean                            @default(false)
-  createdByUserId     String?
-  publishedByUserId   String?
-  lastChangedByUserId String?
-  publishedAt         DateTime?
-  retiredAt           DateTime?
-  fields              OperationalTemplateField[]
-  applicabilities     OperationalTemplateApplicability[]
-  schedules           OperationalTemplateSchedule[]
-  events              OperationalTemplateEvent[]
-  evidenceRecords     OperationalEvidenceRecord[]
-  repairRecordRequirements RepairRecordRequirement[]
-  pmPlanRecordRequirements PreventiveMaintenancePlanRecordRequirement[]
-  createdAt           DateTime                           @default(now())
-  updatedAt           DateTime                           @updatedAt
 
-  @@unique([departmentId, stableKey, version])
-  @@index([facilityId, departmentId, status])
-  @@index([facilityId, departmentId, purposeType])
-  @@index([departmentId, status, name])
-}
 
-model OperationalTemplateField {
-  id                       String                       @id @default(cuid())
-  templateId               String
-  template                 OperationalTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  /// Stable within a template lineage for mapping values across versions when needed.
-  fieldKey                 String
-  label                    String
-  fieldType                OperationalEvidenceFieldType
-  isRequired               Boolean                      @default(true)
-  displaySequence          Int
-  helpText                 String?
-  unitLabel                String?
-  minNumber                Float?
-  maxNumber                Float?
-  allowedSelections        String[]                     @default([])
-  /// When true, out-of-standard results make corrective action visible.
-  correctiveActionTrigger  Boolean                      @default(false)
-  /// When true and triggered, corrective action text is required to submit.
-  correctiveActionRequired Boolean                      @default(false)
-  createdAt                DateTime                     @default(now())
-  updatedAt                DateTime                     @updatedAt
 
-  @@unique([templateId, fieldKey])
-  @@unique([templateId, displaySequence])
-  @@index([templateId])
-}
 
-model OperationalTemplateApplicability {
-  id         String                               @id @default(cuid())
-  templateId String
-  template   OperationalTemplate                  @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  kind       OperationalTemplateApplicabilityKind
-  assetId    String?
-  asset      Asset?                               @relation(fields: [assetId], references: [id], onDelete: Restrict)
-  /// Free-text equipment type match against Asset.equipmentType when kind=ASSET_TYPE.
-  assetType  String?
-  spaceId    String?
-  space      UnitSpace?                           @relation(fields: [spaceId], references: [id], onDelete: Restrict)
-  spaceType  SpaceType?
-  unitId     String?
-  createdAt  DateTime                             @default(now())
-
-  @@index([templateId])
-  @@index([assetId])
-  @@index([spaceId])
-  @@index([unitId])
-}
-
-model OperationalTemplateSchedule {
-  id               String                          @id @default(cuid())
-  templateId       String
-  template         OperationalTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  kind             OperationalTemplateScheduleKind
-  /// References DepartmentOperationalCycle.stableKey (not a copied window).
-  cycleStableKey   String?
-  /// Facility-local wall-clock window start (`HH:mm`) when kind=FIXED_DAILY_WINDOW.
-  windowStartLocal String?
-  /// Facility-local wall-clock window end (`HH:mm`) when kind=FIXED_DAILY_WINDOW.
-  windowEndLocal   String?
-  createdAt        DateTime                        @default(now())
-
-  @@index([templateId])
-  @@index([cycleStableKey])
-}
-
-model OperationalTemplateEvent {
-  id           String              @id @default(cuid())
-  templateId   String
-  template     OperationalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  facilityId   String
-  departmentId String
-  eventType    String
-  actorUserId  String?
-  actorLabel   String?
-  detailJson   Json?
-  createdAt    DateTime            @default(now())
-
-  @@index([templateId, createdAt])
-  @@index([facilityId, departmentId, createdAt])
-}
 
 /// Persisted Evidence Record. Requirements are derived; records are durable.
 /// templateSnapshotJson preserves published definition so later edits never rewrite history.
@@ -5000,9 +4355,6 @@ model OperationalEvidenceRecord {
   department                   Department                      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   operatorPeriodId             String?
   operatorPeriod               DepartmentOperatorRelationship? @relation("EvidenceOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
-  /// Published Phase 9C template version at capture time. Null for Catalog Attachment submissions.
-  templateId                   String?
-  template                     OperationalTemplate?            @relation(fields: [templateId], references: [id], onDelete: Restrict)
   /// Canonical Catalog Attachment (nullable for legacy Phase 9C evidence).
   logAttachmentId              String?
   logAttachment                LogAttachment?                  @relation(fields: [logAttachmentId], references: [id], onDelete: SetNull)
@@ -5472,11 +4824,6 @@ enum CatalogLogStatus {
   RETIRED
 }
 
-/// Which Record engine owns new work for a facility department on and after a service date.
-enum RecordEngineMode {
-  LEGACY
-  CANONICAL
-}
 
 enum CatalogLogPurposeType {
   LOG
@@ -5574,6 +4921,9 @@ model CatalogLogDefinition {
   facilityTypeLogDefaults     DepartmentFacilityTypeLogDefault[]
   facilityInstalls            FacilityCatalogInstall[]
   evidenceRecords             OperationalEvidenceRecord[]
+  repairCatalogRequirements   RepairRecordRequirement[]   @relation("RepairCatalogRequirement")
+  pmCatalogRequirements       PreventiveMaintenancePlanRecordRequirement[] @relation("PmCatalogRequirement")
+  knowledgeArticleLinks       KnowledgeArticleCatalogDefinition[]
   ownerKind                   CatalogFormOwnerKind            @default(VSSYL)
   ownerFacilityId             String?
   ownerFacility               Facility?                       @relation("CatalogFormOwnerFacility", fields: [ownerFacilityId], references: [id], onDelete: SetNull)
@@ -5630,24 +4980,6 @@ model CatalogLogField {
   @@index([definitionId])
 }
 
-/// Append-only Record-engine authority for one facility department.
-/// The row effective on a service date is the latest effectiveFromServiceDate on or before that date.
-/// CANONICAL_LOGS_ENABLED remains the deployment capability gate and does not rewrite these rows.
-model RecordEngineRollout {
-  id                        String           @id @default(cuid())
-  facilityId                String
-  facility                  Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId              String
-  department                Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  mode                      RecordEngineMode
-  effectiveFromServiceDate  String
-  actorUserId               String?
-  actorLabel                String?
-  createdAt                 DateTime         @default(now())
-
-  @@unique([facilityId, departmentId, effectiveFromServiceDate], map: "RecordEngineRollout_scope_date_key")
-  @@index([facilityId, departmentId, effectiveFromServiceDate], map: "RecordEngineRollout_scope_date_idx")
-}
 
 /// Harbor authoring library. Inserting a component copies its structure into a draft.
 /// Runtime evidence does not read this table.
@@ -5788,11 +5120,6 @@ enum HarborAuditAction {
   PROVISION_FACILITY
 }
 
-enum ConsoleTicketStatus {
-  OPEN
-  WAITING_ON_CUSTOMER
-  RESOLVED
-}
 
 model PlatformStaff {
   implementationAssignments ImplementationEngagement[] @relation("ImplementationResponsible")
@@ -5809,8 +5136,6 @@ model PlatformStaff {
   sessionVersion Int               @default(0)
   lastLoginAt    DateTime?
   auditEvents    HarborAuditEvent[]
-  openedConsoleTickets ConsoleTicket[] @relation("ConsoleTicketOpenedBy")
-  consoleTicketMessages ConsoleTicketMessage[]
   assignedSupportTickets SupportTicket[]
   supportTicketMessages  SupportTicketMessage[]
   supportTicketEvents    SupportTicketEvent[]
@@ -5822,6 +5147,7 @@ model PlatformStaff {
   supportNotifications SupportStaffNotification[]
   createdSupportAutomations SupportAutomationRule[]
   organizationClaimsApproved OrganizationClaimInvitation[] @relation("OrganizationClaimApprovedBy")
+  organizationMemberInvitations OrganizationMemberInvitation[] @relation("OrganizationMemberInvitationInvitedByStaff")
   organizationClaimsRejected OrganizationClaimInvitation[] @relation("OrganizationClaimRejectedBy")
   organizationClaimsRevoked  OrganizationClaimInvitation[] @relation("OrganizationClaimRevokedBy")
   createdAt      DateTime          @default(now())
@@ -5885,40 +5211,7 @@ model HarborAuditEvent {
   @@index([facilityId, createdAt])
 }
 
-/// Legacy (transitional). Rows were copied into SupportTicket by 20261001130000_support_ticket;
-/// no runtime code reads or writes this table. Drop in a later forward-only migration.
-model ConsoleTicket {
-  id              String              @id @default(cuid())
-  facilityId      String
-  facility        Facility            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  subject         String
-  status          ConsoleTicketStatus @default(OPEN)
-  requesterEmail  String
-  requesterName   String?
-  openedByStaffId String
-  openedByStaff   PlatformStaff       @relation("ConsoleTicketOpenedBy", fields: [openedByStaffId], references: [id], onDelete: Restrict)
-  messages        ConsoleTicketMessage[]
-  resolvedAt      DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
 
-  @@index([facilityId, status, updatedAt])
-  @@index([status, updatedAt])
-}
-
-/// Legacy (transitional). Rows were copied into SupportTicketMessage; no runtime use.
-model ConsoleTicketMessage {
-  id            String        @id @default(cuid())
-  ticketId      String
-  ticket        ConsoleTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  body          String
-  authorStaffId String
-  authorStaff   PlatformStaff @relation(fields: [authorStaffId], references: [id], onDelete: Restrict)
-  emailedAt     DateTime?
-  createdAt     DateTime      @default(now())
-
-  @@index([ticketId, createdAt])
-}
 
 // ── Customer support (Vssyl Console) ───────────────────────────────────────────
 // Customer support for Vssyl itself. Facility operations stay on OperationalRequest / Repair /

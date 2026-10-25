@@ -7,13 +7,12 @@ import type { FacilitySession } from "@/lib/auth";
 import type { HierarchyWalkUnit } from "@/lib/department-administration/department-locations";
 import { collectDepartmentActionableLocations } from "@/lib/department-administration/department-locations";
 import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
-import { isOperationalAssignmentsEnabled } from "@/lib/feature-flags";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 import {
   resolveViewerTeamScopes,
   type ViewerTeamScope,
-} from "@/lib/todays-work/viewer-team-scope";
+} from "@/lib/dashboard/viewer/viewer-team-scope";
 
 import {
   buildDepartmentWeekLocationCoverageProjection,
@@ -152,7 +151,7 @@ export async function loadDepartmentWeekLocationCoverage(input: {
     throw new Error("Department not found.");
   }
 
-  const oaEnabled = isOperationalAssignmentsEnabled();
+  const oaEnabled = true;
 
   const [hierarchy, oaRows, scheduleEntries, teamScopes] = await Promise.all([
     loadFacilityHierarchy(input.facilityId),

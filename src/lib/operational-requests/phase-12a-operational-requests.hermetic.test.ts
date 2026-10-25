@@ -9,7 +9,6 @@ import {
   isDepartmentJobFlowEnabled,
   isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { isPlantOperationsEnabled, isEvsOperationsEnabled, isDietaryWorkPlansEnabled } from "@/lib/feature-flags";
 import {
   decideOperationalRequestAuthority,
   presentRequestAuthority,
@@ -29,34 +28,13 @@ function withEnv(name: string, value: string | undefined, fn: () => void) {
   }
 }
 
-test("PLANT_OPERATIONS_ENABLED defaults false; Dietary/EVS unchanged", () => {
-  withEnv("PLANT_OPERATIONS_ENABLED", undefined, () => {
-    withEnv("EVS_OPERATIONS_ENABLED", "true", () => {
-      withEnv("DIETARY_WORK_PLANS_ENABLED", "true", () => {
-        assert.equal(isPlantOperationsEnabled(), false);
-        assert.equal(isDepartmentJobFlowEnabled("PLANT"), false);
-        assert.equal(isDepartmentWorkPlansEnabled("PLANT"), false);
-        assert.equal(isDepartmentAssetOperationsEnabled("PLANT"), false);
-        assert.equal(isEvsOperationsEnabled(), true);
-        assert.equal(isDepartmentJobFlowEnabled("EVS"), true);
-        assert.equal(isDietaryWorkPlansEnabled(), true);
-      });
-    });
-  });
-});
-
-test("when Plant enabled and Dietary work disabled, only Plant keys are true", () => {
-  withEnv("PLANT_OPERATIONS_ENABLED", "true", () => {
-    withEnv("DIETARY_WORK_PLANS_ENABLED", "false", () => {
-      withEnv("EVS_OPERATIONS_ENABLED", undefined, () => {
-        assert.equal(isPlantOperationsEnabled(), true);
-        assert.equal(isDepartmentJobFlowEnabled("PLANT"), true);
-        assert.equal(isDepartmentAssetOperationsEnabled("PLANT"), true);
-        assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), false);
-        assert.equal(isDepartmentJobFlowEnabled("EVS"), false);
-      });
-    });
-  });
+test("shared engines stay on for Dietary, EVS, and Plant keys", () => {
+  assert.equal(isDepartmentJobFlowEnabled("PLANT"), true);
+  assert.equal(isDepartmentWorkPlansEnabled("PLANT"), true);
+  assert.equal(isDepartmentAssetOperationsEnabled("PLANT"), true);
+  assert.equal(isDepartmentJobFlowEnabled("EVS"), true);
+  assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), true);
+  assert.equal(isDepartmentJobFlowEnabled(null), false);
 });
 
 test("Plant authority: FA alone denied; STAFF report only; SUPERVISOR triage; MANAGER routes", () => {
@@ -171,22 +149,20 @@ test("authoritative Request state is not Work Order execution", () => {
   );
 });
 
-test("Plant flag off denies even with Plant department key", () => {
-  withEnv("PLANT_OPERATIONS_ENABLED", "false", () => {
-    const denied = decideOperationalRequestAuthority({
-      flagEnabled: isPlantOperationsEnabled(),
-      role: "MANAGER",
-      authMethod: "PASSWORD",
-      sessionFacilityId: "fac1",
-      facilityId: "fac1",
-      departmentId: "plant1",
-      departmentExists: true,
-      departmentKey: "PLANT",
-      primaryDepartmentId: "plant1",
-    });
-    assert.equal(denied.canTriage, false);
-    assert.equal(denied.canManageWorkOrders, false);
+test("request authority denies when the caller passes the engine off", () => {
+  const denied = decideOperationalRequestAuthority({
+    flagEnabled: false,
+    role: "MANAGER",
+    authMethod: "PASSWORD",
+    sessionFacilityId: "fac1",
+    facilityId: "fac1",
+    departmentId: "plant1",
+    departmentExists: true,
+    departmentKey: "PLANT",
+    primaryDepartmentId: "plant1",
   });
+  assert.equal(denied.canTriage, false);
+  assert.equal(denied.canManageWorkOrders, false);
 });
 
 test("Dietary requester department key does not grant Plant triage", () => {

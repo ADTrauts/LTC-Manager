@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { IssueType, RepairTrade } from "@prisma/client";
+import { RepairTrade } from "@prisma/client";
 
 const OP_KEYS = ["DIETARY", "EVS", "PLANT"] as const;
 
@@ -26,7 +26,7 @@ function unitPrimaryDepartmentId(
 
 /**
  * Suggests requesting / responsible departments when the form omits them.
- * Issue-type aware (Wave 8a): EQUIPMENT preserves legacy trade/asset routing.
+ * Trade and asset department decide the responsible department.
  */
 export async function suggestRepairDepartmentIds(
   prisma: PrismaClient,
@@ -35,7 +35,6 @@ export async function suggestRepairDepartmentIds(
     unitId: string;
     assetId?: string | null;
     repairTrade: RepairTrade;
-    issueType?: IssueType | null;
     sessionPrimaryDepartmentId?: string | null;
     forceRequestingDepartmentId?: string | null;
     explicitRequestingDepartmentId?: string | null;
@@ -43,7 +42,6 @@ export async function suggestRepairDepartmentIds(
   },
 ): Promise<{ requestingDepartmentId: string | null; responsibleDepartmentId: string | null }> {
   const dept = await deptIdMap(prisma, opts.facilityId);
-  const issueType = opts.issueType ?? IssueType.EQUIPMENT;
 
   let requestingDepartmentId: string | null =
     opts.explicitRequestingDepartmentId?.trim() || null;
@@ -101,22 +99,7 @@ export async function suggestRepairDepartmentIds(
   }
 
   if (!responsibleDepartmentId) {
-    if (issueType === IssueType.SUPPLY_SHORT) {
-      // Location’s responsible operational department, else facility Dietary/EVS/Plant.
-      responsibleDepartmentId =
-        unitPrimaryAny ?? dept.DIETARY ?? dept.EVS ?? dept.PLANT ?? requestingDepartmentId;
-    } else if (issueType === IssueType.ENVIRONMENT) {
-      responsibleDepartmentId = dept.EVS ?? dept.PLANT ?? requestingDepartmentId;
-    } else if (issueType === IssueType.SAFETY) {
-      // Conservative escalation: Plant first, then EVS / requesting.
-      responsibleDepartmentId = dept.PLANT ?? dept.EVS ?? requestingDepartmentId;
-    } else if (issueType === IssueType.SERVICE_DISRUPTION) {
-      responsibleDepartmentId =
-        unitPrimaryAny ?? dept.DIETARY ?? dept.EVS ?? dept.PLANT ?? requestingDepartmentId;
-    } else if (issueType === IssueType.OTHER) {
-      responsibleDepartmentId = dept.PLANT ?? dept.DIETARY ?? requestingDepartmentId;
-    } else if (
-      // EQUIPMENT (and unknown): preserve legacy trade/asset routing.
+    if (
       opts.repairTrade === RepairTrade.PLUMBING ||
       opts.repairTrade === RepairTrade.ELECTRICAL
     ) {
@@ -131,27 +114,4 @@ export async function suggestRepairDepartmentIds(
   }
 
   return { requestingDepartmentId, responsibleDepartmentId };
-}
-
-/** Default repair trade for a quick-reported issue type. */
-export function defaultRepairTradeForIssueType(issueType: IssueType): RepairTrade {
-  if (issueType === IssueType.EQUIPMENT) return RepairTrade.EQUIPMENT;
-  return RepairTrade.GENERAL;
-}
-
-export const ISSUE_TYPE_OPTIONS: Array<{ value: IssueType; label: string; hint: string }> = [
-  { value: IssueType.EQUIPMENT, label: "Equipment", hint: "Broken or failing equipment" },
-  { value: IssueType.SUPPLY_SHORT, label: "Supply short", hint: "Out of or low on supplies" },
-  { value: IssueType.ENVIRONMENT, label: "Environment", hint: "Cleanliness, spills, room condition" },
-  { value: IssueType.SAFETY, label: "Safety", hint: "Hazard that needs attention" },
-  {
-    value: IssueType.SERVICE_DISRUPTION,
-    label: "Service disruption",
-    hint: "Meal or service delay",
-  },
-  { value: IssueType.OTHER, label: "Other", hint: "Something else" },
-];
-
-export function issueTypeLabel(issueType: IssueType): string {
-  return ISSUE_TYPE_OPTIONS.find((option) => option.value === issueType)?.label ?? issueType;
 }

@@ -5,7 +5,7 @@ import { APP_ROLES, type AppRole } from "@/lib/access";
 import { authorizeRoute, roleMayAccessRoute } from "@/lib/route-registry/authorize";
 import { PLATFORM_ROUTES } from "@/lib/route-registry/platform-routes";
 
-const FLAGS = { todaysWorkEnabled: true };
+const FLAGS = { };
 
 function decide(pathname: string, role: AppRole | null) {
   return authorizeRoute({ pathname, role, featureFlags: FLAGS });
@@ -113,6 +113,7 @@ test("harbor console — facility roles never enter /console", () => {
     "/console",
     "/console/customers",
     "/console/customers/new",
+    "/console/partners",
     "/console/tickets",
     "/console/tickets/new",
     "/console/tickets/saved-replies",
@@ -333,7 +334,7 @@ test("role policy — /department/settings defers to its own department-head aut
 });
 
 test("role policy — frontline surfaces stay open to every role", () => {
-  for (const path of ["/logs", "/repairs", "/asset-issues", "/dashboard", "/operations", "/unit/abc"]) {
+  for (const path of ["/logs", "/repairs", "/asset-issues", "/dashboard", "/unit/abc"]) {
     for (const role of APP_ROLES) {
       assert.equal(roleMayAccessRoute(path, role, FLAGS), true, `${role} at ${path}`);
     }
@@ -398,35 +399,22 @@ test("denial — a registered but unauthorized page is denied on the page surfac
   assert.equal(decision.outcome === "DENY" && decision.reason, "ROLE_NOT_APPROVED");
 });
 
-test("redirect — /settings sends Facility Administrators to Organization and others home", () => {
-  const fa = decide("/settings", "FACILITY_ADMINISTRATOR");
-  assert.equal(fa.outcome, "REDIRECT");
-  assert.equal(fa.outcome === "REDIRECT" && fa.destination, "/admin/organization");
-
-  for (const role of APP_ROLES.filter((r) => r !== "FACILITY_ADMINISTRATOR")) {
-    const decision = decide("/settings", role);
-    assert.equal(decision.outcome, "REDIRECT", role);
-    assert.equal(decision.outcome === "REDIRECT" && decision.destination, null, role);
-  }
-
-  assert.equal(outcome("/settings", null), "REQUIRE_AUTHENTICATION");
-  assert.equal(outcome("/settings/anything", "FACILITY_ADMINISTRATOR"), "REDIRECT");
+test("/settings is no longer a registered route", () => {
+  assert.equal(outcome("/settings", "FACILITY_ADMINISTRATOR"), "NOT_FOUND");
+  assert.equal(outcome("/settings/anything", "FACILITY_ADMINISTRATOR"), "NOT_FOUND");
+  assert.equal(outcome("/settings", null), "NOT_FOUND");
 });
 
-test("feature gate — disabling Today's Work withdraws the route independently of role", () => {
-  const flags = { todaysWorkEnabled: false };
-  for (const role of APP_ROLES) {
-    assert.equal(roleMayAccessRoute("/today", role, flags), false, role);
-    assert.equal(roleMayAccessRoute("/today/handoffs", role, flags), false, role);
-  }
-  // Other routes are unaffected.
-  assert.equal(roleMayAccessRoute("/workspace", "SUPERVISOR", flags), true);
+test("Today's Work redirects stay reachable for Supervisor and above", () => {
+  assert.equal(roleMayAccessRoute("/today", "SUPERVISOR", {}), true);
+  assert.equal(roleMayAccessRoute("/today/handoffs", "SUPERVISOR", {}), true);
+  assert.equal(roleMayAccessRoute("/today", "STAFF", {}), false);
+  assert.equal(roleMayAccessRoute("/workspace", "SUPERVISOR", {}), true);
 });
 
 test("partner session may open home and canonical log reads", () => {
   const denied = [
     "/dashboard",
-    "/operations",
     "/workspace",
     "/today",
     "/units",
@@ -474,7 +462,7 @@ test("partner session may open home and canonical log reads", () => {
     featureFlags: FLAGS,
   });
   assert.equal(organizationHome.outcome, "DENY");
-  for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations", "/partner/assets", "/partner/assets/ast"]) {
+  for (const pathname of ["/partner/logs", "/partner/logs/open", "/partner/logs/records/rec", "/partner/reports", "/partner/locations", "/partner/assets", "/partner/assets/ast", "/partner/coverage", "/partner/rhythm", "/partner/work", "/partner/menus"]) {
     const decision = authorizeRoute({
       pathname,
       role: null,

@@ -4,17 +4,7 @@ import test from "node:test";
 import { decideCycleAuthority } from "./cycle-authority";
 import { isCycleEffectiveOnDate } from "./cycle-lifecycle";
 import { resolveOperationalCycle } from "./resolve-operational-cycle";
-import {
-  isCanonicalLogsEnabled,
-  isDietaryAssetOperationsEnabled,
-  isDietaryJobFlowEnabled,
-  isDietaryOperationalCyclesEnabled,
-  isDietaryOperationalEvidenceEnabled,
-  isDietaryWorkPlansEnabled,
-  isEvsOperationsEnabled,
-  isOperationalAssignmentsEnabled,
-  isPlantOperationsEnabled,
-} from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isDepartmentOperationalCyclesEnabled } from "@/lib/department-operations";
 import {
   describeDepartmentCycleConfiguration,
@@ -336,61 +326,23 @@ test("PERIOD awareness is derived from published cycles alone", () => {
   assert.equal(dept.keyTimeSummaries.length, 0);
 });
 
-test("Dietary Operational Cycles default on; rollback still possible", () => {
-  const previous = process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED;
-  delete process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED;
-  try {
-    assert.equal(isDietaryOperationalCyclesEnabled(), true);
-    assert.equal(isDepartmentOperationalCyclesEnabled("DIETARY"), true);
-    process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED = "false";
-    assert.equal(isDietaryOperationalCyclesEnabled(), false);
-    assert.equal(isDepartmentOperationalCyclesEnabled("DIETARY"), false);
-  } finally {
-    if (previous === undefined) delete process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED;
-    else process.env.DIETARY_OPERATIONAL_CYCLES_ENABLED = previous;
-  }
+test("a Department key keeps Operational Cycles without an env switch", () => {
+  assert.equal(isDepartmentOperationalCyclesEnabled("DIETARY"), true);
+  assert.equal(isDepartmentOperationalCyclesEnabled("EVS"), true);
+  assert.equal(isDepartmentOperationalCyclesEnabled(null), false);
 });
 
-test("PERIOD awareness does not require neighboring Dietary or domain flags", () => {
-  const previous = {
-    work: process.env.DIETARY_WORK_PLANS_ENABLED,
-    evidence: process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED,
-    logs: process.env.CANONICAL_LOGS_ENABLED,
-    assignments: process.env.OPERATIONAL_ASSIGNMENTS_ENABLED,
-    job: process.env.DIETARY_JOB_FLOW_ENABLED,
-    assets: process.env.DIETARY_ASSET_OPERATIONS_ENABLED,
-    evs: process.env.EVS_OPERATIONS_ENABLED,
-    plant: process.env.PLANT_OPERATIONS_ENABLED,
-  };
+test("PERIOD awareness does not require neighboring capability switches", () => {
+  const previous = process.env.CANONICAL_LOGS_ENABLED;
+  delete process.env.CANONICAL_LOGS_ENABLED;
   try {
-    process.env.DIETARY_WORK_PLANS_ENABLED = "false";
-    delete process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED;
-    delete process.env.CANONICAL_LOGS_ENABLED;
-    delete process.env.OPERATIONAL_ASSIGNMENTS_ENABLED;
-    delete process.env.DIETARY_JOB_FLOW_ENABLED;
-    delete process.env.DIETARY_ASSET_OPERATIONS_ENABLED;
-    delete process.env.EVS_OPERATIONS_ENABLED;
-    delete process.env.PLANT_OPERATIONS_ENABLED;
-    assert.equal(isDietaryWorkPlansEnabled(), false);
-    assert.equal(isDietaryOperationalEvidenceEnabled(), false);
     assert.equal(isCanonicalLogsEnabled(), false);
-    assert.equal(isOperationalAssignmentsEnabled(), false);
-    assert.equal(isDietaryJobFlowEnabled(), false);
-    assert.equal(isDietaryAssetOperationsEnabled(), false);
-    assert.equal(isEvsOperationsEnabled(), false);
-    assert.equal(isPlantOperationsEnabled(), false);
+    assert.equal(isDepartmentOperationalCyclesEnabled("DIETARY"), true);
     const dept = presentDept("12:00");
     assert.equal(dept.currentOperations[0]?.parentLabel, "Lunch");
     assert.equal(dept.nextOperation?.label, "Dinner");
   } finally {
-    restoreEnv("DIETARY_WORK_PLANS_ENABLED", previous.work);
-    restoreEnv("DIETARY_OPERATIONAL_EVIDENCE_ENABLED", previous.evidence);
-    restoreEnv("CANONICAL_LOGS_ENABLED", previous.logs);
-    restoreEnv("OPERATIONAL_ASSIGNMENTS_ENABLED", previous.assignments);
-    restoreEnv("DIETARY_JOB_FLOW_ENABLED", previous.job);
-    restoreEnv("DIETARY_ASSET_OPERATIONS_ENABLED", previous.assets);
-    restoreEnv("EVS_OPERATIONS_ENABLED", previous.evs);
-    restoreEnv("PLANT_OPERATIONS_ENABLED", previous.plant);
+    restoreEnv("CANONICAL_LOGS_ENABLED", previous);
   }
 });
 

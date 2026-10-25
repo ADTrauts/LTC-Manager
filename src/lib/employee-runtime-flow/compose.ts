@@ -205,7 +205,15 @@ export function composeEmployeeRuntimeFlow(
   }
 
   if (!input.currentAssignment && !input.upcomingAssignment) {
-    return emptyFlow(input, "no_confirmed_assignment", mismatch);
+    const signedIn = emptyFlow(input, "no_confirmed_assignment", mismatch);
+    return {
+      ...signedIn,
+      responsibility: {
+        ...signedIn.responsibility,
+        unitId: input.deviceBoundUnitId ?? null,
+      },
+      work: filterWorkToAssignedSpaces(input.workRequirements, null),
+    };
   }
 
   const scopeKind = assignmentScopeKind(assignment, input.assignmentLocations.length);

@@ -21,16 +21,14 @@ export type NavFeatureFlags = RouteAuthorizationInput["featureFlags"];
 export function platformNavItemsForRole(role: AppRole, featureFlags: NavFeatureFlags): NavRouteItem[] {
   return PLATFORM_ROUTES.filter((route) => route.nav !== undefined)
     .filter((route) => roleMayAccessRoute(route.pattern, role, featureFlags))
+    .filter((route) => route.pattern !== "/today")
     .sort((a, b) => {
       const orderDelta = (a.nav?.order ?? 0) - (b.nav?.order ?? 0);
       return orderDelta !== 0 ? orderDelta : a.pattern.localeCompare(b.pattern);
     })
     .map((route) => ({
       label: normalizePrimaryNavLabel(route.pattern, route.nav?.label ?? route.pattern),
-      href:
-        featureFlags.dashboardV2Enabled === true && route.pattern === "/workspace"
-          ? "/dashboard"
-          : route.pattern,
+      href: route.pattern === "/workspace" ? "/dashboard" : route.pattern,
       zone: resolveZoneForPathPrefix(route.pattern),
     }));
 }

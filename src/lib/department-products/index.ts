@@ -82,7 +82,6 @@ export {
 } from "./cycle-starter";
 export {
   isPlantDepartmentProductInstalled,
-  isPlantOperationsDevelopmentOverrideEnabled,
   isPlantRuntimeEnabled,
   isSharedAssetOperationsEnabled,
   resolvePlantRuntimeFromFacts,

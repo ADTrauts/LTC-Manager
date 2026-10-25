@@ -182,7 +182,7 @@ function normKey(value: string): string {
 }
 
 const OPS_STATUSES = ["OPERATIONAL", "DEGRADED", "OUT_OF_SERVICE"] as const;
-const LEGACY_STATUSES = ["ACTIVE", "OUT_OF_SERVICE"] as const;
+const LEGACY_STATUSES = ["OUT_OF_SERVICE"] as const;
 
 function parseStatus(
   raw: string,
@@ -192,22 +192,19 @@ function parseStatus(
   | { ok: false; reason: string; suggestion?: string } {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return {
-      ok: true,
-      value: assetOpsEnabled ? "OPERATIONAL" : ("ACTIVE" as AssetStatus),
-    };
+    return { ok: true, value: "OPERATIONAL" };
   }
   const upper = trimmed.toUpperCase();
   if (upper === "RETIRED") {
     return {
       ok: false,
-      reason: "Cannot import assets as RETIRED. Create as OPERATIONAL/ACTIVE, then retire deliberately.",
+      reason: "Cannot import assets as RETIRED. Create as OPERATIONAL, then retire deliberately.",
     };
   }
+  if (upper === "ACTIVE") {
+    return { ok: true, value: "OPERATIONAL" };
+  }
   if (assetOpsEnabled) {
-    if (upper === "ACTIVE") {
-      return { ok: true, value: "OPERATIONAL" };
-    }
     if ((OPS_STATUSES as readonly string[]).includes(upper)) {
       return { ok: true, value: upper as AssetOperationalStatus };
     }

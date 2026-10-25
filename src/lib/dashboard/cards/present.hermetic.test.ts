@@ -281,7 +281,7 @@ function viewer(access: "MANAGE" | "VIEW"): DashboardViewer {
     availableScopes: [],
     notices: [],
     canCustomize: false,
-    routeFlags: { todaysWorkEnabled: true },
+    routeFlags: {},
   } as DashboardViewer;
 }
 

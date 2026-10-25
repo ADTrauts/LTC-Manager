@@ -58,12 +58,14 @@ export function sanitizeOperationalSnapshot(snapshot: OperationalSnapshot): Oper
     timezone: snapshot.timezone,
     serviceDate: snapshot.serviceDate,
     activeDepartment: snapshot.activeDepartment,
-    activeOperation: {
-      label: snapshot.activeOperation.label,
-      phase: snapshot.activeOperation.phase,
-      scheduledTime: snapshot.activeOperation.scheduledTime,
-      source: snapshot.activeOperation.source,
-    },
+    activeOperation: snapshot.activeOperation
+      ? {
+          label: snapshot.activeOperation.label,
+          phase: snapshot.activeOperation.phase,
+          scheduledTime: snapshot.activeOperation.scheduledTime,
+          source: snapshot.activeOperation.source,
+        }
+      : null,
     readiness: {
       ready: snapshot.readiness.ready,
       inProgress: snapshot.readiness.inProgress,

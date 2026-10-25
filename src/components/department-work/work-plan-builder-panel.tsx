@@ -92,6 +92,7 @@ type Props = {
   units: UnitOption[];
   cycleOptions: CycleOption[];
   templates: TemplateOption[];
+  linkedRecordLabel?: string;
   operationalTypeOptions: OperationalTypeOption[];
 };
 
@@ -175,6 +176,7 @@ export function WorkPlanBuilderPanel({
   units,
   cycleOptions,
   templates,
+  linkedRecordLabel = "Linked template",
   operationalTypeOptions,
 }: Props) {
   const router = useRouter();
@@ -477,7 +479,7 @@ export function WorkPlanBuilderPanel({
                   </select>
                 </label>
                 <label className="text-xs" htmlFor={`${fieldId}-item-${index}-template`}>
-                  Linked template
+                  {linkedRecordLabel}
                   <select
                     id={`${fieldId}-item-${index}-template`}
                     name={`${fieldId}-item-${index}-template`}

@@ -39,12 +39,6 @@ test("Today's Work and workspace adapters do not require the Experience catalog"
     false,
   );
   assert.equal(
-    source("src/lib/business-workspace/projection/adapt-projection.ts").includes(
-      "requireExperience",
-    ),
-    false,
-  );
-  assert.equal(
     source("src/lib/projection/pipeline.ts").includes("getExperience"),
     false,
   );

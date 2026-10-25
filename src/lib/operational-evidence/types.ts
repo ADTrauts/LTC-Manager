@@ -264,4 +264,5 @@ export type EvidenceSubmissionValidationResult = {
   needsReview: boolean;
   visibleFieldKeys: string[];
   triggeringFields: Array<{ fieldKey: string; label: string; reason: string }>;
+  normalizedValues: EvidenceFieldValueInput[];
 };

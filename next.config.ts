@@ -45,11 +45,6 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
-        source: "/admin/knowledge",
-        destination: "/build/knowledge",
-        permanent: false,
-      },
-      {
         source: "/admin/inspections",
         destination: "/build/logs",
         permanent: false,
@@ -61,10 +56,6 @@ const nextConfig: NextConfig = {
       {
         source: "/build/departments/:departmentId",
         destination: "/admin/departments/:departmentId",
-      },
-      {
-        source: "/build/knowledge",
-        destination: "/admin/knowledge",
       },
     ];
   },

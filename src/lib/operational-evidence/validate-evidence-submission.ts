@@ -23,11 +23,30 @@ function issue(
   return { code, message, severity };
 }
 
+/** "41", "41 °F", and "41°F" are the same temperature the correction form shows. */
+function parseDisplayedNumber(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const match = /^(-?\d+(?:\.\d+)?)(?:\s*[°º]?[A-Za-z%]+)?$/.exec(text.trim());
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
 function normalizeSubmittedValue(
   fieldType: OperationalEvidenceFieldType,
   value: EvidenceFieldValueInput | undefined,
 ): EvidenceFieldValueInput | undefined {
   if (!value) return value;
+  if (fieldType === "NUMBER" || fieldType === "TEMPERATURE") {
+    const parsed =
+      value.valueNumber != null && Number.isFinite(Number(value.valueNumber))
+        ? Number(value.valueNumber)
+        : parseDisplayedNumber(value.valueText);
+    if (parsed != null) {
+      return { ...value, valueNumber: parsed, valueText: null };
+    }
+    return value;
+  }
   if (fieldType === "YES_NO") {
     if (value.valueBoolean != null) return { ...value, valueText: null };
     const text = value.valueText?.trim().toUpperCase();
@@ -255,5 +274,6 @@ export function validateEvidenceSubmission(input: {
     needsReview: evaluation.needsReview,
     visibleFieldKeys: evaluation.visibleFieldKeys,
     triggeringFields: evaluation.triggeringFields,
+    normalizedValues,
   };
 }
