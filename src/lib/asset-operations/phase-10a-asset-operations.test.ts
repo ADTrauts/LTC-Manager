@@ -322,7 +322,7 @@ test(
       });
       assert.equal(first.idempotent, false);
       assert.equal(first.issue.status, "REPORTED");
-      assert.equal(first.issue.workOrderId, null);
+      assert.equal(first.issue.workOrderId, undefined);
 
       const again = await reportAssetIssue(staff, {
         facilityId: fx.facility.id,
@@ -418,7 +418,7 @@ test(
       });
       const resolved = await prisma.assetIssue.findUniqueOrThrow({ where: { id: first.issue.id } });
       assert.equal(resolved.status, "RESOLVED");
-      assert.equal(resolved.workOrderId, null);
+      assert.equal(resolved.workOrderId, undefined);
 
       await reopenIssue(supervisor, {
         facilityId: fx.facility.id,

@@ -245,7 +245,7 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
     }
 
     for (const requirement of version.recordRequirements) {
-      if (!requirement.catalogDefinitionId) {
+      if (!requirement.catalogDefinitionId && !requirement.templateStableKey) {
         throw new PmWorkOrderConfigurationError(
           "TEMPLATE_MISSING",
           `Required Record ${requirement.templateName ?? "Record"} is missing a Catalog form.`,
