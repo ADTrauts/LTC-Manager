@@ -394,7 +394,7 @@ test(
             assetConditionReview: "NO_CHANGE",
             client: prisma,
           }),
-        /Post-repair inspection/,
+        /Retired template/,
       );
 
       // Scenario 9 — NEEDS_REVIEW does not satisfy

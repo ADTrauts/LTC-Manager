@@ -435,7 +435,7 @@ test(
         prisma,
       );
       assert.equal(rejected.category, "REJECTED");
-      assert.equal(rejected.reasonCode, "WORK_PLANS_FLAG_DISABLED");
+      assert.equal(rejected.reasonCode, "Department commercial access is unavailable.");
     } finally {
       if (prev === undefined) delete process.env.EVS_OPERATIONS_ENABLED;
       else process.env.EVS_OPERATIONS_ENABLED = prev;
